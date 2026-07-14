@@ -3,8 +3,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Product, ProductCategory } from '../../../../lib/admin-types';
-import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { Product } from '../../../../lib/admin-types';
+import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { F9Lookup, productCategoryAdapter } from '../../../../components/f9';
 
 export default function ProductsPage() {
   const { t } = useTranslation();
@@ -14,7 +15,6 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [categories, setCategories] = useState<ProductCategory[]>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Product | null>(null);
@@ -37,14 +37,7 @@ export default function ProductsPage() {
     } finally { setLoading(false); }
   }, [search, t]);
 
-  const fetchCategories = async () => {
-    try {
-      const res = await api.get<{ data: ProductCategory[] }>('/product-categories', { params: { limit: 50 } });
-      setCategories(res.data || []);
-    } catch {}
-  };
-
-  useEffect(() => { fetchData(); fetchCategories(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const openCreate = () => { setEditItem(null); setForm({ code: '', name: '', description: '', categoryId: '', unit: 'pcs', barcode: '', minStock: '0', maxStock: '0' }); setModalOpen(true); };
   const openEdit = (item: Product) => {
@@ -140,8 +133,7 @@ export default function ProductsPage() {
           </div>
           <Input label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="grid grid-cols-2 gap-4">
-            <Select label={t('inventory.productCategory')} value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-              options={categories.map((c) => ({ value: c.id, label: `[${c.code}] ${c.name}` }))} placeholder='-' />
+            <F9Lookup label={t('inventory.productCategory')} value={form.categoryId} onChange={(v) => setForm({ ...form, categoryId: v })} adapter={productCategoryAdapter} />
             <Input label={t('inventory.unit')} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} required />
           </div>
           <Input label={t('inventory.barcode')} value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />

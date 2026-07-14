@@ -3,8 +3,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Machine, MachineCategory, Company, Branch, Department } from '../../../../lib/admin-types';
-import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { Machine } from '../../../../lib/admin-types';
+import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter, machineCategoryAdapter } from '../../../../components/f9';
 
 export default function MachinesPage() {
   const { t } = useTranslation();
@@ -14,10 +15,6 @@ export default function MachinesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [categories, setCategories] = useState<MachineCategory[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Machine | null>(null);
@@ -43,22 +40,7 @@ export default function MachinesPage() {
     } finally { setLoading(false); }
   }, [search, t]);
 
-  const fetchLookups = async () => {
-    try {
-      const [cC, c, b, d] = await Promise.all([
-        api.get<{ data: MachineCategory[] }>('/maintenance/machine-categories', { params: { limit: 50 } }).catch(() => ({ data: [] })),
-        api.get<{ data: Company[] }>('/companies', { params: { limit: 50 } }).catch(() => ({ data: [] })),
-        api.get<{ data: Branch[] }>('/branches', { params: { limit: 50 } }).catch(() => ({ data: [] })),
-        api.get<{ data: Department[] }>('/departments', { params: { limit: 50 } }).catch(() => ({ data: [] })),
-      ]);
-      setCategories(cC.data || []);
-      setCompanies(c.data || []);
-      setBranches(b.data || []);
-      setDepartments(d.data || []);
-    } catch {}
-  };
-
-  useEffect(() => { fetchData(); fetchLookups(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const openCreate = () => {
     setEditItem(null);
@@ -164,16 +146,12 @@ export default function MachinesPage() {
             <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
             <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           </div>
-          <Select label={t('maintenance.machineCategory')} value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-            options={categories.map((c) => ({ value: c.id, label: `[${c.code}] ${c.name}` }))} placeholder='-' />
+          <F9Lookup label={t('maintenance.machineCategory')} value={form.categoryId} onChange={(v) => setForm({ ...form, categoryId: v })} adapter={machineCategoryAdapter} />
           <div className="grid grid-cols-2 gap-4">
-            <Select label={t('core.company')} value={form.companyId} onChange={(e) => setForm({ ...form, companyId: e.target.value })}
-              options={companies.map((c) => ({ value: c.id, label: `[${c.code}] ${c.name}` }))} placeholder='-' />
-            <Select label={t('core.branch')} value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })}
-              options={branches.map((b) => ({ value: b.id, label: `[${b.code}] ${b.name}` }))} placeholder='-' />
+            <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
+            <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
           </div>
-          <Select label={t('core.department')} value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
-            options={departments.map((d) => ({ value: d.id, label: `[${d.code}] ${d.name}` }))} placeholder='-' />
+          <F9Lookup label={t('core.department')} value={form.departmentId} onChange={(v) => setForm({ ...form, departmentId: v })} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
           <div className="grid grid-cols-2 gap-4">
             <Input label={t('maintenance.model')} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
             <Input label={t('maintenance.serialNumber')} value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} />

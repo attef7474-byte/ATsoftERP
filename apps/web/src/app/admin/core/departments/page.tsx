@@ -3,8 +3,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Department, Company, Branch } from '../../../../lib/admin-types';
-import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { Department } from '../../../../lib/admin-types';
+import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter } from '../../../../components/f9';
 
 export default function DepartmentsPage() {
   const { t } = useTranslation();
@@ -14,9 +15,6 @@ export default function DepartmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [parentDepts, setParentDepts] = useState<Department[]>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Department | null>(null);
@@ -43,20 +41,7 @@ export default function DepartmentsPage() {
     }
   }, [search, t]);
 
-  const fetchLookups = async () => {
-    try {
-      const [compRes, branchRes, deptRes] = await Promise.all([
-        api.get<{ data: Company[] }>('/companies', { params: { limit: 50 } }),
-        api.get<{ data: Branch[] }>('/branches', { params: { limit: 50 } }),
-        api.get<{ data: Department[] }>('/departments', { params: { limit: 50 } }),
-      ]);
-      setCompanies(compRes.data || []);
-      setBranches(branchRes.data || []);
-      setParentDepts(deptRes.data || []);
-    } catch {}
-  };
-
-  useEffect(() => { fetchData(); fetchLookups(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const openCreate = () => {
     setEditItem(null);
@@ -158,12 +143,9 @@ export default function DepartmentsPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('core.editDepartment') : t('core.newDepartment')}>
         <div className="space-y-4">
-          <Select label={t('core.company')} value={form.companyId} onChange={(e) => setForm({ ...form, companyId: e.target.value })}
-            options={companies.map((c) => ({ value: c.id, label: `[${c.code}] ${c.name}` }))} placeholder={t('common.select') || 'Select...'} />
-          <Select label={t('core.branch')} value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })}
-            options={branches.map((b) => ({ value: b.id, label: `[${b.code}] ${b.name}` }))} placeholder={t('common.select') || 'None'} />
-          <Select label={t('core.parentDepartment')} value={form.parentId} onChange={(e) => setForm({ ...form, parentId: e.target.value })}
-            options={parentDepts.map((d) => ({ value: d.id, label: `[${d.code}] ${d.name}` }))} placeholder={t('common.select') || 'None'} />
+          <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
+          <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
+          <F9Lookup label={t('core.parentDepartment')} value={form.parentId} onChange={(v) => setForm({ ...form, parentId: v })} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
           <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <div className="flex justify-end gap-3 pt-4">

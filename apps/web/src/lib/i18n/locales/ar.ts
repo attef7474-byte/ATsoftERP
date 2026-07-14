@@ -297,6 +297,14 @@ const ar: LocaleTranslations = {
     categoryName: 'اسم التصنيف',
     parentCategory: 'التصنيف الرئيسي',
   },
+  f9: {
+    search: 'بحث...',
+    pressToSearch: 'اضغط F9 أو انقر للبحث...',
+    noRecords: 'لا توجد سجلات',
+    clear: 'مسح',
+    page: 'صفحة',
+    of: 'من',
+  },
 };
 
 export default ar;

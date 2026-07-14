@@ -4,7 +4,8 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { User, Company, Branch, Department, Role } from '../../../../lib/admin-types';
-import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter, roleAdapter } from '../../../../components/f9';
 
 export default function UsersPage() {
   const { t } = useTranslation();
@@ -15,15 +16,15 @@ export default function UsersPage() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<User | null>(null);
-  const [form, setForm] = useState({ email: '', password: '', name: '', phone: '', companyId: '', branchId: '', departmentId: '', roleId: '' });
-  const [saving, setSaving] = useState(false);
-
   const [companies, setCompanies] = useState<Company[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editItem, setEditItem] = useState<User | null>(null);
+  const [form, setForm] = useState({ email: '', password: '', name: '', phone: '', companyId: '', branchId: '', departmentId: '', roleId: '' });
+  const [saving, setSaving] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate'>('deactivate');
@@ -158,10 +159,10 @@ export default function UsersPage() {
           <Input label={t('users.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label={t('users.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           {!editItem && <Input label={t('users.password')} type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />}
-          <Select label={t('users.company')} value={form.companyId} onChange={(e) => setForm({ ...form, companyId: e.target.value })} options={[{ value: '', label: t('common.selectPlaceholder') }, ...companies.map((c) => ({ value: c.id, label: c.name }))]} />
-          <Select label={t('users.branch')} value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })} options={[{ value: '', label: t('common.selectPlaceholder') }, ...branches.map((b) => ({ value: b.id, label: b.name }))]} />
-          <Select label={t('users.department')} value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} options={[{ value: '', label: t('common.selectPlaceholder') }, ...departments.map((d) => ({ value: d.id, label: d.name }))]} />
-          <Select label={t('users.role')} value={form.roleId} onChange={(e) => setForm({ ...form, roleId: e.target.value })} options={[{ value: '', label: t('common.selectPlaceholder') }, ...roles.map((r) => ({ value: r.id, label: r.name }))]} />
+          <F9Lookup label={t('users.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
+          <F9Lookup label={t('users.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
+          <F9Lookup label={t('users.department')} value={form.departmentId} onChange={(v) => setForm({ ...form, departmentId: v })} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
+          <F9Lookup label={t('users.role')} value={form.roleId} onChange={(v) => setForm({ ...form, roleId: v })} adapter={roleAdapter} />
           <div className="flex justify-end space-x-2 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleSave} disabled={saving}>{saving ? t('common.saving') : t('common.save')}</Button>

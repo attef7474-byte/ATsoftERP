@@ -297,6 +297,14 @@ const en: LocaleTranslations = {
     categoryName: 'Category Name',
     parentCategory: 'Parent Category',
   },
+  f9: {
+    search: 'Search...',
+    pressToSearch: 'Press F9 or click to search...',
+    noRecords: 'No records found',
+    clear: 'Clear',
+    page: 'Page',
+    of: 'of',
+  },
 };
 
 export default en;

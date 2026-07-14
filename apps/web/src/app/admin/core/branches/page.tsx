@@ -3,8 +3,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Branch, Company } from '../../../../lib/admin-types';
-import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { Branch } from '../../../../lib/admin-types';
+import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { F9Lookup, companyAdapter } from '../../../../components/f9';
 
 export default function BranchesPage() {
   const { t } = useTranslation();
@@ -14,7 +15,6 @@ export default function BranchesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [companies, setCompanies] = useState<Company[]>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Branch | null>(null);
@@ -41,14 +41,7 @@ export default function BranchesPage() {
     }
   }, [search, t]);
 
-  const fetchCompanies = async () => {
-    try {
-      const res = await api.get<{ data: Company[] }>('/companies', { params: { limit: 50 } });
-      setCompanies(res.data || []);
-    } catch {}
-  };
-
-  useEffect(() => { fetchData(); fetchCompanies(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const openCreate = () => {
     setEditItem(null);
@@ -147,8 +140,7 @@ export default function BranchesPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('core.editBranch') : t('core.newBranch')}>
         <div className="space-y-4">
-          <Select label={t('core.company')} value={form.companyId} onChange={(e) => setForm({ ...form, companyId: e.target.value })}
-            options={companies.map((c) => ({ value: c.id, label: `[${c.code}] ${c.name}` }))} placeholder={t('common.select') || 'Select...'} />
+          <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
           <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label={t('common.address')} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />

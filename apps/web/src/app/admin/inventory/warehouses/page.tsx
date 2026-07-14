@@ -3,8 +3,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Warehouse, Company, Branch } from '../../../../lib/admin-types';
-import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { Warehouse } from '../../../../lib/admin-types';
+import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { F9Lookup, companyAdapter, branchAdapter } from '../../../../components/f9';
 
 export default function WarehousesPage() {
   const { t } = useTranslation();
@@ -14,8 +15,6 @@ export default function WarehousesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Warehouse | null>(null);
@@ -40,18 +39,7 @@ export default function WarehousesPage() {
     }
   }, [search, t]);
 
-  const fetchLookups = async () => {
-    try {
-      const [c, b] = await Promise.all([
-        api.get<{ data: Company[] }>('/companies', { params: { limit: 50 } }),
-        api.get<{ data: Branch[] }>('/branches', { params: { limit: 50 } }),
-      ]);
-      setCompanies(c.data || []);
-      setBranches(b.data || []);
-    } catch {}
-  };
-
-  useEffect(() => { fetchData(); fetchLookups(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const openCreate = () => {
     setEditItem(null);
@@ -146,10 +134,8 @@ export default function WarehousesPage() {
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.editWarehouse') : t('inventory.newWarehouse')}>
         <div className="space-y-4">
-          <Select label={t('core.company')} value={form.companyId} onChange={(e) => setForm({ ...form, companyId: e.target.value })}
-            options={companies.map((c) => ({ value: c.id, label: `[${c.code}] ${c.name}` }))} placeholder='-' />
-          <Select label={t('core.branch')} value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })}
-            options={branches.map((b) => ({ value: b.id, label: `[${b.code}] ${b.name}` }))} placeholder='-' />
+          <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
+          <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
           <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label={t('inventory.location')} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
