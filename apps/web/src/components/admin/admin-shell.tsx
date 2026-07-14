@@ -39,8 +39,15 @@ const navItems: NavItem[] = [
   },
   {
     label: 'navigation.maintenance', href: '#', icon: 'maintenance', children: [
-      { label: 'navigation.machineCategories', href: '/admin/maintenance/machine-categories' },
       { label: 'navigation.machines', href: '/admin/maintenance/machines' },
+      { label: 'navigation.machineCategories', href: '/admin/maintenance/machine-categories' },
+      { label: 'navigation.machineParts', href: '/admin/maintenance/machine-parts' },
+      { label: 'navigation.machineDocuments', href: '/admin/maintenance/machine-documents' },
+      { label: 'navigation.maintenanceRequests', href: '/admin/maintenance/requests' },
+      { label: 'navigation.maintenanceTasks', href: '/admin/maintenance/tasks' },
+      { label: 'navigation.maintenanceSchedules', href: '/admin/maintenance/schedules' },
+      { label: 'navigation.checklistItems', href: '/admin/maintenance/checklist-items' },
+      { label: 'navigation.downtimeLogs', href: '/admin/maintenance/downtime-logs' },
     ],
   },
 ];

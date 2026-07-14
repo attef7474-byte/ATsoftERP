@@ -12,4 +12,7 @@ export {
   machineAdapter,
   userAdapter,
   roleAdapter,
+  maintenanceRequestAdapter,
+  maintenanceTaskAdapter,
+  maintenanceScheduleAdapter,
 } from './lookup-adapters';

@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role } from '../../lib/admin-types';
+import type { Company, Branch, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -117,5 +117,40 @@ export const roleAdapter: LookupAdapter<Role> = {
     { key: 'code', header: 'Code' },
     { key: 'name', header: 'Name' },
     { key: 'status', header: 'Status', render: (r) => r.status },
+  ],
+};
+
+export const maintenanceRequestAdapter: LookupAdapter<MaintenanceRequest> = {
+  endpoint: '/maintenance/requests',
+  displayLabel: (r) => `[${r.requestNumber}] ${r.title}`,
+  searchFields: ['requestNumber', 'title'],
+  columns: [
+    { key: 'requestNumber', header: 'Number' },
+    { key: 'title', header: 'Title' },
+    { key: 'status', header: 'Status', render: (r) => r.status },
+    { key: 'priority', header: 'Priority', render: (r) => r.priority },
+  ],
+};
+
+export const maintenanceTaskAdapter: LookupAdapter<MaintenanceTask> = {
+  endpoint: '/maintenance/tasks',
+  displayLabel: (t) => t.title,
+  searchFields: ['title'],
+  columns: [
+    { key: 'title', header: 'Title' },
+    { key: 'status', header: 'Status', render: (t) => t.status },
+    { key: 'request', header: 'Request', render: (t) => t.request?.requestNumber || '-' },
+  ],
+};
+
+export const maintenanceScheduleAdapter: LookupAdapter<MaintenanceSchedule> = {
+  endpoint: '/maintenance/schedules',
+  displayLabel: (s) => s.title,
+  searchFields: ['title'],
+  columns: [
+    { key: 'title', header: 'Title' },
+    { key: 'machine', header: 'Machine', render: (s) => s.machine?.name || '-' },
+    { key: 'maintenanceType', header: 'Type', render: (s) => s.maintenanceType },
+    { key: 'status', header: 'Status', render: (s) => s.status },
   ],
 };
