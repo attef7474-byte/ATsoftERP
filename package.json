@@ -35,6 +35,14 @@
     "mqtt:down": "docker compose -f infra/docker-compose.mqtt.yml down",
     "mqtt:logs": "docker compose -f infra/docker-compose.mqtt.yml logs -f mosquitto"
   },
+  "devDependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "overrides": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=10.0.0"

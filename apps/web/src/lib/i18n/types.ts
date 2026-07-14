@@ -1,0 +1,26 @@
+export type Locale = 'en' | 'ar';
+
+export type TranslationNamespace =
+  | 'common'
+  | 'auth'
+  | 'dashboard'
+  | 'navigation'
+  | 'actions'
+  | 'status'
+  | 'validation'
+  | 'errors'
+  | 'core'
+  | 'access'
+  | 'inventory'
+  | 'maintenance';
+
+export type TranslationValue = string | { [key: string]: TranslationValue };
+export type Translations = Record<string, TranslationValue>;
+export type LocaleTranslations = Record<TranslationNamespace, Translations>;
+
+export interface I18nContextValue {
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
+  t: (key: string, ns?: TranslationNamespace) => string;
+  dir: 'ltr' | 'rtl';
+}
