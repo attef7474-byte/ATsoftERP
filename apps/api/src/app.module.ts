@@ -12,7 +12,15 @@ import { ProductsModule } from './modules/factory/products/products.module';
 import { ProductCategoriesModule } from './modules/factory/product-categories/product-categories.module';
 import { InventoryModule } from './modules/factory/inventory/inventory.module';
 import { MaintenanceModule } from './modules/factory/maintenance/maintenance.module';
-import { AuditModule } from './modules/audit/audit.module';
+import { AuditModule } from './common/audit/audit.module';
+import { MachineCategoriesModule } from './modules/factory/maintenance/machine-categories/machine-categories.module';
+import { MachinePartsModule } from './modules/factory/maintenance/machine-parts/machine-parts.module';
+import { MachineDocumentsModule } from './modules/factory/maintenance/machine-documents/machine-documents.module';
+import { MaintenanceRequestsModule } from './modules/factory/maintenance/maintenance-requests/maintenance-requests.module';
+import { MaintenanceTasksModule } from './modules/factory/maintenance/maintenance-tasks/maintenance-tasks.module';
+import { MaintenanceSchedulesModule } from './modules/factory/maintenance/maintenance-schedules/maintenance-schedules.module';
+import { MaintenanceChecklistItemsModule } from './modules/factory/maintenance/maintenance-checklist-items/maintenance-checklist-items.module';
+import { DowntimeLogsModule } from './modules/factory/maintenance/downtime-logs/downtime-logs.module';
 
 @Module({
   imports: [
@@ -30,6 +38,14 @@ import { AuditModule } from './modules/audit/audit.module';
     InventoryModule,
     MaintenanceModule,
     AuditModule,
+    MachineCategoriesModule,
+    MachinePartsModule,
+    MachineDocumentsModule,
+    MaintenanceRequestsModule,
+    MaintenanceTasksModule,
+    MaintenanceSchedulesModule,
+    MaintenanceChecklistItemsModule,
+    DowntimeLogsModule,
   ],
 })
 export class AppModule {}
