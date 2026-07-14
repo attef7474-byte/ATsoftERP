@@ -1,0 +1,42 @@
+{
+  "name": "smart-factory-erp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Smart Factory ERP Platform monorepo foundation.",
+  "license": "UNLICENSED",
+  "packageManager": "npm@11.5.1",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace apps/web",
+    "dev:api": "npm run start:dev --workspace apps/api",
+    "build": "npm run build --workspace packages/shared && npm run build --workspace packages/config && npm run build --workspace apps/web && npm run build --workspace apps/api",
+    "build:web": "npm run build --workspace apps/web",
+    "build:api": "npm run build --workspace apps/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "test:api": "npm run test --workspace apps/api",
+    "smoke:api": "node scripts/api-smoke-test.js",
+    "qa:build": "npm run build:api && npm run build:web",
+    "qa:all": "npm run test:api && npm run qa:build && node scripts/api-smoke-test.js --optional",
+    "i18n:check": "node scripts/check-i18n.js",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "docker:prod:up": "docker compose -f infra/docker-compose.prod.yml up -d --build",
+    "docker:prod:down": "docker compose -f infra/docker-compose.prod.yml down",
+    "docker:prod:logs": "docker compose -f infra/docker-compose.prod.yml logs -f",
+    "docker:prod:build": "docker compose -f infra/docker-compose.prod.yml build",
+    "prod:db:prepare": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/prepare-prod-db.ps1",
+    "prod:up:prepare": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/start-erp.ps1 -PrepareDatabase",
+    "monitoring:up": "docker compose -f infra/docker-compose.prod.yml -f infra/docker-compose.monitoring.yml up -d",
+    "monitoring:down": "docker compose -f infra/docker-compose.prod.yml -f infra/docker-compose.monitoring.yml down",
+    "monitoring:logs": "docker compose -f infra/docker-compose.prod.yml -f infra/docker-compose.monitoring.yml logs -f prometheus grafana",
+    "mqtt:up": "docker compose -f infra/docker-compose.mqtt.yml up -d",
+    "mqtt:down": "docker compose -f infra/docker-compose.mqtt.yml down",
+    "mqtt:logs": "docker compose -f infra/docker-compose.mqtt.yml logs -f mosquitto"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
