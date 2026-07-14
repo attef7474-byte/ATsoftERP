@@ -15,6 +15,8 @@ const MODULES = [
   "maintenance-request", "maintenance-task", "maintenance-schedule",
   "maintenance-checklist", "system-setting", "audit-log",
   "notification", "attachment", "number-sequence",
+  "inventory-count", "inventory-count-line", "inventory-movement",
+  "inventory-adjustment", "inventory-balance",
 ] as const;
 
 const ACTIONS = ["create", "read", "update", "delete"] as const;

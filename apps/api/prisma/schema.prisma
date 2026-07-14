@@ -27,6 +27,9 @@ model Company {
   users       User[]
   warehouses  Warehouse[]
   machines    Machine[]
+  counts      InventoryCount[]
+  movements   InventoryMovement[]
+  adjustments InventoryAdjustment[]
 
   @@map("companies")
 }
@@ -49,6 +52,9 @@ model Branch {
   warehouses  Warehouse[]
   machines    Machine[]
   numberSeqs  NumberSequence[]
+  counts      InventoryCount[]
+  movements   InventoryMovement[]
+  adjustments InventoryAdjustment[]
 
   @@unique([companyId, code])
   @@map("branches")
@@ -265,8 +271,11 @@ model Warehouse {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  locations WarehouseLocation[]
-  balances  InventoryBalance[]
+  locations  WarehouseLocation[]
+  balances   InventoryBalance[]
+  counts     InventoryCount[]
+  movements  InventoryMovement[]
+  adjustments InventoryAdjustment[]
 
   @@unique([companyId, code])
   @@map("warehouses")
@@ -283,7 +292,10 @@ model WarehouseLocation {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  balances InventoryBalance[]
+  balances       InventoryBalance[]
+  countLines     InventoryCountLine[]
+  movementLines  InventoryMovementLine[]
+  adjustmentLines InventoryAdjustmentLine[]
 
   @@unique([warehouseId, code])
   @@map("warehouse_locations")
@@ -325,8 +337,11 @@ model Product {
   updatedAt   DateTime         @updatedAt
   deletedAt   DateTime?
 
-  balances InventoryBalance[]
-  parts    MachinePart[]
+  balances            InventoryBalance[]
+  parts               MachinePart[]
+  countLines          InventoryCountLine[]
+  movementLines       InventoryMovementLine[]
+  adjustmentLines     InventoryAdjustmentLine[]
 
   @@index([categoryId])
   @@index([status])
@@ -353,6 +368,181 @@ model InventoryBalance {
   @@index([productId])
   @@index([locationId])
   @@map("inventory_balances")
+}
+
+model InventoryCount {
+  id             String    @id @default(cuid())
+  countNumber    String    @unique
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId       String?
+  branch         Branch?   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId    String
+  warehouse      Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status         String    @default("DRAFT")
+  countDate      DateTime  @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+  createdById    String?
+  startedById    String?
+  completedById  String?
+  cancelledById  String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  lines         InventoryCountLine[]
+  adjustments   InventoryAdjustment[]
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([countDate])
+  @@map("inventory_counts")
+}
+
+model InventoryCountLine {
+  id                  String    @id @default(cuid())
+  countId             String
+  count               InventoryCount @relation(fields: [countId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId           String
+  product             Product       @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseLocationId String?
+  warehouseLocation   WarehouseLocation? @relation(fields: [warehouseLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  systemQty           Float         @default(0)
+  countedQty          Float?
+  differenceQty       Float?
+  status              String        @default("PENDING")
+  countedAt           DateTime?
+  verifiedAt          DateTime?
+  countedById         String?
+  verifiedById        String?
+  notes               String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  deletedAt           DateTime?
+
+  @@unique([countId, productId, warehouseLocationId])
+  @@index([countId])
+  @@index([productId])
+  @@index([warehouseLocationId])
+  @@index([status])
+  @@map("inventory_count_lines")
+}
+
+model InventoryMovement {
+  id             String    @id @default(cuid())
+  movementNumber String    @unique
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId       String?
+  branch         Branch?   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId    String
+  warehouse      Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  movementType   String
+  status         String    @default("DRAFT")
+  sourceType     String?
+  sourceId       String?
+  movementDate   DateTime  @default(now())
+  postedAt       DateTime?
+  cancelledAt    DateTime?
+  createdById    String?
+  postedById     String?
+  cancelledById  String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  lines InventoryMovementLine[]
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([warehouseId])
+  @@index([movementType])
+  @@index([status])
+  @@index([movementDate])
+  @@map("inventory_movements")
+}
+
+model InventoryMovementLine {
+  id                  String    @id @default(cuid())
+  movementId          String
+  movement            InventoryMovement @relation(fields: [movementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId           String
+  product             Product           @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseLocationId String?
+  warehouseLocation   WarehouseLocation? @relation(fields: [warehouseLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity            Float
+  unit                String?
+  direction           String
+  notes               String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([movementId])
+  @@index([productId])
+  @@index([warehouseLocationId])
+  @@map("inventory_movement_lines")
+}
+
+model InventoryAdjustment {
+  id                String    @id @default(cuid())
+  adjustmentNumber  String    @unique
+  companyId         String
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId          String?
+  branch            Branch?   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId       String
+  warehouse         Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inventoryCountId  String?
+  inventoryCount    InventoryCount? @relation(fields: [inventoryCountId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status            String    @default("DRAFT")
+  reason            String?
+  adjustmentDate    DateTime  @default(now())
+  postedAt          DateTime?
+  cancelledAt       DateTime?
+  createdById       String?
+  postedById        String?
+  cancelledById     String?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  lines InventoryAdjustmentLine[]
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([warehouseId])
+  @@index([inventoryCountId])
+  @@index([status])
+  @@index([adjustmentDate])
+  @@map("inventory_adjustments")
+}
+
+model InventoryAdjustmentLine {
+  id                  String    @id @default(cuid())
+  adjustmentId        String
+  adjustment          InventoryAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId           String
+  product             Product             @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseLocationId String?
+  warehouseLocation   WarehouseLocation?  @relation(fields: [warehouseLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  systemQty           Float
+  countedQty          Float
+  differenceQty       Float
+  notes               String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([adjustmentId])
+  @@index([productId])
+  @@index([warehouseLocationId])
+  @@map("inventory_adjustment_lines")
 }
 
 model MachineCategory {
