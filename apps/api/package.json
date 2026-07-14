@@ -1,0 +1,34 @@
+{
+  "name": "api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start:dev": "ts-node src/main.ts",
+    "start:prod": "node dist/main.js",
+    "seed": "ts-node prisma/seed/seed.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:format": "prisma format",
+    "prisma:validate": "prisma validate",
+    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/adapter-mssql": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "msnodesqlv8": "^5.2.1",
+    "mssql": "^12.7.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^2.4.3",
+    "prisma": "^7.8.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.0"
+  }
+}

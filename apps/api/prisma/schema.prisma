@@ -4,5 +4,560 @@ generator client {
 
 datasource db {
   provider = "sqlserver"
-  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  legalName String?
+  taxNumber String?
+  phone     String?
+  email     String?
+  address   String?
+  logo      String?
+  status    String    @default("ACTIVE")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  branches    Branch[]
+  departments Department[]
+  users       User[]
+  warehouses  Warehouse[]
+  machines    Machine[]
+
+  @@map("companies")
+}
+
+model Branch {
+  id        String    @id @default(cuid())
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code      String
+  name      String
+  address   String?
+  phone     String?
+  status    String    @default("ACTIVE")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  departments Department[]
+  users       User[]
+  warehouses  Warehouse[]
+  machines    Machine[]
+  numberSeqs  NumberSequence[]
+
+  @@unique([companyId, code])
+  @@map("branches")
+}
+
+model Department {
+  id        String       @id @default(cuid())
+  companyId String
+  company   Company      @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId  String?
+  branch    Branch?      @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentId  String?
+  parent    Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children  Department[] @relation("DepartmentHierarchy")
+  code      String
+  name      String
+  status    String       @default("ACTIVE")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  deletedAt DateTime?
+
+  users    User[]
+  machines Machine[]
+
+  @@unique([companyId, code])
+  @@map("departments")
+}
+
+model User {
+  id               String      @id @default(cuid())
+  email            String      @unique
+  passwordHash     String
+  name             String
+  phone            String?
+  avatar           String?
+  status           String      @default("ACTIVE")
+  companyId        String?
+  company          Company?    @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId         String?
+  branch           Branch?     @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId     String?
+  department       Department? @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  twoFactorEnabled Boolean     @default(false)
+  twoFactorSecret  String?
+  lastLoginAt      DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  deletedAt        DateTime?
+
+  roles                    UserRole[]
+  notifications            Notification[]
+  attachments              Attachment[]
+  auditLogs                AuditLog[]
+  requestedMaintenanceReqs MaintenanceRequest[] @relation("MaintenanceRequestRequestedBy")
+  assignedMaintenanceReqs  MaintenanceRequest[] @relation("MaintenanceRequestAssignedTo")
+  requestedTasks           MaintenanceTask[]    @relation("MaintenanceTaskAssignedTo")
+
+  @@map("users")
+}
+
+model Role {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  name        String
+  description String?
+  isSystem    Boolean   @default(false)
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  module      String
+  action      String
+  description String?
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title     String
+  message   String
+  type      String   @default("INFO")
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model Attachment {
+  id           String   @id @default(cuid())
+  entityName   String
+  entityId     String
+  originalName String
+  filePath     String
+  mimeType     String
+  size         Int
+  uploadedById String?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt    DateTime @default(now())
+
+  @@index([entityName])
+  @@index([entityId])
+  @@map("attachments")
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  group       String
+  label       String
+  description String?
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([group])
+  @@map("system_settings")
+}
+
+model NumberSequence {
+  id            String    @id @default(cuid())
+  code          String    @unique
+  name          String
+  prefix        String
+  suffix        String?
+  currentNumber Int       @default(0)
+  padding       Int       @default(6)
+  scope         String    @default("GLOBAL")
+  companyId     String?
+  branchId      String?
+  branch        Branch?   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  resetPolicy   String    @default("NEVER")
+  lastResetAt   DateTime?
+  status        String    @default("ACTIVE")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("number_sequences")
+}
+
+model Warehouse {
+  id        String    @id @default(cuid())
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId  String?
+  branch    Branch?   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code      String
+  name      String
+  location  String?
+  status    String    @default("ACTIVE")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  locations WarehouseLocation[]
+  balances  InventoryBalance[]
+
+  @@unique([companyId, code])
+  @@map("warehouses")
+}
+
+model WarehouseLocation {
+  id          String    @id @default(cuid())
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code        String
+  name        String
+  barcode     String?
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  balances InventoryBalance[]
+
+  @@unique([warehouseId, code])
+  @@map("warehouse_locations")
+}
+
+model ProductCategory {
+  id          String            @id @default(cuid())
+  code        String            @unique
+  name        String
+  description String?
+  parentId    String?
+  parent      ProductCategory?  @relation("ProductCategoryHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children    ProductCategory[] @relation("ProductCategoryHierarchy")
+  status      String            @default("ACTIVE")
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  deletedAt   DateTime?
+
+  products Product[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  name        String
+  description String?
+  categoryId  String?
+  category    ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  unit        String
+  barcode     String?
+  qrCode      String?
+  image       String?
+  minStock    Float            @default(0)
+  maxStock    Float            @default(0)
+  status      String           @default("ACTIVE")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+
+  balances InventoryBalance[]
+  parts    MachinePart[]
+
+  @@index([categoryId])
+  @@index([status])
+  @@map("products")
+}
+
+model InventoryBalance {
+  id           String             @id @default(cuid())
+  warehouseId  String
+  warehouse    Warehouse          @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locationId   String?
+  location     WarehouseLocation? @relation(fields: [locationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId    String
+  product      Product            @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity     Float              @default(0)
+  batchNumber  String?
+  serialNumber String?
+  expiryDate   DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([warehouseId, productId, batchNumber, serialNumber])
+  @@index([warehouseId])
+  @@index([productId])
+  @@index([locationId])
+  @@map("inventory_balances")
+}
+
+model MachineCategory {
+  id          String            @id @default(cuid())
+  code        String            @unique
+  name        String
+  description String?
+  parentId    String?
+  parent      MachineCategory?  @relation("MachineCategoryHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children    MachineCategory[] @relation("MachineCategoryHierarchy")
+  status      String            @default("ACTIVE")
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  deletedAt   DateTime?
+
+  machines Machine[]
+
+  @@map("machine_categories")
+}
+
+model Machine {
+  id           String           @id @default(cuid())
+  code         String           @unique
+  name         String
+  categoryId   String?
+  category     MachineCategory? @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companyId    String?
+  company      Company?         @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId     String?
+  branch       Branch?          @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId String?
+  department   Department?      @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  model        String?
+  serialNumber String?
+  manufacturer String?
+  purchaseDate DateTime?
+  warrantyEnd  DateTime?
+  location     String?
+  status       String           @default("ACTIVE")
+  qrCode       String?
+  image        String?
+  notes        String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  deletedAt    DateTime?
+
+  parts           MachinePart[]
+  documents       MachineDocument[]
+  maintenanceReqs MaintenanceRequest[]
+  schedules       MaintenanceSchedule[]
+  downtimeLogs    DowntimeLog[]
+
+  @@index([categoryId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([departmentId])
+  @@index([status])
+  @@map("machines")
+}
+
+model MachinePart {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  name       String
+  machineId  String?
+  machine    Machine? @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partNumber String?
+  quantity   Float    @default(0)
+  minStock   Float    @default(0)
+  unit       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([machineId])
+  @@index([productId])
+  @@map("machine_parts")
+}
+
+model MachineDocument {
+  id        String   @id @default(cuid())
+  machineId String
+  machine   Machine  @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title     String
+  type      String
+  fileUrl   String
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([machineId])
+  @@map("machine_documents")
+}
+
+model MaintenanceRequest {
+  id            String    @id @default(cuid())
+  requestNumber String    @unique
+  machineId     String
+  machine       Machine   @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  type          String
+  priority      String    @default("MEDIUM")
+  title         String
+  description   String?
+  status        String    @default("OPEN")
+  requestedById String?
+  requestedBy   User?     @relation("MaintenanceRequestRequestedBy", fields: [requestedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignedToId  String?
+  assignedTo    User?     @relation("MaintenanceRequestAssignedTo", fields: [assignedToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  startDate     DateTime?
+  endDate       DateTime?
+  downtimeHours Float?
+  cost          Float?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  tasks        MaintenanceTask[]
+  schedules    MaintenanceSchedule[]
+  downtimeLogs DowntimeLog[]
+
+  @@index([machineId])
+  @@index([status])
+  @@index([type])
+  @@index([priority])
+  @@index([requestedById])
+  @@index([assignedToId])
+  @@index([requestNumber])
+  @@map("maintenance_requests")
+}
+
+model MaintenanceTask {
+  id           String             @id @default(cuid())
+  requestId    String
+  request      MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title        String
+  description  String?
+  status       String             @default("PENDING")
+  assignedToId String?
+  assignedTo   User?              @relation("MaintenanceTaskAssignedTo", fields: [assignedToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  notes        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([requestId])
+  @@index([assignedToId])
+  @@index([status])
+  @@map("maintenance_tasks")
+}
+
+model MaintenanceSchedule {
+  id           String              @id @default(cuid())
+  machineId    String
+  machine      Machine             @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requestId    String?
+  request      MaintenanceRequest? @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  type         String
+  frequency    String
+  intervalDays Int?
+  startDate    DateTime
+  endDate      DateTime?
+  title        String
+  description  String?
+  status       String              @default("ACTIVE")
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  checklistItems MaintenanceChecklistItem[]
+
+  @@index([machineId])
+  @@index([status])
+  @@index([type])
+  @@map("maintenance_schedules")
+}
+
+model MaintenanceChecklistItem {
+  id          String              @id @default(cuid())
+  scheduleId  String
+  schedule    MaintenanceSchedule @relation(fields: [scheduleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title       String
+  description String?
+  sortOrder   Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([scheduleId])
+  @@map("maintenance_checklist_items")
+}
+
+model DowntimeLog {
+  id              String              @id @default(cuid())
+  machineId       String
+  machine         Machine             @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requestId       String?
+  request         MaintenanceRequest? @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  startTime       DateTime
+  endTime         DateTime?
+  durationMinutes Float?
+  reason          String
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([machineId])
+  @@index([requestId])
+  @@index([startTime])
+  @@map("downtime_logs")
 }
