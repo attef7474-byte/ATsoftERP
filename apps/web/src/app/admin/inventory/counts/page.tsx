@@ -10,6 +10,8 @@ import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar
 import { F9Lookup, companyAdapter, branchAdapter, warehouseAdapter } from '../../../../components/f9';
 import { InventoryStatusBadge } from '../../../../components/inventory-counting/InventoryStatusBadge';
 import CountLinesPanel from '../../../../components/inventory-counting/CountLinesPanel';
+import { useMemo } from 'react';
+import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionViewIcon, ActionGenerateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function InventoryCountsPage() {
   const { t } = useTranslation();
@@ -31,6 +33,31 @@ export default function InventoryCountsPage() {
 
   const [actionConfirmOpen, setActionConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+
+  const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
+
+  const { exec } = useStableHandlers({
+    new: () => openCreate(),
+    edit: () => selectedRecord && openEdit(selectedRecord),
+    refresh: () => fetchData(meta.page),
+    start: () => confirmAction(selectedId, 'start'),
+    complete: () => confirmAction(selectedId, 'complete'),
+    cancel: () => confirmAction(selectedId, 'cancel'),
+    viewLines: () => selectedRecord && openLinesPanel(selectedRecord.id),
+    generateAdjustment: () => confirmGenerateAdjustment(selectedId),
+  });
+
+  useRegisterAdminActions([
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+    { id: 'start', labelKey: 'inventoryCounting.start', icon: <ActionStartIcon />, onClick: () => exec('start'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'complete', labelKey: 'inventoryCounting.complete', icon: <ActionCompleteIcon />, onClick: () => exec('complete'), enabled: !!(selectedId && selectedRecord?.status === 'IN_PROGRESS') },
+    { id: 'cancel', labelKey: 'inventoryCounting.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(selectedId && (selectedRecord?.status === 'DRAFT' || selectedRecord?.status === 'IN_PROGRESS')), variant: 'danger' },
+    { id: 'viewLines', labelKey: 'inventoryCounting.viewLines', icon: <ActionViewIcon />, onClick: () => exec('viewLines'), enabled: !!selectedId },
+    { id: 'generateAdjustment', labelKey: 'inventoryCounting.generateAdjustment', icon: <ActionGenerateIcon />, onClick: () => exec('generateAdjustment'), enabled: !!(selectedId && selectedRecord?.status === 'COMPLETED') },
+  ]);
+
   const [pendingAction, setPendingAction] = useState('');
 
   const [linesPanelOpen, setLinesPanelOpen] = useState(false);
@@ -207,7 +234,7 @@ export default function InventoryCountsPage() {
       {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
       {!error && !loading && data.length > 0 && (
         <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(r: InventoryCount) => r.id} />
+          <DataTable columns={columns} data={data} keyExtractor={(r: InventoryCount) => r.id} onRowClick={(r: InventoryCount) => setSelectedId(r.id)} selectedKey={selectedId} />
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
         </Card>
       )}

@@ -1,10 +1,11 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Company } from '../../../../lib/admin-types';
 import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function CompaniesPage() {
   const { t } = useTranslation();
@@ -23,6 +24,26 @@ export default function CompaniesPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate' | 'delete'>('deactivate');
   const [selectedId, setSelectedId] = useState<string>('');
+
+  const selectedRecord = useMemo(() => data.find(c => c.id === selectedId), [data, selectedId]);
+
+  const { exec } = useStableHandlers({
+    new: () => openCreate(),
+    edit: () => selectedRecord && openEdit(selectedRecord),
+    delete: () => confirmDelete(selectedId),
+    refresh: () => fetchData(meta.page),
+    activate: () => confirmStatusChange(selectedId, 'activate'),
+    deactivate: () => confirmStatusChange(selectedId, 'deactivate'),
+  });
+
+  useRegisterAdminActions([
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord && selectedRecord.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord && selectedRecord.status === 'ACTIVE') },
+  ]);
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true);
@@ -163,7 +184,7 @@ export default function CompaniesPage() {
       {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
       {!error && !loading && data.length > 0 && (
         <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(c: Company) => c.id} />
+          <DataTable columns={columns} data={data} keyExtractor={(c: Company) => c.id} onRowClick={(c: Company) => setSelectedId(c.id)} selectedKey={selectedId} />
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
         </Card>
       )}

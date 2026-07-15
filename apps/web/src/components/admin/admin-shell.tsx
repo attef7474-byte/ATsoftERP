@@ -5,6 +5,13 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useTranslation } from '../../lib/i18n/use-translation';
 import { logout, getProfile, UserProfile } from '../../lib/auth';
 import type { TranslationNamespace } from '../../lib/i18n/types';
+import {
+  AdminActionBarProvider,
+  useAdminActionBar,
+  AdminAction,
+  ActionBackIcon,
+  ActionRefreshIcon,
+} from './admin-action-bar';
 
 interface NavChild {
   id: string;
@@ -78,16 +85,6 @@ const iconMap: Record<string, React.ReactNode> = {
   maintenance: React.createElement(IconMaintenance),
 };
 
-function BackIcon() { return (<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>); }
-function RefreshIcon() { return (<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>); }
-function AddIcon() { return (<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>); }
-function EditIcon() { return (<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>); }
-function DeleteIcon() { return (<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>); }
-function SaveIcon() { return (<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>); }
-function CancelIcon() { return (<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>); }
-function PrintIcon() { return (<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>); }
-function ExportIcon() { return (<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>); }
-function SearchIcon() { return (<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>); }
 function NotificationIcon() { return (<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>); }
 
 function getPageTitle(pathname: string): string {
@@ -123,10 +120,12 @@ function getPageTitle(pathname: string): string {
   return 'dashboard.title';
 }
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+/* ===== Inner shell that consumes action bar context ===== */
+function AdminShellInner({ children }: { children: React.ReactNode }) {
   const { t, locale, setLocale } = useTranslation();
   const pathname = usePathname();
   const router = useRouter();
+  const { visible: actionBarVisible, actions } = useAdminActionBar();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [clock, setClock] = useState('');
@@ -155,7 +154,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pageTitleKey = useMemo(() => getPageTitle(pathname), [pathname]);
 
   return (
-    <div className="admin-workspace-shell" dir={isRtl ? 'rtl' : 'ltr'}>
+    <div
+      className="admin-workspace-shell"
+      dir={isRtl ? 'rtl' : 'ltr'}
+      style={{ '--app-actionbar-active-height': actionBarVisible ? 'var(--app-actionbar-height)' : '0px' } as React.CSSProperties}
+    >
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -167,10 +170,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       {/* === 1. Top Application Bar === */}
       <header className="admin-topbar">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="admin-hamburger"
-          >
+          <button onClick={() => setSidebarOpen(true)} className="admin-hamburger">
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -179,120 +179,54 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             {t('common.appName')}
           </span>
         </div>
-
         <div className="flex items-center gap-3">
-          <button
-            className="relative p-1.5 text-gray-500 hover:text-gray-700 transition-colors"
-            title={t('common.notifications')}
-          >
+          <button className="relative p-1.5 text-gray-500 hover:text-gray-700 transition-colors" title={t('common.notifications')}>
             <NotificationIcon />
           </button>
-
-          <button
-            onClick={toggleLanguage}
-            className="px-2.5 py-1 text-xs border rounded-md hover:bg-gray-50 transition-colors whitespace-nowrap"
-          >
+          <button onClick={toggleLanguage} className="px-2.5 py-1 text-xs border rounded-md hover:bg-gray-50 transition-colors whitespace-nowrap">
             {isRtl ? 'English' : '\u0627\u0644\u0639\u0631\u0628\u064a\u0629'}
           </button>
-
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium shrink-0">
               {profile?.name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div className="hidden sm:block leading-tight">
-              <p className="text-sm font-medium text-gray-700 truncate max-w-[120px]">
-                {profile?.name || t('common.loading')}
-              </p>
-              <p className="text-xs text-gray-500 truncate max-w-[120px]">
-                {profile?.email || t('common.user')}
-              </p>
+              <p className="text-sm font-medium text-gray-700 truncate max-w-[120px]">{profile?.name || t('common.loading')}</p>
+              <p className="text-xs text-gray-500 truncate max-w-[120px]">{profile?.email || t('common.user')}</p>
             </div>
           </div>
-
-          <button
-            onClick={handleLogout}
-            className="px-2.5 py-1 text-xs text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors whitespace-nowrap"
-          >
+          <button onClick={handleLogout} className="px-2.5 py-1 text-xs text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors whitespace-nowrap">
             {t('common.logout')}
           </button>
         </div>
       </header>
 
-      {/* === 2. Action / Command Toolbar === */}
-      <section className="admin-actionbar">
-        <button className="admin-action-btn" onClick={() => router.back()} title={t('common.back')}>
-          <BackIcon />
-          <span className="hidden sm:inline">{t('common.back')}</span>
-        </button>
-
-        <button className="admin-action-btn" onClick={() => router.refresh()} title={t('common.refresh')}>
-          <RefreshIcon />
-          <span className="hidden sm:inline">{t('common.refresh')}</span>
-        </button>
-
-        <div className="admin-action-separator" />
-
-        <button className="admin-action-btn" disabled title={t('common.add')}>
-          <AddIcon />
-          <span className="hidden sm:inline">{t('common.add') || t('common.create')}</span>
-        </button>
-
-        <button className="admin-action-btn" disabled title={t('common.edit')}>
-          <EditIcon />
-          <span className="hidden sm:inline">{t('common.edit')}</span>
-        </button>
-
-        <button className="admin-action-btn" disabled title={t('common.delete')}>
-          <DeleteIcon />
-          <span className="hidden sm:inline">{t('common.delete')}</span>
-        </button>
-
-        <div className="admin-action-separator" />
-
-        <button className="admin-action-btn" disabled title={t('common.save')}>
-          <SaveIcon />
-          <span className="hidden sm:inline">{t('common.save')}</span>
-        </button>
-
-        <button className="admin-action-btn" disabled title={t('common.cancel')}>
-          <CancelIcon />
-          <span className="hidden sm:inline">{t('common.cancel')}</span>
-        </button>
-
-        <div className="admin-action-separator" />
-
-        <button className="admin-action-btn" disabled title={t('common.print')}>
-          <PrintIcon />
-          <span className="hidden sm:inline">{t('common.print')}</span>
-        </button>
-
-        <button className="admin-action-btn" disabled title={t('common.export')}>
-          <ExportIcon />
-          <span className="hidden sm:inline">{t('common.export')}</span>
-        </button>
-
-        <div className="flex-1" />
-
-        <button className="admin-action-btn" disabled title={t('common.search')}>
-          <SearchIcon />
-        </button>
+      {/* === 2. Action / Command Toolbar (context-driven) === */}
+      <section className={`admin-actionbar ${actionBarVisible ? '' : 'admin-actionbar-hidden'}`}>
+        {actionBarVisible && (
+          <>
+            {actions.map((action) => (
+              <button
+                key={action.id}
+                className={`admin-action-btn ${action.variant === 'danger' ? 'text-red-600' : action.variant === 'primary' ? 'text-blue-700' : ''}`}
+                onClick={action.onClick}
+                disabled={action.enabled === false}
+                title={action.tooltipKey ? t(action.tooltipKey) : t(action.labelKey)}
+              >
+                {action.icon}
+                <span className="hidden sm:inline">{t(action.labelKey)}</span>
+              </button>
+            ))}
+          </>
+        )}
       </section>
 
       {/* === 3. Sidebar Navigation === */}
-      {/* Mobile sidebar (overlay) */}
       {sidebarOpen && (
-        <aside
-          className={`fixed inset-y-0 z-[65] w-64 bg-white shadow-xl flex flex-col ${
-            isRtl ? 'right-0' : 'left-0'
-          }`}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <aside className={`fixed inset-y-0 z-[65] w-64 bg-white shadow-xl flex flex-col ${isRtl ? 'right-0' : 'left-0'}`} onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between h-[56px] px-4 border-b shrink-0">
             <span className="text-base font-bold text-gray-800">{t('common.appName')}</span>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="text-gray-500 hover:text-gray-700 p-1"
-            >
+            <button onClick={() => setSidebarOpen(false)} className="text-gray-500 hover:text-gray-700 p-1">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -301,7 +235,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
             {renderNavItems(navItems, pathname, t, iconMap, () => setSidebarOpen(false))}
           </nav>
-          {/* User info at bottom of mobile sidebar */}
           <div className="border-t px-4 py-3 shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium shrink-0">
@@ -316,7 +249,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </aside>
       )}
 
-      {/* Desktop sidebar */}
       <aside className="admin-sidebar hidden lg:flex">
         <nav className="admin-sidebar-inner">
           {renderNavItems(navItems, pathname, t, iconMap, () => setSidebarOpen(false))}
@@ -325,9 +257,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
       {/* === 4. Main Workspace === */}
       <main className="admin-main">
-        <div className="admin-main-inner">
-          {children}
-        </div>
+        <div className="admin-main-inner">{children}</div>
       </main>
 
       {/* === 5. Bottom Status / Metadata Bar === */}
@@ -345,6 +275,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <span>{clock}</span>
       </footer>
     </div>
+  );
+}
+
+export function AdminShell({ children }: { children: React.ReactNode }) {
+  return (
+    <AdminActionBarProvider>
+      <AdminShellInner>{children}</AdminShellInner>
+    </AdminActionBarProvider>
   );
 }
 
@@ -369,9 +307,7 @@ function renderNavItems(
                 key={child.id}
                 href={child.href}
                 className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-colors ${
-                  pathname === child.href
-                    ? 'bg-blue-50 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  pathname === child.href ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
                 onClick={onNavigate}
               >
@@ -384,9 +320,7 @@ function renderNavItems(
         <Link
           href={item.href}
           className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors mb-1 ${
-            pathname === item.href
-              ? 'bg-blue-50 text-blue-700 font-medium'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            pathname === item.href ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
           }`}
           onClick={onNavigate}
         >

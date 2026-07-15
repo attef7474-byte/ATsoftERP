@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
@@ -7,6 +7,7 @@ import { DowntimeLog } from '../../../../lib/admin-types';
 import { Button, Input, Textarea, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../components/maintenance';
 import { F9Lookup, machineAdapter, maintenanceRequestAdapter } from '../../../../components/f9';
+import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function DowntimeLogsPage() {
   const { t } = useTranslation();
@@ -25,6 +26,22 @@ export default function DowntimeLogsPage() {
   const [actionConfirmOpen, setActionConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [pendingAction, setPendingAction] = useState('');
+
+  const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
+
+  const { exec } = useStableHandlers({
+    new: () => openCreate(),
+    edit: () => selectedRecord && openEdit(selectedRecord),
+    refresh: () => fetchData(meta.page),
+    close: () => confirmAction(selectedId, 'close'),
+  });
+
+  useRegisterAdminActions([
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+    { id: 'close', labelKey: 'common.close', icon: <ActionCancelIcon />, onClick: () => exec('close'), enabled: !!(selectedId && !selectedRecord?.endTime) },
+  ]);
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true); setError('');
@@ -107,7 +124,7 @@ export default function DowntimeLogsPage() {
       {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
       {!error && !loading && data.length > 0 && (
         <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(d: DowntimeLog) => d.id} />
+          <DataTable columns={columns} data={data} keyExtractor={(d: DowntimeLog) => d.id} onRowClick={(item: DowntimeLog) => setSelectedId(item.id)} selectedKey={selectedId} />
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
         </Card>
       )}

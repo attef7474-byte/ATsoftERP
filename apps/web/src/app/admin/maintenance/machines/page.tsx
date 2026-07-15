@@ -6,6 +6,8 @@ import { useToast } from '../../../../components/admin/toast-provider';
 import { Machine } from '../../../../lib/admin-types';
 import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter, machineCategoryAdapter } from '../../../../components/f9';
+import { useMemo } from 'react';
+import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MachinesPage() {
   const { t } = useTranslation();
@@ -25,6 +27,24 @@ export default function MachinesPage() {
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+
+  const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
+
+const { exec } = useStableHandlers({
+  new: () => openCreate(),
+  edit: () => selectedRecord && openEdit(selectedRecord),
+  refresh: () => fetchData(meta.page),
+  activate: () => confirmStatus(selectedId),
+  deactivate: () => confirmStatus(selectedId),
+});
+
+useRegisterAdminActions([
+  { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
+  { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+  { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+  { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
+  { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+]);
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true);
@@ -136,7 +156,7 @@ export default function MachinesPage() {
       {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
       {!error && !loading && data.length > 0 && (
         <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(m: Machine) => m.id} />
+          <DataTable columns={columns} data={data} keyExtractor={(m: Machine) => m.id} onRowClick={(item: Machine) => setSelectedId(item.id)} selectedKey={selectedId} />
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
         </Card>
       )}

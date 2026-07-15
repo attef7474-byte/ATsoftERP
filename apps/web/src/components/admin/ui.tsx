@@ -137,9 +137,10 @@ interface DataTableProps<T> {
   onRowClick?: (item: T) => void;
   loading?: boolean;
   emptyMessage?: string;
+  selectedKey?: string;
 }
 
-export function DataTable<T>({ columns, data, keyExtractor, onRowClick, loading, emptyMessage }: DataTableProps<T>) {
+export function DataTable<T>({ columns, data, keyExtractor, onRowClick, loading, emptyMessage, selectedKey }: DataTableProps<T>) {
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -170,19 +171,23 @@ export function DataTable<T>({ columns, data, keyExtractor, onRowClick, loading,
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {data.map((item) => (
-            <tr
-              key={keyExtractor(item)}
-              onClick={() => onRowClick?.(item)}
-              className={`${onRowClick ? 'cursor-pointer hover:bg-gray-50' : ''} transition-colors`}
-            >
-              {columns.map((col) => (
-                <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {col.render ? col.render(item) : (item as any)[col.key] ?? '-'}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {data.map((item) => {
+            const rowKey = keyExtractor(item);
+            const isSelected = selectedKey === rowKey;
+            return (
+              <tr
+                key={rowKey}
+                onClick={() => onRowClick?.(item)}
+                className={`${onRowClick ? 'cursor-pointer' : ''} ${isSelected ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-50'} transition-colors`}
+              >
+                {columns.map((col) => (
+                  <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {col.render ? col.render(item) : (item as any)[col.key] ?? '-'}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

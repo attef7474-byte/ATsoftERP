@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
@@ -7,6 +7,7 @@ import { MaintenanceRequest } from '../../../../lib/admin-types';
 import { Button, Input, Select, Textarea, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { CmmsStatusBadge, CmmsPriorityBadge } from '../../../../components/maintenance';
 import { F9Lookup, machineAdapter, userAdapter } from '../../../../components/f9';
+import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MaintenanceRequestsPage() {
   const { t } = useTranslation();
@@ -25,6 +26,26 @@ export default function MaintenanceRequestsPage() {
   const [actionConfirmOpen, setActionConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [pendingAction, setPendingAction] = useState('');
+
+  const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
+
+  const { exec } = useStableHandlers({
+    new: () => openCreate(),
+    edit: () => selectedRecord && openEdit(selectedRecord),
+    refresh: () => fetchData(meta.page),
+    start: () => confirmAction(selectedId, 'start'),
+    complete: () => confirmAction(selectedId, 'complete'),
+    cancel: () => confirmAction(selectedId, 'cancel'),
+  });
+
+  useRegisterAdminActions([
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+    { id: 'start', labelKey: 'common.start', icon: <ActionStartIcon />, onClick: () => exec('start'), enabled: !!(selectedId && selectedRecord?.status === 'OPEN') },
+    { id: 'complete', labelKey: 'common.complete', icon: <ActionCompleteIcon />, onClick: () => exec('complete'), enabled: !!(selectedId && selectedRecord?.status === 'IN_PROGRESS') },
+    { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(selectedId && (selectedRecord?.status === 'OPEN' || selectedRecord?.status === 'IN_PROGRESS')) },
+  ]);
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true); setError('');
@@ -123,7 +144,7 @@ export default function MaintenanceRequestsPage() {
       {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
       {!error && !loading && data.length > 0 && (
         <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(r: MaintenanceRequest) => r.id} />
+          <DataTable columns={columns} data={data} keyExtractor={(r: MaintenanceRequest) => r.id} onRowClick={(item: MaintenanceRequest) => setSelectedId(item.id)} selectedKey={selectedId} />
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
         </Card>
       )}

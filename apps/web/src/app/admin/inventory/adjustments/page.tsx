@@ -7,6 +7,8 @@ import { InventoryAdjustment, InventoryAdjustmentLine } from '../../../../lib/ad
 import { Button, Input, Select, Textarea, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { InventoryStatusBadge } from '../../../../components/inventory-counting/InventoryStatusBadge';
 import { F9Lookup, companyAdapter, branchAdapter, warehouseAdapter, productAdapter } from '../../../../components/f9';
+import { useMemo } from 'react';
+import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionPostIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function InventoryAdjustmentsPage() {
   const { t } = useTranslation();
@@ -35,6 +37,25 @@ export default function InventoryAdjustmentsPage() {
 
   const [actionConfirmOpen, setActionConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+
+  const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
+
+  const { exec } = useStableHandlers({
+    new: () => openCreate(),
+    edit: () => selectedRecord && openEdit(selectedRecord),
+    refresh: () => fetchData(meta.page),
+    post: () => confirmAction(selectedId, 'post'),
+    cancel: () => confirmAction(selectedId, 'cancel'),
+  });
+
+  useRegisterAdminActions([
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+    { id: 'post', labelKey: 'inventoryCounting.post', icon: <ActionPostIcon />, onClick: () => exec('post'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'cancel', labelKey: 'inventoryCounting.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT'), variant: 'danger' },
+  ]);
+
   const [pendingAction, setPendingAction] = useState('');
 
   const [viewingItem, setViewingItem] = useState<InventoryAdjustment | null>(null);
@@ -193,7 +214,7 @@ export default function InventoryAdjustmentsPage() {
       {!error && !loading && data.length === 0 && <EmptyState message={t('inventoryCounting.noAdjustments')} />}
       {!error && !loading && data.length > 0 && (
         <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(r: InventoryAdjustment) => r.id} />
+          <DataTable columns={columns} data={data} keyExtractor={(r: InventoryAdjustment) => r.id} onRowClick={(r: InventoryAdjustment) => setSelectedId(r.id)} selectedKey={selectedId} />
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
         </Card>
       )}

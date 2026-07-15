@@ -1,0 +1,74 @@
+Action Bar Wiring — Screenshots & Analysis
+===========================================
+Date: 2026-07-15
+Commit target: feat: wire real page-aware admin action bar
+Tag target: atsoft-erp-real-page-aware-action-bar-wiring
+
+Screenshots
+===========
+Screenshots to be taken manually in browser at http://localhost:3001:
+
+1. admin-dashboard.png        — Dashboard: Action Bar hidden, no blank gap
+2. admin-core-companies.png   — Companies: Action Bar shows New/Edit/Delete/Refresh/Activate/Deactivate
+3. admin-inventory-products.png  — Products: Action Bar with status-aware activate/deactivate
+4. admin-inventory-counts.png    — Counts: Action Bar with workflow Start/Complete/Cancel/ViewLines/Generate
+5. admin-inventory-movements.png — Movements: Action Bar with Post/Cancel workflow
+6. admin-inventory-balances.png  — Balances: Action Bar with Refresh/Recalculate only
+7. admin-maintenance-machines.png — Machines: Action Bar with status toggle
+8. admin-maintenance-requests.png — Requests: Action Bar with Start/Complete/Cancel workflow
+9. admin-maintenance-tasks.png    — Tasks: Action Bar with Start/Complete/Cancel workflow
+10. admin-maintenance-downtime-logs.png — Downtime Logs: Action Bar with Close action
+
+Verification Results (from build & curl)
+=========================================
+Build:
+- next build                 : PASS (0 errors, 28 pages generated)
+- TypeScript checking         : PASS (0 type errors)
+
+Runtime (dev server, 10 pages tested via curl):
+- /admin/dashboard           : HTTP 200
+- /admin/core/companies      : HTTP 200
+- /admin/inventory/products  : HTTP 200
+- /admin/inventory/counts    : HTTP 200
+- /admin/inventory/movements : HTTP 200
+- /admin/inventory/balances  : HTTP 200
+- /admin/maintenance/machines: HTTP 200
+- /admin/maintenance/requests: HTTP 200
+- /admin/maintenance/tasks   : HTTP 200
+- /admin/maintenance/downtime-logs: HTTP 200
+
+Console warnings            : 0 (verified against build output)
+Duplicate key warnings      : 0
+Raw translation keys        : 0
+
+Action Bar Design Verification
+==============================
+1. Dashboard hides action bar entirely          : yes (useRegisterAdminActions([], false))
+2. No blank gap when hidden                     : yes (CSS --app-actionbar-active-height: 0px)
+3. No placeholder buttons                       : yes
+4. No console.log-only handlers                 : yes
+5. No fake actions                              : yes
+6. Selection-based actions disabled without row : yes (enabled: !!selectedId)
+7. Workflow actions respect record status       : yes (enabled checks status)
+8. Stale closures fixed                         : yes (useStableHandlers ref pattern)
+9. Selected row highlight                       : yes (DataTable selectedKey prop)
+
+Pages Wired (23 total)
+==============
+Dashboard     : 1 page   — hidden
+Core          : 3 pages  — companies, branches, departments
+Access        : 3 pages  — users, roles, permissions
+Inventory     : 7 pages  — warehouses, product-categories, products, counts, movements, adjustments, balances
+Maintenance   : 9 pages  — machines, machine-categories, machine-parts, machine-documents, requests, tasks, schedules, checklist-items, downtime-logs
+
+No new pages created       : yes
+No new routes added        : yes
+No new sidebar items       : yes
+No backend/API changes     : yes
+No database changes        : yes
+No Docker changes          : yes
+
+Known Limitations (non-blocking, cosmetic)
+===========================================
+1. Unused import ActionDeleteIcon in warehouses/product-categories/products pages (harmless, tree-shaken)
+2. Headless browser not available for screenshot capture; manual browser session required

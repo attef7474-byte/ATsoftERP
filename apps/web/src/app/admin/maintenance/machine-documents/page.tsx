@@ -6,6 +6,8 @@ import { useToast } from '../../../../components/admin/toast-provider';
 import { MachineDocument } from '../../../../lib/admin-types';
 import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { F9Lookup, machineAdapter } from '../../../../components/f9';
+import { useMemo } from 'react';
+import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MachineDocumentsPage() {
   const { t } = useTranslation();
@@ -22,6 +24,22 @@ export default function MachineDocumentsPage() {
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+
+  const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
+
+const { exec } = useStableHandlers({
+  new: () => openCreate(),
+  edit: () => selectedRecord && openEdit(selectedRecord),
+  delete: () => confirmDelete(selectedId),
+  refresh: () => fetchData(meta.page),
+});
+
+useRegisterAdminActions([
+  { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
+  { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!selectedId, variant: 'danger' },
+  { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+]);
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true); setError('');
@@ -106,7 +124,7 @@ export default function MachineDocumentsPage() {
       {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
       {!error && !loading && data.length > 0 && (
         <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(d: MachineDocument) => d.id} />
+          <DataTable columns={columns} data={data} keyExtractor={(d: MachineDocument) => d.id} onRowClick={(item: MachineDocument) => setSelectedId(item.id)} selectedKey={selectedId} />
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
         </Card>
       )}

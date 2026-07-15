@@ -5,6 +5,8 @@ import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { InventoryBalance } from '../../../../lib/admin-types';
 import { Button, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, ConfirmDialog } from '../../../../components/admin/ui';
+import { useMemo } from 'react';
+import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionRecalculateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function InventoryBalancesPage() {
   const { t } = useTranslation();
@@ -19,6 +21,16 @@ export default function InventoryBalancesPage() {
 
   const [recalculateOpen, setRecalculateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const { exec } = useStableHandlers({
+    refresh: () => fetchData(meta.page),
+    recalculate: () => handleRecalculate(),
+  });
+
+  useRegisterAdminActions([
+    { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+    { id: 'recalculate', labelKey: 'inventoryCounting.recalculateBalances', icon: <ActionRecalculateIcon />, onClick: () => exec('recalculate') },
+  ]);
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true);

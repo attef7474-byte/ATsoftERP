@@ -1,9 +1,10 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { Permission } from '../../../../lib/admin-types';
 import { Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, StatusBadge } from '../../../../components/admin/ui';
+import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function PermissionsPage() {
   const { t } = useTranslation();
@@ -12,6 +13,17 @@ export default function PermissionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState('');
+
+  const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
+
+  const { exec } = useStableHandlers({
+    refresh: () => fetchData(meta.page),
+  });
+
+  useRegisterAdminActions([
+    { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+  ]);
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true);
@@ -48,7 +60,7 @@ export default function PermissionsPage() {
       {!error && !loading && data.length === 0 && <EmptyState />}
       {!error && !loading && data.length > 0 && (
         <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(r: Permission) => r.id} />
+          <DataTable columns={columns} data={data} keyExtractor={(r: Permission) => r.id} onRowClick={(item: Permission) => setSelectedId(item.id)} selectedKey={selectedId} />
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
         </Card>
       )}

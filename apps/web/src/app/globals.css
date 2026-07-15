@@ -66,12 +66,22 @@ body {
   background: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
   gap: 4px;
+  transition: height 0.15s ease, padding 0.15s ease, opacity 0.15s ease;
+  overflow: hidden;
+}
+
+.admin-actionbar-hidden {
+  height: 0;
+  padding: 0;
+  border-bottom: none;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Sidebar Navigation */
 .admin-sidebar {
   position: fixed;
-  top: calc(var(--app-topbar-height) + var(--app-actionbar-height));
+  top: calc(var(--app-topbar-height) + var(--app-actionbar-active-height, var(--app-actionbar-height)));
   bottom: var(--app-statusbar-height);
   width: var(--app-sidebar-width);
   z-index: 50;
@@ -99,7 +109,7 @@ body {
 /* Main Workspace (scrollable) */
 .admin-main {
   position: fixed;
-  top: calc(var(--app-topbar-height) + var(--app-actionbar-height));
+  top: calc(var(--app-topbar-height) + var(--app-actionbar-active-height, var(--app-actionbar-height)));
   bottom: var(--app-statusbar-height);
   inset-inline-start: var(--app-sidebar-width);
   inset-inline-end: 0;

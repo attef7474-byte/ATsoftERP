@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { api } from '../../../lib/api';
 import { PageHeader, Card, CardContent, LoadingState, ErrorState } from '../../../components/admin/ui';
+import { useRegisterAdminActions } from '../../../components/admin/admin-action-bar';
 
 interface StatCard {
   label: string;
@@ -14,6 +15,7 @@ interface StatCard {
 
 export default function DashboardPage() {
   const { t } = useTranslation();
+  useRegisterAdminActions([], false);
   const [stats, setStats] = useState<StatCard[]>([
     { label: t('dashboard.companies'), href: '/admin/core/companies', count: null, error: false },
     { label: t('dashboard.branches'), href: '/admin/core/branches', count: null, error: false },
