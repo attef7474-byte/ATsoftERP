@@ -120,7 +120,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="px-4 py-4 space-y-1 overflow-y-auto max-h-[calc(100vh-4rem)]">
           {navItems.map((item) => (
-            <div key={item.href}>
+            <div key={item.label}>
               {item.children ? (
                 <div className="mb-2">
                   <div className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 uppercase tracking-wider">
