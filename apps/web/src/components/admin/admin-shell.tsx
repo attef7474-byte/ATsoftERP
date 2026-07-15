@@ -5,53 +5,60 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useTranslation } from '../../lib/i18n/use-translation';
 import { logout, getProfile, UserProfile } from '../../lib/auth';
 
+interface NavChild {
+  id: string;
+  label: string;
+  href: string;
+}
+
 interface NavItem {
+  id: string;
   label: string;
   href: string;
   icon?: string;
-  children?: NavItem[];
+  children?: NavChild[];
 }
 
 const navItems: NavItem[] = [
   {
-    label: 'navigation.dashboard', href: '/admin/dashboard', icon: 'dashboard',
+    id: 'dashboard', label: 'navigation.dashboard', href: '/admin/dashboard', icon: 'dashboard',
   },
   {
-    label: 'navigation.coreManagement', href: '#', icon: 'core', children: [
-      { label: 'navigation.companies', href: '/admin/core/companies' },
-      { label: 'navigation.branches', href: '/admin/core/branches' },
-      { label: 'navigation.departments', href: '/admin/core/departments' },
+    id: 'core', label: 'navigation.coreManagement', href: '#', icon: 'core', children: [
+      { id: 'core-companies', label: 'navigation.companies', href: '/admin/core/companies' },
+      { id: 'core-branches', label: 'navigation.branches', href: '/admin/core/branches' },
+      { id: 'core-departments', label: 'navigation.departments', href: '/admin/core/departments' },
     ],
   },
   {
-    label: 'navigation.accessControl', href: '#', icon: 'access', children: [
-      { label: 'navigation.users', href: '/admin/access/users' },
-      { label: 'navigation.roles', href: '/admin/access/roles' },
-      { label: 'navigation.permissions', href: '/admin/access/permissions' },
+    id: 'access', label: 'navigation.accessControl', href: '#', icon: 'access', children: [
+      { id: 'access-users', label: 'navigation.users', href: '/admin/access/users' },
+      { id: 'access-roles', label: 'navigation.roles', href: '/admin/access/roles' },
+      { id: 'access-permissions', label: 'navigation.permissions', href: '/admin/access/permissions' },
     ],
   },
   {
-    label: 'navigation.inventory', href: '#', icon: 'inventory', children: [
-      { label: 'navigation.warehouses', href: '/admin/inventory/warehouses' },
-      { label: 'navigation.productCategories', href: '/admin/inventory/product-categories' },
-      { label: 'navigation.products', href: '/admin/inventory/products' },
-      { label: 'navigation.inventoryCounts', href: '/admin/inventory/counts' },
-      { label: 'navigation.inventoryMovements', href: '/admin/inventory/movements' },
-      { label: 'navigation.inventoryAdjustments', href: '/admin/inventory/adjustments' },
-      { label: 'navigation.inventoryBalances', href: '/admin/inventory/balances' },
+    id: 'inventory', label: 'navigation.inventory', href: '#', icon: 'inventory', children: [
+      { id: 'inv-warehouses', label: 'navigation.warehouses', href: '/admin/inventory/warehouses' },
+      { id: 'inv-product-categories', label: 'navigation.productCategories', href: '/admin/inventory/product-categories' },
+      { id: 'inv-products', label: 'navigation.products', href: '/admin/inventory/products' },
+      { id: 'inv-counts', label: 'navigation.inventoryCounts', href: '/admin/inventory/counts' },
+      { id: 'inv-movements', label: 'navigation.inventoryMovements', href: '/admin/inventory/movements' },
+      { id: 'inv-adjustments', label: 'navigation.inventoryAdjustments', href: '/admin/inventory/adjustments' },
+      { id: 'inv-balances', label: 'navigation.inventoryBalances', href: '/admin/inventory/balances' },
     ],
   },
   {
-    label: 'navigation.maintenance', href: '#', icon: 'maintenance', children: [
-      { label: 'navigation.machines', href: '/admin/maintenance/machines' },
-      { label: 'navigation.machineCategories', href: '/admin/maintenance/machine-categories' },
-      { label: 'navigation.machineParts', href: '/admin/maintenance/machine-parts' },
-      { label: 'navigation.machineDocuments', href: '/admin/maintenance/machine-documents' },
-      { label: 'navigation.maintenanceRequests', href: '/admin/maintenance/requests' },
-      { label: 'navigation.maintenanceTasks', href: '/admin/maintenance/tasks' },
-      { label: 'navigation.maintenanceSchedules', href: '/admin/maintenance/schedules' },
-      { label: 'navigation.checklistItems', href: '/admin/maintenance/checklist-items' },
-      { label: 'navigation.downtimeLogs', href: '/admin/maintenance/downtime-logs' },
+    id: 'maintenance', label: 'navigation.maintenance', href: '#', icon: 'maintenance', children: [
+      { id: 'mnt-machines', label: 'navigation.machines', href: '/admin/maintenance/machines' },
+      { id: 'mnt-machine-categories', label: 'navigation.machineCategories', href: '/admin/maintenance/machine-categories' },
+      { id: 'mnt-machine-parts', label: 'navigation.machineParts', href: '/admin/maintenance/machine-parts' },
+      { id: 'mnt-machine-documents', label: 'navigation.machineDocuments', href: '/admin/maintenance/machine-documents' },
+      { id: 'mnt-requests', label: 'navigation.maintenanceRequests', href: '/admin/maintenance/requests' },
+      { id: 'mnt-tasks', label: 'navigation.maintenanceTasks', href: '/admin/maintenance/tasks' },
+      { id: 'mnt-schedules', label: 'navigation.maintenanceSchedules', href: '/admin/maintenance/schedules' },
+      { id: 'mnt-checklist-items', label: 'navigation.checklistItems', href: '/admin/maintenance/checklist-items' },
+      { id: 'mnt-downtime-logs', label: 'navigation.downtimeLogs', href: '/admin/maintenance/downtime-logs' },
     ],
   },
 ];
@@ -76,6 +83,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const isRtl = locale === 'ar';
 
   useEffect(() => {
     getProfile().then((p) => { if (p) setProfile(p); });
@@ -92,7 +100,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="flex min-h-screen bg-gray-100 overflow-x-hidden" dir={isRtl ? 'rtl' : 'ltr'}>
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -103,11 +111,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-auto ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed inset-y-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 lg:z-auto flex flex-col ${
+          isRtl
+            ? 'right-0 lg:right-0'
+            : 'left-0 lg:left-0'
+        } ${
+          sidebarOpen ? 'translate-x-0' : isRtl ? 'translate-x-full' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between h-16 px-6 border-b">
+        <div className="flex items-center justify-between h-16 px-6 border-b shrink-0">
           <span className="text-lg font-bold text-gray-800">ATsoft ERP</span>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -118,19 +130,20 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </svg>
           </button>
         </div>
-        <nav className="px-4 py-4 space-y-1 overflow-y-auto max-h-[calc(100vh-4rem)]">
+
+        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto min-w-0">
           {navItems.map((item) => (
-            <div key={item.label}>
+            <div key={item.id}>
               {item.children ? (
                 <div className="mb-2">
                   <div className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 uppercase tracking-wider">
-                    {item.icon && iconMap[item.icon]}
-                    <span className="ml-2">{t(item.label)}</span>
+                    {item.icon && <span className="shrink-0">{iconMap[item.icon]}</span>}
+                    <span className="mr-2 ml-2">{t(item.label)}</span>
                   </div>
-                  <div className="ml-4 space-y-1 mt-1">
+                  <div className="mr-4 ml-4 space-y-1 mt-1">
                     {item.children.map((child) => (
                       <Link
-                        key={child.href}
+                        key={child.id}
                         href={child.href}
                         className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors ${
                           pathname === child.href
@@ -154,20 +167,47 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   }`}
                   onClick={() => setSidebarOpen(false)}
                 >
-                  {item.icon && iconMap[item.icon]}
-                  <span className="ml-2">{t(item.label)}</span>
+                  {item.icon && <span className="shrink-0">{iconMap[item.icon]}</span>}
+                  <span className="mr-2 ml-2">{t(item.label)}</span>
                 </Link>
               )}
             </div>
           ))}
         </nav>
+
+        {/* User panel at sidebar bottom */}
+        <div className="border-t p-4 shrink-0">
+          <div className={`flex items-center ${isRtl ? 'space-x-reverse' : ''} space-x-3 mb-3`}>
+            <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium shrink-0">
+              {profile?.name?.charAt(0)?.toUpperCase() || 'U'}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-gray-700 truncate">{profile?.name || t('common.loading')}</p>
+              <p className="text-xs text-gray-500 truncate">{profile?.email || ''}</p>
+            </div>
+          </div>
+          <div className={`flex items-center ${isRtl ? 'space-x-reverse' : ''} space-x-2`}>
+            <button
+              onClick={toggleLanguage}
+              className="flex-1 px-2 py-1.5 text-xs border rounded-md hover:bg-gray-50 transition-colors"
+            >
+              {isRtl ? 'English' : '\u0627\u0644\u0639\u0631\u0628\u064a\u0629'}
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex-1 px-2 py-1.5 text-xs text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
+            >
+              {t('common.logout')}
+            </button>
+          </div>
+        </div>
       </aside>
 
       {/* Main content area */}
-      <div className="lg:pl-64">
-        {/* Topbar */}
-        <header className="sticky top-0 z-30 bg-white shadow-sm border-b">
-          <div className="flex items-center justify-between h-16 px-4 sm:px-6">
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Topbar (hamburger only on mobile) */}
+        <header className="sticky top-0 z-30 bg-white shadow-sm border-b shrink-0">
+          <div className="flex items-center h-16 px-4 sm:px-6">
             <button
               onClick={() => setSidebarOpen(true)}
               className="text-gray-500 hover:text-gray-700 lg:hidden"
@@ -176,35 +216,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <div className="flex-1" />
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={toggleLanguage}
-                className="px-3 py-1 text-sm border rounded-md hover:bg-gray-50 transition-colors"
-              >
-                {locale === 'ar' ? 'English' : '\u0627\u0644\u0639\u0631\u0628\u064a\u0629'}
-              </button>
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
-                  {profile?.name?.charAt(0)?.toUpperCase() || 'U'}
-                </div>
-                <div className="hidden sm:block">
-                  <p className="text-sm font-medium text-gray-700">{profile?.name || t('common.loading')}</p>
-                  <p className="text-xs text-gray-500">{profile?.email || ''}</p>
-                </div>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
-              >
-                {t('common.logout')}
-              </button>
-            </div>
           </div>
         </header>
 
         {/* Page content */}
-        <main className="p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 overflow-x-hidden">
           {children}
         </main>
       </div>

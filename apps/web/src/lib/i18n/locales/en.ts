@@ -71,6 +71,7 @@ const en: LocaleTranslations = {
     inactive: 'Inactive',
     newItem: 'New',
     editItem: 'Edit',
+    logout: 'Logout',
   },
   auth: {
     login: 'Login',

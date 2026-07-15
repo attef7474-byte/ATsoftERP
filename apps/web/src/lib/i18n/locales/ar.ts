@@ -71,6 +71,7 @@ const ar: LocaleTranslations = {
     inactive: 'غير نشط',
     newItem: 'جديد',
     editItem: 'تعديل',
+    logout: 'تسجيل الخروج',
   },
   auth: {
     login: 'تسجيل الدخول',
