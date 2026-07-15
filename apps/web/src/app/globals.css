@@ -56,7 +56,7 @@ body {
 .admin-actionbar {
   position: fixed;
   top: var(--app-topbar-height);
-  inset-inline-start: 0;
+  inset-inline-start: var(--app-sidebar-collapsed, var(--app-sidebar-width));
   inset-inline-end: 0;
   height: var(--app-actionbar-height);
   z-index: 55;
@@ -66,7 +66,7 @@ body {
   background: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
   gap: 4px;
-  transition: height 0.15s ease, padding 0.15s ease, opacity 0.15s ease;
+  transition: height 0.15s ease, padding 0.15s ease, opacity 0.15s ease, inset-inline-start 0.2s ease;
   overflow: hidden;
 }
 
@@ -90,6 +90,39 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+.admin-sidebar-collapsed {
+  width: 56px;
+  border-inline-end: none;
+}
+
+.admin-sidebar-icons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 4px;
+}
+
+.sidebar-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar-icon-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
 }
 
 [dir="ltr"] .admin-sidebar {
@@ -111,11 +144,12 @@ body {
   position: fixed;
   top: calc(var(--app-topbar-height) + var(--app-actionbar-active-height, var(--app-actionbar-height)));
   bottom: var(--app-statusbar-height);
-  inset-inline-start: var(--app-sidebar-width);
+  inset-inline-start: var(--app-sidebar-collapsed, var(--app-sidebar-width));
   inset-inline-end: 0;
   z-index: 40;
   overflow-y: auto;
   overflow-x: hidden;
+  transition: inset-inline-start 0.2s ease;
 }
 
 .admin-main-inner {
@@ -179,9 +213,11 @@ body {
   margin: 0 4px;
 }
 
-/* Hamburger menu (mobile) */
+/* Sidebar toggle button */
 .admin-hamburger {
-  display: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   padding: 6px;
@@ -194,11 +230,6 @@ body {
 }
 
 @media (max-width: 1023px) {
-  .admin-hamburger {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
 
   .admin-sidebar {
     display: none;

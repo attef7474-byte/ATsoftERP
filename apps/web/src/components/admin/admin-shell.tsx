@@ -127,9 +127,20 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { visible: actionBarVisible, actions } = useAdminActionBar();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [clock, setClock] = useState('');
   const isRtl = locale === 'ar';
+
+  const toggleSection = (id: string) => {
+    setExpandedSections((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const onCollapsedIconClick = (id: string) => {
+    setSidebarCollapsed(false);
+    setExpandedSections((prev) => ({ ...prev, [id]: true }));
+  };
 
   useEffect(() => {
     getProfile().then((p) => { if (p) setProfile(p); });
@@ -151,13 +162,24 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
     setLocale(locale === 'ar' ? 'en' : 'ar');
   };
 
+  const toggleSidebar = () => {
+    if (window.innerWidth < 1024) {
+      setSidebarOpen(true);
+    } else {
+      setSidebarCollapsed((prev) => !prev);
+    }
+  };
+
   const pageTitleKey = useMemo(() => getPageTitle(pathname), [pathname]);
 
   return (
     <div
       className="admin-workspace-shell"
       dir={isRtl ? 'rtl' : 'ltr'}
-      style={{ '--app-actionbar-active-height': actionBarVisible ? 'var(--app-actionbar-height)' : '0px' } as React.CSSProperties}
+      style={{
+        '--app-actionbar-active-height': actionBarVisible ? 'var(--app-actionbar-height)' : '0px',
+        '--app-sidebar-collapsed': sidebarCollapsed ? '56px' : 'var(--app-sidebar-width)',
+      } as React.CSSProperties}
     >
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
@@ -170,7 +192,7 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
       {/* === 1. Top Application Bar === */}
       <header className="admin-topbar">
         <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="admin-hamburger">
+          <button onClick={toggleSidebar} className="admin-hamburger">
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -233,7 +255,7 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
             </button>
           </div>
           <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
-            {renderNavItems(navItems, pathname, t, iconMap, () => setSidebarOpen(false))}
+            {renderNavItems(navItems, pathname, t, iconMap, () => setSidebarOpen(false), expandedSections, toggleSection)}
           </nav>
           <div className="border-t px-4 py-3 shrink-0">
             <div className="flex items-center gap-2">
@@ -249,10 +271,25 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
         </aside>
       )}
 
-      <aside className="admin-sidebar hidden lg:flex">
-        <nav className="admin-sidebar-inner">
-          {renderNavItems(navItems, pathname, t, iconMap, () => setSidebarOpen(false))}
-        </nav>
+      <aside className={`admin-sidebar hidden lg:flex ${sidebarCollapsed ? 'admin-sidebar-collapsed' : ''}`}>
+        {sidebarCollapsed ? (
+          <nav className="admin-sidebar-icons">
+            {navItems.filter((item) => item.icon).map((item) => (
+              <button
+                key={item.id}
+                onClick={() => onCollapsedIconClick(item.id)}
+                className="sidebar-icon-btn"
+                title={t(item.label)}
+              >
+                {iconMap[item.icon!]}
+              </button>
+            ))}
+          </nav>
+        ) : (
+          <nav className="admin-sidebar-inner">
+            {renderNavItems(navItems, pathname, t, iconMap, () => setSidebarOpen(false), expandedSections, toggleSection)}
+          </nav>
+        )}
       </aside>
 
       {/* === 4. Main Workspace === */}
@@ -292,39 +329,54 @@ function renderNavItems(
   t: (key: string, ns?: TranslationNamespace) => string,
   iconMap: Record<string, React.ReactNode>,
   onNavigate: () => void,
+  expandedSections?: Record<string, boolean>,
+  onToggleSection?: (id: string) => void,
 ): React.ReactNode {
+  const isExpanded = (id: string) => expandedSections?.[id] ?? false;
+
   return items.map((item) => (
     <div key={item.id}>
       {item.children ? (
         <div className="mb-2">
-          <div className="flex items-center px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {item.icon && <span className="shrink-0 mr-2">{iconMap[item.icon]}</span>}
-            <span>{t(item.label)}</span>
-          </div>
-          <div className="space-y-0.5">
-            {item.children.map((child) => (
-              <Link
-                key={child.id}
-                href={child.href}
-                className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-colors ${
-                  pathname === child.href ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-                onClick={onNavigate}
-              >
-                {child.label && t(child.label)}
-              </Link>
-            ))}
-          </div>
+          <button
+            onClick={() => onToggleSection?.(item.id)}
+            className="flex items-center w-full px-3 py-2.5 text-sm font-bold text-gray-800 uppercase tracking-wider hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+          >
+            {item.icon && <span className="shrink-0 mr-2.5 text-blue-600">{iconMap[item.icon]}</span>}
+            <span className="flex-1 text-left">{t(item.label)}</span>
+            <svg
+              className={`h-3.5 w-3.5 text-gray-400 transition-transform ${isExpanded(item.id) ? 'rotate-90' : ''}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          {isExpanded(item.id) && (
+            <div className="space-y-0.5 mt-1 ml-6 border-l-2 border-blue-100 pl-3">
+              {item.children.map((child) => (
+                <Link
+                  key={child.id}
+                  href={child.href}
+                  className={`flex items-center px-3 py-1.5 text-xs rounded-md transition-colors ${
+                    pathname === child.href ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                  }`}
+                  onClick={onNavigate}
+                >
+                  {child.label && t(child.label)}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <Link
           href={item.href}
-          className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors mb-1 ${
-            pathname === item.href ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+          className={`flex items-center px-3 py-2.5 text-sm font-bold text-gray-800 uppercase tracking-wider rounded-md transition-colors mb-1 ${
+            pathname === item.href ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-100 hover:text-gray-900'
           }`}
           onClick={onNavigate}
         >
-          {item.icon && <span className="shrink-0 mr-2">{iconMap[item.icon]}</span>}
+          {item.icon && <span className="shrink-0 mr-2.5 text-blue-600">{iconMap[item.icon]}</span>}
           <span>{t(item.label)}</span>
         </Link>
       )}

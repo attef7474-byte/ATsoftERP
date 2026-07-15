@@ -48,6 +48,18 @@ export function logout(): void {
   }
 }
 
+export function registerAutoLogout(): () => void {
+  const handler = () => {
+    const token = getToken();
+    if (!token) return;
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+    navigator.sendBeacon(`${baseUrl}/auth/logout`, JSON.stringify({}));
+    localStorage.removeItem('accessToken');
+  };
+  window.addEventListener('beforeunload', handler);
+  return () => window.removeEventListener('beforeunload', handler);
+}
+
 export function getToken(): string | null {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('accessToken');

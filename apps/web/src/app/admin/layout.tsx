@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { isAuthenticated } from '../../lib/auth';
+import { isAuthenticated, registerAutoLogout } from '../../lib/auth';
 import { AdminShell } from '../../components/admin/admin-shell';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -15,6 +15,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setChecked(true);
     }
   }, [router]);
+
+  useEffect(() => {
+    if (!checked) return;
+    return registerAutoLogout();
+  }, [checked]);
 
   if (!checked) {
     return (

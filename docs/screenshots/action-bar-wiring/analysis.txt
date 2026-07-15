@@ -1,45 +1,44 @@
 Action Bar Wiring — Screenshots & Analysis
 ===========================================
-Date: 2026-07-15
-Commit target: feat: wire real page-aware admin action bar
-Tag target: atsoft-erp-real-page-aware-action-bar-wiring
+Date: 2026-07-16
+Commit: 129c235 — feat: wire real page-aware admin action bar
+Tag: atsoft-erp-real-page-aware-action-bar-wiring (pushed to origin/main)
 
 Screenshots
 ===========
-Screenshots to be taken manually in browser at http://localhost:3001:
+All 10 PNG screenshots captured via Playwright (Firefox headless) against
+production build (next start) on port 3055 with mock auth token.
 
-1. admin-dashboard.png        — Dashboard: Action Bar hidden, no blank gap
-2. admin-core-companies.png   — Companies: Action Bar shows New/Edit/Delete/Refresh/Activate/Deactivate
-3. admin-inventory-products.png  — Products: Action Bar with status-aware activate/deactivate
-4. admin-inventory-counts.png    — Counts: Action Bar with workflow Start/Complete/Cancel/ViewLines/Generate
-5. admin-inventory-movements.png — Movements: Action Bar with Post/Cancel workflow
-6. admin-inventory-balances.png  — Balances: Action Bar with Refresh/Recalculate only
-7. admin-maintenance-machines.png — Machines: Action Bar with status toggle
-8. admin-maintenance-requests.png — Requests: Action Bar with Start/Complete/Cancel workflow
-9. admin-maintenance-tasks.png    — Tasks: Action Bar with Start/Complete/Cancel workflow
-10. admin-maintenance-downtime-logs.png — Downtime Logs: Action Bar with Close action
+1. admin-dashboard.png            — Dashboard: bar hidden ✅
+2. admin-core-companies.png       — Companies: 6 buttons visible ✅
+3. admin-inventory-products.png   — Products: 5 buttons visible ✅
+4. admin-inventory-counts.png     — Counts: 8 buttons visible ✅
+5. admin-inventory-movements.png  — Movements: 5 buttons visible ✅
+6. admin-inventory-balances.png   — Balances: 2 buttons visible ✅
+7. admin-maintenance-machines.png — Machines: 5 buttons visible ✅
+8. admin-maintenance-requests.png — Requests: 6 buttons visible ✅
+9. admin-maintenance-tasks.png    — Tasks: 6 buttons visible ✅
+10. admin-maintenance-downtime-logs.png — Downtime Logs: 4 buttons visible ✅
 
-Verification Results (from build & curl)
-=========================================
+Verification Results
+====================
 Build:
-- next build                 : PASS (0 errors, 28 pages generated)
-- TypeScript checking         : PASS (0 type errors)
+- next build                      : PASS (0 errors, 28 pages generated)
+- TypeScript checking             : PASS (0 type errors)
 
-Runtime (dev server, 10 pages tested via curl):
-- /admin/dashboard           : HTTP 200
-- /admin/core/companies      : HTTP 200
-- /admin/inventory/products  : HTTP 200
-- /admin/inventory/counts    : HTTP 200
-- /admin/inventory/movements : HTTP 200
-- /admin/inventory/balances  : HTTP 200
-- /admin/maintenance/machines: HTTP 200
-- /admin/maintenance/requests: HTTP 200
-- /admin/maintenance/tasks   : HTTP 200
-- /admin/maintenance/downtime-logs: HTTP 200
+Client-rendered (Playwright/Firefox with mock auth):
+- admin-dashboard                 : bar=true hidden=true btns=0 ✅
+- admin-core-companies            : bar=true hidden=false btns=6 ✅
+- admin-inventory-products        : bar=true hidden=false btns=5 ✅
+- admin-inventory-counts          : bar=true hidden=false btns=8 ✅
+- admin-inventory-movements       : bar=true hidden=false btns=5 ✅
+- admin-inventory-balances        : bar=true hidden=false btns=2 ✅
+- admin-maintenance-machines      : bar=true hidden=false btns=5 ✅
+- admin-maintenance-requests      : bar=true hidden=false btns=6 ✅
+- admin-maintenance-tasks         : bar=true hidden=false btns=6 ✅
+- admin-maintenance-downtime-logs : bar=true hidden=false btns=4 ✅
 
-Console warnings            : 0 (verified against build output)
-Duplicate key warnings      : 0
-Raw translation keys        : 0
+All 10: PASS ✅ (bar present, hidden only on dashboard, no spinner)
 
 Action Bar Design Verification
 ==============================
@@ -54,7 +53,7 @@ Action Bar Design Verification
 9. Selected row highlight                       : yes (DataTable selectedKey prop)
 
 Pages Wired (23 total)
-==============
+================
 Dashboard     : 1 page   — hidden
 Core          : 3 pages  — companies, branches, departments
 Access        : 3 pages  — users, roles, permissions
@@ -69,6 +68,5 @@ No database changes        : yes
 No Docker changes          : yes
 
 Known Limitations (non-blocking, cosmetic)
-===========================================
+==========================================
 1. Unused import ActionDeleteIcon in warehouses/product-categories/products pages (harmless, tree-shaken)
-2. Headless browser not available for screenshot capture; manual browser session required
