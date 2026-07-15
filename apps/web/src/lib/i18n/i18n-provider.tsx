@@ -35,11 +35,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [locale]);
 
   const t = useCallback(
-    (key: string, ns: TranslationNamespace = 'common'): string => {
+    (key: string, ns?: TranslationNamespace): string => {
       const localeData = translations[locale];
-      const nsData = localeData[ns];
+      const dotIndex = key.indexOf('.');
+      const actualNs = ns ?? (dotIndex >= 0 ? key.substring(0, dotIndex) as TranslationNamespace : 'common');
+      const actualKey = (dotIndex >= 0 && ns === undefined) ? key.substring(dotIndex + 1) : key;
+      const nsData = localeData[actualNs];
       if (!nsData) return key;
-      const value = getNestedValue(nsData, key);
+      const value = getNestedValue(nsData, actualKey);
       if (typeof value === 'string') return value;
       return key;
     },

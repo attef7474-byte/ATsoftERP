@@ -1,0 +1,152 @@
+=== PAGE ANALYSIS REPORT ===
+
+--- 01-login (/login) ---
+Title: ATsoft ERP
+H1: ATsoft ERP
+Sidebar: false
+
+--- 02-dashboard (/admin/dashboard) ---
+Title: ATsoft ERP
+H1: Dashboard
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 03-machines (/admin/maintenance/machines) ---
+Title: ATsoft ERP
+H1: Machines
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 04-machine-categories (/admin/maintenance/machine-categories) ---
+Title: ATsoft ERP
+H1: Machine Categories
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 05-machine-parts (/admin/maintenance/machine-parts) ---
+Title: ATsoft ERP
+H1: Machine Parts
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 06-machine-documents (/admin/maintenance/machine-documents) ---
+Title: ATsoft ERP
+H1: Machine Documents
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 07-maintenance-requests (/admin/maintenance/requests) ---
+Title: ATsoft ERP
+H1: Maintenance Requests
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 08-maintenance-tasks (/admin/maintenance/tasks) ---
+Title: ATsoft ERP
+H1: Maintenance Tasks
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 09-maintenance-schedules (/admin/maintenance/schedules) ---
+Title: ATsoft ERP
+H1: Maintenance Schedules
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 10-checklist-items (/admin/maintenance/checklist-items) ---
+Title: ATsoft ERP
+H1: Checklist Items
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 11-downtime-logs (/admin/maintenance/downtime-logs) ---
+Title: ATsoft ERP
+H1: Downtime Logs
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 12-products (/admin/inventory/products) ---
+Title: ATsoft ERP
+H1: Products
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 13-product-categories (/admin/inventory/product-categories) ---
+Title: ATsoft ERP
+H1: Product Categories
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 14-warehouses (/admin/inventory/warehouses) ---
+Title: ATsoft ERP
+H1: Warehouses
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 15-inventory-counts (/admin/inventory/counts) ---
+Title: ATsoft ERP
+H1: Inventory Counts
+Sidebar: true
+ERRORS FOUND: ["common.logout","Cancel","Cancel"]
+
+--- 16-inventory-movements (/admin/inventory/movements) ---
+Title: ATsoft ERP
+H1: Inventory Movements
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 17-inventory-adjustments (/admin/inventory/adjustments) ---
+Title: ATsoft ERP
+H1: Inventory Adjustments
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 18-inventory-balances (/admin/inventory/balances) ---
+Title: ATsoft ERP
+H1: Inventory Balances
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 19-companies (/admin/core/companies) ---
+Title: ATsoft ERP
+H1: Companies
+Sidebar: true
+ERRORS FOUND: ["common.logout","Delete"]
+
+--- 20-branches (/admin/core/branches) ---
+Title: ATsoft ERP
+H1: Branches
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 21-departments (/admin/core/departments) ---
+Title: ATsoft ERP
+H1: Departments
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 22-users (/admin/access/users) ---
+Title: ATsoft ERP
+H1: Users
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 23-roles (/admin/access/roles) ---
+Title: ATsoft ERP
+H1: Roles
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+--- 24-permissions (/admin/access/permissions) ---
+Title: ATsoft ERP
+H1: Permissions
+Sidebar: true
+ERRORS FOUND: ["common.logout"]
+
+
+=== SUMMARY ===
+Pages analyzed: 24
+Pages with errors: 23
+
+=== DUPLICATE KEY ANALYSIS ===
+Tables found on last page: 0

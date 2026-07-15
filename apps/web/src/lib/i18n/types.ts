@@ -16,6 +16,9 @@ export type TranslationNamespace =
   | 'cmms'
   | 'f9'
   | 'inventoryCounting'
+  | 'users'
+  | 'roles'
+  | 'permissions'
   | 'barcodes';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
