@@ -72,6 +72,19 @@ const en: LocaleTranslations = {
     newItem: 'New',
     editItem: 'Edit',
     logout: 'Logout',
+    notifications: 'Notifications',
+    language: 'Language',
+    user: 'User',
+    administrator: 'Administrator',
+    createdBy: 'Created By',
+    updatedBy: 'Updated By',
+    operationNo: 'Operation No.',
+    editCount: 'Edits',
+    printCount: 'Prints',
+    activeRows: 'Active Rows',
+    selectedRows: 'Selected Rows',
+    unavailable: 'N/A',
+    lastRefresh: 'Last Refresh',
   },
   auth: {
     login: 'Login',
@@ -678,6 +691,13 @@ const en: LocaleTranslations = {
     clear: 'Clear',
     page: 'Page',
     of: 'of',
+  },
+  workspace: {
+    topBar: 'Top Bar',
+    actionBar: 'Actions',
+    statusBar: 'Status',
+    sidebar: 'Navigation',
+    workspace: 'Workspace',
   },
 };
 

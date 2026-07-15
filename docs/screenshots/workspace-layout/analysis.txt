@@ -1,0 +1,127 @@
+Analysis — Global Admin Workspace Layout Foundation
+===================================================
+Date: 2026-07-15
+Commit: (pending)
+Tag: atsoft-erp-global-admin-workspace-layout
+
+Old Issues
+----------
+1. Layout used sticky topbar with flex-based sidebar (lg:relative).
+   Sidebar and content sometimes overlapped in RTL mode.
+2. User panel was at the bottom of the sidebar, mixing nav with user controls.
+3. No action toolbar existed — each page had its own buttons inconsistently.
+4. No bottom status bar — no record/page metadata visible.
+5. Horizontal overflow could appear on some pages due to flex overgrowth.
+6. Only two layout zones: sidebar + content.
+
+New Layout Structure
+--------------------
+1. admin-topbar (fixed, 56px)
+   - App name (translated via common.appName)
+   - Notification icon (visual only)
+   - Language toggle
+   - User avatar/initials + name/email
+   - Logout button (translated)
+   - Hamburger menu (mobile only)
+
+2. admin-actionbar (fixed, 48px)
+   - Back button (router.back())
+   - Refresh button (router.refresh())
+   - Separator
+   - Add (disabled)
+   - Edit (disabled)
+   - Delete (disabled)
+   - Separator
+   - Save (disabled)
+   - Cancel (disabled)
+   - Separator
+   - Print (disabled)
+   - Export (disabled)
+   - Spacer
+   - Search icon (disabled)
+   - All disabled actions have tooltips explaining they are not yet wired.
+
+3. admin-sidebar (fixed, between actionbar and statusbar, 260px)
+   - Desktop: hidden on mobile, visible on lg+ (hidden lg:flex)
+   - Mobile: drawer overlay with user info at bottom
+   - Navigation groups only (no user panel duplicated)
+   - Internal scroll via admin-sidebar-inner
+   - RTL-aware (positioned via [dir] selector)
+
+4. admin-main (fixed, scrollable, between actionbar and statusbar)
+   - Only scrollable area
+   - overflow-x: hidden to prevent horizontal scroll
+   - admin-main-inner with padding
+
+5. admin-statusbar (fixed, 34px)
+   - Page title (derived from pathname via getPageTitle())
+   - Operation No: —
+   - Status: —
+   - Created By: —
+   - Updated By: —
+   - Clock (current time, locale-aware)
+   - Placeholder values show — or "غير متوفر" when data unavailable
+
+CSS Variables
+-------------
+--app-topbar-height: 56px;
+--app-actionbar-height: 48px;
+--app-statusbar-height: 34px;
+--app-sidebar-width: 260px;
+
+i18n Changes
+-------------
+- common: added notifications, language, user, administrator,
+  createdBy, updatedBy, operationNo, editCount, printCount,
+  activeRows, selectedRows, unavailable, lastRefresh
+- workspace: added topBar, actionBar, statusBar, sidebar, workspace
+  (English + Arabic)
+- types.ts: added 'workspace' to TranslationNamespace union
+
+Files Changed
+-------------
+- apps/web/src/app/globals.css (CSS variables + layout classes)
+- apps/web/src/components/admin/admin-shell.tsx (full rewrite)
+- apps/web/src/lib/i18n/types.ts (added workspace namespace)
+- apps/web/src/lib/i18n/locales/en.ts (common keys + workspace ns)
+- apps/web/src/lib/i18n/locales/ar.ts (common keys + workspace ns)
+
+Pages Verified (via build)
+--------------------------
+All 28 pages compile successfully:
+- /admin/dashboard
+- /admin/core/companies, /admin/core/branches, /admin/core/departments
+- /admin/access/users, /admin/access/roles, /admin/access/permissions
+- /admin/inventory/warehouses, /admin/inventory/product-categories
+- /admin/inventory/products, /admin/inventory/counts
+- /admin/inventory/movements, /admin/inventory/adjustments
+- /admin/inventory/balances
+- /admin/maintenance/machines, /admin/maintenance/machine-categories
+- /admin/maintenance/machine-parts, /admin/maintenance/machine-documents
+- /admin/maintenance/requests, /admin/maintenance/tasks
+- /admin/maintenance/schedules, /admin/maintenance/checklist-items
+- /admin/maintenance/downtime-logs
+
+Screenshots
+-----------
+docs/screenshots/workspace-layout/ (8 screenshots)
+
+Build Results
+-------------
+- tsc --noEmit: 0 errors
+- next build: 0 errors, 28 pages
+
+Remaining Limitations
+---------------------
+1. Action toolbar buttons (add, edit, delete, save, cancel, print, export,
+   search) are disabled because page-specific handlers are not yet wired.
+   Back and Refresh work (router.back() / router.refresh()).
+2. Bottom status bar shows page metadata as placeholder values (—) since
+   no page-level context is provided yet. The clock works.
+3. Notification icon is visual only (no unread count).
+4. Mobile sidebar uses a drawer overlay, which is functional but could
+   be enhanced with transition animation.
+5. No ESLint configured (pre-existing).
+6. Auth-gated pages show loading spinner in screenshots (no token).
+7. Existing page-level action buttons (e.g., create/edit/delete inside
+   DataTable components) remain and are NOT removed or broken.

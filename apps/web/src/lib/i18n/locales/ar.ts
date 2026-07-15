@@ -72,6 +72,19 @@ const ar: LocaleTranslations = {
     newItem: 'جديد',
     editItem: 'تعديل',
     logout: 'تسجيل الخروج',
+    notifications: 'الإشعارات',
+    language: 'اللغة',
+    user: 'المستخدم',
+    administrator: 'مدير النظام',
+    createdBy: 'تم الإنشاء بواسطة',
+    updatedBy: 'آخر تحديث بواسطة',
+    operationNo: 'رقم العملية',
+    editCount: 'عدد التعديلات',
+    printCount: 'عدد الطبعات',
+    activeRows: 'السجلات النشطة',
+    selectedRows: 'السجلات المحددة',
+    unavailable: 'غير متوفر',
+    lastRefresh: 'آخر تحديث',
   },
   auth: {
     login: 'تسجيل الدخول',
@@ -678,6 +691,13 @@ const ar: LocaleTranslations = {
     clear: 'مسح',
     page: 'صفحة',
     of: 'من',
+  },
+  workspace: {
+    topBar: 'الشريط العلوي',
+    actionBar: 'الإجراءات',
+    statusBar: 'شريط الحالة',
+    sidebar: 'القائمة الجانبية',
+    workspace: 'مساحة العمل',
   },
 };
 
