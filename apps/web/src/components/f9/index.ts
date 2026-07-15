@@ -15,4 +15,8 @@ export {
   maintenanceRequestAdapter,
   maintenanceTaskAdapter,
   maintenanceScheduleAdapter,
+  inventoryCountAdapter,
+  inventoryMovementAdapter,
+  inventoryAdjustmentAdapter,
+  warehouseLocationAdapter,
 } from './lookup-adapters';

@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule } from '../../lib/admin-types';
+import type { Company, Branch, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -152,5 +152,52 @@ export const maintenanceScheduleAdapter: LookupAdapter<MaintenanceSchedule> = {
     { key: 'machine', header: 'Machine', render: (s) => s.machine?.name || '-' },
     { key: 'maintenanceType', header: 'Type', render: (s) => s.maintenanceType },
     { key: 'status', header: 'Status', render: (s) => s.status },
+  ],
+};
+
+export const inventoryCountAdapter: LookupAdapter<InventoryCount> = {
+  endpoint: '/inventory/counts',
+  displayLabel: (c) => `[${c.countNumber}] ${c.warehouse?.name || ''} - ${c.status}`,
+  searchFields: ['countNumber'],
+  columns: [
+    { key: 'countNumber', header: 'Number' },
+    { key: 'warehouse', header: 'Warehouse', render: (c) => c.warehouse?.name || '-' },
+    { key: 'status', header: 'Status', render: (c) => c.status },
+    { key: 'countDate', header: 'Date', render: (c) => c.countDate ? new Date(c.countDate).toLocaleDateString() : '-' },
+  ],
+};
+
+export const inventoryMovementAdapter: LookupAdapter<InventoryMovement> = {
+  endpoint: '/inventory/movements',
+  displayLabel: (m) => `[${m.movementNumber}] ${m.movementType} - ${m.status}`,
+  searchFields: ['movementNumber'],
+  columns: [
+    { key: 'movementNumber', header: 'Number' },
+    { key: 'movementType', header: 'Type', render: (m) => m.movementType },
+    { key: 'warehouse', header: 'Warehouse', render: (m) => m.warehouse?.name || '-' },
+    { key: 'status', header: 'Status', render: (m) => m.status },
+  ],
+};
+
+export const inventoryAdjustmentAdapter: LookupAdapter<InventoryAdjustment> = {
+  endpoint: '/inventory/adjustments',
+  displayLabel: (a) => `[${a.adjustmentNumber}] ${a.warehouse?.name || ''} - ${a.status}`,
+  searchFields: ['adjustmentNumber'],
+  columns: [
+    { key: 'adjustmentNumber', header: 'Number' },
+    { key: 'warehouse', header: 'Warehouse', render: (a) => a.warehouse?.name || '-' },
+    { key: 'status', header: 'Status', render: (a) => a.status },
+    { key: 'adjustmentDate', header: 'Date', render: (a) => a.adjustmentDate ? new Date(a.adjustmentDate).toLocaleDateString() : '-' },
+  ],
+};
+
+export const warehouseLocationAdapter: LookupAdapter<WarehouseLocation> = {
+  endpoint: '/inventory/warehouses',
+  displayLabel: (l) => `[${l.code}] ${l.name}`,
+  searchFields: ['code', 'name'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'status', header: 'Status', render: (l) => l.status },
   ],
 };

@@ -13,7 +13,8 @@ export type TranslationNamespace =
   | 'access'
   | 'inventory'
   | 'maintenance'
-  | 'f9';
+  | 'f9'
+  | 'inventoryCounting';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

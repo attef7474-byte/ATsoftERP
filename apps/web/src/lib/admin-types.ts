@@ -157,6 +157,142 @@ export interface Product {
   category?: { id: string; name: string; code: string };
 }
 
+export type InventoryCountStatus = 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type InventoryCountLineStatus = 'PENDING' | 'COUNTED' | 'VERIFIED';
+export type InventoryMovementStatus = 'DRAFT' | 'POSTED' | 'CANCELLED';
+export type InventoryMovementType = 'OPENING' | 'PURCHASE_RECEIPT' | 'SALES_ISSUE' | 'PRODUCTION_RECEIPT' | 'PRODUCTION_ISSUE' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT' | 'COUNT_ADJUSTMENT';
+export type InventoryMovementDirection = 'IN' | 'OUT';
+export type InventoryAdjustmentStatus = 'DRAFT' | 'POSTED' | 'CANCELLED';
+
+export interface InventoryCount {
+  id: string;
+  countNumber: string;
+  companyId: string;
+  branchId: string;
+  warehouseId: string;
+  status: InventoryCountStatus;
+  countDate: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  cancelledAt?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  company?: { id: string; name: string };
+  branch?: { id: string; name: string };
+  warehouse?: { id: string; name: string; code: string };
+  lines?: InventoryCountLine[];
+  _count?: { lines: number };
+  summary?: { linesCount: number; countedLinesCount: number; verifiedLinesCount: number; totalDifferenceQty: number };
+}
+
+export interface InventoryCountLine {
+  id: string;
+  countId: string;
+  productId: string;
+  warehouseLocationId?: string | null;
+  systemQty: number;
+  countedQty?: number | null;
+  differenceQty?: number | null;
+  status: InventoryCountLineStatus;
+  countedAt?: string | null;
+  countedById?: string | null;
+  verifiedAt?: string | null;
+  verifiedById?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  product?: { id: string; name: string; code: string; unit: string };
+  warehouseLocation?: { id: string; name: string; code: string };
+}
+
+export interface InventoryMovement {
+  id: string;
+  movementNumber: string;
+  companyId: string;
+  branchId: string;
+  warehouseId: string;
+  movementType: InventoryMovementType;
+  status: InventoryMovementStatus;
+  direction: InventoryMovementDirection;
+  movementDate: string;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  postedAt?: string | null;
+  postedById?: string | null;
+  cancelledAt?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  company?: { id: string; name: string };
+  branch?: { id: string; name: string };
+  warehouse?: { id: string; name: string; code: string };
+  lines?: InventoryMovementLine[];
+  _count?: { lines: number };
+}
+
+export interface InventoryMovementLine {
+  id: string;
+  movementId: string;
+  productId: string;
+  warehouseLocationId?: string | null;
+  quantity: number;
+  direction: InventoryMovementDirection;
+  unit?: string | null;
+  notes?: string | null;
+  product?: { id: string; name: string; code: string; unit: string };
+  warehouseLocation?: { id: string; name: string; code: string };
+}
+
+export interface InventoryAdjustment {
+  id: string;
+  adjustmentNumber: string;
+  companyId: string;
+  branchId: string;
+  warehouseId: string;
+  inventoryCountId?: string | null;
+  status: InventoryAdjustmentStatus;
+  adjustmentDate: string;
+  reason?: string | null;
+  notes?: string | null;
+  postedAt?: string | null;
+  postedById?: string | null;
+  cancelledAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  company?: { id: string; name: string };
+  branch?: { id: string; name: string };
+  warehouse?: { id: string; name: string; code: string };
+  inventoryCount?: { id: string; countNumber: string; status: string };
+  lines?: InventoryAdjustmentLine[];
+  _count?: { lines: number };
+}
+
+export interface InventoryAdjustmentLine {
+  id: string;
+  adjustmentId: string;
+  productId: string;
+  warehouseLocationId?: string | null;
+  systemQty: number;
+  countedQty: number;
+  differenceQty: number;
+  notes?: string | null;
+  product?: { id: string; name: string; code: string; unit: string };
+  warehouseLocation?: { id: string; name: string; code: string };
+}
+
+export interface InventoryBalance {
+  id: string;
+  productId: string;
+  warehouseId: string;
+  warehouseLocationId?: string | null;
+  quantity: number;
+  updatedAt: string;
+  product?: { id: string; name: string; code: string; unit: string };
+  warehouse?: { id: string; name: string; code: string };
+  warehouseLocation?: { id: string; name: string; code: string };
+}
+
 export interface MachineCategory {
   id: string;
   code: string;

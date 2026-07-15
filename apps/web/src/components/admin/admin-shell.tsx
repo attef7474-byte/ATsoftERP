@@ -35,6 +35,10 @@ const navItems: NavItem[] = [
       { label: 'navigation.warehouses', href: '/admin/inventory/warehouses' },
       { label: 'navigation.productCategories', href: '/admin/inventory/product-categories' },
       { label: 'navigation.products', href: '/admin/inventory/products' },
+      { label: 'navigation.inventoryCounts', href: '/admin/inventory/counts' },
+      { label: 'navigation.inventoryMovements', href: '/admin/inventory/movements' },
+      { label: 'navigation.inventoryAdjustments', href: '/admin/inventory/adjustments' },
+      { label: 'navigation.inventoryBalances', href: '/admin/inventory/balances' },
     ],
   },
   {
