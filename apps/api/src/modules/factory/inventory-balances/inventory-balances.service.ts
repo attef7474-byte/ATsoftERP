@@ -132,4 +132,76 @@ export class InventoryBalancesService {
     await this.audit.log(userId, 'RECALCULATE', 'InventoryBalance', undefined);
     return { message: 'Inventory balances recalculated successfully' };
   }
+
+  async getBalanceSummary() {
+    const [total, totalProducts, totalQty, warehouseDistinct] = await Promise.all([
+      this.prisma.inventoryBalance.count(),
+      this.prisma.inventoryBalance.groupBy({ by: ['productId'], _count: true }),
+      this.prisma.inventoryBalance.aggregate({ _sum: { quantity: true } }),
+      this.prisma.inventoryBalance.groupBy({ by: ['warehouseId'], _count: true }),
+    ]);
+
+    return {
+      totalBalances: total,
+      totalProducts: totalProducts.length,
+      totalQuantity: totalQty._sum.quantity || 0,
+      totalWarehouses: warehouseDistinct.length,
+      byWarehouse: warehouseDistinct.map((w) => ({ warehouseId: w.warehouseId, count: w._count })),
+    };
+  }
+
+  async getCountSummary() {
+    const [total, draft, inProgress, completed, cancelled] = await Promise.all([
+      this.prisma.inventoryCount.count({ where: { deletedAt: null } }),
+      this.prisma.inventoryCount.count({ where: { status: 'DRAFT', deletedAt: null } }),
+      this.prisma.inventoryCount.count({ where: { status: 'IN_PROGRESS', deletedAt: null } }),
+      this.prisma.inventoryCount.count({ where: { status: 'COMPLETED', deletedAt: null } }),
+      this.prisma.inventoryCount.count({ where: { status: 'CANCELLED', deletedAt: null } }),
+    ]);
+    return { total, draft, inProgress, completed, cancelled };
+  }
+
+  async getMovementSummary() {
+    const [total, draft, posted, cancelled, inQty, outQty] = await Promise.all([
+      this.prisma.inventoryMovement.count({ where: { deletedAt: null } }),
+      this.prisma.inventoryMovement.count({ where: { status: 'DRAFT', deletedAt: null } }),
+      this.prisma.inventoryMovement.count({ where: { status: 'POSTED', deletedAt: null } }),
+      this.prisma.inventoryMovement.count({ where: { status: 'CANCELLED', deletedAt: null } }),
+      this.prisma.inventoryMovementLine.aggregate({
+        where: { movement: { status: 'POSTED', deletedAt: null }, direction: 'IN' },
+        _sum: { quantity: true },
+      }),
+      this.prisma.inventoryMovementLine.aggregate({
+        where: { movement: { status: 'POSTED', deletedAt: null }, direction: 'OUT' },
+        _sum: { quantity: true },
+      }),
+    ]);
+    return {
+      total, draft, posted, cancelled,
+      totalInQty: inQty._sum.quantity || 0,
+      totalOutQty: outQty._sum.quantity || 0,
+    };
+  }
+
+  async getAdjustmentSummary() {
+    const [total, draft, posted, cancelled, totalPos, totalNeg] = await Promise.all([
+      this.prisma.inventoryAdjustment.count({ where: { deletedAt: null } }),
+      this.prisma.inventoryAdjustment.count({ where: { status: 'DRAFT', deletedAt: null } }),
+      this.prisma.inventoryAdjustment.count({ where: { status: 'POSTED', deletedAt: null } }),
+      this.prisma.inventoryAdjustment.count({ where: { status: 'CANCELLED', deletedAt: null } }),
+      this.prisma.inventoryAdjustmentLine.aggregate({
+        where: { adjustment: { status: 'POSTED', deletedAt: null }, differenceQty: { gt: 0 } },
+        _sum: { differenceQty: true },
+      }),
+      this.prisma.inventoryAdjustmentLine.aggregate({
+        where: { adjustment: { status: 'POSTED', deletedAt: null }, differenceQty: { lt: 0 } },
+        _sum: { differenceQty: true },
+      }),
+    ]);
+    return {
+      total, draft, posted, cancelled,
+      totalPositiveAdjustment: totalPos._sum.differenceQty || 0,
+      totalNegativeAdjustment: totalNeg._sum.differenceQty || 0,
+    };
+  }
 }

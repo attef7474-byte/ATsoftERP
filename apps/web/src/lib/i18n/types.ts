@@ -13,6 +13,7 @@ export type TranslationNamespace =
   | 'access'
   | 'inventory'
   | 'maintenance'
+  | 'cmms'
   | 'f9'
   | 'inventoryCounting';
 

@@ -395,7 +395,7 @@ export interface MaintenanceRequest {
   requestedBy?: { id: string; name: string; email: string };
   assignedTo?: { id: string; name: string; email: string };
   _count?: { tasks: number };
-  summary?: { tasksCount: number; completedTasksCount: number; totalDowntimeHours: number };
+  summary?: { tasksCount: number; completedTasksCount: number; openTasksCount: number; totalDowntimeHours: number };
 }
 
 export interface MaintenanceTask {
@@ -461,11 +461,100 @@ export interface DowntimeLog {
   startTime: string;
   endTime?: string | null;
   durationMinutes?: number | null;
+  durationHours?: number | null;
   reason: string;
   status?: string | null;
+  cancelledAt?: string | null;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
   machine?: { id: string; name: string; code: string };
   request?: { id: string; requestNumber: string; title: string };
+}
+
+export interface MachineOperationalSummary {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  category: { id: string; name: string; code: string } | null;
+  activeRequests: number;
+  openTasks: number;
+  activeDowntime: number;
+  totalDowntimeHoursThisMonth: number;
+  nextMaintenanceDueDate: string | null;
+  nextMaintenanceTitle: string | null;
+  dueStatus: string | null;
+}
+
+export interface OperationalSummaryResponse {
+  machines: MachineOperationalSummary[];
+  totals: {
+    totalMachines: number;
+    totalActiveRequests: number;
+    totalOpenTasks: number;
+    totalActiveDowntime: number;
+    totalDowntimeHoursThisMonth: number;
+  };
+}
+
+export interface RequestSummary {
+  total: number;
+  open: number;
+  inProgress: number;
+  completed: number;
+  cancelled: number;
+  overdue: number;
+}
+
+export interface DowntimeSummary {
+  total: number;
+  active: number;
+  closed: number;
+  cancelled: number;
+  totalDurationHours: number;
+}
+
+export interface ScheduleSummary {
+  total: number;
+  active: number;
+  inactive: number;
+  overdue: number;
+  dueSoon: number;
+  notDue: number;
+  expired: number;
+}
+
+export interface BalanceSummary {
+  totalBalances: number;
+  totalProducts: number;
+  totalQuantity: number;
+  totalWarehouses: number;
+  byWarehouse: { warehouseId: string; count: number }[];
+}
+
+export interface CountSummary {
+  total: number;
+  draft: number;
+  inProgress: number;
+  completed: number;
+  cancelled: number;
+}
+
+export interface MovementSummary {
+  total: number;
+  draft: number;
+  posted: number;
+  cancelled: number;
+  totalInQty: number;
+  totalOutQty: number;
+}
+
+export interface AdjustmentSummary {
+  total: number;
+  draft: number;
+  posted: number;
+  cancelled: number;
+  totalPositiveAdjustment: number;
+  totalNegativeAdjustment: number;
 }

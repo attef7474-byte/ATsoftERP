@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { InventoryBalancesController } from './inventory-balances.controller';
+import { InventoryBalancesController, InventorySummaryController } from './inventory-balances.controller';
 import { InventoryBalancesService } from './inventory-balances.service';
 import { AuditModule } from '../../../common/audit/audit.module';
 
 @Module({
   imports: [AuditModule],
-  controllers: [InventoryBalancesController],
+  controllers: [InventoryBalancesController, InventorySummaryController],
   providers: [InventoryBalancesService],
   exports: [InventoryBalancesService],
 })

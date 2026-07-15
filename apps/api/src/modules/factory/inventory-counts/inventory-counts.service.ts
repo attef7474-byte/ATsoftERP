@@ -107,7 +107,10 @@ export class InventoryCountsService {
   }
 
   async update(id: string, dto: UpdateInventoryCountDto, userId: string) {
-    await this.findOne(id);
+    const count = await this.findOne(id);
+    if (count.status === 'COMPLETED' || count.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot update completed or cancelled counts');
+    }
 
     if (dto.warehouseId) {
       const warehouse = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
@@ -115,7 +118,8 @@ export class InventoryCountsService {
     }
 
     const updated = await this.prisma.inventoryCount.update({ where: { id }, data: { ...dto } });
-    await this.audit.log(userId, 'UPDATE', 'InventoryCount', id, { dto });
+    await this.audit.log(userId, 'UPDATE', 'InventoryCount', id,
+      { oldStatus: count.status, dto });
     return updated;
   }
 
@@ -126,7 +130,8 @@ export class InventoryCountsService {
       where: { id },
       data: { status: 'IN_PROGRESS', startedAt: new Date(), startedById: userId },
     });
-    await this.audit.log(userId, 'START', 'InventoryCount', id);
+    await this.audit.log(userId, 'START', 'InventoryCount', id,
+      { oldStatus: count.status, newStatus: 'IN_PROGRESS', warehouseId: count.warehouseId });
     return updated;
   }
 
@@ -137,7 +142,8 @@ export class InventoryCountsService {
       where: { id },
       data: { status: 'COMPLETED', completedAt: new Date(), completedById: userId },
     });
-    await this.audit.log(userId, 'COMPLETE', 'InventoryCount', id);
+    await this.audit.log(userId, 'COMPLETE', 'InventoryCount', id,
+      { oldStatus: count.status, newStatus: 'COMPLETED', warehouseId: count.warehouseId });
     return updated;
   }
 
@@ -150,7 +156,8 @@ export class InventoryCountsService {
       where: { id },
       data: { status: 'CANCELLED', cancelledAt: new Date(), cancelledById: userId },
     });
-    await this.audit.log(userId, 'CANCEL', 'InventoryCount', id);
+    await this.audit.log(userId, 'CANCEL', 'InventoryCount', id,
+      { oldStatus: count.status, newStatus: 'CANCELLED', warehouseId: count.warehouseId });
     return updated;
   }
 

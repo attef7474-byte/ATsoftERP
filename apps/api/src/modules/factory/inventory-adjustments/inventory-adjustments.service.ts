@@ -241,7 +241,8 @@ export class InventoryAdjustmentsService {
       });
     });
 
-    await this.audit.log(userId, 'POST', 'InventoryAdjustment', id);
+    await this.audit.log(userId, 'POST', 'InventoryAdjustment', id,
+      { oldStatus: 'DRAFT', newStatus: 'POSTED', warehouseId: adjustment.warehouseId, lineCount: adjustment.lines.length });
     return posted;
   }
 
@@ -254,7 +255,8 @@ export class InventoryAdjustmentsService {
       where: { id },
       data: { status: 'CANCELLED' },
     });
-    await this.audit.log(userId, 'CANCEL', 'InventoryAdjustment', id);
+    await this.audit.log(userId, 'CANCEL', 'InventoryAdjustment', id,
+      { oldStatus: adjustment.status, newStatus: 'CANCELLED' });
     return updated;
   }
 

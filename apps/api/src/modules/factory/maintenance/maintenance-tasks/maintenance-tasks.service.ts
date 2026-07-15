@@ -14,6 +14,9 @@ export class MaintenanceTasksService {
   async create(dto: CreateMaintenanceTaskDto, userId: string) {
     const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: dto.requestId } });
     if (!request) throw new NotFoundException('Maintenance request not found');
+    if (request.status === 'COMPLETED' || request.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot add tasks to completed or cancelled requests');
+    }
 
     if (dto.assignedToId) {
       const user = await this.prisma.user.findUnique({ where: { id: dto.assignedToId } });
@@ -21,7 +24,8 @@ export class MaintenanceTasksService {
     }
 
     const task = await this.prisma.maintenanceTask.create({ data: dto as any });
-    await this.audit.log(userId, 'CREATE', 'MaintenanceTask', task.id);
+    await this.audit.log(userId, 'CREATE', 'MaintenanceTask', task.id,
+      { requestId: dto.requestId });
     return task;
   }
 
@@ -71,7 +75,10 @@ export class MaintenanceTasksService {
   }
 
   async update(id: string, dto: UpdateMaintenanceTaskDto, userId: string) {
-    await this.findOne(id);
+    const task = await this.findOne(id);
+    if (task.status === 'DONE' || task.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot update completed or cancelled tasks');
+    }
 
     if (dto.requestId) {
       const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: dto.requestId } });
@@ -83,7 +90,8 @@ export class MaintenanceTasksService {
     }
 
     const updated = await this.prisma.maintenanceTask.update({ where: { id }, data: dto as any });
-    await this.audit.log(userId, 'UPDATE', 'MaintenanceTask', id, { dto });
+    await this.audit.log(userId, 'UPDATE', 'MaintenanceTask', id,
+      { oldStatus: task.status, dto });
     return updated;
   }
 
@@ -92,9 +100,10 @@ export class MaintenanceTasksService {
     if (task.status !== 'PENDING') throw new BadRequestException('Only PENDING tasks can be started');
     const updated = await this.prisma.maintenanceTask.update({
       where: { id },
-      data: { status: 'IN_PROGRESS' },
+      data: { status: 'IN_PROGRESS', startedAt: new Date() },
     });
-    await this.audit.log(userId, 'START', 'MaintenanceTask', id);
+    await this.audit.log(userId, 'START', 'MaintenanceTask', id,
+      { oldStatus: task.status, newStatus: 'IN_PROGRESS', requestId: task.requestId });
     return updated;
   }
 
@@ -103,9 +112,10 @@ export class MaintenanceTasksService {
     if (task.status !== 'IN_PROGRESS') throw new BadRequestException('Only IN_PROGRESS tasks can be completed');
     const updated = await this.prisma.maintenanceTask.update({
       where: { id },
-      data: { status: 'DONE' },
+      data: { status: 'DONE', completedAt: new Date() },
     });
-    await this.audit.log(userId, 'COMPLETE', 'MaintenanceTask', id);
+    await this.audit.log(userId, 'COMPLETE', 'MaintenanceTask', id,
+      { oldStatus: task.status, newStatus: 'DONE', requestId: task.requestId });
     return updated;
   }
 
@@ -116,16 +126,21 @@ export class MaintenanceTasksService {
     }
     const updated = await this.prisma.maintenanceTask.update({
       where: { id },
-      data: { status: 'CANCELLED' },
+      data: { status: 'CANCELLED', cancelledAt: new Date() },
     });
-    await this.audit.log(userId, 'CANCEL', 'MaintenanceTask', id);
+    await this.audit.log(userId, 'CANCEL', 'MaintenanceTask', id,
+      { oldStatus: task.status, newStatus: 'CANCELLED', requestId: task.requestId });
     return updated;
   }
 
   async remove(id: string, userId: string) {
-    await this.findOne(id);
+    const task = await this.findOne(id);
+    if (task.status === 'IN_PROGRESS') {
+      throw new BadRequestException('Cannot delete an in-progress task');
+    }
     await this.prisma.maintenanceTask.delete({ where: { id } });
-    await this.audit.log(userId, 'DELETE', 'MaintenanceTask', id);
+    await this.audit.log(userId, 'DELETE', 'MaintenanceTask', id,
+      { status: task.status });
     return { message: 'Maintenance task deleted successfully' };
   }
 }

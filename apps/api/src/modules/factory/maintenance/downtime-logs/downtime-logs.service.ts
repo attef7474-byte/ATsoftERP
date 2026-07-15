@@ -14,10 +14,19 @@ export class DowntimeLogsService {
   async create(dto: CreateDowntimeLogDto, userId: string) {
     const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
     if (!machine) throw new NotFoundException('Machine not found');
+
     if (dto.requestId) {
       const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: dto.requestId } });
       if (!request) throw new NotFoundException('Maintenance request not found');
     }
+
+    const activeDowntime = await this.prisma.downtimeLog.findFirst({
+      where: { machineId: dto.machineId, endTime: null, cancelledAt: null },
+    });
+    if (activeDowntime) {
+      throw new BadRequestException('Machine already has an active downtime log. Close it before creating a new one.');
+    }
+
     const data: any = { ...dto };
     data.startTime = dto.startTime ? new Date(dto.startTime) : new Date();
     if (dto.endTime) data.endTime = new Date(dto.endTime);
@@ -27,8 +36,10 @@ export class DowntimeLogsService {
     if (data.endTime && !data.durationMinutes) {
       data.durationMinutes = (data.endTime.getTime() - data.startTime.getTime()) / 60000;
     }
+
     const log = await this.prisma.downtimeLog.create({ data });
-    await this.audit.log(userId, 'create', 'DowntimeLog', log.id, { dto });
+    await this.audit.log(userId, 'CREATE', 'DowntimeLog', log.id,
+      { machineId: dto.machineId, startTime: data.startTime.toISOString() });
     return log;
   }
 
@@ -67,7 +78,13 @@ export class DowntimeLogsService {
       this.prisma.downtimeLog.count({ where }),
     ]);
 
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    const enriched = data.map((log: any) => ({
+      ...log,
+      status: log.cancelledAt ? 'CANCELLED' : log.endTime ? 'CLOSED' : 'ACTIVE',
+      durationHours: log.durationMinutes ? log.durationMinutes / 60 : null,
+    }));
+
+    return { data: enriched, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async findOne(id: string) {
@@ -79,11 +96,19 @@ export class DowntimeLogsService {
       },
     });
     if (!log) throw new NotFoundException('Downtime log not found');
-    return log;
+    return {
+      ...log,
+      status: log.cancelledAt ? 'CANCELLED' : log.endTime ? 'CLOSED' : 'ACTIVE',
+      durationHours: log.durationMinutes ? log.durationMinutes / 60 : null,
+    };
   }
 
   async update(id: string, dto: UpdateDowntimeLogDto, userId: string) {
     const existing = await this.findOne(id);
+    if (existing.endTime || existing.cancelledAt) {
+      throw new BadRequestException('Cannot update a closed or cancelled downtime log');
+    }
+
     const data: any = { ...dto };
     if (dto.startTime) data.startTime = new Date(dto.startTime);
     if (dto.endTime) {
@@ -95,27 +120,61 @@ export class DowntimeLogsService {
       data.durationMinutes = (data.endTime.getTime() - start.getTime()) / 60000;
     }
     const log = await this.prisma.downtimeLog.update({ where: { id }, data });
-    await this.audit.log(userId, 'update', 'DowntimeLog', id, { dto });
+    await this.audit.log(userId, 'UPDATE', 'DowntimeLog', id,
+      { dto });
     return log;
   }
 
   async close(id: string, userId: string) {
     const existing = await this.findOne(id);
-    if (existing.endTime) return existing;
+    if (existing.cancelledAt) {
+      throw new BadRequestException('Cannot close a cancelled downtime log');
+    }
+    if (existing.endTime) {
+      throw new BadRequestException('Downtime log is already closed');
+    }
+
     const now = new Date();
-    const durationMinutes = (now.getTime() - existing.startTime.getTime()) / 60000;
+    const durationMinutes = (now.getTime() - new Date(existing.startTime).getTime()) / 60000;
+    if (durationMinutes <= 0) {
+      throw new BadRequestException('Duration must be positive');
+    }
+
     const log = await this.prisma.downtimeLog.update({
       where: { id },
       data: { endTime: now, durationMinutes },
     });
-    await this.audit.log(userId, 'close', 'DowntimeLog', id, { endTime: now.toISOString(), durationMinutes });
-    return log;
+    await this.audit.log(userId, 'CLOSE', 'DowntimeLog', id,
+      { machineId: existing.machineId, durationMinutes, endTime: now.toISOString() });
+    return { ...log, status: 'CLOSED', durationHours: durationMinutes / 60 };
+  }
+
+  async cancel(id: string, userId: string) {
+    const existing = await this.findOne(id);
+    if (existing.cancelledAt) {
+      throw new BadRequestException('Downtime log is already cancelled');
+    }
+    if (existing.endTime) {
+      throw new BadRequestException('Cannot cancel a closed downtime log');
+    }
+
+    const log = await this.prisma.downtimeLog.update({
+      where: { id },
+      data: { cancelledAt: new Date() },
+    });
+    await this.audit.log(userId, 'CANCEL', 'DowntimeLog', id,
+      { machineId: existing.machineId, reason: existing.reason });
+    return { ...log, status: 'CANCELLED' };
   }
 
   async remove(id: string, userId: string) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
+    if (!existing.endTime && !existing.cancelledAt) {
+      throw new BadRequestException('Close or cancel the downtime log before deleting');
+    }
     await this.prisma.downtimeLog.delete({ where: { id } });
-    await this.audit.log(userId, 'delete', 'DowntimeLog', id, {});
+    await this.audit.log(userId, 'DELETE', 'DowntimeLog', id,
+      { status: existing.cancelledAt ? 'CANCELLED' : 'CLOSED' });
     return { message: 'Downtime log deleted successfully' };
   }
 }

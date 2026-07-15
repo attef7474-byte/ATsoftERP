@@ -63,7 +63,9 @@ export class DowntimeLogsController {
   @Patch(':id/cancel')
   @Permissions('downtime-log:cancel')
   @ApiOperation({ summary: 'Cancel downtime log' })
-  cancel() { return { message: 'Downtime logs do not have a cancellable status; use close to end the downtime period' }; }
+  cancel(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+    return this.service.cancel(id, userId);
+  }
 
   @Delete(':id')
   @Permissions('downtime-log:delete')

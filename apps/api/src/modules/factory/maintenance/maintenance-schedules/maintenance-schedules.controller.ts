@@ -25,7 +25,7 @@ export class MaintenanceSchedulesController {
   @Get()
   @Permissions('maintenance-schedule:read')
   @ApiOperation({ summary: 'List maintenance schedules' })
-  findAll(@Query() query: { page?: string; limit?: string; search?: string; machineId?: string; status?: string; type?: string }) {
+  findAll(@Query() query: { page?: string; limit?: string; search?: string; machineId?: string; status?: string; type?: string; dueBefore?: string; dueStatus?: string }) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
@@ -33,6 +33,8 @@ export class MaintenanceSchedulesController {
       machineId: query.machineId,
       status: query.status,
       type: query.type,
+      dueBefore: query.dueBefore,
+      dueStatus: query.dueStatus,
     });
   }
 

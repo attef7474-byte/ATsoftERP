@@ -878,6 +878,9 @@ model MaintenanceTask {
   status       String             @default("PENDING")
   assignedToId String?
   assignedTo   User?              @relation("MaintenanceTaskAssignedTo", fields: [assignedToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
   notes        String?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
@@ -938,6 +941,7 @@ model DowntimeLog {
   durationMinutes Float?
   reason          String
   notes           String?
+  cancelledAt     DateTime?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 

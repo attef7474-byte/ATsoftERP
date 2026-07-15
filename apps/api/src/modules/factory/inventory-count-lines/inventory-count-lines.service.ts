@@ -82,6 +82,9 @@ export class InventoryCountLinesService {
 
   async update(id: string, dto: UpdateInventoryCountLineDto, userId: string) {
     const line = await this.findOne(id);
+    if (line.status === 'VERIFIED') {
+      throw new BadRequestException('Cannot update verified lines');
+    }
     if (line.status !== 'PENDING' && line.status !== 'COUNTED') {
       throw new BadRequestException('Only PENDING or COUNTED lines can be updated');
     }
@@ -94,12 +97,16 @@ export class InventoryCountLinesService {
       },
     });
 
-    await this.audit.log(userId, 'UPDATE', 'InventoryCountLine', id, { dto });
+    await this.audit.log(userId, 'UPDATE', 'InventoryCountLine', id,
+      { oldStatus: line.status, dto });
     return updated;
   }
 
   async countLine(id: string, dto: CountInventoryCountLineDto, userId: string) {
     const line = await this.findOne(id);
+    if (line.status === 'VERIFIED') {
+      throw new BadRequestException('Cannot count a verified line');
+    }
     if (line.status !== 'PENDING' && line.status !== 'COUNTED') {
       throw new BadRequestException('Only PENDING or COUNTED lines can be counted');
     }
@@ -117,7 +124,8 @@ export class InventoryCountLinesService {
       },
     });
 
-    await this.audit.log(userId, 'COUNT', 'InventoryCountLine', id, { countedQty: dto.countedQty, differenceQty });
+    await this.audit.log(userId, 'COUNT', 'InventoryCountLine', id,
+      { oldStatus: line.status, newStatus: 'COUNTED', countedQty: dto.countedQty, systemQty: line.systemQty, differenceQty });
     return updated;
   }
 
@@ -136,7 +144,8 @@ export class InventoryCountLinesService {
       },
     });
 
-    await this.audit.log(userId, 'VERIFY', 'InventoryCountLine', id);
+    await this.audit.log(userId, 'VERIFY', 'InventoryCountLine', id,
+      { oldStatus: line.status, newStatus: 'VERIFIED', countId: line.countId });
     return updated;
   }
 }

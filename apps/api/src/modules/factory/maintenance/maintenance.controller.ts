@@ -81,4 +81,29 @@ export class MaintenanceController {
   @Permissions('machines:delete')
   @ApiOperation({ summary: 'Delete machine document' })
   removeDocument(@Param('id') id: string) { return this.service.removeDocument(id); }
+
+  @Get('summary/machines')
+  @Permissions('machines:read')
+  @ApiOperation({ summary: 'Get machine operational summary' })
+  getOperationalSummary() { return this.service.getOperationalSummary(); }
+
+  @Get('summary/machines/:id')
+  @Permissions('machines:read')
+  @ApiOperation({ summary: 'Get single machine operational summary' })
+  getMachineSummary(@Param('id') id: string) { return this.service.getMachineSummary(id); }
+
+  @Get('summary/requests')
+  @Permissions('maintenance-request:read')
+  @ApiOperation({ summary: 'Get maintenance request summary' })
+  getRequestSummary() { return this.service.getRequestSummary(); }
+
+  @Get('summary/downtime')
+  @Permissions('downtime-log:read')
+  @ApiOperation({ summary: 'Get downtime summary' })
+  getDowntimeSummary() { return this.service.getDowntimeSummary(); }
+
+  @Get('summary/schedules')
+  @Permissions('maintenance-schedule:read')
+  @ApiOperation({ summary: 'Get maintenance schedule summary' })
+  getScheduleSummary() { return this.service.getScheduleSummary(); }
 }

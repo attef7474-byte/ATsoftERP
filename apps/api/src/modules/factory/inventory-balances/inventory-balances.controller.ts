@@ -10,6 +10,34 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 @ApiTags('Inventory Balances')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, PermissionsGuard)
+@Controller({ path: 'inventory', version: '1' })
+export class InventorySummaryController {
+  constructor(private service: InventoryBalancesService) {}
+
+  @Get('summary/balances')
+  @Permissions('inventory-balance:read')
+  @ApiOperation({ summary: 'Get inventory balance summary' })
+  getBalanceSummary() { return this.service.getBalanceSummary(); }
+
+  @Get('summary/counts')
+  @Permissions('inventory-count:read')
+  @ApiOperation({ summary: 'Get inventory count summary' })
+  getCountSummary() { return this.service.getCountSummary(); }
+
+  @Get('summary/movements')
+  @Permissions('inventory-movement:read')
+  @ApiOperation({ summary: 'Get inventory movement summary' })
+  getMovementSummary() { return this.service.getMovementSummary(); }
+
+  @Get('summary/adjustments')
+  @Permissions('inventory-adjustment:read')
+  @ApiOperation({ summary: 'Get inventory adjustment summary' })
+  getAdjustmentSummary() { return this.service.getAdjustmentSummary(); }
+}
+
+@ApiTags('Inventory Balances')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller({ path: 'inventory/balances', version: '1' })
 export class InventoryBalancesController {
   constructor(private service: InventoryBalancesService) {}

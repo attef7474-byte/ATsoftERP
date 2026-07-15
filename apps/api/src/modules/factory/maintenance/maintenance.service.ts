@@ -121,9 +121,136 @@ export class MaintenanceService {
     });
   }
 
+  async getRequestSummary() {
+    const [total, open, inProgress, completed, cancelled, overdueCount] = await Promise.all([
+      this.prisma.maintenanceRequest.count({ where: { deletedAt: null } }),
+      this.prisma.maintenanceRequest.count({ where: { status: 'OPEN', deletedAt: null } }),
+      this.prisma.maintenanceRequest.count({ where: { status: 'IN_PROGRESS', deletedAt: null } }),
+      this.prisma.maintenanceRequest.count({ where: { status: 'COMPLETED', deletedAt: null } }),
+      this.prisma.maintenanceRequest.count({ where: { status: 'CANCELLED', deletedAt: null } }),
+      this.prisma.maintenanceRequest.count({
+        where: { status: { in: ['OPEN', 'IN_PROGRESS'] }, endDate: null, deletedAt: null },
+      }),
+    ]);
+    return { total, open, inProgress, completed, cancelled, overdue: overdueCount };
+  }
+
+  async getDowntimeSummary() {
+    const [total, active, closed, cancelled, agg] = await Promise.all([
+      this.prisma.downtimeLog.count(),
+      this.prisma.downtimeLog.count({ where: { endTime: null, cancelledAt: null } }),
+      this.prisma.downtimeLog.count({ where: { endTime: { not: null } } }),
+      this.prisma.downtimeLog.count({ where: { cancelledAt: { not: null } } }),
+      this.prisma.downtimeLog.aggregate({
+        where: { cancelledAt: null },
+        _sum: { durationMinutes: true },
+      }),
+    ]);
+    const totalDurationHours = agg._sum.durationMinutes
+      ? Math.round((agg._sum.durationMinutes / 60) * 100) / 100
+      : 0;
+    return { total, active, closed, cancelled, totalDurationHours };
+  }
+
+  async getScheduleSummary() {
+    const now = new Date();
+    const [total, active, inactive, overdue, dueSoon, notDue, expired] = await Promise.all([
+      this.prisma.maintenanceSchedule.count(),
+      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.maintenanceSchedule.count({ where: { status: 'INACTIVE' } }),
+      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', startDate: { lte: now } } }),
+      this.prisma.maintenanceSchedule.count({
+        where: { status: 'ACTIVE', startDate: { gt: now, lte: new Date(now.getTime() + 7 * 86400000) } },
+      }),
+      this.prisma.maintenanceSchedule.count({
+        where: { status: 'ACTIVE', startDate: { gt: new Date(now.getTime() + 7 * 86400000) } },
+      }),
+      this.prisma.maintenanceSchedule.count({
+        where: { status: 'ACTIVE', endDate: { not: null, lte: now } },
+      }),
+    ]);
+    return { total, active, inactive, overdue, dueSoon, notDue, expired };
+  }
+
   async removeDocument(id: string) {
     const doc = await this.prisma.machineDocument.findUnique({ where: { id } });
     if (!doc) throw new NotFoundException('Document not found');
     return this.prisma.machineDocument.delete({ where: { id } });
+  }
+
+  async getMachineSummary(id: string) {
+    const machine = await this.prisma.machine.findUnique({
+      where: { id },
+      include: {
+        category: { select: { id: true, name: true, code: true } },
+      },
+    });
+    if (!machine) throw new NotFoundException('Machine not found');
+
+    const activeRequests = await this.prisma.maintenanceRequest.count({
+      where: { machineId: id, status: 'IN_PROGRESS', deletedAt: null },
+    });
+    const openTasks = await this.prisma.maintenanceTask.count({
+      where: { request: { machineId: id }, status: { in: ['PENDING', 'IN_PROGRESS'] } },
+    });
+    const activeDowntime = await this.prisma.downtimeLog.count({
+      where: { machineId: id, endTime: null, cancelledAt: null },
+    });
+    const currentMonth = new Date();
+    currentMonth.setDate(1);
+    currentMonth.setHours(0, 0, 0, 0);
+    const downtimeAgg = await this.prisma.downtimeLog.aggregate({
+      where: { machineId: id, cancelledAt: null, startTime: { gte: currentMonth } },
+      _sum: { durationMinutes: true },
+    });
+    const totalDowntimeHours = downtimeAgg._sum.durationMinutes
+      ? Math.round((downtimeAgg._sum.durationMinutes / 60) * 100) / 100
+      : 0;
+    const nextSchedule = await this.prisma.maintenanceSchedule.findFirst({
+      where: { machineId: id, status: 'ACTIVE', startDate: { gte: new Date() } },
+      orderBy: { startDate: 'asc' },
+    });
+
+    return {
+      id: machine.id,
+      code: machine.code,
+      name: machine.name,
+      status: machine.status,
+      category: machine.category,
+      activeRequests: activeRequests,
+      openTasks: openTasks,
+      activeDowntime: activeDowntime,
+      totalDowntimeHoursThisMonth: totalDowntimeHours,
+      nextMaintenanceDueDate: nextSchedule?.startDate || null,
+      nextMaintenanceTitle: nextSchedule?.title || null,
+      dueStatus: nextSchedule
+        ? new Date(nextSchedule.startDate) > new Date() ? 'notDue' : 'overdue'
+        : null,
+    };
+  }
+
+  async getOperationalSummary() {
+    const machines = await this.prisma.machine.findMany({
+      where: { deletedAt: null },
+      include: { category: { select: { id: true, name: true, code: true } } },
+    });
+
+    const summaries = await Promise.all(machines.map((m) => this.getMachineSummary(m.id)));
+
+    const totalActiveRequests = summaries.reduce((s, m) => s + m.activeRequests, 0);
+    const totalOpenTasks = summaries.reduce((s, m) => s + m.openTasks, 0);
+    const totalActiveDowntime = summaries.reduce((s, m) => s + m.activeDowntime, 0);
+    const totalDowntimeHours = summaries.reduce((s, m) => s + m.totalDowntimeHoursThisMonth, 0);
+
+    return {
+      machines: summaries,
+      totals: {
+        totalMachines: machines.length,
+        totalActiveRequests,
+        totalOpenTasks,
+        totalActiveDowntime,
+        totalDowntimeHoursThisMonth: Math.round(totalDowntimeHours * 100) / 100,
+      },
+    };
   }
 }

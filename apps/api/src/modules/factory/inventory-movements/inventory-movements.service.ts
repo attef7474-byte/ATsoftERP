@@ -178,7 +178,8 @@ export class InventoryMovementsService {
       });
     });
 
-    await this.audit.log(userId, 'POST', 'InventoryMovement', id);
+    await this.audit.log(userId, 'POST', 'InventoryMovement', id,
+      { oldStatus: 'DRAFT', newStatus: 'POSTED', warehouseId: movement.warehouseId, lineCount: movement.lines.length });
     return posted;
   }
 
@@ -191,7 +192,8 @@ export class InventoryMovementsService {
       where: { id },
       data: { status: 'CANCELLED' },
     });
-    await this.audit.log(userId, 'CANCEL', 'InventoryMovement', id);
+    await this.audit.log(userId, 'CANCEL', 'InventoryMovement', id,
+      { oldStatus: movement.status, newStatus: 'CANCELLED' });
     return updated;
   }
 

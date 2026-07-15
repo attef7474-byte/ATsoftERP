@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
@@ -44,7 +44,8 @@ export class MaintenanceRequestsService {
       });
     });
 
-    await this.audit.log(userId, 'CREATE', 'MaintenanceRequest', request.id, { requestNumber: request.requestNumber });
+    await this.audit.log(userId, 'CREATE', 'MaintenanceRequest', request.id,
+      { requestNumber: request.requestNumber, machineId });
     return request;
   }
 
@@ -76,7 +77,7 @@ export class MaintenanceRequestsService {
       this.prisma.maintenanceRequest.findMany({
         where, skip, take: limit, orderBy: { createdAt: 'desc' },
         include: {
-          machine: { select: { id: true, code: true, name: true } },
+          machine: { select: { id: true, code: true, name: true, status: true } },
           requestedBy: { select: { id: true, name: true, email: true } },
           assignedTo: { select: { id: true, name: true, email: true } },
           _count: { select: { tasks: true } },
@@ -90,8 +91,11 @@ export class MaintenanceRequestsService {
         const completedTasks = await this.prisma.maintenanceTask.count({
           where: { requestId: req.id, status: 'DONE' },
         });
+        const openTasks = await this.prisma.maintenanceTask.count({
+          where: { requestId: req.id, status: { in: ['PENDING', 'IN_PROGRESS'] } },
+        });
         const downtimeAgg = await this.prisma.downtimeLog.aggregate({
-          where: { requestId: req.id },
+          where: { requestId: req.id, cancelledAt: null },
           _sum: { durationMinutes: true },
         });
         const totalDowntimeHours = downtimeAgg._sum.durationMinutes
@@ -102,6 +106,7 @@ export class MaintenanceRequestsService {
           summary: {
             tasksCount: req._count.tasks,
             completedTasksCount: completedTasks,
+            openTasksCount: openTasks,
             totalDowntimeHours,
           },
         };
@@ -128,7 +133,10 @@ export class MaintenanceRequestsService {
   }
 
   async update(id: string, dto: UpdateMaintenanceRequestDto, userId: string) {
-    await this.findOne(id);
+    const req = await this.findOne(id);
+    if (req.status === 'COMPLETED' || req.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot update completed or cancelled requests');
+    }
 
     if (dto.machineId) {
       const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
@@ -145,7 +153,7 @@ export class MaintenanceRequestsService {
 
     if (data.endDate) {
       const downtimeAgg = await this.prisma.downtimeLog.aggregate({
-        where: { requestId: id },
+        where: { requestId: id, cancelledAt: null },
         _sum: { durationMinutes: true },
       });
       if (downtimeAgg._sum.durationMinutes) {
@@ -154,18 +162,28 @@ export class MaintenanceRequestsService {
     }
 
     const updated = await this.prisma.maintenanceRequest.update({ where: { id }, data });
-    await this.audit.log(userId, 'UPDATE', 'MaintenanceRequest', id, { dto });
+    await this.audit.log(userId, 'UPDATE', 'MaintenanceRequest', id,
+      { oldStatus: req.status, dto });
     return updated;
   }
 
   async start(id: string, userId: string) {
     const req = await this.findOne(id);
     if (req.status !== 'OPEN') throw new BadRequestException('Only OPEN requests can be started');
-    const updated = await this.prisma.maintenanceRequest.update({
-      where: { id },
-      data: { status: 'IN_PROGRESS', startDate: new Date() },
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.machine.update({
+        where: { id: req.machineId },
+        data: { status: 'UNDER_MAINTENANCE' },
+      });
+      return tx.maintenanceRequest.update({
+        where: { id },
+        data: { status: 'IN_PROGRESS', startDate: new Date() },
+      });
     });
-    await this.audit.log(userId, 'START', 'MaintenanceRequest', id);
+
+    await this.audit.log(userId, 'START', 'MaintenanceRequest', id,
+      { oldStatus: req.status, newStatus: 'IN_PROGRESS', machineId: req.machineId });
     return updated;
   }
 
@@ -174,18 +192,31 @@ export class MaintenanceRequestsService {
     if (req.status !== 'IN_PROGRESS') throw new BadRequestException('Only IN_PROGRESS requests can be completed');
 
     const downtimeAgg = await this.prisma.downtimeLog.aggregate({
-      where: { requestId: id },
+      where: { requestId: id, cancelledAt: null },
       _sum: { durationMinutes: true },
     });
     const downtimeHours = downtimeAgg._sum.durationMinutes
       ? downtimeAgg._sum.durationMinutes / 60
       : null;
 
-    const updated = await this.prisma.maintenanceRequest.update({
-      where: { id },
-      data: { status: 'COMPLETED', endDate: new Date(), downtimeHours },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const activeRequests = await tx.maintenanceRequest.count({
+        where: { machineId: req.machineId, status: 'IN_PROGRESS', id: { not: id }, deletedAt: null },
+      });
+      if (activeRequests === 0) {
+        await tx.machine.update({
+          where: { id: req.machineId },
+          data: { status: 'ACTIVE' },
+        });
+      }
+      return tx.maintenanceRequest.update({
+        where: { id },
+        data: { status: 'COMPLETED', endDate: new Date(), downtimeHours },
+      });
     });
-    await this.audit.log(userId, 'COMPLETE', 'MaintenanceRequest', id);
+
+    await this.audit.log(userId, 'COMPLETE', 'MaintenanceRequest', id,
+      { oldStatus: req.status, newStatus: 'COMPLETED', machineId: req.machineId, downtimeHours });
     return updated;
   }
 
@@ -194,21 +225,41 @@ export class MaintenanceRequestsService {
     if (req.status !== 'OPEN' && req.status !== 'IN_PROGRESS') {
       throw new BadRequestException('Only OPEN or IN_PROGRESS requests can be cancelled');
     }
-    const updated = await this.prisma.maintenanceRequest.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (req.status === 'IN_PROGRESS') {
+        const activeRequests = await tx.maintenanceRequest.count({
+          where: { machineId: req.machineId, status: 'IN_PROGRESS', id: { not: id }, deletedAt: null },
+        });
+        if (activeRequests === 0) {
+          await tx.machine.update({
+            where: { id: req.machineId },
+            data: { status: 'ACTIVE' },
+          });
+        }
+      }
+      return tx.maintenanceRequest.update({
+        where: { id },
+        data: { status: 'CANCELLED' },
+      });
     });
-    await this.audit.log(userId, 'CANCEL', 'MaintenanceRequest', id);
+
+    await this.audit.log(userId, 'CANCEL', 'MaintenanceRequest', id,
+      { oldStatus: req.status, newStatus: 'CANCELLED', machineId: req.machineId });
     return updated;
   }
 
   async remove(id: string, userId: string) {
-    await this.findOne(id);
+    const req = await this.findOne(id);
+    if (req.status === 'IN_PROGRESS') {
+      throw new BadRequestException('Cannot delete an in-progress request');
+    }
     await this.prisma.maintenanceRequest.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
-    await this.audit.log(userId, 'DELETE', 'MaintenanceRequest', id);
+    await this.audit.log(userId, 'DELETE', 'MaintenanceRequest', id,
+      { status: req.status });
     return { message: 'Maintenance request deleted successfully' };
   }
 }
