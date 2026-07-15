@@ -15,7 +15,8 @@ export type TranslationNamespace =
   | 'maintenance'
   | 'cmms'
   | 'f9'
-  | 'inventoryCounting';
+  | 'inventoryCounting'
+  | 'barcodes';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

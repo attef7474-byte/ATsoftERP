@@ -17,6 +17,7 @@ const MODULES = [
   "notification", "attachment", "number-sequence",
   "inventory-count", "inventory-count-line", "inventory-movement",
   "inventory-adjustment", "inventory-balance",
+  "barcode-label", "barcode-scan", "barcode-template",
 ] as const;
 
 const ACTIONS = ["create", "read", "update", "delete"] as const;
@@ -135,6 +136,8 @@ async function main() {
     { code: "INVENTORY_COUNT", name: "Inventory Count", prefix: "IC-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
     { code: "INVENTORY_MOVEMENT", name: "Inventory Movement", prefix: "IM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
     { code: "INVENTORY_ADJUSTMENT", name: "Inventory Adjustment", prefix: "IA-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
+    { code: "BARCODE_LABEL", name: "Barcode Label", prefix: "BCL-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
+    { code: "QR_LABEL", name: "QR Label", prefix: "QR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
   ];
 
   for (const ns of numberSequences) {

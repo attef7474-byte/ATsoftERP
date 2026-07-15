@@ -950,3 +950,95 @@ model DowntimeLog {
   @@index([startTime])
   @@map("downtime_logs")
 }
+
+// ── Barcode / QR ────────────────────────────────────────────────
+
+model BarcodeLabel {
+  id                 String   @id @default(cuid())
+  code               String   @unique
+  value              String   @unique
+  symbology          String   @default("QR_CODE")
+  entityType         String
+  entityId           String
+  status             String   @default("ACTIVE")
+  title              String?
+  description        String?  @db.NVarChar(Max)
+  qrPayload          String?  @db.NVarChar(Max)
+  humanReadableValue String?
+  labelTemplateCode  String?
+  printCount         Int      @default(0)
+  lastPrintedAt      DateTime?
+  lastScannedAt      DateTime?
+  scanCount          Int      @default(0)
+  createdById        String?
+  updatedById        String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  deletedAt          DateTime?
+
+  scanEvents BarcodeScanEvent[]
+
+  @@index([code])
+  @@index([value])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([status])
+  @@index([symbology])
+  @@index([entityType, entityId])
+  @@index([status, entityType])
+  @@map("barcode_labels")
+}
+
+model BarcodeScanEvent {
+  id           String   @id @default(cuid())
+  labelId      String?
+  label        BarcodeLabel? @relation(fields: [labelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  scannedValue String
+  symbology    String?
+  purpose      String   @default("GENERAL_LOOKUP")
+  result       String   @default("SUCCESS")
+  source       String   @default("WEB")
+  entityType   String?
+  entityId     String?
+  contextType  String?
+  contextId    String?
+  message      String?  @db.NVarChar(500)
+  metadata     String?  @db.NVarChar(Max)
+  scannedById  String?
+  scannedAt    DateTime @default(now())
+  ipAddress    String?
+  userAgent    String?
+
+  @@index([scannedValue])
+  @@index([labelId])
+  @@index([result])
+  @@index([purpose])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([contextType, contextId])
+  @@index([scannedById])
+  @@index([scannedAt])
+  @@map("barcode_scan_events")
+}
+
+model BarcodeLabelTemplate {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  description  String?  @db.NVarChar(Max)
+  symbology    String   @default("QR_CODE")
+  entityType   String?
+  widthMm      Decimal? @db.Decimal(9, 2)
+  heightMm     Decimal? @db.Decimal(9, 2)
+  templateData String?  @db.NVarChar(Max)
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  @@index([code])
+  @@index([symbology])
+  @@index([entityType])
+  @@index([status])
+  @@map("barcode_label_templates")
+}

@@ -27,6 +27,7 @@ import { InventoryMovementsModule } from './modules/factory/inventory-movements/
 import { InventoryAdjustmentsModule } from './modules/factory/inventory-adjustments/inventory-adjustments.module';
 import { InventoryBalancesModule } from './modules/factory/inventory-balances/inventory-balances.module';
 import { BusinessPartnersModule } from './modules/business-partners/business-partners.module';
+import { BarcodesModule } from './modules/barcodes/barcodes.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { BusinessPartnersModule } from './modules/business-partners/business-par
     InventoryAdjustmentsModule,
     InventoryBalancesModule,
     BusinessPartnersModule,
+    BarcodesModule,
   ],
 })
 export class AppModule {}
