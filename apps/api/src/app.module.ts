@@ -26,6 +26,7 @@ import { InventoryCountLinesModule } from './modules/factory/inventory-count-lin
 import { InventoryMovementsModule } from './modules/factory/inventory-movements/inventory-movements.module';
 import { InventoryAdjustmentsModule } from './modules/factory/inventory-adjustments/inventory-adjustments.module';
 import { InventoryBalancesModule } from './modules/factory/inventory-balances/inventory-balances.module';
+import { BusinessPartnersModule } from './modules/business-partners/business-partners.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { InventoryBalancesModule } from './modules/factory/inventory-balances/in
     InventoryMovementsModule,
     InventoryAdjustmentsModule,
     InventoryBalancesModule,
+    BusinessPartnersModule,
   ],
 })
 export class AppModule {}

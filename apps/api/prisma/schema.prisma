@@ -7,6 +7,200 @@ datasource db {
   provider = "sqlserver"
 }
 
+// ── Business Partners ──────────────────────────────────────────
+
+model BusinessPartnerGroup {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?  @db.NVarChar(Max)
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  partners BusinessPartner[]
+
+  @@index([code])
+  @@index([status])
+  @@map("business_partner_groups")
+}
+
+model PaymentTerm {
+  id             String   @id @default(cuid())
+  code           String   @unique
+  name           String
+  description    String?  @db.NVarChar(Max)
+  days           Int      @default(0)
+  discountDays   Int?
+  discountPercent Decimal? @db.Decimal(9, 4)
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  partners BusinessPartner[]
+
+  @@index([code])
+  @@index([status])
+  @@map("payment_terms")
+}
+
+model BusinessPartner {
+  id                      String   @id @default(cuid())
+  code                    String   @unique
+  type                    String   @default("CUSTOMER")
+  status                  String   @default("ACTIVE")
+
+  // Core identity
+  name                    String
+  legalName               String?
+  commercialName          String?
+  description             String?  @db.NVarChar(Max)
+
+  // Classification
+  groupId                 String?
+  group                   BusinessPartnerGroup? @relation(fields: [groupId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  paymentTermId           String?
+  paymentTerm             PaymentTerm?           @relation(fields: [paymentTermId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Organization scope
+  companyId               String?
+  branchId                String?
+
+  // Tax / Commercial
+  taxNumber               String?
+  commercialRegistrationNo String?
+  vatRegistrationNo       String?
+  nationalIdOrRegistryNo  String?
+
+  // Contact summary
+  phone                   String?
+  mobile                  String?
+  email                   String?
+  website                 String?
+
+  // Credit / Control
+  creditLimit             Decimal? @db.Decimal(18, 4)
+  creditUsed              Decimal? @db.Decimal(18, 4) @default(0)
+  allowCredit             Boolean  @default(false)
+  isBlocked               Boolean  @default(false)
+  blockReason             String?
+  blockNotes              String?  @db.NVarChar(Max)
+  blockedAt               DateTime?
+  blockedById             String?
+
+  // Customer / Supplier flags
+  isCustomer              Boolean  @default(false)
+  isSupplier              Boolean  @default(false)
+
+  // Notes
+  notes                   String?  @db.NVarChar(Max)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  deletedAt               DateTime?
+
+  contacts    BusinessPartnerContact[]
+  addresses   BusinessPartnerAddress[]
+  bankAccounts BusinessPartnerBankAccount[]
+
+  @@index([code])
+  @@index([type])
+  @@index([status])
+  @@index([groupId])
+  @@index([paymentTermId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([taxNumber])
+  @@index([commercialRegistrationNo])
+  @@index([email])
+  @@index([phone])
+  @@index([isCustomer])
+  @@index([isSupplier])
+  @@index([isBlocked])
+  @@map("business_partners")
+}
+
+model BusinessPartnerContact {
+  id        String   @id @default(cuid())
+  partnerId String
+  partner   BusinessPartner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  type      String   @default("GENERAL")
+  name      String
+  jobTitle  String?
+  phone     String?
+  mobile    String?
+  email     String?
+  isPrimary Boolean  @default(false)
+  notes     String?  @db.NVarChar(Max)
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@index([partnerId])
+  @@index([type])
+  @@index([email])
+  @@index([phone])
+  @@index([isPrimary])
+  @@map("business_partner_contacts")
+}
+
+model BusinessPartnerAddress {
+  id           String   @id @default(cuid())
+  partnerId    String
+  partner      BusinessPartner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  type         String   @default("BILLING")
+  label        String?
+  country      String?
+  city         String?
+  district     String?
+  street       String?
+  buildingNo   String?
+  postalCode   String?
+  addressLine1 String?  @db.NVarChar(500)
+  addressLine2 String?  @db.NVarChar(500)
+  latitude     Decimal? @db.Decimal(10, 7)
+  longitude    Decimal? @db.Decimal(10, 7)
+  isPrimary    Boolean  @default(false)
+  notes        String?  @db.NVarChar(Max)
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  @@index([partnerId])
+  @@index([type])
+  @@index([city])
+  @@index([isPrimary])
+  @@map("business_partner_addresses")
+}
+
+model BusinessPartnerBankAccount {
+  id            String   @id @default(cuid())
+  partnerId     String
+  partner       BusinessPartner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  bankName      String
+  accountName   String?
+  accountNumber String?
+  iban          String?
+  swiftCode     String?
+  currency      String?
+  isPrimary     Boolean  @default(false)
+  notes         String?  @db.NVarChar(Max)
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  @@index([partnerId])
+  @@index([iban])
+  @@index([isPrimary])
+  @@map("business_partner_bank_accounts")
+}
+
+// ── Existing Models ────────────────────────────────────────────
+
 model Company {
   id        String    @id @default(cuid())
   code      String    @unique
