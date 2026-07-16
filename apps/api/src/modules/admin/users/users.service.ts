@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../../common/prisma/prisma.service';
-import { AuditService } from '../../../common/audit/audit.service';
+import { AuditService } from '../../../modules/audit/audit.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersQueryDto } from './dto/users-query.dto';
@@ -140,9 +140,12 @@ export class UsersService {
     });
 
     if (actorId) {
-      await this.auditService.log(actorId, 'UPDATE', 'user-roles', id, {
-        userEmail: user.email,
-        roleCount: roleIds.length,
+      await this.auditService.log({
+        userId: actorId,
+        action: 'UPDATE',
+        entity: 'user-roles',
+        entityId: id,
+        details: JSON.stringify({ userEmail: user.email, roleCount: roleIds.length }),
       });
     }
 

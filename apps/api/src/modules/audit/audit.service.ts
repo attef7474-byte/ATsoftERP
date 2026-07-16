@@ -5,7 +5,12 @@ import { PrismaService } from '../../common/prisma/prisma.service'
 export class AuditService {
   constructor(private prisma: PrismaService) {}
 
-  async log(params: { userId?: string; action: string; entity: string; entityId?: string; details?: string; ip?: string; userAgent?: string }) {
+  async log(userIdOrParams: string | undefined | { userId?: string; action: string; entity: string; entityId?: string; details?: string; ip?: string; userAgent?: string }, action?: string, entity?: string, entityId?: string, details?: string | Record<string, any>) {
+    if (typeof userIdOrParams === 'string' || userIdOrParams === undefined) {
+      const detailsStr = typeof details === 'object' ? JSON.stringify(details) : details
+      return this.prisma.auditLog.create({ data: { userId: userIdOrParams, action: action || '', entity: entity || '', entityId, details: detailsStr, ip: undefined, userAgent: undefined } })
+    }
+    const params = userIdOrParams
     return this.prisma.auditLog.create({ data: { userId: params.userId, action: params.action, entity: params.entity, entityId: params.entityId, details: params.details, ip: params.ip, userAgent: params.userAgent } })
   }
 

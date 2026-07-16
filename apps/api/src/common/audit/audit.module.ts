@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../prisma/prisma.module';
-import { AuditService } from './audit.service';
+import { AuditModule as NewAuditModule } from '../../modules/audit/audit.module';
 
 @Module({
-  imports: [PrismaModule],
-  providers: [AuditService],
-  exports: [AuditService],
+  imports: [NewAuditModule],
+  exports: [NewAuditModule],
 })
 export class AuditModule {}
