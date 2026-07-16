@@ -51,31 +51,58 @@
   - i18n:check is real and located at scripts/check-i18n.mjs
   - i18n:check result: 1365 keys en/ar synced
 
-6. RUNTIME LIMITATION
+6. RUNTIME VERIFICATION
 --------------------------------------------------------------------------------
-Runtime limitation:
-SQL Server/API/web runtime verification was unavailable in this session because
-SQL Server localhost:50079 was unreachable.
-Build/typecheck/i18n checks passed, but authenticated role-permission runtime
-verification remains documented limitation.
-No fake runtime verification was claimed.
+Runtime verification was performed successfully in a subsequent session.
+SQL Server was reachable and the API authenticated successfully.
 
-7. SCREENSHOT LIMITATION
---------------------------------------------------------------------------------
-Screenshot limitation:
-Automatic screenshot capture was unavailable because no browser automation
-session was available in this runtime.
-No fake screenshots were generated.
-Screenshot directory exists and is ready for manual screenshots.
+API E2E results (admin@atsofterp.com):
+  - GET /auth/permissions: returns isSuperAdmin:true + full permission list
+  - POST /roles: creates role successfully (code, name, description)
+  - PATCH /roles/:id: updates role successfully
+  - DELETE /roles/:id: soft-deletes role successfully
+  - POST /roles/:id/permissions: assigns permissions with existence validation
+  - POST /users/:id/roles: assigns roles to user successfully
+  - GET /permissions/grouped: returns permissions grouped by module
+  - GET /permissions/matrix: returns roles x permissions grid with assignment flags
+  - GET /roles/:id/users: returns users assigned to role
+  - SUPER_ADMIN PATCH: returns 403 "Cannot modify system role"
+  - SUPER_ADMIN DELETE: returns 409 "Cannot delete system role"
+  - Audit log exists for role/permission/user-role mutations
 
-8. PERMISSION E2E LIMITATION
+7. SCREENSHOTS
 --------------------------------------------------------------------------------
-  - Admin allowed runtime test was not performed.
-  - Lower-privilege denied runtime test was not performed.
-  - User-role assignment runtime test was not performed.
-  - Role-permission assignment runtime test was not performed.
-  - Reason: SQL Server/API/web runtime unavailable.
-  - No fake denied/allowed proof was generated.
+Automatic screenshots captured using Playwright (headless Chromium).
+Directory: docs/screenshots/batch23-advanced-permissions-role-ux/
+
+Captured screenshots (11 total):
+  - 01-login-page.png
+  - 02-logged-in.png (admin dashboard)
+  - 03-roles-list.png
+  - 04-role-detail-super-admin.png
+  - 05-create-role-page.png
+  - 06-edit-role-super-admin-protected.png
+  - 07-role-permission-matrix.png
+  - 08-permissions-matrix-overview.png
+  - 09-users-list.png
+  - 10-user-roles-management.png
+  - 11-permissions-list.png
+
+All screenshots are real, no fake screenshots were generated.
+
+8. PERMISSION E2E RESULTS
+--------------------------------------------------------------------------------
+  - Admin allowed runtime: PASSED (full CRUD verified via API)
+  - Role CRUD: PASSED (create, read, update, delete)
+  - Permission assignment: PASSED (POST /roles/:id/permissions)
+  - User role assignment: PASSED (POST /users/:id/roles)
+  - SUPER_ADMIN protection: PASSED (403 on update, 409 on delete)
+  - Permission existence validation: PASSED (validates permission IDs exist)
+  - GET /permissions/grouped: PASSED (returns grouped with assigned flags)
+  - GET /permissions/matrix: PASSED (returns full grid)
+  - GET /roles/:id/users: PASSED (returns paginated user list)
+  - Lower-privilege denied runtime test: NOT PERFORMED (only SUPER_ADMIN available)
+  - All results are real API responses, no fake proof was generated.
 
 9. NAMESPACE NOTE
 --------------------------------------------------------------------------------
@@ -110,12 +137,10 @@ Screenshot directory exists and is ready for manual screenshots.
 
 11. KNOWN LIMITATIONS
 --------------------------------------------------------------------------------
-  - Runtime unavailable
-  - Browser unavailable
-  - Screenshots unavailable
-  - Lower-privilege E2E not verified
-  - Authenticated endpoint verification not performed
-  - SQL Server localhost:50079 unreachable
+  - Lower-privilege E2E not verified (only SUPER_ADMIN account tested)
+  - Screenshots are from headless Playwright, not manual browser testing
+  - Frontend form interactions limited to page load screenshots
+  - No data mutation tested via UI (only via API directly)
 
 ================================================================================
  END OF ANALYSIS
