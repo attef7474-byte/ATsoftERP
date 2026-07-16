@@ -1,0 +1,30 @@
+Batch 18 Closeout — Settings, Audit, Notifications, Profile & Change Password
+=====================================================================
+
+Commit (feature):       dce4ee2
+Commit (fix):          a32a3e9
+Tag:                   atsoft-erp-batch18-settings-audit-notifications
+Final git status:      ## main...origin/main
+Ahead/behind:          0/0
+
+Route HTTP 200 (production build):
+  /admin/settings                          200
+  /admin/settings/numbering                200
+  /admin/settings/audit                    200
+  /admin/notifications                     200
+  /admin/profile                           200
+  /admin/profile/password                  200
+
+Build results:
+  typecheck (api):              passed
+  build:api (tsc):              passed
+  build:web (next build):       passed  (38 static pages generated)
+
+Screenshots:
+  Automatic screenshot capture was unavailable because no browser
+  automation session was available in this runtime.
+  No fake screenshots were generated.
+  Route/runtime verification was completed by HTTP checks and build checks.
+  Screenshot directory exists and is ready for manual screenshots.
+
+Status: COMPLETE_WITH_DOCUMENTED_LIMITATION
