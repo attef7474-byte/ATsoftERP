@@ -1,0 +1,76 @@
+Batch 17 — Barcode/QR Full UI Completion — Analysis and Closeout
+=================================================================
+Date: 2026-07-16
+Commit: 3315cb5
+Tag: atsoft-erp-barcode-qr-operational-ui
+Status: COMPLETE
+
+Overview
+--------
+Batch 17 completed the barcode/QR operational UI by hardening the 4 existing
+barcode pages (Generate, Print, Scan, Machine QR) and fixing type safety,
+API contract bugs, and missing features across the frontend.
+
+1. BarcodeLabel / BarcodeScanEvent / BarcodeScanResponse types
+   - Added full Prisma-aligned interfaces to admin-types.ts
+   - Replaced all `any` usage in product detail, machine detail, machine QR pages
+
+2. Machine QR Page (FIXED: critical bug)
+   - Was calling /barcodes/entities/machines (non-existent), now uses
+     /barcodes/labels/generate with entityType=MACHINE
+   - Added label list with status badges, print, mark-printed, activate/deactivate actions
+   - Uses proper useStableHandlers pattern
+
+3. Barcode Generate Page (HARDENED)
+   - Added F9Lookup component adapters for all 8 entity types
+   - MachinePart adapter added with /maintenance/machine-parts endpoint
+   - Labels table now shows print count and action buttons (print, mark-printed)
+   - Proper error states, loading states, entity type change resets entityId
+
+4. Barcode Print Page (HARDENED)
+   - Extended entity type filter to all 8 types (was limited to 5)
+   - Added status transition buttons in preview card: activate, deactivate, void, retire
+   - Uses BarcodeLabel type
+   - Filter changes trigger re-fetch via dependency array
+
+5. Barcode Scan Page (HARDENED)
+   - Entity result panel shows all label fields including title, entity details
+   - Entity quick links for all 8 entity types
+   - Suggested actions section when backend returns them
+   - Proper BarcodeScanResponse type with optional symbology/entityType
+
+6. Product Detail Page
+   - Fixed API endpoint: /barcodes/entities/PRODUCT/${id}/labels (was lowercase)
+   - BarcodeLabel type instead of any
+
+7. Machine Detail Page
+   - Fixed API endpoint: /barcodes/entities/MACHINE/${id}/labels (was lowercase "machines")
+   - BarcodeLabel type instead of any
+
+8. i18n (en.ts / ar.ts)
+   - Added: scanInstruction, activateLabel, deactivateLabel, voidLabel, retireLabel
+   - Added: entityQuickLinks.title and 8 entity-specific quick link labels
+   - All translations available in both English and Arabic
+
+9. Permissions
+   - Seeds exist for barcode-label:* (create/read/update/delete/activate/deactivate/
+     retire/void/print/resolve) and barcode-scan:* (create/read/resolve/inventory-count/
+     maintenance/machine-check/part-lookup)
+   - No new seeds required
+
+10. Limitations
+    - No barcode/QR visual rendering library in package.json; print uses
+      value card + native browser print window (documented limitation)
+    - F9 lookup not available for entity types without adapters; MACHINE_PART
+      has its own custom adapter, fallback to manual input for unhandled types
+    - Inventory count execute page and location list page not modified
+      (these are workflow/table pages, not detail pages)
+
+11. Build Verification
+    - build:web — SUCCESS (Next.js 15.5.20, no type errors)
+    - build:api — SUCCESS (tsc, no errors)
+
+12. Git Operations
+    - Commit 3315cb5: "feat(barcodes): complete Batch 17 - barcode/QR full UI hardening"
+    - Tag: atsoft-erp-barcode-qr-operational-ui
+    - Both pushed to origin/main; ahead/behind: 0/0
