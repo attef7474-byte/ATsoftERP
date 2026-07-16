@@ -1,42 +1,43 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional } from 'class-validator';
 
 export class BaseReportFilterDto {
-  @ApiPropertyOptional() dateFrom?: string;
-  @ApiPropertyOptional() dateTo?: string;
-  @ApiPropertyOptional() companyId?: string;
-  @ApiPropertyOptional() branchId?: string;
-  @ApiPropertyOptional() departmentId?: string;
-  @ApiPropertyOptional() search?: string;
-  @ApiPropertyOptional() page?: number = 1;
-  @ApiPropertyOptional() pageSize?: number = 20;
-  @ApiPropertyOptional() sortBy?: string;
-  @ApiPropertyOptional() sortDirection?: 'asc' | 'desc';
+  @IsOptional() @ApiPropertyOptional() dateFrom?: string;
+  @IsOptional() @ApiPropertyOptional() dateTo?: string;
+  @IsOptional() @ApiPropertyOptional() companyId?: string;
+  @IsOptional() @ApiPropertyOptional() branchId?: string;
+  @IsOptional() @ApiPropertyOptional() departmentId?: string;
+  @IsOptional() @ApiPropertyOptional() search?: string;
+  @IsOptional() @ApiPropertyOptional() page?: number = 1;
+  @IsOptional() @ApiPropertyOptional() pageSize?: number = 20;
+  @IsOptional() @ApiPropertyOptional() sortBy?: string;
+  @IsOptional() @ApiPropertyOptional() sortDirection?: 'asc' | 'desc';
 }
 
 export class MaintenanceReportFilterDto extends BaseReportFilterDto {
-  @ApiPropertyOptional() machineId?: string;
-  @ApiPropertyOptional() machineCategoryId?: string;
-  @ApiPropertyOptional() maintenanceType?: string;
-  @ApiPropertyOptional() priority?: string;
-  @ApiPropertyOptional() requestStatus?: string;
-  @ApiPropertyOptional() assigneeId?: string;
-  @ApiPropertyOptional() dueStatus?: string;
+  @IsOptional() @ApiPropertyOptional() machineId?: string;
+  @IsOptional() @ApiPropertyOptional() machineCategoryId?: string;
+  @IsOptional() @ApiPropertyOptional() maintenanceType?: string;
+  @IsOptional() @ApiPropertyOptional() priority?: string;
+  @IsOptional() @ApiPropertyOptional() requestStatus?: string;
+  @IsOptional() @ApiPropertyOptional() assigneeId?: string;
+  @IsOptional() @ApiPropertyOptional() dueStatus?: string;
 }
 
 export class InventoryReportFilterDto extends BaseReportFilterDto {
-  @ApiPropertyOptional() warehouseId?: string;
-  @ApiPropertyOptional() locationId?: string;
-  @ApiPropertyOptional() productId?: string;
-  @ApiPropertyOptional() productCategoryId?: string;
-  @ApiPropertyOptional() movementType?: string;
-  @ApiPropertyOptional() adjustmentReason?: string;
-  @ApiPropertyOptional() countStatus?: string;
-  @ApiPropertyOptional() varianceOnly?: boolean;
+  @IsOptional() @ApiPropertyOptional() warehouseId?: string;
+  @IsOptional() @ApiPropertyOptional() locationId?: string;
+  @IsOptional() @ApiPropertyOptional() productId?: string;
+  @IsOptional() @ApiPropertyOptional() productCategoryId?: string;
+  @IsOptional() @ApiPropertyOptional() movementType?: string;
+  @IsOptional() @ApiPropertyOptional() adjustmentReason?: string;
+  @IsOptional() @ApiPropertyOptional() countStatus?: string;
+  @IsOptional() @ApiPropertyOptional() varianceOnly?: boolean;
 }
 
 export class BarcodeReportFilterDto extends BaseReportFilterDto {
-  @ApiPropertyOptional() entityType?: string;
-  @ApiPropertyOptional() scanPurpose?: string;
-  @ApiPropertyOptional() result?: string;
-  @ApiPropertyOptional() scannedById?: string;
+  @IsOptional() @ApiPropertyOptional() entityType?: string;
+  @IsOptional() @ApiPropertyOptional() scanPurpose?: string;
+  @IsOptional() @ApiPropertyOptional() result?: string;
+  @IsOptional() @ApiPropertyOptional() scannedById?: string;
 }

@@ -7,6 +7,9 @@ COMPLETE
 Implementation commit:
 a692530
 
+Closeout docs commit:
+6767ef7
+
 Tag:
 atsoft-erp-performance-indexing-sqlserver-optimization
 
@@ -22,14 +25,27 @@ Summary:
 - Added docs/performance/sqlserver-performance-notes.md.
 - SQL Server index count verified through sqlcmd.
 
-Validation:
-- prisma validate: passed
-- prisma generate: passed
-- build:api: passed
-- typecheck: passed
-- build:web: passed
-- i18n:check: passed
-- perf-smoke: 6 passed, 2 failed (report overview DTO validation issue, pre-existing)
+Batch 25 corrective performance smoke fix:
+- Previous perf-smoke result: 6/7
+- Root cause: report filter DTOs (MaintenanceReportFilterDto, InventoryReportFilterDto) used @ApiPropertyOptional() Swagger decorators but lacked @IsOptional() class-validator decorators. ValidationPipe with forbidNonWhitelisted: true rejected properties with default values (page=1, pageSize=20) set during class instantiation even without query params.
+- Fix: added @IsOptional() decorators to all 27 properties across BaseReportFilterDto, MaintenanceReportFilterDto, InventoryReportFilterDto, and BarcodeReportFilterDto.
+- Validation:
+  perf-smoke: 7/7 passed
+  prisma validate: passed
+  prisma generate: passed
+  build:api: passed
+  typecheck: passed
+  build:web: passed
+  i18n:check: passed
+- Safety:
+  no fake performance numbers
+  no endpoint check removed
+  no validation disabled globally
+  no db push
+  no migrate reset
+  no database reset
+  no Docker
+  no PostgreSQL
 
 Push:
 - main pushed: yes
