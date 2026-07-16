@@ -63,8 +63,7 @@ export default function ChangePasswordPage() {
             <Input label={t('profile.currentPassword')} type="password" value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)} />
             <Input label={t('profile.newPassword')} type="password" value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              helperText={t('profile.passwordMinLength')} />
+              onChange={(e) => setNewPassword(e.target.value)} />
             <Input label={t('profile.confirmNewPassword')} type="password" value={confirmNewPassword}
               onChange={(e) => setConfirmNewPassword(e.target.value)} />
             <div className="flex justify-end gap-3 pt-4">
