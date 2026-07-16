@@ -23,6 +23,7 @@ export type TranslationNamespace =
   | 'workspace'
   | 'settings'
   | 'notifications'
+  | 'profile'
   | 'details'
   | 'inventoryCountWorkflow'
   | 'maintenanceWorkflow';

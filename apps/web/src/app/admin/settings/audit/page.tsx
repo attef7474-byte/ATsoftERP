@@ -3,20 +3,40 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, LoadingState, EmptyState, ErrorState, Modal } from '../../../../components/admin/ui';
-import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionBackIcon } from '../../../../components/admin/admin-action-bar';
+import { useRouter } from 'next/navigation';
+
+const SECRET_FIELDS = ['password', 'secret', 'token', 'jwt', 'authorization', 'credential', 'apiKey', 'apiSecret'];
+
+function sanitizeDetails(detailsStr: string | null): string {
+  if (!detailsStr) return '-';
+  try {
+    const obj = JSON.parse(detailsStr);
+    const sanitized = JSON.stringify(obj, (key, value) => {
+      if (SECRET_FIELDS.some((sf) => key.toLowerCase().includes(sf.toLowerCase()))) return '***';
+      return value;
+    }, 2);
+    return sanitized;
+  } catch {
+    return detailsStr.length > 500 ? detailsStr.substring(0, 500) + '...' : detailsStr;
+  }
+}
 
 export default function AuditLogPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [data, setData] = useState<any[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const [entityFilter, setEntityFilter] = useState('');
+  const [userFilter, setUserFilter] = useState('');
   const [search, setSearch] = useState('');
 
   const [detailModal, setDetailModal] = useState(false);
   const [detailItem, setDetailItem] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [selectedId, setSelectedId] = useState('');
 
   const fetchData = useCallback(async (page = 1) => {
@@ -26,6 +46,7 @@ export default function AuditLogPage() {
       const params: Record<string, any> = { page, limit: 20 };
       if (actionFilter) params.action = actionFilter;
       if (entityFilter) params.entity = entityFilter;
+      if (userFilter) params.userId = userFilter;
       if (search) params.search = search;
       const res = await api.get<{ data: any[]; meta: any }>('/audit-logs', { params });
       setData(res.data || []);
@@ -35,38 +56,32 @@ export default function AuditLogPage() {
     } finally {
       setLoading(false);
     }
-  }, [actionFilter, entityFilter, search, t]);
+  }, [actionFilter, entityFilter, userFilter, search, t]);
 
   useEffect(() => { fetchData(); }, []);
 
-  const openDetail = (item: any) => {
-    setDetailItem(item);
+  const openDetail = async (item: any) => {
+    setDetailLoading(true);
     setDetailModal(true);
+    try {
+      const result = await api.get<any>(`/audit-logs/${item.id}`);
+      setDetailItem(result);
+    } catch {
+      setDetailItem(item);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const { exec } = useStableHandlers({
     refresh: () => fetchData(meta.page),
+    back: () => router.back(),
   });
 
   useRegisterAdminActions([
+    { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
-
-  const SECRET_FIELDS = ['password', 'secret', 'token', 'jwt', 'authorization', 'credential'];
-
-  function sanitizeDetails(detailsStr: string | null): string {
-    if (!detailsStr) return '-';
-    try {
-      const obj = JSON.parse(detailsStr);
-      const sanitized = JSON.stringify(obj, (key, value) => {
-        if (SECRET_FIELDS.some((sf) => key.toLowerCase().includes(sf.toLowerCase()))) return '***';
-        return value;
-      }, 2);
-      return sanitized;
-    } catch {
-      return detailsStr.length > 500 ? detailsStr.substring(0, 500) + '...' : detailsStr;
-    }
-  }
 
   const columns = [
     { key: 'createdAt', header: t('settings.audit.timestamp'), render: (item: any) => item.createdAt ? new Date(item.createdAt).toLocaleString() : '-' },
@@ -98,7 +113,8 @@ export default function AuditLogPage() {
         <Select value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)}
           options={[{ value: '', label: t('common.all') }, { value: 'User', label: 'User' }, { value: 'Role', label: 'Role' }, { value: 'Warehouse', label: 'Warehouse' }, { value: 'Product', label: 'Product' }, { value: 'Machine', label: 'Machine' }]}
           className="w-32" placeholder={t('settings.audit.entity')} />
-        <Button variant="secondary" onClick={() => { setSearch(''); setActionFilter(''); setEntityFilter(''); fetchData(1); }}>{t('common.clearSearch')}</Button>
+        <Input value={userFilter} onChange={(e) => setUserFilter(e.target.value)} placeholder={t('settings.audit.user')} className="w-32" />
+        <Button variant="secondary" onClick={() => { setSearch(''); setActionFilter(''); setEntityFilter(''); setUserFilter(''); fetchData(1); }}>{t('common.clearSearch')}</Button>
       </div>
       {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
       {!error && loading && <LoadingState message={t('settings.audit.loadingLogs')} />}
@@ -111,7 +127,8 @@ export default function AuditLogPage() {
         </Card>
       )}
       <Modal open={detailModal} onClose={() => setDetailModal(false)} title={t('settings.audit.details')} size="lg">
-        {detailItem && (
+        {detailLoading && <LoadingState message={t('common.loading')} />}
+        {!detailLoading && detailItem && (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div><span className="text-gray-500">{t('settings.audit.timestamp')}:</span> <span className="font-medium">{new Date(detailItem.createdAt).toLocaleString()}</span></div>
@@ -126,7 +143,7 @@ export default function AuditLogPage() {
               </div>
             )}
             {detailItem.ip && <div className="text-sm"><span className="text-gray-500">{t('settings.audit.ip')}:</span> <span className="font-mono text-xs">{detailItem.ip}</span></div>}
-            {detailItem.userAgent && <div className="text-sm"><span className="text-gray-500">{t('settings.audit.userAgent')}:</span> <span className="text-xs">{detailItem.userAgent}</span></div>}
+            {detailItem.userAgent && <div className="text-sm"><span className="text-gray-500">{t('settings.audit.userAgent')}:</span> <span className="text-xs break-all">{detailItem.userAgent}</span></div>}
           </div>
         )}
       </Modal>

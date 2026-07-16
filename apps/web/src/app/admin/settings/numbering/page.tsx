@@ -4,17 +4,24 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge } from '../../../../components/admin/ui';
-import { useRegisterAdminActions, useStableHandlers, ActionEditIcon, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionEditIcon, ActionRefreshIcon, ActionBackIcon } from '../../../../components/admin/admin-action-bar';
+import { useRouter } from 'next/navigation';
+
+function computePreview(item: any): string {
+  const next = (item.currentNumber || 0) + 1;
+  const padded = String(next).padStart(item.padding || 6, '0');
+  return `${item.prefix || ''}${padded}${item.suffix || ''}`;
+}
 
 export default function NumberingPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const router = useRouter();
   const [data, setData] = useState<any[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [nextPreviews, setNextPreviews] = useState<Record<string, string>>({});
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
@@ -68,21 +75,14 @@ export default function NumberingPage() {
     }
   };
 
-  const handlePreviewNext = async (item: any) => {
-    try {
-      const result = await api.post<{ number: string }>('/numbering/generate', { code: item.code });
-      setNextPreviews((prev) => ({ ...prev, [item.id]: result.number }));
-    } catch {
-      setNextPreviews((prev) => ({ ...prev, [item.id]: t('common.unavailable') }));
-    }
-  };
-
   const { exec } = useStableHandlers({
     edit: () => selectedRecord && openEdit(selectedRecord),
     refresh: () => fetchData(meta.page),
+    back: () => router.back(),
   });
 
   useRegisterAdminActions([
+    { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
@@ -97,11 +97,7 @@ export default function NumberingPage() {
     { key: 'status', header: t('common.status'), render: (item: any) => <StatusBadge status={item.status} /> },
     {
       key: 'nextPreview', header: t('settings.numbering.nextPreview'), render: (item: any) => (
-        <span className="font-mono text-xs">
-          {nextPreviews[item.id] || (
-            <button onClick={() => handlePreviewNext(item)} className="text-blue-600 hover:underline text-xs">{t('settings.numbering.generateNext')}</button>
-          )}
-        </span>
+        <span className="font-mono text-xs">{computePreview(item)}</span>
       ),
     },
   ];

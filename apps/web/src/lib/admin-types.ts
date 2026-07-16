@@ -660,6 +660,59 @@ export interface BarcodeScanEvent {
   label?: { id: string; code: string; value: string; status: string };
 }
 
+export interface SystemSetting {
+  id: string;
+  key: string;
+  value: string;
+  label?: string | null;
+  description?: string | null;
+  group: string;
+  status: string;
+  isSystem: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NumberSequence {
+  id: string;
+  code: string;
+  name: string;
+  prefix: string;
+  suffix?: string | null;
+  currentNumber: number;
+  padding: number;
+  scope: string;
+  resetPolicy: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  userId?: string | null;
+  action: string;
+  entity: string;
+  entityId?: string | null;
+  details?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
+  user?: { id: string; email: string; name: string } | null;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message?: string | null;
+  link?: string | null;
+  read: boolean;
+  readAt?: string | null;
+  createdAt: string;
+}
+
 export interface BarcodeScanResponse {
   result: string;
   message: string;

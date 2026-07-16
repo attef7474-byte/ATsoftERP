@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -33,5 +33,12 @@ export class AuditController {
       startDate,
       endDate,
     });
+  }
+
+  @Get(':id')
+  @Permissions('audit:read')
+  @ApiOperation({ summary: 'Get audit log by ID' })
+  async findOne(@Param('id') id: string) {
+    return this.auditService.findOne(id);
   }
 }

@@ -49,6 +49,14 @@ export class NumberingService {
     return this.prisma.numberSequence.update({ where: { id }, data: dto });
   }
 
+  async preview(id: string) {
+    const seq = await this.findOne(id);
+    const nextNumber = seq.currentNumber + 1;
+    const padded = String(nextNumber).padStart(seq.padding, '0');
+    const generated = `${seq.prefix}${padded}${seq.suffix || ''}`;
+    return { number: generated, sequence: seq.code, currentNumber: seq.currentNumber, nextNumber };
+  }
+
   async generateNumber(code: string) {
     const seq = await this.prisma.numberSequence.findUnique({ where: { code } });
     if (!seq) throw new NotFoundException('Number sequence not found');

@@ -169,6 +169,8 @@ function getPageTitle(pathname: string): string {
     numbering: 'settings.numbering.title',
     audit: 'settings.audit.title',
     notifications: 'notifications.title',
+    profile: 'profile.title',
+    password: 'profile.changePasswordTitle',
   };
   const nsKey = mapping[last];
   if (nsKey) return nsKey;
@@ -185,6 +187,7 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [clock, setClock] = useState('');
   const isRtl = locale === 'ar';
 
@@ -199,6 +202,21 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     getProfile().then((p) => { if (p) setProfile(p); });
+  }, []);
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/notifications/unread-count`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+        });
+        const json = await res.json();
+        setUnreadCount(json?.data?.count ?? json?.count ?? 0);
+      } catch { /* ignore */ }
+    };
+    fetchUnread();
+    const id = setInterval(fetchUnread, 30000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -257,13 +275,18 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <button className="relative p-1.5 text-gray-500 hover:text-gray-700 transition-colors" title={t('common.notifications')}>
+          <button onClick={() => router.push('/admin/notifications')} className="relative p-1.5 text-gray-500 hover:text-gray-700 transition-colors" title={t('common.notifications')}>
             <NotificationIcon />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-red-500 rounded-full">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
           <button onClick={toggleLanguage} className="px-2.5 py-1 text-xs border rounded-md hover:bg-gray-50 transition-colors whitespace-nowrap">
             {isRtl ? 'English' : '\u0627\u0644\u0639\u0631\u0628\u064a\u0629'}
           </button>
-          <div className="flex items-center gap-2">
+          <Link href="/admin/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium shrink-0">
               {profile?.name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
@@ -271,7 +294,7 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
               <p className="text-sm font-medium text-gray-700 truncate max-w-[120px]">{profile?.name || t('common.loading')}</p>
               <p className="text-xs text-gray-500 truncate max-w-[120px]">{profile?.email || t('common.user')}</p>
             </div>
-          </div>
+          </Link>
           <button onClick={handleLogout} className="px-2.5 py-1 text-xs text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors whitespace-nowrap">
             {t('common.logout')}
           </button>

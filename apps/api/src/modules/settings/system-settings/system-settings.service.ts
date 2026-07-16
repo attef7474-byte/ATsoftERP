@@ -49,4 +49,14 @@ export class SystemSettingsService {
   async findByGroup(group: string) {
     return this.prisma.systemSetting.findMany({ where: { group, status: 'ACTIVE' } });
   }
+
+  async activate(id: string) {
+    await this.findOne(id);
+    return this.prisma.systemSetting.update({ where: { id }, data: { status: 'ACTIVE' } });
+  }
+
+  async deactivate(id: string) {
+    await this.findOne(id);
+    return this.prisma.systemSetting.update({ where: { id }, data: { status: 'INACTIVE' } });
+  }
 }

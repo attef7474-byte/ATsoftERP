@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
@@ -65,5 +65,14 @@ export class AuditService {
       data,
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
+  }
+
+  async findOne(id: string) {
+    const log = await this.prisma.auditLog.findUnique({
+      where: { id },
+      include: { user: { select: { id: true, email: true, name: true } } },
+    });
+    if (!log) throw new NotFoundException('Audit log not found');
+    return log;
   }
 }

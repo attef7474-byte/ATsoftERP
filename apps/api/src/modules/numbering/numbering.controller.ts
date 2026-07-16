@@ -36,6 +36,11 @@ export class NumberingController {
   @ApiOperation({ summary: 'Get number sequence by ID' })
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
 
+  @Get(':id/preview')
+  @Permissions('numbering:read')
+  @ApiOperation({ summary: 'Preview next number without mutating' })
+  preview(@Param('id') id: string) { return this.service.preview(id); }
+
   @Get('code/:code')
   @Permissions('numbering:read')
   @ApiOperation({ summary: 'Get number sequence by code' })

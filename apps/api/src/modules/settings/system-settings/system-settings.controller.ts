@@ -45,4 +45,14 @@ export class SystemSettingsController {
   @Permissions('settings:update')
   @ApiOperation({ summary: 'Update system setting' })
   update(@Param('id') id: string, @Body() dto: UpdateSystemSettingDto) { return this.service.update(id, dto); }
+
+  @Patch(':id/activate')
+  @Permissions('settings:update')
+  @ApiOperation({ summary: 'Activate system setting' })
+  activate(@Param('id') id: string) { return this.service.activate(id); }
+
+  @Patch(':id/deactivate')
+  @Permissions('settings:update')
+  @ApiOperation({ summary: 'Deactivate system setting' })
+  deactivate(@Param('id') id: string) { return this.service.deactivate(id); }
 }
