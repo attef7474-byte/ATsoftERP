@@ -14,3 +14,5 @@ Thumbs.db
 *.tsbuildinfo
 
 releases/
+# generated build artifacts
+packages/shared/src/*.js
