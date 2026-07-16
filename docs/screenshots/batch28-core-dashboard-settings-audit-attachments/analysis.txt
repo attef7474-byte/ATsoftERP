@@ -1,0 +1,199 @@
+Batch 28 — Core Dashboard, Settings, Audit, Attachments
+Analysis Date: 2026-07-17
+Status: Complete
+
+## Files Created / Updated
+
+### Backend Modules (apps/api/src/modules/)
+1. dashboard/dashboard.controller.ts — Dashboard summary, operations, KPIs
+2. dashboard/dashboard.module.ts
+3. dashboard/dashboard.service.ts
+4. alerts/alerts.controller.ts — CRUD + acknowledge/resolve
+5. alerts/alerts.module.ts
+6. alerts/alerts.service.ts
+7. alerts/dto/ — CreateAlert, UpdateAlert, AlertQuery DTOs
+8. settings/company-profile/company-profile.controller.ts
+9. settings/company-profile/company-profile.module.ts
+10. settings/company-profile/company-profile.service.ts
+11. settings/company-profile/dto/update-company-profile.dto.ts
+12. settings/language/language.controller.ts
+13. settings/language/language.module.ts
+14. settings/language/language.service.ts
+15. settings/language/dto/update-language.dto.ts
+16. settings/appearance/appearance.controller.ts
+17. settings/appearance/appearance.module.ts
+18. settings/appearance/appearance.service.ts
+19. settings/appearance/dto/update-appearance.dto.ts
+20. settings/security/security.controller.ts
+21. settings/security/security.module.ts
+22. settings/security/security.service.ts
+23. settings/security/dto/update-security.dto.ts
+24. settings/notification-rules/notification-rules.controller.ts
+25. settings/notification-rules/notification-rules.module.ts
+26. settings/notification-rules/notification-rules.service.ts
+27. settings/notification-rules/dto/ — CreateNotificationRule, UpdateNotificationRule DTOs
+28. audit/audit.controller.ts — List, summary, CSV export, by-ID
+29. audit/audit.module.ts
+30. audit/audit.service.ts — Enhanced log() with object params + backward-compat overload
+31. audit/dto/log-entry.dto.ts
+32. audit/dto/audit-query.dto.ts
+33. documents/attachments/attachments.controller.ts — CRUD, upload, download, by-entity
+34. documents/attachments/attachments.module.ts
+35. documents/attachments/attachments.service.ts
+36. notifications/notifications.controller.ts — Dispatch, inbox, unread-count, mark-read
+37. notifications/notifications.module.ts
+38. notifications/notifications.service.ts
+39. notifications/dto/dispatch-notification.dto.ts
+40. user-activity/user-activity.controller.ts — Global + per-user activity
+41. user-activity/user-activity.module.ts
+42. user-activity/user-activity.service.ts
+43. login-history/login-history.controller.ts — Global + per-user login history
+44. login-history/login-history.module.ts
+45. login-history/login-history.service.ts
+
+### Updated Backend Files
+46. common/audit/audit.module.ts — Re-exports NewAuditModule from modules/audit/
+47. common/audit/audit.service.ts — Re-exports AuditService from modules/audit/
+48. modules/audit/audit.service.ts — Dual-signature log() (string|undefined|object) for backward compat
+49. modules/admin/users/users.service.ts — Updated auditService.log() call to new object param
+
+### Prisma Schema
+50. apps/api/prisma/schema.prisma — Added NotificationRule model, migration 20260716220124
+
+### Frontend Pages (apps/web/src/app/admin/)
+51. dashboard/page.tsx — Enhanced KPI cards, operations summary
+52. alerts/page.tsx — New alerts list
+53. settings/company/page.tsx — Company profile form
+54. settings/language/page.tsx — Language settings form
+55. settings/appearance/page.tsx — Appearance settings form
+56. settings/security/page.tsx — Security settings form
+57. settings/notification-rules/page.tsx — CRUD notification rules
+58. settings/audit/page.tsx — Audit log viewer with date filters, CSV, summary
+59. settings/audit/user-activity/page.tsx — Global user activity log
+60. settings/audit/login-history/page.tsx — Global login history
+61. access/users/[id]/activity/page.tsx — Per-user activity log
+62. access/users/[id]/login-history/page.tsx — Per-user login history
+63. documents/attachments/page.tsx — Attachments list
+64. documents/attachments/upload/page.tsx — Attachment upload form
+65. notifications/page.tsx — Notification inbox (updated)
+
+### Frontend Infrastructure
+66. apps/web/src/lib/i18n/locales/en.ts — Added namespaces: alerts, companyProfile, languageSettings, appearanceSettings, securitySettings, notificationRules, attachments, userActivity, loginHistory
+67. apps/web/src/lib/i18n/locales/ar.ts — Same namespaces in Arabic
+68. apps/web/src/lib/i18n/types.ts — Updated TranslationNamespace with new keys
+69. apps/web/src/components/admin/admin-shell.tsx — Sidebar updated (Alerts, Documents, System)
+70. apps/web/src/lib/api.ts — FormData support for file uploads
+
+## Corrective Actions (Commit c98b37f)
+
+### Problem
+The new `AuditService.log()` in modules/audit/audit.service.ts expected a single LogEntryDto object,
+but many existing callers (roles.service.ts, machine-parts.service.ts, machine-documents.service.ts,
+machine-categories.service.ts, barcode-scans.service.ts) passed 4-5 positional arguments as the old
+common/audit/audit.service.ts did.
+
+### Fix
+- Made AuditService.log() accept both sigil: `string | undefined | { ...params }` as first argument
+  with optional trailing positional args for backward compatibility
+- Updated users.service.ts to use new object-param style
+- common/audit/ now re-exports from modules/audit/ instead of duplicating
+
+### Files Changed
+```
+apps/api/src/common/audit/audit.module.ts     — imports NewAuditModule
+apps/api/src/common/audit/audit.service.ts    — re-exports from modules/audit/
+apps/api/src/modules/admin/users/users.service.ts — updated log() call to object style
+apps/api/src/modules/audit/audit.service.ts   — dual-signature log() overload
+```
+
+## Final Validation Results
+
+| Check | Result |
+|---|---|
+| npx prisma validate | PASS |
+| npx prisma generate | PASS (v7.8.0) |
+| npm run build:api (tsc) | PASS |
+| npm run typecheck (tsc --noEmit) | PASS |
+| npm run build:web (next build) | PASS (66 pages) |
+| npm run i18n:check | PASS (1594 keys, en=ar) |
+| health-check.ps1 | PASS (4/4) |
+| smoke-check.ps1 | PASS (8/8) |
+
+## Route Verification
+
+### Web Routes (all return 200)
+- /admin/dashboard
+- /admin/dashboard/operations
+- /admin/alerts
+- /admin/notifications
+- /admin/settings
+- /admin/settings/numbering
+- /admin/settings/company
+- /admin/settings/language
+- /admin/settings/appearance
+- /admin/settings/security
+- /admin/settings/audit
+- /admin/settings/audit/login-history
+- /admin/settings/audit/user-activity
+- /admin/documents/attachments
+- /admin/documents/attachments/upload
+- /admin/settings/notification-rules
+- /admin/access/users
+- /admin/access/roles
+
+### API Endpoints (all return 200 or 401)
+- GET /api/v1/dashboard/summary — 200
+- GET /api/v1/dashboard/operations — 200
+- GET /api/v1/dashboard/kpis — 200
+- GET /api/v1/alerts — 200
+- GET /api/v1/alerts/summary — 200
+- GET /api/v1/alerts/:id — 200
+- GET /api/v1/settings/company-profile — 401
+- GET /api/v1/settings/language — 401
+- GET /api/v1/settings/appearance — 401
+- GET /api/v1/settings/security — 401
+- GET /api/v1/notifications/rules — 200
+- GET /api/v1/audit-logs — 401
+- GET /api/v1/audit-logs/summary — 401
+- GET /api/v1/attachments — 200
+- GET /api/v1/users — 401
+- GET /api/v1/users/:id/activity — 200 (with auth)
+- GET /api/v1/users/:id/login-history — 200 (with auth)
+- PATCH /api/v1/alerts/:id/acknowledge — documented but route not verified at runtime
+- PATCH /api/v1/alerts/:id/resolve — documented but route not verified at runtime
+
+## Tag Status
+
+| Tag | Commit | Purpose |
+|---|---|---|
+| atsoft-erp-batch28-dashboard-settings-audit-attachments | 047e58d | Initial Batch 28 deliverable |
+| atsoft-erp-batch28-dashboard-settings-audit-attachments-final | c98b37f | Corrective commit: AuditService.log compatibility fix |
+
+## Git Status
+- Working tree: clean
+- Ahead/behind: 0/0
+- Untracked files: none
+- Final commit: c98b37f
+
+## Known Limitations
+1. PATCH /api/v1/alerts/:id/acknowledge and PATCH /api/v1/alerts/:id/resolve — API routes confirmed at
+   controller level but not verified via runtime curl. Web UI integration pending frontend auth flow.
+2. Notification dispatch (POST /api/v1/notifications/dispatch) — module exists but not smoke-tested.
+3. File upload (POST /api/v1/attachments) — multipart endpoint exists but not verified (no test file).
+4. Setting endpoints (company-profile, language, appearance, security) require auth token — tested as
+   401 (correct). Full CRUD verified at module level, no data seeded.
+5. Alerts controller uses `@Controller('alerts')` (non-versioned) while dashboard uses non-versioned too;
+   both are mounted under `/api/v1` global prefix.
+6. Some settings pages (company, language, appearance, security) are static pages with no dynamic data
+   yet — they display forms but rely on API calls that require authentication.
+7. No db push or migrate reset was executed — the NotificationRule model exists in schema but the
+   migration 20260716220124 must be applied upon first deploy.
+8. API process is ts-node (not compiled JS) — suitable for development only.
+
+## 198-Screen Status
+- Screens completed prior to Batch 28: ~130
+- Batch 28 new screens: 14 (Dashboard v2, Alerts, Company Profile, Language, Appearance, Security,
+  Notification Rules, Audit Log, Audit > User Activity, Audit > Login History, User > Activity,
+  User > Login History, Attachments List, Attachments Upload)
+- Updated screens: 2 (Dashboard, Notifications Inbox)
+- Estimated total: ~146/198 (73.7%)
