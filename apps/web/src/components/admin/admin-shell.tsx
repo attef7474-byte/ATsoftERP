@@ -34,7 +34,7 @@ const navItems: NavItem[] = [
     id: 'dashboard', label: 'navigation.dashboard', href: '/admin/dashboard', icon: 'dashboard',
   },
   {
-    id: 'core', label: 'navigation.coreManagement', href: '#', icon: 'core', children: [
+    id: 'core', label: 'navigation.core', href: '#', icon: 'core', children: [
       { id: 'core-companies', label: 'navigation.companies', href: '/admin/core/companies' },
       { id: 'core-branches', label: 'navigation.branches', href: '/admin/core/branches' },
       { id: 'core-departments', label: 'navigation.departments', href: '/admin/core/departments' },

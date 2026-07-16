@@ -54,7 +54,7 @@ export default function InventoryAdjustmentDetailPage() {
   const { exec } = useStableHandlers({
     back: () => router.back(),
     refresh: () => fetchData(),
-    edit: () => router.push(`/admin/inventory/adjustments?id=${id}`),
+    edit: () => router.push('/admin/inventory/adjustments'),
     post: () => confirmAndExec('post'),
     cancel: () => confirmAndExec('cancel'),
   });

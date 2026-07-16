@@ -43,11 +43,11 @@ export default function BarcodeScansReportPage() {
   ]);
 
   const columns = [
-    { key: 'scannedValue', header: t('barcodes.value') },
+    { key: 'scannedValue', header: t('barcodes.scannedValue') },
     { key: 'purpose', header: t('reports.byPurpose'), render: (r: any) => <span className="capitalize">{r.purpose?.toLowerCase()}</span> },
     { key: 'result', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.result?.toLowerCase()}</span> },
     { key: 'entityType', header: t('reports.byEntity'), render: (r: any) => r.entityType || '-' },
-    { key: 'source', header: 'Source' },
+    { key: 'source', header: t('barcodes.source') },
     { key: 'scannedAt', header: t('common.date'), render: (r: any) => r.scannedAt ? new Date(r.scannedAt).toLocaleString() : '-' },
   ];
 

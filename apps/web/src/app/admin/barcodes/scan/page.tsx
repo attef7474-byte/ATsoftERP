@@ -72,14 +72,14 @@ export default function BarcodeScanPage() {
     if (!entityType || !entityId) return null;
     if (!entityId) return null;
     switch (entityType) {
-      case 'MACHINE': return { href: `/admin/maintenance/machines/${entityId}`, label: t('barcodes.entityQuickLinks.viewMachine') };
-      case 'PRODUCT': return { href: `/admin/inventory/products/${entityId}`, label: t('barcodes.entityQuickLinks.viewProduct') };
-      case 'MACHINE_PART': return { href: `/admin/maintenance/machine-parts/${entityId}`, label: t('barcodes.entityQuickLinks.viewPart') };
-      case 'WAREHOUSE': return { href: `/admin/inventory/warehouses/${entityId}`, label: t('barcodes.entityQuickLinks.viewWarehouse') };
-      case 'WAREHOUSE_LOCATION': return { href: `/admin/inventory/locations/${entityId}`, label: t('barcodes.entityQuickLinks.viewLocation') };
+      case 'MACHINE': return { href: `/admin/maintenance/machines`, label: t('barcodes.entityQuickLinks.viewMachine') };
+      case 'PRODUCT': return { href: `/admin/inventory/products`, label: t('barcodes.entityQuickLinks.viewProduct') };
+      case 'MACHINE_PART': return { href: `/admin/maintenance/machine-parts`, label: t('barcodes.entityQuickLinks.viewPart') };
+      case 'WAREHOUSE': return { href: `/admin/inventory/warehouses`, label: t('barcodes.entityQuickLinks.viewWarehouse') };
+      case 'WAREHOUSE_LOCATION': return { href: `/admin/inventory/locations`, label: t('barcodes.entityQuickLinks.viewLocation') };
       case 'INVENTORY_COUNT': return { href: `/admin/inventory/counts/${entityId}`, label: t('barcodes.entityQuickLinks.viewCount') };
       case 'MAINTENANCE_REQUEST': return { href: `/admin/maintenance/requests/${entityId}`, label: t('barcodes.entityQuickLinks.viewRequest') };
-      case 'MAINTENANCE_TASK': return { href: `/admin/maintenance/tasks/${entityId}`, label: t('barcodes.entityQuickLinks.viewTask') };
+      case 'MAINTENANCE_TASK': return { href: `/admin/maintenance/tasks`, label: t('barcodes.entityQuickLinks.viewTask') };
       default: return null;
     }
   };

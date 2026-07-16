@@ -32,7 +32,12 @@ export class SystemSettingsService {
       this.prisma.systemSetting.count({ where }),
     ]);
 
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    const maskedData = data.map((setting) => ({
+      ...setting,
+      value: this.isSecretKey(setting.key) ? this.maskValue() : setting.value,
+    }));
+
+    return { data: maskedData, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async findOne(id: string) {
@@ -58,5 +63,14 @@ export class SystemSettingsService {
   async deactivate(id: string) {
     await this.findOne(id);
     return this.prisma.systemSetting.update({ where: { id }, data: { status: 'INACTIVE' } });
+  }
+
+  private isSecretKey(key: string): boolean {
+    const patterns = ['jwt', 'password', 'secret', 'token', 'credential', 'api_key', 'apiKey', 'apiSecret'];
+    return patterns.some((p) => key.toLowerCase().includes(p.toLowerCase()));
+  }
+
+  private maskValue(): string {
+    return '••••••••';
   }
 }

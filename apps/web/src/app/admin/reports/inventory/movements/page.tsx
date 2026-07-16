@@ -46,8 +46,8 @@ export default function MovementsReportPage() {
   ]);
 
   const columns = [
-    { key: 'movementNumber', header: t('inventory.movementNumber'), render: (r: any) => <button onClick={() => router.push(`/admin/inventory/movements/${r.id}`)} className="text-blue-600 hover:underline">{r.movementNumber}</button> },
-    { key: 'movementType', header: t('inventory.movementType') },
+    { key: 'movementNumber', header: t('inventoryCounting.movementNumber'), render: (r: any) => <button onClick={() => router.push(`/admin/inventory/movements/${r.id}`)} className="text-blue-600 hover:underline">{r.movementNumber}</button> },
+    { key: 'movementType', header: t('inventoryCounting.movementType') },
     { key: 'warehouse', header: t('reports.warehouse'), render: (r: any) => r.warehouse?.name || '-' },
     { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
     { key: 'movementDate', header: t('common.date'), render: (r: any) => r.movementDate ? new Date(r.movementDate).toLocaleDateString() : '-' },

@@ -54,7 +54,7 @@ export default function InventoryMovementDetailPage() {
   const { exec } = useStableHandlers({
     back: () => router.back(),
     refresh: () => fetchData(),
-    edit: () => router.push(`/admin/inventory/movements?id=${id}`),
+    edit: () => router.push('/admin/inventory/movements'),
     post: () => confirmAndExec('post'),
     cancel: () => confirmAndExec('cancel'),
   });

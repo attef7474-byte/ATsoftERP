@@ -50,8 +50,8 @@ export default function SchedulesReportPage() {
     { key: 'machine', header: t('reports.machine'), render: (r: any) => r.machine?.name || '-' },
     { key: 'type', header: t('reports.type'), render: (r: any) => <span className="capitalize">{r.type?.toLowerCase()}</span> },
     { key: 'frequency', header: t('maintenance.frequency') },
-    { key: 'startDate', header: t('common.startDate'), render: (r: any) => r.startDate ? new Date(r.startDate).toLocaleDateString() : '-' },
-    { key: 'endDate', header: t('common.endDate'), render: (r: any) => r.endDate ? new Date(r.endDate).toLocaleDateString() : '-' },
+    { key: 'startDate', header: t('maintenance.startDate'), render: (r: any) => r.startDate ? new Date(r.startDate).toLocaleDateString() : '-' },
+    { key: 'endDate', header: t('maintenance.endDate'), render: (r: any) => r.endDate ? new Date(r.endDate).toLocaleDateString() : '-' },
     { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
   ];
 
@@ -80,7 +80,7 @@ export default function SchedulesReportPage() {
                 mapRow={(r) => [r.title, r.machine?.name || '', r.type, r.frequency, r.startDate ? new Date(r.startDate).toLocaleDateString() : '', r.endDate ? new Date(r.endDate).toLocaleDateString() : '', r.status]} />
             </div>
           )}
-          <DataTable columns={columns} data={data.rows || []} keyExtractor={(r: any) => r.id} onRowClick={(r: any) => router.push(`/admin/maintenance/schedules/${r.id}`)} />
+          <DataTable columns={columns} data={data.rows || []} keyExtractor={(r: any) => r.id} onRowClick={(r: any) => router.push(`/admin/maintenance/schedules/${r.id}/checklist`)} />
           {data.totalPages > 1 && <Pagination page={data.page} totalPages={data.totalPages} total={data.total} onPageChange={p => setFilters((f: any) => ({ ...f, page: p }))} />}
         </div>
       )}

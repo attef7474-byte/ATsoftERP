@@ -76,17 +76,17 @@ export default function MaintenanceRequestsReportPage() {
           </div>
           <div className="w-40">
             <Select value={filters.maintenanceType || ''} onChange={e => setFilters((f: any) => ({ ...f, maintenanceType: e.target.value || undefined, page: 1 }))} placeholder={t('reports.type')} options={[
-              { value: 'CORRECTIVE', label: 'Corrective' },
-              { value: 'PREVENTIVE', label: 'Preventive' },
-              { value: 'PREDICTIVE', label: 'Predictive' },
+              { value: 'CORRECTIVE', label: t('status.CORRECTIVE') },
+              { value: 'PREVENTIVE', label: t('status.PREVENTIVE') },
+              { value: 'PREDICTIVE', label: t('status.PREDICTIVE') },
             ]} />
           </div>
           <div className="w-40">
             <Select value={filters.priority || ''} onChange={e => setFilters((f: any) => ({ ...f, priority: e.target.value || undefined, page: 1 }))} placeholder={t('reports.priority')} options={[
-              { value: 'CRITICAL', label: 'Critical' },
-              { value: 'HIGH', label: 'High' },
-              { value: 'MEDIUM', label: 'Medium' },
-              { value: 'LOW', label: 'Low' },
+              { value: 'CRITICAL', label: t('status.CRITICAL') },
+              { value: 'HIGH', label: t('status.HIGH') },
+              { value: 'MEDIUM', label: t('status.MEDIUM') },
+              { value: 'LOW', label: t('status.LOW') },
             ]} />
           </div>
           <div className="w-36">

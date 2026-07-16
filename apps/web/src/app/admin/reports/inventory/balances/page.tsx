@@ -49,10 +49,10 @@ export default function BalancesReportPage() {
 
   const columns = [
     { key: 'product', header: t('reports.product'), render: (r: any) => r.product?.name || '-' },
-    { key: 'productCode', header: t('inventory.code'), render: (r: any) => r.product?.code || '-' },
+    { key: 'productCode', header: t('common.code'), render: (r: any) => r.product?.code || '-' },
     { key: 'warehouse', header: t('reports.warehouse'), render: (r: any) => r.warehouse?.name || '-' },
     { key: 'location', header: t('reports.warehouseLocation'), render: (r: any) => r.location?.name || '-' },
-    { key: 'quantity', header: t('inventory.qty'), render: (r: any) => r.quantity ?? 0 },
+    { key: 'quantity', header: t('inventoryCounting.quantity'), render: (r: any) => r.quantity ?? 0 },
     { key: 'updatedAt', header: t('common.updatedAt'), render: (r: any) => r.updatedAt ? new Date(r.updatedAt).toLocaleDateString() : '-' },
   ];
 

@@ -62,7 +62,10 @@ export class AuditService {
     ]);
 
     return {
-      data,
+      data: data.map((log) => ({
+        ...log,
+        details: this.sanitizeDetails(log.details),
+      })),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -73,6 +76,32 @@ export class AuditService {
       include: { user: { select: { id: true, email: true, name: true } } },
     });
     if (!log) throw new NotFoundException('Audit log not found');
-    return log;
+    return { ...log, details: this.sanitizeDetails(log.details) };
+  }
+
+  private sanitizeDetails(details: any): any {
+    if (!details) return details;
+    let obj: any;
+    if (typeof details === 'string') {
+      try {
+        obj = JSON.parse(details);
+      } catch {
+        return details;
+      }
+    } else {
+      obj = details;
+    }
+    const sensitiveKeys = ['password', 'secret', 'token', 'jwt', 'authorization', 'credential', 'apiKey', 'apiSecret'];
+    const redact = (val: any, key?: string): any => {
+      if (key && sensitiveKeys.some((k) => key.toLowerCase().includes(k.toLowerCase()))) return '***';
+      if (Array.isArray(val)) return val.map((v) => redact(v));
+      if (val && typeof val === 'object') {
+        const result: Record<string, any> = {};
+        for (const [k, v] of Object.entries(val)) result[k] = redact(v, k);
+        return result;
+      }
+      return val;
+    };
+    return redact(obj);
   }
 }

@@ -49,7 +49,7 @@ export default function CostsReportPage() {
     { key: '_type', header: t('reports.type'), render: (r: any) => r._type === 'cost' ? t('reports.otherCost') : t('reports.partsCost') },
     { key: 'request', header: t('maintenance.requestNumber'), render: (r: any) => <button onClick={() => router.push(`/admin/maintenance/requests/${r.request?.id || r.requestId}`)} className="text-blue-600 hover:underline">{r.request?.requestNumber || '-'}</button> },
     { key: 'description', header: t('common.description'), render: (r: any) => r.description || r.product?.name || '-' },
-    { key: 'quantity', header: t('inventory.qty'), render: (r: any) => r.quantity ?? '-' },
+    { key: 'quantity', header: t('inventoryCounting.quantity'), render: (r: any) => r.quantity ?? '-' },
     { key: 'amount', header: t('reports.totalCost'), render: (r: any) => r.amount ?? r.totalCost ?? '-' },
     { key: 'incurredAt', header: t('common.createdAt'), render: (r: any) => r.incurredAt ? new Date(r.incurredAt).toLocaleDateString() : '-' },
   ];
@@ -74,7 +74,7 @@ export default function CostsReportPage() {
                 mapRow={(r) => [r._type === 'cost' ? 'Other Cost' : 'Parts', r.request?.requestNumber || '', r.description || r.product?.name || '', String(r.quantity ?? ''), String(r.amount ?? r.totalCost ?? ''), r.incurredAt ? new Date(r.incurredAt).toLocaleDateString() : '']} />
             </div>
           )}
-          <DataTable columns={columns} data={data.rows || []} keyExtractor={(r: any) => r.id || Math.random().toString()} />
+          <DataTable columns={columns} data={data.rows || []} keyExtractor={(r: any) => r.id} />
           {data.totalPages > 1 && <Pagination page={data.page} totalPages={data.totalPages} total={data.total} onPageChange={p => setFilters((f: any) => ({ ...f, page: p }))} />}
         </div>
       )}

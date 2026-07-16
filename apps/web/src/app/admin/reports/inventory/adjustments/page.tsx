@@ -46,10 +46,10 @@ export default function AdjustmentsReportPage() {
   ]);
 
   const columns = [
-    { key: 'adjustmentNumber', header: t('inventory.adjustmentNumber'), render: (r: any) => <button onClick={() => router.push(`/admin/inventory/adjustments/${r.id}`)} className="text-blue-600 hover:underline">{r.adjustmentNumber}</button> },
+    { key: 'adjustmentNumber', header: t('inventoryCounting.adjustmentNumber'), render: (r: any) => <button onClick={() => router.push(`/admin/inventory/adjustments/${r.id}`)} className="text-blue-600 hover:underline">{r.adjustmentNumber}</button> },
     { key: 'warehouse', header: t('reports.warehouse'), render: (r: any) => r.warehouse?.name || '-' },
     { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
-    { key: 'reason', header: t('inventory.reason') },
+    { key: 'reason', header: t('inventoryCounting.reason') },
     { key: 'adjustmentDate', header: t('common.date'), render: (r: any) => r.adjustmentDate ? new Date(r.adjustmentDate).toLocaleDateString() : '-' },
     { key: 'inventoryCount', header: t('reports.count'), render: (r: any) => r.inventoryCount?.countNumber ? <button onClick={() => router.push(`/admin/inventory/counts/${r.inventoryCount.id}`)} className="text-blue-600 hover:underline">{r.inventoryCount.countNumber}</button> : '-' },
   ];
