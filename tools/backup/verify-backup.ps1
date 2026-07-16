@@ -1,6 +1,6 @@
 param(
   [string]$BackupFile,
-  [string]$Server = "localhost:50079",
+  [string]$Server = "tcp:localhost,50079",
   [string]$User = "sa",
   [string]$Password = "",
   [switch]$Detailed,
@@ -36,7 +36,7 @@ Write-Pass "File exists, size: ${sizeMB}MB"
 # Check 2 — RESTORE VERIFYONLY with CHECKSUM
 if (-not $Quiet) { Write-Host "Running RESTORE VERIFYONLY with CHECKSUM..." -ForegroundColor Cyan }
 $verifySql = "RESTORE VERIFYONLY FROM DISK = N'$BackupFile' WITH CHECKSUM;"
-$verifyOut = sqlcmd -S $Server -U $User -P $Password -Q $verifySql 2>&1
+$verifyOut = sqlcmd -S $Server -U $User -P $Password -b -Q $verifySql 2>&1
 if ($LASTEXITCODE -ne 0) {
   Write-Fail "VERIFYONLY failed: $verifyOut"
   exit 1
@@ -46,7 +46,7 @@ Write-Pass "VERIFYONLY passed (backup is readable and checksums match)"
 # Check 3 — Header info
 if (-not $Quiet) { Write-Host "Reading backup header..." -ForegroundColor Cyan }
 $headerSql = "RESTORE HEADERONLY FROM DISK = N'$BackupFile';"
-$headerOut = sqlcmd -S $Server -U $User -P $Password -Q $headerSql -h-1 -W 2>&1
+$headerOut = sqlcmd -S $Server -U $User -P $Password -b -Q $headerSql -h-1 -W 2>&1
 if ($LASTEXITCODE -ne 0) {
   Write-Fail "HEADERONLY failed: $headerOut"
   exit 1
@@ -59,7 +59,7 @@ Write-Pass "Header info readable"
 # Check 4 — File list
 if (-not $Quiet) { Write-Host "Reading file list..." -ForegroundColor Cyan }
 $filelistSql = "RESTORE FILELISTONLY FROM DISK = N'$BackupFile';"
-$filelistOut = sqlcmd -S $Server -U $User -P $Password -Q $filelistSql -h-1 -W 2>&1
+$filelistOut = sqlcmd -S $Server -U $User -P $Password -b -Q $filelistSql -h-1 -W 2>&1
 if ($LASTEXITCODE -ne 0) {
   Write-Fail "FILELISTONLY failed: $filelistOut"
   exit 1

@@ -1,6 +1,6 @@
 param(
   [string]$BackupFile,
-  [string]$Server = "localhost:50079",
+  [string]$Server = "tcp:localhost,50079",
   [string]$User = "sa",
   [string]$Password = "",
   [string]$TestDbSuffix = "RESTORE_TEST",
@@ -22,7 +22,7 @@ if (-not $Password) {
 
 # Determine original database name from backup header
 $headerSql = "RESTORE HEADERONLY FROM DISK = N'$BackupFile';"
-$headerOut = sqlcmd -S $Server -U $User -P $Password -Q $headerSql -h-1 -W 2>&1
+$headerOut = sqlcmd -S $Server -U $User -P $Password -b -Q $headerSql -h-1 -W 2>&1
 if ($LASTEXITCODE -ne 0) {
   Write-Host "ERROR: Cannot read backup header: $headerOut" -ForegroundColor Red
   exit 1
@@ -48,7 +48,7 @@ if ($DryRun) {
 
 # Get file list for MOVE
 $filelistSql = "RESTORE FILELISTONLY FROM DISK = N'$BackupFile';"
-$filelistOut = sqlcmd -S $Server -U $User -P $Password -Q $filelistSql -h-1 -W -s "|" 2>&1
+$filelistOut = sqlcmd -S $Server -U $User -P $Password -b -Q $filelistSql -h-1 -W -s "|" 2>&1
 if ($LASTEXITCODE -ne 0) {
   Write-Host "ERROR: Cannot read file list: $filelistOut" -ForegroundColor Red
   exit 1
@@ -67,7 +67,7 @@ WITH
 "@
 
 Write-Host "Restoring to test database [$testDbName]..." -ForegroundColor Cyan
-$restoreOut = sqlcmd -S $Server -U $User -P $Password -Q $restoreSql 2>&1
+$restoreOut = sqlcmd -S $Server -U $User -P $Password -b -Q $restoreSql 2>&1
 if ($LASTEXITCODE -ne 0) {
   Write-Host "RESTORE TEST FAILED: $restoreOut" -ForegroundColor Red
   exit 1
@@ -77,7 +77,7 @@ Write-Host "Restore completed successfully to [$testDbName]." -ForegroundColor G
 
 # Verify test DB is accessible
 $checkSql = "SELECT COUNT(*) AS [tables] FROM [$testDbName].sys.tables;"
-$checkOut = sqlcmd -S $Server -U $User -P $Password -Q $checkSql -h-1 -W 2>&1
+$checkOut = sqlcmd -S $Server -U $User -P $Password -b -Q $checkSql -h-1 -W 2>&1
 if ($LASTEXITCODE -ne 0) {
   Write-Host "WARNING: Test DB restored but cannot query: $checkOut" -ForegroundColor Yellow
 } else {
@@ -88,7 +88,7 @@ if ($LASTEXITCODE -ne 0) {
 if ($DropTestDb) {
   Write-Host "Dropping test database [$testDbName]..." -ForegroundColor Cyan
   $dropSql = "IF DB_ID('$testDbName') IS NOT NULL BEGIN ALTER DATABASE [$testDbName] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [$testDbName]; END"
-  $dropOut = sqlcmd -S $Server -U $User -P $Password -Q $dropSql 2>&1
+  $dropOut = sqlcmd -S $Server -U $User -P $Password -b -Q $dropSql 2>&1
   if ($LASTEXITCODE -ne 0) {
     Write-Host "WARNING: Failed to drop test DB: $dropOut" -ForegroundColor Yellow
   } else {

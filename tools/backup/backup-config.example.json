@@ -1,9 +1,10 @@
 {
-  "server": "localhost:50079",
+  "server": "tcp:localhost,50079",
   "database": "ATsoftERP_DB",
   "user": "sa",
   "password": "",
   "outputDir": "C:\\ATsoftERP\\Backups",
   "retentionDays": 14,
-  "copyOnly": false
+  "copyOnly": false,
+  "noCompression": false
 }

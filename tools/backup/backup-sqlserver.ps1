@@ -6,13 +6,13 @@ param(
   [string]$User = "",
   [string]$Password = "",
   [switch]$CopyOnly,
+  [switch]$NoCompression,
   [int]$RetentionDays = -1,
   [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
 
-# --- Load config ---
 $cfg = @{}
 if (Test-Path $ConfigPath) {
   $cfg = Get-Content $ConfigPath -Raw | ConvertFrom-Json -AsHashtable
@@ -25,6 +25,7 @@ $pass = if ($Password) { $Password } else { $cfg["password"] }
 $backupRoot = if ($OutputDir) { $OutputDir } else { $cfg["outputDir"] }
 $retentionDays = if ($RetentionDays -ge 0) { $RetentionDays } else { $cfg["retentionDays"] }
 $isCopyOnly = if ($CopyOnly) { $true } else { $cfg["copyOnly"] -eq $true }
+$compressionDisabled = if ($NoCompression) { $true } else { $cfg["noCompression"] -eq $true }
 
 if (-not $server -or -not $database -or -not $backupRoot) {
   Write-Host "ERROR: Missing required config. Provide -Server, -Database, -OutputDir or a config file." -ForegroundColor Red
@@ -37,18 +38,14 @@ $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $filename = "${database}_${timestamp}.bak"
 $filepath = Join-Path $backupRoot $filename
 
-$connStr = "Server=$server;Database=$database;"
-if ($user) { $connStr += "User Id=$user;Password=$pass;" }
-else { $connStr += "Integrated Security=True;" }
-$connStr += "TrustServerCertificate=True;"
-
 $copyOnlyFlag = if ($isCopyOnly) { ", COPY_ONLY" } else { "" }
+$compressionOption = if (-not $compressionDisabled) { "COMPRESSION," } else { "" }
 
 $sql = @"
 BACKUP DATABASE [$database]
 TO DISK = N'$filepath'
 WITH
-  COMPRESSION,
+  $compressionOption
   CHECKSUM,
   FORMAT,
   INIT,
@@ -59,12 +56,15 @@ WITH
 
 $verifySql = "RESTORE VERIFYONLY FROM DISK = N'$filepath' WITH CHECKSUM;"
 
+$sqlcmdArgs = @("-S", $server, "-U", $user, "-P", $pass, "-b")
+
 if ($DryRun) {
   Write-Host "[DRY-RUN]" -ForegroundColor Yellow
   Write-Host "Server : $server"
   Write-Host "Database: $database"
   Write-Host "Output : $filepath"
   Write-Host "CopyOnly: $isCopyOnly"
+  Write-Host "Compression: $(if ($compressionDisabled) { 'OFF' } else { 'ON' })"
   Write-Host "SQL:" -NoNewline
   Write-Host $sql
   exit 0
@@ -72,30 +72,33 @@ if ($DryRun) {
 
 Write-Host "Starting backup of [$database] on [$server]..." -ForegroundColor Cyan
 Write-Host "Output: $filepath"
+if ($compressionDisabled) { Write-Host "Compression disabled (Express Edition compat)" -ForegroundColor Yellow }
 
-# Execute backup
-$output = sqlcmd -S $server -U $user -P $pass -Q $sql 2>&1
+$output = & "sqlcmd" @sqlcmdArgs "-Q" $sql 2>&1
 if ($LASTEXITCODE -ne 0) {
   Write-Host "BACKUP FAILED: $output" -ForegroundColor Red
   exit 1
 }
 Write-Host "Backup completed successfully." -ForegroundColor Green
 
-# Verify backup
 Write-Host "Verifying backup with CHECKSUM..." -ForegroundColor Cyan
-$verifyOut = sqlcmd -S $server -U $user -P $pass -Q $verifySql 2>&1
+$verifyOut = & "sqlcmd" @sqlcmdArgs "-Q" $verifySql 2>&1
 if ($LASTEXITCODE -ne 0) {
   Write-Host "VERIFY FAILED: $verifyOut" -ForegroundColor Red
   exit 1
 }
 Write-Host "Backup verified successfully." -ForegroundColor Green
 
-# File info
+if (-not (Test-Path $filepath)) {
+  Write-Host "ERROR: Backup file not found at expected path: $filepath" -ForegroundColor Red
+  Write-Host "Check SQL Server permissions and disk space." -ForegroundColor Yellow
+  exit 1
+}
+
 $fileInfo = Get-Item $filepath
 $sizeMB = [math]::Round($fileInfo.Length / 1MB, 2)
 Write-Host "Backup size: ${sizeMB}MB"
 
-# --- Retention cleanup ---
 if ($retentionDays -gt 0) {
   $cutoff = (Get-Date).AddDays(-$retentionDays)
   $oldFiles = Get-ChildItem $backupRoot -Filter "${database}_*.bak" | Where-Object { $_.CreationTime -lt $cutoff }
@@ -110,7 +113,6 @@ if ($retentionDays -gt 0) {
   }
 }
 
-# --- Metadata ---
 $metadata = @{
   timestamp = $timestamp
   server = $server
@@ -118,6 +120,7 @@ $metadata = @{
   file = $filepath
   sizeMB = $sizeMB
   copyOnly = $isCopyOnly
+  compression = (-not $compressionDisabled)
   retentionDays = $retentionDays
 } | ConvertTo-Json
 $metaPath = "$filepath.meta.json"

@@ -78,9 +78,9 @@ try {
 }
 
 # 7. API: current user profile
-Write-Step "API: GET /auth/profile"
+Write-Step "API: GET /auth/me"
 try {
-  $resp = Invoke-RestMethod -Uri "$BaseUrl/auth/profile" -Headers $authHeaders -UseBasicParsing
+  $resp = Invoke-RestMethod -Uri "$BaseUrl/auth/me" -Headers $authHeaders -UseBasicParsing
   Write-Pass "Profile endpoint OK (email: $($resp.email))"
 } catch {
   Write-Fail "Profile endpoint: $_"

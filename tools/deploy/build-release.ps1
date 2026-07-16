@@ -56,25 +56,33 @@ if (-not $SkipBuild) {
 # --- Stage files ---
 Write-Host "Staging release files..." -ForegroundColor Cyan
 
+function Copy-Contents($src, $dst) {
+  if (Test-Path $src) {
+    New-Item -ItemType Directory -Path $dst -Force | Out-Null
+    Get-ChildItem -Path $src -Force | Copy-Item -Destination $dst -Recurse -Force
+  }
+}
+
 # API
-Copy-Item "$RootDir/apps/api/dist/*" (Join-Path $OutputDir "api") -Recurse -Force
+Copy-Contents "$RootDir/apps/api/dist" (Join-Path $OutputDir "api")
 Copy-Item "$RootDir/apps/api/package.json" (Join-Path $OutputDir "api") -Force
 Copy-Item "$RootDir/apps/api/.env" (Join-Path $OutputDir "api\.env.example") -Force
 Copy-Item "$RootDir/apps/api/prisma/schema.prisma" (Join-Path $OutputDir "prisma") -Force
 
 # Web
-Copy-Item "$RootDir/apps/web/.next/*" (Join-Path $OutputDir "web\.next") -Recurse -Force
+Copy-Contents "$RootDir/apps/web/.next" (Join-Path $OutputDir "web\.next")
 Copy-Item "$RootDir/apps/web/package.json" (Join-Path $OutputDir "web") -Force
-Copy-Item "$RootDir/apps/web/public/*" (Join-Path $OutputDir "web\public") -Recurse -Force
-Copy-Item "$RootDir/apps/web/next.config.mjs" (Join-Path $OutputDir "web") -Force
-Copy-Item "$RootDir/apps/web/.env.local" (Join-Path $OutputDir "web\.env.example") -Force
+if (Test-Path "$RootDir/apps/web/public") { Copy-Contents "$RootDir/apps/web/public" (Join-Path $OutputDir "web\public") }
+if (Test-Path "$RootDir/apps/web/next.config.ts") { Copy-Item "$RootDir/apps/web/next.config.ts" (Join-Path $OutputDir "web") -Force }
+elseif (Test-Path "$RootDir/apps/web/next.config.mjs") { Copy-Item "$RootDir/apps/web/next.config.mjs" (Join-Path $OutputDir "web") -Force }
+if (Test-Path "$RootDir/apps/web/.env.local") { Copy-Item "$RootDir/apps/web/.env.local" (Join-Path $OutputDir "web\.env.example") -Force }
 
 # Scripts
-Copy-Item "$RootDir/scripts/*" (Join-Path $OutputDir "scripts") -Recurse -Force
+Copy-Contents "$RootDir/scripts" (Join-Path $OutputDir "scripts")
 
 # Root package files
-Copy-Item "$RootDir/package.json" (Join-Path $OutputDir "package.json") -Force
-Copy-Item "$RootDir/package-lock.json" (Join-Path $OutputDir "package-lock.json") -Force
+Copy-Item "$RootDir/package.json" $OutputDir -Force
+Copy-Item "$RootDir/package-lock.json" $OutputDir -Force
 
 # --- Generate version manifest ---
 $manifest = @{

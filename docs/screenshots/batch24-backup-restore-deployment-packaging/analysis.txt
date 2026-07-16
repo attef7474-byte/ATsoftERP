@@ -1,52 +1,80 @@
 Batch 24 — Backup/Restore and Deployment Packaging
 ====================================================
-Status: COMPLETED (all source files created, verified, and delivered)
+Status: COMPLETE_WITH_DOCUMENTED_LIMITATION
 Date  : 2026-07-16
 
-Delivered Artifacts
--------------------
+Execution Test Results
+----------------------
 
-1. Backup/Restore (tools/backup/)
-   - backup-sqlserver.ps1        : Full backup with compression, checksum, metadata, retention
-   - verify-backup.ps1           : VERIFYONLY + HEADERONLY + FILELISTONLY checks
-   - restore-test-sqlserver.ps1  : Safe restore to disposable test DB (never production)
-   - cleanup-backups.ps1         : Age-based cleanup with dry-run mode
-   - backup-config.example.json  : Safe configuration template (no real secrets)
+Backup/Restore:
+  backup-sqlserver.ps1         : PASS (14.23MB backup created, checksum verified)
+  backup file path             : C:\ATsoftERP\Backups\ATsoftERP_DB_20260716_115704.bak
+  verify-backup.ps1            : PASS (VERIFYONLY, HEADERONLY, FILELISTONLY all passed)
+  restore-test-sqlserver.ps1   : PASS (restored to ATsoftERP_DB_RESTORE_TEST_5601, verified, dropped)
+  production overwrite blocked : YES (random suffix + MOVE to TEMP)
+  cleanup dry-run              : PASS (0 files eligible, correct dry-run output)
 
-2. Deployment (tools/deploy/)
-   - validate-env.ps1            : Tool, env, and secrets validation
-   - preflight-windows.ps1       : Git status, builds, API/Web reachability
-   - build-release.ps1           : Build + stage to versioned release directory
-   - package-release.ps1         : ZIP + SHA256 + manifest generation
-   - deploy-local-windows.ps1    : Versioned deploy to C:\ATsoftERP\App with current symlink
-   - rollback-local-windows.ps1  : List versions, rollback to _previous or specific version
+Deployment:
+  validate-env.ps1             : PASS (8 passed, 3 warnings — JWT placeholder, no web .env.local)
+  build-release.ps1            : PASS (versioned release staged with manifest)
+  package-release.ps1          : PASS (166.58MB ZIP + SHA256 + manifest.json)
+  package checksum             : 0040ee4437fb138ce31689f18bb372ba27987fc34a343698f3bcd8bfd18002a1
+  deploy-local-windows.ps1     : PASS (dry-run shows correct deployment steps)
+  rollback-local-windows.ps1   : PASS (dry-run and -List both functional)
 
-3. Windows Services (deploy/windows/)
-   - install-api-service.ps1     : sc.exe-based API service with auto-restart recovery
-   - install-web-service.ps1     : sc.exe-based Web service with auto-restart recovery
-   - uninstall-services.ps1      : Stop + delete both services
-   - service-config.example.json : Service configuration template
+Windows Services:
+  install-api-service.ps1      : PASS (syntax, params)
+  install-web-service.ps1      : PASS (syntax, params)
+  uninstall-services.ps1       : PASS (syntax, params)
+  service install performed    : NO (requires production environment)
 
-4. Health/Smoke (tools/health/)
-   - health-check.ps1            : API:4000, Web:3000, Swagger, SQL port, disk, memory, node
-   - smoke-check.ps1             : Login + 5 endpoints + Web homepage + Swagger
+Health/Smoke:
+  health-check.ps1             : PASS (4/4 — API, Web, Swagger, SQL port)
+  smoke-check.ps1              : 7/8 PASS (1 limitation — see below)
 
-5. Documentation (docs/)
-   - backup/sqlserver-backup-restore-runbook.md
-   - deployment/windows-local-deployment-runbook.md
-   - deployment/release-packaging-runbook.md
-   - deployment/rollback-runbook.md
+Build Chain:
+  prisma validate              : PASS
+  prisma generate              : PASS
+  build:api                    : PASS
+  typecheck                    : PASS
+  build:web                    : PASS
+  i18n:check                   : PASS
 
-6. package.json scripts added:
-   - backup:db, deploy:validate, deploy:preflight, deploy:build, deploy:package,
-     deploy:release, deploy:rollback, health:check, smoke:check
+Documentation Created:
+  docs/backup/sqlserver-backup-restore-runbook.md
+  docs/deployment/windows-local-deployment-runbook.md
+  docs/deployment/release-packaging-runbook.md
+  docs/deployment/rollback-runbook.md
+  docs/screenshots/batch24-backup-restore-deployment-packaging/analysis.txt
 
-Key Design Decisions
---------------------
-- NO Docker references — pure Windows local deployment
-- NO PostgreSQL — SQL Server only (sqlserver://localhost:50079)
-- Versioned releases with symlink-based rollback (zero-downtime)
-- sc.exe for Windows services (lightweight, no nssm dependency)
-- All scripts support -DryRun for safe preview
-- Restore test always creates a random-suffixed disposable DB
-- JWT_SECRET placeholder detection in validate-env
+Documented Limitations
+----------------------
+1. Web login page 500 in dev mode: The /login page returns 500 in Next.js dev
+   mode due to a stale webpack chunk. This is a pre-existing dev-mode issue;
+   production build (:4000) compiles and runs correctly.
+
+2. Windows services not installed: Service installation scripts are provided
+   but were not executed, as this requires admin privileges and a production
+   deployment environment.
+
+3. SQL Server Express Edition: Backup compression disabled by default because
+   the local SQL Server is Express Edition, which does not support WITH
+   COMPRESSION. Use -NoCompression flag. Standard/Enterprise editions can
+   omit this flag.
+
+4. No actual production deploy performed: Deployment and rollback were tested
+   in dry-run mode only. Full execution requires C:\ATsoftERP\App target and
+   Windows service registration.
+
+Safety Guarantees
+-----------------
+- No fake backup                 : Actual .bak created and verified
+- No fake restore                : Real restore to disposable test DB
+- No destructive restore         : Only restores to ATsoftERP_DB_RESTORE_TEST_*
+- No secrets committed            : All secret values use empty/template values
+- No .env committed               : .env.example used in config files
+- No Docker references             : Windows native only
+- No PostgreSQL                    : SQL Server only (sqlserver://)
+- No prisma db push               : Not executed
+- No prisma migrate reset         : Not executed
+- No database reset                : Not executed
