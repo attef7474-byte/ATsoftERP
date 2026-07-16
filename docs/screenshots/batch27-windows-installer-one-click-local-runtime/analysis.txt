@@ -45,3 +45,17 @@ Status: Complete
 - -DryRun support on all destructive operations
 - Safe uninstall (backups/logs/config preserved unless -RemoveAll)
 - Process mode default; service mode opt-in via nssm
+
+## Corrective Closeout (2026-07-17)
+
+- Missing validation from first report: prisma generate
+- Command executed: `npx prisma generate --schema apps/api/prisma/schema.prisma`
+- Result: PASS (Prisma Client v7.8.0 generated to @prisma/client in 554ms)
+- Final git status clean
+- Ahead/behind 0/0
+- No business logic changes
+- No db push
+- No migrate reset
+- No database reset
+- No Docker
+- No PostgreSQL
