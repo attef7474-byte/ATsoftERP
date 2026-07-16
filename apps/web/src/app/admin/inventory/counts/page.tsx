@@ -200,14 +200,20 @@ export default function InventoryCountsPage() {
           {r.status === 'DRAFT' && hasPerm('inventory-count:start') && (
             <button onClick={() => confirmAction(r.id, 'start')} className="text-green-600 hover:text-green-800 text-sm">{t('inventoryCounting.start')}</button>
           )}
+          {r.status === 'IN_PROGRESS' && (
+            <button onClick={() => router.push(`/admin/inventory/counts/${r.id}/execute`)} className="text-blue-600 hover:text-blue-800 text-sm">{t('inventoryCountWorkflow.execute')}</button>
+          )}
           {r.status === 'IN_PROGRESS' && hasPerm('inventory-count:complete') && (
-            <button onClick={() => confirmAction(r.id, 'complete')} className="text-green-600 hover:text-green-800 text-sm">{t('inventoryCounting.complete')}</button>
+            <button onClick={() => router.push(`/admin/inventory/counts/${r.id}/approve`)} className="text-green-600 hover:text-green-800 text-sm">{t('inventoryCountWorkflow.approve')}</button>
           )}
           {(r.status === 'DRAFT' || r.status === 'IN_PROGRESS') && hasPerm('inventory-count:cancel') && (
             <button onClick={() => confirmAction(r.id, 'cancel')} className="text-red-600 hover:text-red-800 text-sm">{t('inventoryCounting.cancel')}</button>
           )}
           {r.status === 'COMPLETED' && hasPerm('inventory-count:generateAdjustment') && (
-            <button onClick={() => confirmGenerateAdjustment(r.id)} className="text-orange-600 hover:text-orange-800 text-sm">{t('inventoryCounting.generateAdjustment')}</button>
+            <button onClick={() => router.push(`/admin/inventory/counts/${r.id}/adjust`)} className="text-orange-600 hover:text-orange-800 text-sm">{t('inventoryCountWorkflow.adjust')}</button>
+          )}
+          {r.status === 'COMPLETED' && (
+            <button onClick={() => router.push(`/admin/inventory/counts/${r.id}/review`)} className="text-purple-600 hover:text-purple-800 text-sm">{t('inventoryCountWorkflow.review')}</button>
           )}
           {r.status === 'DRAFT' && perms.canUpdate && (
             <button onClick={() => openEdit(r)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>

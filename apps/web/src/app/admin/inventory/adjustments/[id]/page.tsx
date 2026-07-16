@@ -6,7 +6,7 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { InventoryAdjustment, InventoryAdjustmentLine } from '../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '../../../../../components/admin/ui';
-import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionPostIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionPostIcon, ActionCancelIcon, ActionViewIcon } from '../../../../../components/admin/admin-action-bar';
 
 export default function InventoryAdjustmentDetailPage() {
   const params = useParams();
@@ -89,7 +89,11 @@ export default function InventoryAdjustmentDetailPage() {
             <div><dt className="text-sm font-medium text-gray-500">{t('inventory.warehouse')}</dt><dd className="mt-1 text-sm text-gray-900">{data.warehouse?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('inventoryCounting.company')}</dt><dd className="mt-1 text-sm text-gray-900">{data.company?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('inventoryCounting.branch')}</dt><dd className="mt-1 text-sm text-gray-900">{data.branch?.name || '-'}</dd></div>
-            <div><dt className="text-sm font-medium text-gray-500">{t('details.inventoryAdjustment.sourceCount')}</dt><dd className="mt-1 text-sm text-gray-900">{data.inventoryCount ? `${data.inventoryCount.countNumber} (${t('status.' + data.inventoryCount.status)})` : '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('details.inventoryAdjustment.sourceCount')}</dt><dd className="mt-1 text-sm text-gray-900">{data.inventoryCount ? (
+              <button onClick={() => router.push(`/admin/inventory/counts/${data.inventoryCount!.id}`)} className="text-indigo-600 hover:text-indigo-800 underline">
+                {data.inventoryCount.countNumber} ({t('status.' + data.inventoryCount.status)})
+              </button>
+            ) : '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('details.inventoryAdjustment.postedAt')}</dt><dd className="mt-1 text-sm text-gray-900">{fmt(data.postedAt)}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('details.inventoryAdjustment.cancelledAt')}</dt><dd className="mt-1 text-sm text-gray-900">{fmt(data.cancelledAt)}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('details.inventoryAdjustment.notes')}</dt><dd className="mt-1 text-sm text-gray-900">{data.notes || '-'}</dd></div>

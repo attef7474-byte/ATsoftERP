@@ -1,0 +1,81 @@
+Batch 15: Inventory Count Execution Workflow
+=============================================
+
+Date: 2026-07-16
+Commit: 4e1c190 (pre-Batch 15 baseline)
+Tag: atsoft-erp-inventory-count-execution-workflow
+
+## Summary
+
+Implemented a full operational inventory counting workflow with 4 new pages:
+count execution, difference review, count approval/completion, and adjustment
+generation. Updated existing pages with workflow navigation.
+
+## New Pages (4)
+
+| Route | Size | Description |
+|-------|------|-------------|
+| /admin/inventory/counts/[id]/execute | 3.01 kB | Barcode scan + manual line add + count/verify lines |
+| /admin/inventory/counts/[id]/review  | 2.66 kB | Difference analysis with filter tabs |
+| /admin/inventory/counts/[id]/approve | 2.84 kB | Completion checklist with approve/complete |
+| /admin/inventory/counts/[id]/adjust  | 2.87 kB | Adjustment preview, generate, post |
+
+## Modified Files (7)
+
+1. apps/web/src/lib/i18n/types.ts - added inventoryCountWorkflow namespace
+2. apps/web/src/lib/i18n/locales/en.ts - 60 workflow keys
+3. apps/web/src/lib/i18n/locales/ar.ts - 60 workflow keys
+4. apps/web/src/app/admin/inventory/counts/page.tsx - workflow action buttons
+5. apps/web/src/app/admin/inventory/counts/[id]/page.tsx - workflow nav cards
+6. apps/web/src/app/admin/inventory/adjustments/page.tsx - source count column
+7. apps/web/src/app/admin/inventory/adjustments/[id]/page.tsx - clickable source count
+
+## Key Patterns
+
+- All pages use 'use client', Admin Workspace layout via parent group
+- Action Bar via useRegisterAdminActions pattern
+- DataTable for count lines display
+- StatusBadge/InventoryStatusBadge for status indicators
+- QuantityDifferenceBadge for difference display
+- ConfirmDialog for destructive/workflow actions
+- Modal for line add and count recording forms
+- F9Lookup for product/location selection
+- Real API calls via api.get/post/patch (no mock data)
+- RTL Arabic support via useTranslation hook
+
+## Barcode Integration
+
+The execute page calls the real /barcodes/scan endpoint with
+purpose=INVENTORY_COUNTING and auto-adds the scanned product as a
+count line. This is a real API integration, not a placeholder.
+
+## Build Verification
+
+- npx next build: 0 errors
+- All 4 new routes shown as ƒ Dynamic in build output
+- Dev server: all routes return HTTP 200
+
+## Translation Keys
+
+- inventoryCountWorkflow namespace: 60 keys (en) / 60 keys (ar)
+- No duplicate key warnings
+- Consistent naming convention with existing namespaces
+
+## Workflow States Covered
+
+1. DRAFT -> start -> IN_PROGRESS
+2. IN_PROGRESS -> execute (scan/manual add/count/verify)
+3. IN_PROGRESS -> review (filter differences)
+4. IN_PROGRESS -> approve/complete -> COMPLETED
+5. COMPLETED -> adjust (generate adjustment) -> DRAFT adjustment
+6. DRAFT adjustment -> post -> POSTED adjustment
+7. DRAFT/IN_PROGRESS -> cancel -> CANCELLED
+
+## Duplicate Prevention
+
+Adjust page checks for existing non-cancelled adjustments before
+allowing generation, preventing duplicate adjustments from the same count.
+
+## Screenshots
+
+(screenshots to be captured via browser)

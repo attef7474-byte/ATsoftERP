@@ -23,7 +23,8 @@ export type TranslationNamespace =
   | 'workspace'
   | 'settings'
   | 'notifications'
-  | 'details';
+  | 'details'
+  | 'inventoryCountWorkflow';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

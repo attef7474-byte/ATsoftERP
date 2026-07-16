@@ -6,7 +6,7 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { InventoryCount, InventoryCountLine } from '../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '../../../../../components/admin/ui';
-import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionGenerateIcon } from '../../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionGenerateIcon, ActionViewIcon } from '../../../../../components/admin/admin-action-bar';
 
 export default function InventoryCountDetailPage() {
   const params = useParams();
@@ -116,7 +116,48 @@ export default function InventoryCountDetailPage() {
       </div>
 
       {activeTab === 'overview' && (
-        <Card><CardContent><p className="text-sm text-gray-500">{t('details.overview')}</p></CardContent></Card>
+        <Card>
+          <CardHeader><h3 className="text-sm font-semibold text-gray-700">{t('details.workflowActions')}</h3></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {(data.status === 'DRAFT' || data.status === 'IN_PROGRESS') && (
+                <button onClick={() => router.push(`/admin/inventory/counts/${id}/execute`)}
+                  className="p-4 border rounded-lg text-left hover:border-blue-300 hover:bg-blue-50 transition-colors">
+                  <p className="text-sm font-semibold text-blue-700">{t('inventoryCountWorkflow.execute')}</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('inventoryCountWorkflow.executeNote')}</p>
+                </button>
+              )}
+              {data.status === 'IN_PROGRESS' && (
+                <button onClick={() => router.push(`/admin/inventory/counts/${id}/review`)}
+                  className="p-4 border rounded-lg text-left hover:border-purple-300 hover:bg-purple-50 transition-colors">
+                  <p className="text-sm font-semibold text-purple-700">{t('inventoryCountWorkflow.review')}</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('inventoryCountWorkflow.reviewNote')}</p>
+                </button>
+              )}
+              {data.status === 'IN_PROGRESS' && (
+                <button onClick={() => router.push(`/admin/inventory/counts/${id}/approve`)}
+                  className="p-4 border rounded-lg text-left hover:border-green-300 hover:bg-green-50 transition-colors">
+                  <p className="text-sm font-semibold text-green-700">{t('inventoryCountWorkflow.approve')}</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('inventoryCountWorkflow.approveConfirmTitle')}</p>
+                </button>
+              )}
+              {data.status === 'COMPLETED' && (
+                <button onClick={() => router.push(`/admin/inventory/counts/${id}/adjust`)}
+                  className="p-4 border rounded-lg text-left hover:border-orange-300 hover:bg-orange-50 transition-colors">
+                  <p className="text-sm font-semibold text-orange-700">{t('inventoryCountWorkflow.adjust')}</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('inventoryCountWorkflow.adjustNote')}</p>
+                </button>
+              )}
+              {data.status === 'COMPLETED' && (
+                <button onClick={() => router.push(`/admin/inventory/counts/${id}/review`)}
+                  className="p-4 border rounded-lg text-left hover:border-purple-300 hover:bg-purple-50 transition-colors">
+                  <p className="text-sm font-semibold text-purple-700">{t('inventoryCountWorkflow.review')}</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('inventoryCountWorkflow.reviewNote')}</p>
+                </button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {activeTab === 'lines' && (

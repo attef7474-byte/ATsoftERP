@@ -181,6 +181,9 @@ export default function InventoryAdjustmentsPage() {
     { key: 'status', header: t('common.status'), render: (r: InventoryAdjustment) => <InventoryStatusBadge status={r.status} /> },
     { key: 'adjustmentDate', header: t('inventoryCounting.adjustmentDate'), render: (r: InventoryAdjustment) => r.adjustmentDate ? new Date(r.adjustmentDate).toLocaleDateString() : '-' },
     { key: 'reason', header: t('inventoryCounting.reason'), render: (r: InventoryAdjustment) => r.reason || '-' },
+    { key: 'sourceCount', header: t('inventoryCounting.inventoryCountRef'), render: (r: InventoryAdjustment) => r.inventoryCount ? (
+      <button onClick={() => router.push(`/admin/inventory/counts/${r.inventoryCount!.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm underline">{r.inventoryCount.countNumber}</button>
+    ) : '-' },
     { key: 'postedAt', header: t('inventoryCounting.postedAt'), render: (r: InventoryAdjustment) => r.postedAt ? new Date(r.postedAt).toLocaleString() : '-' },
     {
       key: 'actions', header: t('common.actions'), render: (r: InventoryAdjustment) => (
