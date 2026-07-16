@@ -11,7 +11,9 @@ import {
   AdminAction,
   ActionBackIcon,
   ActionRefreshIcon,
+  ActionSearchIcon,
 } from './admin-action-bar';
+import { UnifiedSearchModal } from '../f9/UnifiedSearchModal';
 
 interface NavChild {
   id: string;
@@ -189,6 +191,7 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [clock, setClock] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const isRtl = locale === 'ar';
 
   const toggleSection = (id: string) => {
@@ -225,6 +228,24 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
     const id = setInterval(tick, 30000);
     return () => clearInterval(id);
   }, [locale]);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      if (e.key === 'F9') {
+        e.preventDefault();
+        setSearchOpen(prev => !prev);
+        return;
+      }
+      if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey) && !isInput) {
+        e.preventDefault();
+        setSearchOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -275,6 +296,9 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={() => setSearchOpen(true)} className="p-1.5 text-gray-500 hover:text-gray-700 transition-colors" title={t('common.search') + ' (F9)'}>
+            <ActionSearchIcon />
+          </button>
           <button onClick={() => router.push('/admin/notifications')} className="relative p-1.5 text-gray-500 hover:text-gray-700 transition-colors" title={t('common.notifications')}>
             <NotificationIcon />
             {unreadCount > 0 && (
@@ -389,6 +413,8 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
         <div className="flex-1" />
         <span>{clock}</span>
       </footer>
+
+      <UnifiedSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

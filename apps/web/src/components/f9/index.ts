@@ -1,6 +1,9 @@
 export { F9Lookup } from './F9Lookup';
 export { F9LookupModal } from './F9LookupModal';
+export { UnifiedSearchModal } from './UnifiedSearchModal';
+export { getUnifiedSearchRegistry } from './adapter-registry';
 export type { LookupAdapter, F9Column } from './types';
+export type { UnifiedSearchEntity } from './adapter-registry';
 export {
   companyAdapter,
   branchAdapter,
@@ -19,4 +22,11 @@ export {
   inventoryMovementAdapter,
   inventoryAdjustmentAdapter,
   warehouseLocationAdapter,
+  barcodeLabelAdapter,
+  systemSettingAdapter,
+  numberSequenceAdapter,
+  notificationAdapter,
+  auditLogAdapter,
+  machinePartAdapter,
+  downtimeLogAdapter,
 } from './lookup-adapters';

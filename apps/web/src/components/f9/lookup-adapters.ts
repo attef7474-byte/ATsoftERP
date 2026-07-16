@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation } from '../../lib/admin-types';
+import type { Company, Branch, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -199,5 +199,92 @@ export const warehouseLocationAdapter: LookupAdapter<WarehouseLocation> = {
     { key: 'code', header: 'Code' },
     { key: 'name', header: 'Name' },
     { key: 'status', header: 'Status', render: (l) => l.status },
+  ],
+};
+
+export const barcodeLabelAdapter: LookupAdapter<BarcodeLabel> = {
+  endpoint: '/barcodes/labels',
+  displayLabel: (b) => `[${b.code}] ${b.value}`,
+  searchFields: ['code', 'value'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'value', header: 'Value' },
+    { key: 'entityType', header: 'Entity Type' },
+    { key: 'status', header: 'Status', render: (b) => b.status },
+  ],
+};
+
+export const systemSettingAdapter: LookupAdapter<SystemSetting> = {
+  endpoint: '/settings',
+  displayLabel: (s) => `[${s.key}] ${s.label || s.key}`,
+  searchFields: ['key', 'label'],
+  columns: [
+    { key: 'key', header: 'Key' },
+    { key: 'label', header: 'Label' },
+    { key: 'group', header: 'Group' },
+    { key: 'status', header: 'Status', render: (s) => s.status },
+  ],
+};
+
+export const numberSequenceAdapter: LookupAdapter<NumberSequence> = {
+  endpoint: '/settings/number-sequences',
+  displayLabel: (n) => `[${n.code}] ${n.name}`,
+  searchFields: ['code', 'name'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'prefix', header: 'Prefix' },
+    { key: 'currentNumber', header: 'Current', render: (n) => n.currentNumber },
+    { key: 'status', header: 'Status', render: (n) => n.status },
+  ],
+};
+
+export const notificationAdapter: LookupAdapter<Notification> = {
+  endpoint: '/notifications',
+  displayLabel: (n) => n.title,
+  searchFields: ['title', 'type'],
+  columns: [
+    { key: 'type', header: 'Type' },
+    { key: 'title', header: 'Title' },
+    { key: 'read', header: 'Read', render: (n) => n.read ? 'Yes' : 'No' },
+    { key: 'createdAt', header: 'Date', render: (n) => new Date(n.createdAt).toLocaleDateString() },
+  ],
+};
+
+export const auditLogAdapter: LookupAdapter<AuditLog> = {
+  endpoint: '/audit-logs',
+  displayLabel: (a) => `${a.action} - ${a.entity}`,
+  searchFields: ['action', 'entity', 'entityId'],
+  columns: [
+    { key: 'action', header: 'Action' },
+    { key: 'entity', header: 'Entity' },
+    { key: 'entityId', header: 'Entity ID' },
+    { key: 'user', header: 'User', render: (a) => a.user?.name || '-' },
+    { key: 'createdAt', header: 'Date', render: (a) => new Date(a.createdAt).toLocaleDateString() },
+  ],
+};
+
+export const machinePartAdapter: LookupAdapter<MachinePart> = {
+  endpoint: '/maintenance/machine-parts',
+  displayLabel: (p) => `[${p.code}] ${p.name}`,
+  searchFields: ['code', 'name', 'partNumber'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'partNumber', header: 'Part #' },
+    { key: 'machine', header: 'Machine', render: (p) => p.machine?.name || '-' },
+    { key: 'status', header: 'Status', render: (p) => p.status },
+  ],
+};
+
+export const downtimeLogAdapter: LookupAdapter<DowntimeLog> = {
+  endpoint: '/maintenance/downtime-logs',
+  displayLabel: (d) => `${d.machine?.name || ''} - ${d.reason}`,
+  searchFields: ['reason'],
+  columns: [
+    { key: 'machine', header: 'Machine', render: (d) => d.machine?.name || '-' },
+    { key: 'reason', header: 'Reason' },
+    { key: 'startTime', header: 'Start', render: (d) => new Date(d.startTime).toLocaleDateString() },
+    { key: 'status', header: 'Status', render: (d) => d.status || '-' },
   ],
 };

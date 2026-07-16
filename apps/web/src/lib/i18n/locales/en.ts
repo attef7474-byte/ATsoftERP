@@ -1176,6 +1176,17 @@ const en: LocaleTranslations = {
     machineDowntimeLink: 'Downtime',
     machineQRLabel: 'QR Code',
   },
+  unifiedSearch: {
+    title: 'Unified Search',
+    searchPlaceholder: 'Search across all entities...',
+    typeToSearch: 'Type to start searching',
+    noResults: 'No results found',
+    allEntities: 'All Entities',
+    footerHint: 'Search across all system entities',
+    navigate: 'Navigate',
+    select: 'Select',
+    close: 'Close',
+  },
 };
 
 export default en;
