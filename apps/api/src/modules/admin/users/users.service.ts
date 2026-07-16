@@ -1,13 +1,14 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { AuditService } from '../../../common/audit/audit.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersQueryDto } from './dto/users-query.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private auditService: AuditService) {}
 
   async create(dto: CreateUserDto) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
@@ -113,14 +114,37 @@ export class UsersService {
     return { message: 'User deleted successfully' };
   }
 
-  async assignRoles(id: string, roleIds: string[]) {
+  async assignRoles(id: string, roleIds: string[], actorId?: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
+
+    const hasSuperAdmin = await this.prisma.userRole.findFirst({
+      where: { userId: id, role: { code: 'SUPER_ADMIN' } },
+    });
+    const willHaveSuperAdmin = roleIds.includes(
+      (await this.prisma.role.findFirst({ where: { code: 'SUPER_ADMIN' } }))?.id ?? '',
+    );
+
+    if (hasSuperAdmin && !willHaveSuperAdmin) {
+      const adminCount = await this.prisma.userRole.count({
+        where: { role: { code: 'SUPER_ADMIN' }, user: { deletedAt: null, status: 'ACTIVE' } },
+      });
+      if (adminCount <= 1) {
+        throw new ForbiddenException('Cannot remove the last SUPER_ADMIN role. System would have no administrator.');
+      }
+    }
 
     await this.prisma.userRole.deleteMany({ where: { userId: id } });
     await this.prisma.userRole.createMany({
       data: roleIds.map((roleId) => ({ userId: id, roleId })),
     });
+
+    if (actorId) {
+      await this.auditService.log(actorId, 'UPDATE', 'user-roles', id, {
+        userEmail: user.email,
+        roleCount: roleIds.length,
+      });
+    }
 
     return this.findOne(id);
   }

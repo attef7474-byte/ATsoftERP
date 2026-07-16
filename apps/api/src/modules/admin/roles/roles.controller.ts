@@ -7,6 +7,7 @@ import { AssignRolePermissionsDto } from './dto/assign-role-permissions.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
+import { CurrentUser } from '../../../modules/auth/decorators/current-user.decorator';
 
 @ApiTags('Roles')
 @ApiBearerAuth()
@@ -55,10 +56,20 @@ export class RolesController {
     return this.rolesService.remove(id);
   }
 
+  @Get(':id/users')
+  @Permissions('roles:read')
+  @ApiOperation({ summary: 'Get users assigned to role' })
+  getUsers(@Param('id') id: string, @Query() query: { page?: string; limit?: string }) {
+    return this.rolesService.getUsers(id, {
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+    });
+  }
+
   @Post(':id/permissions')
   @Permissions('roles:update')
   @ApiOperation({ summary: 'Assign permissions to role' })
-  assignPermissions(@Param('id') id: string, @Body() dto: AssignRolePermissionsDto) {
-    return this.rolesService.assignPermissions(id, dto.permissionIds);
+  assignPermissions(@Param('id') id: string, @Body() dto: AssignRolePermissionsDto, @CurrentUser('id') userId: string) {
+    return this.rolesService.assignPermissions(id, dto.permissionIds, userId);
   }
 }

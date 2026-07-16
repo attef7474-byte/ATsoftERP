@@ -20,7 +20,7 @@
     "smoke:api": "node scripts/api-smoke-test.js",
     "qa:build": "npm run build:api && npm run build:web",
     "qa:all": "npm run test:api && npm run qa:build && node scripts/api-smoke-test.js --optional",
-    "i18n:check": "node scripts/check-i18n.js",
+    "i18n:check": "node scripts/check-i18n.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "docker:prod:up": "docker compose -f infra/docker-compose.prod.yml up -d --build",
     "docker:prod:down": "docker compose -f infra/docker-compose.prod.yml down",

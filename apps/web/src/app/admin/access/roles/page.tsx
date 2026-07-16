@@ -6,6 +6,7 @@ import { useToast } from '../../../../components/admin/toast-provider';
 import { Role, Permission } from '../../../../lib/admin-types';
 import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon, ActionViewIcon } from '../../../../components/admin/admin-action-bar';
+import { useRouter } from 'next/navigation';
 
 export default function RolesPage() {
   const { t } = useTranslation();
@@ -31,22 +32,24 @@ export default function RolesPage() {
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
 
+  const router = useRouter();
+
   const { exec } = useStableHandlers({
-    new: () => openCreate(),
-    edit: () => selectedRecord && openEdit(selectedRecord),
+    new: () => router.push('/admin/access/roles/new'),
+    edit: () => selectedRecord && router.push(`/admin/access/roles/${selectedRecord.id}/edit`),
     refresh: () => fetchData(meta.page),
     activate: () => confirmActivate(selectedId),
     deactivate: () => confirmDeactivate(selectedId),
-    perms: () => selectedRecord && openPermModal(selectedRecord),
+    perms: () => selectedRecord && router.push(`/admin/access/roles/${selectedRecord.id}/permissions`),
   });
 
   useRegisterAdminActions([
     { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId && !selectedRecord?.isSystem },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
     { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
-    { id: 'perms', labelKey: 'access.assignPermissions', icon: <ActionViewIcon />, onClick: () => exec('perms'), enabled: !!selectedId },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE' && !selectedRecord?.isSystem) },
+    { id: 'perms', labelKey: 'access.managePermissions', icon: <ActionViewIcon />, onClick: () => exec('perms'), enabled: !!selectedId },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -166,8 +169,9 @@ export default function RolesPage() {
     { key: 'status', header: t('common.status'), render: (r: Role) => <StatusBadge status={r.status} /> },
     { key: 'actions', header: t('common.actions'), render: (r: Role) => (
       <div className="flex space-x-2">
-        {!r.isSystem && <Button variant="secondary" size="sm" onClick={() => openEdit(r)}>{t('common.edit')}</Button>}
-        <Button variant="secondary" size="sm" onClick={() => openPermModal(r)}>{t('roles.assignPermissions')}</Button>
+        <Button variant="secondary" size="sm" onClick={() => router.push(`/admin/access/roles/${r.id}`)}>{t('common.view')}</Button>
+        {!r.isSystem && <Button variant="secondary" size="sm" onClick={() => router.push(`/admin/access/roles/${r.id}/edit`)}>{t('common.edit')}</Button>}
+        <Button variant="secondary" size="sm" onClick={() => router.push(`/admin/access/roles/${r.id}/permissions`)}>{t('access.managePermissions')}</Button>
         {r.status !== 'ACTIVE' ? (
           <Button variant="secondary" size="sm" onClick={() => confirmActivate(r.id)}>{t('common.activate')}</Button>
         ) : (

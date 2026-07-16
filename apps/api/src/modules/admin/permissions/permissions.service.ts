@@ -49,4 +49,62 @@ export class PermissionsService {
     });
     return modules.map((m) => m.module);
   }
+
+  async getGrouped(roleId?: string) {
+    const permissions = await this.prisma.permission.findMany({
+      orderBy: [{ module: 'asc' }, { action: 'asc' }],
+    });
+
+    const rolePermissionIds = roleId
+      ? (await this.prisma.rolePermission.findMany({
+          where: { roleId },
+          select: { permissionId: true },
+        })).map((rp) => rp.permissionId)
+      : [];
+
+    const rolePermissionSet = new Set(rolePermissionIds);
+
+    const grouped: Record<string, { module: string; permissions: any[] }> = {};
+    for (const perm of permissions) {
+      if (!grouped[perm.module]) {
+        grouped[perm.module] = { module: perm.module, permissions: [] };
+      }
+      grouped[perm.module].permissions.push({
+        ...perm,
+        assigned: rolePermissionSet.has(perm.id),
+      });
+    }
+
+    return Object.values(grouped);
+  }
+
+  async getMatrix() {
+    const roles = await this.prisma.role.findMany({
+      where: { deletedAt: null, status: 'ACTIVE' },
+      select: { id: true, code: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+
+    const permissions = await this.prisma.permission.findMany({
+      orderBy: [{ module: 'asc' }, { action: 'asc' }],
+      select: { id: true, key: true, module: true, action: true },
+    });
+
+    const rolePermissions = await this.prisma.rolePermission.findMany({
+      select: { roleId: true, permissionId: true },
+    });
+
+    const matrix: Record<string, Set<string>> = {};
+    for (const rp of rolePermissions) {
+      if (!matrix[rp.permissionId]) matrix[rp.permissionId] = new Set();
+      matrix[rp.permissionId].add(rp.roleId);
+    }
+
+    const rows = permissions.map((perm) => ({
+      ...perm,
+      roles: roles.map((r) => ({ roleId: r.id, assigned: matrix[perm.id]?.has(r.id) ?? false })),
+    }));
+
+    return { roles, permissions: rows };
+  }
 }

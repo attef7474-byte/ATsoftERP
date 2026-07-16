@@ -4,7 +4,9 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { Permission } from '../../../../lib/admin-types';
 import { Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, StatusBadge } from '../../../../components/admin/ui';
-import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionViewIcon } from '../../../../components/admin/admin-action-bar';
+import { useRouter } from 'next/navigation';
+import { Button } from '../../../../components/admin/ui';
 
 export default function PermissionsPage() {
   const { t } = useTranslation();
@@ -17,12 +19,16 @@ export default function PermissionsPage() {
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
 
+  const router = useRouter();
+
   const { exec } = useStableHandlers({
     refresh: () => fetchData(meta.page),
+    matrix: () => router.push('/admin/access/permissions/matrix'),
   });
 
   useRegisterAdminActions([
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+    { id: 'matrix', labelKey: 'access.matrixOverview', icon: <ActionViewIcon />, onClick: () => exec('matrix') },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -53,7 +59,10 @@ export default function PermissionsPage() {
 
   return (
     <div>
-      <PageHeader title={t('permissions.title')} />
+      <div className="flex items-center justify-between">
+        <PageHeader title={t('permissions.title')} />
+        <Button variant="secondary" onClick={() => router.push('/admin/access/permissions/matrix')}>{t('access.matrixOverview')}</Button>
+      </div>
       <Toolbar searchValue={search} onSearchChange={setSearch} onClear={() => { setSearch(''); fetchData(1); }} onRefresh={() => fetchData(meta.page)} loading={loading} />
       {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
       {!error && loading && <LoadingState />}

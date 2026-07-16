@@ -8,6 +8,7 @@ import { AssignUserRolesDto } from './dto/assign-user-roles.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
+import { CurrentUser } from '../../../modules/auth/decorators/current-user.decorator';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -54,7 +55,7 @@ export class UsersController {
   @Post(':id/roles')
   @Permissions('users:update')
   @ApiOperation({ summary: 'Assign roles to user' })
-  assignRoles(@Param('id') id: string, @Body() dto: AssignUserRolesDto) {
-    return this.usersService.assignRoles(id, dto.roleIds);
+  assignRoles(@Param('id') id: string, @Body() dto: AssignUserRolesDto, @CurrentUser('id') userId: string) {
+    return this.usersService.assignRoles(id, dto.roleIds, userId);
   }
 }

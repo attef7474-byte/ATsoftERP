@@ -31,6 +31,20 @@ export class PermissionsController {
     return this.permissionsService.getModules();
   }
 
+  @Get('grouped')
+  @Permissions('permissions:read')
+  @ApiOperation({ summary: 'Get permissions grouped by module' })
+  getGrouped(@Query('roleId') roleId?: string) {
+    return this.permissionsService.getGrouped(roleId);
+  }
+
+  @Get('matrix')
+  @Permissions('permissions:read')
+  @ApiOperation({ summary: 'Get permission-role assignment matrix' })
+  getMatrix() {
+    return this.permissionsService.getMatrix();
+  }
+
   @Get(':id')
   @Permissions('permissions:read')
   @ApiOperation({ summary: 'Get permission by ID' })
