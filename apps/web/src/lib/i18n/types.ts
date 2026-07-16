@@ -29,7 +29,16 @@ export type TranslationNamespace =
   | 'maintenanceWorkflow'
   | 'unifiedSearch'
   | 'complexForms'
-  | 'reports';
+  | 'reports'
+  | 'alerts'
+  | 'companyProfile'
+  | 'languageSettings'
+  | 'appearanceSettings'
+  | 'securitySettings'
+  | 'notificationRules'
+  | 'attachments'
+  | 'userActivity'
+  | 'loginHistory';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

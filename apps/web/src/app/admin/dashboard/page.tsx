@@ -29,6 +29,7 @@ export default function DashboardPage() {
     { label: t('dashboard.machineCategories'), href: '/admin/maintenance/machine-categories', count: null, error: false },
     { label: t('dashboard.machines'), href: '/admin/maintenance/machines', count: null, error: false },
   ]);
+  const [kpis, setKpis] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,13 +40,14 @@ export default function DashboardPage() {
       '/maintenance/machine-categories', '/maintenance/machines',
     ];
 
-    Promise.allSettled(
-      endpoints.map((ep) =>
+    Promise.allSettled([
+      ...endpoints.map((ep) =>
         api.get<{ meta: { total: number } }>(ep, { params: { limit: '1', page: '1' } })
           .then((res) => res.meta.total)
           .catch(() => null),
       ),
-    ).then((results) => {
+      api.get<any>('/alerts/summary').catch(() => null),
+    ]).then((results) => {
       setStats((prev) =>
         prev.map((s, i) => ({
           ...s,
@@ -53,6 +55,8 @@ export default function DashboardPage() {
           error: results[i].status === 'rejected',
         })),
       );
+      const kpiResult = results[results.length - 1];
+      if (kpiResult.status === 'fulfilled') setKpis(kpiResult.value);
       setLoading(false);
     });
   }, []);
@@ -62,6 +66,17 @@ export default function DashboardPage() {
   return (
     <div>
       <PageHeader title={t('dashboard.title')} subtitle={t('dashboard.welcome')} />
+
+      {kpis && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          <Link href="/admin/alerts"><Card className="hover:shadow-md transition-shadow cursor-pointer"><CardContent><p className="text-xs text-gray-500">{t('dashboard.activeAlerts')}</p><p className="text-xl font-bold text-red-600">{kpis.critical || 0}</p></CardContent></Card></Link>
+          <Link href="/admin/alerts"><Card className="hover:shadow-md transition-shadow cursor-pointer"><CardContent><p className="text-xs text-gray-500">{t('dashboard.activeDowntime')}</p><p className="text-xl font-bold text-orange-600">{kpis.downtime || 0}</p></CardContent></Card></Link>
+          <Link href="/admin/alerts"><Card className="hover:shadow-md transition-shadow cursor-pointer"><CardContent><p className="text-xs text-gray-500">{t('dashboard.underMaintenance')}</p><p className="text-xl font-bold text-yellow-600">{kpis.underMaintenance || 0}</p></CardContent></Card></Link>
+          <Link href="/admin/maintenance/requests"><Card className="hover:shadow-md transition-shadow cursor-pointer"><CardContent><p className="text-xs text-gray-500">{t('dashboard.openRequests')}</p><p className="text-xl font-bold text-blue-600">{kpis.critical || 0}</p></CardContent></Card></Link>
+          <Link href="/admin/inventory/balances"><Card className="hover:shadow-md transition-shadow cursor-pointer"><CardContent><p className="text-xs text-gray-500">{t('dashboard.lowStock')}</p><p className="text-xl font-bold text-purple-600">{kpis.lowStock || 0}</p></CardContent></Card></Link>
+          <Link href="/admin/maintenance/machines"><Card className="hover:shadow-md transition-shadow cursor-pointer"><CardContent><p className="text-xs text-gray-500">{t('dashboard.totalMachines')}</p><p className="text-xl font-bold text-gray-900">{stats[10].count ?? '-'}</p></CardContent></Card></Link>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {stats.map((stat) => (

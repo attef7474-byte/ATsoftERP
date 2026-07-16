@@ -64,10 +64,17 @@ export const api = {
 
   post: async <T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> => {
     const url = buildUrl(`${getBaseUrl()}${path}`, options?.params);
+    const headers: Record<string, string> = {};
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    }
+    const isFormData = body instanceof FormData;
+    if (!isFormData) headers['Content-Type'] = 'application/json';
     const res = await fetch(url, {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: body ? JSON.stringify(body) : undefined,
+      headers,
+      body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
       signal: options?.signal,
     });
     return handleResponse<T>(res);

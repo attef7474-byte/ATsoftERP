@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
-import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, LoadingState, EmptyState, ErrorState, Modal } from '../../../../components/admin/ui';
+import { useToast } from '../../../../components/admin/toast-provider';
+import { Button, Input, Select, Card, CardContent, DataTable, Pagination, PageHeader, LoadingState, EmptyState, ErrorState, Modal } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionBackIcon } from '../../../../components/admin/admin-action-bar';
 import { useRouter } from 'next/navigation';
 
@@ -24,6 +25,7 @@ function sanitizeDetails(detailsStr: string | null): string {
 
 export default function AuditLogPage() {
   const { t } = useTranslation();
+  const { showToast } = useToast();
   const router = useRouter();
   const [data, setData] = useState<any[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
@@ -33,15 +35,27 @@ export default function AuditLogPage() {
   const [entityFilter, setEntityFilter] = useState('');
   const [userFilter, setUserFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [summary, setSummary] = useState<any>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
 
   const [detailModal, setDetailModal] = useState(false);
   const [detailItem, setDetailItem] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [selectedId, setSelectedId] = useState('');
 
+  const fetchSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    try {
+      const res = await api.get<any>('/audit-logs/summary');
+      setSummary(res);
+    } catch { /* ignore */ }
+    finally { setSummaryLoading(false); }
+  }, []);
+
   const fetchData = useCallback(async (page = 1) => {
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
       const params: Record<string, any> = { page, limit: 20 };
       if (actionFilter) params.action = actionFilter;
@@ -51,35 +65,52 @@ export default function AuditLogPage() {
       const res = await api.get<{ data: any[]; meta: any }>('/audit-logs', { params });
       setData(res.data || []);
       setMeta(res.meta);
-    } catch (err: any) {
-      setError(err?.message || t('errors.loadFailed'));
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { setError(err?.message || t('errors.loadFailed')); }
+    finally { setLoading(false); }
   }, [actionFilter, entityFilter, userFilter, search, t]);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); fetchSummary(); }, []);
+
+  const handleExportCsv = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (actionFilter) params.set('action', actionFilter);
+      if (entityFilter) params.set('entity', entityFilter);
+      if (userFilter) params.set('userId', userFilter);
+      if (dateFrom) params.set('dateFrom', dateFrom);
+      if (dateTo) params.set('dateTo', dateTo);
+      const qs = params.toString();
+      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/audit-logs/export/csv${qs ? '?' + qs : ''}`;
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(url, { headers: { Authorization: token ? `Bearer ${token}` : '' } });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl; a.download = `audit-log-${new Date().toISOString().split('T')[0]}.csv`; a.click();
+      window.URL.revokeObjectURL(downloadUrl);
+      showToast(t('settings.audit.exportSuccess'), 'success');
+    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+  };
 
   const openDetail = async (item: any) => {
-    setDetailLoading(true);
-    setDetailModal(true);
+    setDetailLoading(true); setDetailModal(true);
     try {
       const result = await api.get<any>(`/audit-logs/${item.id}`);
       setDetailItem(result);
-    } catch {
-      setDetailItem(item);
-    } finally {
-      setDetailLoading(false);
-    }
+    } catch { setDetailItem(item); }
+    finally { setDetailLoading(false); }
   };
 
   const { exec } = useStableHandlers({
-    refresh: () => fetchData(meta.page),
+    refresh: () => { fetchData(meta.page); fetchSummary(); },
     back: () => router.back(),
+    exportCsv: () => handleExportCsv(),
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
+    { id: 'export', labelKey: 'common.export', icon: <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>, onClick: () => exec('exportCsv') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 
@@ -89,40 +120,42 @@ export default function AuditLogPage() {
     { key: 'action', header: t('settings.audit.action') },
     { key: 'entity', header: t('settings.audit.entity') },
     { key: 'entityId', header: t('settings.audit.entityId'), render: (item: any) => <span className="font-mono text-xs">{item.entityId || '-'}</span> },
-    {
-      key: 'details', header: t('settings.audit.details'), render: (item: any) => (
-        <button onClick={() => openDetail(item)} className="text-blue-600 hover:underline text-xs">
-          {item.details ? t('common.view') : '-'}
-        </button>
-      ),
-    },
+    { key: 'details', header: t('settings.audit.details'), render: (item: any) => (
+      <button onClick={() => openDetail(item)} className="text-blue-600 hover:underline text-xs">{item.details ? t('common.view') : '-'}</button>
+    )},
   ];
 
   return (
     <div>
       <PageHeader title={t('settings.audit.title')} />
+      {!summaryLoading && summary && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <Card><CardContent><p className="text-xs text-gray-500">{t('settings.audit.totalLogs')}</p><p className="text-lg font-bold">{summary.totalLogs || 0}</p></CardContent></Card>
+          <Card><CardContent><p className="text-xs text-gray-500">{t('settings.audit.uniqueUsers')}</p><p className="text-lg font-bold">{summary.uniqueUsers || 0}</p></CardContent></Card>
+          <Card><CardContent><p className="text-xs text-gray-500">{t('settings.audit.actionsCount')}</p><p className="text-lg font-bold">{summary.actionsCount || 0}</p></CardContent></Card>
+          <Card><CardContent><p className="text-xs text-gray-500">{t('settings.audit.entitiesCount')}</p><p className="text-lg font-bold">{summary.entitiesCount || 0}</p></CardContent></Card>
+        </div>
+      )}
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('common.search')}
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('common.search')}
             className="block w-full rounded-lg border border-gray-300 px-3 py-2 pl-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <Select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)}
-          options={[{ value: '', label: t('common.all') }, { value: 'CREATE', label: 'CREATE' }, { value: 'UPDATE', label: 'UPDATE' }, { value: 'DELETE', label: 'DELETE' }, { value: 'LOGIN', label: 'LOGIN' }]}
-          className="w-32" placeholder={t('settings.audit.action')} />
+          options={[{ value: '', label: t('common.all') }, { value: 'CREATE', label: 'CREATE' }, { value: 'UPDATE', label: 'UPDATE' }, { value: 'DELETE', label: 'DELETE' }, { value: 'LOGIN_SUCCESS', label: 'LOGIN_SUCCESS' }, { value: 'LOGIN_FAILED', label: 'LOGIN_FAILED' }]} className="w-32" />
         <Select value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)}
-          options={[{ value: '', label: t('common.all') }, { value: 'User', label: 'User' }, { value: 'Role', label: 'Role' }, { value: 'Warehouse', label: 'Warehouse' }, { value: 'Product', label: 'Product' }, { value: 'Machine', label: 'Machine' }]}
-          className="w-32" placeholder={t('settings.audit.entity')} />
+          options={[{ value: '', label: t('common.all') }, { value: 'User', label: 'User' }, { value: 'Role', label: 'Role' }, { value: 'Warehouse', label: 'Warehouse' }, { value: 'Product', label: 'Product' }, { value: 'Machine', label: 'Machine' }]} className="w-32" />
         <Input value={userFilter} onChange={(e) => setUserFilter(e.target.value)} placeholder={t('settings.audit.user')} className="w-32" />
-        <Button variant="secondary" onClick={() => { setSearch(''); setActionFilter(''); setEntityFilter(''); setUserFilter(''); fetchData(1); }}>{t('common.clearSearch')}</Button>
+        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-36" />
+        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-36" />
+        <Button variant="secondary" onClick={() => { setSearch(''); setActionFilter(''); setEntityFilter(''); setUserFilter(''); setDateFrom(''); setDateTo(''); fetchData(1); }}>{t('common.clearSearch')}</Button>
       </div>
       {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
       {!error && loading && <LoadingState message={t('settings.audit.loadingLogs')} />}
       {!error && !loading && data.length === 0 && <EmptyState message={t('settings.audit.noLogs')} />}
       {!error && !loading && data.length > 0 && (
         <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(item: any) => item.id} selectedKey={selectedId}
-            onRowClick={(item: any) => setSelectedId(item.id)} />
+          <DataTable columns={columns} data={data} keyExtractor={(item: any) => item.id} selectedKey={selectedId} onRowClick={(item: any) => setSelectedId(item.id)} />
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
         </Card>
       )}

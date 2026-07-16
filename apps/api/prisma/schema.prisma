@@ -431,6 +431,26 @@ model Notification {
   @@map("notifications")
 }
 
+model NotificationRule {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  nameAr          String
+  nameEn          String
+  description     String?
+  eventType       String
+  channel         String   @default("IN_APP")
+  severity        String   @default("INFO")
+  enabled         Boolean  @default(true)
+  targetRoleId    String?
+  targetPermission String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([enabled])
+  @@index([eventType])
+  @@map("notification_rules")
+}
+
 model Attachment {
   id           String   @id @default(cuid())
   entityName   String

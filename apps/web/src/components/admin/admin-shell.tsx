@@ -95,10 +95,25 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    id: 'alerts', label: 'navigation.alerts', href: '/admin/alerts', icon: 'dashboard',
+  },
+  {
+    id: 'documents', label: 'navigation.documents', href: '#', icon: 'document', children: [
+      { id: 'doc-attachments', label: 'navigation.attachments', href: '/admin/documents/attachments' },
+    ],
+  },
+  {
     id: 'system', label: 'navigation.system', href: '#', icon: 'settings', children: [
-      { id: 'sys-settings', label: 'navigation.settings', href: '/admin/settings' },
+      { id: 'sys-settings', label: 'navigation.settingsList', href: '/admin/settings' },
+      { id: 'sys-company', label: 'navigation.companyProfile', href: '/admin/settings/company' },
+      { id: 'sys-language', label: 'navigation.language', href: '/admin/settings/language' },
+      { id: 'sys-appearance', label: 'navigation.appearance', href: '/admin/settings/appearance' },
+      { id: 'sys-security', label: 'navigation.security', href: '/admin/settings/security' },
       { id: 'sys-numbering', label: 'navigation.numberSequences', href: '/admin/settings/numbering' },
+      { id: 'sys-notification-rules', label: 'navigation.notificationRules', href: '/admin/settings/notification-rules' },
       { id: 'sys-audit', label: 'navigation.auditLog', href: '/admin/settings/audit' },
+      { id: 'sys-user-activity', label: 'navigation.userActivity', href: '/admin/settings/audit/user-activity' },
+      { id: 'sys-login-history', label: 'navigation.loginHistory', href: '/admin/settings/audit/login-history' },
     ],
   },
   {
@@ -119,6 +134,8 @@ function IconSettings() { return (<svg className="h-5 w-5" fill="none" stroke="c
 
 function IconNotification() { return (<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>); }
 
+function IconDocument() { return (<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>); }
+
 const iconMap: Record<string, React.ReactNode> = {
   dashboard: React.createElement(IconDashboard),
   core: React.createElement(IconCore),
@@ -129,6 +146,7 @@ const iconMap: Record<string, React.ReactNode> = {
   report: React.createElement(IconReport),
   settings: React.createElement(IconSettings),
   notification: React.createElement(IconNotification),
+  document: React.createElement(IconDocument),
 };
 
 function NotificationIcon() { return (<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>); }
