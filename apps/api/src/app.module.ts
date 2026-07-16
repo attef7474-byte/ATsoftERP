@@ -28,6 +28,9 @@ import { InventoryAdjustmentsModule } from './modules/factory/inventory-adjustme
 import { InventoryBalancesModule } from './modules/factory/inventory-balances/inventory-balances.module';
 import { BusinessPartnersModule } from './modules/business-partners/business-partners.module';
 import { BarcodesModule } from './modules/barcodes/barcodes.module';
+import { SystemSettingsModule } from './modules/settings/system-settings/system-settings.module';
+import { NumberingModule } from './modules/numbering/numbering.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -60,6 +63,9 @@ import { BarcodesModule } from './modules/barcodes/barcodes.module';
     InventoryBalancesModule,
     BusinessPartnersModule,
     BarcodesModule,
+    SystemSettingsModule,
+    NumberingModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

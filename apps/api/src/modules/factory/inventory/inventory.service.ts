@@ -65,26 +65,85 @@ export class InventoryService {
   async createLocation(dto: CreateWarehouseLocationDto) {
     const warehouse = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
     if (!warehouse) throw new NotFoundException('Warehouse not found');
-    return this.prisma.warehouseLocation.create({ data: dto });
+    const existing = await this.prisma.warehouseLocation.findFirst({
+      where: { warehouseId: dto.warehouseId, code: dto.code },
+    });
+    if (existing) throw new ConflictException('Location code already exists in this warehouse');
+    return this.prisma.warehouseLocation.create({
+      data: dto,
+      include: { warehouse: { select: { id: true, name: true, code: true } } },
+    });
+  }
+
+  async findAllLocations(query: { page?: number; limit?: number; search?: string; warehouseId?: string; status?: string }) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (query.search) {
+      where.OR = [
+        { code: { contains: query.search } },
+        { name: { contains: query.search } },
+      ];
+    }
+    if (query.warehouseId) where.warehouseId = query.warehouseId;
+    if (query.status) where.status = query.status;
+
+    const [data, total] = await Promise.all([
+      this.prisma.warehouseLocation.findMany({
+        where, skip, take: limit, orderBy: { createdAt: 'desc' },
+        include: { warehouse: { select: { id: true, name: true, code: true } } },
+      }),
+      this.prisma.warehouseLocation.count({ where }),
+    ]);
+
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async findOneLocation(id: string) {
+    const location = await this.prisma.warehouseLocation.findUnique({
+      where: { id },
+      include: { warehouse: { select: { id: true, name: true, code: true } } },
+    });
+    if (!location) throw new NotFoundException('Location not found');
+    return location;
   }
 
   async findLocations(warehouseId: string) {
     return this.prisma.warehouseLocation.findMany({
       where: { warehouseId, status: 'ACTIVE' },
       orderBy: { code: 'asc' },
+      include: { warehouse: { select: { id: true, name: true, code: true } } },
     });
   }
 
   async updateLocation(id: string, dto: UpdateWarehouseLocationDto) {
     const location = await this.prisma.warehouseLocation.findUnique({ where: { id } });
     if (!location) throw new NotFoundException('Location not found');
-    return this.prisma.warehouseLocation.update({ where: { id }, data: dto });
+    return this.prisma.warehouseLocation.update({
+      where: { id },
+      data: dto,
+      include: { warehouse: { select: { id: true, name: true, code: true } } },
+    });
   }
 
   async removeLocation(id: string) {
     const location = await this.prisma.warehouseLocation.findUnique({ where: { id } });
     if (!location) throw new NotFoundException('Location not found');
-    return this.prisma.warehouseLocation.update({ where: { id }, data: { status: 'INACTIVE' } });
+    return this.prisma.warehouseLocation.update({
+      where: { id },
+      data: { status: 'INACTIVE' },
+    });
+  }
+
+  async activateLocation(id: string) {
+    const location = await this.prisma.warehouseLocation.findUnique({ where: { id } });
+    if (!location) throw new NotFoundException('Location not found');
+    return this.prisma.warehouseLocation.update({
+      where: { id },
+      data: { status: 'ACTIVE' },
+    });
   }
 
   async adjustStock(dto: CreateStockAdjustmentDto) {

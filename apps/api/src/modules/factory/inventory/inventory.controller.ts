@@ -54,9 +54,27 @@ export class InventoryController {
   @ApiOperation({ summary: 'Create warehouse location' })
   createLocation(@Body() dto: CreateWarehouseLocationDto) { return this.service.createLocation(dto); }
 
+  @Get('locations')
+  @Permissions('inventory:read')
+  @ApiOperation({ summary: 'List all warehouse locations' })
+  findAllLocations(@Query() query: { page?: string; limit?: string; search?: string; warehouseId?: string; status?: string }) {
+    return this.service.findAllLocations({
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+      search: query.search,
+      warehouseId: query.warehouseId,
+      status: query.status,
+    });
+  }
+
+  @Get('locations/:id')
+  @Permissions('inventory:read')
+  @ApiOperation({ summary: 'Get warehouse location by ID' })
+  findOneLocation(@Param('id') id: string) { return this.service.findOneLocation(id); }
+
   @Get('warehouses/:warehouseId/locations')
   @Permissions('inventory:read')
-  @ApiOperation({ summary: 'Get warehouse locations' })
+  @ApiOperation({ summary: 'Get warehouse locations by warehouse' })
   findLocations(@Param('warehouseId') warehouseId: string) { return this.service.findLocations(warehouseId); }
 
   @Patch('locations/:id')
@@ -68,6 +86,11 @@ export class InventoryController {
   @Permissions('inventory:delete')
   @ApiOperation({ summary: 'Deactivate location' })
   removeLocation(@Param('id') id: string) { return this.service.removeLocation(id); }
+
+  @Patch('locations/:id/activate')
+  @Permissions('inventory:update')
+  @ApiOperation({ summary: 'Activate warehouse location' })
+  activateLocation(@Param('id') id: string) { return this.service.activateLocation(id); }
 
   @Post('adjustments')
   @Permissions('inventory:update')

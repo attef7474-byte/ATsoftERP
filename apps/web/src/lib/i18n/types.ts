@@ -20,7 +20,9 @@ export type TranslationNamespace =
   | 'roles'
   | 'permissions'
   | 'barcodes'
-  | 'workspace';
+  | 'workspace'
+  | 'settings'
+  | 'notifications';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

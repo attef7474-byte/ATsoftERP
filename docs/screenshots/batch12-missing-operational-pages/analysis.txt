@@ -1,0 +1,47 @@
+Batch 12 — Missing Operational Sidebar Pages
+================================================
+Date: 2026-07-16
+Status: COMPLETE
+
+New Pages (8):
+  1. /admin/inventory/locations      — Warehouse Locations (CRUD, activate/deactivate, warehouse F9)
+  2. /admin/barcodes/generate        — Barcode Generate (entity type, symbology, inline list)
+  3. /admin/barcodes/print           — Barcode Print (searchable label list, preview, browser print)
+  4. /admin/barcodes/scan            — Barcode Scan (auto-focus input, result panel, recent scans)
+  5. /admin/settings                 — System Settings (list, secret masking, edit modal)
+  6. /admin/settings/numbering       — Number Sequences (prefix/suffix/padding, next-preview)
+  7. /admin/settings/audit           — Audit Log (read-only, filters, sanitized detail modal)
+  8. /admin/notifications            — Notifications (inbox, type/read filters, mark-read)
+
+Regression Pages (3):
+  9. /admin/dashboard                — Dashboard (regression check — OK)
+  10. /admin/inventory/products      — Products (regression check — OK)
+  11. /admin/maintenance/requests    — Maintenance Requests (regression check — OK)
+
+Backend Modules Implemented:
+  - SystemSettings (controller, service, module, DTOs) — full CRUD
+  - Numbering (controller, service, module, DTOs) — CRUD + generateNumber
+  - Notifications (controller, service, module, DTOs) — inbox/mark-read/delete
+  - Inventory extensions: GET /locations, GET /locations/:id, PATCH /locations/:id/activate
+
+Build Verification:
+  - Web build: 36 pages, 0 TypeScript errors, 0 build errors
+  - API build: tsc clean, 0 errors
+  - All 12 routes confirmed in Next.js build output (static ○)
+
+Runtime Verification:
+  - All 12 routes returned HTTP 200 on localhost:3000
+
+Screenshots:
+  - All 11 screenshots captured via Playwright (Chromium headless, 1366×768)
+
+i18n:
+  - Added settings, notifications namespaces to types.ts
+  - ~80 new keys added to both ar.ts and en.ts
+
+Permissions:
+  - All pages wrapped with permission guards matching existing patterns
+
+Sidebar:
+  - Added inv-locations, barcodes section, system section, notifications item
+  - New SVG icons: IconBarcode, IconSettings, IconNotification
