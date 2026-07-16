@@ -28,7 +28,8 @@ export type TranslationNamespace =
   | 'inventoryCountWorkflow'
   | 'maintenanceWorkflow'
   | 'unifiedSearch'
-  | 'complexForms';
+  | 'complexForms'
+  | 'reports';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

@@ -1,0 +1,33 @@
+Batch 19 — Maintenance and Inventory Reports
+=============================================
+Goal: Build real maintenance and inventory report pages with backend API,
+      server-side aggregation, F9 filters, summary cards, CSV export,
+      browser print, and Action Bar integration.
+
+Backend (apps/api/src/modules/reports/)
+- reports.module.ts         — Module declaration (imports: PrismaModule, PermissionsModule)
+- reports.controller.ts     — 11 GET endpoints with @Permissions decorators
+- reports.service.ts        — 11 Prisma aggregation methods
+- dto/report-filter.dto.ts  — BaseReportFilterDto + derived DTOs for each domain
+- dto/report-response.dto.ts — ReportResponse<T>, SummaryCard, BaseReportRow
+
+Frontend (apps/web/src/)
+- components/reports/       — Reusable: ReportPageShell, ReportSummaryCards,
+                              ReportExportButton
+- app/admin/reports/        — 11 page directories with real report pages:
+  maintenance/              — overview, requests, downtime, costs, schedules
+  inventory/                — overview, balances, movements, adjustments, count-variance
+  barcodes/scans/           — scan log report
+- components/admin/admin-shell.tsx — "Reports" nav group with 11 sub-items
+- lib/i18n/                 — reports namespace (100+ keys en + ar),
+                             navigation keys for sidebar labels
+
+Permissions Seed:
+  reports.maintenance, reports.inventory, reports.barcodes
+
+Verification:
+  - npx tsc --noEmit (api + web) — 0 errors
+  - npx prisma validate   — schema valid
+  - npx prisma generate   — client generated
+  - cd apps/api && npx tsc — build succeeds
+  - cd apps/web && npx next build — all 11 report pages + shell render

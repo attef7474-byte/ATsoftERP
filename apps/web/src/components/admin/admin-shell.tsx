@@ -60,10 +60,25 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    id: 'barcodes', label: 'navigation.barcodes', href: '#', icon: 'barcode', children: [
+    id: 'barcodes', label: 'navigation.barcodes', href: '#', icon: 'barcode',     children: [
       { id: 'barcode-generate', label: 'navigation.generate', href: '/admin/barcodes/generate' },
       { id: 'barcode-print', label: 'navigation.print', href: '/admin/barcodes/print' },
       { id: 'barcode-scan', label: 'navigation.scan', href: '/admin/barcodes/scan' },
+    ],
+  },
+  {
+    id: 'reports', label: 'navigation.reports', href: '#', icon: 'report', children: [
+      { id: 'rpt-mnt-overview', label: 'navigation.maintenanceOverview', href: '/admin/reports/maintenance' },
+      { id: 'rpt-mnt-requests', label: 'navigation.maintenanceRequestsReport', href: '/admin/reports/maintenance/requests' },
+      { id: 'rpt-mnt-downtime', label: 'navigation.downtimeReport', href: '/admin/reports/maintenance/downtime' },
+      { id: 'rpt-mnt-costs', label: 'navigation.maintenanceCostsReport', href: '/admin/reports/maintenance/costs' },
+      { id: 'rpt-mnt-schedules', label: 'navigation.maintenanceSchedulesReport', href: '/admin/reports/maintenance/schedules' },
+      { id: 'rpt-inv-overview', label: 'navigation.inventoryOverview', href: '/admin/reports/inventory' },
+      { id: 'rpt-inv-balances', label: 'navigation.inventoryBalancesReport', href: '/admin/reports/inventory/balances' },
+      { id: 'rpt-inv-movements', label: 'navigation.inventoryMovementsReport', href: '/admin/reports/inventory/movements' },
+      { id: 'rpt-inv-adjustments', label: 'navigation.inventoryAdjustmentsReport', href: '/admin/reports/inventory/adjustments' },
+      { id: 'rpt-inv-count-variance', label: 'navigation.countVarianceReport', href: '/admin/reports/inventory/count-variance' },
+      { id: 'rpt-barcode-scans', label: 'navigation.barcodeScansReport', href: '/admin/reports/barcodes/scans' },
     ],
   },
   {
@@ -98,6 +113,7 @@ function IconInventory() { return (<svg className="h-5 w-5" fill="none" stroke="
 function IconMaintenance() { return (<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>); }
 
 function IconBarcode() { return (<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>); }
+function IconReport() { return (<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>); }
 
 function IconSettings() { return (<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>); }
 
@@ -110,6 +126,7 @@ const iconMap: Record<string, React.ReactNode> = {
   inventory: React.createElement(IconInventory),
   maintenance: React.createElement(IconMaintenance),
   barcode: React.createElement(IconBarcode),
+  report: React.createElement(IconReport),
   settings: React.createElement(IconSettings),
   notification: React.createElement(IconNotification),
 };

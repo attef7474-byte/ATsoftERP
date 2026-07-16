@@ -34,6 +34,7 @@ import { BarcodesModule } from './modules/barcodes/barcodes.module';
 import { SystemSettingsModule } from './modules/settings/system-settings/system-settings.module';
 import { NumberingModule } from './modules/numbering/numbering.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     SystemSettingsModule,
     NumberingModule,
     NotificationsModule,
+    ReportsModule,
   ],
 })
 export class AppModule {}

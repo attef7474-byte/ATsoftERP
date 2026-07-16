@@ -18,6 +18,7 @@ const MODULES = [
   "inventory-count", "inventory-count-line", "inventory-movement",
   "inventory-adjustment", "inventory-balance",
   "barcode-label", "barcode-scan", "barcode-template",
+  "reports.maintenance", "reports.inventory", "reports.barcodes",
 ] as const;
 
 const ACTIONS = ["create", "read", "update", "delete"] as const;
