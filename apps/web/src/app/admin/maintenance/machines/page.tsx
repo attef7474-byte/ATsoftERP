@@ -4,12 +4,14 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Machine } from '../../../../lib/admin-types';
+import { useRouter } from 'next/navigation';
 import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter, machineCategoryAdapter } from '../../../../components/f9';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MachinesPage() {
+  const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<Machine[]>([]);
@@ -136,6 +138,7 @@ useRegisterAdminActions([
     {
       key: 'actions', header: t('common.actions'), render: (m: Machine) => (
         <div className="flex gap-2">
+          <button onClick={() => router.push(`/admin/maintenance/machines/${m.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
           <button onClick={() => openEdit(m)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
           <button onClick={() => confirmStatus(m.id)}
             className={`text-sm ${m.status === 'ACTIVE' ? 'text-orange-600' : 'text-green-600'} hover:underline`}>

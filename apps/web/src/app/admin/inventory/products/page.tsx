@@ -4,11 +4,13 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Product } from '../../../../lib/admin-types';
+import { useRouter } from 'next/navigation';
 import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { F9Lookup, productCategoryAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function ProductsPage() {
+  const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<Product[]>([]);
@@ -120,6 +122,7 @@ export default function ProductsPage() {
     {
       key: 'actions', header: t('common.actions'), render: (p: Product) => (
         <div className="flex gap-2">
+          <button onClick={() => router.push(`/admin/inventory/products/${p.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
           <button onClick={() => openEdit(p)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
           <button onClick={() => confirmStatus(p.id)}
             className={`text-sm ${p.status === 'ACTIVE' ? 'text-orange-600' : 'text-green-600'} hover:underline`}>

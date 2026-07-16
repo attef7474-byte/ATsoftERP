@@ -4,10 +4,12 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Company } from '../../../../lib/admin-types';
+import { useRouter } from 'next/navigation';
 import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function CompaniesPage() {
+  const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<Company[]>([]);
@@ -155,6 +157,7 @@ export default function CompaniesPage() {
     {
       key: 'actions', header: t('common.actions'), render: (item: Company) => (
         <div className="flex gap-2">
+          <button onClick={() => router.push(`/admin/core/companies/${item.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
           <button onClick={() => openEdit(item)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
           <button onClick={() => item.status === 'ACTIVE' ? confirmStatusChange(item.id, 'deactivate') : confirmStatusChange(item.id, 'activate')}
             className={`text-sm ${item.status === 'ACTIVE' ? 'text-orange-600' : 'text-green-600'} hover:underline`}>

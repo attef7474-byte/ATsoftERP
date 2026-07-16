@@ -118,6 +118,26 @@ function getPageTitle(pathname: string): string {
   if (pathname === '/admin/dashboard') return 'dashboard.title';
   const segments = pathname.split('/').filter(Boolean);
   const last = segments[segments.length - 1];
+
+  // Detect if the last segment looks like a UUID (detail page)
+  const isId = /^[0-9a-fA-F-]{36}$/.test(last) || /^\d+$/.test(last);
+  if (isId && segments.length >= 2) {
+    const parent = segments[segments.length - 2];
+    const detailMapping: Record<string, string> = {
+      companies: 'details.company.title',
+      branches: 'details.branch.title',
+      departments: 'details.department.title',
+      users: 'details.user.title',
+      products: 'details.product.title',
+      machines: 'details.machine.title',
+      requests: 'details.maintenanceRequest.title',
+      counts: 'details.inventoryCount.title',
+      movements: 'details.inventoryMovement.title',
+      adjustments: 'details.inventoryAdjustment.title',
+    };
+    if (detailMapping[parent]) return detailMapping[parent];
+  }
+
   const mapping: Record<string, string> = {
     companies: 'core.companies',
     branches: 'core.branches',

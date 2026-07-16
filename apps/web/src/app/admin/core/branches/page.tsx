@@ -4,11 +4,13 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Branch } from '../../../../lib/admin-types';
+import { useRouter } from 'next/navigation';
 import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { F9Lookup, companyAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function BranchesPage() {
+  const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<Branch[]>([]);
@@ -131,6 +133,7 @@ export default function BranchesPage() {
     {
       key: 'actions', header: t('common.actions'), render: (b: Branch) => (
         <div className="flex gap-2">
+          <button onClick={() => router.push(`/admin/core/branches/${b.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
           <button onClick={() => openEdit(b)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
           <button onClick={() => b.status === 'ACTIVE' ? confirmStatusChange(b.id, 'deactivate') : confirmStatusChange(b.id, 'activate')}
             className={`text-sm ${b.status === 'ACTIVE' ? 'text-orange-600' : 'text-green-600'} hover:underline`}>

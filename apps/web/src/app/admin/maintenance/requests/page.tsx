@@ -4,12 +4,14 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { MaintenanceRequest } from '../../../../lib/admin-types';
+import { useRouter } from 'next/navigation';
 import { Button, Input, Select, Textarea, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { CmmsStatusBadge, CmmsPriorityBadge } from '../../../../components/maintenance';
 import { F9Lookup, machineAdapter, userAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MaintenanceRequestsPage() {
+  const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<MaintenanceRequest[]>([]);
@@ -125,6 +127,7 @@ export default function MaintenanceRequestsPage() {
     {
       key: 'actions', header: t('common.actions'), render: (r: MaintenanceRequest) => (
         <div className="flex gap-2 flex-wrap">
+          <button onClick={() => router.push(`/admin/maintenance/requests/${r.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
           {r.status === 'OPEN' && <button onClick={() => confirmAction(r.id, 'start')} className="text-green-600 hover:text-green-800 text-sm">{t('maintenance.start')}</button>}
           {r.status === 'IN_PROGRESS' && <button onClick={() => confirmAction(r.id, 'complete')} className="text-green-600 hover:text-green-800 text-sm">{t('maintenance.complete')}</button>}
           {(r.status === 'OPEN' || r.status === 'IN_PROGRESS') && <button onClick={() => confirmAction(r.id, 'cancel')} className="text-red-600 hover:text-red-800 text-sm">{t('maintenance.cancel')}</button>}

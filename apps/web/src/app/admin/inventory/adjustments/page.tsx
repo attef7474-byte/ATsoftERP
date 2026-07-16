@@ -7,10 +7,12 @@ import { InventoryAdjustment, InventoryAdjustmentLine } from '../../../../lib/ad
 import { Button, Input, Select, Textarea, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { InventoryStatusBadge } from '../../../../components/inventory-counting/InventoryStatusBadge';
 import { F9Lookup, companyAdapter, branchAdapter, warehouseAdapter, productAdapter } from '../../../../components/f9';
+import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionPostIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function InventoryAdjustmentsPage() {
+  const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<InventoryAdjustment[]>([]);
@@ -139,7 +141,7 @@ export default function InventoryAdjustmentsPage() {
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.saveFailed'), 'error'); }
+    } catch (err: any) {       showToast(err?.message || t('errors.createFailed'), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -183,6 +185,7 @@ export default function InventoryAdjustmentsPage() {
     {
       key: 'actions', header: t('common.actions'), render: (r: InventoryAdjustment) => (
         <div className="flex gap-2 flex-wrap">
+          <button onClick={() => router.push(`/admin/inventory/adjustments/${r.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
           {r.status === 'DRAFT' && (
             <>
               <button onClick={() => confirmAction(r.id, 'post')} className="text-green-600 hover:text-green-800 text-sm">{t('inventoryCounting.post')}</button>

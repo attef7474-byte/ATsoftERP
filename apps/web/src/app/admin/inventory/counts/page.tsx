@@ -10,10 +10,12 @@ import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar
 import { F9Lookup, companyAdapter, branchAdapter, warehouseAdapter } from '../../../../components/f9';
 import { InventoryStatusBadge } from '../../../../components/inventory-counting/InventoryStatusBadge';
 import CountLinesPanel from '../../../../components/inventory-counting/CountLinesPanel';
+import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionViewIcon, ActionGenerateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function InventoryCountsPage() {
+  const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
 
@@ -194,6 +196,7 @@ export default function InventoryCountsPage() {
     {
       key: 'actions', header: t('common.actions'), render: (r: InventoryCount) => (
         <div className="flex gap-2 flex-wrap">
+          <button onClick={() => router.push(`/admin/inventory/counts/${r.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
           {r.status === 'DRAFT' && hasPerm('inventory-count:start') && (
             <button onClick={() => confirmAction(r.id, 'start')} className="text-green-600 hover:text-green-800 text-sm">{t('inventoryCounting.start')}</button>
           )}

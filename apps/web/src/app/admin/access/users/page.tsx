@@ -4,11 +4,13 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { User, Company, Branch, Department, Role } from '../../../../lib/admin-types';
+import { useRouter } from 'next/navigation';
 import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter, roleAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function UsersPage() {
+  const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<User[]>([]);
@@ -95,7 +97,7 @@ export default function UsersPage() {
   };
 
   const handleSave = async () => {
-    if (!form.email || !form.name) { showToast(t('errors.requiredFields'), 'error'); return; }
+    if (!form.email || !form.name) { showToast(t('validation.required'), 'error'); return; }
     if (!editItem && !form.password) { showToast(t('users.passwordRequired'), 'error'); return; }
     setSaving(true);
     try {
@@ -103,15 +105,15 @@ export default function UsersPage() {
       if (!editItem) body.password = form.password;
       if (editItem) {
         await api.patch(`/users/${editItem.id}`, body);
-        showToast(t('common.updated'), 'success');
+        showToast(t('common.successUpdated'), 'success');
       } else {
         await api.post('/users', body);
-        showToast(t('common.created'), 'success');
+        showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false);
       fetchData(meta.page);
     } catch (err: any) {
-      showToast(err?.message || t('errors.saveFailed'), 'error');
+      showToast(err?.message || t('errors.createFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -122,17 +124,13 @@ export default function UsersPage() {
 
   const handleConfirm = async () => {
     try {
-      if (confirmAction === 'activate') {
-        await api.patch(`/users/${selectedId}/reactivate`, {});
-        showToast(t('common.activated'), 'success');
-      } else {
-        await api.delete(`/users/${selectedId}`);
-        showToast(t('common.deactivated'), 'success');
-      }
+      const status = confirmAction === 'activate' ? 'ACTIVE' : 'INACTIVE';
+      await api.patch(`/users/${selectedId}`, { status });
+      showToast(confirmAction === 'activate' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
       setConfirmOpen(false);
       fetchData(meta.page);
     } catch (err: any) {
-      showToast(err?.message || t('errors.operationFailed'), 'error');
+      showToast(err?.message || t('errors.updateFailed'), 'error');
     }
   };
 
@@ -149,6 +147,7 @@ export default function UsersPage() {
     { key: 'status', header: t('common.status'), render: (r: User) => <StatusBadge status={r.status} /> },
     { key: 'actions', header: t('common.actions'), render: (r: User) => (
       <div className="flex space-x-2">
+        <button onClick={() => router.push(`/admin/access/users/${r.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
         <Button variant="secondary" size="sm" onClick={() => openEdit(r)}>{t('common.edit')}</Button>
         {r.status !== 'ACTIVE' ? (
           <Button variant="secondary" size="sm" onClick={() => confirmActivate(r.id)}>{t('common.activate')}</Button>

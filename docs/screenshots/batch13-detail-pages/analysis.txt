@@ -1,0 +1,99 @@
+Batch 13: Operational Detail Pages - Analysis
+===============================================
+Date: 2026-07-16
+Tag: atsoft-erp-operational-detail-pages
+
+Summary
+-------
+Created 10 production-grade operational detail page routes under the admin section.
+Each detail page uses real GET-by-id API endpoints, displays full entity details
+(code, name, status badge), metadata (created/updated timestamps), related records
+via tabs, and workflow actions (activate/deactivate via PATCH with status field).
+
+Files Created
+-------------
+1. apps/web/src/app/admin/core/companies/[id]/page.tsx
+   - Tabbed: Overview (code, name, legalName, taxNumber, phone, email, address,
+     status, _count stats for branches/departments/users/warehouses, metadata)
+   - Action Bar: Back, Refresh, Edit (modal), Activate/Deactivate (ConfirmDialog)
+   - Agent-created, verified and fixed
+
+2. apps/web/src/app/admin/core/branches/[id]/page.tsx
+   - Tabbed: Overview, Departments, Warehouses, Machines, Users
+   - Action Bar: Back, Refresh, Edit (modal), Activate/Deactivate
+   - Agent-created, verified and fixed (import paths, i18n keys)
+
+3. apps/web/src/app/admin/core/departments/[id]/page.tsx
+   - Tabbed: Overview, Users, Machines, Children
+   - Shows _count cards (children/users/machines)
+   - Action Bar: Back, Refresh, Edit (modal), Activate/Deactivate
+   - Agent-created, verified and fixed (import paths, i18n keys)
+
+4. apps/web/src/app/admin/access/users/[id]/page.tsx
+   - Full metadata field grid (username, displayName, email, phone, roles,
+     company/branch/department lookups, lastLogin)
+   - Action Bar: Back, Refresh, Edit (modal), Activate/Deactivate via PATCH
+   - Agent-created, verified and fixed (API wrapper format, activate/deactivate
+     endpoints, i18n keys)
+
+5. apps/web/src/app/admin/inventory/products/[id]/page.tsx
+   - Tabbed: Overview, Balances, Barcode Labels
+   - Action Bar: Back, Refresh, Edit, Activate/Deactivate
+   - Directly written
+
+6. apps/web/src/app/admin/maintenance/machines/[id]/page.tsx
+   - Tabbed: Overview, Parts, Documents, Requests, Labels
+   - Action Bar: Back, Refresh, Edit, Activate/Deactivate
+   - Directly written
+
+7. apps/web/src/app/admin/maintenance/requests/[id]/page.tsx
+   - Tabbed: Overview, Tasks, Downtime Logs, Used Parts, Schedules
+   - Workflow: Start / Complete / Cancel via status actions
+   - Action Bar: Back, Refresh, Edit
+   - Directly written
+
+8. apps/web/src/app/admin/inventory/counts/[id]/page.tsx
+   - Tabbed: Overview, Lines, Generated Adjustment
+   - Workflow: Start / Complete / Cancel / Generate Adjustment
+   - Action Bar: Back, Refresh, Edit
+   - Directly written
+
+9. apps/web/src/app/admin/inventory/movements/[id]/page.tsx
+   - Tabbed: Overview, Lines
+   - Workflow: Post / Cancel
+   - Action Bar: Back, Refresh, Edit
+   - Directly written
+
+10. apps/web/src/app/admin/inventory/adjustments/[id]/page.tsx
+    - Tabbed: Overview, Lines
+    - Workflow: Post / Cancel
+    - Action Bar: Back, Refresh, Edit
+    - Directly written
+
+List Pages Updated
+------------------
+All 10 list pages now include a "View Details" button in the actions column
+that navigates to the corresponding /[id] detail page.
+
+Fixes Applied
+-------------
+- User detail page: API response type corrected from { data: User } to User;
+  activate/deactivate changed from /reactivate + DELETE to PATCH with status;
+  i18n keys corrected.
+- User list page: Same activate/deactivate fix; i18n keys corrected.
+- Branch/Department detail pages: i18n 'navigation.back' -> 'common.back'.
+- Department detail page: Import paths corrected.
+- Products/Machines detail pages: BarcodeLabel type -> any.
+- Machines detail page: Extended Machine type for related data fields.
+- Adjustments detail page: errors.saveFailed -> errors.createFailed.
+
+i18n
+----
+- 'details' namespace added to types.ts with 120+ ar/en keys.
+- getPageTitle updated in admin-shell.tsx to map [id] segments to details.*.title.
+
+Build & Verification
+--------------------
+- npm run build: COMPILED, types OK, all 10 [id] routes shown as ƒ (dynamic).
+- All 10 /admin/*/test-id routes return HTTP 200.
+- Screenshots captured for all 10 detail pages at 1440x900.

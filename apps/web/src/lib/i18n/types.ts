@@ -22,7 +22,8 @@ export type TranslationNamespace =
   | 'barcodes'
   | 'workspace'
   | 'settings'
-  | 'notifications';
+  | 'notifications'
+  | 'details';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;
