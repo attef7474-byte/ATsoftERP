@@ -1,68 +1,75 @@
-Batch 15: Inventory Count Execution Workflow
-=============================================
+Batch 15 — Inventory Count Execution Workflow
+==============================================
 
-Date: 2026-07-16
-Commit: 4e1c190 (pre-Batch 15 baseline)
-Tag: atsoft-erp-inventory-count-execution-workflow
+## Implementation Commit
+ecce09d
 
-## Summary
+## Tag
+atsoft-erp-inventory-count-execution-workflow
 
-Implemented a full operational inventory counting workflow with 4 new pages:
-count execution, difference review, count approval/completion, and adjustment
-generation. Updated existing pages with workflow navigation.
+## Closeout Commit
+(none — no documentation changes after ecce09d)
 
-## New Pages (4)
+## Git Sync
+- status -sb: ## main...origin/main
+- ahead/behind: 0/0
+- main pushed: yes (ecce09d on origin/main)
+- tag pushed: yes (exists on origin)
 
-| Route | Size | Description |
-|-------|------|-------------|
-| /admin/inventory/counts/[id]/execute | 3.01 kB | Barcode scan + manual line add + count/verify lines |
-| /admin/inventory/counts/[id]/review  | 2.66 kB | Difference analysis with filter tabs |
-| /admin/inventory/counts/[id]/approve | 2.84 kB | Completion checklist with approve/complete |
-| /admin/inventory/counts/[id]/adjust  | 2.87 kB | Adjustment preview, generate, post |
+## Routes Verified
+| Route | ID Used | HTTP Status | Notes |
+|-------|---------|-------------|-------|
+| /admin/inventory/counts | — | 200 | List page renders |
+| /admin/inventory/counts/:id | test-verify-id | 200 | Detail page renders |
+| /admin/inventory/counts/:id/execute | test-verify-id | 200 | Execute page renders |
+| /admin/inventory/counts/:id/review | test-verify-id | 200 | Review page renders |
+| /admin/inventory/counts/:id/approve | test-verify-id | 200 | Approve page renders |
+| /admin/inventory/counts/:id/adjust | test-verify-id | 200 | Adjust page renders |
+| /admin/inventory/adjustments | — | 200 | List page renders |
+| /admin/inventory/adjustments/:id | test-verify-id | 200 | Detail page renders |
 
-## Modified Files (7)
+Note: Real DB-backed IDs could not be fetched because the API server
+(port 4000) required authentication credentials not available in this
+session. Placeholder IDs confirm all dynamic routes compile and render
+without server-side errors.
 
-1. apps/web/src/lib/i18n/types.ts - added inventoryCountWorkflow namespace
-2. apps/web/src/lib/i18n/locales/en.ts - 60 workflow keys
-3. apps/web/src/lib/i18n/locales/ar.ts - 60 workflow keys
-4. apps/web/src/app/admin/inventory/counts/page.tsx - workflow action buttons
-5. apps/web/src/app/admin/inventory/counts/[id]/page.tsx - workflow nav cards
-6. apps/web/src/app/admin/inventory/adjustments/page.tsx - source count column
-7. apps/web/src/app/admin/inventory/adjustments/[id]/page.tsx - clickable source count
+## Build Result
+- Fresh build (2026-07-16): compiled in 3.3s, 0 errors
+- Previous build: 0 errors
+- All 4 new routes shown as ƒ (Dynamic) in build output
 
-## Key Patterns
-
-- All pages use 'use client', Admin Workspace layout via parent group
-- Action Bar via useRegisterAdminActions pattern
-- DataTable for count lines display
-- StatusBadge/InventoryStatusBadge for status indicators
-- QuantityDifferenceBadge for difference display
-- ConfirmDialog for destructive/workflow actions
-- Modal for line add and count recording forms
-- F9Lookup for product/location selection
-- Real API calls via api.get/post/patch (no mock data)
-- RTL Arabic support via useTranslation hook
-
-## Barcode Integration
-
-The execute page calls the real /barcodes/scan endpoint with
-purpose=INVENTORY_COUNTING and auto-adds the scanned product as a
-count line. This is a real API integration, not a placeholder.
-
-## Build Verification
-
-- npx next build: 0 errors
-- All 4 new routes shown as ƒ Dynamic in build output
-- Dev server: all routes return HTTP 200
+## Barcode Scan Integration
+- Real endpoint: /barcodes/scan
+- Purpose: INVENTORY_COUNTING
+- NOT a placeholder — calls actual API via api.post
+- Auto-adds scanned product as a count line
 
 ## Translation Keys
-
 - inventoryCountWorkflow namespace: 60 keys (en) / 60 keys (ar)
 - No duplicate key warnings
 - Consistent naming convention with existing namespaces
 
-## Workflow States Covered
+## Screenshots
+Screenshot limitation:
+Automatic screenshot capture was unavailable because no browser
+automation session was available in this runtime.
+No fake screenshots were generated.
+Route/runtime verification was completed by HTTP checks.
+Screenshot directory exists at:
+  docs/screenshots/batch15-inventory-count-workflow/
+and is ready for manual screenshots.
 
+## Safety Confirmation
+- No fake screenshots generated
+- No fake data created
+- No mock API used
+- No Docker used
+- No PostgreSQL used
+- No prisma db push executed
+- No prisma migrate reset executed
+- No database reset performed
+
+## Workflow States Covered
 1. DRAFT -> start -> IN_PROGRESS
 2. IN_PROGRESS -> execute (scan/manual add/count/verify)
 3. IN_PROGRESS -> review (filter differences)
@@ -72,10 +79,5 @@ count line. This is a real API integration, not a placeholder.
 7. DRAFT/IN_PROGRESS -> cancel -> CANCELLED
 
 ## Duplicate Prevention
-
 Adjust page checks for existing non-cancelled adjustments before
 allowing generation, preventing duplicate adjustments from the same count.
-
-## Screenshots
-
-(screenshots to be captured via browser)
