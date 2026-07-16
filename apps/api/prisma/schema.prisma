@@ -225,6 +225,9 @@ model Company {
   movements   InventoryMovement[]
   adjustments InventoryAdjustment[]
 
+  @@index([status])
+  @@index([code])
+  @@index([createdAt])
   @@map("companies")
 }
 
@@ -251,6 +254,8 @@ model Branch {
   adjustments InventoryAdjustment[]
 
   @@unique([companyId, code])
+  @@index([status])
+  @@index([createdAt])
   @@map("branches")
 }
 
@@ -274,6 +279,9 @@ model Department {
   machines Machine[]
 
   @@unique([companyId, code])
+  @@index([branchId])
+  @@index([status])
+  @@index([createdAt])
   @@map("departments")
 }
 
@@ -308,6 +316,13 @@ model User {
   checklistExecutionCompletions   MaintenanceChecklistExecution[]     @relation("MaintenanceChecklistExecutionCompletedBy")
   checklistExecutionItemCompletions MaintenanceChecklistExecutionItem[] @relation("MaintenanceChecklistExecutionItemCompletedBy")
 
+  @@index([email])
+  @@index([status])
+  @@index([name])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([departmentId])
+  @@index([status, createdAt])
   @@map("users")
 }
 
@@ -325,6 +340,8 @@ model Role {
   users       UserRole[]
   permissions RolePermission[]
 
+  @@index([code])
+  @@index([status])
   @@map("roles")
 }
 
@@ -340,6 +357,10 @@ model Permission {
 
   roles RolePermission[]
 
+  @@index([module])
+  @@index([action])
+  @@index([module, action])
+  @@index([status])
   @@map("permissions")
 }
 
@@ -350,6 +371,8 @@ model UserRole {
   role   Role   @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
   @@map("user_roles")
 }
 
@@ -360,6 +383,8 @@ model RolePermission {
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
   @@map("role_permissions")
 }
 
@@ -380,6 +405,9 @@ model AuditLog {
   @@index([entityId])
   @@index([action])
   @@index([createdAt])
+  @@index([entity, entityId])
+  @@index([userId, action])
+  @@index([entity, createdAt])
   @@map("audit_logs")
 }
 
@@ -397,6 +425,9 @@ model Notification {
   @@index([userId])
   @@index([read])
   @@index([createdAt])
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@index([read, createdAt])
   @@map("notifications")
 }
 
@@ -474,6 +505,9 @@ model Warehouse {
   adjustments InventoryAdjustment[]
 
   @@unique([companyId, code])
+  @@index([branchId])
+  @@index([status])
+  @@index([createdAt])
   @@map("warehouses")
 }
 
@@ -494,6 +528,8 @@ model WarehouseLocation {
   adjustmentLines InventoryAdjustmentLine[]
 
   @@unique([warehouseId, code])
+  @@index([status])
+  @@index([barcode])
   @@map("warehouse_locations")
 }
 
@@ -512,6 +548,8 @@ model ProductCategory {
 
   products Product[]
 
+  @@index([parentId])
+  @@index([status])
   @@map("product_categories")
 }
 
@@ -541,7 +579,12 @@ model Product {
   requestPartUsages   MaintenanceRequestPartUsage[]
 
   @@index([categoryId])
+  @@index([code])
   @@index([status])
+  @@index([name])
+  @@index([createdAt])
+  @@index([categoryId, status])
+  @@index([status, createdAt])
   @@map("products")
 }
 
@@ -564,6 +607,9 @@ model InventoryBalance {
   @@index([warehouseId])
   @@index([productId])
   @@index([locationId])
+  @@index([quantity])
+  @@index([updatedAt])
+  @@index([warehouseId, productId])
   @@map("inventory_balances")
 }
 
@@ -598,6 +644,10 @@ model InventoryCount {
   @@index([warehouseId])
   @@index([status])
   @@index([countDate])
+  @@index([countNumber])
+  @@index([createdAt])
+  @@index([warehouseId, status])
+  @@index([status, createdAt])
   @@map("inventory_counts")
 }
 
@@ -627,6 +677,8 @@ model InventoryCountLine {
   @@index([productId])
   @@index([warehouseLocationId])
   @@index([status])
+  @@index([countId, status])
+  @@index([countId, productId])
   @@map("inventory_count_lines")
 }
 
@@ -662,6 +714,10 @@ model InventoryMovement {
   @@index([movementType])
   @@index([status])
   @@index([movementDate])
+  @@index([movementNumber])
+  @@index([createdAt])
+  @@index([warehouseId, status])
+  @@index([status, movementDate])
   @@map("inventory_movements")
 }
 
@@ -683,6 +739,7 @@ model InventoryMovementLine {
   @@index([movementId])
   @@index([productId])
   @@index([warehouseLocationId])
+  @@index([movementId, productId])
   @@map("inventory_movement_lines")
 }
 
@@ -718,6 +775,10 @@ model InventoryAdjustment {
   @@index([inventoryCountId])
   @@index([status])
   @@index([adjustmentDate])
+  @@index([adjustmentNumber])
+  @@index([createdAt])
+  @@index([warehouseId, status])
+  @@index([status, adjustmentDate])
   @@map("inventory_adjustments")
 }
 
@@ -739,6 +800,7 @@ model InventoryAdjustmentLine {
   @@index([adjustmentId])
   @@index([productId])
   @@index([warehouseLocationId])
+  @@index([adjustmentId, productId])
   @@map("inventory_adjustment_lines")
 }
 
@@ -757,6 +819,8 @@ model MachineCategory {
 
   machines Machine[]
 
+  @@index([parentId])
+  @@index([status])
   @@map("machine_categories")
 }
 
@@ -796,7 +860,11 @@ model Machine {
   @@index([companyId])
   @@index([branchId])
   @@index([departmentId])
+  @@index([code])
   @@index([status])
+  @@index([createdAt])
+  @@index([status, categoryId])
+  @@index([companyId, status])
   @@map("machines")
 }
 
@@ -817,6 +885,8 @@ model MachinePart {
 
   @@index([machineId])
   @@index([productId])
+  @@index([code])
+  @@index([name])
   @@map("machine_parts")
 }
 
@@ -872,6 +942,11 @@ model MaintenanceRequest {
   @@index([requestedById])
   @@index([assignedToId])
   @@index([requestNumber])
+  @@index([createdAt])
+  @@index([status, priority])
+  @@index([machineId, status])
+  @@index([assignedToId, status])
+  @@index([status, createdAt])
   @@map("maintenance_requests")
 }
 
@@ -894,6 +969,9 @@ model MaintenanceTask {
   @@index([requestId])
   @@index([assignedToId])
   @@index([status])
+  @@index([requestId, status])
+  @@index([assignedToId, status])
+  @@index([completedAt])
   @@map("maintenance_tasks")
 }
 
@@ -920,6 +998,9 @@ model MaintenanceSchedule {
   @@index([machineId])
   @@index([status])
   @@index([type])
+  @@index([machineId, status])
+  @@index([startDate])
+  @@index([endDate])
   @@map("maintenance_schedules")
 }
 
@@ -956,6 +1037,9 @@ model DowntimeLog {
   @@index([machineId])
   @@index([requestId])
   @@index([startTime])
+  @@index([machineId, startTime])
+  @@index([requestId, cancelledAt])
+  @@index([endTime, cancelledAt])
   @@map("downtime_logs")
 }
 
@@ -1015,6 +1099,8 @@ model MaintenanceChecklistExecution {
   @@index([scheduleId])
   @@index([requestId])
   @@index([status])
+  @@index([scheduleId, status])
+  @@index([requestId, status])
   @@map("maintenance_checklist_executions")
 }
 
@@ -1072,6 +1158,8 @@ model BarcodeLabel {
   @@index([symbology])
   @@index([entityType, entityId])
   @@index([status, entityType])
+  @@index([entityType, entityId, status])
+  @@index([status, createdAt])
   @@map("barcode_labels")
 }
 
@@ -1104,6 +1192,8 @@ model BarcodeScanEvent {
   @@index([contextType, contextId])
   @@index([scannedById])
   @@index([scannedAt])
+  @@index([labelId, result])
+  @@index([scannedById, scannedAt])
   @@map("barcode_scan_events")
 }
 
@@ -1126,5 +1216,6 @@ model BarcodeLabelTemplate {
   @@index([symbology])
   @@index([entityType])
   @@index([status])
+  @@index([status, entityType])
   @@map("barcode_label_templates")
 }

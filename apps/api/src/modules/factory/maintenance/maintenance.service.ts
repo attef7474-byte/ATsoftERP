@@ -187,45 +187,27 @@ export class MaintenanceService {
     });
     if (!machine) throw new NotFoundException('Machine not found');
 
-    const activeRequests = await this.prisma.maintenanceRequest.count({
-      where: { machineId: id, status: 'IN_PROGRESS', deletedAt: null },
-    });
-    const openTasks = await this.prisma.maintenanceTask.count({
-      where: { request: { machineId: id }, status: { in: ['PENDING', 'IN_PROGRESS'] } },
-    });
-    const activeDowntime = await this.prisma.downtimeLog.count({
-      where: { machineId: id, endTime: null, cancelledAt: null },
-    });
-    const currentMonth = new Date();
-    currentMonth.setDate(1);
-    currentMonth.setHours(0, 0, 0, 0);
-    const downtimeAgg = await this.prisma.downtimeLog.aggregate({
-      where: { machineId: id, cancelledAt: null, startTime: { gte: currentMonth } },
-      _sum: { durationMinutes: true },
-    });
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [activeRequests, openTasks, activeDowntime, downtimeAgg, nextSchedule] = await Promise.all([
+      this.prisma.maintenanceRequest.count({ where: { machineId: id, status: 'IN_PROGRESS', deletedAt: null } }),
+      this.prisma.maintenanceTask.count({ where: { request: { machineId: id }, status: { in: ['PENDING', 'IN_PROGRESS'] } } }),
+      this.prisma.downtimeLog.count({ where: { machineId: id, endTime: null, cancelledAt: null } }),
+      this.prisma.downtimeLog.aggregate({ where: { machineId: id, cancelledAt: null, startTime: { gte: monthStart } }, _sum: { durationMinutes: true } }),
+      this.prisma.maintenanceSchedule.findFirst({ where: { machineId: id, status: 'ACTIVE', startDate: { gte: now } }, orderBy: { startDate: 'asc' } }),
+    ]);
+
     const totalDowntimeHours = downtimeAgg._sum.durationMinutes
       ? Math.round((downtimeAgg._sum.durationMinutes / 60) * 100) / 100
       : 0;
-    const nextSchedule = await this.prisma.maintenanceSchedule.findFirst({
-      where: { machineId: id, status: 'ACTIVE', startDate: { gte: new Date() } },
-      orderBy: { startDate: 'asc' },
-    });
 
     return {
-      id: machine.id,
-      code: machine.code,
-      name: machine.name,
-      status: machine.status,
-      category: machine.category,
-      activeRequests: activeRequests,
-      openTasks: openTasks,
-      activeDowntime: activeDowntime,
-      totalDowntimeHoursThisMonth: totalDowntimeHours,
+      id: machine.id, code: machine.code, name: machine.name, status: machine.status, category: machine.category,
+      activeRequests, openTasks, activeDowntime, totalDowntimeHoursThisMonth: totalDowntimeHours,
       nextMaintenanceDueDate: nextSchedule?.startDate || null,
       nextMaintenanceTitle: nextSchedule?.title || null,
-      dueStatus: nextSchedule
-        ? new Date(nextSchedule.startDate) > new Date() ? 'notDue' : 'overdue'
-        : null,
+      dueStatus: nextSchedule ? (nextSchedule.startDate > now ? 'notDue' : 'overdue') : null,
     };
   }
 
@@ -284,21 +266,66 @@ export class MaintenanceService {
       include: { category: { select: { id: true, name: true, code: true } } },
     });
 
-    const summaries = await Promise.all(machines.map((m) => this.getMachineSummary(m.id)));
+    const machineIds = machines.map((m) => m.id);
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const totalActiveRequests = summaries.reduce((s, m) => s + m.activeRequests, 0);
-    const totalOpenTasks = summaries.reduce((s, m) => s + m.openTasks, 0);
-    const totalActiveDowntime = summaries.reduce((s, m) => s + m.activeDowntime, 0);
-    const totalDowntimeHours = summaries.reduce((s, m) => s + m.totalDowntimeHoursThisMonth, 0);
+    const [activeRequests, openTasksWithMachine, activeDowntimes, currentMonthDowntime, nextSchedules] = machineIds.length > 0
+      ? await Promise.all([
+          this.prisma.maintenanceRequest.groupBy({
+            by: ['machineId'], where: { machineId: { in: machineIds }, status: 'IN_PROGRESS', deletedAt: null }, _count: true,
+          }),
+          this.prisma.maintenanceTask.findMany({
+            where: { request: { machineId: { in: machineIds } }, status: { in: ['PENDING', 'IN_PROGRESS'] } },
+            select: { id: true, request: { select: { machineId: true } } },
+          }),
+          this.prisma.downtimeLog.groupBy({
+            by: ['machineId'], where: { machineId: { in: machineIds }, endTime: null, cancelledAt: null }, _count: true,
+          }),
+          this.prisma.downtimeLog.groupBy({
+            by: ['machineId'], where: { machineId: { in: machineIds }, cancelledAt: null, startTime: { gte: monthStart } }, _sum: { durationMinutes: true },
+          }),
+          this.prisma.maintenanceSchedule.findMany({
+            where: { machineId: { in: machineIds }, status: 'ACTIVE', startDate: { gte: now } },
+            orderBy: { startDate: 'asc' },
+            distinct: ['machineId'],
+            select: { machineId: true, startDate: true, title: true },
+          }),
+        ])
+      : [[], [], [], [], []];
+
+    const activeReqMap = Object.fromEntries(activeRequests.map((r) => [r.machineId, r._count]));
+    const openTaskCountByMachine: Record<string, number> = {};
+    for (const t of openTasksWithMachine) {
+      const mid = t.request.machineId;
+      openTaskCountByMachine[mid] = (openTaskCountByMachine[mid] || 0) + 1;
+    }
+    const activeDowntimeMap = Object.fromEntries(activeDowntimes.map((r) => [r.machineId, r._count]));
+    const downtimeMinutesMap = Object.fromEntries(currentMonthDowntime.map((r) => [r.machineId, r._sum.durationMinutes || 0]));
+    const scheduleMap = Object.fromEntries(nextSchedules.map((s) => [s.machineId, s]));
+
+    const summaries = machines.map((m) => {
+      const nextSch = scheduleMap[m.id];
+      return {
+        id: m.id, code: m.code, name: m.name, status: m.status, category: m.category,
+        activeRequests: activeReqMap[m.id] || 0,
+        openTasks: openTaskCountByMachine[m.id] || 0,
+        activeDowntime: activeDowntimeMap[m.id] || 0,
+        totalDowntimeHoursThisMonth: downtimeMinutesMap[m.id] ? Math.round((downtimeMinutesMap[m.id] / 60) * 100) / 100 : 0,
+        nextMaintenanceDueDate: nextSch?.startDate || null,
+        nextMaintenanceTitle: nextSch?.title || null,
+        dueStatus: nextSch ? (nextSch.startDate > now ? 'notDue' : 'overdue') : null,
+      };
+    });
 
     return {
       machines: summaries,
       totals: {
         totalMachines: machines.length,
-        totalActiveRequests,
-        totalOpenTasks,
-        totalActiveDowntime,
-        totalDowntimeHoursThisMonth: Math.round(totalDowntimeHours * 100) / 100,
+        totalActiveRequests: summaries.reduce((s, m) => s + m.activeRequests, 0),
+        totalOpenTasks: summaries.reduce((s, m) => s + m.openTasks, 0),
+        totalActiveDowntime: summaries.reduce((s, m) => s + m.activeDowntime, 0),
+        totalDowntimeHoursThisMonth: Math.round(summaries.reduce((s, m) => s + m.totalDowntimeHoursThisMonth, 0) * 100) / 100,
       },
     };
   }

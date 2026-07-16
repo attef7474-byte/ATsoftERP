@@ -86,32 +86,34 @@ export class MaintenanceRequestsService {
       this.prisma.maintenanceRequest.count({ where }),
     ]);
 
-    const dataWithSummary = await Promise.all(
-      data.map(async (req) => {
-        const completedTasks = await this.prisma.maintenanceTask.count({
-          where: { requestId: req.id, status: 'DONE' },
-        });
-        const openTasks = await this.prisma.maintenanceTask.count({
-          where: { requestId: req.id, status: { in: ['PENDING', 'IN_PROGRESS'] } },
-        });
-        const downtimeAgg = await this.prisma.downtimeLog.aggregate({
-          where: { requestId: req.id, cancelledAt: null },
-          _sum: { durationMinutes: true },
-        });
-        const totalDowntimeHours = downtimeAgg._sum.durationMinutes
-          ? downtimeAgg._sum.durationMinutes / 60
-          : 0;
-        return {
-          ...req,
-          summary: {
-            tasksCount: req._count.tasks,
-            completedTasksCount: completedTasks,
-            openTasksCount: openTasks,
-            totalDowntimeHours,
-          },
-        };
-      }),
-    );
+    const requestIds = data.map(r => r.id);
+    const [completedTasksByReq, openTasksByReq, downtimeByReq] = requestIds.length > 0
+      ? await Promise.all([
+          this.prisma.maintenanceTask.groupBy({
+            by: ['requestId'], where: { requestId: { in: requestIds }, status: 'DONE' }, _count: true,
+          }),
+          this.prisma.maintenanceTask.groupBy({
+            by: ['requestId'], where: { requestId: { in: requestIds }, status: { in: ['PENDING', 'IN_PROGRESS'] } }, _count: true,
+          }),
+          this.prisma.downtimeLog.groupBy({
+            by: ['requestId'], where: { requestId: { in: requestIds }, cancelledAt: null }, _sum: { durationMinutes: true },
+          }),
+        ])
+      : [[], [], []];
+
+    const completedMap = Object.fromEntries(completedTasksByReq.map(r => [r.requestId, r._count]));
+    const openMap = Object.fromEntries(openTasksByReq.map(r => [r.requestId, r._count]));
+    const downtimeMap = Object.fromEntries(downtimeByReq.map(r => [r.requestId, r._sum.durationMinutes || 0]));
+
+    const dataWithSummary = data.map((req) => ({
+      ...req,
+      summary: {
+        tasksCount: req._count.tasks,
+        completedTasksCount: completedMap[req.id] || 0,
+        openTasksCount: openMap[req.id] || 0,
+        totalDowntimeHours: (downtimeMap[req.id] || 0) / 60,
+      },
+    }));
 
     return { data: dataWithSummary, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
