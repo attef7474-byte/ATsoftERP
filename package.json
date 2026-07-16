@@ -45,7 +45,18 @@
     "deploy:release": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/deploy/deploy-local-windows.ps1",
     "deploy:rollback": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/deploy/rollback-local-windows.ps1",
     "health:check": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/health/health-check.ps1",
-    "smoke:check": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/health/smoke-check.ps1"
+    "smoke:check": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/health/smoke-check.ps1",
+    "installer:check": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/installer/check-prerequisites.ps1",
+    "installer:shortcuts": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/installer/create-shortcuts.ps1",
+    "installer:remove-shortcuts": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/installer/remove-shortcuts.ps1",
+    "runtime:install": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/runtime/atsofterp-install.ps1",
+    "runtime:start": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/runtime/atsofterp-start.ps1",
+    "runtime:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/runtime/atsofterp-stop.ps1",
+    "runtime:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/runtime/atsofterp-restart.ps1",
+    "runtime:status": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/runtime/atsofterp-status.ps1",
+    "runtime:open": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/runtime/atsofterp-open.ps1",
+    "runtime:backup": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/runtime/atsofterp-backup-now.ps1",
+    "runtime:migrate": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/runtime/atsofterp-run-migrations.ps1"
   },
   "devDependencies": {
     "react": "18.3.1",

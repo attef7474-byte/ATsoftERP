@@ -1,11 +1,17 @@
 {
+  "installRoot": "C:\\ATsoftERP",
+  "appRoot": "C:\\ATsoftERP\\App",
+  "currentReleasePath": "C:\\ATsoftERP\\App\\current",
+  "logRoot": "C:\\ATsoftERP\\Logs",
+  "tempRoot": "C:\\ATsoftERP\\Temp",
   "api": {
     "serviceName": "ATsoftERP_API",
     "displayName": "ATsoftERP API Server",
     "description": "NestJS API server for ATsoft ERP",
     "entryPoint": "api/main.js",
     "port": 4000,
-    "nodePath": "C:\\Program Files\\nodejs\\node.exe"
+    "nodePath": "C:\\Program Files\\nodejs\\node.exe",
+    "envFile": "C:\\ATsoftERP\\Config\\.env"
   },
   "web": {
     "serviceName": "ATsoftERP_Web",
@@ -13,6 +19,12 @@
     "description": "Next.js web server for ATsoft ERP",
     "entryPoint": "node_modules/next/dist/bin/next",
     "port": 3000,
-    "nodePath": "C:\\Program Files\\nodejs\\node.exe"
+    "nodePath": "C:\\Program Files\\nodejs\\node.exe",
+    "envFile": "C:\\ATsoftERP\\Config\\.env.local"
+  },
+  "runtime": {
+    "runAsService": false,
+    "openBrowserAfterStart": true,
+    "useNssm": false
   }
 }

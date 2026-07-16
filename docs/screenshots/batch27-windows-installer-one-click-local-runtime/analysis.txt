@@ -1,0 +1,47 @@
+Batch 27 — Windows Installer / One-Click Local Runtime
+Analysis Date: 2026-07-16
+Status: Complete
+
+## Files Created
+
+### Runtime Scripts (tools/runtime/)
+1. atsofterp-start.ps1 — Start API/Web processes with PID tracking, health wait, optional browser
+2. atsofterp-stop.ps1 — Stop via PID files or named process cleanup
+3. atsofterp-status.ps1 — Service/process status, API/Web health, SQL Server, logs, release info
+4. atsofterp-restart.ps1 — Stop + 3s delay + Start
+5. atsofterp-open.ps1 — Open Web UI (or API docs) in default browser
+6. atsofterp-backup-now.ps1 — Wrapper around backup-sqlserver.ps1 with verification
+7. atsofterp-run-migrations.ps1 — Pre-backup + prisma validate + migrate deploy
+8. atsofterp-install.ps1 — One-click install: prerequisites → install → validate → migrate
+9. atsofterp-config.example.json — Safe config template
+10. ATsoftERP-Start.cmd — Desktop-friendly batch wrapper
+11. ATsoftERP-Stop.cmd — Desktop-friendly batch wrapper
+12. ATsoftERP-Status.cmd — Desktop-friendly batch wrapper
+13. ATsoftERP-Launcher.cmd — Text-menu launcher (start/stop/status/open/backup)
+
+### Installer Scripts (tools/installer/)
+14. check-prerequisites.ps1 — OS/Node/npm/sqlcmd/port/admin/printer checks
+15. create-shortcuts.ps1 — Desktop + Start Menu shortcut creation
+16. remove-shortcuts.ps1 — Shortcut removal
+17. install-runtime.ps1 — Folder structure, config copy, release extraction, shortcuts, services
+18. uninstall-runtime.ps1 — Safe uninstall (preserves backups/logs by default)
+
+### Documentation (docs/deployment/)
+19. one-click-windows-runtime-runbook.md — Quick-start, command reference, launcher, modes, logs
+20. windows-installer-operator-guide.md — Installer script reference, folder layout, service management
+21. local-runtime-troubleshooting.md — Common issues, diagnostics, log reference
+
+### Updated Files
+22. deploy/windows/service-config.example.json — Added runtime section (runAsService, openBrowserAfterStart, useNssm)
+23. package.json — Added 12 npm scripts (installer:*, runtime:*)
+
+## Design Decisions
+
+- No external dependencies beyond PowerShell 7, Node.js 20+, and sqlcmd
+- PID files in C:\ATsoftERP\Temp\ for process tracking
+- CMD wrappers for desktop double-click compatibility
+- Launcher menu for non-PowerShell users
+- Backup-as-precondition for migrations (safe by default)
+- -DryRun support on all destructive operations
+- Safe uninstall (backups/logs/config preserved unless -RemoveAll)
+- Process mode default; service mode opt-in via nssm

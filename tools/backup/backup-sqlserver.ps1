@@ -13,9 +13,17 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function ConvertFrom-JsonToHashtable {
+  param([string]$Path)
+  $obj = Get-Content $Path -Raw | ConvertFrom-Json
+  $ht = @{}
+  $obj.PSObject.Properties | ForEach-Object { $ht[$_.Name] = $_.Value }
+  return $ht
+}
+
 $cfg = @{}
 if (Test-Path $ConfigPath) {
-  $cfg = Get-Content $ConfigPath -Raw | ConvertFrom-Json -AsHashtable
+  $cfg = ConvertFrom-JsonToHashtable -Path $ConfigPath
 }
 
 $server = if ($Server) { $Server } else { $cfg["server"] }

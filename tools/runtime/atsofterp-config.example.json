@@ -1,0 +1,16 @@
+{
+  "installRoot": "C:\\ATsoftERP",
+  "appRoot": "C:\\ATsoftERP\\App",
+  "currentReleasePath": "C:\\ATsoftERP\\App\\current",
+  "logRoot": "C:\\ATsoftERP\\Logs",
+  "backupRoot": "C:\\ATsoftERP\\Backups",
+  "apiPort": 4000,
+  "webPort": 3000,
+  "apiBaseUrl": "http://localhost:4000/api/v1",
+  "webBaseUrl": "http://localhost:3000",
+  "sqlServerInstance": "localhost,50079",
+  "databaseName": "ATsoftERP_DB",
+  "runAsService": false,
+  "useNssm": false,
+  "openBrowserAfterStart": true
+}
