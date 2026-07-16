@@ -1,9 +1,9 @@
 Batch 17 — Barcode/QR Full UI Completion — Analysis and Closeout
 =================================================================
 Date: 2026-07-16
-Commit: 3315cb5
+Commit: b429b66 (closeout), 3315cb5 (implementation)
 Tag: atsoft-erp-barcode-qr-operational-ui
-Status: COMPLETE
+Status: COMPLETE_WITH_DOCUMENTED_LIMITATION
 
 Overview
 --------
@@ -58,19 +58,72 @@ API contract bugs, and missing features across the frontend.
      maintenance/machine-check/part-lookup)
    - No new seeds required
 
-10. Limitations
+10. Runtime Verification (authenticated, 2026-07-16)
+    All flows tested via API with JWT auth token:
+
+    [✓] Generate barcode label
+        POST /barcodes/labels/generate -> returns BarcodeLabel with code BAR-000001
+
+    [✓] Fetch existing labels by entity
+        GET /barcodes/entities/PRODUCT/:id/labels -> returns array with 1 label
+
+    [✓] Mark printed
+        POST /barcodes/labels/:id/mark-printed -> printCount 0->1, lastPrintedAt set
+
+    [✓] List all labels (print page endpoint)
+        GET /barcodes/labels?limit=5 -> paginated response with 1 label
+
+    [✓] Scan generated barcode value
+        POST /barcodes/scan with value "AT-PRD-BAR-000001"
+        -> result: SUCCESS, entity found, suggestedActions returned
+
+    [✓] Scan unknown/wrong value
+        POST /barcodes/scan with value "UNKNOWN-BARCODE-12345"
+        -> result: NOT_FOUND, message "Label not found"
+
+    [✓] List scan history
+        GET /barcodes/scans?limit=5 -> paginated response with scan event
+
+    [✓] Deactivate label
+        PATCH /barcodes/labels/:id/deactivate -> status: INACTIVE
+
+    [✓] Reactivate label
+        PATCH /barcodes/labels/:id/activate -> status: ACTIVE
+
+    [✓] Void label
+        PATCH /barcodes/labels/:id/void -> status: VOID
+
+    [✓] Retire label (from void)
+        PATCH /barcodes/labels/:id/retire -> status: RETIRED
+
+    Frontend routes (HTTP 200):
+    [✓] /admin/barcodes/generate
+    [✓] /admin/barcodes/print
+    [✓] /admin/barcodes/scan
+    [✓] /admin/maintenance/machines
+    [✓] /admin/maintenance/requests
+    [✓] /admin/inventory/products/:id (with real product ID)
+    [✓] /admin/inventory/counts
+
+    Prerequisite: BARCODE_LABEL number sequence must exist in DB.
+    Created via: POST /numbering { code: "BARCODE_LABEL", prefix: "BAR-", padding: 6 }
+    Not included in default seed; must be created manually or added to seed.ts.
+
+11. Build Verification
+    - build:web — SUCCESS (Next.js 15.5.20, no type errors)
+    - build:api — SUCCESS (tsc, no errors)
+
+12. Limitations
     - No barcode/QR visual rendering library in package.json; print uses
       value card + native browser print window (documented limitation)
     - F9 lookup not available for entity types without adapters; MACHINE_PART
       has its own custom adapter, fallback to manual input for unhandled types
     - Inventory count execute page and location list page not modified
       (these are workflow/table pages, not detail pages)
+    - BARCODE_LABEL number sequence not auto-seeded; manual creation required
 
-11. Build Verification
-    - build:web — SUCCESS (Next.js 15.5.20, no type errors)
-    - build:api — SUCCESS (tsc, no errors)
-
-12. Git Operations
-    - Commit 3315cb5: "feat(barcodes): complete Batch 17 - barcode/QR full UI hardening"
+13. Git Operations
+    - Implementation commit: 3315cb5 "feat(barcodes): complete Batch 17 - barcode/QR full UI hardening"
+    - Closeout commit: b429b66 "docs: close out batch 17 barcode/QR full UI verification"
     - Tag: atsoft-erp-barcode-qr-operational-ui
     - Both pushed to origin/main; ahead/behind: 0/0
