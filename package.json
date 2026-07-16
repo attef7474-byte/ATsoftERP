@@ -33,7 +33,19 @@
     "monitoring:logs": "docker compose -f infra/docker-compose.prod.yml -f infra/docker-compose.monitoring.yml logs -f prometheus grafana",
     "mqtt:up": "docker compose -f infra/docker-compose.mqtt.yml up -d",
     "mqtt:down": "docker compose -f infra/docker-compose.mqtt.yml down",
-    "mqtt:logs": "docker compose -f infra/docker-compose.mqtt.yml logs -f mosquitto"
+    "mqtt:logs": "docker compose -f infra/docker-compose.mqtt.yml logs -f mosquitto",
+    "backup:db": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/backup/backup-sqlserver.ps1",
+    "backup:verify": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/backup/verify-backup.ps1",
+    "backup:restore-test": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/backup/restore-test-sqlserver.ps1",
+    "backup:cleanup": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/backup/cleanup-backups.ps1",
+    "deploy:validate": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/deploy/validate-env.ps1",
+    "deploy:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/deploy/preflight-windows.ps1",
+    "deploy:build": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/deploy/build-release.ps1",
+    "deploy:package": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/deploy/package-release.ps1",
+    "deploy:release": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/deploy/deploy-local-windows.ps1",
+    "deploy:rollback": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/deploy/rollback-local-windows.ps1",
+    "health:check": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/health/health-check.ps1",
+    "smoke:check": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/health/smoke-check.ps1"
   },
   "devDependencies": {
     "react": "18.3.1",

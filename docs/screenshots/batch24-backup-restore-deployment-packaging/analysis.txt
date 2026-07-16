@@ -1,0 +1,52 @@
+Batch 24 — Backup/Restore and Deployment Packaging
+====================================================
+Status: COMPLETED (all source files created, verified, and delivered)
+Date  : 2026-07-16
+
+Delivered Artifacts
+-------------------
+
+1. Backup/Restore (tools/backup/)
+   - backup-sqlserver.ps1        : Full backup with compression, checksum, metadata, retention
+   - verify-backup.ps1           : VERIFYONLY + HEADERONLY + FILELISTONLY checks
+   - restore-test-sqlserver.ps1  : Safe restore to disposable test DB (never production)
+   - cleanup-backups.ps1         : Age-based cleanup with dry-run mode
+   - backup-config.example.json  : Safe configuration template (no real secrets)
+
+2. Deployment (tools/deploy/)
+   - validate-env.ps1            : Tool, env, and secrets validation
+   - preflight-windows.ps1       : Git status, builds, API/Web reachability
+   - build-release.ps1           : Build + stage to versioned release directory
+   - package-release.ps1         : ZIP + SHA256 + manifest generation
+   - deploy-local-windows.ps1    : Versioned deploy to C:\ATsoftERP\App with current symlink
+   - rollback-local-windows.ps1  : List versions, rollback to _previous or specific version
+
+3. Windows Services (deploy/windows/)
+   - install-api-service.ps1     : sc.exe-based API service with auto-restart recovery
+   - install-web-service.ps1     : sc.exe-based Web service with auto-restart recovery
+   - uninstall-services.ps1      : Stop + delete both services
+   - service-config.example.json : Service configuration template
+
+4. Health/Smoke (tools/health/)
+   - health-check.ps1            : API:4000, Web:3000, Swagger, SQL port, disk, memory, node
+   - smoke-check.ps1             : Login + 5 endpoints + Web homepage + Swagger
+
+5. Documentation (docs/)
+   - backup/sqlserver-backup-restore-runbook.md
+   - deployment/windows-local-deployment-runbook.md
+   - deployment/release-packaging-runbook.md
+   - deployment/rollback-runbook.md
+
+6. package.json scripts added:
+   - backup:db, deploy:validate, deploy:preflight, deploy:build, deploy:package,
+     deploy:release, deploy:rollback, health:check, smoke:check
+
+Key Design Decisions
+--------------------
+- NO Docker references — pure Windows local deployment
+- NO PostgreSQL — SQL Server only (sqlserver://localhost:50079)
+- Versioned releases with symlink-based rollback (zero-downtime)
+- sc.exe for Windows services (lightweight, no nssm dependency)
+- All scripts support -DryRun for safe preview
+- Restore test always creates a random-suffixed disposable DB
+- JWT_SECRET placeholder detection in validate-env

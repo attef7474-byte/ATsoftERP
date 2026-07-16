@@ -1,0 +1,18 @@
+{
+  "api": {
+    "serviceName": "ATsoftERP_API",
+    "displayName": "ATsoftERP API Server",
+    "description": "NestJS API server for ATsoft ERP",
+    "entryPoint": "api/main.js",
+    "port": 4000,
+    "nodePath": "C:\\Program Files\\nodejs\\node.exe"
+  },
+  "web": {
+    "serviceName": "ATsoftERP_Web",
+    "displayName": "ATsoftERP Web Server",
+    "description": "Next.js web server for ATsoft ERP",
+    "entryPoint": "node_modules/next/dist/bin/next",
+    "port": 3000,
+    "nodePath": "C:\\Program Files\\nodejs\\node.exe"
+  }
+}
