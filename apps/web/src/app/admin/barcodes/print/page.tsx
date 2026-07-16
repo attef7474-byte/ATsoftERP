@@ -3,16 +3,17 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Button, Input, Select, Card, CardHeader, CardContent, PageHeader, Toolbar, LoadingState, EmptyState, StatusBadge } from '../../../../components/admin/ui';
+import { Button, Input, Select, Card, CardContent, CardHeader, PageHeader, LoadingState, EmptyState, StatusBadge } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers } from '../../../../components/admin/admin-action-bar';
+import { BarcodeLabel } from '../../../../lib/admin-types';
 
-const ENTITY_TYPES = ['', 'PRODUCT', 'MACHINE', 'MACHINE_PART', 'WAREHOUSE', 'WAREHOUSE_LOCATION'];
+const ENTITY_TYPES = ['', 'PRODUCT', 'MACHINE', 'MACHINE_PART', 'WAREHOUSE', 'WAREHOUSE_LOCATION', 'INVENTORY_COUNT', 'MAINTENANCE_REQUEST', 'MAINTENANCE_TASK'];
 
 export default function BarcodePrintPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
 
-  const [labels, setLabels] = useState<any[]>([]);
+  const [labels, setLabels] = useState<BarcodeLabel[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [entityTypeFilter, setEntityTypeFilter] = useState('');
@@ -23,19 +24,15 @@ export default function BarcodePrintPage() {
   const fetchLabels = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, any> = { limit: 50 };
+      const params: Record<string, any> = { limit: 50, page: 1 };
       if (search) params.search = search;
       if (entityTypeFilter) params.entityType = entityTypeFilter;
-      const res = await api.get<{ data: any[]; meta: any }>('/barcodes/labels', { params });
+      const res = await api.get<{ data: BarcodeLabel[]; meta: any }>('/barcodes/labels', { params });
       setLabels(res.data || []);
-    } catch {
-      setLabels([]);
-    } finally {
-      setLoading(false);
-    }
+    } catch { setLabels([]); } finally { setLoading(false); }
   }, [search, entityTypeFilter]);
 
-  useEffect(() => { fetchLabels(); }, []);
+  useEffect(() => { fetchLabels(); }, [fetchLabels]);
 
   const handleMarkPrinted = async () => {
     if (!selectedId) return;
@@ -43,9 +40,7 @@ export default function BarcodePrintPage() {
       await api.post(`/barcodes/labels/${selectedId}/mark-printed`);
       showToast(t('barcodes.print.printedSuccess'), 'success');
       fetchLabels();
-    } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
-    }
+    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
   };
 
   const handlePrint = () => {
@@ -74,27 +69,30 @@ export default function BarcodePrintPage() {
     }
   };
 
+  const handleStatusAction = async (action: string) => {
+    if (!selectedId) return;
+    try {
+      await api.patch(`/barcodes/labels/${selectedId}/${action}`);
+      showToast(t('common.successUpdated'), 'success');
+      fetchLabels();
+    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+  };
+
   const { exec } = useStableHandlers({
     print: () => handlePrint(),
     markPrinted: () => handleMarkPrinted(),
+    activate: () => handleStatusAction('activate'),
+    deactivate: () => handleStatusAction('deactivate'),
+    voidLabel: () => handleStatusAction('void'),
+    retire: () => handleStatusAction('retire'),
     refresh: () => fetchLabels(),
   });
 
   useRegisterAdminActions([
     { id: 'refresh', labelKey: 'common.refresh', icon: <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>, onClick: () => exec('refresh') },
-    { id: 'print', labelKey: 'barcodes.print.print', icon: <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>, onClick: () => exec('print'), enabled: !!selectedId },
+    { id: 'printLabel', labelKey: 'barcodes.print.print', icon: <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>, onClick: () => exec('print'), enabled: !!selectedId },
     { id: 'markPrinted', labelKey: 'barcodes.print.markPrinted', icon: <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>, onClick: () => exec('markPrinted'), enabled: !!selectedId },
   ]);
-
-  const labelColumns = [
-    { key: 'code', header: t('barcodes.labelCode') },
-    { key: 'value', header: t('barcodes.labelValue'), render: (l: any) => <span className="font-mono text-xs">{l.value}</span> },
-    { key: 'entityType', header: t('barcodes.entityType') },
-    { key: 'symbology', header: t('barcodes.symbology') },
-    { key: 'status', header: t('common.status'), render: (l: any) => <StatusBadge status={l.status} /> },
-    { key: 'printCount', header: t('barcodes.printCount'), render: (l: any) => l.printCount ?? 0 },
-    { key: 'lastPrintedAt', header: t('barcodes.printedAt'), render: (l: any) => l.lastPrintedAt ? new Date(l.lastPrintedAt).toLocaleDateString() : '-' },
-  ];
 
   return (
     <div className="space-y-6">
@@ -110,7 +108,7 @@ export default function BarcodePrintPage() {
               </div>
               <Select value={entityTypeFilter} onChange={(e) => setEntityTypeFilter(e.target.value)}
                 options={ENTITY_TYPES.map((et) => ({ value: et, label: et || t('common.all') }))} placeholder={t('barcodes.entityType')} />
-              <Button variant="secondary" onClick={() => { setSearch(''); setEntityTypeFilter(''); fetchLabels(); }}>{t('common.clearSearch')}</Button>
+              <Button variant="secondary" onClick={() => { setSearch(''); setEntityTypeFilter(''); }}>{t('common.clearSearch')}</Button>
             </div>
           </div>
           {loading && <LoadingState message={t('barcodes.print.loadingLabels')} />}
@@ -119,15 +117,27 @@ export default function BarcodePrintPage() {
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
-                  <tr>{labelColumns.map((col) => (<th key={col.key} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{col.header}</th>))}</tr>
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('barcodes.labelCode')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('barcodes.labelValue')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('barcodes.entityType')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('barcodes.symbology')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('common.status')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('barcodes.printCount')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('barcodes.printedAt')}</th>
+                  </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {labels.map((label) => (
                     <tr key={label.id} onClick={() => setSelectedId(label.id)}
                       className={`cursor-pointer hover:bg-gray-50 transition-colors ${selectedId === label.id ? 'bg-blue-50 ring-1 ring-blue-200' : ''}`}>
-                      {labelColumns.map((col) => (
-                        <td key={col.key} className="px-4 py-3 text-sm">{col.render ? col.render(label) : label[col.key] ?? '-'}</td>
-                      ))}
+                      <td className="px-4 py-3 text-sm">{label.code}</td>
+                      <td className="px-4 py-3 text-sm font-mono text-xs">{label.value}</td>
+                      <td className="px-4 py-3 text-sm">{label.entityType}</td>
+                      <td className="px-4 py-3 text-sm">{label.symbology}</td>
+                      <td className="px-4 py-3"><StatusBadge status={label.status} /></td>
+                      <td className="px-4 py-3 text-sm">{label.printCount ?? 0}</td>
+                      <td className="px-4 py-3 text-sm">{label.lastPrintedAt ? new Date(label.lastPrintedAt).toLocaleDateString() : '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -150,9 +160,21 @@ export default function BarcodePrintPage() {
                   <span>{t('barcodes.symbology')}: {selectedLabel.symbology}</span>
                   <span>{t('barcodes.entityType')}: {selectedLabel.entityType}</span>
                 </div>
-                <div className="mt-4 flex justify-center gap-3">
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
                   <Button onClick={handlePrint}>{t('barcodes.print.print')}</Button>
                   <Button variant="secondary" onClick={handleMarkPrinted}>{t('barcodes.print.markPrinted')}</Button>
+                  {selectedLabel.status !== 'ACTIVE' && (
+                    <Button variant="secondary" onClick={() => handleStatusAction('activate')}>{t('barcodes.activateLabel')}</Button>
+                  )}
+                  {selectedLabel.status === 'ACTIVE' && (
+                    <>
+                      <Button variant="secondary" onClick={() => handleStatusAction('deactivate')}>{t('barcodes.deactivateLabel')}</Button>
+                      <Button variant="secondary" onClick={() => handleStatusAction('void')}>{t('barcodes.voidLabel')}</Button>
+                    </>
+                  )}
+                  {selectedLabel.status !== 'RETIRED' && selectedLabel.status !== 'VOID' && (
+                    <Button variant="secondary" onClick={() => handleStatusAction('retire')}>{t('barcodes.retireLabel')}</Button>
+                  )}
                 </div>
               </div>
             </div>

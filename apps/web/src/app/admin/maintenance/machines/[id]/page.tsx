@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
-import { Machine, MachinePart, MachineDocument, MaintenanceRequest } from '../../../../../lib/admin-types';
+import { Machine, MachinePart, MachineDocument, MaintenanceRequest, BarcodeLabel } from '../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../../components/admin/admin-action-bar';
 
@@ -24,7 +24,7 @@ export default function MachineDetailPage() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
-  const [labels, setLabels] = useState<any[]>([]);
+  const [labels, setLabels] = useState<BarcodeLabel[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -45,7 +45,7 @@ export default function MachineDetailPage() {
 
   const fetchLabels = useCallback(async () => {
     try {
-      const res = await api.get<{ data: any[] }>(`/barcodes/entities/machines/${id}/labels`);
+      const res = await api.get<{ data: BarcodeLabel[] }>(`/barcodes/entities/MACHINE/${id}/labels`);
       setLabels(res.data || []);
     } catch (_) { setLabels([]); }
   }, [id]);
@@ -177,11 +177,11 @@ export default function MachineDetailPage() {
           <CardContent>
             {labels.length === 0 ? <p className="text-sm text-gray-500 py-4">{t('common.noData')}</p> : (
               <DataTable columns={[
-                { key: 'code', header: t('barcodes.labelCode'), render: (l: any) => l.code },
-                { key: 'value', header: t('barcodes.labelValue'), render: (l: any) => l.value },
-                { key: 'symbology', header: t('barcodes.symbology'), render: (l: any) => l.symbology },
-                { key: 'status', header: t('common.status'), render: (l: any) => <StatusBadge status={l.status} /> },
-              ]} data={labels} keyExtractor={(l: any) => l.id} />
+                { key: 'code', header: t('barcodes.labelCode'), render: (l: BarcodeLabel) => l.code },
+                { key: 'value', header: t('barcodes.labelValue'), render: (l: BarcodeLabel) => l.value },
+                { key: 'symbology', header: t('barcodes.symbology'), render: (l: BarcodeLabel) => l.symbology },
+                { key: 'status', header: t('common.status'), render: (l: BarcodeLabel) => <StatusBadge status={l.status} /> },
+              ]} data={labels} keyExtractor={(l: BarcodeLabel) => l.id} />
             )}
           </CardContent>
         </Card>

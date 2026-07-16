@@ -621,3 +621,50 @@ export interface AdjustmentSummary {
   totalPositiveAdjustment: number;
   totalNegativeAdjustment: number;
 }
+
+export interface BarcodeLabel {
+  id: string;
+  code: string;
+  value: string;
+  symbology: string;
+  entityType: string;
+  entityId: string;
+  status: string;
+  title?: string | null;
+  description?: string | null;
+  qrPayload?: string | null;
+  humanReadableValue?: string | null;
+  labelTemplateCode?: string | null;
+  printCount: number;
+  lastPrintedAt?: string | null;
+  lastScannedAt?: string | null;
+  scanCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BarcodeScanEvent {
+  id: string;
+  labelId?: string | null;
+  scannedValue: string;
+  symbology?: string | null;
+  purpose: string;
+  result: string;
+  source: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  contextType?: string | null;
+  contextId?: string | null;
+  message?: string | null;
+  scannedAt: string;
+  label?: { id: string; code: string; value: string; status: string };
+}
+
+export interface BarcodeScanResponse {
+  result: string;
+  message: string;
+  event: { id: string; scannedAt: string };
+  label?: { id: string; code: string; value: string; entityType?: string; symbology?: string; status: string; title?: string | null };
+  entity?: Record<string, unknown>;
+  suggestedActions?: string[];
+}
