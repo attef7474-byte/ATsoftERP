@@ -59,7 +59,7 @@ export default function MaintenanceRequestDetailPage() {
   const { exec } = useStableHandlers({
     back: () => router.back(),
     refresh: () => fetchData(),
-    edit: () => router.push(`/admin/maintenance/requests?id=${id}`),
+    edit: () => router.push(`/admin/maintenance/requests/${id}/edit`),
     start: () => confirmAndExec('start'),
     complete: () => confirmAndExec('complete'),
     cancel: () => confirmAndExec('cancel'),

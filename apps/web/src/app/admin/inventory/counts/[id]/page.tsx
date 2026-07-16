@@ -56,7 +56,7 @@ export default function InventoryCountDetailPage() {
   const { exec } = useStableHandlers({
     back: () => router.back(),
     refresh: () => fetchData(),
-    edit: () => router.push(`/admin/inventory/counts?id=${id}`),
+    edit: () => router.push(`/admin/inventory/counts/${id}/edit`),
     start: () => confirmAndExec('start'),
     complete: () => confirmAndExec('complete'),
     cancel: () => confirmAndExec('cancel'),

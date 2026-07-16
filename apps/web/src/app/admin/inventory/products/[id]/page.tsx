@@ -55,8 +55,7 @@ export default function ProductDetailPage() {
 
   const openEdit = () => {
     if (!data) return;
-    setForm({ code: data.code, name: data.name, unit: data.unit, barcode: data.barcode || '' });
-    setEditOpen(true);
+    router.push(`/admin/inventory/products/${id}/edit`);
   };
 
   const handleSave = async () => {

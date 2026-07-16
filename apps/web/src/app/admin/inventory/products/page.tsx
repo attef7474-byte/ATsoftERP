@@ -60,16 +60,8 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const openCreate = () => { setEditItem(null); setForm({ code: '', name: '', description: '', categoryId: '', unit: 'pcs', barcode: '', minStock: '0', maxStock: '0' }); setModalOpen(true); };
-  const openEdit = (item: Product) => {
-    setEditItem(item);
-    setForm({
-      code: item.code, name: item.name, description: item.description || '',
-      categoryId: item.categoryId || '', unit: item.unit, barcode: item.barcode || '',
-      minStock: String(item.minStock ?? 0), maxStock: String(item.maxStock ?? 0),
-    });
-    setModalOpen(true);
-  };
+  const openCreate = () => { router.push('/admin/inventory/products/new'); };
+  const openEdit = (item: Product) => { router.push(`/admin/inventory/products/${item.id}/edit`); };
 
   const handleSave = async () => {
     if (!form.code || !form.name || !form.unit) { showToast(t('validation.required'), 'error'); return; }

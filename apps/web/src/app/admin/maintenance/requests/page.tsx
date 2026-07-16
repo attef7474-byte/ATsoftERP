@@ -62,16 +62,8 @@ export default function MaintenanceRequestsPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const openCreate = () => {
-    setEditItem(null);
-    setForm({ machineId: '', title: '', description: '', type: 'CORRECTIVE', priority: 'MEDIUM', assignedToId: '' });
-    setModalOpen(true);
-  };
-  const openEdit = (item: MaintenanceRequest) => {
-    setEditItem(item);
-    setForm({ machineId: item.machineId, title: item.title, description: item.description || '', type: item.type, priority: item.priority, assignedToId: item.assignedToId || '' });
-    setModalOpen(true);
-  };
+  const openCreate = () => { router.push('/admin/maintenance/requests/new'); };
+  const openEdit = (item: MaintenanceRequest) => { router.push(`/admin/maintenance/requests/${item.id}/edit`); };
 
   const handleSave = async () => {
     if (!form.title || !form.machineId) { showToast(t('validation.required'), 'error'); return; }

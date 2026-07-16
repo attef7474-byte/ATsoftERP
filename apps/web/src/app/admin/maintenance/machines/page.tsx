@@ -64,23 +64,8 @@ useRegisterAdminActions([
 
   useEffect(() => { fetchData(); }, []);
 
-  const openCreate = () => {
-    setEditItem(null);
-    setForm({ code: '', name: '', categoryId: '', companyId: '', branchId: '', departmentId: '', model: '', serialNumber: '', manufacturer: '', purchaseDate: '', warrantyEnd: '', location: '', notes: '' });
-    setModalOpen(true);
-  };
-  const openEdit = (item: Machine) => {
-    setEditItem(item);
-    setForm({
-      code: item.code, name: item.name, categoryId: item.categoryId || '',
-      companyId: item.companyId || '', branchId: item.branchId || '', departmentId: item.departmentId || '',
-      model: item.model || '', serialNumber: item.serialNumber || '', manufacturer: item.manufacturer || '',
-      purchaseDate: item.purchaseDate ? item.purchaseDate.split('T')[0] : '',
-      warrantyEnd: item.warrantyEnd ? item.warrantyEnd.split('T')[0] : '',
-      location: item.location || '', notes: item.notes || '',
-    });
-    setModalOpen(true);
-  };
+  const openCreate = () => { router.push('/admin/maintenance/machines/new'); };
+  const openEdit = (item: Machine) => { router.push(`/admin/maintenance/machines/${item.id}/edit`); };
 
   const handleSave = async () => {
     if (!form.code || !form.name) { showToast(t('validation.required'), 'error'); return; }

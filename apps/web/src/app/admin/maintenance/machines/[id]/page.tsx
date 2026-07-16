@@ -59,7 +59,7 @@ export default function MachineDetailPage() {
   const { exec } = useStableHandlers({
     back: () => router.back(),
     refresh: () => { fetchData(); fetchRequests(); fetchLabels(); },
-    edit: () => router.push(`/admin/maintenance/machines?id=${id}`),
+    edit: () => router.push(`/admin/maintenance/machines/${id}/edit`),
     activate: () => handleStatusChange('ACTIVE'),
     deactivate: () => handleStatusChange('INACTIVE'),
   });

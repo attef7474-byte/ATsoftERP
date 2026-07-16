@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
@@ -10,6 +11,7 @@ import { F9Lookup, machineAdapter, maintenanceRequestAdapter } from '../../../..
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function DowntimeLogsPage() {
+  const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<DowntimeLog[]>([]);
@@ -56,16 +58,8 @@ export default function DowntimeLogsPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const openCreate = () => {
-    setEditItem(null);
-    setForm({ machineId: '', requestId: '', reason: '', notes: '' });
-    setModalOpen(true);
-  };
-  const openEdit = (item: DowntimeLog) => {
-    setEditItem(item);
-    setForm({ machineId: item.machineId, requestId: item.requestId || '', reason: item.reason, notes: item.notes || '' });
-    setModalOpen(true);
-  };
+  const openCreate = () => { router.push('/admin/maintenance/downtime-logs/new'); };
+  const openEdit = (item: DowntimeLog) => { router.push(`/admin/maintenance/downtime-logs/${item.id}/edit`); };
 
   const handleSave = async () => {
     if (!form.machineId || !form.reason) { showToast(t('validation.required'), 'error'); return; }

@@ -104,23 +104,8 @@ export default function InventoryCountsPage() {
 
   const hasPerm = (key: string) => userPerms.includes(key);
 
-  const openCreate = () => {
-    setEditItem(null);
-    setForm({ companyId: '', branchId: '', warehouseId: '', countDate: new Date().toISOString().split('T')[0], notes: '' });
-    setModalOpen(true);
-  };
-
-  const openEdit = (item: InventoryCount) => {
-    setEditItem(item);
-    setForm({
-      companyId: item.companyId,
-      branchId: item.branchId,
-      warehouseId: item.warehouseId,
-      countDate: item.countDate ? item.countDate.split('T')[0] : '',
-      notes: item.notes || '',
-    });
-    setModalOpen(true);
-  };
+  const openCreate = () => { router.push('/admin/inventory/counts/new'); };
+  const openEdit = (item: InventoryCount) => { router.push(`/admin/inventory/counts/${item.id}/edit`); };
 
   const handleSave = async () => {
     if (!form.companyId || !form.branchId || !form.warehouseId || !form.countDate) {
