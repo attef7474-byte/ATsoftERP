@@ -15,6 +15,10 @@ machinePart, downtimeLog). Added sanitization for sensitive entities
 (settings secrets masked, auditLog details redacted). Added unifiedSearch i18n
 namespace for en and ar locales.
 
+Corrective closeout applied: all 14 detailRoute entries that pointed to non-
+existent [id] pages were changed to navigate to their respective list pages
+instead, preventing 404 navigation.
+
 Key Deliverables (scope = 23):
   1.  UnifiedSearchModal component (new)        — DONE
   2.  adapter-registry.ts (new)                  — DONE
@@ -30,7 +34,7 @@ Key Deliverables (scope = 23):
   12. Keyboard navigation (ArrowUp/Down)         — DONE
   13. Enter to navigate to detail route          — DONE
   14. Escape to close modal                      — DONE
-  15. Detail routes for all 24 entities          — DONE
+  15. Detail routes for all 24 entities          — DONE (14 fixed; see safety)
   16. Subtitle display per entity                — DONE
   17. Sanitization for SystemSetting secrets     — DONE
   18. Sanitization for AuditLog details          — DONE
@@ -40,34 +44,104 @@ Key Deliverables (scope = 23):
   22. index.ts barrel exports updated            — DONE
   23. TypeScript build passes cleanly            — DONE
 
-Documented Limitation
----------------------
-1. No backend unified search endpoint exists. Strategy A (frontend adapter-only)
-   approach uses individual entity list/search endpoints. This means the modal
-   makes up to 25 API calls per search (in batches of 5). Acceptable for admin
-   intranet usage but not for high-traffic scenarios. A future backend endpoint
-   could consolidate this.
+Git State
+---------
+Commit: ccfd4b0 (corrective fix staged as separate commit)
+Tag:    atsoft-erp-batch20-f9-unified-search
+Branch: main
+Status: working tree clean (after corrective commit)
+Ahead/behind: 0/0
 
-2. Detail routes for some entities (e.g., barcodeLabel, auditLog, notification)
-   may not have dedicated detail pages yet. The route is defined but the page
-   may show a 404 until the page is created.
-
-3. Screenshots were not captured due to environment constraints. Visual
-   verification was done by confirming the build compiles and the component
-   renders without errors.
-
-4. Permission-aware filtering (hiding entity types based on user permissions)
-   is not implemented at the frontend level. The backend API enforces
-   permissions — if a user lacks read permission for an entity, the API call
-   will fail silently and that entity type won't appear in results. This is
-   intentional to avoid duplicating permission logic.
-
-Files Changed
+Build Results
 -------------
+- prisma validate:   PASS
+- prisma generate:   PASS
+- build:api (tsc):   PASS (no errors)
+- typecheck (tsc):   PASS (no errors)
+- build:web (next):  PASS (all routes compiled)
+
+Runtime HTTP Route Verification
+-------------------------------
+UNAVAILABLE — API/database server was not running in this session.
+Build verification passed, but HTTP 200 route verification remains
+a documented limitation.
+
+Screenshots
+-----------
+UNAVAILABLE — no browser was available in this session. Visual
+verification was done by confirming the build compiles and the
+component structure is correct.
+
+Documented Limitations
+----------------------
+1. No backend unified search endpoint exists. Strategy A (frontend
+   adapter-only) approach uses individual entity list/search endpoints.
+   The modal makes up to 24 API calls per search (in batches of 5).
+   Acceptable for admin intranet usage but not for high-traffic
+   scenarios. A future backend endpoint could consolidate this.
+
+2. Runtime HTTP route verification was not performed because the
+   API/database server was not running in this session. All routes
+   compile and build successfully.
+
+3. Screenshots were not captured due to environment constraints.
+
+4. Console/browser runtime verification was not performed (no browser
+   available in this session).
+
+Broken Route Safety Decision
+----------------------------
+14 entities had detailRoute pointing to non-existent [id] detail pages.
+All were fixed to navigate to their corresponding list page:
+
+   Entity            Old route (broken)              New route (safe)
+   ────────────────  ──────────────────────────────  ──────────────────────────
+   warehouse         /admin/inventory/warehouses/id  /admin/inventory/warehouses
+   productCategory   /admin/inventory/product-       /admin/inventory/product-
+                     categories/id                     categories
+   machineCategory   /admin/maintenance/machine-     /admin/maintenance/machine-
+                     categories/id                     categories
+   role              /admin/access/roles/id          /admin/access/roles
+   maintenanceTask   /admin/maintenance/tasks/id     /admin/maintenance/tasks
+   maintenanceSched  /admin/maintenance/schedules/id /admin/maintenance/schedules
+   warehouseLocation /admin/inventory/locations/id   /admin/inventory/locations
+   barcodeLabel      /admin/barcodes/labels/id       /admin/barcodes/print
+   numberSequence    /admin/settings/numbering/id    /admin/settings/numbering
+   notification      /admin/notifications/id         /admin/notifications
+   auditLog          /admin/settings/audit/id        /admin/settings/audit
+   machinePart       /admin/maintenance/machine-     /admin/maintenance/machine-
+                     parts/id                          parts
+   downtimeLog       /admin/maintenance/downtime-    /admin/maintenance/downtime-
+                     logs/id                           logs
+
+Entities that KEPT their [id] detail route because detail page exists:
+   company, branch, department, product, machine, user,
+   maintenanceRequest, inventoryCount, inventoryMovement,
+   inventoryAdjustment
+
+10 entities have working detail pages. 14 entities navigate to list pages.
+
+warehouseLocationAdapter Limitation
+-----------------------------------
+The warehouseLocationAdapter endpoint remains at '/inventory/warehouses'
+(as inherited from Batch 18). It was not changed to avoid breaking the
+barcodes/generate page which uses this adapter with a warehouseId filter.
+
+Permission Filtering Deferred
+-----------------------------
+Permission-aware entity type filtering (hiding entity types based on
+user permissions) is not implemented at the frontend level. The backend
+API enforces permissions — if a user lacks read permission for an entity,
+the API call fails silently and that entity type is omitted from results.
+This is intentional to avoid duplicating permission logic on the frontend.
+
+Files Changed (cumulative across batch + corrective fix)
+--------------------------------------------------------
 Modified (6):
   apps/web/src/components/admin/admin-shell.tsx
   apps/web/src/components/f9/index.ts
   apps/web/src/components/f9/lookup-adapters.ts
+  apps/web/src/components/f9/adapter-registry.ts  (corrective fix)
   apps/web/src/lib/i18n/locales/ar.ts
   apps/web/src/lib/i18n/locales/en.ts
   apps/web/src/lib/i18n/types.ts
@@ -81,3 +155,5 @@ Verification
 - TypeScript compilation: PASS (no errors)
 - Next.js build: PASS (all routes compiled without errors)
 - Lint: n/a (no eslint config found in web package)
+- Runtime HTTP routes: NOT TESTED (no server/database)
+- Console/browser: NOT TESTED (no browser)
