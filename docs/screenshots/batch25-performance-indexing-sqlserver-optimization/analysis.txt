@@ -1,0 +1,50 @@
+Batch:
+Batch 25 — Performance Indexing and SQL Server Optimization
+
+Status:
+COMPLETE
+
+Implementation commit:
+a692530
+
+Tag:
+atsoft-erp-performance-indexing-sqlserver-optimization
+
+Migration:
+20260716070228_batch25_performance_indexes
+
+Summary:
+- Added about 80 SQL Server indexes across 34 tables.
+- Fixed N+1 pattern in maintenance-requests.service.ts findAll().
+- Fixed N+1 pattern in maintenance.service.ts getOperationalSummary().
+- Optimized getMachineSummary with Promise.all.
+- Added tools/performance/perf-smoke.ps1.
+- Added docs/performance/sqlserver-performance-notes.md.
+- SQL Server index count verified through sqlcmd.
+
+Validation:
+- prisma validate: passed
+- prisma generate: passed
+- build:api: passed
+- typecheck: passed
+- build:web: passed
+- i18n:check: passed
+- perf-smoke: 6 passed, 2 failed (report overview DTO validation issue, pre-existing)
+
+Push:
+- main pushed: yes
+- tag pushed: yes
+- final git status: clean
+- ahead/behind: 0/0
+
+Safety:
+- no Docker
+- no PostgreSQL
+- no prisma db push
+- no migrate reset
+- no database reset
+- no dropped tables
+- no deleted seed data
+- no disabled guards
+- no exposed secrets
+- no fake performance numbers
