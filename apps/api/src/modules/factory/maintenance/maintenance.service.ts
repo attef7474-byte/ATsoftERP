@@ -229,6 +229,55 @@ export class MaintenanceService {
     };
   }
 
+  async getMachineMaintenanceLog(machineId: string) {
+    await this.findOneMachine(machineId);
+    const [requests, tasks, downtimeLogs] = await Promise.all([
+      this.prisma.maintenanceRequest.findMany({
+        where: { machineId, status: 'COMPLETED', deletedAt: null },
+        include: {
+          assignedTo: { select: { id: true, name: true } },
+          _count: { select: { tasks: true } },
+        },
+        orderBy: { endDate: 'desc' },
+        take: 50,
+      }),
+      this.prisma.maintenanceTask.findMany({
+        where: { request: { machineId }, status: 'DONE' },
+        include: {
+          request: { select: { id: true, requestNumber: true, title: true } },
+          assignedTo: { select: { id: true, name: true } },
+        },
+        orderBy: { completedAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.downtimeLog.findMany({
+        where: { machineId, cancelledAt: null, endTime: { not: null } },
+        include: {
+          request: { select: { id: true, requestNumber: true, title: true } },
+        },
+        orderBy: { startTime: 'desc' },
+        take: 50,
+      }),
+    ]);
+    return { requests, tasks, downtimeLogs };
+  }
+
+  async getMachineDowntime(machineId: string) {
+    await this.findOneMachine(machineId);
+    const logs = await this.prisma.downtimeLog.findMany({
+      where: { machineId },
+      include: {
+        request: { select: { id: true, requestNumber: true, title: true } },
+      },
+      orderBy: { startTime: 'desc' },
+    });
+    return logs.map((log: any) => ({
+      ...log,
+      status: log.cancelledAt ? 'CANCELLED' : log.endTime ? 'CLOSED' : 'ACTIVE',
+      durationHours: log.durationMinutes ? log.durationMinutes / 60 : null,
+    }));
+  }
+
   async getOperationalSummary() {
     const machines = await this.prisma.machine.findMany({
       where: { deletedAt: null },

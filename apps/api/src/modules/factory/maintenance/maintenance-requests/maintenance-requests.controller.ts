@@ -65,6 +65,13 @@ export class MaintenanceRequestsController {
   @ApiOperation({ summary: 'Complete maintenance request' })
   complete(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.complete(id, userId); }
 
+  @Patch(':id/assign')
+  @Permissions('maintenance-request:assign')
+  @ApiOperation({ summary: 'Assign technician to maintenance request' })
+  assign(@Param('id') id: string, @Body('assignedToId') assignedToId: string, @CurrentUser('id') userId: string) {
+    return this.service.assign(id, assignedToId, userId);
+  }
+
   @Patch(':id/cancel')
   @Permissions('maintenance-request:cancel')
   @ApiOperation({ summary: 'Cancel maintenance request' })

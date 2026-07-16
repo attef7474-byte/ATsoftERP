@@ -82,6 +82,9 @@ export default function MaintenanceRequestDetailPage() {
     { id: 'overview', label: t('details.overview') },
     { id: 'tasks', label: t('details.maintenanceRequest.tasks') },
     { id: 'downtimeLogs', label: t('details.maintenanceRequest.downtimeLogs') },
+    { id: 'assign', label: t('maintenanceWorkflow.workflowAssign') },
+    { id: 'parts', label: t('maintenanceWorkflow.workflowParts') },
+    { id: 'costs', label: t('maintenanceWorkflow.workflowCosts') },
   ];
 
   const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
@@ -161,6 +164,33 @@ export default function MaintenanceRequestDetailPage() {
                 { key: 'duration', header: t('maintenance.durationHours'), render: (d: DowntimeLog) => d.durationHours ?? '-' },
               ]} data={data.downtimeLogs} keyExtractor={(d: DowntimeLog) => d.id} />
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'assign' && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-sm text-gray-500 mb-4">{t('maintenanceWorkflow.assignDescription')}</p>
+            <button onClick={() => router.push(`/admin/maintenance/requests/${id}/assign`)} className="text-blue-600 hover:text-blue-800 font-medium">{t('maintenanceWorkflow.workflowAssign')}</button>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'parts' && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-sm text-gray-500 mb-4">{t('maintenanceWorkflow.usedPartsDescription')}</p>
+            <button onClick={() => router.push(`/admin/maintenance/requests/${id}/parts`)} className="text-blue-600 hover:text-blue-800 font-medium">{t('maintenanceWorkflow.workflowParts')}</button>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'costs' && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-sm text-gray-500 mb-4">{t('maintenanceWorkflow.costEntriesDescription')}</p>
+            <button onClick={() => router.push(`/admin/maintenance/requests/${id}/cost`)} className="text-blue-600 hover:text-blue-800 font-medium">{t('maintenanceWorkflow.workflowCosts')}</button>
           </CardContent>
         </Card>
       )}

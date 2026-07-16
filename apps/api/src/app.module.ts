@@ -21,6 +21,9 @@ import { MaintenanceTasksModule } from './modules/factory/maintenance/maintenanc
 import { MaintenanceSchedulesModule } from './modules/factory/maintenance/maintenance-schedules/maintenance-schedules.module';
 import { MaintenanceChecklistItemsModule } from './modules/factory/maintenance/maintenance-checklist-items/maintenance-checklist-items.module';
 import { DowntimeLogsModule } from './modules/factory/maintenance/downtime-logs/downtime-logs.module';
+import { MaintenanceRequestPartsModule } from './modules/factory/maintenance/maintenance-request-parts/maintenance-request-parts.module';
+import { MaintenanceRequestCostsModule } from './modules/factory/maintenance/maintenance-request-costs/maintenance-request-costs.module';
+import { MaintenanceChecklistExecutionsModule } from './modules/factory/maintenance/maintenance-checklist-executions/maintenance-checklist-executions.module';
 import { InventoryCountsModule } from './modules/factory/inventory-counts/inventory-counts.module';
 import { InventoryCountLinesModule } from './modules/factory/inventory-count-lines/inventory-count-lines.module';
 import { InventoryMovementsModule } from './modules/factory/inventory-movements/inventory-movements.module';
@@ -56,6 +59,9 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     MaintenanceSchedulesModule,
     MaintenanceChecklistItemsModule,
     DowntimeLogsModule,
+    MaintenanceRequestPartsModule,
+    MaintenanceRequestCostsModule,
+    MaintenanceChecklistExecutionsModule,
     InventoryCountsModule,
     InventoryCountLinesModule,
     InventoryMovementsModule,

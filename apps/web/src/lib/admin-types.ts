@@ -454,6 +454,69 @@ export interface MaintenanceChecklistItem {
   schedule?: { id: string; title: string };
 }
 
+export interface MaintenanceRequestPartUsage {
+  id: string;
+  requestId: string;
+  productId: string;
+  quantity: number;
+  unitCost?: number | null;
+  totalCost?: number | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  request?: { id: string; requestNumber: string; title: string };
+  product?: { id: string; name: string; code: string; unit: string };
+}
+
+export interface MaintenanceRequestCostEntry {
+  id: string;
+  requestId: string;
+  type: string;
+  description?: string | null;
+  amount: number;
+  incurredAt: string;
+  createdAt: string;
+  updatedAt: string;
+  request?: { id: string; requestNumber: string; title: string };
+}
+
+export interface MaintenanceChecklistExecution {
+  id: string;
+  scheduleId: string;
+  requestId?: string | null;
+  status: string;
+  startedAt: string;
+  completedAt?: string | null;
+  completedById?: string | null;
+  completedBy?: { id: string; name: string };
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  schedule?: { id: string; title: string; type?: string };
+  request?: { id: string; requestNumber: string; title: string };
+  items?: MaintenanceChecklistExecutionItem[];
+  _count?: { items: number };
+}
+
+export interface MaintenanceChecklistExecutionItem {
+  id: string;
+  executionId: string;
+  checklistItemId: string;
+  status: string;
+  passed?: boolean | null;
+  notes?: string | null;
+  completedAt?: string | null;
+  completedById?: string | null;
+  completedBy?: { id: string; name: string };
+  checklistItem?: { id: string; title: string; description?: string | null; sortOrder: number };
+}
+
+export interface MachineMaintenanceLog {
+  requests: MaintenanceRequest[];
+  tasks: MaintenanceTask[];
+  downtimeLogs: DowntimeLog[];
+}
+
 export interface DowntimeLog {
   id: string;
   machineId: string;

@@ -305,6 +305,8 @@ model User {
   requestedMaintenanceReqs MaintenanceRequest[] @relation("MaintenanceRequestRequestedBy")
   assignedMaintenanceReqs  MaintenanceRequest[] @relation("MaintenanceRequestAssignedTo")
   requestedTasks           MaintenanceTask[]    @relation("MaintenanceTaskAssignedTo")
+  checklistExecutionCompletions   MaintenanceChecklistExecution[]     @relation("MaintenanceChecklistExecutionCompletedBy")
+  checklistExecutionItemCompletions MaintenanceChecklistExecutionItem[] @relation("MaintenanceChecklistExecutionItemCompletedBy")
 
   @@map("users")
 }
@@ -536,6 +538,7 @@ model Product {
   countLines          InventoryCountLine[]
   movementLines       InventoryMovementLine[]
   adjustmentLines     InventoryAdjustmentLine[]
+  requestPartUsages   MaintenanceRequestPartUsage[]
 
   @@index([categoryId])
   @@index([status])
@@ -855,9 +858,12 @@ model MaintenanceRequest {
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
 
-  tasks        MaintenanceTask[]
-  schedules    MaintenanceSchedule[]
-  downtimeLogs DowntimeLog[]
+  tasks               MaintenanceTask[]
+  schedules           MaintenanceSchedule[]
+  downtimeLogs        DowntimeLog[]
+  partUsages          MaintenanceRequestPartUsage[]
+  costEntries         MaintenanceRequestCostEntry[]
+  checklistExecutions MaintenanceChecklistExecution[]
 
   @@index([machineId])
   @@index([status])
@@ -908,7 +914,8 @@ model MaintenanceSchedule {
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
-  checklistItems MaintenanceChecklistItem[]
+  checklistItems    MaintenanceChecklistItem[]
+  checklistExecutions MaintenanceChecklistExecution[]
 
   @@index([machineId])
   @@index([status])
@@ -923,8 +930,9 @@ model MaintenanceChecklistItem {
   title       String
   description String?
   sortOrder   Int                 @default(0)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  executionItems  MaintenanceChecklistExecutionItem[]
 
   @@index([scheduleId])
   @@map("maintenance_checklist_items")
@@ -949,6 +957,84 @@ model DowntimeLog {
   @@index([requestId])
   @@index([startTime])
   @@map("downtime_logs")
+}
+
+// ── Maintenance Request Part Usage ──────────────────────────────
+model MaintenanceRequestPartUsage {
+  id        String   @id @default(cuid())
+  requestId String
+  request   MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity  Float
+  unitCost  Float?
+  totalCost Float?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([requestId])
+  @@index([productId])
+  @@map("maintenance_request_part_usages")
+}
+
+// ── Maintenance Request Cost Entry ──────────────────────────────
+model MaintenanceRequestCostEntry {
+  id          String   @id @default(cuid())
+  requestId   String
+  request     MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  type        String
+  description String?
+  amount      Float
+  incurredAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([requestId])
+  @@map("maintenance_request_cost_entries")
+}
+
+// ── Maintenance Checklist Execution ─────────────────────────────
+model MaintenanceChecklistExecution {
+  id          String   @id @default(cuid())
+  scheduleId  String
+  schedule    MaintenanceSchedule @relation(fields: [scheduleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requestId   String?
+  request     MaintenanceRequest? @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status      String   @default("IN_PROGRESS")
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  completedById String?
+  completedBy   User?    @relation("MaintenanceChecklistExecutionCompletedBy", fields: [completedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items MaintenanceChecklistExecutionItem[]
+
+  @@index([scheduleId])
+  @@index([requestId])
+  @@index([status])
+  @@map("maintenance_checklist_executions")
+}
+
+// ── Maintenance Checklist Execution Item ────────────────────────
+model MaintenanceChecklistExecutionItem {
+  id            String   @id @default(cuid())
+  executionId   String
+  execution     MaintenanceChecklistExecution @relation(fields: [executionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  checklistItemId String
+  checklistItem MaintenanceChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status        String   @default("PENDING")
+  passed        Boolean?
+  notes         String?
+  completedAt   DateTime?
+  completedById String?
+  completedBy   User?    @relation("MaintenanceChecklistExecutionItemCompletedBy", fields: [completedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([executionId])
+  @@index([checklistItemId])
+  @@map("maintenance_checklist_execution_items")
 }
 
 // ── Barcode / QR ────────────────────────────────────────────────

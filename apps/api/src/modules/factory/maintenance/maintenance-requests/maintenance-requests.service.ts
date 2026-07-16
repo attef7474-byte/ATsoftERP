@@ -249,6 +249,24 @@ export class MaintenanceRequestsService {
     return updated;
   }
 
+  async assign(id: string, assignedToId: string, userId: string) {
+    const req = await this.findOne(id);
+    if (req.status === 'COMPLETED' || req.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot assign completed or cancelled requests');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: assignedToId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const updated = await this.prisma.maintenanceRequest.update({
+      where: { id },
+      data: { assignedToId },
+    });
+    await this.audit.log(userId, 'UPDATE', 'MaintenanceRequest', id,
+      { action: 'assign', assignedToId, oldAssignedToId: req.assignedToId });
+    return updated;
+  }
+
   async remove(id: string, userId: string) {
     const req = await this.findOne(id);
     if (req.status === 'IN_PROGRESS') {

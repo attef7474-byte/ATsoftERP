@@ -23,6 +23,22 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "maintenance-request:start", module: "maintenance-request", action: "start" },
   { key: "maintenance-request:complete", module: "maintenance-request", action: "complete" },
   { key: "maintenance-request:cancel", module: "maintenance-request", action: "cancel" },
+  { key: "maintenance-request:assign", module: "maintenance-request", action: "assign" },
+  // maintenance-request-part (new module, all actions)
+  { key: "maintenance-request-part:create", module: "maintenance-request-part", action: "create" },
+  { key: "maintenance-request-part:read", module: "maintenance-request-part", action: "read" },
+  { key: "maintenance-request-part:update", module: "maintenance-request-part", action: "update" },
+  { key: "maintenance-request-part:delete", module: "maintenance-request-part", action: "delete" },
+  // maintenance-request-cost (new module, all actions)
+  { key: "maintenance-request-cost:create", module: "maintenance-request-cost", action: "create" },
+  { key: "maintenance-request-cost:read", module: "maintenance-request-cost", action: "read" },
+  { key: "maintenance-request-cost:update", module: "maintenance-request-cost", action: "update" },
+  { key: "maintenance-request-cost:delete", module: "maintenance-request-cost", action: "delete" },
+  // maintenance-checklist-execution (new module)
+  { key: "maintenance-checklist-execution:create", module: "maintenance-checklist-execution", action: "create" },
+  { key: "maintenance-checklist-execution:read", module: "maintenance-checklist-execution", action: "read" },
+  { key: "maintenance-checklist-execution:update", module: "maintenance-checklist-execution", action: "update" },
+  { key: "maintenance-checklist-execution:complete", module: "maintenance-checklist-execution", action: "complete" },
   // maintenance-task
   { key: "maintenance-task:start", module: "maintenance-task", action: "start" },
   { key: "maintenance-task:complete", module: "maintenance-task", action: "complete" },

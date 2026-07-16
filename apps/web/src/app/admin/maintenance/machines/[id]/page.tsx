@@ -82,6 +82,9 @@ export default function MachineDetailPage() {
     { id: 'documents', label: t('details.machine.documents') },
     { id: 'requests', label: t('details.machine.requests') },
     { id: 'labels', label: t('details.machine.labels') },
+    { id: 'maintenanceLog', label: t('maintenanceWorkflow.machineMaintenanceLog') },
+    { id: 'downtime', label: t('maintenanceWorkflow.machineDowntimeLink') },
+    { id: 'qr', label: t('maintenanceWorkflow.machineQRLabel') },
   ];
 
   const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
@@ -180,6 +183,33 @@ export default function MachineDetailPage() {
                 { key: 'status', header: t('common.status'), render: (l: any) => <StatusBadge status={l.status} /> },
               ]} data={labels} keyExtractor={(l: any) => l.id} />
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'maintenanceLog' && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-sm text-gray-500 mb-4">{t('maintenanceWorkflow.maintenanceLogDescription')}</p>
+            <button onClick={() => router.push(`/admin/maintenance/machines/${id}/maintenance-log`)} className="text-blue-600 hover:text-blue-800 font-medium">{t('maintenanceWorkflow.machineMaintenanceLog')}</button>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'downtime' && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-sm text-gray-500 mb-4">{t('maintenanceWorkflow.machineDowntimeDescription')}</p>
+            <button onClick={() => router.push(`/admin/maintenance/machines/${id}/downtime`)} className="text-blue-600 hover:text-blue-800 font-medium">{t('maintenanceWorkflow.machineDowntimeLink')}</button>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'qr' && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-sm text-gray-500 mb-4">{t('maintenanceWorkflow.machineQRDescription')}</p>
+            <button onClick={() => router.push(`/admin/maintenance/machines/${id}/qr`)} className="text-blue-600 hover:text-blue-800 font-medium">{t('maintenanceWorkflow.machineQRLabel')}</button>
           </CardContent>
         </Card>
       )}

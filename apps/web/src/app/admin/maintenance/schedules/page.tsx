@@ -125,12 +125,13 @@ useRegisterAdminActions([
     { key: 'status', header: t('common.status'), render: (s: MaintenanceSchedule) => <CmmsStatusBadge status={s.status} /> },
     {
       key: 'actions', header: t('common.actions'), render: (s: MaintenanceSchedule) => (
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button onClick={() => openEdit(s)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
           <button onClick={() => confirmStatus(s.id)}
             className={`text-sm ${s.status === 'ACTIVE' ? 'text-orange-600' : 'text-green-600'} hover:underline`}>
             {s.status === 'ACTIVE' ? t('actions.deactivate') : t('actions.activate')}
           </button>
+          <a href={`/admin/maintenance/schedules/${s.id}/checklist`} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('maintenanceWorkflow.scheduleChecklist')}</a>
         </div>
       ),
     },

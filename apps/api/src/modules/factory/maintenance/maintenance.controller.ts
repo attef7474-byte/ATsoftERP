@@ -97,6 +97,16 @@ export class MaintenanceController {
   @ApiOperation({ summary: 'Get maintenance request summary' })
   getRequestSummary() { return this.service.getRequestSummary(); }
 
+  @Get('machines/:id/maintenance-log')
+  @Permissions('machines:read')
+  @ApiOperation({ summary: 'Get maintenance log for a machine' })
+  getMachineMaintenanceLog(@Param('id') id: string) { return this.service.getMachineMaintenanceLog(id); }
+
+  @Get('machines/:id/downtime')
+  @Permissions('machines:read')
+  @ApiOperation({ summary: 'Get downtime logs for a machine' })
+  getMachineDowntime(@Param('id') id: string) { return this.service.getMachineDowntime(id); }
+
   @Get('summary/downtime')
   @Permissions('downtime-log:read')
   @ApiOperation({ summary: 'Get downtime summary' })
