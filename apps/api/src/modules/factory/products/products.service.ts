@@ -59,4 +59,53 @@ export class ProductsService {
     await this.prisma.product.update({ where: { id }, data: { deletedAt: new Date() } });
     return { message: 'Product deleted successfully' };
   }
+
+  async activate(id: string) {
+    await this.findOne(id);
+    return this.prisma.product.update({ where: { id }, data: { status: 'ACTIVE' } });
+  }
+
+  async deactivate(id: string) {
+    await this.findOne(id);
+    return this.prisma.product.update({ where: { id }, data: { status: 'INACTIVE' } });
+  }
+
+  async balances(id: string) {
+    await this.findOne(id);
+    return this.prisma.inventoryBalance.findMany({
+      where: { productId: id },
+      include: {
+        warehouse: { select: { id: true, code: true, name: true } },
+        location: { select: { id: true, code: true, name: true } },
+      },
+    });
+  }
+
+  async movements(id: string) {
+    await this.findOne(id);
+    return this.prisma.inventoryMovementLine.findMany({
+      where: { productId: id },
+      include: {
+        movement: {
+          select: { id: true, movementNumber: true, movementType: true, status: true, movementDate: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  }
+
+  async countHistory(id: string) {
+    await this.findOne(id);
+    return this.prisma.inventoryCountLine.findMany({
+      where: { productId: id },
+      include: {
+        count: {
+          select: { id: true, countNumber: true, status: true, countDate: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  }
 }

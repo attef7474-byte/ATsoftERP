@@ -46,4 +46,29 @@ export class ProductsController {
   @Permissions('products:delete')
   @ApiOperation({ summary: 'Soft delete product' })
   remove(@Param('id') id: string) { return this.service.remove(id); }
+
+  @Patch(':id/activate')
+  @Permissions('products:update')
+  @ApiOperation({ summary: 'Activate product' })
+  activate(@Param('id') id: string) { return this.service.activate(id); }
+
+  @Patch(':id/deactivate')
+  @Permissions('products:update')
+  @ApiOperation({ summary: 'Deactivate product' })
+  deactivate(@Param('id') id: string) { return this.service.deactivate(id); }
+
+  @Get(':id/balances')
+  @Permissions('products:read')
+  @ApiOperation({ summary: 'Get product balances' })
+  balances(@Param('id') id: string) { return this.service.balances(id); }
+
+  @Get(':id/movements')
+  @Permissions('products:read')
+  @ApiOperation({ summary: 'Get product movements' })
+  movements(@Param('id') id: string) { return this.service.movements(id); }
+
+  @Get(':id/count-history')
+  @Permissions('products:read')
+  @ApiOperation({ summary: 'Get product count history' })
+  countHistory(@Param('id') id: string) { return this.service.countHistory(id); }
 }

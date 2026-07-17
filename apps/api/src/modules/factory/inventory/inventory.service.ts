@@ -146,6 +146,36 @@ export class InventoryService {
     });
   }
 
+  async activateWarehouse(id: string) {
+    const wh = await this.findOneWarehouse(id);
+    return this.prisma.warehouse.update({ where: { id }, data: { status: 'ACTIVE' } });
+  }
+
+  async deactivateWarehouse(id: string) {
+    const wh = await this.findOneWarehouse(id);
+    return this.prisma.warehouse.update({ where: { id }, data: { status: 'INACTIVE' } });
+  }
+
+  async warehouseSummary(id: string) {
+    const wh = await this.findOneWarehouse(id);
+    const [locationCount, balanceCount, balanceAgg] = await Promise.all([
+      this.prisma.warehouseLocation.count({ where: { warehouseId: id, status: 'ACTIVE' } }),
+      this.prisma.inventoryBalance.count({ where: { warehouseId: id } }),
+      this.prisma.inventoryBalance.aggregate({ where: { warehouseId: id }, _sum: { quantity: true } }),
+    ]);
+    return { warehouse: wh, locationCount, balanceCount, totalQuantity: balanceAgg._sum.quantity || 0 };
+  }
+
+  async locationBalances(id: string) {
+    const loc = await this.findOneLocation(id);
+    const balances = await this.prisma.inventoryBalance.findMany({
+      where: { locationId: id },
+      include: { product: { select: { id: true, code: true, name: true, unit: true } } },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return { location: loc, balances };
+  }
+
   async adjustStock(dto: CreateStockAdjustmentDto) {
     const existing = await this.prisma.inventoryBalance.findFirst({
       where: {

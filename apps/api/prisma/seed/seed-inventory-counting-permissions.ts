@@ -24,6 +24,18 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "inventory-adjustment:cancel", module: "inventory-adjustment", action: "cancel" },
   // inventory-balance
   { key: "inventory-balance:recalculate", module: "inventory-balance", action: "recalculate" },
+  // warehouse activate/deactivate
+  { key: "warehouse:activate", module: "warehouse", action: "activate" },
+  { key: "warehouse:deactivate", module: "warehouse", action: "deactivate" },
+  // location activate/deactivate
+  { key: "warehouse-location:activate", module: "warehouse-location", action: "activate" },
+  { key: "warehouse-location:deactivate", module: "warehouse-location", action: "deactivate" },
+  // product activate/deactivate
+  { key: "product:activate", module: "product", action: "activate" },
+  { key: "product:deactivate", module: "product", action: "deactivate" },
+  // product-category activate/deactivate
+  { key: "product-category:activate", module: "product-category", action: "activate" },
+  { key: "product-category:deactivate", module: "product-category", action: "deactivate" },
 ];
 
 async function main() {

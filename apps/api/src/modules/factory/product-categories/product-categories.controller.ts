@@ -49,4 +49,14 @@ export class ProductCategoriesController {
   @Permissions('products:delete')
   @ApiOperation({ summary: 'Soft delete category' })
   remove(@Param('id') id: string) { return this.service.remove(id); }
+
+  @Patch(':id/activate')
+  @Permissions('products:update')
+  @ApiOperation({ summary: 'Activate category' })
+  activate(@Param('id') id: string) { return this.service.activate(id); }
+
+  @Patch(':id/deactivate')
+  @Permissions('products:update')
+  @ApiOperation({ summary: 'Deactivate category' })
+  deactivate(@Param('id') id: string) { return this.service.deactivate(id); }
 }

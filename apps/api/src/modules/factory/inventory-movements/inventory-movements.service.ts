@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
-import { CreateInventoryMovementDto } from './dto/create-inventory-movement.dto';
+import { CreateInventoryMovementDto, CreateInventoryMovementLineDto } from './dto/create-inventory-movement.dto';
 import { UpdateInventoryMovementDto } from './dto/update-inventory-movement.dto';
 import { InventoryMovementQueryDto } from './dto/inventory-movement-query.dto';
 
@@ -195,6 +195,59 @@ export class InventoryMovementsService {
     await this.audit.log(userId, 'CANCEL', 'InventoryMovement', id,
       { oldStatus: movement.status, newStatus: 'CANCELLED' });
     return updated;
+  }
+
+  async addLine(id: string, dto: CreateInventoryMovementLineDto, userId: string) {
+    const movement = await this.findOne(id);
+    if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be modified');
+    const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
+    if (!product) throw new NotFoundException('Product not found');
+    if (dto.quantity <= 0) throw new BadRequestException('Quantity must be greater than 0');
+    if (!['IN', 'OUT'].includes(dto.direction)) throw new BadRequestException('Direction must be IN or OUT');
+
+    const line = await this.prisma.inventoryMovementLine.create({
+      data: { movementId: id, productId: dto.productId, warehouseLocationId: dto.warehouseLocationId, quantity: dto.quantity, unit: dto.unit, direction: dto.direction, notes: dto.notes },
+      include: { product: { select: { id: true, name: true, code: true } } },
+    });
+    await this.audit.log(userId, 'ADD_LINE', 'InventoryMovement', id, { lineId: line.id, productId: dto.productId, quantity: dto.quantity });
+    return line;
+  }
+
+  async updateLine(id: string, lineId: string, dto: Partial<CreateInventoryMovementLineDto>, userId: string) {
+    const movement = await this.findOne(id);
+    if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be modified');
+    const line = await this.prisma.inventoryMovementLine.findUnique({ where: { id: lineId } });
+    if (!line || line.movementId !== id) throw new NotFoundException('Movement line not found');
+
+    const updated = await this.prisma.inventoryMovementLine.update({
+      where: { id: lineId },
+      data: dto,
+      include: { product: { select: { id: true, name: true, code: true } } },
+    });
+    await this.audit.log(userId, 'UPDATE_LINE', 'InventoryMovement', id, { lineId });
+    return updated;
+  }
+
+  async removeLine(id: string, lineId: string, userId: string) {
+    const movement = await this.findOne(id);
+    if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be modified');
+    const line = await this.prisma.inventoryMovementLine.findUnique({ where: { id: lineId } });
+    if (!line || line.movementId !== id) throw new NotFoundException('Movement line not found');
+
+    await this.prisma.inventoryMovementLine.delete({ where: { id: lineId } });
+    await this.audit.log(userId, 'REMOVE_LINE', 'InventoryMovement', id, { lineId });
+    return { message: 'Line removed successfully' };
+  }
+
+  async summary(id: string) {
+    const movement = await this.findOne(id);
+    const lines = await this.prisma.inventoryMovementLine.findMany({
+      where: { movementId: id },
+      select: { direction: true, quantity: true },
+    });
+    const totalInQty = lines.filter(l => l.direction === 'IN').reduce((s, l) => s + l.quantity, 0);
+    const totalOutQty = lines.filter(l => l.direction === 'OUT').reduce((s, l) => s + l.quantity, 0);
+    return { movementId: id, movementNumber: movement.movementNumber, status: movement.status, lineCount: lines.length, totalInQty, totalOutQty };
   }
 
   private async getOrCreateBalance(tx: any, warehouseId: string, productId: string, locationId: string | null | undefined) {

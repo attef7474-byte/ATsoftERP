@@ -1,0 +1,95 @@
+Batch 29 Analysis Report
+========================
+Title: Warehouses, Products, Inventory Balances and Movements Completion
+Date: 2026-07-17
+Commit: (to be created)
+Tag: atsoft-erp-batch29-inventory-products-warehouses-completion
+
+1. Objective
+   Complete all missing API endpoints and frontend pages for inventory
+   master data (warehouses, locations, product categories, products)
+   and operational workflows (balances, movements, adjustments, counts).
+
+2. Backend Changes (16 files)
+   a) Inventory Module (factory/inventory/)
+      - activateWarehouse / deactivateWarehouse (PATCH) + service
+      - warehouseSummary (GET) + service
+      - locationBalances (GET /locations/:id/balances) + service
+      - Added activateLocation (PATCH) endpoint
+
+   b) Products Module (factory/products/)
+      - activate / deactivate (PATCH) + service
+      - balances (GET :id/balances) + service
+      - movements (GET :id/movements) + service
+      - countHistory (GET :id/count-history) + service
+
+   c) Product Categories Module (factory/product-categories/)
+      - activate / deactivate (PATCH) + service
+
+   d) Inventory Balances Module (factory/inventory-balances/)
+      - findOne (GET :id) + service
+      - findByLocation (GET by-location/:locationId) + service
+
+   e) Inventory Movements Module (factory/inventory-movements/)
+      - addLine (POST :id/lines) + service
+      - updateLine (PATCH :id/lines/:lineId) + service
+      - removeLine (DELETE :id/lines/:lineId) + service
+      - summary (GET :id/summary) + service
+
+   f) Inventory Adjustments Module (factory/inventory-adjustments/)
+      - addLine (POST :id/lines) + service
+      - updateLine (PATCH :id/lines/:lineId) + service
+      - removeLine (DELETE :id/lines/:lineId) + service
+      - summary (GET :id/summary) + service
+      - new controller InventoryAdjustmentFromCountController
+        (POST from-count/:countId)
+      - module registration
+
+   g) Inventory Counts Module (factory/inventory-counts/)
+      - results (GET :id/results) + service
+      - history (GET :id/history) + service
+
+   h) Permissions Seed
+      - Added 8 new permission entries: warehouse:activate,
+        warehouse:deactivate, warehouse-location:activate,
+        warehouse-location:deactivate, product:activate,
+        product:deactivate, product-category:activate,
+        product-category:deactivate
+
+3. Frontend Changes (21 new page directories)
+   - warehouses: new, [id], [id]/edit
+   - locations: new, [id], [id]/edit
+   - product-categories: new, [id], [id]/edit
+   - balances: [id]
+   - products/[id]: balances
+   - movements: new, [id]/edit, [id]/lines
+   - adjustments: new, [id]/edit, [id]/lines
+   - counts: [id]/start, [id]/results, [id]/history, history
+   - Updated admin-types.ts: WarehouseLocation type extended
+
+4. Validation Results
+   a) prisma validate: PASS
+   b) prisma generate: PASS
+   c) build:api (tsc): PASS
+   d) typecheck (tsc --noEmit apps/api): PASS
+   e) build:web (next build --no-lint, 72 pages): PASS
+   f) i18n:check (1594 keys): PASS
+   g) health-check (4/4): PASS
+   h) smoke-check (8/8): PASS
+   i) Web server runtime: pages return HTTP 200
+   j) API server runtime: endpoints registered and return 401
+      (expected without auth token)
+
+5. Notes
+   - All API routes confirmed registered in NestJS startup logs
+     (all activate/deactivate/summary/results/history/line
+     endpoints mapped)
+   - Route ordering preserved: specific routes (tree, summary,
+     results, history) defined before :id wildcard in all
+     controllers
+   - All new pages follow existing Next.js App Router patterns:
+     useTranslation, admin action bar, loading/error/empty states,
+     api calls, F9Lookup support
+   - 72 total frontend pages in build output
+   - Batch 28 fully closed: commit c98b37f +
+     tag atsoft-erp-batch28-dashboard-settings-audit-attachments-final

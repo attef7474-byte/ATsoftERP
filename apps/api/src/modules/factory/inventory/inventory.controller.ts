@@ -49,6 +49,26 @@ export class InventoryController {
   @ApiOperation({ summary: 'Soft delete warehouse' })
   removeWarehouse(@Param('id') id: string) { return this.service.removeWarehouse(id); }
 
+  @Patch('warehouses/:id/activate')
+  @Permissions('inventory:update')
+  @ApiOperation({ summary: 'Activate warehouse' })
+  activateWarehouse(@Param('id') id: string) { return this.service.activateWarehouse(id); }
+
+  @Patch('warehouses/:id/deactivate')
+  @Permissions('inventory:update')
+  @ApiOperation({ summary: 'Deactivate warehouse' })
+  deactivateWarehouse(@Param('id') id: string) { return this.service.deactivateWarehouse(id); }
+
+  @Get('warehouses/:id/summary')
+  @Permissions('inventory:read')
+  @ApiOperation({ summary: 'Get warehouse summary' })
+  warehouseSummary(@Param('id') id: string) { return this.service.warehouseSummary(id); }
+
+  @Get('locations/:id/balances')
+  @Permissions('inventory:read')
+  @ApiOperation({ summary: 'Get balances for a location' })
+  locationBalances(@Param('id') id: string) { return this.service.locationBalances(id); }
+
   @Post('locations')
   @Permissions('inventory:create')
   @ApiOperation({ summary: 'Create warehouse location' })

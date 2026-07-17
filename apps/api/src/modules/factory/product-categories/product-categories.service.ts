@@ -71,4 +71,14 @@ export class ProductCategoriesService {
     });
     return categories.filter((c) => !c.parentId);
   }
+
+  async activate(id: string) {
+    await this.findOne(id);
+    return this.prisma.productCategory.update({ where: { id }, data: { status: 'ACTIVE' } });
+  }
+
+  async deactivate(id: string) {
+    await this.findOne(id);
+    return this.prisma.productCategory.update({ where: { id }, data: { status: 'INACTIVE' } });
+  }
 }

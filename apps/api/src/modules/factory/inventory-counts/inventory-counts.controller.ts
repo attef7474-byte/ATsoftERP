@@ -69,6 +69,16 @@ export class InventoryCountsController {
 
   @Delete(':id')
   @Permissions('inventory-count:delete')
-  @ApiOperation({ summary: 'Soft delete inventory count' })
+  @ApiOperation({ summary: 'Soft delete count' })
   remove(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.remove(id, userId); }
+
+  @Get(':id/results')
+  @Permissions('inventory-count:read')
+  @ApiOperation({ summary: 'Get count results' })
+  results(@Param('id') id: string) { return this.service.results(id); }
+
+  @Get(':id/history')
+  @Permissions('inventory-count:read')
+  @ApiOperation({ summary: 'Get count history' })
+  history(@Param('id') id: string) { return this.service.history(id); }
 }

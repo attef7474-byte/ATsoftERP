@@ -170,4 +170,35 @@ export class InventoryCountsService {
     await this.audit.log(userId, 'DELETE', 'InventoryCount', id);
     return { message: 'Inventory count deleted successfully' };
   }
+
+  async results(id: string) {
+    const count = await this.findOne(id);
+    const lines = await this.prisma.inventoryCountLine.findMany({
+      where: { countId: id },
+      include: {
+        product: { select: { id: true, code: true, name: true, unit: true } },
+        warehouseLocation: { select: { id: true, code: true, name: true } },
+      },
+    });
+    const totalLines = lines.length;
+    const countedLines = lines.filter(l => l.status !== 'PENDING').length;
+    const verifiedLines = lines.filter(l => l.status === 'VERIFIED').length;
+    const totalDifference = lines.filter(l => l.differenceQty).reduce((s, l) => s + (l.differenceQty || 0), 0);
+    return { count, results: { totalLines, countedLines, verifiedLines, totalDifference }, lines };
+  }
+
+  async history(id: string) {
+    const count = await this.findOne(id);
+    const auditLogs = await this.prisma.auditLog.findMany({
+      where: { entity: 'InventoryCount', entityId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    const adjustments = await this.prisma.inventoryAdjustment.findMany({
+      where: { inventoryCountId: id },
+      select: { id: true, adjustmentNumber: true, status: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return { count, auditLogs, adjustments };
+  }
 }

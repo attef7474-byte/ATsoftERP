@@ -123,6 +123,9 @@ export interface WarehouseLocation {
   name: string;
   barcode?: string | null;
   status: string;
+  createdAt?: string;
+  updatedAt?: string;
+  warehouse?: { id: string; name: string; code: string };
 }
 
 export interface ProductCategory {

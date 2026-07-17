@@ -49,11 +49,25 @@ export class InventoryBalancesController {
     return this.service.findAll(query);
   }
 
+  @Get(':id')
+  @Permissions('inventory-balance:read')
+  @ApiOperation({ summary: 'Get balance by ID' })
+  findOne(@Param('id') id: string) {
+    return this.service.findOne(id);
+  }
+
   @Get('product/:productId')
   @Permissions('inventory-balance:read')
   @ApiOperation({ summary: 'Get balance for a product across warehouses' })
   findByProduct(@Param('productId') productId: string) {
     return this.service.findByProduct(productId);
+  }
+
+  @Get('by-location/:locationId')
+  @Permissions('inventory-balance:read')
+  @ApiOperation({ summary: 'Get balances by location' })
+  findByLocation(@Param('locationId') locationId: string) {
+    return this.service.findByLocation(locationId);
   }
 
   @Post('recalculate')

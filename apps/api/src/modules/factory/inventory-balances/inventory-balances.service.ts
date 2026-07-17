@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { InventoryBalanceQueryDto } from './dto/inventory-balance-query.dto';
@@ -41,12 +41,35 @@ export class InventoryBalancesService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
+  async findOne(id: string) {
+    const balance = await this.prisma.inventoryBalance.findUnique({
+      where: { id },
+      include: {
+        warehouse: { select: { id: true, code: true, name: true } },
+        location: { select: { id: true, code: true, name: true } },
+        product: { select: { id: true, code: true, name: true, unit: true } },
+      },
+    });
+    if (!balance) throw new NotFoundException('Balance not found');
+    return balance;
+  }
+
   async findByProduct(productId: string) {
     return this.prisma.inventoryBalance.findMany({
       where: { productId },
       include: {
         warehouse: { select: { id: true, code: true, name: true } },
         location: { select: { id: true, code: true, name: true } },
+      },
+    });
+  }
+
+  async findByLocation(locationId: string) {
+    return this.prisma.inventoryBalance.findMany({
+      where: { locationId },
+      include: {
+        product: { select: { id: true, code: true, name: true, unit: true } },
+        warehouse: { select: { id: true, code: true, name: true } },
       },
     });
   }

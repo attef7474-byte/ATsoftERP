@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
-import { CreateInventoryAdjustmentDto } from './dto/create-inventory-adjustment.dto';
+import { CreateInventoryAdjustmentDto, CreateInventoryAdjustmentLineDto } from './dto/create-inventory-adjustment.dto';
 import { UpdateInventoryAdjustmentDto } from './dto/update-inventory-adjustment.dto';
 import { InventoryAdjustmentQueryDto } from './dto/inventory-adjustment-query.dto';
 
@@ -258,6 +258,69 @@ export class InventoryAdjustmentsService {
     await this.audit.log(userId, 'CANCEL', 'InventoryAdjustment', id,
       { oldStatus: adjustment.status, newStatus: 'CANCELLED' });
     return updated;
+  }
+
+  async addLine(id: string, dto: CreateInventoryAdjustmentLineDto, userId: string) {
+    const adj = await this.findOne(id);
+    if (adj.status !== 'DRAFT') throw new BadRequestException('Only DRAFT adjustments can be modified');
+    const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
+    if (!product) throw new NotFoundException('Product not found');
+
+    const line = await this.prisma.inventoryAdjustmentLine.create({
+      data: {
+        adjustmentId: id, productId: dto.productId, warehouseLocationId: dto.warehouseLocationId,
+        systemQty: dto.systemQty, countedQty: dto.countedQty, differenceQty: dto.countedQty - dto.systemQty, notes: dto.notes,
+      },
+      include: { product: { select: { id: true, name: true, code: true } } },
+    });
+    await this.audit.log(userId, 'ADD_LINE', 'InventoryAdjustment', id, { lineId: line.id, productId: dto.productId });
+    return line;
+  }
+
+  async updateLine(id: string, lineId: string, dto: Partial<CreateInventoryAdjustmentLineDto>, userId: string) {
+    const adj = await this.findOne(id);
+    if (adj.status !== 'DRAFT') throw new BadRequestException('Only DRAFT adjustments can be modified');
+    const line = await this.prisma.inventoryAdjustmentLine.findUnique({ where: { id: lineId } });
+    if (!line || line.adjustmentId !== id) throw new NotFoundException('Adjustment line not found');
+
+    const updateData: any = { ...dto };
+    if (dto.countedQty !== undefined || dto.systemQty !== undefined) {
+      const sysQty = dto.systemQty ?? line.systemQty;
+      const cntQty = dto.countedQty ?? line.countedQty;
+      updateData.differenceQty = cntQty - sysQty;
+    }
+
+    const updated = await this.prisma.inventoryAdjustmentLine.update({
+      where: { id: lineId }, data: updateData,
+      include: { product: { select: { id: true, name: true, code: true } } },
+    });
+    await this.audit.log(userId, 'UPDATE_LINE', 'InventoryAdjustment', id, { lineId });
+    return updated;
+  }
+
+  async removeLine(id: string, lineId: string, userId: string) {
+    const adj = await this.findOne(id);
+    if (adj.status !== 'DRAFT') throw new BadRequestException('Only DRAFT adjustments can be modified');
+    const line = await this.prisma.inventoryAdjustmentLine.findUnique({ where: { id: lineId } });
+    if (!line || line.adjustmentId !== id) throw new NotFoundException('Adjustment line not found');
+
+    await this.prisma.inventoryAdjustmentLine.delete({ where: { id: lineId } });
+    await this.audit.log(userId, 'REMOVE_LINE', 'InventoryAdjustment', id, { lineId });
+    return { message: 'Line removed successfully' };
+  }
+
+  async summary(id: string) {
+    const adj = await this.findOne(id);
+    const lines = await this.prisma.inventoryAdjustmentLine.findMany({
+      where: { adjustmentId: id },
+      select: { systemQty: true, countedQty: true, differenceQty: true },
+    });
+    const totalPosDiff = lines.filter(l => l.differenceQty > 0).reduce((s, l) => s + l.differenceQty, 0);
+    const totalNegDiff = lines.filter(l => l.differenceQty < 0).reduce((s, l) => s + l.differenceQty, 0);
+    return {
+      adjustmentId: id, adjustmentNumber: adj.adjustmentNumber, status: adj.status,
+      lineCount: lines.length, totalPositiveDifference: totalPosDiff, totalNegativeDifference: totalNegDiff,
+    };
   }
 
   private async getOrCreateBalance(tx: any, warehouseId: string, productId: string, locationId: string | null | undefined) {
