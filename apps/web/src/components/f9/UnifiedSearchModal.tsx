@@ -97,6 +97,13 @@ export function UnifiedSearchModal({ open, onClose }: UnifiedSearchModalProps) {
   const navigateTo = useCallback((item: any, entity: UnifiedSearchEntity) => {
     const route = entity.detailRoute(item);
     if (route) {
+      try {
+        const key = 'atsoft_recent_searches';
+        const raw = localStorage.getItem(key);
+        const recent = raw ? JSON.parse(raw) : [];
+        recent.unshift({ query: entity.labelKey, entityType: entity.entityType, timestamp: Date.now() });
+        localStorage.setItem(key, JSON.stringify(recent.slice(0, 20)));
+      } catch { /* ignore */ }
       onClose();
       router.push(route);
     }

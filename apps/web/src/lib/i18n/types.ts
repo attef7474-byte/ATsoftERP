@@ -41,7 +41,8 @@ export type TranslationNamespace =
   | 'loginHistory'
   | 'maintenanceDashboard'
   | 'preventiveMaintenance'
-  | 'downtimeAnalysis';
+  | 'downtimeAnalysis'
+  | 'search';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

@@ -36,6 +36,7 @@ import { BarcodesModule } from './modules/barcodes/barcodes.module'
 import { SystemSettingsModule } from './modules/settings/system-settings/system-settings.module'
 import { NumberingModule } from './modules/numbering/numbering.module'
 import { NotificationsModule } from './modules/notifications/notifications.module'
+import { SearchModule } from './modules/search/search.module'
 import { ReportsModule } from './modules/reports/reports.module'
 import { DashboardModule } from './modules/dashboard/dashboard.module'
 import { AlertsModule } from './modules/alerts/alerts.module'
@@ -59,8 +60,8 @@ import { AttachmentsModule } from './modules/documents/attachments/attachments.m
     MaintenanceDashboardModule, PreventiveMaintenanceModule,
     InventoryCountsModule, InventoryCountLinesModule, InventoryMovementsModule,
     InventoryAdjustmentsModule, InventoryBalancesModule,
-    BusinessPartnersModule, BarcodesModule,
-    SystemSettingsModule, NumberingModule, NotificationsModule, ReportsModule,
+    BusinessPartnersModule,     BarcodesModule,
+    SystemSettingsModule, NumberingModule, NotificationsModule, ReportsModule, SearchModule,
     DashboardModule, AlertsModule,
     CompanyProfileModule, LanguageModule, AppearanceModule, SecurityModule, NotificationRulesModule,
     AttachmentsModule,

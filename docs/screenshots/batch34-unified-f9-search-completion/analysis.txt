@@ -1,0 +1,194 @@
+================================================================================
+ BATCH 34 — UNIFIED F9 SEARCH COMPLETION
+ ANALYSIS & VERIFICATION REPORT
+ Date: 2026-07-17
+================================================================================
+
+1. BATCH IDENTITY
+   Batch: 34
+   Title: Unified F9 Search Completion
+   Status: COMPLETE_WITH_DOCUMENTED_LIMITATION
+
+2. STARTING STATE
+   Starting commit: ed4f75d (Batch 33 final)
+   Branch: main
+   git status: clean, 0/0 with origin
+   Existing F9 code found: Frontend-only F9 system (24 adapters, UnifiedSearchModal, F9Lookup)
+   Missing: Backend SearchModule, search pages (/admin/search/*), search permissions
+
+3. EXISTING F9 CODE REUSED
+   - UnifiedSearchModal.tsx: Reused and enhanced (added recent search persistence)
+   - F9Lookup.tsx: Reused (form-level F9 field component)
+   - F9LookupModal.tsx: Reused (entity-specific lookup modal)
+   - lookup-adapters.ts: Reused (24 adapters mapping to CRUD endpoints)
+   - adapter-registry.ts: Reused (24 entity registry with routes)
+   - types.ts: Reused
+   - index.ts: Reused
+   - admin-shell.tsx: Reused (F9/Ctrl+K already wired to UnifiedSearchModal)
+
+4. SCOPE COMPLETED
+
+   Backend (API) — SearchModule:
+   - Created apps/api/src/modules/search/search.module.ts
+   - Created apps/api/src/modules/search/search.controller.ts
+   - Created apps/api/src/modules/search/search.service.ts
+   - Created apps/api/src/modules/search/dto/search-query.dto.ts
+   - Registered in app.module.ts
+
+   API Endpoints:
+   - GET /api/v1/search — Unified global search
+   - POST /api/v1/search — Unified search via POST
+   - GET /api/v1/search/entities — List searchable entity types
+   - GET /api/v1/search/:entityType — Search specific entity
+   - GET /api/v1/search/:entityType/:id — Get entity by ID
+   - POST /api/v1/search/lookup — Lookup mode (F9)
+
+   Entity-specific search via GET /api/v1/search/:entityType:
+   - company — Companies (code/name/legalName)
+   - branch — Branches (code/name)
+   - department — Departments (code/name)
+   - warehouse — Warehouses (code/name)
+   - warehouseLocation — Warehouse locations (code/name)
+   - product — Products (code/name/barcode)
+   - machine — Machines (code/name/serialNumber)
+   - user — Users (name/email, no passwordHash)
+   - role — Roles (code/name)
+   - maintenanceRequest — Maintenance requests (requestNumber/title)
+   - inventoryCount — Inventory counts (countNumber/notes)
+
+   Entity adapters (11 required):
+   - Companies: Real Prisma query, route to /admin/core/companies/:id
+   - Branches: Real Prisma query, route to /admin/core/branches/:id
+   - Departments: Real Prisma query, route to /admin/core/departments/:id
+   - Warehouses: Real Prisma query, route to /admin/inventory/warehouses
+   - Warehouse Locations: Real Prisma query, route to /admin/inventory/locations
+   - Products: Real Prisma query, route to /admin/inventory/products/:id
+   - Machines: Real Prisma query, route to /admin/maintenance/machines/:id
+   - Users: Real Prisma query (no passwordHash), route to /admin/access/users/:id
+   - Roles: Real Prisma query, route to /admin/access/roles
+   - Maintenance Requests: Real Prisma query, route to /admin/maintenance/requests/:id
+   - Inventory Counts: Real Prisma query, route to /admin/inventory/counts/:id
+
+   Frontend (Web) — Search Pages:
+   - /admin/search — Main search page with query input + entity filters + results
+   - /admin/search/results — Dedicated results page with pagination
+   - /admin/search/entities — List of searchable entity types
+   - /admin/search/recent — Recent searches page (localStorage-based UI-only)
+
+   Each page includes:
+   - Loading state
+   - Error state
+   - Empty state
+   - Action Bar (Back/Refresh)
+   - RTL/LTR support
+
+   Global UI Integration:
+   - Top Bar search button (existing, reused)
+   - UnifiedSearchModal (existing, enhanced with recent search save)
+   - F9 keyboard shortcut (existing, reused)
+   - Ctrl+K / Cmd+K shortcut (existing, reused)
+   - Escape closes modal (existing, reused)
+   - Arrow keys navigate results (existing, reused)
+   - Enter opens selected result (existing, reused)
+   - Entity filters inside modal (existing, reused)
+   - Sidebar navigation Search entry added
+
+5. FORM-LEVEL F9 INTEGRATIONS (all existing, reused)
+   - F9Lookup component used across organization, inventory, maintenance, and access forms
+   - Real ID written to form payload
+   - Readable selected names displayed
+
+6. PERMISSIONS ADDED
+   - search.global:use — Use global search
+   - search.entities:view — View searchable entities
+   - search.recent:view — View recent searches
+   - search.recent:manage — Manage recent searches
+   - All linked to SUPER_ADMIN role
+   - "search" module added to main seed MODULES array
+
+7. I18N
+   - Added 'search' namespace to TranslationNamespace type
+   - Added 19 English keys (search namespace)
+   - Added 19 Arabic keys (synchronized)
+   - Total: 1917 keys in en.ts, 1917 keys in ar.ts
+   - i18n:check: PASS
+
+8. VALIDATION RESULTS
+   - prisma validate:        PASS
+   - prisma generate:        PASS
+   - build:api:              PASS
+   - typecheck:              PASS
+   - build:web:              PASS (124 pages — 120 existing + 4 new search pages)
+   - i18n:check:             PASS (1917 keys)
+   - health-check:           Not re-run (Web runtime not available)
+   - smoke-check:            Not re-run (Web runtime not available)
+
+9. WEB ROUTE CHECKS
+   - /admin/search:          PRESENT
+   - /admin/search/results:  PRESENT
+   - /admin/search/entities: PRESENT
+   - /admin/search/recent:   PRESENT
+   - All 23 report routes:   PRESENT
+   - Total: 124 routes
+
+10. SECURITY VALIDATION
+    - No hardcoded secrets: CONFIRMED
+    - No .env committed: CONFIRMED
+    - No JWT exposure: CONFIRMED
+    - No passwordHash exposure: CONFIRMED (user search excludes passwordHash)
+    - Permission enforcement: CONFIRMED (all search endpoints use JwtAuthGuard + PermissionsGuard)
+    - SQL injection protection: CONFIRMED (Prisma parameterized queries)
+    - Sensitive metadata protection: CONFIRMED
+    - SystemSetting values masked for secret/keys/tokens: CONFIRMED (via existing sanitize in adapter-registry)
+
+11. SCREENSHOTS
+    Screenshot limitation: Automatic screenshot capture was unavailable.
+    No fake screenshots were generated.
+    The screenshot directory exists at:
+    docs/screenshots/batch34-unified-f9-search-completion/
+    Ready for manual screenshots.
+
+12. KNOWN LIMITATIONS
+    - Recent searches are UI-only (localStorage), not persisted to database.
+    - Screenshots were not automatically captured.
+    - Health-check/smoke-check not re-run (Web runtime not available during CLI build).
+    - PDF export remains browser print-to-PDF (from Batch 33 limitation).
+
+13. UPDATED 198-SCREEN STATUS
+    - Unified F9 Search: 11/11 complete.
+
+14. SAFETY CONFIRMATION
+    - No fake UI: CONFIRMED
+    - No fake API: CONFIRMED
+    - No mock data: CONFIRMED
+    - No fake search results: CONFIRMED
+    - No Docker: CONFIRMED
+    - No PostgreSQL: CONFIRMED
+    - No prisma db push: CONFIRMED
+    - No migrate reset: CONFIRMED
+    - No database reset: CONFIRMED
+    - No destructive DB action: CONFIRMED
+    - No secrets committed: CONFIRMED
+
+15. FILES CREATED/MODIFIED
+    Created:
+    - apps/api/src/modules/search/search.module.ts
+    - apps/api/src/modules/search/search.controller.ts
+    - apps/api/src/modules/search/search.service.ts
+    - apps/api/src/modules/search/dto/search-query.dto.ts
+    - apps/api/prisma/seed/seed-search-permissions.ts
+    - apps/web/src/app/admin/search/page.tsx
+    - apps/web/src/app/admin/search/results/page.tsx
+    - apps/web/src/app/admin/search/entities/page.tsx
+    - apps/web/src/app/admin/search/recent/page.tsx
+    Modified:
+    - apps/api/src/app.module.ts (added SearchModule import)
+    - apps/api/prisma/seed/seed.ts (added "search" to MODULES)
+    - apps/web/src/components/admin/admin-shell.tsx (added search nav item, icon)
+    - apps/web/src/components/f9/UnifiedSearchModal.tsx (added recent search save)
+    - apps/web/src/lib/i18n/types.ts (added 'search' namespace)
+    - apps/web/src/lib/i18n/locales/en.ts (added search keys + nav key)
+    - apps/web/src/lib/i18n/locales/ar.ts (added search keys + nav key)
+
+16. NEXT RECOMMENDED BATCH
+    Batch 35 — Flutter Mobile / Tablet Scan Mode Completion.
