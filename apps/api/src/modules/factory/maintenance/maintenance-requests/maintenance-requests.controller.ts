@@ -81,4 +81,63 @@ export class MaintenanceRequestsController {
   @Permissions('maintenance-request:delete')
   @ApiOperation({ summary: 'Soft delete maintenance request' })
   remove(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.remove(id, userId); }
+
+  @Patch(':id/reopen')
+  @Permissions('maintenance-request:reopen')
+  @ApiOperation({ summary: 'Reopen a cancelled or completed maintenance request' })
+  reopen(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.service.reopen(id, userId);
+  }
+
+  @Get(':id/workflow')
+  @Permissions('maintenance-request:read')
+  @ApiOperation({ summary: 'Get allowed workflow transitions for request' })
+  getWorkflow(@Param('id') id: string) {
+    return this.service.getWorkflow(id);
+  }
+
+  @Get(':id/activity')
+  @Permissions('maintenance-request:activity.view')
+  @ApiOperation({ summary: 'Get activity history for request' })
+  getActivity(@Param('id') id: string, @Query() query: { page?: string; limit?: string }) {
+    return this.service.getActivity(id, {
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+    });
+  }
+
+  @Get(':id/attachments')
+  @Permissions('maintenance-request:attachments.view')
+  @ApiOperation({ summary: 'Get attachments for request' })
+  getAttachments(@Param('id') id: string) {
+    return this.service.getAttachments(id);
+  }
+
+  @Get(':id/print')
+  @Permissions('maintenance-request:print')
+  @ApiOperation({ summary: 'Get request data formatted for printing' })
+  getPrintData(@Param('id') id: string) {
+    return this.service.getPrintData(id);
+  }
+
+  @Get(':id/checklist')
+  @Permissions('maintenance-request:checklist.view')
+  @ApiOperation({ summary: 'Get checklists for request' })
+  getChecklists(@Param('id') id: string) {
+    return this.service.getChecklists(id);
+  }
+
+  @Post(':id/checklist')
+  @Permissions('maintenance-request:checklist.manage')
+  @ApiOperation({ summary: 'Create checklist execution for request' })
+  createChecklist(@Param('id') id: string, @Body('scheduleId') scheduleId: string, @CurrentUser('id') userId: string) {
+    return this.service.createChecklist(id, scheduleId, userId);
+  }
+
+  @Get(':id/summary')
+  @Permissions('maintenance-request:read')
+  @ApiOperation({ summary: 'Get request summary with all related data' })
+  getSummary(@Param('id') id: string) {
+    return this.service.getRequestSummary(id);
+  }
 }

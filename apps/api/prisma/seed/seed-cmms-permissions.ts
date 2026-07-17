@@ -68,6 +68,46 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "downtime-log:delete", module: "downtime-log", action: "delete" },
   { key: "downtime-log:close", module: "downtime-log", action: "close" },
   { key: "downtime-log:cancel", module: "downtime-log", action: "cancel" },
+  // maintenance-dashboard (Batch 31)
+  { key: "maintenance-dashboard:summary", module: "maintenance-dashboard", action: "summary" },
+  { key: "maintenance-dashboard:openRequests", module: "maintenance-dashboard", action: "openRequests" },
+  { key: "maintenance-dashboard:overdueTasks", module: "maintenance-dashboard", action: "overdueTasks" },
+  { key: "maintenance-dashboard:upcomingPM", module: "maintenance-dashboard", action: "upcomingPM" },
+  { key: "maintenance-dashboard:currentDowntime", module: "maintenance-dashboard", action: "currentDowntime" },
+  { key: "maintenance-dashboard:recentActivity", module: "maintenance-dashboard", action: "recentActivity" },
+  { key: "maintenance-dashboard:costSummary", module: "maintenance-dashboard", action: "costSummary" },
+  { key: "maintenance-dashboard:partsUsage", module: "maintenance-dashboard", action: "partsUsage" },
+  // maintenance-request extensions (Batch 31)
+  { key: "maintenance-request:reopen", module: "maintenance-request", action: "reopen" },
+  { key: "maintenance-request:workflow", module: "maintenance-request", action: "workflow" },
+  { key: "maintenance-request:activity", module: "maintenance-request", action: "activity" },
+  { key: "maintenance-request:attachments", module: "maintenance-request", action: "attachments" },
+  { key: "maintenance-request:printData", module: "maintenance-request", action: "printData" },
+  { key: "maintenance-request:checklist", module: "maintenance-request", action: "checklist" },
+  { key: "maintenance-request:createChecklist", module: "maintenance-request", action: "createChecklist" },
+  { key: "maintenance-request:summary", module: "maintenance-request", action: "summary" },
+  // maintenance-task extensions (Batch 31)
+  { key: "maintenance-task:assign", module: "maintenance-task", action: "assign" },
+  { key: "maintenance-task:myTasks", module: "maintenance-task", action: "myTasks" },
+  { key: "maintenance-task:byRequest", module: "maintenance-task", action: "byRequest" },
+  { key: "maintenance-task:overdue", module: "maintenance-task", action: "overdue" },
+  // maintenance-schedule extensions (Batch 31)
+  { key: "maintenance-schedule:execute", module: "maintenance-schedule", action: "execute" },
+  { key: "maintenance-schedule:history", module: "maintenance-schedule", action: "history" },
+  // preventive-maintenance (Batch 31)
+  { key: "preventive-maintenance:upcoming", module: "preventive-maintenance", action: "upcoming" },
+  { key: "preventive-maintenance:overdue", module: "preventive-maintenance", action: "overdue" },
+  { key: "preventive-maintenance:calendar", module: "preventive-maintenance", action: "calendar" },
+  { key: "preventive-maintenance:executionHistory", module: "preventive-maintenance", action: "executionHistory" },
+  { key: "preventive-maintenance:generateDueTasks", module: "preventive-maintenance", action: "generateDueTasks" },
+  // downtime-log extensions (Batch 31)
+  { key: "downtime-log:startDowntime", module: "downtime-log", action: "startDowntime" },
+  { key: "downtime-log:endDowntime", module: "downtime-log", action: "endDowntime" },
+  { key: "downtime-log:classify", module: "downtime-log", action: "classify" },
+  { key: "downtime-log:current", module: "downtime-log", action: "current" },
+  { key: "downtime-log:analysis", module: "downtime-log", action: "analysis" },
+  { key: "downtime-log:byMachine", module: "downtime-log", action: "byMachine" },
+  { key: "downtime-log:logSummary", module: "downtime-log", action: "logSummary" },
 ];
 
 async function main() {

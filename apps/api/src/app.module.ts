@@ -14,6 +14,7 @@ import { InventoryModule } from './modules/factory/inventory/inventory.module'
 import { MaintenanceModule } from './modules/factory/maintenance/maintenance.module'
 import { AuditModule } from './modules/audit/audit.module'
 import { MachineCategoriesModule } from './modules/factory/maintenance/machine-categories/machine-categories.module'
+import { MaintenanceDashboardModule } from './modules/factory/maintenance/maintenance-dashboard/maintenance-dashboard.module'
 import { MachinePartsModule } from './modules/factory/maintenance/machine-parts/machine-parts.module'
 import { MachineDocumentsModule } from './modules/factory/maintenance/machine-documents/machine-documents.module'
 import { MaintenanceRequestsModule } from './modules/factory/maintenance/maintenance-requests/maintenance-requests.module'
@@ -24,6 +25,7 @@ import { DowntimeLogsModule } from './modules/factory/maintenance/downtime-logs/
 import { MaintenanceRequestPartsModule } from './modules/factory/maintenance/maintenance-request-parts/maintenance-request-parts.module'
 import { MaintenanceRequestCostsModule } from './modules/factory/maintenance/maintenance-request-costs/maintenance-request-costs.module'
 import { MaintenanceChecklistExecutionsModule } from './modules/factory/maintenance/maintenance-checklist-executions/maintenance-checklist-executions.module'
+import { PreventiveMaintenanceModule } from './modules/factory/maintenance/preventive-maintenance/preventive-maintenance.module'
 import { InventoryCountsModule } from './modules/factory/inventory-counts/inventory-counts.module'
 import { InventoryCountLinesModule } from './modules/factory/inventory-count-lines/inventory-count-lines.module'
 import { InventoryMovementsModule } from './modules/factory/inventory-movements/inventory-movements.module'
@@ -54,6 +56,7 @@ import { AttachmentsModule } from './modules/documents/attachments/attachments.m
     MaintenanceRequestsModule, MaintenanceTasksModule, MaintenanceSchedulesModule,
     MaintenanceChecklistItemsModule, DowntimeLogsModule,
     MaintenanceRequestPartsModule, MaintenanceRequestCostsModule, MaintenanceChecklistExecutionsModule,
+    MaintenanceDashboardModule, PreventiveMaintenanceModule,
     InventoryCountsModule, InventoryCountLinesModule, InventoryMovementsModule,
     InventoryAdjustmentsModule, InventoryBalancesModule,
     BusinessPartnersModule, BarcodesModule,

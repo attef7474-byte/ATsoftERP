@@ -38,6 +38,23 @@ export class MaintenanceSchedulesController {
     });
   }
 
+  @Post(':id/execute')
+  @Permissions('maintenance-schedule:execute')
+  @ApiOperation({ summary: 'Execute maintenance schedule (create checklist execution)' })
+  execute(@Param('id') id: string, @Body('requestId') requestId: string, @CurrentUser('sub') userId: string) {
+    return this.service.execute(id, requestId, userId);
+  }
+
+  @Get(':id/history')
+  @Permissions('maintenance-schedule:history.view')
+  @ApiOperation({ summary: 'Get execution history for a schedule' })
+  getHistory(@Param('id') id: string, @Query() query: { page?: string; limit?: string }) {
+    return this.service.getHistory(id, {
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+    });
+  }
+
   @Get(':id')
   @Permissions('maintenance-schedule:read')
   @ApiOperation({ summary: 'Get maintenance schedule by ID' })

@@ -41,6 +41,61 @@ export class DowntimeLogsController {
     });
   }
 
+  @Post('start')
+  @Permissions('downtime-log:start')
+  @ApiOperation({ summary: 'Start a new downtime log' })
+  start(@Body('machineId') machineId: string, @Body('reason') reason: string, @CurrentUser('sub') userId: string) {
+    return this.service.startDowntime(machineId, reason, userId);
+  }
+
+  @Get('current')
+  @Permissions('downtime-log:current.view')
+  @ApiOperation({ summary: 'Get current active downtime logs' })
+  getCurrent(@Query() query: { page?: string; limit?: string }) {
+    return this.service.getCurrent({
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+    });
+  }
+
+  @Get('analysis')
+  @Permissions('downtime-log:analysis.view')
+  @ApiOperation({ summary: 'Get downtime analysis' })
+  getAnalysis(@Query() query: { dateFrom?: string; dateTo?: string; machineId?: string }) {
+    return this.service.getAnalysis(query);
+  }
+
+  @Get('by-machine/:machineId')
+  @Permissions('downtime-log:byMachine.view')
+  @ApiOperation({ summary: 'Get downtime logs by machine' })
+  getByMachine(@Param('machineId') machineId: string, @Query() query: { page?: string; limit?: string }) {
+    return this.service.getByMachine(machineId, {
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+    });
+  }
+
+  @Get(':id/summary')
+  @Permissions('downtime-log:read')
+  @ApiOperation({ summary: 'Get downtime log summary' })
+  getLogSummary(@Param('id') id: string) {
+    return this.service.getLogSummary(id);
+  }
+
+  @Patch(':id/end')
+  @Permissions('downtime-log:end')
+  @ApiOperation({ summary: 'End an active downtime log' })
+  end(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+    return this.service.endDowntime(id, userId);
+  }
+
+  @Patch(':id/classify')
+  @Permissions('downtime-log:classify')
+  @ApiOperation({ summary: 'Classify/categorize downtime cause' })
+  classify(@Param('id') id: string, @Body('reason') reason: string, @Body('category') category: string, @CurrentUser('sub') userId: string) {
+    return this.service.classify(id, reason, category, userId);
+  }
+
   @Get(':id')
   @Permissions('downtime-log:read')
   @ApiOperation({ summary: 'Get downtime log by ID' })

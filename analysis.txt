@@ -1,0 +1,63 @@
+Batch 31 — Maintenance Dashboard and Full Maintenance Workflow Completion
+=========================================================================
+
+Summary
+-------
+This batch completes the CMMS (Computerized Maintenance Management System) 
+module by adding:
+1. A full maintenance dashboard with 8 KPI views
+2. Extension endpoints for requests, tasks, schedules, and downtime logs
+3. A new preventive maintenance module
+4. 30+ frontend pages covering all workflow states
+
+Backend Changes
+---------------
+New Modules:
+- MaintenanceDashboardModule (controller + service): 8 aggregate KPI endpoints
+- PreventiveMaintenanceModule (controller + service): 5 endpoints (upcoming, 
+  overdue, calendar, execution-history, generate-due-tasks)
+
+Extended Controllers/Services:
+- MaintenanceRequestsController/Service: reopen, workflow, activity, 
+  attachments, print, checklists, summary (+7 endpoints)
+- MaintenanceTasksController/Service: myTasks, byRequest, overdue, 
+  assignTask (+4 endpoints)
+- MaintenanceSchedulesController/Service: execute, getHistory (+2 endpoints)
+- DowntimeLogsController/Service: startDowntime, endDowntime, classify, 
+  current, analysis, byMachine, logSummary (+7 endpoints)
+
+Schema/Permissions:
+- Added 37 new permission entries to seed-cmms-permissions.ts 
+  (dashboard 8, request 8, task 4, schedule 2, preventive 5, downtime 6)
+- All registered in app.module.ts
+
+Frontend Changes
+----------------
+New Pages (30+):
+- Dashboard: summary KPI cards + 7 sub-section list pages
+- Requests: checklist, attachments, activity, print, workflow (+5 sub-pages)
+- Tasks: new, [id]/detail, [id]/edit, [id]/assign, [id]/complete, my-tasks 
+  (+6 pages)
+- Schedules: [id]/detail, schedules/new, [id]/execute, [id]/history 
+  (+4 pages, detail newly created)
+- Preventive: upcoming, overdue, calendar, execution-history 
+  (+4 pages)
+- Downtime: [id]/detail, current, analysis, by-machine/[machineId] 
+  (+4 pages)
+
+i18n:
+- Added 3 new namespaces: maintenanceDashboard (explicit keys), 
+  preventiveMaintenance, downtimeAnalysis
+
+Verification
+------------
+- Prisma schema: validated
+- API build: passed (tsc)
+- Typecheck: passed (tsc --noEmit)
+- Web build: passed (next build, 93 static pages)
+- i18n check: passed (1747 keys in en + ar, fully synchronized)
+- Routes verified via build output
+
+Commit
+------
+atsoft-erp-batch31-maintenance-dashboard-full-workflow-completion

@@ -143,4 +143,80 @@ export class MaintenanceTasksService {
       { status: task.status });
     return { message: 'Maintenance task deleted successfully' };
   }
+
+  async myTasks(userId: string, query: { page?: number; limit?: number; status?: string }) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const where: any = { assignedToId: userId };
+    if (query.status) where.status = query.status;
+
+    const [data, total] = await Promise.all([
+      this.prisma.maintenanceTask.findMany({
+        where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' },
+        include: {
+          request: { select: { id: true, requestNumber: true, title: true, status: true } },
+          assignedTo: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      this.prisma.maintenanceTask.count({ where }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async byRequest(requestId: string, query: { page?: number; limit?: number }) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const where = { requestId };
+
+    const [data, total] = await Promise.all([
+      this.prisma.maintenanceTask.findMany({
+        where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' },
+        include: {
+          assignedTo: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      this.prisma.maintenanceTask.count({ where }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async overdue(query: { page?: number; limit?: number }) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const now = new Date();
+    // Tasks that are overdue: PENDING or IN_PROGRESS tasks where the request's endDate has passed
+    const where = {
+      status: { in: ['PENDING', 'IN_PROGRESS'] },
+      request: { endDate: { lt: now }, deletedAt: null },
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.maintenanceTask.findMany({
+        where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'asc' },
+        include: {
+          request: { select: { id: true, requestNumber: true, title: true, status: true, endDate: true } },
+          assignedTo: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      this.prisma.maintenanceTask.count({ where }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async assignTask(id: string, assignedToId: string, userId: string) {
+    const task = await this.findOne(id);
+    if (task.status === 'DONE' || task.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot assign completed or cancelled tasks');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: assignedToId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const updated = await this.prisma.maintenanceTask.update({
+      where: { id },
+      data: { assignedToId },
+    });
+    await this.audit.log(userId, 'ASSIGN', 'MaintenanceTask', id,
+      { assignedToId, oldAssignedToId: task.assignedToId });
+    return updated;
+  }
 }

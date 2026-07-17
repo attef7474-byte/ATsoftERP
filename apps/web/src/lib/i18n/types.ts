@@ -38,7 +38,10 @@ export type TranslationNamespace =
   | 'notificationRules'
   | 'attachments'
   | 'userActivity'
-  | 'loginHistory';
+  | 'loginHistory'
+  | 'maintenanceDashboard'
+  | 'preventiveMaintenance'
+  | 'downtimeAnalysis';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

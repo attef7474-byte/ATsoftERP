@@ -39,6 +39,44 @@ export class MaintenanceTasksController {
     });
   }
 
+  @Get('my-tasks')
+  @Permissions('maintenance-task:myTasks.view')
+  @ApiOperation({ summary: 'Get my assigned tasks' })
+  myTasks(@CurrentUser('id') userId: string, @Query() query: { page?: string; limit?: string; status?: string }) {
+    return this.service.myTasks(userId, {
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+      status: query.status,
+    });
+  }
+
+  @Get('by-request/:requestId')
+  @Permissions('maintenance-task:read')
+  @ApiOperation({ summary: 'Get tasks by request ID' })
+  byRequest(@Param('requestId') requestId: string, @Query() query: { page?: string; limit?: string }) {
+    return this.service.byRequest(requestId, {
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+    });
+  }
+
+  @Get('overdue')
+  @Permissions('maintenance-task:overdue.view')
+  @ApiOperation({ summary: 'Get overdue tasks' })
+  overdue(@Query() query: { page?: string; limit?: string }) {
+    return this.service.overdue({
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+    });
+  }
+
+  @Patch(':id/assign')
+  @Permissions('maintenance-task:assign')
+  @ApiOperation({ summary: 'Assign maintenance task' })
+  assign(@Param('id') id: string, @Body('assignedToId') assignedToId: string, @CurrentUser('id') userId: string) {
+    return this.service.assignTask(id, assignedToId, userId);
+  }
+
   @Get(':id')
   @Permissions('maintenance-task:read')
   @ApiOperation({ summary: 'Get maintenance task by ID' })

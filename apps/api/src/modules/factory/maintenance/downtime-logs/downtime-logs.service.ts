@@ -177,4 +177,153 @@ export class DowntimeLogsService {
       { status: existing.cancelledAt ? 'CANCELLED' : 'CLOSED' });
     return { message: 'Downtime log deleted successfully' };
   }
+
+  async startDowntime(machineId: string, reason: string, userId: string) {
+    const machine = await this.prisma.machine.findUnique({ where: { id: machineId } });
+    if (!machine) throw new NotFoundException('Machine not found');
+
+    const activeDowntime = await this.prisma.downtimeLog.findFirst({
+      where: { machineId, endTime: null, cancelledAt: null },
+    });
+    if (activeDowntime) {
+      throw new BadRequestException('Machine already has an active downtime log');
+    }
+
+    const log = await this.prisma.downtimeLog.create({
+      data: { machineId, reason, startTime: new Date() },
+    });
+    await this.audit.log(userId, 'START', 'DowntimeLog', log.id,
+      { machineId, reason });
+    return { ...log, status: 'ACTIVE' };
+  }
+
+  async getCurrent(query: { page?: number; limit?: number }) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const where = { endTime: null, cancelledAt: null };
+
+    const [data, total] = await Promise.all([
+      this.prisma.downtimeLog.findMany({
+        where, skip: (page - 1) * limit, take: limit, orderBy: { startTime: 'desc' },
+        include: {
+          machine: { select: { id: true, code: true, name: true, status: true } },
+          request: { select: { id: true, requestNumber: true, title: true } },
+        },
+      }),
+      this.prisma.downtimeLog.count({ where }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async getAnalysis(query: { dateFrom?: string; dateTo?: string; machineId?: string }) {
+    const where: any = { cancelledAt: null };
+    if (query.machineId) where.machineId = query.machineId;
+    if (query.dateFrom || query.dateTo) {
+      where.startTime = {};
+      if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
+      if (query.dateTo) where.startTime.lte = new Date(query.dateTo);
+    }
+
+    const [totalLogs, totalDuration, byMachine, byReason, recentLogs] = await Promise.all([
+      this.prisma.downtimeLog.count({ where }),
+      this.prisma.downtimeLog.aggregate({ where, _sum: { durationMinutes: true } }),
+      this.prisma.downtimeLog.groupBy({
+        by: ['machineId'],
+        where,
+        _sum: { durationMinutes: true },
+        _count: true,
+        orderBy: { _sum: { durationMinutes: 'desc' } },
+        take: 10,
+      }),
+      this.prisma.downtimeLog.groupBy({
+        by: ['reason'],
+        where,
+        _sum: { durationMinutes: true },
+        _count: true,
+        orderBy: { _sum: { durationMinutes: 'desc' } },
+        take: 10,
+      }),
+      this.prisma.downtimeLog.findMany({
+        where, orderBy: { startTime: 'desc' }, take: 20,
+        include: { machine: { select: { id: true, name: true, code: true } } },
+      }),
+    ]);
+
+    return {
+      totalLogs,
+      totalDurationMinutes: totalDuration._sum.durationMinutes || 0,
+      totalDurationHours: (totalDuration._sum.durationMinutes || 0) / 60,
+      byMachine: byMachine.map(m => ({ machineId: m.machineId, count: m._count, totalMinutes: m._sum.durationMinutes || 0 })),
+      byReason: byReason.map(r => ({ reason: r.reason, count: r._count, totalMinutes: r._sum.durationMinutes || 0 })),
+      recentLogs,
+    };
+  }
+
+  async getByMachine(machineId: string, query: { page?: number; limit?: number }) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const where = { machineId };
+
+    const [data, total] = await Promise.all([
+      this.prisma.downtimeLog.findMany({
+        where, skip: (page - 1) * limit, take: limit, orderBy: { startTime: 'desc' },
+        include: {
+          machine: { select: { id: true, code: true, name: true } },
+          request: { select: { id: true, requestNumber: true, title: true } },
+        },
+      }),
+      this.prisma.downtimeLog.count({ where }),
+    ]);
+
+    const enriched = data.map((log: any) => ({
+      ...log,
+      status: log.cancelledAt ? 'CANCELLED' : log.endTime ? 'CLOSED' : 'ACTIVE',
+      durationHours: log.durationMinutes ? log.durationMinutes / 60 : null,
+    }));
+
+    return { data: enriched, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async getLogSummary(id: string) {
+    const log = await this.findOne(id);
+    const relatedRequests = log.requestId
+      ? await this.prisma.maintenanceRequest.findUnique({
+          where: { id: log.requestId },
+          select: { id: true, requestNumber: true, title: true, status: true },
+        })
+      : null;
+    return { ...log, relatedRequest: relatedRequests };
+  }
+
+  async endDowntime(id: string, userId: string) {
+    const existing = await this.findOne(id);
+    if (existing.endTime) throw new BadRequestException('Downtime log is already ended');
+    if (existing.cancelledAt) throw new BadRequestException('Cannot end a cancelled downtime log');
+
+    const now = new Date();
+    const durationMinutes = (now.getTime() - new Date(existing.startTime).getTime()) / 60000;
+
+    const log = await this.prisma.downtimeLog.update({
+      where: { id },
+      data: { endTime: now, durationMinutes },
+    });
+    await this.audit.log(userId, 'END', 'DowntimeLog', id,
+      { machineId: existing.machineId, durationMinutes });
+    return { ...log, status: 'CLOSED', durationHours: durationMinutes / 60 };
+  }
+
+  async classify(id: string, reason: string, category: string | undefined, userId: string) {
+    const existing = await this.findOne(id);
+    const data: any = {};
+    if (reason) data.reason = reason;
+    if (category) data.notes = category;
+
+    const log = await this.prisma.downtimeLog.update({
+      where: { id },
+      data,
+    });
+    await this.audit.log(userId, 'CLASSIFY', 'DowntimeLog', id,
+      { machineId: existing.machineId, reason, category });
+    return log;
+  }
 }

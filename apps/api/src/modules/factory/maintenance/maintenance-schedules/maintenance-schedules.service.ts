@@ -134,4 +134,54 @@ export class MaintenanceSchedulesService {
       { status: schedule.status });
     return { message: 'Maintenance schedule deactivated successfully' };
   }
+
+  async execute(id: string, requestId: string | undefined, userId: string) {
+    const schedule = await this.findOne(id);
+
+    const checklistItems = await this.prisma.maintenanceChecklistItem.findMany({
+      where: { scheduleId: id },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    const execution = await this.prisma.maintenanceChecklistExecution.create({
+      data: {
+        scheduleId: id,
+        requestId: requestId || undefined,
+        status: 'IN_PROGRESS',
+        startedAt: new Date(),
+        completedById: userId,
+        items: {
+          create: checklistItems.map(item => ({
+            checklistItemId: item.id,
+            status: 'PENDING',
+          })),
+        },
+      },
+      include: { items: true },
+    });
+
+    await this.audit.log(userId, 'EXECUTE', 'MaintenanceSchedule', id,
+      { executionId: execution.id, requestId });
+    return execution;
+  }
+
+  async getHistory(id: string, query: { page?: number; limit?: number }) {
+    await this.findOne(id);
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+
+    const [data, total] = await Promise.all([
+      this.prisma.maintenanceChecklistExecution.findMany({
+        where: { scheduleId: id },
+        skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' },
+        include: {
+          request: { select: { id: true, requestNumber: true, title: true } },
+          completedBy: { select: { id: true, name: true } },
+          items: { include: { checklistItem: { select: { id: true, title: true } } } },
+        },
+      }),
+      this.prisma.maintenanceChecklistExecution.count({ where: { scheduleId: id } }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
 }

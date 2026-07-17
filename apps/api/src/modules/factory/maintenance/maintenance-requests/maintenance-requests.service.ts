@@ -282,4 +282,142 @@ export class MaintenanceRequestsService {
       { status: req.status });
     return { message: 'Maintenance request deleted successfully' };
   }
+
+  async reopen(id: string, userId: string) {
+    const req = await this.findOne(id);
+    if (req.status !== 'COMPLETED' && req.status !== 'CANCELLED') {
+      throw new BadRequestException('Only completed or cancelled requests can be reopened');
+    }
+    const updated = await this.prisma.maintenanceRequest.update({
+      where: { id },
+      data: { status: 'OPEN', endDate: null, downtimeHours: null },
+    });
+    await this.audit.log(userId, 'REOPEN', 'MaintenanceRequest', id,
+      { oldStatus: req.status, newStatus: 'OPEN' });
+    return updated;
+  }
+
+  async getWorkflow(id: string) {
+    const req = await this.findOne(id);
+    const transitions: { from: string; to: string; action: string; permission: string }[] = [];
+    switch (req.status) {
+      case 'OPEN':
+        transitions.push({ from: 'OPEN', to: 'IN_PROGRESS', action: 'start', permission: 'maintenance-request:start' });
+        transitions.push({ from: 'OPEN', to: 'CANCELLED', action: 'cancel', permission: 'maintenance-request:cancel' });
+        break;
+      case 'IN_PROGRESS':
+        transitions.push({ from: 'IN_PROGRESS', to: 'COMPLETED', action: 'complete', permission: 'maintenance-request:complete' });
+        transitions.push({ from: 'IN_PROGRESS', to: 'CANCELLED', action: 'cancel', permission: 'maintenance-request:cancel' });
+        break;
+      case 'COMPLETED':
+      case 'CANCELLED':
+        transitions.push({ from: req.status, to: 'OPEN', action: 'reopen', permission: 'maintenance-request:reopen' });
+        break;
+    }
+    return { currentStatus: req.status, transitions };
+  }
+
+  async getActivity(id: string, query: { page?: number; limit?: number }) {
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const [data, total] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where: { entity: 'MaintenanceRequest', entityId: id },
+        skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' },
+        include: { user: { select: { id: true, name: true, email: true } } },
+      }),
+      this.prisma.auditLog.count({ where: { entity: 'MaintenanceRequest', entityId: id } }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async getAttachments(id: string) {
+    await this.findOne(id);
+    return this.prisma.attachment.findMany({
+      where: { entityName: 'MAINTENANCE_REQUEST', entityId: id },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getPrintData(id: string) {
+    const req = await this.findOne(id);
+    const [parts, costs, tasks, downtimes] = await Promise.all([
+      this.prisma.maintenanceRequestPartUsage.findMany({
+        where: { requestId: id },
+        include: { product: { select: { id: true, name: true, code: true } } },
+      }),
+      this.prisma.maintenanceRequestCostEntry.findMany({ where: { requestId: id } }),
+      this.prisma.maintenanceTask.findMany({
+        where: { requestId: id },
+        include: { assignedTo: { select: { id: true, name: true } } },
+      }),
+      this.prisma.downtimeLog.findMany({
+        where: { requestId: id },
+        include: { machine: { select: { id: true, name: true, code: true } } },
+      }),
+    ]);
+    return { ...req, parts, costs, tasks, downtimes };
+  }
+
+  async getChecklists(id: string) {
+    await this.findOne(id);
+    return this.prisma.maintenanceChecklistExecution.findMany({
+      where: { requestId: id },
+      include: {
+        schedule: { select: { id: true, title: true } },
+        completedBy: { select: { id: true, name: true } },
+        items: {
+          include: { checklistItem: { select: { id: true, title: true } } },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createChecklist(id: string, scheduleId: string, userId: string) {
+    await this.findOne(id);
+    const schedule = await this.prisma.maintenanceSchedule.findUnique({ where: { id: scheduleId } });
+    if (!schedule) throw new NotFoundException('Schedule not found');
+
+    const checklistItems = await this.prisma.maintenanceChecklistItem.findMany({
+      where: { scheduleId },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    const execution = await this.prisma.maintenanceChecklistExecution.create({
+      data: {
+        scheduleId,
+        requestId: id,
+        status: 'IN_PROGRESS',
+        startedAt: new Date(),
+        completedById: userId,
+        items: {
+          create: checklistItems.map(item => ({
+            checklistItemId: item.id,
+            status: 'PENDING',
+          })),
+        },
+      },
+      include: { items: true },
+    });
+
+    await this.audit.log(userId, 'CREATE', 'MaintenanceChecklistExecution', execution.id,
+      { requestId: id, scheduleId });
+    return execution;
+  }
+
+  async getRequestSummary(id: string) {
+    const req = await this.findOne(id);
+    const [partsCount, costsCount, tasksCount, downtimeCount, totalCost] = await Promise.all([
+      this.prisma.maintenanceRequestPartUsage.count({ where: { requestId: id } }),
+      this.prisma.maintenanceRequestCostEntry.count({ where: { requestId: id } }),
+      this.prisma.maintenanceTask.count({ where: { requestId: id } }),
+      this.prisma.downtimeLog.count({ where: { requestId: id } }),
+      this.prisma.maintenanceRequestCostEntry.aggregate({ where: { requestId: id }, _sum: { amount: true } }),
+    ]);
+    return {
+      ...req,
+      summary: { partsCount, costsCount, tasksCount, downtimeCount, totalCost: totalCost._sum.amount || 0 },
+    };
+  }
 }
