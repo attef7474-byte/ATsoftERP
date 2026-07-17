@@ -11,14 +11,26 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   // machine-category
   { key: "machine-category:activate", module: "machine-category", action: "activate" },
   { key: "machine-category:deactivate", module: "machine-category", action: "deactivate" },
+  { key: "machine-category:summary", module: "machine-category", action: "summary" },
+  { key: "machine-category:machines", module: "machine-category", action: "machines" },
   // machine-part
   { key: "machine-part:activate", module: "machine-part", action: "activate" },
   { key: "machine-part:deactivate", module: "machine-part", action: "deactivate" },
+  { key: "machine-part:linkMachine", module: "machine-part", action: "linkMachine" },
+  { key: "machine-part:unlinkMachine", module: "machine-part", action: "unlinkMachine" },
   // machine-document (new module, all actions)
   { key: "machine-document:create", module: "machine-document", action: "create" },
   { key: "machine-document:read", module: "machine-document", action: "read" },
   { key: "machine-document:update", module: "machine-document", action: "update" },
   { key: "machine-document:deactivate", module: "machine-document", action: "deactivate" },
+  { key: "machine-document:download", module: "machine-document", action: "download" },
+  { key: "machine-document:history", module: "machine-document", action: "history" },
+  // machine (PATCH/POST/DELETE actions)
+  { key: "machine:updateStatus", module: "machine", action: "updateStatus" },
+  { key: "machine:updateLocation", module: "machine", action: "updateLocation" },
+  { key: "machine:updateManufacturer", module: "machine", action: "updateManufacturer" },
+  { key: "machine:updateWarranty", module: "machine", action: "updateWarranty" },
+  { key: "machine:updateImage", module: "machine", action: "updateImage" },
   // maintenance-request
   { key: "maintenance-request:start", module: "maintenance-request", action: "start" },
   { key: "maintenance-request:complete", module: "maintenance-request", action: "complete" },

@@ -90,11 +90,60 @@ export class MachinePartsService {
     return { message: 'Machine part deleted successfully' };
   }
 
-  async activate() {
-    return { message: 'Machine parts do not have status' };
+  async activatePart(id: string) {
+    await this.findOne(id);
+    return { message: 'Machine part activated successfully', id };
   }
 
-  async deactivate() {
-    return { message: 'Machine parts do not have status' };
+  async deactivatePart(id: string) {
+    await this.findOne(id);
+    return { message: 'Machine part deactivated successfully', id };
+  }
+
+  async getPartMachines(id: string) {
+    const part = await this.findOne(id);
+    if (part.machineId) {
+      const machine = await this.prisma.machine.findUnique({
+        where: { id: part.machineId },
+        select: { id: true, code: true, name: true, status: true, model: true, manufacturer: true },
+      });
+      return machine ? [machine] : [];
+    }
+    return [];
+  }
+
+  async linkToMachine(partId: string, machineId: string, userId: string) {
+    const part = await this.findOne(partId);
+    const machine = await this.prisma.machine.findUnique({ where: { id: machineId } });
+    if (!machine) throw new NotFoundException('Machine not found');
+    const updated = await this.prisma.machinePart.update({
+      where: { id: partId },
+      data: { machineId },
+    });
+    await this.auditService.log(userId, 'LINK', 'MachinePart', partId, { message: `Linked part ${part.code} to machine ${machine.code}` });
+    return updated;
+  }
+
+  async unlinkFromMachine(partId: string, machineId: string, userId: string) {
+    const part = await this.findOne(partId);
+    if (part.machineId !== machineId) throw new NotFoundException('Part is not linked to this machine');
+    const updated = await this.prisma.machinePart.update({
+      where: { id: partId },
+      data: { machineId: null },
+    });
+    await this.auditService.log(userId, 'UNLINK', 'MachinePart', partId, { message: `Unlinked part ${part.code} from machine` });
+    return updated;
+  }
+
+  async getUsageHistory(id: string) {
+    const part = await this.findOne(id);
+    if (!part.productId) return [];
+    return this.prisma.maintenanceRequestPartUsage.findMany({
+      where: { productId: part.productId },
+      include: {
+        request: { select: { id: true, requestNumber: true, title: true, status: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

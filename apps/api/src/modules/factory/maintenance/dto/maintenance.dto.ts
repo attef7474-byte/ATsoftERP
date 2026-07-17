@@ -182,6 +182,51 @@ export class CreateMachinePartDto {
   unit: string;
 }
 
+export class UpdateMachineStatusDto {
+  @ApiProperty({ enum: ['ACTIVE', 'INACTIVE', 'MAINTENANCE', 'OUT_OF_SERVICE'] })
+  @IsString()
+  status: string;
+}
+
+export class UpdateMachineLocationDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  location?: string;
+}
+
+export class UpdateMachineManufacturerDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  manufacturer?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  model?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  serialNumber?: string;
+}
+
+export class UpdateMachineWarrantyDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  purchaseDate?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  warrantyEnd?: string;
+}
+
+export class UpdateMachineImageDto {
+  @ApiProperty()
+  @IsString()
+  image: string;
+}
+
 export class CreateMachineDocumentDto {
   @ApiProperty()
   @IsString()

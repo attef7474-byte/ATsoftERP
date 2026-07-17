@@ -108,4 +108,19 @@ export class MachineCategoriesService {
     await this.auditService.log(userId, 'DEACTIVATE', 'MachineCategory', id);
     return category;
   }
+
+  async categorySummary(id: string) {
+    const category = await this.findOne(id);
+    const machines = await this.prisma.machine.count({ where: { categoryId: id, deletedAt: null } });
+    return { ...category, totalMachines: machines };
+  }
+
+  async categoryMachines(id: string) {
+    await this.findOne(id);
+    return this.prisma.machine.findMany({
+      where: { categoryId: id, deletedAt: null },
+      select: { id: true, code: true, name: true, status: true, model: true, manufacturer: true, location: true, createdAt: true },
+      orderBy: { name: 'asc' },
+    });
+  }
 }

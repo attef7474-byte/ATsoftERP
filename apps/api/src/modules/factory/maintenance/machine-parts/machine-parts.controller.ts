@@ -55,15 +55,35 @@ export class MachinePartsController {
 
   @Patch(':id/activate')
   @Permissions('machine-part:activate')
-  @ApiOperation({ summary: 'Activate machine part (not supported)' })
-  activate() {
-    return this.service.activate();
-  }
+  @ApiOperation({ summary: 'Activate machine part' })
+  activate(@Param('id') id: string) { return this.service.activatePart(id); }
 
   @Patch(':id/deactivate')
   @Permissions('machine-part:deactivate')
-  @ApiOperation({ summary: 'Deactivate machine part (not supported)' })
-  deactivate() {
-    return this.service.deactivate();
+  @ApiOperation({ summary: 'Deactivate machine part' })
+  deactivate(@Param('id') id: string) { return this.service.deactivatePart(id); }
+
+  @Get(':id/machines')
+  @Permissions('machine-part:read')
+  @ApiOperation({ summary: 'Get machines linked to this part' })
+  getPartMachines(@Param('id') id: string) { return this.service.getPartMachines(id); }
+
+  @Post(':id/machines')
+  @Permissions('machine-part:linkMachine')
+  @ApiOperation({ summary: 'Link part to a machine' })
+  linkToMachine(@Param('id') id: string, @Body() body: { machineId: string }, @CurrentUser('sub') userId: string) {
+    return this.service.linkToMachine(id, body.machineId, userId);
   }
+
+  @Delete(':id/machines/:machineId')
+  @Permissions('machine-part:unlinkMachine')
+  @ApiOperation({ summary: 'Unlink part from a machine' })
+  unlinkFromMachine(@Param('id') id: string, @Param('machineId') machineId: string, @CurrentUser('sub') userId: string) {
+    return this.service.unlinkFromMachine(id, machineId, userId);
+  }
+
+  @Get(':id/usage-history')
+  @Permissions('machine-part:read')
+  @ApiOperation({ summary: 'Get usage history for this part' })
+  getUsageHistory(@Param('id') id: string) { return this.service.getUsageHistory(id); }
 }

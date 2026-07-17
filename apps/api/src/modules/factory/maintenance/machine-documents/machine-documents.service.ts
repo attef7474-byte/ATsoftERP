@@ -77,4 +77,35 @@ export class MachineDocumentsService {
   async deactivate() {
     return { message: 'Machine documents do not support status' };
   }
+
+  async viewDocument(id: string) {
+    const doc = await this.findOne(id);
+    return doc;
+  }
+
+  async getHistory(query: { page?: number; limit?: number }) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.prisma.machineDocument.findMany({
+        where: {},
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: { machine: { select: { id: true, name: true, code: true } } },
+      }),
+      this.prisma.machineDocument.count(),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async getDocumentsByMachine(machineId: string) {
+    const machine = await this.prisma.machine.findUnique({ where: { id: machineId } });
+    if (!machine) throw new NotFoundException('Machine not found');
+    return this.prisma.machineDocument.findMany({
+      where: { machineId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }

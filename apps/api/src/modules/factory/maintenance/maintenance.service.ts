@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
-import { CreateMachineDto, UpdateMachineDto, CreateMachinePartDto, CreateMachineDocumentDto } from './dto/maintenance.dto';
+import { CreateMachineDto, UpdateMachineDto, CreateMachinePartDto, CreateMachineDocumentDto, UpdateMachineLocationDto, UpdateMachineManufacturerDto, UpdateMachineWarrantyDto, UpdateMachineImageDto } from './dto/maintenance.dto';
 
 @Injectable()
 export class MaintenanceService {
@@ -118,6 +118,106 @@ export class MaintenanceService {
     return this.prisma.machineDocument.findMany({
       where: { machineId },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async activateMachine(id: string) {
+    await this.findOneMachine(id);
+    return this.prisma.machine.update({ where: { id }, data: { status: 'ACTIVE' } });
+  }
+
+  async deactivateMachine(id: string) {
+    await this.findOneMachine(id);
+    return this.prisma.machine.update({ where: { id }, data: { status: 'INACTIVE' } });
+  }
+
+  async updateMachineStatus(id: string, status: string) {
+    await this.findOneMachine(id);
+    return this.prisma.machine.update({ where: { id }, data: { status } });
+  }
+
+  async updateMachineLocation(id: string, dto: UpdateMachineLocationDto) {
+    await this.findOneMachine(id);
+    return this.prisma.machine.update({ where: { id }, data: { location: dto.location } });
+  }
+
+  async updateMachineManufacturer(id: string, dto: UpdateMachineManufacturerDto) {
+    await this.findOneMachine(id);
+    return this.prisma.machine.update({ where: { id }, data: dto });
+  }
+
+  async updateMachineWarranty(id: string, dto: UpdateMachineWarrantyDto) {
+    await this.findOneMachine(id);
+    const data: any = {};
+    if (dto.purchaseDate) data.purchaseDate = new Date(dto.purchaseDate);
+    if (dto.warrantyEnd) data.warrantyEnd = new Date(dto.warrantyEnd);
+    return this.prisma.machine.update({ where: { id }, data });
+  }
+
+  async updateMachineImage(id: string, dto: UpdateMachineImageDto) {
+    await this.findOneMachine(id);
+    return this.prisma.machine.update({ where: { id }, data: { image: dto.image } });
+  }
+
+  async getMachineCard(id: string) {
+    const machine = await this.prisma.machine.findUnique({
+      where: { id },
+      include: {
+        category: { select: { id: true, name: true, code: true } },
+        company: { select: { id: true, name: true } },
+        branch: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } },
+        _count: { select: { parts: true, documents: true, maintenanceReqs: true, schedules: true, downtimeLogs: true } },
+      },
+    });
+    if (!machine) throw new NotFoundException('Machine not found');
+    return machine;
+  }
+
+  async getMachineOperationalStatus(id: string) {
+    await this.findOneMachine(id);
+    const now = new Date();
+    const [activeRequest, activeDowntime, openTasks, activeSchedule] = await Promise.all([
+      this.prisma.maintenanceRequest.findFirst({ where: { machineId: id, status: 'IN_PROGRESS', deletedAt: null }, orderBy: { createdAt: 'desc' } }),
+      this.prisma.downtimeLog.findFirst({ where: { machineId: id, endTime: null, cancelledAt: null }, orderBy: { startTime: 'desc' } }),
+      this.prisma.maintenanceTask.count({ where: { request: { machineId: id }, status: { in: ['PENDING', 'IN_PROGRESS'] } } }),
+      this.prisma.maintenanceSchedule.findFirst({ where: { machineId: id, status: 'ACTIVE' } }),
+    ]);
+    return { activeRequest, activeDowntime, openTasks, activeSchedule, checkedAt: now };
+  }
+
+  async getMachineParts(id: string) {
+    await this.findOneMachine(id);
+    return this.prisma.machinePart.findMany({
+      where: { machineId: id },
+      include: { product: { select: { id: true, name: true, code: true, unit: true } } },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async getMachineDocuments(id: string) {
+    await this.findOneMachine(id);
+    return this.prisma.machineDocument.findMany({
+      where: { machineId: id },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getMachineAttachments(id: string) {
+    await this.findOneMachine(id);
+    return this.prisma.attachment.findMany({
+      where: { entityName: 'MACHINE', entityId: id },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getMachineActivity(id: string) {
+    await this.findOneMachine(id);
+    return this.prisma.auditLog.findMany({
+      where: { entity: 'MACHINE', entityId: id },
+      include: { user: { select: { id: true, name: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
     });
   }
 

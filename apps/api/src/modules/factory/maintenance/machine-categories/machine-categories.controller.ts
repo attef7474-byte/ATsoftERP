@@ -71,4 +71,14 @@ export class MachineCategoriesController {
   deactivate(@Param('id') id: string, @CurrentUser('sub') userId: string) {
     return this.service.deactivate(id, userId);
   }
+
+  @Get(':id/summary')
+  @Permissions('machine-category:read')
+  @ApiOperation({ summary: 'Get machine category summary' })
+  categorySummary(@Param('id') id: string) { return this.service.categorySummary(id); }
+
+  @Get(':id/machines')
+  @Permissions('machine-category:read')
+  @ApiOperation({ summary: 'Get machines in this category' })
+  categoryMachines(@Param('id') id: string) { return this.service.categoryMachines(id); }
 }

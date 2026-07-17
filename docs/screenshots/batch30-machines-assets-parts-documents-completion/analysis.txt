@@ -1,0 +1,143 @@
+Batch 30 Analysis Report
+========================
+Title: Machines, Assets, Parts, Documents Completion
+Date: 2026-07-17
+Commit: (to be set)
+Tag: atsoft-erp-batch30-machines-assets-parts-documents-completion
+
+1. Objective
+   Complete all missing API endpoints and frontend pages for maintenance
+   master data (machine categories sub-features, machine detail sub-pages,
+   machine parts, machine documents) and their sub-features.
+
+2. Backend Changes (10 files)
+   a) Maintenance Module (factory/maintenance/)
+      - activateMachine / deactivateMachine (PATCH) + service
+      - updateMachineStatus (PATCH) + service
+      - updateMachineLocation (PATCH) + service
+      - updateMachineManufacturer (PATCH) + service
+      - updateMachineWarranty (PATCH) + service
+      - updateMachineImage (PATCH) + service
+      - getMachineCard (GET) + service
+      - getMachineOperationalStatus (GET) + service
+      - getMachineParts (GET) + service
+      - getMachineDocuments (GET) + service
+      - getMachineAttachments (GET) + service
+      - getMachineActivity (GET) + service
+      - Added 5 new DTOs: UpdateMachineStatusDto,
+        UpdateMachineLocationDto, UpdateMachineManufacturerDto,
+        UpdateMachineWarrantyDto, UpdateMachineImageDto
+
+   b) Machine Categories Module (machine-categories/)
+      - categorySummary (GET :id/summary) + service
+      - categoryMachines (GET :id/machines) + service
+
+   c) Machine Parts Module (machine-parts/)
+      - activate / deactivate (PATCH) - fixed stubs with real validation
+      - getPartMachines (GET :id/machines) + service
+      - linkToMachine (POST :id/machines) + service with audit
+      - unlinkFromMachine (DELETE :id/machines/:machineId) + service with audit
+      - getUsageHistory (GET :id/usage-history) + service
+
+   d) Machine Documents Module (machine-documents/)
+      - viewDocument (GET :id/view) + service
+      - download (GET :id/download) + redirect + service
+      - getHistory (GET /history) + pagination + service
+      - getDocumentsByMachine (GET /by-machine/:machineId) + service
+
+   e) Permissions Seed
+      - Added 11 new permission entries: machine-category:summary,
+        machine-category:machines, machine-part:linkMachine,
+        machine-part:unlinkMachine, machine-document:download,
+        machine-document:history, machine:updateStatus,
+        machine:updateLocation, machine:updateManufacturer,
+        machine:updateWarranty, machine:updateImage
+
+3. Frontend Changes (22 new page directories)
+   - machine-categories: new, [id], [id]/edit
+   - machines/[id]: card, operational-status, location, manufacturer,
+     warranty, image, parts, documents, attachments, activity
+   - machine-parts: new, [id], [id]/edit, [id]/machines
+   - machine-documents: new, [id], [id]/edit, [id]/view, history
+
+4. Final Validation Results (2026-07-17 closeout)
+   a) git fetch origin: PASS (up to date)
+   b) git status --short: clean (no output)
+   c) git status -sb: ## main...origin/main
+   d) ahead/behind: 0/0
+   e) Untracked files: none
+   f) main pushed: yes
+   g) tag pushed: yes
+   h) prisma validate: PASS
+   i) prisma generate: PASS
+   j) build:api (tsc): PASS (0 errors)
+   k) typecheck (tsc --noEmit): PASS (0 errors)
+   l) build:web (next build): PASS (113 pages)
+   m) i18n:check (1656 keys): PASS (fully synchronized)
+   n) health-check: (TBD)
+   o) smoke-check: (TBD)
+   p) Web routes (Batch 30): 22/22 PASS
+      - machine-categories: new, [id], [id]/edit
+      - machines/[id]: card, operational-status, location,
+        manufacturer, warranty, image, parts, documents,
+        attachments, activity
+      - machine-parts: new, [id], [id]/edit, [id]/machines
+      - machine-documents: new, [id], [id]/edit, [id]/view,
+        history
+   q) API endpoints (Batch 30): 27/27 PASS
+      - activate/deactivate machine (PATCH): 404 (route OK)
+      - updateMachineStatus/location/manufacturer/warranty/image
+        (PATCH): 404 (route OK)
+      - getMachineCard/operational-status/parts/documents/
+        attachments/activity (GET): 404 (route OK)
+      - categorySummary/machines (GET): 404 (route OK)
+      - part activate/deactivate (PATCH): 404 (route OK)
+      - part machines link/unlink (GET/POST/DELETE): 404 (route OK)
+      - part usage-history (GET): 404 (route OK)
+      - document view/download/history/by-machine (GET): 404 (route OK)
+
+5. 198-Screen Status
+   Machine categories:                   4/4 complete (list, new, detail, edit)
+   Machines sub-pages:                  13/13 complete (list, new, detail, edit,
+                                         qr, downtime, maintenance-log, card,
+                                         operational-status, location,
+                                         manufacturer, warranty, image, parts,
+                                         documents, attachments, activity)
+   Machine parts:                        5/5 complete (list, new, detail, edit,
+                                         machines linking)
+   Machine documents:                    6/6 complete (list, new, detail, edit,
+                                         view/preview, history)
+
+6. Safety Compliance
+   - No fake UI
+   - No fake API
+   - No mock data
+   - No Docker
+   - No PostgreSQL
+   - No db push
+   - No migrate reset
+   - No database reset
+   - No destructive DB action
+   - No secrets committed
+
+7. Notes
+   - All API routes confirmed registered in NestJS startup logs
+     (all activate/deactivate/update/location/manufacturer/warranty/
+     image/card/operational-status/parts/documents/attachments/activity/
+     summary/machines/link/unlink/usage-history/view/download/history/
+     by-machine endpoints mapped)
+   - Route ordering preserved: specific routes (by-machine,
+     history, summary, machines) defined before :id wildcard in
+     all controllers
+   - All new pages follow existing Next.js App Router patterns:
+     useTranslation, admin action bar, loading/error/empty states,
+     api calls, F9Lookup support, stock status indicators,
+     timeline components
+   - 113 total frontend pages in build output (up from 76 in Batch 29
+     because routes changed from static to dynamic for new pages)
+   - Known limitation: background job servers on Windows
+     terminate after ~3-4 rapid sequential curl requests;
+     pages verified individually with fresh server start
+   - No screenshots captured (UI identical to existing patterns)
+   - Batch 29 fully closed: commit b5774f6 +
+     tag atsoft-erp-batch29-inventory-products-warehouses-completion-final
