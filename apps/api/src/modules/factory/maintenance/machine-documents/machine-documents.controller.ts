@@ -35,6 +35,23 @@ export class MachineDocumentsController {
     });
   }
 
+  @Get('history')
+  @Permissions('machine-document:read')
+  @ApiOperation({ summary: 'Get document history' })
+  getHistory(@Query() query: { page?: string; limit?: string }) {
+    return this.service.getHistory({
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+    });
+  }
+
+  @Get('by-machine/:machineId')
+  @Permissions('machine-document:read')
+  @ApiOperation({ summary: 'Get documents by machine' })
+  getByMachine(@Param('machineId') machineId: string) {
+    return this.service.getDocumentsByMachine(machineId);
+  }
+
   @Get(':id')
   @Permissions('machine-document:read')
   @ApiOperation({ summary: 'Get machine document by ID' })
@@ -72,22 +89,5 @@ export class MachineDocumentsController {
   async download(@Param('id') id: string, @Res() res: Response) {
     const doc = await this.service.viewDocument(id);
     return res.redirect(doc.fileUrl);
-  }
-
-  @Get('history')
-  @Permissions('machine-document:read')
-  @ApiOperation({ summary: 'Get document history' })
-  getHistory(@Query() query: { page?: string; limit?: string }) {
-    return this.service.getHistory({
-      page: query.page ? parseInt(query.page, 10) : undefined,
-      limit: query.limit ? parseInt(query.limit, 10) : undefined,
-    });
-  }
-
-  @Get('by-machine/:machineId')
-  @Permissions('machine-document:read')
-  @ApiOperation({ summary: 'Get documents by machine' })
-  getByMachine(@Param('machineId') machineId: string) {
-    return this.service.getDocumentsByMachine(machineId);
   }
 }
