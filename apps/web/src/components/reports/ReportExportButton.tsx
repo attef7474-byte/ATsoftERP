@@ -13,7 +13,7 @@ interface ReportExportButtonProps {
 export function ReportExportButton({ filename = 'report', headers, rows, mapRow }: ReportExportButtonProps) {
   const { t } = useTranslation();
 
-  const handleExport = () => {
+  const handleExportCsv = () => {
     const csvContent = [
       headers.join(','),
       ...rows.map(r => mapRow(r).map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
@@ -27,9 +27,18 @@ export function ReportExportButton({ filename = 'report', headers, rows, mapRow 
     URL.revokeObjectURL(url);
   };
 
+  const handlePrintPdf = () => {
+    window.print();
+  };
+
   return (
-    <Button variant="secondary" onClick={handleExport}>
-      {t('reports.exportCurrentPage')}
-    </Button>
+    <div className="flex gap-2">
+      <Button variant="secondary" onClick={handleExportCsv}>
+        {t('reports.exportCsv')}
+      </Button>
+      <Button variant="secondary" onClick={handlePrintPdf}>
+        {t('reports.exportPdf')}
+      </Button>
+    </div>
   );
 }

@@ -483,4 +483,258 @@ export class ReportsService {
       byEntity: byEntity.map(e => ({ entityType: e.entityType, count: e._count })),
     };
   }
+
+  // ═════════════════════════ NEW BATCH 33 REPORTS ═════════════════════
+
+  // ──────────────────────── ASSETS REGISTER REPORT ───────────────────
+
+  async getAssetsRegisterReport(filters: any) {
+    const where: any = {};
+    if (filters.search) where.OR = [{ code: { contains: filters.search } }, { name: { contains: filters.search } }];
+    if (filters.machineCategoryId) where.categoryId = filters.machineCategoryId;
+    if (filters.status) where.status = filters.status;
+    if (filters.location) where.location = { contains: filters.location };
+
+    const [total, rows, byStatus, byCategory, activeCount, inactiveCount] = await Promise.all([
+      this.prisma.machine.count({ where }),
+      this.prisma.machine.findMany({
+        where, ...this.paginate(filters.page, filters.pageSize),
+        orderBy: { createdAt: 'desc' },
+        include: { category: { select: { id: true, name: true } } },
+      }),
+      this.prisma.machine.groupBy({ by: ['status'], _count: true }),
+      this.prisma.machine.groupBy({ by: ['categoryId'], _count: true }),
+      this.prisma.machine.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.machine.count({ where: { status: 'INACTIVE' } }),
+    ]);
+
+    const totalPages = Math.ceil(total / (filters.pageSize || 20));
+    return {
+      cards: [
+        { label: 'totalMachines', value: total },
+        { label: 'activeMachines', value: activeCount },
+        { label: 'inactiveMachines', value: inactiveCount },
+        { label: 'totalCategories', value: byCategory.length },
+      ],
+      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+      byStatus: byStatus.map(s => ({ status: s.status, count: s._count })),
+      byCategory: byCategory.map(c => ({ categoryId: c.categoryId, count: c._count })),
+    };
+  }
+
+  // ──────────────────────── PARTS INVENTORY REPORT ──────────────────
+
+  async getPartsReport(filters: any) {
+    const where: any = {};
+    if (filters.search) where.OR = [{ code: { contains: filters.search } }, { name: { contains: filters.search } }];
+
+    const [total, rows, highStock, lowStock] = await Promise.all([
+      this.prisma.machinePart.count({ where }),
+      this.prisma.machinePart.findMany({
+        where, ...this.paginate(filters.page, filters.pageSize),
+        orderBy: { id: 'desc' },
+      }),
+      this.prisma.machinePart.count({ where: { quantity: { gte: 10 } } }),
+      this.prisma.machinePart.count({ where: { quantity: { lt: 10 } } }),
+    ]);
+
+    const totalPages = Math.ceil(total / (filters.pageSize || 20));
+    return {
+      cards: [
+        { label: 'totalParts', value: total },
+        { label: 'activeParts', value: highStock },
+        { label: 'inactiveParts', value: lowStock },
+      ],
+      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+    };
+  }
+
+  // ──────────────────────── BUSINESS PARTNERS REPORT ────────────────
+
+  async getPartnersReport(filters: any) {
+    const where: any = {};
+    if (filters.search) where.OR = [{ code: { contains: filters.search } }, { name: { contains: filters.search } }, { email: { contains: filters.search } }];
+    if (filters.type) where.type = filters.type;
+
+    const [total, rows, byType, blockedCount, supplierCount, customerCount] = await Promise.all([
+      this.prisma.businessPartner.count({ where }),
+      this.prisma.businessPartner.findMany({
+        where, ...this.paginate(filters.page, filters.pageSize),
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.businessPartner.groupBy({ by: ['type'], _count: true }),
+      this.prisma.businessPartner.count({ where: { isBlocked: true } }),
+      this.prisma.businessPartner.count({ where: { isSupplier: true, isBlocked: false } }),
+      this.prisma.businessPartner.count({ where: { isCustomer: true, isBlocked: false } }),
+    ]);
+
+    const totalPages = Math.ceil(total / (filters.pageSize || 20));
+    return {
+      cards: [
+        { label: 'totalPartners', value: total },
+        { label: 'activeSuppliers', value: supplierCount },
+        { label: 'activeCustomers', value: customerCount },
+        { label: 'blockedPartners', value: blockedCount },
+      ],
+      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+      byType: byType.map(t => ({ type: t.type, count: t._count })),
+    };
+  }
+
+  // ──────────────────────── ATTACHMENTS / DOCUMENTS REPORT ──────────
+
+  async getAttachmentsReport(filters: any) {
+    const where: any = { ...this.buildDateFilter(filters.dateFrom, filters.dateTo) };
+    if (filters.entityName) where.entityName = filters.entityName;
+    if (filters.search) where.originalName = { contains: filters.search };
+
+    const [total, rows, byEntityName, totalSize] = await Promise.all([
+      this.prisma.attachment.count({ where }),
+      this.prisma.attachment.findMany({
+        where, ...this.paginate(filters.page, filters.pageSize),
+        orderBy: { createdAt: 'desc' },
+        include: { uploadedBy: { select: { id: true, name: true } } },
+      }),
+      this.prisma.attachment.groupBy({ by: ['entityName'], _count: true }),
+      this.prisma.attachment.aggregate({ where, _sum: { size: true } }),
+    ]);
+
+    const totalPages = Math.ceil(total / (filters.pageSize || 20));
+    return {
+      cards: [
+        { label: 'totalAttachments', value: total },
+        { label: 'totalAttachmentsSize', value: totalSize._sum?.size || 0, unit: 'bytes' },
+        { label: 'entityTypes', value: byEntityName.length },
+      ],
+      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+      byEntityType: byEntityName.map(e => ({ entityName: e.entityName, count: e._count })),
+    };
+  }
+
+  // ──────────────────────── AUDIT TRAIL REPORT ──────────────────────
+
+  async getAuditTrailReport(filters: any) {
+    const where: any = { ...this.buildDateFilter(filters.dateFrom, filters.dateTo) };
+    if (filters.entity) where.entity = filters.entity;
+    if (filters.action) where.action = filters.action;
+    if (filters.userId) where.userId = filters.userId;
+    if (filters.search) where.details = { contains: filters.search };
+
+    const [total, rows, byAction, byEntity, byUser] = await Promise.all([
+      this.prisma.auditLog.count({ where }),
+      this.prisma.auditLog.findMany({
+        where, ...this.paginate(filters.page, filters.pageSize),
+        orderBy: { createdAt: 'desc' },
+        include: { user: { select: { id: true, name: true } } },
+      }),
+      this.prisma.auditLog.groupBy({ by: ['action'], where, _count: true }),
+      this.prisma.auditLog.groupBy({ by: ['entity'], where, _count: true }),
+      this.prisma.auditLog.groupBy({ by: ['userId'], where, _count: true, orderBy: { _count: { id: 'desc' } }, take: 10 }),
+    ]);
+
+    const totalPages = Math.ceil(total / (filters.pageSize || 20));
+    return {
+      cards: [
+        { label: 'totalAuditEntries', value: total },
+        { label: 'uniqueActions', value: byAction.length },
+        { label: 'uniqueEntities', value: byEntity.length },
+      ],
+      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+      byAction: byAction.map(a => ({ action: a.action, count: a._count })),
+      byEntity: byEntity.map(e => ({ entity: e.entity, count: e._count })),
+      topUsers: byUser.map(u => ({ userId: u.userId, count: u._count })),
+    };
+  }
+
+  // ──────────────────────── USER ACTIVITY REPORT ────────────────────
+
+  async getUserActivityReport(filters: any) {
+    const where: any = { ...this.buildDateFilter(filters.dateFrom, filters.dateTo, 'lastLoginAt') };
+    if (filters.search) where.OR = [{ name: { contains: filters.search } }, { email: { contains: filters.search } }];
+    if (filters.status) where.status = filters.status;
+
+    const [total, rows, activeCount, inactiveCount] = await Promise.all([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where, ...this.paginate(filters.page, filters.pageSize),
+        orderBy: { lastLoginAt: 'desc' },
+        select: { id: true, name: true, email: true, status: true, lastLoginAt: true, createdAt: true },
+      }),
+      this.prisma.user.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.user.count({ where: { status: 'INACTIVE' } }),
+    ]);
+
+    const totalPages = Math.ceil(total / (filters.pageSize || 20));
+    return {
+      cards: [
+        { label: 'totalUsers', value: total },
+        { label: 'activeUsers', value: activeCount },
+        { label: 'inactiveUsers', value: inactiveCount },
+      ],
+      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+    };
+  }
+
+  // ──────────────────────── NOTIFICATIONS REPORT ────────────────────
+
+  async getNotificationsReport(filters: any) {
+    const where: any = { ...this.buildDateFilter(filters.dateFrom, filters.dateTo) };
+    if (filters.search) where.title = { contains: filters.search };
+
+    const [total, rows, byType, unreadCount] = await Promise.all([
+      this.prisma.notification.count({ where }),
+      this.prisma.notification.findMany({
+        where, ...this.paginate(filters.page, filters.pageSize),
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.notification.groupBy({ by: ['type'], where, _count: true }),
+      this.prisma.notification.count({ where: { read: false } }),
+    ]);
+
+    const totalPages = Math.ceil(total / (filters.pageSize || 20));
+    return {
+      cards: [
+        { label: 'totalNotifications', value: total },
+        { label: 'unreadNotifications', value: unreadCount },
+        { label: 'notificationCategories', value: byType.length },
+      ],
+      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+      byType: byType.map(t => ({ type: t.type, count: t._count })),
+    };
+  }
+
+  // ──────────────────────── EXPORT / PRINT HELPERS ──────────────────
+
+  async exportCsv(endpoint: string, filters: any): Promise<string> {
+    let data: any;
+    switch (endpoint) {
+      case 'maintenance/overview': data = await this.getMaintenanceOverview(filters); break;
+      case 'maintenance/requests': data = await this.getMaintenanceRequestsReport(filters); break;
+      case 'maintenance/downtime': data = await this.getMachineDowntimeReport(filters); break;
+      case 'maintenance/costs': data = await this.getMaintenanceCostsReport(filters); break;
+      case 'maintenance/schedules': data = await this.getPreventiveSchedulesReport(filters); break;
+      case 'inventory/overview': data = await this.getInventoryOverview(filters); break;
+      case 'inventory/balances': data = await this.getInventoryBalanceReport(filters); break;
+      case 'inventory/count-variance': data = await this.getInventoryCountVarianceReport(filters); break;
+      case 'inventory/movements': data = await this.getInventoryMovementsReport(filters); break;
+      case 'inventory/adjustments': data = await this.getInventoryAdjustmentsReport(filters); break;
+      case 'barcodes/scans': data = await this.getBarcodeScansReport(filters); break;
+      case 'assets': data = await this.getAssetsRegisterReport(filters); break;
+      case 'parts': data = await this.getPartsReport(filters); break;
+      case 'partners': data = await this.getPartnersReport(filters); break;
+      case 'attachments': data = await this.getAttachmentsReport(filters); break;
+      case 'audit': data = await this.getAuditTrailReport(filters); break;
+      case 'user-activity': data = await this.getUserActivityReport(filters); break;
+      case 'notifications': data = await this.getNotificationsReport(filters); break;
+      default: return '';
+    }
+    const rows: any[] = data?.rows || [];
+    if (!rows.length) return '';
+    const headers = Object.keys(rows[0]).filter(k => !k.startsWith('_'));
+    const csv = [
+      headers.join(','),
+      ...rows.map((r: any) => headers.map(h => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(',')),
+    ].join('\n');
+    return '\uFEFF' + csv;
+  }
 }

@@ -87,6 +87,13 @@ const navItems: NavItem[] = [
       { id: 'rpt-inv-adjustments', label: 'navigation.inventoryAdjustmentsReport', href: '/admin/reports/inventory/adjustments' },
       { id: 'rpt-inv-count-variance', label: 'navigation.countVarianceReport', href: '/admin/reports/inventory/count-variance' },
       { id: 'rpt-barcode-scans', label: 'navigation.barcodeScansReport', href: '/admin/reports/barcodes/scans' },
+      { id: 'rpt-assets', label: 'navigation.assetsReport', href: '/admin/reports/assets' },
+      { id: 'rpt-parts', label: 'navigation.partsReport', href: '/admin/reports/parts' },
+      { id: 'rpt-partners', label: 'navigation.partnersReport', href: '/admin/reports/partners' },
+      { id: 'rpt-attachments', label: 'navigation.attachmentsReport', href: '/admin/reports/attachments' },
+      { id: 'rpt-audit', label: 'navigation.auditTrailReport', href: '/admin/reports/audit' },
+      { id: 'rpt-user-activity', label: 'navigation.userActivityReport', href: '/admin/reports/user-activity' },
+      { id: 'rpt-notifications', label: 'navigation.notificationsReport', href: '/admin/reports/notifications' },
     ],
   },
   {
