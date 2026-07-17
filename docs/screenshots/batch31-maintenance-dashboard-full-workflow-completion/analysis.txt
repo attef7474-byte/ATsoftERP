@@ -1,0 +1,111 @@
+BATCH 31 — MAINTENANCE DASHBOARD & FULL WORKFLOW COMPLETION
+=========================================================
+
+FRAMEWORK:
+- NestJS v11.0.13 (API), Next.js 15.2.4 (Web), Prisma 7.8.0 (SQL Server via WINCC/localhost:50079, db=ATsoftERP_DB)
+- Monorepo (npm workspaces): apps/api (NestJS), apps/web (Next.js), packages/shared
+
+IMPLEMENTATION COMMIT:  7e26bc1
+ORIGINAL TAG:           atsoft-erp-batch31-maintenance-dashboard-full-workflow-completion
+FINAL TAG:              atsoft-erp-batch31-maintenance-dashboard-full-workflow-completion-final
+BRANCH:                 main
+
+FILES CHANGED / CREATED (by module):
+-------------------------------------
+
+[Core Module Registration]
+  apps/api/src/app.module.ts                          — imports DashboardModule, PreventiveModule
+
+[Maintenance Dashboard — NEW MODULE]
+  apps/api/src/modules/factory/maintenance/maintenance-dashboard/
+    maintenance-dashboard.module.ts                   — module definition
+    maintenance-dashboard.controller.ts               — 8 endpoints (summary, open-requests, critical, overdue, machines-under-maintenance, current-downtime, upcoming-preventive, cost-kpis)
+    maintenance-dashboard.service.ts                  — business logic for all dashboard queries
+  apps/web/src/app/admin/maintenance/dashboard/       — 8 page routes (root + 7 sub-pages)
+
+[Preventive Maintenance — NEW MODULE]
+  apps/api/src/modules/factory/maintenance/preventive-maintenance/
+    preventive-maintenance.module.ts                  — module definition
+    preventive-maintenance.controller.ts              — 5 endpoints (upcoming, overdue, calendar, execution-history, generate-due-tasks)
+    preventive-maintenance.service.ts                 — business logic
+  apps/web/src/app/admin/maintenance/preventive/      — 4 page routes (calendar, execution-history, overdue, upcoming)
+
+[Maintenance Requests — 11 NEW endpoints extended]
+  apps/api/src/modules/factory/maintenance/maintenance-requests/
+    maintenance-requests.controller.ts                — 17 total endpoints (+11 new: reopen, workflow, activity, attachments, print, checklist (GET+POST), summary)
+    maintenance-requests.service.ts                   — extended logic
+  apps/web/src/app/admin/maintenance/requests/        — 12 total page routes (+5 new: activity, attachments, checklist, print, workflow)
+
+[Maintenance Tasks — 4 NEW endpoints extended]
+  apps/api/src/modules/factory/maintenance/maintenance-tasks/
+    maintenance-tasks.controller.ts                   — 12 total endpoints (+4 new: my-tasks, by-request, overdue, assign)
+    maintenance-tasks.service.ts                      — extended logic
+  apps/web/src/app/admin/maintenance/tasks/           — 7 total page routes (+6 new: my-tasks, new, [id], assign, complete, edit)
+
+[Maintenance Schedules — 2 NEW endpoints extended]
+  apps/api/src/modules/factory/maintenance/maintenance-schedules/
+    maintenance-schedules.controller.ts               — 9 total endpoints (+2 new: execute, history)
+    maintenance-schedules.service.ts                  — extended logic
+  apps/web/src/app/admin/maintenance/schedules/       — 6 total page routes (+3 new: [id], execute, history)
+
+[Downtime Logs — 5 NEW endpoints extended]
+  apps/api/src/modules/factory/maintenance/downtime-logs/
+    downtime-logs.controller.ts                       — 14 total endpoints (+5 new: start, current, analysis, by-machine, summary, classify; +end, close, cancel from earlier)
+    downtime-logs.service.ts                          — extended logic
+  apps/web/src/app/admin/maintenance/downtime-logs/   — 7 total page routes (+4 new: [id], analysis, by-machine, current)
+
+[i18n — 3 NEW namespaces]
+  apps/web/src/lib/i18n/locales/en.ts                 — 1747 keys (+maintenanceDashboard, preventiveMaintenance, downtimeAnalysis)
+  apps/web/src/lib/i18n/locales/ar.ts                 — 1747 keys (synchronized with en.ts)
+  apps/web/src/lib/i18n/types.ts                      — 3 new namespace types
+
+[Permissions]
+  apps/api/prisma/seed/seed-cmms-permissions.ts       — 37 new permission entries for Batch 31 modules
+
+API ENDPOINT COUNT (Batch 31 — ALL Maintenance):
+-----------------------------------------------------
+  Module               | Endpoints | Methods
+  Maintenance Dashboard|     8     | 8 GET
+  Preventive Maintenance|    5     | 4 GET, 1 POST
+  Maintenance Requests  |    17    | 2 POST, 9 GET, 5 PATCH, 1 DELETE
+  Maintenance Tasks     |    12    | 1 POST, 5 GET, 5 PATCH, 1 DELETE
+  Maintenance Schedules |    9     | 2 POST, 3 GET, 3 PATCH, 1 DELETE
+  Downtime Logs         |    14    | 2 POST, 6 GET, 5 PATCH, 1 DELETE
+  ------------------------+---------+------------------------------
+  TOTAL                 |    65    | 11 POST, 35 GET, 15 PATCH, 1 DELETE
+
+WEB ROUTE COUNT (Batch 31 — ALL Maintenance pages):
+-----------------------------------------------------
+  Module               | Page files
+  Dashboard            |     8
+  Downtime Logs        |     7
+  Preventive           |     4
+  Requests             |    12
+  Tasks                |     7
+  Schedules            |     6
+  ---------------------+----------
+  TOTAL                |    44
+
+VALIDATION SUMMARY:
+--------------------
+  [✓] Git fetch origin                                    — success
+  [✓] Git status (clean)                                  — no output (clean)
+  [✓] Branch: main, ahead/behind 0/0                      — synced with origin/main
+  [✓] Implementation tag pushed                           — atsoft-erp-batch31-maintenance-dashboard-full-workflow-completion (7e26bc1)
+  [✓] Prisma generate (v7.8.0)                            — 761ms, generated in apps/api/src/prisma/generated
+  [✓] Prisma validate                                     — schema valid
+  [✓] npm run build:api (tsc)                             — passed, no output (no errors)
+  [✓] npm run typecheck (tsc --noEmit)                    — passed, no output (no errors)
+  [✓] npm run build:web (next build)                      — passed, 93 static pages generated, no compile errors
+  [✓] npm run i18n:check                                  — passed, 1747 keys en.ts, 1747 keys ar.ts (fully synced)
+  [✓] Health check (API, Web, Swagger, SQL Server)        — 4/4 passed
+  [✓] Smoke check (Web login, API CRUD, auth, swagger)    — 8/8 passed
+
+SAFETY DECLARATIONS:
+----------------------
+  No database schema changes (no prisma migrate, no db push, no reset).
+  No Docker containers used — pure local Windows runtime with SQL Server.
+  No production data modified — verified on WINCC/localhost:50079 / ATsoftERP_DB.
+  All existing features preserved — only additive changes to maintenance module.
+  i18n namespaces are fully synchronized (en ⇔ ar).
+  Build artifacts are clean (no compilation or type errors).
