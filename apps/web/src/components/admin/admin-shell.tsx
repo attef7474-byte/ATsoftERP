@@ -61,9 +61,17 @@ const navItems: NavItem[] = [
   },
   {
     id: 'barcodes', label: 'navigation.barcodes', href: '#', icon: 'barcode',     children: [
+      { id: 'barcode-overview', label: 'barcodes.overview.title', href: '/admin/barcodes' },
       { id: 'barcode-generate', label: 'navigation.generate', href: '/admin/barcodes/generate' },
       { id: 'barcode-print', label: 'navigation.print', href: '/admin/barcodes/print' },
       { id: 'barcode-scan', label: 'navigation.scan', href: '/admin/barcodes/scan' },
+      { id: 'barcode-preview', label: 'navigation.preview', href: '/admin/barcodes/preview' },
+      { id: 'barcode-records', label: 'navigation.records', href: '/admin/barcodes/records' },
+      { id: 'barcode-templates', label: 'navigation.templates', href: '/admin/barcodes/templates' },
+      { id: 'barcode-product-labels', label: 'navigation.productLabels', href: '/admin/barcodes/product-labels' },
+      { id: 'barcode-machine-cards', label: 'navigation.machineCards', href: '/admin/barcodes/machine-cards' },
+      { id: 'barcode-scans', label: 'navigation.scans', href: '/admin/barcodes/scans' },
+      { id: 'barcode-print-jobs', label: 'navigation.printJobs', href: '/admin/barcodes/print-jobs' },
     ],
   },
   {
@@ -171,6 +179,9 @@ function getPageTitle(pathname: string): string {
       counts: 'details.inventoryCount.title',
       movements: 'details.inventoryMovement.title',
       adjustments: 'details.inventoryAdjustment.title',
+      records: 'barcodes.records.detail',
+      scans: 'barcodes.scan.title',
+      'print-jobs': 'barcodes.printJobs.detail',
     };
     if (detailMapping[parent]) return detailMapping[parent];
   }
@@ -199,6 +210,13 @@ function getPageTitle(pathname: string): string {
     'checklist-items': 'maintenance.checklistItems',
     'downtime-logs': 'maintenance.downtimeLogs',
     locations: 'inventory.locations.title',
+    records: 'barcodes.records.title',
+    templates: 'barcodes.templates.title',
+    preview: 'barcodes.scanLabel',
+    'product-labels': 'barcodes.productLabels.title',
+    'machine-cards': 'barcodes.machineCards.title',
+    scans: 'barcodes.scanHistory',
+    'print-jobs': 'barcodes.printJobs.title',
     generate: 'barcodes.generate.title',
     print: 'barcodes.print.title',
     scan: 'barcodes.scan.title',

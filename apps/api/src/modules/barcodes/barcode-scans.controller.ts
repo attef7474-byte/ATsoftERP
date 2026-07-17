@@ -6,6 +6,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { BarcodeScansService } from './barcode-scans.service';
 import { ScanBarcodeDto } from './dto/scan-barcode.dto';
 import { BarcodeScanQueryDto } from './dto/barcode-scan-query.dto';
+import { ResolveScanDto } from './dto/resolve-scan.dto';
 import { InventoryCountScanDto } from './dto/inventory-count-scan.dto';
 import { MaintenanceScanDto } from './dto/maintenance-scan.dto';
 import { MachineCheckScanDto } from './dto/machine-check-scan.dto';
@@ -65,5 +66,26 @@ export class BarcodeScansController {
   @ApiOperation({ summary: 'Scan part/product label for details and balances' })
   scanPartLookup(@Body() dto: PartLookupScanDto, @Req() req: any) {
     return this.service.scanPartLookup(dto, req.user?.id, req.ip, req.headers?.['user-agent']);
+  }
+
+  @Get('scans/summary')
+  @Permissions('barcode-scan:read')
+  @ApiOperation({ summary: 'Get barcode scan summary statistics' })
+  getScanSummary() {
+    return this.service.getScanSummary();
+  }
+
+  @Get('scans/by-entity/:entityType/:entityId')
+  @Permissions('barcode-scan:read')
+  @ApiOperation({ summary: 'Get scans for a specific entity' })
+  findScansByEntity(@Param('entityType') entityType: string, @Param('entityId') entityId: string, @Query() query: BarcodeScanQueryDto) {
+    return this.service.findScansByEntity(entityType, entityId, query);
+  }
+
+  @Post('scans/resolve')
+  @Permissions('barcode-scan:resolve')
+  @ApiOperation({ summary: 'Resolve and scan a barcode value in one call' })
+  resolveAndScan(@Body() dto: ResolveScanDto, @Req() req: any) {
+    return this.service.resolveAndScan(dto, req.user?.id, req.ip, req.headers?.['user-agent']);
   }
 }

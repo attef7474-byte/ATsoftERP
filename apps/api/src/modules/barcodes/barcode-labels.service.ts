@@ -5,6 +5,7 @@ import { CreateBarcodeLabelDto } from './dto/create-barcode-label.dto';
 import { UpdateBarcodeLabelDto } from './dto/update-barcode-label.dto';
 import { BarcodeLabelQueryDto } from './dto/barcode-label-query.dto';
 import { GenerateBarcodeLabelDto } from './dto/generate-barcode-label.dto';
+import { GenerateQRDto } from './dto/generate-qr.dto';
 
 const ENTITY_PREFIXES: Record<string, string> = {
   MACHINE: 'MCH',
@@ -229,6 +230,69 @@ export class BarcodeLabelsService {
 
     const entity = await this.resolveEntity(label.entityType, label.entityId);
     return { found: true, result: 'SUCCESS', label, entity };
+  }
+
+  async softDelete(id: string, userId: string) {
+    const label = await this.findOne(id);
+    const updated = await this.prisma.barcodeLabel.update({
+      where: { id },
+      data: { deletedAt: new Date(), updatedById: userId },
+    });
+    await this.audit.log(userId, 'DELETE', 'BarcodeLabel', id, { code: label.code, value: label.value });
+    return updated;
+  }
+
+  async preview(id: string) {
+    const label = await this.findOne(id);
+    const entity = await this.resolveEntity(label.entityType, label.entityId);
+    return {
+      ...label,
+      preview: {
+        value: label.value,
+        qrPayload: label.qrPayload ? JSON.parse(label.qrPayload) : null,
+        entity,
+        labelUrl: `/barcodes/labels/${label.id}`,
+      },
+    };
+  }
+
+  async download(id: string) {
+    const label = await this.findOne(id);
+    const entity = await this.resolveEntity(label.entityType, label.entityId);
+    return {
+      filename: `${label.code}.json`,
+      contentType: 'application/json',
+      data: {
+        app: 'ATsoftERP',
+        version: 1,
+        label: {
+          id: label.id,
+          code: label.code,
+          value: label.value,
+          symbology: label.symbology,
+          title: label.title,
+          description: label.description,
+          entityType: label.entityType,
+          entityId: label.entityId,
+          qrPayload: label.qrPayload ? JSON.parse(label.qrPayload) : null,
+          status: label.status,
+          createdAt: label.createdAt,
+        },
+        entity,
+      },
+    };
+  }
+
+  async generateQR(dto: GenerateQRDto, userId: string) {
+    return this.generate(
+      {
+        entityType: dto.entityType,
+        entityId: dto.entityId,
+        symbology: 'QR_CODE',
+        title: dto.title,
+      },
+      userId,
+    );
   }
 
   private async resolveEntity(entityType: string, entityId: string): Promise<any> {

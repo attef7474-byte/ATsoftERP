@@ -31,6 +31,10 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "barcode-template:delete", module: "barcode-template", action: "delete" },
   { key: "barcode-template:activate", module: "barcode-template", action: "activate" },
   { key: "barcode-template:deactivate", module: "barcode-template", action: "deactivate" },
+  { key: "barcode-printJobs:create", module: "barcode-printJobs", action: "create" },
+  { key: "barcode-printJobs:read", module: "barcode-printJobs", action: "read" },
+  { key: "barcode-printJobs:update", module: "barcode-printJobs", action: "update" },
+  { key: "barcode-printJobs:summary", module: "barcode-printJobs", action: "summary" },
 ];
 
 async function main() {

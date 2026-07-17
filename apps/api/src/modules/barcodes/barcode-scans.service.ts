@@ -4,6 +4,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { BarcodeLabelsService } from './barcode-labels.service';
 import { ScanBarcodeDto } from './dto/scan-barcode.dto';
 import { BarcodeScanQueryDto } from './dto/barcode-scan-query.dto';
+import { ResolveScanDto } from './dto/resolve-scan.dto';
 import { InventoryCountScanDto } from './dto/inventory-count-scan.dto';
 import { MaintenanceScanDto } from './dto/maintenance-scan.dto';
 import { MachineCheckScanDto } from './dto/machine-check-scan.dto';
@@ -341,5 +342,56 @@ export class BarcodeScansService {
       suggestedActions: ['VIEW_BALANCE', 'ADD_TO_COUNT'],
       event: { id: event.id, scannedAt: event.scannedAt },
     };
+  }
+
+  async getScanSummary() {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(startOfDay);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [totalScans, todayScans, weekScans, monthScans, resultCounts] = await Promise.all([
+      this.prisma.barcodeScanEvent.count(),
+      this.prisma.barcodeScanEvent.count({ where: { scannedAt: { gte: startOfDay } } }),
+      this.prisma.barcodeScanEvent.count({ where: { scannedAt: { gte: startOfWeek } } }),
+      this.prisma.barcodeScanEvent.count({ where: { scannedAt: { gte: startOfMonth } } }),
+      this.prisma.barcodeScanEvent.groupBy({
+        by: ['result'],
+        _count: true,
+      }),
+    ]);
+
+    return {
+      totalScans,
+      todayScans,
+      weekScans,
+      monthScans,
+      resultBreakdown: resultCounts.map((r: any) => ({ result: r.result, count: r._count })),
+    };
+  }
+
+  async findScansByEntity(entityType: string, entityId: string, query: BarcodeScanQueryDto) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const skip = (page - 1) * limit;
+    const where: any = { entityType, entityId };
+
+    if (query.purpose) where.purpose = query.purpose;
+    if (query.result) where.result = query.result;
+
+    const [data, total] = await Promise.all([
+      this.prisma.barcodeScanEvent.findMany({ where, skip, take: limit, orderBy: { scannedAt: 'desc' } }),
+      this.prisma.barcodeScanEvent.count({ where }),
+    ]);
+
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async resolveAndScan(dto: ResolveScanDto, userId?: string, ipAddress?: string, userAgent?: string) {
+    const scanDto = new ScanBarcodeDto();
+    scanDto.value = dto.value;
+    scanDto.purpose = dto.purpose || 'GENERAL_LOOKUP';
+    return this.scan(scanDto, userId, ipAddress, userAgent);
   }
 }

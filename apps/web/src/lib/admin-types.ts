@@ -724,3 +724,36 @@ export interface BarcodeScanResponse {
   entity?: Record<string, unknown>;
   suggestedActions?: string[];
 }
+
+export interface BarcodeLabelTemplate {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  symbology: string;
+  entityType?: string | null;
+  widthMm?: number | null;
+  heightMm?: number | null;
+  templateData?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BarcodePrintJob {
+  id: string;
+  labelId?: string | null;
+  templateId?: string | null;
+  entityType?: string | null;
+  entityId?: string | null;
+  printerName?: string | null;
+  copies: number;
+  status: string;
+  printedById?: string | null;
+  jobType: string;
+  note?: string | null;
+  requestedAt: string;
+  completedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -8,6 +8,7 @@ import { CreateBarcodeLabelDto } from './dto/create-barcode-label.dto';
 import { UpdateBarcodeLabelDto } from './dto/update-barcode-label.dto';
 import { BarcodeLabelQueryDto } from './dto/barcode-label-query.dto';
 import { GenerateBarcodeLabelDto } from './dto/generate-barcode-label.dto';
+import { GenerateQRDto } from './dto/generate-qr.dto';
 import { ResolveBarcodeDto } from './dto/resolve-barcode.dto';
 
 @ApiTags('Barcode Labels')
@@ -107,5 +108,40 @@ export class BarcodeLabelsController {
   @ApiOperation({ summary: 'Resolve a barcode value' })
   resolve(@Body() dto: ResolveBarcodeDto) {
     return this.service.resolve(dto.value);
+  }
+
+  @Delete('labels/:id')
+  @Permissions('barcode-label:delete')
+  @ApiOperation({ summary: 'Soft delete a barcode label' })
+  softDelete(@Param('id') id: string, @Req() req: any) {
+    return this.service.softDelete(id, req.user?.id);
+  }
+
+  @Get('labels/:id/preview')
+  @Permissions('barcode-label:read')
+  @ApiOperation({ summary: 'Preview a barcode label with entity details' })
+  preview(@Param('id') id: string) {
+    return this.service.preview(id);
+  }
+
+  @Get('labels/:id/download')
+  @Permissions('barcode-label:read')
+  @ApiOperation({ summary: 'Download a barcode label as JSON' })
+  download(@Param('id') id: string) {
+    return this.service.download(id);
+  }
+
+  @Post('qr/generate')
+  @Permissions('barcode-label:create')
+  @ApiOperation({ summary: 'Generate a QR code label for an entity' })
+  generateQR(@Body() dto: GenerateQRDto, @Req() req: any) {
+    return this.service.generateQR(dto, req.user?.id);
+  }
+
+  @Get()
+  @Permissions('barcode-label:read')
+  @ApiOperation({ summary: 'List barcode labels (alias for /barcodes/labels)' })
+  findAllAlias(@Query() query: BarcodeLabelQueryDto) {
+    return this.service.findAll(query);
   }
 }

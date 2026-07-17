@@ -1169,6 +1169,7 @@ model BarcodeLabel {
   deletedAt          DateTime?
 
   scanEvents BarcodeScanEvent[]
+  printJobs  BarcodePrintJob[]
 
   @@index([code])
   @@index([value])
@@ -1238,4 +1239,33 @@ model BarcodeLabelTemplate {
   @@index([status])
   @@index([status, entityType])
   @@map("barcode_label_templates")
+}
+
+model BarcodePrintJob {
+  id            String   @id @default(cuid())
+  labelId       String?
+  label         BarcodeLabel? @relation(fields: [labelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  templateId    String?
+  entityType    String?
+  entityId      String?
+  printerName   String?
+  copies        Int      @default(1)
+  status        String   @default("PENDING")
+  printedById   String?
+  jobType       String   @default("LABEL")
+  note          String?  @db.NVarChar(500)
+  metadata      String?  @db.NVarChar(Max)
+  requestedAt   DateTime @default(now())
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  @@index([labelId])
+  @@index([templateId])
+  @@index([entityType, entityId])
+  @@index([status])
+  @@index([printedById])
+  @@index([requestedAt])
+  @@map("barcode_print_jobs")
 }

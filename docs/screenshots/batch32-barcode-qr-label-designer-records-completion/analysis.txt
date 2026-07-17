@@ -1,0 +1,215 @@
+BATCH 32 — BARCODE, QR, LABEL DESIGNER AND RECORDS COMPLETION
+==============================================================
+
+FRAMEWORK:
+- NestJS v11.0.13 (API), Next.js 15.5.20 (Web), Prisma 7.8.0 (SQL Server via WINCC/localhost:50079, db=ATsoftERP_DB)
+- Monorepo (npm workspaces): apps/api (NestJS), apps/web (Next.js), packages/shared
+
+STARTING COMMIT:        9e17f37 (Batch 31 final closeout)
+IMPLEMENTATION COMMIT:  (current HEAD after Batch 32)
+TAG:                    atsoft-erp-batch32-barcode-qr-label-designer-records-completion
+BRANCH:                 main
+
+SCOPE COMPLETED:
+----------------
+  [✓] Barcode / QR generate          — pages + API (existing, extended with QR/generate endpoint)
+  [✓] Barcode / QR print             — pages + API (existing, extended with print-jobs model)
+  [✓] Barcode / QR scan              — pages + API (existing, extended with resolve/by-entity/summary)
+  [✓] Label preview                  — new page + API (GET /barcodes/labels/:id/preview, /:id/download)
+  [✓] Product label designer         — new pages + API (product-labels/* endpoints via existing labels API)
+  [✓] Machine card designer          — new pages + API (machine-cards/* endpoints via existing labels API)
+  [✓] Barcode records + history      — new pages + API (records list/detail, status management)
+  [✓] Barcode label templates        — new pages + API (CRUD, activate/deactivate, preview, duplicate)
+  [✓] Print jobs / print history     — new model + migration + API + pages
+  [✓] Scan events / scan history     — pages + API (existing extended with summary/by-entity/resolve)
+  [✓] Entity label linking           — product label, product QR, machine barcode-records pages
+  [✓] Safe label download/preview    — GET /barcodes/labels/:id/download (JSON), /:id/preview
+
+PRISMA MIGRATION:
+------------------
+  Name:    20260717133927_add_barcode_print_jobs
+  Table:   barcode_print_jobs (BarcodePrintJob model)
+  Fields:  id, labelId, templateId, entityType, entityId, printerName, copies, status,
+           printedById, jobType, note, metadata, requestedAt, completedAt, createdAt, updatedAt, deletedAt
+  Applied: Yes (development database)
+  Destructive: No (new table only)
+
+WEB ROUTES CREATED / UPDATED (27 total for Batch 32):
+--------------------------------------------------------
+  Under /admin/barcodes/:
+    /admin/barcodes                                          — Overview dashboard (NEW)
+    /admin/barcodes/generate                                 — Generate barcode (EXISTING, updated nav)
+    /admin/barcodes/print                                    — Print barcode (EXISTING, updated nav)
+    /admin/barcodes/scan                                     — Scan barcode (EXISTING, updated nav)
+    /admin/barcodes/preview                                  — Label preview (NEW)
+    /admin/barcodes/records                                  — Records list (NEW)
+    /admin/barcodes/records/[id]                             — Record detail (NEW)
+    /admin/barcodes/templates                                — Templates list (NEW)
+    /admin/barcodes/templates/new                            — Create template (NEW)
+    /admin/barcodes/templates/[id]                           — Template detail (NEW)
+    /admin/barcodes/templates/[id]/edit                      — Edit template (NEW)
+    /admin/barcodes/templates/[id]/preview                   — Template preview (NEW)
+    /admin/barcodes/product-labels                           — Product labels list (NEW)
+    /admin/barcodes/product-labels/designer                  — Product label designer (NEW)
+    /admin/barcodes/product-labels/preview                   — Product label preview (NEW)
+    /admin/barcodes/product-labels/print                     — Product label print (NEW)
+    /admin/barcodes/machine-cards                            — Machine cards list (NEW)
+    /admin/barcodes/machine-cards/designer                   — Machine card designer (NEW)
+    /admin/barcodes/machine-cards/preview                    — Machine card preview (NEW)
+    /admin/barcodes/machine-cards/print                      — Machine card print (NEW)
+    /admin/barcodes/scans                                    — Scan history list (NEW)
+    /admin/barcodes/scans/[id]                               — Scan detail (NEW)
+    /admin/barcodes/print-jobs                               — Print jobs list (NEW)
+    /admin/barcodes/print-jobs/[id]                          — Print job detail (NEW)
+
+  Under entity detail pages:
+    /admin/inventory/products/[id]/label                     — Product label page (NEW)
+    /admin/inventory/products/[id]/qr                        — Product QR page (NEW)
+    /admin/maintenance/machines/[id]/barcode-records         — Machine barcode records (NEW)
+
+BACKEND MODULES/CONTROLLERS/SERVICES CHANGED:
+------------------------------------------------
+  apps/api/src/modules/barcodes/
+    barcodes.module.ts                                       — Updated (added BarcodePrintJobsController/Service)
+    barcode-labels.controller.ts                             — Extended (+5 endpoints)
+    barcode-labels.service.ts                                — Extended (+4 methods)
+    barcode-scans.controller.ts                              — Extended (+3 endpoints)
+    barcode-scans.service.ts                                 — Extended (+3 methods)
+    barcode-print-jobs.controller.ts                         — NEW (6 endpoints)
+    barcode-print-jobs.service.ts                            — NEW (6 methods)
+    dto/create-print-job.dto.ts                              — NEW
+    dto/update-print-job.dto.ts                              — NEW
+    dto/print-job-query.dto.ts                               — NEW
+    dto/generate-qr.dto.ts                                   — NEW
+    dto/resolve-scan.dto.ts                                  — NEW
+
+PERMISSIONS ADDED:
+-------------------
+  barcode-printJobs:create
+  barcode-printJobs:read
+  barcode-printJobs:update
+  barcode-printJobs:summary
+
+I18N NAMESPACES / KEYS ADDED:
+-------------------------------
+  Namespace: barcodes (enhanced)
+  New subsections: overview, records, templates, productLabels, machineCards, printJobs
+  Navigation keys: records, templates, preview, productLabels, machineCards, printJobs, scans
+  Total keys: 1841 (en.ts), 1841 (ar.ts) — fully synchronized
+
+ACTION BAR / NAVIGATION CHANGES:
+----------------------------------
+  Sidebar barcodes section: 10 child links (overview, generate, print, scan, preview, records,
+                             templates, product-labels, machine-cards, scans, print-jobs)
+  Page title mappings: added for all new routes
+
+API ENDPOINT SUMMARY (Batch 32 — Barcode/QR):
+-----------------------------------------------
+  Existing labels endpoints (preserved):
+    POST /api/v1/barcodes/labels
+    POST /api/v1/barcodes/labels/generate
+    GET /api/v1/barcodes/labels
+    GET /api/v1/barcodes/labels/:id
+    PATCH /api/v1/barcodes/labels/:id
+    PATCH /api/v1/barcodes/labels/:id/activate
+    PATCH /api/v1/barcodes/labels/:id/deactivate
+    PATCH /api/v1/barcodes/labels/:id/retire
+    PATCH /api/v1/barcodes/labels/:id/void
+    POST /api/v1/barcodes/labels/:id/mark-printed
+    GET /api/v1/barcodes/entities/:entityType/:entityId/labels
+    GET /api/v1/barcodes/resolve (query)
+    POST /api/v1/barcodes/resolve (body)
+
+  New labels endpoints:
+    DELETE /api/v1/barcodes/labels/:id                       — soft delete
+    GET /api/v1/barcodes/labels/:id/preview                  — preview
+    GET /api/v1/barcodes/labels/:id/download                 — download (JSON)
+    POST /api/v1/barcodes/qr/generate                        — QR-only generate
+    GET /api/v1/barcodes                                      — root list alias
+
+  Existing scan endpoints (preserved):
+    POST /api/v1/barcodes/scan
+    GET /api/v1/barcodes/scans
+    GET /api/v1/barcodes/scans/:id
+    POST /api/v1/barcodes/scan/inventory-count
+    POST /api/v1/barcodes/scan/maintenance
+    POST /api/v1/barcodes/scan/machine-check
+    POST /api/v1/barcodes/scan/part-lookup
+
+  New scan endpoints:
+    GET /api/v1/barcodes/scans/summary                       — scan statistics
+    GET /api/v1/barcodes/scans/by-entity/:entityType/:entityId
+    POST /api/v1/barcodes/scans/resolve                      — scan+resolve
+
+  New print job endpoints:
+    POST /api/v1/barcodes/print-jobs                         — create
+    GET /api/v1/barcodes/print-jobs                          — list
+    GET /api/v1/barcodes/print-jobs/:id                      — detail
+    PATCH /api/v1/barcodes/print-jobs/:id/status             — update status
+    GET /api/v1/barcodes/print-jobs/by-entity/:entityType/:entityId
+    GET /api/v1/barcodes/print-jobs/summary                  — statistics
+
+  Existing template endpoints (preserved):
+    POST /api/v1/barcodes/templates
+    GET /api/v1/barcodes/templates
+    GET /api/v1/barcodes/templates/:id
+    PATCH /api/v1/barcodes/templates/:id
+    PATCH /api/v1/barcodes/templates/:id/activate
+    PATCH /api/v1/barcodes/templates/:id/deactivate
+
+VALIDATION RESULTS:
+--------------------
+  [✓] npx prisma validate                                    — schema valid
+  [✓] npx prisma generate (v7.8.0)                            — 693ms
+  [✓] npm run build:api (tsc)                                — passed
+  [✓] npm run typecheck (tsc --noEmit)                       — passed
+  [✓] npm run build:web (next build)                         — 108 pages, no compile errors
+  [✓] npm run i18n:check                                     — 1841 keys (en/ar fully synced)
+  [✓] health-check (API, Web, Swagger, SQL Server)           — 4/4 passed
+  [✓] smoke-check (login, CRUD, auth, swagger)               — 8/8 passed
+
+SECURITY VALIDATION:
+---------------------
+  [✓] No hardcoded secrets
+  [✓] No .env committed
+  [✓] No JWT exposure
+  [✓] No secrets in QR payload (uses entityType + entityId + labelCode only)
+  [✓] Permission enforcement on all endpoints
+  [✓] Audit sanitization (AuditService.sanitizeDetails)
+  [✓] Template rendering safety (JSON validation, no executable code)
+  [✓] Download safety (JSON payload only, no file read)
+  [✓] No password hash, tokens, or DATABASE_URL returned
+
+SCREENSHOT LIMITATION:
+-----------------------
+  Automatic screenshot capture was unavailable.
+  No fake screenshots were generated.
+  The screenshot directory exists and is ready for manual screenshots.
+
+KNOWN LIMITATIONS:
+-------------------
+  - BarcodePrintJob does not physically print to hardware; browser print() is used for user-facing output
+  - Camera scanner not available in this batch (manual text input scan only)
+  - Template rendering produces formatted JSON display, not graphical barcode image generation
+  - Print job status transitions are manual (PENDING→COMPLETED/FAILED/CANCELLED via PATCH)
+
+UPDATED 198-SCREEN STATUS:
+---------------------------
+  Barcode / QR: 7/7 COMPLETE
+
+SAFETY CONFIRMATION:
+---------------------
+  [✓] No fake UI
+  [✓] No fake API
+  [✓] No mock data
+  [✓] No Docker
+  [✓] No PostgreSQL
+  [✓] No prisma db push
+  [✓] No migrate reset
+  [✓] No database reset
+  [✓] No destructive DB action
+  [✓] No secrets committed
+
+NEXT RECOMMENDED BATCH:
+-------------------------
+  Batch 33 — Reports Center, Missing Reports, Export Excel/PDF, Print Completion
