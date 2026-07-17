@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Res, UseGuards, Header } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ReportsService } from './reports.service';
@@ -142,6 +142,43 @@ export class ReportsController {
     return this.service.getNotificationsReport(filters);
   }
 
+  // ─────────────── BATCH 33 CORRECTIVE REPORTS ───────────────
+
+  @Get('machine-log')
+  @Permissions('reports.maintenance:read')
+  @ApiOperation({ summary: 'Machine activity log report' })
+  getMachineLog(@Query() filters: any) {
+    return this.service.getMachineLogReport(filters);
+  }
+
+  @Get('parts-usage')
+  @Permissions('reports.maintenance:read')
+  @ApiOperation({ summary: 'Parts usage report' })
+  getPartsUsage(@Query() filters: any) {
+    return this.service.getPartsUsageReport(filters);
+  }
+
+  @Get('upcoming-preventive')
+  @Permissions('reports.maintenance:read')
+  @ApiOperation({ summary: 'Upcoming preventive maintenance report' })
+  getUpcomingPreventive(@Query() filters: any) {
+    return this.service.getUpcomingPreventiveReport(filters);
+  }
+
+  @Get('overdue-preventive')
+  @Permissions('reports.maintenance:read')
+  @ApiOperation({ summary: 'Overdue preventive maintenance report' })
+  getOverduePreventive(@Query() filters: any) {
+    return this.service.getOverduePreventiveReport(filters);
+  }
+
+  @Get('low-stock')
+  @Permissions('reports.inventory:read')
+  @ApiOperation({ summary: 'Low stock products report' })
+  getLowStock(@Query() filters: any) {
+    return this.service.getLowStockReport(filters);
+  }
+
   @Get('export/csv/:endpoint(*)')
   @Permissions('reports.maintenance:read', 'reports.inventory:read', 'reports.barcodes:read')
   @ApiOperation({ summary: 'Export report as CSV' })
@@ -154,5 +191,19 @@ export class ReportsController {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${endpoint.replace(/\//g, '-')}_${new Date().toISOString().slice(0, 10)}.csv"`);
     res.send(csv);
+  }
+
+  @Get('export/excel/:endpoint(*)')
+  @Permissions('reports.maintenance:read', 'reports.inventory:read', 'reports.barcodes:read')
+  @ApiOperation({ summary: 'Export report as Excel (.xlsx)' })
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportExcel(@Param('endpoint') endpoint: string, @Query() filters: any, @Res() res: Response) {
+    const buffer = await this.service.exportExcel(endpoint, filters);
+    if (!buffer) {
+      res.status(404).json({ message: 'No data to export' });
+      return;
+    }
+    res.setHeader('Content-Disposition', `attachment; filename="${endpoint.replace(/\//g, '-')}_${new Date().toISOString().slice(0, 10)}.xlsx"`);
+    res.send(buffer);
   }
 }

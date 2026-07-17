@@ -94,6 +94,11 @@ const navItems: NavItem[] = [
       { id: 'rpt-audit', label: 'navigation.auditTrailReport', href: '/admin/reports/audit' },
       { id: 'rpt-user-activity', label: 'navigation.userActivityReport', href: '/admin/reports/user-activity' },
       { id: 'rpt-notifications', label: 'navigation.notificationsReport', href: '/admin/reports/notifications' },
+      { id: 'rpt-machine-log', label: 'navigation.machineLogReport', href: '/admin/reports/machine-log' },
+      { id: 'rpt-parts-usage', label: 'navigation.partsUsageReport', href: '/admin/reports/parts-usage' },
+      { id: 'rpt-upcoming-pm', label: 'navigation.upcomingPreventiveReport', href: '/admin/reports/upcoming-preventive' },
+      { id: 'rpt-overdue-pm', label: 'navigation.overduePreventiveReport', href: '/admin/reports/overdue-preventive' },
+      { id: 'rpt-low-stock', label: 'navigation.lowStockReport', href: '/admin/reports/low-stock' },
     ],
   },
   {

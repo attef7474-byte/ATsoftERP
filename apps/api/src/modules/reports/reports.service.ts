@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MaintenanceReportFilterDto, InventoryReportFilterDto, BarcodeReportFilterDto } from './dto/report-filter.dto';
 
@@ -703,6 +704,147 @@ export class ReportsService {
     };
   }
 
+  // ═══════════════════════ BATCH 33 CORRECTIVE REPORTS ════════════════
+
+  // ──────────────────────── MACHINE LOG REPORT ──────────────────────
+
+  async getMachineLogReport(filters: any) {
+    const where: any = { ...this.buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt') };
+    if (filters.machineId) where.machineId = filters.machineId;
+    if (filters.search) where.OR = [{ title: { contains: filters.search } }, { requestNumber: { contains: filters.search } }];
+
+    const [total, rows] = await Promise.all([
+      this.prisma.maintenanceRequest.count({ where }),
+      this.prisma.maintenanceRequest.findMany({
+        where, ...this.paginate(filters.page, filters.pageSize),
+        orderBy: { createdAt: 'desc' },
+        include: { machine: { select: { id: true, code: true, name: true } } },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / (filters.pageSize || 20));
+    return { rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages };
+  }
+
+  // ──────────────────────── PARTS USAGE REPORT ──────────────────────
+
+  async getPartsUsageReport(filters: any) {
+    const where: any = { ...this.buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt') };
+    if (filters.machineId) where.request = { machineId: filters.machineId };
+    if (filters.productId) where.productId = filters.productId;
+    if (filters.search) where.product = { OR: [{ code: { contains: filters.search } }, { name: { contains: filters.search } }] };
+
+    const [total, rows, totalQty, totalCost] = await Promise.all([
+      this.prisma.maintenanceRequestPartUsage.count({ where }),
+      this.prisma.maintenanceRequestPartUsage.findMany({
+        where, ...this.paginate(filters.page, filters.pageSize),
+        orderBy: { id: 'desc' },
+        include: { product: { select: { id: true, code: true, name: true, unit: true } }, request: { select: { id: true, requestNumber: true, machineId: true } } },
+      }),
+      this.prisma.maintenanceRequestPartUsage.aggregate({ where, _sum: { quantity: true } }),
+      this.prisma.maintenanceRequestPartUsage.aggregate({ where, _sum: { totalCost: true } }),
+    ]);
+
+    const totalPages = Math.ceil(total / (filters.pageSize || 20));
+    return {
+      cards: [
+        { label: 'totalPartsUsageRows', value: total },
+        { label: 'totalQty', value: totalQty._sum.quantity || 0 },
+        { label: 'totalCost', value: totalCost._sum.totalCost || 0 },
+      ],
+      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+    };
+  }
+
+  // ──────────────────── UPCOMING PREVENTIVE REPORT ──────────────────
+
+  async getUpcomingPreventiveReport(filters: any) {
+    const now = new Date();
+    const soon = this.nowPlusDays(30);
+    const where: any = { status: 'ACTIVE', endDate: { gte: now, lte: soon } };
+    if (filters.machineId) where.machineId = filters.machineId;
+    if (filters.search) where.title = { contains: filters.search };
+
+    const [total, rows, dueSoonCount, totalActive] = await Promise.all([
+      this.prisma.maintenanceSchedule.count({ where }),
+      this.prisma.maintenanceSchedule.findMany({
+        where, ...this.paginate(filters.page, filters.pageSize),
+        orderBy: { endDate: 'asc' },
+        include: { machine: { select: { id: true, code: true, name: true } } },
+      }),
+      this.prisma.maintenanceSchedule.count({ where: { ...where, endDate: { lte: this.nowPlusDays(7) } } }),
+      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE' } }),
+    ]);
+
+    const totalPages = Math.ceil(total / (filters.pageSize || 20));
+    return {
+      cards: [
+        { label: 'upcomingSchedules', value: total },
+        { label: 'dueWithinWeek', value: dueSoonCount },
+        { label: 'totalActiveSchedules', value: totalActive },
+      ],
+      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+    };
+  }
+
+  // ──────────────────── OVERDUE PREVENTIVE REPORT ───────────────────
+
+  async getOverduePreventiveReport(filters: any) {
+    const now = new Date();
+    const where: any = { status: 'ACTIVE', endDate: { lt: now } };
+    if (filters.machineId) where.machineId = filters.machineId;
+    if (filters.search) where.title = { contains: filters.search };
+
+    const [total, rows, overdueCount, totalActive] = await Promise.all([
+      this.prisma.maintenanceSchedule.count({ where }),
+      this.prisma.maintenanceSchedule.findMany({
+        where, ...this.paginate(filters.page, filters.pageSize),
+        orderBy: { endDate: 'asc' },
+        include: { machine: { select: { id: true, code: true, name: true } } },
+      }),
+      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', endDate: { lt: now } } }),
+      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE' } }),
+    ]);
+
+    const totalPages = Math.ceil(total / (filters.pageSize || 20));
+    return {
+      cards: [
+        { label: 'overdueSchedules', value: total },
+        { label: 'totalOverdue', value: overdueCount },
+        { label: 'totalActiveSchedules', value: totalActive },
+        { label: 'complianceRate', value: totalActive > 0 ? Math.round(((totalActive - overdueCount) / totalActive) * 100) : 100, unit: '%' },
+      ],
+      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+    };
+  }
+
+  // ──────────────────────── LOW STOCK REPORT ────────────────────────
+
+  async getLowStockReport(filters: any) {
+    const where: any = { quantity: { lt: 10 } };
+    if (filters.search) where.OR = [{ code: { contains: filters.search } }, { name: { contains: filters.search } }];
+
+    const [total, rows, totalProducts, totalLowQty] = await Promise.all([
+      this.prisma.machinePart.count({ where }),
+      this.prisma.machinePart.findMany({
+        where, ...this.paginate(filters.page, filters.pageSize),
+        orderBy: { quantity: 'asc' },
+      }),
+      this.prisma.machinePart.count(),
+      this.prisma.machinePart.aggregate({ where, _sum: { quantity: true } }),
+    ]);
+
+    const totalPages = Math.ceil(total / (filters.pageSize || 20));
+    return {
+      cards: [
+        { label: 'lowStockItems', value: total },
+        { label: 'totalProductCount', value: totalProducts },
+        { label: 'totalLowStockQty', value: totalLowQty._sum.quantity || 0 },
+      ],
+      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+    };
+  }
+
   // ──────────────────────── EXPORT / PRINT HELPERS ──────────────────
 
   async exportCsv(endpoint: string, filters: any): Promise<string> {
@@ -726,6 +868,11 @@ export class ReportsService {
       case 'audit': data = await this.getAuditTrailReport(filters); break;
       case 'user-activity': data = await this.getUserActivityReport(filters); break;
       case 'notifications': data = await this.getNotificationsReport(filters); break;
+      case 'machine-log': data = await this.getMachineLogReport(filters); break;
+      case 'parts-usage': data = await this.getPartsUsageReport(filters); break;
+      case 'upcoming-preventive': data = await this.getUpcomingPreventiveReport(filters); break;
+      case 'overdue-preventive': data = await this.getOverduePreventiveReport(filters); break;
+      case 'low-stock': data = await this.getLowStockReport(filters); break;
       default: return '';
     }
     const rows: any[] = data?.rows || [];
@@ -736,5 +883,49 @@ export class ReportsService {
       ...rows.map((r: any) => headers.map(h => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(',')),
     ].join('\n');
     return '\uFEFF' + csv;
+  }
+
+  async exportExcel(endpoint: string, filters: any): Promise<Buffer | null> {
+    let data: any;
+    const dispatch = async (ep: string) => {
+      switch (ep) {
+        case 'maintenance/overview': return await this.getMaintenanceOverview(filters);
+        case 'maintenance/requests': return await this.getMaintenanceRequestsReport(filters);
+        case 'maintenance/downtime': return await this.getMachineDowntimeReport(filters);
+        case 'maintenance/costs': return await this.getMaintenanceCostsReport(filters);
+        case 'maintenance/schedules': return await this.getPreventiveSchedulesReport(filters);
+        case 'inventory/overview': return await this.getInventoryOverview(filters);
+        case 'inventory/balances': return await this.getInventoryBalanceReport(filters);
+        case 'inventory/count-variance': return await this.getInventoryCountVarianceReport(filters);
+        case 'inventory/movements': return await this.getInventoryMovementsReport(filters);
+        case 'inventory/adjustments': return await this.getInventoryAdjustmentsReport(filters);
+        case 'barcodes/scans': return await this.getBarcodeScansReport(filters);
+        case 'assets': return await this.getAssetsRegisterReport(filters);
+        case 'parts': return await this.getPartsReport(filters);
+        case 'partners': return await this.getPartnersReport(filters);
+        case 'attachments': return await this.getAttachmentsReport(filters);
+        case 'audit': return await this.getAuditTrailReport(filters);
+        case 'user-activity': return await this.getUserActivityReport(filters);
+        case 'notifications': return await this.getNotificationsReport(filters);
+        case 'machine-log': return await this.getMachineLogReport(filters);
+        case 'parts-usage': return await this.getPartsUsageReport(filters);
+        case 'upcoming-preventive': return await this.getUpcomingPreventiveReport(filters);
+        case 'overdue-preventive': return await this.getOverduePreventiveReport(filters);
+        case 'low-stock': return await this.getLowStockReport(filters);
+        default: return null;
+      }
+    };
+    data = await dispatch(endpoint);
+    if (!data) return null;
+    const rows: any[] = data?.rows || [];
+    if (!rows.length) return null;
+    const headers = Object.keys(rows[0]).filter(k => !k.startsWith('_'));
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Report');
+    sheet.columns = headers.map(h => ({ header: h, key: h, width: 20 }));
+    rows.forEach(r => sheet.addRow(Object.fromEntries(headers.map(h => [h, r[h] ?? '']))));
+    sheet.getRow(1).font = { bold: true };
+    const buffer = await workbook.xlsx.writeBuffer();
+    return buffer as unknown as Buffer;
   }
 }

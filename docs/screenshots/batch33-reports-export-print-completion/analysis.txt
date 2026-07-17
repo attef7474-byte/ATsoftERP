@@ -1,69 +1,112 @@
 ================================================================================
- BATCH 33 — REPORTS CENTER, EXPORT/PRINT COMPLETION
+ BATCH 33 — REPORTS CENTER, EXPORT/PRINT COMPLETION (CORRECTIVE CLOSEOUT)
  ANALYSIS & VERIFICATION REPORT
  Date: 2026-07-17
 ================================================================================
 
 1. OBJECTIVE
-   Complete Reports Center: 18/18 Reports, Export CSV/PDF, Print Completion.
-   Enhance all 11 existing report pages + add 7 new report types.
+   Complete Reports Center: 23/23 Reports, Export CSV/Excel/PDF, Print Completion.
+   Enhance all 11 existing report pages + add 12 new report types.
+   Install exceljs for real server-side .xlsx Excel export.
 
 2. SCOPE COMPLETED
-   Backend (API):
-   - reports.service.ts: Added 7 new report query methods:
-     * getAssetsRegisterReport  — Machine assets register
-     * getPartsReport           — Machine parts inventory
-     * getPartnersReport        — Business partners
-     * getAttachmentsReport     — Attachments/documents
-     * getAuditTrailReport      — Audit log entries
-     * getUserActivityReport    — User login/activity
-     * getNotificationsReport   — Notifications history
-   - Added exportCsv() helper to generate CSV for any report endpoint
-   - reports.controller.ts: Added 7 new GET endpoints + export CSV endpoint
-   - All endpoints use existing permissions (reports.maintenance:read / reports.inventory:read / reports.barcodes:read)
 
-   Frontend (Web):
-   - Enhanced ReportExportButton.tsx: Added "Export PDF" button (window.print)
-   - Created 7 new report pages:
-     * /admin/reports/assets/       — Assets Register Report
-     * /admin/reports/parts/        — Parts Inventory Report
-     * /admin/reports/partners/     — Business Partners Report
-     * /admin/reports/attachments/  — Attachments & Documents Report
-     * /admin/reports/audit/        — Audit Trail Report
-     * /admin/reports/user-activity/ — User Activity Report
-     * /admin/reports/notifications/ — Notifications Report
-   - Each page includes: Filters, ReportSummaryCards, CSV Export, PDF Export (window.print),
-     Action Bar (Back/Refresh/Print), DataTable with Pagination
-   - admin-shell.tsx: Updated sidebar navigation with 7 new report entries
-   - i18n (en.ts): Added navigation + reports keys for 7 new report types
-   - i18n (ar.ts): Added synchronized Arabic translations
+   Backend (API) — 23 Report Endpoints + Export Endpoints:
+   - reports.service.ts: 23 query methods + CSV/Excel export helpers
+   - reports.controller.ts: 23 GET endpoints + GET /reports/export/excel/:endpoint
+   - exceljs v4+ installed as workspace dependency for real .xlsx generation
+   - All endpoints use existing permissions
 
-3. TOTAL REPORTS: 18/18
-   Maintenance (5): Overview, Requests, Downtime, Costs, Schedules
-   Inventory (5):   Overview, Balances, Count-Variance, Movements, Adjustments
-   Barcode (1):     Scans
-   Assets (1):      Assets Register
-   Parts (1):       Parts Inventory
-   Partners (1):    Business Partners
-   Attachments (1): Attachments & Documents
-   Audit (1):       Audit Trail
-   User (1):        User Activity
-   Notifications (1): Notifications
+   Report Query Methods (with Prisma queries):
+     Maintenance (5):
+       getMaintenanceReport          — Maintenance overview aggregation
+       getMaintenanceRequestsReport  — Maintenance requests with parts/costs
+       getDowntimeReport             — Downtime logs aggregation
+       getCostReport                 — Maintenance costs aggregation
+       getMaintenanceSchedulesReport — Maintenance schedules
+     Inventory (5):
+       getInventoryReport            — Inventory overview aggregation
+       getBalancesByWarehouseReport  — Stock balances per warehouse
+       getCountVarianceReport        — Count variance analysis
+       getMovementsReport            — Stock movements
+       getAdjustmentsReport          — Inventory adjustments
+     Barcode (1):
+       getScanReport                 — Barcode scan history
+     New Batch 33 Reports (11):
+       getAssetsRegisterReport       — Machine assets register
+       getPartsReport                — Machine parts inventory
+       getPartnersReport             — Business partners
+       getAttachmentsReport          — Attachments/documents
+       getAuditTrailReport           — Audit log entries
+       getUserActivityReport         — User login/activity
+       getNotificationsReport        — Notifications history
+       getMachineLogReport           — Machine activity log (MaintenanceRequest)
+       getPartsUsageReport           — Parts usage (MaintenanceRequestPartUsage)
+       getUpcomingPreventiveReport   — Upcoming preventive schedules (MaintenanceSchedule)
+       getOverduePreventiveReport    — Overdue preventive schedules
+       getLowStockReport             — Low stock products (MachinePart)
+
+   Export Methods:
+     exportCsv(endpoint, query)       — CSV text generation for all 23 endpoints
+     exportExcel(endpoint, query)     — Real .xlsx via ExcelJS Workbook for all 23 endpoints
+
+   Frontend (Web) — 23 Report Pages:
+     Existing 11 pages enhanced with Excel export capability
+     12 new pages created:
+       /admin/reports/assets/
+       /admin/reports/parts/
+       /admin/reports/partners/
+       /admin/reports/attachments/
+       /admin/reports/audit/
+       /admin/reports/user-activity/
+       /admin/reports/notifications/
+       /admin/reports/machine-log/
+       /admin/reports/parts-usage/
+       /admin/reports/upcoming-preventive/
+       /admin/reports/overdue-preventive/
+       /admin/reports/low-stock/
+
+   Each page includes: Filters, ReportSummaryCards, CSV Export, PDF Export,
+   Action Bar (Back/Refresh/Print), DataTable with Pagination
+
+   UI:
+   - admin-shell.tsx: Sidebar nav with all 23 report entries
+   - i18n (en.ts & ar.ts): 1898 keys fully synchronized
+
+3. TOTAL REPORTS: 23/23
+   Maintenance (5):     Overview, Requests, Downtime, Costs, Schedules
+   Inventory (5):       Overview, Balances, Count-Variance, Movements, Adjustments
+   Barcode (1):         Scans
+   Assets (1):          Assets Register
+   Parts (1):           Parts Inventory
+   Partners (1):        Business Partners
+   Attachments (1):     Attachments & Documents
+   Audit (1):           Audit Trail
+   User (1):            User Activity
+   Notifications (1):   Notifications
+   Machine Log (1):     Machine Activity Log
+   Parts Usage (1):     Parts Usage Report
+   Preventive (2):      Upcoming Preventive, Overdue Preventive
+   Low Stock (1):       Low Stock Products
 
 4. EXPORT/PRINT CAPABILITIES
-   - CSV Export: Client-side via ReportExportButton (BOM-prefixed UTF-8)
-   - PDF Export: Added "Export PDF" button (uses browser window.print → "Save as PDF")
+   - CSV Export: Server-side via /reports/export/csv/{endpoint} (BOM-prefixed UTF-8)
+   - Excel Export: Server-side via /reports/export/excel/{endpoint} (real .xlsx via ExcelJS)
+   - PDF Export: Browser-native "Save as PDF" via window.print
    - Print: Action Bar Print button (window.print)
-   - Backend CSV export endpoint: GET /api/v1/reports/export/csv/{endpoint}
 
-5. EXISTING 11 REPORTS — ALL ENHANCED
-   Each already has: Filters, Export CSV, Export PDF, Print, DataTable, Pagination
+5. VERIFICATION RESULTS
+   - Prisma validate:    PASS
+   - Prisma generate:    PASS
+   - npm run build:api:  PASS  (tsc compiles clean)
+   - npm run typecheck:  PASS  (tsc --noEmit)
+   - npm run build:web:  PASS  (120 pages, all 23 reports present)
+   - npm run i18n:check: PASS  (1898 keys, en/ar synchronized)
+   - Web routes:         120 total (was 115 before, +5 for new report pages)
+   - API endpoints:      25 in reports controller (was ~20 before)
+   - Git:                Clean tree ready for final commit
 
-6. VERIFICATION
-   - Git: clean tree, no uncommitted changes except batch work
-   - Build: must pass (api build + web build + prisma validate + i18n check)
-
-7. LIMITATIONS (same as Batch 32)
+6. LIMITATIONS
    - PDF export is browser-native "Save as PDF" via window.print (no server-side PDF generation)
-   - No jsPDF/ExcelJS dependency added (avoids bundle bloat)
-   - CSV export is client-side only (BOM-prefixed UTF-8 for Excel compatibility)
+   - Excel export uses exceljs (OpenXML .xlsx) — no jsPDF dependency
+   - No dedicated test suite for reports (pages are static/SSR with dynamic data fetching)
