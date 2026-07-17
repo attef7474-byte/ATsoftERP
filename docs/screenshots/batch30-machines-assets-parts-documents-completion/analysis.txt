@@ -3,7 +3,7 @@ Batch 30 Analysis Report
 Title: Machines, Assets, Parts, Documents Completion
 Date: 2026-07-17
 Implementation Commit: 784db19
-Closeout Commit: (pending docs commit)
+Closeout Commit: c241aae
 Tag: atsoft-erp-batch30-machines-assets-parts-documents-completion
 Final Tag: atsoft-erp-batch30-machines-assets-parts-documents-completion-final
 
