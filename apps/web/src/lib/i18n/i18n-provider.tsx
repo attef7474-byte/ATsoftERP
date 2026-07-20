@@ -37,6 +37,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const t = useCallback(
     (key: string, ns?: TranslationNamespace): string => {
       const localeData = translations[locale];
+      if (!localeData) return key;
       const dotIndex = key.indexOf('.');
       const actualNs = ns ?? (dotIndex >= 0 ? key.substring(0, dotIndex) as TranslationNamespace : 'common');
       const actualKey = (dotIndex >= 0 && ns === undefined) ? key.substring(dotIndex + 1) : key;

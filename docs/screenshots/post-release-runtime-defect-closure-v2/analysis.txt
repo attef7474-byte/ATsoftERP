@@ -1,0 +1,56 @@
+RUNTIME DEFECT CLOSURE V2 — ROOT CAUSE ANALYSIS
+================================================
+Date: 2026-07-21
+Starting commit: ef69c3e
+Branch: main
+
+7 REAL USER-OBSERVED ERRORS:
+
+1. Settings appearance PATCH 400
+   - Frontend sends: {theme, primaryColor, fontSize, compactMode, sidebarCollapsed}
+   - Backend DTO expects: {themeMode, accentColor, compactMode, sidebarDensity, tableDensity, showStatusBar, showActionBar}
+   - Mismatch: 'theme' != 'themeMode', 'primaryColor' != 'accentColor', 'fontSize' not in DTO, 'sidebarCollapsed' not in DTO
+   - Global ValidationPipe with forbidNonWhitelisted=true rejects unknown fields -> 400
+
+2. Settings language PATCH 400
+   - Frontend sends: {defaultLanguage}
+   - Backend DTO expects: {defaultLocale}
+   - Mismatch: 'defaultLanguage' != 'defaultLocale' -> rejected
+
+3. Settings company-profile PATCH 400
+   - Frontend sends: {companyNameAr, companyNameEn, ..., defaultLanguage, timezone, currencyCode}
+   - Backend DTO expects: {companyNameAr, companyNameEn, ..., taxNumber, ...}
+   - Extra fields: 'defaultLanguage', 'timezone', 'currencyCode' not in DTO -> rejected
+
+4. Settings notification-rules 404
+   - Frontend calls: GET /api/v1/settings/notification-rules
+   - Actual backend route: GET /api/v1/notifications/rules
+   - settings/:id catch-all shadows the call -> "System setting not found"
+
+5. Audit-logs user-activity 404
+   - Frontend calls: GET /api/v1/audit-logs/user-activity
+   - Backend only had: GET /api/v1/audit-logs (list) and GET /api/v1/audit-logs/:id (single)
+   - 'user-activity' matched :id param -> "Audit log not found"
+   - Service had findUserActivity() but no HTTP route
+
+6. Audit-logs login-history 404
+   - Same issue as #5
+   - Service had findLoginHistory() but no HTTP route
+
+7. Fatal frontend error: Cannot read properties of undefined (reading 'common')
+   - File: i18n-provider.tsx line 43: const nsData = localeData[actualNs]
+   - localeData is undefined when translations[locale] is undefined
+   - Happens when locale is neither 'en' nor 'ar'
+   - No guard before accessing localeData[actualNs]
+
+FIXES APPLIED:
+A. Frontend settings pages: Map UI field names to DTO field names before PATCH
+   - appearance: theme->themeMode, primaryColor->accentColor, drop fontSize/sidebarCollapsed
+   - language: defaultLanguage->defaultLocale
+   - company-profile: strip defaultLanguage/timezone/currencyCode
+B. Notification rules: Change URL from /settings/notification-rules to /notifications/rules
+   - Also fix POST->PATCH for activate/deactivate (backend uses @Patch)
+C. Audit controller: Add GET /audit-logs/user-activity and GET /audit-logs/login-history routes
+   - user-activity: delegates to findAll with optional userId filter
+   - login-history: filters by LOGIN actions, uses findLoginHistory for userId filter
+D. i18n-provider: Add guard (!localeData) return key before accessing localeData[actualNs]

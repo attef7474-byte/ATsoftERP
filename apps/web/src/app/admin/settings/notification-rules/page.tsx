@@ -35,7 +35,7 @@ export default function NotificationRulesPage() {
       const params: Record<string, any> = { page, pageSize: 20 };
       if (search) params.search = search;
       if (eventFilter) params.eventType = eventFilter;
-      const res = await api.get<{ data: any[]; total: number }>('/settings/notification-rules', { params });
+      const res = await api.get<{ data: any[]; total: number }>('/notifications/rules', { params });
       setData(res.data || []);
       setMeta({ page, limit: 20, total: res.total || 0, totalPages: Math.ceil((res.total || 0) / 20) });
     } catch (err: any) { setError(err?.message || t('errors.loadFailed')); }
@@ -60,10 +60,10 @@ export default function NotificationRulesPage() {
     setSaving(true);
     try {
       if (editItem) {
-        await api.patch(`/settings/notification-rules/${editItem.id}`, form);
+        await api.patch(`/notifications/rules/${editItem.id}`, form);
         showToast(t('settings.notificationRules.updateSuccess'), 'success');
       } else {
-        await api.post('/settings/notification-rules', form);
+        await api.post('/notifications/rules', form);
         showToast(t('settings.notificationRules.createSuccess'), 'success');
       }
       setModalOpen(false);
@@ -75,7 +75,7 @@ export default function NotificationRulesPage() {
   const handleDelete = async () => {
     if (!confirmDelete) return;
     try {
-      await api.delete(`/settings/notification-rules/${confirmDelete.id}`);
+      await api.delete(`/notifications/rules/${confirmDelete.id}`);
       showToast(t('settings.notificationRules.deleteSuccess'), 'success');
       setConfirmDelete(null);
       setSelectedId('');
@@ -86,7 +86,7 @@ export default function NotificationRulesPage() {
   const handleActivate = async () => {
     if (!selectedId) return;
     try {
-      await api.post(`/settings/notification-rules/${selectedId}/activate`);
+      await api.patch(`/notifications/rules/${selectedId}/activate`);
       showToast(t('settings.notificationRules.activated'), 'success');
       fetchData(meta.page);
     } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
@@ -95,7 +95,7 @@ export default function NotificationRulesPage() {
   const handleDeactivate = async () => {
     if (!selectedId) return;
     try {
-      await api.post(`/settings/notification-rules/${selectedId}/deactivate`);
+      await api.patch(`/notifications/rules/${selectedId}/deactivate`);
       showToast(t('settings.notificationRules.deactivated'), 'success');
       fetchData(meta.page);
     } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }

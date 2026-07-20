@@ -27,7 +27,13 @@ export default function AppearanceSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.patch('/settings/appearance', settings);
+      const { theme, primaryColor, fontSize, sidebarCollapsed, ...rest } = settings;
+      const payload = {
+        themeMode: theme,
+        accentColor: primaryColor,
+        compactMode: rest.compactMode,
+      };
+      await api.patch('/settings/appearance', payload);
       showToast(t('settings.appearance.saveSuccess'), 'success');
     } catch (err: any) {
       showToast(err?.message || t('errors.updateFailed'), 'error');

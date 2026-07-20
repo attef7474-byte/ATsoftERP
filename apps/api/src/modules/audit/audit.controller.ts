@@ -49,6 +49,32 @@ export class AuditController {
     return csv
   }
 
+  @Get('user-activity')
+  @Permissions('audit:read')
+  @ApiOperation({ summary: 'Get user activity audit logs' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'userId', required: false })
+  async getUserActivity(@Query('page') page?: string, @Query('limit') limit?: string, @Query('userId') userId?: string) {
+    return this.auditService.findAll({ page: page ? parseInt(page, 10) : undefined, limit: limit ? parseInt(limit, 10) : undefined, userId })
+  }
+
+  @Get('login-history')
+  @Permissions('audit:read')
+  @ApiOperation({ summary: 'Get login history audit logs' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'userId', required: false })
+  async getLoginHistory(@Query('page') page?: string, @Query('limit') limit?: string, @Query('userId') userId?: string) {
+    const pageNum = page ? parseInt(page, 10) : 1
+    const limitNum = limit ? parseInt(limit, 10) : 20
+    if (userId) {
+      return this.auditService.findLoginHistory(userId, pageNum, limitNum)
+    }
+    const { data, meta } = await this.auditService.findAll({ page: pageNum, limit: limitNum, action: 'LOGIN' })
+    return { data, meta }
+  }
+
   @Get(':id')
   @Permissions('audit:read')
   @ApiOperation({ summary: 'Get audit log by ID' })

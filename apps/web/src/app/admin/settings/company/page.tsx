@@ -34,7 +34,8 @@ export default function CompanyProfilePage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updated = await api.patch<any>('/settings/company-profile', form);
+      const { defaultLanguage, timezone, currencyCode, ...payload } = form;
+      const updated = await api.patch<any>('/settings/company-profile', payload);
       setProfile(updated);
       showToast(t('settings.company.saveSuccess'), 'success');
     } catch (err: any) {

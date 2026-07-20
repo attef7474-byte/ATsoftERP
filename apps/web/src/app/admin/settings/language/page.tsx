@@ -32,7 +32,7 @@ export default function LanguageSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.patch('/settings/language', settings);
+      await api.patch('/settings/language', { defaultLocale: settings.defaultLanguage });
       setLocale(settings.defaultLanguage);
       showToast(t('settings.languageSettings.saveSuccess'), 'success');
     } catch (err: any) {
