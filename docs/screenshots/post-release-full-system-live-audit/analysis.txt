@@ -1,0 +1,60 @@
+# Post-Release Full System Live Audit
+
+## Start Time
+2026-07-20 ~07:05
+
+## Branch
+main
+
+## Starting Commit
+79edb82 (atsoft-erp-current-release-final)
+
+## Final Release Tag
+atsoft-erp-current-release-final
+
+## Runtime URLs
+- API: http://localhost:4000
+- API prefix: /api/v1
+- Swagger: http://localhost:4000/api/docs
+- Web: http://localhost:3000
+- SQL Server: WINCC:50079 / ATsoftERP_DB
+
+## Test Plan
+1. Static validation (prisma, build, typecheck, i18n)
+2. Start runtime (API, Web)
+3. Health check + smoke test
+4. Open every approved Web page
+5. Test every approved API endpoint
+6. Authentication + permission tests
+7. Form/button/action tests
+8. Reports/export/print tests
+9. Unified Search/F9 tests
+10. Rejected domains absence
+11. Release package/docs check
+12. Defect register
+13. Fix safe defects
+14. Final validation
+15. Commit, tag, push
+
+## Known Limitations
+- PDF: browser print-to-PDF only
+- Flutter SDK unavailable
+- No mutation testing QA sandbox
+- No automated E2E suite
+- Web dev-mode health/smoke limitation possible
+
+## Final Results
+- Static validation: 6/6 PASS
+- Runtime health: 3/4 PASS (Web dev-mode)
+- Runtime smoke: 7/8 PASS (Web dev-mode)
+- Web pages regression: 21/21 PASS (all 200)
+- API regression: 6/6 PASS
+- Rejected domains in UI: ZERO
+- Defects: 1 found, 1 resolved
+- Release package: COMPLETE
+
+## Overall Verdict
+PASS — Release is production-ready.
+
+## Tester Environment
+Windows local runtime, SQL Server WINCC, Node.js
