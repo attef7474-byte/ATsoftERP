@@ -1,13 +1,17 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UploadedFile, UseInterceptors, Res } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiQuery, ApiConsumes } from '@nestjs/swagger'
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UploadedFile, UseInterceptors, Res, UseGuards } from '@nestjs/common'
+import { ApiTags, ApiOperation, ApiQuery, ApiConsumes, ApiBearerAuth } from '@nestjs/swagger'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { Response } from 'express'
 import { AttachmentsService } from './attachments.service'
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
+import { PermissionsGuard } from '../../../common/guards/permissions.guard'
 import { Permissions } from '../../../common/decorators/permissions.decorator'
 import { CurrentUser } from '../../../common/decorators/current-user.decorator'
 import * as path from 'path'
 
 @ApiTags('Attachments')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('attachments')
 export class AttachmentsController {
   constructor(private readonly service: AttachmentsService) {}

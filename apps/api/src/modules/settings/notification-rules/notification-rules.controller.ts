@@ -1,9 +1,13 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger'
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common'
+import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger'
 import { NotificationRulesService } from './notification-rules.service'
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
+import { PermissionsGuard } from '../../../common/guards/permissions.guard'
 import { Permissions } from '../../../common/decorators/permissions.decorator'
 
 @ApiTags('Settings')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('notifications/rules')
 export class NotificationRulesController {
   constructor(private readonly service: NotificationRulesService) {}

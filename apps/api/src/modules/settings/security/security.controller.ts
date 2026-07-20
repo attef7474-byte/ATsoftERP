@@ -1,9 +1,13 @@
-import { Controller, Get, Patch, Body } from '@nestjs/common'
-import { ApiTags, ApiOperation } from '@nestjs/swagger'
+import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common'
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
 import { SecurityService } from './security.service'
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
+import { PermissionsGuard } from '../../../common/guards/permissions.guard'
 import { Permissions } from '../../../common/decorators/permissions.decorator'
 
 @ApiTags('Settings')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('settings/security')
 export class SecurityController {
   constructor(private readonly service: SecurityService) {}
