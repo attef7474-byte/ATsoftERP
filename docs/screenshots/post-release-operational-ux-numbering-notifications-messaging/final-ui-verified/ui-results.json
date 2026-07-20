@@ -1,0 +1,155 @@
+{
+  "pass": 31,
+  "fail": 0,
+  "details": [
+    {
+      "n": "Login: API token",
+      "s": "PASS"
+    },
+    {
+      "n": "Login: Dashboard reachable",
+      "s": "PASS",
+      "m": "ATsoft ERP\nالعربية\nA\n\nAdministrator\n\nadmin@atsofterp.com\n\nLogout\nDashboard\n\nWelc"
+    },
+    {
+      "n": "Auth/me: Returns 200",
+      "s": "PASS",
+      "m": "admin@atsofterp.com"
+    },
+    {
+      "n": "Error Modal: Invalid payload rejected",
+      "s": "PASS"
+    },
+    {
+      "n": "Error Modal: No JWT",
+      "s": "PASS"
+    },
+    {
+      "n": "Error Modal: No passwordHash",
+      "s": "PASS"
+    },
+    {
+      "n": "Error Modal: No stack trace",
+      "s": "PASS"
+    },
+    {
+      "n": "Error Modal: No DATABASE_URL",
+      "s": "PASS"
+    },
+    {
+      "n": "Error Modal: Visible error feedback",
+      "s": "INFO",
+      "m": "No visible toast/modal"
+    },
+    {
+      "n": "Notification: QA_TEST dispatch",
+      "s": "PASS"
+    },
+    {
+      "n": "Notification: Bell icon exists",
+      "s": "PASS",
+      "m": "Method: title"
+    },
+    {
+      "n": "Notification: Drawer opens from bell click",
+      "s": "PASS",
+      "m": "Drawer opened"
+    },
+    {
+      "n": "Notification: Page opens",
+      "s": "PASS"
+    },
+    {
+      "n": "Required: Branches",
+      "s": "PASS",
+      "m": "inputs:5, types:required-attr"
+    },
+    {
+      "n": "Required: Departments",
+      "s": "PASS",
+      "m": "inputs:3, types:required-attr"
+    },
+    {
+      "n": "Required: Warehouses",
+      "s": "PASS",
+      "m": "inputs:3, types:required-attr"
+    },
+    {
+      "n": "Required: Products",
+      "s": "PASS",
+      "m": "inputs:7, types:required-attr"
+    },
+    {
+      "n": "Required: Maintenance requests",
+      "s": "PASS",
+      "m": "inputs:5, types:required-attr"
+    },
+    {
+      "n": "Required: Maintenance tasks",
+      "s": "PASS",
+      "m": "inputs:3, types:required-attr"
+    },
+    {
+      "n": "Required: Messaging compose",
+      "s": "INFO",
+      "m": "inputs:1"
+    },
+    {
+      "n": "Settings: Font-size label visible",
+      "s": "PASS"
+    },
+    {
+      "n": "Settings: Font-size values visible",
+      "s": "PASS"
+    },
+    {
+      "n": "Settings: No raw i18n keys",
+      "s": "PASS"
+    },
+    {
+      "n": "Settings: No \"setting not found\"",
+      "s": "PASS"
+    },
+    {
+      "n": "Settings: Save button found",
+      "s": "PASS"
+    },
+    {
+      "n": "Settings: Appearance save works",
+      "s": "PASS",
+      "m": "Status 200"
+    },
+    {
+      "n": "Number Sequences: Page loads",
+      "s": "PASS"
+    },
+    {
+      "n": "Number Sequences: API list loads",
+      "s": "PASS",
+      "m": "Status 200"
+    },
+    {
+      "n": "Messaging: Create conversation",
+      "s": "PASS",
+      "m": "Conv status 201: {\"id\":\"cmrtp6qsx000eg4950yipz52x\",\"title\":\"UI Verification Test\",\"createdByUserId\":\"cmrl31v0g0004ok9"
+    },
+    {
+      "n": "Messaging: Send message",
+      "s": "PASS",
+      "m": "Msg status 201"
+    },
+    {
+      "n": "Rejected domains: Not visible",
+      "s": "PASS"
+    },
+    {
+      "n": "Security: Unauthenticated access blocked",
+      "s": "PASS"
+    },
+    {
+      "n": "Security: ValidationPipe active",
+      "s": "PASS",
+      "m": "Status 400, validation=true"
+    }
+  ]
+}
