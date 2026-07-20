@@ -14,12 +14,13 @@ const MODULES = [
   "inventory", "machine-category", "machine", "machine-part",
   "maintenance-request", "maintenance-task", "maintenance-schedule",
   "maintenance-checklist", "system-setting", "audit-log",
-  "notification", "attachment", "number-sequence",
+  "notification", "attachment", "numbering",
   "inventory-count", "inventory-count-line", "inventory-movement",
   "inventory-adjustment", "inventory-balance",
   "barcode-label", "barcode-scan", "barcode-template",
   "reports.maintenance", "reports.inventory", "reports.barcodes",
   "search",
+  "messaging",
 ] as const;
 
 const ACTIONS = ["create", "read", "update", "delete"] as const;
@@ -115,6 +116,20 @@ async function main() {
   }
 
   for (const p of permissionRecords) {
+    await prisma.permission.upsert({
+      where: { key: p.key },
+      update: {},
+      create: { key: p.key, module: p.module, action: p.action, status: "ACTIVE" },
+    });
+  }
+
+  const extraPermissions = [
+    { key: "numbering:generate", module: "numbering", action: "generate" },
+    { key: "messaging:send", module: "messaging", action: "send" },
+    { key: "messaging:manage", module: "messaging", action: "manage" },
+  ];
+
+  for (const p of extraPermissions) {
     await prisma.permission.upsert({
       where: { key: p.key },
       update: {},

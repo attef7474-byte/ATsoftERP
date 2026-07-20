@@ -42,7 +42,8 @@ export type TranslationNamespace =
   | 'maintenanceDashboard'
   | 'preventiveMaintenance'
   | 'downtimeAnalysis'
-  | 'search';
+  | 'search'
+  | 'messaging';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

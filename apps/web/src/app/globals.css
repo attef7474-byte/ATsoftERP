@@ -239,3 +239,16 @@ body {
     inset-inline-start: 0;
   }
 }
+
+/* ======= Required field indicator ======= */
+.required-field label::after {
+  content: ' *';
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.required-field .field-label::after {
+  content: ' *';
+  color: #dc2626;
+  font-weight: 700;
+}

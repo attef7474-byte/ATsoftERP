@@ -45,4 +45,9 @@ export class CreateNumberSequenceDto {
   @IsOptional()
   @IsString()
   branchId?: string;
+
+  @ApiPropertyOptional({ default: 'NEVER' })
+  @IsOptional()
+  @IsString()
+  resetPolicy?: string;
 }

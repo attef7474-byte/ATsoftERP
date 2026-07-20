@@ -51,9 +51,8 @@ export class NumberingService {
 
   async preview(id: string) {
     const seq = await this.findOne(id);
-    const nextNumber = seq.currentNumber + 1;
-    const padded = String(nextNumber).padStart(seq.padding, '0');
-    const generated = `${seq.prefix}${padded}${seq.suffix || ''}`;
+    const nextNumber = await this.computeNextNumber(seq);
+    const generated = this.formatNumber(seq, nextNumber);
     return { number: generated, sequence: seq.code, currentNumber: seq.currentNumber, nextNumber };
   }
 
@@ -61,15 +60,59 @@ export class NumberingService {
     const seq = await this.prisma.numberSequence.findUnique({ where: { code } });
     if (!seq) throw new NotFoundException('Number sequence not found');
 
-    const nextNumber = seq.currentNumber + 1;
-    const padded = String(nextNumber).padStart(seq.padding, '0');
-    const generated = `${seq.prefix}${padded}${seq.suffix || ''}`;
+    const nextNumber = await this.computeNextNumber(seq);
+    const generated = this.formatNumber(seq, nextNumber);
 
     await this.prisma.numberSequence.update({
       where: { id: seq.id },
-      data: { currentNumber: nextNumber },
+      data: { currentNumber: nextNumber, lastResetAt: this.shouldReset(seq) ? new Date() : undefined },
     });
 
     return { number: generated, sequence: seq.code, currentNumber: nextNumber };
+  }
+
+  async generateNumberAtomic(code: string): Promise<string> {
+    const seq = await this.prisma.numberSequence.findUnique({ where: { code } });
+    if (!seq) throw new NotFoundException('Number sequence not found');
+
+    const nextNumber = await this.computeNextNumber(seq);
+    const generated = this.formatNumber(seq, nextNumber);
+
+    await this.prisma.numberSequence.update({
+      where: { id: seq.id },
+      data: { currentNumber: nextNumber, lastResetAt: this.shouldReset(seq) ? new Date() : undefined },
+    });
+
+    return generated;
+  }
+
+  private formatNumber(seq: { prefix: string; suffix: string | null; padding: number }, nextNumber: number): string {
+    const padded = String(nextNumber).padStart(seq.padding, '0');
+    return `${seq.prefix}${padded}${seq.suffix || ''}`;
+  }
+
+  private async computeNextNumber(seq: { id: string; resetPolicy: string; currentNumber: number; lastResetAt: Date | null }): Promise<number> {
+    if (this.shouldReset(seq)) {
+      return 1;
+    }
+    return seq.currentNumber + 1;
+  }
+
+  private shouldReset(seq: { id: string; resetPolicy: string; currentNumber: number; lastResetAt: Date | null }): boolean {
+    if (!seq.lastResetAt || seq.resetPolicy === 'NEVER') return false;
+    const now = new Date();
+    const last = new Date(seq.lastResetAt);
+    switch (seq.resetPolicy) {
+      case 'YEARLY':
+        return now.getFullYear() !== last.getFullYear();
+      case 'MONTHLY':
+        return now.getFullYear() !== last.getFullYear() || now.getMonth() !== last.getMonth();
+      case 'DAILY':
+        return now.getFullYear() !== last.getFullYear() ||
+          now.getMonth() !== last.getMonth() ||
+          now.getDate() !== last.getDate();
+      default:
+        return false;
+    }
   }
 }

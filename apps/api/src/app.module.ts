@@ -46,6 +46,7 @@ import { AppearanceModule } from './modules/settings/appearance/appearance.modul
 import { SecurityModule } from './modules/settings/security/security.module'
 import { NotificationRulesModule } from './modules/settings/notification-rules/notification-rules.module'
 import { AttachmentsModule } from './modules/documents/attachments/attachments.module'
+import { MessagingModule } from './modules/messaging/messaging.module'
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { AttachmentsModule } from './modules/documents/attachments/attachments.m
     SystemSettingsModule, NumberingModule, NotificationsModule, ReportsModule, SearchModule,
     DashboardModule, AlertsModule,
     AttachmentsModule,
+    MessagingModule,
   ],
 })
 export class AppModule {}

@@ -22,4 +22,9 @@ export class UpdateNumberSequenceDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  resetPolicy?: string;
 }

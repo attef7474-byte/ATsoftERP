@@ -14,6 +14,7 @@ import {
   ActionSearchIcon,
 } from './admin-action-bar';
 import { UnifiedSearchModal } from '../f9/UnifiedSearchModal';
+import { NotificationBell } from './notifications/notification-bell';
 
 interface NavChild {
   id: string;
@@ -142,6 +143,9 @@ const navItems: NavItem[] = [
   {
     id: 'notifications', label: 'navigation.notifications', href: '/admin/notifications', icon: 'notification',
   },
+  {
+    id: 'messaging', label: 'navigation.messaging', href: '/admin/messaging', icon: 'messaging',
+  },
 ];
 
 function IconDashboard() { return (<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>); }
@@ -159,6 +163,7 @@ function IconNotification() { return (<svg className="h-5 w-5" fill="none" strok
 
 function IconDocument() { return (<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>); }
 function IconSearch() { return (<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>); }
+function IconMessaging() { return (<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>); }
 
 const iconMap: Record<string, React.ReactNode> = {
   dashboard: React.createElement(IconDashboard),
@@ -172,9 +177,8 @@ const iconMap: Record<string, React.ReactNode> = {
   notification: React.createElement(IconNotification),
   document: React.createElement(IconDocument),
   search: React.createElement(IconSearch),
+  messaging: React.createElement(IconMessaging),
 };
-
-function NotificationIcon() { return (<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>); }
 
 function getPageTitle(pathname: string): string {
   if (pathname === '/admin/dashboard') return 'dashboard.title';
@@ -260,7 +264,6 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [clock, setClock] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const isRtl = locale === 'ar';
@@ -276,21 +279,6 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     getProfile().then((p) => { if (p) setProfile(p); });
-  }, []);
-
-  useEffect(() => {
-    const fetchUnread = async () => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/notifications/unread-count`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
-        });
-        const json = await res.json();
-        setUnreadCount(json?.data?.count ?? json?.count ?? 0);
-      } catch { /* ignore */ }
-    };
-    fetchUnread();
-    const id = setInterval(fetchUnread, 30000);
-    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -370,14 +358,7 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
           <button onClick={() => setSearchOpen(true)} className="p-1.5 text-gray-500 hover:text-gray-700 transition-colors" title={t('common.search') + ' (F9)'}>
             <ActionSearchIcon />
           </button>
-          <button onClick={() => router.push('/admin/notifications')} className="relative p-1.5 text-gray-500 hover:text-gray-700 transition-colors" title={t('common.notifications')}>
-            <NotificationIcon />
-            {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-red-500 rounded-full">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </button>
+          <NotificationBell />
           <button onClick={toggleLanguage} className="px-2.5 py-1 text-xs border rounded-md hover:bg-gray-50 transition-colors whitespace-nowrap">
             {isRtl ? 'English' : '\u0627\u0644\u0639\u0631\u0628\u064a\u0629'}
           </button>

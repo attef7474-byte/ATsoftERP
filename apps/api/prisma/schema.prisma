@@ -313,8 +313,11 @@ model User {
   requestedMaintenanceReqs MaintenanceRequest[] @relation("MaintenanceRequestRequestedBy")
   assignedMaintenanceReqs  MaintenanceRequest[] @relation("MaintenanceRequestAssignedTo")
   requestedTasks           MaintenanceTask[]    @relation("MaintenanceTaskAssignedTo")
-  checklistExecutionCompletions   MaintenanceChecklistExecution[]     @relation("MaintenanceChecklistExecutionCompletedBy")
-  checklistExecutionItemCompletions MaintenanceChecklistExecutionItem[] @relation("MaintenanceChecklistExecutionItemCompletedBy")
+  checklistExecutionCompletions         MaintenanceChecklistExecution[]              @relation("MaintenanceChecklistExecutionCompletedBy")
+  checklistExecutionItemCompletions     MaintenanceChecklistExecutionItem[]          @relation("MaintenanceChecklistExecutionItemCompletedBy")
+  createdConversations                  InternalConversation[]                       @relation("UserCreatedConversations")
+  conversationParticipants              InternalConversationParticipant[]
+  sentMessages                         InternalMessage[]                            @relation("UserSentMessages")
 
   @@index([email])
   @@index([status])
@@ -1268,4 +1271,54 @@ model BarcodePrintJob {
   @@index([printedById])
   @@index([requestedAt])
   @@map("barcode_print_jobs")
+}
+
+// ── Internal Messaging ──────────────────────────────────────────
+
+model InternalConversation {
+  id              String                           @id @default(cuid())
+  title           String?                          @db.NVarChar(200)
+  createdByUserId String
+  createdBy       User                             @relation("UserCreatedConversations", fields: [createdByUserId], references: [id])
+  lastMessageAt   DateTime?
+  createdAt       DateTime                         @default(now())
+  updatedAt       DateTime                         @updatedAt
+  deletedAt       DateTime?
+  participants    InternalConversationParticipant[]
+  messages        InternalMessage[]
+
+  @@index([createdByUserId])
+  @@index([lastMessageAt])
+  @@map("internal_conversations")
+}
+
+model InternalConversationParticipant {
+  id             String             @id @default(cuid())
+  conversationId String
+  conversation   InternalConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User               @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  joinedAt       DateTime           @default(now())
+  lastReadAt     DateTime?
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("internal_conversation_participants")
+}
+
+model InternalMessage {
+  id             String               @id @default(cuid())
+  conversationId String
+  conversation   InternalConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderUserId   String
+  sender         User                 @relation("UserSentMessages", fields: [senderUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  body           String               @db.NVarChar(Max)
+  createdAt      DateTime             @default(now())
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  isSystem       Boolean              @default(false)
+
+  @@index([conversationId, createdAt])
+  @@index([senderUserId])
+  @@map("internal_messages")
 }
