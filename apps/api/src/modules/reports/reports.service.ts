@@ -18,8 +18,10 @@ export class ReportsService {
   }
 
   private paginate(page = 1, pageSize = 20) {
-    const skip = (page - 1) * pageSize;
-    return { skip, take: pageSize };
+    const safePage = Math.max(1, Number(page) || 1);
+    const safePageSize = Math.max(1, Number(pageSize) || 20);
+    const skip = (safePage - 1) * safePageSize;
+    return { skip, take: safePageSize };
   }
 
   private nowPlusDays(days: number): Date {

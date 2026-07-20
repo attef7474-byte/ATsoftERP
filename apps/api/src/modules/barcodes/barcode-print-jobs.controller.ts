@@ -29,6 +29,20 @@ export class BarcodePrintJobsController {
     return this.service.findAll(query);
   }
 
+  @Get('print-jobs/summary')
+  @Permissions('barcode-printJobs:summary')
+  @ApiOperation({ summary: 'Get print jobs summary counts' })
+  getSummary() {
+    return this.service.getSummary();
+  }
+
+  @Get('print-jobs/by-entity/:entityType/:entityId')
+  @Permissions('barcode-printJobs:read')
+  @ApiOperation({ summary: 'Get print jobs for an entity' })
+  findByEntity(@Param('entityType') entityType: string, @Param('entityId') entityId: string) {
+    return this.service.findByEntity(entityType, entityId);
+  }
+
   @Get('print-jobs/:id')
   @Permissions('barcode-printJobs:read')
   @ApiOperation({ summary: 'Get barcode print job by ID' })
@@ -41,19 +55,5 @@ export class BarcodePrintJobsController {
   @ApiOperation({ summary: 'Update barcode print job status' })
   updateStatus(@Param('id') id: string, @Body() dto: UpdatePrintJobDto, @Req() req: any) {
     return this.service.updateStatus(id, dto, req.user?.id);
-  }
-
-  @Get('print-jobs/by-entity/:entityType/:entityId')
-  @Permissions('barcode-printJobs:read')
-  @ApiOperation({ summary: 'Get print jobs for an entity' })
-  findByEntity(@Param('entityType') entityType: string, @Param('entityId') entityId: string) {
-    return this.service.findByEntity(entityType, entityId);
-  }
-
-  @Get('print-jobs/summary')
-  @Permissions('barcode-printJobs:summary')
-  @ApiOperation({ summary: 'Get print jobs summary counts' })
-  getSummary() {
-    return this.service.getSummary();
   }
 }
