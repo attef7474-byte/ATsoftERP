@@ -5,7 +5,7 @@ Date: 2026-07-20
 Environment: Windows (win32), Node.js v22.17.1
 Repository: https://github.com/attef7474-byte/ATsoftERP
 Starting commit: dc8373f (Batch 37 final)
-Final commit: TBD
+Final commit: 124f82a
 Branch: main
 API URL: http://localhost:4000 (prefix /api/v1)
 Web URL: http://localhost:3000
