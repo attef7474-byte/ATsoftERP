@@ -19,7 +19,7 @@
   Future / skeleton-only domains      : 20
   Controllers with guards             : 14 (after fix)
   Controllers missing guards          : 8 (FIXED this batch)
-  Exposed endpoints (before fix)      : 47 (now secured)
+  Exposed endpoints (before fix)      : 28 (now secured)
 
 [2] SCOPE
 ----------
@@ -63,9 +63,8 @@
     - @nestjs/swagger → ApiBearerAuth
     - @nestjs/common  → UseGuards
 
-  Public endpoints (no guards needed — 2):
+  Public endpoints (no guards needed — 1):
     POST /auth/login
-    POST /auth/refresh
 
 [5] FINDINGS — AppModule Wiring
 ---------------------------------
@@ -94,14 +93,14 @@
 [6] FINDINGS — Endpoint Inventory
 -----------------------------------
   Total API routes across all controllers : ~176+
-  All endpoints (except auth/login and auth/refresh) now protected by
+  All endpoints (except auth/login) now protected by
   JWT authentication + permission checks.
 
 [7] RISK ASSESSMENT
 --------------------
-  Pre-fix risk   : HIGH — 8 controllers (47 endpoints) publicly accessible
+  Pre-fix risk   : HIGH — 8 controllers (28 endpoints) publicly accessible
   Post-fix risk  : LOW  — all business endpoints require valid JWT + permission
-  Remaining risk : None identified. Auth endpoints are intentionally public.
+  Remaining risk : None identified. Auth login endpoint is intentionally public.
 
 [8] RECOMMENDATIONS
 --------------------

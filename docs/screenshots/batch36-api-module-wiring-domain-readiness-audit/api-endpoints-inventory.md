@@ -10,7 +10,6 @@
 | Method | Path | Guard | Permission |
 |--------|------|-------|------------|
 | POST | `/auth/login` | 🔓 | — |
-| POST | `/auth/refresh` | 🔓 | — |
 
 ## Dashboard
 | Method | Path | Guard | Permission |

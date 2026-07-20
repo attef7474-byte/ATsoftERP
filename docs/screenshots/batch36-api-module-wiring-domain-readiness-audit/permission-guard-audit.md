@@ -17,7 +17,7 @@ Each controller was checked for:
 |--------|-------|-------------|
 | ✅ Properly guarded (Pattern A) | 14 | Auth*, Roles, Users, Permissions, Companies, Branches, Departments, Warehouses, Products, InventoryCounts, InventoryBalances, InventoryMovements, InventoryAdjustments, Search |
 | 🛠️ Fixed this batch (Pattern B) | 8 | Dashboard, Security, Appearance, CompanyProfile, NotificationRules, Attachments, Alerts, Language |
-| ✅ Intentionally public | 2 | AuthController.login(), AuthController.refresh() |
+| ✅ Intentionally public | 1 | AuthController.login() |
 | **Total** | **24** | |
 
 ---
@@ -149,7 +149,7 @@ export class Controller { ... }
 ## Risk Assessment
 
 ### Pre-Fix
-- **8 controllers** (47 API endpoints) were publicly accessible
+- **8 controllers** (28 API endpoints) were publicly accessible
 - Any unauthenticated user could read/write dashboard stats, security settings,
   appearance settings, company profile, language/locale, notification rules,
   attachments, and alerts
@@ -159,7 +159,7 @@ export class Controller { ... }
 - All business endpoints require valid JWT token
 - All endpoints require explicit permission grant (checked by PermissionsGuard)
 - SUPER_ADMIN role bypasses permission checks (built into PermissionsGuard)
-- Only 2 intentionally public endpoints remain: login and refresh
+- Only 1 intentionally public endpoint remains: login
 
 ---
 

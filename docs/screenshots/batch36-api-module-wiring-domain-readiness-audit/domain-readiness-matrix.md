@@ -85,6 +85,6 @@
 | Future / skeleton (not imported) | **14** |
 | Controllers with proper guards (Pattern A) | **14** |
 | Controllers fixed this batch (Pattern B → A) | **8** |
-| Intentionally public endpoints | **2** (login, refresh) |
+| Intentionally public endpoints | **1** (login) |
 | Total protected endpoints | **~174** |
 | Overall API security posture | **✅ SECURE** |
