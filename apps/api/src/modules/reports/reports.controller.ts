@@ -179,7 +179,7 @@ export class ReportsController {
     return this.service.getLowStockReport(filters);
   }
 
-  @Get('export/csv/:endpoint(*)')
+  @Get('export/csv/*endpoint')
   @Permissions('reports.maintenance:read', 'reports.inventory:read', 'reports.barcodes:read')
   @ApiOperation({ summary: 'Export report as CSV' })
   async exportCsv(@Param('endpoint') endpoint: string, @Query() filters: any, @Res() res: Response) {
@@ -193,7 +193,7 @@ export class ReportsController {
     res.send(csv);
   }
 
-  @Get('export/excel/:endpoint(*)')
+  @Get('export/excel/*endpoint')
   @Permissions('reports.maintenance:read', 'reports.inventory:read', 'reports.barcodes:read')
   @ApiOperation({ summary: 'Export report as Excel (.xlsx)' })
   @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
