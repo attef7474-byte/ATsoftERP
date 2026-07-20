@@ -94,6 +94,8 @@ const en: LocaleTranslations = {
     complete: 'Complete',
     post: 'Post',
     verify: 'Verify',
+    retry: 'Retry',
+    loadMore: 'Load More',
     generate: 'Generate',
     recalculate: 'Recalculate',
     viewLines: 'View Lines',

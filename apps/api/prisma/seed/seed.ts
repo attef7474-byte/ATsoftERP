@@ -81,6 +81,7 @@ async function main() {
     where: { email },
     update: {
       name: "Administrator",
+      passwordHash,
       companyId: company.id,
       branchId: branch.id,
       departmentId: department.id,
