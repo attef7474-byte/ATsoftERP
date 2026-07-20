@@ -1,64 +1,49 @@
-import { IsString, IsOptional } from 'class-validator'
+import { IsString, IsBoolean, IsOptional } from 'class-validator'
 import { ApiPropertyOptional } from '@nestjs/swagger'
 
-export class UpdateCompanyProfileDto {
+export class UpdateNotificationRuleDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  companyNameAr?: string
+  nameAr?: string
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  companyNameEn?: string
+  nameEn?: string
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  taxNumber?: string
+  description?: string
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  commercialRegister?: string
+  eventType?: string
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  phone?: string
+  channel?: string
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  email?: string
+  severity?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  address?: string
+  targetRoleId?: string
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  city?: string
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  country?: string
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  defaultLanguage?: string
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  timezone?: string
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  currencyCode?: string
+  targetPermission?: string
 }

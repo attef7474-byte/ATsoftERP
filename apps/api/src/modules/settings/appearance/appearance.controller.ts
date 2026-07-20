@@ -4,6 +4,7 @@ import { AppearanceService } from './appearance.service'
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../../common/guards/permissions.guard'
 import { Permissions } from '../../../common/decorators/permissions.decorator'
+import { UpdateAppearanceSettingsDto } from '../dto/update-appearance-settings.dto'
 
 @ApiTags('Settings')
 @ApiBearerAuth()
@@ -22,7 +23,7 @@ export class AppearanceController {
   @Patch()
   @Permissions('settings.appearance.manage')
   @ApiOperation({ summary: 'Update appearance settings' })
-  async update(@Body() dto: Record<string, any>) {
+  async update(@Body() dto: UpdateAppearanceSettingsDto) {
     return this.service.update(dto)
   }
 }

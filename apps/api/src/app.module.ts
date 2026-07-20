@@ -61,9 +61,9 @@ import { AttachmentsModule } from './modules/documents/attachments/attachments.m
     InventoryCountsModule, InventoryCountLinesModule, InventoryMovementsModule,
     InventoryAdjustmentsModule, InventoryBalancesModule,
     BusinessPartnersModule,     BarcodesModule,
+    CompanyProfileModule, LanguageModule, AppearanceModule, SecurityModule, NotificationRulesModule,
     SystemSettingsModule, NumberingModule, NotificationsModule, ReportsModule, SearchModule,
     DashboardModule, AlertsModule,
-    CompanyProfileModule, LanguageModule, AppearanceModule, SecurityModule, NotificationRulesModule,
     AttachmentsModule,
   ],
 })

@@ -4,6 +4,8 @@ import { NotificationRulesService } from './notification-rules.service'
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../../common/guards/permissions.guard'
 import { Permissions } from '../../../common/decorators/permissions.decorator'
+import { CreateNotificationRuleDto } from './dto/create-notification-rule.dto'
+import { UpdateNotificationRuleDto } from './dto/update-notification-rule.dto'
 
 @ApiTags('Settings')
 @ApiBearerAuth()
@@ -33,14 +35,14 @@ export class NotificationRulesController {
   @Post()
   @Permissions('settings.notifications.manage')
   @ApiOperation({ summary: 'Create notification rule' })
-  async create(@Body() dto: any) {
+  async create(@Body() dto: CreateNotificationRuleDto) {
     return this.service.create(dto)
   }
 
   @Patch(':id')
   @Permissions('settings.notifications.manage')
   @ApiOperation({ summary: 'Update notification rule' })
-  async update(@Param('id') id: string, @Body() dto: any) {
+  async update(@Param('id') id: string, @Body() dto: UpdateNotificationRuleDto) {
     return this.service.update(id, dto)
   }
 

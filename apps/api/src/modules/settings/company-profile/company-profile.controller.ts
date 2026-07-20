@@ -4,6 +4,7 @@ import { CompanyProfileService } from './company-profile.service'
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../../common/guards/permissions.guard'
 import { Permissions } from '../../../common/decorators/permissions.decorator'
+import { UpdateCompanyProfileDto } from '../dto/update-company-profile.dto'
 
 @ApiTags('Settings')
 @ApiBearerAuth()
@@ -22,7 +23,7 @@ export class CompanyProfileController {
   @Patch()
   @Permissions('settings.company.manage')
   @ApiOperation({ summary: 'Update company profile' })
-  async updateProfile(@Body() dto: Record<string, any>) {
+  async updateProfile(@Body() dto: UpdateCompanyProfileDto) {
     return this.service.updateProfile(dto)
   }
 }

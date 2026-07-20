@@ -4,6 +4,7 @@ import { SecurityService } from './security.service'
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../../common/guards/permissions.guard'
 import { Permissions } from '../../../common/decorators/permissions.decorator'
+import { UpdateSecuritySettingsDto } from '../dto/update-security-settings.dto'
 
 @ApiTags('Settings')
 @ApiBearerAuth()
@@ -22,7 +23,7 @@ export class SecurityController {
   @Patch()
   @Permissions('settings.security.manage')
   @ApiOperation({ summary: 'Update security settings' })
-  async update(@Body() dto: Record<string, any>) {
+  async update(@Body() dto: UpdateSecuritySettingsDto) {
     return this.service.update(dto)
   }
 }

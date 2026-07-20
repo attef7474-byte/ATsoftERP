@@ -1,39 +1,34 @@
 import { IsString, IsBoolean, IsOptional } from 'class-validator'
 import { ApiPropertyOptional } from '@nestjs/swagger'
 
-export class UpdateAppearanceSettingsDto {
+export class UpdateLanguageSettingsDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  themeMode?: string
+  defaultLocale?: string
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  accentColor?: string
+  fallbackLocale?: string
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  compactMode?: boolean
+  rtlEnabled?: boolean
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  sidebarDensity?: string
+  dateFormat?: string
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  tableDensity?: string
+  timeFormat?: string
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsBoolean()
-  showStatusBar?: boolean
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  showActionBar?: boolean
+  @IsString()
+  numberFormat?: string
 }

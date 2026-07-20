@@ -4,6 +4,7 @@ import { LanguageService } from './language.service'
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../../common/guards/permissions.guard'
 import { Permissions } from '../../../common/decorators/permissions.decorator'
+import { UpdateLanguageSettingsDto } from '../dto/update-language-settings.dto'
 
 @ApiTags('Settings')
 @ApiBearerAuth()
@@ -22,7 +23,7 @@ export class LanguageController {
   @Patch()
   @Permissions('settings.language.manage')
   @ApiOperation({ summary: 'Update language settings' })
-  async update(@Body() dto: Record<string, any>) {
+  async update(@Body() dto: UpdateLanguageSettingsDto) {
     return this.service.update(dto)
   }
 }
