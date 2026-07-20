@@ -1,0 +1,29 @@
+SETTINGS / AUDIT / USER ACTIVITY / LOGIN HISTORY SAVE AND OPERATIONS VALIDATION GATE
+================================================================================
+
+Date: 2026-07-21
+Starting commit: 6ecb74f (V3 runtime-fixed-v3, post-release-runtime-defect-closure-v3)
+Final commit: 6ecb74f (no new changes needed - fix was already applied)
+
+Scope:
+- All Settings main area
+- Company Profile
+- Language
+- Appearance
+- Security
+- Number Sequences
+- Notification Rules
+- Audit Log
+- User Activity
+- Login History
+
+Validated By:
+- Playwright browser tests (10 pages, 0 errors)
+- Direct API tests (GET, PATCH, 400 rejection, 401 rejection)
+- Save truth verification (PATCH → GET → reload)
+- Full validation suite (build:api, build:web, typecheck, health 4/4, smoke 8/8, i18n)
+- Security audit (no secrets/passwordHash/JWT exposed)
+
+Previous state: Company Profile PATCH 400 due to 'id' field bleeding from GET response into PATCH payload (fixed in prior session by adding 'id' to destructure in handleSave).
+
+Current state: ALL PAGES PASS — zero console errors, zero unexpected 400/404/500, all saves persist.
