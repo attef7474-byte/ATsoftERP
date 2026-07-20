@@ -1,0 +1,82 @@
+# Batch 39 — Documentation Inventory
+
+## Files Created
+
+### docs/release/ (4)
+- current-release-scope.md
+- current-release-known-limitations.md
+- rejected-domains-current-release.md
+- final-handover-checklist.md
+
+### docs/user-manual/ (9)
+- README.md
+- 01-login-and-navigation.md
+- 02-dashboard-alerts-notifications.md
+- 03-core-organization.md
+- 04-inventory-warehouse-products-counts.md
+- 05-maintenance-machines-requests-tasks.md
+- 06-barcodes-qr.md
+- 07-reports-export-print.md
+- 08-unified-search-f9.md
+- 09-attachments-audit-settings.md
+
+### docs/admin-guide/ (8)
+- README.md
+- 01-installation-windows-local-runtime.md
+- 02-api-web-startup.md
+- 03-sql-server-configuration.md
+- 04-users-roles-permissions.md
+- 05-security-model.md
+- 06-backup-restore-runtime-tools.md
+- 07-health-smoke-checks.md
+- 08-troubleshooting.md
+
+### docs/operations/ (4)
+- README.md
+- operator-quick-reference.md
+- inventory-team-quick-reference.md
+- maintenance-team-quick-reference.md
+- admin-quick-reference.md
+
+### docs/training/ (7)
+- README.md
+- training-plan.md
+- session-01-system-overview.md
+- session-02-inventory-operations.md
+- session-03-maintenance-operations.md
+- session-04-barcodes-reports-search.md
+- session-05-admin-security-backup.md
+- exercises.md
+- assessment-checklist.md
+
+### docs/mobile/ (3)
+- README.md
+- mobile-testing-notes.md
+- mobile-faq.md
+
+### docs/api/ (3)
+- README.md
+- swagger-quickstart.md
+- api-changelog-batch-39.md
+
+### docs/qa/ (3)
+- README.md
+- regression-baseline.md
+- static-validation-notes.md
+
+### batch39 output (3)
+- analysis.txt
+- validation.txt
+- inventory.txt
+
+## Total: 49 files
+
+## Directories Created (8)
+- docs/release/
+- docs/user-manual/
+- docs/admin-guide/
+- docs/operations/
+- docs/training/
+- docs/mobile/
+- docs/api/
+- docs/qa/
