@@ -1,30 +1,22 @@
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
-import '../../core/offline/sync_service.dart';
 import '../../core/widgets/empty_view.dart';
 import '../../core/widgets/error_view.dart';
 import '../../core/widgets/loading_view.dart';
 import '../../models/api_models.dart';
 import '../../l10n/app_localizations.dart';
-import '../../config/mobile_routes.dart';
-import '../../core/widgets/app_scaffold.dart';
 
-class InventoryScreen extends StatefulWidget {
+class MaintenanceLogScreen extends StatefulWidget {
   final ApiClient api;
-  final SyncService sync;
 
-  const InventoryScreen({
-    super.key,
-    required this.api,
-    required this.sync,
-  });
+  const MaintenanceLogScreen({super.key, required this.api});
 
   @override
-  State<InventoryScreen> createState() => _InventoryScreenState();
+  State<MaintenanceLogScreen> createState() => _MaintenanceLogScreenState();
 }
 
-class _InventoryScreenState extends State<InventoryScreen> {
-  List<InventoryCount> _counts = [];
+class _MaintenanceLogScreenState extends State<MaintenanceLogScreen> {
+  List<MaintenanceRequest> _logs = [];
   bool _loading = true;
   String? _error;
 
@@ -34,17 +26,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
     _load();
   }
 
+  String? get _machineId =>
+      ModalRoute.of(context)?.settings.arguments as String?;
+
   Future<void> _load() async {
+    if (_machineId == null) return;
     setState(() => _loading = true);
     try {
-      final response = await widget.api.get('/inventory/counts');
+      final response = await widget.api.get(
+        '/maintenance/machines/$_machineId/maintenance-log',
+      );
       final data = response['data'] as List<dynamic>? ??
-          (response.containsKey('counts')
-              ? response['counts'] as List<dynamic>
+          (response.containsKey('logs')
+              ? response['logs'] as List<dynamic>
               : <dynamic>[]);
       setState(() {
-        _counts = data
-            .map((e) => InventoryCount.fromJson(e as Map<String, dynamic>))
+        _logs = data
+            .map((e) => MaintenanceRequest.fromJson(e as Map<String, dynamic>))
             .toList();
         _error = null;
       });
@@ -60,7 +58,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final t = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(t.inventoryCounts)),
+      appBar: AppBar(title: Text(t.maintenanceLog)),
       body: _buildBody(t),
     );
   }
@@ -68,40 +66,35 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget _buildBody(AppLocalizations t) {
     if (_loading) return const LoadingView();
     if (_error != null) return ErrorView(message: _error!, onRetry: _load);
-    if (_counts.isEmpty) {
-      return const EmptyView(title: 'No inventory counts');
-    }
+    if (_logs.isEmpty) return const EmptyView(title: 'No maintenance logs');
 
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
-        itemCount: _counts.length,
+        itemCount: _logs.length,
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (_, i) {
-          final c = _counts[i];
+          final log = _logs[i];
           return Card(
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: _statusColor(c.status).withAlpha(30),
-                child: Icon(Icons.inventory_2,
-                    color: _statusColor(c.status)),
+                backgroundColor: _statusColor(log.status).withAlpha(30),
+                child: Icon(Icons.build, color: _statusColor(log.status)),
               ),
-              title: Text(c.warehouseName ?? c.warehouseId,
+              title: Text(log.title,
                   style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text('${c.status ?? ""} - ${c.lineCount ?? 0} lines'),
+              subtitle: Text(
+                '${log.type ?? ''} - ${log.priority ?? ''}',
+                maxLines: 1,
+              ),
               trailing: Chip(
-                label: Text(c.status ?? '',
+                label: Text(log.status ?? '',
                     style: const TextStyle(fontSize: 11)),
-                backgroundColor: _statusColor(c.status).withAlpha(25),
+                backgroundColor: _statusColor(log.status).withAlpha(25),
                 side: BorderSide.none,
                 visualDensity: VisualDensity.compact,
               ),
-              onTap: () => Navigator.pushNamed(
-                context,
-                MobileRoutes.inventoryCountDetail,
-                arguments: c.id,
-              ).then((_) => _load()),
             ),
           );
         },
@@ -111,14 +104,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Color _statusColor(String? status) {
     switch (status?.toUpperCase()) {
-      case 'DRAFT':
-        return Colors.grey;
+      case 'OPEN':
+        return Colors.blue;
       case 'IN_PROGRESS':
         return Colors.orange;
       case 'COMPLETED':
         return Colors.green;
       case 'CANCELLED':
-        return Colors.red;
+        return Colors.grey;
       default:
         return Colors.blue;
     }

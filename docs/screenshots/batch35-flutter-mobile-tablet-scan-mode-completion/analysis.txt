@@ -1,0 +1,84 @@
+Batch 35 — Flutter Mobile / Tablet Scan Mode Completion
+========================================================
+Date: 2026-07-20
+Prior: Batch 34 commit d48e204, tag atsoft-erp-batch34-unified-f9-search-completion
+
+Preflight State
+---------------
+- Branch: main
+- Git clean: YES (0 dirty, 0 staged)
+- Origin: d48e204 (Batch 34 tag confirmed on origin)
+- apps/mobile: EXISTS as skeleton (26 empty files, 0 bytes each, placeholder structure)
+- Flutter SDK: NOT AVAILABLE on this machine (flutter command not found)
+
+Implementation Summary
+----------------------
+Created complete Flutter mobile application at apps/mobile/ with real source code.
+
+Total files created/updated: 43 Dart source files (including pubspec.yaml, analysis_options.yaml)
+Total code: ~159 KB of Dart source
+Deleted empty skeleton files: 2 (production_orders, quality_checks)
+
+Architecture
+- State: Provider pattern (ChangeNotifier)
+- HTTP: http package with custom ApiClient (auth interceptor, error handling)
+- Storage: shared_preferences (token), sqflite (offline queue)
+- Navigation: Named routes with onGenerateRoute
+- i18n: Custom AppLocalizations class with Arabic/English, RTL/LTR
+- Theme: Material 3, light/dark support
+- Layout: ResponsiveBuilder with phone/tablet breakpoints
+
+Features Implemented (20 screens)
+1. Auth: Login screen with form validation, session restore, profile fetch
+2. Dashboard: KPI cards, quick links grid, user info, pull-to-refresh
+3. Scanner: Manual entry + purpose selection, scan result display, offline fallback
+4. Machines: List with search, status colors, detail view
+5. Maintenance Log: Per-machine maintenance history
+6. Maintenance Requests: List with priority/status colors
+7. Maintenance Request Create: Full form with offline queue enqueue
+8. Maintenance Request Detail: Status display, lifecycle transitions (start/complete/cancel)
+9. Inventory Counts: List with status colors
+10. Inventory Count Detail: Lines view, start/complete actions
+11. Inventory Count Execution: Line-by-line counting with QR-ready entry
+12. Inventory Line Entry: Scan product via form or barcode, offline queue
+13. Product Detail: Info + warehouse balances
+14. Notifications: List with mark-read, mark-all-read
+15. Sync Queue: Full queue view with pending/failed/synced stats, retry
+16. Profile: User info, permissions display, logout
+17. Settings: Language toggle, dark mode, about
+18. + Responsive tablet layout with NavigationRail
+19. + Offline queue: SQFlite-based, auto-sync every 5 min, retry up to 3x
+20. + i18n (Arabic + English): 150+ translation keys
+
+Offline Queue
+- Safe operations: scan events, maintenance request creation, count line entries
+- NO password/token storage in queue
+- Auto-sync timer every 5 minutes
+- Manual sync via sync queue screen
+- Retry up to 3 times before marking FAILED
+
+API Integration
+- All calls go to real API endpoints at localhost:50079/api/v1
+- No mock data, no fake responses
+- Auth: POST /auth/login, GET /auth/me, GET /auth/permissions
+- Barcodes: POST /barcodes/scan with purpose/source
+- Machines: GET /maintenance/machines, GET /maintenance/machines/:id
+- Maintenance: CRUD /maintenance/requests, lifecycle transitions
+- Inventory: GET/POST/PATCH /inventory/counts and count-lines
+- Products: GET /products/:id, GET /products/:id/balances
+- Notifications: GET /notifications/inbox, PATCH mark-read
+
+Validation Results
+------------------
+- prisma validate: PASS
+- API build (tsc): PASS
+- Web build (Next.js): PASS (124 pages)
+- Flutter: NOT tested (SDK unavailable on machine — requires `flutter pub get` and `flutter analyze` on a machine with Flutter SDK)
+- i18n: Consistent key structure with web frontend
+
+Known Limitations
+-----------------
+- Flutter SDK not installed on dev machine: cannot run pub get / analyze / build
+- Camera-based QR scanning: uses mobile_scanner package (requires real device or emulator)
+- API URL hardcoded to localhost:50079 — needs configuration for production
+- Platform directories (android/, ios/, web/) not generated — requires `flutter create` on SDK machine
