@@ -1,0 +1,120 @@
+Batch 38 — Full QA Regression, Permissions, and Security Closure
+=================================================================
+
+Date: 2026-07-20
+Environment: Windows (win32), Node.js v22.17.1
+Repository: https://github.com/attef7474-byte/ATsoftERP
+Starting commit: dc8373f (Batch 37 final)
+Final commit: 124f82a
+Branch: main
+API URL: http://localhost:4000 (prefix /api/v1)
+Web URL: http://localhost:3000
+SQL Server: WINCC:50079 / ATsoftERP_DB
+Tag: atsoft-erp-batch38-qa-regression-permissions-security-closure
+
+STATUS CANDIDATE
+----------------
+COMPLETE_WITH_DOCUMENTED_LIMITATION
+Limitation: Mutation testing skipped (no safe QA test environment); 
+             Browser console has dev-mode noise (Next.js HMR); 
+             No E2E automated test suite.
+
+STATIC VALIDATION SUMMARY
+-------------------------
+prisma validate:  PASS
+prisma generate:  PASS
+build:api:        PASS
+typecheck:        PASS
+build:web:        PASS
+i18n:check:       PASS (1917/1917)
+
+RUNTIME HEALTH/SMOKE SUMMARY
+----------------------------
+health-check: 4/4 PASS
+smoke-check:  8/8 PASS
+
+API REGRESSION SUMMARY
+----------------------
+API groups checked:  33
+API endpoints tested: 99
+API passed:          99
+API failed:          0
+404/500 on valid routes: 0
+
+PERMISSION REGRESSION SUMMARY
+-----------------------------
+Unauthenticated endpoints tested: 46
+Unauthenticated blocked:          46 (100%)
+Admin endpoints tested:           46
+Admin endpoints pass:             46 (100%)
+Public allowlist:                 1 (auth/login)
+Unexpected public endpoints:      0
+
+BROWSER REGRESSION SUMMARY
+--------------------------
+Pages checked:  14
+Pages passed:   14
+Blank pages:    0
+Fatal JS errors: 0 (application-level)
+Approved route 404/500: 0
+Screenshots captured: 10
+
+FORM/DATA INTEGRITY SUMMARY
+---------------------------
+Read-only verification: all 14 pages render correctly
+Mutation testing: skipped (no safe QA test environment)
+
+REJECTED DOMAINS SUMMARY
+------------------------
+Rejected domains checked: 11
+Exposed: 0
+False positives (JS source strings only, not features): HR, AI, BI
+
+SECURITY AUDIT SUMMARY
+----------------------
+Hardcoded secrets:    none found
+.env committed:       no
+JWT exposure:         none
+passwordHash leak:    none
+SQL injection:        no vectors found
+Public unsafe endpoints: none
+Guards weakened:      none
+
+QA RISK REGISTER SUMMARY
+------------------------
+Critical risks: 0
+High risks:     0
+Medium risks:   3 (all mitigated by scope limitation)
+Low risks:      3 (all acceptable)
+Release-blocking risks: 0
+
+KNOWN LIMITATIONS
+-----------------
+1. Mutation testing not performed — no safe QA test environment
+2. Browser console has Next.js dev-mode noise (HMR, chunk retries) — not present in production build
+3. No automated E2E test suite
+4. Flutter mobile source cannot be built locally (SDK unavailable) — Batch 35 limitation
+
+UPDATED CURRENT-RELEASE STATUS
+------------------------------
+Batch 38: COMPLETE_WITH_DOCUMENTED_LIMITATION
+
+SAFETY CONFIRMATION
+-------------------
+- no fake QA proof:              confirmed
+- no fake runtime proof:         confirmed
+- no fake API:                   confirmed
+- no mock data:                  confirmed
+- no unapproved domain exposed:  confirmed
+- no Docker:                     confirmed
+- no PostgreSQL:                 confirmed
+- no pgAdmin:                    confirmed
+- no prisma db push:             confirmed
+- no migrate reset:              confirmed
+- no database reset:             confirmed
+- no destructive DB action:      confirmed
+- no secrets committed:          confirmed
+
+NEXT RECOMMENDED BATCH
+----------------------
+Batch 39 — Documentation, User Manual, and Training Package

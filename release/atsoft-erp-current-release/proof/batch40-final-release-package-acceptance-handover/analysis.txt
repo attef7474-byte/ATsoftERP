@@ -1,0 +1,49 @@
+# Batch 40 Analysis
+
+## Batch Identity
+- Batch number: 40
+- Batch title: Final Release Package and Acceptance Handover
+- Purpose: Freeze and package the approved ATsoft ERP current release
+
+## Starting Point
+- Branch: main
+- Starting commit: 97b795b (Batch 39 final)
+- Latest accepted tag: atsoft-erp-batch39-documentation-user-manual-training-package
+- Git status: clean, ahead/behind 0/0
+
+## Plan
+1. Final static validation (prisma, build:api, typecheck, build:web, i18n)
+2. Create release package under release/atsoft-erp-current-release/
+3. Release manifest, acceptance report, scope, limitations, rejected domains
+4. Package safety scan (no secrets, no Docker, no forbidden content)
+5. Documentation index
+6. Final handover checklist
+7. Release archive (zip)
+8. Final static validation rerun after packaging
+9. Commit, tag (batch + release), push, git clean proof
+
+## Package Details
+- Location: release/atsoft-erp-current-release/
+- Archive: release/ATsoftERP-current-release-final.zip
+- Required files: START_HERE.md, README.md, RELEASE_MANIFEST.md, FINAL_ACCEPTANCE_REPORT.md, CURRENT_RELEASE_SCOPE.md, KNOWN_LIMITATIONS.md, REJECTED_DOMAINS.md, CHECKSUMS.sha256
+- Subfolders: docs/, scripts/, proof/, source-summary/
+
+## Exclusions
+- No node_modules
+- No .env files
+- No secrets
+- No Docker/PostgreSQL/pgAdmin instructions (forbidden context only)
+- No prisma db push / migrate reset (forbidden context only)
+- No rejected domain activated
+- No destructive DB actions
+
+## Known Limitations (to preserve)
+- PDF: browser print-to-PDF only
+- Flutter: SDK unavailable on dev machine
+- QA mutation testing: skipped (no QA sandbox)
+- Automated E2E: not yet built
+- Dev-mode console noise may appear
+
+## Final Tags
+- Batch tag: atsoft-erp-batch40-final-release-package-acceptance-handover
+- Release tag: atsoft-erp-current-release-final
