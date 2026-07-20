@@ -1,0 +1,108 @@
+{
+  "pass": 18,
+  "fail": 0,
+  "details": [
+    {
+      "n": "Error Modal: Invalid payload rejected (400)",
+      "s": "PASS"
+    },
+    {
+      "n": "Error Modal: Response message",
+      "s": "INFO",
+      "m": "{\"message\":[\"property totallyInvalidField should not exist\"],\"error\":\"Bad Request\",\"statusCode\":400}"
+    },
+    {
+      "n": "Error Modal: No secrets/stack in response",
+      "s": "PASS"
+    },
+    {
+      "n": "Error Modal: DOM modal",
+      "s": "INFO",
+      "m": "Modal not found after API error (client may not render modal for API 400)"
+    },
+    {
+      "n": "Error Modal: No secrets in DOM",
+      "s": "PASS"
+    },
+    {
+      "n": "Notification: Bell icon found (6)",
+      "s": "PASS"
+    },
+    {
+      "n": "Notification: Bell does not navigate directly",
+      "s": "PASS"
+    },
+    {
+      "n": "Notification: Unread badge",
+      "s": "INFO",
+      "m": "No badge with count found"
+    },
+    {
+      "n": "Notification: Drawer elements",
+      "s": "INFO",
+      "m": "Not found in DOM"
+    },
+    {
+      "n": "Notification: Page opens",
+      "s": "PASS"
+    },
+    {
+      "n": "Required: branches",
+      "s": "INFO",
+      "m": "No indicators found (0 inputs)"
+    },
+    {
+      "n": "Required: departments",
+      "s": "INFO",
+      "m": "No indicators found (0 inputs)"
+    },
+    {
+      "n": "Required: warehouses has indicators (classes:2, asterisks:0, red:0)",
+      "s": "PASS"
+    },
+    {
+      "n": "Required: products has indicators (classes:3, asterisks:0, red:0)",
+      "s": "PASS"
+    },
+    {
+      "n": "Required: maintenance-requests has indicators (classes:1, asterisks:0, red:0)",
+      "s": "PASS"
+    },
+    {
+      "n": "Required: maintenance-tasks has indicators (classes:1, asterisks:0, red:0)",
+      "s": "PASS"
+    },
+    {
+      "n": "Required: Messaging page opens",
+      "s": "PASS"
+    },
+    {
+      "n": "Settings: Font-size label visible",
+      "s": "PASS"
+    },
+    {
+      "n": "Settings: Font-size values visible (small/medium/large)",
+      "s": "PASS"
+    },
+    {
+      "n": "Settings: No raw i18n keys (0 matches, all expected)",
+      "s": "PASS"
+    },
+    {
+      "n": "Settings: No \"setting not found\" on normal page",
+      "s": "PASS"
+    },
+    {
+      "n": "Settings: 2 select dropdowns found",
+      "s": "PASS"
+    },
+    {
+      "n": "Settings: 1 save buttons found",
+      "s": "PASS"
+    },
+    {
+      "n": "Settings: Appearance save works via UI context",
+      "s": "PASS"
+    }
+  ]
+}
