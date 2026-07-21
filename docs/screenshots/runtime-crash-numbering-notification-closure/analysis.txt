@@ -1,0 +1,48 @@
+ANALYSIS — Runtime Crash, Notification & Numbering Closure
+===========================================================
+Date: 2026-07-22
+
+=== ISSUE 1: Fatal i18n-provider Crash ===
+
+Root Cause:
+The I18nProvider did not normalize the locale value. When setLocale()
+was called with a non-standard value (e.g., from language settings API
+returning "ar-SA" or "en-US"), translations[locale] returned undefined.
+Then localeData[actualNs] crashed with "Cannot read properties of
+undefined (reading 'common')".
+
+The language settings page (language/page.tsx line 36) called
+setLocale(settings.defaultLanguage) where defaultLanguage came from the
+API response which could be any string stored in the database.
+
+Fix:
+1. Added normalizeLocale() function that safely converts:
+   - "ar", "ar-SA", "ar_YE", etc. -> "ar"
+   - "en", "en-US", "en_GB", etc. -> "en"
+   - undefined/null/invalid -> "ar"
+2. t() function now uses normalizeLocale(locale) before accessing
+   translations, ensuring localeData is never undefined.
+3. setLocale() normalizes the input before saving.
+4. Initial locale state changed from "en" to "ar" (Arabic-first default).
+5. useEffect for reading localStorage now uses normalizeLocale().
+
+=== ISSUE 2: Notification Unread-Count ERR_CONNECTION_REFUSED ===
+
+Root Cause (already fixed in prior session):
+The GET /api/v1/notifications/unread-count endpoint returned a raw
+number instead of { count }. The frontend expected json.count.
+
+Prior Fix (verified still in place):
+NotificationsController.unreadCount returns { count } object.
+
+=== ISSUE 3: Auto Code Generation Not Working ===
+
+Root Cause (already fixed in prior session):
+Create services did not inject or call NumberingService.
+
+Prior Fix (verified still in place):
+All 8 approved entities with code fields now auto-generate via
+NumberingService.generateNumberAtomic() if code is not provided:
+- Company (COMPANY), Branch (BRANCH), Department (DEPARTMENT)
+- Warehouse (WAREHOUSE), Warehouse Location (WAREHOUSE_LOCATION)
+- Product (PRODUCT), Machine (MACHINE), Machine Part (MACHINE_PART)

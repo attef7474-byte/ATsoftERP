@@ -12,21 +12,28 @@ function getNestedValue(obj: any, path: string): string | undefined {
   return path.split('.').reduce((acc, part) => (acc && acc[part] !== undefined ? acc[part] : undefined), obj);
 }
 
+function normalizeLocale(raw: unknown): Locale {
+  if (typeof raw !== 'string') return 'ar';
+  const lower = raw.toLowerCase().replace(/-/g, '_');
+  if (lower === 'en' || lower.startsWith('en_')) return 'en';
+  if (lower === 'ar' || lower.startsWith('ar_')) return 'ar';
+  return 'ar';
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('en');
+  const [locale, setLocaleState] = useState<Locale>('ar');
 
   useEffect(() => {
-    const stored = localStorage.getItem('locale') as Locale | null;
-    if (stored === 'en' || stored === 'ar') {
-      setLocaleState(stored);
-    }
+    const stored = localStorage.getItem('locale');
+    setLocaleState(normalizeLocale(stored));
   }, []);
 
   const setLocale = useCallback((newLocale: Locale) => {
-    setLocaleState(newLocale);
-    localStorage.setItem('locale', newLocale);
-    document.documentElement.lang = newLocale;
-    document.documentElement.dir = newLocale === 'ar' ? 'rtl' : 'ltr';
+    const safe = normalizeLocale(newLocale);
+    setLocaleState(safe);
+    localStorage.setItem('locale', safe);
+    document.documentElement.lang = safe;
+    document.documentElement.dir = safe === 'ar' ? 'rtl' : 'ltr';
   }, []);
 
   useEffect(() => {
@@ -36,7 +43,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const t = useCallback(
     (key: string, ns?: TranslationNamespace): string => {
-      const localeData = translations[locale];
+      const safeLocale = normalizeLocale(locale);
+      const localeData = translations[safeLocale];
+      if (!localeData) return key;
       const dotIndex = key.indexOf('.');
       const actualNs = ns ?? (dotIndex >= 0 ? key.substring(0, dotIndex) as TranslationNamespace : 'common');
       const actualKey = (dotIndex >= 0 && ns === undefined) ? key.substring(dotIndex + 1) : key;
