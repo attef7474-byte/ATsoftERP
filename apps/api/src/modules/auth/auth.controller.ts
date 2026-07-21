@@ -36,6 +36,14 @@ export class AuthController {
     return this.authService.getUserPermissions(user.id);
   }
 
+  @Public()
+  @Post('logout')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Logout (no-op for stateless JWT auth)' })
+  async logout() {
+    return { message: 'Logged out successfully' };
+  }
+
   @Post('change-password')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
