@@ -1,0 +1,103 @@
+{
+  "locale": "en",
+  "translations": {
+    "settings": {
+      "numbering": {
+        "operationName": {
+          "COMPANY": "Company",
+          "BRANCH": "Branch",
+          "DEPARTMENT": "Department",
+          "WAREHOUSE": "Warehouse",
+          "WAREHOUSE_LOCATION": "Warehouse Location",
+          "PRODUCT": "Product",
+          "INVENTORY_MOVEMENT": "Inventory Movement",
+          "INVENTORY_COUNT": "Inventory Count",
+          "INVENTORY_ADJUSTMENT": "Inventory Adjustment",
+          "MACHINE": "Machine",
+          "MACHINE_ASSET": "Machine Asset",
+          "MACHINE_PART": "Machine Part",
+          "MACHINE_DOCUMENT": "Machine Document",
+          "MAINTENANCE_REQUEST": "Maintenance Request",
+          "MAINTENANCE_TASK": "Maintenance Task",
+          "PREVENTIVE_MAINTENANCE": "Preventive Maintenance",
+          "DOWNTIME": "Downtime",
+          "BARCODE_LABEL": "Barcode Label",
+          "QR_LABEL": "QR Label",
+          "BARCODE_RECORD": "Barcode Record",
+          "BARCODE_PRINT_JOB": "Barcode Print Job",
+          "REPORT_EXPORT_JOB": "Report Export Job",
+          "ATTACHMENT": "Attachment",
+          "NOTIFICATION_RULE": "Notification Rule",
+          "INTERNAL_MESSAGE_CONVERSATION": "Internal Message Conversation",
+          "BUSINESS_PARTNER": "Business Partner",
+          "CUSTOMER": "Customer",
+          "SUPPLIER": "Supplier",
+          "SALES_ORDER": "Sales Order",
+          "PURCHASE_ORDER": "Purchase Order",
+          "INVOICE": "Invoice",
+          "HR_EMPLOYEE": "HR Employee",
+          "FINANCE_TRANSACTION": "Finance Transaction"
+        },
+        "modelName": {
+          "COMPANY": "Company",
+          "BRANCH": "Branch",
+          "DEPARTMENT": "Department",
+          "WAREHOUSE": "Warehouse",
+          "WAREHOUSE_LOCATION": "Warehouse Location",
+          "PRODUCT": "Product",
+          "INVENTORY_MOVEMENT": "Inventory Movement",
+          "INVENTORY_COUNT": "Inventory Count",
+          "INVENTORY_ADJUSTMENT": "Inventory Adjustment",
+          "MACHINE": "Machine",
+          "MACHINE_ASSET": "Machine Asset",
+          "MACHINE_PART": "Machine Part",
+          "MACHINE_DOCUMENT": "Machine Document",
+          "MAINTENANCE_REQUEST": "Maintenance Request",
+          "MAINTENANCE_TASK": "Maintenance Task",
+          "PREVENTIVE_MAINTENANCE": "Preventive Maintenance",
+          "DOWNTIME": "Downtime",
+          "BARCODE_LABEL": "Barcode Label",
+          "QR_LABEL": "QR Label",
+          "BARCODE_RECORD": "Barcode Record",
+          "BARCODE_PRINT_JOB": "Barcode Print Job",
+          "REPORT_EXPORT_JOB": "Report Export Job",
+          "ATTACHMENT": "Attachment",
+          "NOTIFICATION_RULE": "Notification Rule",
+          "INTERNAL_MESSAGE_CONVERSATION": "Internal Message Conversation",
+          "BUSINESS_PARTNER": "Business Partner",
+          "CUSTOMER": "Customer",
+          "SUPPLIER": "Supplier",
+          "SALES_ORDER": "Sales Order",
+          "PURCHASE_ORDER": "Purchase Order",
+          "INVOICE": "Invoice",
+          "HR_EMPLOYEE": "HR Employee",
+          "FINANCE_TRANSACTION": "Finance Transaction"
+        },
+        "status": {
+          "ACTIVE": "Active",
+          "INACTIVE": "Inactive",
+          "USER_REJECTED_FOR_CURRENT_RELEASE": "Not in Current Release"
+        },
+        "scope": {
+          "GLOBAL": "Global",
+          "COMPANY": "Company",
+          "BRANCH": "Branch",
+          "USER": "User"
+        },
+        "resetPolicy": {
+          "NEVER": "Never",
+          "DAILY": "Daily",
+          "MONTHLY": "Monthly",
+          "YEARLY": "Yearly"
+        },
+        "button": {
+          "refresh": "Refresh",
+          "search": "Search",
+          "edit": "Edit",
+          "save": "Save",
+          "cancel": "Cancel"
+        }
+      }
+    }
+  }
+}

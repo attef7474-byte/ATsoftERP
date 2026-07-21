@@ -1,0 +1,103 @@
+{
+  "locale": "ar",
+  "translations": {
+    "settings": {
+      "numbering": {
+        "operationName": {
+          "COMPANY": "شركة",
+          "BRANCH": "فرع",
+          "DEPARTMENT": "قسم",
+          "WAREHOUSE": "مستودع",
+          "WAREHOUSE_LOCATION": "موقع مستودع",
+          "PRODUCT": "منتج",
+          "INVENTORY_MOVEMENT": "حركة مخزون",
+          "INVENTORY_COUNT": "جرد المخزون",
+          "INVENTORY_ADJUSTMENT": "تسوية مخزون",
+          "MACHINE": "الماكينة",
+          "MACHINE_ASSET": "أصل/معدة",
+          "MACHINE_PART": "قطعة غيار",
+          "MACHINE_DOCUMENT": "مستند ماكينة",
+          "MAINTENANCE_REQUEST": "طلب صيانة",
+          "MAINTENANCE_TASK": "مهمة صيانة",
+          "PREVENTIVE_MAINTENANCE": "صيانة وقائية",
+          "DOWNTIME": "توقف",
+          "BARCODE_LABEL": "ملصق باركود",
+          "QR_LABEL": "ملصق QR",
+          "BARCODE_RECORD": "سجل باركود",
+          "BARCODE_PRINT_JOB": "مهمة طباعة باركود",
+          "REPORT_EXPORT_JOB": "مهمة تصدير تقرير",
+          "ATTACHMENT": "مرفق",
+          "NOTIFICATION_RULE": "قاعدة إشعار",
+          "INTERNAL_MESSAGE_CONVERSATION": "محادثة داخلية",
+          "BUSINESS_PARTNER": "شريك أعمال",
+          "CUSTOMER": "عميل",
+          "SUPPLIER": "مورد",
+          "SALES_ORDER": "طلب بيع",
+          "PURCHASE_ORDER": "طلب شراء",
+          "INVOICE": "فاتورة",
+          "HR_EMPLOYEE": "موظف",
+          "FINANCE_TRANSACTION": "عملية مالية"
+        },
+        "modelName": {
+          "COMPANY": "شركة",
+          "BRANCH": "فرع",
+          "DEPARTMENT": "قسم",
+          "WAREHOUSE": "مستودع",
+          "WAREHOUSE_LOCATION": "موقع مستودع",
+          "PRODUCT": "منتج",
+          "INVENTORY_MOVEMENT": "حركة مخزون",
+          "INVENTORY_COUNT": "جرد المخزون",
+          "INVENTORY_ADJUSTMENT": "تسوية مخزون",
+          "MACHINE": "الماكينة",
+          "MACHINE_ASSET": "أصل/معدة",
+          "MACHINE_PART": "قطعة غيار",
+          "MACHINE_DOCUMENT": "مستند ماكينة",
+          "MAINTENANCE_REQUEST": "طلب صيانة",
+          "MAINTENANCE_TASK": "مهمة صيانة",
+          "PREVENTIVE_MAINTENANCE": "صيانة وقائية",
+          "DOWNTIME": "توقف",
+          "BARCODE_LABEL": "ملصق باركود",
+          "QR_LABEL": "ملصق QR",
+          "BARCODE_RECORD": "سجل باركود",
+          "BARCODE_PRINT_JOB": "مهمة طباعة باركود",
+          "REPORT_EXPORT_JOB": "مهمة تصدير تقرير",
+          "ATTACHMENT": "مرفق",
+          "NOTIFICATION_RULE": "قاعدة إشعار",
+          "INTERNAL_MESSAGE_CONVERSATION": "محادثة داخلية",
+          "BUSINESS_PARTNER": "شريك أعمال",
+          "CUSTOMER": "عميل",
+          "SUPPLIER": "مورد",
+          "SALES_ORDER": "طلب بيع",
+          "PURCHASE_ORDER": "طلب شراء",
+          "INVOICE": "فاتورة",
+          "HR_EMPLOYEE": "موظف",
+          "FINANCE_TRANSACTION": "عملية مالية"
+        },
+        "status": {
+          "ACTIVE": "نشط",
+          "INACTIVE": "غير نشط",
+          "USER_REJECTED_FOR_CURRENT_RELEASE": "مرفوض للنطاق الحالي"
+        },
+        "scope": {
+          "GLOBAL": "عام",
+          "COMPANY": "شركة",
+          "BRANCH": "فرع",
+          "USER": "مستخدم"
+        },
+        "resetPolicy": {
+          "NEVER": "أبداً",
+          "DAILY": "يومياً",
+          "MONTHLY": "شهرياً",
+          "YEARLY": "سنوياً"
+        },
+        "button": {
+          "refresh": "تحديث",
+          "search": "بحث",
+          "edit": "تعديل",
+          "save": "حفظ",
+          "cancel": "إلغاء"
+        }
+      }
+    }
+  }
+}

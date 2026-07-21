@@ -124,8 +124,8 @@ export default function NumberingPage() {
 
   const columns = [
     { key: 'code', header: t('settings.numbering.code') },
-    { key: 'operationName', header: t('settings.numbering.operationName') },
-    { key: 'modelName', header: t('settings.numbering.modelName') },
+    { key: 'operationName', header: t('settings.numbering.operationName'), render: (item: any) => t(`settings.numbering.operationName.${item.code}`) || item.operationName },
+    { key: 'modelName', header: t('settings.numbering.modelName'), render: (item: any) => t(`settings.numbering.modelName.${item.code}`) || item.modelName },
     { key: 'prefix', header: t('settings.numbering.prefix') },
     { key: 'suffix', header: t('settings.numbering.suffix') },
     { key: 'currentNumber', header: t('settings.numbering.currentNumber'), align: 'center' },
@@ -133,8 +133,8 @@ export default function NumberingPage() {
     { key: 'increment', header: t('settings.numbering.increment'), align: 'center' },
     { key: 'padding', header: t('settings.numbering.padding'), align: 'center' },
     { key: 'resetPolicy', header: t('settings.numbering.resetPolicy'), render: (item: any) => t(`settings.numbering.resetPolicies.${item.resetPolicy}`) || item.resetPolicy },
-    { key: 'scope', header: t('settings.numbering.scope') },
-    { key: 'status', header: t('settings.numbering.status'), render: (item: any) => <StatusBadge status={item.status} /> },
+    { key: 'scope', header: t('settings.numbering.scope'), render: (item: any) => t(`settings.numbering.scope.${item.scope}`) || item.scope },
+    { key: 'status', header: t('settings.numbering.status'), render: (item: any) => <StatusBadge status={t(`settings.numbering.status.${item.status}`) || item.status} /> },
     {
       key: 'nextPreview', header: t('settings.numbering.nextPreview'), render: (item: any) => (
         <span className="font-mono text-xs" key={item.id}>
@@ -197,9 +197,9 @@ export default function NumberingPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Input label={t('settings.numbering.code')} value={editItem?.code || ''} disabled />
-            <Input label={t('settings.numbering.name')} value={editItem?.name || ''} disabled />
-            <Input label={t('settings.numbering.operationName')} value={editItem?.operationName || ''} disabled />
-            <Input label={t('settings.numbering.modelName')} value={editItem?.modelName || ''} disabled />
+            <Input label={t('settings.numbering.name')} value={t(`settings.numbering.operationName.${editItem?.code}`) || editItem?.name || ''} disabled />
+            <Input label={t('settings.numbering.operationName')} value={t(`settings.numbering.operationName.${editItem?.code}`) || editItem?.operationName || ''} disabled />
+            <Input label={t('settings.numbering.modelName')} value={t(`settings.numbering.modelName.${editItem?.code}`) || editItem?.modelName || ''} disabled />
             <Input label={t('settings.numbering.domain')} value={t(`settings.numbering.domains.${editItem?.domain}`) || editItem?.domain || ''} disabled />
           </div>
           <div className="grid grid-cols-2 gap-4">
