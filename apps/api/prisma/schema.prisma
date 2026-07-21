@@ -487,22 +487,27 @@ model SystemSetting {
 }
 
 model NumberSequence {
-  id            String    @id @default(cuid())
-  code          String    @unique
-  name          String
-  prefix        String
-  suffix        String?
-  currentNumber Int       @default(0)
-  padding       Int       @default(6)
-  scope         String    @default("GLOBAL")
-  companyId     String?
-  branchId      String?
-  branch        Branch?   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  resetPolicy   String    @default("NEVER")
-  lastResetAt   DateTime?
-  status        String    @default("ACTIVE")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  code              String    @unique
+  name              String
+  operationName     String
+  modelName         String
+  domain            String
+  prefix            String
+  suffix            String?
+  currentNumber     Int       @default(0)
+  increment         Int       @default(1)
+  padding           Int       @default(6)
+  scope             String    @default("GLOBAL")
+  companyId         String?
+  branchId          String?
+  branch            Branch?   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  resetPolicy       String    @default("NEVER")
+  lastResetAt       DateTime?
+  lastGeneratedCode String?
+  status            String    @default("ACTIVE")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@map("number_sequences")
 }

@@ -23,11 +23,12 @@ export class NumberingController {
   @Get()
   @Permissions('numbering:read')
   @ApiOperation({ summary: 'List number sequences' })
-  findAll(@Query() query: { page?: string; limit?: string; search?: string }) {
+  findAll(@Query() query: { page?: string; limit?: string; search?: string; status?: string }) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,
+      status: query.status,
     });
   }
 

@@ -20,6 +20,18 @@ export class UpdateNumberSequenceDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsInt()
+  @Min(1)
+  increment?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  currentNumber?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   status?: string;
 

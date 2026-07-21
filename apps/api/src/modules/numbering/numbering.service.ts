@@ -11,7 +11,7 @@ export class NumberingService {
     return this.prisma.numberSequence.create({ data: dto });
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string }) {
+  async findAll(query: { page?: number; limit?: number; search?: string; status?: string }) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
@@ -22,6 +22,9 @@ export class NumberingService {
         { code: { contains: query.search } },
         { name: { contains: query.search } },
       ];
+    }
+    if (query.status) {
+      where.status = query.status;
     }
 
     const [data, total] = await Promise.all([
@@ -65,7 +68,11 @@ export class NumberingService {
 
     await this.prisma.numberSequence.update({
       where: { id: seq.id },
-      data: { currentNumber: nextNumber, lastResetAt: this.shouldReset(seq) ? new Date() : undefined },
+      data: { 
+        currentNumber: nextNumber, 
+        lastGeneratedCode: generated,
+        lastResetAt: this.shouldReset(seq) ? new Date() : undefined 
+      },
     });
 
     return { number: generated, sequence: seq.code, currentNumber: nextNumber };
@@ -80,7 +87,11 @@ export class NumberingService {
 
     await this.prisma.numberSequence.update({
       where: { id: seq.id },
-      data: { currentNumber: nextNumber, lastResetAt: this.shouldReset(seq) ? new Date() : undefined },
+      data: { 
+        currentNumber: nextNumber, 
+        lastGeneratedCode: generated,
+        lastResetAt: this.shouldReset(seq) ? new Date() : undefined 
+      },
     });
 
     return generated;
@@ -91,11 +102,11 @@ export class NumberingService {
     return `${seq.prefix}${padded}${seq.suffix || ''}`;
   }
 
-  private async computeNextNumber(seq: { id: string; resetPolicy: string; currentNumber: number; lastResetAt: Date | null }): Promise<number> {
+  private async computeNextNumber(seq: { id: string; resetPolicy: string; currentNumber: number; lastResetAt: Date | null; increment: number }): Promise<number> {
     if (this.shouldReset(seq)) {
       return 1;
     }
-    return seq.currentNumber + 1;
+    return seq.currentNumber + (seq.increment || 1);
   }
 
   private shouldReset(seq: { id: string; resetPolicy: string; currentNumber: number; lastResetAt: Date | null }): boolean {

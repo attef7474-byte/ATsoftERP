@@ -1,0 +1,98 @@
+NUMBER SEQUENCES UI COMPLETION - ANALYSIS
+===========================================
+
+CURRENT STATE:
+--------------
+Page: /admin/settings/numbering
+
+Frontend (apps/web/src/app/admin/settings/numbering/page.tsx):
+- Table columns: code, name, prefix, currentNumber, padding, scope, status, nextPreview
+- Missing columns: suffix, nextNumber, increment, resetPolicy, lastGeneratedCode, modelName/operationName
+- No "increment" field in model or edit modal
+- No "nextNumber" field in model
+- Edit modal only has: prefix, suffix, padding
+- Uses computePreview() on frontend (should use backend preview endpoint)
+- Uses Arabic translation "المساحة" for padding - should be "عدد الخانات"
+
+Backend:
+- NumberSequence model: id, code, name, prefix, suffix, currentNumber, padding, scope, companyId, branchId, resetPolicy, lastResetAt, status
+- Missing fields: increment, nextNumber (computed), modelName/operationName
+- DTOs: create has code, name, prefix, suffix, currentNumber, padding, scope, companyId, branchId, resetPolicy
+- DTOs: update has prefix, suffix, padding, status, resetPolicy
+- Missing: increment field in model and DTOs
+
+Seed data (prisma/seed/seed.ts):
+1. MAINTENANCE_REQUEST - MR-
+2. MACHINE - MCH-
+3. PRODUCT - PRD-
+4. INVENTORY_COUNT - IC-
+5. INVENTORY_MOVEMENT - IM-
+6. INVENTORY_ADJUSTMENT - IA-
+7. BARCODE_LABEL - BCL-
+
+Seed data (prisma/seed/seed-business-partner-permissions.ts) - REJECTED DOMAINS:
+8. BUSINESS_PARTNER - BP- (REJECTED - Sales/Purchasing)
+9. CUSTOMER - CUS- (REJECTED - Sales)
+10. SUPPLIER - SUP- (REJECTED - Purchasing)
+
+i18n (ar.ts numbering section):
+- padding: "المساحة" - SHOULD BE "عدد الخانات"
+- Missing: increment, nextNumber, operationName, modelName, scope translations, resetPolicy translations, status translations, lastGeneratedCode
+
+APPROVED SEQUENCE TYPES NEEDED (from requirements):
+Core:
+- COMPANY
+- BRANCH
+- DEPARTMENT
+
+Inventory:
+- WAREHOUSE
+- WAREHOUSE_LOCATION
+- PRODUCT (exists)
+- INVENTORY_MOVEMENT (exists)
+- INVENTORY_COUNT (exists)
+- INVENTORY_ADJUSTMENT (exists)
+
+Maintenance:
+- MACHINE (exists)
+- MACHINE_ASSET (maybe same as MACHINE)
+- MACHINE_PART
+- MACHINE_DOCUMENT
+- MAINTENANCE_REQUEST (exists)
+- MAINTENANCE_TASK
+- PREVENTIVE_MAINTENANCE
+- DOWNTIME
+
+Barcode/QR:
+- BARCODE_LABEL (exists)
+- QR_LABEL
+- BARCODE_RECORD
+- BARCODE_PRINT_JOB
+
+Reports:
+- REPORT_EXPORT_JOB
+
+System:
+- ATTACHMENT
+- NOTIFICATION_RULE
+
+REJECTED SEQUENCE TYPES (must be hidden/inactive):
+- CUSTOMER (Sales)
+- SUPPLIER (Purchasing)
+- BUSINESS_PARTNER (Sales/Purchasing)
+- SALES_ORDER
+- PURCHASE_ORDER
+- INVOICE
+- HR_EMPLOYEE
+- FINANCE_TRANSACTION
+
+REQUIRED FIXES:
+1. Add increment field to NumberSequence model
+2. Update DTOs to include increment
+3. Add all approved sequence types to seed
+4. Mark rejected sequence types as INACTIVE/USER_REJECTED_FOR_CURRENT_RELEASE
+5. Fix i18n: padding -> "عدد الخانات", add all missing translations
+6. Fix table UI with all required columns (15 columns)
+7. Update edit modal to include all editable fields
+8. Use backend preview endpoint for preview column
+8. Ensure generation uses backend service

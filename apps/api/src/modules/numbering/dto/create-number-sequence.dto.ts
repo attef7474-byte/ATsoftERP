@@ -12,6 +12,18 @@ export class CreateNumberSequenceDto {
 
   @ApiProperty()
   @IsString()
+  operationName: string;
+
+  @ApiProperty()
+  @IsString()
+  modelName: string;
+
+  @ApiProperty()
+  @IsString()
+  domain: string;
+
+  @ApiProperty()
+  @IsString()
   prefix: string;
 
   @ApiPropertyOptional()
@@ -25,6 +37,12 @@ export class CreateNumberSequenceDto {
   @Min(0)
   currentNumber?: number;
 
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  increment?: number;
+
   @ApiPropertyOptional({ default: 6 })
   @IsOptional()
   @IsInt()
@@ -36,18 +54,13 @@ export class CreateNumberSequenceDto {
   @IsString()
   scope?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  companyId?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  branchId?: string;
-
   @ApiPropertyOptional({ default: 'NEVER' })
   @IsOptional()
   @IsString()
   resetPolicy?: string;
+
+  @ApiPropertyOptional({ default: 'ACTIVE' })
+  @IsOptional()
+  @IsString()
+  status?: string;
 }

@@ -45,9 +45,9 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
 ];
 
 const NUMBER_SEQUENCES = [
-  { code: "BUSINESS_PARTNER", name: "Business Partner", prefix: "BP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
-  { code: "CUSTOMER", name: "Customer", prefix: "CUS-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
-  { code: "SUPPLIER", name: "Supplier", prefix: "SUP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
+  { code: "BUSINESS_PARTNER", name: "Business Partner", operationName: "Business Partner", modelName: "BusinessPartner", domain: "sales", prefix: "BP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },
+  { code: "CUSTOMER", name: "Customer", operationName: "Customer", modelName: "Customer", domain: "sales", prefix: "CUS-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },
+  { code: "SUPPLIER", name: "Supplier", operationName: "Supplier", modelName: "Supplier", domain: "purchasing", prefix: "SUP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },
 ];
 
 async function main() {

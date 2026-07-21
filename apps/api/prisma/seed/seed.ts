@@ -148,14 +148,51 @@ async function main() {
   }
 
   const numberSequences = [
-    { code: "MAINTENANCE_REQUEST", name: "Maintenance Request", prefix: "MR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
-    { code: "MACHINE", name: "Machine", prefix: "MCH-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
-    { code: "PRODUCT", name: "Product", prefix: "PRD-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
-    { code: "INVENTORY_COUNT", name: "Inventory Count", prefix: "IC-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
-    { code: "INVENTORY_MOVEMENT", name: "Inventory Movement", prefix: "IM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
-    { code: "INVENTORY_ADJUSTMENT", name: "Inventory Adjustment", prefix: "IA-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
-    { code: "BARCODE_LABEL", name: "Barcode Label", prefix: "BCL-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
-    { code: "QR_LABEL", name: "QR Label", prefix: "QR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER" },
+    // Core
+    { code: "COMPANY", name: "Company", operationName: "Company", modelName: "Company", domain: "core", prefix: "COM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "BRANCH", name: "Branch", operationName: "Branch", modelName: "Branch", domain: "core", prefix: "BRN-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "DEPARTMENT", name: "Department", operationName: "Department", modelName: "Department", domain: "core", prefix: "DEP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+
+    // Inventory
+    { code: "WAREHOUSE", name: "Warehouse", operationName: "Warehouse", modelName: "Warehouse", domain: "inventory", prefix: "WH-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "WAREHOUSE_LOCATION", name: "Warehouse Location", operationName: "Warehouse Location", modelName: "WarehouseLocation", domain: "inventory", prefix: "WL-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "PRODUCT", name: "Product", operationName: "Product", modelName: "Product", domain: "inventory", prefix: "PRD-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "INVENTORY_MOVEMENT", name: "Inventory Movement", operationName: "Inventory Movement", modelName: "InventoryMovement", domain: "inventory", prefix: "IM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "INVENTORY_COUNT", name: "Inventory Count", operationName: "Inventory Count", modelName: "InventoryCount", domain: "inventory", prefix: "IC-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "INVENTORY_ADJUSTMENT", name: "Inventory Adjustment", operationName: "Inventory Adjustment", modelName: "InventoryAdjustment", domain: "inventory", prefix: "IA-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+
+    // Maintenance
+    { code: "MACHINE", name: "Machine", operationName: "Machine", modelName: "Machine", domain: "maintenance", prefix: "MCH-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "MACHINE_ASSET", name: "Machine Asset", operationName: "Machine Asset", modelName: "MachineAsset", domain: "maintenance", prefix: "MAST-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "MACHINE_PART", name: "Machine Part", operationName: "Machine Part", modelName: "MachinePart", domain: "maintenance", prefix: "MPP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "MACHINE_DOCUMENT", name: "Machine Document", operationName: "Machine Document", modelName: "MachineDocument", domain: "maintenance", prefix: "MDC-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "MAINTENANCE_REQUEST", name: "Maintenance Request", operationName: "Maintenance Request", modelName: "MaintenanceRequest", domain: "maintenance", prefix: "MR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "MAINTENANCE_TASK", name: "Maintenance Task", operationName: "Maintenance Task", modelName: "MaintenanceTask", domain: "maintenance", prefix: "MTK-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "PREVENTIVE_MAINTENANCE", name: "Preventive Maintenance", operationName: "Preventive Maintenance", modelName: "PreventiveMaintenance", domain: "maintenance", prefix: "PM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "DOWNTIME", name: "Downtime", operationName: "Downtime", modelName: "DowntimeLog", domain: "maintenance", prefix: "DT-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+
+    // Barcode/QR
+    { code: "BARCODE_LABEL", name: "Barcode Label", operationName: "Barcode Label", modelName: "BarcodeLabel", domain: "barcode", prefix: "BCL-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "QR_LABEL", name: "QR Label", operationName: "QR Label", modelName: "QRLabel", domain: "barcode", prefix: "QR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "BARCODE_RECORD", name: "Barcode Record", operationName: "Barcode Record", modelName: "BarcodeRecord", domain: "barcode", prefix: "BCR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "BARCODE_PRINT_JOB", name: "Barcode Print Job", operationName: "Barcode Print Job", modelName: "BarcodePrintJob", domain: "barcode", prefix: "BPJ-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+
+    // Reports
+    { code: "REPORT_EXPORT_JOB", name: "Report Export Job", operationName: "Report Export Job", modelName: "ReportExportJob", domain: "reports", prefix: "REP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+
+    // System
+    { code: "ATTACHMENT", name: "Attachment", operationName: "Attachment", modelName: "Attachment", domain: "system", prefix: "ATT-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "NOTIFICATION_RULE", name: "Notification Rule", operationName: "Notification Rule", modelName: "NotificationRule", domain: "system", prefix: "NTR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+
+    // Rejected domains - marked as USER_REJECTED_FOR_CURRENT_RELEASE
+    { code: "BUSINESS_PARTNER", name: "Business Partner", operationName: "Business Partner", modelName: "BusinessPartner", domain: "sales", prefix: "BP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },
+    { code: "CUSTOMER", name: "Customer", operationName: "Customer", modelName: "Customer", domain: "sales", prefix: "CUS-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },
+    { code: "SUPPLIER", name: "Supplier", operationName: "Supplier", modelName: "Supplier", domain: "purchasing", prefix: "SUP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },
+    { code: "SALES_ORDER", name: "Sales Order", operationName: "Sales Order", modelName: "SalesOrder", domain: "sales", prefix: "SO-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },
+    { code: "PURCHASE_ORDER", name: "Purchase Order", operationName: "Purchase Order", modelName: "PurchaseOrder", domain: "purchasing", prefix: "PO-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },
+    { code: "INVOICE", name: "Invoice", operationName: "Invoice", modelName: "Invoice", domain: "finance", prefix: "INV-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },
+    { code: "HR_EMPLOYEE", name: "HR Employee", operationName: "HR Employee", modelName: "Employee", domain: "hr", prefix: "EMP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },
+    { code: "FINANCE_TRANSACTION", name: "Finance Transaction", operationName: "Finance Transaction", modelName: "FinanceTransaction", domain: "finance", prefix: "FT-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },
   ];
 
   for (const ns of numberSequences) {
