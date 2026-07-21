@@ -68,10 +68,10 @@ export class NumberingService {
 
     await this.prisma.numberSequence.update({
       where: { id: seq.id },
-      data: { 
-        currentNumber: nextNumber, 
+      data: {
+        currentNumber: nextNumber,
         lastGeneratedCode: generated,
-        lastResetAt: this.shouldReset(seq) ? new Date() : undefined 
+        lastResetAt: this.shouldReset(seq) ? new Date() : undefined
       },
     });
 
@@ -87,10 +87,10 @@ export class NumberingService {
 
     await this.prisma.numberSequence.update({
       where: { id: seq.id },
-      data: { 
-        currentNumber: nextNumber, 
+      data: {
+        currentNumber: nextNumber,
         lastGeneratedCode: generated,
-        lastResetAt: this.shouldReset(seq) ? new Date() : undefined 
+        lastResetAt: this.shouldReset(seq) ? new Date() : undefined
       },
     });
 
