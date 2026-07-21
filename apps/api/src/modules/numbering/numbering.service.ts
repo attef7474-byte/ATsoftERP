@@ -60,41 +60,45 @@ export class NumberingService {
   }
 
   async generateNumber(code: string) {
-    const seq = await this.prisma.numberSequence.findUnique({ where: { code } });
-    if (!seq) throw new NotFoundException('Number sequence not found');
+    return this.prisma.$transaction(async (tx) => {
+      const seq = await tx.numberSequence.findUnique({ where: { code } });
+      if (!seq) throw new NotFoundException('Number sequence not found');
 
-    const nextNumber = await this.computeNextNumber(seq);
-    const generated = this.formatNumber(seq, nextNumber);
+      const nextNumber = await this.computeNextNumber(seq);
+      const generated = this.formatNumber(seq, nextNumber);
 
-    await this.prisma.numberSequence.update({
-      where: { id: seq.id },
-      data: {
-        currentNumber: nextNumber,
-        lastGeneratedCode: generated,
-        lastResetAt: this.shouldReset(seq) ? new Date() : undefined
-      },
+      await tx.numberSequence.update({
+        where: { id: seq.id },
+        data: {
+          currentNumber: nextNumber,
+          lastGeneratedCode: generated,
+          lastResetAt: this.shouldReset(seq) ? new Date() : undefined
+        },
+      });
+
+      return { number: generated, sequence: seq.code, currentNumber: nextNumber };
     });
-
-    return { number: generated, sequence: seq.code, currentNumber: nextNumber };
   }
 
   async generateNumberAtomic(code: string): Promise<string> {
-    const seq = await this.prisma.numberSequence.findUnique({ where: { code } });
-    if (!seq) throw new NotFoundException('Number sequence not found');
+    return this.prisma.$transaction(async (tx) => {
+      const seq = await tx.numberSequence.findUnique({ where: { code } });
+      if (!seq) throw new NotFoundException('Number sequence not found');
 
-    const nextNumber = await this.computeNextNumber(seq);
-    const generated = this.formatNumber(seq, nextNumber);
+      const nextNumber = await this.computeNextNumber(seq);
+      const generated = this.formatNumber(seq, nextNumber);
 
-    await this.prisma.numberSequence.update({
-      where: { id: seq.id },
-      data: {
-        currentNumber: nextNumber,
-        lastGeneratedCode: generated,
-        lastResetAt: this.shouldReset(seq) ? new Date() : undefined
-      },
+      await tx.numberSequence.update({
+        where: { id: seq.id },
+        data: {
+          currentNumber: nextNumber,
+          lastGeneratedCode: generated,
+          lastResetAt: this.shouldReset(seq) ? new Date() : undefined
+        },
+      });
+
+      return generated;
     });
-
-    return generated;
   }
 
   private formatNumber(seq: { prefix: string; suffix: string | null; padding: number }, nextNumber: number): string {

@@ -21,7 +21,7 @@ export default function DepartmentsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Department | null>(null);
-  const [form, setForm] = useState({ companyId: '', branchId: '', parentId: '', code: '', name: '' });
+  const [form, setForm] = useState({ companyId: '', branchId: '', parentId: '', name: '' });
   const [saving, setSaving] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -66,7 +66,7 @@ export default function DepartmentsPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ companyId: '', branchId: '', parentId: '', code: '', name: '' });
+    setForm({ companyId: '', branchId: '', parentId: '', name: '' });
     setModalOpen(true);
   };
 
@@ -76,17 +76,16 @@ export default function DepartmentsPage() {
       companyId: item.companyId,
       branchId: item.branchId || '',
       parentId: item.parentId || '',
-      code: item.code,
       name: item.name,
     });
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.code || !form.name || !form.companyId) { showToast(t('validation.required'), 'error'); return; }
+    if (!form.name || !form.companyId) { showToast(t('validation.required'), 'error'); return; }
     setSaving(true);
     try {
-      const payload: any = { code: form.code, name: form.name, companyId: form.companyId };
+      const payload: any = { name: form.name, companyId: form.companyId };
       if (form.branchId) payload.branchId = form.branchId;
       if (form.parentId) payload.parentId = form.parentId;
       if (editItem) {
@@ -168,7 +167,6 @@ export default function DepartmentsPage() {
           <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
           <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
           <F9Lookup label={t('core.parentDepartment')} value={form.parentId} onChange={(v) => setForm({ ...form, parentId: v })} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
-          <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>

@@ -1,16 +1,21 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { NumberingService } from '../../numbering/numbering.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
 export class ProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private numberingService: NumberingService,
+  ) {}
 
   async create(dto: CreateProductDto) {
-    const existing = await this.prisma.product.findUnique({ where: { code: dto.code } });
+    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('PRODUCT');
+    const existing = await this.prisma.product.findUnique({ where: { code } });
     if (existing) throw new ConflictException('Product code already exists');
-    return this.prisma.product.create({ data: dto });
+    return this.prisma.product.create({ data: { ...dto, code } });
   }
 
   async findAll(query: { page?: number; limit?: number; search?: string; categoryId?: string; status?: string }) {

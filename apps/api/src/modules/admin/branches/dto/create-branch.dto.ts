@@ -6,9 +6,10 @@ export class CreateBranchDto {
   @IsString()
   companyId: string;
 
-  @ApiProperty({ example: 'HQ' })
+  @ApiPropertyOptional({ example: 'HQ' })
+  @IsOptional()
   @IsString()
-  code: string;
+  code?: string;
 
   @ApiProperty({ example: 'Headquarters' })
   @IsString()

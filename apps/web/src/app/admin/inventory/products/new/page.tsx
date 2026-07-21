@@ -12,7 +12,7 @@ export default function CreateProductPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { showToast } = useToast();
-  const [form, setForm] = useState({ code: '', name: '', description: '', categoryId: '', unit: 'pcs', barcode: '', minStock: 0, maxStock: 0 });
+  const [form, setForm] = useState({ name: '', description: '', categoryId: '', unit: 'pcs', barcode: '', minStock: 0, maxStock: 0 });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -25,7 +25,6 @@ export default function CreateProductPage() {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.code.trim()) errs.code = t('complexForms.requiredField');
     if (!form.name.trim()) errs.name = t('complexForms.requiredField');
     if (!form.unit.trim()) errs.unit = t('complexForms.requiredField');
     setErrors(errs);
@@ -36,7 +35,7 @@ export default function CreateProductPage() {
     if (!validate()) return;
     setSaving(true);
     try {
-      const payload: any = { code: form.code.trim(), name: form.name.trim(), unit: form.unit.trim() };
+      const payload: any = { name: form.name.trim(), unit: form.unit.trim() };
       if (form.description) payload.description = form.description.trim();
       if (form.categoryId) payload.categoryId = form.categoryId;
       if (form.barcode) payload.barcode = form.barcode.trim();
@@ -52,7 +51,7 @@ export default function CreateProductPage() {
 
   const { exec } = useStableHandlers({
     back: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
-    refresh: () => { setForm({ code: '', name: '', description: '', categoryId: '', unit: 'pcs', barcode: '', minStock: 0, maxStock: 0 }); setErrors({}); setDirty(false); },
+    refresh: () => { setForm({ name: '', description: '', categoryId: '', unit: 'pcs', barcode: '', minStock: 0, maxStock: 0 }); setErrors({}); setDirty(false); },
     save: () => handleSave(),
     cancel: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
   });
@@ -71,7 +70,6 @@ export default function CreateProductPage() {
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-gray-900">{t('complexForms.basicInformation')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label={t('inventory.code')} value={form.code} onChange={(e) => setField('code', e.target.value)} error={errors.code} required />
               <Input label={t('inventory.name')} value={form.name} onChange={(e) => setField('name', e.target.value)} error={errors.name} required />
             </div>
             <Textarea label={t('inventory.description')} value={form.description} onChange={(e) => setField('description', e.target.value)} />

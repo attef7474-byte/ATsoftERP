@@ -16,9 +16,10 @@ export class CreateDepartmentDto {
   @IsString()
   parentId?: string;
 
-  @ApiProperty({ example: 'IT' })
+  @ApiPropertyOptional({ example: 'IT' })
+  @IsOptional()
   @IsString()
-  code: string;
+  code?: string;
 
   @ApiProperty({ example: 'Information Technology' })
   @IsString()

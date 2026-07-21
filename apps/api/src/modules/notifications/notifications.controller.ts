@@ -33,7 +33,10 @@ export class NotificationsController {
   @Get('unread-count')
   @Permissions('notifications:read')
   @ApiOperation({ summary: 'Get unread notification count' })
-  unreadCount(@Req() req: any) { return this.service.countUnread(req.user?.id); }
+  async unreadCount(@Req() req: any) {
+    const count = await this.service.countUnread(req.user?.id);
+    return { count };
+  }
 
   @Patch(':id/read')
   @Permissions('notifications:mark-read')

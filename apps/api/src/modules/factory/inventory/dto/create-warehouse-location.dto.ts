@@ -6,16 +6,17 @@ export class CreateWarehouseLocationDto {
   @IsString()
   warehouseId: string;
 
-  @ApiProperty({ example: 'A-01' })
+  @ApiPropertyOptional({ example: 'A-01' })
+  @IsOptional()
   @IsString()
-  code: string;
+  code?: string;
 
-  @ApiProperty({ example: 'Aisle A, Rack 01' })
+  @ApiProperty({ example: 'Row A, Shelf 01' })
   @IsString()
   name: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  barcode?: string;
+  status?: string;
 }

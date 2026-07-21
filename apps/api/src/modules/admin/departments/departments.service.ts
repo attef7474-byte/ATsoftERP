@@ -1,14 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { NumberingService } from '../../numbering/numbering.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 
 @Injectable()
 export class DepartmentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private numberingService: NumberingService,
+  ) {}
 
   async create(dto: CreateDepartmentDto) {
-    return this.prisma.department.create({ data: dto });
+    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('DEPARTMENT');
+    return this.prisma.department.create({ data: { ...dto, code } });
   }
 
   async findAll(query: { page?: number; limit?: number; search?: string; companyId?: string; branchId?: string }) {

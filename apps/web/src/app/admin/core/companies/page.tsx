@@ -20,7 +20,7 @@ export default function CompaniesPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Company | null>(null);
-  const [form, setForm] = useState({ code: '', name: '', legalName: '', taxNumber: '', phone: '', email: '', address: '' });
+  const [form, setForm] = useState({ name: '', legalName: '', taxNumber: '', phone: '', email: '', address: '' });
   const [saving, setSaving] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -67,14 +67,13 @@ export default function CompaniesPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ code: '', name: '', legalName: '', taxNumber: '', phone: '', email: '', address: '' });
+    setForm({ name: '', legalName: '', taxNumber: '', phone: '', email: '', address: '' });
     setModalOpen(true);
   };
 
   const openEdit = (item: Company) => {
     setEditItem(item);
     setForm({
-      code: item.code,
       name: item.name,
       legalName: item.legalName || '',
       taxNumber: item.taxNumber || '',
@@ -86,7 +85,7 @@ export default function CompaniesPage() {
   };
 
   const handleSave = async () => {
-    if (!form.code || !form.name) { showToast(t('validation.required'), 'error'); return; }
+    if (!form.name) { showToast(t('validation.required'), 'error'); return; }
     setSaving(true);
     try {
       if (editItem) {
@@ -194,7 +193,6 @@ export default function CompaniesPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('core.editCompany') : t('core.newCompany')}>
         <div className="space-y-4">
-          <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label={t('core.legalName')} value={form.legalName} onChange={(e) => setForm({ ...form, legalName: e.target.value })} />
           <Input label={t('core.taxNumber')} value={form.taxNumber} onChange={(e) => setForm({ ...form, taxNumber: e.target.value })} />

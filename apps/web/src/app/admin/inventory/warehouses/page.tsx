@@ -19,7 +19,7 @@ export default function WarehousesPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Warehouse | null>(null);
-  const [form, setForm] = useState({ companyId: '', branchId: '', code: '', name: '', location: '' });
+  const [form, setForm] = useState({ companyId: '', branchId: '', name: '', location: '' });
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
@@ -62,7 +62,7 @@ export default function WarehousesPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ companyId: '', branchId: '', code: '', name: '', location: '' });
+    setForm({ companyId: '', branchId: '', name: '', location: '' });
     setModalOpen(true);
   };
 
@@ -71,7 +71,6 @@ export default function WarehousesPage() {
     setForm({
       companyId: item.companyId,
       branchId: item.branchId || '',
-      code: item.code,
       name: item.name,
       location: item.location || '',
     });
@@ -79,10 +78,10 @@ export default function WarehousesPage() {
   };
 
   const handleSave = async () => {
-    if (!form.code || !form.name || !form.companyId) { showToast(t('validation.required'), 'error'); return; }
+    if (!form.name || !form.companyId) { showToast(t('validation.required'), 'error'); return; }
     setSaving(true);
     try {
-      const payload: any = { companyId: form.companyId, code: form.code, name: form.name };
+      const payload: any = { companyId: form.companyId, name: form.name };
       if (form.branchId) payload.branchId = form.branchId;
       if (form.location) payload.location = form.location;
       if (editItem) {
@@ -155,7 +154,6 @@ export default function WarehousesPage() {
         <div className="space-y-4">
           <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
           <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
-          <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label={t('inventory.location')} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
           <div className="flex justify-end gap-3 pt-4">

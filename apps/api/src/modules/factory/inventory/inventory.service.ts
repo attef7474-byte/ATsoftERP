@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { NumberingService } from '../../numbering/numbering.service';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 import { CreateWarehouseLocationDto } from './dto/create-warehouse-location.dto';
@@ -8,14 +9,18 @@ import { CreateStockAdjustmentDto } from './dto/create-stock-adjustment.dto';
 
 @Injectable()
 export class InventoryService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private numberingService: NumberingService,
+  ) {}
 
   async createWarehouse(dto: CreateWarehouseDto) {
+    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('WAREHOUSE');
     const existing = await this.prisma.warehouse.findFirst({
-      where: { companyId: dto.companyId, code: dto.code },
+      where: { companyId: dto.companyId, code },
     });
     if (existing) throw new ConflictException('Warehouse code already exists in this company');
-    return this.prisma.warehouse.create({ data: dto });
+    return this.prisma.warehouse.create({ data: { ...dto, code } });
   }
 
   async findAllWarehouses(query: { page?: number; limit?: number; search?: string; companyId?: string }) {
@@ -65,12 +70,13 @@ export class InventoryService {
   async createLocation(dto: CreateWarehouseLocationDto) {
     const warehouse = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
     if (!warehouse) throw new NotFoundException('Warehouse not found');
+    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('WAREHOUSE_LOCATION');
     const existing = await this.prisma.warehouseLocation.findFirst({
-      where: { warehouseId: dto.warehouseId, code: dto.code },
+      where: { warehouseId: dto.warehouseId, code },
     });
     if (existing) throw new ConflictException('Location code already exists in this warehouse');
     return this.prisma.warehouseLocation.create({
-      data: dto,
+      data: { ...dto, code },
       include: { warehouse: { select: { id: true, name: true, code: true } } },
     });
   }

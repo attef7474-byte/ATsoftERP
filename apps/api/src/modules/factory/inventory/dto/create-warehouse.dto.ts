@@ -11,9 +11,10 @@ export class CreateWarehouseDto {
   @IsString()
   branchId?: string;
 
-  @ApiProperty({ example: 'WH-MAIN' })
+  @ApiPropertyOptional({ example: 'WH-MAIN' })
+  @IsOptional()
   @IsString()
-  code: string;
+  code?: string;
 
   @ApiProperty({ example: 'Main Warehouse' })
   @IsString()

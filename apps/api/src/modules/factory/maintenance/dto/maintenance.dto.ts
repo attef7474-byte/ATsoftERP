@@ -3,9 +3,10 @@ import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateMachineDto {
-  @ApiProperty({ example: 'M-CNC-001' })
+  @ApiPropertyOptional({ example: 'M-CNC-001' })
+  @IsOptional()
   @IsString()
-  code: string;
+  code?: string;
 
   @ApiProperty({ example: 'CNC Milling Machine' })
   @IsString()
@@ -140,9 +141,10 @@ export class UpdateMachineDto {
 }
 
 export class CreateMachinePartDto {
-  @ApiProperty({ example: 'MP-SPI-001' })
+  @ApiPropertyOptional({ example: 'MP-SPI-001' })
+  @IsOptional()
   @IsString()
-  code: string;
+  code?: string;
 
   @ApiProperty({ example: 'Spindle Motor' })
   @IsString()

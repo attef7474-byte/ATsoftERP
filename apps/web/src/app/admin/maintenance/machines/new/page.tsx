@@ -12,7 +12,7 @@ export default function CreateMachinePage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { showToast } = useToast();
-  const [form, setForm] = useState({ code: '', name: '', categoryId: '', companyId: '', branchId: '', departmentId: '', model: '', serialNumber: '', manufacturer: '', location: '', notes: '' });
+  const [form, setForm] = useState({ name: '', categoryId: '', companyId: '', branchId: '', departmentId: '', model: '', serialNumber: '', manufacturer: '', location: '', notes: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -27,7 +27,6 @@ export default function CreateMachinePage() {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.code.trim()) errs.code = t('complexForms.requiredField');
     if (!form.name.trim()) errs.name = t('complexForms.requiredField');
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -37,7 +36,7 @@ export default function CreateMachinePage() {
     if (!validate()) return;
     setSaving(true);
     try {
-      const payload: Record<string, any> = { code: form.code.trim(), name: form.name.trim() };
+      const payload: Record<string, any> = { name: form.name.trim() };
       if (form.categoryId) payload.categoryId = form.categoryId;
       if (form.companyId) payload.companyId = form.companyId;
       if (form.branchId) payload.branchId = form.branchId;
@@ -57,7 +56,7 @@ export default function CreateMachinePage() {
 
   const { exec } = useStableHandlers({
     back: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
-    refresh: () => { setForm({ code: '', name: '', categoryId: '', companyId: '', branchId: '', departmentId: '', model: '', serialNumber: '', manufacturer: '', location: '', notes: '' }); setErrors({}); setDirty(false); },
+    refresh: () => { setForm({ name: '', categoryId: '', companyId: '', branchId: '', departmentId: '', model: '', serialNumber: '', manufacturer: '', location: '', notes: '' }); setErrors({}); setDirty(false); },
     save: () => handleSave(),
     cancel: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
   });
@@ -76,7 +75,6 @@ export default function CreateMachinePage() {
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-gray-900">{t('complexForms.basicInformation')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label={t('maintenance.code')} value={form.code} onChange={(e) => setField('code', e.target.value)} error={errors.code} required />
               <Input label={t('maintenance.name')} value={form.name} onChange={(e) => setField('name', e.target.value)} error={errors.name} required />
             </div>
 

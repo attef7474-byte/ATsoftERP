@@ -1,18 +1,24 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { NumberingService } from '../../numbering/numbering.service';
 import { CreateMachineDto, UpdateMachineDto, CreateMachinePartDto, CreateMachineDocumentDto, UpdateMachineLocationDto, UpdateMachineManufacturerDto, UpdateMachineWarrantyDto, UpdateMachineImageDto } from './dto/maintenance.dto';
 
 @Injectable()
 export class MaintenanceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private numberingService: NumberingService,
+  ) {}
 
   async createMachine(dto: CreateMachineDto) {
-    const existing = await this.prisma.machine.findUnique({ where: { code: dto.code } });
+    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('MACHINE');
+    const existing = await this.prisma.machine.findUnique({ where: { code } });
     if (existing) throw new ConflictException('Machine code already exists');
     const { purchaseDate, warrantyEnd, ...rest } = dto;
     return this.prisma.machine.create({
       data: {
         ...rest,
+        code,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
         warrantyEnd: warrantyEnd ? new Date(warrantyEnd) : undefined,
       },
@@ -85,7 +91,8 @@ export class MaintenanceService {
   }
 
   async createPart(dto: CreateMachinePartDto) {
-    return this.prisma.machinePart.create({ data: dto });
+    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('MACHINE_PART');
+    return this.prisma.machinePart.create({ data: { ...dto, code } });
   }
 
   async findParts(machineId?: string) {

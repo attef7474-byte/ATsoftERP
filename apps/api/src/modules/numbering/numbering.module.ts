@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { PrismaModule } from '../../common/prisma/prisma.module';
 import { NumberingController } from './numbering.controller';
 import { NumberingService } from './numbering.service';
 
+@Global()
 @Module({
   imports: [PrismaModule],
   controllers: [NumberingController],

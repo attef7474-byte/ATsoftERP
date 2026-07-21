@@ -21,7 +21,7 @@ export default function BranchesPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Branch | null>(null);
-  const [form, setForm] = useState({ companyId: '', code: '', name: '', address: '', phone: '' });
+  const [form, setForm] = useState({ companyId: '', name: '', address: '', phone: '' });
   const [saving, setSaving] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -66,7 +66,7 @@ export default function BranchesPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ companyId: '', code: '', name: '', address: '', phone: '' });
+    setForm({ companyId: '', name: '', address: '', phone: '' });
     setModalOpen(true);
   };
 
@@ -74,7 +74,6 @@ export default function BranchesPage() {
     setEditItem(item);
     setForm({
       companyId: item.companyId,
-      code: item.code,
       name: item.name,
       address: item.address || '',
       phone: item.phone || '',
@@ -83,7 +82,7 @@ export default function BranchesPage() {
   };
 
   const handleSave = async () => {
-    if (!form.code || !form.name || !form.companyId) { showToast(t('validation.required'), 'error'); return; }
+    if (!form.name || !form.companyId) { showToast(t('validation.required'), 'error'); return; }
     setSaving(true);
     try {
       if (editItem) {
@@ -163,7 +162,6 @@ export default function BranchesPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('core.editBranch') : t('core.newBranch')}>
         <div className="space-y-4">
           <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
-          <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label={t('common.address')} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           <Input label={t('common.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
