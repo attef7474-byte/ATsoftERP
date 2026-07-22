@@ -1,0 +1,78 @@
+===============================================================================
+  ATsoft ERP - How to Stop the Application Safely
+  كيفية إيقاف التطبيق بأمان
+===============================================================================
+
+1. Normal Shutdown / الإيقاف العادي
+-------------------------------------
+  - Close the two CMD windows titled:
+    أغلِق نافذتي CMD التاليتين:
+      "ATsoft ERP API - Port 4000"
+      "ATsoft ERP Web - Port 3000"
+
+  - Or press Ctrl + C inside each window, then wait for the process to exit.
+    أو اضغط Ctrl + C داخل كل نافذة وانتظر حتى ينتهي.
+
+===============================================================================
+
+2. If Ports Remain in Use / إذا بقيت المنافذ مشغولة
+-----------------------------------------------------
+  If ports 4000 or 3000 are still occupied after closing the windows,
+  follow these steps:
+
+  a) Find the process ID (PID) using the port:
+     أوجد معرف العملية (PID) الذي يستخدم المنفذ:
+
+       netstat -ano | findstr :4000
+       netstat -ano | findstr :3000
+
+     The last column is the PID. Example output:
+     آخر عمود هو PID. مثال:
+       TCP    0.0.0.0:4000   0.0.0.0:0    LISTENING    12345
+     PID = 12345
+
+  b) Verify the PID belongs to this project:
+     تحقق من أن PID ينتمي لهذا المشروع:
+
+       tasklist /FI "PID eq 12345"
+
+     Look for "node.exe" or "cmd.exe" in the Image Name column.
+     ابحث عن "node.exe" أو "cmd.exe" في عمود اسم الصورة.
+
+  c) Stop only that specific PID:
+     أوقف ذلك PID المحدد فقط:
+
+       taskkill /PID 12345 /F
+
+===============================================================================
+
+3. Important Warnings / تحذيرات مهمة
+-------------------------------------
+  - Do NOT run "taskkill /f /im node.exe" — this kills ALL Node.js processes,
+    including any unrelated projects you may have open.
+    لا تقتل جميع عمليات Node.js لأن ذلك قد يؤثر على مشاريع أخرى.
+
+  - Do NOT modify or delete database files.
+    لا تعدل أو تحذف ملفات قاعدة البيانات.
+
+  - Do NOT reset or drop the database.
+    لا تعيد تعيين أو حذف قاعدة البيانات.
+
+  - Do NOT kill random processes. Only target the specific PID you identified.
+    لا تقتل عمليات عشوائية. استهدف فقط PID الذي حددته.
+
+===============================================================================
+
+4. Quick Reference / مرجع سريع
+-------------------------------------
+  Action                                | Command
+  --------------------------------------|---------------------------------------
+  Find API port PID                     | netstat -ano | findstr :4000
+  Find Web port PID                     | netstat -ano | findstr :3000
+  Find SQL Server port PID              | netstat -ano | findstr :50079
+  Show process details                  | tasklist /FI "PID eq <PID>"
+  Stop specific process                 | taskkill /PID <PID> /F
+  Restart API                           | Run START_ATSOFT_ERP.bat again
+  Restart Web                           | Run START_ATSOFT_ERP.bat again
+
+===============================================================================
