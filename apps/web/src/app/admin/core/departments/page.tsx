@@ -28,6 +28,7 @@ export default function DepartmentsPage() {
   const [editItem, setEditItem] = useState<Department | null>(null);
   const [form, setForm] = useState({ companyId: '', branchId: '', parentId: '', name: '' });
   const [saving, setSaving] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate'>('deactivate');
@@ -77,15 +78,25 @@ export default function DepartmentsPage() {
     setModalOpen(true);
   };
 
-  const openEdit = (item: Department) => {
+  const openEdit = async (item: Department) => {
     setEditItem(item);
-    setForm({
-      companyId: item.companyId,
-      branchId: item.branchId || '',
-      parentId: item.parentId || '',
-      name: item.name,
-    });
+    setDetailLoading(true);
     setModalOpen(true);
+    try {
+      const res = await api.get<any>(`/departments/${item.id}`);
+      const detail = res.data as Department;
+      setForm({
+        companyId: detail.companyId,
+        branchId: detail.branchId ?? '',
+        parentId: detail.parentId ?? '',
+        name: detail.name,
+      });
+    } catch (err: any) {
+      showToast(err?.message || t('errors.loadFailed'), 'error');
+      setModalOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -208,7 +219,7 @@ export default function DepartmentsPage() {
       )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('core.editDepartment') : t('core.newDepartment')}>
-        <div className="space-y-4">
+        {detailLoading ? <LoadingState /> : <div className="space-y-4">
           <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
           <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
           <F9Lookup label={t('core.parentDepartment')} value={form.parentId} onChange={(v) => setForm({ ...form, parentId: v })} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
@@ -217,7 +228,7 @@ export default function DepartmentsPage() {
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
-        </div>
+        </div>}
       </Modal>
 
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)}

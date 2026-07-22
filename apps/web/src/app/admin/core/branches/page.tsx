@@ -28,6 +28,7 @@ export default function BranchesPage() {
   const [editItem, setEditItem] = useState<Branch | null>(null);
   const [form, setForm] = useState({ companyId: '', name: '', address: '', phone: '' });
   const [saving, setSaving] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate'>('deactivate');
@@ -77,15 +78,25 @@ export default function BranchesPage() {
     setModalOpen(true);
   };
 
-  const openEdit = (item: Branch) => {
+  const openEdit = async (item: Branch) => {
     setEditItem(item);
-    setForm({
-      companyId: item.companyId,
-      name: item.name,
-      address: item.address || '',
-      phone: item.phone || '',
-    });
+    setDetailLoading(true);
     setModalOpen(true);
+    try {
+      const res = await api.get<any>(`/branches/${item.id}`);
+      const detail = res.data as Branch;
+      setForm({
+        companyId: detail.companyId,
+        name: detail.name,
+        address: detail.address ?? '',
+        phone: detail.phone ?? '',
+      });
+    } catch (err: any) {
+      showToast(err?.message || t('errors.loadFailed'), 'error');
+      setModalOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -205,7 +216,7 @@ export default function BranchesPage() {
       )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('core.editBranch') : t('core.newBranch')}>
-        <div className="space-y-4">
+        {detailLoading ? <LoadingState /> : <div className="space-y-4">
           <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label={t('common.address')} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
@@ -214,7 +225,7 @@ export default function BranchesPage() {
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
-        </div>
+        </div>}
       </Modal>
 
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)}

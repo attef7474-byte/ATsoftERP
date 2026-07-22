@@ -27,6 +27,7 @@ export default function CompaniesPage() {
   const [editItem, setEditItem] = useState<Company | null>(null);
   const [form, setForm] = useState({ name: '', legalName: '', taxNumber: '', phone: '', email: '', address: '' });
   const [saving, setSaving] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate' | 'delete'>('deactivate');
@@ -78,17 +79,27 @@ export default function CompaniesPage() {
     setModalOpen(true);
   };
 
-  const openEdit = (item: Company) => {
+  const openEdit = async (item: Company) => {
     setEditItem(item);
-    setForm({
-      name: item.name,
-      legalName: item.legalName || '',
-      taxNumber: item.taxNumber || '',
-      phone: item.phone || '',
-      email: item.email || '',
-      address: item.address || '',
-    });
+    setDetailLoading(true);
     setModalOpen(true);
+    try {
+      const res = await api.get<any>(`/companies/${item.id}`);
+      const detail = res.data as Company;
+      setForm({
+        name: detail.name ?? '',
+        legalName: detail.legalName ?? '',
+        taxNumber: detail.taxNumber ?? '',
+        phone: detail.phone ?? '',
+        email: detail.email ?? '',
+        address: detail.address ?? '',
+      });
+    } catch (err: any) {
+      showToast(err?.message || t('errors.loadFailed'), 'error');
+      setModalOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -230,7 +241,7 @@ export default function CompaniesPage() {
       )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('core.editCompany') : t('core.newCompany')}>
-        <div className="space-y-4">
+        {detailLoading ? <LoadingState /> : <div className="space-y-4">
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label={t('core.legalName')} value={form.legalName} onChange={(e) => setForm({ ...form, legalName: e.target.value })} />
           <Input label={t('core.taxNumber')} value={form.taxNumber} onChange={(e) => setForm({ ...form, taxNumber: e.target.value })} />
@@ -241,7 +252,7 @@ export default function CompaniesPage() {
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
-        </div>
+        </div>}
       </Modal>
 
       <ConfirmDialog

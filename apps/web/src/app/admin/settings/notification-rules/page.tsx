@@ -26,6 +26,7 @@ export default function NotificationRulesPage() {
   const [editItem, setEditItem] = useState<any>(null);
   const [form, setForm] = useState<any>({ code: '', nameAr: '', nameEn: '', description: '', eventType: 'LOGIN', channel: 'IN_APP', severity: 'INFO', enabled: true, targetRoleId: '', targetPermission: '' });
   const [saving, setSaving] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<any>(null);
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
@@ -45,10 +46,20 @@ export default function NotificationRulesPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const openEdit = (item: any) => {
+  const openEdit = async (item: any) => {
     setEditItem(item);
-    setForm({ code: item.code, nameAr: item.nameAr, nameEn: item.nameEn, description: item.description || '', eventType: item.eventType, channel: item.channel, severity: item.severity, enabled: item.enabled, targetRoleId: item.targetRoleId || '', targetPermission: item.targetPermission || '' });
+    setDetailLoading(true);
     setModalOpen(true);
+    try {
+      const res = await api.get<any>(`/notifications/rules/${item.id}`);
+      const detail = res.data;
+      setForm({ code: detail.code, nameAr: detail.nameAr, nameEn: detail.nameEn, description: detail.description ?? '', eventType: detail.eventType, channel: detail.channel, severity: detail.severity, enabled: detail.enabled, targetRoleId: detail.targetRoleId ?? '', targetPermission: detail.targetPermission ?? '' });
+    } catch (err: any) {
+      showToast(err?.message || t('errors.loadFailed'), 'error');
+      setModalOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const openNew = () => {
@@ -191,7 +202,7 @@ export default function NotificationRulesPage() {
         </div>
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('settings.notificationRules.editRule') : t('settings.notificationRules.newRule')} size="lg">
-        <div className="space-y-4">
+        {detailLoading ? <LoadingState /> : <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Input label={t('settings.notificationRules.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} disabled={!!editItem} />
             <Select label={t('settings.notificationRules.eventType')} value={form.eventType} onChange={(e) => setForm({ ...form, eventType: e.target.value })}
@@ -211,7 +222,7 @@ export default function NotificationRulesPage() {
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
-        </div>
+        </div>}
       </Modal>
       <ConfirmDialog open={!!confirmDelete} onClose={() => setConfirmDelete(null)} onConfirm={handleDelete} title={t('common.confirmDeleteTitle')} message={t('settings.notificationRules.confirmDelete')} variant="danger" />
     </div>

@@ -28,9 +28,10 @@ export default function EditWarehousePage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<Warehouse>(`/inventory/warehouses/${id}`);
-      setData(res);
-      setForm({ companyId: res.companyId || '', branchId: res.branchId || '', code: res.code || '', name: res.name || '', location: res.location || '' });
+      const res = await api.get<any>(`/inventory/warehouses/${id}`);
+      const item = res.data as Warehouse;
+      setData(item);
+      setForm({ companyId: item.companyId ?? '', branchId: item.branchId ?? '', code: item.code ?? '', name: item.name ?? '', location: item.location ?? '' });
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || t('complexForms.loadFailed'));
     } finally { setLoading(false); }

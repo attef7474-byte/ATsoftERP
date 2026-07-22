@@ -24,10 +24,11 @@ export default function EditRolePage() {
     setLoading(true);
     try {
       const res = await api.get<any>(`/roles/${params.id}`);
-      setCode(res.code);
-      setName(res.name);
-      setDescription(res.description || '');
-      setIsSystem(res.isSystem);
+      const role = res.data;
+      setCode(role.code);
+      setName(role.name);
+      setDescription(role.description ?? '');
+      setIsSystem(role.isSystem);
     } catch (err: any) {
       showToast(err?.message || t('access.loadFailed'), 'error');
     } finally { setLoading(false); }

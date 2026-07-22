@@ -29,11 +29,12 @@ export default function EditProductCategoryPage() {
     setLoading(true); setError('');
     try {
       const [catRes, parentsRes] = await Promise.all([
-        api.get<ProductCategory>(`/product-categories/${id}`),
+        api.get<any>(`/product-categories/${id}`),
         api.get<{ data: ProductCategory[] }>('/product-categories', { params: { limit: 50 } }),
       ]);
-      setData(catRes);
-      setForm({ code: catRes.code || '', name: catRes.name || '', description: catRes.description || '', parentId: catRes.parentId || '' });
+      const item = catRes.data as ProductCategory;
+      setData(item);
+      setForm({ code: item.code ?? '', name: item.name ?? '', description: item.description ?? '', parentId: item.parentId ?? '' });
       setParents(parentsRes.data || []);
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || t('complexForms.loadFailed'));

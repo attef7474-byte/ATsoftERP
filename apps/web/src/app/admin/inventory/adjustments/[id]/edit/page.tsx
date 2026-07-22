@@ -26,9 +26,10 @@ export default function EditInventoryAdjustmentPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<InventoryAdjustment>(`/inventory/adjustments/${id}`);
-      setData(res);
-      setForm({ reason: res.reason || '', notes: res.notes || '' });
+      const res = await api.get<any>(`/inventory/adjustments/${id}`);
+      const item = res.data as InventoryAdjustment;
+      setData(item);
+      setForm({ reason: item.reason ?? '', notes: item.notes ?? '' });
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || t('complexForms.loadFailed'));
     } finally { setLoading(false); }

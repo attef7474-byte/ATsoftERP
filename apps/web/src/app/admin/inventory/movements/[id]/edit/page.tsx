@@ -26,9 +26,10 @@ export default function EditInventoryMovementPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<InventoryMovement>(`/inventory/movements/${id}`);
-      setData(res);
-      setForm({ notes: res.notes || '' });
+      const res = await api.get<any>(`/inventory/movements/${id}`);
+      const item = res.data as InventoryMovement;
+      setData(item);
+      setForm({ notes: item.notes ?? '' });
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || t('complexForms.loadFailed'));
     } finally { setLoading(false); }

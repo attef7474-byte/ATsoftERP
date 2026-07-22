@@ -33,6 +33,7 @@ export default function UsersPage() {
   const [editItem, setEditItem] = useState<User | null>(null);
   const [form, setForm] = useState({ email: '', password: '', name: '', phone: '', companyId: '', branchId: '', departmentId: '', roleId: '' });
   const [saving, setSaving] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate'>('deactivate');
@@ -97,10 +98,20 @@ export default function UsersPage() {
     setModalOpen(true);
   };
 
-  const openEdit = (item: User) => {
+  const openEdit = async (item: User) => {
     setEditItem(item);
-    setForm({ email: item.email || '', password: '', name: item.name || '', phone: item.phone || '', companyId: item.companyId || '', branchId: item.branchId || '', departmentId: item.departmentId || '', roleId: (item.roles && item.roles.length > 0) ? item.roles[0].role.id : '' });
+    setDetailLoading(true);
     setModalOpen(true);
+    try {
+      const res = await api.get<any>(`/users/${item.id}`);
+      const detail = res.data as User;
+      setForm({ email: detail.email ?? '', password: '', name: detail.name ?? '', phone: detail.phone ?? '', companyId: detail.companyId ?? '', branchId: detail.branchId ?? '', departmentId: detail.departmentId ?? '', roleId: (detail.roles && detail.roles.length > 0) ? detail.roles[0].role.id : '' });
+    } catch (err: any) {
+      showToast(err?.message || t('errors.loadFailed'), 'error');
+      setModalOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -220,7 +231,7 @@ export default function UsersPage() {
         </div>
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('users.edit') : t('users.create')}>
-        <div className="space-y-4">
+        {detailLoading ? <LoadingState /> : <div className="space-y-4">
           <Input label={t('users.email')} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
           <Input label={t('users.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label={t('users.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
@@ -233,7 +244,7 @@ export default function UsersPage() {
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleSave} disabled={saving}>{saving ? t('common.saving') : t('common.save')}</Button>
           </div>
-        </div>
+        </div>}
       </Modal>
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleConfirm} title={confirmAction === 'activate' ? t('users.activateTitle') : t('users.deactivateTitle')} message={confirmAction === 'activate' ? t('users.activateConfirm') : t('users.deactivateConfirm')} />
     </div>

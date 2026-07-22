@@ -22,6 +22,7 @@ export default function WarehousesPage() {
   const [editItem, setEditItem] = useState<Warehouse | null>(null);
   const [form, setForm] = useState({ companyId: '', branchId: '', name: '', location: '' });
   const [saving, setSaving] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
 
@@ -67,15 +68,25 @@ export default function WarehousesPage() {
     setModalOpen(true);
   };
 
-  const openEdit = (item: Warehouse) => {
+  const openEdit = async (item: Warehouse) => {
     setEditItem(item);
-    setForm({
-      companyId: item.companyId,
-      branchId: item.branchId || '',
-      name: item.name,
-      location: item.location || '',
-    });
+    setDetailLoading(true);
     setModalOpen(true);
+    try {
+      const res = await api.get<any>(`/inventory/warehouses/${item.id}`);
+      const detail = res.data as Warehouse;
+      setForm({
+        companyId: detail.companyId,
+        branchId: detail.branchId ?? '',
+        name: detail.name,
+        location: detail.location ?? '',
+      });
+    } catch (err: any) {
+      showToast(err?.message || t('errors.loadFailed'), 'error');
+      setModalOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -175,7 +186,7 @@ export default function WarehousesPage() {
         </div>
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.editWarehouse') : t('inventory.newWarehouse')}>
-        <div className="space-y-4">
+        {detailLoading ? <LoadingState /> : <div className="space-y-4">
           <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
           <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
@@ -184,7 +195,7 @@ export default function WarehousesPage() {
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
-        </div>
+        </div>}
       </Modal>
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleStatusChange}
         title={t('common.confirmDeactivateTitle')} message={t('common.confirmDeactivateMessage')} variant="danger" loading={saving} />

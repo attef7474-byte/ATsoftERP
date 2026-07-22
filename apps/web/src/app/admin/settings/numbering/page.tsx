@@ -41,6 +41,7 @@ export default function NumberingPage() {
     status: 'ACTIVE',
   });
   const [saving, setSaving] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [previewCache, setPreviewCache] = useState<Record<string, string>>({});
 
@@ -86,18 +87,28 @@ export default function NumberingPage() {
     }
   }, [previewCache]);
 
-  const openEdit = (item: any) => {
+  const openEdit = async (item: any) => {
     setEditItem(item);
-    setForm({
-      prefix: item.prefix || '',
-      suffix: item.suffix || '',
-      padding: item.padding || 6,
-      increment: item.increment || 1,
-      currentNumber: item.currentNumber || 0,
-      resetPolicy: item.resetPolicy || 'NEVER',
-      status: item.status || 'ACTIVE',
-    });
+    setDetailLoading(true);
     setModalOpen(true);
+    try {
+      const res = await api.get<any>(`/numbering/${item.id}`);
+      const detail = res.data;
+      setForm({
+        prefix: detail.prefix ?? '',
+        suffix: detail.suffix ?? '',
+        padding: detail.padding ?? 6,
+        increment: detail.increment ?? 1,
+        currentNumber: detail.currentNumber ?? 0,
+        resetPolicy: detail.resetPolicy ?? 'NEVER',
+        status: detail.status ?? 'ACTIVE',
+      });
+    } catch (err: any) {
+      showToast(err?.message || t('errors.loadFailed'), 'error');
+      setModalOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -290,7 +301,7 @@ export default function NumberingPage() {
         </div>
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('settings.numbering.editSequence')} size="lg">
-        <div className="space-y-4">
+        {detailLoading ? <LoadingState /> : <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Input label={t('settings.numbering.code')} value={editItem?.code || ''} disabled />
             <Input label={t('settings.numbering.name')} value={t(`settings.numbering.operationNameMap.${editItem?.code}`) || editItem?.name || ''} disabled />
@@ -330,7 +341,7 @@ export default function NumberingPage() {
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
-        </div>
+        </div>}
       </Modal>
     </div>
   );

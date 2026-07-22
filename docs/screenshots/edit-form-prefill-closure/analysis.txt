@@ -1,0 +1,32 @@
+ANALYSIS: Edit Form Prefill Closure
+
+Date: 2026-07-22
+Analyst: opencode
+Scope: All scoped pages with edit forms (Core, Access, Settings, Inventory, Maintenance)
+
+Two root causes identified:
+
+1. INLINE EDIT MODALS (7 pages):
+   - Pattern: openEdit(item) uses grid row data directly
+   - Fix: Added async detail fetch (GET /:id) with loading state
+   - Response unwrapping: res.data.Entity
+
+2. SEPARATE EDIT PAGES (6 pages):
+   - Pattern: api.get<Entity>(/:id) then accesses res.field
+   - Reality: ResponseInterceptor wraps in { success: true, data: Entity }
+   - Fix: api.get<any>(/:id) then accesses res.data.field
+
+Pages already correct (9 pages):
+   - Products, Machines, Maintenance Requests, Maintenance Tasks,
+     Inventory Counts, Machine Parts, Machine Documents,
+     Machine Categories, Downtime Logs
+   - All use res.data correctly
+
+Validation:
+   - prisma validate: PASS
+   - prisma generate: PASS
+   - build:api: PASS
+   - typecheck: PASS
+   - build:web: PASS (125 pages)
+   - i18n: PASS (2137 keys)
+   - health: 3/4 PASS (web server not running - expected)

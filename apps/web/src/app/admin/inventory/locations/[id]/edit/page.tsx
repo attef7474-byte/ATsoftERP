@@ -28,9 +28,10 @@ export default function EditLocationPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<WarehouseLocation>(`/inventory/locations/${id}`);
-      setData(res as any);
-      setForm({ warehouseId: res.warehouseId || '', code: res.code || '', name: res.name || '', barcode: res.barcode || '' });
+      const res = await api.get<any>(`/inventory/locations/${id}`);
+      const item = res.data as WarehouseLocation;
+      setData(item);
+      setForm({ warehouseId: item.warehouseId ?? '', code: item.code ?? '', name: item.name ?? '', barcode: item.barcode ?? '' });
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || t('complexForms.loadFailed'));
     } finally { setLoading(false); }
