@@ -131,6 +131,7 @@ function ActionsMenu<T>({
   return createPortal(
     <div
       ref={menuRef}
+      data-actions-menu="true"
       style={style}
       className="w-44 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 border border-gray-200 py-1"
       onClick={(e) => e.stopPropagation()}
@@ -140,6 +141,7 @@ function ActionsMenu<T>({
         return (
           <button
             key={ai}
+            type="button"
             onClick={() => {
               if (enabled) { onClose(); action.onClick(item); }
             }}

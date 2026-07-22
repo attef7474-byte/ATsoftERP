@@ -1,0 +1,50 @@
+ROOT CAUSE ANALYSIS: Actions dropdown click handler not firing
+=============================================================
+
+SYMPTOM
+-------
+Actions dropdown appears above the sidebar, but clicking any action item
+(View, Edit, Delete, Activate, Deactivate) does nothing. The menu closes
+but no modal opens, no navigation occurs, no confirmation appears.
+
+ROOT CAUSE
+----------
+Two bugs in admin-data-grid.tsx:
+
+1. Missing `data-actions-menu` attribute on portal container (line 134):
+   The outside-click handler (line 182-193) checks `[data-actions-menu]` to
+   detect clicks inside the portal. Without this attribute, ALL clicks inside
+   the portal are treated as "outside clicks" and the menu is closed on
+   `mousedown` before the `click` event reaches the action button.
+
+   The handler uses `mousedown` (not `click`). Since `mousedown` fires before
+   `click`, the menu closure was scheduled before React's synthetic `click`
+   handler on the action button executed. In React 18, batched state updates
+   from `mousedown` are committed before the next event (`click`) is processed,
+   causing the portal content to unmount before the action's `onClick` fires.
+
+2. Missing `type="button"` on action buttons (line 146):
+   Buttons inside `<button>` elements without an explicit `type` default to
+   `type="submit"`. If the portal rendered inside any parent `<form>` element,
+   clicking the button would submit the form instead of calling `onClick`.
+
+FIX
+---
+1. Added `data-actions-menu="true"` to the portal `<div>` (line 134).
+2. Added `type="button"` to every action `<button>` (line 146).
+
+Now the outside-click handler correctly detects clicks inside the portal and
+does NOT close the menu on `mousedown`. The `click` event reaches the action
+button's `onClick`, which calls `onClose()` (menu closes) and
+`action.onClick(item)` (handler executes).
+
+PAGES AFFECTED
+--------------
+All pages using AdminDataGrid with row actions:
+- Companies (/admin/core/companies)
+- Branches (/admin/core/branches)
+- Departments (/admin/core/departments)
+- Users (/admin/access/users)
+- Roles (/admin/access/roles)
+- Permissions (/admin/access/permissions)
+- Numbering (/admin/settings/numbering) — regression test
