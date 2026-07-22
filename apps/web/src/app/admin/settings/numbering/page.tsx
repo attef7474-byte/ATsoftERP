@@ -15,7 +15,7 @@ function computePreview(item: any): string {
 }
 
 export default function NumberingPage() {
-  const { t, dir, locale } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const router = useRouter();
   const [data, setData] = useState<any[]>([]);
@@ -46,7 +46,7 @@ export default function NumberingPage() {
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
 
-  const isRtl = dir === 'rtl';
+
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true);
@@ -197,17 +197,7 @@ export default function NumberingPage() {
     )},
   ];
 
-  const sortedColumns = useMemo(() => {
-    if (isRtl) {
-      const arabicOrder = ['lastGeneratedCode', 'nextPreview', 'status', 'scope', 'resetPolicy', 'padding', 'increment', 'nextNumber', 'currentNumber', 'suffix', 'prefix', 'modelName', 'operationName', 'code'];
-      return [...baseColumns].sort((a, b) => {
-        const ai = arabicOrder.indexOf(a.key);
-        const bi = arabicOrder.indexOf(b.key);
-        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-      });
-    }
-    return baseColumns;
-  }, [isRtl, baseColumns]);
+
 
   const gridActions: GridAction<any>[] = [
     {
@@ -268,7 +258,7 @@ export default function NumberingPage() {
       )}
       {(!error || !loading) && data.length > 0 && (
         <AdminDataGrid
-          columns={sortedColumns}
+          columns={baseColumns}
           data={data}
           keyExtractor={(item: any) => item.id}
           onRowClick={(item: any) => setSelectedId(item.id)}
