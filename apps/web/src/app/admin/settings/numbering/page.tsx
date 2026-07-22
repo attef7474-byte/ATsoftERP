@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
+import { safeNumber, safeString, unwrapApiData, unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Input, Select, Card, Pagination, PageHeader, LoadingState, Modal } from '../../../../components/admin/ui';
@@ -64,8 +65,9 @@ export default function NumberingPage() {
         if (v) params[k] = v;
       });
       const res = await api.get<{ data: any[]; meta: any }>('/numbering', { params });
-      setData(res.data || []);
-      setMeta(res.meta);
+      const listResult = unwrapApiList<any, typeof meta>(res);
+      setData(listResult.data);
+      if (listResult.meta) setMeta(listResult.meta);
     } catch (err: any) {
       setError(err?.message || t('errors.loadFailed'));
     } finally {
@@ -80,8 +82,10 @@ export default function NumberingPage() {
     if (previewCache[cacheKey]) return previewCache[cacheKey];
     try {
       const res = await api.get<{ number: string }>(`/numbering/${item.id}/preview`);
-      setPreviewCache(prev => ({ ...prev, [cacheKey]: res.number }));
-      return res.number;
+      const preview = unwrapApiData<{ number?: unknown }>(res);
+      const number = safeString(preview.number);
+      setPreviewCache(prev => ({ ...prev, [cacheKey]: number }));
+      return number;
     } catch {
       return computePreview(item);
     }
@@ -93,15 +97,15 @@ export default function NumberingPage() {
     setModalOpen(true);
     try {
       const res = await api.get<any>(`/numbering/${item.id}`);
-      const detail = res;
+      const detail = unwrapApiData<Record<string, unknown>>(res);
       setForm({
-        prefix: detail.prefix ?? '',
-        suffix: detail.suffix ?? '',
-        padding: detail.padding ?? 6,
-        increment: detail.increment ?? 1,
-        currentNumber: detail.currentNumber ?? 0,
-        resetPolicy: detail.resetPolicy ?? 'NEVER',
-        status: detail.status ?? 'ACTIVE',
+        prefix: safeString(detail.prefix),
+        suffix: safeString(detail.suffix),
+        padding: safeNumber(detail.padding, 6),
+        increment: safeNumber(detail.increment, 1),
+        currentNumber: safeNumber(detail.currentNumber),
+        resetPolicy: safeString(detail.resetPolicy, 'NEVER'),
+        status: safeString(detail.status, 'ACTIVE'),
       });
     } catch (err: any) {
       showToast(err?.message || t('errors.loadFailed'), 'error');

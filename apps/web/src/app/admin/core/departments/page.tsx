@@ -1,45 +1,119 @@
 'use client';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
+import { safeString } from '../../../../lib/form-utils';
+import { useCrudList, CrudOperation } from '../../../../hooks/useCrudList';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Department } from '../../../../lib/admin-types';
+import { Department, PaginationMeta } from '../../../../lib/admin-types';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Card, Pagination, PageHeader, LoadingState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
+interface DepartmentForm {
+  companyId: string;
+  branchId: string;
+  parentId: string;
+  name: string;
+}
+
+interface DepartmentPayload {
+  companyId: string;
+  name: string;
+  branchId?: string;
+  parentId?: string;
+}
+
+const EMPTY_DEPARTMENT_FORM: DepartmentForm = { companyId: '', branchId: '', parentId: '', name: '' };
+const INITIAL_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
+
 export default function DepartmentsPage() {
   const router = useRouter();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
-  const [data, setData] = useState<Department[]>([]);
-  const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [sortColumn, setSortColumn] = useState('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [showFilters, setShowFilters] = useState(false);
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<Department | null>(null);
-  const [form, setForm] = useState({ companyId: '', branchId: '', parentId: '', name: '' });
-  const [saving, setSaving] = useState(false);
-  const [detailLoading, setDetailLoading] = useState(false);
-
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate'>('deactivate');
+  const [statusSaving, setStatusSaving] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+
+  const {
+    data,
+    meta,
+    loading,
+    error,
+    form,
+    setForm,
+    modalOpen,
+    editItem,
+    detailLoading,
+    saving,
+    refresh: fetchData,
+    openCreate,
+    openEdit,
+    closeFormModal,
+    handleSave,
+  } = useCrudList<Department, DepartmentForm, DepartmentPayload, PaginationMeta, [page?: number]>({
+    initialForm: EMPTY_DEPARTMENT_FORM,
+    initialMeta: INITIAL_META,
+    initialListArgs: [1],
+    listRequest: (page = 1) => {
+      const params: Record<string, string | number | undefined> = { page, limit: 10 };
+      if (search) params.search = search;
+      if (sortColumn) {
+        params.sortBy = sortColumn;
+        params.sortOrder = sortDirection;
+      }
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params[key] = value;
+      });
+      return api.get('/departments', { params });
+    },
+    detailRequest: (id) => api.get(`/departments/${id}`),
+    createRequest: (payload) => api.post('/departments', payload),
+    updateRequest: (id, payload) => api.patch(`/departments/${id}`, payload),
+    mapRecordToForm: (detail) => ({
+      companyId: safeString(detail.companyId),
+      branchId: safeString(detail.branchId),
+      parentId: safeString(detail.parentId),
+      name: safeString(detail.name),
+    }),
+    mapFormToPayload: (currentForm) => ({
+      companyId: currentForm.companyId,
+      name: currentForm.name,
+      ...(currentForm.branchId ? { branchId: currentForm.branchId } : {}),
+      ...(currentForm.parentId ? { parentId: currentForm.parentId } : {}),
+    }),
+    validate: (currentForm) => currentForm.name.trim() && currentForm.companyId.trim()
+      ? null
+      : t('validation.required'),
+    errorMessage: (operation: CrudOperation) => {
+      if (operation === 'list' || operation === 'detail') return t('errors.loadFailed');
+      return operation === 'create' ? t('errors.createFailed') : t('errors.updateFailed');
+    },
+    onError: (message, operation) => {
+      if (operation !== 'list') showToast(message, 'error');
+    },
+    onSuccess: (operation) => {
+      showToast(operation === 'create' ? t('common.successCreated') : t('common.successUpdated'), 'success');
+    },
+  });
+
+  const paginationMeta = meta ?? INITIAL_META;
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
 
   const { exec } = useStableHandlers({
     new: () => openCreate(),
     edit: () => selectedRecord && openEdit(selectedRecord),
-    refresh: () => fetchData(meta.page),
+    refresh: () => fetchData(paginationMeta.page),
     activate: () => confirmStatusChange(selectedId, 'activate'),
     deactivate: () => confirmStatusChange(selectedId, 'deactivate'),
   });
@@ -52,76 +126,6 @@ export default function DepartmentsPage() {
     { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
   ]);
 
-  const fetchData = useCallback(async (page = 1) => {
-    setLoading(true);
-    setError('');
-    try {
-      const params: Record<string, any> = { page, limit: 10 };
-      if (search) params.search = search;
-      if (sortColumn) { params.sortBy = sortColumn; params.sortOrder = sortDirection; }
-      Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
-      const res = await api.get<{ data: Department[]; meta: any }>('/departments', { params });
-      setData(res.data || []);
-      setMeta(res.meta);
-    } catch (err: any) {
-      setError(err?.message || t('errors.loadFailed'));
-    } finally {
-      setLoading(false);
-    }
-  }, [search, t, sortColumn, sortDirection, filters]);
-
-  useEffect(() => { fetchData(); }, []);
-
-  const openCreate = () => {
-    setEditItem(null);
-    setForm({ companyId: '', branchId: '', parentId: '', name: '' });
-    setModalOpen(true);
-  };
-
-  const openEdit = async (item: Department) => {
-    setEditItem(item);
-    setDetailLoading(true);
-    setModalOpen(true);
-    try {
-      const res = await api.get<any>(`/departments/${item.id}`);
-      const detail = res as Department;
-      setForm({
-        companyId: detail.companyId,
-        branchId: detail.branchId ?? '',
-        parentId: detail.parentId ?? '',
-        name: detail.name,
-      });
-    } catch (err: any) {
-      showToast(err?.message || t('errors.loadFailed'), 'error');
-      setModalOpen(false);
-    } finally {
-      setDetailLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!form.name || !form.companyId) { showToast(t('validation.required'), 'error'); return; }
-    setSaving(true);
-    try {
-      const payload: any = { name: form.name, companyId: form.companyId };
-      if (form.branchId) payload.branchId = form.branchId;
-      if (form.parentId) payload.parentId = form.parentId;
-      if (editItem) {
-        await api.patch(`/departments/${editItem.id}`, payload);
-        showToast(t('common.successUpdated'), 'success');
-      } else {
-        await api.post('/departments', payload);
-        showToast(t('common.successCreated'), 'success');
-      }
-      setModalOpen(false);
-      fetchData(meta.page);
-    } catch (err: any) {
-      showToast(err?.message || t('errors.createFailed'), 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const confirmStatusChange = (id: string, action: 'activate' | 'deactivate') => {
     setSelectedId(id);
     setConfirmAction(action);
@@ -129,17 +133,17 @@ export default function DepartmentsPage() {
   };
 
   const handleStatusChange = async () => {
-    setSaving(true);
+    setStatusSaving(true);
     try {
       const status = confirmAction === 'activate' ? 'ACTIVE' : 'INACTIVE';
       await api.patch(`/departments/${selectedId}`, { status });
       showToast(confirmAction === 'activate' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
       setConfirmOpen(false);
-      fetchData(meta.page);
+      fetchData(paginationMeta.page);
     } catch (err: any) {
       showToast(err?.message || t('errors.updateFailed'), 'error');
     } finally {
-      setSaving(false);
+      setStatusSaving(false);
     }
   };
 
@@ -208,24 +212,24 @@ export default function DepartmentsPage() {
           globalSearch={search}
           onGlobalSearch={(v) => setSearch(v)}
           searchPlaceholder={t('grid.searchPlaceholder')}
-          onRefresh={() => fetchData(meta.page)}
+          onRefresh={() => fetchData(paginationMeta.page)}
           refreshLoading={loading}
         />
       )}
       {data.length > 0 && (
         <div className="mt-3">
-          <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
+          <Pagination page={paginationMeta.page} totalPages={paginationMeta.totalPages} total={paginationMeta.total} onPageChange={fetchData} />
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('core.editDepartment') : t('core.newDepartment')}>
+      <Modal open={modalOpen} onClose={closeFormModal} title={editItem ? t('core.editDepartment') : t('core.newDepartment')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
           <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
           <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
           <F9Lookup label={t('core.parentDepartment')} value={form.parentId} onChange={(v) => setForm({ ...form, parentId: v })} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
+            <Button variant="secondary" onClick={closeFormModal}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
         </div>}
@@ -235,7 +239,7 @@ export default function DepartmentsPage() {
         onConfirm={handleStatusChange}
         title={confirmAction === 'activate' ? t('common.confirmActivateTitle') : t('common.confirmDeactivateTitle')}
         message={confirmAction === 'activate' ? t('common.confirmActivateMessage') : t('common.confirmDeactivateMessage')}
-        variant={confirmAction === 'activate' ? 'primary' : 'danger'} loading={saving} />
+        variant={confirmAction === 'activate' ? 'primary' : 'danger'} loading={statusSaving} />
     </div>
   );
 }

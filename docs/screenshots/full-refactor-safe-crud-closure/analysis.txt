@@ -1,0 +1,8 @@
+ATsoft ERP safe CRUD architecture refactor closure
+
+Starting branch: main
+Starting commit: 79676a8
+Starting state: clean and synchronized with origin/main
+
+The closure executes seven ordered refactor phases. Validation is intentionally
+deferred until every phase and the global import cleanup are complete.

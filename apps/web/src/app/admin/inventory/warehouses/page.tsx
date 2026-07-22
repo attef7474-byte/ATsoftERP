@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
+import { safeString, unwrapApiData, unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Warehouse } from '../../../../lib/admin-types';
@@ -51,8 +52,9 @@ export default function WarehousesPage() {
       const params: Record<string, any> = { page, limit: 10 };
       if (search) params.search = search;
       const res = await api.get<{ data: Warehouse[]; meta: any }>('/inventory/warehouses', { params });
-      setData(res.data || []);
-      setMeta(res.meta);
+      const listResult = unwrapApiList<Warehouse, typeof meta>(res);
+      setData(listResult.data);
+      if (listResult.meta) setMeta(listResult.meta);
     } catch (err: any) {
       setError(err?.message || t('errors.loadFailed'));
     } finally {
@@ -74,12 +76,12 @@ export default function WarehousesPage() {
     setModalOpen(true);
     try {
       const res = await api.get<any>(`/inventory/warehouses/${item.id}`);
-      const detail = res as Warehouse;
+      const detail = unwrapApiData<Warehouse>(res);
       setForm({
-        companyId: detail.companyId,
-        branchId: detail.branchId ?? '',
-        name: detail.name,
-        location: detail.location ?? '',
+        companyId: safeString(detail.companyId),
+        branchId: safeString(detail.branchId),
+        name: safeString(detail.name),
+        location: safeString(detail.location),
       });
     } catch (err: any) {
       showToast(err?.message || t('errors.loadFailed'), 'error');

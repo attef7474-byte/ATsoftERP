@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../../../lib/api';
+import { unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { InventoryCount } from '../../../../lib/admin-types';
@@ -90,7 +91,9 @@ export default function InventoryCountsPage() {
       if (filters.warehouseId) params.warehouseId = filters.warehouseId;
       if (filters.status) params.status = filters.status;
       const res = await api.get<{ data: InventoryCount[]; meta: any }>('/inventory/counts', { params });
-      setData(res.data || []); setMeta(res.meta);
+      const listResult = unwrapApiList<InventoryCount, typeof meta>(res);
+      setData(listResult.data);
+      if (listResult.meta) setMeta(listResult.meta);
     } catch (err: any) { setError(err?.message || t('errors.loadFailed')); }
     finally { setLoading(false); }
   }, [search, filters, t]);

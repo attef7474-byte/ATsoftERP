@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
+import { unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Input, Select, Card, CardContent, CardHeader, PageHeader, LoadingState, EmptyState, ErrorState, StatusBadge, Pagination } from '../../../../components/admin/ui';
@@ -35,9 +36,10 @@ export default function BarcodeRecordsPage() {
       if (entityType) params.entityType = entityType;
       if (statusFilter) params.status = statusFilter;
       const res = await api.get<{ data: BarcodeLabel[]; meta: { total: number; totalPages: number; page: number } }>('/barcodes/labels', { params });
-      setLabels(res.data || []);
-      setTotal(res.meta?.total ?? 0);
-      setTotalPages(res.meta?.totalPages ?? 1);
+      const listResult = unwrapApiList<BarcodeLabel, { total?: number; totalPages?: number; page?: number }>(res);
+      setLabels(listResult.data);
+      setTotal(listResult.meta?.total ?? listResult.total ?? 0);
+      setTotalPages(listResult.meta?.totalPages ?? 1);
     } catch (err: any) {
       setError(err?.message || t('common.error'));
       setLabels([]);

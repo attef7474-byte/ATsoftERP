@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
+import { safeBoolean, safeString, unwrapApiData, unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Input, Select, Card, Pagination, PageHeader, LoadingState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
@@ -38,8 +39,10 @@ export default function NotificationRulesPage() {
       if (search) params.search = search;
       if (eventFilter) params.eventType = eventFilter;
       const res = await api.get<{ data: any[]; total: number }>('/notifications/rules', { params });
-      setData(res.data || []);
-      setMeta({ page, limit: 20, total: res.total || 0, totalPages: Math.ceil((res.total || 0) / 20) });
+      const listResult = unwrapApiList<any>(res);
+      const total = listResult.total ?? 0;
+      setData(listResult.data);
+      setMeta({ page, limit: 20, total, totalPages: Math.ceil(total / 20) });
     } catch (err: any) { setError(err?.message || t('errors.loadFailed')); }
     finally { setLoading(false); }
   }, [search, eventFilter, t]);
@@ -52,8 +55,8 @@ export default function NotificationRulesPage() {
     setModalOpen(true);
     try {
       const res = await api.get<any>(`/notifications/rules/${item.id}`);
-      const detail = res;
-      setForm({ code: detail.code, nameAr: detail.nameAr, nameEn: detail.nameEn, description: detail.description ?? '', eventType: detail.eventType, channel: detail.channel, severity: detail.severity, enabled: detail.enabled, targetRoleId: detail.targetRoleId ?? '', targetPermission: detail.targetPermission ?? '' });
+      const detail = unwrapApiData<Record<string, unknown>>(res);
+      setForm({ code: safeString(detail.code), nameAr: safeString(detail.nameAr), nameEn: safeString(detail.nameEn), description: safeString(detail.description), eventType: safeString(detail.eventType, 'LOGIN'), channel: safeString(detail.channel, 'IN_APP'), severity: safeString(detail.severity, 'INFO'), enabled: safeBoolean(detail.enabled, true), targetRoleId: safeString(detail.targetRoleId), targetPermission: safeString(detail.targetPermission) });
     } catch (err: any) {
       showToast(err?.message || t('errors.loadFailed'), 'error');
       setModalOpen(false);
@@ -95,19 +98,19 @@ export default function NotificationRulesPage() {
     } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
   };
 
-  const handleActivate = async () => {
-    if (!selectedId) return;
+  const handleActivate = async (id = selectedId) => {
+    if (!id) return;
     try {
-      await api.patch(`/notifications/rules/${selectedId}/activate`);
+      await api.patch(`/notifications/rules/${id}/activate`);
       showToast(t('settings.notificationRules.activated'), 'success');
       fetchData(meta.page);
     } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
   };
 
-  const handleDeactivate = async () => {
-    if (!selectedId) return;
+  const handleDeactivate = async (id = selectedId) => {
+    if (!id) return;
     try {
-      await api.patch(`/notifications/rules/${selectedId}/deactivate`);
+      await api.patch(`/notifications/rules/${id}/deactivate`);
       showToast(t('settings.notificationRules.deactivated'), 'success');
       fetchData(meta.page);
     } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
@@ -151,8 +154,8 @@ export default function NotificationRulesPage() {
 
   const gridActions: GridAction<any>[] = [
     { label: t('common.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (item: any) => openEdit(item) },
-    { label: t('common.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (item: any) => { setSelectedId(item.id); handleActivate(); }, enabled: (item: any) => item.enabled === false },
-    { label: t('common.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (item: any) => { setSelectedId(item.id); handleDeactivate(); }, enabled: (item: any) => item.enabled === true },
+    { label: t('common.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (item: any) => { setSelectedId(item.id); void handleActivate(item.id); }, enabled: (item: any) => item.enabled === false },
+    { label: t('common.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (item: any) => { setSelectedId(item.id); void handleDeactivate(item.id); }, enabled: (item: any) => item.enabled === true },
     { label: t('common.delete'), variant: 'danger', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>, onClick: (item: any) => setConfirmDelete(item) },
   ];
 

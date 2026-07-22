@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
+import { unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Product } from '../../../../lib/admin-types';
@@ -52,8 +53,9 @@ export default function ProductsPage() {
       const params: Record<string, any> = { page, limit: 10 };
       if (search) params.search = search;
       const res = await api.get<{ data: Product[]; meta: any }>('/products', { params });
-      setData(res.data || []);
-      setMeta(res.meta);
+      const listResult = unwrapApiList<Product, typeof meta>(res);
+      setData(listResult.data);
+      if (listResult.meta) setMeta(listResult.meta);
     } catch (err: any) {
       setError(err?.message || t('errors.loadFailed'));
     } finally { setLoading(false); }

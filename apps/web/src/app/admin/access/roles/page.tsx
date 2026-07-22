@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
+import { unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Role, Permission } from '../../../../lib/admin-types';
@@ -66,8 +67,9 @@ export default function RolesPage() {
       if (sortColumn) { params.sortBy = sortColumn; params.sortOrder = sortDirection; }
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const res = await api.get<{ data: Role[]; meta: any }>('/roles', { params });
-      setData(res.data || []);
-      setMeta(res.meta);
+      const listResult = unwrapApiList<Role, typeof meta>(res);
+      setData(listResult.data);
+      if (listResult.meta) setMeta(listResult.meta);
     } catch (err: any) {
       setError(err?.message || t('errors.loadFailed'));
     } finally {
@@ -78,7 +80,7 @@ export default function RolesPage() {
   const fetchPermissions = useCallback(async () => {
     try {
       const res = await api.get<{ data: Permission[] }>('/permissions', { params: { page: 1, limit: 1000 } });
-      setPermissions(res.data || []);
+      setPermissions(unwrapApiList<Permission>(res).data);
     } catch (_) { }
   }, []);
 

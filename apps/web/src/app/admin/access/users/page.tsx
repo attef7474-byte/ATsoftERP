@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
+import { unwrapApiData, unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { User, Company, Branch, Department, Role } from '../../../../lib/admin-types';
@@ -66,8 +67,9 @@ export default function UsersPage() {
       if (sortColumn) { params.sortBy = sortColumn; params.sortOrder = sortDirection; }
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const res = await api.get<{ data: User[]; meta: any }>('/users', { params });
-      setData(res.data || []);
-      setMeta(res.meta);
+      const listResult = unwrapApiList<User, typeof meta>(res);
+      setData(listResult.data);
+      if (listResult.meta) setMeta(listResult.meta);
     } catch (err: any) {
       setError(err?.message || t('errors.loadFailed'));
     } finally {
@@ -83,10 +85,10 @@ export default function UsersPage() {
         api.get<{ data: Department[] }>('/departments', { params: { page: 1, limit: 1000 } }),
         api.get<{ data: Role[] }>('/roles', { params: { page: 1, limit: 1000 } }),
       ]);
-      if (cRes.status === 'fulfilled') setCompanies(cRes.value.data || []);
-      if (bRes.status === 'fulfilled') setBranches(bRes.value.data || []);
-      if (dRes.status === 'fulfilled') setDepartments(dRes.value.data || []);
-      if (rRes.status === 'fulfilled') setRoles(rRes.value.data || []);
+      if (cRes.status === 'fulfilled') setCompanies(unwrapApiList<Company>(cRes.value).data);
+      if (bRes.status === 'fulfilled') setBranches(unwrapApiList<Branch>(bRes.value).data);
+      if (dRes.status === 'fulfilled') setDepartments(unwrapApiList<Department>(dRes.value).data);
+      if (rRes.status === 'fulfilled') setRoles(unwrapApiList<Role>(rRes.value).data);
     } catch (_) { }
   }, []);
 
@@ -104,7 +106,7 @@ export default function UsersPage() {
     setModalOpen(true);
     try {
       const res = await api.get<any>(`/users/${item.id}`);
-      const detail = res as User;
+      const detail = unwrapApiData<User>(res);
       setForm({ email: detail.email ?? '', password: '', name: detail.name ?? '', phone: detail.phone ?? '', companyId: detail.companyId ?? '', branchId: detail.branchId ?? '', departmentId: detail.departmentId ?? '', roleId: (detail.roles && detail.roles.length > 0) ? detail.roles[0].role.id : '' });
     } catch (err: any) {
       showToast(err?.message || t('errors.loadFailed'), 'error');
