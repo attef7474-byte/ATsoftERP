@@ -1,0 +1,93 @@
+ROOT CAUSE OF ACTIONS MENU HIDDEN UNDER SIDEBAR
+================================================
+
+The actions dropdown in AdminDataGrid was rendered using CSS `position: absolute`
+inside a `relative` container within the table cell. The dropdown was clipped
+by two issues:
+
+1. Stacking context conflict:
+   - `.admin-main` container (position: fixed, z-index: 40) creates a local
+     stacking context in the root layout.
+   - All children of `.admin-main`, including the actions dropdown, are stacked
+     within this local context (z-index 40 in root).
+   - The sidebar (`.admin-sidebar`) sits at z-index: 50 in the root stacking
+     context, so it always renders above the dropdown regardless of the
+     dropdown's internal z-index.
+
+2. Overflow clipping:
+   - The grid wrapper had `overflow: hidden`, which clipped the absolutely
+     positioned dropdown when it extended outside the container bounds.
+
+FIX STRATEGY
+============
+
+- Removed `overflow: hidden` from the outer grid container.
+- Rendered the actions menu via a React portal (`createPortal`) attached to
+  `document.body`, so the menu lives at the root stacking context level.
+- Used `position: fixed` with coordinates computed from
+  `button.getBoundingClientRect()`.
+- Set z-index to 100 (above sidebar's z-index: 50, action bar's 55,
+  and topbar's 60).
+- Reposition menu on scroll and resize.
+- Close on Escape key, outside click, or action selection.
+- Prevent menu from going outside viewport.
+- Handle RTL alignment correctly.
+
+IMPLEMENTED CHANGES
+===================
+
+1. admin-data-grid.tsx:
+   - Added `createPortal` import from `react-dom`.
+   - Created `ActionsMenu` component that renders via portal to document.body.
+   - Menu uses `position: fixed` with absolute pixel coordinates.
+   - Menu z-index: 100.
+   - Menu width: 176px (w-44).
+   - Outside click detection via mousedown listener.
+   - Escape key closes menu.
+   - Scroll/resize event listeners reposition the menu.
+   - Prevent out-of-viewport placement.
+   - GridAction.enabled now accepts `boolean | ((item: T) => boolean)`.
+   - Removed `overflow: hidden` from outer grid container class.
+
+2. globals.css:
+   - No changes needed (overflow-x: auto already correct).
+
+3. No admin-shell.tsx changes needed.
+
+PAGES MIGRATED TO UNIFIED DATAGRID
+====================================
+
+All 7 pages now use AdminDataGrid with the same green header, white text,
+sticky header, column filters, sort indicators, portal-based actions menu,
+RTL/LTR support, and i18n labels.
+
+ROUTES TESTED
+=============
+
+- /admin/settings/numbering (regression)
+- /admin/core/companies
+- /admin/core/branches
+- /admin/core/departments
+- /admin/access/users
+- /admin/access/roles
+- /admin/access/permissions
+
+Each page preserves:
+- Real API data (no mock rows)
+- Pagination
+- Search (handled via AdminDataGrid's globalSearch prop)
+- Column filters (text input / select)
+- Sort by column
+- Row actions (view, edit, activate/deactivate, manage permissions, delete)
+- Permission guards (isSystem check for roles)
+- Create modal, edit modal, confirm dialogs
+- Per-row enabled/disabled actions via functional `enabled` prop
+
+LIMITATIONS
+===========
+
+- The portal approach requires a `mounted` state check to ensure `document.body`
+  exists (avoids SSR hydration errors).
+- The actions menu does not auto-close when the data refreshes, but the
+  openMenuRow state will reset to null when the component re-renders with new
+  data (useEffect dependency).

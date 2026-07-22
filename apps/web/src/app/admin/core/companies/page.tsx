@@ -5,18 +5,23 @@ import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Company } from '../../../../lib/admin-types';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Select, Card, Pagination, PageHeader, LoadingState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function CompaniesPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<Company[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [sortColumn, setSortColumn] = useState('');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [showFilters, setShowFilters] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Company | null>(null);
@@ -25,7 +30,7 @@ export default function CompaniesPage() {
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate' | 'delete'>('deactivate');
-  const [selectedId, setSelectedId] = useState<string>('');
+  const [selectedId, setSelectedId] = useState('');
 
   const selectedRecord = useMemo(() => data.find(c => c.id === selectedId), [data, selectedId]);
 
@@ -53,6 +58,8 @@ export default function CompaniesPage() {
     try {
       const params: Record<string, any> = { page, limit: 10 };
       if (search) params.search = search;
+      if (sortColumn) { params.sortBy = sortColumn; params.sortOrder = sortDirection; }
+      Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const res = await api.get<{ data: Company[]; meta: any }>('/companies', { params });
       setData(res.data || []);
       setMeta(res.meta);
@@ -61,7 +68,7 @@ export default function CompaniesPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, t]);
+  }, [search, t, sortColumn, sortDirection, filters]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -145,50 +152,81 @@ export default function CompaniesPage() {
     }
   };
 
-  const columns = [
-    { key: 'code', header: t('common.code') },
-    { key: 'name', header: t('common.name') },
-    { key: 'legalName', header: t('core.legalName'), render: (item: Company) => item.legalName || '-' },
-    { key: 'taxNumber', header: t('core.taxNumber'), render: (item: Company) => item.taxNumber || '-' },
-    { key: 'phone', header: t('common.phone'), render: (item: Company) => item.phone || '-' },
-    { key: 'email', header: t('common.email'), render: (item: Company) => item.email || '-' },
-    { key: 'status', header: t('common.status'), render: (item: Company) => <StatusBadge status={item.status} /> },
-    {
-      key: 'actions', header: t('common.actions'), render: (item: Company) => (
-        <div className="flex gap-2">
-          <button onClick={() => router.push(`/admin/core/companies/${item.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
-          <button onClick={() => openEdit(item)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
-          <button onClick={() => item.status === 'ACTIVE' ? confirmStatusChange(item.id, 'deactivate') : confirmStatusChange(item.id, 'activate')}
-            className={`text-sm ${item.status === 'ACTIVE' ? 'text-orange-600' : 'text-green-600'} hover:underline`}>
-            {item.status === 'ACTIVE' ? t('actions.deactivate') : t('actions.activate')}
-          </button>
-          <button onClick={() => confirmDelete(item.id)} className="text-red-600 hover:text-red-800 text-sm">{t('actions.delete')}</button>
-        </div>
-      ),
-    },
+  const baseColumns: GridColumn<Company>[] = [
+    { key: 'code', header: t('common.code'), sortable: true, filterable: true },
+    { key: 'name', header: t('common.name'), sortable: true, filterable: true },
+    { key: 'legalName', header: t('core.legalName'), sortable: true, render: (item) => item.legalName || '-' },
+    { key: 'taxNumber', header: t('core.taxNumber'), sortable: true, render: (item) => item.taxNumber || '-' },
+    { key: 'phone', header: t('common.phone'), sortable: true, render: (item) => item.phone || '-' },
+    { key: 'email', header: t('common.email'), sortable: true, render: (item) => item.email || '-' },
+    { key: 'status', header: t('common.status'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
+      { value: 'ACTIVE', label: t('common.active') },
+      { value: 'INACTIVE', label: t('common.inactive') },
+    ], render: (item) => <StatusBadge status={item.status} /> },
   ];
+
+  const gridActions: GridAction<Company>[] = [
+    { label: t('grid.view'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>, onClick: (item) => router.push(`/admin/core/companies/${item.id}`) },
+    { label: t('grid.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (item) => openEdit(item) },
+    { label: t('grid.delete'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>, variant: 'danger', onClick: (item) => confirmDelete(item.id) },
+    { label: t('common.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, onClick: (item) => confirmStatusChange(item.id, 'activate'), enabled: (item) => item.status !== 'ACTIVE' },
+    { label: t('common.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, variant: 'danger', onClick: (item) => confirmStatusChange(item.id, 'deactivate'), enabled: (item) => item.status === 'ACTIVE' },
+  ];
+
+  const handleSort = useCallback((col: string, dir: 'asc' | 'desc') => {
+    setSortColumn(col);
+    setSortDirection(dir);
+  }, []);
+
+  const handleFilter = useCallback((col: string, value: string) => {
+    setFilters(prev => ({ ...prev, [col]: value }));
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setFilters({});
+    setSearch('');
+  }, []);
 
   return (
     <div>
       <PageHeader title={t('core.companies')} />
-      <Toolbar
-        searchValue={search}
-        onSearchChange={setSearch}
-        onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)}
-        onCreate={openCreate}
-        createLabel={t('core.newCompany')}
-        loading={loading}
-      />
-
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(c: Company) => c.id} onRowClick={(c: Company) => setSelectedId(c.id)} selectedKey={selectedId} />
+      {error && <div className="text-center py-12"><p className="text-red-500 mb-4">{error}</p></div>}
+      {!error && loading && data.length === 0 && <LoadingState />}
+      {!error && !loading && data.length === 0 && (
+        <div className="text-center py-12"><p className="text-gray-500">{t('common.noData')}</p></div>
+      )}
+      {(!error || !loading) && data.length > 0 && (
+        <AdminDataGrid
+          columns={baseColumns}
+          data={data}
+          keyExtractor={(item) => item.id}
+          onRowClick={(item) => setSelectedId(item.id)}
+          selectedKey={selectedId}
+          loading={loading}
+          emptyMessage={t('common.noData')}
+          loadingMessage={t('common.loading')}
+          error={error || undefined}
+          actions={gridActions}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          onSort={handleSort}
+          filters={filters}
+          onFilter={handleFilter}
+          onClearFilters={handleClearFilters}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          dir={dir}
+          globalSearch={search}
+          onGlobalSearch={(v) => setSearch(v)}
+          searchPlaceholder={t('grid.searchPlaceholder')}
+          onRefresh={() => fetchData(meta.page)}
+          refreshLoading={loading}
+        />
+      )}
+      {data.length > 0 && (
+        <div className="mt-3">
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+        </div>
       )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('core.editCompany') : t('core.newCompany')}>

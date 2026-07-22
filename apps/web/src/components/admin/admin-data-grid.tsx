@@ -1,12 +1,13 @@
 'use client';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from '../../lib/i18n/use-translation';
 
 export interface GridAction<T> {
   label: string;
   icon?: React.ReactNode;
   onClick: (item: T) => void;
-  enabled?: boolean;
+  enabled?: boolean | ((item: T) => boolean);
   variant?: 'default' | 'danger';
 }
 
@@ -73,6 +74,92 @@ function ActionDotsIcon() {
   );
 }
 
+/* ====== Portal-based actions menu ====== */
+function ActionsMenu<T>({
+  item, rowKey, actions, isRtl, buttonRef, onClose,
+}: {
+  item: T; rowKey: string; actions: GridAction<T>[]; isRtl: boolean; buttonRef: React.RefObject<HTMLButtonElement | null>; onClose: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    const updatePos = () => {
+      if (!buttonRef.current) return;
+      const rect = buttonRef.current.getBoundingClientRect();
+      const menuW = 176;
+      let top = rect.bottom + 4;
+      let left: number;
+
+      if (isRtl) {
+        left = rect.left;
+        if (left + menuW > window.innerWidth - 8) {
+          left = window.innerWidth - menuW - 8;
+        }
+      } else {
+        left = rect.right - menuW;
+        if (left < 8) {
+          left = 8;
+        }
+      }
+
+      const bottomSpace = window.innerHeight - top;
+      if (bottomSpace < 200 && top > 250) {
+        top = rect.top - 4 - 200;
+      }
+      if (top < 4) top = 4;
+
+      setStyle({ position: 'fixed', top, left, zIndex: 100 });
+    };
+
+    updatePos();
+    window.addEventListener('scroll', updatePos, true);
+    window.addEventListener('resize', updatePos);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('scroll', updatePos, true);
+      window.removeEventListener('resize', updatePos);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [buttonRef, isRtl, onClose]);
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      style={style}
+      className="w-44 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 border border-gray-200 py-1"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {actions.map((action, ai) => {
+        const enabled = typeof action.enabled === 'function' ? action.enabled(item) : action.enabled !== false;
+        return (
+          <button
+            key={ai}
+            onClick={() => {
+              if (enabled) { onClose(); action.onClick(item); }
+            }}
+            disabled={!enabled}
+            className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 ${
+              action.variant === 'danger'
+                ? 'text-red-600 hover:bg-red-50'
+                : 'text-gray-700 hover:bg-gray-100'
+            } ${!enabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+          >
+            {action.icon && <span className="w-4 h-4 flex-shrink-0">{action.icon}</span>}
+            {action.label}
+          </button>
+        );
+      })}
+    </div>,
+    document.body
+  );
+}
+
 export function AdminDataGrid<T>({
   columns, data, keyExtractor, onRowClick, selectedKey,
   loading, emptyMessage, loadingMessage, error, onRetry,
@@ -83,17 +170,28 @@ export function AdminDataGrid<T>({
 }: AdminDataGridProps<T>) {
   const { t } = useTranslation();
   const [openMenuRow, setOpenMenuRow] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const activeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  const closeMenu = useCallback(() => setOpenMenuRow(null), []);
 
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpenMenuRow(null);
+    if (!openMenuRow) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (activeButtonRef.current && !activeButtonRef.current.contains(e.target as Node)) {
+        const portalMenus = document.querySelectorAll('[data-actions-menu]');
+        let clickedInsidePortal = false;
+        portalMenus.forEach((el) => {
+          if (el.contains(e.target as Node)) clickedInsidePortal = true;
+        });
+        if (!clickedInsidePortal) closeMenu();
       }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [openMenuRow, closeMenu]);
 
   const isRtl = dir === 'rtl';
 
@@ -142,51 +240,30 @@ export function AdminDataGrid<T>({
 
   const actionsCell = (item: T, rowKey: string) => {
     if (!actions || actions.length === 0) return null;
+    const isOpen = openMenuRow === rowKey;
     return (
       <td key="__actions__" className="px-2 py-2.5 border-t border-gray-200 text-center relative" style={{ width: '60px', minWidth: '60px' }}>
-        <div className="relative inline-block" ref={openMenuRow === rowKey ? menuRef : undefined}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpenMenuRow(openMenuRow === rowKey ? null : rowKey);
-            }}
-            className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            <ActionDotsIcon />
-          </button>
-          {openMenuRow === rowKey && (
-            <div
-              className={`absolute z-50 mt-1 w-44 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 border border-gray-200 py-1 ${
-                isRtl ? 'left-0' : 'right-0'
-              }`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {actions.map((action, ai) => {
-                const enabled = action.enabled !== false;
-                return (
-                  <button
-                    key={ai}
-                    onClick={() => {
-                      if (enabled) {
-                        setOpenMenuRow(null);
-                        action.onClick(item);
-                      }
-                    }}
-                    disabled={!enabled}
-                    className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 ${
-                      action.variant === 'danger'
-                        ? 'text-red-600 hover:bg-red-50'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    } ${!enabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  >
-                    {action.icon && <span className="w-4 h-4 flex-shrink-0">{action.icon}</span>}
-                    {action.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <button
+          ref={(el) => { if (isOpen) activeButtonRef.current = el; }}
+          onClick={(e) => {
+            e.stopPropagation();
+            activeButtonRef.current = e.currentTarget;
+            setOpenMenuRow(isOpen ? null : rowKey);
+          }}
+          className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+        >
+          <ActionDotsIcon />
+        </button>
+        {isOpen && mounted && (
+          <ActionsMenu
+            item={item}
+            rowKey={rowKey}
+            actions={actions}
+            isRtl={isRtl}
+            buttonRef={activeButtonRef}
+            onClose={closeMenu}
+          />
+        )}
       </td>
     );
   };
@@ -236,7 +313,7 @@ export function AdminDataGrid<T>({
   const hasActions = actions && actions.length > 0;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden" dir={dir}>
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm" dir={dir}>
       {(onGlobalSearch || onToggleFilters || onRefresh) && (
         <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-gray-200 bg-gray-50">
           {onGlobalSearch && (
@@ -285,7 +362,7 @@ export function AdminDataGrid<T>({
         </div>
       )}
 
-      <div className="overflow-x-auto">
+      <div className="admin-grid-wrapper">
         <table className="w-full border-collapse" style={{ minWidth: columns.length * 110 }}>
           <thead>
             <tr className="bg-[#1a5632] text-white">

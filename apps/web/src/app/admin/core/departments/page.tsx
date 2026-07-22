@@ -5,19 +5,24 @@ import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Department } from '../../../../lib/admin-types';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Card, Pagination, PageHeader, LoadingState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function DepartmentsPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<Department[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [sortColumn, setSortColumn] = useState('');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [showFilters, setShowFilters] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Department | null>(null);
@@ -52,6 +57,8 @@ export default function DepartmentsPage() {
     try {
       const params: Record<string, any> = { page, limit: 10 };
       if (search) params.search = search;
+      if (sortColumn) { params.sortBy = sortColumn; params.sortOrder = sortDirection; }
+      Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const res = await api.get<{ data: Department[]; meta: any }>('/departments', { params });
       setData(res.data || []);
       setMeta(res.meta);
@@ -60,7 +67,7 @@ export default function DepartmentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, t]);
+  }, [search, t, sortColumn, sortDirection, filters]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -125,41 +132,79 @@ export default function DepartmentsPage() {
     }
   };
 
-  const columns = [
-    { key: 'code', header: t('common.code') },
-    { key: 'name', header: t('common.name') },
-    { key: 'company', header: t('core.company'), render: (d: Department) => d.company?.name || '-' },
-    { key: 'branch', header: t('core.branch'), render: (d: Department) => d.branch?.name || '-' },
-    { key: 'parent', header: t('core.parentDepartment'), render: (d: Department) => d.parent?.name || '-' },
-    { key: 'status', header: t('common.status'), render: (d: Department) => <StatusBadge status={d.status} /> },
-    {
-      key: 'actions', header: t('common.actions'), render: (d: Department) => (
-        <div className="flex gap-2">
-          <button onClick={() => router.push(`/admin/core/departments/${d.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
-          <button onClick={() => openEdit(d)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
-          <button onClick={() => d.status === 'ACTIVE' ? confirmStatusChange(d.id, 'deactivate') : confirmStatusChange(d.id, 'activate')}
-            className={`text-sm ${d.status === 'ACTIVE' ? 'text-orange-600' : 'text-green-600'} hover:underline`}>
-            {d.status === 'ACTIVE' ? t('actions.deactivate') : t('actions.activate')}
-          </button>
-        </div>
-      ),
-    },
+  const baseColumns: GridColumn<Department>[] = [
+    { key: 'code', header: t('common.code'), sortable: true, filterable: true },
+    { key: 'name', header: t('common.name'), sortable: true, filterable: true },
+    { key: 'company', header: t('core.company'), sortable: true, render: (d) => d.company?.name || '-' },
+    { key: 'branch', header: t('core.branch'), sortable: true, render: (d) => d.branch?.name || '-' },
+    { key: 'parent', header: t('core.parentDepartment'), sortable: true, render: (d) => d.parent?.name || '-' },
+    { key: 'status', header: t('common.status'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
+      { value: 'ACTIVE', label: t('common.active') },
+      { value: 'INACTIVE', label: t('common.inactive') },
+    ], render: (d) => <StatusBadge status={d.status} /> },
   ];
+
+  const gridActions: GridAction<Department>[] = [
+    { label: t('grid.view'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>, onClick: (d) => router.push(`/admin/core/departments/${d.id}`) },
+    { label: t('grid.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (d) => openEdit(d) },
+    { label: t('common.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, onClick: (d) => confirmStatusChange(d.id, 'activate'), enabled: (d) => d.status !== 'ACTIVE' },
+    { label: t('common.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, variant: 'danger', onClick: (d) => confirmStatusChange(d.id, 'deactivate'), enabled: (d) => d.status === 'ACTIVE' },
+  ];
+
+  const handleSort = useCallback((col: string, dir: 'asc' | 'desc') => {
+    setSortColumn(col);
+    setSortDirection(dir);
+  }, []);
+
+  const handleFilter = useCallback((col: string, value: string) => {
+    setFilters(prev => ({ ...prev, [col]: value }));
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setFilters({});
+    setSearch('');
+  }, []);
 
   return (
     <div>
       <PageHeader title={t('core.departments')} />
-      <Toolbar searchValue={search} onSearchChange={setSearch} onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)} onCreate={openCreate} createLabel={t('core.newDepartment')} loading={loading} />
-
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(d: Department) => d.id} onRowClick={(item: Department) => setSelectedId(item.id)} selectedKey={selectedId} />
+      {error && <div className="text-center py-12"><p className="text-red-500 mb-4">{error}</p></div>}
+      {!error && loading && data.length === 0 && <LoadingState />}
+      {!error && !loading && data.length === 0 && (
+        <div className="text-center py-12"><p className="text-gray-500">{t('common.noData')}</p></div>
+      )}
+      {(!error || !loading) && data.length > 0 && (
+        <AdminDataGrid
+          columns={baseColumns}
+          data={data}
+          keyExtractor={(item) => item.id}
+          onRowClick={(item) => setSelectedId(item.id)}
+          selectedKey={selectedId}
+          loading={loading}
+          emptyMessage={t('common.noData')}
+          loadingMessage={t('common.loading')}
+          error={error || undefined}
+          actions={gridActions}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          onSort={handleSort}
+          filters={filters}
+          onFilter={handleFilter}
+          onClearFilters={handleClearFilters}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          dir={dir}
+          globalSearch={search}
+          onGlobalSearch={(v) => setSearch(v)}
+          searchPlaceholder={t('grid.searchPlaceholder')}
+          onRefresh={() => fetchData(meta.page)}
+          refreshLoading={loading}
+        />
+      )}
+      {data.length > 0 && (
+        <div className="mt-3">
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+        </div>
       )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('core.editDepartment') : t('core.newDepartment')}>
