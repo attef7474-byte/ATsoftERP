@@ -4,12 +4,13 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { InventoryBalance } from '../../../../lib/admin-types';
-import { Button, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Card, Pagination, PageHeader, LoadingState, ConfirmDialog } from '../../../../components/admin/ui';
+import { AdminDataGrid, GridColumn } from '../../../../components/admin/admin-data-grid';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionRecalculateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function InventoryBalancesPage() {
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<InventoryBalance[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -17,7 +18,7 @@ export default function InventoryBalancesPage() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
-  const canRecalculate = false; // TODO: wire up with inventory-balance:recalculate permission check
+  const canRecalculate = false;
 
   const [recalculateOpen, setRecalculateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -68,41 +69,51 @@ export default function InventoryBalancesPage() {
     }
   };
 
-  const columns = [
-    { key: 'productCode', header: t('inventory.productCode'), render: (b: InventoryBalance) => b.product?.code || '-' },
-    { key: 'productName', header: t('inventory.productName'), render: (b: InventoryBalance) => b.product?.name || '-' },
-    { key: 'warehouse', header: t('inventory.warehouse'), render: (b: InventoryBalance) => b.warehouse?.name || '-' },
+  const columns: GridColumn<InventoryBalance>[] = [
+    { key: 'productCode', header: t('inventory.productCode'), sortable: true, filterable: true, render: (b: InventoryBalance) => b.product?.code || '-' },
+    { key: 'productName', header: t('inventory.productName'), sortable: true, filterable: true, render: (b: InventoryBalance) => b.product?.name || '-' },
+    { key: 'warehouse', header: t('inventory.warehouse'), sortable: true, render: (b: InventoryBalance) => b.warehouse?.name || '-' },
     { key: 'location', header: t('inventory.location'), render: (b: InventoryBalance) => b.warehouseLocation?.name || '-' },
-    { key: 'quantity', header: t('inventoryCounting.quantity'), render: (b: InventoryBalance) => b.quantity },
+    { key: 'quantity', header: t('inventoryCounting.quantity'), sortable: true, align: 'center', render: (b: InventoryBalance) => b.quantity },
     { key: 'unit', header: t('inventory.unit'), render: (b: InventoryBalance) => b.product?.unit || '-' },
-    { key: 'updatedAt', header: t('common.updatedAt'), render: (b: InventoryBalance) => formatDate(b.updatedAt) },
+    { key: 'updatedAt', header: t('common.updatedAt'), sortable: true, render: (b: InventoryBalance) => formatDate(b.updatedAt) },
   ];
 
   return (
     <div>
       <PageHeader title={t('inventoryCounting.balances')} />
-      <Toolbar
-        searchValue={search}
-        onSearchChange={setSearch}
-        onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)}
-        loading={loading}
-        extraActions={
-          canRecalculate ? (
-            <Button variant="secondary" onClick={() => setRecalculateOpen(true)}>
-              {t('inventoryCounting.recalculateBalances')}
-            </Button>
-          ) : undefined
-        }
-      />
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState message={t('inventoryCounting.loadingBalances')} />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('inventoryCounting.noBalances')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(b: InventoryBalance) => b.id} />
+      {error && (
+        <div className="text-center py-12">
+          <p className="text-red-500 mb-4">{error}</p>
+        </div>
+      )}
+      {!error && loading && data.length === 0 && <LoadingState message={t('inventoryCounting.loadingBalances')} />}
+      {!error && !loading && data.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500">{t('inventoryCounting.noBalances')}</p>
+        </div>
+      )}
+      {(!error || !loading) && data.length > 0 && (
+        <AdminDataGrid
+          columns={columns}
+          data={data}
+          keyExtractor={(b: InventoryBalance) => b.id}
+          loading={loading}
+          emptyMessage={t('inventoryCounting.noBalances')}
+          loadingMessage={t('inventoryCounting.loadingBalances')}
+          error={error || undefined}
+          dir={dir}
+          globalSearch={search}
+          onGlobalSearch={setSearch}
+          searchPlaceholder={t('common.search')}
+          onRefresh={() => fetchData(meta.page)}
+          refreshLoading={loading}
+        />
+      )}
+      {data.length > 0 && (
+        <div className="mt-3">
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+        </div>
       )}
       <ConfirmDialog
         open={recalculateOpen}

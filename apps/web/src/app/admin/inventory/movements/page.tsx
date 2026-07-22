@@ -4,7 +4,8 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { InventoryMovement } from '../../../../lib/admin-types';
-import { Button, Input, Select, Textarea, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Select, Textarea, Card, Pagination, PageHeader, LoadingState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { InventoryStatusBadge } from '../../../../components/inventory-counting/InventoryStatusBadge';
 import { F9Lookup, companyAdapter, branchAdapter, warehouseAdapter, productAdapter, warehouseLocationAdapter } from '../../../../components/f9';
 import { useRouter } from 'next/navigation';
@@ -13,7 +14,7 @@ import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIc
 
 export default function InventoryMovementsPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<InventoryMovement[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -139,43 +140,32 @@ export default function InventoryMovementsPage() {
     { value: 'ADJUSTMENT_OUT', label: t('status.ADJUSTMENT_OUT') },
     { value: 'COUNT_ADJUSTMENT', label: t('status.COUNT_ADJUSTMENT') },
   ];
-  const statusOptions = [
-    { value: '', label: t('common.all') },
-    { value: 'DRAFT', label: t('status.DRAFT') },
-    { value: 'POSTED', label: t('status.POSTED') },
-    { value: 'CANCELLED', label: t('status.CANCELLED') },
-  ];
-  const directionOptions = [
-    { value: 'IN', label: t('status.IN') },
-    { value: 'OUT', label: t('status.OUT') },
-  ];
 
-  const columns = [
-    { key: 'movementNumber', header: t('inventoryCounting.movementNumber') },
+  const columns: GridColumn<InventoryMovement>[] = [
+    { key: 'movementNumber', header: t('inventoryCounting.movementNumber'), sortable: true, filterable: true },
     { key: 'company', header: t('inventoryCounting.company'), render: (r: InventoryMovement) => r.company?.name || '-' },
     { key: 'branch', header: t('inventoryCounting.branch'), render: (r: InventoryMovement) => r.branch?.name || '-' },
     { key: 'warehouse', header: t('inventoryCounting.warehouse'), render: (r: InventoryMovement) => r.warehouse?.name || '-' },
-    { key: 'movementType', header: t('inventoryCounting.movementType'), render: (r: InventoryMovement) => t(`status.${r.movementType}` as any) || r.movementType },
-    { key: 'status', header: t('common.status'), render: (r: InventoryMovement) => <InventoryStatusBadge status={r.status} /> },
-    { key: 'direction', header: t('inventoryCounting.direction'), render: (r: InventoryMovement) => (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${r.direction === 'IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+    { key: 'movementType', header: t('inventoryCounting.movementType'), sortable: true, filterable: true, filterType: 'select', filterOptions: movementTypeOptions, render: (r: InventoryMovement) => t(`status.${r.movementType}` as any) || r.movementType },
+    { key: 'status', header: t('common.status'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
+      { value: 'DRAFT', label: t('status.DRAFT') }, { value: 'POSTED', label: t('status.POSTED') }, { value: 'CANCELLED', label: t('status.CANCELLED') },
+    ], render: (r: InventoryMovement) => <InventoryStatusBadge status={r.status} /> },
+    { key: 'direction', header: t('inventoryCounting.direction'), sortable: true, render: (r: InventoryMovement) => (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${r.direction === 'IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
         {t(`status.${r.direction}` as any)}
       </span>
     )},
-    { key: 'movementDate', header: t('inventoryCounting.movementDate'), render: (r: InventoryMovement) => r.movementDate ? new Date(r.movementDate).toLocaleDateString() : '-' },
-    { key: 'postedAt', header: t('inventoryCounting.postedAt'), render: (r: InventoryMovement) => r.postedAt ? new Date(r.postedAt).toLocaleDateString() : '-' },
-    { key: 'totalInQty', header: t('inventoryCounting.totalInQty'), render: (r: any) => r.totalInQty ?? '-' },
-    { key: 'totalOutQty', header: t('inventoryCounting.totalOutQty'), render: (r: any) => r.totalOutQty ?? '-' },
-    {
-      key: 'actions', header: t('common.actions'), render: (r: InventoryMovement) => (
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={() => router.push(`/admin/inventory/movements/${r.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
-          {r.status === 'DRAFT' && <button onClick={() => confirmAction(r.id, 'post')} className="text-green-600 hover:text-green-800 text-sm">{t('inventoryCounting.post')}</button>}
-          {r.status === 'DRAFT' && <button onClick={() => confirmAction(r.id, 'cancel')} className="text-red-600 hover:text-red-800 text-sm">{t('inventoryCounting.cancel')}</button>}
-          {r.status === 'DRAFT' && <button onClick={() => openEdit(r)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>}
-        </div>
-      ),
-    },
+    { key: 'movementDate', header: t('inventoryCounting.movementDate'), sortable: true, render: (r: InventoryMovement) => r.movementDate ? new Date(r.movementDate).toLocaleDateString() : '-' },
+    { key: 'postedAt', header: t('inventoryCounting.postedAt'), sortable: true, render: (r: InventoryMovement) => r.postedAt ? new Date(r.postedAt).toLocaleDateString() : '-' },
+    { key: 'totalInQty', header: t('inventoryCounting.totalInQty'), align: 'center', render: (r: any) => r.totalInQty ?? '-' },
+    { key: 'totalOutQty', header: t('inventoryCounting.totalOutQty'), align: 'center', render: (r: any) => r.totalOutQty ?? '-' },
+  ];
+
+  const gridActions: GridAction<InventoryMovement>[] = [
+    { label: t('details.viewDetails'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>, onClick: (r: InventoryMovement) => router.push(`/admin/inventory/movements/${r.id}`) },
+    { label: t('actions.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (r: InventoryMovement) => openEdit(r), enabled: false },
+    { label: t('inventoryCounting.post'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>, onClick: (r: InventoryMovement) => confirmAction(r.id, 'post'), enabled: false },
+    { label: t('inventoryCounting.cancel'), variant: 'danger', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>, onClick: (r: InventoryMovement) => confirmAction(r.id, 'cancel'), enabled: false },
   ];
 
   return (
@@ -186,18 +176,45 @@ export default function InventoryMovementsPage() {
         <F9Lookup label={t('inventoryCounting.branch')} value={filters.branchId} onChange={(v) => setFilters({ ...filters, branchId: v })} adapter={branchAdapter} />
         <F9Lookup label={t('inventoryCounting.warehouse')} value={filters.warehouseId} onChange={(v) => setFilters({ ...filters, warehouseId: v })} adapter={warehouseAdapter} />
         <Select label={t('inventoryCounting.movementType')} value={filters.movementType} onChange={(e) => setFilters({ ...filters, movementType: e.target.value })} options={movementTypeOptions} />
-        <Select label={t('common.status')} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} options={statusOptions} />
+        <Select label={t('common.status')} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} options={[
+          { value: '', label: t('common.all') }, { value: 'DRAFT', label: t('status.DRAFT') },
+          { value: 'POSTED', label: t('status.POSTED') }, { value: 'CANCELLED', label: t('status.CANCELLED') },
+        ]} />
       </div>
-      <Toolbar searchValue={search} onSearchChange={setSearch} onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)} onCreate={openCreate} createLabel={t('inventoryCounting.newMovement')} loading={loading} />
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('inventoryCounting.noMovements')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(r: InventoryMovement) => r.id} onRowClick={(r: InventoryMovement) => setSelectedId(r.id)} selectedKey={selectedId} />
+      {error && (
+        <div className="text-center py-12">
+          <p className="text-red-500 mb-4">{error}</p>
+        </div>
+      )}
+      {!error && loading && data.length === 0 && <LoadingState />}
+      {!error && !loading && data.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500">{t('inventoryCounting.noMovements')}</p>
+        </div>
+      )}
+      {(!error || !loading) && data.length > 0 && (
+        <AdminDataGrid
+          columns={columns}
+          data={data}
+          keyExtractor={(r: InventoryMovement) => r.id}
+          onRowClick={(r: InventoryMovement) => setSelectedId(r.id)}
+          selectedKey={selectedId}
+          loading={loading}
+          emptyMessage={t('inventoryCounting.noMovements')}
+          error={error || undefined}
+          actions={gridActions}
+          dir={dir}
+          globalSearch={search}
+          onGlobalSearch={setSearch}
+          searchPlaceholder={t('common.search')}
+          onRefresh={() => fetchData(meta.page)}
+          refreshLoading={loading}
+        />
+      )}
+      {data.length > 0 && (
+        <div className="mt-3">
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+        </div>
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventoryCounting.editMovement') : t('inventoryCounting.newMovement')} size="lg">
         <div className="space-y-4 max-h-96 overflow-y-auto">
@@ -208,7 +225,9 @@ export default function InventoryMovementsPage() {
           </div>
           <div className="grid grid-cols-3 gap-4">
             <Select label={t('inventoryCounting.movementType')} value={form.movementType} onChange={(e) => setForm({ ...form, movementType: e.target.value })} options={movementTypeOptions} />
-            <Select label={t('inventoryCounting.direction')} value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })} options={directionOptions} />
+            <Select label={t('inventoryCounting.direction')} value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })} options={[
+              { value: 'IN', label: t('status.IN') }, { value: 'OUT', label: t('status.OUT') },
+            ]} />
             <Input label={t('inventoryCounting.movementDate')} type="date" value={form.movementDate} onChange={(e) => setForm({ ...form, movementDate: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -216,7 +235,6 @@ export default function InventoryMovementsPage() {
             <Input label={t('inventoryCounting.sourceId')} value={form.sourceId} onChange={(e) => setForm({ ...form, sourceId: e.target.value })} />
           </div>
           <Textarea label={t('inventoryCounting.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-
           <div className="border-t pt-4">
             <div className="flex justify-between items-center mb-2">
               <h4 className="font-medium">{t('inventoryCounting.lines')}</h4>
@@ -230,10 +248,10 @@ export default function InventoryMovementsPage() {
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <Input label={t('inventoryCounting.quantity')} type="number" value={String(lineForm.quantity)} onChange={(e) => setLineForm({ ...lineForm, quantity: Number(e.target.value) })} />
-                  <Select label={t('inventoryCounting.direction')} value={lineForm.direction} onChange={(e) => setLineForm({ ...lineForm, direction: e.target.value })} options={directionOptions} />
-                  <div className="flex items-end">
-                    <Button onClick={handleAddLine}>{t('actions.add')}</Button>
-                  </div>
+                  <Select label={t('inventoryCounting.direction')} value={lineForm.direction} onChange={(e) => setLineForm({ ...lineForm, direction: e.target.value })} options={[
+                    { value: 'IN', label: t('status.IN') }, { value: 'OUT', label: t('status.OUT') },
+                  ]} />
+                  <div className="flex items-end"><Button onClick={handleAddLine}>{t('actions.add')}</Button></div>
                 </div>
                 <Textarea label={t('inventoryCounting.notes')} value={lineForm.notes} onChange={(e) => setLineForm({ ...lineForm, notes: e.target.value })} />
               </div>
@@ -271,7 +289,6 @@ export default function InventoryMovementsPage() {
               </table>
             )}
           </div>
-
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>

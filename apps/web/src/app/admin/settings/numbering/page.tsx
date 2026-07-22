@@ -3,7 +3,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge } from '../../../../components/admin/ui';
+import { Button, Input, Select, Card, Pagination, PageHeader, LoadingState, Modal } from '../../../../components/admin/ui';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionEditIcon, ActionRefreshIcon, ActionBackIcon } from '../../../../components/admin/admin-action-bar';
 import { useRouter } from 'next/navigation';
 
@@ -14,7 +15,7 @@ function computePreview(item: any): string {
 }
 
 export default function NumberingPage() {
-  const { t } = useTranslation();
+  const { t, dir, locale } = useTranslation();
   const { showToast } = useToast();
   const router = useRouter();
   const [data, setData] = useState<any[]>([]);
@@ -23,6 +24,10 @@ export default function NumberingPage() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [showRejected, setShowRejected] = useState(false);
+  const [sortColumn, setSortColumn] = useState('');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [showFilters, setShowFilters] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
@@ -41,6 +46,8 @@ export default function NumberingPage() {
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
 
+  const isRtl = dir === 'rtl';
+
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true);
     setError('');
@@ -48,6 +55,13 @@ export default function NumberingPage() {
       const params: Record<string, any> = { page, limit: 20 };
       if (search) params.search = search;
       if (!showRejected) params.status = 'ACTIVE';
+      if (sortColumn) {
+        params.sortBy = sortColumn;
+        params.sortOrder = sortDirection;
+      }
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v) params[k] = v;
+      });
       const res = await api.get<{ data: any[]; meta: any }>('/numbering', { params });
       setData(res.data || []);
       setMeta(res.meta);
@@ -56,7 +70,7 @@ export default function NumberingPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, t, showRejected]);
+  }, [search, t, showRejected, sortColumn, sortDirection, filters]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -122,76 +136,168 @@ export default function NumberingPage() {
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 
-  const columns = [
-    { key: 'code', header: t('settings.numbering.code') },
-    { key: 'operationName', header: t('settings.numbering.operationName'), render: (item: any) => t(`settings.numbering.operationNameMap.${item.code}`) || item.operationName },
-    { key: 'modelName', header: t('settings.numbering.modelName'), render: (item: any) => t(`settings.numbering.modelNameMap.${item.code}`) || item.modelName },
-    { key: 'prefix', header: t('settings.numbering.prefix') },
-    { key: 'suffix', header: t('settings.numbering.suffix') },
-    { key: 'currentNumber', header: t('settings.numbering.currentNumber'), align: 'center' },
-    { key: 'nextNumber', header: t('settings.numbering.nextNumber'), align: 'center', render: (item: any) => (item.currentNumber || 0) + (item.increment || 1) },
-    { key: 'increment', header: t('settings.numbering.increment'), align: 'center' },
-    { key: 'padding', header: t('settings.numbering.padding'), align: 'center' },
-    { key: 'resetPolicy', header: t('settings.numbering.resetPolicy'), render: (item: any) => t(`settings.numbering.resetPolicies.${item.resetPolicy}`) || item.resetPolicy },
-    { key: 'scope', header: t('settings.numbering.scope'), render: (item: any) => t(`settings.numbering.scopeOptions.${item.scope}`) || item.scope },
-    { key: 'status', header: t('settings.numbering.status'), render: (item: any) => <StatusBadge status={t(`settings.numbering.statusOptions.${item.status}`) || item.status} /> },
+  const baseColumns: GridColumn<any>[] = [
+    { key: 'code', header: t('settings.numbering.code'), sortable: true, filterable: true },
+    { key: 'operationName', header: t('settings.numbering.operationName'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
+      { value: 'COMPANY', label: t('settings.numbering.operationNameMap.COMPANY') },
+      { value: 'BRANCH', label: t('settings.numbering.operationNameMap.BRANCH') },
+      { value: 'DEPARTMENT', label: t('settings.numbering.operationNameMap.DEPARTMENT') },
+      { value: 'WAREHOUSE', label: t('settings.numbering.operationNameMap.WAREHOUSE') },
+      { value: 'WAREHOUSE_LOCATION', label: t('settings.numbering.operationNameMap.WAREHOUSE_LOCATION') },
+      { value: 'PRODUCT', label: t('settings.numbering.operationNameMap.PRODUCT') },
+      { value: 'INVENTORY_MOVEMENT', label: t('settings.numbering.operationNameMap.INVENTORY_MOVEMENT') },
+      { value: 'INVENTORY_COUNT', label: t('settings.numbering.operationNameMap.INVENTORY_COUNT') },
+      { value: 'INVENTORY_ADJUSTMENT', label: t('settings.numbering.operationNameMap.INVENTORY_ADJUSTMENT') },
+      { value: 'MACHINE', label: t('settings.numbering.operationNameMap.MACHINE') },
+      { value: 'MACHINE_ASSET', label: t('settings.numbering.operationNameMap.MACHINE_ASSET') },
+      { value: 'MACHINE_PART', label: t('settings.numbering.operationNameMap.MACHINE_PART') },
+      { value: 'MACHINE_DOCUMENT', label: t('settings.numbering.operationNameMap.MACHINE_DOCUMENT') },
+      { value: 'MAINTENANCE_REQUEST', label: t('settings.numbering.operationNameMap.MAINTENANCE_REQUEST') },
+      { value: 'MAINTENANCE_TASK', label: t('settings.numbering.operationNameMap.MAINTENANCE_TASK') },
+      { value: 'PREVENTIVE_MAINTENANCE', label: t('settings.numbering.operationNameMap.PREVENTIVE_MAINTENANCE') },
+      { value: 'DOWNTIME', label: t('settings.numbering.operationNameMap.DOWNTIME') },
+      { value: 'ATTACHMENT', label: t('settings.numbering.operationNameMap.ATTACHMENT') },
+    ], render: (item: any) => t(`settings.numbering.operationNameMap.${item.code}`) || item.operationName },
+    { key: 'modelName', header: t('settings.numbering.modelName'), sortable: true, render: (item: any) => t(`settings.numbering.modelNameMap.${item.code}`) || item.modelName },
+    { key: 'prefix', header: t('settings.numbering.prefix'), sortable: true, filterable: true, width: '90px' },
+    { key: 'suffix', header: t('settings.numbering.suffix'), sortable: true, filterable: true, width: '90px' },
+    { key: 'currentNumber', header: t('settings.numbering.currentNumber'), sortable: true, align: 'center', width: '110px' },
+    { key: 'nextNumber', header: t('settings.numbering.nextNumber'), sortable: true, align: 'center', width: '100px', render: (item: any) => (item.currentNumber || 0) + (item.increment || 1) },
+    { key: 'increment', header: t('settings.numbering.increment'), sortable: true, align: 'center', width: '80px' },
+    { key: 'padding', header: t('settings.numbering.padding'), sortable: true, align: 'center', width: '80px' },
+    { key: 'resetPolicy', header: t('settings.numbering.resetPolicy'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
+      { value: 'NEVER', label: t('settings.numbering.resetPolicies.NEVER') },
+      { value: 'DAILY', label: t('settings.numbering.resetPolicies.DAILY') },
+      { value: 'MONTHLY', label: t('settings.numbering.resetPolicies.MONTHLY') },
+      { value: 'YEARLY', label: t('settings.numbering.resetPolicies.YEARLY') },
+    ], render: (item: any) => t(`settings.numbering.resetPolicies.${item.resetPolicy}`) || item.resetPolicy },
+    { key: 'scope', header: t('settings.numbering.scope'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
+      { value: 'GLOBAL', label: t('settings.numbering.scopeOptions.GLOBAL') },
+      { value: 'COMPANY', label: t('settings.numbering.scopeOptions.COMPANY') },
+      { value: 'BRANCH', label: t('settings.numbering.scopeOptions.BRANCH') },
+      { value: 'USER', label: t('settings.numbering.scopeOptions.USER') },
+    ], render: (item: any) => t(`settings.numbering.scopeOptions.${item.scope}`) || item.scope },
+    { key: 'status', header: t('settings.numbering.status'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
+      { value: 'ACTIVE', label: t('settings.numbering.statusOptions.ACTIVE') },
+      { value: 'INACTIVE', label: t('settings.numbering.statusOptions.INACTIVE') },
+    ], render: (item: any) => (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+        item.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+      }`}>
+        {t(`settings.numbering.statusOptions.${item.status}`) || item.status}
+      </span>
+    )},
+    { key: 'nextPreview', header: t('settings.numbering.nextPreview'), sortable: false, width: '130px', render: (item: any) => (
+      <span className="font-mono text-xs" key={item.id}>
+        {previewCache[item.id] || <span className="text-gray-400">...</span>}
+      </span>
+    )},
+    { key: 'lastGeneratedCode', header: t('settings.numbering.lastGeneratedCode'), sortable: false, width: '110px', render: (item: any) => (
+      item.lastGeneratedCode ? <span className="font-mono text-xs">{item.lastGeneratedCode}</span> : <span className="text-gray-400">—</span>
+    )},
+  ];
+
+  const sortedColumns = useMemo(() => {
+    if (isRtl) {
+      const arabicOrder = ['actions', 'lastGeneratedCode', 'nextPreview', 'status', 'scope', 'resetPolicy', 'padding', 'increment', 'nextNumber', 'currentNumber', 'suffix', 'prefix', 'modelName', 'operationName', 'code'];
+      return [...baseColumns].sort((a, b) => {
+        const ai = arabicOrder.indexOf(a.key);
+        const bi = arabicOrder.indexOf(b.key);
+        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+      });
+    }
+    return baseColumns;
+  }, [isRtl, baseColumns]);
+
+  const gridActions: GridAction<any>[] = [
     {
-      key: 'nextPreview', header: t('settings.numbering.nextPreview'), render: (item: any) => (
-        <span className="font-mono text-xs" key={item.id}>
-          {previewCache[item.id] || <span className="text-gray-400">...</span>}
-        </span>
-      ),
+      label: t('common.edit'),
+      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>,
+      onClick: (item: any) => openEdit(item),
     },
     {
-      key: 'lastGeneratedCode', header: t('settings.numbering.lastGeneratedCode'),
-      render: (item: any) => item.lastGeneratedCode ? <span className="font-mono text-xs">{item.lastGeneratedCode}</span> : <span className="text-gray-400">—</span>
-    },
-    {
-      key: 'actions', header: t('settings.numbering.actions'),
-      render: (item: any) => (
-        <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
-          {t('common.edit')}
-        </Button>
-      ),
+      label: t('common.view'),
+      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>,
+      onClick: (item: any) => openEdit(item),
     },
   ];
 
-  // Preload previews for visible rows
   useEffect(() => {
     data.forEach(item => fetchPreview(item));
   }, [data, fetchPreview]);
 
+  const handleSort = useCallback((col: string, dir: 'asc' | 'desc') => {
+    setSortColumn(col);
+    setSortDirection(dir);
+  }, []);
+
+  const handleFilter = useCallback((col: string, value: string) => {
+    setFilters(prev => ({ ...prev, [col]: value }));
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setFilters({});
+    setSearch('');
+  }, []);
+
+  const handleGlobalSearch = useCallback((value: string) => {
+    setSearch(value);
+  }, []);
+
   return (
     <div>
       <PageHeader title={t('settings.numbering.title')} />
-      <Toolbar
-        searchValue={search}
-        onSearchChange={setSearch}
-        onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)}
-        loading={loading}
-        searchPlaceholder={t('common.search')}
-        extraActions={
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={showRejected} onChange={e => { setShowRejected(e.target.checked); fetchData(1); }} />
-            {t('settings.numbering.showRejected')}
-          </label>
-        }
-      />
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState message={t('settings.numbering.loadingSequences')} />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('settings.numbering.noSequences')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable
-            columns={columns}
-            data={data}
-            keyExtractor={(item: any) => item.id}
-            onRowClick={(item: any) => setSelectedId(item.id)}
-            selectedKey={selectedId}
-          />
+      <div className="mb-4">
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <input type="checkbox" checked={showRejected} onChange={e => { setShowRejected(e.target.checked); fetchData(1); }} className="rounded border-gray-300" />
+          {t('settings.numbering.showRejected')}
+        </label>
+      </div>
+      {error && (
+        <div className="text-center py-12">
+          <p className="text-red-500 mb-4">{error}</p>
+        </div>
+      )}
+      {!error && loading && data.length === 0 && (
+        <LoadingState message={t('settings.numbering.loadingSequences')} />
+      )}
+      {!error && !loading && data.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500">{t('settings.numbering.noSequences')}</p>
+        </div>
+      )}
+      {(!error || !loading) && data.length > 0 && (
+        <AdminDataGrid
+          columns={sortedColumns}
+          data={data}
+          keyExtractor={(item: any) => item.id}
+          onRowClick={(item: any) => setSelectedId(item.id)}
+          selectedKey={selectedId}
+          loading={loading}
+          emptyMessage={t('settings.numbering.noSequences')}
+          loadingMessage={t('settings.numbering.loadingSequences')}
+          error={error || undefined}
+          actions={gridActions}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          onSort={handleSort}
+          filters={filters}
+          onFilter={handleFilter}
+          onClearFilters={handleClearFilters}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          dir={dir}
+          globalSearch={search}
+          onGlobalSearch={handleGlobalSearch}
+          searchPlaceholder={t('common.search')}
+          onRefresh={() => fetchData(meta.page)}
+          refreshLoading={loading}
+        />
+      )}
+      {data.length > 0 && (
+        <div className="mt-3">
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+        </div>
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('settings.numbering.editSequence')} size="lg">
         <div className="space-y-4">

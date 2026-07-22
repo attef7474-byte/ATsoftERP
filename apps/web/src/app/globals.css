@@ -252,3 +252,45 @@ body {
   color: #dc2626;
   font-weight: 700;
 }
+
+/* ======= AdminDataGrid ======= */
+.admin-grid-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-grid-wrapper table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.admin-grid-wrapper thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.admin-grid-wrapper th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+[dir="rtl"] .admin-grid-wrapper th:last-child,
+[dir="rtl"] .admin-grid-wrapper td:last-child {
+  border-right: none;
+}
+
+[dir="ltr"] .admin-grid-wrapper th:last-child,
+[dir="ltr"] .admin-grid-wrapper td:last-child {
+  border-left: none;
+}
+
+.admin-grid-row-action-btn {
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+tr:hover .admin-grid-row-action-btn {
+  opacity: 1;
+}

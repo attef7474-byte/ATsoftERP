@@ -1,0 +1,61 @@
+Analysis of codebase table implementations before the unified DataGrid migration.
+
+=== Problem ===
+Admin pages used DataTable from ui.tsx (lines 126-195). It was a minimal generic table:
+- No RTL/LTR support
+- No column filters
+- No sort indicators
+- Plain gray header (bg-gray-50) instead of professional dark green
+- No actions dropdown — each page implemented inline action buttons inconsistently
+- No alternating row colors
+- No sticky header
+- No filter row
+- No per-column alignment control
+
+=== Pages using old DataTable ===
+1. /admin/settings/numbering
+2. /admin/settings/notification-rules
+3. /admin/settings/audit
+4. /admin/settings/audit/user-activity
+5. /admin/settings/audit/login-history
+6. /admin/inventory/products
+7. /admin/inventory/warehouses
+8. /admin/inventory/movements
+9. /admin/inventory/balances
+10. /admin/inventory/adjustments (also uses DataTable)
+11. /admin/inventory/locations (uses DataTable)
+12. /admin/maintenance/machines (uses DataTable)
+13. /admin/maintenance/requests (uses DataTable)
+14. /admin/maintenance/tasks (uses DataTable)
+15. /admin/maintenance/schedules (uses DataTable)
+16. /admin/maintenance/downtime-logs (uses DataTable)
+17. /admin/maintenance/machine-parts (uses DataTable)
+18. /admin/maintenance/machine-documents (uses DataTable)
+19. /admin/core/companies (uses DataTable)
+20. /admin/core/branches (uses DataTable)
+21. /admin/core/departments (uses DataTable)
+22. /admin/access/users (uses DataTable)
+23. /admin/access/roles (uses DataTable)
+24. /admin/alerts (uses DataTable)
+25. /admin/notifications (uses DataTable)
+26. /admin/barcodes (uses DataTable)
+27. /admin/barcodes/templates (uses DataTable)
+28. /admin/barcodes/records (uses DataTable)
+29. /admin/barcodes/scans (uses DataTable)
+30. /admin/reports/* (various report pages use DataTable)
+31. /admin/documents/attachments (uses DataTable)
+
+=== Solution ===
+Create AdminDataGrid component with:
+- Dark green header (#1a5632) with white text
+- RTL/LTR support via dir prop
+- Column filters (toggleable filter row)
+- Sort indicators with asc/desc cycling
+- Actions dropdown per row (three-dot menu)
+- Alternating row backgrounds
+- Sticky header
+- Per-column alignment control
+- Loading/empty/error states
+- Global search bar built in
+- Refresh button built in
+- Filter toggle button with visual filter count indicator

@@ -4,12 +4,13 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Warehouse } from '../../../../lib/admin-types';
-import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Card, Pagination, PageHeader, LoadingState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { F9Lookup, companyAdapter, branchAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function WarehousesPage() {
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<Warehouse[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -116,39 +117,62 @@ export default function WarehousesPage() {
     } finally { setSaving(false); }
   };
 
-  const columns = [
-    { key: 'code', header: t('common.code') },
-    { key: 'name', header: t('common.name') },
-    { key: 'company', header: t('core.company'), render: (w: Warehouse) => w.company?.name || '-' },
-    { key: 'branch', header: t('core.branch'), render: (w: Warehouse) => w.branch?.name || '-' },
+  const columns: GridColumn<Warehouse>[] = [
+    { key: 'code', header: t('common.code'), sortable: true, filterable: true },
+    { key: 'name', header: t('common.name'), sortable: true, filterable: true },
+    { key: 'company', header: t('core.company'), sortable: true, render: (w: Warehouse) => w.company?.name || '-' },
+    { key: 'branch', header: t('core.branch'), sortable: true, render: (w: Warehouse) => w.branch?.name || '-' },
     { key: 'location', header: t('inventory.location'), render: (w: Warehouse) => w.location || '-' },
-    { key: 'status', header: t('common.status'), render: (w: Warehouse) => <StatusBadge status={w.status} /> },
-    {
-      key: 'actions', header: t('common.actions'), render: (w: Warehouse) => (
-        <div className="flex gap-2">
-          <button onClick={() => openEdit(w)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
-          <button onClick={() => confirmStatus(w.id)}
-            className={`text-sm ${w.status === 'ACTIVE' ? 'text-orange-600' : 'text-green-600'} hover:underline`}>
-            {w.status === 'ACTIVE' ? t('actions.deactivate') : t('actions.activate')}
-          </button>
-        </div>
-      ),
-    },
+    { key: 'status', header: t('common.status'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
+      { value: 'ACTIVE', label: t('common.active') }, { value: 'INACTIVE', label: t('common.inactive') },
+    ], render: (w: Warehouse) => (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${w.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{w.status}</span>
+    )},
+  ];
+
+  const gridActions: GridAction<Warehouse>[] = [
+    { label: t('actions.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (w: Warehouse) => openEdit(w) },
+    { label: t('actions.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (w: Warehouse) => confirmStatus(w.id), enabled: false },
+    { label: t('actions.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (w: Warehouse) => confirmStatus(w.id), enabled: false },
   ];
 
   return (
     <div>
       <PageHeader title={t('inventory.warehouses')} />
-      <Toolbar searchValue={search} onSearchChange={setSearch} onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)} onCreate={openCreate} createLabel={t('inventory.newWarehouse')} loading={loading} />
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(w: Warehouse) => w.id} selectedKey={selectedId} onRowClick={(item: Warehouse) => setSelectedId(item.id)} />
+      {error && (
+        <div className="text-center py-12">
+          <p className="text-red-500 mb-4">{error}</p>
+        </div>
+      )}
+      {!error && loading && data.length === 0 && <LoadingState />}
+      {!error && !loading && data.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500">{t('common.noData')}</p>
+        </div>
+      )}
+      {(!error || !loading) && data.length > 0 && (
+        <AdminDataGrid
+          columns={columns}
+          data={data}
+          keyExtractor={(w: Warehouse) => w.id}
+          selectedKey={selectedId}
+          onRowClick={(item: Warehouse) => setSelectedId(item.id)}
+          loading={loading}
+          emptyMessage={t('common.noData')}
+          error={error || undefined}
+          actions={gridActions}
+          dir={dir}
+          globalSearch={search}
+          onGlobalSearch={setSearch}
+          searchPlaceholder={t('common.search')}
+          onRefresh={() => fetchData(meta.page)}
+          refreshLoading={loading}
+        />
+      )}
+      {data.length > 0 && (
+        <div className="mt-3">
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+        </div>
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.editWarehouse') : t('inventory.newWarehouse')}>
         <div className="space-y-4">

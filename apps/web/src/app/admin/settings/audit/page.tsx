@@ -1,9 +1,10 @@
 'use client';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Button, Input, Select, Card, CardContent, DataTable, Pagination, PageHeader, LoadingState, EmptyState, ErrorState, Modal } from '../../../../components/admin/ui';
+import { Button, Input, Select, Card, CardContent, Pagination, PageHeader, LoadingState, Modal } from '../../../../components/admin/ui';
+import { AdminDataGrid, GridColumn } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionBackIcon } from '../../../../components/admin/admin-action-bar';
 import { useRouter } from 'next/navigation';
 
@@ -24,7 +25,7 @@ function sanitizeDetails(detailsStr: string | null): string {
 }
 
 export default function AuditLogPage() {
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const router = useRouter();
   const [data, setData] = useState<any[]>([]);
@@ -114,14 +115,20 @@ export default function AuditLogPage() {
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 
-  const columns = [
-    { key: 'createdAt', header: t('settings.audit.timestamp'), render: (item: any) => item.createdAt ? new Date(item.createdAt).toLocaleString() : '-' },
-    { key: 'user', header: t('settings.audit.user'), render: (item: any) => item.user?.name || item.user?.email || '-' },
-    { key: 'action', header: t('settings.audit.action') },
-    { key: 'entity', header: t('settings.audit.entity') },
+  const columns: GridColumn<any>[] = [
+    { key: 'createdAt', header: t('settings.audit.timestamp'), sortable: true, render: (item: any) => item.createdAt ? new Date(item.createdAt).toLocaleString() : '-' },
+    { key: 'user', header: t('settings.audit.user'), sortable: true, render: (item: any) => item.user?.name || item.user?.email || '-' },
+    { key: 'action', header: t('settings.audit.action'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
+      { value: 'CREATE', label: 'CREATE' }, { value: 'UPDATE', label: 'UPDATE' }, { value: 'DELETE', label: 'DELETE' },
+      { value: 'LOGIN_SUCCESS', label: 'LOGIN_SUCCESS' }, { value: 'LOGIN_FAILED', label: 'LOGIN_FAILED' },
+    ]},
+    { key: 'entity', header: t('settings.audit.entity'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
+      { value: 'User', label: 'User' }, { value: 'Role', label: 'Role' }, { value: 'Warehouse', label: 'Warehouse' },
+      { value: 'Product', label: 'Product' }, { value: 'Machine', label: 'Machine' },
+    ]},
     { key: 'entityId', header: t('settings.audit.entityId'), render: (item: any) => <span className="font-mono text-xs">{item.entityId || '-'}</span> },
     { key: 'details', header: t('settings.audit.details'), render: (item: any) => (
-      <button onClick={() => openDetail(item)} className="text-blue-600 hover:underline text-xs">{item.details ? t('common.view') : '-'}</button>
+      <button onClick={(e) => { e.stopPropagation(); openDetail(item); }} className="text-blue-600 hover:underline text-xs">{item.details ? t('common.view') : '-'}</button>
     )},
   ];
 
@@ -150,14 +157,40 @@ export default function AuditLogPage() {
         <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-36" />
         <Button variant="secondary" onClick={() => { setSearch(''); setActionFilter(''); setEntityFilter(''); setUserFilter(''); setDateFrom(''); setDateTo(''); fetchData(1); }}>{t('common.clearSearch')}</Button>
       </div>
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState message={t('settings.audit.loadingLogs')} />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('settings.audit.noLogs')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(item: any) => item.id} selectedKey={selectedId} onRowClick={(item: any) => setSelectedId(item.id)} />
+      {error && (
+        <div className="text-center py-12">
+          <p className="text-red-500 mb-4">{error}</p>
+        </div>
+      )}
+      {!error && loading && data.length === 0 && <LoadingState message={t('settings.audit.loadingLogs')} />}
+      {!error && !loading && data.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500">{t('settings.audit.noLogs')}</p>
+        </div>
+      )}
+      {(!error || !loading) && data.length > 0 && (
+        <AdminDataGrid
+          columns={columns}
+          data={data}
+          keyExtractor={(item: any) => item.id}
+          selectedKey={selectedId}
+          onRowClick={(item: any) => setSelectedId(item.id)}
+          loading={loading}
+          emptyMessage={t('settings.audit.noLogs')}
+          loadingMessage={t('settings.audit.loadingLogs')}
+          error={error || undefined}
+          dir={dir}
+          globalSearch={search}
+          onGlobalSearch={setSearch}
+          searchPlaceholder={t('common.search')}
+          onRefresh={() => { fetchData(meta.page); fetchSummary(); }}
+          refreshLoading={loading}
+        />
+      )}
+      {data.length > 0 && (
+        <div className="mt-3">
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+        </div>
       )}
       <Modal open={detailModal} onClose={() => setDetailModal(false)} title={t('settings.audit.details')} size="lg">
         {detailLoading && <LoadingState message={t('common.loading')} />}
