@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from '../../lib/i18n/use-translation';
 
 export interface GridAction<T> {
   label: string;
@@ -80,6 +81,7 @@ export function AdminDataGrid<T>({
   dir = 'ltr', globalSearch, onGlobalSearch, searchPlaceholder,
   onRefresh, refreshLoading,
 }: AdminDataGridProps<T>) {
+  const { t } = useTranslation();
   const [openMenuRow, setOpenMenuRow] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -116,7 +118,7 @@ export function AdminDataGrid<T>({
           className="w-full text-[11px] border border-gray-300 rounded px-1 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
           onClick={(e) => e.stopPropagation()}
         >
-          <option value="">All</option>
+          <option value="">{t('grid.all')}</option>
           {col.filterOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
@@ -138,12 +140,77 @@ export function AdminDataGrid<T>({
   const hasActiveFilters = filters && Object.values(filters).some((v) => v !== '');
   const hasFilterableCols = columns.some((c) => c.filterable);
 
+  const actionsCell = (item: T, rowKey: string) => {
+    if (!actions || actions.length === 0) return null;
+    return (
+      <td key="__actions__" className="px-2 py-2.5 border-t border-gray-200 text-center relative" style={{ width: '60px', minWidth: '60px' }}>
+        <div className="relative inline-block" ref={openMenuRow === rowKey ? menuRef : undefined}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpenMenuRow(openMenuRow === rowKey ? null : rowKey);
+            }}
+            className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            <ActionDotsIcon />
+          </button>
+          {openMenuRow === rowKey && (
+            <div
+              className={`absolute z-50 mt-1 w-44 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 border border-gray-200 py-1 ${
+                isRtl ? 'left-0' : 'right-0'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {actions.map((action, ai) => {
+                const enabled = action.enabled !== false;
+                return (
+                  <button
+                    key={ai}
+                    onClick={() => {
+                      if (enabled) {
+                        setOpenMenuRow(null);
+                        action.onClick(item);
+                      }
+                    }}
+                    disabled={!enabled}
+                    className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 ${
+                      action.variant === 'danger'
+                        ? 'text-red-600 hover:bg-red-50'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    } ${!enabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  >
+                    {action.icon && <span className="w-4 h-4 flex-shrink-0">{action.icon}</span>}
+                    {action.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </td>
+    );
+  };
+
+  const actionsHeader = () => {
+    if (!actions || actions.length === 0) return null;
+    return (
+      <th key="__actions__" className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap sticky top-0 z-10 bg-[#1a5632]" style={{ width: '60px', minWidth: '60px', textAlign: 'center' }}>
+        {t('grid.actions')}
+      </th>
+    );
+  };
+
+  const actionsFilterCell = () => {
+    if (!actions || actions.length === 0) return null;
+    return <td key="__actions__" className="px-2 py-1" />;
+  };
+
   if (error) {
     return (
       <div className="text-center py-12">
         <p className="text-red-500 mb-4">{error}</p>
         {onRetry && (
-          <button onClick={onRetry} className="text-blue-600 hover:text-blue-800 text-sm font-medium">Try again</button>
+          <button onClick={onRetry} className="text-blue-600 hover:text-blue-800 text-sm font-medium">{t('common.retry')}</button>
         )}
       </div>
     );
@@ -153,7 +220,7 @@ export function AdminDataGrid<T>({
     return (
       <div className="flex flex-col items-center justify-center py-16">
         <div className="animate-spin h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full" />
-        <p className="mt-4 text-gray-500 text-sm">{loadingMessage || 'Loading...'}</p>
+        <p className="mt-4 text-gray-500 text-sm">{loadingMessage || t('common.loading')}</p>
       </div>
     );
   }
@@ -161,10 +228,12 @@ export function AdminDataGrid<T>({
   if (!data || data.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">{emptyMessage || 'No data available'}</p>
+        <p className="text-gray-500">{emptyMessage || t('common.noData')}</p>
       </div>
     );
   }
+
+  const hasActions = actions && actions.length > 0;
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden" dir={dir}>
@@ -176,7 +245,7 @@ export function AdminDataGrid<T>({
                 type="text"
                 value={globalSearch || ''}
                 onChange={(e) => onGlobalSearch(e.target.value)}
-                placeholder={searchPlaceholder || 'Search...'}
+                placeholder={searchPlaceholder || t('common.search')}
                 className="block w-full rounded-md border border-gray-300 px-2.5 py-1.5 pl-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <svg className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -192,13 +261,13 @@ export function AdminDataGrid<T>({
               }`}
             >
               <FilterIcon active={showFilters || !!hasActiveFilters} />
-              Filter
+              {t('grid.filter')}
               {hasActiveFilters && <span className="ml-1 w-2 h-2 rounded-full bg-blue-500 inline-block" />}
             </button>
           )}
           {hasActiveFilters && onClearFilters && (
             <button onClick={onClearFilters} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1">
-              Clear
+              {t('grid.clearFilters')}
             </button>
           )}
           {onRefresh && (
@@ -210,7 +279,7 @@ export function AdminDataGrid<T>({
               <svg className={`w-3.5 h-3.5 ${refreshLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Refresh
+              {t('grid.refresh')}
             </button>
           )}
         </div>
@@ -220,6 +289,7 @@ export function AdminDataGrid<T>({
         <table className="w-full border-collapse" style={{ minWidth: columns.length * 110 }}>
           <thead>
             <tr className="bg-[#1a5632] text-white">
+              {isRtl && hasActions && actionsHeader()}
               {columns.map((col) => {
                 const isSorted = sortColumn === col.key;
                 return (
@@ -244,20 +314,17 @@ export function AdminDataGrid<T>({
                   </th>
                 );
               })}
-              {actions && actions.length > 0 && (
-                <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap sticky top-0 z-10 bg-[#1a5632] text-center" style={{ width: '60px', minWidth: '60px' }}>
-                  Actions
-                </th>
-              )}
+              {!isRtl && hasActions && actionsHeader()}
             </tr>
             {showFilters && hasFilterableCols && (
               <tr className="bg-gray-50">
+                {isRtl && hasActions && actionsFilterCell()}
                 {columns.map((col) => (
                   <td key={col.key} className="px-2 py-1 border-r border-gray-200 last:border-r-0" style={{ width: col.width, minWidth: col.width }}>
                     {renderFilterInput(col)}
                   </td>
                 ))}
-                {actions && actions.length > 0 && <td className="px-2 py-1" />}
+                {!isRtl && hasActions && actionsFilterCell()}
               </tr>
             )}
           </thead>
@@ -275,19 +342,18 @@ export function AdminDataGrid<T>({
                     isSelected ? 'bg-blue-50 ring-1 ring-inset ring-blue-200' : rowIndex % 2 === 1 ? 'bg-gray-50' : 'bg-white'
                   } hover:bg-blue-50/60 transition-colors`}
                 >
+                  {isRtl && hasActions && actionsCell(item, rowKey)}
                   {columns.map((col) => {
                     const cellValue = (item as any)[col.key];
                     return (
                       <td
                         key={col.key}
-                        className={`px-3 py-2.5 text-sm border-t border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis ${
-                          isSelected ? '' : ''
-                        }`}
+                        className={`px-3 py-2.5 text-sm border-t border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis`}
                         style={{
                           textAlign: col.align || (isRtl ? 'right' : 'left'),
                           width: col.width,
                           minWidth: col.width,
-                          maxWidth: col.width ? undefined : '400px',
+                          maxWidth: col.width || '300px',
                         }}
                         title={typeof cellValue === 'string' ? cellValue : undefined}
                         dir={isRtl ? 'rtl' : 'ltr'}
@@ -296,53 +362,7 @@ export function AdminDataGrid<T>({
                       </td>
                     );
                   })}
-                  {actions && actions.length > 0 && (
-                    <td className="px-2 py-2.5 border-t border-gray-200 text-center relative" style={{ width: '60px', minWidth: '60px' }}>
-                      <div className="relative inline-block" ref={openMenuRow === rowKey ? menuRef : undefined}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuRow(openMenuRow === rowKey ? null : rowKey);
-                          }}
-                          className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
-                        >
-                          <ActionDotsIcon />
-                        </button>
-                        {openMenuRow === rowKey && (
-                          <div
-                            className={`absolute z-50 mt-1 w-44 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 border border-gray-200 py-1 ${
-                              isRtl ? 'left-0' : 'right-0'
-                            }`}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {actions.map((action, ai) => {
-                              const enabled = action.enabled !== false;
-                              return (
-                                <button
-                                  key={ai}
-                                  onClick={() => {
-                                    if (enabled) {
-                                      setOpenMenuRow(null);
-                                      action.onClick(item);
-                                    }
-                                  }}
-                                  disabled={!enabled}
-                                  className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 ${
-                                    action.variant === 'danger'
-                                      ? 'text-red-600 hover:bg-red-50'
-                                      : 'text-gray-700 hover:bg-gray-100'
-                                  } ${!enabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                                >
-                                  {action.icon && <span className="w-4 h-4 flex-shrink-0">{action.icon}</span>}
-                                  {action.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  )}
+                  {!isRtl && hasActions && actionsCell(item, rowKey)}
                 </tr>
               );
             })}

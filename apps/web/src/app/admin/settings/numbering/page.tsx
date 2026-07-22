@@ -199,7 +199,7 @@ export default function NumberingPage() {
 
   const sortedColumns = useMemo(() => {
     if (isRtl) {
-      const arabicOrder = ['actions', 'lastGeneratedCode', 'nextPreview', 'status', 'scope', 'resetPolicy', 'padding', 'increment', 'nextNumber', 'currentNumber', 'suffix', 'prefix', 'modelName', 'operationName', 'code'];
+      const arabicOrder = ['lastGeneratedCode', 'nextPreview', 'status', 'scope', 'resetPolicy', 'padding', 'increment', 'nextNumber', 'currentNumber', 'suffix', 'prefix', 'modelName', 'operationName', 'code'];
       return [...baseColumns].sort((a, b) => {
         const ai = arabicOrder.indexOf(a.key);
         const bi = arabicOrder.indexOf(b.key);

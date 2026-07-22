@@ -1124,7 +1124,7 @@ const ar: LocaleTranslations = {
         currentNumber: 'الرقم الحالي',
         nextNumber: 'الرقم التالي',
         increment: 'الزيادة',
-        padding: 'المحاذاة',
+        padding: 'عدد الخانات',
         nextPreview: 'معاينة التالي',
         lastGeneratedCode: 'آخر كود',
         operationName: 'اسم العملية',

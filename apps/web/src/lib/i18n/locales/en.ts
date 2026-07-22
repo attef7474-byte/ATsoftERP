@@ -1124,7 +1124,7 @@ const en: LocaleTranslations = {
         currentNumber: 'Current Number',
         nextNumber: 'Next Number',
         increment: 'Increment',
-        padding: 'Padding',
+        padding: 'Padding Length',
         nextPreview: 'Next Preview',
         lastGeneratedCode: 'Last Code',
         operationName: 'Operation Name',
