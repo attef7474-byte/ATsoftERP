@@ -85,7 +85,7 @@ export default function CompaniesPage() {
     setModalOpen(true);
     try {
       const res = await api.get<any>(`/companies/${item.id}`);
-      const detail = res.data as Company;
+      const detail = res as Company;
       setForm({
         name: detail.name ?? '',
         legalName: detail.legalName ?? '',

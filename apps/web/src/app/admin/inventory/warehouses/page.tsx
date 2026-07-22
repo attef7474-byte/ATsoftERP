@@ -74,7 +74,7 @@ export default function WarehousesPage() {
     setModalOpen(true);
     try {
       const res = await api.get<any>(`/inventory/warehouses/${item.id}`);
-      const detail = res.data as Warehouse;
+      const detail = res as Warehouse;
       setForm({
         companyId: detail.companyId,
         branchId: detail.branchId ?? '',
@@ -143,8 +143,8 @@ export default function WarehousesPage() {
 
   const gridActions: GridAction<Warehouse>[] = [
     { label: t('actions.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (w: Warehouse) => openEdit(w) },
-    { label: t('actions.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (w: Warehouse) => confirmStatus(w.id), enabled: false },
-    { label: t('actions.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (w: Warehouse) => confirmStatus(w.id), enabled: false },
+    { label: t('actions.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (w: Warehouse) => confirmStatus(w.id), enabled: (w: Warehouse) => w.status !== 'ACTIVE' },
+    { label: t('actions.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (w: Warehouse) => confirmStatus(w.id), enabled: (w: Warehouse) => w.status === 'ACTIVE' },
   ];
 
   return (

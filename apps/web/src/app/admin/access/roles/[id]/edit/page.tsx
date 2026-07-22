@@ -24,7 +24,7 @@ export default function EditRolePage() {
     setLoading(true);
     try {
       const res = await api.get<any>(`/roles/${params.id}`);
-      const role = res.data;
+      const role = res;
       setCode(role.code);
       setName(role.name);
       setDescription(role.description ?? '');

@@ -42,8 +42,8 @@ export default function EditMaintenanceRequestPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<{ data: MaintenanceRequest }>(`/maintenance/requests/${id}`);
-      const item = res.data;
+      const res = await api.get<any>(`/maintenance/requests/${id}`);
+      const item = res;
       setData(item);
       setForm({ machineId: item.machineId || '', type: item.type || 'CORRECTIVE', priority: item.priority || 'MEDIUM', title: item.title || '', description: item.description || '', assignedToId: item.assignedToId || '', notes: item.notes || '' });
     } catch (err: any) {

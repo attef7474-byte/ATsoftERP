@@ -29,7 +29,7 @@ export default function EditLocationPage() {
     setLoading(true); setError('');
     try {
       const res = await api.get<any>(`/inventory/locations/${id}`);
-      const item = res.data as WarehouseLocation;
+      const item = res as WarehouseLocation;
       setData(item);
       setForm({ warehouseId: item.warehouseId ?? '', code: item.code ?? '', name: item.name ?? '', barcode: item.barcode ?? '' });
     } catch (err: any) {

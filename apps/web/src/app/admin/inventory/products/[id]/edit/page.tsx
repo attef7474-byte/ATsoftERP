@@ -28,8 +28,8 @@ export default function EditProductPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<{ data: Product }>(`/products/${id}`);
-      const item = res.data;
+      const res = await api.get<any>(`/products/${id}`);
+      const item = res;
       setData(item);
       setForm({ code: item.code || '', name: item.name || '', description: item.description || '', categoryId: item.categoryId || '', unit: item.unit || 'pcs', barcode: item.barcode || '', minStock: item.minStock ?? 0, maxStock: item.maxStock ?? 0 });
     } catch (err: any) {

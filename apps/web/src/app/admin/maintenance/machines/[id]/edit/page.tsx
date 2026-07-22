@@ -28,8 +28,8 @@ export default function EditMachinePage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<{ data: Machine }>(`/maintenance/machines/${id}`);
-      const item = res.data;
+      const res = await api.get<any>(`/maintenance/machines/${id}`);
+      const item = res;
       setData(item);
       setForm({ code: item.code || '', name: item.name || '', categoryId: item.categoryId || '', companyId: item.companyId || '', branchId: item.branchId || '', departmentId: item.departmentId || '', model: item.model || '', serialNumber: item.serialNumber || '', manufacturer: item.manufacturer || '', location: item.location || '', notes: item.notes || '' });
     } catch (err: any) {

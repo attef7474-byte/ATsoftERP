@@ -29,8 +29,8 @@ export default function EditMaintenanceTaskPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<{ data: MaintenanceTask }>(`/maintenance/tasks/${id}`);
-      const item = res.data;
+      const res = await api.get<any>(`/maintenance/tasks/${id}`);
+      const item = res;
       setData(item);
       setForm({ requestId: item.requestId || '', title: item.title || '', description: item.description || '', assignedToId: item.assignedToId || '', notes: item.notes || '' });
     } catch (err: any) {

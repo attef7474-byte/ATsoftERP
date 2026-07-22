@@ -80,7 +80,7 @@ export default function InventoryMovementsPage() {
     setEditItem(item);
     setForm({
       companyId: item.companyId, branchId: item.branchId, warehouseId: item.warehouseId,
-      movementType: item.movementType, direction: item.direction, movementDate: item.movementDate.split('T')[0],
+      movementType: item.movementType, direction: item.direction, movementDate: item.movementDate ? item.movementDate.split('T')[0] : new Date().toISOString().split('T')[0],
       sourceType: item.sourceType || '', sourceId: item.sourceId || '', notes: item.notes || '',
     });
     setLines((item.lines || []).map((l: any) => ({ ...l, _id: l.id || Date.now().toString() })));

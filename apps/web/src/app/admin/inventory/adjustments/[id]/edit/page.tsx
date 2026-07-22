@@ -27,7 +27,7 @@ export default function EditInventoryAdjustmentPage() {
     setLoading(true); setError('');
     try {
       const res = await api.get<any>(`/inventory/adjustments/${id}`);
-      const item = res.data as InventoryAdjustment;
+      const item = res as InventoryAdjustment;
       setData(item);
       setForm({ reason: item.reason ?? '', notes: item.notes ?? '' });
     } catch (err: any) {

@@ -93,7 +93,7 @@ export default function NumberingPage() {
     setModalOpen(true);
     try {
       const res = await api.get<any>(`/numbering/${item.id}`);
-      const detail = res.data;
+      const detail = res;
       setForm({
         prefix: detail.prefix ?? '',
         suffix: detail.suffix ?? '',

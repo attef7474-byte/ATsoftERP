@@ -32,7 +32,7 @@ export default function EditProductCategoryPage() {
         api.get<any>(`/product-categories/${id}`),
         api.get<{ data: ProductCategory[] }>('/product-categories', { params: { limit: 50 } }),
       ]);
-      const item = catRes.data as ProductCategory;
+      const item = catRes as ProductCategory;
       setData(item);
       setForm({ code: item.code ?? '', name: item.name ?? '', description: item.description ?? '', parentId: item.parentId ?? '' });
       setParents(parentsRes.data || []);

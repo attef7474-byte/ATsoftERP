@@ -30,8 +30,8 @@ export default function EditDowntimeLogPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<{ data: DowntimeLog }>(`/maintenance/downtime-logs/${id}`);
-      const item = res.data;
+      const res = await api.get<any>(`/maintenance/downtime-logs/${id}`);
+      const item = res;
       setData(item);
       setForm({
         machineId: item.machineId || '',

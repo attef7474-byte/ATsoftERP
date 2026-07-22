@@ -29,8 +29,8 @@ export default function EditInventoryCountPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<{ data: InventoryCount }>(`/inventory/counts/${id}`);
-      const item = res.data;
+      const res = await api.get<any>(`/inventory/counts/${id}`);
+      const item = res;
       setData(item);
       setForm({ companyId: item.companyId || '', branchId: item.branchId || '', warehouseId: item.warehouseId || '', notes: item.notes || '' });
     } catch (err: any) {

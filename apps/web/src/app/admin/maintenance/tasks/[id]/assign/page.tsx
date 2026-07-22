@@ -25,8 +25,8 @@ export default function AssignMaintenanceTaskPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<{ data: MaintenanceTask }>(`/maintenance/tasks/${id}`);
-      const item = res.data;
+      const res = await api.get<any>(`/maintenance/tasks/${id}`);
+      const item = res;
       setData(item);
       setAssignedToId(item.assignedToId || '');
     } catch (err: any) {

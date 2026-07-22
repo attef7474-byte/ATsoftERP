@@ -84,7 +84,7 @@ export default function DepartmentsPage() {
     setModalOpen(true);
     try {
       const res = await api.get<any>(`/departments/${item.id}`);
-      const detail = res.data as Department;
+      const detail = res as Department;
       setForm({
         companyId: detail.companyId,
         branchId: detail.branchId ?? '',

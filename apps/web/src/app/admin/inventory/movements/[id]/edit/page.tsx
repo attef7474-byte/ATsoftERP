@@ -27,7 +27,7 @@ export default function EditInventoryMovementPage() {
     setLoading(true); setError('');
     try {
       const res = await api.get<any>(`/inventory/movements/${id}`);
-      const item = res.data as InventoryMovement;
+      const item = res as InventoryMovement;
       setData(item);
       setForm({ notes: item.notes ?? '' });
     } catch (err: any) {

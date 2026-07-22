@@ -32,8 +32,8 @@ export default function EditMachinePartPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<{ data: MachinePart }>(`/maintenance/machine-parts/${id}`);
-      const item = res.data;
+      const res = await api.get<any>(`/maintenance/machine-parts/${id}`);
+      const item = res;
       const extra = item as any;
       setData(item);
       setForm({

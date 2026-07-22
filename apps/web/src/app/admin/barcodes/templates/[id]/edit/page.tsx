@@ -35,8 +35,8 @@ export default function BarcodeTemplateEditPage() {
   useEffect(() => {
     const fetch = async () => {
       try {
-        const res = await api.get<{ data: BarcodeLabelTemplate }>(`/barcodes/templates/${id}`);
-        const tpl = res.data;
+        const res = await api.get<any>(`/barcodes/templates/${id}`);
+        const tpl = res;
         setCode(tpl.code);
         setName(tpl.name);
         setDescription(tpl.description || '');

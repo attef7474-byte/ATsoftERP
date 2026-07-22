@@ -29,7 +29,7 @@ export default function EditWarehousePage() {
     setLoading(true); setError('');
     try {
       const res = await api.get<any>(`/inventory/warehouses/${id}`);
-      const item = res.data as Warehouse;
+      const item = res as Warehouse;
       setData(item);
       setForm({ companyId: item.companyId ?? '', branchId: item.branchId ?? '', code: item.code ?? '', name: item.name ?? '', location: item.location ?? '' });
     } catch (err: any) {

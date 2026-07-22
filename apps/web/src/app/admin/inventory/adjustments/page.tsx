@@ -102,7 +102,7 @@ export default function InventoryAdjustmentsPage() {
     setEditItem(item);
     setForm({
       companyId: item.companyId, branchId: item.branchId, warehouseId: item.warehouseId,
-      adjustmentDate: item.adjustmentDate.split('T')[0],
+      adjustmentDate: item.adjustmentDate ? item.adjustmentDate.split('T')[0] : new Date().toISOString().split('T')[0],
       reason: item.reason || '', notes: item.notes || '',
     });
     setLines((item.lines || []).map((l: any) => ({

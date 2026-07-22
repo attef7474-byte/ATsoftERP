@@ -84,7 +84,7 @@ export default function BranchesPage() {
     setModalOpen(true);
     try {
       const res = await api.get<any>(`/branches/${item.id}`);
-      const detail = res.data as Branch;
+      const detail = res as Branch;
       setForm({
         companyId: detail.companyId,
         name: detail.name,

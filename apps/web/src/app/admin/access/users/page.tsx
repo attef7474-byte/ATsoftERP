@@ -104,7 +104,7 @@ export default function UsersPage() {
     setModalOpen(true);
     try {
       const res = await api.get<any>(`/users/${item.id}`);
-      const detail = res.data as User;
+      const detail = res as User;
       setForm({ email: detail.email ?? '', password: '', name: detail.name ?? '', phone: detail.phone ?? '', companyId: detail.companyId ?? '', branchId: detail.branchId ?? '', departmentId: detail.departmentId ?? '', roleId: (detail.roles && detail.roles.length > 0) ? detail.roles[0].role.id : '' });
     } catch (err: any) {
       showToast(err?.message || t('errors.loadFailed'), 'error');

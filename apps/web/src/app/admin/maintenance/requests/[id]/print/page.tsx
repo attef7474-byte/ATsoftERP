@@ -168,7 +168,7 @@ export default function RequestPrintPage() {
                   <tr key={cost.id}>
                     <td className="border border-gray-300 px-3 py-2">{cost.type}</td>
                     <td className="border border-gray-300 px-3 py-2">{cost.description || '-'}</td>
-                    <td className="border border-gray-300 px-3 py-2">{cost.amount.toLocaleString()}</td>
+                    <td className="border border-gray-300 px-3 py-2">{cost.amount != null ? cost.amount.toLocaleString() : '-'}</td>
                     <td className="border border-gray-300 px-3 py-2">{fmt(cost.incurredAt)}</td>
                   </tr>
                 ))}

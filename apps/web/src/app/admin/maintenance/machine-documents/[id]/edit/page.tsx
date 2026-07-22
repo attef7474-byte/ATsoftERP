@@ -29,8 +29,8 @@ export default function EditMachineDocumentPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<{ data: MachineDocument }>(`/maintenance/machine-documents/${id}`);
-      const item = res.data;
+      const res = await api.get<any>(`/maintenance/machine-documents/${id}`);
+      const item = res;
       setData(item);
       setForm({
         fileName: item.fileName || '',
