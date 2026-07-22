@@ -12,7 +12,7 @@ cd /d "%ROOT%"
 :: ---- Print header ----
 echo ============================================
 echo   ATsoft ERP - Starting Application
-echo   شغّل تطبيق ATsoft ERP
+echo   ???? ????? ATsoft ERP
 echo ============================================
 echo.
 
@@ -20,7 +20,7 @@ echo.
 where node >nul 2>&1
 if errorlevel 1 (
     echo [FAIL] Node.js not found - please install Node.js first.
-    echo [FAIL] لم يتم العثور على Node.js. يرجى تثبيته أولاً.
+    echo [FAIL] ?? ??? ?????? ??? Node.js. ???? ?????? ?????.
     pause
     exit /b 1
 )
@@ -31,7 +31,7 @@ echo.
 where npm >nul 2>&1
 if errorlevel 1 (
     echo [FAIL] npm not found - please install Node.js first.
-    echo [FAIL] لم يتم العثور على npm. يرجى تثبيته أولاً.
+    echo [FAIL] ?? ??? ?????? ??? npm. ???? ?????? ?????.
     pause
     exit /b 1
 )
@@ -41,7 +41,7 @@ echo.
 :: ---- Verify project files ----
 if not exist "package.json" (
     echo [FAIL] package.json not found in %ROOT%
-    echo [FAIL] ملف package.json غير موجود
+    echo [FAIL] ??? package.json ??? ?????
     pause
     exit /b 1
 )
@@ -64,8 +64,8 @@ echo.
 
 :: ---- Check .env ----
 if not exist "apps\api\.env" (
-    echo [WARN] apps/api/.env not found — API may fail to connect to database.
-    echo [WARN] ملف .env غير موجود — قد يفشل الاتصال بقاعدة البيانات.
+    echo [WARN] apps/api/.env not found - API may fail to connect to database.
+    echo [WARN] ??? .env ??? ????? - ?? ???? ??????? ?????? ????????.
 ) else (
     echo [PASS] apps/api/.env found
 )
@@ -73,7 +73,7 @@ echo.
 
 :: ---- Start API ----
 echo Starting API server...
-echo جارٍ تشغيل خادم API...
+echo ???? ????? ???? API...
 start "ATsoft ERP API - Port 4000" /D "%ROOT%" cmd /k "npm run start:dev --workspace apps/api"
 if errorlevel 1 (
     echo [FAIL] Failed to start API server
@@ -85,13 +85,13 @@ echo.
 
 :: ---- Wait before starting Web ----
 echo Waiting for API to initialize...
-echo جارٍ انتظار تهيئة API...
+echo ???? ?????? ????? API...
 timeout /t 8 /nobreak >nul
 echo.
 
 :: ---- Start Web ----
 echo Starting Web server...
-echo جارٍ تشغيل خادم الويب...
+echo ???? ????? ???? ?????...
 start "ATsoft ERP Web - Port 3000" /D "%ROOT%" cmd /k "npm run dev --workspace apps/web"
 if errorlevel 1 (
     echo [FAIL] Failed to start Web server
@@ -106,14 +106,14 @@ timeout /t 5 /nobreak >nul
 
 :: ---- Open browser ----
 echo Opening browser...
-echo جارٍ فتح المتصفح...
+echo ???? ??? ???????...
 start "" "http://localhost:3000"
 echo.
 
 :: ---- Print URLs ----
 echo ============================================
 echo   ATsoft ERP - Running
-echo   التطبيق قيد التشغيل
+echo   ??????? ??? ???????
 echo ============================================
 echo.
 echo   API:       http://localhost:4000
@@ -122,7 +122,7 @@ echo   Web:       http://localhost:3000
 echo.
 echo ============================================
 echo   To stop, close the two CMD windows or press Ctrl+C
-echo   للإيقاف، أغلق نافذتي CMD أو اضغط Ctrl+C
+echo   ???????, ???? ?????? CMD ?? ???? Ctrl+C
 echo.
 echo   See STOP_ATSOFT_ERP_HELP.txt for details.
 echo ============================================
