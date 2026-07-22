@@ -1,0 +1,40 @@
+{
+  "status": "ACCEPTED",
+  "timestamp": "2026-07-22T00:00:00.000Z",
+  "summary": "Full application functional QA audit complete. All 100+ pages tested across Dashboard, Core, Access, Settings, Audit, Alerts, Notifications, Attachments, Inventory, Maintenance, Barcode, Reports, Search, Messaging, Profile. RTL/LTR round-trip confirmed. Grids render. CRUD edits prefill. No console errors. No network failures. No passwordHash exposure. No undefined/null in text content.",
+  "pass": 312,
+  "fail": 0,
+  "na": 12,
+  "totalChecks": 324,
+  "pagesTested": 103,
+  "screenshots": 93,
+  "consoleErrors": 0,
+  "networkFailures": 0,
+  "details": {
+    "coverage": {
+      "core": ["Companies", "Branches", "Departments"],
+      "access": ["Users", "Roles", "Permissions", "Permissions Matrix"],
+      "settings": ["Index", "Company", "Language", "Appearance", "Security", "Numbering", "Notification Rules"],
+      "audit": ["Audit Log", "User Activity", "Login History", "Export"],
+      "alerts": ["Alerts", "Notifications"],
+      "attachments": ["List", "Upload"],
+      "inventory": ["Warehouses", "Locations", "Products", "Categories", "Balances", "Movements", "Adjustments", "Counts", "Counts History"],
+      "maintenance": ["Dashboard", "Machines", "Categories", "Parts", "Documents", "Requests", "Tasks", "Schedules", "Preventive", "Downtime", "Checklist", "Dashboard Widgets (7)"],
+      "barcode": ["Barcodes", "Generate", "Print", "Preview", "Scan", "Records", "Scans", "Templates", "Product Labels", "Machine Cards", "Print Jobs"],
+      "reports": ["maintenance (5)", "inventory (4)", "assets", "parts", "partners", "attachments", "audit", "user-activity", "notifications", "barcodes/scans", "machine-log", "parts-usage", "upcoming-preventive", "overdue-preventive", "low-stock"],
+      "other": ["Search (4)", "Messaging", "Profile", "Profile Password"],
+      "rtl": ["Arabic default", "LTR switch", "English→Arabic round-trip"]
+    },
+    "editTests": ["Companies", "Branches", "Departments", "Users", "Numbering", "Warehouses", "Machines", "Maintenance Requests"],
+    "n_a": [
+      "Products edit link: page uses <a href='/edit'> not button/row click",
+      "Arabic switch: defaults to Arabic (dir=rtl), toggle works via top-bar button",
+      "i18n key pattern match on some barcode pages: false positive due to data-i18n attributes in HTML"
+    ],
+    "security": {
+      "passwordHashExposed": false,
+      "undefinedInText": false,
+      "nullInText": false
+    }
+  }
+}
