@@ -5,22 +5,23 @@ import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { Button, Input, Textarea, Card, CardContent } from '../../../../../components/admin/ui';
-import { F9Lookup, machineCategoryAdapter, companyAdapter, branchAdapter, departmentAdapter } from '../../../../../components/f9';
+import { F9Lookup, machineCategoryAdapter, companyAdapter, branchAdapter, departmentAdapter, productionLineAdapter, operationTypeAdapter, costCenterAdapter, administrationAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
 
 export default function CreateMachinePage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { showToast } = useToast();
-  const [form, setForm] = useState({ name: '', categoryId: '', companyId: '', branchId: '', departmentId: '', model: '', serialNumber: '', manufacturer: '', location: '', notes: '' });
+  const [form, setForm] = useState({ name: '', categoryId: '', companyId: '', branchId: '', departmentId: '', productionLineId: '', operationTypeId: '', defaultCostCenterId: '', technicalAdministrationId: '', technicalDepartmentId: '', model: '', serialNumber: '', manufacturer: '', location: '', notes: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   const setField = (field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
-    if (field === 'companyId') { setForm(prev => ({ ...prev, branchId: '', departmentId: '' })); }
+    if (field === 'companyId') { setForm(prev => ({ ...prev, branchId: '', departmentId: '', productionLineId: '' })); }
     if (field === 'branchId') { setForm(prev => ({ ...prev, departmentId: '' })); }
+    if (field === 'technicalAdministrationId') { setForm(prev => ({ ...prev, technicalDepartmentId: '' })); }
     setDirty(true);
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
@@ -41,6 +42,11 @@ export default function CreateMachinePage() {
       if (form.companyId) payload.companyId = form.companyId;
       if (form.branchId) payload.branchId = form.branchId;
       if (form.departmentId) payload.departmentId = form.departmentId;
+      if (form.productionLineId) payload.productionLineId = form.productionLineId;
+      if (form.operationTypeId) payload.operationTypeId = form.operationTypeId;
+      if (form.defaultCostCenterId) payload.defaultCostCenterId = form.defaultCostCenterId;
+      if (form.technicalAdministrationId) payload.technicalAdministrationId = form.technicalAdministrationId;
+      if (form.technicalDepartmentId) payload.technicalDepartmentId = form.technicalDepartmentId;
       if (form.model) payload.model = form.model.trim();
       if (form.serialNumber) payload.serialNumber = form.serialNumber.trim();
       if (form.manufacturer) payload.manufacturer = form.manufacturer.trim();
@@ -56,7 +62,7 @@ export default function CreateMachinePage() {
 
   const { exec } = useStableHandlers({
     back: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
-    refresh: () => { setForm({ name: '', categoryId: '', companyId: '', branchId: '', departmentId: '', model: '', serialNumber: '', manufacturer: '', location: '', notes: '' }); setErrors({}); setDirty(false); },
+    refresh: () => { setForm({ name: '', categoryId: '', companyId: '', branchId: '', departmentId: '', productionLineId: '', operationTypeId: '', defaultCostCenterId: '', technicalAdministrationId: '', technicalDepartmentId: '', model: '', serialNumber: '', manufacturer: '', location: '', notes: '' }); setErrors({}); setDirty(false); },
     save: () => handleSave(),
     cancel: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
   });
@@ -87,6 +93,19 @@ export default function CreateMachinePage() {
               <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setField('branchId', v)} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
               <F9Lookup label={t('core.department')} value={form.departmentId} onChange={(v) => setField('departmentId', v)} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
             </div>
+
+            <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.productionLine')}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <F9Lookup label={t('maintenance.productionLine')} value={form.productionLineId} onChange={(v) => setField('productionLineId', v)} adapter={productionLineAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
+              <F9Lookup label={t('maintenance.operationType')} value={form.operationTypeId} onChange={(v) => setField('operationTypeId', v)} adapter={operationTypeAdapter} />
+            </div>
+
+            <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.technicalAdministration')}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <F9Lookup label={t('maintenance.technicalAdministration')} value={form.technicalAdministrationId} onChange={(v) => setField('technicalAdministrationId', v)} adapter={administrationAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
+              <F9Lookup label={t('maintenance.technicalDepartment')} value={form.technicalDepartmentId} onChange={(v) => setField('technicalDepartmentId', v)} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}), ...(form.technicalAdministrationId ? { administrationId: form.technicalAdministrationId } : {}) }} />
+            </div>
+            <F9Lookup label={t('maintenance.defaultCostCenter')} value={form.defaultCostCenterId} onChange={(v) => setField('defaultCostCenterId', v)} adapter={costCenterAdapter} filters={{ ...(form.technicalAdministrationId ? { administrationId: form.technicalAdministrationId } : {}) }} />
 
             <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('complexForms.technicalInformation')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

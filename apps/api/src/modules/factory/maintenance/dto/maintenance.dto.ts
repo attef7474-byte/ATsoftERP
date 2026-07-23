@@ -35,6 +35,31 @@ export class CreateMachineDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  productionLineId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  operationTypeId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  defaultCostCenterId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  technicalAdministrationId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  technicalDepartmentId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   model?: string;
 
   @ApiPropertyOptional()
@@ -98,6 +123,31 @@ export class UpdateMachineDto {
   @IsOptional()
   @IsString()
   departmentId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  productionLineId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  operationTypeId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  defaultCostCenterId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  technicalAdministrationId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  technicalDepartmentId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

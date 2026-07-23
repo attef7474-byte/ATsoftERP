@@ -276,9 +276,10 @@ model Administration {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  departments     Department[]
-  costCenters     CostCenter[]
-  productionLines ProductionLine[]
+  departments      Department[]
+  costCenters      CostCenter[]
+  productionLines  ProductionLine[]
+  technicalMachines Machine[] @relation("TechnicalAdministration")
 
   @@unique([branchId, code])
   @@index([branchId])
@@ -305,10 +306,11 @@ model Department {
   updatedAt        DateTime       @updatedAt
   deletedAt        DateTime?
 
-  users           User[]
-  machines        Machine[]
-  costCenters     CostCenter[]
-  productionLines ProductionLine[]
+  users            User[]
+  machines         Machine[]
+  technicalMachines Machine[] @relation("TechnicalDepartment")
+  costCenters      CostCenter[]
+  productionLines  ProductionLine[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -340,6 +342,8 @@ model ProductionLine {
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   deletedAt        DateTime?
+
+  machines Machine[]
 
   @@index([code])
   @@index([companyId])
@@ -932,6 +936,16 @@ model Machine {
   branch       Branch?          @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   departmentId String?
   department   Department?      @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId         String?
+  productionLine           ProductionLine?                         @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  operationTypeId          String?
+  operationType            OperationType?                          @relation(fields: [operationTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  defaultCostCenterId      String?
+  defaultCostCenter        CostCenter?                             @relation(fields: [defaultCostCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  technicalAdministrationId String?
+  technicalAdministration  Administration?                         @relation("TechnicalAdministration", fields: [technicalAdministrationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  technicalDepartmentId    String?
+  technicalDepartment      Department?                             @relation("TechnicalDepartment", fields: [technicalDepartmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   model        String?
   serialNumber String?
   manufacturer String?
@@ -956,6 +970,11 @@ model Machine {
   @@index([companyId])
   @@index([branchId])
   @@index([departmentId])
+  @@index([productionLineId])
+  @@index([operationTypeId])
+  @@index([defaultCostCenterId])
+  @@index([technicalAdministrationId])
+  @@index([technicalDepartmentId])
   @@index([code])
   @@index([status])
   @@index([createdAt])
@@ -1408,6 +1427,7 @@ model OperationType {
   deletedAt   DateTime?
 
   productionLines ProductionLine[]
+  machines        Machine[]
 
   @@index([code])
   @@index([status])
@@ -1443,6 +1463,7 @@ model CostCenter {
   @@index([departmentId])
   @@index([status])
   productionLines ProductionLine[]
+  machines        Machine[]
 
   @@index([type, status])
   @@index([companyId, status])

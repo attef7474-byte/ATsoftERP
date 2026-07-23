@@ -21,13 +21,18 @@ export class MaintenanceController {
   @Get('machines')
   @Permissions('machines:read')
   @ApiOperation({ summary: 'List machines' })
-  findAllMachines(@Query() query: { page?: string; limit?: string; search?: string; categoryId?: string; companyId?: string; status?: string }) {
+  findAllMachines(@Query() query: { page?: string; limit?: string; search?: string; categoryId?: string; companyId?: string; branchId?: string; administrationId?: string; departmentId?: string; productionLineId?: string; operationTypeId?: string; status?: string }) {
     return this.service.findAllMachines({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,
       categoryId: query.categoryId,
       companyId: query.companyId,
+      branchId: query.branchId,
+      administrationId: query.administrationId,
+      departmentId: query.departmentId,
+      productionLineId: query.productionLineId,
+      operationTypeId: query.operationTypeId,
       status: query.status,
     });
   }

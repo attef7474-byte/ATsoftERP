@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import { CreateMachineDto, UpdateMachineDto, CreateMachinePartDto, CreateMachineDocumentDto, UpdateMachineLocationDto, UpdateMachineManufacturerDto, UpdateMachineWarrantyDto, UpdateMachineImageDto } from './dto/maintenance.dto';
@@ -10,10 +10,50 @@ export class MaintenanceService {
     private numberingService: NumberingService,
   ) {}
 
+  private async validateMachineReferences(dto: any, existing?: any) {
+    const companyId = dto.companyId ?? existing?.companyId;
+    const branchId = dto.branchId ?? existing?.branchId;
+    const administrationId = dto.administrationId ?? existing?.administrationId;
+    const departmentId = dto.departmentId ?? existing?.departmentId;
+
+    if (dto.productionLineId) {
+      const line = await this.prisma.productionLine.findUnique({ where: { id: dto.productionLineId } });
+      if (!line) throw new BadRequestException('Production line not found');
+      if (companyId && line.companyId !== companyId) throw new BadRequestException('Production line does not belong to the selected company');
+      if (branchId && line.branchId !== branchId) throw new BadRequestException('Production line does not belong to the selected branch');
+      if (administrationId && line.administrationId && line.administrationId !== administrationId) throw new BadRequestException('Production line does not belong to the selected administration');
+      if (departmentId && line.departmentId !== departmentId) throw new BadRequestException('Production line does not belong to the selected department');
+    }
+
+    if (dto.operationTypeId) {
+      const ot = await this.prisma.operationType.findUnique({ where: { id: dto.operationTypeId } });
+      if (!ot) throw new BadRequestException('Operation type not found');
+    }
+
+    if (dto.defaultCostCenterId) {
+      const cc = await this.prisma.costCenter.findUnique({ where: { id: dto.defaultCostCenterId } });
+      if (!cc) throw new BadRequestException('Cost center not found');
+    }
+
+    if (dto.technicalAdministrationId) {
+      const ta = await this.prisma.administration.findUnique({ where: { id: dto.technicalAdministrationId } });
+      if (!ta) throw new BadRequestException('Technical administration not found');
+    }
+
+    if (dto.technicalDepartmentId) {
+      const td = await this.prisma.department.findUnique({ where: { id: dto.technicalDepartmentId } });
+      if (!td) throw new BadRequestException('Technical department not found');
+      if (dto.technicalAdministrationId && td.administrationId !== dto.technicalAdministrationId) {
+        throw new BadRequestException('Technical department does not belong to the selected technical administration');
+      }
+    }
+  }
+
   async createMachine(dto: CreateMachineDto) {
     const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('MACHINE');
     const existing = await this.prisma.machine.findUnique({ where: { code } });
     if (existing) throw new ConflictException('Machine code already exists');
+    await this.validateMachineReferences(dto);
     const { purchaseDate, warrantyEnd, ...rest } = dto;
     return this.prisma.machine.create({
       data: {
@@ -22,10 +62,21 @@ export class MaintenanceService {
         purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
         warrantyEnd: warrantyEnd ? new Date(warrantyEnd) : undefined,
       },
+      include: {
+        category: { select: { id: true, name: true, code: true } },
+        company: { select: { id: true, name: true } },
+        branch: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } },
+        productionLine: { select: { id: true, name: true, code: true } },
+        operationType: { select: { id: true, name: true, code: true } },
+        defaultCostCenter: { select: { id: true, name: true, code: true } },
+        technicalAdministration: { select: { id: true, name: true } },
+        technicalDepartment: { select: { id: true, name: true } },
+      },
     });
   }
 
-  async findAllMachines(query: { page?: number; limit?: number; search?: string; categoryId?: string; companyId?: string; status?: string }) {
+  async findAllMachines(query: { page?: number; limit?: number; search?: string; categoryId?: string; companyId?: string; branchId?: string; administrationId?: string; departmentId?: string; productionLineId?: string; operationTypeId?: string; status?: string }) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -40,6 +91,11 @@ export class MaintenanceService {
     }
     if (query.categoryId) where.categoryId = query.categoryId;
     if (query.companyId) where.companyId = query.companyId;
+    if (query.branchId) where.branchId = query.branchId;
+    if (query.administrationId) where.administrationId = query.administrationId;
+    if (query.departmentId) where.departmentId = query.departmentId;
+    if (query.productionLineId) where.productionLineId = query.productionLineId;
+    if (query.operationTypeId) where.operationTypeId = query.operationTypeId;
     if (query.status) where.status = query.status;
 
     const [data, total] = await Promise.all([
@@ -50,6 +106,11 @@ export class MaintenanceService {
           company: { select: { id: true, name: true } },
           branch: { select: { id: true, name: true } },
           department: { select: { id: true, name: true } },
+          productionLine: { select: { id: true, name: true, code: true } },
+          operationType: { select: { id: true, name: true, code: true } },
+          defaultCostCenter: { select: { id: true, name: true, code: true } },
+          technicalAdministration: { select: { id: true, name: true } },
+          technicalDepartment: { select: { id: true, name: true } },
         },
       }),
       this.prisma.machine.count({ where }),
@@ -66,6 +127,11 @@ export class MaintenanceService {
         company: { select: { id: true, name: true } },
         branch: { select: { id: true, name: true } },
         department: { select: { id: true, name: true } },
+        productionLine: { select: { id: true, name: true, code: true } },
+        operationType: { select: { id: true, name: true, code: true } },
+        defaultCostCenter: { select: { id: true, name: true, code: true } },
+        technicalAdministration: { select: { id: true, name: true } },
+        technicalDepartment: { select: { id: true, name: true } },
         parts: true,
         documents: true,
         _count: { select: { maintenanceReqs: true, schedules: true, downtimeLogs: true } },
@@ -76,12 +142,27 @@ export class MaintenanceService {
   }
 
   async updateMachine(id: string, dto: UpdateMachineDto) {
-    await this.findOneMachine(id);
+    const existing = await this.findOneMachine(id);
+    await this.validateMachineReferences(dto, existing);
     const { purchaseDate, warrantyEnd, ...rest } = dto as any;
     const data: any = { ...rest };
     if (purchaseDate) data.purchaseDate = new Date(purchaseDate);
     if (warrantyEnd) data.warrantyEnd = new Date(warrantyEnd);
-    return this.prisma.machine.update({ where: { id }, data });
+    return this.prisma.machine.update({
+      where: { id },
+      data,
+      include: {
+        category: { select: { id: true, name: true, code: true } },
+        company: { select: { id: true, name: true } },
+        branch: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } },
+        productionLine: { select: { id: true, name: true, code: true } },
+        operationType: { select: { id: true, name: true, code: true } },
+        defaultCostCenter: { select: { id: true, name: true, code: true } },
+        technicalAdministration: { select: { id: true, name: true } },
+        technicalDepartment: { select: { id: true, name: true } },
+      },
+    });
   }
 
   async removeMachine(id: string) {
@@ -174,6 +255,11 @@ export class MaintenanceService {
         company: { select: { id: true, name: true } },
         branch: { select: { id: true, name: true } },
         department: { select: { id: true, name: true } },
+        productionLine: { select: { id: true, name: true, code: true } },
+        operationType: { select: { id: true, name: true, code: true } },
+        defaultCostCenter: { select: { id: true, name: true, code: true } },
+        technicalAdministration: { select: { id: true, name: true } },
+        technicalDepartment: { select: { id: true, name: true } },
         _count: { select: { parts: true, documents: true, maintenanceReqs: true, schedules: true, downtimeLogs: true } },
       },
     });

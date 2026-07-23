@@ -7,7 +7,7 @@ import { useToast } from '../../../../components/admin/toast-provider';
 import { Machine } from '../../../../lib/admin-types';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Pagination, PageHeader, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
-import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter, machineCategoryAdapter } from '../../../../components/f9';
+import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter, machineCategoryAdapter, productionLineAdapter, operationTypeAdapter, costCenterAdapter, administrationAdapter } from '../../../../components/f9';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
@@ -26,6 +26,7 @@ export default function MachinesPage() {
   const [editItem, setEditItem] = useState<Machine | null>(null);
   const [form, setForm] = useState({
     code: '', name: '', categoryId: '', companyId: '', branchId: '', departmentId: '',
+    productionLineId: '', operationTypeId: '', defaultCostCenterId: '', technicalAdministrationId: '', technicalDepartmentId: '',
     model: '', serialNumber: '', manufacturer: '', purchaseDate: '', warrantyEnd: '', location: '', notes: '',
   });
   const [saving, setSaving] = useState(false);
@@ -79,6 +80,11 @@ useRegisterAdminActions([
       if (form.companyId) payload.companyId = form.companyId;
       if (form.branchId) payload.branchId = form.branchId;
       if (form.departmentId) payload.departmentId = form.departmentId;
+      if (form.productionLineId) payload.productionLineId = form.productionLineId;
+      if (form.operationTypeId) payload.operationTypeId = form.operationTypeId;
+      if (form.defaultCostCenterId) payload.defaultCostCenterId = form.defaultCostCenterId;
+      if (form.technicalAdministrationId) payload.technicalAdministrationId = form.technicalAdministrationId;
+      if (form.technicalDepartmentId) payload.technicalDepartmentId = form.technicalDepartmentId;
       if (form.model) payload.model = form.model;
       if (form.serialNumber) payload.serialNumber = form.serialNumber;
       if (form.manufacturer) payload.manufacturer = form.manufacturer;
@@ -119,9 +125,10 @@ useRegisterAdminActions([
     { key: 'code', header: t('common.code') },
     { key: 'name', header: t('common.name') },
     { key: 'category', header: t('maintenance.machineCategory'), render: (m: Machine) => m.category?.name || '-' },
-    { key: 'model', header: t('maintenance.model'), render: (m: Machine) => m.model || '-' },
-    { key: 'serialNumber', header: t('maintenance.serialNumber'), render: (m: Machine) => m.serialNumber || '-' },
-    { key: 'manufacturer', header: t('maintenance.manufacturer'), render: (m: Machine) => m.manufacturer || '-' },
+    { key: 'productionLine', header: t('maintenance.productionLine'), render: (m: Machine) => m.productionLine?.name || '-' },
+    { key: 'operationType', header: t('maintenance.operationType'), render: (m: Machine) => m.operationType?.name || '-' },
+    { key: 'technicalDepartment', header: t('maintenance.technicalDepartment'), render: (m: Machine) => m.technicalDepartment?.name || '-' },
+    { key: 'costCenter', header: t('maintenance.defaultCostCenter'), render: (m: Machine) => m.defaultCostCenter?.name || '-' },
     { key: 'status', header: t('common.status'), render: (m: Machine) => <StatusBadge status={m.status} /> },
   ];
 

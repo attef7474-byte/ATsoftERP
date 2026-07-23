@@ -105,6 +105,11 @@ export default function MachineDetailPage() {
             <div><dt className="text-sm font-medium text-gray-500">{t('core.company')}</dt><dd className="mt-1 text-sm text-gray-900">{data.company?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('core.branch')}</dt><dd className="mt-1 text-sm text-gray-900">{data.branch?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('core.department')}</dt><dd className="mt-1 text-sm text-gray-900">{data.department?.name || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.productionLine')}</dt><dd className="mt-1 text-sm text-gray-900">{data.productionLine?.name || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.operationType')}</dt><dd className="mt-1 text-sm text-gray-900">{data.operationType?.name || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.technicalAdministration')}</dt><dd className="mt-1 text-sm text-gray-900">{data.technicalAdministration?.name || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.technicalDepartment')}</dt><dd className="mt-1 text-sm text-gray-900">{data.technicalDepartment?.name || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.defaultCostCenter')}</dt><dd className="mt-1 text-sm text-gray-900">{data.defaultCostCenter?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('common.createdAt')}</dt><dd className="mt-1 text-sm text-gray-900">{fmt(data.createdAt)}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('common.updatedAt')}</dt><dd className="mt-1 text-sm text-gray-900">{fmt(data.updatedAt)}</dd></div>
           </dl>

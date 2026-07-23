@@ -20,6 +20,11 @@ export interface Machine {
   companyId?: string | null;
   branchId?: string | null;
   departmentId?: string | null;
+  productionLineId?: string | null;
+  operationTypeId?: string | null;
+  defaultCostCenterId?: string | null;
+  technicalAdministrationId?: string | null;
+  technicalDepartmentId?: string | null;
   model?: string | null;
   serialNumber?: string | null;
   manufacturer?: string | null;
@@ -36,6 +41,11 @@ export interface Machine {
   company?: { id: string; name: string };
   branch?: { id: string; name: string };
   department?: { id: string; name: string };
+  productionLine?: { id: string; name: string; code: string };
+  operationType?: { id: string; name: string; code: string };
+  defaultCostCenter?: { id: string; name: string; code: string };
+  technicalAdministration?: { id: string; name: string };
+  technicalDepartment?: { id: string; name: string };
 }
 
 export interface MachinePart {
