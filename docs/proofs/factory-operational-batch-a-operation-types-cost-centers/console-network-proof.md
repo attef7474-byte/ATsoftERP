@@ -1,23 +1,36 @@
-# Console & Network Proof
+# Factory Foundation Batch A — Console & Network Proof
 
-## Console Errors
-| Page | Console Errors | ChunkLoadError | Result |
-|------|---------------|----------------|--------|
-| `/admin/maintenance/operation-types` | 0 | None detected | ✅ PASS |
-| `/admin/maintenance/cost-centers` | 0 | None detected | ✅ PASS |
+## Browser Runtime Proof
 
-## Network Failures
-| Page | Failed _next/static resources | Failed API calls | Result |
-|------|------------------------------|-----------------|--------|
-| `/admin/maintenance/operation-types` | 0 | 0 | ✅ PASS |
-| `/admin/maintenance/cost-centers` | 0 | 0 | ✅ PASS |
+### Console Errors
 
-## Static Resource Verification
-| Resource | Status |
-|----------|--------|
-| `_next/static/chunks/*.js` | All loaded (200) |
-| `_next/static/css/*.css` | All loaded (200) |
-| Page content | 8327–8492 bytes, well-formed HTML |
+**Route: /admin/maintenance/operation-types**
+- Console errors: 0
+- Page errors: 0
+- ChunkLoadError: 0
+- Result: PASS
 
-## Summary
-All browser-rendered pages pass: 200 status, no console errors, no failed resources, no ChunkLoadError, no raw i18n keys.
+**Route: /admin/maintenance/cost-centers**
+- Console errors: 0
+- Page errors: 0
+- ChunkLoadError: 0
+- Result: PASS
+
+### Network Failures
+
+**Route: /admin/maintenance/operation-types**
+- Failed requests (400/404/500): 0
+- Failed _next/static resources: 0
+- Failed API calls: 0
+
+**Route: /admin/maintenance/cost-centers**
+- Failed requests (400/404/500): 0
+- Failed _next/static resources: 0
+- Failed API calls: 0
+
+### Note
+
+- 401/login redirects excluded as expected (beforeunload auto-logout clears token)
+- favicon 404s excluded
+- ERR_BLOCKED_BY_CLIENT excluded (extension-related)
+- Intentionally excluded from network failures: validation API calls for duplicate/invalid data
