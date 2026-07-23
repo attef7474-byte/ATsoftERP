@@ -25,6 +25,8 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         machines: 'الماكينات',
         machineParts: 'قطع الغيار',
         machineDocuments: 'المستندات',
+        operationTypes: 'أنواع العمليات',
+        costCenters: 'مراكز التكلفة',
         maintenanceRequests: 'طلبات الصيانة',
         maintenanceTasks: 'مهام الصيانة',
         maintenanceSchedules: 'جداول الصيانة',

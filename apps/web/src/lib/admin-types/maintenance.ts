@@ -239,3 +239,32 @@ export interface DowntimeLog {
   machine?: { id: string; name: string; code: string };
   request?: { id: string; requestNumber: string; title: string };
 }
+
+export interface OperationType {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CostCenter {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  type: string;
+  companyId?: string | null;
+  branchId?: string | null;
+  administrationId?: string | null;
+  departmentId?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  company?: { id: string; name: string; code: string };
+  branch?: { id: string; name: string; code: string };
+  administration?: { id: string; name: string; code: string };
+  department?: { id: string; name: string; code: string };
+}

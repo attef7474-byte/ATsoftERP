@@ -351,6 +351,16 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         monthly: 'Monthly',
         weekly: 'Weekly',
         daily: 'Daily',
+        operationTypes: 'Operation Types',
+        operationType: 'Operation Type',
+        newOperationType: 'New Operation Type',
+        editOperationType: 'Edit Operation Type',
+        costCenters: 'Cost Centers',
+        costCenter: 'Cost Center',
+        newCostCenter: 'New Cost Center',
+        editCostCenter: 'Edit Cost Center',
+        type: 'Type',
+        parent: 'Parent',
     }
 };
 

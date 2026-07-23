@@ -25,6 +25,8 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         machines: 'Machines',
         machineParts: 'Machine Parts',
         machineDocuments: 'Machine Documents',
+        operationTypes: 'Operation Types',
+        costCenters: 'Cost Centers',
         maintenanceRequests: 'Maintenance Requests',
         maintenanceTasks: 'Maintenance Tasks',
         maintenanceSchedules: 'Maintenance Schedules',

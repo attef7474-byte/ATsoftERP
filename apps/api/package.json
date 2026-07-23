@@ -7,6 +7,7 @@
     "start:dev": "ts-node src/main.ts",
     "start:prod": "node dist/main.js",
     "seed": "ts-node prisma/seed/seed.ts",
+    "seed:factory": "ts-node prisma/seed/seed-factory-reference.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:format": "prisma format",

@@ -224,6 +224,7 @@ model Company {
   counts      InventoryCount[]
   movements   InventoryMovement[]
   adjustments InventoryAdjustment[]
+  costCenters CostCenter[]
 
   @@index([status])
   @@index([code])
@@ -253,6 +254,7 @@ model Branch {
   counts         InventoryCount[]
   movements      InventoryMovement[]
   adjustments    InventoryAdjustment[]
+  costCenters    CostCenter[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -273,6 +275,7 @@ model Administration {
   deletedAt DateTime?
 
   departments Department[]
+  costCenters CostCenter[]
 
   @@unique([branchId, code])
   @@index([branchId])
@@ -299,8 +302,9 @@ model Department {
   updatedAt        DateTime       @updatedAt
   deletedAt        DateTime?
 
-  users    User[]
-  machines Machine[]
+  users       User[]
+  machines    Machine[]
+  costCenters CostCenter[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -1351,4 +1355,53 @@ model InternalMessage {
   @@index([conversationId, createdAt])
   @@index([senderUserId])
   @@map("internal_messages")
+}
+
+// ── Operation Type ────────────────────────────────────────────
+model OperationType {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([code])
+  @@index([status])
+  @@index([status, createdAt])
+  @@map("operation_types")
+}
+
+// ── Cost Center ───────────────────────────────────────────────
+model CostCenter {
+  id               String         @id @default(cuid())
+  code             String         @unique
+  name             String
+  description      String?
+  type             String
+  companyId        String?
+  company          Company?       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId         String?
+  branch           Branch?        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  administrationId String?
+  administration   Administration? @relation(fields: [administrationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId     String?
+  department       Department?    @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status           String         @default("ACTIVE")
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?
+
+  @@index([code])
+  @@index([type])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([administrationId])
+  @@index([departmentId])
+  @@index([status])
+  @@index([type, status])
+  @@index([companyId, status])
+  @@map("cost_centers")
 }

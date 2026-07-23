@@ -27,6 +27,8 @@ import { MaintenanceRequestPartsModule } from './modules/factory/maintenance/mai
 import { MaintenanceRequestCostsModule } from './modules/factory/maintenance/maintenance-request-costs/maintenance-request-costs.module'
 import { MaintenanceChecklistExecutionsModule } from './modules/factory/maintenance/maintenance-checklist-executions/maintenance-checklist-executions.module'
 import { PreventiveMaintenanceModule } from './modules/factory/maintenance/preventive-maintenance/preventive-maintenance.module'
+import { OperationTypesModule } from './modules/factory/maintenance/operation-types/operation-types.module'
+import { CostCentersModule } from './modules/factory/maintenance/cost-centers/cost-centers.module'
 import { InventoryCountsModule } from './modules/factory/inventory-counts/inventory-counts.module'
 import { InventoryCountLinesModule } from './modules/factory/inventory-count-lines/inventory-count-lines.module'
 import { InventoryMovementsModule } from './modules/factory/inventory-movements/inventory-movements.module'
@@ -60,6 +62,7 @@ import { MessagingModule } from './modules/messaging/messaging.module'
     MaintenanceChecklistItemsModule, DowntimeLogsModule,
     MaintenanceRequestPartsModule, MaintenanceRequestCostsModule, MaintenanceChecklistExecutionsModule,
     MaintenanceDashboardModule, PreventiveMaintenanceModule,
+    OperationTypesModule, CostCentersModule,
     InventoryCountsModule, InventoryCountLinesModule, InventoryMovementsModule,
     InventoryAdjustmentsModule, InventoryBalancesModule,
     BusinessPartnersModule,     BarcodesModule,

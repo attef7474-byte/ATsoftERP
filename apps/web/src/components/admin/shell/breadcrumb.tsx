@@ -46,6 +46,8 @@ export function getPageTitle(pathname: string): string {
     'machine-categories': 'maintenance.machineCategories',
     'machine-parts': 'maintenance.machineParts',
     'machine-documents': 'maintenance.machineDocuments',
+    'operation-types': 'maintenance.operationTypes',
+    'cost-centers': 'maintenance.costCenters',
     requests: 'maintenance.maintenanceRequests',
     tasks: 'maintenance.maintenanceTasks',
     schedules: 'maintenance.maintenanceSchedules',

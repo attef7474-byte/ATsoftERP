@@ -351,6 +351,16 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         monthly: 'شهري',
         weekly: 'أسبوعي',
         daily: 'يومي',
+        operationTypes: 'أنواع العمليات',
+        operationType: 'نوع العملية',
+        newOperationType: 'نوع عملية جديد',
+        editOperationType: 'تعديل نوع العملية',
+        costCenters: 'مراكز التكلفة',
+        costCenter: 'مركز تكلفة',
+        newCostCenter: 'مركز تكلفة جديد',
+        editCostCenter: 'تعديل مركز التكلفة',
+        type: 'النوع',
+        parent: 'أصل',
     }
 };
 

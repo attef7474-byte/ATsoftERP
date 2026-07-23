@@ -25,13 +25,15 @@ import {
   auditLogAdapter,
   machinePartAdapter,
   downtimeLogAdapter,
+  operationTypeAdapter,
+  costCenterAdapter,
 } from './lookup-adapters';
 import type {
   Company, Branch, Administration, Department, Warehouse, ProductCategory, Product,
   MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask,
   MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment,
   WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification,
-  AuditLog, MachinePart, DowntimeLog,
+  AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter,
 } from '../../lib/admin-types';
 
 export interface UnifiedSearchEntity {
@@ -228,6 +230,20 @@ const registry: UnifiedSearchEntity[] = [
     adapter: downtimeLogAdapter as LookupAdapter<any>,
     detailRoute: () => `/admin/maintenance/downtime-logs`,
     subtitle: (item: DowntimeLog) => `${item.durationMinutes || 0} min`,
+  },
+  {
+    entityType: 'operationType',
+    labelKey: 'maintenance.operationTypes',
+    adapter: operationTypeAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/maintenance/operation-types`,
+    subtitle: (item: OperationType) => item.code,
+  },
+  {
+    entityType: 'costCenter',
+    labelKey: 'maintenance.costCenters',
+    adapter: costCenterAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/maintenance/cost-centers`,
+    subtitle: (item: CostCenter) => item.code,
   },
 ];
 

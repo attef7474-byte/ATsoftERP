@@ -30,4 +30,6 @@ export {
   auditLogAdapter,
   machinePartAdapter,
   downtimeLogAdapter,
+  operationTypeAdapter,
+  costCenterAdapter,
 } from './lookup-adapters';

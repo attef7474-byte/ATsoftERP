@@ -21,6 +21,7 @@ const MODULES = [
   "reports.maintenance", "reports.inventory", "reports.barcodes",
   "search",
   "messaging",
+  "operation-type", "cost-center",
 ] as const;
 
 const ACTIONS = ["create", "read", "update", "delete"] as const;
@@ -128,6 +129,10 @@ async function main() {
     { key: "numbering:generate", module: "numbering", action: "generate" },
     { key: "messaging:send", module: "messaging", action: "send" },
     { key: "messaging:manage", module: "messaging", action: "manage" },
+    { key: "operation-type:activate", module: "operation-type", action: "activate" },
+    { key: "operation-type:deactivate", module: "operation-type", action: "deactivate" },
+    { key: "cost-center:activate", module: "cost-center", action: "activate" },
+    { key: "cost-center:deactivate", module: "cost-center", action: "deactivate" },
   ];
 
   for (const p of extraPermissions) {
@@ -171,6 +176,8 @@ async function main() {
     { code: "MAINTENANCE_TASK", name: "Maintenance Task", operationName: "Maintenance Task", modelName: "MaintenanceTask", domain: "maintenance", prefix: "MTK-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "PREVENTIVE_MAINTENANCE", name: "Preventive Maintenance", operationName: "Preventive Maintenance", modelName: "PreventiveMaintenance", domain: "maintenance", prefix: "PM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "DOWNTIME", name: "Downtime", operationName: "Downtime", modelName: "DowntimeLog", domain: "maintenance", prefix: "DT-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "OPERATION_TYPE", name: "Operation Type", operationName: "Operation Type", modelName: "OperationType", domain: "maintenance", prefix: "OT-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "COST_CENTER", name: "Cost Center", operationName: "Cost Center", modelName: "CostCenter", domain: "maintenance", prefix: "CC-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
 
     // Barcode/QR
     { code: "BARCODE_LABEL", name: "Barcode Label", operationName: "Barcode Label", modelName: "BarcodeLabel", domain: "barcode", prefix: "BCL-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },

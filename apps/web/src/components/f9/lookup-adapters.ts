@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Administration, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -298,5 +298,28 @@ export const downtimeLogAdapter: LookupAdapter<DowntimeLog> = {
     { key: 'reason', header: 'Reason' },
     { key: 'startTime', header: 'Start', render: (d) => new Date(d.startTime).toLocaleDateString() },
     { key: 'status', header: 'Status', render: (d) => d.status || '-' },
+  ],
+};
+
+export const operationTypeAdapter: LookupAdapter<OperationType> = {
+  endpoint: '/maintenance/operation-types',
+  displayLabel: (o) => `[${o.code}] ${o.name}`,
+  searchFields: ['code', 'name'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'status', header: 'Status', render: (o) => o.status },
+  ],
+};
+
+export const costCenterAdapter: LookupAdapter<CostCenter> = {
+  endpoint: '/maintenance/cost-centers',
+  displayLabel: (c) => `[${c.code}] ${c.name}`,
+  searchFields: ['code', 'name'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'type', header: 'Type' },
+    { key: 'status', header: 'Status', render: (c) => c.status },
   ],
 };
