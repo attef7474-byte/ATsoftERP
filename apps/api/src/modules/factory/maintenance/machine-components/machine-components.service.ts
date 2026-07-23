@@ -97,6 +97,7 @@ export class MachineComponentsService {
       if (dto.parentComponentId === id) throw new BadRequestException('A component cannot be its own parent');
       const targetMachineId = dto.machineId || (await this.prisma.machineComponent.findUnique({ where: { id } }))?.machineId;
       await this.validateParent(dto.parentComponentId, targetMachineId!);
+      await this.detectCycle(id, dto.parentComponentId);
     }
 
     const component = await this.prisma.machineComponent.update({
@@ -135,5 +136,17 @@ export class MachineComponentsService {
     const parent = await this.prisma.machineComponent.findUnique({ where: { id: parentComponentId } });
     if (!parent) throw new BadRequestException('Parent component not found');
     if (parent.machineId !== machineId) throw new BadRequestException('Parent component must belong to the same machine');
+  }
+
+  private async detectCycle(componentId: string, proposedParentId: string) {
+    let currentId: string | null = proposedParentId;
+    const visited = new Set<string>();
+    while (currentId) {
+      if (currentId === componentId) throw new BadRequestException('Setting this parent would create a circular reference');
+      if (visited.has(currentId)) break;
+      visited.add(currentId);
+      const comp: { parentComponentId: string | null } | null = await this.prisma.machineComponent.findUnique({ where: { id: currentId }, select: { parentComponentId: true } });
+      currentId = comp?.parentComponentId ?? null;
+    }
   }
 }

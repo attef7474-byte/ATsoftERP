@@ -13,9 +13,10 @@ interface F9LookupProps<T extends Record<string, any>> {
   filters?: Record<string, string>;
   placeholder?: string;
   error?: string;
+  disabled?: boolean;
 }
 
-export function F9Lookup<T extends Record<string, any>>({ label, value, onChange, adapter, filters, placeholder, error }: F9LookupProps<T>) {
+export function F9Lookup<T extends Record<string, any>>({ label, value, onChange, adapter, filters, placeholder, error, disabled }: F9LookupProps<T>) {
   const { t } = useTranslation();
   const [modalOpen, setModalOpen] = useState(false);
   const [displayText, setDisplayText] = useState('');
@@ -47,6 +48,7 @@ export function F9Lookup<T extends Record<string, any>>({ label, value, onChange
   }, [value, fetchItem]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
     if (e.key === 'F9' || (e.key === ' ' && e.ctrlKey)) {
       e.preventDefault();
       setModalOpen(true);
@@ -69,12 +71,12 @@ export function F9Lookup<T extends Record<string, any>>({ label, value, onChange
     <div className="w-full">
       {label && <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
       <div
-        tabIndex={0}
+        tabIndex={disabled ? -1 : 0}
         role="button"
         id={inputId}
-        onClick={() => setModalOpen(true)}
+        onClick={() => { if (!disabled) setModalOpen(true); }}
         onKeyDown={handleKeyDown}
-        className={`block w-full rounded-lg border px-3 py-2 text-sm shadow-sm cursor-pointer flex items-center justify-between ${error ? 'border-red-300 bg-red-50' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+        className={`block w-full rounded-lg border px-3 py-2 text-sm shadow-sm flex items-center justify-between ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'cursor-pointer'} ${error ? 'border-red-300 bg-red-50' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
       >
         <span className={displayText ? 'text-gray-900' : 'text-gray-400'}>
           {displayText || placeholder || t('f9.pressToSearch')}
@@ -84,7 +86,7 @@ export function F9Lookup<T extends Record<string, any>>({ label, value, onChange
         </svg>
       </div>
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-      {value && (
+      {value && !disabled && (
         <button
           type="button"
           onClick={() => { onChange(''); setDisplayText(''); }}

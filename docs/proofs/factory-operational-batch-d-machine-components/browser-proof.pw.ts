@@ -16,6 +16,16 @@ async function loginAndSetup(page: Page, lang: string) {
   }, { token: json.accessToken, locale: lang });
 }
 
+async function getToken(): Promise<string> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'admin@atsofterp.com', password: 'Admin@123456' }),
+  });
+  const json = await res.json();
+  return json.accessToken;
+}
+
 test.describe('Batch D — Machine Components', () => {
   test('Arabic: list page shows component labels', async ({ page }) => {
     await loginAndSetup(page, 'ar');
@@ -86,5 +96,73 @@ test.describe('Batch D — Machine Components', () => {
     await page.waitForURL('**/admin/maintenance/machine-components');
     await page.waitForTimeout(3000);
     expect(failures.length).toBe(0);
+  });
+
+  test('Detail page loads for first component', async ({ page }) => {
+    const token = await getToken();
+    const res = await fetch(`${API_BASE}/maintenance/machine-components?limit=1`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const list = await res.json();
+    const firstId = list?.data?.[0]?.id || list?.[0]?.id;
+    if (!firstId) { test.skip(); return; }
+    await loginAndSetup(page, 'en');
+    await page.goto(`${WEB_BASE}/admin/maintenance/machine-components/${firstId}`);
+    await page.waitForTimeout(3000);
+    const body = await page.textContent('body') || '';
+    expect(body.includes('Component') || body.includes('مكون') || body.includes('MECHANICAL') || body.includes('ELECTRICAL')).toBeTruthy();
+  });
+
+  test('Edit page loads', async ({ page }) => {
+    const token = await getToken();
+    const res = await fetch(`${API_BASE}/maintenance/machine-components?limit=1`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const list = await res.json();
+    const firstId = list?.data?.[0]?.id || list?.[0]?.id;
+    if (!firstId) { test.skip(); return; }
+    await loginAndSetup(page, 'en');
+    await page.goto(`${WEB_BASE}/admin/maintenance/machine-components/${firstId}/edit`);
+    await page.waitForTimeout(3000);
+    const body = await page.textContent('body') || '';
+    expect(body.includes('Component Type') || body.includes('نوع المكون')).toBeTruthy();
+  });
+
+  test('No raw i18n keys visible', async ({ page }) => {
+    const token = await getToken();
+    const res = await fetch(`${API_BASE}/maintenance/machine-components?limit=1`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const list = await res.json();
+    const firstId = list?.data?.[0]?.id || list?.[0]?.id;
+    const urls = firstId
+      ? [`${WEB_BASE}/admin/maintenance/machine-components`, `${WEB_BASE}/admin/maintenance/machine-components/new`, `${WEB_BASE}/admin/maintenance/machine-components/${firstId}`]
+      : [`${WEB_BASE}/admin/maintenance/machine-components`, `${WEB_BASE}/admin/maintenance/machine-components/new`];
+    for (const url of urls) {
+      await page.goto(url);
+      await page.waitForTimeout(3000);
+      const body = await page.textContent('body') || '';
+      const rawKeyMatch = body.match(/maintenance:[a-zA-Z]/);
+      expect(rawKeyMatch).toBeNull();
+    }
+  });
+
+  test('LTR direction preserved in English', async ({ page }) => {
+    await loginAndSetup(page, 'en');
+    await page.goto(`${WEB_BASE}/admin/maintenance/machine-components`);
+    await page.waitForTimeout(3000);
+    const dir = await page.getAttribute('html', 'dir');
+    expect(dir).not.toBe('rtl');
+  });
+
+  test('No ChunkLoadError in console', async ({ page }) => {
+    const chunkErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.text().includes('ChunkLoadError')) chunkErrors.push(msg.text());
+    });
+    await loginAndSetup(page, 'en');
+    await page.goto(`${WEB_BASE}/admin/maintenance/machine-components`);
+    await page.waitForTimeout(4000);
+    expect(chunkErrors.length).toBe(0);
   });
 });
