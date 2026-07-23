@@ -9,6 +9,7 @@ import { MaintenanceRequest, MaintenanceTask, DowntimeLog } from '../../../../..
 interface RequestDetail extends MaintenanceRequest {
   tasks?: MaintenanceTask[];
   downtimeLogs?: DowntimeLog[];
+  requiredParts?: any[];
 }
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionBarcodeIcon } from '../../../../../components/admin/admin-action-bar';
@@ -105,6 +106,10 @@ export default function MaintenanceRequestDetailPage() {
             <div><dt className="text-sm font-medium text-gray-500">{t('details.maintenanceRequest.title') || t('common.name')}</dt><dd className="mt-1 text-sm text-gray-900">{data.title}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('common.status')}</dt><dd className="mt-1"><StatusBadge status={data.status} /></dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('details.maintenanceRequest.machine')}</dt><dd className="mt-1 text-sm text-gray-900">{data.machine?.name || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.productionLine')}</dt><dd className="mt-1 text-sm text-gray-900">{(data as any).productionLine?.name || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.machineComponent')}</dt><dd className="mt-1 text-sm text-gray-900">{(data as any).machineComponent?.name || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.operationType')}</dt><dd className="mt-1 text-sm text-gray-900">{(data as any).operationType?.name || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.costCenter')}</dt><dd className="mt-1 text-sm text-gray-900">{(data as any).costCenter?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('details.maintenanceRequest.type')}</dt><dd className="mt-1 text-sm text-gray-900">{t('status.' + data.type)}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('details.maintenanceRequest.priority')}</dt><dd className="mt-1 text-sm text-gray-900">{t('status.' + data.priority)}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('details.maintenanceRequest.requestedBy')}</dt><dd className="mt-1 text-sm text-gray-900">{data.requestedBy?.name || '-'}</dd></div>
@@ -122,6 +127,58 @@ export default function MaintenanceRequestDetailPage() {
           {data.status === 'COMPLETED' || data.status === 'CANCELLED' ? (
             <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-500">{t('details.readOnlyRecord')}</div>
           ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('maintenance.operationalContext')}</h2>
+          <dl className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.productionLine')}</dt><dd className="mt-1 text-sm text-gray-900">{(data as any).productionLine?.name || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.machineComponent')}</dt><dd className="mt-1 text-sm text-gray-900">{(data as any).machineComponent?.name || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.operationType')}</dt><dd className="mt-1 text-sm text-gray-900">{(data as any).operationType?.name || '-'}</dd></div>
+          </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('maintenance.costContext')}</h2>
+          <dl className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.costCenter')}</dt><dd className="mt-1 text-sm text-gray-900">{(data as any).costCenter?.name || '-'}</dd></div>
+          </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('maintenance.requiredSpareParts')}</h2>
+          {data.requiredParts && data.requiredParts.length > 0 ? (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.sparePartLabel')}</th>
+                  <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.requiredQuantity')}</th>
+                  <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.unit')}</th>
+                  <th className="text-left py-2 px-2 font-medium text-gray-500">{t('common.status')}</th>
+                  <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.usageNote')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.requiredParts.map((part: any, idx: number) => (
+                  <tr key={idx} className="border-b">
+                    <td className="py-2 px-2">{part.sparePart?.name || part.sparePartId || '-'}</td>
+                    <td className="py-2 px-2">{part.quantity}</td>
+                    <td className="py-2 px-2">{part.unit || '-'}</td>
+                    <td className="py-2 px-2">{part.status === 'PLANNED' ? t('maintenance.statusPlanned') : part.status === 'REQUESTED' ? t('maintenance.statusRequested') : part.status === 'CANCELLED' ? t('maintenance.statusCancelled') : part.status || '-'}</td>
+                    <td className="py-2 px-2">{part.usageNote || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="text-sm text-gray-500">{t('maintenance.noRequiredSpareParts')}</p>
+          )}
         </CardContent>
       </Card>
 

@@ -86,6 +86,11 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "maintenance-request:checklist", module: "maintenance-request", action: "checklist" },
   { key: "maintenance-request:createChecklist", module: "maintenance-request", action: "createChecklist" },
   { key: "maintenance-request:summary", module: "maintenance-request", action: "summary" },
+  // maintenance-request-required-part (Batch F)
+  { key: "maintenance-request-required-part:read", module: "maintenance-request-required-part", action: "read" },
+  { key: "maintenance-request-required-part:create", module: "maintenance-request-required-part", action: "create" },
+  { key: "maintenance-request-required-part:update", module: "maintenance-request-required-part", action: "update" },
+  { key: "maintenance-request-required-part:cancel", module: "maintenance-request-required-part", action: "cancel" },
   // maintenance-task extensions (Batch 31)
   { key: "maintenance-task:assign", module: "maintenance-task", action: "assign" },
   { key: "maintenance-task:myTasks", module: "maintenance-task", action: "myTasks" },

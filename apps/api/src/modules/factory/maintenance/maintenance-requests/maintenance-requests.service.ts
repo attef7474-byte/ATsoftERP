@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
@@ -11,9 +11,37 @@ export class MaintenanceRequestsService {
     private audit: AuditService,
   ) {}
 
-  async create(dto: CreateMaintenanceRequestDto, userId: string) {
+  private async validateOperationalContext(dto: { machineId: string; productionLineId?: string; machineComponentId?: string; operationTypeId?: string; costCenterId?: string }, requestId?: string) {
     const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
     if (!machine) throw new NotFoundException('Machine not found');
+
+    if (dto.productionLineId) {
+      const pl = await this.prisma.productionLine.findUnique({ where: { id: dto.productionLineId } });
+      if (!pl) throw new NotFoundException('Production line not found');
+      if (machine.productionLineId && dto.productionLineId !== machine.productionLineId) {
+        throw new BadRequestException('Production line does not match machine');
+      }
+    }
+    if (dto.machineComponentId) {
+      const comp = await this.prisma.machineComponent.findUnique({ where: { id: dto.machineComponentId } });
+      if (!comp) throw new NotFoundException('Machine component not found');
+      if (comp.machineId !== dto.machineId) {
+        throw new BadRequestException('Component does not belong to selected machine');
+      }
+    }
+    if (dto.operationTypeId) {
+      const ot = await this.prisma.operationType.findUnique({ where: { id: dto.operationTypeId } });
+      if (!ot) throw new NotFoundException('Operation type not found');
+    }
+    if (dto.costCenterId) {
+      const cc = await this.prisma.costCenter.findUnique({ where: { id: dto.costCenterId } });
+      if (!cc) throw new NotFoundException('Cost center not found');
+    }
+    return machine;
+  }
+
+  async create(dto: CreateMaintenanceRequestDto, userId: string) {
+    const machine = await this.validateOperationalContext(dto);
 
     if (dto.assignedToId) {
       const user = await this.prisma.user.findUnique({ where: { id: dto.assignedToId } });
@@ -23,7 +51,7 @@ export class MaintenanceRequestsService {
     const seq = await this.prisma.numberSequence.findUnique({ where: { code: 'MAINTENANCE_REQUEST' } });
     if (!seq) throw new NotFoundException('Number sequence MAINTENANCE_REQUEST not configured');
 
-    const { machineId, assignedToId, ...rest } = dto;
+    const { machineId, assignedToId, requiredParts, ...rest } = dto;
 
     const request = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.numberSequence.update({
@@ -40,6 +68,17 @@ export class MaintenanceRequestsService {
           assignedToId,
           requestedById: userId,
           priority: dto.priority || 'MEDIUM',
+          requiredParts: requiredParts && requiredParts.length > 0 ? {
+            create: requiredParts.map(p => ({
+              sparePartId: p.sparePartId,
+              machineComponentId: p.machineComponentId,
+              machineId: p.machineId,
+              quantity: p.quantity,
+              unit: p.unit,
+              usageNote: p.usageNote,
+              isPrimary: p.isPrimary,
+            })),
+          } : undefined,
         },
       });
     });
@@ -53,6 +92,7 @@ export class MaintenanceRequestsService {
     page?: number; limit?: number; search?: string;
     machineId?: string; status?: string; type?: string; priority?: string;
     requestedById?: string; assignedToId?: string;
+    productionLineId?: string; machineComponentId?: string; operationTypeId?: string; costCenterId?: string; sparePartId?: string;
   }) {
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -72,15 +112,26 @@ export class MaintenanceRequestsService {
     if (query.priority) where.priority = query.priority;
     if (query.requestedById) where.requestedById = query.requestedById;
     if (query.assignedToId) where.assignedToId = query.assignedToId;
+    if (query.productionLineId) where.productionLineId = query.productionLineId;
+    if (query.machineComponentId) where.machineComponentId = query.machineComponentId;
+    if (query.operationTypeId) where.operationTypeId = query.operationTypeId;
+    if (query.costCenterId) where.costCenterId = query.costCenterId;
+    if (query.sparePartId) {
+      where.requiredParts = { some: { sparePartId: query.sparePartId } };
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.maintenanceRequest.findMany({
         where, skip, take: limit, orderBy: { createdAt: 'desc' },
         include: {
           machine: { select: { id: true, code: true, name: true, status: true } },
+          productionLine: { select: { id: true, code: true, name: true } },
+          machineComponent: { select: { id: true, code: true, name: true } },
+          operationType: { select: { id: true, code: true, name: true } },
+          costCenter: { select: { id: true, code: true, name: true } },
           requestedBy: { select: { id: true, name: true, email: true } },
           assignedTo: { select: { id: true, name: true, email: true } },
-          _count: { select: { tasks: true } },
+          _count: { select: { tasks: true, requiredParts: true } },
         },
       }),
       this.prisma.maintenanceRequest.count({ where }),
@@ -109,6 +160,7 @@ export class MaintenanceRequestsService {
       ...req,
       summary: {
         tasksCount: req._count.tasks,
+        requiredPartsCount: req._count.requiredParts,
         completedTasksCount: completedMap[req.id] || 0,
         openTasksCount: openMap[req.id] || 0,
         totalDowntimeHours: (downtimeMap[req.id] || 0) / 60,
@@ -123,11 +175,22 @@ export class MaintenanceRequestsService {
       where: { id },
       include: {
         machine: true,
+        productionLine: true,
+        machineComponent: true,
+        operationType: true,
+        costCenter: true,
         requestedBy: { select: { id: true, name: true, email: true } },
         assignedTo: { select: { id: true, name: true, email: true } },
         tasks: true,
         downtimeLogs: true,
         schedules: true,
+        requiredParts: {
+          include: {
+            sparePart: true,
+            machineComponent: { select: { id: true, code: true, name: true } },
+            machine: { select: { id: true, code: true, name: true } },
+          },
+        },
       },
     });
     if (!request || request.deletedAt) throw new NotFoundException('Maintenance request not found');
@@ -141,15 +204,21 @@ export class MaintenanceRequestsService {
     }
 
     if (dto.machineId) {
-      const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
-      if (!machine) throw new NotFoundException('Machine not found');
+      await this.validateOperationalContext(dto as any, id);
+    } else {
+      if (dto.productionLineId || dto.machineComponentId || dto.operationTypeId || dto.costCenterId) {
+        const currentMachineId = dto.machineId || req.machineId;
+        await this.validateOperationalContext({ machineId: currentMachineId, ...dto } as any, id);
+      }
     }
+
     if (dto.assignedToId) {
       const user = await this.prisma.user.findUnique({ where: { id: dto.assignedToId } });
       if (!user) throw new NotFoundException('Assigned user not found');
     }
 
-    const data: any = { ...dto };
+    const { requiredParts, ...rest } = dto as any;
+    const data: any = { ...rest };
     if (dto.startDate) data.startDate = new Date(dto.startDate);
     if (dto.endDate) data.endDate = new Date(dto.endDate);
 
@@ -163,11 +232,116 @@ export class MaintenanceRequestsService {
       }
     }
 
-    const updated = await this.prisma.maintenanceRequest.update({ where: { id }, data });
+    if (requiredParts) {
+      await this.prisma.maintenanceRequestRequiredPart.deleteMany({
+        where: { maintenanceRequestId: id },
+      });
+    }
+
+    const updated = await this.prisma.maintenanceRequest.update({
+      where: { id },
+      data: {
+        ...data,
+        requiredParts: requiredParts && requiredParts.length > 0 ? {
+          create: requiredParts.map((p: any) => ({
+            sparePartId: p.sparePartId,
+            machineComponentId: p.machineComponentId,
+            machineId: p.machineId,
+            quantity: p.quantity,
+            unit: p.unit,
+            usageNote: p.usageNote,
+            isPrimary: p.isPrimary,
+          })),
+        } : requiredParts !== undefined ? { deleteMany: {} } : undefined,
+      },
+    });
     await this.audit.log(userId, 'UPDATE', 'MaintenanceRequest', id,
-      { oldStatus: req.status, dto });
+      { oldStatus: req.status });
     return updated;
   }
+
+  // -- Required Parts sub-resource --
+
+  async getRequiredParts(requestId: string) {
+    const req = await this.findOne(requestId);
+    return this.prisma.maintenanceRequestRequiredPart.findMany({
+      where: { maintenanceRequestId: requestId },
+      include: {
+        sparePart: true,
+        machineComponent: { select: { id: true, code: true, name: true } },
+        machine: { select: { id: true, code: true, name: true } },
+      },
+    });
+  }
+
+  async addRequiredPart(requestId: string, dto: { sparePartId: string; machineComponentId?: string; machineId?: string; quantity: number; unit?: string; usageNote?: string; isPrimary?: boolean }, userId: string) {
+    const req = await this.findOne(requestId);
+    if (req.status === 'COMPLETED' || req.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot add parts to completed or cancelled requests');
+    }
+
+    const sparePart = await this.prisma.sparePart.findUnique({ where: { id: dto.sparePartId } });
+    if (!sparePart) throw new NotFoundException('Spare part not found');
+    if (sparePart.status !== 'ACTIVE') throw new BadRequestException('Inactive spare part cannot be requested');
+
+    const existing = await this.prisma.maintenanceRequestRequiredPart.findUnique({
+      where: { maintenanceRequestId_sparePartId: { maintenanceRequestId: requestId, sparePartId: dto.sparePartId } },
+    });
+    if (existing) throw new BadRequestException('This spare part is already added to the request');
+
+    if (dto.machineComponentId) {
+      const comp = await this.prisma.machineComponent.findUnique({ where: { id: dto.machineComponentId } });
+      if (!comp) throw new NotFoundException('Machine component not found');
+      if (comp.machineId !== req.machineId) throw new BadRequestException('Component does not belong to selected machine');
+    }
+    if (dto.machineId && dto.machineId !== req.machineId) {
+      throw new BadRequestException('Machine does not match request machine');
+    }
+
+    const part = await this.prisma.maintenanceRequestRequiredPart.create({
+      data: {
+        maintenanceRequestId: requestId,
+        sparePartId: dto.sparePartId,
+        machineComponentId: dto.machineComponentId,
+        machineId: dto.machineId || req.machineId,
+        quantity: dto.quantity,
+        unit: dto.unit,
+        usageNote: dto.usageNote,
+        isPrimary: dto.isPrimary,
+      },
+    });
+    await this.audit.log(userId, 'CREATE', 'MaintenanceRequestRequiredPart', part.id,
+      { requestId, sparePartId: dto.sparePartId });
+    return part;
+  }
+
+  async updateRequiredPart(id: string, dto: { quantity?: number; unit?: string; usageNote?: string; isPrimary?: boolean }, userId: string) {
+    const part = await this.prisma.maintenanceRequestRequiredPart.findUnique({ where: { id }, include: { maintenanceRequest: true } });
+    if (!part) throw new NotFoundException('Required part not found');
+    if (part.maintenanceRequest.status === 'COMPLETED' || part.maintenanceRequest.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot update parts on completed or cancelled requests');
+    }
+    const updated = await this.prisma.maintenanceRequestRequiredPart.update({
+      where: { id },
+      data: dto,
+    });
+    await this.audit.log(userId, 'UPDATE', 'MaintenanceRequestRequiredPart', id, dto);
+    return updated;
+  }
+
+  async cancelRequiredPart(id: string, userId: string) {
+    const part = await this.prisma.maintenanceRequestRequiredPart.findUnique({ where: { id }, include: { maintenanceRequest: true } });
+    if (!part) throw new NotFoundException('Required part not found');
+    if (part.status === 'CANCELLED') throw new BadRequestException('Part is already cancelled');
+    const updated = await this.prisma.maintenanceRequestRequiredPart.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+    });
+    await this.audit.log(userId, 'CANCEL', 'MaintenanceRequestRequiredPart', id, { oldStatus: part.status });
+    return updated;
+  }
+
+  // -- Existing methods unchanged below --
 
   async start(id: string, userId: string) {
     const req = await this.findOne(id);

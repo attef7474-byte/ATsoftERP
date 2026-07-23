@@ -29,6 +29,7 @@ export class MaintenanceRequestsController {
     page?: string; limit?: string; search?: string;
     machineId?: string; status?: string; type?: string; priority?: string;
     requestedById?: string; assignedToId?: string;
+    productionLineId?: string; machineComponentId?: string; operationTypeId?: string; costCenterId?: string; sparePartId?: string;
   }) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
@@ -40,6 +41,11 @@ export class MaintenanceRequestsController {
       priority: query.priority,
       requestedById: query.requestedById,
       assignedToId: query.assignedToId,
+      productionLineId: query.productionLineId,
+      machineComponentId: query.machineComponentId,
+      operationTypeId: query.operationTypeId,
+      costCenterId: query.costCenterId,
+      sparePartId: query.sparePartId,
     });
   }
 
@@ -139,5 +145,35 @@ export class MaintenanceRequestsController {
   @ApiOperation({ summary: 'Get request summary with all related data' })
   getSummary(@Param('id') id: string) {
     return this.service.getRequestSummary(id);
+  }
+
+  // -- Required Parts endpoints --
+
+  @Get(':id/required-parts')
+  @Permissions('maintenance-request-required-part:read')
+  @ApiOperation({ summary: 'List required parts for a maintenance request' })
+  getRequiredParts(@Param('id') id: string) {
+    return this.service.getRequiredParts(id);
+  }
+
+  @Post(':id/required-parts')
+  @Permissions('maintenance-request-required-part:create')
+  @ApiOperation({ summary: 'Add a required spare part to a maintenance request' })
+  addRequiredPart(@Param('id') id: string, @Body() dto: { sparePartId: string; machineComponentId?: string; machineId?: string; quantity: number; unit?: string; usageNote?: string; isPrimary?: boolean }, @CurrentUser('id') userId: string) {
+    return this.service.addRequiredPart(id, dto, userId);
+  }
+
+  @Patch('required-parts/:partId')
+  @Permissions('maintenance-request-required-part:update')
+  @ApiOperation({ summary: 'Update a required spare part' })
+  updateRequiredPart(@Param('partId') partId: string, @Body() dto: { quantity?: number; unit?: string; usageNote?: string; isPrimary?: boolean }, @CurrentUser('id') userId: string) {
+    return this.service.updateRequiredPart(partId, dto, userId);
+  }
+
+  @Patch('required-parts/:partId/cancel')
+  @Permissions('maintenance-request-required-part:cancel')
+  @ApiOperation({ summary: 'Cancel a required spare part' })
+  cancelRequiredPart(@Param('partId') partId: string, @CurrentUser('id') userId: string) {
+    return this.service.cancelRequiredPart(partId, userId);
   }
 }

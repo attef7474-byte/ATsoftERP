@@ -343,7 +343,8 @@ model ProductionLine {
   updatedAt        DateTime       @updatedAt
   deletedAt        DateTime?
 
-  machines Machine[]
+  machines            Machine[]
+  maintenanceRequests MaintenanceRequest[]
 
   @@index([code])
   @@index([companyId])
@@ -968,6 +969,7 @@ model Machine {
   schedules       MaintenanceSchedule[]
   downtimeLogs    DowntimeLog[]
   spareParts      MachineSparePart[]
+  requiredParts   MaintenanceRequestRequiredPart[]
 
   @@index([categoryId])
   @@index([companyId])
@@ -1044,7 +1046,9 @@ model MachineComponent {
   updatedAt          DateTime          @updatedAt
   deletedAt          DateTime?
 
-  spareParts ComponentSparePart[]
+  spareParts          ComponentSparePart[]
+  maintenanceRequests MaintenanceRequest[]
+  requiredParts       MaintenanceRequestRequiredPart[]
 
   @@unique([machineId, code])
   @@index([machineId])
@@ -1078,8 +1082,9 @@ model SparePart {
   updatedAt          DateTime @updatedAt
   deletedAt          DateTime?
 
-  componentLinks ComponentSparePart[]
-  machineLinks   MachineSparePart[]
+  componentLinks    ComponentSparePart[]
+  machineLinks      MachineSparePart[]
+  requiredInRequests MaintenanceRequestRequiredPart[]
 
   @@index([code])
   @@index([name])
@@ -1135,27 +1140,35 @@ model MachineSparePart {
 }
 
 model MaintenanceRequest {
-  id            String    @id @default(cuid())
-  requestNumber String    @unique
-  machineId     String
-  machine       Machine   @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  type          String
-  priority      String    @default("MEDIUM")
-  title         String
-  description   String?
-  status        String    @default("OPEN")
-  requestedById String?
-  requestedBy   User?     @relation("MaintenanceRequestRequestedBy", fields: [requestedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  assignedToId  String?
-  assignedTo    User?     @relation("MaintenanceRequestAssignedTo", fields: [assignedToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  startDate     DateTime?
-  endDate       DateTime?
-  downtimeHours Float?
-  cost          Float?
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
+  id                 String    @id @default(cuid())
+  requestNumber      String    @unique
+  machineId          String
+  machine            Machine   @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId   String?
+  productionLine     ProductionLine? @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineComponentId String?
+  machineComponent   MachineComponent? @relation(fields: [machineComponentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  operationTypeId    String?
+  operationType      OperationType? @relation(fields: [operationTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  costCenterId       String?
+  costCenter         CostCenter? @relation(fields: [costCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  type               String
+  priority           String    @default("MEDIUM")
+  title              String
+  description        String?
+  status             String    @default("OPEN")
+  requestedById      String?
+  requestedBy        User?     @relation("MaintenanceRequestRequestedBy", fields: [requestedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignedToId       String?
+  assignedTo         User?     @relation("MaintenanceRequestAssignedTo", fields: [assignedToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  startDate          DateTime?
+  endDate            DateTime?
+  downtimeHours      Float?
+  cost               Float?
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
 
   tasks               MaintenanceTask[]
   schedules           MaintenanceSchedule[]
@@ -1163,8 +1176,13 @@ model MaintenanceRequest {
   partUsages          MaintenanceRequestPartUsage[]
   costEntries         MaintenanceRequestCostEntry[]
   checklistExecutions MaintenanceChecklistExecution[]
+  requiredParts       MaintenanceRequestRequiredPart[]
 
   @@index([machineId])
+  @@index([productionLineId])
+  @@index([machineComponentId])
+  @@index([operationTypeId])
+  @@index([costCenterId])
   @@index([status])
   @@index([type])
   @@index([priority])
@@ -1177,6 +1195,33 @@ model MaintenanceRequest {
   @@index([assignedToId, status])
   @@index([status, createdAt])
   @@map("maintenance_requests")
+}
+
+model MaintenanceRequestRequiredPart {
+  id                   String   @id @default(cuid())
+  maintenanceRequestId String
+  maintenanceRequest   MaintenanceRequest @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sparePartId          String
+  sparePart            SparePart @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineComponentId   String?
+  machineComponent     MachineComponent? @relation(fields: [machineComponentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId            String?
+  machine              Machine? @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity             Float
+  unit                 String?
+  usageNote            String?
+  isPrimary            Boolean  @default(false)
+  status               String   @default("REQUESTED")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([maintenanceRequestId, sparePartId])
+  @@index([maintenanceRequestId])
+  @@index([sparePartId])
+  @@index([machineComponentId])
+  @@index([machineId])
+  @@index([status])
+  @@map("maintenance_request_required_parts")
 }
 
 model MaintenanceTask {
@@ -1540,8 +1585,9 @@ model OperationType {
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
 
-  productionLines ProductionLine[]
-  machines        Machine[]
+  productionLines     ProductionLine[]
+  machines            Machine[]
+  maintenanceRequests MaintenanceRequest[]
 
   @@index([code])
   @@index([status])
@@ -1576,8 +1622,9 @@ model CostCenter {
   @@index([administrationId])
   @@index([departmentId])
   @@index([status])
-  productionLines ProductionLine[]
-  machines        Machine[]
+  productionLines     ProductionLine[]
+  machines            Machine[]
+  maintenanceRequests MaintenanceRequest[]
 
   @@index([type, status])
   @@index([companyId, status])

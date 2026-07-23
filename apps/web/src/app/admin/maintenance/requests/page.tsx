@@ -8,7 +8,7 @@ import { MaintenanceRequest } from '../../../../lib/admin-types';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Select, Textarea, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { CmmsStatusBadge, CmmsPriorityBadge } from '../../../../components/maintenance';
-import { F9Lookup, machineAdapter, userAdapter } from '../../../../components/f9';
+import { F9Lookup, machineAdapter, userAdapter, productionLineAdapter, machineComponentAdapter, operationTypeAdapter, costCenterAdapter, sparePartAdapter } from '../../../../components/f9';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
 
@@ -21,6 +21,11 @@ export default function MaintenanceRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [filterProductionLineId, setFilterProductionLineId] = useState('');
+  const [filterMachineComponentId, setFilterMachineComponentId] = useState('');
+  const [filterOperationTypeId, setFilterOperationTypeId] = useState('');
+  const [filterCostCenterId, setFilterCostCenterId] = useState('');
+  const [filterSparePartId, setFilterSparePartId] = useState('');
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MaintenanceRequest | null>(null);
@@ -56,13 +61,18 @@ export default function MaintenanceRequestsPage() {
     try {
       const params: Record<string, any> = { page, limit: 10 };
       if (search) params.search = search;
+      if (filterProductionLineId) params.productionLineId = filterProductionLineId;
+      if (filterMachineComponentId) params.machineComponentId = filterMachineComponentId;
+      if (filterOperationTypeId) params.operationTypeId = filterOperationTypeId;
+      if (filterCostCenterId) params.costCenterId = filterCostCenterId;
+      if (filterSparePartId) params.sparePartId = filterSparePartId;
       const res = await api.get<{ data: MaintenanceRequest[]; meta: any }>('/maintenance/requests', { params });
       const listResult = unwrapApiList<MaintenanceRequest, typeof meta>(res);
       setData(listResult.data);
       if (listResult.meta) setMeta(listResult.meta);
     } catch (err: any) { setError(err?.message || t('errors.loadFailed')); }
     finally { setLoading(false); }
-  }, [search, t]);
+  }, [search, filterProductionLineId, filterMachineComponentId, filterOperationTypeId, filterCostCenterId, filterSparePartId, t]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -116,6 +126,11 @@ export default function MaintenanceRequestsPage() {
   const columns: GridColumn<MaintenanceRequest>[] = [
     { key: 'requestNumber', header: t('maintenance.requestNumber') },
     { key: 'title', header: t('common.title') },
+    { key: 'productionLine', header: t('maintenance.productionLine'), render: (r: MaintenanceRequest) => (r as any).productionLine?.name || '-' },
+    { key: 'machineComponent', header: t('maintenance.machineComponent'), render: (r: MaintenanceRequest) => (r as any).machineComponent?.name || '-' },
+    { key: 'operationType', header: t('maintenance.operationType'), render: (r: MaintenanceRequest) => (r as any).operationType?.name || '-' },
+    { key: 'costCenter', header: t('maintenance.costCenter'), render: (r: MaintenanceRequest) => (r as any).costCenter?.name || '-' },
+    { key: 'requiredPartsCount', header: t('maintenance.requiredSpareParts'), render: (r: MaintenanceRequest) => (r as any)._count?.requiredParts ?? '-' },
     { key: 'machine', header: t('maintenance.machine'), render: (r: MaintenanceRequest) => r.machine?.name || '-' },
     { key: 'type', header: t('maintenance.maintenanceType'), render: (r: MaintenanceRequest) => t(`status.${r.type}` as any) || r.type },
     { key: 'priority', header: t('maintenance.priority'), render: (r: MaintenanceRequest) => <CmmsPriorityBadge priority={r.priority} /> },
@@ -133,6 +148,13 @@ export default function MaintenanceRequestsPage() {
   return (
     <div>
       <PageHeader title={t('maintenance.maintenanceRequests')} />
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+        <F9Lookup label={t('maintenance.filterSelectProductionLine')} value={filterProductionLineId} onChange={(v) => setFilterProductionLineId(v || '')} adapter={productionLineAdapter} />
+        <F9Lookup label={t('maintenance.selectMachineComponent')} value={filterMachineComponentId} onChange={(v) => setFilterMachineComponentId(v || '')} adapter={machineComponentAdapter} />
+        <F9Lookup label={t('maintenance.selectOperationType')} value={filterOperationTypeId} onChange={(v) => setFilterOperationTypeId(v || '')} adapter={operationTypeAdapter} />
+        <F9Lookup label={t('maintenance.selectCostCenter')} value={filterCostCenterId} onChange={(v) => setFilterCostCenterId(v || '')} adapter={costCenterAdapter} />
+        <F9Lookup label={t('maintenance.selectSparePart')} value={filterSparePartId} onChange={(v) => setFilterSparePartId(v || '')} adapter={sparePartAdapter} />
+      </div>
       <AdminDataGrid
         columns={columns}
         data={data}
