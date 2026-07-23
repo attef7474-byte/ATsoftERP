@@ -10,11 +10,12 @@ Implementation of Machine Components CRUD module with parent/child hierarchy.
 | Schema & migration | 5 | 5 | 0 |
 | TypeScript compilation | 1 | 1 | 0 |
 | Backend validation | 8 | 8 | 0 |
-| API endpoints | 10 | 10 | 0 |
-| Frontend (browser) | 6 | 6 | 0 |
+| API endpoints | 15 | 15 | 0 |
+| Frontend (browser) | 11 | 11 | 0 |
 | i18n (AR/EN) | 2 | 2 | 0 |
-| Security | 8 | 8 | 0 |
-| **Total** | **40** | **40** | **0** |
+| Security | 11 | 11 | 0 |
+| Smoke test | 8 | 8 | 0 |
+| **Total** | **62** | **62** | **0** |
 
 ## Key Deliverables
 

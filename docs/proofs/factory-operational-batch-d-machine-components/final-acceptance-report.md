@@ -13,7 +13,7 @@
 | 7 | Permissions seeded | PASS | 6 new permissions, 304 total linked to SUPER_ADMIN |
 | 8 | API endpoints functional | PASS | 15/15 tests pass |
 | 9 | Validation rules enforced | PASS | duplicate code, parent mismatch, self-parent all blocked |
-| 10 | Browser rendering correct | PASS | 6/6 Playwright tests pass |
+| 10 | Browser rendering correct | PASS | 11/11 Playwright tests pass |
 | 11 | Authentication enforced | PASS | unauthorized returns 401 |
 | 12 | Authorization enforced | PASS | permission guards active on all endpoints |
 | 13 | Soft delete works | PASS | deletedAt set, record excluded from queries |
@@ -23,6 +23,8 @@
 | 17 | No raw i18n keys in DOM | PASS | Playwright raw key regex scan passes |
 | 18 | git state clean | PASS | status --short empty, ahead/behind 0/0 |
 | 19 | Final tags created | PASS | 3 required tags pushed to origin |
+| 20 | Health check (API, Web, Swagger, SQL) | PASS | 4/4 PASS |
+| 21 | Smoke check (homepage, login, API endpoints) | PASS | 8/8 PASS — login page 200 |
 
 ## Verdict
 
