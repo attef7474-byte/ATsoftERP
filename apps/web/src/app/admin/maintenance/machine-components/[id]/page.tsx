@@ -4,10 +4,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
-import { MachineComponent } from '../../../../../lib/admin-types';
-import { Card, CardContent, CardHeader, PageHeader, Button, DataTable, LoadingState, ErrorState, ConfirmDialog } from '../../../../../components/admin/ui';
+import { MachineComponent, SparePart } from '../../../../../lib/admin-types';
+import { Card, CardContent, CardHeader, PageHeader, Button, DataTable, LoadingState, ErrorState, ConfirmDialog, Modal, Input } from '../../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../../components/maintenance';
 import { useRegisterAdminActions, useStableHandlers, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon, ActionBackIcon } from '../../../../../components/admin/admin-action-bar';
+import { F9Lookup, sparePartAdapter } from '../../../../../components/f9';
 
 export default function MachineComponentDetailPage() {
   const params = useParams();
@@ -19,6 +20,13 @@ export default function MachineComponentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [confirmAction, setConfirmAction] = useState<'activate' | 'deactivate' | null>(null);
+  const [spareLinks, setSpareLinks] = useState<any[]>([]);
+  const [linksLoading, setLinksLoading] = useState(false);
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [editingLink, setEditingLink] = useState<any | null>(null);
+  const [linkForm, setLinkForm] = useState({ sparePartId: '', quantity: 1, unit: '', usageNote: '', isPrimary: false });
+  const [savingLink, setSavingLink] = useState(false);
+  const [deleteLinkId, setDeleteLinkId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -31,6 +39,56 @@ export default function MachineComponentDetailPage() {
   }, [id, t]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const fetchSpareLinks = useCallback(async () => {
+    setLinksLoading(true);
+    try {
+      const res = await api.get<any[]>(`/maintenance/component-spare-parts?componentId=${id}`);
+      setSpareLinks(res);
+    } catch { }
+    finally { setLinksLoading(false); }
+  }, [id]);
+
+  useEffect(() => { if (id) fetchSpareLinks(); }, [id, fetchSpareLinks]);
+
+  const openNewLink = useCallback(() => {
+    setEditingLink(null);
+    setLinkForm({ sparePartId: '', quantity: 1, unit: '', usageNote: '', isPrimary: false });
+    setLinkModalOpen(true);
+  }, []);
+
+  const openEditLink = useCallback((link: any) => {
+    setEditingLink(link);
+    setLinkForm({ sparePartId: link.sparePartId, quantity: link.quantity, unit: link.unit || '', usageNote: link.usageNote || '', isPrimary: link.isPrimary });
+    setLinkModalOpen(true);
+  }, []);
+
+  const handleSaveLink = async () => {
+    if (!linkForm.sparePartId) { showToast(t('validation.required'), 'error'); return; }
+    setSavingLink(true);
+    try {
+      const payload = { ...linkForm, componentId: id };
+      if (editingLink) {
+        await api.patch(`/maintenance/component-spare-parts/${editingLink.id}`, payload);
+      } else {
+        await api.post('/maintenance/component-spare-parts', payload);
+      }
+      showToast(editingLink ? t('maintenance.componentSparePartUpdated') : t('maintenance.componentSparePartCreated'), 'success');
+      setLinkModalOpen(false);
+      fetchSpareLinks();
+    } catch (e: any) { showToast(e.message || 'Save failed', 'error'); }
+    finally { setSavingLink(false); }
+  };
+
+  const handleDeleteLink = async () => {
+    if (!deleteLinkId) return;
+    try {
+      await api.delete(`/maintenance/component-spare-parts/${deleteLinkId}`);
+      showToast(t('maintenance.componentSparePartDeactivated'), 'success');
+      setDeleteLinkId(null);
+      fetchSpareLinks();
+    } catch (e: any) { showToast(e.message, 'error'); }
+  };
 
   const handleStatusChange = useCallback(async (newStatus: string) => {
     setConfirmAction(null);
@@ -118,6 +176,62 @@ export default function MachineComponentDetailPage() {
           )}
         </CardContent>
       </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-700">{t('maintenance.componentSpareParts')} ({spareLinks.length})</h3>
+          <Button onClick={openNewLink} size="sm">{t('common.add')}</Button>
+        </CardHeader>
+        <CardContent>
+          {linksLoading ? (
+            <p className="text-sm text-gray-500 py-4">{t('common.loading')}</p>
+          ) : spareLinks.length === 0 ? (
+            <p className="text-sm text-gray-500 py-4">{t('maintenance.noComponentSpareParts')}</p>
+          ) : (
+            <DataTable columns={[
+              { key: 'sparePartName', header: t('maintenance.sparePart.form.name'), render: (l: any) => l.sparePart?.name || '-' },
+              { key: 'sparePartCode', header: t('maintenance.sparePart.form.code'), render: (l: any) => l.sparePart?.code || '-' },
+              { key: 'quantity', header: t('maintenance.sparePart.form.quantity'), render: (l: any) => l.quantity },
+              { key: 'unit', header: t('maintenance.sparePart.form.unit'), render: (l: any) => l.unit || '-' },
+              { key: 'isPrimary', header: t('maintenance.sparePart.form.isPrimary'), render: (l: any) => l.isPrimary ? 'Yes' : 'No' },
+              { key: 'actions', header: '', render: (l: any) => (
+                <div className="flex gap-2">
+                  <button onClick={(e) => { e.stopPropagation(); openEditLink(l); }} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
+                  <button onClick={(e) => { e.stopPropagation(); setDeleteLinkId(l.id); }} className="text-red-600 hover:text-red-800 text-sm">{t('actions.deactivate')}</button>
+                </div>
+              )},
+            ]} data={spareLinks} keyExtractor={(l: any) => l.id}
+              onRowClick={(l) => router.push(`/admin/maintenance/spare-parts/${l.sparePartId}`)} />
+          )}
+        </CardContent>
+      </Card>
+      <Modal open={linkModalOpen} onClose={() => setLinkModalOpen(false)} title={editingLink ? t('common.edit') : t('common.add')}>
+        <div className="space-y-4">
+          <F9Lookup
+            label={t('maintenance.sparePart.form.selectSparePart')}
+            adapter={sparePartAdapter}
+            value={linkForm.sparePartId}
+            onChange={(val) => setLinkForm({ ...linkForm, sparePartId: val })}
+          />
+          <Input label={t('maintenance.sparePart.form.quantity')} type="number" value={linkForm.quantity} onChange={(e) => setLinkForm({ ...linkForm, quantity: Number(e.target.value) })} />
+          <Input label={t('maintenance.sparePart.form.unit')} value={linkForm.unit} onChange={(e) => setLinkForm({ ...linkForm, unit: e.target.value })} />
+          <Input label={t('maintenance.sparePart.form.usageNote')} value={linkForm.usageNote} onChange={(e) => setLinkForm({ ...linkForm, usageNote: e.target.value })} />
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={linkForm.isPrimary} onChange={(e) => setLinkForm({ ...linkForm, isPrimary: e.target.checked })} className="rounded" />
+            {t('maintenance.sparePart.form.isPrimary')}
+          </label>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="secondary" onClick={() => setLinkModalOpen(false)}>{t('actions.cancel')}</Button>
+            <Button onClick={handleSaveLink} disabled={savingLink} variant="primary">{savingLink ? t('common.saving') : t('actions.save')}</Button>
+          </div>
+        </div>
+      </Modal>
+      <ConfirmDialog
+        open={!!deleteLinkId}
+        onClose={() => setDeleteLinkId(null)}
+        onConfirm={handleDeleteLink}
+        title={t('maintenance.deactivateComponentSparePart')}
+        message={t('maintenance.confirmDeactivateComponentSparePart')}
+      />
       <ConfirmDialog
         open={confirmAction === 'activate'}
         onClose={() => setConfirmAction(null)}

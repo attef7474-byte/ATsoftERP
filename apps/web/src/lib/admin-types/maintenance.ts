@@ -323,3 +323,58 @@ export interface CostCenter {
   administration?: { id: string; name: string; code: string };
   department?: { id: string; name: string; code: string };
 }
+
+export interface SparePart {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  category?: string | null;
+  specification?: string | null;
+  unit?: string | null;
+  manufacturer?: string | null;
+  model?: string | null;
+  partNumber?: string | null;
+  barcode?: string | null;
+  minRecommendedStock?: number | null;
+  maxRecommendedStock?: number | null;
+  reorderPoint?: number | null;
+  isCritical: boolean;
+  status: string;
+  productId?: string | null;
+  product?: { id: string; name: string; code: string };
+  componentLinks?: ComponentSparePart[];
+  machineLinks?: MachineSparePart[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ComponentSparePart {
+  id: string;
+  componentId: string;
+  component?: { id: string; name: string; code: string };
+  sparePartId: string;
+  sparePart?: { id: string; name: string; code: string; partNumber?: string };
+  quantity: number;
+  unit?: string | null;
+  usageNote?: string | null;
+  isPrimary: boolean;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MachineSparePart {
+  id: string;
+  machineId: string;
+  machine?: { id: string; name: string; code: string };
+  sparePartId: string;
+  sparePart?: { id: string; name: string; code: string; partNumber?: string };
+  quantity: number;
+  unit?: string | null;
+  usageNote?: string | null;
+  isPrimary: boolean;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}

@@ -677,6 +677,7 @@ model Product {
   movementLines       InventoryMovementLine[]
   adjustmentLines     InventoryAdjustmentLine[]
   requestPartUsages   MaintenanceRequestPartUsage[]
+  spareParts          SparePart[]
 
   @@index([categoryId])
   @@index([code])
@@ -966,6 +967,7 @@ model Machine {
   maintenanceReqs MaintenanceRequest[]
   schedules       MaintenanceSchedule[]
   downtimeLogs    DowntimeLog[]
+  spareParts      MachineSparePart[]
 
   @@index([categoryId])
   @@index([companyId])
@@ -1042,6 +1044,8 @@ model MachineComponent {
   updatedAt          DateTime          @updatedAt
   deletedAt          DateTime?
 
+  spareParts ComponentSparePart[]
+
   @@unique([machineId, code])
   @@index([machineId])
   @@index([parentComponentId])
@@ -1049,6 +1053,85 @@ model MachineComponent {
   @@index([criticality])
   @@index([status])
   @@map("machine_components")
+}
+
+model SparePart {
+  id                 String   @id @default(cuid())
+  code               String   @unique
+  name               String
+  description        String?
+  category           String?
+  specification      String?
+  unit               String?
+  manufacturer       String?
+  model              String?
+  partNumber         String?
+  barcode            String?
+  minRecommendedStock Float?
+  maxRecommendedStock Float?
+  reorderPoint       Float?
+  isCritical         Boolean  @default(false)
+  status             String   @default("ACTIVE")
+  productId          String?
+  product            Product? @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  deletedAt          DateTime?
+
+  componentLinks ComponentSparePart[]
+  machineLinks   MachineSparePart[]
+
+  @@index([code])
+  @@index([name])
+  @@index([category])
+  @@index([partNumber])
+  @@index([barcode])
+  @@index([status])
+  @@index([isCritical])
+  @@index([productId])
+  @@map("spare_parts")
+}
+
+model ComponentSparePart {
+  id              String   @id @default(cuid())
+  componentId     String
+  component       MachineComponent @relation(fields: [componentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sparePartId     String
+  sparePart       SparePart        @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity        Float
+  unit            String?
+  usageNote       String?
+  isPrimary       Boolean  @default(false)
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([componentId, sparePartId])
+  @@index([componentId])
+  @@index([sparePartId])
+  @@index([status])
+  @@map("component_spare_parts")
+}
+
+model MachineSparePart {
+  id          String   @id @default(cuid())
+  machineId   String
+  machine     Machine  @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sparePartId String
+  sparePart   SparePart @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity    Float
+  unit        String?
+  usageNote   String?
+  isPrimary   Boolean  @default(false)
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([machineId, sparePartId])
+  @@index([machineId])
+  @@index([sparePartId])
+  @@index([status])
+  @@map("machine_spare_parts")
 }
 
 model MaintenanceRequest {

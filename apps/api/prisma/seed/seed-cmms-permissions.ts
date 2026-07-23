@@ -115,6 +115,23 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "machine-component:delete", module: "machine-component", action: "delete" },
   { key: "machine-component:activate", module: "machine-component", action: "activate" },
   { key: "machine-component:deactivate", module: "machine-component", action: "deactivate" },
+  // spare-part (new module, all actions)
+  { key: "spare-part:create", module: "spare-part", action: "create" },
+  { key: "spare-part:read", module: "spare-part", action: "read" },
+  { key: "spare-part:update", module: "spare-part", action: "update" },
+  { key: "spare-part:delete", module: "spare-part", action: "delete" },
+  { key: "spare-part:activate", module: "spare-part", action: "activate" },
+  { key: "spare-part:deactivate", module: "spare-part", action: "deactivate" },
+  // component-spare-part (new module, all actions)
+  { key: "component-spare-part:create", module: "component-spare-part", action: "create" },
+  { key: "component-spare-part:read", module: "component-spare-part", action: "read" },
+  { key: "component-spare-part:update", module: "component-spare-part", action: "update" },
+  { key: "component-spare-part:deactivate", module: "component-spare-part", action: "deactivate" },
+  // machine-spare-part (new module, all actions)
+  { key: "machine-spare-part:create", module: "machine-spare-part", action: "create" },
+  { key: "machine-spare-part:read", module: "machine-spare-part", action: "read" },
+  { key: "machine-spare-part:update", module: "machine-spare-part", action: "update" },
+  { key: "machine-spare-part:deactivate", module: "machine-spare-part", action: "deactivate" },
 ];
 
 async function main() {

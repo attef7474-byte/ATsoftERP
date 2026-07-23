@@ -24,6 +24,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         machineCategories: 'Machine Categories',
         machines: 'Machines',
         machineParts: 'Machine Parts',
+        spareParts: 'Spare Parts',
         machineDocuments: 'Machine Documents',
         operationTypes: 'Operation Types',
         costCenters: 'Cost Centers',

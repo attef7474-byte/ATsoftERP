@@ -24,6 +24,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         machineCategories: 'تصنيفات الماكينات',
         machines: 'الماكينات',
         machineParts: 'قطع الغيار',
+        spareParts: 'قطع الغيار الاحتياطية',
         machineDocuments: 'المستندات',
         operationTypes: 'أنواع العمليات',
         costCenters: 'مراكز التكلفة',

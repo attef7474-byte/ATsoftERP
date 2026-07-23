@@ -34,4 +34,5 @@ export {
   costCenterAdapter,
   productionLineAdapter,
   machineComponentAdapter,
+  sparePartAdapter,
 } from './lookup-adapters';

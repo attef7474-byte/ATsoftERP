@@ -29,6 +29,7 @@ import {
   costCenterAdapter,
   productionLineAdapter,
   machineComponentAdapter,
+  sparePartAdapter,
 } from './lookup-adapters';
 import type {
   Company, Branch, Administration, Department, Warehouse, ProductCategory, Product,
@@ -36,7 +37,7 @@ import type {
   MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment,
   WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification,
   AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine,
-  MachineComponent,
+  MachineComponent, SparePart,
 } from '../../lib/admin-types';
 
 export interface UnifiedSearchEntity {
@@ -261,6 +262,13 @@ const registry: UnifiedSearchEntity[] = [
     adapter: machineComponentAdapter as LookupAdapter<any>,
     detailRoute: (item: MachineComponent) => `/admin/maintenance/machine-components/${item.id}`,
     subtitle: (item: MachineComponent) => item.machine?.name || item.code,
+  },
+  {
+    entityType: 'sparePart',
+    labelKey: 'maintenance.spareParts',
+    adapter: sparePartAdapter as LookupAdapter<any>,
+    detailRoute: (item: SparePart) => `/admin/maintenance/spare-parts/${item.id}`,
+    subtitle: (item: SparePart) => item.partNumber || item.code,
   },
 ];
 
