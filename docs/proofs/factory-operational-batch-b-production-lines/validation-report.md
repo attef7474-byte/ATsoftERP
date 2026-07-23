@@ -1,13 +1,20 @@
-# Validation Report — Production Lines (Batch B)
+# Validation Report — Production Lines (Batch B) — Final
 
 ## Build & Typecheck
 
 | Check | Status |
 |-------|--------|
-| API `tsc` | ✅ Pass |
-| Web `next build` | ✅ Pass (129 pages, production-lines at 3.35 kB) |
+| Prisma validate | ✅ Pass |
 | Prisma generate | ✅ Pass |
-| Prisma migrate | ✅ Pass (`20260723053312_add_production_lines`) |
+| API `tsc` (build:api) | ✅ Pass |
+| Typecheck (tsc --noEmit) | ✅ Pass |
+| Web `next build` | ✅ Pass (129 pages, production-lines at 3.35 kB) |
+
+## i18n
+
+| Check | Status |
+|-------|--------|
+| `npm run i18n:check` | ✅ Pass (2191 keys EN, 2191 keys AR, synchronized) |
 
 ## Seed
 
@@ -21,7 +28,7 @@
 | # | Test | Status |
 |---|------|--------|
 | 01 | Route renders production-lines page | ✅ Pass |
-| 02 | No raw i18n keys visible | ❌ Fail (minor: column headers show raw keys) |
+| 02 | No raw i18n keys visible | ✅ Pass |
 | 03 | Data grid is visible | ✅ Pass |
 | 04 | Create button opens modal | ✅ Pass |
 | 05 | Grid has data rows (seeded) | ✅ Pass |
@@ -36,24 +43,18 @@
 | 14 | No ChunkLoadError | ✅ Pass |
 | 15 | No _next/static 400+ failures | ✅ Pass |
 
-**Result: 14/15 passed (93%)**
+**Result: 15/15 passed (100%)**
 
-## Files Modified
+## Health & Smoke
+
+| Check | Status |
+|-------|--------|
+| `tools/health/health-check.ps1` | ✅ Pass (4/4) |
+| `tools/health/smoke-check.ps1` | ✅ Pass (8/8) |
+
+## Files Modified (this correction)
 
 | File | Change |
 |------|--------|
-| `apps/api/prisma/schema.prisma` | Added ProductionLine model + reverse relations |
-| `apps/api/src/modules/factory/maintenance/production-lines/` | Full backend module (6 files) |
-| `apps/api/src/app.module.ts` | Import ProductionLinesModule |
-| `apps/api/prisma/seed/seed.ts` | Module, permissions, number sequence |
-| `apps/api/prisma/seed/seed-factory-reference.ts` | Default production lines |
-| `apps/web/src/app/admin/maintenance/production-lines/page.tsx` | Frontend CRUD page |
-| `apps/web/src/lib/admin-types/maintenance.ts` | ProductionLine interface |
-| `apps/web/src/lib/i18n/locales/ar/maintenance.ts` | Arabic i18n keys |
-| `apps/web/src/lib/i18n/locales/ar/navigation.ts` | Arabic nav key |
-| `apps/web/src/lib/i18n/locales/en/maintenance.ts` | English i18n keys |
-| `apps/web/src/lib/i18n/locales/en/navigation.ts` | English nav key |
-| `apps/web/src/components/admin/shell/navigation-data.ts` | Nav entry |
-| `apps/web/src/components/f9/lookup-adapters.ts` | ProductionLine adapter |
-| `apps/web/src/components/f9/adapter-registry.ts` | Registry entry |
-| `apps/web/src/components/f9/index.ts` | Export adapter |
+| `apps/web/src/lib/i18n/locales/en/maintenance.ts` | Moved 31 keys from `downtimeAnalysis` → `maintenance` namespace |
+| `apps/web/src/lib/i18n/locales/ar/maintenance.ts` | Moved 31 keys from `downtimeAnalysis` → `maintenance` namespace |
