@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Administration, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -334,6 +334,19 @@ export const costCenterAdapter: LookupAdapter<CostCenter> = {
     { key: 'code', header: 'Code' },
     { key: 'name', header: 'Name' },
     { key: 'type', header: 'Type' },
+    { key: 'status', header: 'Status', render: (c) => c.status },
+  ],
+};
+
+export const machineComponentAdapter: LookupAdapter<MachineComponent> = {
+  endpoint: '/maintenance/machine-components',
+  displayLabel: (c) => `[${c.code}] ${c.name}`,
+  searchFields: ['code', 'name'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'componentType', header: 'Type' },
+    { key: 'criticality', header: 'Criticality' },
     { key: 'status', header: 'Status', render: (c) => c.status },
   ],
 };

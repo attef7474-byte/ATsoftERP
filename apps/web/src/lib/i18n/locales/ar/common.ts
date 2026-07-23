@@ -89,6 +89,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         lastRefresh: 'آخر تحديث',
         noRecordSelected: 'لم يتم تحديد سجل',
         selectRecordFirst: 'الرجاء تحديد سجل أولاً',
+        selectPlaceholder: 'اختر...',
         enterBarcode: 'أدخل الباركود...',
         start: 'بدء',
         complete: 'إكمال',

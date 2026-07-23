@@ -89,6 +89,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         lastRefresh: 'Last Refresh',
         noRecordSelected: 'No record selected',
         selectRecordFirst: 'Please select a record first',
+        selectPlaceholder: 'Select...',
         enterBarcode: 'Enter barcode...',
         start: 'Start',
         complete: 'Complete',

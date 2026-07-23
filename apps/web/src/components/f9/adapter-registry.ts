@@ -28,6 +28,7 @@ import {
   operationTypeAdapter,
   costCenterAdapter,
   productionLineAdapter,
+  machineComponentAdapter,
 } from './lookup-adapters';
 import type {
   Company, Branch, Administration, Department, Warehouse, ProductCategory, Product,
@@ -35,6 +36,7 @@ import type {
   MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment,
   WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification,
   AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine,
+  MachineComponent,
 } from '../../lib/admin-types';
 
 export interface UnifiedSearchEntity {
@@ -252,6 +254,13 @@ const registry: UnifiedSearchEntity[] = [
     adapter: productionLineAdapter as LookupAdapter<any>,
     detailRoute: () => `/admin/maintenance/production-lines`,
     subtitle: (item: ProductionLine) => item.code,
+  },
+  {
+    entityType: 'machineComponent',
+    labelKey: 'maintenance.machineComponents',
+    adapter: machineComponentAdapter as LookupAdapter<any>,
+    detailRoute: (item: MachineComponent) => `/admin/maintenance/machine-components/${item.id}`,
+    subtitle: (item: MachineComponent) => item.machine?.name || item.code,
   },
 ];
 

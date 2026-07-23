@@ -97,6 +97,11 @@ export class MaintenanceController {
   @ApiOperation({ summary: 'Get machine operational status' })
   getMachineOperationalStatus(@Param('id') id: string) { return this.service.getMachineOperationalStatus(id); }
 
+  @Get('machines/:id/components')
+  @Permissions('machines:read')
+  @ApiOperation({ summary: 'Get machine components' })
+  getMachineComponents(@Param('id') id: string) { return this.service.getMachineComponents(id); }
+
   @Get('machines/:id/parts')
   @Permissions('machines:read')
   @ApiOperation({ summary: 'Get machine parts' })

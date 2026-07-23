@@ -33,4 +33,5 @@ export {
   operationTypeAdapter,
   costCenterAdapter,
   productionLineAdapter,
+  machineComponentAdapter,
 } from './lookup-adapters';

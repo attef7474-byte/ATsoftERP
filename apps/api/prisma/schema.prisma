@@ -960,6 +960,7 @@ model Machine {
   updatedAt    DateTime         @updatedAt
   deletedAt    DateTime?
 
+  components      MachineComponent[]
   parts           MachinePart[]
   documents       MachineDocument[]
   maintenanceReqs MaintenanceRequest[]
@@ -1018,6 +1019,36 @@ model MachineDocument {
 
   @@index([machineId])
   @@map("machine_documents")
+}
+
+model MachineComponent {
+  id                 String            @id @default(cuid())
+  machineId          String
+  machine            Machine           @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentComponentId  String?
+  parentComponent    MachineComponent? @relation("MachineComponentHierarchy", fields: [parentComponentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children           MachineComponent[] @relation("MachineComponentHierarchy")
+  code               String
+  name               String
+  componentType      String
+  description        String?
+  locationInMachine  String?
+  manufacturer       String?
+  model              String?
+  serialNumber       String?
+  criticality        String            @default("MEDIUM")
+  status             String            @default("ACTIVE")
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  deletedAt          DateTime?
+
+  @@unique([machineId, code])
+  @@index([machineId])
+  @@index([parentComponentId])
+  @@index([componentType])
+  @@index([criticality])
+  @@index([status])
+  @@map("machine_components")
 }
 
 model MaintenanceRequest {

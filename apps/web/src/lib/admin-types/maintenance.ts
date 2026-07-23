@@ -283,6 +283,28 @@ export interface OperationType {
   updatedAt: string;
 }
 
+export interface MachineComponent {
+  id: string;
+  machineId: string;
+  parentComponentId?: string | null;
+  code: string;
+  name: string;
+  componentType: string;
+  description?: string | null;
+  locationInMachine?: string | null;
+  manufacturer?: string | null;
+  model?: string | null;
+  serialNumber?: string | null;
+  criticality: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  machine?: { id: string; name: string; code: string };
+  parentComponent?: { id: string; name: string; code: string } | null;
+  children?: { id: string; name: string; code: string }[];
+  _count?: { children: number };
+}
+
 export interface CostCenter {
   id: string;
   code: string;

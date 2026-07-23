@@ -279,6 +279,18 @@ export class MaintenanceService {
     return { activeRequest, activeDowntime, openTasks, activeSchedule, checkedAt: now };
   }
 
+  async getMachineComponents(id: string) {
+    await this.findOneMachine(id);
+    return this.prisma.machineComponent.findMany({
+      where: { machineId: id, deletedAt: null },
+      include: {
+        parentComponent: { select: { id: true, name: true, code: true } },
+        _count: { select: { children: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async getMachineParts(id: string) {
     await this.findOneMachine(id);
     return this.prisma.machinePart.findMany({

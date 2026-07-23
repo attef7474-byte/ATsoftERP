@@ -108,6 +108,13 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "downtime-log:analysis", module: "downtime-log", action: "analysis" },
   { key: "downtime-log:byMachine", module: "downtime-log", action: "byMachine" },
   { key: "downtime-log:logSummary", module: "downtime-log", action: "logSummary" },
+  // machine-component (new module, all actions)
+  { key: "machine-component:create", module: "machine-component", action: "create" },
+  { key: "machine-component:read", module: "machine-component", action: "read" },
+  { key: "machine-component:update", module: "machine-component", action: "update" },
+  { key: "machine-component:delete", module: "machine-component", action: "delete" },
+  { key: "machine-component:activate", module: "machine-component", action: "activate" },
+  { key: "machine-component:deactivate", module: "machine-component", action: "deactivate" },
 ];
 
 async function main() {

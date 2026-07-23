@@ -30,6 +30,7 @@ import { PreventiveMaintenanceModule } from './modules/factory/maintenance/preve
 import { OperationTypesModule } from './modules/factory/maintenance/operation-types/operation-types.module'
 import { CostCentersModule } from './modules/factory/maintenance/cost-centers/cost-centers.module'
 import { ProductionLinesModule } from './modules/factory/maintenance/production-lines/production-lines.module'
+import { MachineComponentsModule } from './modules/factory/maintenance/machine-components/machine-components.module'
 import { InventoryCountsModule } from './modules/factory/inventory-counts/inventory-counts.module'
 import { InventoryCountLinesModule } from './modules/factory/inventory-count-lines/inventory-count-lines.module'
 import { InventoryMovementsModule } from './modules/factory/inventory-movements/inventory-movements.module'
@@ -63,7 +64,7 @@ import { MessagingModule } from './modules/messaging/messaging.module'
     MaintenanceChecklistItemsModule, DowntimeLogsModule,
     MaintenanceRequestPartsModule, MaintenanceRequestCostsModule, MaintenanceChecklistExecutionsModule,
     MaintenanceDashboardModule, PreventiveMaintenanceModule,
-    OperationTypesModule, CostCentersModule, ProductionLinesModule,
+    OperationTypesModule, CostCentersModule, ProductionLinesModule, MachineComponentsModule,
     InventoryCountsModule, InventoryCountLinesModule, InventoryMovementsModule,
     InventoryAdjustmentsModule, InventoryBalancesModule,
     BusinessPartnersModule,     BarcodesModule,
