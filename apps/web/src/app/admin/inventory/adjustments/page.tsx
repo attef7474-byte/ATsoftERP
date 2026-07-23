@@ -4,16 +4,17 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { InventoryAdjustment, InventoryAdjustmentLine } from '../../../../lib/admin-types';
-import { Button, Input, Select, Textarea, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Select, Textarea, Pagination, PageHeader, Modal, ConfirmDialog, EmptyState } from '../../../../components/admin/ui';
 import { InventoryStatusBadge } from '../../../../components/inventory-counting/InventoryStatusBadge';
 import { F9Lookup, companyAdapter, branchAdapter, warehouseAdapter, productAdapter } from '../../../../components/f9';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionPostIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function InventoryAdjustmentsPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<InventoryAdjustment[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -173,7 +174,7 @@ export default function InventoryAdjustmentsPage() {
     { value: 'CANCELLED', label: t('status.CANCELLED') },
   ];
 
-  const columns = [
+  const columns: GridColumn<InventoryAdjustment>[] = [
     { key: 'adjustmentNumber', header: t('inventoryCounting.adjustmentNumber') },
     { key: 'company', header: t('inventoryCounting.company'), render: (r: InventoryAdjustment) => r.company?.name || '-' },
     { key: 'branch', header: t('inventoryCounting.branch'), render: (r: InventoryAdjustment) => r.branch?.name || '-' },
@@ -185,21 +186,14 @@ export default function InventoryAdjustmentsPage() {
       <button onClick={() => router.push(`/admin/inventory/counts/${r.inventoryCount!.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm underline">{r.inventoryCount.countNumber}</button>
     ) : '-' },
     { key: 'postedAt', header: t('inventoryCounting.postedAt'), render: (r: InventoryAdjustment) => r.postedAt ? new Date(r.postedAt).toLocaleString() : '-' },
-    {
-      key: 'actions', header: t('common.actions'), render: (r: InventoryAdjustment) => (
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={() => router.push(`/admin/inventory/adjustments/${r.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
-          {r.status === 'DRAFT' && (
-            <>
-              <button onClick={() => confirmAction(r.id, 'post')} className="text-green-600 hover:text-green-800 text-sm">{t('inventoryCounting.post')}</button>
-              <button onClick={() => openEdit(r)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
-              <button onClick={() => confirmAction(r.id, 'cancel')} className="text-red-600 hover:text-red-800 text-sm">{t('inventoryCounting.cancel')}</button>
-            </>
-          )}
-          <button onClick={() => openView(r)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('common.view')}</button>
-        </div>
-      ),
-    },
+  ];
+
+  const gridActions: GridAction<InventoryAdjustment>[] = [
+    { label: t('details.viewDetails'), onClick: (r: InventoryAdjustment) => router.push(`/admin/inventory/adjustments/${r.id}`) },
+    { label: t('inventoryCounting.post'), onClick: (r: InventoryAdjustment) => confirmAction(r.id, 'post'), enabled: (r: InventoryAdjustment) => r.status === 'DRAFT' },
+    { label: t('actions.edit'), onClick: (r: InventoryAdjustment) => openEdit(r), enabled: (r: InventoryAdjustment) => r.status === 'DRAFT' },
+    { label: t('inventoryCounting.cancel'), onClick: (r: InventoryAdjustment) => confirmAction(r.id, 'cancel'), enabled: (r: InventoryAdjustment) => r.status === 'DRAFT', variant: 'danger' },
+    { label: t('common.view'), onClick: (r: InventoryAdjustment) => openView(r) },
   ];
 
   const isReadOnly = editItem ? editItem.status !== 'DRAFT' : false;
@@ -213,16 +207,26 @@ export default function InventoryAdjustmentsPage() {
         <F9Lookup label={t('inventoryCounting.warehouse')} value={filters.warehouseId} onChange={(v) => setFilters({ ...filters, warehouseId: v })} adapter={warehouseAdapter} />
         <Select label={t('common.status')} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} options={statusOptions} />
       </div>
-      <Toolbar searchValue={search} onSearchChange={setSearch} onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)} onCreate={openCreate} createLabel={t('inventoryCounting.newAdjustment')} loading={loading} />
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('inventoryCounting.noAdjustments')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(r: InventoryAdjustment) => r.id} onRowClick={(r: InventoryAdjustment) => setSelectedId(r.id)} selectedKey={selectedId} />
-          <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+      <AdminDataGrid
+        columns={columns}
+        data={data}
+        keyExtractor={(r: InventoryAdjustment) => r.id}
+        onRowClick={(r: InventoryAdjustment) => setSelectedId(r.id)}
+        selectedKey={selectedId}
+        loading={loading}
+        emptyMessage={t('inventoryCounting.noAdjustments')}
+        error={error || undefined}
+        onRetry={() => fetchData(meta.page)}
+        actions={gridActions}
+        dir={dir}
+        globalSearch={search}
+        onGlobalSearch={setSearch}
+        searchPlaceholder={t('common.search')}
+        onRefresh={() => fetchData(meta.page)}
+        refreshLoading={loading}
+      />
+      {data.length > 0 && (
+        <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)}

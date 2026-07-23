@@ -4,11 +4,12 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { ProductCategory } from '../../../../lib/admin-types';
-import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Select, Pagination, PageHeader, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function ProductCategoriesPage() {
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<ProductCategory[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -107,39 +108,44 @@ export default function ProductCategoriesPage() {
     } finally { setSaving(false); }
   };
 
-  const columns = [
+  const columns: GridColumn<ProductCategory>[] = [
     { key: 'code', header: t('common.code') },
     { key: 'name', header: t('common.name') },
     { key: 'description', header: t('common.description'), render: (c: ProductCategory) => c.description || '-' },
     { key: 'parent', header: t('inventory.parentCategory'), render: (c: ProductCategory) => c.parent?.name || '-' },
     { key: 'products', header: t('inventory.products'), render: (c: ProductCategory) => c._count?.products ?? '-' },
     { key: 'status', header: t('common.status'), render: (c: ProductCategory) => <StatusBadge status={c.status} /> },
-    {
-      key: 'actions', header: t('common.actions'), render: (c: ProductCategory) => (
-        <div className="flex gap-2">
-          <button onClick={() => openEdit(c)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
-          <button onClick={() => confirmStatus(c.id)}
-            className={`text-sm ${c.status === 'ACTIVE' ? 'text-orange-600' : 'text-green-600'} hover:underline`}>
-            {c.status === 'ACTIVE' ? t('actions.deactivate') : t('actions.activate')}
-          </button>
-        </div>
-      ),
-    },
+  ];
+
+  const gridActions: GridAction<ProductCategory>[] = [
+    { label: t('actions.edit'), onClick: (c: ProductCategory) => openEdit(c) },
+    { label: t('actions.deactivate'), onClick: (c: ProductCategory) => confirmStatus(c.id), enabled: (c: ProductCategory) => c.status === 'ACTIVE', variant: 'danger' },
+    { label: t('actions.activate'), onClick: (c: ProductCategory) => confirmStatus(c.id), enabled: (c: ProductCategory) => c.status !== 'ACTIVE' },
   ];
 
   return (
     <div>
       <PageHeader title={t('inventory.productCategories')} />
-      <Toolbar searchValue={search} onSearchChange={setSearch} onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)} onCreate={openCreate} createLabel={t('inventory.newProductCategory')} loading={loading} />
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(c: ProductCategory) => c.id} selectedKey={selectedId} onRowClick={(item: ProductCategory) => setSelectedId(item.id)} />
-          <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+      <AdminDataGrid
+        columns={columns}
+        data={data}
+        keyExtractor={(c: ProductCategory) => c.id}
+        onRowClick={(c: ProductCategory) => setSelectedId(c.id)}
+        selectedKey={selectedId}
+        loading={loading}
+        emptyMessage={t('common.noData')}
+        error={error || undefined}
+        onRetry={() => fetchData(meta.page)}
+        actions={gridActions}
+        dir={dir}
+        globalSearch={search}
+        onGlobalSearch={setSearch}
+        searchPlaceholder={t('common.search')}
+        onRefresh={() => fetchData(meta.page)}
+        refreshLoading={loading}
+      />
+      {data.length > 0 && (
+        <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.editProductCategory') : t('inventory.newProductCategory')}>
         <div className="space-y-4">

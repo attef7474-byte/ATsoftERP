@@ -5,14 +5,15 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { DowntimeLog } from '../../../../lib/admin-types';
-import { Button, Input, Textarea, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Textarea, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../components/maintenance';
 import { F9Lookup, machineAdapter, maintenanceRequestAdapter } from '../../../../components/f9';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function DowntimeLogsPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<DowntimeLog[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -91,36 +92,43 @@ export default function DowntimeLogsPage() {
     finally { setSaving(false); }
   };
 
-  const columns = [
+  const columns: GridColumn<DowntimeLog>[] = [
     { key: 'machine', header: t('maintenance.machine'), render: (d: DowntimeLog) => d.machine?.name || '-' },
     { key: 'reason', header: t('maintenance.reason') },
     { key: 'startTime', header: t('maintenance.startTime'), render: (d: DowntimeLog) => new Date(d.startTime).toLocaleString() },
     { key: 'endTime', header: t('maintenance.endTime'), render: (d: DowntimeLog) => d.endTime ? new Date(d.endTime).toLocaleString() : '-' },
     { key: 'durationMinutes', header: t('maintenance.durationMinutes'), render: (d: DowntimeLog) => d.durationMinutes ? `${d.durationMinutes} min` : '-' },
     { key: 'status', header: t('common.status'), render: (d: DowntimeLog) => <CmmsStatusBadge status={d.status} /> },
-    {
-      key: 'actions', header: t('common.actions'), render: (d: DowntimeLog) => (
-        <div className="flex gap-2 flex-wrap">
-          {!d.endTime && <button onClick={() => confirmAction(d.id, 'close')} className="text-green-600 hover:text-green-800 text-sm">{t('maintenance.close')}</button>}
-          <button onClick={() => openEdit(d)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
-        </div>
-      ),
-    },
+  ];
+
+  const gridActions: GridAction<DowntimeLog>[] = [
+    { label: t('maintenance.close'), onClick: (d: DowntimeLog) => confirmAction(d.id, 'close'), enabled: (d: DowntimeLog) => !d.endTime },
+    { label: t('actions.edit'), onClick: (d: DowntimeLog) => openEdit(d) },
   ];
 
   return (
     <div>
       <PageHeader title={t('maintenance.downtimeLogs')} />
-      <Toolbar searchValue={search} onSearchChange={setSearch} onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)} onCreate={openCreate} createLabel={t('maintenance.newDowntimeLog')} loading={loading} />
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(d: DowntimeLog) => d.id} onRowClick={(item: DowntimeLog) => setSelectedId(item.id)} selectedKey={selectedId} />
-          <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+      <AdminDataGrid
+        columns={columns}
+        data={data}
+        keyExtractor={(d: DowntimeLog) => d.id}
+        onRowClick={(d: DowntimeLog) => setSelectedId(d.id)}
+        selectedKey={selectedId}
+        loading={loading}
+        emptyMessage={t('common.noData')}
+        error={error || undefined}
+        onRetry={() => fetchData(meta.page)}
+        actions={gridActions}
+        dir={dir}
+        globalSearch={search}
+        onGlobalSearch={setSearch}
+        searchPlaceholder={t('common.search')}
+        onRefresh={() => fetchData(meta.page)}
+        refreshLoading={loading}
+      />
+      {data.length > 0 && (
+        <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editDowntimeLog') : t('maintenance.newDowntimeLog')} size="lg">
         <div className="space-y-4">

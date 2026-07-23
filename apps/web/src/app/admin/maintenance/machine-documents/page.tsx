@@ -4,13 +4,14 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { MachineDocument } from '../../../../lib/admin-types';
-import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { F9Lookup, machineAdapter } from '../../../../components/f9';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MachineDocumentsPage() {
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<MachineDocument[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -95,7 +96,7 @@ useRegisterAdminActions([
     finally { setSaving(false); }
   };
 
-  const columns = [
+  const columns: GridColumn<MachineDocument>[] = [
     { key: 'title', header: t('maintenance.title') },
     { key: 'documentType', header: t('maintenance.documentType'), render: (d: MachineDocument) => d.documentType || '-' },
     { key: 'machine', header: t('maintenance.machine'), render: (d: MachineDocument) => d.machine?.name || '-' },
@@ -104,29 +105,36 @@ useRegisterAdminActions([
         d.fileUrl ? <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">{d.fileName || 'Link'}</a> : '-'
     },
     { key: 'createdAt', header: t('common.createdAt'), render: (d: MachineDocument) => new Date(d.createdAt).toLocaleDateString() },
-    {
-      key: 'actions', header: t('common.actions'), render: (d: MachineDocument) => (
-        <div className="flex gap-2">
-          <button onClick={() => openEdit(d)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
-          <button onClick={() => confirmDelete(d.id)} className="text-red-600 hover:text-red-800 text-sm">{t('actions.delete')}</button>
-        </div>
-      ),
-    },
+  ];
+
+  const gridActions: GridAction<MachineDocument>[] = [
+    { label: t('actions.edit'), onClick: (d: MachineDocument) => openEdit(d) },
+    { label: t('actions.delete'), onClick: (d: MachineDocument) => confirmDelete(d.id), variant: 'danger' },
   ];
 
   return (
     <div>
       <PageHeader title={t('maintenance.machineDocuments')} />
-      <Toolbar searchValue={search} onSearchChange={setSearch} onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)} onCreate={openCreate} createLabel={t('maintenance.newMachineDocument')} loading={loading} />
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(d: MachineDocument) => d.id} onRowClick={(item: MachineDocument) => setSelectedId(item.id)} selectedKey={selectedId} />
-          <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+      <AdminDataGrid
+        columns={columns}
+        data={data}
+        keyExtractor={(d: MachineDocument) => d.id}
+        onRowClick={(d: MachineDocument) => setSelectedId(d.id)}
+        selectedKey={selectedId}
+        loading={loading}
+        emptyMessage={t('common.noData')}
+        error={error || undefined}
+        onRetry={() => fetchData(meta.page)}
+        actions={gridActions}
+        dir={dir}
+        globalSearch={search}
+        onGlobalSearch={setSearch}
+        searchPlaceholder={t('common.search')}
+        onRefresh={() => fetchData(meta.page)}
+        refreshLoading={loading}
+      />
+      {data.length > 0 && (
+        <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editMachineDocument') : t('maintenance.newMachineDocument')} size="lg">
         <div className="space-y-4">

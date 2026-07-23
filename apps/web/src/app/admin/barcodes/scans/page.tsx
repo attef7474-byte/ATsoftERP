@@ -9,6 +9,7 @@ import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon } from '.
 import { BarcodeScanEvent, PaginatedResponse } from '../../../../lib/admin-types';
 
 const PURPOSES = ['', 'GENERAL_LOOKUP', 'INVENTORY_COUNTING', 'MAINTENANCE_LOOKUP', 'MACHINE_CHECK', 'PART_LOOKUP'];
+const PURPOSE_KEY_MAP: Record<string, string> = { 'GENERAL_LOOKUP': 'generalLookup', 'INVENTORY_COUNTING': 'inventoryCounting', 'MAINTENANCE_LOOKUP': 'maintenanceLookup', 'MACHINE_CHECK': 'machineCheck', 'PART_LOOKUP': 'partLookup' };
 const RESULTS = ['', 'SUCCESS', 'NOT_FOUND', 'ERROR'];
 const ENTITY_TYPES = ['', 'PRODUCT', 'MACHINE', 'MACHINE_PART', 'WAREHOUSE', 'WAREHOUSE_LOCATION', 'INVENTORY_COUNT', 'MAINTENANCE_REQUEST', 'MAINTENANCE_TASK'];
 
@@ -56,7 +57,7 @@ export default function ScanHistoryPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('barcodes.scanHistory.title')} />
+      <PageHeader title={t('barcodes.scanHistory')} />
 
       <Card>
         <CardContent className="p-0">
@@ -68,7 +69,7 @@ export default function ScanHistoryPage() {
                   className="block w-full rounded-lg border border-gray-300 px-3 py-2 pl-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <Select value={purposeFilter} onChange={(e) => { setPurposeFilter(e.target.value); setPage(1); }}
-                options={PURPOSES.map((p) => ({ value: p, label: p ? t(`barcodes.scan.${p.toLowerCase()}`) : t('common.all') }))} />
+                options={PURPOSES.map((p) => ({ value: p, label: p ? (t(`barcodes.scan.${PURPOSE_KEY_MAP[p]}` as any) || p) : t('common.all') }))} />
               <Select value={resultFilter} onChange={(e) => { setResultFilter(e.target.value); setPage(1); }}
                 options={RESULTS.map((r) => ({ value: r, label: r || t('common.all') }))} />
               <Select value={entityTypeFilter} onChange={(e) => { setEntityTypeFilter(e.target.value); setPage(1); }}
@@ -79,7 +80,7 @@ export default function ScanHistoryPage() {
 
           {loading && <LoadingState />}
           {error && !loading && <ErrorState message={error} onRetry={fetchScans} />}
-          {!loading && !error && scans.length === 0 && <EmptyState message={t('barcodes.scanHistory.noScans')} />}
+          {!loading && !error && scans.length === 0 && <EmptyState message={t('barcodes.scan.noScans')} />}
 
           {!loading && !error && scans.length > 0 && (
             <>

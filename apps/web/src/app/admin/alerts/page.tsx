@@ -54,7 +54,7 @@ export default function AlertsPage() {
 
   const columns = [
     { key: 'severity', header: t('alerts.severity'), render: (item: any) => <StatusBadge status={item.severity} /> },
-    { key: 'type', header: t('alerts.type'), render: (item: any) => t(`alerts.${item.type}` as any) || item.type },
+    { key: 'type', header: t('alerts.type'), render: (item: any) => { const k = `alerts.${item.type}`; const v = t(k as any); return v !== k ? v : item.type; } },
     { key: 'title', header: t('common.name') },
     { key: 'description', header: t('alerts.description'), render: (item: any) => <span className="text-xs text-gray-500">{item.description?.substring(0, 80)}</span> },
     { key: 'status', header: t('alerts.status'), render: (item: any) => <StatusBadge status={item.status} /> },

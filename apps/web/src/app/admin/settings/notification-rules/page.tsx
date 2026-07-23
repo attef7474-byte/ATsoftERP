@@ -140,14 +140,14 @@ export default function NotificationRulesPage() {
     { key: 'nameEn', header: t('settings.notificationRules.nameEn'), sortable: true, filterable: true },
     { key: 'eventType', header: t('settings.notificationRules.eventType'), sortable: true, filterable: true, filterType: 'select', filterOptions: EVENT_TYPES.map((et) => ({ value: et, label: t(`settings.notificationRules.eventTypes.${et}` as any) || et })), render: (item: any) => t(`settings.notificationRules.eventTypes.${item.eventType}` as any) || item.eventType },
     { key: 'channel', header: t('settings.notificationRules.channel'), sortable: true, filterable: true, filterType: 'select', filterOptions: CHANNELS.map((c) => ({ value: c, label: c })) },
-    { key: 'severity', header: t('settings.notificationRules.severity'), sortable: true, filterable: true, filterType: 'select', filterOptions: [{ value: 'INFO', label: 'INFO' }, { value: 'WARNING', label: 'WARNING' }, { value: 'ERROR', label: 'ERROR' }], render: (item: any) => (
+    { key: 'severity', header: t('settings.notificationRules.severity'), sortable: true, filterable: true, filterType: 'select', filterOptions: [{ value: 'INFO', label: t('status.INFO') }, { value: 'WARNING', label: t('status.WARNING') }, { value: 'ERROR', label: t('status.ERROR') }], render: (item: any) => (
       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
         item.severity === 'ERROR' ? 'bg-red-100 text-red-700' : item.severity === 'WARNING' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'
-      }`}>{item.severity}</span>
+      }`}>{t(`status.${item.severity}` as any) || item.severity}</span>
     )},
-    { key: 'enabled', header: t('settings.notificationRules.enabled'), sortable: true, filterable: true, filterType: 'select', filterOptions: [{ value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }], render: (item: any) => (
+    { key: 'enabled', header: t('settings.notificationRules.enabled'), sortable: true, filterable: true, filterType: 'select', filterOptions: [{ value: 'true', label: t('common.active') }, { value: 'false', label: t('common.inactive') }], render: (item: any) => (
       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${item.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-        {item.enabled ? 'Active' : 'Inactive'}
+        {item.enabled ? t('common.active') : t('common.inactive')}
       </span>
     )},
   ];
@@ -217,8 +217,8 @@ export default function NotificationRulesPage() {
           </div>
           <Input label={t('settings.notificationRules.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="grid grid-cols-2 gap-4">
-            <Select label={t('settings.notificationRules.channel')} value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value })} options={CHANNELS.map((c) => ({ value: c, label: c }))} />
-            <Select label={t('settings.notificationRules.severity')} value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })} options={[{ value: 'INFO', label: 'INFO' }, { value: 'WARNING', label: 'WARNING' }, { value: 'ERROR', label: 'ERROR' }]} />
+            <Select label={t('settings.notificationRules.channel')} value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value })} options={CHANNELS.map((c) => ({ value: c, label: t(`settings.notificationRules.channels.${c}` as any) || c }))} />
+            <Select label={t('settings.notificationRules.severity')} value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })} options={[{ value: 'INFO', label: t('status.INFO') }, { value: 'WARNING', label: t('status.WARNING') }, { value: 'ERROR', label: t('status.ERROR') }]} />
           </div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} />{t('settings.notificationRules.enabled')}</label>
           <div className="flex justify-end gap-3 pt-4">

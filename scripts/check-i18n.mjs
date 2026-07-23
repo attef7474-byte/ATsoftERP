@@ -1,9 +1,14 @@
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 
-const enPath = new URL('../apps/web/src/lib/i18n/locales/en.ts', import.meta.url);
-const arPath = new URL('../apps/web/src/lib/i18n/locales/ar.ts', import.meta.url);
+const LOCALE_DIR = new URL('../apps/web/src/lib/i18n/locales/', import.meta.url);
 
-function extractKeys(filePath) {
+const NAMESPACE_FILES = [
+  'common.ts', 'navigation.ts', 'grid.ts', 'core.ts', 'access.ts',
+  'settings.ts', 'inventory.ts', 'maintenance.ts', 'barcodes.ts',
+  'reports.ts', 'validation.ts', 'system.ts',
+];
+
+function extractKeysFromFile(filePath) {
   const content = readFileSync(filePath, 'utf-8');
   const lines = content.split('\n');
   const keys = new Set();
@@ -31,8 +36,18 @@ function extractKeys(filePath) {
   return keys;
 }
 
-const enKeys = extractKeys(enPath);
-const arKeys = extractKeys(arPath);
+function extractKeys(locale) {
+  const keys = new Set();
+  for (const nsFile of NAMESPACE_FILES) {
+    const filePath = new URL(`./${locale}/${nsFile}`, LOCALE_DIR);
+    const nsKeys = extractKeysFromFile(filePath);
+    for (const k of nsKeys) keys.add(k);
+  }
+  return keys;
+}
+
+const enKeys = extractKeys('en');
+const arKeys = extractKeys('ar');
 
 let exitCode = 0;
 

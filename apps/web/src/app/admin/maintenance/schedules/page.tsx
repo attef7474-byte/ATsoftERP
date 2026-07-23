@@ -4,14 +4,15 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { MaintenanceSchedule } from '../../../../lib/admin-types';
-import { Button, Input, Select, Textarea, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Select, Textarea, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../components/maintenance';
 import { F9Lookup, machineAdapter } from '../../../../components/f9';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MaintenanceSchedulesPage() {
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<MaintenanceSchedule[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -116,40 +117,45 @@ useRegisterAdminActions([
     { value: 'YEARLY', label: t('status.YEARLY') },
   ];
 
-  const columns = [
+  const columns: GridColumn<MaintenanceSchedule>[] = [
     { key: 'title', header: t('common.title') },
     { key: 'machine', header: t('maintenance.machine'), render: (s: MaintenanceSchedule) => s.machine?.name || '-' },
     { key: 'maintenanceType', header: t('maintenance.maintenanceType'), render: (s: MaintenanceSchedule) => t(`status.${s.maintenanceType}` as any) || s.maintenanceType },
     { key: 'frequency', header: t('maintenance.frequency'), render: (s: MaintenanceSchedule) => t(`status.${s.frequency}` as any) || s.frequency },
     { key: 'dueStatus', header: 'Due', render: (s: MaintenanceSchedule) => s.dueStatus ? <CmmsStatusBadge status={s.dueStatus} /> : '-' },
     { key: 'status', header: t('common.status'), render: (s: MaintenanceSchedule) => <CmmsStatusBadge status={s.status} /> },
-    {
-      key: 'actions', header: t('common.actions'), render: (s: MaintenanceSchedule) => (
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={() => openEdit(s)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
-          <button onClick={() => confirmStatus(s.id)}
-            className={`text-sm ${s.status === 'ACTIVE' ? 'text-orange-600' : 'text-green-600'} hover:underline`}>
-            {s.status === 'ACTIVE' ? t('actions.deactivate') : t('actions.activate')}
-          </button>
-          <a href={`/admin/maintenance/schedules/${s.id}/checklist`} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('maintenanceWorkflow.scheduleChecklist')}</a>
-        </div>
-      ),
-    },
+  ];
+
+  const gridActions: GridAction<MaintenanceSchedule>[] = [
+    { label: t('actions.edit'), onClick: (s: MaintenanceSchedule) => openEdit(s) },
+    { label: t('actions.deactivate'), onClick: (s: MaintenanceSchedule) => confirmStatus(s.id), enabled: (s: MaintenanceSchedule) => s.status === 'ACTIVE', variant: 'danger' },
+    { label: t('actions.activate'), onClick: (s: MaintenanceSchedule) => confirmStatus(s.id), enabled: (s: MaintenanceSchedule) => s.status !== 'ACTIVE' },
+    { label: t('maintenanceWorkflow.scheduleChecklist'), onClick: (s: MaintenanceSchedule) => window.location.href = `/admin/maintenance/schedules/${s.id}/checklist` },
   ];
 
   return (
     <div>
       <PageHeader title={t('maintenance.maintenanceSchedules')} />
-      <Toolbar searchValue={search} onSearchChange={setSearch} onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)} onCreate={openCreate} createLabel={t('maintenance.newMaintenanceSchedule')} loading={loading} />
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(s: MaintenanceSchedule) => s.id} onRowClick={(item: MaintenanceSchedule) => setSelectedId(item.id)} selectedKey={selectedId} />
-          <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+      <AdminDataGrid
+        columns={columns}
+        data={data}
+        keyExtractor={(s: MaintenanceSchedule) => s.id}
+        onRowClick={(s: MaintenanceSchedule) => setSelectedId(s.id)}
+        selectedKey={selectedId}
+        loading={loading}
+        emptyMessage={t('common.noData')}
+        error={error || undefined}
+        onRetry={() => fetchData(meta.page)}
+        actions={gridActions}
+        dir={dir}
+        globalSearch={search}
+        onGlobalSearch={setSearch}
+        searchPlaceholder={t('common.search')}
+        onRefresh={() => fetchData(meta.page)}
+        refreshLoading={loading}
+      />
+      {data.length > 0 && (
+        <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editMaintenanceSchedule') : t('maintenance.newMaintenanceSchedule')} size="lg">
         <div className="space-y-4">

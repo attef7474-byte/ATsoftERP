@@ -232,6 +232,9 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         notDue: 'غير مستحق',
         overdue: 'متأخر',
         dueSoon: 'قريباً',
+        INFO: 'معلومات',
+        WARNING: 'تحذير',
+        ERROR: 'خطأ',
     }
 };
 

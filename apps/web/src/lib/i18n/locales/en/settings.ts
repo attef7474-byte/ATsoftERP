@@ -346,6 +346,12 @@ const settings: Pick<LocaleTranslations, 'settings' | 'notifications' | 'messagi
                 DOWNTIME: 'Downtime Started',
                 SYSTEM_ERROR: 'System Error',
             },
+            channels: {
+                IN_APP: 'In-App',
+                EMAIL: 'Email',
+                SMS: 'SMS',
+                PUSH: 'Push',
+            },
         },
     },
     notifications: {

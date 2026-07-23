@@ -4,14 +4,15 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { MachinePart } from '../../../../lib/admin-types';
-import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../components/maintenance';
 import { F9Lookup, machineAdapter, productAdapter } from '../../../../components/f9';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MachinePartsPage() {
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<MachinePart[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -117,39 +118,44 @@ useRegisterAdminActions([
     finally { setSaving(false); }
   };
 
-  const columns = [
+  const columns: GridColumn<MachinePart>[] = [
     { key: 'code', header: t('common.code') },
     { key: 'name', header: t('common.name') },
     { key: 'partNumber', header: t('maintenance.partNumber'), render: (p: MachinePart) => p.partNumber || '-' },
     { key: 'machine', header: t('maintenance.machine'), render: (p: MachinePart) => p.machine?.name || '-' },
     { key: 'quantity', header: t('maintenance.quantity'), render: (p: MachinePart) => p.quantity },
     { key: 'status', header: t('common.status'), render: (p: MachinePart) => <CmmsStatusBadge status={p.status} /> },
-    {
-      key: 'actions', header: t('common.actions'), render: (p: MachinePart) => (
-        <div className="flex gap-2">
-          <button onClick={() => openEdit(p)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
-          <button onClick={() => confirmStatus(p.id)}
-            className={`text-sm ${p.status === 'ACTIVE' ? 'text-orange-600' : 'text-green-600'} hover:underline`}>
-            {p.status === 'ACTIVE' ? t('actions.deactivate') : t('actions.activate')}
-          </button>
-        </div>
-      ),
-    },
+  ];
+
+  const gridActions: GridAction<MachinePart>[] = [
+    { label: t('actions.edit'), onClick: (p: MachinePart) => openEdit(p) },
+    { label: t('actions.deactivate'), onClick: (p: MachinePart) => confirmStatus(p.id), enabled: (p: MachinePart) => p.status === 'ACTIVE', variant: 'danger' },
+    { label: t('actions.activate'), onClick: (p: MachinePart) => confirmStatus(p.id), enabled: (p: MachinePart) => p.status !== 'ACTIVE' },
   ];
 
   return (
     <div>
       <PageHeader title={t('maintenance.machineParts')} />
-      <Toolbar searchValue={search} onSearchChange={setSearch} onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)} onCreate={openCreate} createLabel={t('maintenance.newMachinePart')} loading={loading} />
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(p: MachinePart) => p.id} onRowClick={(item: MachinePart) => setSelectedId(item.id)} selectedKey={selectedId} />
-          <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+      <AdminDataGrid
+        columns={columns}
+        data={data}
+        keyExtractor={(p: MachinePart) => p.id}
+        onRowClick={(p: MachinePart) => setSelectedId(p.id)}
+        selectedKey={selectedId}
+        loading={loading}
+        emptyMessage={t('common.noData')}
+        error={error || undefined}
+        onRetry={() => fetchData(meta.page)}
+        actions={gridActions}
+        dir={dir}
+        globalSearch={search}
+        onGlobalSearch={setSearch}
+        searchPlaceholder={t('common.search')}
+        onRefresh={() => fetchData(meta.page)}
+        refreshLoading={loading}
+      />
+      {data.length > 0 && (
+        <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editMachinePart') : t('maintenance.newMachinePart')} size="lg">
         <div className="space-y-4 max-h-96 overflow-y-auto">

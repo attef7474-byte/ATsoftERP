@@ -4,12 +4,13 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { WarehouseLocation } from '../../../../lib/admin-types';
-import { Button, Input, Textarea, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Textarea, Pagination, PageHeader, Toolbar, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { F9Lookup, warehouseAdapter } from '../../../../components/f9';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function WarehouseLocationsPage() {
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<any[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -122,7 +123,7 @@ export default function WarehouseLocationsPage() {
     } finally { setSaving(false); }
   };
 
-  const columns = [
+  const columns: GridColumn<any>[] = [
     { key: 'code', header: t('inventory.locations.code') },
     { key: 'name', header: t('inventory.locations.name') },
     { key: 'warehouse', header: t('inventory.locations.warehouse'), render: (item: any) => item.warehouse?.name || '-' },
@@ -134,22 +135,32 @@ export default function WarehouseLocationsPage() {
   return (
     <div>
       <PageHeader title={t('inventory.locations.title')} />
-      <Toolbar searchValue={search} onSearchChange={setSearch} onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)} onCreate={openCreate} createLabel={t('inventory.locations.newLocation')} loading={loading}
-        extraActions={
-          <div className="w-48">
-            <F9Lookup value={warehouseFilter} onChange={(v) => { setWarehouseFilter(v); fetchData(1); }} adapter={warehouseAdapter} placeholder={t('common.all')} />
-          </div>
-        }
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-48">
+          <F9Lookup value={warehouseFilter} onChange={(v) => { setWarehouseFilter(v); fetchData(1); }} adapter={warehouseAdapter} placeholder={t('common.all')} />
+        </div>
+        <Button variant="secondary" onClick={openCreate}>{t('inventory.locations.newLocation')}</Button>
+      </div>
+      <AdminDataGrid
+        columns={columns}
+        data={data}
+        keyExtractor={(item: any) => item.id}
+        onRowClick={(item: any) => setSelectedId(item.id)}
+        selectedKey={selectedId}
+        loading={loading}
+        emptyMessage={t('inventory.locations.noLocations')}
+        loadingMessage={t('inventory.locations.loadingLocations')}
+        error={error || undefined}
+        onRetry={() => fetchData(meta.page)}
+        dir={dir}
+        globalSearch={search}
+        onGlobalSearch={setSearch}
+        searchPlaceholder={t('common.search')}
+        onRefresh={() => fetchData(meta.page)}
+        refreshLoading={loading}
       />
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState message={t('inventory.locations.loadingLocations')} />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('inventory.locations.noLocations')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(item: any) => item.id} selectedKey={selectedId} onRowClick={(item: any) => setSelectedId(item.id)} />
-          <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+      {data.length > 0 && (
+        <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.locations.editLocation') : t('inventory.locations.newLocation')}>
         <div className="space-y-4">

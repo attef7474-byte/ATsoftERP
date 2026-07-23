@@ -7,17 +7,18 @@ import { useToast } from '../../../../components/admin/toast-provider';
 import { InventoryCount } from '../../../../lib/admin-types';
 import { checkCrudPermissions, CrudPermissions } from '../../../../lib/crud-permissions';
 import { getUserPermissions } from '../../../../lib/auth';
-import { Button, Input, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Select, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { F9Lookup, companyAdapter, branchAdapter, warehouseAdapter } from '../../../../components/f9';
 import { InventoryStatusBadge } from '../../../../components/inventory-counting/InventoryStatusBadge';
 import CountLinesPanel from '../../../../components/inventory-counting/CountLinesPanel';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionViewIcon, ActionGenerateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function InventoryCountsPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
 
   const [perms, setPerms] = useState<CrudPermissions>({ canCreate: false, canRead: false, canUpdate: false, canDelete: false, canActivate: false, isSuperAdmin: false });
@@ -170,7 +171,7 @@ export default function InventoryCountsPage() {
     cancel: t('inventoryCounting.confirmCancelMessage'),
   };
 
-  const columns = [
+  const columns: GridColumn<InventoryCount>[] = [
     { key: 'countNumber', header: t('inventoryCounting.countNumber') },
     { key: 'company', header: t('inventoryCounting.company'), render: (r: InventoryCount) => r.company?.name || '-' },
     { key: 'branch', header: t('inventoryCounting.branch'), render: (r: InventoryCount) => r.branch?.name || '-' },
@@ -181,35 +182,18 @@ export default function InventoryCountsPage() {
     { key: 'countedLinesCount', header: t('inventoryCounting.countedLinesCount'), render: (r: InventoryCount) => r.summary?.countedLinesCount ?? '-' },
     { key: 'verifiedLinesCount', header: t('inventoryCounting.verifiedLinesCount'), render: (r: InventoryCount) => r.summary?.verifiedLinesCount ?? '-' },
     { key: 'totalDifferenceQty', header: t('inventoryCounting.totalDifferenceQty'), render: (r: InventoryCount) => r.summary?.totalDifferenceQty != null ? r.summary.totalDifferenceQty : '-' },
-    {
-      key: 'actions', header: t('common.actions'), render: (r: InventoryCount) => (
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={() => router.push(`/admin/inventory/counts/${r.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
-          {r.status === 'DRAFT' && hasPerm('inventory-count:start') && (
-            <button onClick={() => confirmAction(r.id, 'start')} className="text-green-600 hover:text-green-800 text-sm">{t('inventoryCounting.start')}</button>
-          )}
-          {r.status === 'IN_PROGRESS' && (
-            <button onClick={() => router.push(`/admin/inventory/counts/${r.id}/execute`)} className="text-blue-600 hover:text-blue-800 text-sm">{t('inventoryCountWorkflow.execute')}</button>
-          )}
-          {r.status === 'IN_PROGRESS' && hasPerm('inventory-count:complete') && (
-            <button onClick={() => router.push(`/admin/inventory/counts/${r.id}/approve`)} className="text-green-600 hover:text-green-800 text-sm">{t('inventoryCountWorkflow.approve')}</button>
-          )}
-          {(r.status === 'DRAFT' || r.status === 'IN_PROGRESS') && hasPerm('inventory-count:cancel') && (
-            <button onClick={() => confirmAction(r.id, 'cancel')} className="text-red-600 hover:text-red-800 text-sm">{t('inventoryCounting.cancel')}</button>
-          )}
-          {r.status === 'COMPLETED' && hasPerm('inventory-count:generateAdjustment') && (
-            <button onClick={() => router.push(`/admin/inventory/counts/${r.id}/adjust`)} className="text-orange-600 hover:text-orange-800 text-sm">{t('inventoryCountWorkflow.adjust')}</button>
-          )}
-          {r.status === 'COMPLETED' && (
-            <button onClick={() => router.push(`/admin/inventory/counts/${r.id}/review`)} className="text-purple-600 hover:text-purple-800 text-sm">{t('inventoryCountWorkflow.review')}</button>
-          )}
-          {r.status === 'DRAFT' && perms.canUpdate && (
-            <button onClick={() => openEdit(r)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
-          )}
-          <button onClick={() => openLinesPanel(r.id)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('inventoryCounting.viewLines')}</button>
-        </div>
-      ),
-    },
+  ];
+
+  const gridActions: GridAction<InventoryCount>[] = [
+    { label: t('details.viewDetails'), onClick: (r: InventoryCount) => router.push(`/admin/inventory/counts/${r.id}`) },
+    { label: t('inventoryCounting.start'), onClick: (r: InventoryCount) => confirmAction(r.id, 'start'), enabled: (r: InventoryCount) => r.status === 'DRAFT' },
+    { label: t('inventoryCountWorkflow.execute'), onClick: (r: InventoryCount) => router.push(`/admin/inventory/counts/${r.id}/execute`), enabled: (r: InventoryCount) => r.status === 'IN_PROGRESS' },
+    { label: t('inventoryCountWorkflow.approve'), onClick: (r: InventoryCount) => router.push(`/admin/inventory/counts/${r.id}/approve`), enabled: (r: InventoryCount) => r.status === 'IN_PROGRESS' },
+    { label: t('inventoryCounting.cancel'), onClick: (r: InventoryCount) => confirmAction(r.id, 'cancel'), enabled: (r: InventoryCount) => r.status === 'DRAFT' || r.status === 'IN_PROGRESS', variant: 'danger' },
+    { label: t('inventoryCountWorkflow.adjust'), onClick: (r: InventoryCount) => router.push(`/admin/inventory/counts/${r.id}/adjust`), enabled: (r: InventoryCount) => r.status === 'COMPLETED' },
+    { label: t('inventoryCountWorkflow.review'), onClick: (r: InventoryCount) => router.push(`/admin/inventory/counts/${r.id}/review`), enabled: (r: InventoryCount) => r.status === 'COMPLETED' },
+    { label: t('actions.edit'), onClick: (r: InventoryCount) => openEdit(r), enabled: (r: InventoryCount) => r.status === 'DRAFT' },
+    { label: t('inventoryCounting.viewLines'), onClick: (r: InventoryCount) => openLinesPanel(r.id) },
   ];
 
   const selectedCount = data.find(d => d.id === selectedCountId);
@@ -223,17 +207,26 @@ export default function InventoryCountsPage() {
         <F9Lookup label={t('inventoryCounting.warehouse')} value={filters.warehouseId} onChange={(v) => setFilters({ ...filters, warehouseId: v })} adapter={warehouseAdapter} />
         <Select label={t('common.status')} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} options={statusOptions} />
       </div>
-      <Toolbar searchValue={search} onSearchChange={setSearch} onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)} onCreate={perms.canCreate ? openCreate : undefined}
-        createLabel={perms.canCreate ? t('inventoryCounting.newCount') : undefined} loading={loading} />
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(r: InventoryCount) => r.id} onRowClick={(r: InventoryCount) => setSelectedId(r.id)} selectedKey={selectedId} />
-          <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+      <AdminDataGrid
+        columns={columns}
+        data={data}
+        keyExtractor={(r: InventoryCount) => r.id}
+        onRowClick={(r: InventoryCount) => setSelectedId(r.id)}
+        selectedKey={selectedId}
+        loading={loading}
+        emptyMessage={t('common.noData')}
+        error={error || undefined}
+        onRetry={() => fetchData(meta.page)}
+        actions={gridActions}
+        dir={dir}
+        globalSearch={search}
+        onGlobalSearch={setSearch}
+        searchPlaceholder={t('common.search')}
+        onRefresh={() => fetchData(meta.page)}
+        refreshLoading={loading}
+      />
+      {data.length > 0 && (
+        <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventoryCounting.editCount') : t('inventoryCounting.newCount')} size="lg">
         <div className="space-y-4">

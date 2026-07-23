@@ -6,14 +6,15 @@ import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Machine } from '../../../../lib/admin-types';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Pagination, PageHeader, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter, machineCategoryAdapter } from '../../../../components/f9';
+import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MachinesPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<Machine[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -114,7 +115,7 @@ useRegisterAdminActions([
     } finally { setSaving(false); }
   };
 
-  const columns = [
+  const columns: GridColumn<Machine>[] = [
     { key: 'code', header: t('common.code') },
     { key: 'name', header: t('common.name') },
     { key: 'category', header: t('maintenance.machineCategory'), render: (m: Machine) => m.category?.name || '-' },
@@ -122,33 +123,38 @@ useRegisterAdminActions([
     { key: 'serialNumber', header: t('maintenance.serialNumber'), render: (m: Machine) => m.serialNumber || '-' },
     { key: 'manufacturer', header: t('maintenance.manufacturer'), render: (m: Machine) => m.manufacturer || '-' },
     { key: 'status', header: t('common.status'), render: (m: Machine) => <StatusBadge status={m.status} /> },
-    {
-      key: 'actions', header: t('common.actions'), render: (m: Machine) => (
-        <div className="flex gap-2">
-          <button onClick={() => router.push(`/admin/maintenance/machines/${m.id}`)} className="text-indigo-600 hover:text-indigo-800 text-sm">{t('details.viewDetails')}</button>
-          <button onClick={() => openEdit(m)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
-          <button onClick={() => confirmStatus(m.id)}
-            className={`text-sm ${m.status === 'ACTIVE' ? 'text-orange-600' : 'text-green-600'} hover:underline`}>
-            {m.status === 'ACTIVE' ? t('actions.deactivate') : t('actions.activate')}
-          </button>
-        </div>
-      ),
-    },
+  ];
+
+  const gridActions: GridAction<Machine>[] = [
+    { label: t('details.viewDetails'), onClick: (m: Machine) => router.push(`/admin/maintenance/machines/${m.id}`) },
+    { label: t('actions.edit'), onClick: (m: Machine) => openEdit(m) },
+    { label: t('actions.deactivate'), onClick: (m: Machine) => confirmStatus(m.id), enabled: (m: Machine) => m.status === 'ACTIVE', variant: 'danger' },
+    { label: t('actions.activate'), onClick: (m: Machine) => confirmStatus(m.id), enabled: (m: Machine) => m.status !== 'ACTIVE' },
   ];
 
   return (
     <div>
       <PageHeader title={t('maintenance.machines')} />
-      <Toolbar searchValue={search} onSearchChange={setSearch} onClear={() => { setSearch(''); fetchData(1); }}
-        onRefresh={() => fetchData(meta.page)} onCreate={openCreate} createLabel={t('maintenance.newMachine')} loading={loading} />
-      {error && <ErrorState message={error} onRetry={() => fetchData(meta.page)} />}
-      {!error && loading && <LoadingState />}
-      {!error && !loading && data.length === 0 && <EmptyState message={t('common.noData')} />}
-      {!error && !loading && data.length > 0 && (
-        <Card>
-          <DataTable columns={columns} data={data} keyExtractor={(m: Machine) => m.id} onRowClick={(item: Machine) => setSelectedId(item.id)} selectedKey={selectedId} />
-          <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </Card>
+      <AdminDataGrid
+        columns={columns}
+        data={data}
+        keyExtractor={(m: Machine) => m.id}
+        onRowClick={(m: Machine) => setSelectedId(m.id)}
+        selectedKey={selectedId}
+        loading={loading}
+        emptyMessage={t('common.noData')}
+        error={error || undefined}
+        onRetry={() => fetchData(meta.page)}
+        actions={gridActions}
+        dir={dir}
+        globalSearch={search}
+        onGlobalSearch={setSearch}
+        searchPlaceholder={t('common.search')}
+        onRefresh={() => fetchData(meta.page)}
+        refreshLoading={loading}
+      />
+      {data.length > 0 && (
+        <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editMachine') : t('maintenance.newMachine')} size="lg">
         <div className="space-y-4 max-h-96 overflow-y-auto">
