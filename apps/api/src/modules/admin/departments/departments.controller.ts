@@ -24,13 +24,14 @@ export class DepartmentsController {
   @Get()
   @Permissions('departments:read')
   @ApiOperation({ summary: 'List departments' })
-  findAll(@Query() query: { page?: string; limit?: string; search?: string; companyId?: string; branchId?: string }) {
+  findAll(@Query() query: { page?: string; limit?: string; search?: string; companyId?: string; branchId?: string; administrationId?: string }) {
     return this.departmentsService.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,
       companyId: query.companyId,
       branchId: query.branchId,
+      administrationId: query.administrationId,
     });
   }
 

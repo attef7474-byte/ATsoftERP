@@ -25,6 +25,7 @@ export {
   barcodeLabelAdapter,
   systemSettingAdapter,
   numberSequenceAdapter,
+  administrationAdapter,
   notificationAdapter,
   auditLogAdapter,
   machinePartAdapter,

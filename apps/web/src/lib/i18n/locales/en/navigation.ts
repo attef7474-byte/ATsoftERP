@@ -6,6 +6,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         core: 'Core',
         companies: 'Companies',
         branches: 'Branches',
+        administrations: 'Administrations',
         departments: 'Departments',
         accessControl: 'Access Control',
         users: 'Users',

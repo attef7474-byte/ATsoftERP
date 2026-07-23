@@ -26,10 +26,24 @@ export interface Branch {
   company?: { id: string; name: string; code: string };
 }
 
+export interface Administration {
+  id: string;
+  branchId: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  branch?: { id: string; name: string; company?: { id: string; name: string; code: string } };
+  _count?: { departments: number };
+}
+
 export interface Department {
   id: string;
   companyId: string;
   branchId?: string | null;
+  administrationId?: string | null;
   parentId?: string | null;
   code: string;
   name: string;
@@ -38,6 +52,7 @@ export interface Department {
   updatedAt: string;
   company?: { id: string; name: string };
   branch?: { id: string; name: string };
+  administration?: { id: string; name: string };
   parent?: { id: string; name: string };
   children?: { id: string; name: string; code: string }[];
   _count?: { children: number; users: number; machines: number };

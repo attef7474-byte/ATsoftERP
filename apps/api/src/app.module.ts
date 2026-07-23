@@ -6,6 +6,7 @@ import { UsersModule } from './modules/admin/users/users.module'
 import { RolesModule } from './modules/admin/roles/roles.module'
 import { PermissionsModule } from './modules/admin/permissions/permissions.module'
 import { BranchesModule } from './modules/admin/branches/branches.module'
+import { AdministrationsModule } from './modules/admin/administrations/administrations.module'
 import { DepartmentsModule } from './modules/admin/departments/departments.module'
 import { CompaniesModule } from './modules/companies/companies.module'
 import { ProductsModule } from './modules/factory/products/products.module'
@@ -51,7 +52,7 @@ import { MessagingModule } from './modules/messaging/messaging.module'
 @Module({
   imports: [
     PrismaModule, HealthModule, AuthModule,
-    UsersModule, RolesModule, PermissionsModule, BranchesModule, DepartmentsModule, CompaniesModule,
+    UsersModule, RolesModule, PermissionsModule, BranchesModule, AdministrationsModule, DepartmentsModule, CompaniesModule,
     ProductsModule, ProductCategoriesModule, InventoryModule, MaintenanceModule,
     AuditModule,
     MachineCategoriesModule, MachinePartsModule, MachineDocumentsModule,

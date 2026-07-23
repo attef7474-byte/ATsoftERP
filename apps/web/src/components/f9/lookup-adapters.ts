@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -274,6 +274,18 @@ export const machinePartAdapter: LookupAdapter<MachinePart> = {
     { key: 'partNumber', header: 'Part #' },
     { key: 'machine', header: 'Machine', render: (p) => p.machine?.name || '-' },
     { key: 'status', header: 'Status', render: (p) => p.status },
+  ],
+};
+
+export const administrationAdapter: LookupAdapter<Administration> = {
+  endpoint: '/administrations',
+  displayLabel: (a) => `[${a.code}] ${a.name}`,
+  searchFields: ['code', 'name'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'branch', header: 'Branch', render: (a) => a.branch?.name || '-' },
+    { key: 'status', header: 'Status', render: (a) => a.status },
   ],
 };
 

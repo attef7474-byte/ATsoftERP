@@ -9,7 +9,7 @@ const adapter = new PrismaMssql(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
 
 const MODULES = [
-  "company", "branch", "department", "user", "role", "permission",
+  "company", "branch", "administration", "department", "user", "role", "permission",
   "warehouse", "warehouse-location", "product-category", "product",
   "inventory", "machine-category", "machine", "machine-part",
   "maintenance-request", "maintenance-task", "maintenance-schedule",
@@ -152,6 +152,7 @@ async function main() {
     { code: "COMPANY", name: "Company", operationName: "Company", modelName: "Company", domain: "core", prefix: "COM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "BRANCH", name: "Branch", operationName: "Branch", modelName: "Branch", domain: "core", prefix: "BRN-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "DEPARTMENT", name: "Department", operationName: "Department", modelName: "Department", domain: "core", prefix: "DEP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "ADMINISTRATION", name: "Administration", operationName: "Administration", modelName: "Administration", domain: "core", prefix: "ADM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
 
     // Inventory
     { code: "WAREHOUSE", name: "Warehouse", operationName: "Warehouse", modelName: "Warehouse", domain: "inventory", prefix: "WH-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },

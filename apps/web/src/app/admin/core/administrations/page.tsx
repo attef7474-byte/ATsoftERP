@@ -5,33 +5,23 @@ import { safeString } from '../../../../lib/form-utils';
 import { useCrudList, CrudOperation } from '../../../../hooks/useCrudList';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Department, PaginationMeta } from '../../../../lib/admin-types';
+import { Administration, PaginationMeta } from '../../../../lib/admin-types';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Card, Pagination, PageHeader, LoadingState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Pagination, PageHeader, LoadingState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { F9Lookup, companyAdapter, branchAdapter, administrationAdapter, departmentAdapter } from '../../../../components/f9';
+import { F9Lookup, companyAdapter, branchAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
-interface DepartmentForm {
-  companyId: string;
+interface AdministrationForm {
   branchId: string;
-  administrationId: string;
-  parentId: string;
   name: string;
+  description: string;
 }
 
-interface DepartmentPayload {
-  companyId: string;
-  name: string;
-  branchId?: string;
-  administrationId?: string;
-  parentId?: string;
-}
-
-const EMPTY_DEPARTMENT_FORM: DepartmentForm = { companyId: '', branchId: '', administrationId: '', parentId: '', name: '' };
+const EMPTY_FORM: AdministrationForm = { branchId: '', name: '', description: '' };
 const INITIAL_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
 
-export default function DepartmentsPage() {
+export default function AdministrationsPage() {
   const router = useRouter();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
@@ -62,8 +52,8 @@ export default function DepartmentsPage() {
     openEdit,
     closeFormModal,
     handleSave,
-  } = useCrudList<Department, DepartmentForm, DepartmentPayload, PaginationMeta, [page?: number]>({
-    initialForm: EMPTY_DEPARTMENT_FORM,
+  } = useCrudList<Administration, AdministrationForm, AdministrationForm, PaginationMeta, [page?: number]>({
+    initialForm: EMPTY_FORM,
     initialMeta: INITIAL_META,
     initialListArgs: [1],
     listRequest: (page = 1) => {
@@ -76,26 +66,18 @@ export default function DepartmentsPage() {
       Object.entries(filters).forEach(([key, value]) => {
         if (value) params[key] = value;
       });
-      return api.get('/departments', { params });
+      return api.get('/administrations', { params });
     },
-    detailRequest: (id) => api.get(`/departments/${id}`),
-    createRequest: (payload) => api.post('/departments', payload),
-    updateRequest: (id, payload) => api.patch(`/departments/${id}`, payload),
+    detailRequest: (id) => api.get(`/administrations/${id}`),
+    createRequest: (payload) => api.post('/administrations', payload),
+    updateRequest: (id, payload) => api.patch(`/administrations/${id}`, payload),
     mapRecordToForm: (detail) => ({
-      companyId: safeString(detail.companyId),
       branchId: safeString(detail.branchId),
-      administrationId: safeString(detail.administrationId),
-      parentId: safeString(detail.parentId),
       name: safeString(detail.name),
+      description: safeString(detail.description),
     }),
-    mapFormToPayload: (currentForm) => ({
-      companyId: currentForm.companyId,
-      name: currentForm.name,
-      ...(currentForm.branchId ? { branchId: currentForm.branchId } : {}),
-      ...(currentForm.administrationId ? { administrationId: currentForm.administrationId } : {}),
-      ...(currentForm.parentId ? { parentId: currentForm.parentId } : {}),
-    }),
-    validate: (currentForm) => currentForm.name.trim() && currentForm.companyId.trim()
+    mapFormToPayload: (currentForm) => ({ ...currentForm }),
+    validate: (currentForm) => currentForm.name.trim() && currentForm.branchId.trim()
       ? null
       : t('validation.required'),
     errorMessage: (operation: CrudOperation) => {
@@ -140,7 +122,7 @@ export default function DepartmentsPage() {
     setStatusSaving(true);
     try {
       const status = confirmAction === 'activate' ? 'ACTIVE' : 'INACTIVE';
-      await api.patch(`/departments/${selectedId}`, { status });
+      await api.patch(`/administrations/${selectedId}`, { status });
       showToast(confirmAction === 'activate' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
       setConfirmOpen(false);
       fetchData(paginationMeta.page);
@@ -151,24 +133,22 @@ export default function DepartmentsPage() {
     }
   };
 
-  const baseColumns: GridColumn<Department>[] = [
+  const baseColumns: GridColumn<Administration>[] = [
     { key: 'code', header: t('common.code'), sortable: true, filterable: true },
     { key: 'name', header: t('common.name'), sortable: true, filterable: true },
-    { key: 'company', header: t('core.company'), sortable: true, render: (d) => d.company?.name || '-' },
-    { key: 'branch', header: t('core.branch'), sortable: true, render: (d) => d.branch?.name || '-' },
-    { key: 'administration', header: t('core.administration'), sortable: true, render: (d) => d.administration?.name || '-' },
-    { key: 'parent', header: t('core.parentDepartment'), sortable: true, render: (d) => d.parent?.name || '-' },
+    { key: 'branch', header: t('core.branch'), sortable: true, render: (a) => a.branch?.name || '-' },
+    { key: 'description', header: t('common.description'), sortable: false, render: (a) => a.description || '-' },
     { key: 'status', header: t('common.status'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
       { value: 'ACTIVE', label: t('common.active') },
       { value: 'INACTIVE', label: t('common.inactive') },
-    ], render: (d) => <StatusBadge status={d.status} /> },
+    ], render: (a) => <StatusBadge status={a.status} /> },
   ];
 
-  const gridActions: GridAction<Department>[] = [
-    { label: t('grid.view'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>, onClick: (d) => router.push(`/admin/core/departments/${d.id}`) },
-    { label: t('grid.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (d) => openEdit(d) },
-    { label: t('common.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, onClick: (d) => confirmStatusChange(d.id, 'activate'), enabled: (d) => d.status !== 'ACTIVE' },
-    { label: t('common.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, variant: 'danger', onClick: (d) => confirmStatusChange(d.id, 'deactivate'), enabled: (d) => d.status === 'ACTIVE' },
+  const gridActions: GridAction<Administration>[] = [
+    { label: t('grid.view'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>, onClick: (a) => router.push(`/admin/core/administrations/${a.id}`) },
+    { label: t('grid.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (a) => openEdit(a) },
+    { label: t('common.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, onClick: (a) => confirmStatusChange(a.id, 'activate'), enabled: (a) => a.status !== 'ACTIVE' },
+    { label: t('common.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, variant: 'danger', onClick: (a) => confirmStatusChange(a.id, 'deactivate'), enabled: (a) => a.status === 'ACTIVE' },
   ];
 
   const handleSort = useCallback((col: string, dir: 'asc' | 'desc') => {
@@ -187,7 +167,7 @@ export default function DepartmentsPage() {
 
   return (
     <div>
-      <PageHeader title={t('core.departments')} />
+      <PageHeader title={t('core.administrations')} />
       {error && <div className="text-center py-12"><p className="text-red-500 mb-4">{error}</p></div>}
       {!error && loading && data.length === 0 && <LoadingState />}
       {!error && !loading && data.length === 0 && (
@@ -227,13 +207,11 @@ export default function DepartmentsPage() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={closeFormModal} title={editItem ? t('core.editDepartment') : t('core.newDepartment')}>
+      <Modal open={modalOpen} onClose={closeFormModal} title={editItem ? t('core.editAdministration') : t('core.newAdministration')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
-          <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
-          <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v, administrationId: '' })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
-          <F9Lookup label={t('core.administration')} value={form.administrationId} onChange={(v) => setForm({ ...form, administrationId: v })} adapter={administrationAdapter} filters={form.branchId ? { branchId: form.branchId } : undefined} />
-          <F9Lookup label={t('core.parentDepartment')} value={form.parentId} onChange={(v) => setForm({ ...form, parentId: v })} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
+          <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <Input label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={closeFormModal}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>

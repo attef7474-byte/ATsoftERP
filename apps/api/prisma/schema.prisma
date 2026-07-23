@@ -244,14 +244,15 @@ model Branch {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  departments Department[]
-  users       User[]
-  warehouses  Warehouse[]
-  machines    Machine[]
-  numberSeqs  NumberSequence[]
-  counts      InventoryCount[]
-  movements   InventoryMovement[]
-  adjustments InventoryAdjustment[]
+  departments    Department[]
+  administrations Administration[]
+  users          User[]
+  warehouses     Warehouse[]
+  machines       Machine[]
+  numberSeqs     NumberSequence[]
+  counts         InventoryCount[]
+  movements      InventoryMovement[]
+  adjustments    InventoryAdjustment[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -259,27 +260,51 @@ model Branch {
   @@map("branches")
 }
 
-model Department {
-  id        String       @id @default(cuid())
-  companyId String
-  company   Company      @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  branchId  String?
-  branch    Branch?      @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  parentId  String?
-  parent    Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children  Department[] @relation("DepartmentHierarchy")
+model Administration {
+  id        String    @id @default(cuid())
+  branchId  String
+  branch    Branch    @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   code      String
   name      String
-  status    String       @default("ACTIVE")
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  description String?
+  status    String    @default("ACTIVE")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+
+  departments Department[]
+
+  @@unique([branchId, code])
+  @@index([branchId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("administrations")
+}
+
+model Department {
+  id               String         @id @default(cuid())
+  companyId        String
+  company          Company        @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId         String?
+  branch           Branch?        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  administrationId String?
+  administration   Administration? @relation(fields: [administrationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentId         String?
+  parent           Department?    @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children         Department[]   @relation("DepartmentHierarchy")
+  code             String
+  name             String
+  status           String         @default("ACTIVE")
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?
 
   users    User[]
   machines Machine[]
 
   @@unique([companyId, code])
   @@index([branchId])
+  @@index([administrationId])
   @@index([status])
   @@index([createdAt])
   @@map("departments")

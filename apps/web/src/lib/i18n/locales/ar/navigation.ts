@@ -6,6 +6,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         core: 'الأساسيات',
         companies: 'الشركات',
         branches: 'الفروع',
+        administrations: 'الإدارات',
         departments: 'الأقسام',
         accessControl: 'التحكم بالوصول',
         users: 'المستخدمين',

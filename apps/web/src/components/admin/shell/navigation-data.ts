@@ -22,6 +22,7 @@ export const navItems: NavItem[] = [
     id: 'core', label: 'navigation.core', href: '#', icon: 'core', children: [
       { id: 'core-companies', label: 'navigation.companies', href: '/admin/core/companies' },
       { id: 'core-branches', label: 'navigation.branches', href: '/admin/core/branches' },
+      { id: 'core-administrations', label: 'navigation.administrations', href: '/admin/core/administrations' },
       { id: 'core-departments', label: 'navigation.departments', href: '/admin/core/departments' },
     ],
   },

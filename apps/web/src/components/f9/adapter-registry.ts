@@ -2,6 +2,7 @@ import type { LookupAdapter } from './types';
 import {
   companyAdapter,
   branchAdapter,
+  administrationAdapter,
   departmentAdapter,
   warehouseAdapter,
   productCategoryAdapter,
@@ -26,7 +27,7 @@ import {
   downtimeLogAdapter,
 } from './lookup-adapters';
 import type {
-  Company, Branch, Department, Warehouse, ProductCategory, Product,
+  Company, Branch, Administration, Department, Warehouse, ProductCategory, Product,
   MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask,
   MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment,
   WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification,
@@ -57,6 +58,13 @@ const registry: UnifiedSearchEntity[] = [
     adapter: branchAdapter as LookupAdapter<any>,
     detailRoute: (item: Branch) => `/admin/core/branches/${item.id}`,
     subtitle: (item: Branch) => item.company?.name || item.code,
+  },
+  {
+    entityType: 'administration',
+    labelKey: 'core.administrations',
+    adapter: administrationAdapter as LookupAdapter<any>,
+    detailRoute: (item: Administration) => `/admin/core/administrations/${item.id}`,
+    subtitle: (item: Administration) => item.branch?.name || item.code,
   },
   {
     entityType: 'department',
