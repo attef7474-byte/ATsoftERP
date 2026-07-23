@@ -216,15 +216,16 @@ model Company {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  branches    Branch[]
-  departments Department[]
-  users       User[]
-  warehouses  Warehouse[]
-  machines    Machine[]
-  counts      InventoryCount[]
-  movements   InventoryMovement[]
-  adjustments InventoryAdjustment[]
-  costCenters CostCenter[]
+  branches       Branch[]
+  departments    Department[]
+  users          User[]
+  warehouses     Warehouse[]
+  machines       Machine[]
+  counts         InventoryCount[]
+  movements      InventoryMovement[]
+  adjustments    InventoryAdjustment[]
+  costCenters    CostCenter[]
+  productionLines ProductionLine[]
 
   @@index([status])
   @@index([code])
@@ -255,6 +256,7 @@ model Branch {
   movements      InventoryMovement[]
   adjustments    InventoryAdjustment[]
   costCenters    CostCenter[]
+  productionLines ProductionLine[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -274,8 +276,9 @@ model Administration {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  departments Department[]
-  costCenters CostCenter[]
+  departments     Department[]
+  costCenters     CostCenter[]
+  productionLines ProductionLine[]
 
   @@unique([branchId, code])
   @@index([branchId])
@@ -302,9 +305,10 @@ model Department {
   updatedAt        DateTime       @updatedAt
   deletedAt        DateTime?
 
-  users       User[]
-  machines    Machine[]
-  costCenters CostCenter[]
+  users           User[]
+  machines        Machine[]
+  costCenters     CostCenter[]
+  productionLines ProductionLine[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -312,6 +316,41 @@ model Department {
   @@index([status])
   @@index([createdAt])
   @@map("departments")
+}
+
+model ProductionLine {
+  id               String         @id @default(cuid())
+  code             String         @unique
+  name             String
+  description      String?
+  location         String?
+  companyId        String
+  company          Company        @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId         String
+  branch           Branch         @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  administrationId String?
+  administration   Administration? @relation(fields: [administrationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId     String
+  department       Department     @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  operationTypeId  String
+  operationType    OperationType  @relation(fields: [operationTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  costCenterId     String?
+  costCenter       CostCenter?    @relation(fields: [costCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status           String         @default("ACTIVE")
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?
+
+  @@index([code])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([administrationId])
+  @@index([departmentId])
+  @@index([operationTypeId])
+  @@index([costCenterId])
+  @@index([status])
+  @@index([companyId, status])
+  @@map("production_lines")
 }
 
 model User {
@@ -1368,6 +1407,8 @@ model OperationType {
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
 
+  productionLines ProductionLine[]
+
   @@index([code])
   @@index([status])
   @@index([status, createdAt])
@@ -1401,6 +1442,8 @@ model CostCenter {
   @@index([administrationId])
   @@index([departmentId])
   @@index([status])
+  productionLines ProductionLine[]
+
   @@index([type, status])
   @@index([companyId, status])
   @@map("cost_centers")

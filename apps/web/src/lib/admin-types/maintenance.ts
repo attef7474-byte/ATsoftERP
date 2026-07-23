@@ -240,6 +240,29 @@ export interface DowntimeLog {
   request?: { id: string; requestNumber: string; title: string };
 }
 
+export interface ProductionLine {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  location?: string | null;
+  companyId: string;
+  branchId: string;
+  administrationId?: string | null;
+  departmentId: string;
+  operationTypeId: string;
+  costCenterId?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  company?: { id: string; name: string; code: string };
+  branch?: { id: string; name: string; code: string };
+  administration?: { id: string; name: string; code: string };
+  department?: { id: string; name: string; code: string };
+  operationType?: { id: string; name: string; code: string };
+  costCenter?: { id: string; name: string; code: string };
+}
+
 export interface OperationType {
   id: string;
   code: string;

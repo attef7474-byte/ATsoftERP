@@ -49,9 +49,41 @@ async function main() {
     created++;
   }
 
+  // Seed default production lines per department
+  const departments = await prisma.department.findMany({ where: { deletedAt: null, status: 'ACTIVE' } });
+  const manufacturingOp = await prisma.operationType.findFirst({ where: { code: 'MANUFACTURING', status: 'ACTIVE' } });
+
+  for (const dept of departments) {
+    const lineCode = `LINE-${dept.code}-GENERAL`;
+    const existing = await prisma.productionLine.findUnique({ where: { code: lineCode } });
+    if (!existing) {
+      const defaultBranch = dept.branchId
+        ? undefined
+        : await prisma.branch.findFirst({ where: { companyId: dept.companyId, status: 'ACTIVE' } });
+      const branchId = dept.branchId || defaultBranch?.id || '';
+      if (!branchId) continue;
+
+      await prisma.productionLine.create({
+        data: {
+          code: lineCode,
+          name: `General Line - ${dept.name}`,
+          description: `Default production line for ${dept.name}`,
+          companyId: dept.companyId,
+          branchId,
+          administrationId: dept.administrationId || null,
+          departmentId: dept.id,
+          operationTypeId: manufacturingOp?.id || '',
+          status: 'ACTIVE',
+        },
+      });
+      created++;
+    }
+  }
+
   console.log(`Factory reference seed completed: ${created} records created/verified.`);
   console.log(`  Operation Types: ${OPERATION_TYPES.length}`);
   console.log(`  Cost Centers:    ${COST_CENTERS.length}`);
+  console.log(`  Production Lines: ${departments.length} default lines`);
 }
 
 main()

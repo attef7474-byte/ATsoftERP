@@ -21,7 +21,7 @@ const MODULES = [
   "reports.maintenance", "reports.inventory", "reports.barcodes",
   "search",
   "messaging",
-  "operation-type", "cost-center",
+  "operation-type", "cost-center", "production-line",
 ] as const;
 
 const ACTIONS = ["create", "read", "update", "delete"] as const;
@@ -133,6 +133,8 @@ async function main() {
     { key: "operation-type:deactivate", module: "operation-type", action: "deactivate" },
     { key: "cost-center:activate", module: "cost-center", action: "activate" },
     { key: "cost-center:deactivate", module: "cost-center", action: "deactivate" },
+    { key: "production-line:activate", module: "production-line", action: "activate" },
+    { key: "production-line:deactivate", module: "production-line", action: "deactivate" },
   ];
 
   for (const p of extraPermissions) {
@@ -178,6 +180,7 @@ async function main() {
     { code: "DOWNTIME", name: "Downtime", operationName: "Downtime", modelName: "DowntimeLog", domain: "maintenance", prefix: "DT-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "OPERATION_TYPE", name: "Operation Type", operationName: "Operation Type", modelName: "OperationType", domain: "maintenance", prefix: "OT-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "COST_CENTER", name: "Cost Center", operationName: "Cost Center", modelName: "CostCenter", domain: "maintenance", prefix: "CC-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "PRODUCTION_LINE", name: "Production Line", operationName: "Production Line", modelName: "ProductionLine", domain: "maintenance", prefix: "PL-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
 
     // Barcode/QR
     { code: "BARCODE_LABEL", name: "Barcode Label", operationName: "Barcode Label", modelName: "BarcodeLabel", domain: "barcode", prefix: "BCL-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },

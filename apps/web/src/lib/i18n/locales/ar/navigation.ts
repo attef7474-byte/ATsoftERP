@@ -27,6 +27,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         machineDocuments: 'المستندات',
         operationTypes: 'أنواع العمليات',
         costCenters: 'مراكز التكلفة',
+        productionLines: 'خطوط الإنتاج',
         maintenanceRequests: 'طلبات الصيانة',
         maintenanceTasks: 'مهام الصيانة',
         maintenanceSchedules: 'جداول الصيانة',

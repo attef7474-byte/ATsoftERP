@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Administration, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -309,6 +309,20 @@ export const operationTypeAdapter: LookupAdapter<OperationType> = {
     { key: 'code', header: 'Code' },
     { key: 'name', header: 'Name' },
     { key: 'status', header: 'Status', render: (o) => o.status },
+  ],
+};
+
+export const productionLineAdapter: LookupAdapter<ProductionLine> = {
+  endpoint: '/maintenance/production-lines',
+  displayLabel: (p) => `[${p.code}] ${p.name}`,
+  searchFields: ['code', 'name'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'company', header: 'Company', render: (p) => p.company?.name || '-' },
+    { key: 'branch', header: 'Branch', render: (p) => p.branch?.name || '-' },
+    { key: 'department', header: 'Department', render: (p) => p.department?.name || '-' },
+    { key: 'status', header: 'Status', render: (p) => p.status },
   ],
 };
 

@@ -93,6 +93,7 @@ export const navItems: NavItem[] = [
       { id: 'mnt-machine-categories', label: 'navigation.machineCategories', href: '/admin/maintenance/machine-categories' },
       { id: 'mnt-machine-parts', label: 'navigation.machineParts', href: '/admin/maintenance/machine-parts' },
       { id: 'mnt-machine-documents', label: 'navigation.machineDocuments', href: '/admin/maintenance/machine-documents' },
+      { id: 'mnt-production-lines', label: 'navigation.productionLines', href: '/admin/maintenance/production-lines' },
       { id: 'mnt-operation-types', label: 'navigation.operationTypes', href: '/admin/maintenance/operation-types' },
       { id: 'mnt-cost-centers', label: 'navigation.costCenters', href: '/admin/maintenance/cost-centers' },
       { id: 'mnt-requests', label: 'navigation.maintenanceRequests', href: '/admin/maintenance/requests' },

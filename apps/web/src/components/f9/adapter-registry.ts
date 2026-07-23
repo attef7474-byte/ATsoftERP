@@ -27,13 +27,14 @@ import {
   downtimeLogAdapter,
   operationTypeAdapter,
   costCenterAdapter,
+  productionLineAdapter,
 } from './lookup-adapters';
 import type {
   Company, Branch, Administration, Department, Warehouse, ProductCategory, Product,
   MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask,
   MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment,
   WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification,
-  AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter,
+  AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine,
 } from '../../lib/admin-types';
 
 export interface UnifiedSearchEntity {
@@ -244,6 +245,13 @@ const registry: UnifiedSearchEntity[] = [
     adapter: costCenterAdapter as LookupAdapter<any>,
     detailRoute: () => `/admin/maintenance/cost-centers`,
     subtitle: (item: CostCenter) => item.code,
+  },
+  {
+    entityType: 'productionLine',
+    labelKey: 'maintenance.productionLines',
+    adapter: productionLineAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/maintenance/production-lines`,
+    subtitle: (item: ProductionLine) => item.code,
   },
 ];
 

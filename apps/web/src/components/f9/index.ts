@@ -32,4 +32,5 @@ export {
   downtimeLogAdapter,
   operationTypeAdapter,
   costCenterAdapter,
+  productionLineAdapter,
 } from './lookup-adapters';
