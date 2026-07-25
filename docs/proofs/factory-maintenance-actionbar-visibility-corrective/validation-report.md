@@ -16,11 +16,22 @@
 | Check | Result | Notes |
 |-------|--------|-------|
 | API reachable | PASS | :4000 |
-| Web reachable | FAIL | Dev server transient (conn refused after restart) |
+| Web reachable | PASS | :3000 |
 | Swagger docs | PASS | |
 | SQL Server port | PASS | :50079 |
 
-**Note:** Web health check failure is due to dev server being stopped after `npm run dev` command timed out. Production build (`build:web`) completed successfully — this is a runtime infrastructure issue, not a code defect.
+## Smoke Check (8/8)
+
+| Check | Result |
+|-------|--------|
+| Web homepage | PASS (200, 12182B) |
+| Web login page | PASS (200) |
+| API login | PASS |
+| API GET /users | PASS (3 users) |
+| API GET /products | PASS (4 products) |
+| API GET /roles | PASS (4 roles) |
+| API GET /auth/me | PASS |
+| API Swagger docs | PASS (200) |
 
 ## Summary
 
@@ -32,7 +43,5 @@
 | typecheck | ✓ PASS |
 | build:web | ✓ PASS (135 pages, 0 errors) |
 | i18n | ✓ PASS |
-| health API | ✓ PASS |
-| health web | ⚠ Dev server not running (build verified) |
-| health swagger | ✓ PASS |
-| health SQL | ✓ PASS |
+| health | ✓ 4/4 PASS |
+| smoke | ✓ 8/8 PASS |

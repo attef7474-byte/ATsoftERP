@@ -3,13 +3,16 @@
 ## Status: ACCEPTED
 
 ## Repository
-- Final commit: (to be confirmed after push)
+- Final commit: `adbf52e` — `fix: keep maintenance action bar available without row selection`
 - Tags:
   - atsoft-erp-maintenance-actionbar-no-selection-fix
   - atsoft-erp-current-release-final-audited-v3-maintenance-actionbar-fix
   - atsoft-erp-maintenance-actionbar-no-selection-proof
-- Push main: (pending)
-- Push tags: (pending)
+  - atsoft-erp-maintenance-actionbar-no-selection-fix-final
+  - atsoft-erp-current-release-final-audited-v3-maintenance-actionbar-fix-final
+  - atsoft-erp-maintenance-actionbar-no-selection-proof-final
+- Push main: ✓
+- Push tags: ✓
 
 ## Root Cause
 - **Shared component:** `useRegisterAdminActions` in `admin-action-bar.tsx`
@@ -52,8 +55,8 @@
 - **typecheck:** ✓ PASS
 - **build:web:** ✓ PASS (135 pages, 0 errors)
 - **i18n:** ✓ PASS (2381/2381 keys)
-- **health:** 3/4 (web dev server not running — build verified)
-- **smoke:** Pre-existing (requires running dev server)
+- **health:** ✓ 4/4 PASS
+- **smoke:** ✓ 8/8 PASS
 
 ## Data Integrity
 - **users deleted:** 0
@@ -111,3 +114,8 @@
 - [x] No finance entry
 - [x] Validation passed
 - [x] Git clean
+- [x] Health 4/4 PASS
+- [x] Smoke 8/8 PASS
+- [x] Web dev server running on :3000
+- [x] No ChunkLoadError
+- [x] No failed _next/static

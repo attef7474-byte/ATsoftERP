@@ -19,3 +19,4 @@
 |------------|--------|------------|
 | Backup Spare Parts page does not exist | Not accessible | No route or sidebar entry — N/A |
 | Accountability page (KPI dashboard) has no action bar | Dashboard read-only page | Intended design, not a CRUD grid |
+| Smoke check requires password param | Manual password entry for non-interactive runs | Use `-Password "Admin@123456"` or pass via parameter |
