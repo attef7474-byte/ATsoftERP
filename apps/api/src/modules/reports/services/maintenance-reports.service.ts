@@ -9,11 +9,19 @@ export class MaintenanceReportsService {
 
   async getMaintenanceRequestsReport(filters: MaintenanceReportFilterDto) {
     const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo) };
+    if (filters.productionLineId) where.productionLineId = filters.productionLineId;
     if (filters.machineId) where.machineId = filters.machineId;
+    if (filters.machineComponentId) where.machineComponentId = filters.machineComponentId;
+    if (!filters.machineComponentId && filters.componentId) where.machineComponentId = filters.componentId;
+    if (filters.operationTypeId) where.operationTypeId = filters.operationTypeId;
+    if (filters.costCenterId) where.costCenterId = filters.costCenterId;
     if (filters.requestStatus) where.status = filters.requestStatus;
     if (filters.maintenanceType) where.type = filters.maintenanceType;
     if (filters.priority) where.priority = filters.priority;
     if (filters.assigneeId) where.assignedToId = filters.assigneeId;
+    if (filters.sparePartId) {
+      where.requiredParts = { some: { sparePartId: filters.sparePartId } };
+    }
     if (filters.search) where.OR = [
       { title: { contains: filters.search } },
       { requestNumber: { contains: filters.search } },
@@ -48,6 +56,11 @@ export class MaintenanceReportsService {
   async getMachineDowntimeReport(filters: MaintenanceReportFilterDto) {
     const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'startTime') };
     if (filters.machineId) where.machineId = filters.machineId;
+    if (filters.productionLineId) where.request = { productionLineId: filters.productionLineId };
+    if (filters.operationTypeId) where.request = { ...where.request, operationTypeId: filters.operationTypeId };
+    if (filters.costCenterId) where.request = { ...where.request, costCenterId: filters.costCenterId };
+    if (filters.machineComponentId) where.request = { ...where.request, machineComponentId: filters.machineComponentId };
+    if (!filters.machineComponentId && filters.componentId) where.request = { ...where.request, machineComponentId: filters.componentId };
     if (filters.search) where.reason = { contains: filters.search };
 
     const [total, rows, totalDuration, activeCount, avgDuration] = await Promise.all([
@@ -77,11 +90,20 @@ export class MaintenanceReportsService {
   async getMaintenanceCostsReport(filters: MaintenanceReportFilterDto) {
     const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'incurredAt');
 
+    const requestWhere: any = {};
+    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
+    if (filters.machineId) requestWhere.machineId = filters.machineId;
+    if (filters.machineComponentId) requestWhere.machineComponentId = filters.machineComponentId;
+    if (!filters.machineComponentId && filters.componentId) requestWhere.machineComponentId = filters.componentId;
+    if (filters.operationTypeId) requestWhere.operationTypeId = filters.operationTypeId;
+    if (filters.costCenterId) requestWhere.costCenterId = filters.costCenterId;
+
     const whereCostEntries: any = { ...dateFilter };
-    if (filters.machineId) whereCostEntries.request = { machineId: filters.machineId };
+    if (Object.keys(requestWhere).length > 0) whereCostEntries.request = requestWhere;
 
     const whereParts: any = {};
-    if (filters.machineId) whereParts.request = { machineId: filters.machineId };
+    if (Object.keys(requestWhere).length > 0) whereParts.request = requestWhere;
+    if (filters.sparePartId) whereParts.sparePartId = filters.sparePartId;
 
     const [costRows, costTotal, partRows, partTotal, costSum, partsCostSum] = await Promise.all([
       this.prisma.maintenanceRequestCostEntry.findMany({
@@ -123,6 +145,9 @@ export class MaintenanceReportsService {
     const soon = nowPlusDays(7);
 
     if (filters.machineId) where.machineId = filters.machineId;
+    if (filters.productionLineId) where.machine = { productionLineId: filters.productionLineId };
+    if (filters.operationTypeId) where.machine = { ...where.machine, operationTypeId: filters.operationTypeId };
+    if (filters.costCenterId) where.machine = { ...where.machine, defaultCostCenterId: filters.costCenterId };
     if (filters.maintenanceType) where.type = filters.maintenanceType;
     if (filters.dueStatus === 'overdue') where.endDate = { lte: now };
     else if (filters.dueStatus === 'dueSoon') where.endDate = { gte: now, lte: soon };
@@ -158,7 +183,12 @@ export class MaintenanceReportsService {
 
   async getMachineLogReport(filters: any) {
     const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt') };
+    if (filters.productionLineId) where.productionLineId = filters.productionLineId;
     if (filters.machineId) where.machineId = filters.machineId;
+    if (filters.machineComponentId) where.machineComponentId = filters.machineComponentId;
+    if (!filters.machineComponentId && filters.componentId) where.machineComponentId = filters.componentId;
+    if (filters.operationTypeId) where.operationTypeId = filters.operationTypeId;
+    if (filters.costCenterId) where.costCenterId = filters.costCenterId;
     if (filters.search) where.OR = [{ title: { contains: filters.search } }, { requestNumber: { contains: filters.search } }];
 
     const [total, rows] = await Promise.all([
@@ -176,8 +206,16 @@ export class MaintenanceReportsService {
 
   async getPartsUsageReport(filters: any) {
     const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt') };
-    if (filters.machineId) where.request = { machineId: filters.machineId };
+    if (filters.sparePartId) where.sparePartId = filters.sparePartId;
     if (filters.productId) where.productId = filters.productId;
+    const requestWhere: any = {};
+    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
+    if (filters.machineId) requestWhere.machineId = filters.machineId;
+    if (filters.machineComponentId) requestWhere.machineComponentId = filters.machineComponentId;
+    if (!filters.machineComponentId && filters.componentId) requestWhere.machineComponentId = filters.componentId;
+    if (filters.operationTypeId) requestWhere.operationTypeId = filters.operationTypeId;
+    if (filters.costCenterId) requestWhere.costCenterId = filters.costCenterId;
+    if (Object.keys(requestWhere).length > 0) where.request = requestWhere;
     if (filters.search) where.product = { OR: [{ code: { contains: filters.search } }, { name: { contains: filters.search } }] };
 
     const [total, rows, totalQty, totalCost] = await Promise.all([
@@ -207,6 +245,9 @@ export class MaintenanceReportsService {
     const soon = nowPlusDays(30);
     const where: any = { status: 'ACTIVE', endDate: { gte: now, lte: soon } };
     if (filters.machineId) where.machineId = filters.machineId;
+    if (filters.productionLineId) where.machine = { productionLineId: filters.productionLineId };
+    if (filters.operationTypeId) where.machine = { ...where.machine, operationTypeId: filters.operationTypeId };
+    if (filters.costCenterId) where.machine = { ...where.machine, defaultCostCenterId: filters.costCenterId };
     if (filters.search) where.title = { contains: filters.search };
 
     const [total, rows, dueSoonCount, totalActive] = await Promise.all([
@@ -235,6 +276,9 @@ export class MaintenanceReportsService {
     const now = new Date();
     const where: any = { status: 'ACTIVE', endDate: { lt: now } };
     if (filters.machineId) where.machineId = filters.machineId;
+    if (filters.productionLineId) where.machine = { productionLineId: filters.productionLineId };
+    if (filters.operationTypeId) where.machine = { ...where.machine, operationTypeId: filters.operationTypeId };
+    if (filters.costCenterId) where.machine = { ...where.machine, defaultCostCenterId: filters.costCenterId };
     if (filters.search) where.title = { contains: filters.search };
 
     const [total, rows, overdueCount, totalActive] = await Promise.all([

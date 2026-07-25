@@ -9,7 +9,13 @@ export interface ReportQuery {
   pageSize?: number;
   sortBy?: string;
   sortDirection?: 'asc' | 'desc';
+  productionLineId?: string;
   machineId?: string;
+  machineComponentId?: string;
+  componentId?: string;
+  operationTypeId?: string;
+  costCenterId?: string;
+  sparePartId?: string;
   machineCategoryId?: string;
   maintenanceType?: string;
   priority?: string;

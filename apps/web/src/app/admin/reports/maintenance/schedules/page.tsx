@@ -5,7 +5,7 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
 import { Input, Select, Button, DataTable, Pagination } from '../../../../../components/admin/ui';
-import { F9Lookup, machineAdapter } from '../../../../../components/f9';
+import { F9Lookup, productionLineAdapter, machineAdapter, operationTypeAdapter, costCenterAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../../components/reports';
 
@@ -17,23 +17,29 @@ export default function SchedulesReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState<any>({ page: 1, pageSize: 20 });
+  const [productionLineId, setProductionLineId] = useState('');
   const [machineId, setMachineId] = useState('');
+  const [operationTypeId, setOperationTypeId] = useState('');
+  const [costCenterId, setCostCenterId] = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
       const params: any = { ...filters };
+      if (productionLineId) params.productionLineId = productionLineId;
       if (machineId) params.machineId = machineId;
+      if (operationTypeId) params.operationTypeId = operationTypeId;
+      if (costCenterId) params.costCenterId = costCenterId;
       const res = await api.get<any>('/reports/maintenance/schedules', { params });
       setData(res);
     } catch (err: any) {
       setError(err?.message || t('reports.loadFailed'));
     } finally { setLoading(false); }
-  }, [filters, machineId, t]);
+  }, [filters, productionLineId, machineId, operationTypeId, costCenterId, t]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const clearFilters = () => { setFilters({ page: 1, pageSize: 20 }); setMachineId(''); };
+  const clearFilters = () => { setFilters({ page: 1, pageSize: 20 }); setProductionLineId(''); setMachineId(''); setOperationTypeId(''); setCostCenterId(''); };
 
   const { exec } = useStableHandlers({
     back: () => router.back(), refresh: () => fetchData(), print: () => window.print(),
@@ -59,7 +65,10 @@ export default function SchedulesReportPage() {
     <ReportPageShell title={t('reports.schedulesReport')} loading={loading} error={error} onRetry={fetchData}
       filters={
         <div className="flex flex-wrap gap-4 items-end">
+          <div className="w-48"><F9Lookup adapter={productionLineAdapter} value={productionLineId} onChange={setProductionLineId} placeholder={t('maintenance.productionLine')} /></div>
           <div className="w-48"><F9Lookup adapter={machineAdapter} value={machineId} onChange={setMachineId} placeholder={t('reports.machine')} /></div>
+          <div className="w-48"><F9Lookup adapter={operationTypeAdapter} value={operationTypeId} onChange={setOperationTypeId} placeholder={t('maintenance.operationType')} /></div>
+          <div className="w-48"><F9Lookup adapter={costCenterAdapter} value={costCenterId} onChange={setCostCenterId} placeholder={t('maintenance.costCenter')} /></div>
           <div className="w-40">
             <Select value={filters.dueStatus || ''} onChange={e => setFilters((f: any) => ({ ...f, dueStatus: e.target.value || undefined, page: 1 }))} placeholder={t('reports.status')} options={[
               { value: 'overdue', label: t('reports.overdue') },

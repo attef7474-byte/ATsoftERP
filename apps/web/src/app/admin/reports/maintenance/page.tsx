@@ -4,7 +4,8 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, Button, DataTable, LoadingState, ErrorState } from '../../../../components/admin/ui';
+import { Card, CardContent, CardHeader, Button, DataTable } from '../../../../components/admin/ui';
+import { F9Lookup, productionLineAdapter, machineAdapter, machineComponentAdapter, operationTypeAdapter, costCenterAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards } from '../../../../components/reports';
 
@@ -15,18 +16,37 @@ export default function MaintenanceOverviewReportPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [productionLineId, setProductionLineId] = useState('');
+  const [machineId, setMachineId] = useState('');
+  const [machineComponentId, setMachineComponentId] = useState('');
+  const [operationTypeId, setOperationTypeId] = useState('');
+  const [costCenterId, setCostCenterId] = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<any>('/reports/maintenance/overview');
+      const params: any = {};
+      if (productionLineId) params.productionLineId = productionLineId;
+      if (machineId) params.machineId = machineId;
+      if (machineComponentId) params.machineComponentId = machineComponentId;
+      if (operationTypeId) params.operationTypeId = operationTypeId;
+      if (costCenterId) params.costCenterId = costCenterId;
+      const res = await api.get<any>('/reports/maintenance/overview', { params });
       setData(res);
     } catch (err: any) {
       setError(err?.message || t('reports.loadFailed'));
     } finally { setLoading(false); }
-  }, [t]);
+  }, [productionLineId, machineId, machineComponentId, operationTypeId, costCenterId, t]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const clearFilters = () => {
+    setProductionLineId('');
+    setMachineId('');
+    setMachineComponentId('');
+    setOperationTypeId('');
+    setCostCenterId('');
+  };
 
   const { exec } = useStableHandlers({
     back: () => router.back(),
@@ -72,6 +92,16 @@ export default function MaintenanceOverviewReportPage() {
       loading={loading}
       error={error}
       onRetry={fetchData}
+      filters={
+        <div className="flex flex-wrap gap-4 items-end">
+          <div className="w-48"><F9Lookup adapter={productionLineAdapter} value={productionLineId} onChange={setProductionLineId} placeholder={t('maintenance.productionLine')} /></div>
+          <div className="w-48"><F9Lookup adapter={machineAdapter} value={machineId} onChange={setMachineId} placeholder={t('reports.machine')} /></div>
+          <div className="w-48"><F9Lookup adapter={machineComponentAdapter} value={machineComponentId} onChange={setMachineComponentId} placeholder={t('maintenance.machineComponent')} /></div>
+          <div className="w-48"><F9Lookup adapter={operationTypeAdapter} value={operationTypeId} onChange={setOperationTypeId} placeholder={t('maintenance.operationType')} /></div>
+          <div className="w-48"><F9Lookup adapter={costCenterAdapter} value={costCenterId} onChange={setCostCenterId} placeholder={t('maintenance.costCenter')} /></div>
+          <Button variant="ghost" onClick={clearFilters}>{t('reports.clearFilters')}</Button>
+        </div>
+      }
     >
       {data && (
         <div className="space-y-6">

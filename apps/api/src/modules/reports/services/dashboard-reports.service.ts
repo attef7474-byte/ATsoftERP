@@ -12,29 +12,45 @@ export class DashboardReportsService {
     const now = new Date();
     const soon = nowPlusDays(7);
 
+    const requestWhere: any = { ...dateFilter };
+    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
+    if (filters.machineId) requestWhere.machineId = filters.machineId;
+    if (filters.machineComponentId) requestWhere.machineComponentId = filters.machineComponentId;
+    if (!filters.machineComponentId && filters.componentId) requestWhere.machineComponentId = filters.componentId;
+    if (filters.operationTypeId) requestWhere.operationTypeId = filters.operationTypeId;
+    if (filters.costCenterId) requestWhere.costCenterId = filters.costCenterId;
+    if (filters.requestStatus) requestWhere.status = filters.requestStatus;
+    if (filters.maintenanceType) requestWhere.type = filters.maintenanceType;
+    if (filters.priority) requestWhere.priority = filters.priority;
+
+    const scheduleMachineWhere: any = {};
+    if (filters.productionLineId) scheduleMachineWhere.productionLineId = filters.productionLineId;
+    if (filters.operationTypeId) scheduleMachineWhere.operationTypeId = filters.operationTypeId;
+    if (filters.costCenterId) scheduleMachineWhere.defaultCostCenterId = filters.costCenterId;
+
     const [
       totalRequests, openRequests, inProgressRequests, completedRequests, cancelledRequests,
       overdueSchedules, downtimeAgg, activeDowntime, costAgg, partsCount,
       requestsByStatus, requestsByPriority, requestsByType,
       topMachinesByReq, topMachinesByDowntime, dueSchedules, recentRequests,
     ] = await Promise.all([
-      this.prisma.maintenanceRequest.count({ where: dateFilter }),
-      this.prisma.maintenanceRequest.count({ where: { ...dateFilter, status: 'OPEN' } }),
-      this.prisma.maintenanceRequest.count({ where: { ...dateFilter, status: 'IN_PROGRESS' } }),
-      this.prisma.maintenanceRequest.count({ where: { ...dateFilter, status: 'COMPLETED' } }),
-      this.prisma.maintenanceRequest.count({ where: { ...dateFilter, status: 'CANCELLED' } }),
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', endDate: { lte: now } } }),
-      this.prisma.downtimeLog.aggregate({ where: { ...dateFilter, cancelledAt: null }, _sum: { durationMinutes: true } }),
+      this.prisma.maintenanceRequest.count({ where: requestWhere }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'OPEN' } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'IN_PROGRESS' } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'COMPLETED' } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'CANCELLED' } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...(filters.machineId ? { machineId: filters.machineId } : {}), ...(Object.keys(scheduleMachineWhere).length > 0 ? { machine: scheduleMachineWhere } : {}), status: 'ACTIVE', endDate: { lte: now } } }),
+      this.prisma.downtimeLog.aggregate({ where: { ...dateFilter, ...(filters.machineId ? { machineId: filters.machineId } : {}), cancelledAt: null }, _sum: { durationMinutes: true } }),
       this.prisma.downtimeLog.count({ where: { endTime: null, cancelledAt: null } }),
       this.prisma.maintenanceRequestCostEntry.aggregate({ _sum: { amount: true } }),
       this.prisma.maintenanceRequestPartUsage.count(),
-      this.prisma.maintenanceRequest.groupBy({ by: ['status'], where: dateFilter, _count: true }),
-      this.prisma.maintenanceRequest.groupBy({ by: ['priority'], where: dateFilter, _count: true }),
-      this.prisma.maintenanceRequest.groupBy({ by: ['type'], where: dateFilter, _count: true }),
-      this.prisma.maintenanceRequest.groupBy({ by: ['machineId'], where: dateFilter, _count: true, orderBy: { _count: { id: 'desc' } }, take: 10 }),
-      this.prisma.downtimeLog.groupBy({ by: ['machineId'], where: { ...dateFilter, cancelledAt: null }, _sum: { durationMinutes: true }, orderBy: { _sum: { durationMinutes: 'desc' } }, take: 10 }),
-      this.prisma.maintenanceSchedule.findMany({ where: { status: 'ACTIVE', endDate: { lte: soon } }, take: 10, include: { machine: { select: { id: true, code: true, name: true } } }, orderBy: { endDate: 'asc' } }),
-      this.prisma.maintenanceRequest.findMany({ where: dateFilter, take: 10, orderBy: { createdAt: 'desc' }, include: { machine: { select: { id: true, code: true, name: true } } } }),
+      this.prisma.maintenanceRequest.groupBy({ by: ['status'], where: requestWhere, _count: true }),
+      this.prisma.maintenanceRequest.groupBy({ by: ['priority'], where: requestWhere, _count: true }),
+      this.prisma.maintenanceRequest.groupBy({ by: ['type'], where: requestWhere, _count: true }),
+      this.prisma.maintenanceRequest.groupBy({ by: ['machineId'], where: requestWhere, _count: true, orderBy: { _count: { id: 'desc' } }, take: 10 }),
+      this.prisma.downtimeLog.groupBy({ by: ['machineId'], where: { ...dateFilter, ...(filters.machineId ? { machineId: filters.machineId } : {}), cancelledAt: null }, _sum: { durationMinutes: true }, orderBy: { _sum: { durationMinutes: 'desc' } }, take: 10 }),
+      this.prisma.maintenanceSchedule.findMany({ where: { ...(filters.machineId ? { machineId: filters.machineId } : {}), ...(Object.keys(scheduleMachineWhere).length > 0 ? { machine: scheduleMachineWhere } : {}), status: 'ACTIVE', endDate: { lte: soon } }, take: 10, include: { machine: { select: { id: true, code: true, name: true } } }, orderBy: { endDate: 'asc' } }),
+      this.prisma.maintenanceRequest.findMany({ where: requestWhere, take: 10, orderBy: { createdAt: 'desc' }, include: { machine: { select: { id: true, code: true, name: true } } } }),
     ]);
 
     return {

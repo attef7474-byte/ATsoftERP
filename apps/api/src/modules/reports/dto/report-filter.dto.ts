@@ -15,7 +15,13 @@ export class BaseReportFilterDto {
 }
 
 export class MaintenanceReportFilterDto extends BaseReportFilterDto {
+  @IsOptional() @ApiPropertyOptional() productionLineId?: string;
   @IsOptional() @ApiPropertyOptional() machineId?: string;
+  @IsOptional() @ApiPropertyOptional() machineComponentId?: string;
+  @IsOptional() @ApiPropertyOptional() componentId?: string;
+  @IsOptional() @ApiPropertyOptional() operationTypeId?: string;
+  @IsOptional() @ApiPropertyOptional() costCenterId?: string;
+  @IsOptional() @ApiPropertyOptional() sparePartId?: string;
   @IsOptional() @ApiPropertyOptional() machineCategoryId?: string;
   @IsOptional() @ApiPropertyOptional() maintenanceType?: string;
   @IsOptional() @ApiPropertyOptional() priority?: string;
