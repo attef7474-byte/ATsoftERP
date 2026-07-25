@@ -9,7 +9,7 @@ export class MaintenanceDashboardService {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
-    const [openRequests, criticalRequests, overdueItems, machinesUnderMaintenance, currentDowntime, upcomingPreventive, totalCost, totalRequests, completedRequests, avgCompletionTime] = await Promise.all([
+    const [openRequests, criticalRequests, overdueItems, machinesUnderMaintenance, currentDowntime, upcomingPreventive, totalCost, totalRequests, completedRequests, avgCompletionTime, totalPersonnel, activeAssignments, totalPartAccountabilities, pendingPartReports] = await Promise.all([
       this.prisma.maintenanceRequest.count({ where: { status: 'OPEN', deletedAt: null } }),
       this.prisma.maintenanceRequest.count({ where: { priority: { in: ['HIGH', 'URGENT'] }, status: { in: ['OPEN', 'IN_PROGRESS'] }, deletedAt: null } }),
       this.getOverdueCount(),
@@ -20,6 +20,10 @@ export class MaintenanceDashboardService {
       this.prisma.maintenanceRequest.count({ where: { deletedAt: null } }),
       this.prisma.maintenanceRequest.count({ where: { status: 'COMPLETED', deletedAt: null } }),
       this.getAvgCompletionTime(),
+      this.prisma.maintenancePersonnel.count({ where: { isActive: true } }),
+      this.prisma.maintenanceRequestAssignment.count({ where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } } }),
+      this.prisma.maintenancePartAccountability.count(),
+      this.prisma.maintenancePartAccountability.count({ where: { status: 'ASSIGNED' } }),
     ]);
 
     const totalCostThisMonth = await this.prisma.maintenanceRequestCostEntry.aggregate({
@@ -40,6 +44,10 @@ export class MaintenanceDashboardService {
       completedRequests,
       avgCompletionTimeHours: avgCompletionTime,
       completionRate: totalRequests > 0 ? Math.round((completedRequests / totalRequests) * 100) : 0,
+      totalPersonnel,
+      activeAssignments,
+      totalPartAccountabilities,
+      pendingPartReports,
     };
   }
 
@@ -194,6 +202,73 @@ export class MaintenanceDashboardService {
       this.prisma.maintenanceSchedule.count({ where }),
     ]);
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async getAccountabilityKpis() {
+    const [personnelByRole, topAssignees, machinesWithResponsibilityCount, activeResponsibilities, partAccountabilityByStatus, topPersonnelPartAccountability] = await Promise.all([
+      this.prisma.maintenancePersonnel.groupBy({ by: ['role'], _count: true, where: { isActive: true } }),
+      this.prisma.maintenanceRequestAssignment.groupBy({
+        by: ['maintenancePersonnelId'],
+        _count: true,
+        where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+        orderBy: { _count: { maintenancePersonnelId: 'desc' } },
+        take: 10,
+      }),
+      this.prisma.machineResponsibilityAssignment.groupBy({
+        by: ['machineId'],
+        _count: true,
+        where: { status: 'ACTIVE' },
+        orderBy: { _count: { machineId: 'desc' } },
+        take: 10,
+      }),
+      this.prisma.machineResponsibilityAssignment.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.maintenancePartAccountability.groupBy({ by: ['status'], _count: true }),
+      this.prisma.maintenancePartAccountability.groupBy({
+        by: ['maintenancePersonnelId'],
+        _count: true,
+        _sum: { quantity: true },
+        where: { status: { notIn: ['CANCELLED'] } },
+        orderBy: { _count: { maintenancePersonnelId: 'desc' } },
+        take: 10,
+      }),
+    ]);
+
+    const topAssigneesWithPersonnel = await Promise.all(
+      topAssignees.map(async (a) => {
+        const p = await this.prisma.maintenancePersonnel.findUnique({
+          where: { id: a.maintenancePersonnelId },
+          select: { id: true, code: true, name: true, role: true },
+        });
+        return { personnel: p, activeAssignmentCount: a._count };
+      }),
+    );
+
+    const machinesWithResponsibility = await Promise.all(
+      machinesWithResponsibilityCount.map(async (a) => {
+        const m = await this.prisma.machine.findUnique({
+          where: { id: a.machineId },
+          select: { id: true, code: true, name: true },
+        });
+        return { machine: m, responsibilityCount: a._count };
+      }),
+    );
+
+    return {
+      personnelByRole: personnelByRole.map(r => ({ role: r.role, count: r._count })),
+      activeResponsibilities,
+      topAssignees: topAssigneesWithPersonnel,
+      machinesWithMostResponsibilities: machinesWithResponsibility,
+      partAccountabilityByStatus: partAccountabilityByStatus.map(s => ({ status: s.status, count: s._count })),
+      topPersonnelPartAccountability: await Promise.all(
+        topPersonnelPartAccountability.map(async (a) => {
+          const p = await this.prisma.maintenancePersonnel.findUnique({
+            where: { id: a.maintenancePersonnelId },
+            select: { id: true, code: true, name: true, role: true },
+          });
+          return { personnel: p, recordCount: a._count, totalQuantity: a._sum.quantity || 0 };
+        }),
+      ),
+    };
   }
 
   async getCostKpis(query: { year?: number; month?: number }) {

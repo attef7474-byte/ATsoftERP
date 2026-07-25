@@ -35,4 +35,5 @@ export {
   productionLineAdapter,
   machineComponentAdapter,
   sparePartAdapter,
+  maintenancePersonnelAdapter,
 } from './lookup-adapters';

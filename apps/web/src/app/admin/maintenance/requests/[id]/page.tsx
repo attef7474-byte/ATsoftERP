@@ -26,6 +26,8 @@ export default function MaintenanceRequestDetailPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<string>('');
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [partAccountabilities, setPartAccountabilities] = useState<any[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -37,6 +39,22 @@ export default function MaintenanceRequestDetailPage() {
       setError(err?.message || t('errors.loadFailed'));
     } finally { setLoading(false); }
   }, [id, t]);
+
+  const fetchAssignments = useCallback(async () => {
+    try {
+      const res = await api.get<any>(`/maintenance/request-assignments?maintenanceRequestId=${id}&limit=50`);
+      setAssignments(res.data || []);
+    } catch { setAssignments([]); }
+  }, [id]);
+
+  const fetchPartAccountabilities = useCallback(async () => {
+    try {
+      const res = await api.get<any>(`/maintenance/part-accountabilities?maintenanceRequestId=${id}&limit=50`);
+      setPartAccountabilities(res.data || []);
+    } catch { setPartAccountabilities([]); }
+  }, [id]);
+
+  useEffect(() => { fetchData(); fetchAssignments(); fetchPartAccountabilities(); }, [fetchData, fetchAssignments, fetchPartAccountabilities]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -84,7 +102,9 @@ export default function MaintenanceRequestDetailPage() {
     { id: 'tasks', label: t('details.maintenanceRequest.tasks') },
     { id: 'downtimeLogs', label: t('details.maintenanceRequest.downtimeLogs') },
     { id: 'assign', label: t('maintenanceWorkflow.workflowAssign') },
+    { id: 'assignments', label: t('maintenance.requestAssignments') },
     { id: 'parts', label: t('maintenanceWorkflow.workflowParts') },
+    { id: 'partAccountability', label: t('maintenance.partAccountabilities') },
     { id: 'costs', label: t('maintenanceWorkflow.workflowCosts') },
   ];
 
@@ -234,11 +254,45 @@ export default function MaintenanceRequestDetailPage() {
         </Card>
       )}
 
+      {activeTab === 'assignments' && (
+        <Card>
+          <CardHeader><h3 className="text-sm font-semibold text-gray-700">{t('maintenance.requestAssignments')}</h3></CardHeader>
+          <CardContent>
+            {assignments.length === 0 ? <p className="text-sm text-gray-500 py-4">{t('common.noData')}</p> : (
+              <DataTable columns={[
+                { key: 'personnel', header: t('maintenance.personnel'), render: (r: any) => r.maintenancePersonnel ? `[${r.maintenancePersonnel.code}] ${r.maintenancePersonnel.name}` : '-' },
+                { key: 'assignmentRole', header: t('maintenance.assignmentRole') },
+                { key: 'status', header: t('common.status'), render: (r: any) => <StatusBadge status={r.status} /> },
+                { key: 'assignedAt', header: t('common.createdAt'), render: (r: any) => fmt(r.assignedAt) },
+              ]} data={assignments} keyExtractor={(r: any) => r.id} />
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {activeTab === 'parts' && (
         <Card>
           <CardContent className="text-center py-8">
             <p className="text-sm text-gray-500 mb-4">{t('maintenanceWorkflow.usedPartsDescription')}</p>
             <button onClick={() => router.push(`/admin/maintenance/requests/${id}/parts`)} className="text-blue-600 hover:text-blue-800 font-medium">{t('maintenanceWorkflow.workflowParts')}</button>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'partAccountability' && (
+        <Card>
+          <CardHeader><h3 className="text-sm font-semibold text-gray-700">{t('maintenance.partAccountabilities')}</h3></CardHeader>
+          <CardContent>
+            {partAccountabilities.length === 0 ? <p className="text-sm text-gray-500 py-4">{t('common.noData')}</p> : (
+              <DataTable columns={[
+                { key: 'sparePart', header: t('maintenance.sparePartLabel'), render: (r: any) => r.sparePart ? `[${r.sparePart.code}] ${r.sparePart.name}` : '-' },
+                { key: 'personnel', header: t('maintenance.personnel'), render: (r: any) => r.maintenancePersonnel ? `[${r.maintenancePersonnel.code}] ${r.maintenancePersonnel.name}` : '-' },
+                { key: 'quantity', header: t('maintenance.assignedQuantity'), render: (r: any) => r.quantity },
+                { key: 'reportedUsedQuantity', header: t('maintenance.reportedUsedQuantity'), render: (r: any) => r.reportedUsedQuantity ?? '-' },
+                { key: 'returnedQuantity', header: t('maintenance.returnedQuantity'), render: (r: any) => r.returnedQuantity ?? '-' },
+                { key: 'status', header: t('common.status'), render: (r: any) => <StatusBadge status={r.status} /> },
+              ]} data={partAccountabilities} keyExtractor={(r: any) => r.id} />
+            )}
           </CardContent>
         </Card>
       )}

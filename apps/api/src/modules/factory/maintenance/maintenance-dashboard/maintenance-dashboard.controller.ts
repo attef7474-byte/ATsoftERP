@@ -89,4 +89,11 @@ export class MaintenanceDashboardController {
       month: query.month ? parseInt(query.month, 10) : undefined,
     });
   }
+
+  @Get('accountability-kpis')
+  @Permissions('maintenance.dashboard.accountabilityKpis.view')
+  @ApiOperation({ summary: 'Get maintenance accountability KPIs' })
+  getAccountabilityKpis() {
+    return this.service.getAccountabilityKpis();
+  }
 }

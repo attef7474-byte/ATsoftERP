@@ -102,6 +102,9 @@ export const navItems: NavItem[] = [
       { id: 'mnt-schedules', label: 'navigation.maintenanceSchedules', href: '/admin/maintenance/schedules' },
       { id: 'mnt-checklist-items', label: 'navigation.checklistItems', href: '/admin/maintenance/checklist-items' },
       { id: 'mnt-downtime-logs', label: 'navigation.downtimeLogs', href: '/admin/maintenance/downtime-logs' },
+      { id: 'mnt-personnel', label: 'navigation.maintenancePersonnel', href: '/admin/maintenance/personnel' },
+      { id: 'mnt-machine-responsibilities', label: 'navigation.machineResponsibilities', href: '/admin/maintenance/machine-responsibilities' },
+      { id: 'mnt-accountability', label: 'navigation.maintenanceAccountability', href: '/admin/maintenance/accountability' },
     ],
   },
   {

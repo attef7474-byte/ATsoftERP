@@ -28,6 +28,7 @@ export default function MachineDetailPage() {
   const [labels, setLabels] = useState<BarcodeLabel[]>([]);
   const [machineSpareLinks, setMachineSpareLinks] = useState<any[]>([]);
   const [linksLoading, setLinksLoading] = useState(false);
+  const [responsibilities, setResponsibilities] = useState<any[]>([]);
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [editingMachineLink, setEditingMachineLink] = useState<any | null>(null);
   const [linkForm, setLinkForm] = useState({ sparePartId: '', quantity: 1, unit: '', usageNote: '', isPrimary: false });
@@ -67,7 +68,14 @@ export default function MachineDetailPage() {
     finally { setLinksLoading(false); }
   }, [id]);
 
-  useEffect(() => { fetchData(); fetchRequests(); fetchLabels(); fetchMachineSpareLinks(); }, [fetchData, fetchRequests, fetchLabels, fetchMachineSpareLinks]);
+  const fetchResponsibilities = useCallback(async () => {
+    try {
+      const res = await api.get<any>(`/maintenance/machine-responsibilities?machineId=${id}&limit=50`);
+      setResponsibilities(res.data || []);
+    } catch { setResponsibilities([]); }
+  }, [id]);
+
+  useEffect(() => { fetchData(); fetchRequests(); fetchLabels(); fetchMachineSpareLinks(); fetchResponsibilities(); }, [fetchData, fetchRequests, fetchLabels, fetchMachineSpareLinks, fetchResponsibilities]);
 
   const handleStatusChange = async (newStatus: string) => {
     try { await api.patch(`/maintenance/machines/${id}`, { status: newStatus }); fetchData(); showToast(t('common.successUpdated'), 'success'); } catch (err: any) { showToast(err?.message, 'error'); }
@@ -141,6 +149,7 @@ export default function MachineDetailPage() {
     { id: 'labels', label: t('details.machine.labels') },
     { id: 'maintenanceLog', label: t('maintenanceWorkflow.machineMaintenanceLog') },
     { id: 'downtime', label: t('maintenanceWorkflow.machineDowntimeLink') },
+    { id: 'responsibilities', label: t('maintenance.machineResponsibilities') },
     { id: 'qr', label: t('maintenanceWorkflow.machineQRLabel') },
   ];
 
@@ -294,6 +303,22 @@ export default function MachineDetailPage() {
           <CardContent className="text-center py-8">
             <p className="text-sm text-gray-500 mb-4">{t('maintenanceWorkflow.machineDowntimeDescription')}</p>
             <button onClick={() => router.push(`/admin/maintenance/machines/${id}/downtime`)} className="text-blue-600 hover:text-blue-800 font-medium">{t('maintenanceWorkflow.machineDowntimeLink')}</button>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'responsibilities' && (
+        <Card>
+          <CardHeader><h3 className="text-sm font-semibold text-gray-700">{t('maintenance.machineResponsibilities')}</h3></CardHeader>
+          <CardContent>
+            {responsibilities.length === 0 ? <p className="text-sm text-gray-500 py-4">{t('common.noData')}</p> : (
+              <DataTable columns={[
+                { key: 'personnel', header: t('maintenance.personnel'), render: (r: any) => r.maintenancePersonnel ? `[${r.maintenancePersonnel.code}] ${r.maintenancePersonnel.name}` : '-' },
+                { key: 'responsibilityRole', header: t('maintenance.responsibilityRole') },
+                { key: 'isPrimary', header: t('maintenance.isPrimary'), render: (r: any) => r.isPrimary ? t('common.yes') : t('common.no') },
+                { key: 'status', header: t('common.status'), render: (r: any) => <StatusBadge status={r.status} /> },
+              ]} data={responsibilities} keyExtractor={(r: any) => r.id} />
+            )}
           </CardContent>
         </Card>
       )}

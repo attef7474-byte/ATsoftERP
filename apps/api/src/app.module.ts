@@ -34,6 +34,10 @@ import { MachineComponentsModule } from './modules/factory/maintenance/machine-c
 import { SparePartsModule } from './modules/factory/maintenance/spare-parts/spare-parts.module'
 import { ComponentSparePartsModule } from './modules/factory/maintenance/component-spare-parts/component-spare-parts.module'
 import { MachineSparePartsModule } from './modules/factory/maintenance/machine-spare-parts/machine-spare-parts.module'
+import { MaintenancePersonnelModule } from './modules/factory/maintenance/maintenance-personnel/maintenance-personnel.module'
+import { MachineResponsibilityAssignmentsModule } from './modules/factory/maintenance/machine-responsibility-assignments/machine-responsibility-assignments.module'
+import { MaintenanceRequestAssignmentsModule } from './modules/factory/maintenance/maintenance-request-assignments/maintenance-request-assignments.module'
+import { MaintenancePartAccountabilityModule } from './modules/factory/maintenance/maintenance-part-accountability/maintenance-part-accountability.module'
 import { InventoryCountsModule } from './modules/factory/inventory-counts/inventory-counts.module'
 import { InventoryCountLinesModule } from './modules/factory/inventory-count-lines/inventory-count-lines.module'
 import { InventoryMovementsModule } from './modules/factory/inventory-movements/inventory-movements.module'
@@ -69,6 +73,7 @@ import { MessagingModule } from './modules/messaging/messaging.module'
     MaintenanceDashboardModule, PreventiveMaintenanceModule,
     OperationTypesModule, CostCentersModule, ProductionLinesModule, MachineComponentsModule,
     SparePartsModule, ComponentSparePartsModule, MachineSparePartsModule,
+    MaintenancePersonnelModule, MachineResponsibilityAssignmentsModule, MaintenanceRequestAssignmentsModule, MaintenancePartAccountabilityModule,
     InventoryCountsModule, InventoryCountLinesModule, InventoryMovementsModule,
     InventoryAdjustmentsModule, InventoryBalancesModule,
     BusinessPartnersModule,     BarcodesModule,

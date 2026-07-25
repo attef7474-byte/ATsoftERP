@@ -324,6 +324,22 @@ export interface CostCenter {
   department?: { id: string; name: string; code: string };
 }
 
+export interface MaintenancePersonnel {
+  id: string;
+  code: string;
+  name: string;
+  role: string;
+  specialty?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  userId?: string | null;
+  isActive: boolean;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user?: { id: string; name: string; email: string };
+}
+
 export interface SparePart {
   id: string;
   code: string;
