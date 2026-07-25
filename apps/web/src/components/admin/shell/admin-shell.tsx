@@ -89,24 +89,20 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
         onLogout={handleLogout}
       />
 
-      <section className={`admin-actionbar ${actionBarVisible ? '' : 'admin-actionbar-hidden'}`}>
-        {actionBarVisible && (
-          <>
-            {actions.map((action) => (
-              <button
-                key={action.id}
-                type="button"
-                className={`admin-action-btn ${action.variant === 'danger' ? 'text-red-600' : action.variant === 'primary' ? 'text-blue-700' : ''}`}
-                onClick={action.onClick}
-                disabled={action.enabled === false}
-                title={action.tooltipKey ? t(action.tooltipKey) : t(action.labelKey)}
-              >
-                {action.icon}
-                <span className="hidden sm:inline">{t(action.labelKey)}</span>
-              </button>
-            ))}
-          </>
-        )}
+      <section className={`admin-actionbar ${actionBarVisible || actions.length > 0 ? '' : 'admin-actionbar-hidden'}`}>
+        {(actionBarVisible || actions.length > 0) && actions.map((action) => (
+          <button
+            key={action.id}
+            type="button"
+            className={`admin-action-btn ${action.variant === 'danger' ? 'text-red-600' : action.variant === 'primary' ? 'text-blue-700' : ''}`}
+            onClick={action.onClick}
+            disabled={action.enabled === false}
+            title={action.tooltipKey ? t(action.tooltipKey) : t(action.labelKey)}
+          >
+            {action.icon}
+            <span className="hidden sm:inline">{t(action.labelKey)}</span>
+          </button>
+        ))}
       </section>
 
       {sidebarOpen && (

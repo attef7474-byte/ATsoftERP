@@ -84,7 +84,7 @@ export default function MachineResponsibilitiesPage() {
 
   const { exec } = useStableHandlers({ add: () => openNew(), refresh: () => fetchData(meta.page) });
   useRegisterAdminActions(useMemo(() => [
-    { id: 'add', labelKey: 'common.add', icon: React.createElement(ActionAddIcon), onClick: () => exec('add') },
+    { id: 'add', labelKey: 'actions.add', icon: React.createElement(ActionAddIcon), onClick: () => exec('add') },
     { id: 'refresh', labelKey: 'common.refresh', icon: React.createElement(ActionRefreshIcon), onClick: () => exec('refresh') },
   ], [exec]));
 

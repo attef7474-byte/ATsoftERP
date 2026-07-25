@@ -43,6 +43,7 @@ export function useRegisterAdminActions(acts: AdminAction[], visible = true): vo
   useEffect(() => {
     return () => {
       clearActions();
+      serializedRef.current = '';
     };
   }, []);
 }
