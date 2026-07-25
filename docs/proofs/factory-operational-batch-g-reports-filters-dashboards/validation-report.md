@@ -10,8 +10,8 @@
 | typecheck | PASS |
 | build:web | PASS |
 | i18n check | PASS |
-| health check | 3/4 PASS (web not running during validation, expected) |
-| smoke check | 6/6 API PASS (2 web checks N/A by design) |
+| health check | 4/4 PASS |
+| smoke check | 8/8 PASS |
 | API proof — individual filter acceptance | 13/13 PASS |
 | API proof — costs all filters | **200 FIXED** (was DEFECT) |
 | API proof — parts-usage sparePartId | **200 FIXED** (was DEFECT) |
@@ -63,20 +63,23 @@ i18n check passed. 2287 keys in en.ts, 2287 keys in ar.ts, fully synchronized.
 ### Health (against SQL Server runtime)
 ```
 PASS: API reachable on :4000
+PASS: Web reachable on :3000
 PASS: Swagger docs reachable
 PASS: SQL Server port 50079 open
-Passed: 3 | Failed: 1 (web not running)
+Passed: 4 | Failed: 0
 ```
 
 ### Smoke (against SQL Server runtime)
 ```
-PASS: Login
+PASS: Web homepage (200, 12182B)
+PASS: Web login page (200)
+PASS: Login (token received)
 PASS: Users endpoint (3 users)
 PASS: Products endpoint (4 products)
 PASS: Roles endpoint (4 roles)
-PASS: Profile endpoint
-PASS: Swagger docs
-Passed: 6 | Failed: 2 (web not running)
+PASS: Profile endpoint (admin@atsofterp.com)
+PASS: Swagger docs (200)
+Passed: 8 | Failed: 0
 ```
 
 ### Playwright (42/42)

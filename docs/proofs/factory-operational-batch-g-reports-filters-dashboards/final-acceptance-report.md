@@ -26,7 +26,9 @@ Batch G implemented the operational context filter gap in the existing maintenan
 | API proof — costs 500 with all filters combined | **CLOSED** | Fixed — sparePartId→productId lookup |
 | API proof — parts-usage 500 with sparePartId | **CLOSED** | Fixed — sparePartId→productId lookup |
 | SQL Server runtime proof | **PASS** | Executed on localhost:50079 |
-| Playwright browser proof | **PENDING** | Not yet executed |
+| Playwright browser proof | **PASS (42/42)** | 6 report pages verified |
+| Health check (web included) | **PASS (4/4)** | API + Web + Swagger + SQL Server |
+| Smoke check (full) | **PASS (8/8)** | Web home + login + 6 API endpoints |
 
 ## API Proof Results
 
@@ -63,17 +65,21 @@ This batch is fully accepted:
 - Both runtime 500 defects are **CLOSED**
 - All 6 new filter fields accepted by API (30/30 tests passed)
 - SQL Server runtime proof executed on `localhost:50079`
-- Full validation suite: prisma ✓ build ✓ typecheck ✓ health 3/4 ✓ smoke 6/6 ✓
+- Full validation suite: prisma ✓ build ✓ typecheck ✓ health 4/4 ✓ smoke 8/8 ✓
 - Playwright browser proof: **42/42 PASS** — 6 report pages with F9 filter fields verified
 - Data integrity: stock movements 0, no finance entries, no schema changes
 - No stock movement, no finance entry, no schema changes
 - Docker/PostgreSQL NOT used as proof
-- Final commit, tags, and push pending
+- Health 4/4 PASS, Smoke 8/8 PASS
+- Final commit, tags, and push complete
 
 ## Commit Checkpoint
-- Commit: `feat: add maintenance report operational filters pending runtime defect closure`
+- Commit: `ae7ea18` — `fix: close maintenance reports operational filter runtime defects`
 - Checkpoint tag: `atsoft-erp-batch-g-operational-filters-implemented-pending-runtime-debug`
-- Final tags NOT created:
-  - `atsoft-erp-maintenance-operational-reports-dashboard`
-  - `atsoft-erp-current-release-final-audited-v3-factory-foundation-batch-g`
-  - `atsoft-erp-maintenance-reports-dashboard-proof`
+- Final tags created and pushed:
+  - `atsoft-erp-maintenance-operational-reports-dashboard` ✓
+  - `atsoft-erp-maintenance-operational-reports-dashboard-final` ✓
+  - `atsoft-erp-current-release-final-audited-v3-factory-foundation-batch-g` ✓
+  - `atsoft-erp-current-release-final-audited-v3-factory-foundation-batch-g-final` ✓
+  - `atsoft-erp-maintenance-reports-dashboard-proof` ✓
+  - `atsoft-erp-maintenance-reports-dashboard-proof-final` ✓
