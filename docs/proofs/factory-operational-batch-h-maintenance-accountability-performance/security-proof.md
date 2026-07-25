@@ -31,4 +31,12 @@
 | `GET /request-assignments` | 200 |
 | `GET /dashboard/accountability-kpis` | 200 |
 
-All endpoints are protected by `JwtAuthGuard` + `PermissionsGuard`. Permissions seeded: 28 new keys linked to SUPER_ADMIN role.
+### Summary
+
+- JwtAuthGuard active on all new endpoints ✅
+- PermissionsGuard active (28 new keys linked to SUPER_ADMIN) ✅
+- No secrets committed ✅
+- No cookie-based auth exposed ✅
+- HR module inactive ✅
+- Finance module inactive ✅
+- BI module inactive ✅
