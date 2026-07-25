@@ -18,7 +18,8 @@
 | machineComponentId / componentId | MaintenanceRequest | machineComponentId field; componentId is alias |
 | operationTypeId | MaintenanceRequest | operationTypeId field |
 | costCenterId | MaintenanceRequest | costCenterId field |
-| sparePartId | MaintenanceRequestRequiredPart | Filters requests having requiredParts with matching sparePartId |
+| sparePartId (overview/requests/downtime/schedules) | MaintenanceRequestRequiredPart | Filters requests having requiredParts with matching sparePartId |
+| sparePartId (costs report, parts-usage report) | MaintenanceRequestPartUsage via SparePart→productId | Resolves sparePartId to productId via SparePart lookup, then filters by productId. MaintenanceRequestPartUsage has no direct sparePartId field. |
 | For DowntimeLog | — | Filters through request.relation (productionLineId, operationTypeId, costCenterId, machineComponentId) |
 | For MaintenanceSchedule | — | Filters through machine.relation (productionLineId, operationTypeId, defaultCostCenterId) |
 | For MaintenanceRequestPartUsage | — | Filters through request.relation |

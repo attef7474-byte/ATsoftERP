@@ -1,16 +1,22 @@
 # Defect Register — Batch G
 
 ## Open Defects
+None.
+
+## Closed During Implementation
 1. **Costs endpoint returns 500 when ALL operational filter fields are combined**  
-   `/api/v1/reports/maintenance/costs` returns HTTP 500 when all 6 new filter fields (`productionLineId`, `operationTypeId`, `machineComponentId`, `componentId`, `costCenterId`, `sparePartId`) plus `machineId` are provided simultaneously. Individual fields and subsets (e.g., `machineId+costCenterId`) return 200.  
-   **Root cause**: Likely a Prisma query error when too many filter conditions are combined on joined relations. Requires SQL Server runtime access for debugging.  
-   **Severity**: Medium — the DTO correctly accepts all fields (individual 200s prove this). The 500 occurs during query execution, not validation.  
-   **Workaround**: Use subsets of filters rather than all 7 simultaneously.
+   **Root cause**: `getMaintenanceCostsReport` at `maintenance-reports.service.ts:106` set `whereParts.sparePartId = filters.sparePartId` on a query targeting `MaintenanceRequestPartUsage`. This model does NOT have a `sparePartId` field — it uses `productId` to link to `Product`. The `SparePart` model has a `productId` optional relation to `Product`, but `MaintenanceRequestPartUsage.productId` points directly to `Product`. Filtering by the non-existent `sparePartId` field caused a Prisma runtime error.  
+   **Fix**: Added a SparePart lookup to resolve `sparePartId → productId`, then filter by `productId`. If the SparePart has no linked product, the query returns empty.  
+   **File**: `apps/api/src/modules/reports/services/maintenance-reports.service.ts`, `getMaintenanceCostsReport` method.  
+   **Verification**: `/api/v1/reports/maintenance/costs` with all 7 filter fields returns 200, empty dataset.  
+   **Status**: CLOSED.
 
 2. **Parts-usage endpoint returns 500 when `sparePartId` filter is provided**  
-   `/api/v1/reports/parts-usage` returns HTTP 500 when `sparePartId=1` is passed. Without this filter it returns 200.  
-   **Root cause**: Likely a Prisma join error in the parts-usage query when filtering by sparePartId. Requires SQL Server runtime access for debugging.  
-   **Severity**: Medium — the `sparePartId` field is correctly accepted by the DTO (proven by overview/requests/downtime/schedules with sparePartId=1 all returning 200). The 500 is a query execution issue specific to the parts-usage endpoint.
+   **Root cause**: `getPartsUsageReport` at `maintenance-reports.service.ts:209` set `where.sparePartId = filters.sparePartId` on a query targeting `MaintenanceRequestPartUsage`. Same root cause as defect #1.  
+   **Fix**: Added a SparePart lookup to resolve `sparePartId → productId`, then filter by `productId`.  
+   **File**: `apps/api/src/modules/reports/services/maintenance-reports.service.ts`, `getPartsUsageReport` method.  
+   **Verification**: `/api/v1/reports/parts-usage` with `sparePartId=1` returns 200, empty dataset.  
+   **Status**: CLOSED.
 
 ## Closed During Implementation
 None.

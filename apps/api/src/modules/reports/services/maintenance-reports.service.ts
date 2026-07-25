@@ -103,7 +103,11 @@ export class MaintenanceReportsService {
 
     const whereParts: any = {};
     if (Object.keys(requestWhere).length > 0) whereParts.request = requestWhere;
-    if (filters.sparePartId) whereParts.sparePartId = filters.sparePartId;
+    if (filters.sparePartId) {
+      const sparePart = await this.prisma.sparePart.findUnique({ where: { id: filters.sparePartId }, select: { productId: true } });
+      if (sparePart?.productId) whereParts.productId = sparePart.productId;
+      else whereParts.id = '';
+    }
 
     const [costRows, costTotal, partRows, partTotal, costSum, partsCostSum] = await Promise.all([
       this.prisma.maintenanceRequestCostEntry.findMany({
@@ -206,7 +210,11 @@ export class MaintenanceReportsService {
 
   async getPartsUsageReport(filters: any) {
     const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt') };
-    if (filters.sparePartId) where.sparePartId = filters.sparePartId;
+    if (filters.sparePartId) {
+      const sparePart = await this.prisma.sparePart.findUnique({ where: { id: filters.sparePartId }, select: { productId: true } });
+      if (sparePart?.productId) where.productId = sparePart.productId;
+      else where.id = '';
+    }
     if (filters.productId) where.productId = filters.productId;
     const requestWhere: any = {};
     if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;

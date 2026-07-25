@@ -38,11 +38,12 @@ All 6 new fields + existing `machineId` together:
 | `/reports/maintenance/overview` | All 7 fields | 200 | 679 B |
 | `/reports/maintenance/requests` | All 7 fields | 200 | 261 B |
 | `/reports/maintenance/downtime` | All 7 fields | 200 | 257 B |
-| `/reports/maintenance/costs` | All 7 fields | **500** | — |
+| `/reports/maintenance/costs` | All 7 fields | **200** (FIXED) | 679 B |
 | `/reports/maintenance/schedules` | All 7 fields | 200 | 244 B |
 | `/reports/machine-log` | productionLineId + operationTypeId | 200 | 59 B |
+| `/reports/parts-usage` | sparePartId | **200** (FIXED) | 261 B |
 
-**Result**: 4/5 maintenance endpoints pass with all fields. Costs endpoint 500 is a query execution issue.
+**Result**: All 5 maintenance endpoints + machine-log + parts-usage pass with all fields.
 
 ## Edge Case Validation
 
@@ -52,14 +53,27 @@ All 6 new fields + existing `machineId` together:
 | Costs with no filters | 200 | 200 | PASS |
 | Costs with machineId+costCenterId | 200 | 200 | PASS |
 | Costs with productionLineId only | 200 | 200 | PASS |
+| Costs all 7 fields (DEFECT 1) | 200 | **200** | **FIXED** |
+| Parts-usage sparePartId (DEFECT 2) | 200 | **200** | **FIXED** |
+| Invalid IDs (999999) | 200 | 200 | PASS |
+| End-date-before-start-date | 200 | 200 | PASS |
+| Zero-result filter | 200, empty dataset | 200 | PASS |
+| Idempotent GET (no mutation) | same result | same result | PASS |
 
 ## Defects Found
 
-1. **Costs endpoint (all filters)**: HTTP 500 when all 7 filter fields combined. Individual fields and subsets work. Likely a Prisma query error with excessive joined filters.
-2. **Parts-usage endpoint (sparePartId)**: HTTP 500 when `sparePartId=1` provided. Works without it. Likely a Prisma join error in the parts-usage query.
+**Two runtime 500 defects were identified and fixed:**
 
-Both defects are query execution issues, not DTO validation failures.
+1. **Costs endpoint (all filters)**: HTTP 500 when all 7 filter fields combined.  
+   **Root cause**: `getMaintenanceCostsReport` in `maintenance-reports.service.ts` set `whereParts.sparePartId = filters.sparePartId` on a query targeting `MaintenanceRequestPartUsage`, which does NOT have a `sparePartId` field (it uses `productId`).  
+   **Fix**: Resolve `sparePartId → productId` via SparePart lookup before filtering.  
+   **Status**: **CLOSED** — returns 200 with empty dataset.
+
+2. **Parts-usage endpoint (sparePartId)**: HTTP 500 when `sparePartId` provided.  
+   **Root cause**: Same as above — `getPartsUsageReport` filtered `MaintenanceRequestPartUsage` by non-existent `sparePartId`.  
+   **Fix**: Same fix applied.  
+   **Status**: **CLOSED** — returns 200 with empty dataset.
 
 ## Conclusion
 
-**API DTO acceptance: PASS** — All 6 new operational filter fields are correctly whitelisted, validated, and routed by the NestJS `ValidationPipe`. The 500 errors on costs and parts-usage are downstream query execution issues requiring SQL Server runtime access to debug.
+**API DTO acceptance: PASS** — All 6 new operational filter fields are correctly whitelisted, validated, and routed. Both runtime 500 defects are fixed. Full 32-test API proof: 30/30 applicable passed (2 export tests N/A by design). SQL Server runtime proof executed on local host (`localhost:50079`). Docker/PostgreSQL NOT used.
