@@ -237,9 +237,13 @@ export class MaintenanceDashboardService {
       topAssignees.map(async (a) => {
         const p = await this.prisma.maintenancePersonnel.findUnique({
           where: { id: a.maintenancePersonnelId },
-          select: { id: true, code: true, name: true, role: true },
+          select: {
+            id: true,
+            role: true,
+            operationalPerson: { select: { id: true, code: true, name: true } },
+          },
         });
-        return { personnel: p, activeAssignmentCount: a._count };
+        return { personnel: this.flattenPersonnel(p), activeAssignmentCount: a._count };
       }),
     );
 
@@ -263,9 +267,13 @@ export class MaintenanceDashboardService {
         topPersonnelPartAccountability.map(async (a) => {
           const p = await this.prisma.maintenancePersonnel.findUnique({
             where: { id: a.maintenancePersonnelId },
-            select: { id: true, code: true, name: true, role: true },
+            select: {
+              id: true,
+              role: true,
+              operationalPerson: { select: { id: true, code: true, name: true } },
+            },
           });
-          return { personnel: p, recordCount: a._count, totalQuantity: a._sum.quantity || 0 };
+          return { personnel: this.flattenPersonnel(p), recordCount: a._count, totalQuantity: a._sum.quantity || 0 };
         }),
       ),
     };
@@ -303,6 +311,16 @@ export class MaintenanceDashboardService {
       monthlyCost: monthlyCost._sum.amount || 0,
       byType: byType.map(t => ({ type: t.type, total: t._sum.amount || 0, count: t._count })),
       topRequestsByCost: byRequest.map(r => ({ requestId: r.requestId, total: r._sum.amount || 0 })),
+    };
+  }
+
+  private flattenPersonnel(p: any) {
+    if (!p) return null;
+    return {
+      id: p.id,
+      code: p.operationalPerson?.code ?? null,
+      name: p.operationalPerson?.name ?? null,
+      role: p.role,
     };
   }
 }

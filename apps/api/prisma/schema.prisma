@@ -391,7 +391,7 @@ model User {
   createdConversations                  InternalConversation[]                       @relation("UserCreatedConversations")
   conversationParticipants              InternalConversationParticipant[]
   sentMessages                         InternalMessage[]                            @relation("UserSentMessages")
-  maintenancePersonnel                 MaintenancePersonnel[]
+  operationalPeople                    OperationalPerson[]
 
   @@index([email])
   @@index([status])
@@ -1232,30 +1232,46 @@ model MaintenanceRequestRequiredPart {
   @@map("maintenance_request_required_parts")
 }
 
-model MaintenancePersonnel {
+model OperationalPerson {
   id        String   @id @default(cuid())
   code      String   @unique
   name      String
-  role      String
-  specialty String?
+  category  String   @default("MAINTENANCE")
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  isActive  Boolean  @default(true)
   phone     String?
   email     String?
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  isActive  Boolean  @default(true)
   notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  maintenancePersonnel MaintenancePersonnel?
+
+  @@index([code])
+  @@index([category])
+  @@index([userId])
+  @@index([isActive])
+  @@map("operational_people")
+}
+
+model MaintenancePersonnel {
+  id                   String             @id @default(cuid())
+  operationalPersonId  String             @unique
+  operationalPerson    OperationalPerson  @relation(fields: [operationalPersonId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  role                 String
+  specialty            String?
+  isActive             Boolean            @default(true)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   machineResponsibilities  MachineResponsibilityAssignment[]
   requestAssignments       MaintenanceRequestAssignment[]
   partAccountabilities     MaintenancePartAccountability[]
 
-  @@index([code])
   @@index([role])
   @@index([specialty])
   @@index([isActive])
-  @@index([userId])
   @@map("maintenance_personnel")
 }
 

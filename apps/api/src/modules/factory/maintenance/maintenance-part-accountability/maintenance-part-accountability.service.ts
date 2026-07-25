@@ -7,14 +7,21 @@ export class MaintenancePartAccountabilityService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateMaintenancePartAccountabilityDto) {
-    return this.prisma.maintenancePartAccountability.create({
+    const result = await this.prisma.maintenancePartAccountability.create({
       data: dto,
       include: {
         maintenanceRequest: { select: { id: true, requestNumber: true, title: true } },
         sparePart: { select: { id: true, code: true, name: true, partNumber: true } },
-        maintenancePersonnel: { select: { id: true, code: true, name: true, role: true } },
+        maintenancePersonnel: {
+          select: {
+            id: true,
+            role: true,
+            operationalPerson: { select: { id: true, code: true, name: true } },
+          },
+        },
       },
     });
+    return this.mapRecord(result);
   }
 
   async findAll(query: { page?: number; limit?: number; maintenanceRequestId?: string; sparePartId?: string; maintenancePersonnelId?: string; machineId?: string; status?: string }) {
@@ -39,12 +46,18 @@ export class MaintenancePartAccountabilityService {
           sparePart: { select: { id: true, code: true, name: true, partNumber: true } },
           machine: { select: { id: true, code: true, name: true } },
           machineComponent: { select: { id: true, code: true, name: true } },
-          maintenancePersonnel: { select: { id: true, code: true, name: true, role: true } },
+          maintenancePersonnel: {
+            select: {
+              id: true,
+              role: true,
+              operationalPerson: { select: { id: true, code: true, name: true } },
+            },
+          },
         },
       }),
       this.prisma.maintenancePartAccountability.count({ where }),
     ]);
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    return { data: data.map(r => this.mapRecord(r)), meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async findOne(id: string) {
@@ -56,11 +69,18 @@ export class MaintenancePartAccountabilityService {
         sparePart: { select: { id: true, code: true, name: true, partNumber: true, category: true } },
         machine: { select: { id: true, code: true, name: true } },
         machineComponent: { select: { id: true, code: true, name: true, componentType: true } },
-        maintenancePersonnel: { select: { id: true, code: true, name: true, role: true, specialty: true } },
+        maintenancePersonnel: {
+          select: {
+            id: true,
+            role: true,
+            specialty: true,
+            operationalPerson: { select: { id: true, code: true, name: true } },
+          },
+        },
       },
     });
     if (!record) throw new NotFoundException('Part accountability record not found');
-    return record;
+    return this.mapRecord(record);
   }
 
   async update(id: string, dto: UpdateMaintenancePartAccountabilityDto) {
@@ -68,7 +88,20 @@ export class MaintenancePartAccountabilityService {
     const data: any = { ...dto };
     if (dto.reportedAt) data.reportedAt = new Date(dto.reportedAt);
     if (dto.cancelledAt) data.cancelledAt = new Date(dto.cancelledAt);
-    return this.prisma.maintenancePartAccountability.update({ where: { id }, data });
+    const result = await this.prisma.maintenancePartAccountability.update({
+      where: { id },
+      data,
+      include: {
+        maintenancePersonnel: {
+          select: {
+            id: true,
+            role: true,
+            operationalPerson: { select: { id: true, code: true, name: true } },
+          },
+        },
+      },
+    });
+    return this.mapRecord(result);
   }
 
   async remove(id: string) {
@@ -77,5 +110,18 @@ export class MaintenancePartAccountabilityService {
       where: { id },
       data: { status: 'CANCELLED', cancelledAt: new Date() },
     });
+  }
+
+  private mapRecord(r: any) {
+    return {
+      ...r,
+      maintenancePersonnel: {
+        id: r.maintenancePersonnel.id,
+        code: r.maintenancePersonnel.operationalPerson?.code ?? null,
+        name: r.maintenancePersonnel.operationalPerson?.name ?? null,
+        role: r.maintenancePersonnel.role,
+        specialty: r.maintenancePersonnel.specialty,
+      },
+    };
   }
 }

@@ -7,13 +7,20 @@ export class MaintenanceRequestAssignmentsService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateMaintenanceRequestAssignmentDto) {
-    return this.prisma.maintenanceRequestAssignment.create({
+    const result = await this.prisma.maintenanceRequestAssignment.create({
       data: dto,
       include: {
         maintenanceRequest: { select: { id: true, requestNumber: true, title: true, status: true } },
-        maintenancePersonnel: { select: { id: true, code: true, name: true, role: true } },
+        maintenancePersonnel: {
+          select: {
+            id: true,
+            role: true,
+            operationalPerson: { select: { id: true, code: true, name: true } },
+          },
+        },
       },
     });
+    return this.mapAssignment(result);
   }
 
   async findAll(query: { page?: number; limit?: number; maintenanceRequestId?: string; maintenancePersonnelId?: string; assignmentRole?: string; status?: string }) {
@@ -33,12 +40,18 @@ export class MaintenanceRequestAssignmentsService {
         orderBy: { createdAt: 'desc' },
         include: {
           maintenanceRequest: { select: { id: true, requestNumber: true, title: true, status: true, priority: true } },
-          maintenancePersonnel: { select: { id: true, code: true, name: true, role: true } },
+          maintenancePersonnel: {
+            select: {
+              id: true,
+              role: true,
+              operationalPerson: { select: { id: true, code: true, name: true } },
+            },
+          },
         },
       }),
       this.prisma.maintenanceRequestAssignment.count({ where }),
     ]);
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    return { data: data.map(r => this.mapAssignment(r)), meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async findOne(id: string) {
@@ -48,11 +61,18 @@ export class MaintenanceRequestAssignmentsService {
         maintenanceRequest: {
           select: { id: true, requestNumber: true, title: true, description: true, status: true, priority: true, startDate: true, endDate: true },
         },
-        maintenancePersonnel: { select: { id: true, code: true, name: true, role: true, specialty: true, phone: true, email: true } },
+        maintenancePersonnel: {
+          select: {
+            id: true,
+            role: true,
+            specialty: true,
+            operationalPerson: { select: { id: true, code: true, name: true, phone: true, email: true } },
+          },
+        },
       },
     });
     if (!record) throw new NotFoundException('Maintenance request assignment not found');
-    return record;
+    return this.mapAssignment(record);
   }
 
   async update(id: string, dto: UpdateMaintenanceRequestAssignmentDto) {
@@ -62,7 +82,20 @@ export class MaintenanceRequestAssignmentsService {
     if (dto.startedAt) data.startedAt = new Date(dto.startedAt);
     if (dto.completedAt) data.completedAt = new Date(dto.completedAt);
     if (dto.cancelledAt) data.cancelledAt = new Date(dto.cancelledAt);
-    return this.prisma.maintenanceRequestAssignment.update({ where: { id }, data });
+    const result = await this.prisma.maintenanceRequestAssignment.update({
+      where: { id },
+      data,
+      include: {
+        maintenancePersonnel: {
+          select: {
+            id: true,
+            role: true,
+            operationalPerson: { select: { id: true, code: true, name: true } },
+          },
+        },
+      },
+    });
+    return this.mapAssignment(result);
   }
 
   async remove(id: string) {
@@ -71,5 +104,20 @@ export class MaintenanceRequestAssignmentsService {
       where: { id },
       data: { status: 'CANCELLED', cancelledAt: new Date() },
     });
+  }
+
+  private mapAssignment(r: any) {
+    return {
+      ...r,
+      maintenancePersonnel: {
+        id: r.maintenancePersonnel.id,
+        code: r.maintenancePersonnel.operationalPerson?.code ?? null,
+        name: r.maintenancePersonnel.operationalPerson?.name ?? null,
+        role: r.maintenancePersonnel.role,
+        specialty: r.maintenancePersonnel.specialty,
+        phone: r.maintenancePersonnel.operationalPerson?.phone ?? null,
+        email: r.maintenancePersonnel.operationalPerson?.email ?? null,
+      },
+    };
   }
 }
