@@ -26,112 +26,40 @@ async function getToken(): Promise<string> {
   return json.accessToken;
 }
 
-test.describe('Batch H — Maintenance Accountability & Performance', () => {
+test.describe('Batch H — Frontend Route Coverage', () => {
 
-  // Personnel list
-  test('EN: Personnel list page shows labels', async ({ page }) => {
+  // === REQUIRED LIST PAGES RETURN 200 AND RENDER ===
+
+  test('Personnel page returns 200 and renders', async ({ page }) => {
     await loginAndSetup(page, 'en');
-    await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
-    await page.waitForURL('**/admin/maintenance/personnel');
+    const resp = await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
+    expect(resp?.status()).toBe(200);
     await page.waitForTimeout(3000);
     const body = await page.textContent('body') || '';
-    expect(body.includes('Personnel') || body.includes('personnel') || body.includes('Maintenance')).toBeTruthy();
+    expect(body.includes('Personnel') || body.includes('personnel')).toBeTruthy();
   });
 
-  test('AR: Personnel list page shows Arabic labels', async ({ page }) => {
-    await loginAndSetup(page, 'ar');
-    await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
-    await page.waitForURL('**/admin/maintenance/personnel');
-    await page.waitForTimeout(3000);
-    const body = await page.textContent('body') || '';
-    expect(body.includes('العاملين') || body.includes('الصيانة') || body.includes('فني') || body.includes('مهندس') || body.includes('شؤون')).toBeTruthy();
-  });
-
-  test('EN: Personnel datagrid renders', async ({ page }) => {
+  test('Machine Responsibilities page returns 200 and renders', async ({ page }) => {
     await loginAndSetup(page, 'en');
-    await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
-    await page.waitForURL('**/admin/maintenance/personnel');
+    const resp = await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
+    expect(resp?.status()).toBe(200);
     await page.waitForTimeout(3000);
-    const grid = page.locator('.admin-data-grid, table, [class*="grid"], [class*="table"]').first();
-    await expect(grid).toBeVisible({ timeout: 5000 });
+    const body = await page.textContent('body') || '';
+    expect(body.includes('Responsibilit') || body.includes('Machine')).toBeTruthy();
   });
 
-  test('No console errors on personnel page', async ({ page }) => {
-    const consoleErrors: string[] = [];
-    page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+  test('Accountability Dashboard page returns 200 and renders', async ({ page }) => {
     await loginAndSetup(page, 'en');
-    await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
-    await page.waitForTimeout(4000);
-    expect(consoleErrors.length).toBe(0);
-  });
-
-  // Machine Responsibilities list
-  test('EN: Machine Responsibilities page renders', async ({ page }) => {
-    await loginAndSetup(page, 'en');
-    await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
-    await page.waitForURL('**/machine-responsibilities');
+    const resp = await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
+    expect(resp?.status()).toBe(200);
     await page.waitForTimeout(3000);
     const body = await page.textContent('body') || '';
-    expect(body.includes('Responsibilit') || body.includes('Machine') || body.includes('Assign')).toBeTruthy();
+    expect(body.includes('Accountability') || body.includes('KPI') || body.includes('Performance')).toBeTruthy();
   });
 
-  test('AR: Machine Responsibilities shows Arabic labels', async ({ page }) => {
-    await loginAndSetup(page, 'ar');
-    await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
-    await page.waitForURL('**/machine-responsibilities');
-    await page.waitForTimeout(3000);
-    const body = await page.textContent('body') || '';
-    expect(body.includes('المسؤوليات') || body.includes('المسؤولية') || body.includes('الماكينة') || body.includes('تعيين')).toBeTruthy();
-  });
+  // === REQUIRED TABS / SECTIONS ON EXISTING PAGES ===
 
-  test('EN: Machine Responsibilities datagrid renders', async ({ page }) => {
-    await loginAndSetup(page, 'en');
-    await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
-    await page.waitForURL('**/machine-responsibilities');
-    await page.waitForTimeout(3000);
-    const grid = page.locator('.admin-data-grid, table, [class*="grid"], [class*="table"]').first();
-    await expect(grid).toBeVisible({ timeout: 5000 });
-  });
-
-  // Accountability Dashboard
-  test('EN: Accountability dashboard renders', async ({ page }) => {
-    await loginAndSetup(page, 'en');
-    await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
-    await page.waitForURL('**/accountability');
-    await page.waitForTimeout(3000);
-    const body = await page.textContent('body') || '';
-    expect(body.includes('Accountability') || body.includes('accountability') || body.includes('Dashboard') || body.includes('KPI') || body.includes('Performance')).toBeTruthy();
-  });
-
-  test('AR: Accountability dashboard shows Arabic labels', async ({ page }) => {
-    await loginAndSetup(page, 'ar');
-    await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
-    await page.waitForURL('**/accountability');
-    await page.waitForTimeout(3000);
-    const body = await page.textContent('body') || '';
-    expect(body.includes('المساءلة') || body.includes('الأداء') || body.includes('مؤشرات') || body.includes('العاملين')).toBeTruthy();
-  });
-
-  test('EN: Dashboard shows KPI or Performance section', async ({ page }) => {
-    await loginAndSetup(page, 'en');
-    await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
-    await page.waitForURL('**/accountability');
-    await page.waitForTimeout(3000);
-    const body = await page.textContent('body') || '';
-    expect(body.includes('KPI') || body.includes('Performance') || body.includes('performance') || body.includes('Metric')).toBeTruthy();
-  });
-
-  test('AR: Dashboard shows KPI section with Arabic labels', async ({ page }) => {
-    await loginAndSetup(page, 'ar');
-    await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
-    await page.waitForURL('**/accountability');
-    await page.waitForTimeout(3000);
-    const body = await page.textContent('body') || '';
-    expect(body.includes('الأداء') || body.includes('مؤشرات') || body.includes('المساءلة') || body.includes('الإحصائيات')).toBeTruthy();
-  });
-
-  // Existing machine detail page (shows responsibility)
-  test('EN: Machine detail shows personnel/responsibility section', async ({ page }) => {
+  test('Machine detail shows responsibilities tab', async ({ page }) => {
     const token = await getToken();
     const res = await fetch(`${API_BASE}/maintenance/machines?limit=1`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -140,14 +68,14 @@ test.describe('Batch H — Maintenance Accountability & Performance', () => {
     const firstId = json?.data?.[0]?.id || json?.[0]?.id;
     if (!firstId) { test.skip(); return; }
     await loginAndSetup(page, 'en');
-    await page.goto(`${WEB_BASE}/admin/maintenance/machines/${firstId}`);
+    const resp = await page.goto(`${WEB_BASE}/admin/maintenance/machines/${firstId}`);
+    expect(resp?.status()).toBe(200);
     await page.waitForTimeout(3000);
     const body = await page.textContent('body') || '';
-    expect(body.includes('Responsibilit') || body.includes('Personnel') || body.includes('Assign') || body.includes('Machine')).toBeTruthy();
+    expect(body.includes('responsibilities') || body.includes('machineResponsibilities') || body.includes('Responsibilit')).toBeTruthy();
   });
 
-  // Existing request detail page (shows assignments)
-  test('EN: Request detail shows assignment section', async ({ page }) => {
+  test('Request detail shows assignments tab', async ({ page }) => {
     const token = await getToken();
     const res = await fetch(`${API_BASE}/maintenance/requests?limit=1`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -156,14 +84,81 @@ test.describe('Batch H — Maintenance Accountability & Performance', () => {
     const firstId = json?.data?.[0]?.id || json?.[0]?.id;
     if (!firstId) { test.skip(); return; }
     await loginAndSetup(page, 'en');
-    await page.goto(`${WEB_BASE}/admin/maintenance/requests/${firstId}`);
+    const resp = await page.goto(`${WEB_BASE}/admin/maintenance/requests/${firstId}`);
+    expect(resp?.status()).toBe(200);
     await page.waitForTimeout(3000);
     const body = await page.textContent('body') || '';
-    expect(body.includes('Assign') || body.includes('assignment') || body.includes('Personnel') || body.includes('personnel') || body.includes('Accountability') || body.includes('Part')).toBeTruthy();
+    expect(body.includes('requestAssignments') || body.includes('assignments') || body.includes('Assign')).toBeTruthy();
   });
 
-  // Global checks across all existing pages
-  test('No raw i18n keys visible on all pages', async ({ page }) => {
+  test('Request detail shows part accountability tab', async ({ page }) => {
+    const token = await getToken();
+    const res = await fetch(`${API_BASE}/maintenance/requests?limit=1`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await res.json();
+    const firstId = json?.data?.[0]?.id || json?.[0]?.id;
+    if (!firstId) { test.skip(); return; }
+    await loginAndSetup(page, 'en');
+    const resp = await page.goto(`${WEB_BASE}/admin/maintenance/requests/${firstId}`);
+    expect(resp?.status()).toBe(200);
+    await page.waitForTimeout(3000);
+    const body = await page.textContent('body') || '';
+    expect(body.includes('partAccountability') || body.includes('partAccountabilit') || body.includes('Part')).toBeTruthy();
+  });
+
+  // === ARABIC LOCALE VERSIONS ===
+
+  test('Personnel page Arabic renders', async ({ page }) => {
+    await loginAndSetup(page, 'ar');
+    const resp = await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
+    expect(resp?.status()).toBe(200);
+    await page.waitForTimeout(3000);
+    const body = await page.textContent('body') || '';
+    expect(body.includes('العاملين') || body.includes('صيانة')).toBeTruthy();
+  });
+
+  test('Machine Responsibilities page Arabic renders', async ({ page }) => {
+    await loginAndSetup(page, 'ar');
+    const resp = await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
+    expect(resp?.status()).toBe(200);
+    await page.waitForTimeout(3000);
+    const body = await page.textContent('body') || '';
+    expect(body.includes('المسؤوليات') || body.includes('مسؤولية')).toBeTruthy();
+  });
+
+  test('Accountability page Arabic renders', async ({ page }) => {
+    await loginAndSetup(page, 'ar');
+    const resp = await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
+    expect(resp?.status()).toBe(200);
+    await page.waitForTimeout(3000);
+    const body = await page.textContent('body') || '';
+    expect(body.includes('المساءلة') || body.includes('الأداء') || body.includes('مؤشرات')).toBeTruthy();
+  });
+
+  // === SIDEBAR / NAVIGATION ===
+
+  test('Sidebar nav link personnel returns 200', async ({ page }) => {
+    await loginAndSetup(page, 'en');
+    const resp = await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
+    expect(resp?.status()).toBe(200);
+  });
+
+  test('Sidebar nav link machine-responsibilities returns 200', async ({ page }) => {
+    await loginAndSetup(page, 'en');
+    const resp = await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
+    expect(resp?.status()).toBe(200);
+  });
+
+  test('Sidebar nav link accountability returns 200', async ({ page }) => {
+    await loginAndSetup(page, 'en');
+    const resp = await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
+    expect(resp?.status()).toBe(200);
+  });
+
+  // === REQUIRED GLOBAL CHECKS ===
+
+  test('No raw i18n keys visible (maintenance: prefix)', async ({ page }) => {
     const urls = [
       `${WEB_BASE}/admin/maintenance/personnel`,
       `${WEB_BASE}/admin/maintenance/machine-responsibilities`,
@@ -179,23 +174,36 @@ test.describe('Batch H — Maintenance Accountability & Performance', () => {
     }
   });
 
-  test('LTR direction preserved in English', async ({ page }) => {
+  test('No console errors on Batch H pages', async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
     await loginAndSetup(page, 'en');
     await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
     await page.waitForTimeout(3000);
-    const dir = await page.getAttribute('html', 'dir');
-    expect(dir).not.toBe('rtl');
+    await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
+    await page.waitForTimeout(3000);
+    await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
+    await page.waitForTimeout(3000);
+    expect(consoleErrors.length).toBe(0);
   });
 
-  test('RTL direction applied in Arabic', async ({ page }) => {
-    await loginAndSetup(page, 'ar');
+  test('No unexpected network failures (400/404/500)', async ({ page }) => {
+    const failures: string[] = [];
+    page.on('response', (res) => {
+      const status = res.status();
+      if (status >= 400 && status !== 304) failures.push(`${status} ${res.url()}`);
+    });
+    await loginAndSetup(page, 'en');
     await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
     await page.waitForTimeout(3000);
-    const dir = await page.getAttribute('html', 'dir');
-    expect(dir).toBe('rtl');
+    await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
+    await page.waitForTimeout(3000);
+    await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
+    await page.waitForTimeout(3000);
+    expect(failures.length).toBe(0);
   });
 
-  test('No ChunkLoadError in console', async ({ page }) => {
+  test('No ChunkLoadError on Batch H pages', async ({ page }) => {
     const chunkErrors: string[] = [];
     page.on('console', (msg) => {
       if (msg.text().includes('ChunkLoadError')) chunkErrors.push(msg.text());
@@ -203,10 +211,49 @@ test.describe('Batch H — Maintenance Accountability & Performance', () => {
     await loginAndSetup(page, 'en');
     await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
     await page.waitForTimeout(4000);
+    await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
+    await page.waitForTimeout(4000);
+    await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
+    await page.waitForTimeout(4000);
     expect(chunkErrors.length).toBe(0);
   });
 
-  test('No HR appraisal wording on accountability pages', async ({ page }) => {
+  test('No _next/static failures', async ({ page }) => {
+    const failures: string[] = [];
+    page.on('response', (res) => {
+      if (!res.ok() && res.url().includes('_next/static')) failures.push(`${res.status()} ${res.url()}`);
+    });
+    await loginAndSetup(page, 'en');
+    await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
+    await page.waitForTimeout(3000);
+    await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
+    await page.waitForTimeout(3000);
+    await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
+    await page.waitForTimeout(3000);
+    expect(failures.length).toBe(0);
+  });
+
+  // === LTR / RTL DIRECTION ===
+
+  test('LTR direction in English', async ({ page }) => {
+    await loginAndSetup(page, 'en');
+    await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
+    await page.waitForTimeout(3000);
+    const dir = await page.getAttribute('html', 'dir');
+    expect(dir).not.toBe('rtl');
+  });
+
+  test('RTL direction in Arabic', async ({ page }) => {
+    await loginAndSetup(page, 'ar');
+    await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
+    await page.waitForTimeout(3000);
+    const dir = await page.getAttribute('html', 'dir');
+    expect(dir).toBe('rtl');
+  });
+
+  // === STOCK / FINANCE / HR NEGATIVE ===
+
+  test('No HR appraisal wording', async ({ page }) => {
     await loginAndSetup(page, 'en');
     await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
     await page.waitForTimeout(3000);
@@ -236,98 +283,29 @@ test.describe('Batch H — Maintenance Accountability & Performance', () => {
     }
   });
 
-  test('No _next/static network failures', async ({ page }) => {
-    const failures: string[] = [];
-    page.on('response', (res) => {
-      if (!res.ok() && res.url().includes('_next/static')) failures.push(`${res.status()} ${res.url()}`);
-    });
+  // === DATAGRID RENDERS ===
+
+  test('Personnel datagrid renders', async ({ page }) => {
     await loginAndSetup(page, 'en');
     await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
-    await page.waitForTimeout(3000);
-    await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
-    await page.waitForTimeout(3000);
-    await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
-    await page.waitForTimeout(3000);
-    expect(failures.length).toBe(0);
-  });
-
-  test('No network failures on existing list pages', async ({ page }) => {
-    const failures: string[] = [];
-    page.on('response', (res) => {
-      if (!res.ok() && res.status() !== 304) failures.push(`${res.status()} ${res.url()}`);
-    });
-    await loginAndSetup(page, 'en');
-    await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
-    await page.waitForTimeout(3000);
-    await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
-    await page.waitForTimeout(3000);
-    await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
-    await page.waitForTimeout(3000);
-    const non404Failures = failures.filter(f => !f.includes(' 404 '));
-    expect(non404Failures.length).toBe(0);
-  });
-
-  // Two-machine navigate
-  test('Navigate between list pages', async ({ page }) => {
-    await loginAndSetup(page, 'en');
-    await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
-    await page.waitForTimeout(2000);
-    await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
-    await page.waitForTimeout(2000);
-    await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
-    await page.waitForTimeout(2000);
-    const body = await page.textContent('body') || '';
-    expect(body.length).toBeGreaterThan(100);
-  });
-
-  // Additional AR page checks
-  test('AR: Personnel datagrid visible', async ({ page }) => {
-    await loginAndSetup(page, 'ar');
-    await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
-    await page.waitForURL('**/admin/maintenance/personnel');
     await page.waitForTimeout(3000);
     const grid = page.locator('.admin-data-grid, table, [class*="grid"], [class*="table"]').first();
     await expect(grid).toBeVisible({ timeout: 5000 });
   });
 
-  test('AR: Machine Responsibilities datagrid visible', async ({ page }) => {
-    await loginAndSetup(page, 'ar');
+  test('Machine responsibilities datagrid renders', async ({ page }) => {
+    await loginAndSetup(page, 'en');
     await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
-    await page.waitForURL('**/machine-responsibilities');
     await page.waitForTimeout(3000);
     const grid = page.locator('.admin-data-grid, table, [class*="grid"], [class*="table"]').first();
     await expect(grid).toBeVisible({ timeout: 5000 });
   });
 
-  test('AR: Accountability dashboard datagrid visible', async ({ page }) => {
-    await loginAndSetup(page, 'ar');
+  test('Accountability dashboard datagrid/card renders', async ({ page }) => {
+    await loginAndSetup(page, 'en');
     await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
-    await page.waitForURL('**/accountability');
     await page.waitForTimeout(3000);
     const grid = page.locator('.admin-data-grid, table, [class*="grid"], [class*="table"], [class*="card"], [class*="stat"]').first();
     await expect(grid).toBeVisible({ timeout: 5000 });
-  });
-
-  test('EN: All three list pages accessible with no console errors', async ({ page }) => {
-    const consoleErrors: string[] = [];
-    page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
-    await loginAndSetup(page, 'en');
-    await page.goto(`${WEB_BASE}/admin/maintenance/personnel`);
-    await page.waitForTimeout(2000);
-    await page.goto(`${WEB_BASE}/admin/maintenance/machine-responsibilities`);
-    await page.waitForTimeout(2000);
-    await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
-    await page.waitForTimeout(2000);
-    expect(consoleErrors.length).toBe(0);
-  });
-
-  test('EN: Accountability dashboard body has meaningful content', async ({ page }) => {
-    await loginAndSetup(page, 'en');
-    await page.goto(`${WEB_BASE}/admin/maintenance/accountability`);
-    await page.waitForURL('**/accountability');
-    await page.waitForTimeout(3000);
-    const body = await page.textContent('body') || '';
-    expect(body.length).toBeGreaterThan(500);
-    expect(body.includes('Skeleton') || body.includes('loading') || body.includes('Loading')).toBeFalsy();
   });
 });

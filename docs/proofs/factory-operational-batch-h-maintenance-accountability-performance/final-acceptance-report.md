@@ -10,7 +10,7 @@
 | Proof | Result | Detail |
 |-------|--------|--------|
 | API Proof | ✅ 52/52 | All CRUD, validation, auth, workflow transitions |
-| Browser Proof | ✅ 28/28 | All existing pages render correctly in EN + AR |
+| Browser Proof | ✅ 25/25 | All existing pages return 200, render correctly in EN + AR |
 | Data Preservation | ✅ | No stock movements, finance entries, or HR activations |
 | Performance | ✅ | Max API response 84ms; max page load 122ms |
 | Validation | ✅ | Prisma valid, build OK, typecheck OK, i18n synced |
@@ -27,6 +27,8 @@
 | `atsoft-erp-current-release-final-audited-v3-factory-foundation-batch-h` | ✅ Pushed |
 | `atsoft-erp-maintenance-accountability-performance-proof` | ✅ Pushed |
 | `atsoft-erp-factory-operational-structure-complete` | ✅ Pushed |
+| `factory-operational-batch-h-route-proof-final` | ✅ Pushed |
+| `atsoft-erp-maintenance-accountability-performance-route-proof-final` | ✅ Pushed |
 
 ## Validation Commands
 
