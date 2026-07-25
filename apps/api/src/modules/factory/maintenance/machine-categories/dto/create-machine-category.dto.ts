@@ -2,9 +2,10 @@ import { IsString, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateMachineCategoryDto {
-  @ApiProperty({ example: 'CNC' })
+  @ApiPropertyOptional({ example: 'MCAT-000001' })
+  @IsOptional()
   @IsString()
-  code: string;
+  code?: string;
 
   @ApiProperty({ example: 'CNC Machines' })
   @IsString()

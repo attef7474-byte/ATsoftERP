@@ -1,13 +1,15 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
+import { NumberingService } from '../../../numbering/numbering.service';
 import { CreateMaintenancePersonnelDto, UpdateMaintenancePersonnelDto } from './dto/create-maintenance-personnel.dto';
 
 @Injectable()
 export class MaintenancePersonnelService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private numberingService: NumberingService) {}
 
   async create(dto: CreateMaintenancePersonnelDto) {
-    const existing = await this.prisma.operationalPerson.findUnique({ where: { code: dto.code } });
+    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('MAINTENANCE_PERSONNEL');
+    const existing = await this.prisma.operationalPerson.findUnique({ where: { code } });
     if (existing) throw new ConflictException('Personnel code already exists');
 
     if (dto.userId) {
@@ -20,7 +22,7 @@ export class MaintenancePersonnelService {
     return this.prisma.$transaction(async (tx) => {
       const operationalPerson = await tx.operationalPerson.create({
         data: {
-          code: dto.code,
+          code,
           name: dto.name,
           category: 'MAINTENANCE',
           phone: dto.phone ?? null,

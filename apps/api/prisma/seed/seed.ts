@@ -180,6 +180,9 @@ async function main() {
     { code: "DOWNTIME", name: "Downtime", operationName: "Downtime", modelName: "DowntimeLog", domain: "maintenance", prefix: "DT-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "OPERATION_TYPE", name: "Operation Type", operationName: "Operation Type", modelName: "OperationType", domain: "maintenance", prefix: "OT-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "COST_CENTER", name: "Cost Center", operationName: "Cost Center", modelName: "CostCenter", domain: "maintenance", prefix: "CC-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "MACHINE_CATEGORY", name: "Machine Category", operationName: "Machine Category", modelName: "MachineCategory", domain: "maintenance", prefix: "MCAT-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "SPARE_PART", name: "Spare Part", operationName: "Spare Part", modelName: "SparePart", domain: "maintenance", prefix: "SP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "MAINTENANCE_PERSONNEL", name: "Maintenance Personnel", operationName: "Maintenance Personnel", modelName: "OperationalPerson", domain: "maintenance", prefix: "MP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "PRODUCTION_LINE", name: "Production Line", operationName: "Production Line", modelName: "ProductionLine", domain: "maintenance", prefix: "PL-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
 
     // Barcode/QR

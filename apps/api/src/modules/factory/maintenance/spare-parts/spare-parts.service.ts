@@ -1,16 +1,18 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
+import { NumberingService } from '../../../numbering/numbering.service';
 import { CreateSparePartDto, UpdateSparePartDto } from './dto/create-spare-part.dto';
 
 @Injectable()
 export class SparePartsService {
-  constructor(private prisma: PrismaService, private auditService: AuditService) {}
+  constructor(private prisma: PrismaService, private auditService: AuditService, private numberingService: NumberingService) {}
 
   async create(dto: CreateSparePartDto, userId: string) {
-    const existing = await this.prisma.sparePart.findUnique({ where: { code: dto.code } });
+    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('SPARE_PART');
+    const existing = await this.prisma.sparePart.findUnique({ where: { code } });
     if (existing) throw new ConflictException('Spare part code already exists');
-    const part = await this.prisma.sparePart.create({ data: dto });
+    const part = await this.prisma.sparePart.create({ data: { ...dto, code } });
     await this.auditService.log(userId, 'CREATE', 'SparePart', part.id, { message: `Created spare part: ${part.code}` });
     return part;
   }

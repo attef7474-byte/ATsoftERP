@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
+import { NumberingService } from '../../../numbering/numbering.service';
 import { CreateMachineCategoryDto } from './dto/create-machine-category.dto';
 import { UpdateMachineCategoryDto } from './dto/update-machine-category.dto';
 
@@ -9,10 +10,12 @@ export class MachineCategoriesService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private numberingService: NumberingService,
   ) {}
 
   async create(dto: CreateMachineCategoryDto, userId: string) {
-    const existing = await this.prisma.machineCategory.findUnique({ where: { code: dto.code } });
+    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('MACHINE_CATEGORY');
+    const existing = await this.prisma.machineCategory.findUnique({ where: { code } });
     if (existing) throw new ConflictException('Machine category code already exists');
 
     if (dto.parentId) {
@@ -20,7 +23,7 @@ export class MachineCategoriesService {
       if (!parent) throw new NotFoundException('Parent category not found');
     }
 
-    const category = await this.prisma.machineCategory.create({ data: dto });
+    const category = await this.prisma.machineCategory.create({ data: { ...dto, code } });
     await this.auditService.log(userId, 'CREATE', 'MachineCategory', category.id, { message: `Created machine category: ${category.code}` });
     return category;
   }

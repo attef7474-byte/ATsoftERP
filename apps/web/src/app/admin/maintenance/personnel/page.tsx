@@ -4,12 +4,12 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { MaintenancePersonnel } from '../../../../lib/admin-types';
+import { User } from '../../../../lib/admin-types/access';
 import { Button, Input, Select, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MaintenancePersonnelPage() {
-  const router = typeof window !== 'undefined' ? { push: (url: string) => window.location.href = url } : { push: () => {} };
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [data, setData] = useState<MaintenancePersonnel[]>([]);
@@ -21,7 +21,12 @@ export default function MaintenancePersonnelPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ id: string; action: 'activate' | 'deactivate' } | null>(null);
-  const [form, setForm] = useState({ code: '', name: '', role: '', specialty: '', phone: '', email: '', notes: '' });
+  const [form, setForm] = useState({ code: '', name: '', role: '', specialty: '', phone: '', email: '', notes: '', userId: '' });
+  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; email: string } | null>(null);
+  const [userSearch, setUserSearch] = useState('');
+  const [userResults, setUserResults] = useState<User[]>([]);
+  const [userSearching, setUserSearching] = useState(false);
+  const [showUserResults, setShowUserResults] = useState(false);
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true); setError('');
@@ -36,28 +41,66 @@ export default function MaintenancePersonnelPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const searchUsers = useCallback(async (query: string) => {
+    if (!query.trim()) { setUserResults([]); return; }
+    setUserSearching(true);
+    try {
+      const res = await api.get<{ data: User[] }>('/users', { params: { search: query, limit: 20 } });
+      setUserResults(res.data || []);
+    } catch { setUserResults([]); }
+    finally { setUserSearching(false); }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => searchUsers(userSearch), 300);
+    return () => clearTimeout(timer);
+  }, [userSearch, searchUsers]);
+
   const openNew = useCallback(() => {
     setEditingId(null);
-    setForm({ code: '', name: '', role: '', specialty: '', phone: '', email: '', notes: '' });
+    setForm({ code: '', name: '', role: '', specialty: '', phone: '', email: '', notes: '', userId: '' });
+    setSelectedUser(null);
+    setUserSearch('');
+    setUserResults([]);
     setModalOpen(true);
   }, []);
 
   const openEdit = useCallback((item: MaintenancePersonnel) => {
     setEditingId(item.id);
-    setForm({ code: item.code, name: item.name, role: item.role, specialty: item.specialty || '', phone: item.phone || '', email: item.email || '', notes: item.notes || '' });
+    setForm({ code: item.code, name: item.name, role: item.role, specialty: item.specialty || '', phone: item.phone || '', email: item.email || '', notes: item.notes || '', userId: item.userId || '' });
+    setSelectedUser(item.user ? { id: item.user.id, name: item.user.name, email: item.user.email } : null);
+    setUserSearch(item.user ? item.user.name : '');
+    setUserResults([]);
     setModalOpen(true);
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!form.code || !form.name || !form.role) { showToast(t('validation.required'), 'error'); return; }
+    if (!form.name || !form.role) { showToast(t('validation.required'), 'error'); return; }
     setSaving(true);
     try {
-      if (editingId) { await api.patch(`/maintenance/personnel/${editingId}`, form); showToast(t('maintenance.personnelUpdated'), 'success'); }
-      else { await api.post('/maintenance/personnel', form); showToast(t('maintenance.personnelCreated'), 'success'); }
+      const payload: any = { ...form };
+      if (!payload.userId) delete payload.userId;
+      if (editingId) { await api.patch(`/maintenance/personnel/${editingId}`, payload); showToast(t('maintenance.personnelUpdated'), 'success'); }
+      else { await api.post('/maintenance/personnel', payload); showToast(t('maintenance.personnelCreated'), 'success'); }
       setModalOpen(false); fetchData(meta.page);
     } catch (e: any) { showToast(e.message || 'Save failed', 'error'); }
     finally { setSaving(false); }
   }, [form, editingId, meta.page, showToast, t, fetchData]);
+
+  const selectUser = (user: User) => {
+    setSelectedUser({ id: user.id, name: user.name, email: user.email });
+    setForm(prev => ({ ...prev, userId: user.id }));
+    setUserSearch(user.name);
+    setShowUserResults(false);
+    setUserResults([]);
+  };
+
+  const clearUser = () => {
+    setSelectedUser(null);
+    setForm(prev => ({ ...prev, userId: '' }));
+    setUserSearch('');
+    setUserResults([]);
+  };
 
   const handleStatusChange = useCallback(async (id: string, action: 'activate' | 'deactivate') => {
     setConfirmAction(null);
@@ -70,7 +113,7 @@ export default function MaintenancePersonnelPage() {
 
   const { exec } = useStableHandlers({ add: () => openNew(), refresh: () => fetchData(meta.page) });
   useRegisterAdminActions(useMemo(() => [
-    { id: 'add', labelKey: 'common.add', icon: React.createElement(ActionAddIcon), onClick: () => exec('add') },
+    { id: 'add', labelKey: 'actions.add', icon: React.createElement(ActionAddIcon), onClick: () => exec('add') },
     { id: 'refresh', labelKey: 'common.refresh', icon: React.createElement(ActionRefreshIcon), onClick: () => exec('refresh') },
   ], [exec]));
 
@@ -81,6 +124,7 @@ export default function MaintenancePersonnelPage() {
     { key: 'specialty', header: t('maintenance.specialty'), render: (p) => p.specialty || '-' },
     { key: 'phone', header: t('maintenance.phone') },
     { key: 'email', header: t('maintenance.email') },
+    { key: 'userAccount', header: t('maintenance.userAccount'), render: (p) => p.user ? `${p.user.name} (${p.user.email})` : <span className="text-gray-400 italic">{t('common.unlinked')}</span> },
     { key: 'isActive', header: t('maintenance.isActive'), render: (p) => p.isActive ? t('common.yes') : t('common.no') },
   ];
 
@@ -104,12 +148,46 @@ export default function MaintenancePersonnelPage() {
       <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? t('common.edit') : t('common.new')}>
         <div className="space-y-4">
-          <Input label={`${t('maintenance.personnelCode')} *`} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+          {editingId ? (
+            <Input label={t('maintenance.personnelCode')} value={form.code} disabled />
+          ) : (
+            <div className="text-sm text-gray-500">{t('maintenance.personnelCode')}: {t('common.autoGenerated')}</div>
+          )}
           <Input label={`${t('maintenance.personnelName')} *`} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input label={`${t('maintenance.personnelRole')} *`} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
           <Input label={t('maintenance.specialty')} value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} />
           <Input label={t('maintenance.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <Input label={t('maintenance.email')} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('maintenance.userAccount')}</label>
+            <div className="relative">
+              <Input value={userSearch} onChange={(e) => { setUserSearch(e.target.value); setShowUserResults(true); }} placeholder={t('common.search')} />
+              {selectedUser && (
+                <button type="button" onClick={clearUser} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500">&times;</button>
+              )}
+              {showUserResults && userSearch && (
+                <div className="absolute z-10 w-full bg-white border rounded-md shadow-lg mt-1 max-h-48 overflow-y-auto">
+                  {userSearching ? (
+                    <div className="p-2 text-sm text-gray-500">{t('common.loading')}</div>
+                  ) : userResults.length === 0 ? (
+                    <div className="p-2 text-sm text-gray-500">{t('common.noData')}</div>
+                  ) : (
+                    userResults.map((u) => (
+                      <button key={u.id} type="button" className="w-full text-left p-2 hover:bg-gray-100 text-sm" onClick={() => selectUser(u)}>
+                        <div className="font-medium">{u.name}</div>
+                        <div className="text-xs text-gray-500">{u.email}</div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+            {selectedUser && (
+              <div className="mt-1 text-xs text-green-600">
+                {t('common.linked')}: {selectedUser.name} ({selectedUser.email})
+              </div>
+            )}
+          </div>
           <Input label={t('maintenance.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>

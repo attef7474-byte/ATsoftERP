@@ -2,7 +2,7 @@ import { IsString, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateMaintenancePersonnelDto {
-  @ApiProperty() @IsString() code: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() code?: string;
   @ApiProperty() @IsString() name: string;
   @ApiProperty() @IsString() role: string;
   @ApiPropertyOptional() @IsString() @IsOptional() specialty?: string;

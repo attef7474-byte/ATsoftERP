@@ -2,7 +2,7 @@ import { IsString, IsOptional, IsBoolean, IsNumber, Min } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateSparePartDto {
-  @ApiProperty() @IsString() code: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() code?: string;
   @ApiProperty() @IsString() name: string;
   @ApiPropertyOptional() @IsString() @IsOptional() description?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() category?: string;

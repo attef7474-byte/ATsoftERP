@@ -305,6 +305,7 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         phone: 'Phone',
         email: 'Email',
         isActive: 'Active',
+        userAccount: 'User Account',
         machineResponsibilities: 'Machine Responsibilities',
         machineResponsibility: 'Machine Responsibility',
         responsibilityRole: 'Responsibility Role',
