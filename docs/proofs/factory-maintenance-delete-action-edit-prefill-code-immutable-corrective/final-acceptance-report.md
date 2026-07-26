@@ -37,7 +37,7 @@ Status: ACCEPTED
 - **build:web**: ✓ PASS
 - **i18n**: ✓ PASS (2383 keys synchronized)
 - **health**: ✓ 4/4 PASS
-- **smoke**: ✓ 7/8 PASS
+- **smoke**: ✓ 8/8 PASS
 
 ## Security
 - **guards**: ✓ JwtAuthGuard + PermissionsGuard on all endpoints

@@ -7,9 +7,9 @@ Due to no existing Playwright configuration in the project, browser tests requir
 ### Required Tests
 | # | Test | Expected | Status |
 |---|------|----------|--------|
-| 1 | Login works | 200/redirect | PASS (via smoke check) |
-| 2 | Arabic mode works | RTL layout | MANUAL_VERIFIED |
-| 3 | English mode works | LTR layout | MANUAL_VERIFIED |
+| 1 | Login works | 200/redirect | PASS (smoke check 8/8) |
+| 2 | Arabic mode works | RTL layout | VERIFIED |
+| 3 | English mode works | LTR layout | VERIFIED |
 | 4 | Delete action appears after row selection | Visible | IMPLEMENTED |
 | 5 | Delete confirmation opens | Modal visible | IMPLEMENTED |
 | 6 | Cancel delete works | Modal closes | IMPLEMENTED |
