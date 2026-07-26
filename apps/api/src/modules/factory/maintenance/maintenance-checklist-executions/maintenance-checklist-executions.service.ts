@@ -102,8 +102,9 @@ export class MaintenanceChecklistExecutionsService {
     }
 
     const pendingItems = execution.items.filter(item => item.status === 'PENDING');
-    if (pendingItems.length > 0) {
-      throw new BadRequestException(`Cannot complete checklist: ${pendingItems.length} item(s) still pending. Complete or skip all items first.`);
+    const pendingMandatory = pendingItems.filter(item => item.checklistItem?.isMandatory);
+    if (pendingMandatory.length > 0) {
+      throw new BadRequestException(`Cannot complete checklist: ${pendingMandatory.length} mandatory item(s) still pending. Complete all mandatory items first.`);
     }
 
     const updated = await this.prisma.maintenanceChecklistExecution.update({
@@ -114,6 +115,14 @@ export class MaintenanceChecklistExecutionsService {
     await this.audit.log(userId, 'COMPLETE', 'MaintenanceChecklistExecution', id,
       { scheduleId: execution.scheduleId });
     return updated;
+  }
+
+  async updateItemDirect(itemId: string, dto: UpdateChecklistExecutionItemDto, userId: string) {
+    const item = await this.prisma.maintenanceChecklistExecutionItem.findUnique({
+      where: { id: itemId },
+    });
+    if (!item) throw new NotFoundException('Execution item not found');
+    return this.updateItem(item.executionId, itemId, dto, userId);
   }
 
   async updateItem(executionId: string, itemId: string, dto: UpdateChecklistExecutionItemDto, userId: string) {

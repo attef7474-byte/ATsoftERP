@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceChecklistExecutionsService } from './maintenance-checklist-executions.service';
 import { CreateMaintenanceChecklistExecutionDto } from './dto/create-maintenance-checklist-execution.dto';
@@ -51,5 +51,16 @@ export class MaintenanceChecklistExecutionsController {
     @CurrentUser('id') userId: string,
   ) {
     return this.service.updateItem(id, itemId, dto, userId);
+  }
+
+  @Patch('items/:itemId')
+  @Permissions('maintenance-checklist-execution:update')
+  @ApiOperation({ summary: 'Update a checklist execution item directly by item ID' })
+  updateItemDirect(
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdateChecklistExecutionItemDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.service.updateItemDirect(itemId, dto, userId);
   }
 }

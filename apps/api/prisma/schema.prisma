@@ -1423,6 +1423,7 @@ model MaintenanceChecklistItem {
   title       String
   description String?
   sortOrder   Int                 @default(0)
+  isMandatory Boolean             @default(false)
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   executionItems  MaintenanceChecklistExecutionItem[]

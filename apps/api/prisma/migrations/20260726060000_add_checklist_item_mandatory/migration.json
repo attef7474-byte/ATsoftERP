@@ -1,0 +1,19 @@
+{
+  "version": "5.2",
+  "steps": [
+    {
+      "tag": "AlterTable",
+      "table": "maintenance_checklist_items",
+      "changes": [
+        {
+          "tag": "AddColumn",
+          "column": {
+            "name": "isMandatory",
+            "type": "Bit",
+            "default": false
+          }
+        }
+      ]
+    }
+  ]
+}

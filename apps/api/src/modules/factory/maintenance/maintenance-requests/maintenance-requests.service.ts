@@ -392,6 +392,20 @@ export class MaintenanceRequestsService {
     const req = await this.findOne(id);
     if (req.status !== 'IN_PROGRESS') throw new BadRequestException('Only IN_PROGRESS requests can be completed');
 
+    const incompleteChecklists = await this.prisma.maintenanceChecklistExecution.findMany({
+      where: { requestId: id, status: 'IN_PROGRESS' },
+      include: {
+        items: {
+          where: { status: 'PENDING', checklistItem: { isMandatory: true } },
+          include: { checklistItem: { select: { id: true, title: true, isMandatory: true } } },
+        },
+      },
+    });
+    const blockingMandatory = incompleteChecklists.flatMap(ce => ce.items);
+    if (blockingMandatory.length > 0) {
+      throw new BadRequestException(`Cannot complete request: ${blockingMandatory.length} mandatory checklist item(s) still pending. Complete all mandatory checklist items first.`);
+    }
+
     const downtimeAgg = await this.prisma.downtimeLog.aggregate({
       where: { requestId: id, cancelledAt: null },
       _sum: { durationMinutes: true },
@@ -583,11 +597,28 @@ export class MaintenanceRequestsService {
         schedule: { select: { id: true, title: true } },
         completedBy: { select: { id: true, name: true } },
         items: {
-          include: { checklistItem: { select: { id: true, title: true } } },
+          include: { checklistItem: { select: { id: true, title: true, isMandatory: true } } },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async getChecklistExecution(requestId: string, executionId: string) {
+    await this.findOne(requestId);
+    const execution = await this.prisma.maintenanceChecklistExecution.findFirst({
+      where: { id: executionId, requestId },
+      include: {
+        schedule: { select: { id: true, title: true, type: true } },
+        completedBy: { select: { id: true, name: true } },
+        items: {
+          include: { checklistItem: true },
+          orderBy: { checklistItem: { sortOrder: 'asc' } },
+        },
+      },
+    });
+    if (!execution) throw new NotFoundException('Checklist execution not found for this request');
+    return execution;
   }
 
   async createChecklist(id: string, scheduleId: string, userId: string) {

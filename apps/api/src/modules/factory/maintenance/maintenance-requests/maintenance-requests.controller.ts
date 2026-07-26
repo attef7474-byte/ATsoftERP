@@ -154,6 +154,27 @@ export class MaintenanceRequestsController {
     return this.service.createChecklist(id, scheduleId, userId);
   }
 
+  @Get(':id/checklist-executions')
+  @Permissions('maintenance-request:checklist.view')
+  @ApiOperation({ summary: 'List checklist executions for request' })
+  getChecklistExecutions(@Param('id') id: string) {
+    return this.service.getChecklists(id);
+  }
+
+  @Post(':id/checklist-executions')
+  @Permissions('maintenance-request:checklist.manage')
+  @ApiOperation({ summary: 'Create checklist execution for request' })
+  createChecklistExecution(@Param('id') id: string, @Body('scheduleId') scheduleId: string, @CurrentUser('id') userId: string) {
+    return this.service.createChecklist(id, scheduleId, userId);
+  }
+
+  @Get(':id/checklist-executions/:executionId')
+  @Permissions('maintenance-request:checklist.view')
+  @ApiOperation({ summary: 'Get checklist execution detail for request' })
+  getChecklistExecution(@Param('id') id: string, @Param('executionId') executionId: string) {
+    return this.service.getChecklistExecution(id, executionId);
+  }
+
   @Get(':id/summary')
   @Permissions('maintenance-request:read')
   @ApiOperation({ summary: 'Get request summary with all related data' })

@@ -86,8 +86,8 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "maintenance-request:activity", module: "maintenance-request", action: "activity" },
   { key: "maintenance-request:attachments", module: "maintenance-request", action: "attachments" },
   { key: "maintenance-request:printData", module: "maintenance-request", action: "printData" },
-  { key: "maintenance-request:checklist", module: "maintenance-request", action: "checklist" },
-  { key: "maintenance-request:createChecklist", module: "maintenance-request", action: "createChecklist" },
+  { key: "maintenance-request:checklist.view", module: "maintenance-request", action: "checklist.view" },
+  { key: "maintenance-request:checklist.manage", module: "maintenance-request", action: "checklist.manage" },
   { key: "maintenance-request:summary", module: "maintenance-request", action: "summary" },
   { key: "maintenance-request:createEmergency", module: "maintenance-request", action: "createEmergency" },
   // maintenance-request-required-part (Batch F)
