@@ -6,6 +6,7 @@
 |---|---|---|---|---|
 | 1 | LOW | External email/SMS infrastructure does not exist | ACCEPTED | In-app notifications only; documented as N/A |
 | 2 | LOW | `prisma migrate dev` fails on SQL Server shadow database | ACCEPTED | Manual SQL migration + prisma db execute + migrate resolve workaround |
+| 3 | CLOSED | Smoke test API login failure (pre-existing) | RESOLVED | Smoke script requires `-Password` param from `.env` `SEED_ADMIN_PASSWORD`; 8/8 passes when provided |
 
 ## Closed During Development
 

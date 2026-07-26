@@ -21,7 +21,7 @@ Batch M adds maintenance notification dispatch (via existing Notification system
 | build:web (next build) | ✅ (137 routes) |
 | i18n parity | ✅ (2479 keys) |
 | health check | ✅ (4/4) |
-| smoke check | ✅ (8/8) |
+| smoke check | ✅ (8/8) | Full suite: web, login, API auth, users, products, roles, profile, swagger |
 | git status | ✅ clean |
 | Tags pushed | ✅ (3 tags) |
 
