@@ -103,10 +103,15 @@ export interface MaintenanceRequest {
   estimatedCost?: number | null;
   actualCost?: number | null;
   downtimeHours?: number | null;
+  isEmergency?: boolean | null;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
   machine?: { id: string; name: string; code: string };
+  productionLine?: { id: string; name: string; code: string };
+  machineComponent?: { id: string; name: string; code: string };
+  operationType?: { id: string; name: string; code: string };
+  costCenter?: { id: string; name: string; code: string };
   requestedBy?: { id: string; name: string; email: string };
   assignedTo?: { id: string; name: string; email: string };
   _count?: { tasks: number };
@@ -146,7 +151,9 @@ export interface MaintenanceSchedule {
   startDate: string;
   endDate?: string | null;
   nextDueAt?: string | null;
+  nextDueDate?: string | null;
   lastRunAt?: string | null;
+  lastGeneratedAt?: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;

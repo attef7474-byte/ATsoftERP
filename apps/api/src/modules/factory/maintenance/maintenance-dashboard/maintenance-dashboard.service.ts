@@ -9,7 +9,7 @@ export class MaintenanceDashboardService {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
-    const [openRequests, criticalRequests, overdueItems, machinesUnderMaintenance, currentDowntime, upcomingPreventive, totalCost, totalRequests, completedRequests, avgCompletionTime, totalPersonnel, activeAssignments, totalPartAccountabilities, pendingPartReports] = await Promise.all([
+    const [openRequests, criticalRequests, overdueItems, machinesUnderMaintenance, currentDowntime, upcomingPreventive, totalCost, totalRequests, completedRequests, avgCompletionTime, totalPersonnel, activeAssignments, totalPartAccountabilities, pendingPartReports, preventiveDueCount, preventiveOverdueCount, preventiveCompletedCount, emergencyOpenCount, emergencyCompletedCount] = await Promise.all([
       this.prisma.maintenanceRequest.count({ where: { status: 'OPEN', deletedAt: null } }),
       this.prisma.maintenanceRequest.count({ where: { priority: { in: ['HIGH', 'URGENT'] }, status: { in: ['OPEN', 'IN_PROGRESS'] }, deletedAt: null } }),
       this.getOverdueCount(),
@@ -24,6 +24,12 @@ export class MaintenanceDashboardService {
       this.prisma.maintenanceRequestAssignment.count({ where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } } }),
       this.prisma.maintenancePartAccountability.count(),
       this.prisma.maintenancePartAccountability.count({ where: { status: 'ASSIGNED' } }),
+      // --- Preventive / Emergency KPIs ---
+      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', startDate: { lte: now } } }),
+      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', startDate: { lt: now } } }),
+      this.prisma.maintenanceRequest.count({ where: { type: 'PREVENTIVE', status: 'COMPLETED', deletedAt: null } }),
+      this.prisma.maintenanceRequest.count({ where: { isEmergency: true, status: 'OPEN', deletedAt: null } }),
+      this.prisma.maintenanceRequest.count({ where: { isEmergency: true, status: 'COMPLETED', deletedAt: null } }),
     ]);
 
     const totalCostThisMonth = await this.prisma.maintenanceRequestCostEntry.aggregate({
@@ -48,6 +54,11 @@ export class MaintenanceDashboardService {
       activeAssignments,
       totalPartAccountabilities,
       pendingPartReports,
+      preventiveDueCount,
+      preventiveOverdueCount,
+      preventiveCompletedCount,
+      emergencyOpenCount,
+      emergencyCompletedCount,
     };
   }
 
@@ -312,6 +323,30 @@ export class MaintenanceDashboardService {
       byType: byType.map(t => ({ type: t.type, total: t._sum.amount || 0, count: t._count })),
       topRequestsByCost: byRequest.map(r => ({ requestId: r.requestId, total: r._sum.amount || 0 })),
     };
+  }
+
+  async getRecentGeneratedPreventive(limit = 5) {
+    return this.prisma.maintenanceRequest.findMany({
+      where: { type: 'PREVENTIVE', description: { contains: 'Auto-generated' }, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true, requestNumber: true, title: true, status: true, createdAt: true,
+        machine: { select: { id: true, name: true, code: true } },
+      },
+    });
+  }
+
+  async getRecentEmergencyRequests(limit = 5) {
+    return this.prisma.maintenanceRequest.findMany({
+      where: { isEmergency: true, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true, requestNumber: true, title: true, status: true, priority: true, createdAt: true,
+        machine: { select: { id: true, name: true, code: true } },
+      },
+    });
   }
 
   private flattenPersonnel(p: any) {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 
@@ -129,6 +129,13 @@ export class PreventiveMaintenanceService {
         });
         const requestNumber = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
 
+        const nextDue = this.calculateNextDueDate(schedule);
+
+        await tx.maintenanceSchedule.update({
+          where: { id: schedule.id },
+          data: { lastGeneratedAt: now, nextDueDate: nextDue, requestId: null },
+        });
+
         return tx.maintenanceRequest.create({
           data: {
             requestNumber,
@@ -149,5 +156,21 @@ export class PreventiveMaintenanceService {
     }
 
     return { created: created.length, requests: created };
+  }
+
+  private calculateNextDueDate(schedule: { startDate: Date; intervalDays?: number | null; frequency: string; endDate?: Date | null }): Date | null {
+    if (schedule.endDate && new Date(schedule.endDate) < new Date()) return null;
+    const baseDate = new Date();
+    if (schedule.intervalDays && schedule.intervalDays > 0) {
+      return new Date(baseDate.getTime() + schedule.intervalDays * 86400000);
+    }
+    switch (schedule.frequency) {
+      case 'DAILY': return new Date(baseDate.getTime() + 86400000);
+      case 'WEEKLY': return new Date(baseDate.getTime() + 7 * 86400000);
+      case 'MONTHLY': return new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, baseDate.getDate());
+      case 'QUARTERLY': return new Date(baseDate.getFullYear(), baseDate.getMonth() + 3, baseDate.getDate());
+      case 'YEARLY': return new Date(baseDate.getFullYear() + 1, baseDate.getMonth(), baseDate.getDate());
+      default: return schedule.intervalDays ? new Date(baseDate.getTime() + schedule.intervalDays * 86400000) : null;
+    }
   }
 }

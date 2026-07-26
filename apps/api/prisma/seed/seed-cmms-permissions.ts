@@ -81,6 +81,7 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "maintenance-dashboard:partsUsage", module: "maintenance-dashboard", action: "partsUsage" },
   // maintenance-request extensions (Batch 31)
   { key: "maintenance-request:reopen", module: "maintenance-request", action: "reopen" },
+  { key: "maintenance-request:close", module: "maintenance-request", action: "close" },
   { key: "maintenance-request:workflow", module: "maintenance-request", action: "workflow" },
   { key: "maintenance-request:activity", module: "maintenance-request", action: "activity" },
   { key: "maintenance-request:attachments", module: "maintenance-request", action: "attachments" },
@@ -88,6 +89,7 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "maintenance-request:checklist", module: "maintenance-request", action: "checklist" },
   { key: "maintenance-request:createChecklist", module: "maintenance-request", action: "createChecklist" },
   { key: "maintenance-request:summary", module: "maintenance-request", action: "summary" },
+  { key: "maintenance-request:createEmergency", module: "maintenance-request", action: "createEmergency" },
   // maintenance-request-required-part (Batch F)
   { key: "maintenance-request-required-part:read", module: "maintenance-request-required-part", action: "read" },
   { key: "maintenance-request-required-part:create", module: "maintenance-request-required-part", action: "create" },
@@ -101,6 +103,7 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   // maintenance-schedule extensions (Batch 31)
   { key: "maintenance-schedule:execute", module: "maintenance-schedule", action: "execute" },
   { key: "maintenance-schedule:history", module: "maintenance-schedule", action: "history" },
+  { key: "maintenance-schedule:generateRequest", module: "maintenance-schedule", action: "generateRequest" },
   // preventive-maintenance (Batch 31)
   { key: "preventive-maintenance:upcoming", module: "preventive-maintenance", action: "upcoming" },
   { key: "preventive-maintenance:overdue", module: "preventive-maintenance", action: "overdue" },

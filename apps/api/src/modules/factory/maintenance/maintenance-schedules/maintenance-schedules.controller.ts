@@ -45,6 +45,13 @@ export class MaintenanceSchedulesController {
     return this.service.execute(id, requestId, userId);
   }
 
+  @Post(':id/generate-request')
+  @Permissions('maintenance-schedule:generateRequest')
+  @ApiOperation({ summary: 'Generate a maintenance request from this schedule' })
+  generateRequest(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+    return this.service.generateRequest(id, userId);
+  }
+
   @Get(':id/history')
   @Permissions('maintenance-schedule:history.view')
   @ApiOperation({ summary: 'Get execution history for a schedule' })

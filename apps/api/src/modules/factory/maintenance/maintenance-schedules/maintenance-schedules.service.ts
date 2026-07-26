@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { CreateMaintenanceScheduleDto } from './dto/create-maintenance-schedule.dto';
@@ -138,6 +138,13 @@ export class MaintenanceSchedulesService {
   async execute(id: string, requestId: string | undefined, userId: string) {
     const schedule = await this.findOne(id);
 
+    const existingExecution = await this.prisma.maintenanceChecklistExecution.findFirst({
+      where: { scheduleId: id, status: 'IN_PROGRESS' },
+    });
+    if (existingExecution) {
+      throw new ConflictException('An execution is already in progress for this schedule. Complete it first.');
+    }
+
     const checklistItems = await this.prisma.maintenanceChecklistItem.findMany({
       where: { scheduleId: id },
       orderBy: { sortOrder: 'asc' },
@@ -163,6 +170,72 @@ export class MaintenanceSchedulesService {
     await this.audit.log(userId, 'EXECUTE', 'MaintenanceSchedule', id,
       { executionId: execution.id, requestId });
     return execution;
+  }
+
+  async generateRequest(id: string, userId: string) {
+    const schedule = await this.findOne(id);
+    if (schedule.status !== 'ACTIVE') throw new BadRequestException('Only active schedules can generate requests');
+
+    const existingRequest = await this.prisma.maintenanceRequest.findFirst({
+      where: {
+        machineId: schedule.machineId,
+        type: schedule.type,
+        status: { in: ['OPEN', 'IN_PROGRESS'] },
+        deletedAt: null,
+      },
+    });
+    if (existingRequest) throw new ConflictException('An active request already exists for this schedule. Complete or cancel the existing request before generating a new one.');
+
+    const seq = await this.prisma.numberSequence.findUnique({ where: { code: 'MAINTENANCE_REQUEST' } });
+    if (!seq) throw new NotFoundException('Number sequence MAINTENANCE_REQUEST not configured');
+
+    const request = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.numberSequence.update({
+        where: { id: seq.id },
+        data: { currentNumber: { increment: 1 } },
+      });
+      const requestNumber = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
+
+      const nextDue = this.calculateNextDueDate(schedule);
+
+      await tx.maintenanceSchedule.update({
+        where: { id },
+        data: { lastGeneratedAt: new Date(), nextDueDate: nextDue, requestId: null },
+      });
+
+      return tx.maintenanceRequest.create({
+        data: {
+          requestNumber,
+          machineId: schedule.machineId,
+          type: schedule.type || 'PREVENTIVE',
+          priority: 'MEDIUM',
+          title: `Preventive: ${schedule.title}`,
+          description: `Auto-generated from schedule ${schedule.title}`,
+          requestedById: userId,
+          status: 'OPEN',
+        },
+      });
+    });
+
+    await this.audit.log(userId, 'GENERATE', 'MaintenanceSchedule', id,
+      { requestId: request.id });
+    return request;
+  }
+
+  private calculateNextDueDate(schedule: { startDate: Date; intervalDays?: number | null; frequency: string; endDate?: Date | null }): Date | null {
+    if (schedule.endDate && new Date(schedule.endDate) < new Date()) return null;
+    const baseDate = new Date();
+    if (schedule.intervalDays && schedule.intervalDays > 0) {
+      return new Date(baseDate.getTime() + schedule.intervalDays * 86400000);
+    }
+    switch (schedule.frequency) {
+      case 'DAILY': return new Date(baseDate.getTime() + 86400000);
+      case 'WEEKLY': return new Date(baseDate.getTime() + 7 * 86400000);
+      case 'MONTHLY': return new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, baseDate.getDate());
+      case 'QUARTERLY': return new Date(baseDate.getFullYear(), baseDate.getMonth() + 3, baseDate.getDate());
+      case 'YEARLY': return new Date(baseDate.getFullYear() + 1, baseDate.getMonth(), baseDate.getDate());
+      default: return schedule.intervalDays ? new Date(baseDate.getTime() + schedule.intervalDays * 86400000) : null;
+    }
   }
 
   async getHistory(id: string, query: { page?: number; limit?: number }) {

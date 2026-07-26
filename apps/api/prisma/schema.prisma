@@ -1170,6 +1170,7 @@ model MaintenanceRequest {
   endDate            DateTime?
   downtimeHours      Float?
   cost               Float?
+  isEmergency        Boolean?
   notes              String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -1398,6 +1399,8 @@ model MaintenanceSchedule {
   title        String
   description  String?
   status       String              @default("ACTIVE")
+  nextDueDate  DateTime?
+  lastGeneratedAt DateTime?
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 

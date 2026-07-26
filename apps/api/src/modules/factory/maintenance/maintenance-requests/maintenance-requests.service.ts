@@ -41,6 +41,28 @@ export class MaintenanceRequestsService {
   }
 
   async create(dto: CreateMaintenanceRequestDto, userId: string) {
+    return this.createRequest(dto, userId, false);
+  }
+
+  async createEmergency(dto: CreateMaintenanceRequestDto, userId: string) {
+    const request = await this.createRequest(dto, userId, true);
+
+    await this.prisma.downtimeLog.create({
+      data: {
+        machineId: dto.machineId,
+        requestId: request.id,
+        startTime: new Date(),
+        reason: `Emergency: ${dto.title}`,
+        notes: dto.notes || 'Emergency downtime',
+      },
+    });
+
+    await this.audit.log(userId, 'EMERGENCY', 'MaintenanceRequest', request.id,
+      { requestNumber: request.requestNumber, machineId: dto.machineId });
+    return request;
+  }
+
+  private async createRequest(dto: CreateMaintenanceRequestDto, userId: string, isEmergency: boolean) {
     const machine = await this.validateOperationalContext(dto);
 
     if (dto.assignedToId) {
@@ -67,7 +89,8 @@ export class MaintenanceRequestsService {
           machineId,
           assignedToId,
           requestedById: userId,
-          priority: dto.priority || 'MEDIUM',
+          isEmergency: isEmergency || null,
+          priority: isEmergency ? 'HIGH' : (dto.priority || 'MEDIUM'),
           requiredParts: requiredParts && requiredParts.length > 0 ? {
             create: requiredParts.map(p => ({
               sparePartId: p.sparePartId,
@@ -93,6 +116,7 @@ export class MaintenanceRequestsService {
     machineId?: string; status?: string; type?: string; priority?: string;
     requestedById?: string; assignedToId?: string;
     productionLineId?: string; machineComponentId?: string; operationTypeId?: string; costCenterId?: string; sparePartId?: string;
+    isEmergency?: string;
   }) {
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -110,6 +134,7 @@ export class MaintenanceRequestsService {
     if (query.status) where.status = query.status;
     if (query.type) where.type = query.type;
     if (query.priority) where.priority = query.priority;
+    if (query.isEmergency !== undefined) where.isEmergency = query.isEmergency === 'true';
     if (query.requestedById) where.requestedById = query.requestedById;
     if (query.assignedToId) where.assignedToId = query.assignedToId;
     if (query.productionLineId) where.productionLineId = query.productionLineId;
@@ -199,8 +224,8 @@ export class MaintenanceRequestsService {
 
   async update(id: string, dto: UpdateMaintenanceRequestDto, userId: string) {
     const req = await this.findOne(id);
-    if (req.status === 'COMPLETED' || req.status === 'CANCELLED') {
-      throw new BadRequestException('Cannot update completed or cancelled requests');
+    if (req.status === 'COMPLETED' || req.status === 'CANCELLED' || req.status === 'CLOSED') {
+      throw new BadRequestException('Cannot update completed, cancelled, or closed requests');
     }
 
     if (dto.machineId) {
@@ -277,7 +302,7 @@ export class MaintenanceRequestsService {
   async addRequiredPart(requestId: string, dto: { sparePartId: string; machineComponentId?: string; machineId?: string; quantity: number; unit?: string; usageNote?: string; isPrimary?: boolean }, userId: string) {
     const req = await this.findOne(requestId);
     if (req.status === 'COMPLETED' || req.status === 'CANCELLED') {
-      throw new BadRequestException('Cannot add parts to completed or cancelled requests');
+      throw new BadRequestException('Cannot add parts to completed, cancelled, or closed requests');
     }
 
     const sparePart = await this.prisma.sparePart.findUnique({ where: { id: dto.sparePartId } });
@@ -396,6 +421,20 @@ export class MaintenanceRequestsService {
     return updated;
   }
 
+  async close(id: string, userId: string) {
+    const req = await this.findOne(id);
+    if (req.status !== 'COMPLETED') {
+      throw new BadRequestException('Only COMPLETED requests can be closed');
+    }
+    const updated = await this.prisma.maintenanceRequest.update({
+      where: { id },
+      data: { status: 'CLOSED' },
+    });
+    await this.audit.log(userId, 'CLOSE', 'MaintenanceRequest', id,
+      { oldStatus: req.status, newStatus: 'CLOSED' });
+    return updated;
+  }
+
   async cancel(id: string, userId: string) {
     const req = await this.findOne(id);
     if (req.status !== 'OPEN' && req.status !== 'IN_PROGRESS') {
@@ -427,8 +466,8 @@ export class MaintenanceRequestsService {
 
   async assign(id: string, assignedToId: string, userId: string) {
     const req = await this.findOne(id);
-    if (req.status === 'COMPLETED' || req.status === 'CANCELLED') {
-      throw new BadRequestException('Cannot assign completed or cancelled requests');
+    if (req.status === 'COMPLETED' || req.status === 'CANCELLED' || req.status === 'CLOSED') {
+      throw new BadRequestException('Cannot assign completed, cancelled, or closed requests');
     }
 
     const user = await this.prisma.user.findUnique({ where: { id: assignedToId } });
@@ -459,8 +498,8 @@ export class MaintenanceRequestsService {
 
   async reopen(id: string, userId: string) {
     const req = await this.findOne(id);
-    if (req.status !== 'COMPLETED' && req.status !== 'CANCELLED') {
-      throw new BadRequestException('Only completed or cancelled requests can be reopened');
+    if (req.status !== 'COMPLETED' && req.status !== 'CANCELLED' && req.status !== 'CLOSED') {
+      throw new BadRequestException('Only completed, cancelled, or closed requests can be reopened');
     }
     const updated = await this.prisma.maintenanceRequest.update({
       where: { id },
@@ -484,8 +523,11 @@ export class MaintenanceRequestsService {
         transitions.push({ from: 'IN_PROGRESS', to: 'CANCELLED', action: 'cancel', permission: 'maintenance-request:cancel' });
         break;
       case 'COMPLETED':
+        transitions.push({ from: 'COMPLETED', to: 'CLOSED', action: 'close', permission: 'maintenance-request:close' });
+        transitions.push({ from: 'COMPLETED', to: 'OPEN', action: 'reopen', permission: 'maintenance-request:reopen' });
+        break;
       case 'CANCELLED':
-        transitions.push({ from: req.status, to: 'OPEN', action: 'reopen', permission: 'maintenance-request:reopen' });
+        transitions.push({ from: 'CANCELLED', to: 'OPEN', action: 'reopen', permission: 'maintenance-request:reopen' });
         break;
     }
     return { currentStatus: req.status, transitions };

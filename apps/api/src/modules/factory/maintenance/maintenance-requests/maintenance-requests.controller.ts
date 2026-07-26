@@ -22,6 +22,13 @@ export class MaintenanceRequestsController {
     return this.service.create(dto, userId);
   }
 
+  @Post('emergency')
+  @Permissions('maintenance-request:createEmergency')
+  @ApiOperation({ summary: 'Create emergency maintenance request with downtime log' })
+  createEmergency(@Body() dto: CreateMaintenanceRequestDto, @CurrentUser('id') userId: string) {
+    return this.service.createEmergency(dto, userId);
+  }
+
   @Get()
   @Permissions('maintenance-request:read')
   @ApiOperation({ summary: 'List maintenance requests' })
@@ -30,6 +37,7 @@ export class MaintenanceRequestsController {
     machineId?: string; status?: string; type?: string; priority?: string;
     requestedById?: string; assignedToId?: string;
     productionLineId?: string; machineComponentId?: string; operationTypeId?: string; costCenterId?: string; sparePartId?: string;
+    isEmergency?: string;
   }) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
@@ -46,6 +54,7 @@ export class MaintenanceRequestsController {
       operationTypeId: query.operationTypeId,
       costCenterId: query.costCenterId,
       sparePartId: query.sparePartId,
+      isEmergency: query.isEmergency,
     });
   }
 
@@ -82,6 +91,11 @@ export class MaintenanceRequestsController {
   @Permissions('maintenance-request:cancel')
   @ApiOperation({ summary: 'Cancel maintenance request' })
   cancel(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.cancel(id, userId); }
+
+  @Patch(':id/close')
+  @Permissions('maintenance-request:close')
+  @ApiOperation({ summary: 'Close a completed maintenance request' })
+  close(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.close(id, userId); }
 
   @Delete(':id')
   @Permissions('maintenance-request:delete')

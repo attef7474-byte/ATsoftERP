@@ -96,4 +96,18 @@ export class MaintenanceDashboardController {
   getAccountabilityKpis() {
     return this.service.getAccountabilityKpis();
   }
+
+  @Get('recent-generated-preventive')
+  @Permissions('maintenance.dashboard.recentGeneratedPreventive.view')
+  @ApiOperation({ summary: 'Get recent generated preventive maintenance requests' })
+  getRecentGeneratedPreventive(@Query('limit') limit?: string) {
+    return this.service.getRecentGeneratedPreventive(limit ? parseInt(limit, 10) : 5);
+  }
+
+  @Get('recent-emergency')
+  @Permissions('maintenance.dashboard.recentEmergency.view')
+  @ApiOperation({ summary: 'Get recent emergency maintenance requests' })
+  getRecentEmergencyRequests(@Query('limit') limit?: string) {
+    return this.service.getRecentEmergencyRequests(limit ? parseInt(limit, 10) : 5);
+  }
 }

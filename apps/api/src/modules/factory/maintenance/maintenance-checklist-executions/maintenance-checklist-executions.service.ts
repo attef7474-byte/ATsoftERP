@@ -101,6 +101,11 @@ export class MaintenanceChecklistExecutionsService {
       throw new BadRequestException('Only IN_PROGRESS executions can be completed');
     }
 
+    const pendingItems = execution.items.filter(item => item.status === 'PENDING');
+    if (pendingItems.length > 0) {
+      throw new BadRequestException(`Cannot complete checklist: ${pendingItems.length} item(s) still pending. Complete or skip all items first.`);
+    }
+
     const updated = await this.prisma.maintenanceChecklistExecution.update({
       where: { id },
       data: { status: 'COMPLETED', completedAt: new Date(), completedById: userId },
@@ -125,10 +130,13 @@ export class MaintenanceChecklistExecutionsService {
     }
 
     const data: any = {};
-    if (dto.status) data.status = dto.status;
-    if (dto.passed !== undefined) data.passed = dto.passed;
+    if (dto.status) {
+      data.status = dto.status === 'OK' || dto.status === 'NOT_OK' ? 'COMPLETED' : dto.status;
+      data.passed = dto.status === 'OK' ? true : dto.status === 'NOT_OK' ? false : dto.status === 'NA' ? null : dto.passed;
+    }
+    if (dto.passed !== undefined && !dto.status) data.passed = dto.passed;
     if (dto.notes !== undefined) data.notes = dto.notes;
-    if (dto.status === 'COMPLETED' || dto.passed !== undefined) {
+    if (data.status === 'COMPLETED' || data.passed !== undefined || dto.status === 'OK' || dto.status === 'NOT_OK' || dto.status === 'NA') {
       data.completedAt = new Date();
       data.completedById = userId;
     }

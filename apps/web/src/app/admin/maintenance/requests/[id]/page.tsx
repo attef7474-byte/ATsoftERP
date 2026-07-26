@@ -81,7 +81,9 @@ export default function MaintenanceRequestDetailPage() {
     edit: () => router.push(`/admin/maintenance/requests/${id}/edit`),
     start: () => confirmAndExec('start'),
     complete: () => confirmAndExec('complete'),
+    close: () => confirmAndExec('close'),
     cancel: () => confirmAndExec('cancel'),
+    reopen: () => confirmAndExec('reopen'),
   });
 
   useRegisterAdminActions([
@@ -90,7 +92,9 @@ export default function MaintenanceRequestDetailPage() {
     { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!data },
     { id: 'start', labelKey: 'common.start', icon: <ActionStartIcon />, onClick: () => exec('start'), enabled: !!(data && data.status === 'OPEN') },
     { id: 'complete', labelKey: 'common.complete', icon: <ActionCompleteIcon />, onClick: () => exec('complete'), enabled: !!(data && data.status === 'IN_PROGRESS') },
+    { id: 'close', labelKey: 'common.close', icon: <ActionCompleteIcon />, onClick: () => exec('close'), enabled: !!(data && data.status === 'COMPLETED') },
     { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(data && (data.status === 'OPEN' || data.status === 'IN_PROGRESS')), variant: 'danger' },
+    { id: 'reopen', labelKey: 'common.reopen', icon: <ActionRefreshIcon />, onClick: () => exec('reopen'), enabled: !!(data && (data.status === 'COMPLETED' || data.status === 'CANCELLED' || data.status === 'CLOSED')) },
   ]);
 
   if (loading) return <LoadingState />;
@@ -113,8 +117,9 @@ export default function MaintenanceRequestDetailPage() {
   const statusActions: Record<string, string> = {
     OPEN: 'Start / Cancel',
     IN_PROGRESS: 'Complete / Cancel',
-    COMPLETED: 'Read-only',
-    CANCELLED: 'Read-only',
+    COMPLETED: 'Close / Reopen',
+    CANCELLED: 'Reopen',
+    CLOSED: 'Reopen',
   };
 
   return (
@@ -131,6 +136,7 @@ export default function MaintenanceRequestDetailPage() {
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.operationType')}</dt><dd className="mt-1 text-sm text-gray-900">{(data as any).operationType?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.costCenter')}</dt><dd className="mt-1 text-sm text-gray-900">{(data as any).costCenter?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('details.maintenanceRequest.type')}</dt><dd className="mt-1 text-sm text-gray-900">{t('status.' + data.type)}</dd></div>
+            {data.isEmergency && <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.isEmergency')}</dt><dd className="mt-1"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{(t as any)('emergency') || 'Emergency'}</span></dd></div>}
             <div><dt className="text-sm font-medium text-gray-500">{t('details.maintenanceRequest.priority')}</dt><dd className="mt-1 text-sm text-gray-900">{t('status.' + data.priority)}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('details.maintenanceRequest.requestedBy')}</dt><dd className="mt-1 text-sm text-gray-900">{data.requestedBy?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('details.maintenanceRequest.assignedTo')}</dt><dd className="mt-1 text-sm text-gray-900">{data.assignedTo?.name || '-'}</dd></div>
@@ -144,7 +150,7 @@ export default function MaintenanceRequestDetailPage() {
             <div><dt className="text-sm font-medium text-gray-500">{t('common.createdAt')}</dt><dd className="mt-1 text-sm text-gray-900">{fmt(data.createdAt)}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('common.updatedAt')}</dt><dd className="mt-1 text-sm text-gray-900">{fmt(data.updatedAt)}</dd></div>
           </dl>
-          {data.status === 'COMPLETED' || data.status === 'CANCELLED' ? (
+          {data.status === 'COMPLETED' || data.status === 'CANCELLED' || data.status === 'CLOSED' ? (
             <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-500">{t('details.readOnlyRecord')}</div>
           ) : null}
         </CardContent>
@@ -307,7 +313,8 @@ export default function MaintenanceRequestDetailPage() {
       )}
 
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={() => execWorkflow(pendingAction)}
-        title={t('common.confirm')} message={t('inventoryCounting.confirm' + pendingAction.charAt(0).toUpperCase() + pendingAction.slice(1) + 'Count') || t('common.confirmDeactivateMessage')}
+        title={t('common.confirm')}
+        message={t('common.confirmDeactivateMessage')}
         variant={pendingAction === 'cancel' ? 'danger' : 'primary'} loading={actionLoading} />
     </div>
   );

@@ -7,7 +7,7 @@ import { useToast } from '../../../../../components/admin/toast-provider';
 import { MaintenanceSchedule } from '../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, LoadingState, ErrorState, StatusBadge } from '../../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../../components/maintenance';
-import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionActivateIcon, ActionDeactivateIcon, ActionAddIcon } from '../../../../../components/admin/admin-action-bar';
 
 export default function MaintenanceScheduleDetailPage() {
   const params = useParams();
@@ -30,6 +30,18 @@ export default function MaintenanceScheduleDetailPage() {
   }, [id, t]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const [generating, setGenerating] = useState(false);
+
+  const handleGenerateRequest = async () => {
+    setGenerating(true);
+    try {
+      await api.post(`/maintenance/schedules/${id}/generate-request`, {});
+      showToast(t('maintenance.requestGenerated'), 'success');
+      fetchData();
+    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    finally { setGenerating(false); }
+  };
 
   const handleActivate = async () => {
     try {
@@ -61,6 +73,7 @@ export default function MaintenanceScheduleDetailPage() {
     { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!data },
     { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(data && data.status !== 'ACTIVE') },
     { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(data && data.status === 'ACTIVE') },
+    { id: 'generateRequest', labelKey: 'maintenance.generateRequest', icon: <ActionAddIcon />, onClick: () => handleGenerateRequest(), enabled: !!(data && data.status === 'ACTIVE') },
   ]);
 
   if (loading) return <LoadingState />;
@@ -87,11 +100,20 @@ export default function MaintenanceScheduleDetailPage() {
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.startDate')}</dt><dd className="mt-1 text-sm text-gray-900">{fmt(data.startDate)}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.endDate')}</dt><dd className="mt-1 text-sm text-gray-900">{data.endDate ? fmt(data.endDate) : '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('common.status')}</dt><dd className="mt-1"><StatusBadge status={data.status} /></dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.nextDueDate')}</dt><dd className="mt-1 text-sm text-gray-900">{data.nextDueDate ? fmt(data.nextDueDate) : '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.lastGeneratedAt')}</dt><dd className="mt-1 text-sm text-gray-900">{data.lastGeneratedAt ? fmt(data.lastGeneratedAt) : '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.description')}</dt><dd className="mt-1 text-sm text-gray-900">{data.description || '-'}</dd></div>
           </dl>
         </CardContent>
       </Card>
 
+      {data.status === 'ACTIVE' && (
+        <div className="cursor-pointer hover:shadow-md" onClick={handleGenerateRequest}>
+          <Card><CardContent className="p-4 text-center">
+            <p className="text-sm font-medium text-purple-600">{t('maintenance.generateRequest')}</p>
+          </CardContent></Card>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="cursor-pointer hover:shadow-md" onClick={() => router.push(`/admin/maintenance/schedules/${id}/execute`)}>
           <Card><CardContent className="p-4 text-center">

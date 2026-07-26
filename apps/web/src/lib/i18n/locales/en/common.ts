@@ -14,6 +14,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         cancel: 'Cancel',
         confirm: 'Confirm',
         close: 'Close',
+        reopen: 'Reopen',
         edit: 'Edit',
         create: 'Create',
         update: 'Update',
