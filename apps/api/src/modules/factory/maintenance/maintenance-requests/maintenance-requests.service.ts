@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
+import { MaintenanceNotificationService } from '../maintenance-notification/maintenance-notification.service';
+import { MaintenanceSlaService } from '../maintenance-sla/maintenance-sla.service';
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
 import { UpdateMaintenanceRequestDto } from './dto/update-maintenance-request.dto';
 
@@ -9,6 +11,8 @@ export class MaintenanceRequestsService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private notificationService: MaintenanceNotificationService,
+    private slaService: MaintenanceSlaService,
   ) {}
 
   private async validateOperationalContext(dto: { machineId: string; productionLineId?: string; machineComponentId?: string; operationTypeId?: string; costCenterId?: string }, requestId?: string) {
@@ -108,6 +112,13 @@ export class MaintenanceRequestsService {
 
     await this.audit.log(userId, 'CREATE', 'MaintenanceRequest', request.id,
       { requestNumber: request.requestNumber, machineId });
+
+    try {
+      if (request.assignedToId) {
+        await this.notificationService.notifyRequestCreated(request);
+      }
+      await this.slaService.createSlaState(request.id);
+    } catch { }
     return request;
   }
 
@@ -385,6 +396,12 @@ export class MaintenanceRequestsService {
 
     await this.audit.log(userId, 'START', 'MaintenanceRequest', id,
       { oldStatus: req.status, newStatus: 'IN_PROGRESS', machineId: req.machineId });
+
+    try {
+      const startedRequest = await this.findOne(id);
+      await this.notificationService.notifyRequestStarted(startedRequest);
+      await this.slaService.recalculateSla(id);
+    } catch { }
     return updated;
   }
 
@@ -432,6 +449,11 @@ export class MaintenanceRequestsService {
 
     await this.audit.log(userId, 'COMPLETE', 'MaintenanceRequest', id,
       { oldStatus: req.status, newStatus: 'COMPLETED', machineId: req.machineId, downtimeHours });
+
+    try {
+      const completedRequest = await this.findOne(id);
+      await this.notificationService.notifyRequestCompleted(completedRequest);
+    } catch { }
     return updated;
   }
 
@@ -446,6 +468,11 @@ export class MaintenanceRequestsService {
     });
     await this.audit.log(userId, 'CLOSE', 'MaintenanceRequest', id,
       { oldStatus: req.status, newStatus: 'CLOSED' });
+
+    try {
+      const closedRequest = await this.findOne(id);
+      await this.notificationService.notifyRequestClosed(closedRequest);
+    } catch { }
     return updated;
   }
 
@@ -493,6 +520,11 @@ export class MaintenanceRequestsService {
     });
     await this.audit.log(userId, 'UPDATE', 'MaintenanceRequest', id,
       { action: 'assign', assignedToId, oldAssignedToId: req.assignedToId });
+
+    try {
+      const assignedRequest = await this.findOne(id);
+      await this.notificationService.notifyRequestAssigned(assignedRequest, assignedToId);
+    } catch { }
     return updated;
   }
 

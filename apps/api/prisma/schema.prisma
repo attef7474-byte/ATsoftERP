@@ -1179,6 +1179,13 @@ model MaintenanceRequest {
   cost               Float?
   isEmergency        Boolean?
   notes              String?
+  // SLA fields (Batch M)
+  responseDueAt      DateTime?
+  startDueAt         DateTime?
+  completeDueAt      DateTime?
+  slaStatus          String?   @default("ON_TRACK")
+  escalationLevel    String?   @default("NONE")
+  lastEscalatedAt    DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   deletedAt          DateTime?
@@ -1192,6 +1199,7 @@ model MaintenanceRequest {
   requiredParts       MaintenanceRequestRequiredPart[]
   assignments         MaintenanceRequestAssignment[]
   partAccountabilities MaintenancePartAccountability[]
+  slaState            MaintenanceSlaState?
 
   @@index([machineId])
   @@index([productionLineId])
@@ -1270,6 +1278,53 @@ model MaintenanceRequestRequiredPart {
   @@index([usedByUserId])
   @@index([failureCauseId])
   @@map("maintenance_request_required_parts")
+}
+
+model MaintenanceSlaRule {
+  id        String   @id @default(cuid())
+  name      String
+  priority  String?  @default("MEDIUM")
+  type      String?  @default("BOTH")
+  responseHours Float?
+  startHours    Float?
+  completeHours Float?
+  escalationDelayHours Float? @default(0)
+  escalationLevels      Int?    @default(1)
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([priority])
+  @@index([type])
+  @@index([isActive])
+  @@map("maintenance_sla_rules")
+}
+
+model MaintenanceSlaState {
+  id                  String   @id @default(cuid())
+  maintenanceRequestId String
+  maintenanceRequest  MaintenanceRequest @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  responseDueAt      DateTime?
+  startDueAt         DateTime?
+  completeDueAt      DateTime?
+  slaStatus          String   @default("ON_TRACK")
+  escalationLevel    String   @default("NONE")
+  lastEscalatedAt    DateTime?
+  responseActualAt   DateTime?
+  startActualAt      DateTime?
+  completeActualAt   DateTime?
+  responseOverdueMin Int?
+  startOverdueMin    Int?
+  completeOverdueMin Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([maintenanceRequestId])
+  @@index([slaStatus])
+  @@index([escalationLevel])
+  @@map("maintenance_sla_states")
 }
 
 model OperationalPerson {

@@ -61,6 +61,8 @@ import { AttachmentsModule } from './modules/documents/attachments/attachments.m
 import { MessagingModule } from './modules/messaging/messaging.module'
 import { MaintenanceReliabilityModule } from './modules/factory/maintenance/maintenance-reliability/maintenance-reliability.module'
 import { MaintenanceSparePartRequestLinesModule } from './modules/factory/maintenance/maintenance-spare-part-request-lines/maintenance-spare-part-request-lines.module'
+import { MaintenanceNotificationModule } from './modules/factory/maintenance/maintenance-notification/maintenance-notification.module'
+import { MaintenanceSlaModule } from './modules/factory/maintenance/maintenance-sla/maintenance-sla.module'
 
 @Module({
   imports: [
@@ -86,6 +88,8 @@ import { MaintenanceSparePartRequestLinesModule } from './modules/factory/mainte
     MessagingModule,
     MaintenanceReliabilityModule,
     MaintenanceSparePartRequestLinesModule,
+    MaintenanceNotificationModule,
+    MaintenanceSlaModule,
   ],
 })
 export class AppModule {}

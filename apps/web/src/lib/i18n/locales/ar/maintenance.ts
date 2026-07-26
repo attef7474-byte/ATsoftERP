@@ -655,6 +655,10 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         topUsedParts: 'أكثر قطع الغيار استخداماً',
         pendingApproval: 'بانتظار الاعتماد',
         duplicatePartBlocked: 'يتم منع تكرار قطعة الغيار إلا بعد إلغاء السطر السابق',
+        slaStatus: 'حالة اتفاقية مستوى الخدمة',
+        escalated: 'تصعيد',
+        slaOnTrack: 'ضمن الخطة',
+        slaOverdue: 'متأخر',
     },
 };
 export default maintenance;

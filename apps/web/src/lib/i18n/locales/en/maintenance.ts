@@ -655,6 +655,10 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         topUsedParts: 'Top Used Spare Parts',
         pendingApproval: 'Pending Approval',
         duplicatePartBlocked: 'Duplicate spare part is blocked unless previous line is cancelled',
+        slaStatus: 'SLA Status',
+        escalated: 'Escalated',
+        slaOnTrack: 'On Track',
+        slaOverdue: 'Overdue',
     },
 };
 export default maintenance;

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
+import { MaintenanceNotificationService } from '../maintenance-notification/maintenance-notification.service';
 import { CreateSparePartRequestLineDto, UpdateSparePartRequestLineDto } from './dto/create-spare-part-request-line.dto';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class MaintenanceSparePartRequestLinesService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private notificationService: MaintenanceNotificationService,
   ) {}
 
   private async findRequestOrFail(id: string) {
@@ -168,6 +170,11 @@ export class MaintenanceSparePartRequestLinesService {
 
     await this.audit.log(userId, 'SUBMIT', 'MaintenanceRequestRequiredPart', lineId,
       { oldStatus: part.status, newStatus: 'REQUESTED' });
+
+    try {
+      const req = await this.prisma.maintenanceRequest.findUnique({ where: { id: requestId } });
+      await this.notificationService.notifyPartRequested(updated, req);
+    } catch { }
     return updated;
   }
 
@@ -188,6 +195,11 @@ export class MaintenanceSparePartRequestLinesService {
 
     await this.audit.log(userId, 'APPROVE', 'MaintenanceRequestRequiredPart', lineId,
       { oldStatus: part.status, newStatus: 'APPROVED' });
+
+    try {
+      const req = await this.prisma.maintenanceRequest.findUnique({ where: { id: requestId } });
+      await this.notificationService.notifyPartApproved(updated, req, userId);
+    } catch { }
     return updated;
   }
 
@@ -207,6 +219,11 @@ export class MaintenanceSparePartRequestLinesService {
 
     await this.audit.log(userId, 'REJECT', 'MaintenanceRequestRequiredPart', lineId,
       { oldStatus: part.status, newStatus: 'REJECTED' });
+
+    try {
+      const req = await this.prisma.maintenanceRequest.findUnique({ where: { id: requestId } });
+      await this.notificationService.notifyPartRejected(updated, req, userId);
+    } catch { }
     return updated;
   }
 
@@ -227,6 +244,11 @@ export class MaintenanceSparePartRequestLinesService {
 
     await this.audit.log(userId, 'RESERVE', 'MaintenanceRequestRequiredPart', lineId,
       { oldStatus: part.status, newStatus: 'RESERVED' });
+
+    try {
+      const req = await this.prisma.maintenanceRequest.findUnique({ where: { id: requestId } });
+      await this.notificationService.notifyPartReserved(updated, req);
+    } catch { }
     return updated;
   }
 
@@ -249,6 +271,11 @@ export class MaintenanceSparePartRequestLinesService {
 
     await this.audit.log(userId, 'USE', 'MaintenanceRequestRequiredPart', lineId,
       { oldStatus: part.status, newStatus: 'USED' });
+
+    try {
+      const req = await this.prisma.maintenanceRequest.findUnique({ where: { id: requestId } });
+      await this.notificationService.notifyPartUsed(updated, req);
+    } catch { }
     return updated;
   }
 
