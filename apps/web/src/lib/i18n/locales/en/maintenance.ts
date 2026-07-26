@@ -1,6 +1,6 @@
 import type { LocaleTranslations } from '../../types';
 
-const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanceWorkflow' | 'maintenanceDashboard' | 'preventiveMaintenance' | 'downtimeAnalysis'> = {
+const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanceWorkflow' | 'maintenanceDashboard' | 'preventiveMaintenance' | 'downtimeAnalysis' | 'sparePartRequest'> = {
     maintenance: {
         machineCategories: 'Machine Categories',
         machines: 'Machines',
@@ -616,6 +616,45 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         monthly: 'Monthly',
         weekly: 'Weekly',
         daily: 'Daily',
+    },
+    sparePartRequest: {
+        requestedParts: 'Requested Spare Parts',
+        addSparePart: 'Add Spare Part',
+        requestSparePart: 'Request Spare Part',
+        approveSparePart: 'Approve Spare Part',
+        rejectSparePart: 'Reject Spare Part',
+        operationalReservation: 'Operational Reservation',
+        markPartUsed: 'Mark Part Used',
+        cancelRequest: 'Cancel Request',
+        requestedQuantity: 'Requested Quantity',
+        approvedQuantity: 'Approved Quantity',
+        reservedQuantity: 'Reserved Quantity',
+        usedQuantity: 'Used Quantity',
+        requestReason: 'Request Reason',
+        usageNotes: 'Usage Notes',
+        partRequested: 'Spare part requested',
+        partApproved: 'Spare part approved',
+        partReserved: 'Spare part reserved operationally',
+        partUsed: 'Spare part used',
+        noStockDeducted: 'Stock is not deducted in this phase',
+        noInventoryMovement: 'No inventory movement',
+        reason: 'Reason',
+        statusDraft: 'Draft',
+        statusRequested: 'Requested',
+        statusApproved: 'Approved',
+        statusRejected: 'Rejected',
+        statusReserved: 'Reserved',
+        statusUsed: 'Used',
+        statusCancelled: 'Cancelled',
+        partsCount: 'Parts Count',
+        requestedCount: 'Requested Count',
+        approvedCount: 'Approved Count',
+        reservedCount: 'Reserved Count',
+        usedCount: 'Used Count',
+        topRequestedParts: 'Top Requested Spare Parts',
+        topUsedParts: 'Top Used Spare Parts',
+        pendingApproval: 'Pending Approval',
+        duplicatePartBlocked: 'Duplicate spare part is blocked unless previous line is cancelled',
     },
 };
 export default maintenance;

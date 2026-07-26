@@ -469,3 +469,39 @@ export interface MachineSparePart {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface SparePartRequestLine {
+  id: string;
+  maintenanceRequestId: string;
+  sparePartId: string;
+  sparePart?: { id: string; name: string; code: string; partNumber?: string };
+  machineComponentId?: string | null;
+  machineComponent?: { id: string; name: string; code: string };
+  machineId?: string | null;
+  machine?: { id: string; name: string; code: string };
+  quantity: number;
+  unit?: string | null;
+  usageNote?: string | null;
+  isPrimary: boolean;
+  status: string;
+  reason?: string | null;
+  requestedQuantity?: number | null;
+  approvedQuantity?: number | null;
+  reservedQuantity?: number | null;
+  usedQuantity?: number | null;
+  requestedBy?: { id: string; name: string } | null;
+  approvedBy?: { id: string; name: string } | null;
+  rejectedBy?: { id: string; name: string } | null;
+  reservedBy?: { id: string; name: string } | null;
+  usedBy?: { id: string; name: string } | null;
+  cancelledBy?: { id: string; name: string } | null;
+  failureCause?: { id: string; reason: string; failureCause?: string } | null;
+  requestedAt?: string | null;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
+  reservedAt?: string | null;
+  usedAt?: string | null;
+  cancelledAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

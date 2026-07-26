@@ -60,6 +60,7 @@ import { NotificationRulesModule } from './modules/settings/notification-rules/n
 import { AttachmentsModule } from './modules/documents/attachments/attachments.module'
 import { MessagingModule } from './modules/messaging/messaging.module'
 import { MaintenanceReliabilityModule } from './modules/factory/maintenance/maintenance-reliability/maintenance-reliability.module'
+import { MaintenanceSparePartRequestLinesModule } from './modules/factory/maintenance/maintenance-spare-part-request-lines/maintenance-spare-part-request-lines.module'
 
 @Module({
   imports: [
@@ -84,6 +85,7 @@ import { MaintenanceReliabilityModule } from './modules/factory/maintenance/main
     AttachmentsModule,
     MessagingModule,
     MaintenanceReliabilityModule,
+    MaintenanceSparePartRequestLinesModule,
   ],
 })
 export class AppModule {}

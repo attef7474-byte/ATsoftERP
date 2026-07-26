@@ -393,6 +393,12 @@ model User {
   sentMessages                         InternalMessage[]                            @relation("UserSentMessages")
   operationalPeople                    OperationalPerson[]
   rcaCompletedDowntimeLogs            DowntimeLog[]
+  requestedRequiredParts              MaintenanceRequestRequiredPart[] @relation("RequiredPartRequestedBy")
+  approvedRequiredParts               MaintenanceRequestRequiredPart[] @relation("RequiredPartApprovedBy")
+  rejectedRequiredParts               MaintenanceRequestRequiredPart[] @relation("RequiredPartRejectedBy")
+  reservedRequiredParts               MaintenanceRequestRequiredPart[] @relation("RequiredPartReservedBy")
+  usedRequiredParts                   MaintenanceRequestRequiredPart[] @relation("RequiredPartUsedBy")
+  cancelledRequiredParts              MaintenanceRequestRequiredPart[] @relation("RequiredPartCancelledBy")
 
   @@index([email])
   @@index([status])
@@ -1225,12 +1231,44 @@ model MaintenanceRequestRequiredPart {
   updatedAt            DateTime @updatedAt
   partAccountabilities MaintenancePartAccountability[]
 
+  // Batch L — spare part request workflow fields (all nullable, backward compatible)
+  reason               String?
+  requestedQuantity    Float?
+  approvedQuantity     Float?
+  reservedQuantity     Float?
+  usedQuantity         Float?
+  requestedByUserId    String?
+  requestedBy          User?    @relation("RequiredPartRequestedBy", fields: [requestedByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedByUserId     String?
+  approvedBy           User?    @relation("RequiredPartApprovedBy", fields: [approvedByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rejectedByUserId     String?
+  rejectedBy           User?    @relation("RequiredPartRejectedBy", fields: [rejectedByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reservedByUserId     String?
+  reservedBy           User?    @relation("RequiredPartReservedBy", fields: [reservedByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  usedByUserId         String?
+  usedBy               User?    @relation("RequiredPartUsedBy", fields: [usedByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cancelledByUserId    String?
+  cancelledBy          User?    @relation("RequiredPartCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  failureCauseId       String?
+  failureCause         DowntimeLog? @relation(fields: [failureCauseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requestedAt          DateTime?
+  approvedAt           DateTime?
+  rejectedAt           DateTime?
+  reservedAt           DateTime?
+  usedAt               DateTime?
+  cancelledAt          DateTime?
+
   @@unique([maintenanceRequestId, sparePartId])
   @@index([maintenanceRequestId])
   @@index([sparePartId])
   @@index([machineComponentId])
   @@index([machineId])
   @@index([status])
+  @@index([requestedByUserId])
+  @@index([approvedByUserId])
+  @@index([reservedByUserId])
+  @@index([usedByUserId])
+  @@index([failureCauseId])
   @@map("maintenance_request_required_parts")
 }
 
@@ -1464,6 +1502,8 @@ model DowntimeLog {
   cancelledAt         DateTime?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
+
+  requiredParts       MaintenanceRequestRequiredPart[]
 
   @@index([machineId])
   @@index([requestId])

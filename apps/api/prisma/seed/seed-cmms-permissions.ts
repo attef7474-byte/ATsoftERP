@@ -147,6 +147,16 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "downtime-rca:complete", module: "downtime-rca", action: "complete" },
   // maintenance-reliability (new module)
   { key: "maintenance-reliability:read", module: "maintenance-reliability", action: "read" },
+  // maintenance-request-parts workflow (Batch L)
+  { key: "maintenance-request-parts:read", module: "maintenance-request-parts", action: "read" },
+  { key: "maintenance-request-parts:create", module: "maintenance-request-parts", action: "create" },
+  { key: "maintenance-request-parts:update", module: "maintenance-request-parts", action: "update" },
+  { key: "maintenance-request-parts:request", module: "maintenance-request-parts", action: "request" },
+  { key: "maintenance-request-parts:approve", module: "maintenance-request-parts", action: "approve" },
+  { key: "maintenance-request-parts:reject", module: "maintenance-request-parts", action: "reject" },
+  { key: "maintenance-request-parts:reserve", module: "maintenance-request-parts", action: "reserve" },
+  { key: "maintenance-request-parts:use", module: "maintenance-request-parts", action: "use" },
+  { key: "maintenance-request-parts:cancel", module: "maintenance-request-parts", action: "cancel" },
 ];
 
 async function main() {

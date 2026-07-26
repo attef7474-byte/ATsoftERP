@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
-import { MaintenanceRequest, MaintenanceTask, DowntimeLog } from '../../../../../lib/admin-types';
+import { MaintenanceRequest, MaintenanceTask, DowntimeLog, SparePartRequestLine } from '../../../../../lib/admin-types';
 
 interface RequestDetail extends MaintenanceRequest {
   tasks?: MaintenanceTask[];
@@ -13,6 +13,7 @@ interface RequestDetail extends MaintenanceRequest {
 }
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionBarcodeIcon } from '../../../../../components/admin/admin-action-bar';
+import { F9Lookup, sparePartAdapter } from '../../../../../components/f9';
 
 export default function MaintenanceRequestDetailPage() {
   const params = useParams();
@@ -29,6 +30,15 @@ export default function MaintenanceRequestDetailPage() {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [partAccountabilities, setPartAccountabilities] = useState<any[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
+  const [partLines, setPartLines] = useState<SparePartRequestLine[]>([]);
+  const [partLinesLoading, setPartLinesLoading] = useState(false);
+  const [showAddPart, setShowAddPart] = useState(false);
+  const [addPartSparePartId, setAddPartSparePartId] = useState('');
+  const [addPartQuantity, setAddPartQuantity] = useState(1);
+  const [addPartReason, setAddPartReason] = useState('');
+  const [addPartNote, setAddPartNote] = useState('');
+  const [partLineActionLoading, setPartLineActionLoading] = useState('');
+  const [rejectLineId, setRejectLineId] = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -54,7 +64,16 @@ export default function MaintenanceRequestDetailPage() {
     } catch { setPartAccountabilities([]); }
   }, [id]);
 
-  useEffect(() => { fetchData(); fetchAssignments(); fetchPartAccountabilities(); }, [fetchData, fetchAssignments, fetchPartAccountabilities]);
+  const fetchPartLines = useCallback(async () => {
+    setPartLinesLoading(true);
+    try {
+      const res = await api.get<any[]>(`/maintenance/requests/${id}/parts`);
+      setPartLines(res || []);
+    } catch { setPartLines([]); }
+    finally { setPartLinesLoading(false); }
+  }, [id]);
+
+  useEffect(() => { fetchData(); fetchAssignments(); fetchPartAccountabilities(); fetchPartLines(); }, [fetchData, fetchAssignments, fetchPartAccountabilities, fetchPartLines]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -113,6 +132,53 @@ export default function MaintenanceRequestDetailPage() {
   ];
 
   const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+
+  const execPartAction = async (lineId: string, action: string) => {
+    setPartLineActionLoading(`${lineId}_${action}`);
+    try {
+      await api.patch(`/maintenance/requests/${id}/parts/${lineId}/${action}`, {});
+      showToast(t('common.successUpdated'), 'success');
+      fetchPartLines();
+    } catch (err: any) {
+      showToast(err?.message || t('errors.updateFailed'), 'error');
+    } finally { setPartLineActionLoading(''); }
+  };
+
+  const addPartLine = async () => {
+    if (!addPartSparePartId) { showToast(t('maintenance.sparePartLabel') + ' ' + t('common.required'), 'error'); return; }
+    if (addPartQuantity <= 0) { showToast(t('maintenance.quantityMustBeGreaterThanZero'), 'error'); return; }
+    setPartLineActionLoading('add');
+    try {
+      await api.post(`/maintenance/requests/${id}/parts`, {
+        sparePartId: addPartSparePartId,
+        quantity: addPartQuantity,
+        reason: addPartReason || undefined,
+        usageNote: addPartNote || undefined,
+      });
+      showToast(t('common.successCreated'), 'success');
+      setShowAddPart(false);
+      setAddPartSparePartId('');
+      setAddPartQuantity(1);
+      setAddPartReason('');
+      setAddPartNote('');
+      fetchPartLines();
+    } catch (err: any) {
+      showToast(err?.message || t('errors.createFailed'), 'error');
+    } finally { setPartLineActionLoading(''); }
+  };
+
+  const partStatusBadge = (status: string) => {
+    return <StatusBadge status={status} />;
+  };
+
+  const canAction = (status: string): Record<string, boolean> => ({
+    request: status === 'DRAFT',
+    approve: status === 'REQUESTED',
+    reject: status === 'REQUESTED',
+    reserve: status === 'APPROVED',
+    use: status === 'RESERVED' || status === 'APPROVED',
+    cancel: !['CANCELLED', 'USED', 'REJECTED'].includes(status),
+  });
 
   const statusActions: Record<string, string> = {
     OPEN: 'Start / Cancel',
@@ -278,9 +344,94 @@ export default function MaintenanceRequestDetailPage() {
 
       {activeTab === 'parts' && (
         <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-sm text-gray-500 mb-4">{t('maintenanceWorkflow.usedPartsDescription')}</p>
-            <button onClick={() => router.push(`/admin/maintenance/requests/${id}/parts`)} className="text-blue-600 hover:text-blue-800 font-medium">{t('maintenanceWorkflow.workflowParts')}</button>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-semibold text-gray-700">{t('maintenance.sparePartRequest.requestedParts')}</h3>
+              <button onClick={() => setShowAddPart(true)} className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">{t('maintenance.sparePartRequest.addSparePart')}</button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {showAddPart && (
+              <div className="mb-6 p-4 border rounded-lg bg-gray-50 space-y-3">
+                <h4 className="text-sm font-medium text-gray-700">{t('maintenance.sparePartRequest.addSparePart')}</h4>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartLabel')}</label>
+                  <F9Lookup value={addPartSparePartId} onChange={setAddPartSparePartId} adapter={sparePartAdapter} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.requestedQuantity')}</label>
+                    <input type="number" min="0.01" step="0.01" value={addPartQuantity} onChange={e => setAddPartQuantity(parseFloat(e.target.value) || 0)} className="w-full border rounded px-2 py-1 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.requestReason')}</label>
+                    <input type="text" value={addPartReason} onChange={e => setAddPartReason(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.usageNote')}</label>
+                  <input type="text" value={addPartNote} onChange={e => setAddPartNote(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button onClick={addPartLine} disabled={partLineActionLoading === 'add'} className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">{t('common.save')}</button>
+                  <button onClick={() => setShowAddPart(false)} className="px-3 py-1.5 text-xs font-medium bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">{t('common.cancel')}</button>
+                </div>
+                <p className="text-xs text-amber-600 mt-2">{t('maintenance.sparePartRequest.noStockDeducted')}</p>
+              </div>
+            )}
+            {partLinesLoading ? <LoadingState /> : partLines.length === 0 ? (
+              <p className="text-sm text-gray-500 py-4">{t('maintenance.noRequiredSpareParts')}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.sparePartLabel')}</th>
+                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.sparePartRequest.requestedQuantity')}</th>
+                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.sparePartRequest.reason')}</th>
+                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('common.status')}</th>
+                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('common.actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {partLines.map((line) => {
+                      const actions = canAction(line.status);
+                      return (
+                        <tr key={line.id} className="border-b hover:bg-gray-50">
+                          <td className="py-2 px-2">{line.sparePart ? `[${line.sparePart.code}] ${line.sparePart.name}` : line.sparePartId}</td>
+                          <td className="py-2 px-2">{line.quantity}</td>
+                          <td className="py-2 px-2">{line.reason || '-'}</td>
+                          <td className="py-2 px-2">{partStatusBadge(line.status)}</td>
+                          <td className="py-2 px-2">
+                            <div className="flex flex-wrap gap-1">
+                              {actions.request && (
+                                <button onClick={() => execPartAction(line.id, 'request')} disabled={partLineActionLoading === `${line.id}_request`} className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-50">{t('maintenance.sparePartRequest.requestSparePart')}</button>
+                              )}
+                              {actions.approve && (
+                                <button onClick={() => execPartAction(line.id, 'approve')} disabled={partLineActionLoading === `${line.id}_approve`} className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50">{t('maintenance.sparePartRequest.approveSparePart')}</button>
+                              )}
+                              {actions.reject && (
+                                <button onClick={() => execPartAction(line.id, 'reject')} disabled={partLineActionLoading === `${line.id}_reject`} className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50">{t('maintenance.sparePartRequest.rejectSparePart')}</button>
+                              )}
+                              {actions.reserve && (
+                                <button onClick={() => execPartAction(line.id, 'reserve')} disabled={partLineActionLoading === `${line.id}_reserve`} className="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 disabled:opacity-50">{t('maintenance.sparePartRequest.operationalReservation')}</button>
+                              )}
+                              {actions.use && (
+                                <button onClick={() => execPartAction(line.id, 'use')} disabled={partLineActionLoading === `${line.id}_use`} className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded hover:bg-amber-200 disabled:opacity-50">{t('maintenance.sparePartRequest.markPartUsed')}</button>
+                              )}
+                              {actions.cancel && (
+                                <button onClick={() => execPartAction(line.id, 'cancel')} disabled={partLineActionLoading === `${line.id}_cancel`} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50">{t('maintenance.sparePartRequest.cancelRequest')}</button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="text-xs text-gray-400 mt-3">{t('maintenance.sparePartRequest.noStockDeducted')} — {t('maintenance.sparePartRequest.noInventoryMovement')}</p>
           </CardContent>
         </Card>
       )}

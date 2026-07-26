@@ -1,0 +1,30 @@
+{
+  "version": "7.8.0",
+  "steps": [
+    {
+      "tag": "AlterTable",
+      "table": "maintenance_request_required_parts",
+      "operation": "AddColumn",
+      "columns": [
+        { "name": "reason", "type": "NVARCHAR(MAX)" },
+        { "name": "requestedQuantity", "type": "FLOAT" },
+        { "name": "approvedQuantity", "type": "FLOAT" },
+        { "name": "reservedQuantity", "type": "FLOAT" },
+        { "name": "usedQuantity", "type": "FLOAT" },
+        { "name": "requestedByUserId", "type": "NVARCHAR(1000)" },
+        { "name": "approvedByUserId", "type": "NVARCHAR(1000)" },
+        { "name": "rejectedByUserId", "type": "NVARCHAR(1000)" },
+        { "name": "reservedByUserId", "type": "NVARCHAR(1000)" },
+        { "name": "usedByUserId", "type": "NVARCHAR(1000)" },
+        { "name": "cancelledByUserId", "type": "NVARCHAR(1000)" },
+        { "name": "failureCauseId", "type": "NVARCHAR(1000)" },
+        { "name": "requestedAt", "type": "DATETIME2" },
+        { "name": "approvedAt", "type": "DATETIME2" },
+        { "name": "rejectedAt", "type": "DATETIME2" },
+        { "name": "reservedAt", "type": "DATETIME2" },
+        { "name": "usedAt", "type": "DATETIME2" },
+        { "name": "cancelledAt", "type": "DATETIME2" }
+      ]
+    }
+  ]
+}

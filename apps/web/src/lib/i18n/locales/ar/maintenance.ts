@@ -1,6 +1,6 @@
 import type { LocaleTranslations } from '../../types';
 
-const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanceWorkflow' | 'maintenanceDashboard' | 'preventiveMaintenance' | 'downtimeAnalysis'> = {
+const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanceWorkflow' | 'maintenanceDashboard' | 'preventiveMaintenance' | 'downtimeAnalysis' | 'sparePartRequest'> = {
     maintenance: {
         machineCategories: 'تصنيفات الماكينات',
         machines: 'الماكينات',
@@ -616,6 +616,45 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         monthly: 'شهري',
         weekly: 'أسبوعي',
         daily: 'يومي',
+    },
+    sparePartRequest: {
+        requestedParts: 'قطع الغيار المطلوبة',
+        addSparePart: 'إضافة قطعة غيار',
+        requestSparePart: 'طلب قطعة غيار',
+        approveSparePart: 'اعتماد قطعة الغيار',
+        rejectSparePart: 'رفض قطعة الغيار',
+        operationalReservation: 'حجز تشغيلي',
+        markPartUsed: 'استخدام القطعة',
+        cancelRequest: 'إلغاء الطلب',
+        requestedQuantity: 'الكمية المطلوبة',
+        approvedQuantity: 'الكمية المعتمدة',
+        reservedQuantity: 'الكمية المحجوزة',
+        usedQuantity: 'الكمية المستخدمة',
+        requestReason: 'سبب الطلب',
+        usageNotes: 'ملاحظات الاستخدام',
+        partRequested: 'تم طلب القطعة',
+        partApproved: 'تم اعتماد القطعة',
+        partReserved: 'تم حجز القطعة تشغيلياً',
+        partUsed: 'تم استخدام القطعة',
+        noStockDeducted: 'لا يتم خصم المخزون في هذه المرحلة',
+        noInventoryMovement: 'لا توجد حركة مخزون',
+        reason: 'السبب',
+        statusDraft: 'مسودة',
+        statusRequested: 'مطلوب',
+        statusApproved: 'معتمد',
+        statusRejected: 'مرفوض',
+        statusReserved: 'محجوز',
+        statusUsed: 'مستخدم',
+        statusCancelled: 'ملغي',
+        partsCount: 'عدد القطع',
+        requestedCount: 'عدد المطلوب',
+        approvedCount: 'عدد المعتمد',
+        reservedCount: 'عدد المحجوز',
+        usedCount: 'عدد المستخدم',
+        topRequestedParts: 'أكثر قطع الغيار طلباً',
+        topUsedParts: 'أكثر قطع الغيار استخداماً',
+        pendingApproval: 'بانتظار الاعتماد',
+        duplicatePartBlocked: 'يتم منع تكرار قطعة الغيار إلا بعد إلغاء السطر السابق',
     },
 };
 export default maintenance;
