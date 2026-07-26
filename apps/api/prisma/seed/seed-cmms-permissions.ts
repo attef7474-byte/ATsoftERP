@@ -157,6 +157,17 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "maintenance-request-parts:reserve", module: "maintenance-request-parts", action: "reserve" },
   { key: "maintenance-request-parts:use", module: "maintenance-request-parts", action: "use" },
   { key: "maintenance-request-parts:cancel", module: "maintenance-request-parts", action: "cancel" },
+  // maintenance-calendar (Batch N)
+  { key: "maintenance-calendar:read", module: "maintenance-calendar", action: "read" },
+  { key: "maintenance-calendar:update", module: "maintenance-calendar", action: "update" },
+  // maintenance-workload (Batch N)
+  { key: "maintenance-workload:read", module: "maintenance-workload", action: "read" },
+  { key: "maintenance-workload:manage", module: "maintenance-workload", action: "manage" },
+  // maintenance-planning (Batch N)
+  { key: "maintenance-planning:read", module: "maintenance-planning", action: "read" },
+  { key: "maintenance-planning:update", module: "maintenance-planning", action: "update" },
+  { key: "maintenance-planning:assign", module: "maintenance-planning", action: "assign" },
+  { key: "maintenance-planning:reschedule", module: "maintenance-planning", action: "reschedule" },
 ];
 
 async function main() {

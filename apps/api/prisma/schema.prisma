@@ -1174,8 +1174,9 @@ model MaintenanceRequest {
   assignedToId       String?
   assignedTo         User?     @relation("MaintenanceRequestAssignedTo", fields: [assignedToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   startDate          DateTime?
-  endDate            DateTime?
-  downtimeHours      Float?
+   endDate            DateTime?
+   estimatedDurationMinutes Int?  @map("estimated_duration_minutes")
+   downtimeHours      Float?
   cost               Float?
   isEmergency        Boolean?
   notes              String?
@@ -1356,8 +1357,9 @@ model MaintenancePersonnel {
   operationalPerson    OperationalPerson  @relation(fields: [operationalPersonId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   role                 String
   specialty            String?
-  isActive             Boolean            @default(true)
-  createdAt            DateTime           @default(now())
+   isActive             Boolean            @default(true)
+   dailyCapacityMinutes Int                @default(480) @map("daily_capacity_minutes")
+   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
   machineResponsibilities  MachineResponsibilityAssignment[]

@@ -37,6 +37,8 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         maintenancePersonnel: 'Maintenance Personnel',
         machineResponsibilities: 'Machine Responsibilities',
         maintenanceAccountability: 'Accountability',
+        maintenanceCalendar: 'Maintenance Calendar',
+        maintenanceWorkload: 'Workload Planning',
         settings: 'Settings',
         systemHealth: 'System Health',
         profile: 'Profile',

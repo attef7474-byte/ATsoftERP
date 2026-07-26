@@ -63,6 +63,7 @@ import { MaintenanceReliabilityModule } from './modules/factory/maintenance/main
 import { MaintenanceSparePartRequestLinesModule } from './modules/factory/maintenance/maintenance-spare-part-request-lines/maintenance-spare-part-request-lines.module'
 import { MaintenanceNotificationModule } from './modules/factory/maintenance/maintenance-notification/maintenance-notification.module'
 import { MaintenanceSlaModule } from './modules/factory/maintenance/maintenance-sla/maintenance-sla.module'
+import { MaintenanceCalendarWorkloadModule } from './modules/factory/maintenance/maintenance-calendar-workload/maintenance-calendar-workload.module'
 
 @Module({
   imports: [
@@ -90,6 +91,7 @@ import { MaintenanceSlaModule } from './modules/factory/maintenance/maintenance-
     MaintenanceSparePartRequestLinesModule,
     MaintenanceNotificationModule,
     MaintenanceSlaModule,
+    MaintenanceCalendarWorkloadModule,
   ],
 })
 export class AppModule {}

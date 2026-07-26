@@ -37,6 +37,8 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         maintenancePersonnel: 'كادر الصيانة',
         machineResponsibilities: 'مسؤوليات الماكينات',
         maintenanceAccountability: 'المسؤوليات',
+        maintenanceCalendar: 'تقويم الصيانة',
+        maintenanceWorkload: 'تخطيط حمل العمل',
         settings: 'الإعدادات',
         systemHealth: 'صحة النظام',
         profile: 'الملف الشخصي',
