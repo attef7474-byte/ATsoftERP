@@ -80,28 +80,26 @@ export class MachineComponentsService {
   }
 
   async update(id: string, dto: UpdateMachineComponentDto, userId: string) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
+    if (dto.code && dto.code !== existing.code) {
+      throw new BadRequestException('Code cannot be changed after creation');
+    }
+    const { code, ...updateDto } = dto;
 
-    if (dto.machineId) {
-      const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
+    if (updateDto.machineId) {
+      const machine = await this.prisma.machine.findUnique({ where: { id: updateDto.machineId } });
       if (!machine) throw new BadRequestException('Machine not found');
     }
 
-    if (dto.code) {
-      const machineId = dto.machineId || (await this.prisma.machineComponent.findUnique({ where: { id } }))?.machineId;
-      const existing = await this.prisma.machineComponent.findUnique({ where: { machineId_code: { machineId: machineId!, code: dto.code } } });
-      if (existing && existing.id !== id) throw new ConflictException('Component code already exists for this machine');
-    }
-
-    if (dto.parentComponentId) {
-      if (dto.parentComponentId === id) throw new BadRequestException('A component cannot be its own parent');
-      const targetMachineId = dto.machineId || (await this.prisma.machineComponent.findUnique({ where: { id } }))?.machineId;
-      await this.validateParent(dto.parentComponentId, targetMachineId!);
-      await this.detectCycle(id, dto.parentComponentId);
+    if (updateDto.parentComponentId) {
+      if (updateDto.parentComponentId === id) throw new BadRequestException('A component cannot be its own parent');
+      const targetMachineId = updateDto.machineId || (await this.prisma.machineComponent.findUnique({ where: { id } }))?.machineId;
+      await this.validateParent(updateDto.parentComponentId, targetMachineId!);
+      await this.detectCycle(id, updateDto.parentComponentId);
     }
 
     const component = await this.prisma.machineComponent.update({
-      where: { id }, data: dto,
+      where: { id }, data: updateDto,
       include: {
         machine: { select: { id: true, name: true, code: true } },
         parentComponent: { select: { id: true, name: true, code: true } },
@@ -113,6 +111,10 @@ export class MachineComponentsService {
 
   async remove(id: string, userId: string) {
     await this.findOne(id);
+    const childCount = await this.prisma.machineComponent.count({ where: { parentComponentId: id, deletedAt: null } });
+    if (childCount > 0) throw new ConflictException('Cannot delete component with child components');
+    const partCount = await this.prisma.componentSparePart.count({ where: { componentId: id } });
+    if (partCount > 0) throw new ConflictException('Cannot delete component with linked spare parts');
     await this.prisma.machineComponent.update({ where: { id }, data: { deletedAt: new Date() } });
     await this.auditService.log(userId, 'DELETE', 'MachineComponent', id, { message: `Deleted machine component: ${id}` });
     return { message: 'Machine component deleted successfully' };

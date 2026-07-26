@@ -10,7 +10,7 @@ import { Button, Input, Select, Textarea, Pagination, PageHeader, Modal, Confirm
 import { CmmsStatusBadge, CmmsPriorityBadge } from '../../../../components/maintenance';
 import { F9Lookup, machineAdapter, userAdapter, productionLineAdapter, machineComponentAdapter, operationTypeAdapter, costCenterAdapter, sparePartAdapter } from '../../../../components/f9';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionDeleteIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MaintenanceRequestsPage() {
   const router = useRouter();
@@ -29,22 +29,25 @@ export default function MaintenanceRequestsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MaintenanceRequest | null>(null);
-  const [form, setForm] = useState({ machineId: '', title: '', description: '', type: '', priority: 'MEDIUM', assignedToId: '' });
+  const [form, setForm] = useState({ machineId: '', title: '', description: '', type: '', priority: 'MEDIUM', assignedToId: '', requestNumber: '' });
   const [saving, setSaving] = useState(false);
 
   const [actionConfirmOpen, setActionConfirmOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [pendingAction, setPendingAction] = useState('');
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
 
   const { exec } = useStableHandlers({
     new: () => openCreate(),
-    edit: () => selectedRecord && openEdit(selectedRecord),
+    edit: () => selectedRecord && openEdit(selectedRecord.id),
     refresh: () => fetchData(meta.page),
     start: () => confirmAction(selectedId, 'start'),
     complete: () => confirmAction(selectedId, 'complete'),
     cancel: () => confirmAction(selectedId, 'cancel'),
+    delete: () => confirmDelete(selectedId),
   });
 
   useRegisterAdminActions([
@@ -54,6 +57,7 @@ export default function MaintenanceRequestsPage() {
     { id: 'start', labelKey: 'common.start', icon: <ActionStartIcon />, onClick: () => exec('start'), enabled: !!(selectedId && selectedRecord?.status === 'OPEN') },
     { id: 'complete', labelKey: 'common.complete', icon: <ActionCompleteIcon />, onClick: () => exec('complete'), enabled: !!(selectedId && selectedRecord?.status === 'IN_PROGRESS') },
     { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(selectedId && (selectedRecord?.status === 'OPEN' || selectedRecord?.status === 'IN_PROGRESS')) },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -76,8 +80,34 @@ export default function MaintenanceRequestsPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const openCreate = () => { router.push('/admin/maintenance/requests/new'); };
-  const openEdit = (item: MaintenanceRequest) => { router.push(`/admin/maintenance/requests/${item.id}/edit`); };
+  const openCreate = () => {
+    setEditItem(null);
+    setForm({ machineId: '', title: '', description: '', type: '', priority: 'MEDIUM', assignedToId: '', requestNumber: '' });
+    setModalOpen(true);
+  };
+
+  const openEdit = async (id: string) => {
+    setLoadingDetail(true);
+    try {
+      const res = await api.get<{ data: MaintenanceRequest }>(`/maintenance/requests/${id}`);
+      const detail = res.data;
+      setEditItem(detail);
+      setForm({
+        machineId: detail.machineId || '',
+        title: detail.title || '',
+        description: detail.description || '',
+        type: detail.type || '',
+        priority: detail.priority || 'MEDIUM',
+        assignedToId: detail.assignedToId || '',
+        requestNumber: detail.requestNumber || '',
+      });
+      setModalOpen(true);
+    } catch (err: any) {
+      showToast(err?.message || t('errors.loadFailed'), 'error');
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!form.title || !form.machineId) { showToast(t('validation.required'), 'error'); return; }
@@ -107,6 +137,19 @@ export default function MaintenanceRequestsPage() {
       showToast(t(`common.successUpdated`), 'success');
       setActionConfirmOpen(false); fetchData(meta.page);
     } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const confirmDelete = (id: string) => { setSelectedId(id); setConfirmDeleteOpen(true); };
+  const handleDelete = async () => {
+    setSaving(true);
+    try {
+      await api.delete(`/maintenance/requests/${selectedId}`);
+      showToast(t('common.successDeleted'), 'success');
+      setConfirmDeleteOpen(false);
+      setSelectedId('');
+      fetchData(meta.page);
+    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -142,7 +185,8 @@ export default function MaintenanceRequestsPage() {
     { label: t('maintenance.start'), onClick: (r: MaintenanceRequest) => confirmAction(r.id, 'start'), enabled: (r: MaintenanceRequest) => r.status === 'OPEN' },
     { label: t('maintenance.complete'), onClick: (r: MaintenanceRequest) => confirmAction(r.id, 'complete'), enabled: (r: MaintenanceRequest) => r.status === 'IN_PROGRESS' },
     { label: t('maintenance.cancel'), onClick: (r: MaintenanceRequest) => confirmAction(r.id, 'cancel'), enabled: (r: MaintenanceRequest) => r.status === 'OPEN' || r.status === 'IN_PROGRESS', variant: 'danger' },
-    { label: t('actions.edit'), onClick: (r: MaintenanceRequest) => openEdit(r) },
+    { label: t('actions.edit'), onClick: (r: MaintenanceRequest) => openEdit(r.id) },
+    { label: t('common.delete'), onClick: (r: MaintenanceRequest) => confirmDelete(r.id), variant: 'danger' },
   ];
 
   return (
@@ -177,23 +221,37 @@ export default function MaintenanceRequestsPage() {
         <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editMaintenanceRequest') : t('maintenance.newMaintenanceRequest')} size="lg">
-        <div className="space-y-4 max-h-96 overflow-y-auto">
-          <Input label={t('common.title')} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
-          <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setForm({ ...form, machineId: v })} adapter={machineAdapter} />
-          <F9Lookup label={t('maintenance.assignedTo')} value={form.assignedToId} onChange={(v) => setForm({ ...form, assignedToId: v })} adapter={userAdapter} />
-          <div className="grid grid-cols-2 gap-4">
-            <Select label={t('maintenance.maintenanceType')} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} options={typeOptions} />
-            <Select label={t('maintenance.priority')} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} options={priorityOptions} />
+        {loadingDetail ? (
+          <div className="p-8 text-center">{t('common.loading')}...</div>
+        ) : (
+          <div className="space-y-4 max-h-96 overflow-y-auto">
+            {editItem ? (
+              <div>
+                <Input label={t('common.code')} value={form.requestNumber} disabled />
+                <p className="text-xs text-gray-500 mt-1">{t('common.codeImmutableHint')}</p>
+              </div>
+            ) : (
+              <Input label={t('common.code')} value={t('common.codeAutoGenerated')} disabled />
+            )}
+            <Input label={t('common.title')} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+            <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setForm({ ...form, machineId: v })} adapter={machineAdapter} />
+            <F9Lookup label={t('maintenance.assignedTo')} value={form.assignedToId} onChange={(v) => setForm({ ...form, assignedToId: v })} adapter={userAdapter} />
+            <div className="grid grid-cols-2 gap-4">
+              <Select label={t('maintenance.maintenanceType')} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} options={typeOptions} />
+              <Select label={t('maintenance.priority')} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} options={priorityOptions} />
+            </div>
+            <Textarea label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
+              <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
+            </div>
           </div>
-          <Textarea label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
-            <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
-          </div>
-        </div>
+        )}
       </Modal>
       <ConfirmDialog open={actionConfirmOpen} onClose={() => setActionConfirmOpen(false)} onConfirm={handleAction}
         title={t('common.confirm')} message={t('common.confirmDeactivateMessage')} variant="primary" loading={saving} />
+      <ConfirmDialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} onConfirm={handleDelete}
+        title={t('common.confirmDeleteTitle')} message={t('common.confirmDeleteMessage')} variant="danger" loading={saving} />
     </div>
   );
 }

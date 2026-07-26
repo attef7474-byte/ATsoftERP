@@ -85,14 +85,14 @@ export class ProductionLinesService {
   }
 
   async update(id: string, dto: UpdateProductionLineDto, userId: string) {
-    await this.findOne(id);
-    if (dto.code) {
-      const existing = await this.prisma.productionLine.findUnique({ where: { code: dto.code } });
-      if (existing && existing.id !== id) throw new ConflictException('Production line code already exists');
+    const existing = await this.findOne(id);
+    if (dto.code && dto.code !== existing.code) {
+      throw new BadRequestException('Code cannot be changed after creation');
     }
-    await this.validateHierarchy(dto);
+    const { code, ...updateDto } = dto;
+    await this.validateHierarchy(updateDto);
     const item = await this.prisma.productionLine.update({
-      where: { id }, data: dto,
+      where: { id }, data: updateDto,
       include: {
         company: { select: { id: true, name: true, code: true } },
         branch: { select: { id: true, name: true, code: true } },
@@ -108,6 +108,10 @@ export class ProductionLinesService {
 
   async remove(id: string, userId: string) {
     await this.findOne(id);
+    const machineCount = await this.prisma.machine.count({ where: { productionLineId: id, deletedAt: null } });
+    if (machineCount > 0) throw new ConflictException('Cannot delete production line with linked machines');
+    const requestCount = await this.prisma.maintenanceRequest.count({ where: { productionLineId: id, deletedAt: null } });
+    if (requestCount > 0) throw new ConflictException('Cannot delete production line with linked maintenance requests');
     await this.prisma.productionLine.update({ where: { id }, data: { deletedAt: new Date() } });
     await this.auditService.log(userId, 'DELETE', 'ProductionLine', id, { message: `Deleted production line: ${id}` });
     return { message: 'Production line deleted successfully' };

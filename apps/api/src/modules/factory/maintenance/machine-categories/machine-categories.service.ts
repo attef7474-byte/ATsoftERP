@@ -67,21 +67,29 @@ export class MachineCategoriesService {
   }
 
   async update(id: string, dto: UpdateMachineCategoryDto, userId: string) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
+    if (dto.code && dto.code !== existing.code) {
+      throw new BadRequestException('Code cannot be changed after creation');
+    }
+    const { code, ...updateDto } = dto;
 
-    if (dto.parentId) {
-      if (dto.parentId === id) throw new BadRequestException('A category cannot be its own parent');
-      const parent = await this.prisma.machineCategory.findUnique({ where: { id: dto.parentId } });
+    if (updateDto.parentId) {
+      if (updateDto.parentId === id) throw new BadRequestException('A category cannot be its own parent');
+      const parent = await this.prisma.machineCategory.findUnique({ where: { id: updateDto.parentId } });
       if (!parent) throw new NotFoundException('Parent category not found');
     }
 
-    const category = await this.prisma.machineCategory.update({ where: { id }, data: dto });
+    const category = await this.prisma.machineCategory.update({ where: { id }, data: updateDto });
     await this.auditService.log(userId, 'UPDATE', 'MachineCategory', id, { message: `Updated machine category: ${category.code}` });
     return category;
   }
 
   async remove(id: string, userId: string) {
     await this.findOne(id);
+    const machineCount = await this.prisma.machine.count({ where: { categoryId: id, deletedAt: null } });
+    if (machineCount > 0) throw new ConflictException('Cannot delete machine category with linked machines');
+    const childCount = await this.prisma.machineCategory.count({ where: { parentId: id, deletedAt: null } });
+    if (childCount > 0) throw new ConflictException('Cannot delete machine category with child categories');
     await this.prisma.machineCategory.update({ where: { id }, data: { deletedAt: new Date() } });
     await this.auditService.log(userId, 'DELETE', 'MachineCategory', id, { message: `Deleted machine category: ${id}` });
     return { message: 'Machine category deleted successfully' };

@@ -109,15 +109,15 @@ export class MaintenancePersonnelService {
     if (!existing) throw new NotFoundException('Maintenance personnel not found');
 
     if (dto.code && dto.code !== existing.operationalPerson.code) {
-      const conflict = await this.prisma.operationalPerson.findUnique({ where: { code: dto.code } });
-      if (conflict) throw new ConflictException('Personnel code already exists');
+      throw new BadRequestException('Code cannot be changed after creation');
     }
+    const { code, ...restDto } = dto;
 
-    if (dto.userId !== undefined && dto.userId !== existing.operationalPerson.userId) {
-      if (dto.userId) {
-        const user = await this.prisma.user.findUnique({ where: { id: dto.userId } });
+    if (restDto.userId !== undefined && restDto.userId !== existing.operationalPerson.userId) {
+      if (restDto.userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: restDto.userId } });
         if (!user) throw new BadRequestException('User not found');
-        const conflict = await this.prisma.operationalPerson.findFirst({ where: { userId: dto.userId, id: { not: existing.operationalPersonId } } });
+        const conflict = await this.prisma.operationalPerson.findFirst({ where: { userId: restDto.userId, id: { not: existing.operationalPersonId } } });
         if (conflict) throw new ConflictException('User is already linked to another operational person');
       }
     }
@@ -126,22 +126,21 @@ export class MaintenancePersonnelService {
       await tx.operationalPerson.update({
         where: { id: existing.operationalPersonId },
         data: {
-          ...(dto.code !== undefined ? { code: dto.code } : {}),
-          ...(dto.name !== undefined ? { name: dto.name } : {}),
-          ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
-          ...(dto.email !== undefined ? { email: dto.email } : {}),
-          ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
-          ...(dto.userId !== undefined ? { userId: dto.userId } : {}),
-          ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+          ...(restDto.name !== undefined ? { name: restDto.name } : {}),
+          ...(restDto.phone !== undefined ? { phone: restDto.phone } : {}),
+          ...(restDto.email !== undefined ? { email: restDto.email } : {}),
+          ...(restDto.notes !== undefined ? { notes: restDto.notes } : {}),
+          ...(restDto.userId !== undefined ? { userId: restDto.userId } : {}),
+          ...(restDto.isActive !== undefined ? { isActive: restDto.isActive } : {}),
         },
       });
 
       const updated = await tx.maintenancePersonnel.update({
         where: { id },
         data: {
-          ...(dto.role !== undefined ? { role: dto.role } : {}),
-          ...(dto.specialty !== undefined ? { specialty: dto.specialty } : {}),
-          ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+          ...(restDto.role !== undefined ? { role: restDto.role } : {}),
+          ...(restDto.specialty !== undefined ? { specialty: restDto.specialty } : {}),
+          ...(restDto.isActive !== undefined ? { isActive: restDto.isActive } : {}),
         },
         include: {
           operationalPerson: {
@@ -201,9 +200,15 @@ export class MaintenancePersonnelService {
   async remove(id: string) {
     const existing = await this.prisma.maintenancePersonnel.findUnique({
       where: { id },
-      include: { operationalPerson: true },
+      include: { operationalPerson: true, _count: { select: { machineResponsibilities: true, requestAssignments: true } } },
     });
     if (!existing) throw new NotFoundException('Maintenance personnel not found');
+    if (existing._count.machineResponsibilities > 0) {
+      throw new ConflictException('Cannot deactivate personnel with linked machine responsibilities');
+    }
+    if (existing._count.requestAssignments > 0) {
+      throw new ConflictException('Cannot deactivate personnel with linked request assignments');
+    }
 
     return this.prisma.$transaction(async (tx) => {
       await tx.operationalPerson.update({ where: { id: existing.operationalPersonId }, data: { isActive: false } });

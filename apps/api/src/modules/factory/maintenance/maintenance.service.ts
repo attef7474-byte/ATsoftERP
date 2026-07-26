@@ -143,8 +143,11 @@ export class MaintenanceService {
 
   async updateMachine(id: string, dto: UpdateMachineDto) {
     const existing = await this.findOneMachine(id);
+    if (dto.code && dto.code !== existing.code) {
+      throw new BadRequestException('Code cannot be changed after creation');
+    }
     await this.validateMachineReferences(dto, existing);
-    const { purchaseDate, warrantyEnd, ...rest } = dto as any;
+    const { code, purchaseDate, warrantyEnd, ...rest } = dto as any;
     const data: any = { ...rest };
     if (purchaseDate) data.purchaseDate = new Date(purchaseDate);
     if (warrantyEnd) data.warrantyEnd = new Date(warrantyEnd);
@@ -166,7 +169,15 @@ export class MaintenanceService {
   }
 
   async removeMachine(id: string) {
-    await this.findOneMachine(id);
+    const existing = await this.findOneMachine(id);
+    const componentCount = await this.prisma.machineComponent.count({ where: { machineId: id, deletedAt: null } });
+    if (componentCount > 0) throw new ConflictException('Cannot delete machine with linked components');
+    const reqCount = await this.prisma.maintenanceRequest.count({ where: { machineId: id, deletedAt: null } });
+    if (reqCount > 0) throw new ConflictException('Cannot delete machine with linked maintenance requests');
+    const scheduleCount = await this.prisma.maintenanceSchedule.count({ where: { machineId: id } });
+    if (scheduleCount > 0) throw new ConflictException('Cannot delete machine with linked schedules');
+    const dtCount = await this.prisma.downtimeLog.count({ where: { machineId: id } });
+    if (dtCount > 0) throw new ConflictException('Cannot delete machine with linked downtime logs');
     await this.prisma.machine.update({ where: { id }, data: { deletedAt: new Date() } });
     return { message: 'Machine deleted successfully' };
   }

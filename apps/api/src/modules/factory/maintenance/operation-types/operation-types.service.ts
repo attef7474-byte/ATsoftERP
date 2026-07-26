@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../numbering/numbering.service';
@@ -52,14 +52,24 @@ export class OperationTypesService {
   }
 
   async update(id: string, dto: UpdateOperationTypeDto, userId: string) {
-    await this.findOne(id);
-    const item = await this.prisma.operationType.update({ where: { id }, data: dto });
+    const existing = await this.findOne(id);
+    if (dto.code && dto.code !== existing.code) {
+      throw new BadRequestException('Code cannot be changed after creation');
+    }
+    const { code, ...updateDto } = dto;
+    const item = await this.prisma.operationType.update({ where: { id }, data: updateDto });
     await this.auditService.log(userId, 'UPDATE', 'OperationType', id, { message: `Updated operation type: ${item.code}` });
     return item;
   }
 
   async remove(id: string, userId: string) {
     await this.findOne(id);
+    const machineCount = await this.prisma.machine.count({ where: { operationTypeId: id, deletedAt: null } });
+    if (machineCount > 0) throw new ConflictException('Cannot delete operation type with linked machines');
+    const plCount = await this.prisma.productionLine.count({ where: { operationTypeId: id, deletedAt: null } });
+    if (plCount > 0) throw new ConflictException('Cannot delete operation type with linked production lines');
+    const reqCount = await this.prisma.maintenanceRequest.count({ where: { operationTypeId: id, deletedAt: null } });
+    if (reqCount > 0) throw new ConflictException('Cannot delete operation type with linked maintenance requests');
     await this.prisma.operationType.update({ where: { id }, data: { deletedAt: new Date() } });
     await this.auditService.log(userId, 'DELETE', 'OperationType', id, { message: `Deleted operation type: ${id}` });
     return { message: 'Operation type deleted successfully' };

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenancePersonnelService } from './maintenance-personnel.service';
 import { CreateMaintenancePersonnelDto, UpdateMaintenancePersonnelDto } from './dto/create-maintenance-personnel.dto';
@@ -65,7 +65,7 @@ export class MaintenancePersonnelController {
   @Delete(':id')
   @Permissions('maintenance-personnel:delete')
   @ApiOperation({ summary: 'Delete maintenance personnel' })
-  remove(@Param('id') id: string) {
+  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.service.remove(id);
   }
 }

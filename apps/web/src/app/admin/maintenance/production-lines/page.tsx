@@ -27,7 +27,9 @@ export default function ProductionLinesPage() {
     operationTypeId: '', costCenterId: '', status: 'ACTIVE',
   });
   const [saving, setSaving] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmStatusOpen, setConfirmStatusOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
 
   const [companies, setCompanies] = useState<any[]>([]);
@@ -41,10 +43,11 @@ export default function ProductionLinesPage() {
 
   const { exec } = useStableHandlers({
     new: () => openCreate(),
-    edit: () => selectedRecord && openEdit(selectedRecord),
+    edit: () => selectedRecord && openEdit(selectedRecord.id),
     refresh: () => fetchData(meta.page),
     activate: () => confirmStatus(selectedId),
     deactivate: () => confirmStatus(selectedId),
+    delete: () => selectedId && setConfirmDeleteOpen(true),
   });
 
   useRegisterAdminActions([
@@ -53,6 +56,7 @@ export default function ProductionLinesPage() {
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
     { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
     { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -113,19 +117,28 @@ export default function ProductionLinesPage() {
     setModalOpen(true);
   };
 
-  const openEdit = (item: ProductionLine) => {
-    setEditItem(item);
-    setForm({
-      code: item.code, name: item.name, description: item.description || '', location: item.location || '',
-      companyId: item.companyId, branchId: item.branchId, administrationId: item.administrationId || '',
-      departmentId: item.departmentId, operationTypeId: item.operationTypeId,
-      costCenterId: item.costCenterId || '', status: item.status,
-    });
-    fetchLookups();
-    fetchBranches(item.companyId);
-    if (item.branchId) fetchAdministrations(item.branchId);
-    if (item.administrationId) fetchDepartments(item.administrationId);
+  const openEdit = async (id: string) => {
+    setLoadingDetail(true);
     setModalOpen(true);
+    try {
+      const res = await api.get<ProductionLine>(`/maintenance/production-lines/${id}`);
+      const item = res;
+      setEditItem(item);
+      setForm({
+        code: item.code, name: item.name, description: item.description || '', location: item.location || '',
+        companyId: item.companyId, branchId: item.branchId, administrationId: item.administrationId || '',
+        departmentId: item.departmentId, operationTypeId: item.operationTypeId,
+        costCenterId: item.costCenterId || '', status: item.status,
+      });
+      fetchLookups();
+      fetchBranches(item.companyId);
+      if (item.branchId) fetchAdministrations(item.branchId);
+      if (item.administrationId) fetchDepartments(item.administrationId);
+    } catch (err: any) {
+      showToast(err?.message || t('errors.loadFailed'), 'error');
+      setModalOpen(false);
+    }
+    finally { setLoadingDetail(false); }
   };
 
   const handleSave = async () => {
@@ -135,7 +148,7 @@ export default function ProductionLinesPage() {
     setSaving(true);
     try {
       const payload: any = {
-        code: form.code || undefined, name: form.name, description: form.description || undefined,
+        name: form.name, description: form.description || undefined,
         location: form.location || undefined, companyId: form.companyId, branchId: form.branchId,
         administrationId: form.administrationId || undefined, departmentId: form.departmentId,
         operationTypeId: form.operationTypeId, costCenterId: form.costCenterId || undefined,
@@ -145,7 +158,7 @@ export default function ProductionLinesPage() {
         await api.patch(`/maintenance/production-lines/${editItem.id}`, payload);
         showToast(t('common.successUpdated'), 'success');
       } else {
-        await api.post('/maintenance/production-lines', payload);
+        await api.post('/maintenance/production-lines', { ...payload, code: form.code || undefined });
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
@@ -153,7 +166,7 @@ export default function ProductionLinesPage() {
     finally { setSaving(false); }
   };
 
-  const confirmStatus = (id: string) => { setSelectedId(id); setConfirmOpen(true); };
+  const confirmStatus = (id: string) => { setSelectedId(id); setConfirmStatusOpen(true); };
   const handleStatusChange = async () => {
     setSaving(true);
     try {
@@ -165,8 +178,18 @@ export default function ProductionLinesPage() {
         await api.patch(`/maintenance/production-lines/${selectedId}/deactivate`);
       }
       showToast(status === 'ACTIVE' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
-      setConfirmOpen(false); fetchData(meta.page);
+      setConfirmStatusOpen(false); fetchData(meta.page);
     } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    setSaving(true);
+    try {
+      await api.delete(`/maintenance/production-lines/${selectedId}`);
+      showToast(t('common.successDeleted'), 'success');
+      setConfirmDeleteOpen(false); setSelectedId(''); fetchData(1);
+    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -184,7 +207,8 @@ export default function ProductionLinesPage() {
   ];
 
   const gridActions: GridAction<ProductionLine>[] = [
-    { label: t('actions.edit'), onClick: (p: ProductionLine) => openEdit(p) },
+    { label: t('actions.edit'), onClick: (p: ProductionLine) => openEdit(p.id) },
+    { label: t('common.delete'), onClick: (p: ProductionLine) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
     { label: t('actions.deactivate'), onClick: (p: ProductionLine) => confirmStatus(p.id), enabled: (p: ProductionLine) => p.status === 'ACTIVE', variant: 'danger' },
     { label: t('actions.activate'), onClick: (p: ProductionLine) => confirmStatus(p.id), enabled: (p: ProductionLine) => p.status !== 'ACTIVE' },
   ];
@@ -214,9 +238,22 @@ export default function ProductionLinesPage() {
         <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editProductionLine') : t('maintenance.newProductionLine')} size="lg">
+        {loadingDetail ? (
+          <div className="text-center py-8">{t('common.loading')}</div>
+        ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+            {editItem ? (
+              <div>
+                <Input label={t('common.code')} value={form.code} disabled />
+                <p className="text-xs text-gray-500 mt-1">{t('common.codeImmutableHint')}</p>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('common.code')}</label>
+                <p className="text-sm text-gray-500 italic">{t('common.codeAutoGenerated')}</p>
+              </div>
+            )}
             <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -254,9 +291,12 @@ export default function ProductionLinesPage() {
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
         </div>
+        )}
       </Modal>
-      <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleStatusChange}
+      <ConfirmDialog open={confirmStatusOpen} onClose={() => setConfirmStatusOpen(false)} onConfirm={handleStatusChange}
         title={t('common.confirmDeactivateTitle')} message={t('common.confirmDeactivateMessage')} variant="danger" loading={saving} />
+      <ConfirmDialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} onConfirm={handleDelete}
+        title={t('common.confirmDeleteTitle')} message={t('common.confirmDeleteMessage')} variant="danger" loading={saving} />
     </div>
   );
 }

@@ -79,10 +79,14 @@ export class CostCentersService {
   }
 
   async update(id: string, dto: UpdateCostCenterDto, userId: string) {
-    await this.findOne(id);
-    await this.validateHierarchy(dto);
+    const existing = await this.findOne(id);
+    if (dto.code && dto.code !== existing.code) {
+      throw new BadRequestException('Code cannot be changed after creation');
+    }
+    const { code, ...updateDto } = dto;
+    await this.validateHierarchy(updateDto);
     const item = await this.prisma.costCenter.update({
-      where: { id }, data: dto,
+      where: { id }, data: updateDto,
       include: {
         company: { select: { id: true, name: true, code: true } },
         branch: { select: { id: true, name: true, code: true } },
@@ -96,6 +100,12 @@ export class CostCentersService {
 
   async remove(id: string, userId: string) {
     await this.findOne(id);
+    const machineCount = await this.prisma.machine.count({ where: { defaultCostCenterId: id, deletedAt: null } });
+    if (machineCount > 0) throw new ConflictException('Cannot delete cost center with linked machines');
+    const plCount = await this.prisma.productionLine.count({ where: { costCenterId: id, deletedAt: null } });
+    if (plCount > 0) throw new ConflictException('Cannot delete cost center with linked production lines');
+    const reqCount = await this.prisma.maintenanceRequest.count({ where: { costCenterId: id, deletedAt: null } });
+    if (reqCount > 0) throw new ConflictException('Cannot delete cost center with linked maintenance requests');
     await this.prisma.costCenter.update({ where: { id }, data: { deletedAt: new Date() } });
     await this.auditService.log(userId, 'DELETE', 'CostCenter', id, { message: `Deleted cost center: ${id}` });
     return { message: 'Cost center deleted successfully' };

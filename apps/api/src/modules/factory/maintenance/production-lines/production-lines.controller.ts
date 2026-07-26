@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ProductionLinesService } from './production-lines.service';
 import { CreateProductionLineDto } from './dto/create-production-line.dto';
@@ -60,7 +60,7 @@ export class ProductionLinesController {
   @Delete(':id')
   @Permissions('productionLines:delete')
   @ApiOperation({ summary: 'Soft delete production line' })
-  remove(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @CurrentUser('sub') userId: string) {
     return this.service.remove(id, userId);
   }
 

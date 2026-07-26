@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { CreateMachinePartDto } from './dto/create-machine-part.dto';
@@ -66,25 +66,31 @@ export class MachinePartsService {
   }
 
   async update(id: string, dto: UpdateMachinePartDto, userId: string) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
+    if (dto.code && dto.code !== existing.code) {
+      throw new BadRequestException('Code cannot be changed after creation');
+    }
+    const { code, ...updateDto } = dto;
 
-    if (dto.machineId) {
-      const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
+    if (updateDto.machineId) {
+      const machine = await this.prisma.machine.findUnique({ where: { id: updateDto.machineId } });
       if (!machine) throw new NotFoundException('Machine not found');
     }
 
-    if (dto.productId) {
-      const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
+    if (updateDto.productId) {
+      const product = await this.prisma.product.findUnique({ where: { id: updateDto.productId } });
       if (!product) throw new NotFoundException('Product not found');
     }
 
-    const part = await this.prisma.machinePart.update({ where: { id }, data: dto });
+    const part = await this.prisma.machinePart.update({ where: { id }, data: updateDto });
     await this.auditService.log(userId, 'UPDATE', 'MachinePart', id, { message: `Updated machine part: ${part.code}` });
     return part;
   }
 
   async remove(id: string, userId: string) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
+    const usageCount = await this.prisma.maintenanceRequestPartUsage.count({ where: { productId: existing.productId || '' } });
+    if (usageCount > 0) throw new ConflictException('Cannot delete machine part with linked usage records');
     await this.prisma.machinePart.delete({ where: { id } });
     await this.auditService.log(userId, 'DELETE', 'MachinePart', id, { message: `Deleted machine part: ${id}` });
     return { message: 'Machine part deleted successfully' };

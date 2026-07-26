@@ -51,7 +51,6 @@ export default function EditMachinePage() {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.code.trim()) errs.code = t('complexForms.requiredField');
     if (!form.name.trim()) errs.name = t('complexForms.requiredField');
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -62,7 +61,6 @@ export default function EditMachinePage() {
     setSaving(true);
     try {
       const payload: Record<string, any> = {};
-      if (form.code.trim() !== data?.code) payload.code = form.code.trim();
       if (form.name.trim() !== data?.name) payload.name = form.name.trim();
       if (form.categoryId !== data?.categoryId) payload.categoryId = form.categoryId || null;
       if (form.companyId !== data?.companyId) payload.companyId = form.companyId || null;
@@ -126,7 +124,10 @@ export default function EditMachinePage() {
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-gray-900">{t('complexForms.basicInformation')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label={t('maintenance.code')} value={form.code} onChange={(e) => setField('code', e.target.value)} error={errors.code} required disabled={isReadOnly} />
+              <div>
+                <Input label={t('maintenance.code')} value={form.code} disabled />
+                <p className="text-xs text-gray-500 mt-1">{t('common.codeImmutableHint')}</p>
+              </div>
               <Input label={t('maintenance.name')} value={form.name} onChange={(e) => setField('name', e.target.value)} error={errors.name} required disabled={isReadOnly} />
             </div>
 

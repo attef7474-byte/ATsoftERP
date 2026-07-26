@@ -23,17 +23,20 @@ export default function OperationTypesPage() {
   const [editItem, setEditItem] = useState<OperationType | null>(null);
   const [form, setForm] = useState({ code: '', name: '', description: '' });
   const [saving, setSaving] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmStatusOpen, setConfirmStatusOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
 
 const { exec } = useStableHandlers({
   new: () => openCreate(),
-  edit: () => selectedRecord && openEdit(selectedRecord),
+  edit: () => selectedRecord && openEdit(selectedRecord.id),
   refresh: () => fetchData(meta.page),
   activate: () => confirmStatus(selectedId),
   deactivate: () => confirmStatus(selectedId),
+  delete: () => selectedId && setConfirmDeleteOpen(true),
 });
 
 useRegisterAdminActions([
@@ -42,6 +45,7 @@ useRegisterAdminActions([
   { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
   { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
 ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -62,23 +66,32 @@ useRegisterAdminActions([
     setForm({ code: '', name: '', description: '' });
     setModalOpen(true);
   };
-  const openEdit = (item: OperationType) => {
-    setEditItem(item);
-    setForm({ code: item.code, name: item.name, description: item.description || '' });
+  const openEdit = async (id: string) => {
+    setLoadingDetail(true);
     setModalOpen(true);
+    try {
+      const res = await api.get<OperationType>(`/maintenance/operation-types/${id}`);
+      const item = res;
+      setEditItem(item);
+      setForm({ code: item.code, name: item.name, description: item.description || '' });
+    } catch (err: any) {
+      showToast(err?.message || t('errors.loadFailed'), 'error');
+      setModalOpen(false);
+    }
+    finally { setLoadingDetail(false); }
   };
 
   const handleSave = async () => {
-    if (!form.code || !form.name) { showToast(t('validation.required'), 'error'); return; }
+    if (!form.name) { showToast(t('validation.required'), 'error'); return; }
     setSaving(true);
     try {
-      const payload: any = { code: form.code, name: form.name };
-      if (form.description) payload.description = form.description;
       if (editItem) {
+        const { code, ...payload } = form;
         await api.patch(`/maintenance/operation-types/${editItem.id}`, payload);
         showToast(t('common.successUpdated'), 'success');
       } else {
-        await api.post('/maintenance/operation-types', payload);
+        if (!form.code) { showToast(t('validation.required'), 'error'); setSaving(false); return; }
+        await api.post('/maintenance/operation-types', { code: form.code, name: form.name, description: form.description || undefined });
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
@@ -86,7 +99,7 @@ useRegisterAdminActions([
     finally { setSaving(false); }
   };
 
-  const confirmStatus = (id: string) => { setSelectedId(id); setConfirmOpen(true); };
+  const confirmStatus = (id: string) => { setSelectedId(id); setConfirmStatusOpen(true); };
   const handleStatusChange = async () => {
     setSaving(true);
     try {
@@ -98,8 +111,18 @@ useRegisterAdminActions([
         await api.patch(`/maintenance/operation-types/${selectedId}/deactivate`);
       }
       showToast(status === 'ACTIVE' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
-      setConfirmOpen(false); fetchData(meta.page);
+      setConfirmStatusOpen(false); fetchData(meta.page);
     } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    setSaving(true);
+    try {
+      await api.delete(`/maintenance/operation-types/${selectedId}`);
+      showToast(t('common.successDeleted'), 'success');
+      setConfirmDeleteOpen(false); setSelectedId(''); fetchData(1);
+    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -111,7 +134,8 @@ useRegisterAdminActions([
   ];
 
   const gridActions: GridAction<OperationType>[] = [
-    { label: t('actions.edit'), onClick: (p: OperationType) => openEdit(p) },
+    { label: t('actions.edit'), onClick: (p: OperationType) => openEdit(p.id) },
+    { label: t('common.delete'), onClick: (p: OperationType) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
     { label: t('actions.deactivate'), onClick: (p: OperationType) => confirmStatus(p.id), enabled: (p: OperationType) => p.status === 'ACTIVE', variant: 'danger' },
     { label: t('actions.activate'), onClick: (p: OperationType) => confirmStatus(p.id), enabled: (p: OperationType) => p.status !== 'ACTIVE' },
   ];
@@ -141,9 +165,22 @@ useRegisterAdminActions([
         <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editOperationType') : t('maintenance.newOperationType')} size="lg">
+        {loadingDetail ? (
+          <div className="text-center py-8">{t('common.loading')}</div>
+        ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
+            {editItem ? (
+              <div>
+                <Input label={t('common.code')} value={form.code} disabled />
+                <p className="text-xs text-gray-500 mt-1">{t('common.codeImmutableHint')}</p>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('common.code')}</label>
+                <p className="text-sm text-gray-500 italic">{t('common.codeAutoGenerated')}</p>
+              </div>
+            )}
             <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           </div>
           <Input label={t('maintenance.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
@@ -152,9 +189,12 @@ useRegisterAdminActions([
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
         </div>
+        )}
       </Modal>
-      <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleStatusChange}
+      <ConfirmDialog open={confirmStatusOpen} onClose={() => setConfirmStatusOpen(false)} onConfirm={handleStatusChange}
         title={t('common.confirmDeactivateTitle')} message={t('common.confirmDeactivateMessage')} variant="danger" loading={saving} />
+      <ConfirmDialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} onConfirm={handleDelete}
+        title={t('common.confirmDeleteTitle')} message={t('common.confirmDeleteMessage')} variant="danger" loading={saving} />
     </div>
   );
 }

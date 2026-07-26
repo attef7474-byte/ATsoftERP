@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceTasksService } from './maintenance-tasks.service';
 import { CreateMaintenanceTaskDto } from './dto/create-maintenance-task.dto';
@@ -107,5 +107,5 @@ export class MaintenanceTasksController {
   @Delete(':id')
   @Permissions('maintenance-task:delete')
   @ApiOperation({ summary: 'Delete maintenance task' })
-  remove(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.remove(id, userId); }
+  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @CurrentUser('id') userId: string) { return this.service.remove(id, userId); }
 }

@@ -26,15 +26,18 @@ export default function MachinePartsPage() {
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
 
 const { exec } = useStableHandlers({
   new: () => openCreate(),
-  edit: () => selectedRecord && openEdit(selectedRecord),
+  edit: () => selectedId && openEdit(selectedId),
   refresh: () => fetchData(meta.page),
   activate: () => confirmStatus(selectedId),
   deactivate: () => confirmStatus(selectedId),
+  delete: () => setConfirmDeleteOpen(true),
 });
 
 useRegisterAdminActions([
@@ -43,6 +46,7 @@ useRegisterAdminActions([
   { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
   { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!selectedId, variant: 'danger' },
 ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -63,23 +67,30 @@ useRegisterAdminActions([
     setForm({ code: '', name: '', description: '', machineId: '', productId: '', partNumber: '', serialNumber: '', manufacturer: '', quantity: 1, unit: '', replacementInterval: '' });
     setModalOpen(true);
   };
-  const openEdit = (item: MachinePart) => {
-    setEditItem(item);
-    setForm({
-      code: item.code, name: item.name, description: item.description || '',
-      machineId: item.machineId || '', productId: item.productId || '',
-      partNumber: item.partNumber || '', serialNumber: item.serialNumber || '',
-      manufacturer: item.manufacturer || '', quantity: item.quantity, unit: item.unit || '',
-      replacementInterval: item.replacementInterval ? String(item.replacementInterval) : '',
-    });
-    setModalOpen(true);
+  const openEdit = async (id: string) => {
+    setLoadingDetail(true);
+    try {
+      const res = await api.get<MachinePart>('/maintenance/machine-parts/' + id);
+      const item = res as any;
+      setEditItem(item);
+      setForm({
+        code: item.code, name: item.name, description: item.description || '',
+        machineId: item.machineId || '', productId: item.productId || '',
+        partNumber: item.partNumber || '', serialNumber: item.serialNumber || '',
+        manufacturer: item.manufacturer || '', quantity: item.quantity, unit: item.unit || '',
+        replacementInterval: item.replacementInterval ? String(item.replacementInterval) : '',
+      });
+      setModalOpen(true);
+    } catch (err: any) { showToast(err?.message || t('errors.loadFailed'), 'error'); }
+    finally { setLoadingDetail(false); }
   };
 
   const handleSave = async () => {
-    if (!form.code || !form.name) { showToast(t('validation.required'), 'error'); return; }
+    if (!form.name) { showToast(t('validation.required'), 'error'); return; }
     setSaving(true);
     try {
-      const payload: any = { code: form.code, name: form.name };
+      const payload: any = { name: form.name };
+      if (!editItem) payload.code = form.code;
       if (form.description) payload.description = form.description;
       if (form.machineId) payload.machineId = form.machineId;
       if (form.productId) payload.productId = form.productId;
@@ -118,6 +129,19 @@ useRegisterAdminActions([
     finally { setSaving(false); }
   };
 
+  const handleDelete = async () => {
+    if (!selectedId) return;
+    setSaving(true);
+    try {
+      await api.delete('/maintenance/machine-parts/' + selectedId);
+      showToast(t('common.successDeleted'), 'success');
+      setConfirmDeleteOpen(false);
+      setSelectedId('');
+      fetchData(meta.page);
+    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
+    finally { setSaving(false); }
+  };
+
   const columns: GridColumn<MachinePart>[] = [
     { key: 'code', header: t('common.code') },
     { key: 'name', header: t('common.name') },
@@ -128,9 +152,10 @@ useRegisterAdminActions([
   ];
 
   const gridActions: GridAction<MachinePart>[] = [
-    { label: t('actions.edit'), onClick: (p: MachinePart) => openEdit(p) },
+    { label: t('actions.edit'), onClick: (p: MachinePart) => openEdit(p.id) },
     { label: t('actions.deactivate'), onClick: (p: MachinePart) => confirmStatus(p.id), enabled: (p: MachinePart) => p.status === 'ACTIVE', variant: 'danger' },
     { label: t('actions.activate'), onClick: (p: MachinePart) => confirmStatus(p.id), enabled: (p: MachinePart) => p.status !== 'ACTIVE' },
+    { label: t('common.delete'), onClick: (p: MachinePart) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
   ];
 
   return (
@@ -160,7 +185,14 @@ useRegisterAdminActions([
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editMachinePart') : t('maintenance.newMachinePart')} size="lg">
         <div className="space-y-4 max-h-96 overflow-y-auto">
           <div className="grid grid-cols-2 gap-4">
-            <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
+            {editItem ? (
+              <div>
+                <Input label={t('common.code')} value={form.code} disabled />
+                <p className="text-sm text-gray-500 mt-1">{t('common.codeImmutableHint')}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">{t('common.codeAutoGenerated')}</p>
+            )}
             <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           </div>
           <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setForm({ ...form, machineId: v })} adapter={machineAdapter} />
@@ -181,6 +213,8 @@ useRegisterAdminActions([
       </Modal>
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleStatusChange}
         title={t('common.confirmDeactivateTitle')} message={t('common.confirmDeactivateMessage')} variant="danger" loading={saving} />
+      <ConfirmDialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} onConfirm={handleDelete}
+        title={t('common.confirmDeleteTitle')} message={t('common.confirmDeleteMessage')} variant="danger" loading={saving} />
     </div>
   );
 }

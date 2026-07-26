@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../numbering/numbering.service';
@@ -47,12 +47,12 @@ export class SparePartsService {
   }
 
   async update(id: string, dto: UpdateSparePartDto, userId: string) {
-    await this.findOne(id);
-    if (dto.code) {
-      const existing = await this.prisma.sparePart.findUnique({ where: { code: dto.code } });
-      if (existing && existing.id !== id) throw new ConflictException('Spare part code already exists');
+    const existing = await this.findOne(id);
+    if (dto.code && dto.code !== existing.code) {
+      throw new BadRequestException('Code cannot be changed after creation');
     }
-    const part = await this.prisma.sparePart.update({ where: { id }, data: dto });
+    const { code, ...updateDto } = dto;
+    const part = await this.prisma.sparePart.update({ where: { id }, data: updateDto });
     await this.auditService.log(userId, 'UPDATE', 'SparePart', id, { message: `Updated spare part: ${part.code}` });
     return part;
   }
@@ -73,6 +73,12 @@ export class SparePartsService {
 
   async remove(id: string, userId: string) {
     await this.findOne(id);
+    const machineLinkCount = await this.prisma.machineSparePart.count({ where: { sparePartId: id } });
+    if (machineLinkCount > 0) throw new ConflictException('Cannot delete spare part linked to machines');
+    const componentLinkCount = await this.prisma.componentSparePart.count({ where: { sparePartId: id } });
+    if (componentLinkCount > 0) throw new ConflictException('Cannot delete spare part linked to components');
+    const reqPartCount = await this.prisma.maintenanceRequestRequiredPart.count({ where: { sparePartId: id } });
+    if (reqPartCount > 0) throw new ConflictException('Cannot delete spare part with linked request parts');
     await this.prisma.sparePart.update({ where: { id }, data: { deletedAt: new Date() } });
     await this.auditService.log(userId, 'DELETE', 'SparePart', id, { message: `Deleted spare part: ${id}` });
     return { message: 'Spare part deleted successfully' };

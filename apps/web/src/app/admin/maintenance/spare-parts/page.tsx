@@ -7,7 +7,7 @@ import { useToast } from '../../../../components/admin/toast-provider';
 import { SparePart } from '../../../../lib/admin-types';
 import { Button, Input, Select, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon, ActionBackIcon } from '../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon, ActionDeleteIcon, ActionBackIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function SparePartsPage() {
   const router = useRouter();
@@ -22,6 +22,11 @@ export default function SparePartsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ id: string; action: 'activate' | 'deactivate' } | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState('');
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
   const [form, setForm] = useState({
     code: '', name: '', description: '', category: '', specification: '', unit: '',
     manufacturer: '', model: '', partNumber: '', barcode: '',
@@ -47,26 +52,36 @@ export default function SparePartsPage() {
     setModalOpen(true);
   }, []);
 
-  const openEdit = useCallback((item: SparePart) => {
-    setEditingId(item.id);
-    setForm({
-      code: item.code, name: item.name, description: item.description || '',
-      category: item.category || '', specification: item.specification || '',
-      unit: item.unit || '', manufacturer: item.manufacturer || '', model: item.model || '',
-      partNumber: item.partNumber || '', barcode: item.barcode || '',
-      minRecommendedStock: item.minRecommendedStock ?? 0,
-      maxRecommendedStock: item.maxRecommendedStock ?? 0,
-      reorderPoint: item.reorderPoint ?? 0, isCritical: item.isCritical,
-    });
+  const openEdit = useCallback(async (id: string) => {
+    setLoadingDetail(true);
+    setEditingId(id);
     setModalOpen(true);
-  }, []);
+    try {
+      const res = await api.get<SparePart>(`/maintenance/spare-parts/${id}`);
+      const item = res;
+      setForm({
+        code: item.code, name: item.name, description: item.description || '',
+        category: item.category || '', specification: item.specification || '',
+        unit: item.unit || '', manufacturer: item.manufacturer || '', model: item.model || '',
+        partNumber: item.partNumber || '', barcode: item.barcode || '',
+        minRecommendedStock: item.minRecommendedStock ?? 0,
+        maxRecommendedStock: item.maxRecommendedStock ?? 0,
+        reorderPoint: item.reorderPoint ?? 0, isCritical: item.isCritical,
+      });
+    } catch (e: any) {
+      showToast(e.message || t('errors.loadFailed'), 'error');
+      setModalOpen(false);
+    }
+    finally { setLoadingDetail(false); }
+  }, [showToast, t]);
 
   const handleSave = useCallback(async () => {
     if (!form.name) { showToast(t('validation.required'), 'error'); return; }
     setSaving(true);
     try {
       if (editingId) {
-        await api.patch(`/maintenance/spare-parts/${editingId}`, form);
+        const { code, ...payload } = form;
+        await api.patch(`/maintenance/spare-parts/${editingId}`, payload);
         showToast(t('maintenance.sparePartUpdated'), 'success');
       } else {
         await api.post('/maintenance/spare-parts', form);
@@ -86,15 +101,27 @@ export default function SparePartsPage() {
     } catch (e: any) { showToast(e.message, 'error'); }
   }, [meta.page, showToast, t, fetchData]);
 
+  const handleDelete = useCallback(async () => {
+    setSaving(true);
+    try {
+      await api.delete(`/maintenance/spare-parts/${selectedId}`);
+      showToast(t('common.successDeleted'), 'success');
+      setConfirmDeleteOpen(false); setSelectedId(''); fetchData(1);
+    } catch (e: any) { showToast(e.message || t('errors.deleteFailed'), 'error'); }
+    finally { setSaving(false); }
+  }, [selectedId, showToast, t, fetchData]);
+
   const { exec } = useStableHandlers({
     add: () => openNew(),
     refresh: () => fetchData(meta.page),
+    delete: () => selectedId && setConfirmDeleteOpen(true),
   });
 
-  useRegisterAdminActions(useMemo(() => [
+  useRegisterAdminActions([
     { id: 'add', labelKey: 'actions.add', icon: <ActionAddIcon />, onClick: () => exec('add') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-  ], [exec]));
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+  ]);
 
   const columns: GridColumn<SparePart>[] = [
     { key: 'code', header: t('maintenance.sparePartCode'), sortable: true },
@@ -109,7 +136,8 @@ export default function SparePartsPage() {
 
   const gridActions: GridAction<SparePart>[] = [
     { label: t('actions.view'), onClick: (s) => router.push(`/admin/maintenance/spare-parts/${s.id}`) },
-    { label: t('actions.edit'), onClick: (s) => openEdit(s) },
+    { label: t('actions.edit'), onClick: (s) => openEdit(s.id) },
+    { label: t('common.delete'), onClick: (s) => { setSelectedId(s.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
     { label: t('actions.deactivate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'deactivate' }), enabled: (s) => s.status === 'ACTIVE' },
     { label: t('actions.activate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'activate' }), enabled: (s) => s.status !== 'ACTIVE' },
   ];
@@ -122,8 +150,8 @@ export default function SparePartsPage() {
         columns={columns}
         data={data}
         keyExtractor={(s) => s.id}
-        onRowClick={(s) => router.push(`/admin/maintenance/spare-parts/${s.id}`)}
-        selectedKey=""
+        onRowClick={(s) => setSelectedId(s.id)}
+        selectedKey={selectedId}
         loading={loading}
         emptyMessage={t('maintenance.noSpareParts')}
         error={error || undefined}
@@ -135,6 +163,9 @@ export default function SparePartsPage() {
       />
       <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? t('common.edit') : t('common.new')}>
+        {loadingDetail ? (
+          <div className="text-center py-8">{t('common.loading')}</div>
+        ) : (
         <div className="space-y-4">
           {editingId ? (
             <Input label={t('maintenance.sparePart.form.code')} value={form.code} disabled />
@@ -162,9 +193,11 @@ export default function SparePartsPage() {
             <Button onClick={handleSave} disabled={saving} variant="primary">{saving ? t('common.saving') : t('actions.save')}</Button>
           </div>
         </div>
+        )}
       </Modal>
       <ConfirmDialog open={confirmAction?.action === 'deactivate'} onClose={() => setConfirmAction(null)} onConfirm={() => handleStatusChange(confirmAction!.id, 'deactivate')} title={t('common.deactivate')} message={t('maintenance.confirmDeactivateSparePart')} variant="danger" />
       <ConfirmDialog open={confirmAction?.action === 'activate'} onClose={() => setConfirmAction(null)} onConfirm={() => handleStatusChange(confirmAction!.id, 'activate')} title={t('common.activate')} message={t('maintenance.confirmActivateSparePart')} />
+      <ConfirmDialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} onConfirm={handleDelete} title={t('common.confirmDeleteTitle')} message={t('maintenance.confirmDeleteSparePart')} variant="danger" />
     </div>
   );
 }

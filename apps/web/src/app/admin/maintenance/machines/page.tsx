@@ -31,6 +31,7 @@ export default function MachinesPage() {
   });
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
@@ -38,6 +39,7 @@ export default function MachinesPage() {
 const { exec } = useStableHandlers({
   new: () => openCreate(),
   edit: () => selectedRecord && openEdit(selectedRecord),
+  delete: () => setConfirmDeleteOpen(true),
   refresh: () => fetchData(meta.page),
   activate: () => confirmStatus(selectedId),
   deactivate: () => confirmStatus(selectedId),
@@ -49,6 +51,7 @@ useRegisterAdminActions([
   { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
   { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
 ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -106,6 +109,19 @@ useRegisterAdminActions([
     } finally { setSaving(false); }
   };
 
+  const handleDelete = async () => {
+    setSaving(true);
+    try {
+      await api.delete(`/maintenance/machines/${selectedId}`);
+      showToast(t('common.successDeleted'), 'success');
+      setConfirmDeleteOpen(false);
+      setSelectedId('');
+      fetchData(meta.page);
+    } catch (err: any) {
+      showToast(err?.message || t('common.errorOccurred'), 'error');
+    } finally { setSaving(false); }
+  };
+
   const confirmStatus = (id: string) => { setSelectedId(id); setConfirmOpen(true); };
   const handleStatusChange = async () => {
     setSaving(true);
@@ -135,6 +151,7 @@ useRegisterAdminActions([
   const gridActions: GridAction<Machine>[] = [
     { label: t('details.viewDetails'), onClick: (m: Machine) => router.push(`/admin/maintenance/machines/${m.id}`) },
     { label: t('actions.edit'), onClick: (m: Machine) => openEdit(m) },
+    { label: t('common.delete'), onClick: (m: Machine) => { setSelectedId(m.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
     { label: t('actions.deactivate'), onClick: (m: Machine) => confirmStatus(m.id), enabled: (m: Machine) => m.status === 'ACTIVE', variant: 'danger' },
     { label: t('actions.activate'), onClick: (m: Machine) => confirmStatus(m.id), enabled: (m: Machine) => m.status !== 'ACTIVE' },
   ];
@@ -192,6 +209,8 @@ useRegisterAdminActions([
           </div>
         </div>
       </Modal>
+      <ConfirmDialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} onConfirm={handleDelete}
+        title={t('common.confirmDeleteTitle')} message={t('common.confirmDeleteMessage')} variant="danger" loading={saving} />
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleStatusChange}
         title={t('common.confirmDeactivateTitle')} message={t('common.confirmDeactivateMessage')} variant="danger" loading={saving} />
     </div>

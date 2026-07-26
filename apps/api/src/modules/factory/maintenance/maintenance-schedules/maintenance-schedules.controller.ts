@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceSchedulesService } from './maintenance-schedules.service';
 import { CreateMaintenanceScheduleDto } from './dto/create-maintenance-schedule.dto';
@@ -84,7 +84,7 @@ export class MaintenanceSchedulesController {
   @Delete(':id')
   @Permissions('maintenance-schedule:delete')
   @ApiOperation({ summary: 'Deactivate maintenance schedule (soft delete)' })
-  remove(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @CurrentUser('sub') userId: string) {
     return this.service.remove(id, userId);
   }
 }

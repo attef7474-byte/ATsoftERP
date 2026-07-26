@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MachinePartsService } from './machine-parts.service';
 import { CreateMachinePartDto } from './dto/create-machine-part.dto';
@@ -47,9 +47,9 @@ export class MachinePartsController {
   }
 
   @Delete(':id')
-  @Permissions('machine-part:deactivate')
+  @Permissions('machine-part:delete')
   @ApiOperation({ summary: 'Delete machine part' })
-  remove(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @CurrentUser('sub') userId: string) {
     return this.service.remove(id, userId);
   }
 

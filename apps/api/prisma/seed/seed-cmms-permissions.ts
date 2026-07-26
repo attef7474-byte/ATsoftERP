@@ -9,11 +9,13 @@ const prisma = new PrismaClient({ adapter });
 
 const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   // machine-category
+  { key: "machine-category:delete", module: "machine-category", action: "delete" },
   { key: "machine-category:activate", module: "machine-category", action: "activate" },
   { key: "machine-category:deactivate", module: "machine-category", action: "deactivate" },
   { key: "machine-category:summary", module: "machine-category", action: "summary" },
   { key: "machine-category:machines", module: "machine-category", action: "machines" },
   // machine-part
+  { key: "machine-part:delete", module: "machine-part", action: "delete" },
   { key: "machine-part:activate", module: "machine-part", action: "activate" },
   { key: "machine-part:deactivate", module: "machine-part", action: "deactivate" },
   { key: "machine-part:linkMachine", module: "machine-part", action: "linkMachine" },

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MachineResponsibilityAssignmentsService } from './machine-responsibility-assignments.service';
 import { CreateMachineResponsibilityAssignmentDto, UpdateMachineResponsibilityAssignmentDto } from './dto/create-machine-responsibility-assignment.dto';
@@ -52,7 +52,7 @@ export class MachineResponsibilityAssignmentsController {
   @Delete(':id')
   @Permissions('machine-responsibility:delete')
   @ApiOperation({ summary: 'End/remove machine responsibility assignment' })
-  remove(@Param('id') id: string) {
+  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.service.remove(id);
   }
 }

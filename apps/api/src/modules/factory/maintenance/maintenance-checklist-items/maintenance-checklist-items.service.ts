@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { CreateMaintenanceChecklistItemDto } from './dto/create-maintenance-checklist-item.dto';
@@ -61,7 +61,11 @@ export class MaintenanceChecklistItemsService {
   }
 
   async remove(id: string, userId: string) {
-    await this.findOne(id);
+    const item = await this.findOne(id);
+    const executionCount = await this.prisma.maintenanceChecklistExecutionItem.count({ where: { checklistItemId: id } });
+    if (executionCount > 0) {
+      throw new ConflictException('Cannot delete checklist item with existing execution records');
+    }
     await this.prisma.maintenanceChecklistItem.delete({ where: { id } });
     await this.audit.log(userId, 'delete', 'MaintenanceChecklistItem', id, {});
     return { message: 'Checklist item deleted successfully' };

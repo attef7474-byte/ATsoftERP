@@ -22,19 +22,22 @@ export default function MaintenanceChecklistItemsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MaintenanceChecklistItem | null>(null);
-  const [form, setForm] = useState({ scheduleId: '', taskId: '', title: '', description: '', sortOrder: 0, required: false });
+  const [form, setForm] = useState({ code: '', scheduleId: '', taskId: '', title: '', description: '', sortOrder: 0, required: false });
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
 
 const { exec } = useStableHandlers({
   new: () => openCreate(),
-  edit: () => selectedRecord && openEdit(selectedRecord),
+  edit: () => selectedId && openEdit(selectedId),
   refresh: () => fetchData(meta.page),
   activate: () => confirmStatus(selectedId),
   deactivate: () => confirmStatus(selectedId),
+  delete: () => setConfirmDeleteOpen(true),
 });
 
 useRegisterAdminActions([
@@ -43,6 +46,7 @@ useRegisterAdminActions([
   { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
   { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!selectedId, variant: 'danger' },
 ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -60,13 +64,19 @@ useRegisterAdminActions([
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ scheduleId: '', taskId: '', title: '', description: '', sortOrder: 0, required: false });
+    setForm({ code: '', scheduleId: '', taskId: '', title: '', description: '', sortOrder: 0, required: false });
     setModalOpen(true);
   };
-  const openEdit = (item: MaintenanceChecklistItem) => {
-    setEditItem(item);
-    setForm({ scheduleId: item.scheduleId || '', taskId: item.taskId || '', title: item.title, description: item.description || '', sortOrder: item.sortOrder, required: item.required });
-    setModalOpen(true);
+  const openEdit = async (id: string) => {
+    setLoadingDetail(true);
+    try {
+      const res = await api.get<MaintenanceChecklistItem>('/maintenance/checklist-items/' + id);
+      const item = res as any;
+      setEditItem(item);
+      setForm({ code: item.code || '', scheduleId: item.scheduleId || '', taskId: item.taskId || '', title: item.title, description: item.description || '', sortOrder: item.sortOrder, required: item.required });
+      setModalOpen(true);
+    } catch (err: any) { showToast(err?.message || t('errors.loadFailed'), 'error'); }
+    finally { setLoadingDetail(false); }
   };
 
   const handleSave = async () => {
@@ -106,6 +116,19 @@ useRegisterAdminActions([
     finally { setSaving(false); }
   };
 
+  const handleDelete = async () => {
+    if (!selectedId) return;
+    setSaving(true);
+    try {
+      await api.delete('/maintenance/checklist-items/' + selectedId);
+      showToast(t('common.successDeleted'), 'success');
+      setConfirmDeleteOpen(false);
+      setSelectedId('');
+      fetchData(meta.page);
+    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
+    finally { setSaving(false); }
+  };
+
   const columns: GridColumn<MaintenanceChecklistItem>[] = [
     { key: 'title', header: t('common.title') },
     { key: 'schedule', header: t('maintenance.maintenanceSchedule'), render: (c: MaintenanceChecklistItem) => c.schedule?.title || '-' },
@@ -115,9 +138,10 @@ useRegisterAdminActions([
   ];
 
   const gridActions: GridAction<MaintenanceChecklistItem>[] = [
-    { label: t('actions.edit'), onClick: (c: MaintenanceChecklistItem) => openEdit(c) },
+    { label: t('actions.edit'), onClick: (c: MaintenanceChecklistItem) => openEdit(c.id) },
     { label: t('actions.deactivate'), onClick: (c: MaintenanceChecklistItem) => confirmStatus(c.id), enabled: (c: MaintenanceChecklistItem) => c.status === 'ACTIVE', variant: 'danger' },
     { label: t('actions.activate'), onClick: (c: MaintenanceChecklistItem) => confirmStatus(c.id), enabled: (c: MaintenanceChecklistItem) => c.status !== 'ACTIVE' },
+    { label: t('common.delete'), onClick: (c: MaintenanceChecklistItem) => { setSelectedId(c.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
   ];
 
   return (
@@ -146,7 +170,17 @@ useRegisterAdminActions([
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editChecklistItem') : t('maintenance.newChecklistItem')} size="lg">
         <div className="space-y-4">
-          <Input label={t('common.title')} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+          <div className="grid grid-cols-2 gap-4">
+            {editItem ? (
+              <div>
+                <Input label={t('common.code')} value={form.code} disabled />
+                <p className="text-xs text-gray-500 mt-1">{t('common.codeImmutableHint')}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">{t('common.codeAutoGenerated')}</p>
+            )}
+            <Input label={t('common.title')} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+          </div>
           <F9Lookup label={t('maintenance.maintenanceSchedule')} value={form.scheduleId} onChange={(v) => setForm({ ...form, scheduleId: v })} adapter={maintenanceScheduleAdapter} />
           <F9Lookup label={t('maintenance.maintenanceTask')} value={form.taskId} onChange={(v) => setForm({ ...form, taskId: v })} adapter={maintenanceTaskAdapter} />
           <div className="grid grid-cols-2 gap-4">
@@ -162,6 +196,8 @@ useRegisterAdminActions([
       </Modal>
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleStatusChange}
         title={t('common.confirmDeactivateTitle')} message={t('common.confirmDeactivateMessage')} variant="danger" loading={saving} />
+      <ConfirmDialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} onConfirm={handleDelete}
+        title={t('common.confirmDeleteTitle')} message={t('common.confirmDeleteMessage')} variant="danger" loading={saving} />
     </div>
   );
 }

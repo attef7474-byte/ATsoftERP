@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MachineCategoriesService } from './machine-categories.service';
 import { CreateMachineCategoryDto } from './dto/create-machine-category.dto';
@@ -52,9 +52,9 @@ export class MachineCategoriesController {
   }
 
   @Delete(':id')
-  @Permissions('machine-category:deactivate')
+  @Permissions('machine-category:delete')
   @ApiOperation({ summary: 'Soft delete machine category' })
-  remove(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @CurrentUser('sub') userId: string) {
     return this.service.remove(id, userId);
   }
 

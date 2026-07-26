@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceChecklistItemsService } from './maintenance-checklist-items.service';
 import { CreateMaintenanceChecklistItemDto } from './dto/create-maintenance-checklist-item.dto';
@@ -49,7 +49,7 @@ export class MaintenanceChecklistItemsController {
   @Delete(':id')
   @Permissions('maintenance-checklist:delete')
   @ApiOperation({ summary: 'Delete checklist item' })
-  remove(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @CurrentUser('sub') userId: string) {
     return this.service.remove(id, userId);
   }
 

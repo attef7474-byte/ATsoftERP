@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceService } from './maintenance.service';
 import { CreateMachineDto, UpdateMachineDto, CreateMachinePartDto, CreateMachineDocumentDto, UpdateMachineStatusDto, UpdateMachineLocationDto, UpdateMachineManufacturerDto, UpdateMachineWarrantyDto, UpdateMachineImageDto } from './dto/maintenance.dto';
@@ -50,7 +50,7 @@ export class MaintenanceController {
   @Delete('machines/:id')
   @Permissions('machines:delete')
   @ApiOperation({ summary: 'Soft delete machine' })
-  removeMachine(@Param('id') id: string) { return this.service.removeMachine(id); }
+  removeMachine(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) { return this.service.removeMachine(id); }
 
   @Patch('machines/:id/activate')
   @Permissions('machines:update')
@@ -140,7 +140,7 @@ export class MaintenanceController {
   @Delete('parts/:id')
   @Permissions('machines:delete')
   @ApiOperation({ summary: 'Delete machine part' })
-  removePart(@Param('id') id: string) { return this.service.removePart(id); }
+  removePart(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) { return this.service.removePart(id); }
 
   @Post('documents')
   @Permissions('machines:create')
@@ -155,7 +155,7 @@ export class MaintenanceController {
   @Delete('documents/:id')
   @Permissions('machines:delete')
   @ApiOperation({ summary: 'Delete machine document' })
-  removeDocument(@Param('id') id: string) { return this.service.removeDocument(id); }
+  removeDocument(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) { return this.service.removeDocument(id); }
 
   @Get('summary/machines')
   @Permissions('machines:read')

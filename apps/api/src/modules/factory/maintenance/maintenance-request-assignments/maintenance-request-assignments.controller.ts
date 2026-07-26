@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceRequestAssignmentsService } from './maintenance-request-assignments.service';
 import { CreateMaintenanceRequestAssignmentDto, UpdateMaintenanceRequestAssignmentDto } from './dto/create-maintenance-request-assignment.dto';
@@ -51,7 +51,7 @@ export class MaintenanceRequestAssignmentsController {
   @Delete(':id')
   @Permissions('maintenance-request-assignment:delete')
   @ApiOperation({ summary: 'Cancel maintenance request assignment' })
-  remove(@Param('id') id: string) {
+  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.service.remove(id);
   }
 }
