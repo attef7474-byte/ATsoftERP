@@ -1,10 +1,18 @@
 # API Proof Results
 
 ## Summary
-- **77 API proof tests**: 61 assertions PASS, 16 N/A (checklist endpoint not available / code-review-only verification)
-- **Build**: `build:api` (tsc) ✅ 0 errors | `build:web` (next build) ✅ compiled successfully
-- **Validation**: `npx prisma validate` ✅ | `npx prisma generate` ✅ | `typecheck` (tsc --noEmit) ✅ 0 errors
-- **i18n**: ✅ 2390 keys synchronized
+| Metric | Result |
+|---|---|
+| Total checks | 77 |
+| Real PASS assertions | 61 |
+| Documented N/A | 16 |
+| Failed | 0 |
+| Build: `build:api` (tsc) | ✅ 0 errors |
+| Build: `build:web` (next build) | ✅ compiled successfully |
+| Validation: `npx prisma validate` | ✅ PASS |
+| Validation: `npx prisma generate` | ✅ PASS |
+| Typecheck (tsc --noEmit) | ✅ 0 errors |
+| i18n check (2390 keys) | ✅ PASS |
 
 ## Group Results
 

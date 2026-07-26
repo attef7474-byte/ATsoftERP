@@ -3,7 +3,8 @@
 **Note: Screenshots are DISABLED_BY_USER. All assertions use DOM/console/network checks only.**
 
 ## Summary
-- **25/25 Playwright tests PASS** (100+ individual expects)
+- **Test cases**: 25/25 PASS
+- **Acceptance assertions**: 99 PASS (99 `expect()` calls across all tests)
 - **100% PASS rate** — zero failures, zero console errors, zero ChunkLoadError
 - No raw i18n keys visible across any page
 
@@ -58,10 +59,24 @@
 | C3 | Refresh buttons | ✅ | Present and functional |
 | C4 | Zero errors | ✅ | No console/static/network errors across all pages |
 
+## Browser Proof Summary Table
+| Metric | Result |
+|---|---|
+| Playwright test cases | 25/25 PASS |
+| Acceptance assertions | 99 PASS |
+| Failed | 0 |
+| Raw keys | 0 |
+| Console errors | 0 |
+| Network failures | 0 |
+| ChunkLoadError | 0 |
+| _next/static failures | 0 |
+| Screenshots | DISABLED_BY_USER |
+
 ## Additional Checks
 - ✅ Console errors: 0 across all pages
 - ✅ Network failures: 0
 - ✅ ChunkLoadError: 0
+- ✅ _next/static failures: 0
 - ✅ Raw keys visible: 0
 - ✅ Arabic mode works
 - ✅ English mode works
