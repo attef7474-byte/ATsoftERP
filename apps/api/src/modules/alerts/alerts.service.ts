@@ -56,13 +56,16 @@ export class AlertsService {
   }
 
   async getSummary() {
-    const [critical, downtime, lowStock, underMaintenance] = await Promise.all([
+    const [critical, downtime, lowStock, underMaintenance, unreadNotifications, slaOverdue, slaEscalated] = await Promise.all([
       this.prisma.maintenanceRequest.count({ where: { priority: 'CRITICAL', status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
       this.prisma.downtimeLog.count({ where: { endTime: null } }),
       this.prisma.inventoryBalance.count({ where: { quantity: { lte: 0 } } }),
       this.prisma.machine.count({ where: { status: 'UNDER_MAINTENANCE' } }),
+      this.prisma.notification.count({ where: { read: false } }),
+      this.prisma.maintenanceRequest.count({ where: { deletedAt: null, slaStatus: 'OVERDUE' } }),
+      this.prisma.maintenanceRequest.count({ where: { deletedAt: null, escalationLevel: { not: 'NONE' } } }),
     ])
-    return { total: critical + downtime + lowStock + underMaintenance, critical, downtime, lowStock, underMaintenance }
+    return { total: critical + downtime + lowStock + underMaintenance, critical, downtime, lowStock, underMaintenance, unreadNotifications, slaOverdue, slaEscalated }
   }
 
   async findOne(id: string) {

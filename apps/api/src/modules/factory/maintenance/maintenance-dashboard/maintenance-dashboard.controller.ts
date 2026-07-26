@@ -110,4 +110,24 @@ export class MaintenanceDashboardController {
   getRecentEmergencyRequests(@Query('limit') limit?: string) {
     return this.service.getRecentEmergencyRequests(limit ? parseInt(limit, 10) : 5);
   }
+
+  @Get('sla-overdue')
+  @Permissions('maintenance.dashboard.slaOverdue.view')
+  @ApiOperation({ summary: 'Get SLA overdue requests' })
+  getSlaOverdue(@Query() query: { page?: string; limit?: string }) {
+    return this.service.getSlaOverdue({
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+    });
+  }
+
+  @Get('sla-escalated')
+  @Permissions('maintenance.dashboard.slaEscalated.view')
+  @ApiOperation({ summary: 'Get SLA escalated requests' })
+  getSlaEscalated(@Query() query: { page?: string; limit?: string }) {
+    return this.service.getSlaEscalated({
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+    });
+  }
 }

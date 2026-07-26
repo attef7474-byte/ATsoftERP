@@ -13,7 +13,7 @@ export class MaintenanceDashboardService {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
-    const [openRequests, criticalRequests, overdueItems, machinesUnderMaintenance, currentDowntime, upcomingPreventive, totalCost, totalRequests, completedRequests, avgCompletionTime, totalPersonnel, activeAssignments, totalPartAccountabilities, pendingPartReports, preventiveDueCount, preventiveOverdueCount, preventiveCompletedCount, emergencyOpenCount, emergencyCompletedCount] = await Promise.all([
+    const [openRequests, criticalRequests, overdueItems, machinesUnderMaintenance, currentDowntime, upcomingPreventive, totalCost, totalRequests, completedRequests, avgCompletionTime, totalPersonnel, activeAssignments, totalPartAccountabilities, pendingPartReports, preventiveDueCount, preventiveOverdueCount, preventiveCompletedCount, emergencyOpenCount, emergencyCompletedCount, slaOverdue, slaEscalated, unreadNotifications] = await Promise.all([
       this.prisma.maintenanceRequest.count({ where: { status: 'OPEN', deletedAt: null } }),
       this.prisma.maintenanceRequest.count({ where: { priority: { in: ['HIGH', 'URGENT'] }, status: { in: ['OPEN', 'IN_PROGRESS'] }, deletedAt: null } }),
       this.getOverdueCount(),
@@ -34,6 +34,9 @@ export class MaintenanceDashboardService {
       this.prisma.maintenanceRequest.count({ where: { type: 'PREVENTIVE', status: 'COMPLETED', deletedAt: null } }),
       this.prisma.maintenanceRequest.count({ where: { isEmergency: true, status: 'OPEN', deletedAt: null } }),
       this.prisma.maintenanceRequest.count({ where: { isEmergency: true, status: 'COMPLETED', deletedAt: null } }),
+      this.prisma.maintenanceRequest.count({ where: { deletedAt: null, slaStatus: 'OVERDUE' } }),
+      this.prisma.maintenanceRequest.count({ where: { deletedAt: null, escalationLevel: { not: 'NONE' } } }),
+      this.prisma.notification.count({ where: { read: false } }),
     ]);
 
     const totalCostThisMonth = await this.prisma.maintenanceRequestCostEntry.aggregate({
@@ -71,6 +74,9 @@ export class MaintenanceDashboardService {
       preventiveCompletedCount,
       emergencyOpenCount,
       emergencyCompletedCount,
+      slaOverdue,
+      slaEscalated,
+      unreadNotifications,
       reliability: {
         mttr: mttr.mttrHours,
         mtbf: mtbf.mtbfHours,
@@ -367,6 +373,40 @@ export class MaintenanceDashboardService {
         machine: { select: { id: true, name: true, code: true } },
       },
     });
+  }
+
+  async getSlaOverdue(query: { page?: number; limit?: number }) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const where = { deletedAt: null, slaStatus: 'OVERDUE' };
+    const [data, total] = await Promise.all([
+      this.prisma.maintenanceRequest.findMany({
+        where, skip: (page - 1) * limit, take: limit, orderBy: { updatedAt: 'desc' },
+        include: {
+          machine: { select: { id: true, code: true, name: true } },
+          assignedTo: { select: { id: true, name: true } },
+        },
+      }),
+      this.prisma.maintenanceRequest.count({ where }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async getSlaEscalated(query: { page?: number; limit?: number }) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const where = { deletedAt: null, escalationLevel: { not: 'NONE' } };
+    const [data, total] = await Promise.all([
+      this.prisma.maintenanceRequest.findMany({
+        where, skip: (page - 1) * limit, take: limit, orderBy: { lastEscalatedAt: 'desc' },
+        include: {
+          machine: { select: { id: true, code: true, name: true } },
+          assignedTo: { select: { id: true, name: true } },
+        },
+      }),
+      this.prisma.maintenanceRequest.count({ where }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   private flattenPersonnel(p: any) {

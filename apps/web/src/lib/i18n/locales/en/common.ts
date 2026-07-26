@@ -160,6 +160,9 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         openRequests: 'Open Requests',
         totalMachines: 'Total Machines',
         activeUsers: 'Active Users',
+        unreadNotifications: 'Unread Notifications',
+        slaOverdue: 'SLA Overdue',
+        slaEscalated: 'SLA Escalated',
     },
     actions: {
         create: 'Create',

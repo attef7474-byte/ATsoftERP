@@ -45,6 +45,9 @@ export default function MaintenanceDashboardPage() {
     { label: t('maintenanceDashboard.upcomingPreventive'), value: summary.upcomingPreventive, color: 'bg-green-500', link: '/admin/maintenance/dashboard/upcoming-preventive' },
     { label: t('maintenanceDashboard.totalCost'), value: `${summary.totalCost?.toLocaleString() || '0'} ${t('common.currency')}`, color: 'bg-teal-500', link: '/admin/maintenance/dashboard/cost-kpis' },
     { label: t('maintenanceDashboard.completionRate'), value: `${summary.completionRate || 0}%`, color: 'bg-indigo-500', link: '/admin/maintenance/requests' },
+    { label: t('maintenanceDashboard.slaOverdue') || 'SLA Overdue', value: summary.slaOverdue ?? '-', color: 'bg-red-500', link: '/admin/maintenance/dashboard/sla-overdue' },
+    { label: t('maintenanceDashboard.slaEscalated') || 'SLA Escalated', value: summary.slaEscalated ?? '-', color: 'bg-amber-500', link: '/admin/maintenance/dashboard/sla-escalated' },
+    { label: t('maintenanceDashboard.unreadNotifications') || 'Unread Notifications', value: summary.unreadNotifications ?? '-', color: 'bg-pink-500', link: '/admin/notifications' },
   ];
 
   const reliability = summary.reliability;
