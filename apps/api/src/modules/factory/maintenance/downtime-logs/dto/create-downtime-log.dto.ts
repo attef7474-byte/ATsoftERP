@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDateString, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsNumber, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateDowntimeLogDto {
@@ -29,6 +29,16 @@ export class CreateDowntimeLogDto {
   @ApiProperty()
   @IsString()
   reason: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  failureCause?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  failureCategory?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

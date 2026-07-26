@@ -142,6 +142,11 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "machine-spare-part:read", module: "machine-spare-part", action: "read" },
   { key: "machine-spare-part:update", module: "machine-spare-part", action: "update" },
   { key: "machine-spare-part:deactivate", module: "machine-spare-part", action: "deactivate" },
+  // downtime-rca (new module)
+  { key: "downtime-rca:update", module: "downtime-rca", action: "update" },
+  { key: "downtime-rca:complete", module: "downtime-rca", action: "complete" },
+  // maintenance-reliability (new module)
+  { key: "maintenance-reliability:read", module: "maintenance-reliability", action: "read" },
 ];
 
 async function main() {

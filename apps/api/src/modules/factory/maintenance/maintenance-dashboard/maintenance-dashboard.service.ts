@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
+import { DowntimeLogsService } from '../downtime-logs/downtime-logs.service';
 
 @Injectable()
 export class MaintenanceDashboardService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private downtimeLogsService: DowntimeLogsService,
+  ) {}
 
   async getSummary() {
     const now = new Date();
@@ -37,6 +41,14 @@ export class MaintenanceDashboardService {
       where: { incurredAt: { gte: thirtyDaysAgo } },
     });
 
+    const [mttr, mtbf, totalDowntime, topMachines, topCauses] = await Promise.all([
+      this.downtimeLogsService.getMttr({}),
+      this.downtimeLogsService.getMtbf({}),
+      this.downtimeLogsService.getTotalDowntime({}),
+      this.downtimeLogsService.getTopMachines({ limit: 5 }),
+      this.downtimeLogsService.getTopCauses({}),
+    ]);
+
     return {
       openRequests,
       criticalRequests,
@@ -59,6 +71,14 @@ export class MaintenanceDashboardService {
       preventiveCompletedCount,
       emergencyOpenCount,
       emergencyCompletedCount,
+      reliability: {
+        mttr: mttr.mttrHours,
+        mtbf: mtbf.mtbfHours,
+        totalDowntimeHours: totalDowntime.totalHours,
+        totalDowntimeEvents: totalDowntime.totalEvents,
+        topMachines,
+        topCauses,
+      },
     };
   }
 

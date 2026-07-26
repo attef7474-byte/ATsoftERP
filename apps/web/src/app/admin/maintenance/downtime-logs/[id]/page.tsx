@@ -5,7 +5,7 @@ import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { DowntimeLog } from '../../../../../lib/admin-types';
-import { Card, CardContent, LoadingState, ErrorState, ConfirmDialog } from '../../../../../components/admin/ui';
+import { Card, CardContent, CardHeader, LoadingState, ErrorState, ConfirmDialog } from '../../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../../components/maintenance';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionCancelIcon, ActionStartIcon, ActionCompleteIcon } from '../../../../../components/admin/admin-action-bar';
 
@@ -143,6 +143,82 @@ export default function DowntimeLogDetailPage() {
           </dl>
         </CardContent>
       </Card>
+
+      {(data.failureCause || data.rootCause || data.correctiveAction || data.preventiveAction || data.rcaStatus) && (
+        <Card>
+          <CardHeader><h3 className="text-sm font-semibold text-gray-700">{t('maintenance.rootCause')} / {t('maintenance.correctiveAction')}</h3></CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {data.failureCause && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">{t('maintenance.failureCause')}</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{data.failureCause}</dd>
+                </div>
+              )}
+              {data.failureCategory && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">{t('maintenance.failureCategory')}</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{data.failureCategory}</dd>
+                </div>
+              )}
+              {data.rcaStatus && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">{t('maintenance.rcaStatus')}</dt>
+                  <dd className="mt-1"><CmmsStatusBadge status={data.rcaStatus} /></dd>
+                </div>
+              )}
+              {data.rootCause && (
+                <div className="md:col-span-2">
+                  <dt className="text-sm font-medium text-gray-500">{t('maintenance.rootCause')}</dt>
+                  <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{data.rootCause}</dd>
+                </div>
+              )}
+              {data.correctiveAction && (
+                <div className="md:col-span-2">
+                  <dt className="text-sm font-medium text-gray-500">{t('maintenance.correctiveAction')}</dt>
+                  <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{data.correctiveAction}</dd>
+                </div>
+              )}
+              {data.preventiveAction && (
+                <div className="md:col-span-2">
+                  <dt className="text-sm font-medium text-gray-500">{t('maintenance.preventiveAction')}</dt>
+                  <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{data.preventiveAction}</dd>
+                </div>
+              )}
+              {data.rcaCompletedBy && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">{t('maintenance.rcaCompletedBy')}</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{data.rcaCompletedBy.name}</dd>
+                </div>
+              )}
+              {data.rcaCompletedAt && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">{t('maintenance.rcaCompletedAt')}</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{fmt(data.rcaCompletedAt)}</dd>
+                </div>
+              )}
+              {data.isRepeatFailure && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">{t('maintenance.isRepeatFailure')}</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{t('common.yes')}</dd>
+                </div>
+              )}
+              {data.machineStopped !== undefined && data.machineStopped !== null && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">{t('maintenance.machineStopped')}</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{data.machineStopped ? t('common.yes') : t('common.no')}</dd>
+                </div>
+              )}
+              {data.productionImpact && (
+                <div className="md:col-span-2">
+                  <dt className="text-sm font-medium text-gray-500">{t('maintenance.productionImpact')}</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{data.productionImpact}</dd>
+                </div>
+              )}
+            </dl>
+          </CardContent>
+        </Card>
+      )}
 
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={() => execAction(pendingAction)}
         title={t('common.confirm')} message={`${t('maintenance.confirmAction')}: ${pendingAction}`} 

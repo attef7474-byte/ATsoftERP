@@ -47,6 +47,14 @@ export default function MaintenanceDashboardPage() {
     { label: t('maintenanceDashboard.completionRate'), value: `${summary.completionRate || 0}%`, color: 'bg-indigo-500', link: '/admin/maintenance/requests' },
   ];
 
+  const reliability = summary.reliability;
+  const reliabilityCards = reliability ? [
+    { label: t('maintenance.mttr'), value: reliability.mttr ? `${reliability.mttr.toFixed(2)} h` : '-', color: 'bg-cyan-500' },
+    { label: t('maintenance.mtbf'), value: reliability.mtbf ? `${reliability.mtbf.toFixed(2)} h` : '-', color: 'bg-emerald-500' },
+    { label: t('maintenance.totalDowntime'), value: reliability.totalDowntimeHours ? `${reliability.totalDowntimeHours.toFixed(1)} h` : '0 h', color: 'bg-rose-500' },
+    { label: t('maintenance.reliabilityKpis'), value: `${reliability.totalDowntimeEvents || 0} ${t('common.events')}`, color: 'bg-violet-500' },
+  ] : [];
+
   return (
     <div className="space-y-6">
       <PageHeader title={t('maintenanceDashboard.title')} subtitle={t('maintenanceDashboard.subtitle')} />
@@ -67,6 +75,29 @@ export default function MaintenanceDashboardPage() {
           </div>
         ))}
       </div>
+
+      {reliabilityCards.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-3">{t('maintenance.reliabilityKpis')}</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {reliabilityCards.map((kpi, i) => (
+              <div key={i}>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{kpi.label}</p>
+                        <p className="text-2xl font-bold mt-1">{kpi.value}</p>
+                      </div>
+                      <div className={`w-12 h-12 rounded-full ${kpi.color} opacity-20`} />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

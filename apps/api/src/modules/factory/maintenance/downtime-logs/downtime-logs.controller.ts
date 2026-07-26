@@ -29,6 +29,7 @@ export class DowntimeLogsController {
     page?: string; limit?: string; search?: string;
     machineId?: string; requestId?: string;
     dateFrom?: string; dateTo?: string;
+    failureCategory?: string; rcaStatus?: string;
   }) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
@@ -38,6 +39,8 @@ export class DowntimeLogsController {
       requestId: query.requestId,
       dateFrom: query.dateFrom,
       dateTo: query.dateTo,
+      failureCategory: query.failureCategory,
+      rcaStatus: query.rcaStatus,
     });
   }
 
@@ -94,6 +97,36 @@ export class DowntimeLogsController {
   @ApiOperation({ summary: 'Classify/categorize downtime cause' })
   classify(@Param('id') id: string, @Body('reason') reason: string, @Body('category') category: string, @CurrentUser('sub') userId: string) {
     return this.service.classify(id, reason, category, userId);
+  }
+
+  // ── RCA Endpoints ──
+
+  @Patch(':id/failure-cause')
+  @Permissions('downtime-log:update')
+  @ApiOperation({ summary: 'Set failure cause and category' })
+  setFailureCause(@Param('id') id: string, @Body('failureCause') failureCause: string, @Body('failureCategory') failureCategory: string, @CurrentUser('sub') userId: string) {
+    return this.service.setFailureCause(id, failureCause, failureCategory, userId);
+  }
+
+  @Patch(':id/rca')
+  @Permissions('downtime-log:update')
+  @ApiOperation({ summary: 'Set root cause, corrective action, and preventive action' })
+  setRca(@Param('id') id: string, @Body() dto: { rootCause?: string; correctiveAction?: string; preventiveAction?: string }, @CurrentUser('sub') userId: string) {
+    return this.service.setRca(id, dto, userId);
+  }
+
+  @Patch(':id/rca/complete')
+  @Permissions('downtime-log:update')
+  @ApiOperation({ summary: 'Complete RCA' })
+  completeRca(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+    return this.service.completeRca(id, userId);
+  }
+
+  @Get(':id/rca')
+  @Permissions('downtime-log:read')
+  @ApiOperation({ summary: 'Get RCA details' })
+  getRca(@Param('id') id: string) {
+    return this.service.getRca(id);
   }
 
   @Get(':id')

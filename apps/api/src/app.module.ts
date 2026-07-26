@@ -59,6 +59,7 @@ import { SecurityModule } from './modules/settings/security/security.module'
 import { NotificationRulesModule } from './modules/settings/notification-rules/notification-rules.module'
 import { AttachmentsModule } from './modules/documents/attachments/attachments.module'
 import { MessagingModule } from './modules/messaging/messaging.module'
+import { MaintenanceReliabilityModule } from './modules/factory/maintenance/maintenance-reliability/maintenance-reliability.module'
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { MessagingModule } from './modules/messaging/messaging.module'
     DashboardModule, AlertsModule,
     AttachmentsModule,
     MessagingModule,
+    MaintenanceReliabilityModule,
   ],
 })
 export class AppModule {}

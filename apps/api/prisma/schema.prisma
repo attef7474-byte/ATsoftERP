@@ -392,6 +392,7 @@ model User {
   conversationParticipants              InternalConversationParticipant[]
   sentMessages                         InternalMessage[]                            @relation("UserSentMessages")
   operationalPeople                    OperationalPerson[]
+  rcaCompletedDowntimeLogs            DowntimeLog[]
 
   @@index([email])
   @@index([status])
@@ -1433,19 +1434,36 @@ model MaintenanceChecklistItem {
 }
 
 model DowntimeLog {
-  id              String              @id @default(cuid())
-  machineId       String
-  machine         Machine             @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  requestId       String?
-  request         MaintenanceRequest? @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  startTime       DateTime
-  endTime         DateTime?
-  durationMinutes Float?
-  reason          String
-  notes           String?
-  cancelledAt     DateTime?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id                  String              @id @default(cuid())
+  machineId           String
+  machine             Machine             @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requestId           String?
+  request             MaintenanceRequest? @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  startTime           DateTime
+  endTime             DateTime?
+  durationMinutes     Float?
+  reason              String
+  failureCause        String?
+  failureCategory     String?
+  rootCause           String?
+  correctiveAction    String?
+  preventiveAction    String?
+  detectedAt          DateTime?
+  responseStartedAt   DateTime?
+  repairStartedAt     DateTime?
+  repairCompletedAt   DateTime?
+  isRepeatFailure     Boolean?
+  repeatedFailureGroupId String?
+  machineStopped      Boolean?
+  productionImpact    String?
+  rcaStatus           String?             @default("PENDING")
+  rcaCompletedByUserId String?
+  rcaCompletedBy      User?               @relation(fields: [rcaCompletedByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rcaCompletedAt      DateTime?
+  notes               String?
+  cancelledAt         DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 
   @@index([machineId])
   @@index([requestId])
@@ -1453,6 +1471,8 @@ model DowntimeLog {
   @@index([machineId, startTime])
   @@index([requestId, cancelledAt])
   @@index([endTime, cancelledAt])
+  @@index([failureCategory])
+  @@index([rcaStatus])
   @@map("downtime_logs")
 }
 

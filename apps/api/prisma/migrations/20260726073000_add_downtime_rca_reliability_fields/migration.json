@@ -1,0 +1,27 @@
+{
+  "version": "5.2",
+  "steps": [
+    {
+      "tag": "AlterTable",
+      "table": "downtime_logs",
+      "changes": [
+        { "tag": "AddColumn", "column": { "name": "failureCause", "type": "NVarChar(1000)" } },
+        { "tag": "AddColumn", "column": { "name": "failureCategory", "type": "NVarChar(100)" } },
+        { "tag": "AddColumn", "column": { "name": "rootCause", "type": "NVarChar(2000)" } },
+        { "tag": "AddColumn", "column": { "name": "correctiveAction", "type": "NVarChar(2000)" } },
+        { "tag": "AddColumn", "column": { "name": "preventiveAction", "type": "NVarChar(2000)" } },
+        { "tag": "AddColumn", "column": { "name": "detectedAt", "type": "DateTime2" } },
+        { "tag": "AddColumn", "column": { "name": "responseStartedAt", "type": "DateTime2" } },
+        { "tag": "AddColumn", "column": { "name": "repairStartedAt", "type": "DateTime2" } },
+        { "tag": "AddColumn", "column": { "name": "repairCompletedAt", "type": "DateTime2" } },
+        { "tag": "AddColumn", "column": { "name": "isRepeatFailure", "type": "Bit" } },
+        { "tag": "AddColumn", "column": { "name": "repeatedFailureGroupId", "type": "NVarChar(100)" } },
+        { "tag": "AddColumn", "column": { "name": "machineStopped", "type": "Bit" } },
+        { "tag": "AddColumn", "column": { "name": "productionImpact", "type": "NVarChar(1000)" } },
+        { "tag": "AddColumn", "column": { "name": "rcaStatus", "type": "NVarChar(50)", "default": "PENDING" } },
+        { "tag": "AddColumn", "column": { "name": "rcaCompletedByUserId", "type": "NVarChar(100)" } },
+        { "tag": "AddColumn", "column": { "name": "rcaCompletedAt", "type": "DateTime2" } }
+      ]
+    }
+  ]
+}

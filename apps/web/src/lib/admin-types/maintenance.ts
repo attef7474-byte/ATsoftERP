@@ -248,13 +248,81 @@ export interface DowntimeLog {
   durationMinutes?: number | null;
   durationHours?: number | null;
   reason: string;
+  failureCause?: string | null;
+  failureCategory?: string | null;
+  rootCause?: string | null;
+  correctiveAction?: string | null;
+  preventiveAction?: string | null;
+  detectedAt?: string | null;
+  responseStartedAt?: string | null;
+  repairStartedAt?: string | null;
+  repairCompletedAt?: string | null;
+  isRepeatFailure?: boolean | null;
+  repeatedFailureGroupId?: string | null;
+  machineStopped?: boolean | null;
+  productionImpact?: string | null;
+  rcaStatus?: string | null;
+  rcaCompletedBy?: { id: string; name: string } | null;
+  rcaCompletedAt?: string | null;
   status?: string | null;
   cancelledAt?: string | null;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
-  machine?: { id: string; name: string; code: string };
+  machine?: { id: string; name: string; code: string; productionLineId?: string };
   request?: { id: string; requestNumber: string; title: string };
+}
+
+export interface RcaData {
+  id: string;
+  failureCause?: string | null;
+  failureCategory?: string | null;
+  rootCause?: string | null;
+  correctiveAction?: string | null;
+  preventiveAction?: string | null;
+  rcaStatus?: string | null;
+  rcaCompletedBy?: { id: string; name: string } | null;
+  rcaCompletedAt?: string | null;
+  isRepeatFailure?: boolean | null;
+  repeatedFailureGroupId?: string | null;
+}
+
+export interface ReliabilityMttr {
+  mttrMinutes: number;
+  mttrHours: number;
+  totalEvents: number;
+}
+
+export interface ReliabilityMtbf {
+  mtbfMinutes: number;
+  mtbfHours: number;
+  totalEvents: number;
+}
+
+export interface ReliabilityTotalDowntime {
+  totalMinutes: number;
+  totalHours: number;
+  totalEvents: number;
+}
+
+export interface ReliabilityByMachine {
+  machine: { id: string; code: string; name: string; productionLineId?: string } | null;
+  totalMinutes: number;
+  totalHours: number;
+  eventCount: number;
+}
+
+export interface ReliabilityByCause {
+  failureCause: string | null;
+  totalMinutes: number;
+  totalHours: number;
+  eventCount: number;
+}
+
+export interface ReliabilityEmergencyResponseTime {
+  avgResponseTimeMinutes: number;
+  avgResponseTimeHours: number;
+  totalEvents: number;
 }
 
 export interface ProductionLine {
