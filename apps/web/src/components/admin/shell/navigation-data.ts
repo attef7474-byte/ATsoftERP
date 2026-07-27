@@ -43,6 +43,8 @@ export const navItems: NavItem[] = [
       { id: 'inv-adjustments', label: 'navigation.inventoryAdjustments', href: '/admin/inventory/adjustments' },
       { id: 'inv-balances', label: 'navigation.inventoryBalances', href: '/admin/inventory/balances' },
       { id: 'inv-locations', label: 'navigation.warehouseLocations', href: '/admin/inventory/locations' },
+      { id: 'inv-opening-balances', label: 'navigation.openingBalances', href: '/admin/inventory/opening-balances' },
+      { id: 'inv-stock-adjustments', label: 'navigation.stockAdjustments', href: '/admin/inventory/stock-adjustments' },
       { id: 'inv-ledger', label: 'navigation.inventoryLedger', href: '/admin/inventory/ledger' },
       { id: 'inv-reconciliation', label: 'navigation.inventoryReconciliation', href: '/admin/inventory/reconciliation' },
     ],

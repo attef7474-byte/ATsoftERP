@@ -44,6 +44,8 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         profile: 'Profile',
         language: 'Language',
         warehouseLocations: 'Warehouse Locations',
+        openingBalances: 'Opening Balances',
+        stockAdjustments: 'Stock Adjustments',
         inventoryLedger: 'Inventory Ledger',
         inventoryReconciliation: 'Stock Reconciliation',
         barcodes: 'Barcodes',

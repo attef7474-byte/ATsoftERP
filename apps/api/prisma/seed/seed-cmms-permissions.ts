@@ -175,6 +175,26 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "inventory-ledger:read", module: "inventory-ledger", action: "read" },
   // inventory-reconciliation (Batch P)
   { key: "inventory-reconciliation:read", module: "inventory-reconciliation", action: "read" },
+  // opening-balance (Batch Q)
+  { key: "inventory:opening-balance:read", module: "inventory:opening-balance", action: "read" },
+  { key: "inventory:opening-balance:create", module: "inventory:opening-balance", action: "create" },
+  { key: "inventory:opening-balance:update", module: "inventory:opening-balance", action: "update" },
+  { key: "inventory:opening-balance:submit", module: "inventory:opening-balance", action: "submit" },
+  { key: "inventory:opening-balance:approve", module: "inventory:opening-balance", action: "approve" },
+  { key: "inventory:opening-balance:reject", module: "inventory:opening-balance", action: "reject" },
+  { key: "inventory:opening-balance:post", module: "inventory:opening-balance", action: "post" },
+  { key: "inventory:opening-balance:cancel", module: "inventory:opening-balance", action: "cancel" },
+  { key: "inventory:opening-balance:delete-draft", module: "inventory:opening-balance", action: "delete-draft" },
+  // stock-adjustment (Batch Q)
+  { key: "inventory:stock-adjustment:read", module: "inventory:stock-adjustment", action: "read" },
+  { key: "inventory:stock-adjustment:create", module: "inventory:stock-adjustment", action: "create" },
+  { key: "inventory:stock-adjustment:update", module: "inventory:stock-adjustment", action: "update" },
+  { key: "inventory:stock-adjustment:submit", module: "inventory:stock-adjustment", action: "submit" },
+  { key: "inventory:stock-adjustment:approve", module: "inventory:stock-adjustment", action: "approve" },
+  { key: "inventory:stock-adjustment:reject", module: "inventory:stock-adjustment", action: "reject" },
+  { key: "inventory:stock-adjustment:post", module: "inventory:stock-adjustment", action: "post" },
+  { key: "inventory:stock-adjustment:cancel", module: "inventory:stock-adjustment", action: "cancel" },
+  { key: "inventory:stock-adjustment:delete-draft", module: "inventory:stock-adjustment", action: "delete-draft" },
 ];
 
 async function main() {

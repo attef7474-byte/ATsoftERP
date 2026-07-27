@@ -66,6 +66,8 @@ import { MaintenanceSlaModule } from './modules/factory/maintenance/maintenance-
 import { MaintenanceCalendarWorkloadModule } from './modules/factory/maintenance/maintenance-calendar-workload/maintenance-calendar-workload.module'
 import { MaintenanceStockIssueModule } from './modules/factory/maintenance/maintenance-stock-issue/maintenance-stock-issue.module'
 import { InventoryLedgerReconciliationModule } from './modules/factory/inventory-ledger-reconciliation/inventory-ledger-reconciliation.module'
+import { InventoryOpeningBalancesModule } from './modules/factory/inventory-opening-balances/inventory-opening-balances.module'
+import { InventoryStockAdjustmentsModule } from './modules/factory/inventory-stock-adjustments/inventory-stock-adjustments.module'
 
 @Module({
   imports: [
@@ -96,6 +98,8 @@ import { InventoryLedgerReconciliationModule } from './modules/factory/inventory
     MaintenanceCalendarWorkloadModule,
     MaintenanceStockIssueModule,
     InventoryLedgerReconciliationModule,
+    InventoryOpeningBalancesModule,
+    InventoryStockAdjustmentsModule,
   ],
 })
 export class AppModule {}

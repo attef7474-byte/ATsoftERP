@@ -152,3 +152,44 @@ export interface InventoryBalance {
   warehouse?: { id: string; name: string; code: string };
   warehouseLocation?: { id: string; name: string; code: string };
 }
+
+export type OpeningBalanceStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'POSTED' | 'CANCELLED';
+
+export interface OpeningBalance {
+  id: string;
+  code: string;
+  companyId: string;
+  branchId: string;
+  warehouseId: string;
+  status: OpeningBalanceStatus;
+  documentDate: string;
+  reason?: string | null;
+  notes?: string | null;
+  submittedAt?: string | null;
+  submittedById?: string | null;
+  approvedAt?: string | null;
+  approvedById?: string | null;
+  rejectedAt?: string | null;
+  rejectedById?: string | null;
+  postedAt?: string | null;
+  postedById?: string | null;
+  cancelledAt?: string | null;
+  cancelledById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  company?: { id: string; name: string };
+  branch?: { id: string; name: string };
+  warehouse?: { id: string; name: string; code: string };
+  lines?: OpeningBalanceLine[];
+  _count?: { lines: number };
+}
+
+export interface OpeningBalanceLine {
+  id: string;
+  openingBalanceId: string;
+  productId: string;
+  quantity: number;
+  unit?: string | null;
+  notes?: string | null;
+  product?: { id: string; name: string; code: string; unit: string };
+}

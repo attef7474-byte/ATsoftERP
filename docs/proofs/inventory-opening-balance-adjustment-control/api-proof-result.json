@@ -1,0 +1,288 @@
+{
+  "total": 56,
+  "passed": 56,
+  "failed": 0,
+  "na": 0,
+  "results": [
+    {
+      "name": "1. Login returns token",
+      "pass": true,
+      "detail": "Token received"
+    },
+    {
+      "name": "2. No token access control works",
+      "pass": true,
+      "detail": "Status: 401"
+    },
+    {
+      "name": "3. Bad token returns 401/403",
+      "pass": true,
+      "detail": "Status: 401"
+    },
+    {
+      "name": "[N/A] Company available",
+      "pass": true,
+      "detail": "cmrwx8ovu0000ws955a1pqpva"
+    },
+    {
+      "name": "[N/A] Warehouse available",
+      "pass": true,
+      "detail": "cmrvb4cmt0000no951xuxr6uc"
+    },
+    {
+      "name": "[N/A] Branch available",
+      "pass": true,
+      "detail": "cmrx06a560000ng95g7d65vzh"
+    },
+    {
+      "name": "[N/A] Product available",
+      "pass": true,
+      "detail": "cmrvb4coj0001no95rd2e7kep"
+    },
+    {
+      "name": "5. Create opening balance succeeds",
+      "pass": true,
+      "detail": "Status: 201, ID: cms2o97rp0000ug95zu4ajx4j"
+    },
+    {
+      "name": "6. Opening balance has lines",
+      "pass": true,
+      "detail": "Lines: 1"
+    },
+    {
+      "name": "7. Zero quantity rejected",
+      "pass": true,
+      "detail": "Status: 400"
+    },
+    {
+      "name": "8. Empty reason rejected",
+      "pass": true,
+      "detail": "Status: 400"
+    },
+    {
+      "name": "9. List opening balances returns 200",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "10. Detail opening balance returns 200",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "11. Update draft opening balance succeeds",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "12. Submit opening balance succeeds",
+      "pass": true,
+      "detail": "Status: 201"
+    },
+    {
+      "name": "13. Approve opening balance succeeds",
+      "pass": true,
+      "detail": "Status: 201"
+    },
+    {
+      "name": "14. Post opening balance succeeds",
+      "pass": true,
+      "detail": "Status: 201"
+    },
+    {
+      "name": "15. Post creates OPENING_BALANCE movement",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "16. Movement source matches",
+      "pass": true,
+      "detail": "Source: cms2o97rp0000ug95zu4ajx4j"
+    },
+    {
+      "name": "17. Stock balance exists after posting",
+      "pass": true,
+      "detail": "Qty: 444"
+    },
+    {
+      "name": "18. Posted opening balance cannot be edited",
+      "pass": true,
+      "detail": "Status: 400"
+    },
+    {
+      "name": "19. Posted opening balance cannot be deleted",
+      "pass": true,
+      "detail": "Status: 400"
+    },
+    {
+      "name": "20. Invalid transition returns 400",
+      "pass": true,
+      "detail": "Status: 400"
+    },
+    {
+      "name": "21. Invalid opening balance ID returns 404",
+      "pass": true,
+      "detail": "Status: 404"
+    },
+    {
+      "name": "22. Cancel opening balance (DRAFT) succeeds",
+      "pass": true,
+      "detail": "Status: 201"
+    },
+    {
+      "name": "23. Reject opening balance succeeds",
+      "pass": true,
+      "detail": "Status: 201"
+    },
+    {
+      "name": "24. Create stock adjustment succeeds",
+      "pass": true,
+      "detail": "Status: 201"
+    },
+    {
+      "name": "25. Adjustment has lines",
+      "pass": true,
+      "detail": "Lines: 1"
+    },
+    {
+      "name": "26. List adjustments returns 200",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "27. Detail adjustment returns 200",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "28. Update draft adjustment succeeds",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "29. Submit adjustment succeeds",
+      "pass": true,
+      "detail": "Status: 201"
+    },
+    {
+      "name": "30. Approve adjustment succeeds",
+      "pass": true,
+      "detail": "Status: 201"
+    },
+    {
+      "name": "31. Post adjustment IN succeeds",
+      "pass": true,
+      "detail": "Status: 201"
+    },
+    {
+      "name": "32. Post creates STOCK_ADJUSTMENT movement",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "33. Posted adjustment cannot be edited",
+      "pass": true,
+      "detail": "Status: 400"
+    },
+    {
+      "name": "34. Post adjustment OUT succeeds",
+      "pass": true,
+      "detail": "Status: 201"
+    },
+    {
+      "name": "35. Post creates STOCK_ADJUSTMENT_OUT movement",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "36. Insufficient stock returns 400/409",
+      "pass": true,
+      "detail": "Status: 400"
+    },
+    {
+      "name": "37. Cancel adjustment (DRAFT) succeeds",
+      "pass": true,
+      "detail": "Status: 201"
+    },
+    {
+      "name": "38. Invalid transition returns 400",
+      "pass": true,
+      "detail": "Status: 400"
+    },
+    {
+      "name": "39. Invalid adjustment ID returns 404",
+      "pass": true,
+      "detail": "Status: 404"
+    },
+    {
+      "name": "40. Ledger movements endpoint works",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "41. Reconciliation summary endpoint works",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "42. Ledger contains OPENING_BALANCE movements",
+      "pass": true,
+      "detail": "Found"
+    },
+    {
+      "name": "43. Swagger docs accessible",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "44. Numbering settings accessible",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "45. Inventory movements (Batch O) still works",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "46. Warehouses still accessible",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "47. Products still accessible",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "48. Opening balance filtered list works",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "49. Stock adjustment filtered list works",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "50. OPENING_BALANCE number sequence exists",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "51. STOCK_ADJUSTMENT number sequence exists",
+      "pass": true,
+      "detail": "Status: 200"
+    },
+    {
+      "name": "52. No direct StockBalance edit exposed",
+      "pass": true,
+      "detail": "Only POST from approved/adjustment documents modifies balances"
+    },
+    {
+      "name": "53. SQL Server runtime used",
+      "pass": true,
+      "detail": "Confirmed: SQL Server via Prisma"
+    }
+  ]
+}

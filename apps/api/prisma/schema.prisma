@@ -224,8 +224,10 @@ model Company {
   counts         InventoryCount[]
   movements      InventoryMovement[]
   adjustments    InventoryAdjustment[]
-  costCenters    CostCenter[]
-  productionLines ProductionLine[]
+  costCenters      CostCenter[]
+  productionLines  ProductionLine[]
+  openingBalances  InventoryOpeningBalance[]
+  stockAdjustments InventoryStockAdjustment[]
 
   @@index([status])
   @@index([code])
@@ -255,8 +257,10 @@ model Branch {
   counts         InventoryCount[]
   movements      InventoryMovement[]
   adjustments    InventoryAdjustment[]
-  costCenters    CostCenter[]
-  productionLines ProductionLine[]
+  costCenters      CostCenter[]
+  productionLines  ProductionLine[]
+  openingBalances  InventoryOpeningBalance[]
+  stockAdjustments InventoryStockAdjustment[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -613,7 +617,9 @@ model Warehouse {
   counts     InventoryCount[]
   movements  InventoryMovement[]
   adjustments InventoryAdjustment[]
-  stockIssuePartLines MaintenanceRequestRequiredPart[]
+  stockIssuePartLines  MaintenanceRequestRequiredPart[]
+  openingBalances      InventoryOpeningBalance[]
+  stockAdjustments     InventoryStockAdjustment[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -633,10 +639,14 @@ model WarehouseLocation {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  balances       InventoryBalance[]
-  countLines     InventoryCountLine[]
-  movementLines  InventoryMovementLine[]
-  adjustmentLines InventoryAdjustmentLine[]
+  balances               InventoryBalance[]
+  countLines             InventoryCountLine[]
+  movementLines          InventoryMovementLine[]
+  adjustmentLines        InventoryAdjustmentLine[]
+  openingBalanceDocs     InventoryOpeningBalance[]
+  openingBalanceLines    InventoryOpeningBalanceLine[]
+  stockAdjustmentDocs    InventoryStockAdjustment[]
+  stockAdjustmentLines   InventoryStockAdjustmentLine[]
 
   @@unique([warehouseId, code])
   @@index([status])
@@ -687,8 +697,10 @@ model Product {
   countLines          InventoryCountLine[]
   movementLines       InventoryMovementLine[]
   adjustmentLines     InventoryAdjustmentLine[]
-  requestPartUsages   MaintenanceRequestPartUsage[]
-  spareParts          SparePart[]
+  requestPartUsages      MaintenanceRequestPartUsage[]
+  spareParts             SparePart[]
+  openingBalanceLines    InventoryOpeningBalanceLine[]
+  stockAdjustmentLines   InventoryStockAdjustmentLine[]
 
   @@index([categoryId])
   @@index([code])
@@ -914,6 +926,134 @@ model InventoryAdjustmentLine {
   @@index([warehouseLocationId])
   @@index([adjustmentId, productId])
   @@map("inventory_adjustment_lines")
+}
+
+model InventoryOpeningBalance {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId        String?
+  branch          Branch?   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId     String
+  warehouse       Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locationId      String?
+  location        WarehouseLocation? @relation(fields: [locationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status          String    @default("DRAFT")
+  documentDate    DateTime  @default(now())
+  reason          String    @default("")
+  notes           String?
+  submittedAt     DateTime?
+  submittedById   String?
+  approvedAt      DateTime?
+  approvedById    String?
+  postedAt        DateTime?
+  postedById      String?
+  rejectedAt      DateTime?
+  rejectedById    String?
+  cancelledAt     DateTime?
+  cancelledById   String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  lines InventoryOpeningBalanceLine[]
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([documentDate])
+  @@index([code])
+  @@index([createdAt])
+  @@map("inventory_opening_balances")
+}
+
+model InventoryOpeningBalanceLine {
+  id               String    @id @default(cuid())
+  openingBalanceId String
+  openingBalance   InventoryOpeningBalance @relation(fields: [openingBalanceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId        String
+  product          Product   @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locationId       String?
+  location         WarehouseLocation? @relation(fields: [locationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity         Float
+  movementId       String?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([openingBalanceId])
+  @@index([productId])
+  @@index([movementId])
+  @@map("inventory_opening_balance_lines")
+}
+
+model InventoryStockAdjustment {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId        String?
+  branch          Branch?   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId     String
+  warehouse       Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locationId      String?
+  location        WarehouseLocation? @relation(fields: [locationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status          String    @default("DRAFT")
+  documentDate    DateTime  @default(now())
+  reason          String    @default("")
+  notes           String?
+  submittedAt     DateTime?
+  submittedById   String?
+  approvedAt      DateTime?
+  approvedById    String?
+  postedAt        DateTime?
+  postedById      String?
+  rejectedAt      DateTime?
+  rejectedById    String?
+  cancelledAt     DateTime?
+  cancelledById   String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  lines InventoryStockAdjustmentLine[]
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([documentDate])
+  @@index([code])
+  @@index([createdAt])
+  @@map("inventory_stock_adjustments")
+}
+
+model InventoryStockAdjustmentLine {
+  id             String    @id @default(cuid())
+  adjustmentId   String
+  adjustment     InventoryStockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId      String
+  product        Product   @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locationId     String?
+  location       WarehouseLocation? @relation(fields: [locationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  adjustmentType String
+  quantity       Float
+  movementId     String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([adjustmentId])
+  @@index([productId])
+  @@index([movementId])
+  @@index([adjustmentType])
+  @@map("inventory_stock_adjustment_lines")
 }
 
 model MachineCategory {
