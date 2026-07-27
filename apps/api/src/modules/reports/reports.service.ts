@@ -100,6 +100,54 @@ export class ReportsService {
     return this.systemReportsService.getLowStockReport(filters);
   }
 
+  getStockCard(filters: any) {
+    return this.inventoryReportsService.getStockCard(filters);
+  }
+
+  getMovementTypes(filters: any) {
+    return this.inventoryReportsService.getMovementTypes(filters);
+  }
+
+  getByWarehouseSummary(filters: any) {
+    return this.inventoryReportsService.getByWarehouseSummary(filters);
+  }
+
+  getByLocationSummary(filters: any) {
+    return this.inventoryReportsService.getByLocationSummary(filters);
+  }
+
+  getByProduct(productId: string, filters: any) {
+    return this.inventoryReportsService.getByProduct(productId, filters);
+  }
+
+  getBySource(sourceType: string, sourceId: string) {
+    return this.inventoryReportsService.getBySource(sourceType, sourceId);
+  }
+
+  getMovementTraceability(id: string) {
+    return this.inventoryReportsService.getMovementTraceability(id);
+  }
+
+  getExceptions(filters: any) {
+    return this.inventoryReportsService.getExceptions(filters);
+  }
+
+  getTopMovingItems(filters: any) {
+    return this.inventoryReportsService.getTopMovingItems(filters);
+  }
+
+  getDashboardCards() {
+    return this.inventoryReportsService.getDashboardCards();
+  }
+
+  getNegativeBalances(filters: any) {
+    return this.inventoryReportsService.getNegativeBalances(filters);
+  }
+
+  getReconciliationDifferences(filters: any) {
+    return this.inventoryReportsService.getReconciliationDifferences(filters);
+  }
+
   getAuditTrailReport(filters: any) {
     return this.auditReportsService.getAuditTrailReport(filters);
   }

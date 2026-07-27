@@ -39,6 +39,9 @@ export class InventoryReportFilterDto extends BaseReportFilterDto {
   @IsOptional() @ApiPropertyOptional() adjustmentReason?: string;
   @IsOptional() @ApiPropertyOptional() countStatus?: string;
   @IsOptional() @ApiPropertyOptional() varianceOnly?: boolean;
+  @IsOptional() @ApiPropertyOptional() direction?: string;
+  @IsOptional() @ApiPropertyOptional() sourceType?: string;
+  @IsOptional() @ApiPropertyOptional() status?: string;
 }
 
 export class BarcodeReportFilterDto extends BaseReportFilterDto {

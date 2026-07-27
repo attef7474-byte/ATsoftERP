@@ -179,6 +179,92 @@ export class ReportsController {
     return this.service.getLowStockReport(filters);
   }
 
+  // ─────────────── BATCH U — INVENTORY REPORTS + TRACEABILITY ───────────────
+
+  @Get('inventory/stock-card')
+  @Permissions('reports.inventory:read')
+  @ApiOperation({ summary: 'Stock card / item ledger with running balance' })
+  getStockCard(@Query() filters: any) {
+    return this.service.getStockCard(filters);
+  }
+
+  @Get('inventory/movement-types')
+  @Permissions('reports.inventory:read')
+  @ApiOperation({ summary: 'Movement type summary' })
+  getMovementTypes(@Query() filters: any) {
+    return this.service.getMovementTypes(filters);
+  }
+
+  @Get('inventory/by-warehouse')
+  @Permissions('reports.inventory:read')
+  @ApiOperation({ summary: 'Warehouse movement summary' })
+  getByWarehouseSummary(@Query() filters: any) {
+    return this.service.getByWarehouseSummary(filters);
+  }
+
+  @Get('inventory/by-location')
+  @Permissions('reports.inventory:read')
+  @ApiOperation({ summary: 'Location movement summary' })
+  getByLocationSummary(@Query() filters: any) {
+    return this.service.getByLocationSummary(filters);
+  }
+
+  @Get('inventory/by-product/:productId')
+  @Permissions('reports.inventory:read')
+  @ApiOperation({ summary: 'Product movement history' })
+  getByProduct(@Param('productId') productId: string, @Query() filters: any) {
+    return this.service.getByProduct(productId, filters);
+  }
+
+  @Get('inventory/by-source/:sourceType/:sourceId')
+  @Permissions('reports.inventory:read')
+  @ApiOperation({ summary: 'Source traceability' })
+  getBySource(@Param('sourceType') sourceType: string, @Param('sourceId') sourceId: string) {
+    return this.service.getBySource(sourceType, sourceId);
+  }
+
+  @Get('inventory/traceability/:movementId')
+  @Permissions('reports.inventory:read')
+  @ApiOperation({ summary: 'Movement traceability with source document' })
+  getMovementTraceability(@Param('movementId') movementId: string) {
+    return this.service.getMovementTraceability(movementId);
+  }
+
+  @Get('inventory/exceptions')
+  @Permissions('reports.inventory:read')
+  @ApiOperation({ summary: 'Exception / integrity report' })
+  getExceptions(@Query() filters: any) {
+    return this.service.getExceptions(filters);
+  }
+
+  @Get('inventory/top-moving-items')
+  @Permissions('reports.inventory:read')
+  @ApiOperation({ summary: 'Top moving products' })
+  getTopMovingItems(@Query() filters: any) {
+    return this.service.getTopMovingItems(filters);
+  }
+
+  @Get('inventory/dashboard-cards')
+  @Permissions('reports.inventory:read')
+  @ApiOperation({ summary: 'Dashboard cards with real aggregates' })
+  getDashboardCards() {
+    return this.service.getDashboardCards();
+  }
+
+  @Get('inventory/negative-balances')
+  @Permissions('reports.inventory:read')
+  @ApiOperation({ summary: 'Negative balance report' })
+  getNegativeBalances(@Query() filters: any) {
+    return this.service.getNegativeBalances(filters);
+  }
+
+  @Get('inventory/reconciliation-differences')
+  @Permissions('reports.inventory:read')
+  @ApiOperation({ summary: 'Reconciliation difference report' })
+  getReconciliationDifferences(@Query() filters: any) {
+    return this.service.getReconciliationDifferences(filters);
+  }
+
   @Get('export/csv/*endpoint')
   @Permissions('reports.maintenance:read', 'reports.inventory:read', 'reports.barcodes:read')
   @ApiOperation({ summary: 'Export report as CSV' })
