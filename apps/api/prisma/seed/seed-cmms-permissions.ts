@@ -195,6 +195,16 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "inventory:stock-adjustment:post", module: "inventory:stock-adjustment", action: "post" },
   { key: "inventory:stock-adjustment:cancel", module: "inventory:stock-adjustment", action: "cancel" },
   { key: "inventory:stock-adjustment:delete-draft", module: "inventory:stock-adjustment", action: "delete-draft" },
+  // stock-transfer (Batch R)
+  { key: "inventory:stock-transfer:read", module: "inventory:stock-transfer", action: "read" },
+  { key: "inventory:stock-transfer:create", module: "inventory:stock-transfer", action: "create" },
+  { key: "inventory:stock-transfer:update", module: "inventory:stock-transfer", action: "update" },
+  { key: "inventory:stock-transfer:submit", module: "inventory:stock-transfer", action: "submit" },
+  { key: "inventory:stock-transfer:approve", module: "inventory:stock-transfer", action: "approve" },
+  { key: "inventory:stock-transfer:reject", module: "inventory:stock-transfer", action: "reject" },
+  { key: "inventory:stock-transfer:post", module: "inventory:stock-transfer", action: "post" },
+  { key: "inventory:stock-transfer:cancel", module: "inventory:stock-transfer", action: "cancel" },
+  { key: "inventory:stock-transfer:delete-draft", module: "inventory:stock-transfer", action: "delete-draft" },
 ];
 
 async function main() {

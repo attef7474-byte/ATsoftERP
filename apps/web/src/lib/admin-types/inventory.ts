@@ -193,3 +193,53 @@ export interface OpeningBalanceLine {
   notes?: string | null;
   product?: { id: string; name: string; code: string; unit: string };
 }
+
+export type StockTransferStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'POSTED' | 'CANCELLED';
+
+export interface StockTransfer {
+  id: string;
+  code: string;
+  companyId: string;
+  branchId?: string | null;
+  status: StockTransferStatus;
+  documentDate: string;
+  sourceWarehouseId: string;
+  sourceWarehouse?: { id: string; name: string; code: string };
+  sourceLocationId?: string | null;
+  sourceLocation?: { id: string; name: string; code: string };
+  destinationWarehouseId: string;
+  destinationWarehouse?: { id: string; name: string; code: string };
+  destinationLocationId?: string | null;
+  destinationLocation?: { id: string; name: string; code: string };
+  reason: string;
+  notes?: string | null;
+  submittedAt?: string | null;
+  submittedById?: string | null;
+  approvedAt?: string | null;
+  approvedById?: string | null;
+  rejectedAt?: string | null;
+  rejectedById?: string | null;
+  postedAt?: string | null;
+  postedById?: string | null;
+  cancelledAt?: string | null;
+  cancelledById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  company?: { id: string; name: string };
+  branch?: { id: string; name: string };
+  lines?: StockTransferLine[];
+  _count?: { lines: number };
+}
+
+export interface StockTransferLine {
+  id: string;
+  transferId: string;
+  productId: string;
+  quantity: number;
+  notes?: string | null;
+  transferOutMovementId?: string | null;
+  transferInMovementId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  product?: { id: string; name: string; code: string; unit: string };
+}

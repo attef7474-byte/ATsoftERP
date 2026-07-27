@@ -16,7 +16,7 @@ const MODULES = [
   "maintenance-checklist", "system-setting", "audit-log",
   "notification", "attachment", "numbering",
   "inventory-count", "inventory-count-line", "inventory-movement",
-  "inventory-adjustment", "inventory-balance",
+  "inventory-adjustment", "inventory-balance", "inventory-stock-transfer",
   "barcode-label", "barcode-scan", "barcode-template",
   "reports.maintenance", "reports.inventory", "reports.barcodes",
   "search",
@@ -170,6 +170,7 @@ async function main() {
     { code: "INVENTORY_ADJUSTMENT", name: "Inventory Adjustment", operationName: "Inventory Adjustment", modelName: "InventoryAdjustment", domain: "inventory", prefix: "IA-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "OPENING_BALANCE", name: "Opening Balance", operationName: "Opening Balance", modelName: "InventoryOpeningBalance", domain: "inventory", prefix: "OB-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "STOCK_ADJUSTMENT", name: "Stock Adjustment", operationName: "Stock Adjustment", modelName: "InventoryStockAdjustment", domain: "inventory", prefix: "SA-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "STOCK_TRANSFER", name: "Stock Transfer", operationName: "Stock Transfer", modelName: "InventoryStockTransfer", domain: "inventory", prefix: "ST-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
 
     // Maintenance
     { code: "MACHINE", name: "Machine", operationName: "Machine", modelName: "Machine", domain: "maintenance", prefix: "MCH-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },

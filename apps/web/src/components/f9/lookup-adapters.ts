@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Administration, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -374,5 +374,17 @@ export const maintenancePersonnelAdapter: LookupAdapter<MaintenancePersonnel> = 
     { key: 'role', header: 'Role' },
     { key: 'specialty', header: 'Specialty', render: (p) => p.specialty || '-' },
     { key: 'isActive', header: 'Active', render: (p) => p.isActive ? 'Yes' : 'No' },
+  ],
+};
+
+export const stockTransferAdapter: LookupAdapter<StockTransfer> = {
+  endpoint: '/inventory/stock-transfers',
+  displayLabel: (t) => `[${t.code}] ${t.reason || t.id}`,
+  searchFields: ['code', 'reason'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'sourceWarehouse', header: 'From', render: (t) => t.sourceWarehouse?.name || '-' },
+    { key: 'destinationWarehouse', header: 'To', render: (t) => t.destinationWarehouse?.name || '-' },
+    { key: 'status', header: 'Status', render: (t) => t.status },
   ],
 };

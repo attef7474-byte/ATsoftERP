@@ -228,6 +228,7 @@ model Company {
   productionLines  ProductionLine[]
   openingBalances  InventoryOpeningBalance[]
   stockAdjustments InventoryStockAdjustment[]
+  stockTransfers   InventoryStockTransfer[]
 
   @@index([status])
   @@index([code])
@@ -261,6 +262,7 @@ model Branch {
   productionLines  ProductionLine[]
   openingBalances  InventoryOpeningBalance[]
   stockAdjustments InventoryStockAdjustment[]
+  stockTransfers   InventoryStockTransfer[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -620,6 +622,8 @@ model Warehouse {
   stockIssuePartLines  MaintenanceRequestRequiredPart[]
   openingBalances      InventoryOpeningBalance[]
   stockAdjustments     InventoryStockAdjustment[]
+  srcStockTransfers    InventoryStockTransfer[] @relation("srcWarehouse")
+  dstStockTransfers    InventoryStockTransfer[] @relation("dstWarehouse")
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -647,6 +651,8 @@ model WarehouseLocation {
   openingBalanceLines    InventoryOpeningBalanceLine[]
   stockAdjustmentDocs    InventoryStockAdjustment[]
   stockAdjustmentLines   InventoryStockAdjustmentLine[]
+  srcStockTransfers      InventoryStockTransfer[] @relation("srcLocation")
+  dstStockTransfers      InventoryStockTransfer[] @relation("dstLocation")
 
   @@unique([warehouseId, code])
   @@index([status])
@@ -701,6 +707,7 @@ model Product {
   spareParts             SparePart[]
   openingBalanceLines    InventoryOpeningBalanceLine[]
   stockAdjustmentLines   InventoryStockAdjustmentLine[]
+  stockTransferLines     InventoryStockTransferLine[]
 
   @@index([categoryId])
   @@index([code])
@@ -1054,6 +1061,74 @@ model InventoryStockAdjustmentLine {
   @@index([movementId])
   @@index([adjustmentType])
   @@map("inventory_stock_adjustment_lines")
+}
+
+model InventoryStockTransfer {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId        String?
+  branch          Branch?   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status          String    @default("DRAFT")
+  documentDate    DateTime  @default(now())
+  sourceWarehouseId      String
+  sourceWarehouse        Warehouse @relation("srcWarehouse", fields: [sourceWarehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sourceLocationId       String?
+  sourceLocation         WarehouseLocation? @relation("srcLocation", fields: [sourceLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  destinationWarehouseId String
+  destinationWarehouse   Warehouse @relation("dstWarehouse", fields: [destinationWarehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  destinationLocationId  String?
+  destinationLocation    WarehouseLocation? @relation("dstLocation", fields: [destinationLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reason          String    @default("")
+  notes           String?
+  submittedAt     DateTime?
+  submittedById   String?
+  approvedAt      DateTime?
+  approvedById    String?
+  postedAt        DateTime?
+  postedById      String?
+  rejectedAt      DateTime?
+  rejectedById    String?
+  cancelledAt     DateTime?
+  cancelledById   String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  lines InventoryStockTransferLine[]
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([sourceWarehouseId])
+  @@index([destinationWarehouseId])
+  @@index([status])
+  @@index([documentDate])
+  @@index([code])
+  @@index([createdAt])
+  @@map("inventory_stock_transfers")
+}
+
+model InventoryStockTransferLine {
+  id           String    @id @default(cuid())
+  transferId   String
+  transfer     InventoryStockTransfer @relation(fields: [transferId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId    String
+  product      Product   @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity     Float
+  notes        String?
+  transferOutMovementId  String?
+  transferInMovementId   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([transferId])
+  @@index([productId])
+  @@index([transferOutMovementId])
+  @@index([transferInMovementId])
+  @@map("inventory_stock_transfer_lines")
 }
 
 model MachineCategory {
