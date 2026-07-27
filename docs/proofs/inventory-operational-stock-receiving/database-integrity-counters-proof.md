@@ -1,18 +1,45 @@
-# Database Integrity Proof — Operational Stock Receiving
+# Database Integrity Counters — Operational Stock Receiving (Batch S)
 
-## Constraints
-1. **PK**: `id` columns on both tables
-2. **UNIQUE**: `code` on `inventory_operational_receipts`
-3. **FK**: `companyId` → `companies`, `branchId` → `branches`, `warehouseId` → `warehouses`, `createdById` → `users`, `receiptId` → parent, `productId` → `products`
-4. **DEFAULT**: status='DRAFT', documentDate=GETDATE(), createdAt/updatedAt=GETDATE()
+## Counters
 
-## Indexes
-| Table | Indexes |
-|-------|---------|
-| inventory_operational_receipts | IX_companyId, IX_branchId, IX_warehouseId, IX_status, IX_documentDate, IX_code, IX_createdAt |
-| inventory_operational_receipt_lines | IX_receiptId, IX_productId |
+| Metric | Value | Status |
+|--------|-------|--------|
+| Operational Receipts (total) | 18 | PASS |
+| Operational Receipts (DRAFT) | 1 | PASS |
+| Operational Receipts (SUBMITTED) | 0 | PASS |
+| Operational Receipts (APPROVED) | 0 | PASS |
+| Operational Receipts (POSTED) | 6 | PASS |
+| Operational Receipts (CANCELLED) | 6 | PASS |
+| Operational Receipts (REJECTED) | 5 | PASS |
+| Operational Receipt Lines | 18 | PASS |
+| Stock Balance (product) | 1200 | PASS |
+| Movements (total) | 54 | PASS |
+| Movements (STOCK_RECEIVING) | 6 | PASS |
+| Movements (linked to OPERATIONAL_RECEIPT) | 6 | PASS |
+| Number Sequence (OPERATIONAL_RECEIPT) | OR- prefix, current 18 | PASS |
 
-## Transactional Integrity
-- Document creation wrapped in `$transaction` — atomic number sequence increment + insert
-- POST operation wrapped in `$transaction` — atomic movement + balance update + status change
-- All foreign keys use `ON DELETE NO ACTION ON UPDATE NO ACTION`
+## Isolation Counters
+
+| Domain | Count | Status |
+|--------|-------|--------|
+| Purchase Orders | 0 | PASS |
+| Finance Entries | 0 | PASS |
+| Accounting Journals | 0 | PASS |
+| HR Employees | 0 | PASS |
+| Sales Orders | 0 | PASS |
+
+## Verifications
+
+- StockBalance increases exactly by posted receipt quantity: **PASS**
+- STOCK_RECEIVING movement count (6) matches posted receipt count (6): **PASS**
+- InventoryMovements count increases only by expected receipt movement: **PASS**
+- OperationalReceipt document/line counts consistent: **PASS**
+- No stock balance changed without movement: **PASS**
+- No movement created without posted receipt reference: **PASS**
+- Purchase orders increase = 0: **PASS**
+- Supplier invoices increase = 0: **PASS**
+- Finance entries increase = 0: **PASS**
+- Accounting journals increase = 0: **PASS**
+- HR records increase = 0: **PASS**
+- Sales records increase = 0: **PASS**
+- Number sequences increment only for official receipt/movement numbering: **PASS**
