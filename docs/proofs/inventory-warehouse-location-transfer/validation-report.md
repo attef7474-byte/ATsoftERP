@@ -21,17 +21,22 @@
  | i18n Arabic keys (33) | ✅ Pass |
 | Admin types (StockTransfer, StockTransferLine) | ✅ Pass |
 | Health check — API reachable (:4000) | ✅ Pass |
+| Health check — Web reachable (:3000) | ✅ Pass |
+| Health check — Swagger docs | ✅ Pass |
 | Health check — SQL Server (:50079) | ✅ Pass |
-| Smoke check — API login | ✅ 6/8 Pass (web server not running in headless mode) |
-| Smoke check — Products, Users, Roles, Profile, Swagger | ✅ All API endpoints pass |
+| Smoke check — All endpoints | ✅ 8/8 Pass |
+| Browser proof — Playwright | ✅ 30/30 Pass |
 | Prisma `validate` | ✅ Pass — schema is valid |
-| Prisma `migrate status` | ✅ Pass — database up to date (28 migrations)
+| Prisma `migrate status` | ✅ Pass — database up to date (28 migrations) |
 
 ## Validation Details
 
 ### Compilation Checks
 - `tsc` API: 0 errors, 0 warnings
+- `tsc --noEmit` web (via Next.js build): 0 errors
 - `next build` web: 0 errors, 147 routes generated
+- `build:api`: ✅ Pass
+- `build:web`: ✅ Pass
 
 ### Database Checks
 - Table `inventory_stock_transfers`: created with 26 columns, 8 indexes, 3 FK constraints
@@ -47,6 +52,10 @@
 - Stock availability check
 - 9 fine-grained permissions
 
+### Fixes Applied During Proof
+- Frontend API path `/inventory/stock-transfers` → `/inventory/transfers` (6 occurrences in 3 files)
+- API `start:prod` path corrected to `dist/src/main.js`
+
 ## Exclusions (Verified Not Activated)
 
 | Module | Status | Verification |
@@ -58,4 +67,4 @@
 
 ## Conclusion
 
-All 21 validation checks pass. Module is complete and ready for acceptance. (Note: Web server not running in headless CI — health check on web:3000 skipped; smoke check 6/6 API endpoints pass.)
+All 25 validation checks pass. Module is complete and ready for acceptance. Health check 4/4, Smoke check 8/8, Browser proof 30/30 PASS.

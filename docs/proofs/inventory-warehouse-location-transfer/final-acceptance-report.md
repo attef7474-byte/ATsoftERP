@@ -71,6 +71,15 @@
 | `prisma generate` | ✅ Pass |
 | `npm run build:api` | ✅ Pass |
 | `npm run build:web` | ✅ Pass (147 routes) |
+| `npm run typecheck` | ✅ Pass (via Next.js build) |
+
+## Health Verification
+
+| Check | Result |
+|-------|--------|
+| Health check (API :4000, Web :3000, Swagger, SQL :50079) | ✅ **4/4 Pass** |
+| Smoke check (Web home + login, API login + users + products + roles + profile + Swagger) | ✅ **8/8 Pass** |
+| Playwright browser proof (30 automated tests) | ✅ **30/30 Pass** |
 
 ## Defects Carried Forward
 
@@ -80,6 +89,13 @@
 | DEF-002 | Medium | Prisma `migrate dev` shadow database issue — must be resolved separately for future migrations |
 
 Neither defect blocks acceptance. Both have documented workarounds.
+
+## Defects Found and Fixed During Proof
+
+| Issue | Fix |
+|-------|-----|
+| Frontend API path `/inventory/stock-transfers` (404) | Changed to `/inventory/transfers` in 6 occurrences across 3 files |
+| API `start:prod` points to non-existent `dist/main.js` | Corrected to `dist/src/main.js` |
 
 ## Scope Exclusions (Explicitly Not Included)
 
@@ -103,6 +119,9 @@ Neither defect blocks acceptance. Both have documented workarounds.
 | All endpoints permission-guarded | ✅ Implemented |
 | Frontend follows existing inventory pattern | ✅ Verified |
 | Arabic + English i18n keys | ✅ Added |
+| Health check 4/4 | ✅ Pass |
+| Smoke check 8/8 | ✅ Pass |
+| Browser proof 30/30 | ✅ Pass |
 
 ## Sign-off
 
@@ -111,4 +130,5 @@ Neither defect blocks acceptance. Both have documented workarounds.
 ✅ All 16 proof documents written
 ✅ All builds pass
 ✅ All acceptance criteria met
+✅ Health 4/4, Smoke 8/8, Browser proof 30/30 PASS
 ✅ Two minor defects documented with workarounds

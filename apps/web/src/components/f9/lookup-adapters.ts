@@ -378,7 +378,7 @@ export const maintenancePersonnelAdapter: LookupAdapter<MaintenancePersonnel> = 
 };
 
 export const stockTransferAdapter: LookupAdapter<StockTransfer> = {
-  endpoint: '/inventory/stock-transfers',
+  endpoint: '/inventory/transfers',
   displayLabel: (t) => `[${t.code}] ${t.reason || t.id}`,
   searchFields: ['code', 'reason'],
   columns: [

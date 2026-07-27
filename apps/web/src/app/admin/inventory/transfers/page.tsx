@@ -74,7 +74,7 @@ export default function StockTransfersPage() {
       const params: Record<string, any> = { page, limit: 10 };
       if (search) params.search = search;
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = k === 'sourceWarehouseId' || k === 'destinationWarehouseId' ? v : v; });
-      const res = await api.get<{ data: StockTransfer[]; meta: any }>('/inventory/stock-transfers', { params });
+      const res = await api.get<{ data: StockTransfer[]; meta: any }>('/inventory/transfers', { params });
       setData(res.data || []); setMeta(res.meta);
     } catch (err: any) { setError(err?.message || 'Load failed'); }
     finally { setLoading(false); }
@@ -117,10 +117,10 @@ export default function StockTransfersPage() {
         })),
       };
       if (editItem) {
-        await api.patch(`/inventory/stock-transfers/${editItem.id}`, payload);
+        await api.patch(`/inventory/transfers/${editItem.id}`, payload);
         showToast('Updated successfully', 'success');
       } else {
-        await api.post('/inventory/stock-transfers', payload);
+        await api.post('/inventory/transfers', payload);
         showToast('Created successfully', 'success');
       }
       setModalOpen(false); fetchData(meta.page);
@@ -142,7 +142,7 @@ export default function StockTransfersPage() {
   const handleAction = async () => {
     setSaving(true);
     try {
-      await api.post(`/inventory/stock-transfers/${selectedId}/${pendingAction}`);
+      await api.post(`/inventory/transfers/${selectedId}/${pendingAction}`);
       showToast('Action completed', 'success');
       setActionConfirmOpen(false); fetchData(meta.page);
     } catch (err: any) { showToast(err?.message || 'Action failed', 'error'); }

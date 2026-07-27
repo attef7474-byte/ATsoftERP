@@ -25,7 +25,7 @@ export default function StockTransferDetailPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<StockTransfer>(`/inventory/stock-transfers/${id}`);
+      const res = await api.get<StockTransfer>(`/inventory/transfers/${id}`);
       setData(res);
     } catch (err: any) {
       setError(err?.message || t('errors.loadFailed'));
@@ -37,7 +37,7 @@ export default function StockTransferDetailPage() {
   const execWorkflow = async (action: string) => {
     setActionLoading(true);
     try {
-      await api.post(`/inventory/stock-transfers/${id}/${action}`);
+      await api.post(`/inventory/transfers/${id}/${action}`);
       showToast(t('common.successUpdated'), 'success');
       setConfirmOpen(false);
       fetchData();
