@@ -234,6 +234,8 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         ADJUSTMENT_IN: 'تسوية إضافة',
         ADJUSTMENT_OUT: 'تسوية خصم',
         COUNT_ADJUSTMENT: 'تسوية جرد',
+        COUNT_VARIANCE_IN: 'فروقات جرد إضافة',
+        COUNT_VARIANCE_OUT: 'فروقات جرد خصم',
         IN: 'وارد',
         OUT: 'صادر',
         DONE: 'تم',

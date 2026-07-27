@@ -234,6 +234,8 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         ADJUSTMENT_IN: 'Adjustment In',
         ADJUSTMENT_OUT: 'Adjustment Out',
         COUNT_ADJUSTMENT: 'Count Adjustment',
+        COUNT_VARIANCE_IN: 'Count Variance In',
+        COUNT_VARIANCE_OUT: 'Count Variance Out',
         IN: 'In',
         OUT: 'Out',
         DONE: 'Done',

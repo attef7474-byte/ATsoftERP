@@ -230,6 +230,7 @@ model Company {
   stockAdjustments InventoryStockAdjustment[]
   stockTransfers   InventoryStockTransfer[]
   operationalReceipts InventoryOperationalReceipt[]
+  physicalCounts      InventoryPhysicalCount[]
 
   @@index([status])
   @@index([code])
@@ -265,6 +266,7 @@ model Branch {
   stockAdjustments InventoryStockAdjustment[]
   stockTransfers   InventoryStockTransfer[]
   operationalReceipts InventoryOperationalReceipt[]
+  physicalCounts      InventoryPhysicalCount[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -620,6 +622,7 @@ model Warehouse {
   locations  WarehouseLocation[]
   balances   InventoryBalance[]
   counts     InventoryCount[]
+  physicalCounts InventoryPhysicalCount[]
   movements  InventoryMovement[]
   adjustments InventoryAdjustment[]
   stockIssuePartLines  MaintenanceRequestRequiredPart[]
@@ -658,6 +661,7 @@ model WarehouseLocation {
   srcStockTransfers      InventoryStockTransfer[] @relation("srcLocation")
   dstStockTransfers      InventoryStockTransfer[] @relation("dstLocation")
   operationalReceipts    InventoryOperationalReceipt[]
+  physicalCountLines     InventoryPhysicalCountLine[]
 
   @@unique([warehouseId, code])
   @@index([status])
@@ -714,6 +718,7 @@ model Product {
   stockAdjustmentLines   InventoryStockAdjustmentLine[]
   stockTransferLines     InventoryStockTransferLine[]
   operationalReceiptLines InventoryOperationalReceiptLine[]
+  physicalCountLines      InventoryPhysicalCountLine[]
 
   @@index([categoryId])
   @@index([code])
@@ -817,6 +822,72 @@ model InventoryCountLine {
   @@index([countId, status])
   @@index([countId, productId])
   @@map("inventory_count_lines")
+}
+
+model InventoryPhysicalCount {
+  id              String    @id @default(cuid())
+  countNumber     String    @unique
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId        String?
+  branch          Branch?   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId     String
+  warehouse       Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status          String    @default("DRAFT")
+  countDate       DateTime  @default(now())
+  frozenAt        DateTime?
+  submittedAt     DateTime?
+  submittedById   String?
+  approvedAt      DateTime?
+  approvedById    String?
+  rejectedAt      DateTime?
+  rejectedById    String?
+  rejectedReason  String?
+  postedAt        DateTime?
+  postedById      String?
+  cancelledAt     DateTime?
+  cancelledById   String?
+  notes           String?
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  lines InventoryPhysicalCountLine[]
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([countDate])
+  @@index([countNumber])
+  @@index([createdAt])
+  @@index([warehouseId, status])
+  @@index([status, createdAt])
+  @@map("inventory_physical_counts")
+}
+
+model InventoryPhysicalCountLine {
+  id                  String    @id @default(cuid())
+  physicalCountId     String
+  physicalCount       InventoryPhysicalCount @relation(fields: [physicalCountId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId           String
+  product             Product                @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseLocationId String?
+  warehouseLocation   WarehouseLocation?     @relation(fields: [warehouseLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  systemQty           Float                  @default(0)
+  countedQty          Float?
+  varianceQty         Float?
+  notes               String?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  @@unique([physicalCountId, productId, warehouseLocationId])
+  @@index([physicalCountId])
+  @@index([productId])
+  @@index([warehouseLocationId])
+  @@index([physicalCountId, productId])
+  @@map("inventory_physical_count_lines")
 }
 
 model InventoryMovement {
