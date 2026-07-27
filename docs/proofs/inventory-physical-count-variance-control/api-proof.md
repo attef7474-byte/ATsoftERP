@@ -55,12 +55,18 @@ Response: audit logs
 ## Proof Results (2026-07-27)
 | Metric | Value |
 |--------|-------|
-| Total tests | 55 |
-| Passed | 55 |
+| Total tests | 92 |
+| Passed | 92 |
 | Failed | 0 |
 | Pass rate | 100.0% |
 
 ### Automated Script
 - Script: `api-proof-final.ps1`
-- Tests: auth guard (2), create (2), add lines (3), list/detail (4), update (2), enter count (4), submit (3), approve (3), post (10), reject (3), cancel (3), results (5), history (2), security (2), existing feature isolation (4), cleanup (1)
+- Tests: auth (2), create (2), lines (3), list/detail (4), update (2), enter (4), submit (4), approve (3), post (10), reject (3), cancel (3), results (5), history (2), security (2), feature isolation (4), cleanup (1), negative variance (11), zero variance (5), mixed variance (6), pagination (4), search (1), sequence (3), validation edge cases (5), invalid transitions (3), ledger visibility (1)
+- Negative variance: OUT movement created, stock decreased by exact shortage
+- Zero variance: post rejected (no variance), stock unchanged
+- Mixed variance (multi-line): multiple movements created
+- Pagination: page/pageSize enforced, totalPages correct
+- Validation edge cases: missing company/warehouse/productId rejected
+- Invalid transitions: approve DRAFT, post DRAFT, submit CANCELLED — all blocked
 - Bugs found during proof (all fixed): (1) `@Min(0)` on countedQty, (2) sequence increment bug, (3) `@MinLength(1)` on reject reason

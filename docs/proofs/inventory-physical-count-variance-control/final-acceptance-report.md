@@ -97,12 +97,24 @@ All 18 proof documents created under `docs/proofs/inventory-physical-count-varia
 
 | Proof Category | Tests | Passed | Failed | Skipped | Rate |
 |----------------|-------|--------|--------|---------|------|
-| API proof (powershell) | 55 | 55 | 0 | 0 | 100.0% |
+| API proof (powershell) | 92 | 92 | 0 | 0 | 100.0% |
 | Database integrity counters | 29 | 29 | 0 | 0 | 100.0% |
 | Browser proof (Playwright) | 40 | 39 | 0 | 1 | 97.5%* |
-| **Total** | **124** | **123** | **0** | **1** | **99.2%** |
+| **Total** | **161** | **160** | **0** | **1** | **99.4%** |
 
 \* 1 skipped: no DRAFT count available (all cleaned up after proof run — expected behavior)
+
+### Expanded API Proof Scope
+The API proof script was expanded from 55 to 92 tests covering:
+- **Negative variance**: OUT movement created, stock decreased by exact shortage, movement POSTED
+- **Zero variance**: post rejected, stock unchanged, validation enforced
+- **Mixed variance**: multi-line count with both excess and shortage movements
+- **Pagination**: page/pageSize limits enforced, totalPages calculated correctly
+- **Search**: find by countNumber works
+- **Number sequence**: prefix, active flag, auto-increment verified
+- **Validation edge cases**: missing company/warehouse/productId rejected with 400
+- **Invalid transitions**: approve DRAFT, post DRAFT, submit CANCELLED — all blocked with 400
+- **Ledger visibility**: variance movements visible in ledger query
 
 ### Bugs Found & Fixed During Proof
 Three backend bugs identified during proof execution and resolved:
