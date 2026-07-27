@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Administration, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -374,6 +374,17 @@ export const maintenancePersonnelAdapter: LookupAdapter<MaintenancePersonnel> = 
     { key: 'role', header: 'Role' },
     { key: 'specialty', header: 'Specialty', render: (p) => p.specialty || '-' },
     { key: 'isActive', header: 'Active', render: (p) => p.isActive ? 'Yes' : 'No' },
+  ],
+};
+
+export const operationalReceiptAdapter: LookupAdapter<OperationalReceipt> = {
+  endpoint: '/inventory/operational-receipts',
+  displayLabel: (r) => `[${r.code}] ${r.reason || r.id}`,
+  searchFields: ['code', 'reason'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'warehouse', header: 'Warehouse', render: (r) => r.warehouse?.name || '-' },
+    { key: 'status', header: 'Status', render: (r) => r.status },
   ],
 };
 

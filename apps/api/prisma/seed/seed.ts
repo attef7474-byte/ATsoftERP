@@ -171,6 +171,7 @@ async function main() {
     { code: "OPENING_BALANCE", name: "Opening Balance", operationName: "Opening Balance", modelName: "InventoryOpeningBalance", domain: "inventory", prefix: "OB-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "STOCK_ADJUSTMENT", name: "Stock Adjustment", operationName: "Stock Adjustment", modelName: "InventoryStockAdjustment", domain: "inventory", prefix: "SA-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "STOCK_TRANSFER", name: "Stock Transfer", operationName: "Stock Transfer", modelName: "InventoryStockTransfer", domain: "inventory", prefix: "ST-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "OPERATIONAL_RECEIPT", name: "Operational Receipt", operationName: "Operational Receipt", modelName: "InventoryOperationalReceipt", domain: "inventory", prefix: "OR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
 
     // Maintenance
     { code: "MACHINE", name: "Machine", operationName: "Machine", modelName: "Machine", domain: "maintenance", prefix: "MCH-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },

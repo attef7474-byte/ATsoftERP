@@ -205,6 +205,16 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "inventory:stock-transfer:post", module: "inventory:stock-transfer", action: "post" },
   { key: "inventory:stock-transfer:cancel", module: "inventory:stock-transfer", action: "cancel" },
   { key: "inventory:stock-transfer:delete-draft", module: "inventory:stock-transfer", action: "delete-draft" },
+  // operational-receipt (Batch S)
+  { key: "inventory:operational-receipt:read", module: "inventory:operational-receipt", action: "read" },
+  { key: "inventory:operational-receipt:create", module: "inventory:operational-receipt", action: "create" },
+  { key: "inventory:operational-receipt:update", module: "inventory:operational-receipt", action: "update" },
+  { key: "inventory:operational-receipt:submit", module: "inventory:operational-receipt", action: "submit" },
+  { key: "inventory:operational-receipt:approve", module: "inventory:operational-receipt", action: "approve" },
+  { key: "inventory:operational-receipt:reject", module: "inventory:operational-receipt", action: "reject" },
+  { key: "inventory:operational-receipt:post", module: "inventory:operational-receipt", action: "post" },
+  { key: "inventory:operational-receipt:cancel", module: "inventory:operational-receipt", action: "cancel" },
+  { key: "inventory:operational-receipt:delete-draft", module: "inventory:operational-receipt", action: "delete-draft" },
 ];
 
 async function main() {

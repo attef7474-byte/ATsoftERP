@@ -69,6 +69,7 @@ import { InventoryLedgerReconciliationModule } from './modules/factory/inventory
 import { InventoryOpeningBalancesModule } from './modules/factory/inventory-opening-balances/inventory-opening-balances.module'
 import { InventoryStockAdjustmentsModule } from './modules/factory/inventory-stock-adjustments/inventory-stock-adjustments.module'
 import { InventoryStockTransfersModule } from './modules/factory/inventory-stock-transfers/inventory-stock-transfers.module'
+import { InventoryOperationalReceiptsModule } from './modules/factory/inventory-operational-receipts/inventory-operational-receipts.module'
 
 @Module({
   imports: [
@@ -102,6 +103,7 @@ import { InventoryStockTransfersModule } from './modules/factory/inventory-stock
     InventoryOpeningBalancesModule,
     InventoryStockAdjustmentsModule,
     InventoryStockTransfersModule,
+    InventoryOperationalReceiptsModule,
   ],
 })
 export class AppModule {}

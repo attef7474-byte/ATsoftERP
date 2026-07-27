@@ -37,4 +37,5 @@ export {
   sparePartAdapter,
   maintenancePersonnelAdapter,
   stockTransferAdapter,
+  operationalReceiptAdapter,
 } from './lookup-adapters';

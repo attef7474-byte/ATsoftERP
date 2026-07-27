@@ -229,6 +229,7 @@ model Company {
   openingBalances  InventoryOpeningBalance[]
   stockAdjustments InventoryStockAdjustment[]
   stockTransfers   InventoryStockTransfer[]
+  operationalReceipts InventoryOperationalReceipt[]
 
   @@index([status])
   @@index([code])
@@ -263,6 +264,7 @@ model Branch {
   openingBalances  InventoryOpeningBalance[]
   stockAdjustments InventoryStockAdjustment[]
   stockTransfers   InventoryStockTransfer[]
+  operationalReceipts InventoryOperationalReceipt[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -406,6 +408,7 @@ model User {
   usedRequiredParts                   MaintenanceRequestRequiredPart[] @relation("RequiredPartUsedBy")
   cancelledRequiredParts              MaintenanceRequestRequiredPart[] @relation("RequiredPartCancelledBy")
   issuedStockRequiredParts             MaintenanceRequestRequiredPart[] @relation("PartStockIssuedBy")
+  operationalReceipts                  InventoryOperationalReceipt[]
 
   @@index([email])
   @@index([status])
@@ -624,6 +627,7 @@ model Warehouse {
   stockAdjustments     InventoryStockAdjustment[]
   srcStockTransfers    InventoryStockTransfer[] @relation("srcWarehouse")
   dstStockTransfers    InventoryStockTransfer[] @relation("dstWarehouse")
+  operationalReceipts  InventoryOperationalReceipt[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -653,6 +657,7 @@ model WarehouseLocation {
   stockAdjustmentLines   InventoryStockAdjustmentLine[]
   srcStockTransfers      InventoryStockTransfer[] @relation("srcLocation")
   dstStockTransfers      InventoryStockTransfer[] @relation("dstLocation")
+  operationalReceipts    InventoryOperationalReceipt[]
 
   @@unique([warehouseId, code])
   @@index([status])
@@ -708,6 +713,7 @@ model Product {
   openingBalanceLines    InventoryOpeningBalanceLine[]
   stockAdjustmentLines   InventoryStockAdjustmentLine[]
   stockTransferLines     InventoryStockTransferLine[]
+  operationalReceiptLines InventoryOperationalReceiptLine[]
 
   @@index([categoryId])
   @@index([code])
@@ -1129,6 +1135,67 @@ model InventoryStockTransferLine {
   @@index([transferOutMovementId])
   @@index([transferInMovementId])
   @@map("inventory_stock_transfer_lines")
+}
+
+model InventoryOperationalReceipt {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  companyId    String
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId     String?
+  branch       Branch?   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId  String
+  warehouse    Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locationId   String?
+  location     WarehouseLocation? @relation(fields: [locationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status       String    @default("DRAFT")
+  documentDate DateTime  @default(now())
+  reason       String
+  notes        String?
+  supplierName String?
+  supplierDoc  String?
+  submittedAt  DateTime?
+  submittedById String?
+  approvedAt   DateTime?
+  approvedById String?
+  rejectedAt   DateTime?
+  rejectedById String?
+  postedAt     DateTime?
+  postedById   String?
+  cancelledAt  DateTime?
+  cancelledById String?
+  createdById  String
+  createdBy    User      @relation(fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  lines InventoryOperationalReceiptLine[]
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([documentDate])
+  @@index([code])
+  @@index([createdAt])
+  @@map("inventory_operational_receipts")
+}
+
+model InventoryOperationalReceiptLine {
+  id        String    @id @default(cuid())
+  receiptId String
+  receipt   InventoryOperationalReceipt @relation(fields: [receiptId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId String
+  product   Product   @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity  Float
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([receiptId])
+  @@index([productId])
+  @@map("inventory_operational_receipt_lines")
 }
 
 model MachineCategory {
