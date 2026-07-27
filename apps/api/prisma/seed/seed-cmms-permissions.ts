@@ -168,6 +168,9 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "maintenance-planning:update", module: "maintenance-planning", action: "update" },
   { key: "maintenance-planning:assign", module: "maintenance-planning", action: "assign" },
   { key: "maintenance-planning:reschedule", module: "maintenance-planning", action: "reschedule" },
+  // maintenance-stock-issue (Batch O)
+  { key: "maintenance-stock-issue:create", module: "maintenance-stock-issue", action: "create" },
+  { key: "maintenance-stock-issue:read", module: "maintenance-stock-issue", action: "read" },
 ];
 
 async function main() {

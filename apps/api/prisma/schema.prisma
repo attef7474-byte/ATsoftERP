@@ -399,6 +399,7 @@ model User {
   reservedRequiredParts               MaintenanceRequestRequiredPart[] @relation("RequiredPartReservedBy")
   usedRequiredParts                   MaintenanceRequestRequiredPart[] @relation("RequiredPartUsedBy")
   cancelledRequiredParts              MaintenanceRequestRequiredPart[] @relation("RequiredPartCancelledBy")
+  issuedStockRequiredParts             MaintenanceRequestRequiredPart[] @relation("PartStockIssuedBy")
 
   @@index([email])
   @@index([status])
@@ -612,6 +613,7 @@ model Warehouse {
   counts     InventoryCount[]
   movements  InventoryMovement[]
   adjustments InventoryAdjustment[]
+  stockIssuePartLines MaintenanceRequestRequiredPart[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -1266,6 +1268,16 @@ model MaintenanceRequestRequiredPart {
   reservedAt           DateTime?
   usedAt               DateTime?
   cancelledAt          DateTime?
+
+  // Batch O — maintenance stock issue fields (backward compatible, all nullable)
+  issuedQuantity       Float?    @default(0)
+  returnedQuantity     Float?    @default(0)
+  stockIssueStatus     String?   @default("NOT_ISSUED")
+  warehouseId          String?
+  warehouse            Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lastIssueAt          DateTime?
+  lastIssueByUserId    String?
+  lastIssueBy          User?     @relation("PartStockIssuedBy", fields: [lastIssueByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([maintenanceRequestId, sparePartId])
   @@index([maintenanceRequestId])

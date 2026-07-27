@@ -13,7 +13,7 @@ interface RequestDetail extends MaintenanceRequest {
 }
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionBarcodeIcon } from '../../../../../components/admin/admin-action-bar';
-import { F9Lookup, sparePartAdapter } from '../../../../../components/f9';
+import { F9Lookup, sparePartAdapter, warehouseAdapter } from '../../../../../components/f9';
 
 export default function MaintenanceRequestDetailPage() {
   const params = useParams();
@@ -39,6 +39,14 @@ export default function MaintenanceRequestDetailPage() {
   const [addPartNote, setAddPartNote] = useState('');
   const [partLineActionLoading, setPartLineActionLoading] = useState('');
   const [rejectLineId, setRejectLineId] = useState('');
+  const [stockIssueLineId, setStockIssueLineId] = useState('');
+  const [stockIssueWarehouseId, setStockIssueWarehouseId] = useState('');
+  const [stockIssueQuantity, setStockIssueQuantity] = useState(0);
+  const [stockIssueNotes, setStockIssueNotes] = useState('');
+  const [stockIssueLoading, setStockIssueLoading] = useState(false);
+  const [stockIssueMovements, setStockIssueMovements] = useState<any[]>([]);
+  const [stockIssueMovementsLoading, setStockIssueMovementsLoading] = useState(false);
+  const [showStockIssueHistory, setShowStockIssueHistory] = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -167,17 +175,50 @@ export default function MaintenanceRequestDetailPage() {
     } finally { setPartLineActionLoading(''); }
   };
 
+  const execStockIssue = async () => {
+    if (!stockIssueWarehouseId) { showToast(t('maintenance.sparePartRequest.selectWarehouseForIssue'), 'error'); return; }
+    if (stockIssueQuantity <= 0) { showToast(t('validation.quantityMustBePositive'), 'error'); return; }
+    setStockIssueLoading(true);
+    try {
+      await api.post(`/maintenance/requests/${id}/parts/${stockIssueLineId}/stock-issue/issue`, {
+        warehouseId: stockIssueWarehouseId,
+        issuedQuantity: stockIssueQuantity,
+        notes: stockIssueNotes || undefined,
+      });
+      showToast(t('common.successUpdated'), 'success');
+      setStockIssueLineId('');
+      setStockIssueWarehouseId('');
+      setStockIssueQuantity(0);
+      setStockIssueNotes('');
+      fetchPartLines();
+    } catch (err: any) {
+      showToast(err?.message || t('errors.updateFailed'), 'error');
+    } finally { setStockIssueLoading(false); }
+  };
+
+  const fetchStockIssueHistory = async (lineId: string) => {
+    setShowStockIssueHistory(lineId);
+    setStockIssueMovementsLoading(true);
+    try {
+      const res = await api.get<any[]>(`/maintenance/requests/${id}/parts/${lineId}/stock-issue`);
+      setStockIssueMovements(res || []);
+    } catch { setStockIssueMovements([]); }
+    finally { setStockIssueMovementsLoading(false); }
+  };
+
   const partStatusBadge = (status: string) => {
     return <StatusBadge status={status} />;
   };
 
-  const canAction = (status: string): Record<string, boolean> => ({
+  const canAction = (status: string, stockIssueStatus?: string | null): Record<string, boolean> => ({
     request: status === 'DRAFT',
     approve: status === 'REQUESTED',
     reject: status === 'REQUESTED',
     reserve: status === 'APPROVED',
     use: status === 'RESERVED' || status === 'APPROVED',
     cancel: !['CANCELLED', 'USED', 'REJECTED'].includes(status),
+    issueStock: status === 'APPROVED' || status === 'RESERVED',
+    hasIssues: stockIssueStatus != null && stockIssueStatus !== '' && stockIssueStatus !== 'NOT_ISSUED',
   });
 
   const statusActions: Record<string, string> = {
@@ -398,7 +439,8 @@ export default function MaintenanceRequestDetailPage() {
                   </thead>
                   <tbody>
                     {partLines.map((line) => {
-                      const actions = canAction(line.status);
+                      const actions = canAction(line.status, line.stockIssueStatus);
+                      const stockIssueStatusColor = line.stockIssueStatus === 'FULLY_ISSUED' ? 'bg-green-100 text-green-700' : line.stockIssueStatus === 'PARTIALLY_ISSUED' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700';
                       return (
                         <tr key={line.id} className="border-b hover:bg-gray-50">
                           <td className="py-2 px-2">{line.sparePart ? `[${line.sparePart.code}] ${line.sparePart.name}` : line.sparePartId}</td>
@@ -422,6 +464,12 @@ export default function MaintenanceRequestDetailPage() {
                               {actions.use && (
                                 <button onClick={() => execPartAction(line.id, 'use')} disabled={partLineActionLoading === `${line.id}_use`} className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded hover:bg-amber-200 disabled:opacity-50">{t('maintenance.sparePartRequest.markPartUsed')}</button>
                               )}
+                              {actions.issueStock && (
+                                <button onClick={() => setStockIssueLineId(line.id)} className="px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200">{t('maintenance.sparePartRequest.issueStock')}</button>
+                              )}
+                              {actions.hasIssues && (
+                                <button onClick={() => fetchStockIssueHistory(line.id)} className="px-2 py-0.5 text-xs bg-teal-100 text-teal-700 rounded hover:bg-teal-200">{t('maintenance.sparePartRequest.stockIssueHistory')}</button>
+                              )}
                               {actions.cancel && (
                                 <button onClick={() => execPartAction(line.id, 'cancel')} disabled={partLineActionLoading === `${line.id}_cancel`} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50">{t('maintenance.sparePartRequest.cancelRequest')}</button>
                               )}
@@ -434,7 +482,60 @@ export default function MaintenanceRequestDetailPage() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-gray-400 mt-3">{t('maintenance.sparePartRequest.noStockDeducted')} — {t('maintenance.sparePartRequest.noInventoryMovement')}</p>
+            <p className="text-xs text-gray-400 mt-3">{t('maintenance.sparePartRequest.noStockDeducted')} — {t('maintenance.sparePartRequest.noInventoryMovement')} {t('maintenance.sparePartRequest.issueStock')}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {stockIssueLineId && (
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-semibold text-gray-700">{t('maintenance.sparePartRequest.issueStockToWarehouse')}</h3>
+              <button onClick={() => { setStockIssueLineId(''); setStockIssueWarehouseId(''); setStockIssueQuantity(0); setStockIssueNotes(''); }} className="text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t('inventory.warehouse')}</label>
+              <F9Lookup value={stockIssueWarehouseId} onChange={setStockIssueWarehouseId} adapter={warehouseAdapter} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.issuedQuantity')}</label>
+              <input type="number" min="0.001" step="0.001" value={stockIssueQuantity || ''} onChange={e => setStockIssueQuantity(parseFloat(e.target.value) || 0)} className="w-full border rounded px-2 py-1 text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.notes')}</label>
+              <input type="text" value={stockIssueNotes} onChange={e => setStockIssueNotes(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={execStockIssue} disabled={stockIssueLoading} className="px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">{t('maintenance.sparePartRequest.issueStock')}</button>
+              <button onClick={() => { setStockIssueLineId(''); setStockIssueWarehouseId(''); setStockIssueQuantity(0); setStockIssueNotes(''); }} className="px-3 py-1.5 text-xs font-medium bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">{t('common.cancel')}</button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {showStockIssueHistory && (
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-semibold text-gray-700">{t('maintenance.sparePartRequest.stockIssueHistory')}</h3>
+              <button onClick={() => setShowStockIssueHistory('')} className="text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {stockIssueMovementsLoading ? <LoadingState /> : stockIssueMovements.length === 0 ? (
+              <p className="text-sm text-gray-500 py-4">{t('common.noData')}</p>
+            ) : (
+              <DataTable columns={[
+                { key: 'movementNumber', header: t('common.number'), render: (m: any) => m.movementNumber },
+                { key: 'movementType', header: t('common.type'), render: (m: any) => m.movementType === 'MAINTENANCE_ISSUE' ? t('maintenance.sparePartRequest.issueStock') : t('maintenance.sparePartRequest.returnStock') },
+                { key: 'warehouse', header: t('inventory.warehouse'), render: (m: any) => m.warehouse?.name || '-' },
+                { key: 'lines', header: t('maintenance.sparePartRequest.issuedQuantity'), render: (m: any) => m.lines?.map((l: any) => `${l.product?.name || l.productId} x ${l.quantity} (${l.direction})`).join(', ') || '-' },
+                { key: 'createdAt', header: t('common.createdAt'), render: (m: any) => fmt(m.createdAt) },
+              ]} data={stockIssueMovements} keyExtractor={(m: any) => m.id} />
+            )}
           </CardContent>
         </Card>
       )}

@@ -496,6 +496,14 @@ export interface SparePartRequestLine {
   usedBy?: { id: string; name: string } | null;
   cancelledBy?: { id: string; name: string } | null;
   failureCause?: { id: string; reason: string; failureCause?: string } | null;
+  // Batch O — stock issue integration
+  issuedQuantity?: number | null;
+  returnedQuantity?: number | null;
+  stockIssueStatus?: string | null;
+  warehouseId?: string | null;
+  warehouse?: { id: string; code: string; name: string } | null;
+  lastIssueAt?: string | null;
+  lastIssueBy?: { id: string; name: string } | null;
   requestedAt?: string | null;
   approvedAt?: string | null;
   rejectedAt?: string | null;
