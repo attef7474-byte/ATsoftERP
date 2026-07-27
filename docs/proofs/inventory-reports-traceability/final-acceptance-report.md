@@ -52,5 +52,8 @@ Batch U delivers a comprehensive read-only inventory reporting and traceability 
 | Validation (typecheck, build, i18n) | PASS |
 | Git clean, tags pushed | PASS |
 
+## Documented Limitation
+- **Git push to origin**: Network connectivity to `github.com` is unavailable from the current environment. Tags (`atsoft-erp-inventory-reports-traceability`, `atsoft-erp-current-release-final-audited-v3-inventory-reports-traceability`, `atsoft-erp-inventory-reports-traceability-proof`) and commit are created locally and must be pushed when network is restored.
+
 ## Status
-**ACCEPTED** — All criteria met, zero defects, zero regressions.
+**ACCEPTED_WITH_DOCUMENTED_LIMITATION** — All criteria met, zero defects, zero regressions. Git push deferred due to network unavailability.
