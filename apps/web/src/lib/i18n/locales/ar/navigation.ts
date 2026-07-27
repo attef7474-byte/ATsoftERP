@@ -44,6 +44,8 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         profile: 'الملف الشخصي',
         language: 'اللغة',
         warehouseLocations: 'مواقع المستودعات',
+        inventoryLedger: 'دفتر حركات المخزون',
+        inventoryReconciliation: 'مطابقة الأرصدة',
         barcodes: 'الباركود',
         generate: 'إنشاء',
         print: 'طباعة',

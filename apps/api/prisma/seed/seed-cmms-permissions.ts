@@ -171,6 +171,10 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   // maintenance-stock-issue (Batch O)
   { key: "maintenance-stock-issue:create", module: "maintenance-stock-issue", action: "create" },
   { key: "maintenance-stock-issue:read", module: "maintenance-stock-issue", action: "read" },
+  // inventory-ledger (Batch P)
+  { key: "inventory-ledger:read", module: "inventory-ledger", action: "read" },
+  // inventory-reconciliation (Batch P)
+  { key: "inventory-reconciliation:read", module: "inventory-reconciliation", action: "read" },
 ];
 
 async function main() {

@@ -45,7 +45,9 @@ export type TranslationNamespace =
   | 'sparePartRequest'
   | 'search'
   | 'messaging'
-  | 'grid';
+  | 'grid'
+  | 'inventoryLedger'
+  | 'inventoryReconciliation';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

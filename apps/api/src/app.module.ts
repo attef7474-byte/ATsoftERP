@@ -65,6 +65,7 @@ import { MaintenanceNotificationModule } from './modules/factory/maintenance/mai
 import { MaintenanceSlaModule } from './modules/factory/maintenance/maintenance-sla/maintenance-sla.module'
 import { MaintenanceCalendarWorkloadModule } from './modules/factory/maintenance/maintenance-calendar-workload/maintenance-calendar-workload.module'
 import { MaintenanceStockIssueModule } from './modules/factory/maintenance/maintenance-stock-issue/maintenance-stock-issue.module'
+import { InventoryLedgerReconciliationModule } from './modules/factory/inventory-ledger-reconciliation/inventory-ledger-reconciliation.module'
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { MaintenanceStockIssueModule } from './modules/factory/maintenance/maint
     MaintenanceSlaModule,
     MaintenanceCalendarWorkloadModule,
     MaintenanceStockIssueModule,
+    InventoryLedgerReconciliationModule,
   ],
 })
 export class AppModule {}
