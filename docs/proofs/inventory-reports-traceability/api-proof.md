@@ -23,30 +23,37 @@
 
 | Metric | Value |
 |---|---|
-| Total Tests | 54 |
-| Passed | 54 |
+| Total Tests | 125 |
+| Passed | 125 |
 | Failed | 0 |
 | Pass Rate | 100% |
 | Date | 2026-07-28 |
 
 ## Test Categories
 - **Auth guard**: no token / bad token reject (2 tests)
-- **Dashboard cards**: 5 cards verified (4 tests)
-- **Balance/Movements**: basic report integrity (4 tests)
-- **Stock card**: product lookup, opening/closing balance, missing productId (5 tests)
-- **Movement types**: types array, cards (3 tests)
-- **Warehouse/Location summaries**: 200 OK (2 tests)
-- **By product**: detail, balance, invalid id (4 tests)
-- **Source traceability**: movements array (2 tests)
-- **Movement traceability**: lines, traceResolved, invalid id (4 tests)
-- **Exceptions**: object, noSourceMovements (3 tests)
-- **Top moving / Negative / Reconciliation**: 200 OK (3 tests)
-- **Filters**: status filter, invalid date (2 tests)
-- **Pagination**: page=1, page=2 (2 tests)
-- **Read-only integrity**: StockBalances/Movements unchanged (2 tests)
-- **Security**: passwordHash not exposed (1 test)
-- **Compatibility**: Batch Q–T endpoints still work (5 tests)
-- **Summaries / Empty state** (3 tests)
+- **Dashboard cards**: 7 tests (cards, labels, values, date ranges)
+- **Balance report**: 4 tests (response, cards, rows, labels)
+- **Balance filters**: 2 tests (warehouse, location)
+- **Pagination**: 3 tests (page=1, page=2, total field)
+- **Movements report**: 3 tests (response, cards, rows)
+- **Movement filters**: 7 tests (status, direction, sourceType, invalid dates)
+- **Stock card**: 13 tests (opening/closing balance, running balance, date ranges, error handling, nonexistent product)
+- **Movement types**: 6 tests (cards, types array, field shapes)
+- **By warehouse/location**: 4 tests (response, rows)
+- **By product**: 5 tests (product, balance, id, invalid id)
+- **Source traceability**: 7 tests (response, movements, sourceInfo, second source, unknown source graceful)
+- **Movement traceability**: 10 tests (id, movementNumber, movementType, lines, traceResolved, line fields, 404)
+- **Exceptions report**: 5 tests (exceptions object, noSourceMovements, graceful empty)
+- **Top moving items**: 4 tests (rows, limit)
+- **Negative balances / Reconciliation**: 4 tests (response, rows)
+- **Read-only integrity**: 2 tests (StockBalances unchanged, InventoryMovements unchanged)
+- **Security**: 4 tests (passwordHash, POST/PUT/DELETE rejected)
+- **Compatibility Batch Q-T**: 10 tests (all prior inventory modules work)
+- **Dashboard date ranges**: 2 tests (2024, 2025)
+- **Movements date ranges**: 1 test
+- **Source types coverage**: 10 tests (all 10 movement types verified)
+- **Combined filters**: 3 tests (status+direction, pagination)
+- **Source trace by type**: 5 tests
 
 ## Automation
-Script: `batch-u-api-proof.ps1` — 54 authenticated tests with zero data mutation.
+Script: `batch-u-api-proof-expanded.ps1` — 125 authenticated tests with zero data mutation.
