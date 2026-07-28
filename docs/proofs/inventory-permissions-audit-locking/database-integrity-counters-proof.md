@@ -6,7 +6,7 @@ Verified via API responses and Prisma queries.
 ### New Table
 | Table | Rows | Notes |
 |-------|------|-------|
-| `InventoryLock` | 6 | Created during test session (3 original + 3 unique new) |
+| `InventoryLock` | 0 | Created and cleaned up during test session (all stale rows deactivated and deleted) |
 
 ### Audit Trail
 | Source | Entries | Verified |

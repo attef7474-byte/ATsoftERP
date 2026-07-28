@@ -15,8 +15,19 @@ export class InventoryAuditController {
   @Get()
   @Permissions('inventory:audit:read')
   @ApiOperation({ summary: 'List inventory audit logs' })
-  findAll(@Query() query: { page?: number; limit?: number; userId?: string; entity?: string; action?: string; startDate?: string; endDate?: string; search?: string }) {
-    return this.audit.findAll({ ...query, entity: query.entity || undefined })
+  findAll(@Query() query: Record<string, any>) {
+    const page = parseInt(query.page, 10) || 1
+    const limit = parseInt(query.limit, 10) || 20
+    return this.audit.findAll({
+      page,
+      limit,
+      userId: query.userId,
+      entity: query.entity || undefined,
+      action: query.action,
+      startDate: query.startDate || query.dateFrom,
+      endDate: query.endDate || query.dateTo,
+      search: query.search,
+    })
   }
 
   @Get('summary')

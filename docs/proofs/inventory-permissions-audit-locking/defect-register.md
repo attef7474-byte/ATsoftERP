@@ -10,7 +10,7 @@ No defects found during validation.
 ## Completed Verification
 - [x] TypeScript compilation — 0 errors
 - [x] Next.js build — 0 errors
-- [x] API proof — 0 failures out of 40 tests
+- [x] API proof — 0 failures out of 83 attempted tests (91 total incl. N/A)
 - [x] Browser proof — 0 failures out of 18 checks
 - [x] Database integrity — all constraints satisfied
 - [x] Security — all auth/permission checks pass

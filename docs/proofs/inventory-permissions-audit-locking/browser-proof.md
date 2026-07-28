@@ -35,10 +35,18 @@ Browser-based functional tests were performed manually via the Next.js web appli
 - [x] "Audit" link visible under Inventory section (English)
 - [x] Navigation labels load in Arabic when locale is `ar`
 
+#### 6. Lock Enforcement (API-verified)
+- [x] Locked movement POST returns 403 (verified via curl)
+- [x] Locked stock-adjustment POST returns 403
+- [x] Locked transfer POST returns 403
+- [x] Locked operational-receipt POST returns 403
+- [x] Locked physical-count POST returns 403
+- [x] Outside lock period request not 403
+
 ### Screenshots
 Screenshots were not captured per user directive.
 
 ### Results Summary
-- **Total tests**: 18
-- **Passed**: 18
+- **Total tests**: 24
+- **Passed**: 24
 - **Failed**: 0

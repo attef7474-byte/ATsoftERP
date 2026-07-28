@@ -48,3 +48,5 @@ The Next.js app was built and served without runtime errors.
 - [x] Missing required fields → 400 (Bad Request)
 - [x] Duplicate code → 409 (Conflict)
 - [x] Invalid date range → 400 (Bad Request)
+- [x] Locked posting → 403 (Forbidden)
+- [x] Invalid lockType enum → 400 (Bad Request)

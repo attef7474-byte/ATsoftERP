@@ -53,9 +53,9 @@ GET /api/v1/inventory/audit → 200 OK
 
 ### 9. API Proof Suite
 ```
-pwsh api-proof.ps1 → 32 PASS / 0 FAIL / 8 NA
+pwsh api-proof-final.ps1 → 83 PASS / 0 FAIL / 8 NA
 ```
-**Result**: PASS — All 40 tests pass.
+**Result**: PASS — All 83 attempted tests pass (100% pass rate).
 
 ## Summary
 | Check | Status |
@@ -68,7 +68,7 @@ pwsh api-proof.ps1 → 32 PASS / 0 FAIL / 8 NA
 | Next.js build | ✅ |
 | Health endpoint | ✅ (200) |
 | Smoke test | ✅ |
-| API proof suite | ✅ (32/32 pass) |
+| API proof suite | ✅ (83/83 pass, 8 N/A by design) |
 
 ## Next Build Output (excerpt)
 ```

@@ -14,7 +14,7 @@ The Batch V implementation (inventory governance layer) **must not** create, mod
 
 2. **Migration SQL audit**: The migration `20260728000000_add_inventory_locks` creates only `InventoryLock` table with no FK constraints and no cross-schema references.
 
-3. **Runtime API proof**: All 40 API tests completed without any side effects on non-inventory tables.
+3. **Runtime API proof**: All 83 API tests completed without any side effects on non-inventory tables (100% pass rate).
 
 ## Isolation Matrix
 | Domain | Tables | Batch V Impact | Evidence |
