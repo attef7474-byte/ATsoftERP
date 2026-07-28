@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
+import { NumberingService } from '../../../../modules/numbering/numbering.service';
 import { IssueStockDto, ReturnStockDto } from './dto/issue-stock.dto';
 
 const VALID_STOCK_CONDITIONS = ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'];
@@ -12,6 +13,7 @@ export class MaintenanceStockIssueService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private numberingService: NumberingService,
   ) {}
 
   private async findPartLineOrFail(lineId: string, requestId: string) {
@@ -132,14 +134,7 @@ export class MaintenanceStockIssueService {
     const branchId = machine.branchId;
 
     const movement = await this.prisma.$transaction(async (tx) => {
-      const seq = await tx.numberSequence.findUnique({ where: { code: 'INVENTORY_MOVEMENT' } });
-      if (!seq) throw new NotFoundException('Number sequence INVENTORY_MOVEMENT not configured');
-
-      const updated = await tx.numberSequence.update({
-        where: { id: seq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const movementNumber = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
+      const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
 
       const balance = await this.getOrCreateBalance(tx, dto.warehouseId, productId, dto.warehouseLocationId);
       const delta = -dto.issuedQuantity;
@@ -271,14 +266,7 @@ export class MaintenanceStockIssueService {
     const branchId = part.maintenanceRequest.machine.branchId;
 
     const movement = await this.prisma.$transaction(async (tx) => {
-      const seq = await tx.numberSequence.findUnique({ where: { code: 'INVENTORY_MOVEMENT' } });
-      if (!seq) throw new NotFoundException('Number sequence INVENTORY_MOVEMENT not configured');
-
-      const updated = await tx.numberSequence.update({
-        where: { id: seq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const movementNumber = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
+      const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
 
       const balance = await this.getOrCreateBalance(tx, warehouseId, productId, null);
       await tx.inventoryBalance.update({

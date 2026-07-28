@@ -1,12 +1,14 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
+import { NumberingService } from '../../../../modules/numbering/numbering.service';
 
 @Injectable()
 export class PreventiveMaintenanceService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private numberingService: NumberingService,
   ) {}
 
   async getUpcoming(query: { page?: number; limit?: number }) {
@@ -119,15 +121,8 @@ export class PreventiveMaintenanceService {
 
       if (existingRequest) continue;
 
-      const seq = await this.prisma.numberSequence.findUnique({ where: { code: 'MAINTENANCE_REQUEST' } });
-      if (!seq) continue;
-
       const request = await this.prisma.$transaction(async (tx) => {
-        const updated = await tx.numberSequence.update({
-          where: { id: seq.id },
-          data: { currentNumber: { increment: 1 } },
-        });
-        const requestNumber = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
+        const requestNumber = await this.numberingService.generateNumberAtomic('MAINTENANCE_REQUEST');
 
         const nextDue = this.calculateNextDueDate(schedule);
 

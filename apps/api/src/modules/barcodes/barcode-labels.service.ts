@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
+import { NumberingService } from '../../modules/numbering/numbering.service';
 import { CreateBarcodeLabelDto } from './dto/create-barcode-label.dto';
 import { UpdateBarcodeLabelDto } from './dto/update-barcode-label.dto';
 import { BarcodeLabelQueryDto } from './dto/barcode-label-query.dto';
@@ -29,6 +30,7 @@ export class BarcodeLabelsService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private numberingService: NumberingService,
   ) {}
 
   private async validateEntity(entityType: string, entityId: string): Promise<void> {
@@ -79,15 +81,8 @@ export class BarcodeLabelsService {
       where: { entityType: dto.entityType, entityId: dto.entityId, status: 'ACTIVE', deletedAt: null },
     });
 
-    const seq = await this.prisma.numberSequence.findUnique({ where: { code: 'BARCODE_LABEL' } });
-    if (!seq) throw new BadRequestException('Number sequence BARCODE_LABEL not configured');
-
     const label = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.numberSequence.update({
-        where: { id: seq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const code = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
+      const code = await this.numberingService.generateNumberAtomic('BARCODE_LABEL');
       const value = this.generateValue(dto.entityType, code);
       const symbology = dto.symbology || 'QR_CODE';
 

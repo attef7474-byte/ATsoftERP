@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
+import { NumberingService } from '../../../modules/numbering/numbering.service';
 import { CreateInventoryMovementDto, CreateInventoryMovementLineDto } from './dto/create-inventory-movement.dto';
 import { UpdateInventoryMovementDto } from './dto/update-inventory-movement.dto';
 import { InventoryMovementQueryDto } from './dto/inventory-movement-query.dto';
@@ -10,6 +11,7 @@ export class InventoryMovementsService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private numberingService: NumberingService,
   ) {}
 
   async create(dto: CreateInventoryMovementDto, userId: string) {
@@ -33,15 +35,8 @@ export class InventoryMovementsService {
       }
     }
 
-    const seq = await this.prisma.numberSequence.findUnique({ where: { code: 'INVENTORY_MOVEMENT' } });
-    if (!seq) throw new NotFoundException('Number sequence INVENTORY_MOVEMENT not configured');
-
     const movement = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.numberSequence.update({
-        where: { id: seq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const movementNumber = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
+      const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
 
       const { lines, ...rest } = dto;
 

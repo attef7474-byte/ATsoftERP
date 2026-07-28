@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateNumberSequenceDto } from './dto/create-number-sequence.dto';
 import { UpdateNumberSequenceDto } from './dto/update-number-sequence.dto';
@@ -63,6 +63,7 @@ export class NumberingService {
     return this.prisma.$transaction(async (tx) => {
       const seq = await tx.numberSequence.findUnique({ where: { code } });
       if (!seq) throw new NotFoundException({ messageKey: 'numbering.sequenceNotFound', message: 'Number sequence not found' });
+      if (seq.status !== 'ACTIVE') throw new BadRequestException({ messageKey: 'numbering.sequenceInactive', message: 'Number sequence is inactive' });
 
       const nextNumber = await this.computeNextNumber(seq);
       const generated = this.formatNumber(seq, nextNumber);
@@ -84,6 +85,7 @@ export class NumberingService {
     return this.prisma.$transaction(async (tx) => {
       const seq = await tx.numberSequence.findUnique({ where: { code } });
       if (!seq) throw new NotFoundException({ messageKey: 'numbering.sequenceNotFound', message: 'Number sequence not found' });
+      if (seq.status !== 'ACTIVE') throw new BadRequestException({ messageKey: 'numbering.sequenceInactive', message: 'Number sequence is inactive' });
 
       const nextNumber = await this.computeNextNumber(seq);
       const generated = this.formatNumber(seq, nextNumber);

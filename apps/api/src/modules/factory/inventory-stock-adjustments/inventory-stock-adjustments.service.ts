@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
+import { NumberingService } from '../../../modules/numbering/numbering.service';
 import { CreateStockAdjustmentDto, CreateStockAdjustmentLineDto } from './dto/create-stock-adjustment.dto';
 import { UpdateStockAdjustmentDto } from './dto/update-stock-adjustment.dto';
 import { StockAdjustmentQueryDto } from './dto/stock-adjustment-query.dto';
@@ -10,6 +11,7 @@ export class InventoryStockAdjustmentsService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private numberingService: NumberingService,
   ) {}
 
   async create(dto: CreateStockAdjustmentDto, userId: string) {
@@ -31,15 +33,8 @@ export class InventoryStockAdjustmentsService {
       }
     }
 
-    const seq = await this.prisma.numberSequence.findUnique({ where: { code: 'STOCK_ADJUSTMENT' } });
-    if (!seq) throw new NotFoundException('Number sequence STOCK_ADJUSTMENT not configured');
-
     const doc = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.numberSequence.update({
-        where: { id: seq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const code = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
+      const code = await this.numberingService.generateNumberAtomic('STOCK_ADJUSTMENT');
 
       const { lines, ...rest } = dto;
       return tx.inventoryStockAdjustment.create({
@@ -175,19 +170,12 @@ export class InventoryStockAdjustmentsService {
     if (!doc || doc.deletedAt) throw new NotFoundException('Stock adjustment not found');
     if (doc.status !== 'APPROVED') throw new BadRequestException('Only APPROVED documents can be posted');
 
-    const movementSeq = await this.prisma.numberSequence.findUnique({ where: { code: 'INVENTORY_MOVEMENT' } });
-    if (!movementSeq) throw new NotFoundException('Number sequence INVENTORY_MOVEMENT not configured');
-
     const inLines = doc.lines.filter(l => l.adjustmentType === 'ADJUSTMENT_IN');
     const outLines = doc.lines.filter(l => l.adjustmentType === 'ADJUSTMENT_OUT');
 
     const result = await this.prisma.$transaction(async (tx) => {
       if (inLines.length > 0) {
-        const updatedSeq = await tx.numberSequence.update({
-          where: { id: movementSeq.id },
-          data: { currentNumber: { increment: 1 } },
-        });
-        const movementNumber = `${updatedSeq.prefix}${String(updatedSeq.currentNumber).padStart(updatedSeq.padding, '0')}`;
+        const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
 
         const movement = await tx.inventoryMovement.create({
           data: {
@@ -232,11 +220,7 @@ export class InventoryStockAdjustmentsService {
           }
         }
 
-        const updatedSeq = await tx.numberSequence.update({
-          where: { id: movementSeq.id },
-          data: { currentNumber: { increment: 1 } },
-        });
-        const movementNumber = `${updatedSeq.prefix}${String(updatedSeq.currentNumber).padStart(updatedSeq.padding, '0')}`;
+        const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
 
         const movement = await tx.inventoryMovement.create({
           data: {

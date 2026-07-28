@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
+import { NumberingService } from '../../../modules/numbering/numbering.service';
 import { CreateInventoryCountDto } from './dto/create-inventory-count.dto';
 import { UpdateInventoryCountDto } from './dto/update-inventory-count.dto';
 
@@ -9,6 +10,7 @@ export class InventoryCountsService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private numberingService: NumberingService,
   ) {}
 
   async create(dto: CreateInventoryCountDto, userId: string) {
@@ -18,15 +20,8 @@ export class InventoryCountsService {
     const warehouse = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
     if (!warehouse) throw new NotFoundException('Warehouse not found');
 
-    const seq = await this.prisma.numberSequence.findUnique({ where: { code: 'INVENTORY_COUNT' } });
-    if (!seq) throw new NotFoundException('Number sequence INVENTORY_COUNT not configured');
-
     const count = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.numberSequence.update({
-        where: { id: seq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const countNumber = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
+      const countNumber = await this.numberingService.generateNumberAtomic('INVENTORY_COUNT');
 
       return tx.inventoryCount.create({
         data: {

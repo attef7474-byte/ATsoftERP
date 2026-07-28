@@ -775,6 +775,23 @@ Maintenance spare part classification + cost attribution + warehouse types
 - `atsoft-erp-current-release-final-audited-v3-maintenance-sparepart-structure`
 - `atsoft-erp-maintenance-sparepart-classification-proof`
 
+### ✅ NX (COMPLETED — commit `<final>`)
+Numbering centralization + sequence UI completion
+
+**Tags:**
+- `atsoft-erp-nx-numbering-centralization-sequence-ui`
+- `atsoft-erp-current-release-final-audited-v3-nx-numbering`
+- `atsoft-erp-nx-numbering-proof`
+
+**Key outcomes:**
+- 24 numbering bypass instances eliminated (13 services converted)
+- `numbering.service.ts` hardened with `ACTIVE` status check
+- `numbering.constants.ts` created as single source of truth for 44 entity type codes
+- UI filter now covers all 36 active-release entity types
+- 10 missing i18n keys added to EN/AR
+- Zero `numberSequence` access outside `numbering.service.ts`
+- 24 services now use `NumberingService.generateNumberAtomic()`
+
 ### 📋 Final Priority Plan — 11 Stages
 
 ```
@@ -843,11 +860,14 @@ Forecasting (التنبؤ)
 | Metric | Value |
 |--------|-------|
 | Seeded sequences | 44 (36 ACTIVE + 8 DISABLED) |
-| Used by services | 11 of 36 active |
+| Used by services | 24 of 36 active |
 | Centralized service | `NumberingService.generateNumberAtomic()` |
-| Services bypassing it | 13 services (inventory movements/counts/adjustments/..., maintenance requests/schedules/..., barcode labels) |
-| Missing from filter | 6 entity types |
-| Orphan sequences | MACHINE_ASSET, MACHINE_DOCUMENT, MAINTENANCE_TASK, DOWNTIME, PREVENTIVE_MAINTENANCE, QR_LABEL, BARCODE_RECORD, BARCODE_PRINT_JOB, REPORT_EXPORT_JOB, ATTACHMENT, NOTIFICATION_RULE |
+| Entity type constant | `numbering.constants.ts` — 44 codes |
+| UI filter coverage | All 36 active-release entity types |
+| Sequence inactive check | Added to `generateNumber()` and `generateNumberAtomic()` |
+| Services fully centralized | 24 services now use `NumberingService.generateNumberAtomic()` |
+| Zero bypass instances | Confirmed by grep — all `numberSequence` access inside `numbering.service.ts` only |
+| Orphan sequences | MACHINE_ASSET, MACHINE_DOCUMENT, MAINTENANCE_TASK, DOWNTIME, PREVENTIVE_MAINTENANCE, QR_LABEL, BARCODE_RECORD, BARCODE_PRINT_JOB, REPORT_EXPORT_JOB, ATTACHMENT, NOTIFICATION_RULE (still seeded but not yet consumed by any service — OK for future use) |
 
 ### Frontend Patterns
 
@@ -946,5 +966,5 @@ cd apps/web && npm run build        # typecheck included
 language: Arabic (primary)
 working_dir: C:\Users\attef\PycharmProjects\Trae\ATsofterp
 external_copy: C:\Users\attef\PycharmProjects\Trae\maintenance-completion-discovery-pack\
-next_batch: DX-0 (API Module Registry + Frontend Route Alignment)
+next_batch: UX-0 (Organization Context Lite + Maintenance Auto-Fill)
 ```

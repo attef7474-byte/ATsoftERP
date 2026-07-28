@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
+import { NumberingService } from '../../../modules/numbering/numbering.service';
 import { CreatePhysicalCountDto } from './dto/create-physical-count.dto';
 import { UpdatePhysicalCountDto } from './dto/update-physical-count.dto';
 import { EnterCountLineDto } from './dto/enter-count-line.dto';
@@ -11,6 +12,7 @@ export class InventoryPhysicalCountsService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private numberingService: NumberingService,
   ) {}
 
   async create(dto: CreatePhysicalCountDto, userId: string) {
@@ -20,15 +22,8 @@ export class InventoryPhysicalCountsService {
     const warehouse = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
     if (!warehouse) throw new NotFoundException('Warehouse not found');
 
-    const seq = await this.prisma.numberSequence.findUnique({ where: { code: 'PHYSICAL_COUNT' } });
-    if (!seq) throw new NotFoundException('Number sequence PHYSICAL_COUNT not configured');
-
     const result = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.numberSequence.update({
-        where: { id: seq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const countNumber = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
+      const countNumber = await this.numberingService.generateNumberAtomic('PHYSICAL_COUNT');
 
       const count = await tx.inventoryPhysicalCount.create({
         data: {
@@ -293,23 +288,10 @@ export class InventoryPhysicalCountsService {
     const inLines = varianceLines.filter(l => (l.varianceQty ?? 0) > 0);
     const outLines = varianceLines.filter(l => (l.varianceQty ?? 0) < 0);
 
-    const seq = await this.prisma.numberSequence.findUnique({ where: { code: 'INVENTORY_MOVEMENT' } });
-    if (!seq) throw new NotFoundException('Number sequence INVENTORY_MOVEMENT not configured');
-
-    const movCount = (inLines.length > 0 ? 1 : 0) + (outLines.length > 0 ? 1 : 0);
-
     try {
     await this.prisma.$transaction(async (tx) => {
-      const upd = await tx.numberSequence.update({
-        where: { id: seq.id },
-        data: { currentNumber: { increment: movCount } },
-      });
-
-      let seqNum = upd.currentNumber - movCount + 1;
-
       if (inLines.length > 0) {
-        const movNum = `${upd.prefix}${String(seqNum).padStart(upd.padding, '0')}`;
-        seqNum++;
+        const movNum = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
 
         const movement = await tx.inventoryMovement.create({
           data: {
@@ -360,12 +342,10 @@ export class InventoryPhysicalCountsService {
       }
 
       if (outLines.length > 0) {
-        const movNum = `${upd.prefix}${String(seqNum).padStart(upd.padding, '0')}`;
-        seqNum++;
-
+        const outMovNum = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
         const movement = await tx.inventoryMovement.create({
           data: {
-            movementNumber: movNum,
+            movementNumber: outMovNum,
             companyId: count.companyId,
             branchId: count.branchId,
             warehouseId: count.warehouseId,

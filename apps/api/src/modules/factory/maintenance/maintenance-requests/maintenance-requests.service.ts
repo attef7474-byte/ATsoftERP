@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
+import { NumberingService } from '../../../../modules/numbering/numbering.service';
 import { MaintenanceNotificationService } from '../maintenance-notification/maintenance-notification.service';
 import { MaintenanceSlaService } from '../maintenance-sla/maintenance-sla.service';
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
@@ -11,6 +12,7 @@ export class MaintenanceRequestsService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private numberingService: NumberingService,
     private notificationService: MaintenanceNotificationService,
     private slaService: MaintenanceSlaService,
   ) {}
@@ -74,17 +76,10 @@ export class MaintenanceRequestsService {
       if (!user) throw new NotFoundException('Assigned user not found');
     }
 
-    const seq = await this.prisma.numberSequence.findUnique({ where: { code: 'MAINTENANCE_REQUEST' } });
-    if (!seq) throw new NotFoundException('Number sequence MAINTENANCE_REQUEST not configured');
-
     const { machineId, assignedToId, requiredParts, ...rest } = dto;
 
     const request = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.numberSequence.update({
-        where: { id: seq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const requestNumber = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
+      const requestNumber = await this.numberingService.generateNumberAtomic('MAINTENANCE_REQUEST');
 
       return tx.maintenanceRequest.create({
         data: {

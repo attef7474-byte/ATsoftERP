@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
+import { NumberingService } from '../../../modules/numbering/numbering.service';
 import { CreateStockTransferDto, CreateStockTransferLineDto } from './dto/create-stock-transfer.dto';
 import { UpdateStockTransferDto } from './dto/update-stock-transfer.dto';
 import { StockTransferQueryDto } from './dto/stock-transfer-query.dto';
@@ -10,6 +11,7 @@ export class InventoryStockTransfersService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private numberingService: NumberingService,
   ) {}
 
   async create(dto: CreateStockTransferDto, userId: string) {
@@ -46,15 +48,8 @@ export class InventoryStockTransfersService {
       if (line.quantity <= 0) throw new BadRequestException('Quantity must be > 0');
     }
 
-    const seq = await this.prisma.numberSequence.findUnique({ where: { code: 'STOCK_TRANSFER' } });
-    if (!seq) throw new NotFoundException('Number sequence STOCK_TRANSFER not configured');
-
     const doc = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.numberSequence.update({
-        where: { id: seq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const code = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
+      const code = await this.numberingService.generateNumberAtomic('STOCK_TRANSFER');
 
       const { lines, ...rest } = dto;
       return tx.inventoryStockTransfer.create({
@@ -193,9 +188,6 @@ export class InventoryStockTransfersService {
     if (!doc || doc.deletedAt) throw new NotFoundException('Stock transfer not found');
     if (doc.status !== 'APPROVED') throw new BadRequestException('Only APPROVED documents can be posted');
 
-    const movementSeq = await this.prisma.numberSequence.findUnique({ where: { code: 'INVENTORY_MOVEMENT' } });
-    if (!movementSeq) throw new NotFoundException('Number sequence INVENTORY_MOVEMENT not configured');
-
     for (const line of doc.lines) {
       const srcBalance = await this.prisma.inventoryBalance.findFirst({
         where: {
@@ -214,11 +206,7 @@ export class InventoryStockTransfersService {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const outSeq = await tx.numberSequence.update({
-        where: { id: movementSeq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const outMovementNumber = `${outSeq.prefix}${String(outSeq.currentNumber).padStart(outSeq.padding, '0')}`;
+      const outMovementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
 
       const outMovement = await tx.inventoryMovement.create({
         data: {
@@ -259,11 +247,7 @@ export class InventoryStockTransfersService {
         });
       }
 
-      const inSeq = await tx.numberSequence.update({
-        where: { id: movementSeq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const inMovementNumber = `${inSeq.prefix}${String(inSeq.currentNumber).padStart(inSeq.padding, '0')}`;
+      const inMovementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
 
       const inMovement = await tx.inventoryMovement.create({
         data: {

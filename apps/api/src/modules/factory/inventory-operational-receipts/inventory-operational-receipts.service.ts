@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
+import { NumberingService } from '../../../modules/numbering/numbering.service';
 import { CreateOperationalReceiptDto } from './dto/create-operational-receipt.dto';
 import { UpdateOperationalReceiptDto } from './dto/update-operational-receipt.dto';
 import { OperationalReceiptQueryDto } from './dto/operational-receipt-query.dto';
@@ -10,6 +11,7 @@ export class InventoryOperationalReceiptsService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private numberingService: NumberingService,
   ) {}
 
   async create(dto: CreateOperationalReceiptDto, userId: string) {
@@ -34,15 +36,8 @@ export class InventoryOperationalReceiptsService {
       if (line.quantity <= 0) throw new BadRequestException('Quantity must be > 0');
     }
 
-    const seq = await this.prisma.numberSequence.findUnique({ where: { code: 'OPERATIONAL_RECEIPT' } });
-    if (!seq) throw new NotFoundException('Number sequence OPERATIONAL_RECEIPT not configured');
-
     const doc = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.numberSequence.update({
-        where: { id: seq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const code = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
+      const code = await this.numberingService.generateNumberAtomic('OPERATIONAL_RECEIPT');
 
       const { lines, ...rest } = dto;
       return tx.inventoryOperationalReceipt.create({
@@ -177,15 +172,8 @@ export class InventoryOperationalReceiptsService {
     if (!doc || doc.deletedAt) throw new NotFoundException('Operational receipt not found');
     if (doc.status !== 'APPROVED') throw new BadRequestException('Only APPROVED documents can be posted');
 
-    const movementSeq = await this.prisma.numberSequence.findUnique({ where: { code: 'INVENTORY_MOVEMENT' } });
-    if (!movementSeq) throw new NotFoundException('Number sequence INVENTORY_MOVEMENT not configured');
-
     const result = await this.prisma.$transaction(async (tx) => {
-      const mvtSeq = await tx.numberSequence.update({
-        where: { id: movementSeq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const movementNumber = `${mvtSeq.prefix}${String(mvtSeq.currentNumber).padStart(mvtSeq.padding, '0')}`;
+      const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
 
       const movement = await tx.inventoryMovement.create({
         data: {

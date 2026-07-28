@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
+import { NumberingService } from '../../../../modules/numbering/numbering.service';
 import { CreateMaintenanceScheduleDto } from './dto/create-maintenance-schedule.dto';
 import { UpdateMaintenanceScheduleDto } from './dto/update-maintenance-schedule.dto';
 
@@ -9,6 +10,7 @@ export class MaintenanceSchedulesService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private numberingService: NumberingService,
   ) {}
 
   private computeDueStatus(schedule: { status: string; startDate: Date; endDate?: Date | null }): string {
@@ -186,15 +188,8 @@ export class MaintenanceSchedulesService {
     });
     if (existingRequest) throw new ConflictException('An active request already exists for this schedule. Complete or cancel the existing request before generating a new one.');
 
-    const seq = await this.prisma.numberSequence.findUnique({ where: { code: 'MAINTENANCE_REQUEST' } });
-    if (!seq) throw new NotFoundException('Number sequence MAINTENANCE_REQUEST not configured');
-
     const request = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.numberSequence.update({
-        where: { id: seq.id },
-        data: { currentNumber: { increment: 1 } },
-      });
-      const requestNumber = `${updated.prefix}${String(updated.currentNumber).padStart(updated.padding, '0')}`;
+      const requestNumber = await this.numberingService.generateNumberAtomic('MAINTENANCE_REQUEST');
 
       const nextDue = this.calculateNextDueDate(schedule);
 
