@@ -48,6 +48,8 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         stockAdjustments: 'Stock Adjustments',
         inventoryLedger: 'Inventory Ledger',
         inventoryReconciliation: 'Stock Reconciliation',
+        inventoryLocks: 'Inventory Locks',
+        inventoryAudit: 'Inventory Audit (Governance)',
         barcodes: 'Barcodes',
         generate: 'Generate',
         print: 'Print',

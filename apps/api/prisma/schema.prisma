@@ -507,6 +507,38 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model InventoryLock {
+  id              String   @id @default(cuid())
+  code            String
+  lockType        String
+  status          String   @default("ACTIVE")
+  dateFrom        DateTime
+  dateTo          DateTime
+  warehouseId     String?
+  locationId      String?
+  productId       String?
+  sparePartId     String?
+  reason          String
+  notes           String?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  activatedByUserId String?
+  activatedAt     DateTime?
+  deactivatedByUserId String?
+  deactivatedAt   DateTime?
+
+  @@index([lockType])
+  @@index([status])
+  @@index([dateFrom, dateTo])
+  @@index([warehouseId])
+  @@index([locationId])
+  @@index([productId])
+  @@index([sparePartId])
+  @@index([status, lockType])
+  @@map("inventory_locks")
+}
+
 model Notification {
   id        String   @id @default(cuid())
   userId    String

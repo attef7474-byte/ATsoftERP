@@ -48,6 +48,8 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         stockAdjustments: 'تسويات المخزون',
         inventoryLedger: 'دفتر حركات المخزون',
         inventoryReconciliation: 'مطابقة الأرصدة',
+        inventoryLocks: 'أقفال المخزون',
+        inventoryAudit: 'سجل تدقيق المخزون',
         barcodes: 'الباركود',
         generate: 'إنشاء',
         print: 'طباعة',

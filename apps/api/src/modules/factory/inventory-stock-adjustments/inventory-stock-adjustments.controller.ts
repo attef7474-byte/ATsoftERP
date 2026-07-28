@@ -8,10 +8,11 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { InventoryLockGuard } from '../../../common/guards/inventory-lock.guard';
 
 @ApiTags('Inventory Stock Adjustments')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, InventoryLockGuard)
 @Controller({ path: 'inventory/stock-adjustments', version: '1' })
 export class InventoryStockAdjustmentsController {
   constructor(private service: InventoryStockAdjustmentsService) {}

@@ -9,10 +9,11 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { InventoryLockGuard } from '../../../common/guards/inventory-lock.guard';
 
 @ApiTags('Inventory Movements')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, InventoryLockGuard)
 @Controller({ path: 'inventory/movements', version: '1' })
 export class InventoryMovementsController {
   constructor(private service: InventoryMovementsService) {}
