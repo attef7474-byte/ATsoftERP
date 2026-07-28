@@ -37,7 +37,7 @@ Docs:     docs/proofs/
 
 ### البنية الأساسية
 
-- **API**: NestJS (TypeScript) — 71 modules registered in `app.module.ts`
+- **API**: NestJS (TypeScript) — 75 modules registered in `app.module.ts`
 - **Frontend**: Next.js (TypeScript) — ~250 page.tsx files
 - **DB**: Prisma ORM → SQL Server via `sqlcmd` for manual migrations
 - **i18n**: React Context (I18nProvider) — 13 TS files × 2 languages (~2,977 keys each)
@@ -778,6 +778,24 @@ Maintenance spare part classification + cost attribution + warehouse types
 ### ✅ NX (COMPLETED — commit `4296675`)
 Numbering centralization + sequence UI completion
 
+### ✅ AB-AC (COMPLETED — commit `874f7be`)
+Installed Parts Register + Replacement History (integrated into Z-AA stock issue flow)
+
+**Tags:**
+- `atsoft-erp-abac-installed-parts-replacement-history`
+- `atsoft-erp-current-release-final-audited-v3-installed-parts-history`
+- `atsoft-erp-abac-installed-parts-proof`
+
+**Key outcomes:**
+- Schema: `MachineInstalledPart` (26 cols) + `SparePartReplacementHistory` (24 cols) added
+- Migration: additive SQL script — 83 tables / 1182 columns (pre: 81 / 1132)
+- Numbering: `SPARE_PART_REPLACEMENT` added → 45 entity types (37 ACTIVE)
+- Backend: `InstalledPartsReplacementModule` — 10 read-only GET endpoints registered
+- Integration: `MaintenanceStockIssueService.issue()` now auto-records installed part + replacement history
+- Frontend: `InstalledPartsCard` + `ReplacementHistoryCard` wired into machine detail + request detail pages
+- i18n: 9 maintenance keys + 3 API messages + 1 settings key — EN/AR matched
+- Proof: 9 documents in `docs/proofs/abac-installed-parts-replacement-history/`
+
 **Tags:**
 - `atsoft-erp-nx-numbering-centralization-sequence-ui`
 - `atsoft-erp-current-release-final-audited-v3-nx-numbering`
@@ -786,7 +804,7 @@ Numbering centralization + sequence UI completion
 **Key outcomes:**
 - 24 numbering bypass instances eliminated (13 services converted)
 - `numbering.service.ts` hardened with `ACTIVE` status check
-- `numbering.constants.ts` created as single source of truth for 44 entity type codes
+- `numbering.constants.ts` created as single source of truth for 45 entity type codes
 - UI filter now covers all 36 active-release entity types
 - 10 missing i18n keys added to EN/AR
 - Zero `numberSequence` access outside `numbering.service.ts`
@@ -828,7 +846,7 @@ Forecasting (التنبؤ)
 
 ## 🔍 Key Technical Findings
 
-### API Module Registry (`app.module.ts` — 71 modules)
+### API Module Registry (`app.module.ts` — 75 modules)
 
 **Registered modules** (active at runtime):
 - Core: Auth, Users, Roles, Permissions, Companies, Branches, Administrations, Departments
@@ -836,6 +854,8 @@ Forecasting (التنبؤ)
 - Inventory: Counts, CountLines, Movements, Adjustments, Balances, Ledger, OpeningBalances, StockAdjustments, StockTransfers, OperationalReceipts, PhysicalCounts, Locks
 - Maintenance: MachineCategories, MachineParts, MachineDocuments, Requests, Tasks, Schedules, ChecklistItems, DowntimeLogs, RequestParts, RequestCosts, ChecklistExecutions, Dashboard, PreventiveMaintenance, OperationTypes, CostCenters, ProductionLines, MachineComponents, SpareParts, ComponentSpareParts, MachineSpareParts, Personnel, ResponsibilityAssignments, RequestAssignments, PartAccountability, Reliability, SparePartRequestLines, Notification, Sla, CalendarWorkload, StockIssue
 - Other: Barcodes, BusinessPartners, Audit, Numbering, Notifications, Search, Reports, Dashboard, Alerts, Messaging, Attachments
+- Inventory: LedgerReconciliation
+- Maintenance: InstalledPartsReplacement
 - Settings: SystemSettings, CompanyProfile, Language, Appearance, Security, NotificationRules
 
 **Unregistered modules** (code exists but NOT loaded):
@@ -859,13 +879,13 @@ Forecasting (التنبؤ)
 
 | Metric | Value |
 |--------|-------|
-| Seeded sequences | 44 (36 ACTIVE + 8 DISABLED) |
-| Used by services | 24 of 36 active |
+| Seeded sequences | 45 (37 ACTIVE + 8 DISABLED) |
+| Used by services | 25 of 37 active |
 | Centralized service | `NumberingService.generateNumberAtomic()` |
-| Entity type constant | `numbering.constants.ts` — 44 codes |
-| UI filter coverage | All 36 active-release entity types |
+| Entity type constant | `numbering.constants.ts` — 45 codes |
+| UI filter coverage | All 37 active-release entity types |
 | Sequence inactive check | Added to `generateNumber()` and `generateNumberAtomic()` |
-| Services fully centralized | 24 services now use `NumberingService.generateNumberAtomic()` |
+| Services fully centralized | 25 services now use `NumberingService.generateNumberAtomic()` |
 | Zero bypass instances | Confirmed by grep — all `numberSequence` access inside `numbering.service.ts` only |
 | Orphan sequences | MACHINE_ASSET, MACHINE_DOCUMENT, MAINTENANCE_TASK, DOWNTIME, PREVENTIVE_MAINTENANCE, QR_LABEL, BARCODE_RECORD, BARCODE_PRINT_JOB, REPORT_EXPORT_JOB, ATTACHMENT, NOTIFICATION_RULE (still seeded but not yet consumed by any service — OK for future use) |
 
