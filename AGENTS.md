@@ -775,7 +775,7 @@ Maintenance spare part classification + cost attribution + warehouse types
 - `atsoft-erp-current-release-final-audited-v3-maintenance-sparepart-structure`
 - `atsoft-erp-maintenance-sparepart-classification-proof`
 
-### ✅ NX (COMPLETED — commit `<final>`)
+### ✅ NX (COMPLETED — commit `4296675`)
 Numbering centralization + sequence UI completion
 
 **Tags:**
