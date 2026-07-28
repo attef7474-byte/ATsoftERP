@@ -135,6 +135,8 @@ async function main() {
     { key: "cost-center:deactivate", module: "cost-center", action: "deactivate" },
     { key: "production-line:activate", module: "production-line", action: "activate" },
     { key: "production-line:deactivate", module: "production-line", action: "deactivate" },
+    { key: "spare-part-conditions:read", module: "spare-part-conditions", action: "read" },
+    { key: "spare-part-conditions:create", module: "spare-part-conditions", action: "create" },
   ];
 
   for (const p of extraPermissions) {
@@ -202,6 +204,7 @@ async function main() {
     // System
     { code: "ATTACHMENT", name: "Attachment", operationName: "Attachment", modelName: "Attachment", domain: "system", prefix: "ATT-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "NOTIFICATION_RULE", name: "Notification Rule", operationName: "Notification Rule", modelName: "NotificationRule", domain: "system", prefix: "NTR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "SPARE_PART_CONDITION_MOVEMENT", name: "Spare Part Condition Movement", operationName: "Spare Part Condition Movement", modelName: "SparePartConditionMovement", domain: "inventory", prefix: "SCM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
 
     // Rejected domains - marked as USER_REJECTED_FOR_CURRENT_RELEASE
     { code: "BUSINESS_PARTNER", name: "Business Partner", operationName: "Business Partner", modelName: "BusinessPartner", domain: "sales", prefix: "BP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },

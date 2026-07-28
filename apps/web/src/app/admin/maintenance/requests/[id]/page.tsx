@@ -53,6 +53,8 @@ export default function MaintenanceRequestDetailPage() {
   const [stockIssueMovements, setStockIssueMovements] = useState<any[]>([]);
   const [stockIssueMovementsLoading, setStockIssueMovementsLoading] = useState(false);
   const [showStockIssueHistory, setShowStockIssueHistory] = useState('');
+  const [conditionBalances, setConditionBalances] = useState<any[]>([]);
+  const [conditionBalancesLoading, setConditionBalancesLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -228,6 +230,22 @@ export default function MaintenanceRequestDetailPage() {
     } catch { setStockIssueMovements([]); }
     finally { setStockIssueMovementsLoading(false); }
   };
+
+  useEffect(() => {
+    if (!stockIssueLineId || !partLines.length) { setConditionBalances([]); return; }
+    const line = partLines.find(l => l.id === stockIssueLineId);
+    if (!line?.sparePartId) { setConditionBalances([]); return; }
+    let cancelled = false;
+    (async () => {
+      setConditionBalancesLoading(true);
+      try {
+        const res = await api.get<any[]>(`/spare-part-conditions/by-spare-part/${line.sparePartId}`);
+        if (!cancelled) setConditionBalances(Array.isArray(res) ? res : []);
+      } catch { if (!cancelled) setConditionBalances([]); }
+      finally { if (!cancelled) setConditionBalancesLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [stockIssueLineId, partLines]);
 
   const partStatusBadge = (status: string) => {
     return <StatusBadge status={status} />;
@@ -524,6 +542,29 @@ export default function MaintenanceRequestDetailPage() {
               <F9Lookup value={stockIssueWarehouseId} onChange={setStockIssueWarehouseId} adapter={warehouseAdapter} />
               <p className="text-xs text-amber-600 mt-1">{t('maintenance.sparePartRequest.selectSparePartWarehouseOnly')}</p>
             </div>
+            {conditionBalancesLoading ? (
+              <p className="text-xs text-gray-400">{t('common.loading')}</p>
+            ) : conditionBalances.length > 0 ? (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.availableConditionBalances')}</label>
+                <div className="flex flex-wrap gap-2">
+                  {conditionBalances.map((cb: any) => {
+                    const conditionLabels: Record<string, string> = {
+                      NEW: t('maintenance.sparePartRequest.conditionNew'),
+                      USED_SERVICEABLE: t('maintenance.sparePartRequest.conditionUsedServiceable'),
+                      USED_REPAIRABLE: t('maintenance.sparePartRequest.conditionUsedRepairable'),
+                      DAMAGED_REPAIRABLE: t('maintenance.sparePartRequest.conditionDamagedRepairable'),
+                      DAMAGED_NOT_REPAIRABLE: t('maintenance.sparePartRequest.conditionDamagedNotRepairable'),
+                    };
+                    return (
+                      <span key={cb.id} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-700">
+                        {conditionLabels[cb.condition] || cb.condition}: <strong>{cb.availableQuantity}</strong>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.issuedQuantity')}</label>
               <input type="number" min="0.001" step="0.001" value={stockIssueQuantity || ''} onChange={e => setStockIssueQuantity(parseFloat(e.target.value) || 0)} className="w-full border rounded px-2 py-1 text-sm" />

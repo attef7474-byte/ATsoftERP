@@ -703,6 +703,7 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         partiallyIssued: 'Partially Issued',
         fullyIssued: 'Fully Issued',
         reason: 'Reason',
+        availableConditionBalances: 'Available Condition Balances',
         statusDraft: 'Draft',
         statusRequested: 'Requested',
         statusApproved: 'Approved',

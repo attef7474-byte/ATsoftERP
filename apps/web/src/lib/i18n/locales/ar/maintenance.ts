@@ -703,6 +703,7 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         partiallyIssued: 'صرف جزئي',
         fullyIssued: 'صرف كامل',
         reason: 'السبب',
+        availableConditionBalances: 'أرصدة الحالات المتوفرة',
         statusDraft: 'مسودة',
         statusRequested: 'مطلوب',
         statusApproved: 'معتمد',

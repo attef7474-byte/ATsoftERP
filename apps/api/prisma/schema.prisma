@@ -411,6 +411,7 @@ model User {
   cancelledRequiredParts              MaintenanceRequestRequiredPart[] @relation("RequiredPartCancelledBy")
   issuedStockRequiredParts             MaintenanceRequestRequiredPart[] @relation("PartStockIssuedBy")
   operationalReceipts                  InventoryOperationalReceipt[]
+  conditionMovements                   SparePartConditionMovement[]
 
   @@index([email])
   @@index([status])
@@ -665,6 +666,8 @@ model Warehouse {
   srcStockTransfers    InventoryStockTransfer[] @relation("srcWarehouse")
   dstStockTransfers    InventoryStockTransfer[] @relation("dstWarehouse")
   operationalReceipts  InventoryOperationalReceipt[]
+  conditionBalances    SparePartConditionBalance[]
+  conditionMovements   SparePartConditionMovement[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -1488,10 +1491,12 @@ model SparePart {
   updatedAt          DateTime @updatedAt
   deletedAt          DateTime?
 
-  componentLinks    ComponentSparePart[]
-  machineLinks      MachineSparePart[]
-  requiredInRequests MaintenanceRequestRequiredPart[]
-  partAccountabilities MaintenancePartAccountability[]
+  componentLinks        ComponentSparePart[]
+  machineLinks          MachineSparePart[]
+  requiredInRequests    MaintenanceRequestRequiredPart[]
+  partAccountabilities  MaintenancePartAccountability[]
+  conditionBalances     SparePartConditionBalance[]
+  conditionMovements    SparePartConditionMovement[]
 
   @@index([code])
   @@index([name])
@@ -1599,6 +1604,7 @@ model MaintenanceRequest {
   requiredParts       MaintenanceRequestRequiredPart[]
   assignments         MaintenanceRequestAssignment[]
   partAccountabilities MaintenancePartAccountability[]
+  conditionMovements   SparePartConditionMovement[]
   slaState            MaintenanceSlaState?
 
   @@index([machineId])
@@ -1698,6 +1704,8 @@ model MaintenanceRequestRequiredPart {
   removedPartReceivedByUserId String?
   removedPartReturnedAt      DateTime?
   noReturnReason             String?
+
+  conditionMovements         SparePartConditionMovement[]
 
   @@unique([maintenanceRequestId, sparePartId])
   @@index([maintenanceRequestId])
@@ -2326,4 +2334,64 @@ model CostCenter {
   @@index([type, status])
   @@index([companyId, status])
   @@map("cost_centers")
+}
+
+model SparePartConditionBalance {
+  id                String    @id @default(cuid())
+  sparePartId       String
+  sparePart         SparePart @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId         String?
+  warehouseId       String
+  warehouse         Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  condition         String
+  quantity          Float     @default(0)
+  availableQuantity Float     @default(0)
+  lastMovementAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([sparePartId, warehouseId, condition])
+  @@index([sparePartId])
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([condition])
+  @@index([lastMovementAt])
+  @@map("spare_part_condition_balances")
+}
+
+model SparePartConditionMovement {
+  id                  String    @id @default(cuid())
+  movementNumber      String    @unique
+  sparePartId         String
+  sparePart           SparePart @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId           String?
+  warehouseId         String
+  warehouse           Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  condition           String
+  direction           String
+  quantity            Float
+  sourceType          String?
+  sourceId            String?
+  maintenanceRequestId String?
+  maintenanceRequest  MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requiredPartId      String?
+  requiredPart        MaintenanceRequestRequiredPart? @relation(fields: [requiredPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inventoryMovementId String?
+  replacementAction   String?
+  notes               String?
+  createdByUserId     String?
+  createdBy           User?   @relation(fields: [createdByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt           DateTime  @default(now())
+
+  @@index([sparePartId])
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([condition])
+  @@index([direction])
+  @@index([sourceType, sourceId])
+  @@index([maintenanceRequestId])
+  @@index([requiredPartId])
+  @@index([createdAt])
+  @@index([movementNumber])
+  @@map("spare_part_condition_movements")
 }

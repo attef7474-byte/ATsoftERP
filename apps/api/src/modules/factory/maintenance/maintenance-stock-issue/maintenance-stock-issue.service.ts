@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../../modules/numbering/numbering.service';
 import { IssueStockDto, ReturnStockDto } from './dto/issue-stock.dto';
+import { SparePartConditionService } from '../spare-part-conditions/spare-part-conditions.service';
 
 const VALID_STOCK_CONDITIONS = ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'];
 const VALID_REPLACEMENT_ACTIONS = ['RETURNED_REMOVED_PART', 'NO_REMOVED_PART', 'NEW_INSTALLATION'];
@@ -14,6 +15,7 @@ export class MaintenanceStockIssueService {
     private prisma: PrismaService,
     private audit: AuditService,
     private numberingService: NumberingService,
+    private conditionService: SparePartConditionService,
   ) {}
 
   private async findPartLineOrFail(lineId: string, requestId: string) {
@@ -214,6 +216,43 @@ export class MaintenanceStockIssueService {
         },
       });
 
+      // Record condition OUT for issued part
+      const issuedCondition = dto.issuedStockCondition || 'NEW';
+      await this.recordConditionMovementInTx(tx, {
+        sparePartId: part.sparePart.id,
+        productId,
+        warehouseId: dto.warehouseId,
+        condition: issuedCondition,
+        direction: 'OUT',
+        quantity: dto.issuedQuantity,
+        sourceType: 'MAINTENANCE_ISSUE',
+        sourceId: lineId,
+        maintenanceRequestId: requestId,
+        requiredPartId: lineId,
+        inventoryMovementId: movement.id,
+        replacementAction: dto.replacementAction,
+        notes: `Issued ${dto.issuedQuantity} of spare part ${part.sparePart.code} (condition: ${issuedCondition})`,
+      }, userId);
+
+      // If removed part returned, record condition IN
+      if (dto.replacementAction === 'RETURNED_REMOVED_PART' && dto.removedPartCondition && dto.removedPartWarehouseId && dto.removedPartQuantity) {
+        await this.recordConditionMovementInTx(tx, {
+          sparePartId: part.sparePart.id,
+          productId,
+          warehouseId: dto.removedPartWarehouseId,
+          condition: dto.removedPartCondition,
+          direction: 'IN',
+          quantity: dto.removedPartQuantity,
+          sourceType: 'MAINTENANCE_REMOVED_PART_RETURN',
+          sourceId: lineId,
+          maintenanceRequestId: requestId,
+          requiredPartId: lineId,
+          inventoryMovementId: movement.id,
+          replacementAction: dto.replacementAction,
+          notes: `Returned removed part ${part.sparePart.code} (condition: ${dto.removedPartCondition}, qty: ${dto.removedPartQuantity})`,
+        }, userId);
+      }
+
       return movement;
     });
 
@@ -362,5 +401,81 @@ export class MaintenanceStockIssueService {
       });
     }
     return balance;
+  }
+
+  private async recordConditionMovementInTx(tx: any, data: {
+    sparePartId: string;
+    productId: string | null;
+    warehouseId: string;
+    condition: string;
+    direction: string;
+    quantity: number;
+    sourceType: string;
+    sourceId: string;
+    maintenanceRequestId: string;
+    requiredPartId: string;
+    inventoryMovementId: string;
+    replacementAction?: string;
+    notes: string;
+  }, userId: string) {
+    const balanceKey = { sparePartId: data.sparePartId, warehouseId: data.warehouseId, condition: data.condition };
+    let balance = await tx.sparePartConditionBalance.findFirst({
+      where: { sparePartId: balanceKey.sparePartId, warehouseId: balanceKey.warehouseId, condition: balanceKey.condition },
+    });
+    if (!balance) {
+      balance = await tx.sparePartConditionBalance.create({
+        data: {
+          sparePartId: balanceKey.sparePartId,
+          productId: data.productId || null,
+          warehouseId: balanceKey.warehouseId,
+          condition: balanceKey.condition,
+          quantity: 0,
+          availableQuantity: 0,
+        },
+      });
+    }
+
+    const delta = data.direction === 'IN' ? data.quantity : -data.quantity;
+    const newQuantity = balance.quantity + delta;
+    const newAvailable = balance.availableQuantity + delta;
+
+    if (newQuantity < 0 || newAvailable < 0) {
+      const sparePart = await tx.sparePart.findUnique({ where: { id: data.sparePartId } });
+      throw new BadRequestException(
+        `Insufficient condition balance for spare part ${sparePart?.name || data.sparePartId}. Available: ${balance.quantity}, Requested: ${data.quantity}`,
+      );
+    }
+
+    await tx.sparePartConditionBalance.update({
+      where: { id: balance.id },
+      data: {
+        quantity: newQuantity,
+        availableQuantity: newAvailable,
+        lastMovementAt: new Date(),
+        productId: data.productId || balance.productId,
+      },
+    });
+
+    const movementNumber = await this.numberingService.generateNumberAtomic('SPARE_PART_CONDITION_MOVEMENT');
+
+    await tx.sparePartConditionMovement.create({
+      data: {
+        movementNumber,
+        sparePartId: data.sparePartId,
+        productId: data.productId || null,
+        warehouseId: data.warehouseId,
+        condition: data.condition,
+        direction: data.direction,
+        quantity: data.quantity,
+        sourceType: data.sourceType,
+        sourceId: data.sourceId,
+        maintenanceRequestId: data.maintenanceRequestId,
+        requiredPartId: data.requiredPartId,
+        inventoryMovementId: data.inventoryMovementId,
+        replacementAction: data.replacementAction || null,
+        notes: data.notes || null,
+        createdByUserId: userId,
+      },
+    });
   }
 }

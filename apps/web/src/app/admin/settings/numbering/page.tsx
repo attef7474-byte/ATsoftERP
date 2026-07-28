@@ -190,6 +190,7 @@ export default function NumberingPage() {
       { value: 'REPORT_EXPORT_JOB', label: t('settings.numbering.operationNameMap.REPORT_EXPORT_JOB') },
       { value: 'ATTACHMENT', label: t('settings.numbering.operationNameMap.ATTACHMENT') },
       { value: 'NOTIFICATION_RULE', label: t('settings.numbering.operationNameMap.NOTIFICATION_RULE') },
+      { value: 'SPARE_PART_CONDITION_MOVEMENT', label: t('settings.numbering.operationNameMap.SPARE_PART_CONDITION_MOVEMENT') },
     ], render: (item: any) => t(`settings.numbering.operationNameMap.${item.code}`) || item.operationName },
     { key: 'modelName', header: t('settings.numbering.modelName'), sortable: true, render: (item: any) => t(`settings.numbering.modelNameMap.${item.code}`) || item.modelName },
     { key: 'prefix', header: t('settings.numbering.prefix'), sortable: true, filterable: true, width: '90px' },
