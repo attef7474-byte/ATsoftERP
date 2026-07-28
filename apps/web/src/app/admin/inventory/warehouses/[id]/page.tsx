@@ -105,6 +105,7 @@ export default function WarehouseDetailPage() {
             <div><dt className="text-sm font-medium text-gray-500">{t('core.company')}</dt><dd className="mt-1 text-sm text-gray-900">{data.company?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('core.branch')}</dt><dd className="mt-1 text-sm text-gray-900">{data.branch?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('inventory.location')}</dt><dd className="mt-1 text-sm text-gray-900">{data.location || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('inventory.warehouseType')}</dt><dd className="mt-1 text-sm text-gray-900">{data.warehouseType || '-'}</dd></div>
             {summary && (
               <>
                 <div><dt className="text-sm font-medium text-gray-500">{t('inventoryCounting.linesCount')}</dt><dd className="mt-1 text-sm text-gray-900">{summary.totalLocations ?? '-'}</dd></div>

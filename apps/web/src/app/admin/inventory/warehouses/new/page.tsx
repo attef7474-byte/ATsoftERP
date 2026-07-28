@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
-import { Button, Input, Textarea, Card, CardContent } from '../../../../../components/admin/ui';
+import { Button, Input, Select, Textarea, Card, CardContent } from '../../../../../components/admin/ui';
 import { F9Lookup, companyAdapter, branchAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
 
@@ -12,7 +12,7 @@ export default function CreateWarehousePage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { showToast } = useToast();
-  const [form, setForm] = useState({ companyId: '', branchId: '', name: '', location: '' });
+  const [form, setForm] = useState({ companyId: '', branchId: '', name: '', location: '', warehouseType: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -39,6 +39,7 @@ export default function CreateWarehousePage() {
       const payload: any = { companyId: form.companyId, name: form.name.trim() };
       if (form.branchId) payload.branchId = form.branchId;
       if (form.location) payload.location = form.location.trim();
+      if (form.warehouseType) payload.warehouseType = form.warehouseType;
       const res = await api.post<{ data: { id: string } }>('/inventory/warehouses', payload);
       showToast(t('complexForms.recordCreated'), 'success');
       router.push(`/admin/inventory/warehouses/${res.data.id}`);
@@ -49,7 +50,7 @@ export default function CreateWarehousePage() {
 
   const { exec } = useStableHandlers({
     back: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
-    refresh: () => { setForm({ companyId: '', branchId: '', name: '', location: '' }); setErrors({}); setDirty(false); },
+    refresh: () => { setForm({ companyId: '', branchId: '', name: '', location: '', warehouseType: '' }); setErrors({}); setDirty(false); },
     save: () => handleSave(),
     cancel: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
   });
@@ -75,6 +76,15 @@ export default function CreateWarehousePage() {
               <Input label={t('inventory.warehouseName')} value={form.name} onChange={(e) => setField('name', e.target.value)} error={errors.name} required />
             </div>
             <Input label={t('inventory.location')} value={form.location} onChange={(e) => setField('location', e.target.value)} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Select label={t('inventory.warehouseType')} value={form.warehouseType} onChange={(e) => setField('warehouseType', e.target.value)} options={[
+                { value: '', label: '' },
+                { value: 'SPARE_PART', label: t('inventory.warehouseTypeSparePart') },
+                { value: 'PRODUCT', label: t('inventory.warehouseTypeProduct') },
+                { value: 'RAW_MATERIAL', label: t('inventory.warehouseTypeRawMaterial') },
+                { value: 'GENERAL', label: t('inventory.warehouseTypeGeneral') },
+              ]} />
+            </div>
           </div>
         </CardContent>
       </Card>

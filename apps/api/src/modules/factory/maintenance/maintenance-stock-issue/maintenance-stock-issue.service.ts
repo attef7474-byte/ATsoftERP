@@ -3,6 +3,10 @@ import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { IssueStockDto, ReturnStockDto } from './dto/issue-stock.dto';
 
+const VALID_STOCK_CONDITIONS = ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'];
+const VALID_REPLACEMENT_ACTIONS = ['RETURNED_REMOVED_PART', 'NO_REMOVED_PART', 'NEW_INSTALLATION'];
+const FORBIDDEN_WAREHOUSE_TYPES = ['PRODUCT', 'RAW_MATERIAL'];
+
 @Injectable()
 export class MaintenanceStockIssueService {
   constructor(
@@ -14,8 +18,26 @@ export class MaintenanceStockIssueService {
     const part = await this.prisma.maintenanceRequestRequiredPart.findUnique({
       where: { id: lineId },
       include: {
-        maintenanceRequest: { include: { machine: { select: { id: true, companyId: true, branchId: true } } } },
-        sparePart: { select: { id: true, productId: true, code: true, name: true } },
+        maintenanceRequest: {
+          include: {
+            machine: {
+              select: {
+                id: true, companyId: true, branchId: true,
+                productionLineId: true, departmentId: true,
+                defaultCostCenterId: true, name: true, code: true,
+              },
+            },
+          },
+        },
+        sparePart: {
+          select: {
+            id: true, productId: true, code: true, name: true,
+            technicalClassification: true, usageType: true, nature: true, importance: true,
+          },
+        },
+        machineComponent: {
+          select: { id: true, name: true, code: true, machineId: true },
+        },
       },
     });
     if (!part) throw new NotFoundException('Part line not found');
@@ -32,11 +54,40 @@ export class MaintenanceStockIssueService {
     return 'PARTIALLY_ISSUED';
   }
 
+  private validateReplacementAction(dto: IssueStockDto) {
+    if (!dto.replacementAction) {
+      throw new BadRequestException('replacementAction is required (RETURNED_REMOVED_PART, NO_REMOVED_PART, or NEW_INSTALLATION)');
+    }
+    if (!VALID_REPLACEMENT_ACTIONS.includes(dto.replacementAction)) {
+      throw new BadRequestException(`Invalid replacementAction '${dto.replacementAction}'. Must be one of: ${VALID_REPLACEMENT_ACTIONS.join(', ')}`);
+    }
+    if (dto.replacementAction === 'RETURNED_REMOVED_PART') {
+      if (!dto.removedPartCondition) throw new BadRequestException('removedPartCondition is required when replacementAction is RETURNED_REMOVED_PART');
+      if (!dto.removedPartWarehouseId) throw new BadRequestException('removedPartWarehouseId is required when replacementAction is RETURNED_REMOVED_PART');
+      if (!dto.removedPartQuantity || dto.removedPartQuantity <= 0) throw new BadRequestException('removedPartQuantity (positive) is required when replacementAction is RETURNED_REMOVED_PART');
+      if (!VALID_STOCK_CONDITIONS.includes(dto.removedPartCondition)) {
+        throw new BadRequestException(`Invalid removedPartCondition '${dto.removedPartCondition}'`);
+      }
+    }
+    if (dto.replacementAction === 'NO_REMOVED_PART') {
+      if (!dto.noReturnReason) throw new BadRequestException('noReturnReason is required when replacementAction is NO_REMOVED_PART');
+    }
+  }
+
+  private validateStockCondition(dto: IssueStockDto) {
+    if (dto.issuedStockCondition && !VALID_STOCK_CONDITIONS.includes(dto.issuedStockCondition)) {
+      throw new BadRequestException(`Invalid issuedStockCondition '${dto.issuedStockCondition}'`);
+    }
+  }
+
   async issue(requestId: string, lineId: string, dto: IssueStockDto, userId: string) {
     const part: any = await this.findPartLineOrFail(lineId, requestId);
     if (!['APPROVED', 'RESERVED'].includes(part.status)) {
       throw new BadRequestException(`Cannot issue stock for part in status '${part.status}'. Must be APPROVED or RESERVED`);
     }
+
+    this.validateReplacementAction(dto);
+    this.validateStockCondition(dto);
 
     const approvableQty = part.approvedQuantity || part.requestedQuantity || part.quantity;
     const currentIssued = part.issuedQuantity || 0;
@@ -57,9 +108,28 @@ export class MaintenanceStockIssueService {
 
     const warehouse = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
     if (!warehouse) throw new NotFoundException('Warehouse not found');
+    const wt = warehouse.warehouseType || '';
+    if (FORBIDDEN_WAREHOUSE_TYPES.includes(wt)) {
+      throw new BadRequestException(`Spare parts cannot be issued from ${wt.toLowerCase().replace('_', ' ')} warehouses`);
+    }
 
-    const companyId = part.maintenanceRequest.machine.companyId;
-    const branchId = part.maintenanceRequest.machine.branchId;
+    // Auto-derive cost hierarchy from machine when not provided
+    const machine = part.maintenanceRequest.machine;
+    const derivedCostData: any = {};
+
+    // Derive department/line from machine if cost fields not provided
+    if (!dto.costDepartmentId && machine.departmentId) derivedCostData.costDepartmentId = machine.departmentId;
+    if (!dto.costProductionLineId && machine.productionLineId) derivedCostData.costProductionLineId = machine.productionLineId;
+    if (!dto.costMachineId) derivedCostData.costMachineId = machine.id;
+    if (!dto.costMachineComponentId && part.machineComponentId) derivedCostData.costMachineComponentId = part.machineComponentId;
+
+    // Derive classification from SparePart catalog (never trust frontend)
+    const sparePart = part.sparePart;
+    derivedCostData.issuedStockCondition = dto.issuedStockCondition || 'NEW';
+    derivedCostData.replacementAction = dto.replacementAction;
+
+    const companyId = machine.companyId;
+    const branchId = machine.branchId;
 
     const movement = await this.prisma.$transaction(async (tx) => {
       const seq = await tx.numberSequence.findUnique({ where: { code: 'INVENTORY_MOVEMENT' } });
@@ -118,6 +188,25 @@ export class MaintenanceStockIssueService {
       const newIssued = (part.issuedQuantity || 0) + dto.issuedQuantity;
       const newStatus = this.computeIssueStatus(newIssued, currentReturned, approvableQty);
 
+      const costData: any = { ...derivedCostData };
+      // Only override derived values if user explicitly provided them
+      if (dto.costOwnerType) costData.costOwnerType = dto.costOwnerType;
+      if (dto.costOwnerAdministrationId) costData.costOwnerAdministrationId = dto.costOwnerAdministrationId;
+      if (dto.costDepartmentId) costData.costDepartmentId = dto.costDepartmentId;
+      if (dto.costProductionLineId) costData.costProductionLineId = dto.costProductionLineId;
+      if (dto.costMachineId) costData.costMachineId = dto.costMachineId;
+      if (dto.costMachineComponentId) costData.costMachineComponentId = dto.costMachineComponentId;
+      if (dto.unitCost != null) costData.unitCost = dto.unitCost;
+      if (dto.unitCost != null) costData.totalCost = dto.issuedQuantity * dto.unitCost;
+      if (dto.receivedByUserId) { costData.receivedByUserId = dto.receivedByUserId; costData.receivedAt = new Date(); }
+
+      // Removed part fields
+      if (dto.removedPartCondition) costData.removedPartCondition = dto.removedPartCondition;
+      if (dto.removedPartWarehouseId) costData.removedPartWarehouseId = dto.removedPartWarehouseId;
+      if (dto.removedPartQuantity != null) costData.removedPartQuantity = dto.removedPartQuantity;
+      if (dto.removedPartReturnedByUserId) costData.removedPartReturnedByUserId = dto.removedPartReturnedByUserId;
+      if (dto.noReturnReason) costData.noReturnReason = dto.noReturnReason;
+
       await tx.maintenanceRequestRequiredPart.update({
         where: { id: lineId },
         data: {
@@ -126,6 +215,7 @@ export class MaintenanceStockIssueService {
           warehouseId: dto.warehouseId,
           lastIssueAt: new Date(),
           lastIssueByUserId: userId,
+          ...costData,
         },
       });
 
@@ -138,12 +228,15 @@ export class MaintenanceStockIssueService {
       issuedQuantity: dto.issuedQuantity,
       warehouseId: dto.warehouseId,
       productId,
+      replacementAction: dto.replacementAction,
+      issuedStockCondition: dto.issuedStockCondition,
     });
 
     return this.prisma.maintenanceRequestRequiredPart.findUnique({
       where: { id: lineId },
       include: {
-        sparePart: { select: { id: true, code: true, name: true, productId: true } },
+        sparePart: { select: { id: true, code: true, name: true, productId: true,
+          technicalClassification: true, usageType: true, nature: true, importance: true } },
         warehouse: { select: { id: true, code: true, name: true } },
         lastIssueBy: { select: { id: true, name: true } },
       },
@@ -246,7 +339,8 @@ export class MaintenanceStockIssueService {
     return this.prisma.maintenanceRequestRequiredPart.findUnique({
       where: { id: lineId },
       include: {
-        sparePart: { select: { id: true, code: true, name: true, productId: true } },
+        sparePart: { select: { id: true, code: true, name: true, productId: true,
+          technicalClassification: true, usageType: true, nature: true, importance: true } },
         warehouse: { select: { id: true, code: true, name: true } },
       },
     });

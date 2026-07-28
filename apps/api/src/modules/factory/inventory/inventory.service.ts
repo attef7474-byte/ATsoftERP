@@ -23,7 +23,7 @@ export class InventoryService {
     return this.prisma.warehouse.create({ data: { ...dto, code } });
   }
 
-  async findAllWarehouses(query: { page?: number; limit?: number; search?: string; companyId?: string }) {
+  async findAllWarehouses(query: { page?: number; limit?: number; search?: string; companyId?: string; warehouseType?: string }) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -31,6 +31,7 @@ export class InventoryService {
     const where: any = { deletedAt: null };
     if (query.search) where.name = { contains: query.search };
     if (query.companyId) where.companyId = query.companyId;
+    if (query.warehouseType) where.warehouseType = query.warehouseType;
 
     const [data, total] = await Promise.all([
       this.prisma.warehouse.findMany({

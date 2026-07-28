@@ -432,6 +432,10 @@ export interface SparePart {
   reorderPoint?: number | null;
   isCritical: boolean;
   status: string;
+  technicalClassification?: string | null;
+  usageType?: string | null;
+  nature?: string | null;
+  importance?: string | null;
   productId?: string | null;
   product?: { id: string; name: string; code: string };
   componentLinks?: ComponentSparePart[];

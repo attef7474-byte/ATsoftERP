@@ -5,7 +5,7 @@ import { safeString, unwrapApiData, unwrapApiList } from '../../../../lib/form-u
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Warehouse } from '../../../../lib/admin-types';
-import { Button, Input, Card, Pagination, PageHeader, LoadingState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Input, Select, Card, Pagination, PageHeader, LoadingState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { F9Lookup, companyAdapter, branchAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
@@ -21,7 +21,7 @@ export default function WarehousesPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Warehouse | null>(null);
-  const [form, setForm] = useState({ companyId: '', branchId: '', name: '', location: '' });
+  const [form, setForm] = useState({ companyId: '', branchId: '', name: '', location: '', warehouseType: '' });
   const [saving, setSaving] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -66,7 +66,7 @@ export default function WarehousesPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ companyId: '', branchId: '', name: '', location: '' });
+    setForm({ companyId: '', branchId: '', name: '', location: '', warehouseType: '' });
     setModalOpen(true);
   };
 
@@ -82,6 +82,7 @@ export default function WarehousesPage() {
         branchId: safeString(detail.branchId),
         name: safeString(detail.name),
         location: safeString(detail.location),
+        warehouseType: safeString(detail.warehouseType),
       });
     } catch (err: any) {
       showToast(err?.message || t('errors.loadFailed'), 'error');
@@ -98,6 +99,7 @@ export default function WarehousesPage() {
       const payload: any = { companyId: form.companyId, name: form.name };
       if (form.branchId) payload.branchId = form.branchId;
       if (form.location) payload.location = form.location;
+      if (form.warehouseType) payload.warehouseType = form.warehouseType;
       if (editItem) {
         await api.patch(`/inventory/warehouses/${editItem.id}`, payload);
         showToast(t('common.successUpdated'), 'success');
@@ -136,6 +138,7 @@ export default function WarehousesPage() {
     { key: 'company', header: t('core.company'), sortable: true, render: (w: Warehouse) => w.company?.name || '-' },
     { key: 'branch', header: t('core.branch'), sortable: true, render: (w: Warehouse) => w.branch?.name || '-' },
     { key: 'location', header: t('inventory.location'), render: (w: Warehouse) => w.location || '-' },
+    { key: 'warehouseType', header: t('inventory.warehouseType'), render: (w: Warehouse) => w.warehouseType || '-' },
     { key: 'status', header: t('common.status'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
       { value: 'ACTIVE', label: t('common.active') }, { value: 'INACTIVE', label: t('common.inactive') },
     ], render: (w: Warehouse) => (
@@ -193,6 +196,13 @@ export default function WarehousesPage() {
           <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label={t('inventory.location')} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+          <Select label={t('inventory.warehouseType')} value={form.warehouseType} onChange={(e) => setForm({ ...form, warehouseType: e.target.value })} options={[
+            { value: '', label: '' },
+            { value: 'SPARE_PART', label: t('inventory.warehouseTypeSparePart') },
+            { value: 'PRODUCT', label: t('inventory.warehouseTypeProduct') },
+            { value: 'RAW_MATERIAL', label: t('inventory.warehouseTypeRawMaterial') },
+            { value: 'GENERAL', label: t('inventory.warehouseTypeGeneral') },
+          ]} />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>

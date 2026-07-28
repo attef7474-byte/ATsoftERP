@@ -646,6 +646,8 @@ model Warehouse {
   code      String
   name      String
   location  String?
+  // Batch Y — warehouse type (nullable, backward compatible)
+  warehouseType String?
   status    String    @default("ACTIVE")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -666,6 +668,7 @@ model Warehouse {
 
   @@unique([companyId, code])
   @@index([branchId])
+  @@index([warehouseType])
   @@index([status])
   @@index([createdAt])
   @@map("warehouses")
@@ -1473,6 +1476,11 @@ model SparePart {
   maxRecommendedStock Float?
   reorderPoint       Float?
   isCritical         Boolean  @default(false)
+  // Batch Y — spare part classification (String, nullable, backward compatible)
+  technicalClassification String?
+  usageType               String?
+  nature                  String?
+  importance              String?
   status             String   @default("ACTIVE")
   productId          String?
   product            Product? @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1492,6 +1500,10 @@ model SparePart {
   @@index([barcode])
   @@index([status])
   @@index([isCritical])
+  @@index([technicalClassification])
+  @@index([usageType])
+  @@index([nature])
+  @@index([importance])
   @@index([productId])
   @@map("spare_parts")
 }
@@ -1664,6 +1676,29 @@ model MaintenanceRequestRequiredPart {
   lastIssueByUserId    String?
   lastIssueBy          User?     @relation("PartStockIssuedBy", fields: [lastIssueByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+  // Batch Y — cost attribution and receiver tracking (all nullable, backward compatible, scalar-only)
+  costOwnerType              String?
+  costOwnerAdministrationId  String?
+  costDepartmentId           String?
+  costProductionLineId       String?
+  costMachineId              String?
+  costMachineComponentId     String?
+  unitCost                   Decimal? @db.Decimal(18, 4)
+  totalCost                  Decimal? @db.Decimal(18, 4)
+  receivedByUserId           String?
+  receivedAt                 DateTime?
+
+  // Batch Y Addendum — part condition, replacement action, removed part tracking
+  issuedStockCondition       String?
+  replacementAction          String?
+  removedPartCondition       String?
+  removedPartWarehouseId     String?
+  removedPartQuantity        Float?
+  removedPartReturnedByUserId String?
+  removedPartReceivedByUserId String?
+  removedPartReturnedAt      DateTime?
+  noReturnReason             String?
+
   @@unique([maintenanceRequestId, sparePartId])
   @@index([maintenanceRequestId])
   @@index([sparePartId])
@@ -1675,6 +1710,15 @@ model MaintenanceRequestRequiredPart {
   @@index([reservedByUserId])
   @@index([usedByUserId])
   @@index([failureCauseId])
+  @@index([costOwnerType])
+  @@index([costProductionLineId])
+  @@index([costMachineId])
+  @@index([costMachineComponentId])
+  @@index([receivedByUserId])
+  @@index([issuedStockCondition])
+  @@index([replacementAction])
+  @@index([removedPartCondition])
+  @@index([removedPartWarehouseId])
   @@map("maintenance_request_required_parts")
 }
 

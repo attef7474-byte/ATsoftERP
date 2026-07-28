@@ -17,7 +17,7 @@ export class SparePartsService {
     return part;
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string; code?: string; name?: string; category?: string; partNumber?: string; barcode?: string; isCritical?: string; status?: string }) {
+  async findAll(query: { page?: number; limit?: number; search?: string; code?: string; name?: string; category?: string; partNumber?: string; barcode?: string; isCritical?: string; status?: string; technicalClassification?: string; usageType?: string; nature?: string; importance?: string }) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -30,6 +30,10 @@ export class SparePartsService {
     if (query.barcode) where.barcode = { contains: query.barcode };
     if (query.isCritical) where.isCritical = query.isCritical === 'true';
     if (query.status) where.status = query.status;
+    if (query.technicalClassification) where.technicalClassification = query.technicalClassification;
+    if (query.usageType) where.usageType = query.usageType;
+    if (query.nature) where.nature = query.nature;
+    if (query.importance) where.importance = query.importance;
     const [data, total] = await Promise.all([
       this.prisma.sparePart.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
       this.prisma.sparePart.count({ where }),

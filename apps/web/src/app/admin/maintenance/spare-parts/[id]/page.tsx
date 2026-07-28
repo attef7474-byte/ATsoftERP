@@ -50,6 +50,12 @@ export default function SparePartDetailPage() {
         <Card><CardHeader><h3 className="text-sm font-medium">{t('maintenance.sparePart.form.isCritical')}</h3></CardHeader><CardContent>{item.isCritical ? t('common.yes') : t('common.no')}</CardContent></Card>
         <Card><CardHeader><h3 className="text-sm font-medium">{t('common.description')}</h3></CardHeader><CardContent>{item.description || '-'}</CardContent></Card>
       </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card><CardHeader><h3 className="text-sm font-medium">{t('maintenance.sparePart.form.technicalClassification')}</h3></CardHeader><CardContent>{item.technicalClassification || '-'}</CardContent></Card>
+        <Card><CardHeader><h3 className="text-sm font-medium">{t('maintenance.sparePart.form.usageType')}</h3></CardHeader><CardContent>{item.usageType || '-'}</CardContent></Card>
+        <Card><CardHeader><h3 className="text-sm font-medium">{t('maintenance.sparePart.form.nature')}</h3></CardHeader><CardContent>{item.nature || '-'}</CardContent></Card>
+        <Card><CardHeader><h3 className="text-sm font-medium">{t('maintenance.sparePart.form.importance')}</h3></CardHeader><CardContent>{item.importance || '-'}</CardContent></Card>
+      </div>
     </div>
   );
 }

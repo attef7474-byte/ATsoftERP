@@ -22,12 +22,14 @@ export class SparePartsController {
   @Get()
   @Permissions('spare-part:read')
   @ApiOperation({ summary: 'List spare parts' })
-  findAll(@Query() query: { page?: string; limit?: string; search?: string; code?: string; name?: string; category?: string; partNumber?: string; barcode?: string; isCritical?: string; status?: string }) {
+  findAll(@Query() query: { page?: string; limit?: string; search?: string; code?: string; name?: string; category?: string; partNumber?: string; barcode?: string; isCritical?: string; status?: string; technicalClassification?: string; usageType?: string; nature?: string; importance?: string }) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search, code: query.code, name: query.name, category: query.category,
       partNumber: query.partNumber, barcode: query.barcode, isCritical: query.isCritical, status: query.status,
+      technicalClassification: query.technicalClassification, usageType: query.usageType,
+      nature: query.nature, importance: query.importance,
     });
   }
 

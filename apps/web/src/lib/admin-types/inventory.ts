@@ -5,6 +5,7 @@ export interface Warehouse {
   code: string;
   name: string;
   location?: string | null;
+  warehouseType?: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;

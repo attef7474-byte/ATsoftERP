@@ -31,6 +31,7 @@ export default function SparePartsPage() {
     code: '', name: '', description: '', category: '', specification: '', unit: '',
     manufacturer: '', model: '', partNumber: '', barcode: '',
     minRecommendedStock: 0, maxRecommendedStock: 0, reorderPoint: 0, isCritical: false,
+    technicalClassification: '', usageType: '', nature: '', importance: '',
   });
 
   const fetchData = useCallback(async (page = 1) => {
@@ -48,7 +49,7 @@ export default function SparePartsPage() {
 
   const openNew = useCallback(() => {
     setEditingId(null);
-    setForm({ code: '', name: '', description: '', category: '', specification: '', unit: '', manufacturer: '', model: '', partNumber: '', barcode: '', minRecommendedStock: 0, maxRecommendedStock: 0, reorderPoint: 0, isCritical: false });
+    setForm({ code: '', name: '', description: '', category: '', specification: '', unit: '', manufacturer: '', model: '', partNumber: '', barcode: '', minRecommendedStock: 0, maxRecommendedStock: 0, reorderPoint: 0, isCritical: false, technicalClassification: '', usageType: '', nature: '', importance: '' });
     setModalOpen(true);
   }, []);
 
@@ -67,6 +68,8 @@ export default function SparePartsPage() {
         minRecommendedStock: item.minRecommendedStock ?? 0,
         maxRecommendedStock: item.maxRecommendedStock ?? 0,
         reorderPoint: item.reorderPoint ?? 0, isCritical: item.isCritical,
+        technicalClassification: item.technicalClassification || '',
+        usageType: item.usageType || '', nature: item.nature || '', importance: item.importance || '',
       });
     } catch (e: any) {
       showToast(e.message || t('errors.loadFailed'), 'error');
@@ -130,6 +133,10 @@ export default function SparePartsPage() {
     { key: 'partNumber', header: t('maintenance.partNumber') },
     { key: 'manufacturer', header: t('maintenance.manufacturer') },
     { key: 'unit', header: t('maintenance.sparePart.form.unit') },
+    { key: 'technicalClassification', header: t('maintenance.sparePart.form.technicalClassification') },
+    { key: 'usageType', header: t('maintenance.sparePart.form.usageType') },
+    { key: 'nature', header: t('maintenance.sparePart.form.nature') },
+    { key: 'importance', header: t('maintenance.sparePart.form.importance') },
     { key: 'isCritical', header: t('maintenance.criticalPart'), render: (s) => s.isCritical ? t('common.yes') : t('common.no') },
     { key: 'status', header: t('common.status'), render: (s) => s.status },
   ];
@@ -181,6 +188,35 @@ export default function SparePartsPage() {
           <Input label={t('maintenance.sparePart.form.model')} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
           <Input label={t('maintenance.sparePart.form.partNumber')} value={form.partNumber} onChange={(e) => setForm({ ...form, partNumber: e.target.value })} />
           <Input label={t('maintenance.sparePart.form.barcode')} value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
+          <Select label={t('maintenance.sparePart.form.technicalClassification')} value={form.technicalClassification} onChange={(e) => setForm({ ...form, technicalClassification: e.target.value })} options={[
+            { value: '', label: '' }, { value: 'MECHANICAL', label: t('maintenance.sparePart.classification.mechanical') },
+            { value: 'ELECTRICAL', label: t('maintenance.sparePart.classification.electrical') },
+            { value: 'ELECTRONIC', label: t('maintenance.sparePart.classification.electronic') },
+            { value: 'HYDRAULIC', label: t('maintenance.sparePart.classification.hydraulic') },
+            { value: 'PNEUMATIC', label: t('maintenance.sparePart.classification.pneumatic') },
+            { value: 'LUBRICANT', label: t('maintenance.sparePart.classification.lubricant') },
+            { value: 'CHEMICAL', label: t('maintenance.sparePart.classification.chemical') },
+            { value: 'SAFETY', label: t('maintenance.sparePart.classification.safety') },
+            { value: 'GENERAL', label: t('maintenance.sparePart.classification.general') },
+          ]} />
+          <Select label={t('maintenance.sparePart.form.usageType')} value={form.usageType} onChange={(e) => setForm({ ...form, usageType: e.target.value })} options={[
+            { value: '', label: '' }, { value: 'CONSUMABLE', label: t('maintenance.sparePart.usageType.consumable') },
+            { value: 'REPLACEABLE', label: t('maintenance.sparePart.usageType.replaceable') },
+            { value: 'REPAIRABLE', label: t('maintenance.sparePart.usageType.repairable') },
+            { value: 'ROTABLE', label: t('maintenance.sparePart.usageType.rotable') },
+          ]} />
+          <Select label={t('maintenance.sparePart.form.nature')} value={form.nature} onChange={(e) => setForm({ ...form, nature: e.target.value })} options={[
+            { value: '', label: '' }, { value: 'ORIGINAL', label: t('maintenance.sparePart.nature.original') },
+            { value: 'GENERIC', label: t('maintenance.sparePart.nature.generic') },
+            { value: 'REFURBISHED', label: t('maintenance.sparePart.nature.refurbished') },
+            { value: 'LOCAL', label: t('maintenance.sparePart.nature.local') },
+          ]} />
+          <Select label={t('maintenance.sparePart.form.importance')} value={form.importance} onChange={(e) => setForm({ ...form, importance: e.target.value })} options={[
+            { value: '', label: '' }, { value: 'CRITICAL', label: t('maintenance.sparePart.importance.critical') },
+            { value: 'HIGH', label: t('maintenance.sparePart.importance.high') },
+            { value: 'MEDIUM', label: t('maintenance.sparePart.importance.medium') },
+            { value: 'LOW', label: t('maintenance.sparePart.importance.low') },
+          ]} />
           <Input label={t('maintenance.sparePart.form.minRecommendedStock')} type="number" value={form.minRecommendedStock} onChange={(e) => setForm({ ...form, minRecommendedStock: Number(e.target.value) })} />
           <Input label={t('maintenance.sparePart.form.maxRecommendedStock')} type="number" value={form.maxRecommendedStock} onChange={(e) => setForm({ ...form, maxRecommendedStock: Number(e.target.value) })} />
           <Input label={t('maintenance.sparePart.form.reorderPoint')} type="number" value={form.reorderPoint} onChange={(e) => setForm({ ...form, reorderPoint: Number(e.target.value) })} />

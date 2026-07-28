@@ -22,6 +22,7 @@ export default function EditSparePartPage() {
     code: '', name: '', description: '', category: '', specification: '', unit: '',
     manufacturer: '', model: '', partNumber: '', barcode: '',
     minRecommendedStock: 0, maxRecommendedStock: 0, reorderPoint: 0, isCritical: false,
+    technicalClassification: '', usageType: '', nature: '', importance: '',
   });
 
   useEffect(() => {
@@ -37,6 +38,8 @@ export default function EditSparePartPage() {
           minRecommendedStock: res.minRecommendedStock ?? 0,
           maxRecommendedStock: res.maxRecommendedStock ?? 0,
           reorderPoint: res.reorderPoint ?? 0, isCritical: res.isCritical,
+          technicalClassification: res.technicalClassification || '',
+          usageType: res.usageType || '', nature: res.nature || '', importance: res.importance || '',
         });
       } catch (e: any) { setError(e.message || 'Failed to load'); }
       finally { setLoading(false); }
@@ -86,6 +89,37 @@ export default function EditSparePartPage() {
               <input type="checkbox" checked={form.isCritical} onChange={(e) => setForm({ ...form, isCritical: e.target.checked })} className="rounded" />
               {t('maintenance.sparePart.form.isCritical')}
             </label>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Select label={t('maintenance.sparePart.form.technicalClassification')} value={form.technicalClassification} onChange={(e) => setForm({ ...form, technicalClassification: e.target.value })} options={[
+              { value: '', label: '' }, { value: 'MECHANICAL', label: t('maintenance.sparePart.classification.mechanical') },
+              { value: 'ELECTRICAL', label: t('maintenance.sparePart.classification.electrical') },
+              { value: 'ELECTRONIC', label: t('maintenance.sparePart.classification.electronic') },
+              { value: 'HYDRAULIC', label: t('maintenance.sparePart.classification.hydraulic') },
+              { value: 'PNEUMATIC', label: t('maintenance.sparePart.classification.pneumatic') },
+              { value: 'LUBRICANT', label: t('maintenance.sparePart.classification.lubricant') },
+              { value: 'CHEMICAL', label: t('maintenance.sparePart.classification.chemical') },
+              { value: 'SAFETY', label: t('maintenance.sparePart.classification.safety') },
+              { value: 'GENERAL', label: t('maintenance.sparePart.classification.general') },
+            ]} />
+            <Select label={t('maintenance.sparePart.form.usageType')} value={form.usageType} onChange={(e) => setForm({ ...form, usageType: e.target.value })} options={[
+              { value: '', label: '' }, { value: 'CONSUMABLE', label: t('maintenance.sparePart.usageType.consumable') },
+              { value: 'REPLACEABLE', label: t('maintenance.sparePart.usageType.replaceable') },
+              { value: 'REPAIRABLE', label: t('maintenance.sparePart.usageType.repairable') },
+              { value: 'ROTABLE', label: t('maintenance.sparePart.usageType.rotable') },
+            ]} />
+            <Select label={t('maintenance.sparePart.form.nature')} value={form.nature} onChange={(e) => setForm({ ...form, nature: e.target.value })} options={[
+              { value: '', label: '' }, { value: 'ORIGINAL', label: t('maintenance.sparePart.nature.original') },
+              { value: 'GENERIC', label: t('maintenance.sparePart.nature.generic') },
+              { value: 'REFURBISHED', label: t('maintenance.sparePart.nature.refurbished') },
+              { value: 'LOCAL', label: t('maintenance.sparePart.nature.local') },
+            ]} />
+            <Select label={t('maintenance.sparePart.form.importance')} value={form.importance} onChange={(e) => setForm({ ...form, importance: e.target.value })} options={[
+              { value: '', label: '' }, { value: 'CRITICAL', label: t('maintenance.sparePart.importance.critical') },
+              { value: 'HIGH', label: t('maintenance.sparePart.importance.high') },
+              { value: 'MEDIUM', label: t('maintenance.sparePart.importance.medium') },
+              { value: 'LOW', label: t('maintenance.sparePart.importance.low') },
+            ]} />
           </div>
         </CardContent>
       </Card>

@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../../components/admin/toast-provider';
-import { Button, Input, Textarea, Card, CardContent, LoadingState, ErrorState, StatusBadge } from '../../../../../../components/admin/ui';
+import { Button, Input, Select, Textarea, Card, CardContent, LoadingState, ErrorState, StatusBadge } from '../../../../../../components/admin/ui';
 import { F9Lookup, companyAdapter, branchAdapter } from '../../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon, ActionViewIcon } from '../../../../../../components/admin/admin-action-bar';
 import type { Warehouse } from '../../../../../../lib/admin-types';
@@ -16,7 +16,7 @@ export default function EditWarehousePage() {
   const { showToast } = useToast();
   const id = params?.id as string;
   const [data, setData] = useState<Warehouse | null>(null);
-  const [form, setForm] = useState({ companyId: '', branchId: '', code: '', name: '', location: '' });
+  const [form, setForm] = useState({ companyId: '', branchId: '', code: '', name: '', location: '', warehouseType: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -31,7 +31,7 @@ export default function EditWarehousePage() {
       const res = await api.get<any>(`/inventory/warehouses/${id}`);
       const item = res as Warehouse;
       setData(item);
-      setForm({ companyId: item.companyId ?? '', branchId: item.branchId ?? '', code: item.code ?? '', name: item.name ?? '', location: item.location ?? '' });
+      setForm({ companyId: item.companyId ?? '', branchId: item.branchId ?? '', code: item.code ?? '', name: item.name ?? '', location: item.location ?? '', warehouseType: item.warehouseType ?? '' });
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || t('complexForms.loadFailed'));
     } finally { setLoading(false); }
@@ -63,6 +63,7 @@ export default function EditWarehousePage() {
       const payload: any = { companyId: form.companyId, code: form.code.trim(), name: form.name.trim() };
       if (form.branchId !== data?.branchId) payload.branchId = form.branchId || null;
       if (form.location !== data?.location) payload.location = form.location.trim() || null;
+      if (form.warehouseType !== (data?.warehouseType || '')) payload.warehouseType = form.warehouseType || null;
       await api.patch(`/inventory/warehouses/${id}`, payload);
       showToast(t('complexForms.recordUpdated'), 'success');
       router.push(`/admin/inventory/warehouses/${id}`);
@@ -118,6 +119,15 @@ export default function EditWarehousePage() {
               <Input label={t('inventory.warehouseName')} value={form.name} onChange={(e) => setField('name', e.target.value)} error={errors.name} required disabled={isReadOnly} />
             </div>
             <Input label={t('inventory.location')} value={form.location} onChange={(e) => setField('location', e.target.value)} disabled={isReadOnly} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Select label={t('inventory.warehouseType')} value={form.warehouseType} onChange={(e) => setField('warehouseType', e.target.value)} disabled={isReadOnly} options={[
+                { value: '', label: '' },
+                { value: 'SPARE_PART', label: t('inventory.warehouseTypeSparePart') },
+                { value: 'PRODUCT', label: t('inventory.warehouseTypeProduct') },
+                { value: 'RAW_MATERIAL', label: t('inventory.warehouseTypeRawMaterial') },
+                { value: 'GENERAL', label: t('inventory.warehouseTypeGeneral') },
+              ]} />
+            </div>
           </div>
         </CardContent>
       </Card>

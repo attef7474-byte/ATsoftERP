@@ -16,6 +16,10 @@ export class CreateSparePartDto {
   @ApiPropertyOptional() @IsNumber() @IsOptional() @Min(0) maxRecommendedStock?: number;
   @ApiPropertyOptional() @IsNumber() @IsOptional() @Min(0) reorderPoint?: number;
   @ApiPropertyOptional() @IsBoolean() @IsOptional() isCritical?: boolean;
+  @ApiPropertyOptional() @IsString() @IsOptional() technicalClassification?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() usageType?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() nature?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() importance?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() productId?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() status?: string;
 }
@@ -35,6 +39,10 @@ export class UpdateSparePartDto {
   @ApiPropertyOptional() @IsNumber() @IsOptional() @Min(0) maxRecommendedStock?: number;
   @ApiPropertyOptional() @IsNumber() @IsOptional() @Min(0) reorderPoint?: number;
   @ApiPropertyOptional() @IsBoolean() @IsOptional() isCritical?: boolean;
+  @ApiPropertyOptional() @IsString() @IsOptional() technicalClassification?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() usageType?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() nature?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() importance?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() productId?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() status?: string;
 }

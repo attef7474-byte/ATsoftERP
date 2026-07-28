@@ -24,4 +24,9 @@ export class CreateWarehouseDto {
   @IsOptional()
   @IsString()
   location?: string;
+
+  @ApiPropertyOptional({ enum: ['PRODUCT', 'RAW_MATERIAL', 'SPARE_PART', 'GENERAL'] })
+  @IsOptional()
+  @IsString()
+  warehouseType?: string;
 }

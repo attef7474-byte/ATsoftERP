@@ -25,12 +25,13 @@ export class InventoryController {
   @Get('warehouses')
   @Permissions('inventory:read')
   @ApiOperation({ summary: 'List warehouses' })
-  findAllWarehouses(@Query() query: { page?: string; limit?: string; search?: string; companyId?: string }) {
+  findAllWarehouses(@Query() query: { page?: string; limit?: string; search?: string; companyId?: string; warehouseType?: string }) {
     return this.service.findAllWarehouses({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,
       companyId: query.companyId,
+      warehouseType: query.warehouseType,
     });
   }
 
