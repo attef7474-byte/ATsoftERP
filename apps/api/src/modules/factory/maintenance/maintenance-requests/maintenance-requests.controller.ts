@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { CurrentUserType } from '../../../../modules/auth/types/current-user.type';
 
 @ApiTags('Maintenance Requests')
 @ApiBearerAuth()
@@ -18,15 +19,15 @@ export class MaintenanceRequestsController {
   @Post()
   @Permissions('maintenance-request:create')
   @ApiOperation({ summary: 'Create maintenance request' })
-  create(@Body() dto: CreateMaintenanceRequestDto, @CurrentUser('id') userId: string) {
-    return this.service.create(dto, userId);
+  create(@Body() dto: CreateMaintenanceRequestDto, @CurrentUser() user: CurrentUserType) {
+    return this.service.create(dto, user);
   }
 
   @Post('emergency')
   @Permissions('maintenance-request:createEmergency')
   @ApiOperation({ summary: 'Create emergency maintenance request with downtime log' })
-  createEmergency(@Body() dto: CreateMaintenanceRequestDto, @CurrentUser('id') userId: string) {
-    return this.service.createEmergency(dto, userId);
+  createEmergency(@Body() dto: CreateMaintenanceRequestDto, @CurrentUser() user: CurrentUserType) {
+    return this.service.createEmergency(dto, user);
   }
 
   @Get()

@@ -7,6 +7,7 @@ import { useToast } from '../../../../../components/admin/toast-provider';
 import { Button, Input, Select, Textarea, Card, CardContent } from '../../../../../components/admin/ui';
 import { F9Lookup, machineAdapter, userAdapter, productionLineAdapter, machineComponentAdapter, operationTypeAdapter, costCenterAdapter, sparePartAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
+import type { Machine } from '../../../../../lib/admin-types';
 
 const REQUEST_TYPES = [
   { value: 'CORRECTIVE', label: 'Corrective' },
@@ -120,7 +121,7 @@ export default function CreateMaintenanceRequestPage() {
             <Textarea label={t('maintenance.description')} value={form.description} onChange={(e) => setField('description', e.target.value)} />
 
             <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.machine')}</h2>
-            <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setField('machineId', v)} adapter={machineAdapter} error={errors.machineId} />
+            <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setField('machineId', v)} onItemSelect={(machine: Machine) => { setForm(prev => ({ ...prev, machineId: machine.id, productionLineId: machine.productionLineId || prev.productionLineId, costCenterId: machine.defaultCostCenterId || prev.costCenterId })); setDirty(true); }} adapter={machineAdapter} error={errors.machineId} />
 
             <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.operationalContext')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

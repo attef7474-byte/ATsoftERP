@@ -9,6 +9,7 @@ interface F9LookupProps<T extends Record<string, any>> {
   label?: string;
   value: string;
   onChange: (value: string) => void;
+  onItemSelect?: (item: T) => void;
   adapter: LookupAdapter<T>;
   filters?: Record<string, string>;
   placeholder?: string;
@@ -16,7 +17,7 @@ interface F9LookupProps<T extends Record<string, any>> {
   disabled?: boolean;
 }
 
-export function F9Lookup<T extends Record<string, any>>({ label, value, onChange, adapter, filters, placeholder, error, disabled }: F9LookupProps<T>) {
+export function F9Lookup<T extends Record<string, any>>({ label, value, onChange, onItemSelect, adapter, filters, placeholder, error, disabled }: F9LookupProps<T>) {
   const { t } = useTranslation();
   const [modalOpen, setModalOpen] = useState(false);
   const [displayText, setDisplayText] = useState('');
@@ -63,6 +64,7 @@ export function F9Lookup<T extends Record<string, any>>({ label, value, onChange
     setDataCache((prev) => new Map(prev).set(id, item));
     setDisplayText(adapter.displayLabel(item));
     onChange(id);
+    onItemSelect?.(item);
   };
 
   const inputId = label ? label.toLowerCase().replace(/\s+/g, '-') : undefined;

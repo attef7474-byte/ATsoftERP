@@ -2,11 +2,12 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '../../lib/i18n/use-translation';
-import { login } from '../../lib/auth';
+import { useAuth } from '../../lib/auth-context';
 
 export default function LoginPage() {
   const { t, locale, setLocale } = useTranslation();
   const router = useRouter();
+  const { login: authLogin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,7 +22,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await login(email, password);
+      await authLogin(email, password);
       router.push('/admin/dashboard');
     } catch (err: any) {
       setError(err?.message || t('auth.invalidCredentials'));

@@ -6,6 +6,7 @@ import { MaintenanceNotificationService } from '../maintenance-notification/main
 import { MaintenanceSlaService } from '../maintenance-sla/maintenance-sla.service';
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
 import { UpdateMaintenanceRequestDto } from './dto/update-maintenance-request.dto';
+import { CurrentUserType } from '../../../../modules/auth/types/current-user.type';
 
 @Injectable()
 export class MaintenanceRequestsService {
@@ -27,7 +28,10 @@ export class MaintenanceRequestsService {
       if (machine.productionLineId && dto.productionLineId !== machine.productionLineId) {
         throw new BadRequestException('Production line does not match machine');
       }
+    } else if (machine.productionLineId) {
+      dto.productionLineId = machine.productionLineId;
     }
+
     if (dto.machineComponentId) {
       const comp = await this.prisma.machineComponent.findUnique({ where: { id: dto.machineComponentId } });
       if (!comp) throw new NotFoundException('Machine component not found');
@@ -42,16 +46,18 @@ export class MaintenanceRequestsService {
     if (dto.costCenterId) {
       const cc = await this.prisma.costCenter.findUnique({ where: { id: dto.costCenterId } });
       if (!cc) throw new NotFoundException('Cost center not found');
+    } else if (machine.defaultCostCenterId) {
+      dto.costCenterId = machine.defaultCostCenterId;
     }
     return machine;
   }
 
-  async create(dto: CreateMaintenanceRequestDto, userId: string) {
-    return this.createRequest(dto, userId, false);
+  async create(dto: CreateMaintenanceRequestDto, user: CurrentUserType) {
+    return this.createRequest(dto, user, false);
   }
 
-  async createEmergency(dto: CreateMaintenanceRequestDto, userId: string) {
-    const request = await this.createRequest(dto, userId, true);
+  async createEmergency(dto: CreateMaintenanceRequestDto, user: CurrentUserType) {
+    const request = await this.createRequest(dto, user, true);
 
     await this.prisma.downtimeLog.create({
       data: {
@@ -63,13 +69,14 @@ export class MaintenanceRequestsService {
       },
     });
 
-    await this.audit.log(userId, 'EMERGENCY', 'MaintenanceRequest', request.id,
+    await this.audit.log(user.id, 'EMERGENCY', 'MaintenanceRequest', request.id,
       { requestNumber: request.requestNumber, machineId: dto.machineId });
     return request;
   }
 
-  private async createRequest(dto: CreateMaintenanceRequestDto, userId: string, isEmergency: boolean) {
+  private async createRequest(dto: CreateMaintenanceRequestDto, user: CurrentUserType, isEmergency: boolean) {
     const machine = await this.validateOperationalContext(dto);
+    const userId = user.id;
 
     if (dto.assignedToId) {
       const user = await this.prisma.user.findUnique({ where: { id: dto.assignedToId } });
