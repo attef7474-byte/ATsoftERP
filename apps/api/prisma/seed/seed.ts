@@ -137,6 +137,13 @@ async function main() {
     { key: "production-line:deactivate", module: "production-line", action: "deactivate" },
     { key: "spare-part-conditions:read", module: "spare-part-conditions", action: "read" },
     { key: "spare-part-conditions:create", module: "spare-part-conditions", action: "create" },
+    { key: "repair-orders:read", module: "repair-orders", action: "read" },
+    { key: "repair-orders:create", module: "repair-orders", action: "create" },
+    { key: "repair-orders:manage", module: "repair-orders", action: "manage" },
+    { key: "repair-orders:complete", module: "repair-orders", action: "complete" },
+    { key: "repair-orders:scrap", module: "repair-orders", action: "scrap" },
+    { key: "repair-actions:read", module: "repair-actions", action: "read" },
+    { key: "repair-actions:create", module: "repair-actions", action: "create" },
   ];
 
   for (const p of extraPermissions) {
@@ -206,6 +213,7 @@ async function main() {
     { code: "NOTIFICATION_RULE", name: "Notification Rule", operationName: "Notification Rule", modelName: "NotificationRule", domain: "system", prefix: "NTR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "SPARE_PART_CONDITION_MOVEMENT", name: "Spare Part Condition Movement", operationName: "Spare Part Condition Movement", modelName: "SparePartConditionMovement", domain: "inventory", prefix: "SCM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "SPARE_PART_REPLACEMENT", name: "Spare Part Replacement", operationName: "Spare Part Replacement", modelName: "SparePartReplacementHistory", domain: "inventory", prefix: "SPR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "SPARE_PART_REPAIR_ORDER", name: "Spare Part Repair Order", operationName: "Spare Part Repair Order", modelName: "SparePartRepairOrder", domain: "inventory", prefix: "RPO-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
 
     // Rejected domains - marked as USER_REJECTED_FOR_CURRENT_RELEASE
     { code: "BUSINESS_PARTNER", name: "Business Partner", operationName: "Business Partner", modelName: "BusinessPartner", domain: "sales", prefix: "BP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },

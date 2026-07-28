@@ -65,6 +65,17 @@ const messages: Record<string, { ar: string; en: string }> = {
   'installedParts.duplicateInstallation': { ar: 'تم تركيب هذا الجزء مسبقاً لطلب الصيانة هذا', en: 'Part already installed for this maintenance request' },
   'installedParts.replacementFailed': { ar: 'فشل تسجيل سجل الاستبدال', en: 'Failed to record replacement history' },
 
+  'maintenance.repairOrderNotFound': { ar: 'أمر الإصلاح غير موجود', en: 'Repair order not found' },
+  'maintenance.repairOrderAlreadyExists': { ar: 'يوجد أمر إصلاح نشط لنفس المصدر', en: 'An active repair order already exists for this source' },
+  'maintenance.invalidRepairStatus': { ar: 'حالة أمر الإصلاح غير صالحة', en: 'Invalid repair order status' },
+  'maintenance.invalidRepairTransition': { ar: 'لا يمكن تغيير الحالة إلى الحالة المطلوبة', en: 'Cannot transition to the requested status' },
+  'maintenance.repairSourceNotFound': { ar: 'مصدر الإصلاح غير موجود', en: 'Repair source not found' },
+  'maintenance.repairSourceNotRepairable': { ar: 'مصدر الإصلاح غير قابل للإصلاح', en: 'Repair source is not repairable' },
+  'maintenance.repairQuantityInvalid': { ar: 'الكمية غير صالحة لأمر الإصلاح', en: 'Invalid quantity for repair order' },
+  'maintenance.repairAlreadyCompleted': { ar: 'أمر الإصلاح مكتمل بالفعل', en: 'Repair order is already completed' },
+  'maintenance.repairAlreadyCancelled': { ar: 'أمر الإصلاح ملغي بالفعل', en: 'Repair order is already cancelled' },
+  'maintenance.repairCancelReasonRequired': { ar: 'سبب الإلغاء مطلوب', en: 'Cancel reason is required' },
+
   'permissions.permissionDenied': { ar: 'تم رفض الإذن', en: 'Permission denied' },
   'permissions.roleRequired': { ar: 'الدور مطلوب', en: 'Role is required' },
 

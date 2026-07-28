@@ -115,6 +115,7 @@ const settings: Pick<LocaleTranslations, 'settings' | 'notifications' | 'messagi
                 NOTIFICATION_RULE: 'NotificationRule',
                 SPARE_PART_CONDITION_MOVEMENT: 'SparePartConditionMovement',
                 SPARE_PART_REPLACEMENT: 'SparePartReplacement',
+                SPARE_PART_REPAIR_ORDER: 'SparePartRepairOrder',
                 INTERNAL_MESSAGE_CONVERSATION: 'InternalMessageConversation',
                 BUSINESS_PARTNER: 'BusinessPartner',
                 CUSTOMER: 'Customer',

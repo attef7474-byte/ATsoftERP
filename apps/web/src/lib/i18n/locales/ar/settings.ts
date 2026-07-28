@@ -115,6 +115,7 @@ const settings: Pick<LocaleTranslations, 'settings' | 'notifications' | 'messagi
                 NOTIFICATION_RULE: 'قاعدة إشعار',
                 SPARE_PART_CONDITION_MOVEMENT: 'حركة حالة قطعة غيار',
                 SPARE_PART_REPLACEMENT: 'استبدال قطعة غيار',
+                SPARE_PART_REPAIR_ORDER: 'أمر إصلاح قطعة غيار',
                 INTERNAL_MESSAGE_CONVERSATION: 'محادثة داخلية',
                 BUSINESS_PARTNER: 'شريك أعمال',
                 CUSTOMER: 'عميل',
