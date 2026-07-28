@@ -14,12 +14,12 @@ export class AuthService {
 
   async login(loginDto: LoginDto) {
     const user = await this.prisma.user.findUnique({ where: { email: loginDto.email } });
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user) throw new UnauthorizedException({ messageKey: 'auth.invalidCredentials', message: 'Invalid credentials' });
 
-    if (user.status !== 'ACTIVE') throw new UnauthorizedException('Account is inactive');
+    if (user.status !== 'ACTIVE') throw new UnauthorizedException({ messageKey: 'auth.userInactive', message: 'Account is inactive' });
 
     const valid = await bcrypt.compare(loginDto.password, user.passwordHash);
-    if (!valid) throw new UnauthorizedException('Invalid credentials');
+    if (!valid) throw new UnauthorizedException({ messageKey: 'auth.invalidCredentials', message: 'Invalid credentials' });
 
     await this.prisma.user.update({
       where: { id: user.id },

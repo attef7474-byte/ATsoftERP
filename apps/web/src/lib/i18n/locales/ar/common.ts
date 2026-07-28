@@ -129,6 +129,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         accountInactive: 'حسابك غير نشط. يرجى الاتصال بالمسؤول.',
         sessionExpired: 'انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى.',
         loginSuccess: 'تم تسجيل الدخول بنجاح.',
+        emailPlaceholder: 'admin@atsofterp.com',
         forgotPassword: 'نسيت كلمة المرور؟',
         noAccount: 'ليس لديك حساب؟',
         profile: 'الملف الشخصي',

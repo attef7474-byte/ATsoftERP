@@ -37,13 +37,13 @@ export class NumberingService {
 
   async findOne(id: string) {
     const seq = await this.prisma.numberSequence.findUnique({ where: { id } });
-    if (!seq) throw new NotFoundException('Number sequence not found');
+    if (!seq) throw new NotFoundException({ messageKey: 'numbering.sequenceNotFound', message: 'Number sequence not found' });
     return seq;
   }
 
   async findByCode(code: string) {
     const seq = await this.prisma.numberSequence.findUnique({ where: { code } });
-    if (!seq) throw new NotFoundException('Number sequence not found');
+    if (!seq) throw new NotFoundException({ messageKey: 'numbering.sequenceNotFound', message: 'Number sequence not found' });
     return seq;
   }
 
@@ -62,7 +62,7 @@ export class NumberingService {
   async generateNumber(code: string) {
     return this.prisma.$transaction(async (tx) => {
       const seq = await tx.numberSequence.findUnique({ where: { code } });
-      if (!seq) throw new NotFoundException('Number sequence not found');
+      if (!seq) throw new NotFoundException({ messageKey: 'numbering.sequenceNotFound', message: 'Number sequence not found' });
 
       const nextNumber = await this.computeNextNumber(seq);
       const generated = this.formatNumber(seq, nextNumber);
@@ -83,7 +83,7 @@ export class NumberingService {
   async generateNumberAtomic(code: string): Promise<string> {
     return this.prisma.$transaction(async (tx) => {
       const seq = await tx.numberSequence.findUnique({ where: { code } });
-      if (!seq) throw new NotFoundException('Number sequence not found');
+      if (!seq) throw new NotFoundException({ messageKey: 'numbering.sequenceNotFound', message: 'Number sequence not found' });
 
       const nextNumber = await this.computeNextNumber(seq);
       const generated = this.formatNumber(seq, nextNumber);

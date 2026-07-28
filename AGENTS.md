@@ -831,11 +831,12 @@ Forecasting (التنبؤ)
 | Total EN keys | 2,977 |
 | Total AR keys | 2,977 |
 | EN/AR match | 100% (identical keys in all 12 files) |
-| Coverage | ~99% UI, ~0% API |
+| Coverage | ~99% UI, ~30% API foundation (46 keys in 9 domains) |
 | Provider | React Context → returns raw key if not found |
 | Files | 13 TS files/en + 13 TS files/ar |
-| Orphan JSON | `en-numbering.json` + `ar-numbering.json` (not imported) |
-| Known bugs | `ar/settings.ts` has `OperationalPerson` (English) in 2 places |
+| API foundation | `api-messages.ts` + `get-request-language.ts` implemented in I18N-0 |
+| Orphan JSON | `en-numbering.json` + `ar-numbering.json` (deleted in I18N-0 — content was duplicated in settings.ts) |
+| Known bugs FIXED in I18N-0 | `ar/settings.ts` `OperationalPerson` → `موظفي الصيانة`; login hardcoded placeholder → i18n key |
 
 ### Numbering System
 

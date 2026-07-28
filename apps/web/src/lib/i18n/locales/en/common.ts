@@ -129,6 +129,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         accountInactive: 'Your account is inactive. Please contact administrator.',
         sessionExpired: 'Your session has expired. Please login again.',
         loginSuccess: 'Login successful.',
+        emailPlaceholder: 'admin@atsofterp.com',
         forgotPassword: 'Forgot Password?',
         noAccount: "Don't have an account?",
         profile: 'Profile',

@@ -17,7 +17,7 @@ export class PermissionsGuard implements CanActivate {
     if (!requiredPermissions || requiredPermissions.length === 0) return true;
 
     const { user } = context.switchToHttp().getRequest();
-    if (!user) throw new ForbiddenException('No user found');
+    if (!user) throw new ForbiddenException({ messageKey: 'auth.noUserFound', message: 'No user found' });
 
     const userRoles = await this.prisma.userRole.findMany({
       where: { userId: user.id },
@@ -42,7 +42,7 @@ export class PermissionsGuard implements CanActivate {
     }
 
     const hasAll = requiredPermissions.every((p) => userPermissionKeys.has(p));
-    if (!hasAll) throw new ForbiddenException('Insufficient permissions');
+    if (!hasAll) throw new ForbiddenException({ messageKey: 'auth.insufficientPermissions', message: 'Insufficient permissions' });
     return true;
   }
 }
