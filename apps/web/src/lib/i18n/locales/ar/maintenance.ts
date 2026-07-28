@@ -837,6 +837,18 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         scrapRepairOrder: 'إتلاف أمر الإصلاح',
         confirmScrap: 'هل أنت متأكد من إتلاف أمر الإصلاح هذا؟',
         confirmCancel: 'هل أنت متأكد من إلغاء أمر الإصلاح هذا؟',
+        // AF-AG KPI keys
+        kpiOverview: 'نظرة عامة على مؤشرات الأداء',
+        repeatFailureRate: 'معدل الأعطال المتكررة',
+        scheduleCompliance: 'الالتزام بالجدول',
+        totalDowntimeEvents: 'إجمالي أحداث التوقف',
+        openBacklog: 'الأعمال المتراكمة',
+        pmCmRatio: 'نسبة وقائي/تصحيحي',
+        emergencyPercentage: 'نسبة الطوارئ',
+        slaOverduePercentage: 'نسبة تجاوز SLA',
+        avgCompletionTime: 'متوسط وقت الإنجاز',
+        totalMaintenanceCost: 'إجمالي تكلفة الصيانة',
+        hoursShort: 'سا',
     },
 };
 export default maintenance;

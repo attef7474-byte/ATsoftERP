@@ -838,6 +838,18 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         scrapRepairOrder: 'Scrap Repair Order',
         confirmScrap: 'Are you sure you want to scrap this repair order?',
         confirmCancel: 'Are you sure you want to cancel this repair order?',
+        // AF-AG KPI keys
+        kpiOverview: 'Maintenance KPIs Overview',
+        repeatFailureRate: 'Repeat Failure Rate',
+        scheduleCompliance: 'Schedule Compliance',
+        totalDowntimeEvents: 'Total Downtime Events',
+        openBacklog: 'Open Backlog',
+        pmCmRatio: 'PM / CM Ratio',
+        emergencyPercentage: 'Emergency %',
+        slaOverduePercentage: 'SLA Overdue %',
+        avgCompletionTime: 'Avg Completion Time',
+        totalMaintenanceCost: 'Total Maintenance Cost',
+        hoursShort: 'h',
     },
 };
 export default maintenance;

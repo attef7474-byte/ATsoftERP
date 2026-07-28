@@ -265,6 +265,49 @@ export class ReportsController {
     return this.service.getReconciliationDifferences(filters);
   }
 
+  // ─────────────── AF-AG: Enhanced Cost Analysis ───────────────
+
+  @Get('maintenance/costs/analysis')
+  @Permissions('reports.maintenance:read')
+  @ApiOperation({ summary: 'Consolidated cost analysis with trends' })
+  getCostAnalysis(@Query() filters: MaintenanceReportFilterDto) {
+    return this.service.getCostAnalysis(filters);
+  }
+
+  @Get('maintenance/costs/by-machine')
+  @Permissions('reports.maintenance:read')
+  @ApiOperation({ summary: 'Maintenance cost by machine' })
+  getCostByMachine(@Query() filters: MaintenanceReportFilterDto) {
+    return this.service.getCostByMachine(filters);
+  }
+
+  // ─────────────── AF-AG: Schedule Compliance ───────────────
+
+  @Get('maintenance/schedule-compliance')
+  @Permissions('reports.maintenance:read')
+  @ApiOperation({ summary: 'PM schedule compliance rate' })
+  getScheduleCompliance(@Query() filters: MaintenanceReportFilterDto) {
+    return this.service.getScheduleCompliance(filters);
+  }
+
+  // ─────────────── AF-AG: KPI Overview ───────────────
+
+  @Get('maintenance/kpi-overview')
+  @Permissions('reports.maintenance:read')
+  @ApiOperation({ summary: 'Consolidated maintenance KPIs overview' })
+  getKpiOverview(@Query() filters: MaintenanceReportFilterDto) {
+    return this.service.getKpiOverview(filters);
+  }
+
+  // ─────────────── AF-AG: Backlog Trend ───────────────
+
+  @Get('maintenance/backlog-trend')
+  @Permissions('reports.maintenance:read')
+  @ApiOperation({ summary: 'Open request backlog by month' })
+  getBacklogTrend(@Query() filters: MaintenanceReportFilterDto) {
+    return this.service.getBacklogTrend(filters);
+  }
+
   @Get('export/csv/*endpoint')
   @Permissions('reports.maintenance:read', 'reports.inventory:read', 'reports.barcodes:read')
   @ApiOperation({ summary: 'Export report as CSV' })

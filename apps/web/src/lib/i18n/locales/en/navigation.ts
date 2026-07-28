@@ -67,6 +67,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         notifications: 'Notifications',
         messaging: 'Messaging',
         reports: 'Reports',
+        maintenanceKpisReport: 'KPI Report',
         maintenanceOverview: 'Maintenance Overview',
         maintenanceRequestsReport: 'Maintenance Requests Report',
         downtimeReport: 'Downtime Report',

@@ -43,6 +43,11 @@ export class ReportExportService {
       case 'upcoming-preventive': return this.maintenanceReportsService.getUpcomingPreventiveReport(filters);
       case 'overdue-preventive': return this.maintenanceReportsService.getOverduePreventiveReport(filters);
       case 'low-stock': return this.systemReportsService.getLowStockReport(filters);
+      case 'maintenance/costs/analysis': return this.maintenanceReportsService.getCostAnalysis(filters);
+      case 'maintenance/costs/by-machine': return this.maintenanceReportsService.getCostByMachine(filters);
+      case 'maintenance/schedule-compliance': return this.maintenanceReportsService.getScheduleCompliance(filters);
+      case 'maintenance/kpi-overview': return this.maintenanceReportsService.getKpiOverview(filters);
+      case 'maintenance/backlog-trend': return this.maintenanceReportsService.getBacklogTrend(filters);
       default: return null;
     }
   }

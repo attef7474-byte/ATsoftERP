@@ -69,6 +69,7 @@ export const navItems: NavItem[] = [
   {
     id: 'reports', label: 'navigation.reports', href: '#', icon: 'report', children: [
       { id: 'rpt-mnt-overview', label: 'navigation.maintenanceOverview', href: '/admin/reports/maintenance' },
+      { id: 'rpt-mnt-kpis', label: 'navigation.maintenanceKpisReport', href: '/admin/reports/maintenance/kpis' },
       { id: 'rpt-mnt-requests', label: 'navigation.maintenanceRequestsReport', href: '/admin/reports/maintenance/requests' },
       { id: 'rpt-mnt-downtime', label: 'navigation.downtimeReport', href: '/admin/reports/maintenance/downtime' },
       { id: 'rpt-mnt-costs', label: 'navigation.maintenanceCostsReport', href: '/admin/reports/maintenance/costs' },

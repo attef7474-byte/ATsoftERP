@@ -67,6 +67,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         notifications: 'الإشعارات',
         messaging: 'المراسلات',
         reports: 'التقارير',
+        maintenanceKpisReport: 'تقرير مؤشرات الأداء',
         maintenanceOverview: 'نظرة عامة على الصيانة',
         maintenanceRequestsReport: 'تقرير طلبات الصيانة',
         downtimeReport: 'تقرير التوقف',

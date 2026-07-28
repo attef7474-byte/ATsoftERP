@@ -90,4 +90,27 @@ export class MaintenanceReliabilityController {
   getTopCauses(@Query() query: { dateFrom?: string; dateTo?: string }) {
     return this.service.getTopCauses(query);
   }
+
+  // ─────────────── AF-AG: New Reliability KPIs ───────────────
+
+  @Get('repeat-failure-rate')
+  @Permissions('maintenance-reliability:read')
+  @ApiOperation({ summary: 'Get repeat failure rate percentage' })
+  getRepeatFailureRate(@Query() query: { dateFrom?: string; dateTo?: string; machineId?: string; productionLineId?: string }) {
+    return this.service.getRepeatFailureRate(query);
+  }
+
+  @Get('availability')
+  @Permissions('maintenance-reliability:read')
+  @ApiOperation({ summary: 'Get approximate system availability' })
+  getAvailability(@Query() query: { dateFrom?: string; dateTo?: string; machineId?: string; productionLineId?: string }) {
+    return this.service.getAvailability(query);
+  }
+
+  @Get('sla-times')
+  @Permissions('maintenance-reliability:read')
+  @ApiOperation({ summary: 'Get average SLA response and repair times' })
+  getSlaTimes(@Query() query: { dateFrom?: string; dateTo?: string; machineId?: string; productionLineId?: string }) {
+    return this.service.getSlaTimes(query);
+  }
 }

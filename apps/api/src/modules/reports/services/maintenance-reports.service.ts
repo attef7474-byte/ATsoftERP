@@ -311,4 +311,375 @@ export class MaintenanceReportsService {
       rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
     };
   }
+
+  // ─────────────── AF-AG: Enhanced Cost Analysis ───────────────
+
+  async getCostAnalysis(filters: MaintenanceReportFilterDto) {
+    const requestWhere: any = {};
+    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
+    if (filters.machineId) requestWhere.machineId = filters.machineId;
+    if (filters.machineComponentId) requestWhere.machineComponentId = filters.machineComponentId;
+    if (!filters.machineComponentId && filters.componentId) requestWhere.machineComponentId = filters.componentId;
+    if (filters.operationTypeId) requestWhere.operationTypeId = filters.operationTypeId;
+    if (filters.costCenterId) requestWhere.costCenterId = filters.costCenterId;
+
+    const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'incurredAt');
+
+    const whereCostEntries: any = { ...dateFilter };
+    if (Object.keys(requestWhere).length > 0) whereCostEntries.request = requestWhere;
+
+    const wherePartUsage: any = buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt');
+    if (Object.keys(requestWhere).length > 0) wherePartUsage.request = requestWhere;
+    if (filters.sparePartId) {
+      const sp = await this.prisma.sparePart.findUnique({ where: { id: filters.sparePartId }, select: { productId: true } });
+      if (sp?.productId) wherePartUsage.productId = sp.productId;
+      else wherePartUsage.productId = '__NONE__';
+    }
+
+    const whereRepairOrders: any = {};
+    if (filters.machineId) whereRepairOrders.machineId = filters.machineId;
+    if (filters.dateFrom || filters.dateTo) {
+      whereRepairOrders.completedAt = {};
+      if (filters.dateFrom) whereRepairOrders.completedAt.gte = new Date(filters.dateFrom);
+      if (filters.dateTo) whereRepairOrders.completedAt.lte = new Date(filters.dateTo);
+    }
+
+    const [
+      costEntrySum, costEntryCount, partUsageSum, partUsageCount,
+      repairCostSum, repairCount,
+      costByType, costByReqType, costByMachine,
+      monthlyCostTrend, monthlyPartsTrend,
+      totalMachines,
+    ] = await Promise.all([
+      this.prisma.maintenanceRequestCostEntry.aggregate({ where: whereCostEntries, _sum: { amount: true } }),
+      this.prisma.maintenanceRequestCostEntry.count({ where: whereCostEntries }),
+      this.prisma.maintenanceRequestPartUsage.aggregate({ where: wherePartUsage, _sum: { totalCost: true, quantity: true } }),
+      this.prisma.maintenanceRequestPartUsage.count({ where: wherePartUsage }),
+      this.prisma.sparePartRepairOrder.aggregate({ where: { ...whereRepairOrders, actualRepairCost: { not: null } }, _sum: { actualRepairCost: true } }),
+      this.prisma.sparePartRepairOrder.count({ where: { ...whereRepairOrders, actualRepairCost: { not: null } } }),
+      this.prisma.maintenanceRequestCostEntry.groupBy({ by: ['type'], where: whereCostEntries, _sum: { amount: true }, _count: true }),
+      this.prisma.maintenanceRequest.groupBy({
+        by: ['type'],
+        where: { ...(Object.keys(requestWhere).length > 0 ? requestWhere : {}), ...(filters.dateFrom || filters.dateTo ? buildDateFilter(filters.dateFrom, filters.dateTo) : {}) },
+        _count: true,
+      }),
+      this.prisma.maintenanceRequest.groupBy({
+        by: ['machineId'],
+        where: { ...(Object.keys(requestWhere).length > 0 ? requestWhere : {}), ...(filters.dateFrom || filters.dateTo ? buildDateFilter(filters.dateFrom, filters.dateTo) : {}) },
+        _count: true,
+        orderBy: { _count: { id: 'desc' } },
+        take: 20,
+      }),
+      this.getMonthlyCostTrend(filters.dateFrom, filters.dateTo, requestWhere),
+      this.getMonthlyPartsTrend(filters.dateFrom, filters.dateTo, requestWhere),
+      this.prisma.machine.count({ where: { status: 'ACTIVE' } }),
+    ]);
+
+    const machineCosts = await Promise.all(
+      costByMachine.map(async (m) => {
+        const machine = await this.prisma.machine.findUnique({ where: { id: m.machineId }, select: { id: true, code: true, name: true } });
+        const reqWhere = { ...requestWhere, machineId: m.machineId };
+        const [entrySum, partSum] = await Promise.all([
+          this.prisma.maintenanceRequestCostEntry.aggregate({
+            where: { ...dateFilter, request: reqWhere },
+            _sum: { amount: true },
+          }),
+          this.prisma.maintenanceRequestPartUsage.aggregate({
+            where: { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt'), request: reqWhere },
+            _sum: { totalCost: true },
+          }),
+        ]);
+        return {
+          machineId: m.machineId,
+          machine: machine || null,
+          requestCount: m._count,
+          costEntryTotal: entrySum._sum.amount || 0,
+          partCostTotal: partSum._sum.totalCost || 0,
+          totalCost: (entrySum._sum.amount || 0) + (partSum._sum.totalCost || 0),
+        };
+      }),
+    );
+
+    const totalCost = (costEntrySum._sum.amount || 0) + (partUsageSum._sum.totalCost || 0);
+    const totalRepairCost = repairCostSum._sum.actualRepairCost
+      ? Number(repairCostSum._sum.actualRepairCost)
+      : 0;
+
+    return {
+      cards: [
+        { label: 'totalCost', value: totalCost + totalRepairCost },
+        { label: 'partsCost', value: partUsageSum._sum.totalCost || 0 },
+        { label: 'otherCost', value: costEntrySum._sum.amount || 0 },
+        { label: 'repairCost', value: totalRepairCost },
+        { label: 'costPerMachine', value: totalMachines > 0 ? Math.round((totalCost + totalRepairCost) / totalMachines) : 0 },
+        { label: 'costEntriesCount', value: costEntryCount },
+        { label: 'partUsageCount', value: partUsageCount },
+        { label: 'partQtyTotal', value: partUsageSum._sum.quantity || 0 },
+        { label: 'repairOrderCount', value: repairCount },
+      ],
+      costByType: costByType.map(t => ({ type: t.type, total: t._sum.amount || 0, count: t._count })),
+      costByRequestType: costByReqType.map(t => ({ type: t.type, count: t._count })),
+      costByMachine: machineCosts,
+      monthlyCostTrend,
+      monthlyPartsTrend,
+    };
+  }
+
+  private async getMonthlyCostTrend(dateFrom?: string, dateTo?: string, requestWhere?: any) {
+    const costEntries = await this.prisma.maintenanceRequestCostEntry.findMany({
+      where: {
+        ...(dateFrom || dateTo ? buildDateFilter(dateFrom, dateTo, 'incurredAt') : {}),
+        ...(Object.keys(requestWhere || {}).length > 0 ? { request: requestWhere } : {}),
+      },
+      select: { amount: true, incurredAt: true },
+      orderBy: { incurredAt: 'asc' },
+    });
+
+    const monthlyMap = new Map<string, number>();
+    costEntries.forEach(e => {
+      const key = `${e.incurredAt.getFullYear()}-${String(e.incurredAt.getMonth() + 1).padStart(2, '0')}`;
+      monthlyMap.set(key, (monthlyMap.get(key) || 0) + e.amount);
+    });
+
+    return Array.from(monthlyMap.entries()).map(([month, total]) => ({ month, total }));
+  }
+
+  private async getMonthlyPartsTrend(dateFrom?: string, dateTo?: string, requestWhere?: any) {
+    const partUsage = await this.prisma.maintenanceRequestPartUsage.findMany({
+      where: {
+        ...(dateFrom || dateTo ? buildDateFilter(dateFrom, dateTo, 'createdAt') : {}),
+        ...(Object.keys(requestWhere || {}).length > 0 ? { request: requestWhere } : {}),
+      },
+      select: { totalCost: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const monthlyMap = new Map<string, number>();
+    partUsage.forEach(p => {
+      const key = `${p.createdAt.getFullYear()}-${String(p.createdAt.getMonth() + 1).padStart(2, '0')}`;
+      monthlyMap.set(key, (monthlyMap.get(key) || 0) + (p.totalCost || 0));
+    });
+
+    return Array.from(monthlyMap.entries()).map(([month, total]) => ({ month, total }));
+  }
+
+  async getCostByMachine(filters: MaintenanceReportFilterDto) {
+    const requestWhere: any = {};
+    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
+    if (filters.machineId) requestWhere.machineId = filters.machineId;
+    if (filters.machineComponentId) requestWhere.machineComponentId = filters.machineComponentId;
+    if (filters.operationTypeId) requestWhere.operationTypeId = filters.operationTypeId;
+    if (filters.costCenterId) requestWhere.costCenterId = filters.costCenterId;
+
+    const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'incurredAt');
+
+    const machines = await this.prisma.machine.findMany({
+      where: {},
+      select: { id: true, code: true, name: true, status: true, productionLineId: true },
+      orderBy: { name: 'asc' },
+    });
+
+    const machineCosts = await Promise.all(
+      machines.map(async (machine) => {
+        const reqWhere = { ...requestWhere, machineId: machine.id };
+        const [entrySum, partSum, reqCount] = await Promise.all([
+          this.prisma.maintenanceRequestCostEntry.aggregate({
+            where: { ...dateFilter, request: reqWhere },
+            _sum: { amount: true },
+          }),
+          this.prisma.maintenanceRequestPartUsage.aggregate({
+            where: { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt'), request: reqWhere },
+            _sum: { totalCost: true, quantity: true },
+          }),
+          this.prisma.maintenanceRequest.count({ where: { ...reqWhere, ...(filters.dateFrom || filters.dateTo ? buildDateFilter(filters.dateFrom, filters.dateTo) : {}) } }),
+        ]);
+        return {
+          machineId: machine.id,
+          machineCode: machine.code,
+          machineName: machine.name,
+          machineStatus: machine.status,
+          requestCount: reqCount,
+          costEntryTotal: entrySum._sum.amount || 0,
+          partCostTotal: partSum._sum.totalCost || 0,
+          partQtyTotal: partSum._sum.quantity || 0,
+          totalCost: (entrySum._sum.amount || 0) + (partSum._sum.totalCost || 0),
+        };
+      }),
+    );
+
+    return {
+      cards: [
+        { label: 'totalMachines', value: machines.length },
+        { label: 'machinesWithCost', value: machineCosts.filter(m => m.totalCost > 0).length },
+        { label: 'totalCost', value: machineCosts.reduce((s, m) => s + m.totalCost, 0) },
+        { label: 'machinesWithRequests', value: machineCosts.filter(m => m.requestCount > 0).length },
+      ],
+      rows: machineCosts.filter(m => m.totalCost > 0 || m.requestCount > 0).sort((a, b) => b.totalCost - a.totalCost),
+    };
+  }
+
+  // ─────────────── AF-AG: Schedule Compliance ───────────────
+
+  async getScheduleCompliance(filters: MaintenanceReportFilterDto) {
+    const now = new Date();
+    const scheduleWhere: any = {};
+    if (filters.machineId) scheduleWhere.machineId = filters.machineId;
+    if (filters.productionLineId) scheduleWhere.machine = { productionLineId: filters.productionLineId };
+    if (filters.operationTypeId) scheduleWhere.machine = { ...(scheduleWhere.machine || {}), operationTypeId: filters.operationTypeId };
+
+    const requestWhere: any = { type: 'PREVENTIVE' };
+    if (filters.machineId) requestWhere.machineId = filters.machineId;
+    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
+
+    const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'endDate');
+
+    const [totalSchedules, activeSchedules, overdueSchedules, completedPreventive, totalPreventiveDue] = await Promise.all([
+      this.prisma.maintenanceSchedule.count({ where: scheduleWhere }),
+      this.prisma.maintenanceSchedule.count({ where: { ...scheduleWhere, status: 'ACTIVE' } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...scheduleWhere, status: 'ACTIVE', endDate: { lt: now } } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, ...dateFilter, status: 'COMPLETED' } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...scheduleWhere, ...dateFilter, status: 'ACTIVE' } }),
+    ]);
+
+    const complianceRate = totalPreventiveDue > 0
+      ? Math.round((completedPreventive / totalPreventiveDue) * 100)
+      : null;
+
+    return {
+      cards: [
+        { label: 'totalSchedules', value: totalSchedules },
+        { label: 'activeSchedules', value: activeSchedules },
+        { label: 'overdueSchedules', value: overdueSchedules },
+        { label: 'completedPreventive', value: completedPreventive },
+        { label: 'scheduleComplianceTarget', value: totalPreventiveDue },
+        { label: 'complianceRate', value: complianceRate, unit: '%' },
+      ],
+    };
+  }
+
+  // ─────────────── AF-AG: KPI Overview ───────────────
+
+  async getKpiOverview(filters: MaintenanceReportFilterDto) {
+    const requestWhere: any = {};
+    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
+    if (filters.machineId) requestWhere.machineId = filters.machineId;
+    if (filters.operationTypeId) requestWhere.operationTypeId = filters.operationTypeId;
+    if (filters.costCenterId) requestWhere.costCenterId = filters.costCenterId;
+
+    const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo);
+    const costDateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'incurredAt');
+    const partsDateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt');
+    const downtimeDateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'startTime');
+
+    const now = new Date();
+
+    const [
+      totalRequests, openRequests, inProgressRequests, completedRequests, cancelledRequests,
+      totalCost, partsCost,
+      correctiveCount, preventiveCount, emergencyCount,
+      totalDowntimeEvents, totalDowntimeMinutes, activeDowntime,
+      overdueSchedules,
+      openBacklog,
+      slaOverdueCount, totalSlaCount,
+      avgCompletionResult,
+    ] = await Promise.all([
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, ...dateFilter } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'OPEN' } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'IN_PROGRESS' } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'COMPLETED', ...dateFilter } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'CANCELLED', ...dateFilter } }),
+      this.prisma.maintenanceRequestCostEntry.aggregate({ where: { ...costDateFilter, ...(Object.keys(requestWhere).length > 0 ? { request: requestWhere } : {}) }, _sum: { amount: true } }),
+      this.prisma.maintenanceRequestPartUsage.aggregate({ where: { ...partsDateFilter, ...(Object.keys(requestWhere).length > 0 ? { request: requestWhere } : {}) }, _sum: { totalCost: true } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, ...dateFilter, type: 'CORRECTIVE' } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, ...dateFilter, type: 'PREVENTIVE' } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, ...dateFilter, isEmergency: true } }),
+      this.prisma.downtimeLog.count({ where: { ...downtimeDateFilter, cancelledAt: null } }),
+      this.prisma.downtimeLog.aggregate({ where: { ...downtimeDateFilter, cancelledAt: null }, _sum: { durationMinutes: true } }),
+      this.prisma.downtimeLog.count({ where: { endTime: null, cancelledAt: null } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...(filters.machineId ? { machineId: filters.machineId } : {}), status: 'ACTIVE', endDate: { lt: now } } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, slaStatus: 'OVERDUE' } }),
+      this.prisma.maintenanceRequest.count({ where: { ...requestWhere, slaStatus: { not: null } } }),
+      this.getAvgCompletionTimeRaw(requestWhere),
+    ]);
+
+    const totalCostValue = (totalCost._sum.amount || 0) + (partsCost._sum.totalCost || 0);
+    const cmRatio = correctiveCount + preventiveCount > 0
+      ? Math.round((preventiveCount / (correctiveCount + preventiveCount)) * 100)
+      : null;
+    const emergencyPct = totalRequests > 0
+      ? Math.round((emergencyCount / totalRequests) * 100)
+      : null;
+    const slaOverduePct = totalSlaCount > 0
+      ? Math.round((slaOverdueCount / totalSlaCount) * 100)
+      : null;
+    const avgCompletionHours = avgCompletionResult;
+
+    return {
+      cards: [
+        { label: 'totalRequests', value: totalRequests },
+        { label: 'openRequests', value: openRequests },
+        { label: 'inProgressRequests', value: inProgressRequests },
+        { label: 'completedRequests', value: completedRequests },
+        { label: 'cancelledRequests', value: cancelledRequests },
+        { label: 'openBacklog', value: openBacklog },
+        { label: 'totalCost', value: totalCostValue },
+        { label: 'partsCost', value: partsCost._sum.totalCost || 0 },
+        { label: 'otherCost', value: totalCost._sum.amount || 0 },
+        { label: 'totalDowntime', value: totalDowntimeMinutes._sum.durationMinutes || 0, unit: 'minutes' },
+        { label: 'totalDowntimeHours', value: Math.round((totalDowntimeMinutes._sum.durationMinutes || 0) / 60 * 100) / 100, unit: 'hours' },
+        { label: 'totalDowntimeEvents', value: totalDowntimeEvents },
+        { label: 'activeDowntime', value: activeDowntime },
+        { label: 'overdueSchedules', value: overdueSchedules },
+        { label: 'pmCmRatio', value: cmRatio, unit: '%' },
+        { label: 'emergencyPercentage', value: emergencyPct, unit: '%' },
+        { label: 'slaOverduePercentage', value: slaOverduePct, unit: '%' },
+        { label: 'avgCompletionTime', value: avgCompletionHours, unit: 'hours' },
+      ],
+    };
+  }
+
+  private async getAvgCompletionTimeRaw(requestWhere: any) {
+    const completed = await this.prisma.maintenanceRequest.findMany({
+      where: { ...requestWhere, status: 'COMPLETED', startDate: { not: null }, endDate: { not: null }, deletedAt: null },
+      select: { startDate: true, endDate: true },
+      take: 1000,
+    });
+    if (completed.length === 0) return 0;
+    const totalHours = completed.reduce((sum, r) => {
+      const diff = r.endDate!.getTime() - r.startDate!.getTime();
+      return sum + diff / 3600000;
+    }, 0);
+    return Math.round((totalHours / completed.length) * 100) / 100;
+  }
+
+  // ─────────────── AF-AG: Backlog Trend ───────────────
+
+  async getBacklogTrend(filters: MaintenanceReportFilterDto) {
+    const requestWhere: any = {};
+    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
+    if (filters.machineId) requestWhere.machineId = filters.machineId;
+    if (filters.operationTypeId) requestWhere.operationTypeId = filters.operationTypeId;
+
+    const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo);
+
+    const openRequests = await this.prisma.maintenanceRequest.findMany({
+      where: { ...requestWhere, ...dateFilter, status: { in: ['OPEN', 'IN_PROGRESS'] } },
+      select: { createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const monthlyMap = new Map<string, number>();
+    openRequests.forEach(r => {
+      const key = `${r.createdAt.getFullYear()}-${String(r.createdAt.getMonth() + 1).padStart(2, '0')}`;
+      monthlyMap.set(key, (monthlyMap.get(key) || 0) + 1);
+    });
+
+    return {
+      cards: [
+        { label: 'openBacklog', value: openRequests.length },
+      ],
+      backlogByMonth: Array.from(monthlyMap.entries()).map(([month, count]) => ({ month, count })),
+    };
+  }
 }

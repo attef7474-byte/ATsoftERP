@@ -160,6 +160,34 @@ export class ReportsService {
     return this.auditReportsService.getNotificationsReport(filters);
   }
 
+  // ─────────────── AF-AG: Enhanced Cost Analysis ───────────────
+
+  getCostAnalysis(filters: MaintenanceReportFilterDto) {
+    return this.maintenanceReportsService.getCostAnalysis(filters);
+  }
+
+  getCostByMachine(filters: MaintenanceReportFilterDto) {
+    return this.maintenanceReportsService.getCostByMachine(filters);
+  }
+
+  // ─────────────── AF-AG: Schedule Compliance ───────────────
+
+  getScheduleCompliance(filters: MaintenanceReportFilterDto) {
+    return this.maintenanceReportsService.getScheduleCompliance(filters);
+  }
+
+  // ─────────────── AF-AG: KPI Overview ───────────────
+
+  getKpiOverview(filters: MaintenanceReportFilterDto) {
+    return this.maintenanceReportsService.getKpiOverview(filters);
+  }
+
+  // ─────────────── AF-AG: Backlog Trend ───────────────
+
+  getBacklogTrend(filters: MaintenanceReportFilterDto) {
+    return this.maintenanceReportsService.getBacklogTrend(filters);
+  }
+
   exportCsv(endpoint: string, filters: any): Promise<string> {
     return this.reportExportService.exportCsv(endpoint, filters);
   }
