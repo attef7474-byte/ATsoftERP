@@ -36,7 +36,7 @@ export default function InventoryGovernanceAuditPage() {
       if (filters.action) params.set('action', filters.action)
       if (filters.startDate) params.set('startDate', filters.startDate)
       if (filters.endDate) params.set('endDate', filters.endDate)
-      const res: any = await api.get(`inventory/audit?${params}`)
+      const res: any = await api.get(`/inventory/audit?${params}`)
       setData(res.data)
       setMeta(res.meta)
     } catch (err: any) {

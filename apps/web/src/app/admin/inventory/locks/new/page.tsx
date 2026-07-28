@@ -41,7 +41,7 @@ export default function NewInventoryLockPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.post('inventory/locks', form as any)
+      await api.post('/inventory/locks', form as any)
       showToast('Lock created successfully', 'success')
       router.push('/admin/inventory/locks')
     } catch (err: any) {

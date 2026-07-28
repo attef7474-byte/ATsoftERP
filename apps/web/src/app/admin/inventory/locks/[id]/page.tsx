@@ -29,7 +29,7 @@ export default function InventoryLockDetailPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res: any = await api.get(`inventory/locks/${params.id}`)
+        const res: any = await api.get(`/inventory/locks/${params.id}`)
         setLock(res)
       } catch (err: any) {
         setError(err.message || 'Failed to load lock')
@@ -55,7 +55,7 @@ export default function InventoryLockDetailPage() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const updated = await api.patch(`inventory/locks/${params.id}`, form)
+      const updated = await api.patch(`/inventory/locks/${params.id}`, form)
       setLock(updated)
       showToast('Lock updated', 'success')
       setEditOpen(false)
@@ -68,7 +68,7 @@ export default function InventoryLockDetailPage() {
 
   const handleActivate = async () => {
     try {
-      const updated = await api.post(`inventory/locks/${params.id}/activate`, {})
+      const updated = await api.post(`/inventory/locks/${params.id}/activate`, {})
       setLock(updated)
       showToast('Lock activated', 'success')
     } catch (err: any) {
@@ -78,7 +78,7 @@ export default function InventoryLockDetailPage() {
 
   const handleDeactivate = async () => {
     try {
-      const updated = await api.post(`inventory/locks/${params.id}/deactivate`, {})
+      const updated = await api.post(`/inventory/locks/${params.id}/deactivate`, {})
       setLock(updated)
       showToast('Lock deactivated', 'success')
     } catch (err: any) {

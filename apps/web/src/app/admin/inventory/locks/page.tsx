@@ -58,7 +58,7 @@ export default function InventoryLocksPage() {
       if (filters.status) params.set('status', filters.status)
       if (filters.lockType) params.set('lockType', filters.lockType)
       if (search) params.set('search', search)
-      const res: any = await api.get(`inventory/locks?${params}`)
+      const res: any = await api.get(`/inventory/locks?${params}`)
       setData(res.data)
       setMeta(res.meta)
     } catch (err: any) {
@@ -73,7 +73,7 @@ export default function InventoryLocksPage() {
   const handleDelete = () => {
     if (!deleteTarget) return
     setDeleting(true)
-    api.delete(`inventory/locks/${deleteTarget.id}`).then(() => {
+    api.delete(`/inventory/locks/${deleteTarget.id}`).then(() => {
       showToast('Lock deleted', 'success')
       setDeleteTarget(null)
       fetchData(meta.page)
@@ -86,7 +86,7 @@ export default function InventoryLocksPage() {
 
   const handleActivate = async (id: string) => {
     try {
-      await api.post(`inventory/locks/${id}/activate`, {})
+      await api.post(`/inventory/locks/${id}/activate`, {})
       showToast('Lock activated', 'success')
       fetchData(meta.page)
     } catch (err: any) {
@@ -96,7 +96,7 @@ export default function InventoryLocksPage() {
 
   const handleDeactivate = async (id: string) => {
     try {
-      await api.post(`inventory/locks/${id}/deactivate`, {})
+      await api.post(`/inventory/locks/${id}/deactivate`, {})
       showToast('Lock deactivated', 'success')
       fetchData(meta.page)
     } catch (err: any) {
