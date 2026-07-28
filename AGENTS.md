@@ -37,7 +37,7 @@ Docs:     docs/proofs/
 
 ### البنية الأساسية
 
-- **API**: NestJS (TypeScript) — 75 modules registered in `app.module.ts`
+- **API**: NestJS (TypeScript) — 76 modules registered in `app.module.ts`
 - **Frontend**: Next.js (TypeScript) — ~250 page.tsx files
 - **DB**: Prisma ORM → SQL Server via `sqlcmd` for manual migrations
 - **i18n**: React Context (I18nProvider) — 13 TS files × 2 languages (~2,977 keys each)
@@ -796,6 +796,32 @@ Installed Parts Register + Replacement History (integrated into Z-AA stock issue
 - i18n: 9 maintenance keys + 3 API messages + 1 settings key — EN/AR matched
 - Proof: 9 documents in `docs/proofs/abac-installed-parts-replacement-history/`
 
+### ✅ AD-AE (COMPLETED — commit `c4b87ff`)
+Repairable Spare Parts Workflow + Overhaul
+
+**Tags:**
+- `atsoft-erp-adae-repairable-spareparts-overhaul`
+- `atsoft-erp-current-release-final-audited-v3-repairable-spareparts`
+- `atsoft-erp-adae-repair-workflow-proof`
+
+**Key outcomes:**
+- Schema: `SparePartRepairOrder` (48 cols) + `SparePartRepairAction` (12 cols) added
+- Migration: additive SQL script — 85 tables / ~1248 columns (pre: 83 / 1182)
+- Numbering: `SPARE_PART_REPAIR_ORDER` added → 46 entity types (38 ACTIVE)
+- Backend: `RepairOrdersModule` — 17 endpoints (5 read, 2 create, 8 status transitions, 2 actions)
+- Integration: Repairable queue from AB-AC replacement history + create from returned repairable part
+- Condition conversion: Complete serviceable → OUT from source, IN to target
+- InventoryBalance unchanged during condition conversion
+- Permissions: 7 new (repair-orders:read/create/manage/complete/scrap, repair-actions:read/create)
+- API i18n: 10 new localized messages (EN + AR)
+- Frontend i18n: ~60 maintenance keys + settings key — EN/AR matched
+- Status lifecycle: DRAFT → OPEN → IN_INSPECTION → APPROVED_FOR_REPAIR → UNDER_REPAIR → UNDER_TEST → COMPLETED_SERVICEABLE
+- Duplicate guard: by replacementHistoryId / sourceType+sourceId
+- Stock mutation: Create → none; Complete → condition OUT/IN; Scrap → condition OUT only
+- Audit: 11 lifecycle events
+- Validation: API build PASS, Web build PASS, Prisma validate/generate PASS
+- Proof: 11 documents in `docs/proofs/adae-repairable-spareparts-overhaul/`
+
 **Tags:**
 - `atsoft-erp-nx-numbering-centralization-sequence-ui`
 - `atsoft-erp-current-release-final-audited-v3-nx-numbering`
@@ -846,7 +872,7 @@ Forecasting (التنبؤ)
 
 ## 🔍 Key Technical Findings
 
-### API Module Registry (`app.module.ts` — 75 modules)
+### API Module Registry (`app.module.ts` — 76 modules)
 
 **Registered modules** (active at runtime):
 - Core: Auth, Users, Roles, Permissions, Companies, Branches, Administrations, Departments
@@ -856,6 +882,7 @@ Forecasting (التنبؤ)
 - Other: Barcodes, BusinessPartners, Audit, Numbering, Notifications, Search, Reports, Dashboard, Alerts, Messaging, Attachments
 - Inventory: LedgerReconciliation
 - Maintenance: InstalledPartsReplacement
+- Maintenance: RepairOrders
 - Settings: SystemSettings, CompanyProfile, Language, Appearance, Security, NotificationRules
 
 **Unregistered modules** (code exists but NOT loaded):
@@ -879,13 +906,13 @@ Forecasting (التنبؤ)
 
 | Metric | Value |
 |--------|-------|
-| Seeded sequences | 45 (37 ACTIVE + 8 DISABLED) |
-| Used by services | 25 of 37 active |
+| Seeded sequences | 46 (38 ACTIVE + 8 DISABLED) |
+| Used by services | 26 of 38 active |
 | Centralized service | `NumberingService.generateNumberAtomic()` |
-| Entity type constant | `numbering.constants.ts` — 45 codes |
-| UI filter coverage | All 37 active-release entity types |
+| Entity type constant | `numbering.constants.ts` — 46 codes |
+| UI filter coverage | All 38 active-release entity types |
 | Sequence inactive check | Added to `generateNumber()` and `generateNumberAtomic()` |
-| Services fully centralized | 25 services now use `NumberingService.generateNumberAtomic()` |
+| Services fully centralized | 26 services now use `NumberingService.generateNumberAtomic()` |
 | Zero bypass instances | Confirmed by grep — all `numberSequence` access inside `numbering.service.ts` only |
 | Orphan sequences | MACHINE_ASSET, MACHINE_DOCUMENT, MAINTENANCE_TASK, DOWNTIME, PREVENTIVE_MAINTENANCE, QR_LABEL, BARCODE_RECORD, BARCODE_PRINT_JOB, REPORT_EXPORT_JOB, ATTACHMENT, NOTIFICATION_RULE (still seeded but not yet consumed by any service — OK for future use) |
 
