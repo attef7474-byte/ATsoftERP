@@ -205,6 +205,7 @@ async function main() {
     { code: "ATTACHMENT", name: "Attachment", operationName: "Attachment", modelName: "Attachment", domain: "system", prefix: "ATT-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "NOTIFICATION_RULE", name: "Notification Rule", operationName: "Notification Rule", modelName: "NotificationRule", domain: "system", prefix: "NTR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "SPARE_PART_CONDITION_MOVEMENT", name: "Spare Part Condition Movement", operationName: "Spare Part Condition Movement", modelName: "SparePartConditionMovement", domain: "inventory", prefix: "SCM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "SPARE_PART_REPLACEMENT", name: "Spare Part Replacement", operationName: "Spare Part Replacement", modelName: "SparePartReplacementHistory", domain: "inventory", prefix: "SPR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
 
     // Rejected domains - marked as USER_REJECTED_FOR_CURRENT_RELEASE
     { code: "BUSINESS_PARTNER", name: "Business Partner", operationName: "Business Partner", modelName: "BusinessPartner", domain: "sales", prefix: "BP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },

@@ -1,6 +1,7 @@
 import type { LocaleTranslations } from '../../types';
 
 const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanceWorkflow' | 'maintenanceDashboard' | 'preventiveMaintenance' | 'downtimeAnalysis' | 'sparePartRequest'> = {
+
     maintenance: {
         machineCategories: 'Machine Categories',
         machines: 'Machines',
@@ -782,6 +783,15 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         today: 'Today',
         thisWeek: 'This Week',
         thisMonth: 'This Month',
+        installedPart: 'Installed Part',
+        installedParts: 'Installed Parts',
+        replacementHistory: 'Replacement History',
+        newPart: 'New Part',
+        oldPart: 'Old Part',
+        returnedToStock: 'Returned to Stock',
+        installedCondition: 'Condition at Installation',
+        noInstalledParts: 'No installed parts found',
+        noReplacementHistory: 'No replacement history found',
     },
 };
 export default maintenance;

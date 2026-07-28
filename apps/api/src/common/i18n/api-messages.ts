@@ -61,6 +61,10 @@ const messages: Record<string, { ar: string; en: string }> = {
   'maintenance.removedPartRequired': { ar: 'الجزء المستبدل مطلوب', en: 'Removed part is required' },
   'maintenance.noReturnReasonRequired': { ar: 'سبب الإرجاع مطلوب', en: 'Return reason is required' },
 
+  'installedParts.notFound': { ar: 'الجزء المثبت غير موجود', en: 'Installed part not found' },
+  'installedParts.duplicateInstallation': { ar: 'تم تركيب هذا الجزء مسبقاً لطلب الصيانة هذا', en: 'Part already installed for this maintenance request' },
+  'installedParts.replacementFailed': { ar: 'فشل تسجيل سجل الاستبدال', en: 'Failed to record replacement history' },
+
   'permissions.permissionDenied': { ar: 'تم رفض الإذن', en: 'Permission denied' },
   'permissions.roleRequired': { ar: 'الدور مطلوب', en: 'Role is required' },
 

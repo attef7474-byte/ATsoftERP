@@ -474,6 +474,73 @@ export interface MachineSparePart {
   updatedAt: string;
 }
 
+export interface MachineInstalledPart {
+  id: string;
+  machineId: string;
+  machineComponentId?: string | null;
+  sparePartId: string;
+  productId?: string | null;
+  maintenanceRequestId?: string | null;
+  requiredPartId?: string | null;
+  inventoryMovementId?: string | null;
+  conditionMovementId?: string | null;
+  installedQuantity: number;
+  installedCondition: string;
+  installedAt: string;
+  installedByUserId?: string | null;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  serialNumber?: string | null;
+  batchNumber?: string | null;
+  status: string;
+  removedAt?: string | null;
+  removedByUserId?: string | null;
+  removedCondition?: string | null;
+  removedQuantity?: number | null;
+  removedReason?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  machine?: { id: string; code: string; name: string };
+  machineComponent?: { id: string; code: string; name: string };
+  sparePart?: { id: string; code: string; name: string; unit?: string };
+  maintenanceRequest?: { id: string; requestNumber: string; title: string };
+}
+
+export interface SparePartReplacementHistory {
+  id: string;
+  replacementNumber: string;
+  machineId: string;
+  machineComponentId?: string | null;
+  maintenanceRequestId?: string | null;
+  requiredPartId?: string | null;
+  oldInstalledPartId?: string | null;
+  newInstalledPartId?: string | null;
+  oldSparePartId?: string | null;
+  newSparePartId: string;
+  issuedCondition: string;
+  issuedQuantity: number;
+  removedCondition?: string | null;
+  removedQuantity?: number | null;
+  replacementAction: string;
+  noReturnReason?: string | null;
+  removedReturnedToStock: boolean;
+  conditionOutMovementId?: string | null;
+  conditionInMovementId?: string | null;
+  inventoryOutMovementId?: string | null;
+  replacedAt: string;
+  replacedByUserId?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  machine?: { id: string; code: string; name: string };
+  machineComponent?: { id: string; code: string; name: string };
+  maintenanceRequest?: { id: string; requestNumber: string; title: string };
+  oldInstalledPart?: { id: string; sparePart: { id: string; code: string; name: string } };
+  newInstalledPart?: { id: string; sparePart: { id: string; code: string; name: string } };
+  oldSparePart?: { id: string; code: string; name: string };
+  newSparePart?: { id: string; code: string; name: string };
+}
+
 export interface SparePartRequestLine {
   id: string;
   maintenanceRequestId: string;

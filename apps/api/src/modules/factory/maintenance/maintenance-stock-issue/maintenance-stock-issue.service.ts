@@ -4,6 +4,7 @@ import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../../modules/numbering/numbering.service';
 import { IssueStockDto, ReturnStockDto } from './dto/issue-stock.dto';
 import { SparePartConditionService } from '../spare-part-conditions/spare-part-conditions.service';
+import { InstalledPartsReplacementService } from '../installed-parts-replacement/installed-parts-replacement.service';
 
 const VALID_STOCK_CONDITIONS = ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'];
 const VALID_REPLACEMENT_ACTIONS = ['RETURNED_REMOVED_PART', 'NO_REMOVED_PART', 'NEW_INSTALLATION'];
@@ -16,6 +17,7 @@ export class MaintenanceStockIssueService {
     private audit: AuditService,
     private numberingService: NumberingService,
     private conditionService: SparePartConditionService,
+    private installedPartsService: InstalledPartsReplacementService,
   ) {}
 
   private async findPartLineOrFail(lineId: string, requestId: string) {
@@ -218,7 +220,7 @@ export class MaintenanceStockIssueService {
 
       // Record condition OUT for issued part
       const issuedCondition = dto.issuedStockCondition || 'NEW';
-      await this.recordConditionMovementInTx(tx, {
+      const outMovement = await this.recordConditionMovementInTx(tx, {
         sparePartId: part.sparePart.id,
         productId,
         warehouseId: dto.warehouseId,
@@ -233,10 +235,12 @@ export class MaintenanceStockIssueService {
         replacementAction: dto.replacementAction,
         notes: `Issued ${dto.issuedQuantity} of spare part ${part.sparePart.code} (condition: ${issuedCondition})`,
       }, userId);
+      const conditionOutMovementId = outMovement?.id;
 
       // If removed part returned, record condition IN
+      let conditionInMovementId: string | null = null;
       if (dto.replacementAction === 'RETURNED_REMOVED_PART' && dto.removedPartCondition && dto.removedPartWarehouseId && dto.removedPartQuantity) {
-        await this.recordConditionMovementInTx(tx, {
+        const inMovement = await this.recordConditionMovementInTx(tx, {
           sparePartId: part.sparePart.id,
           productId,
           warehouseId: dto.removedPartWarehouseId,
@@ -251,6 +255,49 @@ export class MaintenanceStockIssueService {
           replacementAction: dto.replacementAction,
           notes: `Returned removed part ${part.sparePart.code} (condition: ${dto.removedPartCondition}, qty: ${dto.removedPartQuantity})`,
         }, userId);
+        if (inMovement) conditionInMovementId = inMovement.id;
+      }
+
+      // Record installed part
+      const installedPart = await this.installedPartsService.recordInstalledPartInTx(tx, {
+        machineId: part.maintenanceRequest.machine.id,
+        machineComponentId: part.machineComponent?.id || null,
+        sparePartId: part.sparePart.id,
+        productId: part.sparePart.productId || null,
+        maintenanceRequestId: requestId,
+        requiredPartId: lineId,
+        inventoryMovementId: movement.id,
+        conditionMovementId: conditionOutMovementId,
+        installedQuantity: dto.issuedQuantity,
+        installedCondition: issuedCondition,
+        installedByUserId: userId,
+        sourceType: 'MAINTENANCE_ISSUE',
+        sourceId: lineId,
+        notes: dto.notes || null,
+      });
+
+      // Record replacement history when replacing an existing part
+      if (dto.replacementAction && dto.replacementAction !== 'NEW_INSTALLATION') {
+        await this.installedPartsService.recordReplacementInTx(tx, {
+          machineId: part.maintenanceRequest.machine.id,
+          machineComponentId: part.machineComponent?.id || null,
+          maintenanceRequestId: requestId,
+          requiredPartId: lineId,
+          newInstalledPartId: installedPart.id,
+          newSparePartId: part.sparePart.id,
+          issuedCondition,
+          issuedQuantity: dto.issuedQuantity,
+          removedCondition: dto.removedPartCondition || null,
+          removedQuantity: dto.removedPartQuantity || null,
+          replacementAction: dto.replacementAction,
+          noReturnReason: dto.noReturnReason || null,
+          removedReturnedToStock: dto.replacementAction === 'RETURNED_REMOVED_PART',
+          conditionOutMovementId,
+          conditionInMovementId,
+          inventoryOutMovementId: movement.id,
+          replacedByUserId: userId,
+          notes: dto.notes || null,
+        });
       }
 
       return movement;
@@ -458,7 +505,7 @@ export class MaintenanceStockIssueService {
 
     const movementNumber = await this.numberingService.generateNumberAtomic('SPARE_PART_CONDITION_MOVEMENT');
 
-    await tx.sparePartConditionMovement.create({
+    return tx.sparePartConditionMovement.create({
       data: {
         movementNumber,
         sparePartId: data.sparePartId,

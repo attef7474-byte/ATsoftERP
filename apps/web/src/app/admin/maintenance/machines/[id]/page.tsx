@@ -8,6 +8,8 @@ import { Machine, MachinePart, MachineDocument, MaintenanceRequest, BarcodeLabel
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, Button, Modal, Input, ConfirmDialog } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../../components/admin/admin-action-bar';
 import { F9Lookup, sparePartAdapter } from '../../../../../components/f9';
+import { InstalledPartsCard } from '../../../../../components/admin/maintenance/installed-parts-card';
+import { ReplacementHistoryCard } from '../../../../../components/admin/maintenance/replacement-history-card';
 
 interface MachineDetail extends Machine {
   parts?: MachinePart[];
@@ -151,6 +153,8 @@ export default function MachineDetailPage() {
     { id: 'downtime', label: t('maintenanceWorkflow.machineDowntimeLink') },
     { id: 'responsibilities', label: t('maintenance.machineResponsibilities') },
     { id: 'qr', label: t('maintenanceWorkflow.machineQRLabel') },
+    { id: 'installedParts', label: t('maintenance.installedParts') },
+    { id: 'replacementHistory', label: t('maintenance.replacementHistory') },
   ];
 
   const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
@@ -330,6 +334,14 @@ export default function MachineDetailPage() {
             <button onClick={() => router.push(`/admin/maintenance/machines/${id}/qr`)} className="text-blue-600 hover:text-blue-800 font-medium">{t('maintenanceWorkflow.machineQRLabel')}</button>
           </CardContent>
         </Card>
+      )}
+
+      {activeTab === 'installedParts' && (
+        <InstalledPartsCard machineId={id} />
+      )}
+
+      {activeTab === 'replacementHistory' && (
+        <ReplacementHistoryCard machineId={id} />
       )}
 
       <Modal open={linkModalOpen} onClose={() => setLinkModalOpen(false)} title={editingMachineLink ? t('common.edit') : t('common.add')}>

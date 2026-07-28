@@ -14,6 +14,7 @@ interface RequestDetail extends MaintenanceRequest {
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, ConfirmDialog, Select } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionBarcodeIcon } from '../../../../../components/admin/admin-action-bar';
 import { F9Lookup, sparePartAdapter, warehouseAdapter } from '../../../../../components/f9';
+import { ReplacementHistoryCard } from '../../../../../components/admin/maintenance/replacement-history-card';
 
 export default function MaintenanceRequestDetailPage() {
   const params = useParams();
@@ -145,6 +146,7 @@ export default function MaintenanceRequestDetailPage() {
     { id: 'parts', label: t('maintenanceWorkflow.workflowParts') },
     { id: 'partAccountability', label: t('maintenance.partAccountabilities') },
     { id: 'costs', label: t('maintenanceWorkflow.workflowCosts') },
+    { id: 'replacementHistory', label: t('maintenance.replacementHistory') },
   ];
 
   const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
@@ -674,6 +676,10 @@ export default function MaintenanceRequestDetailPage() {
             <button onClick={() => router.push(`/admin/maintenance/requests/${id}/cost`)} className="text-blue-600 hover:text-blue-800 font-medium">{t('maintenanceWorkflow.workflowCosts')}</button>
           </CardContent>
         </Card>
+      )}
+
+      {activeTab === 'replacementHistory' && (
+        <ReplacementHistoryCard requestId={id} />
       )}
 
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={() => execWorkflow(pendingAction)}

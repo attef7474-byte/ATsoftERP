@@ -782,6 +782,15 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         today: 'اليوم',
         thisWeek: 'هذا الأسبوع',
         thisMonth: 'هذا الشهر',
+        installedPart: 'قطعة مركبة',
+        installedParts: 'القطع المركبة',
+        replacementHistory: 'سجل الاستبدال',
+        newPart: 'القطعة الجديدة',
+        oldPart: 'القطعة القديمة',
+        returnedToStock: 'مرجع للمخزون',
+        installedCondition: 'حالة التركيب',
+        noInstalledParts: 'لا توجد قطع مركبة',
+        noReplacementHistory: 'لا يوجد سجل استبدال',
     },
 };
 export default maintenance;

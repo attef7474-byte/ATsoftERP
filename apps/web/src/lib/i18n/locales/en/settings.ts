@@ -114,6 +114,7 @@ const settings: Pick<LocaleTranslations, 'settings' | 'notifications' | 'messagi
                 ATTACHMENT: 'Attachment',
                 NOTIFICATION_RULE: 'NotificationRule',
                 SPARE_PART_CONDITION_MOVEMENT: 'SparePartConditionMovement',
+                SPARE_PART_REPLACEMENT: 'SparePartReplacement',
                 INTERNAL_MESSAGE_CONVERSATION: 'InternalMessageConversation',
                 BUSINESS_PARTNER: 'BusinessPartner',
                 CUSTOMER: 'Customer',

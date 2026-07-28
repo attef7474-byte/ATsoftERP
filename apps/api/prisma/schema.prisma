@@ -952,7 +952,9 @@ model InventoryMovement {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  lines InventoryMovementLine[]
+  lines               InventoryMovementLine[]
+  installedParts       MachineInstalledPart[]
+  replacementOutHistories SparePartReplacementHistory[] @relation("ReplacementOutMovement")
 
   @@index([companyId])
   @@index([branchId])
@@ -1373,6 +1375,8 @@ model Machine {
   requiredParts   MaintenanceRequestRequiredPart[]
   responsibilities MachineResponsibilityAssignment[]
   partAccountabilities MaintenancePartAccountability[]
+  installedParts      MachineInstalledPart[]
+  replacementHistories SparePartReplacementHistory[]
 
   @@index([categoryId])
   @@index([companyId])
@@ -1453,6 +1457,8 @@ model MachineComponent {
   maintenanceRequests MaintenanceRequest[]
   requiredParts       MaintenanceRequestRequiredPart[]
   partAccountabilities MaintenancePartAccountability[]
+  installedParts      MachineInstalledPart[]
+  replacementHistories SparePartReplacementHistory[]
 
   @@unique([machineId, code])
   @@index([machineId])
@@ -1497,6 +1503,9 @@ model SparePart {
   partAccountabilities  MaintenancePartAccountability[]
   conditionBalances     SparePartConditionBalance[]
   conditionMovements    SparePartConditionMovement[]
+  installedParts        MachineInstalledPart[]
+  oldReplacementHistories SparePartReplacementHistory[] @relation("OldSparePart")
+  newReplacementHistories SparePartReplacementHistory[] @relation("NewSparePart")
 
   @@index([code])
   @@index([name])
@@ -1605,6 +1614,8 @@ model MaintenanceRequest {
   assignments         MaintenanceRequestAssignment[]
   partAccountabilities MaintenancePartAccountability[]
   conditionMovements   SparePartConditionMovement[]
+  installedParts       MachineInstalledPart[]
+  replacementHistories SparePartReplacementHistory[]
   slaState            MaintenanceSlaState?
 
   @@index([machineId])
@@ -1706,6 +1717,8 @@ model MaintenanceRequestRequiredPart {
   noReturnReason             String?
 
   conditionMovements         SparePartConditionMovement[]
+  installedParts             MachineInstalledPart[]
+  replacementHistories       SparePartReplacementHistory[]
 
   @@unique([maintenanceRequestId, sparePartId])
   @@index([maintenanceRequestId])
@@ -2394,4 +2407,99 @@ model SparePartConditionMovement {
   @@index([createdAt])
   @@index([movementNumber])
   @@map("spare_part_condition_movements")
+}
+
+// ── Installed Parts ─────────────────────────────────────────────
+model MachineInstalledPart {
+  id                  String    @id @default(cuid())
+  machineId           String
+  machine             Machine   @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineComponentId  String?
+  machineComponent    MachineComponent? @relation(fields: [machineComponentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sparePartId         String
+  sparePart           SparePart @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId           String?
+  maintenanceRequestId String?
+  maintenanceRequest  MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requiredPartId      String?
+  requiredPart        MaintenanceRequestRequiredPart? @relation(fields: [requiredPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inventoryMovementId String?
+  inventoryMovement   InventoryMovement? @relation(fields: [inventoryMovementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  conditionMovementId String?
+  installedQuantity   Float
+  installedCondition  String    @default("NEW")
+  installedAt         DateTime  @default(now())
+  installedByUserId   String?
+  sourceType          String?
+  sourceId            String?
+  serialNumber        String?
+  batchNumber         String?
+  status              String    @default("ACTIVE")
+  removedAt           DateTime?
+  removedByUserId     String?
+  removedCondition    String?
+  removedQuantity     Float?
+  removedReason       String?
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  replacementHistoryNew   SparePartReplacementHistory[] @relation("NewInstalledPart")
+  replacementHistoryOld   SparePartReplacementHistory[] @relation("OldInstalledPart")
+
+  @@index([machineId])
+  @@index([machineComponentId])
+  @@index([sparePartId])
+  @@index([maintenanceRequestId])
+  @@index([requiredPartId])
+  @@index([status])
+  @@index([installedAt])
+  @@map("machine_installed_parts")
+}
+
+// ── Replacement History ─────────────────────────────────────────
+model SparePartReplacementHistory {
+  id                          String    @id @default(cuid())
+  replacementNumber           String    @unique
+  machineId                   String
+  machine                     Machine   @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineComponentId          String?
+  machineComponent            MachineComponent? @relation(fields: [machineComponentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenanceRequestId        String?
+  maintenanceRequest          MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requiredPartId              String?
+  requiredPart                MaintenanceRequestRequiredPart? @relation(fields: [requiredPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  oldInstalledPartId          String?
+  oldInstalledPart            MachineInstalledPart? @relation("OldInstalledPart", fields: [oldInstalledPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  newInstalledPartId          String?
+  newInstalledPart            MachineInstalledPart? @relation("NewInstalledPart", fields: [newInstalledPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  oldSparePartId              String?
+  oldSparePart                SparePart? @relation("OldSparePart", fields: [oldSparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  newSparePartId              String
+  newSparePart                SparePart @relation("NewSparePart", fields: [newSparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  issuedCondition             String
+  issuedQuantity              Float
+  removedCondition            String?
+  removedQuantity             Float?
+  replacementAction           String
+  noReturnReason              String?
+  removedReturnedToStock      Boolean   @default(false)
+  conditionOutMovementId      String?
+  conditionInMovementId       String?
+  inventoryOutMovementId      String?
+  inventoryOutMovement        InventoryMovement? @relation("ReplacementOutMovement", fields: [inventoryOutMovementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replacedAt                  DateTime  @default(now())
+  replacedByUserId            String?
+  notes                       String?
+  createdAt                   DateTime  @default(now())
+
+  @@index([machineId])
+  @@index([machineComponentId])
+  @@index([maintenanceRequestId])
+  @@index([requiredPartId])
+  @@index([oldInstalledPartId])
+  @@index([newInstalledPartId])
+  @@index([replacedAt])
+  @@index([replacementNumber])
+  @@map("spare_part_replacement_histories")
 }

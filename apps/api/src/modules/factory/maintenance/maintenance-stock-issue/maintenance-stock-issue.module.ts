@@ -3,9 +3,10 @@ import { MaintenanceStockIssueController } from './maintenance-stock-issue.contr
 import { MaintenanceStockIssueService } from './maintenance-stock-issue.service';
 import { AuditModule } from '../../../../common/audit/audit.module';
 import { SparePartConditionModule } from '../spare-part-conditions/spare-part-conditions.module';
+import { InstalledPartsReplacementModule } from '../installed-parts-replacement/installed-parts-replacement.module';
 
 @Module({
-  imports: [AuditModule, SparePartConditionModule],
+  imports: [AuditModule, SparePartConditionModule, InstalledPartsReplacementModule],
   controllers: [MaintenanceStockIssueController],
   providers: [MaintenanceStockIssueService],
   exports: [MaintenanceStockIssueService],
