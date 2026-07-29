@@ -255,6 +255,10 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         INFO: 'معلومات',
         WARNING: 'تحذير',
         ERROR: 'خطأ',
+        last7Days: 'آخر 7 أيام',
+        last30Days: 'آخر 30 يوم',
+        last90Days: 'آخر 90 يوم',
+        lastYear: 'السنة الماضية',
     }
 };
 

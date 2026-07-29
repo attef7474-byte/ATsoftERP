@@ -68,6 +68,7 @@ export const navItems: NavItem[] = [
   },
   {
     id: 'reports', label: 'navigation.reports', href: '#', icon: 'report', children: [
+      { id: 'rpt-index', label: 'navigation.reportsHome', href: '/admin/reports' },
       { id: 'rpt-mnt-overview', label: 'navigation.maintenanceOverview', href: '/admin/reports/maintenance' },
       { id: 'rpt-mnt-kpis', label: 'navigation.maintenanceKpisReport', href: '/admin/reports/maintenance/kpis' },
       { id: 'rpt-mnt-requests', label: 'navigation.maintenanceRequestsReport', href: '/admin/reports/maintenance/requests' },
@@ -114,6 +115,13 @@ export const navItems: NavItem[] = [
       { id: 'mnt-accountability', label: 'navigation.maintenanceAccountability', href: '/admin/maintenance/accountability' },
       { id: 'mnt-calendar', label: 'navigation.maintenanceCalendar', href: '/admin/maintenance/calendar' },
       { id: 'mnt-workload', label: 'navigation.maintenanceWorkload', href: '/admin/maintenance/workload' },
+      { id: 'mnt-bom', label: 'navigation.bom', href: '/admin/maintenance/bom' },
+      { id: 'mnt-spare-part-plans', label: 'navigation.sparePartPlans', href: '/admin/maintenance/spare-part-plans' },
+      { id: 'mnt-repair-orders', label: 'navigation.repairOrders', href: '/admin/maintenance/repair-orders' },
+      { id: 'mnt-sla', label: 'navigation.sla', href: '/admin/maintenance/sla' },
+      { id: 'mnt-installed-parts', label: 'navigation.installedParts', href: '/admin/installed-parts' },
+      { id: 'mnt-spare-part-conditions', label: 'navigation.sparePartConditions', href: '/admin/spare-part-conditions' },
+      { id: 'mnt-mttr', label: 'navigation.mttr', href: '/admin/maintenance/reliability/mttr' },
     ],
   },
   {
