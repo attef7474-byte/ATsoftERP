@@ -2421,59 +2421,59 @@ model SparePartConditionMovement {
 /// Tracks inspection, repair, overhaul, test, and scrap lifecycle
 model SparePartRepairOrder {
   id                  String    @id @default(cuid())
-  repairOrderNumber   String?   @unique
-  sparePartId         String
+  repairOrderNumber   String?   @unique @map("repair_order_number")
+  sparePartId         String    @map("spare_part_id")
   sparePart           SparePart @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productId           String?
-  warehouseId         String
+  productId           String?   @map("product_id")
+  warehouseId         String    @map("warehouse_id")
   warehouse           Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  sourceCondition     String
-  sourceQuantity      Float
-  reservedQuantity    Float     @default(0)
-  repairedQuantity    Float     @default(0)
-  scrappedQuantity    Float     @default(0)
-  remainingQuantity   Float     @default(0)
-  targetCondition     String?
+  sourceCondition     String    @map("source_condition")
+  sourceQuantity      Float     @map("source_quantity")
+  reservedQuantity    Float     @default(0) @map("reserved_quantity")
+  repairedQuantity    Float     @default(0) @map("repaired_quantity")
+  scrappedQuantity    Float     @default(0) @map("scrapped_quantity")
+  remainingQuantity   Float     @default(0) @map("remaining_quantity")
+  targetCondition     String?   @map("target_condition")
   status              String    @default("DRAFT")
-  sourceType          String?
-  sourceId            String?
-  maintenanceRequestId String?
+  sourceType          String?   @map("source_type")
+  sourceId            String?   @map("source_id")
+  maintenanceRequestId String?  @map("maintenance_request_id")
   maintenanceRequest  MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  requiredPartId      String?
+  requiredPartId      String?   @map("required_part_id")
   requiredPart        MaintenanceRequestRequiredPart? @relation(fields: [requiredPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replacementHistoryId String?
-  installedPartId     String?
-  conditionInMovementId String?
-  conditionOutMovementId String?
-  inventoryScrapMovementId String?
-  machineId           String?
+  replacementHistoryId String?  @map("replacement_history_id")
+  installedPartId     String?   @map("installed_part_id")
+  conditionInMovementId String? @map("condition_in_movement_id")
+  conditionOutMovementId String? @map("condition_out_movement_id")
+  inventoryScrapMovementId String? @map("inventory_scrap_movement_id")
+  machineId           String?   @map("machine_id")
   machine             Machine? @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  machineComponentId  String?
+  machineComponentId  String?   @map("machine_component_id")
   machineComponent    MachineComponent? @relation(fields: [machineComponentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  inspectionResult    String?  @db.NVarChar(500)
-  failureDescription  String?  @db.NVarChar(1000)
-  repairDescription   String?  @db.NVarChar(1000)
-  testResult          String?  @db.NVarChar(500)
-  testNotes           String?  @db.NVarChar(500)
-  externalRepair      Boolean  @default(false)
-  externalRepairProviderName String? @db.NVarChar(200)
-  estimatedRepairCost Decimal? @db.Decimal(18, 2)
-  actualRepairCost    Decimal? @db.Decimal(18, 2)
-  openedByUserId      String?
-  inspectedByUserId   String?
-  repairedByUserId    String?
-  testedByUserId      String?
-  closedByUserId      String?
-  openedAt            DateTime @default(now())
-  inspectionStartedAt DateTime?
-  repairStartedAt     DateTime?
-  testStartedAt       DateTime?
-  completedAt         DateTime?
-  cancelledAt         DateTime?
-  cancelReason        String?  @db.NVarChar(500)
+  inspectionResult    String?  @db.NVarChar(500) @map("inspection_result")
+  failureDescription  String?  @db.NVarChar(1000) @map("failure_description")
+  repairDescription   String?  @db.NVarChar(1000) @map("repair_description")
+  testResult          String?  @db.NVarChar(500) @map("test_result")
+  testNotes           String?  @db.NVarChar(500) @map("test_notes")
+  externalRepair      Boolean  @default(false) @map("external_repair")
+  externalRepairProviderName String? @db.NVarChar(200) @map("external_repair_provider_name")
+  estimatedRepairCost Decimal? @db.Decimal(18, 2) @map("estimated_repair_cost")
+  actualRepairCost    Decimal? @db.Decimal(18, 2) @map("actual_repair_cost")
+  openedByUserId      String?   @map("opened_by_user_id")
+  inspectedByUserId   String?   @map("inspected_by_user_id")
+  repairedByUserId    String?   @map("repaired_by_user_id")
+  testedByUserId      String?   @map("tested_by_user_id")
+  closedByUserId      String?   @map("closed_by_user_id")
+  openedAt            DateTime @default(now()) @map("opened_at")
+  inspectionStartedAt DateTime? @map("inspection_started_at")
+  repairStartedAt     DateTime? @map("repair_started_at")
+  testStartedAt       DateTime? @map("test_started_at")
+  completedAt         DateTime? @map("completed_at")
+  cancelledAt         DateTime? @map("cancelled_at")
+  cancelReason        String?  @db.NVarChar(500) @map("cancel_reason")
   notes               String?  @db.NVarChar(1000)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   actions SparePartRepairAction[]
 
@@ -2499,18 +2499,18 @@ model SparePartRepairOrder {
 /// Repair actions / overhaul steps within a repair order
 model SparePartRepairAction {
   id              String   @id @default(cuid())
-  repairOrderId   String
+  repairOrderId   String   @map("repair_order_id")
   repairOrder     SparePartRepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
-  actionType      String
-  actionStatus    String   @default("PLANNED")
+  actionType      String   @map("action_type")
+  actionStatus    String   @default("PLANNED") @map("action_status")
   description     String?  @db.NVarChar(1000)
   result          String?  @db.NVarChar(500)
-  performedByUserId String?
-  performedAt     DateTime?
-  durationMinutes Int?
+  performedByUserId String? @map("performed_by_user_id")
+  performedAt     DateTime? @map("performed_at")
+  durationMinutes Int?     @map("duration_minutes")
   notes           String?  @db.NVarChar(500)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@index([repairOrderId])
   @@index([actionType])
@@ -2522,37 +2522,37 @@ model SparePartRepairAction {
 // ── Installed Parts ─────────────────────────────────────────────
 model MachineInstalledPart {
   id                  String    @id @default(cuid())
-  machineId           String
+  machineId           String    @map("machine_id")
   machine             Machine   @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  machineComponentId  String?
+  machineComponentId  String?   @map("machine_component_id")
   machineComponent    MachineComponent? @relation(fields: [machineComponentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  sparePartId         String
+  sparePartId         String    @map("spare_part_id")
   sparePart           SparePart @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productId           String?
-  maintenanceRequestId String?
+  productId           String?   @map("product_id")
+  maintenanceRequestId String?  @map("maintenance_request_id")
   maintenanceRequest  MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  requiredPartId      String?
+  requiredPartId      String?   @map("required_part_id")
   requiredPart        MaintenanceRequestRequiredPart? @relation(fields: [requiredPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  inventoryMovementId String?
+  inventoryMovementId String?   @map("inventory_movement_id")
   inventoryMovement   InventoryMovement? @relation(fields: [inventoryMovementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  conditionMovementId String?
-  installedQuantity   Float
-  installedCondition  String    @default("NEW")
-  installedAt         DateTime  @default(now())
-  installedByUserId   String?
-  sourceType          String?
-  sourceId            String?
-  serialNumber        String?
-  batchNumber         String?
+  conditionMovementId String?   @map("condition_movement_id")
+  installedQuantity   Float     @map("installed_quantity")
+  installedCondition  String    @default("NEW") @map("installed_condition")
+  installedAt         DateTime  @default(now()) @map("installed_at")
+  installedByUserId   String?   @map("installed_by_user_id")
+  sourceType          String?   @map("source_type")
+  sourceId            String?   @map("source_id")
+  serialNumber        String?   @map("serial_number")
+  batchNumber         String?   @map("batch_number")
   status              String    @default("ACTIVE")
-  removedAt           DateTime?
-  removedByUserId     String?
-  removedCondition    String?
-  removedQuantity     Float?
-  removedReason       String?
+  removedAt           DateTime? @map("removed_at")
+  removedByUserId     String?   @map("removed_by_user_id")
+  removedCondition    String?   @map("removed_condition")
+  removedQuantity     Float?    @map("removed_quantity")
+  removedReason       String?   @map("removed_reason")
   notes               String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
   replacementHistoryNew   SparePartReplacementHistory[] @relation("NewInstalledPart")
   replacementHistoryOld   SparePartReplacementHistory[] @relation("OldInstalledPart")
@@ -2570,38 +2570,38 @@ model MachineInstalledPart {
 // ── Replacement History ─────────────────────────────────────────
 model SparePartReplacementHistory {
   id                          String    @id @default(cuid())
-  replacementNumber           String    @unique
-  machineId                   String
+  replacementNumber           String    @unique @map("replacement_number")
+  machineId                   String    @map("machine_id")
   machine                     Machine   @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  machineComponentId          String?
+  machineComponentId          String?   @map("machine_component_id")
   machineComponent            MachineComponent? @relation(fields: [machineComponentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  maintenanceRequestId        String?
+  maintenanceRequestId        String?   @map("maintenance_request_id")
   maintenanceRequest          MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  requiredPartId              String?
+  requiredPartId              String?   @map("required_part_id")
   requiredPart                MaintenanceRequestRequiredPart? @relation(fields: [requiredPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  oldInstalledPartId          String?
+  oldInstalledPartId          String?   @map("old_installed_part_id")
   oldInstalledPart            MachineInstalledPart? @relation("OldInstalledPart", fields: [oldInstalledPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  newInstalledPartId          String?
+  newInstalledPartId          String?   @map("new_installed_part_id")
   newInstalledPart            MachineInstalledPart? @relation("NewInstalledPart", fields: [newInstalledPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  oldSparePartId              String?
+  oldSparePartId              String?   @map("old_spare_part_id")
   oldSparePart                SparePart? @relation("OldSparePart", fields: [oldSparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  newSparePartId              String
+  newSparePartId              String    @map("new_spare_part_id")
   newSparePart                SparePart @relation("NewSparePart", fields: [newSparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  issuedCondition             String
-  issuedQuantity              Float
-  removedCondition            String?
-  removedQuantity             Float?
-  replacementAction           String
-  noReturnReason              String?
-  removedReturnedToStock      Boolean   @default(false)
-  conditionOutMovementId      String?
-  conditionInMovementId       String?
-  inventoryOutMovementId      String?
+  issuedCondition             String    @map("issued_condition")
+  issuedQuantity              Float     @map("issued_quantity")
+  removedCondition            String?   @map("removed_condition")
+  removedQuantity             Float?    @map("removed_quantity")
+  replacementAction           String    @map("replacement_action")
+  noReturnReason              String?   @map("no_return_reason")
+  removedReturnedToStock      Boolean   @default(false) @map("removed_returned_to_stock")
+  conditionOutMovementId      String?   @map("condition_out_movement_id")
+  conditionInMovementId       String?   @map("condition_in_movement_id")
+  inventoryOutMovementId      String?   @map("inventory_out_movement_id")
   inventoryOutMovement        InventoryMovement? @relation("ReplacementOutMovement", fields: [inventoryOutMovementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replacedAt                  DateTime  @default(now())
-  replacedByUserId            String?
+  replacedAt                  DateTime  @default(now()) @map("replaced_at")
+  replacedByUserId            String?   @map("replaced_by_user_id")
   notes                       String?
-  createdAt                   DateTime  @default(now())
+  createdAt                   DateTime  @default(now()) @map("created_at")
 
   @@index([machineId])
   @@index([machineComponentId])
