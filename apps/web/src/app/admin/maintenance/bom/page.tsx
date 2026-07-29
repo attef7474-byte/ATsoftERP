@@ -42,10 +42,17 @@ export default function BomPage() {
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true); setError('');
     try {
-      const params: Record<string, any> = { page, limit: 20 };
+      const normalizedPage = Number.isFinite(page) ? Math.max(1, Math.trunc(page)) : 1;
+      const params: Record<string, any> = { page: normalizedPage, limit: 20 };
       if (search) params.search = search;
       const res = await api.get<{ data: BomItem[]; meta: any }>('/maintenance/bom', { params });
-      setData(res.data || []); setMeta(res.meta);
+      setData(Array.isArray(res.data) ? res.data : []);
+      setMeta({
+        page: Math.max(1, Number(res.meta?.page) || normalizedPage),
+        limit: Number(res.meta?.limit) || 20,
+        total: Number(res.meta?.total) || 0,
+        totalPages: Math.max(0, Number(res.meta?.totalPages) || 0),
+      });
     } catch (err: any) { setError(err?.message || t('errors.loadFailed')); }
     finally { setLoading(false); }
   }, [search, t]);

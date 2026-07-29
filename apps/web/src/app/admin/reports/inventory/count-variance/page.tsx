@@ -4,7 +4,7 @@ import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Input, Select, Button, DataTable, Pagination } from '../../../../../components/admin/ui';
+import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '../../../../../components/admin/ui';
 import { F9Lookup, warehouseAdapter, productAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../../components/reports';
@@ -54,7 +54,7 @@ export default function CountVarianceReportPage() {
     { key: 'systemQty', header: t('inventoryCounting.systemQty') },
     { key: 'countedQty', header: t('inventoryCounting.countedQty') },
     { key: 'differenceQty', header: t('reports.varianceQty'), render: (r: any) => <span className={r.differenceQty > 0 ? 'text-green-600' : r.differenceQty < 0 ? 'text-red-600' : ''}>{r.differenceQty ?? 0}</span> },
-    { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
+    { key: 'status', header: t('reports.status'), render: (r: any) => <LocalizedValue value={r.status} kind="status" /> },
   ];
 
   return (

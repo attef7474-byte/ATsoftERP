@@ -4,7 +4,7 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Input, Select, Button, DataTable, Pagination } from '../../../../components/admin/ui';
+import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../components/reports';
 
@@ -46,7 +46,7 @@ export default function AssetsRegisterReportPage() {
     { key: 'name', header: t('common.name') },
     { key: 'category', header: t('reports.category'), render: (r: any) => r.category?.name || '-' },
     { key: 'location', header: t('maintenance.location') },
-    { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
+    { key: 'status', header: t('reports.status'), render: (r: any) => <LocalizedValue value={r.status} kind="status" /> },
     { key: 'createdAt', header: t('common.createdAt'), render: (r: any) => r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '-' },
   ];
 
@@ -71,7 +71,7 @@ export default function AssetsRegisterReportPage() {
           {data.byStatus && data.byStatus.length > 0 && (
             <div className="flex gap-4 text-sm">
               {data.byStatus.map((s: any, i: number) => (
-                <span key={i} className="capitalize"><strong>{s.status?.toLowerCase()}:</strong> {s.count}</span>
+                <span key={i}><strong><LocalizedValue value={s.status} kind="status" />:</strong> {s.count}</span>
               ))}
             </div>
           )}

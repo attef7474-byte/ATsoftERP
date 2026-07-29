@@ -5,7 +5,7 @@ import { api } from '../../../../lib/api';
 import { unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Button, Input, Select, Card, CardContent, CardHeader, PageHeader, LoadingState, EmptyState, ErrorState, StatusBadge, Pagination } from '../../../../components/admin/ui';
+import { Button, Input, Select, Card, CardContent, CardHeader, PageHeader, LoadingState, EmptyState, ErrorState, StatusBadge, Pagination, LocalizedValue, translateEntityType, translateStatus } from '../../../../components/admin/ui';
 import { useRegisterAdminActions } from '../../../../components/admin/admin-action-bar';
 import { BarcodeLabel } from '../../../../lib/admin-types';
 
@@ -13,7 +13,7 @@ const ENTITY_TYPES = ['', 'PRODUCT', 'MACHINE', 'MACHINE_PART', 'WAREHOUSE', 'WA
 const STATUSES = ['', 'ACTIVE', 'INACTIVE', 'VOID', 'RETIRED'];
 
 export default function BarcodeRecordsPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { showToast } = useToast();
   const router = useRouter();
 
@@ -65,8 +65,8 @@ export default function BarcodeRecordsPage() {
   const columns = [
     { key: 'code', header: t('barcodes.labelCode') },
     { key: 'value', header: t('barcodes.labelValue') },
-    { key: 'entityType', header: t('barcodes.entityType') },
-    { key: 'symbology', header: t('barcodes.symbology') },
+    { key: 'entityType', header: t('barcodes.entityType'), render: (l: BarcodeLabel) => <LocalizedValue value={l.entityType} kind="entity" /> },
+    { key: 'symbology', header: t('barcodes.symbology'), render: (l: BarcodeLabel) => <LocalizedValue value={l.symbology} kind="barcode" /> },
     { key: 'status', header: t('common.status'), render: (l: BarcodeLabel) => <StatusBadge status={l.status} /> },
     { key: 'printCount', header: t('barcodes.printCount'), render: (l: BarcodeLabel) => l.printCount ?? 0 },
     { key: 'scanCount', header: t('barcodes.scanCount'), render: (l: BarcodeLabel) => l.scanCount ?? 0 },
@@ -87,9 +87,9 @@ export default function BarcodeRecordsPage() {
                   className="block w-full rounded-lg border border-gray-300 px-3 py-2 pl-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <Select value={entityType} onChange={(e) => { setEntityType(e.target.value); setPage(1); }}
-                options={ENTITY_TYPES.map((et) => ({ value: et, label: et || t('common.all') }))} placeholder={t('barcodes.entityType')} />
+                options={ENTITY_TYPES.map((et) => ({ value: et, label: et ? translateEntityType(et, locale) : t('common.all') }))} placeholder={t('barcodes.entityType')} />
               <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                options={STATUSES.map((s) => ({ value: s, label: s || t('common.all') }))} placeholder={t('common.status')} />
+                options={STATUSES.map((s) => ({ value: s, label: s ? translateStatus(s, locale) : t('common.all') }))} placeholder={t('common.status')} />
               <Button variant="secondary" onClick={handleClear}>{t('common.clearSearch')}</Button>
             </div>
           </div>
@@ -119,8 +119,8 @@ export default function BarcodeRecordsPage() {
                         className="cursor-pointer hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 text-sm font-mono">{label.code}</td>
                         <td className="px-4 py-3 text-sm font-mono max-w-[200px] truncate">{label.value}</td>
-                        <td className="px-4 py-3 text-sm">{label.entityType}</td>
-                        <td className="px-4 py-3 text-sm">{label.symbology}</td>
+                        <td className="px-4 py-3 text-sm"><LocalizedValue value={label.entityType} kind="entity" /></td>
+                        <td className="px-4 py-3 text-sm"><LocalizedValue value={label.symbology} kind="barcode" /></td>
                         <td className="px-4 py-3"><StatusBadge status={label.status} /></td>
                         <td className="px-4 py-3 text-sm">{label.printCount ?? 0}</td>
                         <td className="px-4 py-3 text-sm">{label.scanCount ?? 0}</td>

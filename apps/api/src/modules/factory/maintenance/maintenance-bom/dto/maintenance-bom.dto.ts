@@ -1,14 +1,15 @@
 import { IsString, IsNumber, IsOptional, Min, IsBoolean, IsBooleanString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PartialType } from '@nestjs/mapped-types';
+import { Type } from 'class-transformer';
 
 export class QueryMaintenanceBomDto {
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() machineId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() componentId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
-  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(1) page?: number;
-  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(1) limit?: number;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() @Min(1) page?: number;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() @Min(1) limit?: number;
 }
 
 export class CreateMaintenanceBomDto {
@@ -28,8 +29,8 @@ export class CreateMaintenanceBomVersionDto {
 
 export class QueryBomVersionDto {
   @ApiPropertyOptional() @IsOptional() @IsBooleanString() isActive?: string;
-  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(1) page?: number;
-  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(1) limit?: number;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() @Min(1) page?: number;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() @Min(1) limit?: number;
 }
 
 export class ActivateVersionDto {

@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Param, Query, UseGuards } from '@nestjs/common'
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
+import { BadRequestException, Controller, Get, Post, Param, Query, UseGuards } from '@nestjs/common'
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger'
 import { InventoryLedgerReconciliationService } from './inventory-ledger-reconciliation.service'
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../auth/guards/permissions.guard'
@@ -31,16 +31,18 @@ export class InventoryLedgerReconciliationController {
   @Get('ledger/by-product')
   @Permissions('inventory-ledger:read')
   @ApiOperation({ summary: 'Get ledger movements by product' })
+  @ApiQuery({ name: 'productId', required: true, type: String })
   findByProduct(@Query() query: { productId: string; page?: number; limit?: number }) {
-    if (!query.productId) throw new Error('productId query parameter is required')
+    if (!query.productId) throw new BadRequestException('productId query parameter is required')
     return this.service.findByProduct(query.productId, query)
   }
 
   @Get('ledger/by-warehouse')
   @Permissions('inventory-ledger:read')
   @ApiOperation({ summary: 'Get ledger movements by warehouse' })
+  @ApiQuery({ name: 'warehouseId', required: true, type: String })
   findByWarehouse(@Query() query: { warehouseId: string; page?: number; limit?: number }) {
-    if (!query.warehouseId) throw new Error('warehouseId query parameter is required')
+    if (!query.warehouseId) throw new BadRequestException('warehouseId query parameter is required')
     return this.service.findByWarehouse(query.warehouseId, query)
   }
 
@@ -54,8 +56,10 @@ export class InventoryLedgerReconciliationController {
   @Get('ledger/by-source')
   @Permissions('inventory-ledger:read')
   @ApiOperation({ summary: 'Get ledger movements by source type and ID' })
+  @ApiQuery({ name: 'sourceType', required: true, type: String })
+  @ApiQuery({ name: 'sourceId', required: true, type: String })
   findBySource(@Query() query: { sourceType: string; sourceId: string }) {
-    if (!query.sourceType || !query.sourceId) throw new Error('sourceType and sourceId query parameters are required')
+    if (!query.sourceType || !query.sourceId) throw new BadRequestException('sourceType and sourceId query parameters are required')
     return this.service.findBySource(query.sourceType, query.sourceId)
   }
 

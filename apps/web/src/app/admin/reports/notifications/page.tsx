@@ -4,7 +4,7 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Input, Select, Button, DataTable, Pagination } from '../../../../components/admin/ui';
+import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../components/reports';
 
@@ -43,7 +43,7 @@ export default function NotificationsReportPage() {
 
   const columns = [
     { key: 'title', header: t('common.name') },
-    { key: 'type', header: t('reports.category'), render: (r: any) => r.type || '-' },
+    { key: 'type', header: t('reports.category'), render: (r: any) => <LocalizedValue value={r.type} kind="enum" /> },
     { key: 'read', header: t('notifications.read'), render: (r: any) => r.read ? t('reports.completed') : t('reports.unreadNotifications') },
     { key: 'createdAt', header: t('common.createdAt'), render: (r: any) => r.createdAt ? new Date(r.createdAt).toLocaleString() : '-' },
   ];

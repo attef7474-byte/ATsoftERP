@@ -4,7 +4,7 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Input, Select, Button, DataTable, Pagination } from '../../../../components/admin/ui';
+import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../components/reports';
 
@@ -44,7 +44,7 @@ export default function PartnersReportPage() {
   const columns = [
     { key: 'code', header: t('common.code') },
     { key: 'name', header: t('common.name') },
-    { key: 'type', header: t('maintenance.type'), render: (r: any) => <span className="capitalize">{r.type?.toLowerCase()}</span> },
+    { key: 'type', header: t('maintenance.type'), render: (r: any) => <LocalizedValue value={r.type} kind="enum" /> },
     { key: 'email', header: t('common.email') },
     { key: 'phone', header: t('common.phone') },
     { key: 'isBlocked', header: t('reports.status'), render: (r: any) => r.isBlocked ? t('reports.inactive') : t('reports.active') },
@@ -72,7 +72,7 @@ export default function PartnersReportPage() {
           {data.byType && data.byType.length > 0 && (
             <div className="flex gap-4 text-sm">
               {data.byType.map((t: any, i: number) => (
-                <span key={i} className="capitalize"><strong>{t.type?.toLowerCase()}:</strong> {t.count}</span>
+                <span key={i}><strong><LocalizedValue value={t.type} kind="enum" />:</strong> {t.count}</span>
               ))}
             </div>
           )}

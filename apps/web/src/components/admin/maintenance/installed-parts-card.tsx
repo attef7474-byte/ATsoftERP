@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../lib/api';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { MachineInstalledPart } from '../../../lib/admin-types';
-import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState } from '../ui';
+import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, LocalizedValue } from '../ui';
 
 const STATUS_VARIANTS: Record<string, string> = {
   ACTIVE: 'bg-green-100 text-green-800',
@@ -50,13 +50,13 @@ export function InstalledPartsCard({ machineId, requestId, title }: Props) {
     const cols: any[] = [
       {
         key: 'sparePart',
-        header: t('machines.installedPart') || 'Spare Part',
+        header: t('maintenance.installedPart'),
         render: (row: MachineInstalledPart) =>
           row.sparePart ? `${row.sparePart.code} - ${row.sparePart.name}` : '-',
       },
       {
         key: 'machineComponent',
-        header: t('machines.component') || 'Component',
+        header: t('maintenance.machineComponent'),
         render: (row: MachineInstalledPart) =>
           row.machineComponent ? row.machineComponent.name : '-',
       },
@@ -67,7 +67,8 @@ export function InstalledPartsCard({ machineId, requestId, title }: Props) {
       },
       {
         key: 'installedCondition',
-        header: t('machines.condition') || 'Condition',
+        header: t('maintenance.condition'),
+        render: (row: MachineInstalledPart) => <LocalizedValue value={row.installedCondition} />,
       },
       {
         key: 'installedAt',
@@ -79,7 +80,7 @@ export function InstalledPartsCard({ machineId, requestId, title }: Props) {
         header: t('common.status') || 'Status',
         render: (row: MachineInstalledPart) => (
           <span className={`px-2 py-1 rounded text-xs font-medium ${STATUS_VARIANTS[row.status] || 'bg-gray-100 text-gray-800'}`}>
-            {row.status}
+            <LocalizedValue value={row.status} kind="status" />
           </span>
         ),
       },
@@ -87,7 +88,7 @@ export function InstalledPartsCard({ machineId, requestId, title }: Props) {
     if (!machineId) {
       cols.unshift({
         key: 'machine',
-        header: t('machines.machine') || 'Machine',
+        header: t('maintenance.machine'),
         render: (row: MachineInstalledPart) =>
           row.machine ? `${row.machine.code} - ${row.machine.name}` : '-',
       });
@@ -101,7 +102,7 @@ export function InstalledPartsCard({ machineId, requestId, title }: Props) {
   if (!parts.length) {
     return (
       <Card>
-        <CardHeader>{title || t('machines.installedParts') || 'Installed Parts'}</CardHeader>
+        <CardHeader>{title || t('maintenance.installedParts')}</CardHeader>
         <CardContent>
           <p className="text-gray-500 text-sm">{t('common.noData') || 'No data'}</p>
         </CardContent>
@@ -111,7 +112,7 @@ export function InstalledPartsCard({ machineId, requestId, title }: Props) {
 
   return (
     <Card>
-      <CardHeader>{title || t('machines.installedParts') || 'Installed Parts'}</CardHeader>
+      <CardHeader>{title || t('maintenance.installedParts')}</CardHeader>
       <CardContent>
         <DataTable columns={columns} data={parts} keyExtractor={(p: MachineInstalledPart) => p.id} />
       </CardContent>

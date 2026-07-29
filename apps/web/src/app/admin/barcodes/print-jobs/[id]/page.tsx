@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
-import { Button, Card, CardContent, CardHeader, PageHeader, LoadingState, ErrorState, ConfirmDialog } from '../../../../../components/admin/ui';
+import { Button, Card, CardContent, CardHeader, PageHeader, LoadingState, ErrorState, ConfirmDialog, LocalizedValue } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
 import { BarcodePrintJob } from '../../../../../lib/admin-types';
 
@@ -76,13 +76,13 @@ export default function PrintJobDetailPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">{t('barcodes.printJobDetails')}</h3>
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusColor(job.status)}`}>{job.status}</span>
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusColor(job.status)}`}><LocalizedValue value={job.status} kind="status" /></span>
           </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><p className="text-sm text-gray-500">{t('barcodes.jobType')}</p><p>{job.jobType}</p></div>
-            <div><p className="text-sm text-gray-500">{t('barcodes.entityType')}</p><p>{job.entityType || '-'}</p></div>
+            <div><p className="text-sm text-gray-500">{t('barcodes.jobType')}</p><p><LocalizedValue value={job.jobType} kind="barcode" /></p></div>
+            <div><p className="text-sm text-gray-500">{t('barcodes.entityType')}</p><p><LocalizedValue value={job.entityType} kind="entity" /></p></div>
             <div><p className="text-sm text-gray-500">{t('barcodes.entityId')}</p><p>{job.entityId || '-'}</p></div>
             <div><p className="text-sm text-gray-500">{t('barcodes.copies')}</p><p>{job.copies}</p></div>
             <div><p className="text-sm text-gray-500">{t('barcodes.printer')}</p><p>{job.printerName || '-'}</p></div>

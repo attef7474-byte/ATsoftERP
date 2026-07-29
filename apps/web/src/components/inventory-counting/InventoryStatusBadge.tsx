@@ -1,5 +1,7 @@
 'use client';
 import React from 'react';
+import { useTranslation } from '../../lib/i18n/use-translation';
+import { translateMovementType, translateStatus } from '../../lib/i18n/literals';
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700',
@@ -16,20 +18,22 @@ const statusColors: Record<string, string> = {
 };
 
 export function InventoryStatusBadge({ status }: { status: string }) {
+  const { locale } = useTranslation();
   const colors = statusColors[status] || 'bg-gray-100 text-gray-700';
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors}`}>
-      {status}
+      {translateStatus(status, locale)}
     </span>
   );
 }
 
 export function InventoryMovementTypeBadge({ type }: { type: string }) {
+  const { locale } = useTranslation();
   const isIn = type?.includes('_IN') || type === 'IN' || type === 'OPENING' || type === 'PURCHASE_RECEIPT' || type === 'PRODUCTION_RECEIPT' || type === 'TRANSFER_IN' || type === 'ADJUSTMENT_IN' || type === 'COUNT_ADJUSTMENT';
   const colors = isIn ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors}`}>
-      {type}
+      {translateMovementType(type, locale)}
     </span>
   );
 }

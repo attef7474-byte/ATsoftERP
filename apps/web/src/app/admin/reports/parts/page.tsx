@@ -4,7 +4,7 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Input, Select, Button, DataTable, Pagination } from '../../../../components/admin/ui';
+import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../components/reports';
 
@@ -47,7 +47,7 @@ export default function PartsReportPage() {
     { key: 'partNumber', header: t('maintenance.partNumber') },
     { key: 'stockQuantity', header: t('inventoryCounting.quantity') },
     { key: 'unit', header: t('maintenance.unit') },
-    { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
+    { key: 'status', header: t('reports.status'), render: (r: any) => <LocalizedValue value={r.status} kind="status" /> },
   ];
 
   return (

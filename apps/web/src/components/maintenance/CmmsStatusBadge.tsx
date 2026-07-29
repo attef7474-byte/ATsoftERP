@@ -1,8 +1,9 @@
 'use client';
 import { useTranslation } from '../../lib/i18n/use-translation';
+import { translateStatus } from '../../lib/i18n/literals';
 
 export function CmmsStatusBadge({ status }: { status?: string | null }) {
-  const { t } = useTranslation();
+  const { locale } = useTranslation();
   const s = status || '';
   const colors: Record<string, string> = {
     ACTIVE: 'bg-green-100 text-green-800',
@@ -19,5 +20,5 @@ export function CmmsStatusBadge({ status }: { status?: string | null }) {
     overdue: 'bg-orange-100 text-orange-800',
   };
   const color = colors[s] || 'bg-gray-100 text-gray-800';
-  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>{t('status.' + s) || s}</span>;
+  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>{translateStatus(s, locale)}</span>;
 }

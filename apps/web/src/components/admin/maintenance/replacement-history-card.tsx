@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../lib/api';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { SparePartReplacementHistory } from '../../../lib/admin-types';
-import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState } from '../ui';
+import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, LocalizedValue } from '../ui';
 
 interface Props {
   machineId?: string;
@@ -49,19 +49,20 @@ export function ReplacementHistoryCard({ machineId, requestId, title }: Props) {
     },
     {
       key: 'newSparePart',
-      header: t('machines.newPart') || 'New Part',
+      header: t('maintenance.newPart'),
       render: (row: SparePartReplacementHistory) =>
         row.newSparePart ? `${row.newSparePart.code} - ${row.newSparePart.name}` : '-',
     },
     {
       key: 'oldSparePart',
-      header: t('machines.oldPart') || 'Old Part',
+      header: t('maintenance.oldPart'),
       render: (row: SparePartReplacementHistory) =>
         row.oldSparePart ? `${row.oldSparePart.code} - ${row.oldSparePart.name}` : '-',
     },
     {
       key: 'replacementAction',
-      header: t('machines.replacementAction') || 'Action',
+      header: t('maintenance.replacementAction'),
+      render: (row: SparePartReplacementHistory) => <LocalizedValue value={row.replacementAction} kind="action" />,
     },
     {
       key: 'issuedQuantity',
@@ -70,8 +71,8 @@ export function ReplacementHistoryCard({ machineId, requestId, title }: Props) {
     },
     {
       key: 'removedReturnedToStock',
-      header: t('machines.returnedToStock') || 'Returned',
-      render: (row: SparePartReplacementHistory) => row.removedReturnedToStock ? 'Yes' : 'No',
+      header: t('maintenance.returnedToStock'),
+      render: (row: SparePartReplacementHistory) => row.removedReturnedToStock ? t('common.yes') : t('common.no'),
     },
     {
       key: 'replacedAt',
@@ -83,7 +84,7 @@ export function ReplacementHistoryCard({ machineId, requestId, title }: Props) {
   if (!history.length) {
     return (
       <Card>
-        <CardHeader>{title || t('machines.replacementHistory') || 'Replacement History'}</CardHeader>
+        <CardHeader>{title || t('maintenance.replacementHistory')}</CardHeader>
         <CardContent>
           <p className="text-gray-500 text-sm">{t('common.noData') || 'No data'}</p>
         </CardContent>
@@ -93,7 +94,7 @@ export function ReplacementHistoryCard({ machineId, requestId, title }: Props) {
 
   return (
     <Card>
-      <CardHeader>{title || t('machines.replacementHistory') || 'Replacement History'}</CardHeader>
+      <CardHeader>{title || t('maintenance.replacementHistory')}</CardHeader>
       <CardContent>
         <DataTable columns={columns} data={history} keyExtractor={(h: SparePartReplacementHistory) => h.id} />
       </CardContent>

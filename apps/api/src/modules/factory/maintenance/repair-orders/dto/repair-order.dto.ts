@@ -1,5 +1,6 @@
 import { IsString, IsNumber, IsOptional, Min, IsBoolean, IsBooleanString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class QueryRepairOrderDto {
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
@@ -10,7 +11,7 @@ export class QueryRepairOrderDto {
   @ApiPropertyOptional() @IsOptional() @IsString() replacementHistoryId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() machineId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() machineComponentId?: string;
-  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(1) limit?: number;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() @Min(1) limit?: number;
 }
 
 export class CreateRepairOrderDto {
@@ -88,5 +89,5 @@ export class QueryRepairablePartsDto {
   @ApiPropertyOptional() @IsOptional() @IsString() condition?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() machineId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() sparePartId?: string;
-  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(1) limit?: number;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() @Min(1) limit?: number;
 }

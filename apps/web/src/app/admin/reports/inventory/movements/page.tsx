@@ -4,7 +4,7 @@ import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Input, Select, Button, DataTable, Pagination } from '../../../../../components/admin/ui';
+import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '../../../../../components/admin/ui';
 import { F9Lookup, warehouseAdapter, productAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../../components/reports';
@@ -49,7 +49,7 @@ export default function MovementsReportPage() {
     { key: 'movementNumber', header: t('inventoryCounting.movementNumber'), render: (r: any) => <button onClick={() => router.push(`/admin/inventory/movements/${r.id}`)} className="text-blue-600 hover:underline">{r.movementNumber}</button> },
     { key: 'movementType', header: t('inventoryCounting.movementType') },
     { key: 'warehouse', header: t('reports.warehouse'), render: (r: any) => r.warehouse?.name || '-' },
-    { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
+    { key: 'status', header: t('reports.status'), render: (r: any) => <LocalizedValue value={r.status} kind="status" /> },
     { key: 'movementDate', header: t('common.date'), render: (r: any) => r.movementDate ? new Date(r.movementDate).toLocaleDateString() : '-' },
     { key: 'notes', header: t('common.notes'), render: (r: any) => r.notes || '-' },
   ];

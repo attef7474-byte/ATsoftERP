@@ -4,7 +4,7 @@ import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Input, Select, Button, DataTable, Pagination } from '../../../../../components/admin/ui';
+import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '../../../../../components/admin/ui';
 import { F9Lookup, warehouseAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../../components/reports';
@@ -48,7 +48,7 @@ export default function AdjustmentsReportPage() {
   const columns = [
     { key: 'adjustmentNumber', header: t('inventoryCounting.adjustmentNumber'), render: (r: any) => <button onClick={() => router.push(`/admin/inventory/adjustments/${r.id}`)} className="text-blue-600 hover:underline">{r.adjustmentNumber}</button> },
     { key: 'warehouse', header: t('reports.warehouse'), render: (r: any) => r.warehouse?.name || '-' },
-    { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
+    { key: 'status', header: t('reports.status'), render: (r: any) => <LocalizedValue value={r.status} kind="status" /> },
     { key: 'reason', header: t('inventoryCounting.reason') },
     { key: 'adjustmentDate', header: t('common.date'), render: (r: any) => r.adjustmentDate ? new Date(r.adjustmentDate).toLocaleDateString() : '-' },
     { key: 'inventoryCount', header: t('reports.count'), render: (r: any) => r.inventoryCount?.countNumber ? <button onClick={() => router.push(`/admin/inventory/counts/${r.inventoryCount.id}`)} className="text-blue-600 hover:underline">{r.inventoryCount.countNumber}</button> : '-' },

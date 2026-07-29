@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Button, Select, Card, CardContent, PageHeader, LoadingState, EmptyState, ErrorState, StatusBadge, Pagination } from '../../../../components/admin/ui';
+import { Button, Select, Card, CardContent, PageHeader, LoadingState, EmptyState, ErrorState, StatusBadge, Pagination, LocalizedValue, translateBarcodeType, translateStatus } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
 import { BarcodePrintJob, PaginatedResponse } from '../../../../lib/admin-types';
 
@@ -13,7 +13,7 @@ const STATUSES = ['', 'PENDING', 'PRINTING', 'COMPLETED', 'FAILED', 'CANCELLED']
 
 export default function PrintJobsPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { showToast } = useToast();
   const [jobs, setJobs] = useState<BarcodePrintJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,9 +65,9 @@ export default function PrintJobsPage() {
           <div className="p-4 border-b">
             <div className="flex flex-wrap gap-3 items-end">
               <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                options={STATUSES.map((s) => ({ value: s, label: s || t('common.all') }))} placeholder={t('common.status')} />
+                options={STATUSES.map((s) => ({ value: s, label: s ? translateStatus(s, locale) : t('common.all') }))} placeholder={t('common.status')} />
               <Select value={jobTypeFilter} onChange={(e) => { setJobTypeFilter(e.target.value); setPage(1); }}
-                options={JOB_TYPES.map((j) => ({ value: j, label: j || t('common.all') }))} placeholder={t('barcodes.jobType')} />
+                options={JOB_TYPES.map((j) => ({ value: j, label: j ? translateBarcodeType(j, locale) : t('common.all') }))} placeholder={t('barcodes.jobType')} />
               <Button variant="secondary" onClick={handleClear}>{t('common.clearSearch')}</Button>
             </div>
           </div>
@@ -94,9 +94,9 @@ export default function PrintJobsPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {jobs.map((j) => (
                       <tr key={j.id} onClick={() => router.push(`/admin/barcodes/print-jobs/${j.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 text-sm">{j.jobType}</td>
-                        <td className="px-4 py-3"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor(j.status)}`}>{j.status}</span></td>
-                        <td className="px-4 py-3 text-sm">{j.entityType || '-'}</td>
+                        <td className="px-4 py-3 text-sm"><LocalizedValue value={j.jobType} kind="barcode" /></td>
+                        <td className="px-4 py-3"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor(j.status)}`}><LocalizedValue value={j.status} kind="status" /></span></td>
+                        <td className="px-4 py-3 text-sm"><LocalizedValue value={j.entityType} kind="entity" /></td>
                         <td className="px-4 py-3 text-sm">{j.copies}</td>
                         <td className="px-4 py-3 text-sm">{j.printerName || '-'}</td>
                         <td className="px-4 py-3 text-sm">{j.requestedAt ? new Date(j.requestedAt).toLocaleString() : '-'}</td>

@@ -9,6 +9,7 @@ import { LoadingState } from '../../../../components/admin/ui/loading-state';
 import { ErrorState } from '../../../../components/admin/ui/error-state';
 import { EmptyState } from '../../../../components/admin/ui/empty-state';
 import { StatusBadge } from '../../../../components/admin/ui/status-badge';
+import { LocalizedValue } from '../../../../components/admin/ui/localized-value';
 
 export default function MaintenanceWorkloadPage() {
   const { t } = useTranslation();
@@ -26,11 +27,11 @@ export default function MaintenanceWorkloadPage() {
       const data = await api.get('/maintenance/calendar-workload/workload/summary', { params: { date: today } });
       setSummary(data);
     } catch (err: any) {
-      setError(err.message || 'Failed to load');
+      setError(err.message || t('errors.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [today, t]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -69,7 +70,7 @@ export default function MaintenanceWorkloadPage() {
   ];
 
   const conflictColumns = [
-    { key: 'type', header: t('maintenance.eventType') },
+    { key: 'type', header: t('maintenance.eventType'), render: (r: any) => <LocalizedValue value={r.type} /> },
     { key: 'personnelName', header: t('maintenance.name') },
     { key: 'severity', header: t('status.status'), render: (r: any) => <StatusBadge status={r.severity} /> },
   ];

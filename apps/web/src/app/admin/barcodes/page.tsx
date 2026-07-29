@@ -153,9 +153,9 @@ export default function BarcodesOverviewPage() {
     { label: t('barcodes.print.title'), href: '/admin/barcodes/print', icon: '\u{1F5A8}' },
     { label: t('barcodes.scan.title'), href: '/admin/barcodes/scan', icon: '\u{1F50D}' },
     { label: t('barcodes.records.title'), href: '/admin/barcodes/records', icon: '\u{1F4CB}' },
-    { label: t('barcodes.templates'), href: '/admin/barcodes/templates', icon: '\u{1F4C4}' },
-    { label: t('barcodes.productLabels'), href: '/admin/barcodes/generate?entityType=PRODUCT', icon: '\u{1F4E6}' },
-    { label: t('barcodes.machineCards'), href: '/admin/barcodes/generate?entityType=MACHINE', icon: '\u{2699}' },
+    { label: t('barcodes.templates.title'), href: '/admin/barcodes/templates', icon: '\u{1F4C4}' },
+    { label: t('barcodes.productLabels.title'), href: '/admin/barcodes/generate?entityType=PRODUCT', icon: '\u{1F4E6}' },
+    { label: t('barcodes.machineCards.title'), href: '/admin/barcodes/generate?entityType=MACHINE', icon: '\u{2699}' },
   ];
 
   return (

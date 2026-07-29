@@ -1,5 +1,6 @@
 import { IsString, IsNumber, IsOptional, Min, IsBooleanString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class QueryInstalledPartDto {
   @ApiPropertyOptional()
@@ -56,6 +57,7 @@ export class QueryReplacementHistoryDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   limit?: number;

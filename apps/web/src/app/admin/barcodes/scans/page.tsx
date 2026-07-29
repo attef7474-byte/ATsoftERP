@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Button, Select, Card, CardContent, CardHeader, PageHeader, LoadingState, EmptyState, ErrorState, StatusBadge, Pagination } from '../../../../components/admin/ui';
+import { Button, Select, Card, CardContent, CardHeader, PageHeader, LoadingState, EmptyState, ErrorState, StatusBadge, Pagination, LocalizedValue, translateEntityType, translateStatus } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
 import { BarcodeScanEvent, PaginatedResponse } from '../../../../lib/admin-types';
 
@@ -15,7 +15,7 @@ const ENTITY_TYPES = ['', 'PRODUCT', 'MACHINE', 'MACHINE_PART', 'WAREHOUSE', 'WA
 
 export default function ScanHistoryPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { showToast } = useToast();
   const [scans, setScans] = useState<BarcodeScanEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,9 +71,9 @@ export default function ScanHistoryPage() {
               <Select value={purposeFilter} onChange={(e) => { setPurposeFilter(e.target.value); setPage(1); }}
                 options={PURPOSES.map((p) => ({ value: p, label: p ? (t(`barcodes.scan.${PURPOSE_KEY_MAP[p]}` as any) || p) : t('common.all') }))} />
               <Select value={resultFilter} onChange={(e) => { setResultFilter(e.target.value); setPage(1); }}
-                options={RESULTS.map((r) => ({ value: r, label: r || t('common.all') }))} />
+                options={RESULTS.map((r) => ({ value: r, label: r ? translateStatus(r, locale) : t('common.all') }))} />
               <Select value={entityTypeFilter} onChange={(e) => { setEntityTypeFilter(e.target.value); setPage(1); }}
-                options={ENTITY_TYPES.map((et) => ({ value: et, label: et || t('common.all') }))} />
+                options={ENTITY_TYPES.map((et) => ({ value: et, label: et ? translateEntityType(et, locale) : t('common.all') }))} />
               <Button variant="secondary" onClick={handleClear}>{t('common.clearSearch')}</Button>
             </div>
           </div>
@@ -101,9 +101,9 @@ export default function ScanHistoryPage() {
                     {scans.map((s) => (
                       <tr key={s.id} onClick={() => router.push(`/admin/barcodes/scans/${s.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 text-sm font-mono max-w-[200px] truncate">{s.scannedValue}</td>
-                        <td className="px-4 py-3 text-sm">{s.purpose}</td>
+                        <td className="px-4 py-3 text-sm"><LocalizedValue value={s.purpose} kind="barcode" /></td>
                         <td className="px-4 py-3"><StatusBadge status={s.result} /></td>
-                        <td className="px-4 py-3 text-sm">{s.entityType || '-'}</td>
+                        <td className="px-4 py-3 text-sm"><LocalizedValue value={s.entityType} kind="entity" /></td>
                         <td className="px-4 py-3 text-sm">{s.entityId || '-'}</td>
                         <td className="px-4 py-3 text-sm">{s.source || '-'}</td>
                         <td className="px-4 py-3 text-sm">{s.scannedAt ? new Date(s.scannedAt).toLocaleString() : '-'}</td>

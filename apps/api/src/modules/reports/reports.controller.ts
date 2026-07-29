@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Query, Res, UseGuards, Header } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ReportsService } from './reports.service';
 import { MaintenanceReportFilterDto, InventoryReportFilterDto, BarcodeReportFilterDto } from './dto/report-filter.dto';
@@ -184,6 +184,7 @@ export class ReportsController {
   @Get('inventory/stock-card')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Stock card / item ledger with running balance' })
+  @ApiQuery({ name: 'productId', required: true, type: String })
   getStockCard(@Query() filters: any) {
     return this.service.getStockCard(filters);
   }

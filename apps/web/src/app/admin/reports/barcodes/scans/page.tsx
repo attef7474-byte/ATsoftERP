@@ -4,7 +4,7 @@ import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Input, Select, Button, DataTable, Pagination } from '../../../../../components/admin/ui';
+import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../../components/reports';
 
@@ -44,8 +44,8 @@ export default function BarcodeScansReportPage() {
 
   const columns = [
     { key: 'scannedValue', header: t('barcodes.scannedValue') },
-    { key: 'purpose', header: t('reports.byPurpose'), render: (r: any) => <span className="capitalize">{r.purpose?.toLowerCase()}</span> },
-    { key: 'result', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.result?.toLowerCase()}</span> },
+    { key: 'purpose', header: t('reports.byPurpose'), render: (r: any) => <LocalizedValue value={r.purpose} kind="barcode" /> },
+    { key: 'result', header: t('reports.status'), render: (r: any) => <LocalizedValue value={r.result} kind="status" /> },
     { key: 'entityType', header: t('reports.byEntity'), render: (r: any) => r.entityType || '-' },
     { key: 'source', header: t('barcodes.source') },
     { key: 'scannedAt', header: t('common.date'), render: (r: any) => r.scannedAt ? new Date(r.scannedAt).toLocaleString() : '-' },
@@ -78,7 +78,7 @@ export default function BarcodeScansReportPage() {
                 <table className="w-full text-sm">
                   <tbody>
                     {data.byPurpose.map((p: any, i: number) => (
-                      <tr key={i} className="border-b"><td className="py-1 capitalize">{p.purpose?.toLowerCase()}</td><td className="py-1 text-right font-medium">{p.count}</td></tr>
+                      <tr key={i} className="border-b"><td className="py-1"><LocalizedValue value={p.purpose} kind="barcode" /></td><td className="py-1 text-right font-medium">{p.count}</td></tr>
                     ))}
                   </tbody>
                 </table>

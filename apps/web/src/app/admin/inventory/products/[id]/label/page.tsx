@@ -103,7 +103,7 @@ export default function ProductLabelPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('barcodes.productLabels')} />
+      <PageHeader title={t('barcodes.productLabels.title')} />
 
       {product && (
         <Card>

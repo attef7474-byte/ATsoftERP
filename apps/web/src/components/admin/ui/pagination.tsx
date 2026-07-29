@@ -16,7 +16,7 @@ export function Pagination({ page, totalPages, total, onPageChange }: Pagination
       <div className="text-sm text-gray-600">{t('common.total')} {total}</div>
       <div className="flex items-center gap-2">
         <button
-          onClick={() => onPageChange(page - 1)}
+          onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
           className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >

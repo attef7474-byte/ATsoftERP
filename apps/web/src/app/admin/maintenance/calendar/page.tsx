@@ -9,6 +9,8 @@ import { LoadingState } from '../../../../components/admin/ui/loading-state';
 import { ErrorState } from '../../../../components/admin/ui/error-state';
 import { EmptyState } from '../../../../components/admin/ui/empty-state';
 import { StatusBadge } from '../../../../components/admin/ui/status-badge';
+import { LocalizedValue } from '../../../../components/admin/ui/localized-value';
+import { translateMaintenanceType, translateStatus } from '../../../../lib/i18n/literals';
 
 interface CalendarEvent {
   id: string;
@@ -40,7 +42,7 @@ interface FilterOption {
 }
 
 export default function MaintenanceCalendarPage() {
-  const { t, dir } = useTranslation();
+  const { t, dir, locale } = useTranslation();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [filters, setFilters] = useState<any>({ personnel: [], machines: [], productionLines: [], types: [], statuses: [], priorities: [], slaStatuses: [] });
   const [loading, setLoading] = useState(true);
@@ -77,11 +79,11 @@ export default function MaintenanceCalendarPage() {
       setEvents(eventsData);
       setFilters(filtersData);
     } catch (err: any) {
-      setError(err.message || 'Failed to load');
+      setError(err.message || t('errors.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [dateRange, filterPersonnelId, filterMachineId, filterType, filterStatus, filterPriority, filterSlaStatus]);
+  }, [dateRange, filterPersonnelId, filterMachineId, filterType, filterStatus, filterPriority, filterSlaStatus, t]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -101,7 +103,7 @@ export default function MaintenanceCalendarPage() {
       <button onClick={() => navigateEvent(r)} className="text-blue-600 hover:underline text-left">{r.title}</button>
     )},
     { key: 'eventType', header: t('maintenance.eventType'), render: (r: CalendarEvent) => (
-      <span className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: r.color + '20', color: r.color }}>{r.eventType}</span>
+      <span className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: r.color + '20', color: r.color }}><LocalizedValue value={r.eventType} kind="maintenanceType" /></span>
     )},
     { key: 'machineName', header: t('maintenance.machine') },
     { key: 'status', header: t('status.status'), render: (r: CalendarEvent) => <StatusBadge status={r.status} /> },
@@ -149,28 +151,28 @@ export default function MaintenanceCalendarPage() {
               <label className="block text-xs text-gray-500 mb-1">{t('maintenance.type')}</label>
               <select value={filterType} onChange={e => setFilterType(e.target.value)} className="border rounded px-2 py-1 text-sm">
                 <option value="">{t('common.all')}</option>
-                {filters.types?.map((t: string) => <option key={t} value={t}>{t}</option>)}
+                {filters.types?.map((type: string) => <option key={type} value={type}>{translateMaintenanceType(type, locale)}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">{t('status.status')}</label>
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="border rounded px-2 py-1 text-sm">
                 <option value="">{t('common.all')}</option>
-                {filters.statuses?.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                {filters.statuses?.map((status: string) => <option key={status} value={status}>{translateStatus(status, locale)}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">{t('maintenance.priority')}</label>
               <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="border rounded px-2 py-1 text-sm">
                 <option value="">{t('common.all')}</option>
-                {filters.priorities?.map((p: string) => <option key={p} value={p}>{p}</option>)}
+                {filters.priorities?.map((priority: string) => <option key={priority} value={priority}>{translateStatus(priority, locale)}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">{t('maintenance.slaStatus')}</label>
               <select value={filterSlaStatus} onChange={e => setFilterSlaStatus(e.target.value)} className="border rounded px-2 py-1 text-sm">
                 <option value="">{t('common.all')}</option>
-                {filters.slaStatuses?.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                {filters.slaStatuses?.map((status: string) => <option key={status} value={status}>{translateStatus(status, locale)}</option>)}
               </select>
             </div>
           </div>

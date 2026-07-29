@@ -4,7 +4,7 @@ import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Input, Select, Button, DataTable, Pagination } from '../../../../../components/admin/ui';
+import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '../../../../../components/admin/ui';
 import { F9Lookup, productionLineAdapter, machineAdapter, machineComponentAdapter, operationTypeAdapter, costCenterAdapter, sparePartAdapter, userAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../../components/reports';
@@ -61,9 +61,9 @@ export default function MaintenanceRequestsReportPage() {
     { key: 'requestNumber', header: t('maintenance.requestNumber'), render: (r: any) => <button onClick={() => router.push(`/admin/maintenance/requests/${r.id}`)} className="text-blue-600 hover:underline">{r.requestNumber}</button> },
     { key: 'title', header: t('common.name') },
     { key: 'machine', header: t('reports.machine'), render: (r: any) => r.machine?.name || '-' },
-    { key: 'type', header: t('reports.type'), render: (r: any) => <span className="capitalize">{r.type?.toLowerCase()}</span> },
-    { key: 'priority', header: t('reports.priority'), render: (r: any) => <span className="capitalize">{r.priority?.toLowerCase()}</span> },
-    { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
+    { key: 'type', header: t('reports.type'), render: (r: any) => <LocalizedValue value={r.type} kind="maintenanceType" /> },
+    { key: 'priority', header: t('reports.priority'), render: (r: any) => <LocalizedValue value={r.priority} kind="priority" /> },
+    { key: 'status', header: t('reports.status'), render: (r: any) => <LocalizedValue value={r.status} kind="status" /> },
     { key: 'createdAt', header: t('common.createdAt'), render: (r: any) => new Date(r.createdAt).toLocaleDateString() },
   ];
 

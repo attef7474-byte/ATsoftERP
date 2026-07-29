@@ -3,12 +3,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Button, Select, Card, CardContent, CardHeader, PageHeader, LoadingState, EmptyState, ErrorState, StatusBadge } from '../../../../components/admin/ui';
+import { Button, Select, Card, CardContent, CardHeader, PageHeader, LoadingState, EmptyState, ErrorState, StatusBadge, LocalizedValue, translateBarcodeType, translateEntityType, translateStatus } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers } from '../../../../components/admin/admin-action-bar';
 import { BarcodeLabel } from '../../../../lib/admin-types';
 
 export default function BarcodePreviewPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { showToast } = useToast();
 
   const [labels, setLabels] = useState<BarcodeLabel[]>([]);
@@ -63,7 +63,7 @@ export default function BarcodePreviewPage() {
     if (printWindow) {
       let qrHtml = '';
       if (label.symbology === 'QR_CODE' && previewData?.qrPayload) {
-        qrHtml = `<div style="text-align:center;margin:20px 0;"><p style="font-size:14px;color:#333;">QR Payload:</p><p style="font-family:monospace;font-size:12px;word-break:break-all;background:#f5f5f5;padding:10px;border-radius:4px;">${previewData.qrPayload}</p></div>`;
+        qrHtml = `<div style="text-align:center;margin:20px 0;"><p style="font-size:14px;color:#333;">${t('barcodes.preview.qrPayload')}:</p><p style="font-family:monospace;font-size:12px;word-break:break-all;background:#f5f5f5;padding:10px;border-radius:4px;">${previewData.qrPayload}</p></div>`;
       }
       printWindow.document.write(`
         <html><head><title>${t('barcodes.print.title')}</title>
@@ -73,9 +73,9 @@ export default function BarcodePreviewPage() {
         <table>
           <tr><th>${t('barcodes.labelCode')}</th><td>${label.code}</td></tr>
           <tr><th>${t('barcodes.labelValue')}</th><td>${label.value}</td></tr>
-          <tr><th>${t('barcodes.symbology')}</th><td>${label.symbology}</td></tr>
-          <tr><th>${t('barcodes.entityType')}</th><td>${label.entityType}</td></tr>
-          <tr><th>${t('common.status')}</th><td>${label.status}</td></tr>
+          <tr><th>${t('barcodes.symbology')}</th><td>${translateBarcodeType(label.symbology, locale)}</td></tr>
+          <tr><th>${t('barcodes.entityType')}</th><td>${translateEntityType(label.entityType, locale)}</td></tr>
+          <tr><th>${t('common.status')}</th><td>${translateStatus(label.status, locale)}</td></tr>
           ${label.title ? `<tr><th>${t('barcodes.generate.labelTitle')}</th><td>${label.title}</td></tr>` : ''}
           ${label.humanReadableValue ? `<tr><th>${t('common.description')}</th><td>${label.humanReadableValue}</td></tr>` : ''}
         </table>
@@ -147,13 +147,13 @@ export default function BarcodePreviewPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div><p className="text-sm text-gray-500">{t('barcodes.labelCode')}</p><p className="font-medium">{selectedLabel.code}</p></div>
               <div><p className="text-sm text-gray-500">{t('barcodes.labelValue')}</p><p className="font-mono font-medium">{selectedLabel.value}</p></div>
-              <div><p className="text-sm text-gray-500">{t('barcodes.symbology')}</p><p>{selectedLabel.symbology}</p></div>
+              <div><p className="text-sm text-gray-500">{t('barcodes.symbology')}</p><p><LocalizedValue value={selectedLabel.symbology} kind="barcode" /></p></div>
               <div><p className="text-sm text-gray-500">{t('common.status')}</p><StatusBadge status={selectedLabel.status} /></div>
-              <div><p className="text-sm text-gray-500">{t('barcodes.entityType')}</p><p>{selectedLabel.entityType}</p></div>
+              <div><p className="text-sm text-gray-500">{t('barcodes.entityType')}</p><p><LocalizedValue value={selectedLabel.entityType} kind="entity" /></p></div>
               <div><p className="text-sm text-gray-500">{t('barcodes.entityId')}</p><p>{selectedLabel.entityId}</p></div>
               {selectedLabel.title && <div className="md:col-span-2"><p className="text-sm text-gray-500">{t('barcodes.generate.labelTitle')}</p><p>{selectedLabel.title}</p></div>}
               {selectedLabel.humanReadableValue && <div className="md:col-span-2"><p className="text-sm text-gray-500">{t('common.description')}</p><p>{selectedLabel.humanReadableValue}</p></div>}
-              {selectedLabel.qrPayload && <div className="md:col-span-2"><p className="text-sm text-gray-500">QR Payload</p><p className="font-mono text-xs break-all bg-gray-50 p-2 rounded">{selectedLabel.qrPayload}</p></div>}
+              {selectedLabel.qrPayload && <div className="md:col-span-2"><p className="text-sm text-gray-500">{t('barcodes.preview.qrPayload')}</p><p className="font-mono text-xs break-all bg-gray-50 p-2 rounded">{selectedLabel.qrPayload}</p></div>}
             </div>
           </CardContent>
         </Card>
@@ -187,7 +187,7 @@ export default function BarcodePreviewPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   <tr className="hover:bg-gray-50">
                     {Object.values(previewData).map((val: any, idx: number) => (
-                      <td key={idx} className="px-4 py-3 text-sm font-mono">{typeof val === 'object' ? JSON.stringify(val) : String(val ?? '-')}</td>
+                      <td key={idx} className="px-4 py-3 text-sm">{typeof val === 'object' ? t('barcodes.preview.details') : String(val ?? '-')}</td>
                     ))}
                   </tr>
                 </tbody>

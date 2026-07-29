@@ -38,6 +38,7 @@ export function AdminDataGrid<T>({
   refreshLoading,
 }: AdminDataGridProps<T>) {
   const { t } = useTranslation();
+  const rows = Array.isArray(data) ? data : [];
   const [openMenuRow, setOpenMenuRow] = useState<string | null>(null);
   const activeButtonRef = useRef<HTMLButtonElement | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -96,7 +97,7 @@ export function AdminDataGrid<T>({
     return <DataGridLoadingState message={loadingMessage} />;
   }
 
-  if (!data || data.length === 0) {
+  if (rows.length === 0) {
     return <DataGridEmptyState message={emptyMessage} />;
   }
 
@@ -155,7 +156,7 @@ export function AdminDataGrid<T>({
             )}
           </thead>
           <tbody>
-            {data.map((item, rowIndex) => {
+            {rows.map((item, rowIndex) => {
               const rowKey = keyExtractor(item);
               return (
                 <BodyRow

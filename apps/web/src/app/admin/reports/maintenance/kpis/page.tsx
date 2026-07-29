@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation';
 import { Input, Button, Card, CardHeader, CardContent, DataTable, LoadingState, ErrorState, PageHeader } from '../../../../../components/admin/ui';
 import { F9Lookup, productionLineAdapter, machineAdapter, operationTypeAdapter, costCenterAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../../components/admin/admin-action-bar';
+import { translateEnum } from '../../../../../lib/i18n/literals';
 
 export default function MaintenanceKpisPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
   const [kpiData, setKpiData] = useState<any>(null);
   const [reliabilityData, setReliabilityData] = useState<any>(null);
@@ -66,14 +67,14 @@ export default function MaintenanceKpisPage() {
   const cards = kpiData?.cards || [];
   const reliabilityCards = [
     { label: t('maintenance.totalDowntime'), value: cards.find((c: any) => c.label === 'totalDowntime')?.value ? `${cards.find((c: any) => c.label === 'totalDowntime').value} ${t('common.minutes')}` : '0' },
-    { label: t('maintenance.totalDowntime') + ' (h)', value: cards.find((c: any) => c.label === 'totalDowntimeHours')?.value ? `${cards.find((c: any) => c.label === 'totalDowntimeHours').value} h` : '0 h' },
+    { label: `${t('maintenance.totalDowntime')} (${t('common.hours')})`, value: `${cards.find((c: any) => c.label === 'totalDowntimeHours')?.value ?? 0} ${t('common.hours')}` },
     { label: t('maintenanceDashboard.kpiOpenRequests'), value: cards.find((c: any) => c.label === 'openBacklog')?.value ?? cards.find((c: any) => c.label === 'openRequests')?.value ?? 0 },
     { label: t('maintenance.totalCost'), value: cards.find((c: any) => c.label === 'totalCost')?.value ? `${cards.find((c: any) => c.label === 'totalCost').value.toLocaleString()} ${currency}` : `0 ${currency}` },
   ];
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('maintenance.kpiOverview') || 'Maintenance KPIs Overview'} />
+      <PageHeader title={t('maintenance.kpiOverview')} />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4 items-end bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
@@ -90,7 +91,7 @@ export default function MaintenanceKpisPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.filter((c: any) => ['totalRequests', 'openRequests', 'inProgressRequests', 'completedRequests'].includes(c.label)).map((c: any, i: number) => (
           <Card key={i}><CardContent className="p-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t(`maintenance.${c.label}` as any) || c.label}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{translateEnum(c.label, locale, 'maintenance')}</p>
             <p className="text-2xl font-bold mt-1">{c.value ?? '-'}</p>
           </CardContent></Card>
         ))}
@@ -103,9 +104,9 @@ export default function MaintenanceKpisPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {cards.filter((c: any) => ['totalCost', 'partsCost', 'otherCost', 'openBacklog', 'pmCmRatio', 'emergencyPercentage', 'slaOverduePercentage', 'avgCompletionTime'].includes(c.label)).map((c: any, i: number) => (
               <div key={i} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                <p className="text-xs text-gray-500 dark:text-gray-400">{t(`maintenance.${c.label}` as any) || c.label}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{translateEnum(c.label, locale, 'maintenance')}</p>
                 <p className="text-xl font-semibold mt-1">
-                  {c.value != null ? c.label === 'totalCost' || c.label === 'partsCost' || c.label === 'otherCost' ? `${c.value.toLocaleString()} ${currency}` : c.unit === '%' ? `${c.value}%` : c.unit === 'hours' ? `${c.value} h` : c.value : '-'}
+                  {c.value != null ? c.label === 'totalCost' || c.label === 'partsCost' || c.label === 'otherCost' ? `${c.value.toLocaleString()} ${currency}` : c.unit === '%' ? `${c.value}%` : c.unit === 'hours' ? `${c.value} ${t('common.hours')}` : c.value : '-'}
                 </p>
               </div>
             ))}
@@ -128,11 +129,11 @@ export default function MaintenanceKpisPage() {
               {reliabilityData && (
                 <>
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('maintenance.repeatFailureRate') || 'Repeat Failure Rate'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('maintenance.repeatFailureRate')}</p>
                     <p className="text-xl font-semibold mt-1">{reliabilityData.repeatFailureRate != null ? `${reliabilityData.repeatFailureRate}%` : '-'}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('maintenance.totalDowntimeEvents') || 'Events'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('maintenance.totalDowntimeEvents')}</p>
                     <p className="text-xl font-semibold mt-1">{reliabilityData.totalEvents ?? '-'}</p>
                   </div>
                 </>
@@ -143,16 +144,16 @@ export default function MaintenanceKpisPage() {
 
         {/* Schedule Compliance */}
         <Card>
-          <CardHeader><h3 className="text-lg font-semibold">{t('maintenance.scheduleCompliance') || 'Schedule Compliance'}</h3></CardHeader>
+          <CardHeader><h3 className="text-lg font-semibold">{t('maintenance.scheduleCompliance')}</h3></CardHeader>
           <CardContent>
             {complianceData ? (
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('maintenanceDashboard.completionRate') || 'Compliance Rate'}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('maintenanceDashboard.completionRate')}</p>
                   <p className="text-xl font-semibold mt-1">{complianceData.cards?.find((c: any) => c.label === 'complianceRate')?.value != null ? `${complianceData.cards.find((c: any) => c.label === 'complianceRate').value}%` : '-'}</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('maintenanceDashboard.completedRequests') || 'Completed Preventive'}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('maintenanceDashboard.completedRequests')}</p>
                   <p className="text-xl font-semibold mt-1">{complianceData.cards?.find((c: any) => c.label === 'completedPreventive')?.value ?? '-'}</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
@@ -160,7 +161,7 @@ export default function MaintenanceKpisPage() {
                   <p className="text-xl font-semibold mt-1">{complianceData.cards?.find((c: any) => c.label === 'overdueSchedules')?.value ?? '-'}</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('maintenanceDashboard.activeSchedules') || 'Active Schedules'}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('maintenanceDashboard.activeSchedules')}</p>
                   <p className="text-xl font-semibold mt-1">{complianceData.cards?.find((c: any) => c.label === 'activeSchedules')?.value ?? '-'}</p>
                 </div>
               </div>
@@ -176,8 +177,8 @@ export default function MaintenanceKpisPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {cards.filter((c: any) => !['totalRequests', 'openRequests', 'inProgressRequests', 'completedRequests', 'totalCost', 'partsCost', 'otherCost', 'openBacklog', 'pmCmRatio', 'emergencyPercentage', 'slaOverduePercentage', 'avgCompletionTime', 'totalDowntime', 'totalDowntimeHours', 'totalDowntimeEvents', 'activeDowntime', 'overdueSchedules'].includes(c.label)).map((c: any, i: number) => (
               <div key={i} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                <p className="text-xs text-gray-500 dark:text-gray-400">{t(`maintenance.${c.label}` as any) || c.label}</p>
-                <p className="text-lg font-semibold mt-1">{c.unit === '%' ? `${c.value ?? '-'}%` : c.unit === 'hours' ? `${c.value ?? '-'} h` : c.unit === 'minutes' ? `${c.value ?? '-'} ${t('common.minutes')}` : c.value ?? '-'}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{translateEnum(c.label, locale, 'maintenance')}</p>
+                <p className="text-lg font-semibold mt-1">{c.unit === '%' ? `${c.value ?? '-'}%` : c.unit === 'hours' ? `${c.value ?? '-'} ${t('common.hours')}` : c.unit === 'minutes' ? `${c.value ?? '-'} ${t('common.minutes')}` : c.value ?? '-'}</p>
               </div>
             ))}
           </div>

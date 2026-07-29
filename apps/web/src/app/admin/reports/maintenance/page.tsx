@@ -4,7 +4,7 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, Button, DataTable } from '../../../../components/admin/ui';
+import { Card, CardContent, CardHeader, Button, DataTable, LocalizedValue } from '../../../../components/admin/ui';
 import { F9Lookup, productionLineAdapter, machineAdapter, machineComponentAdapter, operationTypeAdapter, costCenterAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards } from '../../../../components/reports';
@@ -61,7 +61,7 @@ export default function MaintenanceOverviewReportPage() {
   ]);
 
   const statusColumns = [
-    { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
+    { key: 'status', header: t('reports.status'), render: (r: any) => <LocalizedValue value={r.status} kind="status" /> },
     { key: 'count', header: t('reports.total') },
   ];
 
@@ -81,7 +81,7 @@ export default function MaintenanceOverviewReportPage() {
     { key: 'requestNumber', header: t('maintenance.requestNumber') },
     { key: 'title', header: t('common.name') },
     { key: 'machine', header: t('reports.machine'), render: (r: any) => r.machine?.name || '-' },
-    { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
+    { key: 'status', header: t('reports.status'), render: (r: any) => <LocalizedValue value={r.status} kind="status" /> },
     { key: 'createdAt', header: t('common.createdAt'), render: (r: any) => new Date(r.createdAt).toLocaleDateString() },
   ];
 
@@ -114,11 +114,11 @@ export default function MaintenanceOverviewReportPage() {
             </Card>
             <Card>
               <CardHeader><h3 className="font-semibold">{t('reports.total')} {t('reports.priority')}</h3></CardHeader>
-              <CardContent><DataTable columns={statusColumns.map(c => c.key === 'status' ? { ...c, header: t('reports.priority'), render: (r: any) => <span className="capitalize">{r.priority?.toLowerCase()}</span> } : c)} data={data.requestsByPriority || []} keyExtractor={(r: any) => r.priority} /></CardContent>
+              <CardContent><DataTable columns={statusColumns.map(c => c.key === 'status' ? { ...c, header: t('reports.priority'), render: (r: any) => <LocalizedValue value={r.priority} kind="priority" /> } : c)} data={data.requestsByPriority || []} keyExtractor={(r: any) => r.priority} /></CardContent>
             </Card>
             <Card>
               <CardHeader><h3 className="font-semibold">{t('reports.total')} {t('reports.type')}</h3></CardHeader>
-              <CardContent><DataTable columns={statusColumns.map(c => c.key === 'status' ? { ...c, header: t('reports.type'), render: (r: any) => <span className="capitalize">{r.type?.toLowerCase()}</span> } : c)} data={data.requestsByType || []} keyExtractor={(r: any) => r.type} /></CardContent>
+              <CardContent><DataTable columns={statusColumns.map(c => c.key === 'status' ? { ...c, header: t('reports.type'), render: (r: any) => <LocalizedValue value={r.type} kind="maintenanceType" /> } : c)} data={data.requestsByType || []} keyExtractor={(r: any) => r.type} /></CardContent>
             </Card>
           </div>
 

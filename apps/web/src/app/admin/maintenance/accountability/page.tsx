@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { PageHeader, Card, CardContent, CardHeader, LoadingState, ErrorState, DataTable } from '../../../../components/admin/ui';
+import { PageHeader, Card, CardContent, CardHeader, LoadingState, ErrorState, DataTable, LocalizedValue } from '../../../../components/admin/ui';
 
 interface AccountabilityKpis {
   personnelByRole: { role: string; count: number }[];
@@ -63,7 +63,7 @@ export default function AccountabilityPage() {
           <CardContent>
             <DataTable
               columns={[
-                { key: 'role', header: t('maintenance.personnelRole') },
+                { key: 'role', header: t('maintenance.personnelRole'), render: (r: any) => <LocalizedValue value={r.role} /> },
                 { key: 'count', header: t('common.count') },
               ]}
               data={data.personnelByRole}
@@ -76,7 +76,7 @@ export default function AccountabilityPage() {
           <CardContent>
             <DataTable
               columns={[
-                { key: 'status', header: t('common.status') },
+                { key: 'status', header: t('common.status'), render: (r: any) => <LocalizedValue value={r.status} kind="status" /> },
                 { key: 'count', header: t('common.count') },
               ]}
               data={data.partAccountabilityByStatus}
@@ -90,7 +90,7 @@ export default function AccountabilityPage() {
             <DataTable
               columns={[
                 { key: 'name', header: t('maintenance.personnelName'), render: (r: any) => r.personnel ? `[${r.personnel.code}] ${r.personnel.name}` : '-' },
-                { key: 'role', header: t('maintenance.personnelRole'), render: (r: any) => r.personnel?.role || '-' },
+                { key: 'role', header: t('maintenance.personnelRole'), render: (r: any) => <LocalizedValue value={r.personnel?.role} /> },
                 { key: 'activeAssignmentCount', header: t('common.count') },
               ]}
               data={data.topAssignees}

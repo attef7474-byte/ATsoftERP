@@ -33,6 +33,13 @@ export class BarcodeScansController {
     return this.service.findAllScans(query);
   }
 
+  @Get('scans/summary')
+  @Permissions('barcode-scan:read')
+  @ApiOperation({ summary: 'Get barcode scan summary statistics' })
+  getScanSummary() {
+    return this.service.getScanSummary();
+  }
+
   @Get('scans/:id')
   @Permissions('barcode-scan:read')
   @ApiOperation({ summary: 'Get a scan event by ID' })
@@ -66,13 +73,6 @@ export class BarcodeScansController {
   @ApiOperation({ summary: 'Scan part/product label for details and balances' })
   scanPartLookup(@Body() dto: PartLookupScanDto, @Req() req: any) {
     return this.service.scanPartLookup(dto, req.user?.id, req.ip, req.headers?.['user-agent']);
-  }
-
-  @Get('scans/summary')
-  @Permissions('barcode-scan:read')
-  @ApiOperation({ summary: 'Get barcode scan summary statistics' })
-  getScanSummary() {
-    return this.service.getScanSummary();
   }
 
   @Get('scans/by-entity/:entityType/:entityId')

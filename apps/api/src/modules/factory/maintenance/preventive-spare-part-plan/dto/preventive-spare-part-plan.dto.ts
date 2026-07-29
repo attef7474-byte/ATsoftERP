@@ -1,14 +1,15 @@
 import { IsString, IsNumber, IsOptional, Min, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PartialType } from '@nestjs/mapped-types';
+import { Type } from 'class-transformer';
 
 export class QueryPreventiveSparePartPlanDto {
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() scheduleId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() machineId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
-  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(1) page?: number;
-  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(1) limit?: number;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() @Min(1) page?: number;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() @Min(1) limit?: number;
 }
 
 export class CreatePreventiveSparePartPlanDto {

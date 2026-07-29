@@ -1,9 +1,8 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
-import { useToast } from '../../../../components/admin/toast-provider';
-import { Pagination, PageHeader, StatusBadge } from '../../../../components/admin/ui';
+import { LocalizedValue, PageHeader, StatusBadge } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
 
@@ -19,36 +18,46 @@ interface RepairOrder {
 
 export default function RepairOrdersPage() {
   const { t, dir } = useTranslation();
-  const { showToast } = useToast();
   const [data, setData] = useState<RepairOrder[]>([]);
-  const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
-  const { exec } = useStableHandlers({ refresh: () => fetchData(meta.page) });
+  const { exec } = useStableHandlers({ refresh: () => fetchData() });
 
   useRegisterAdminActions([
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 
-  const fetchData = useCallback(async (page = 1) => {
+  const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const params: Record<string, any> = { page, limit: 20 };
-      if (search) params.search = search;
-      const res = await api.get<{ data: RepairOrder[]; meta: any }>('/maintenance/repair-orders', { params });
-      setData(res.data || []); setMeta(res.meta);
+      const res = await api.get<RepairOrder[]>('/maintenance/repair-orders', { params: { limit: 50 } });
+      setData(Array.isArray(res) ? res : []);
     } catch (err: any) { setError(err?.message || t('errors.loadFailed')); }
     finally { setLoading(false); }
-  }, [search, t]);
+  }, [t]);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const visibleData = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase();
+    if (!term) return data;
+    return data.filter((order) => [
+      order.repairOrderNumber,
+      order.sparePart?.name,
+      order.sparePart?.code,
+      order.warehouse?.name,
+      order.maintenanceRequest?.requestNumber,
+      order.sourceCondition,
+      order.status,
+    ].some((value) => String(value || '').toLocaleLowerCase().includes(term)));
+  }, [data, search]);
 
   const columns: GridColumn<RepairOrder>[] = [
     { key: 'repairOrderNumber', header: t('common.code'), render: (r: RepairOrder) => r.repairOrderNumber || '-' },
-    { key: 'sparePart', header: t('maintenance.sparePart'), render: (r: RepairOrder) => r.sparePart?.name || '-' },
-    { key: 'sourceCondition', header: t('maintenance.condition') },
+    { key: 'sparePart', header: t('maintenance.sparePartLabel'), render: (r: RepairOrder) => r.sparePart?.name || '-' },
+    { key: 'sourceCondition', header: t('maintenance.condition'), render: (r: RepairOrder) => <LocalizedValue value={r.sourceCondition} /> },
     { key: 'sourceQuantity', header: t('common.quantity'), render: (r: RepairOrder) => r.sourceQuantity },
     { key: 'repairedQuantity', header: 'تم الإصلاح', render: (r: RepairOrder) => r.repairedQuantity || 0 },
     { key: 'status', header: t('common.status'), render: (r: RepairOrder) => <StatusBadge status={r.status} /> },
@@ -58,20 +67,17 @@ export default function RepairOrdersPage() {
     <div>
       <PageHeader title={t('maintenance.repairOrders')} />
       <AdminDataGrid
-        columns={columns} data={data}
+        columns={columns} data={visibleData}
         keyExtractor={(r: RepairOrder) => r.id}
         loading={loading}
         emptyMessage={t('common.noData')}
         error={error || undefined}
-        onRetry={() => fetchData(meta.page)}
+        onRetry={fetchData}
         dir={dir}
         globalSearch={search} onGlobalSearch={setSearch}
         searchPlaceholder={t('common.search')}
-        onRefresh={() => fetchData(meta.page)} refreshLoading={loading}
+        onRefresh={fetchData} refreshLoading={loading}
       />
-      {data.length > 0 && (
-        <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-      )}
     </div>
   );
 }

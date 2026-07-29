@@ -5,7 +5,7 @@ import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { Machine, MachinePart, MachineDocument, MaintenanceRequest, BarcodeLabel } from '../../../../../lib/admin-types';
-import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, Button, Modal, Input, ConfirmDialog } from '../../../../../components/admin/ui';
+import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, Button, Modal, Input, ConfirmDialog, LocalizedValue, PageHeader } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../../components/admin/admin-action-bar';
 import { F9Lookup, sparePartAdapter } from '../../../../../components/f9';
 import { InstalledPartsCard } from '../../../../../components/admin/maintenance/installed-parts-card';
@@ -30,6 +30,7 @@ export default function MachineDetailPage() {
   const [labels, setLabels] = useState<BarcodeLabel[]>([]);
   const [machineSpareLinks, setMachineSpareLinks] = useState<any[]>([]);
   const [linksLoading, setLinksLoading] = useState(false);
+  const [linksError, setLinksError] = useState('');
   const [responsibilities, setResponsibilities] = useState<any[]>([]);
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [editingMachineLink, setEditingMachineLink] = useState<any | null>(null);
@@ -63,12 +64,16 @@ export default function MachineDetailPage() {
 
   const fetchMachineSpareLinks = useCallback(async () => {
     setLinksLoading(true);
+    setLinksError('');
     try {
-      const res = await api.get<any[]>(`/maintenance/machine-spare-parts?machineId=${id}`);
-      setMachineSpareLinks(res);
-    } catch { }
+      const res = await api.get<{ data: any[] }>(`/maintenance/machine-spare-parts`, { params: { machineId: id } });
+      setMachineSpareLinks(Array.isArray(res?.data) ? res.data : []);
+    } catch (err: any) {
+      setMachineSpareLinks([]);
+      setLinksError(err?.message || t('errors.loadFailed'));
+    }
     finally { setLinksLoading(false); }
-  }, [id]);
+  }, [id, t]);
 
   const fetchResponsibilities = useCallback(async () => {
     try {
@@ -161,6 +166,7 @@ export default function MachineDetailPage() {
 
   return (
     <div className="space-y-6">
+      <PageHeader title={data.name} />
       <Card>
         <CardContent>
           <dl className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -205,7 +211,7 @@ export default function MachineDetailPage() {
                 { key: 'code', header: t('common.code'), render: (p: MachinePart) => p.code },
                 { key: 'name', header: t('common.name'), render: (p: MachinePart) => p.name },
                 { key: 'quantity', header: t('maintenance.quantity'), render: (p: MachinePart) => p.quantity },
-                { key: 'unit', header: t('maintenance.unit'), render: (p: MachinePart) => p.unit || '-' },
+                { key: 'unit', header: t('maintenance.unit'), render: (p: MachinePart) => <LocalizedValue value={p.unit} kind="unit" /> },
                 { key: 'status', header: t('common.status'), render: (p: MachinePart) => <StatusBadge status={p.status} /> },
               ]} data={data.parts} keyExtractor={(p: MachinePart) => p.id} />
             )}
@@ -222,6 +228,8 @@ export default function MachineDetailPage() {
           <CardContent>
             {linksLoading ? (
               <p className="text-sm text-gray-500 py-4">{t('common.loading')}</p>
+            ) : linksError ? (
+              <ErrorState message={linksError} onRetry={fetchMachineSpareLinks} />
             ) : machineSpareLinks.length === 0 ? (
               <p className="text-sm text-gray-500 py-4">{t('maintenance.noMachineSpareParts')}</p>
             ) : (
@@ -229,7 +237,7 @@ export default function MachineDetailPage() {
                 { key: 'sparePartName', header: t('maintenance.sparePart.form.name'), render: (l: any) => l.sparePart?.name || '-' },
                 { key: 'sparePartCode', header: t('maintenance.sparePart.form.code'), render: (l: any) => l.sparePart?.code || '-' },
                 { key: 'quantity', header: t('maintenance.sparePart.form.quantity'), render: (l: any) => l.quantity },
-                { key: 'unit', header: t('maintenance.sparePart.form.unit'), render: (l: any) => l.unit || '-' },
+                { key: 'unit', header: t('maintenance.sparePart.form.unit'), render: (l: any) => <LocalizedValue value={l.unit} kind="unit" /> },
                 { key: 'isPrimary', header: t('maintenance.sparePart.form.isPrimary'), render: (l: any) => l.isPrimary ? 'Yes' : 'No' },
                 { key: 'actions', header: '', render: (l: any) => (
                   <div className="flex gap-2">
@@ -251,7 +259,7 @@ export default function MachineDetailPage() {
             {!data.documents || data.documents.length === 0 ? <p className="text-sm text-gray-500 py-4">{t('common.noData')}</p> : (
               <DataTable columns={[
                 { key: 'title', header: t('common.name'), render: (d: MachineDocument) => d.title },
-                { key: 'type', header: t('maintenance.documentType'), render: (d: MachineDocument) => d.documentType || '-' },
+                { key: 'type', header: t('maintenance.documentType'), render: (d: MachineDocument) => <LocalizedValue value={d.documentType} /> },
                 { key: 'fileName', header: t('maintenance.fileName'), render: (d: MachineDocument) => d.fileName || '-' },
                 { key: 'createdAt', header: t('common.createdAt'), render: (d: MachineDocument) => fmt(d.createdAt) },
               ]} data={data.documents} keyExtractor={(d: MachineDocument) => d.id} />
@@ -268,8 +276,8 @@ export default function MachineDetailPage() {
               <DataTable columns={[
                 { key: 'requestNumber', header: t('maintenance.requestNumber'), render: (r: MaintenanceRequest) => r.requestNumber },
                 { key: 'title', header: t('common.name'), render: (r: MaintenanceRequest) => r.title },
-                { key: 'type', header: t('maintenance.maintenanceType'), render: (r: MaintenanceRequest) => t('status.' + r.type) },
-                { key: 'priority', header: t('maintenance.priority'), render: (r: MaintenanceRequest) => r.priority },
+                { key: 'type', header: t('maintenance.maintenanceType'), render: (r: MaintenanceRequest) => <LocalizedValue value={r.type} kind="maintenanceType" /> },
+                { key: 'priority', header: t('maintenance.priority'), render: (r: MaintenanceRequest) => <LocalizedValue value={r.priority} kind="priority" /> },
                 { key: 'status', header: t('common.status'), render: (r: MaintenanceRequest) => <StatusBadge status={r.status} /> },
               ]} data={requests} keyExtractor={(r: MaintenanceRequest) => r.id} />
             )}

@@ -4,7 +4,7 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Input, Select, Button, DataTable, Pagination } from '../../../../components/admin/ui';
+import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../components/reports';
 
@@ -42,8 +42,8 @@ export default function AuditTrailReportPage() {
   ]);
 
   const columns = [
-    { key: 'action', header: t('reports.auditAction') },
-    { key: 'entity', header: t('reports.byEntity') },
+    { key: 'action', header: t('reports.auditAction'), render: (r: any) => <LocalizedValue value={r.action} kind="action" /> },
+    { key: 'entity', header: t('reports.byEntity'), render: (r: any) => <LocalizedValue value={r.entity} kind="entity" /> },
     { key: 'user', header: t('reports.generatedBy'), render: (r: any) => r.user?.name || '-' },
     { key: 'details', header: t('common.description'), render: (r: any) => r.details || '-' },
     { key: 'createdAt', header: t('common.createdAt'), render: (r: any) => r.createdAt ? new Date(r.createdAt).toLocaleString() : '-' },
@@ -66,7 +66,7 @@ export default function AuditTrailReportPage() {
           {data.byAction && data.byAction.length > 0 && (
             <div className="flex flex-wrap gap-4 text-sm">
               {data.byAction.map((a: any, i: number) => (
-                <span key={i}><strong>{a.action}:</strong> {a.count}</span>
+                <span key={i}><strong><LocalizedValue value={a.action} kind="action" />:</strong> {a.count}</span>
               ))}
             </div>
           )}

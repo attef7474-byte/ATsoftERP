@@ -1,7 +1,7 @@
 'use client';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { isAuthenticated, registerAutoLogout } from '../../lib/auth';
+import { isAuthenticated } from '../../lib/auth';
 import { useAuth } from '../../lib/auth-context';
 import { AdminShell } from '../../components/admin/admin-shell';
 
@@ -14,11 +14,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.replace('/login');
     }
   }, [loading, router]);
-
-  useEffect(() => {
-    if (!user) return;
-    return registerAutoLogout();
-  }, [user]);
 
   if (loading || !user) {
     return (

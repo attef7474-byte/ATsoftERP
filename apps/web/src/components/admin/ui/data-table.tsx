@@ -22,6 +22,8 @@ interface DataTableProps<T> {
 
 export function DataTable<T>({ columns, data, keyExtractor, onRowClick, loading, emptyMessage, selectedKey }: DataTableProps<T>) {
   const { t } = useTranslation();
+  const rows = Array.isArray(data) ? data : [];
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -31,7 +33,7 @@ export function DataTable<T>({ columns, data, keyExtractor, onRowClick, loading,
     );
   }
 
-  if (!data || data.length === 0) {
+  if (rows.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500">{emptyMessage || t('common.noData')}</p>
@@ -52,7 +54,7 @@ export function DataTable<T>({ columns, data, keyExtractor, onRowClick, loading,
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {data.map((item) => {
+          {rows.map((item) => {
             const rowKey = keyExtractor(item);
             const isSelected = selectedKey === rowKey;
             return (

@@ -17,3 +17,5 @@ export * from './modal';
 export * from './toast';
 export * from './confirm-dialog';
 export * from './alert-banner';
+export * from './localized-value';
+export * from './literals';

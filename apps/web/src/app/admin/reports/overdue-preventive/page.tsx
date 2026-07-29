@@ -4,7 +4,7 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Input, Button, DataTable, Pagination } from '../../../../components/admin/ui';
+import { Input, Button, DataTable, Pagination, LocalizedValue } from '../../../../components/admin/ui';
 import { F9Lookup, machineAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../components/reports';
@@ -48,10 +48,10 @@ export default function OverduePreventiveReportPage() {
   const columns = [
     { key: 'title', header: t('common.name') },
     { key: 'machine', header: t('reports.machine'), render: (r: any) => r.machine?.name || '-' },
-    { key: 'type', header: t('reports.type'), render: (r: any) => <span className="capitalize">{r.type?.toLowerCase()}</span> },
+    { key: 'type', header: t('reports.type'), render: (r: any) => <LocalizedValue value={r.type} kind="maintenanceType" /> },
     { key: 'frequency', header: t('maintenance.frequency') },
     { key: 'endDate', header: t('reports.dateTo'), render: (r: any) => r.endDate ? new Date(r.endDate).toLocaleDateString() : '-' },
-    { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
+    { key: 'status', header: t('reports.status'), render: (r: any) => <LocalizedValue value={r.status} kind="status" /> },
   ];
 
   return (

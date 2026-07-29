@@ -4,7 +4,7 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, DataTable } from '../../../../components/admin/ui';
+import { Card, CardContent, CardHeader, DataTable, LocalizedValue } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards } from '../../../../components/reports';
 
@@ -47,7 +47,7 @@ export default function InventoryOverviewReportPage() {
   const recentColumns = (type: string) => [
     { key: type === 'count' ? 'countNumber' : type === 'movement' ? 'movementNumber' : 'adjustmentNumber', header: t('common.code') },
     { key: 'warehouse', header: t('reports.warehouse'), render: (r: any) => r.warehouse?.name || '-' },
-    { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
+    { key: 'status', header: t('reports.status'), render: (r: any) => <LocalizedValue value={r.status} kind="status" /> },
     { key: 'createdAt', header: t('common.createdAt'), render: (r: any) => new Date(r.createdAt).toLocaleDateString() },
   ];
 
