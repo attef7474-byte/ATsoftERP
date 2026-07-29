@@ -184,6 +184,7 @@ export class MaintenanceSlaService {
     ]);
 
     return {
+      total: totalOnTrack + totalOverdue,
       onTrack: totalOnTrack,
       overdue: totalOverdue,
       escalated: totalEscalated,

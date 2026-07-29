@@ -7,7 +7,7 @@ import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon } from '.
 
 interface SlaOverview {
   total: number; onTrack: number; overdue: number; escalated: number;
-  onTimePercent?: number; avgResponseTime?: number;
+  critical?: number;
 }
 
 export default function SlaPage() {
@@ -15,7 +15,6 @@ export default function SlaPage() {
   const [data, setData] = useState<SlaOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [apiAvailable, setApiAvailable] = useState(true);
 
   const { exec } = useStableHandlers({ refresh: () => fetchData() });
 
@@ -24,21 +23,15 @@ export default function SlaPage() {
   ]);
 
   const fetchData = useCallback(async () => {
-    if (!apiAvailable) return;
     setLoading(true); setError('');
     try {
       const res = await api.get<SlaOverview>('/maintenance/sla/stats/overview');
       setData(res);
     } catch (err: any) {
-      if (err?.response?.status === 404) {
-        setApiAvailable(false);
-        setData({ total: 0, onTrack: 0, overdue: 0, escalated: 0 });
-      } else {
-        setError(err?.message || t('errors.loadFailed'));
-      }
+      setError(err?.message || t('errors.loadFailed'));
     }
     finally { setLoading(false); }
-  }, [t, apiAvailable]);
+  }, [t]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -48,13 +41,6 @@ export default function SlaPage() {
   return (
     <div>
       <PageHeader title={t('maintenance.sla')} />
-      {!apiAvailable && (
-        <div className="p-4">
-          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 text-sm">
-            SLA endpoint unavailable — showing default values
-          </div>
-        </div>
-      )}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
         <Card className="p-6 text-center">
           <div className="text-3xl font-bold">{data?.total ?? 0}</div>
@@ -73,14 +59,14 @@ export default function SlaPage() {
           <div className="text-sm text-gray-500 mt-1">{t('maintenance.escalated')}</div>
         </Card>
       </div>
-      {data?.onTimePercent !== undefined && (
+      {data && data.total > 0 && (
         <div className="p-4">
           <Card className="p-6">
             <div className="text-lg font-semibold mb-2">{t('maintenance.slaCompliance')}</div>
             <div className="flex items-center gap-4">
-              <div className="text-4xl font-bold text-blue-600">{data.onTimePercent}%</div>
+              <div className="text-4xl font-bold text-blue-600">{Math.round((data.onTrack / data.total) * 100)}%</div>
               <div className="flex-1 bg-gray-200 rounded-full h-4">
-                <div className="bg-blue-600 h-4 rounded-full" style={{ width: `${data.onTimePercent}%` }} />
+                <div className="bg-blue-600 h-4 rounded-full" style={{ width: `${(data.onTrack / data.total) * 100}%` }} />
               </div>
             </div>
           </Card>
