@@ -1,5 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { api } from '../../../lib/api';
+import { useOperationalContext } from '../../../lib/auth-context';
 
 interface UnreadCountResult {
   count: number;
@@ -8,21 +10,20 @@ interface UnreadCountResult {
 export function useNotificationsPolling() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const { contextReady, contextVersion } = useOperationalContext();
 
   const fetchUnread = useCallback(async () => {
+    if (!contextReady) return;
     setLoading(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-      const token = localStorage.getItem('accessToken');
-      const res = await fetch(`${baseUrl}/notifications/unread-count`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json();
+      const json = await api.get<{ data?: UnreadCountResult; count?: number }>(
+        '/notifications/unread-count',
+      );
       setUnreadCount(json?.data?.count ?? json?.count ?? 0);
     } catch { /* ignore */ } finally {
       setLoading(false);
     }
-  }, []);
+  }, [contextReady, contextVersion]);
 
   useEffect(() => {
     fetchUnread();

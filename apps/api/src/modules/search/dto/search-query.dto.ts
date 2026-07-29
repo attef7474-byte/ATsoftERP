@@ -5,6 +5,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 export enum EntityType {
   COMPANY = 'company',
   BRANCH = 'branch',
+  ADMINISTRATION = 'administration',
   DEPARTMENT = 'department',
   WAREHOUSE = 'warehouse',
   WAREHOUSE_LOCATION = 'warehouseLocation',
@@ -14,9 +15,82 @@ export enum EntityType {
   ROLE = 'role',
   MAINTENANCE_REQUEST = 'maintenanceRequest',
   INVENTORY_COUNT = 'inventoryCount',
+  PRODUCTION_LINE = 'productionLine',
+  COST_CENTER = 'costCenter',
+  OPERATION_TYPE = 'operationType',
+  MACHINE_COMPONENT = 'machineComponent',
+  COMPONENT = 'component',
+  SPARE_PART = 'sparePart',
 }
 
-export class UnifiedSearchQueryDto {
+export const SEARCHABLE_ENTITY_TYPES: EntityType[] = [
+  EntityType.COMPANY,
+  EntityType.BRANCH,
+  EntityType.ADMINISTRATION,
+  EntityType.DEPARTMENT,
+  EntityType.WAREHOUSE,
+  EntityType.WAREHOUSE_LOCATION,
+  EntityType.PRODUCT,
+  EntityType.MACHINE,
+  EntityType.USER,
+  EntityType.ROLE,
+  EntityType.MAINTENANCE_REQUEST,
+  EntityType.INVENTORY_COUNT,
+  EntityType.PRODUCTION_LINE,
+  EntityType.COST_CENTER,
+  EntityType.OPERATION_TYPE,
+  EntityType.MACHINE_COMPONENT,
+  EntityType.SPARE_PART,
+];
+
+export class SearchEntityFilters {
+  @ApiPropertyOptional({ description: 'Narrow results to an administration inside the active context' })
+  @IsString()
+  @IsOptional()
+  administrationId?: string;
+
+  @ApiPropertyOptional({ description: 'Narrow results to a department inside the active context' })
+  @IsString()
+  @IsOptional()
+  departmentId?: string;
+
+  @ApiPropertyOptional({ description: 'Narrow locations/products/spare parts to a warehouse inside the active context' })
+  @IsString()
+  @IsOptional()
+  warehouseId?: string;
+
+  @ApiPropertyOptional({ description: 'Narrow maintenance results to a machine inside the active context' })
+  @IsString()
+  @IsOptional()
+  machineId?: string;
+
+  @ApiPropertyOptional({ description: 'Narrow maintenance results to a machine component' })
+  @IsString()
+  @IsOptional()
+  machineComponentId?: string;
+
+  @ApiPropertyOptional({ description: 'Alias for machineComponentId' })
+  @IsString()
+  @IsOptional()
+  componentId?: string;
+
+  @ApiPropertyOptional({ description: 'Narrow maintenance results to a production line' })
+  @IsString()
+  @IsOptional()
+  productionLineId?: string;
+
+  @ApiPropertyOptional({ description: 'Narrow maintenance results to an operation type' })
+  @IsString()
+  @IsOptional()
+  operationTypeId?: string;
+
+  @ApiPropertyOptional({ description: 'Narrow maintenance results to a cost center' })
+  @IsString()
+  @IsOptional()
+  costCenterId?: string;
+}
+
+export class UnifiedSearchQueryDto extends SearchEntityFilters {
   @ApiPropertyOptional({ description: 'Search query' })
   @IsString()
   @IsOptional()
@@ -43,7 +117,7 @@ export class UnifiedSearchQueryDto {
   limit?: number = 20;
 }
 
-export class EntitySearchQueryDto {
+export class EntitySearchQueryDto extends SearchEntityFilters {
   @ApiPropertyOptional({ description: 'Search query' })
   @IsString()
   @IsOptional()
@@ -65,7 +139,7 @@ export class EntitySearchQueryDto {
   limit?: number = 20;
 }
 
-export class LookupRequestDto {
+export class LookupRequestDto extends SearchEntityFilters {
   @ApiPropertyOptional({ description: 'Entity type to look up' })
   @IsEnum(EntityType)
   @IsOptional()

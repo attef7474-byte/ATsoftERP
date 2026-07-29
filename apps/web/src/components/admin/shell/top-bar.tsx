@@ -5,6 +5,7 @@ import { useTranslation } from '../../../lib/i18n/use-translation';
 import { F9ShortcutButton } from './f9-shortcut';
 import { NotificationButton } from './notification-button';
 import { UserMenu } from './user-menu';
+import { ContextSwitcher } from '../operational-context';
 
 interface TopBarProps {
   profile: UserProfile | null;
@@ -36,6 +37,9 @@ export function TopBar({
         <span className="text-base font-bold text-gray-800 whitespace-nowrap">
           {t('common.appName')}
         </span>
+      </div>
+      <div className="mx-2 flex min-w-0 flex-1 justify-center">
+        <ContextSwitcher />
       </div>
       <div className="flex items-center gap-3">
         <F9ShortcutButton onOpen={onOpenSearch} />

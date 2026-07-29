@@ -130,7 +130,7 @@ export function AdjustmentLinesPanel({
       <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)} title={t('inventory.addAdjustmentLine')} size="md">
         <div className="space-y-4">
           <F9Lookup label={t('inventory.product')} value={addForm.productId} onChange={(v) => setAddForm({ ...addForm, productId: v })} adapter={productAdapter} />
-          <F9Lookup label={t('inventory.location')} value={addForm.warehouseLocationId} onChange={(v) => setAddForm({ ...addForm, warehouseLocationId: v })} adapter={warehouseLocationAdapter} filters={warehouseId ? { warehouseId } : undefined} />
+          <F9Lookup label={t('inventory.location')} value={addForm.warehouseLocationId} onChange={(v) => setAddForm({ ...addForm, warehouseLocationId: v })} adapter={warehouseLocationAdapter} filters={warehouseId ? { warehouseId } : undefined} disabled={!warehouseId} />
           <div className="grid grid-cols-2 gap-4">
             <Input label={t('inventory.systemQty')} value={addForm.systemQty} readOnly disabled />
             <Input label={t('inventory.countedQty')} type="number" value={addForm.countedQty} onChange={(e) => setAddForm({ ...addForm, countedQty: Number(e.target.value) })} />

@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../lib/api';
+import { useOperationalContext } from '../../../../lib/auth-context';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Input, Select, Textarea, Card, Pagination, PageHeader, LoadingState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
@@ -45,6 +46,7 @@ interface OperationalReceipt {
 export default function OperationalReceiptsPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { activeContext } = useOperationalContext();
   const [data, setData] = useState<OperationalReceipt[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -80,7 +82,16 @@ export default function OperationalReceiptsPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ companyId: '', branchId: '', warehouseId: '', locationId: '', reason: '', notes: '', supplierName: '', supplierDoc: '' });
+    setForm({
+      companyId: activeContext?.companyId || '',
+      branchId: activeContext?.branchId || '',
+      warehouseId: '',
+      locationId: '',
+      reason: '',
+      notes: '',
+      supplierName: '',
+      supplierDoc: '',
+    });
     setLines([]);
     setModalOpen(true);
   };
@@ -236,13 +247,13 @@ export default function OperationalReceiptsPage() {
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.editOperationalReceipt') : t('inventory.newOperationalReceipt')} size="lg">
         <div className="space-y-4 max-h-96 overflow-y-auto">
-          <div className="grid grid-cols-3 gap-4">
-            <F9Lookup label={t('inventoryCounting.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
-            <F9Lookup label={t('inventoryCounting.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label={t('inventoryCounting.company')} value={activeContext?.companyName || ''} disabled />
+            <Input label={t('inventoryCounting.branch')} value={activeContext?.branchName || ''} disabled />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <F9Lookup label={t('inventory.warehouse')} value={form.warehouseId} onChange={(v) => setForm({ ...form, warehouseId: v })} adapter={warehouseAdapter} />
-            <F9Lookup label={t('inventory.locations.name')} value={form.locationId} onChange={(v) => setForm({ ...form, locationId: v })} adapter={warehouseLocationAdapter} />
+            <F9Lookup label={t('inventory.warehouse')} value={form.warehouseId} onChange={(v) => setForm({ ...form, warehouseId: v, locationId: '' })} adapter={warehouseAdapter} />
+            <F9Lookup label={t('inventory.locations.name')} value={form.locationId} onChange={(v) => setForm({ ...form, locationId: v })} adapter={warehouseLocationAdapter} filters={{ warehouseId: form.warehouseId }} disabled={!form.warehouseId} />
           </div>
           <Textarea label={t('inventoryCounting.reason')} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} required />
           <Textarea label={t('inventoryCounting.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />

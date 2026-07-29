@@ -16,8 +16,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any): Promise<CurrentUserType> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
+    const userId = payload?.sub || payload?.id;
+    if (!userId) {
+      throw new UnauthorizedException({ messageKey: 'auth.tokenInvalid', message: 'Invalid or expired token' });
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
       select: { id: true, email: true, name: true, companyId: true, branchId: true, departmentId: true, status: true },
     });
     if (!user || user.status !== 'ACTIVE') {
@@ -25,6 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
     return {
       id: user.id,
+      sub: user.id,
       email: user.email,
       name: user.name,
       companyId: user.companyId,

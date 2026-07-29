@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { logout, getProfile, type UserProfile } from '../../../lib/auth';
+import { usePathname } from 'next/navigation';
+import { useAuth } from '../../../lib/auth-context';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { AdminActionBarProvider, useAdminActionBar } from '../admin-action-bar';
 import { UnifiedSearchModal } from '../../f9/UnifiedSearchModal';
@@ -14,13 +14,12 @@ import { TopBar } from './top-bar';
 
 function AdminShellInner({ children }: { children: React.ReactNode }) {
   const { t, locale, setLocale } = useTranslation();
+  const { user: profile, logout } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
   const { visible: actionBarVisible, actions } = useAdminActionBar();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
-  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [clock, setClock] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const isRtl = locale === 'ar';
@@ -40,12 +39,6 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    getProfile().then((nextProfile) => {
-      if (nextProfile) setProfile(nextProfile);
-    });
-  }, []);
-
-  useEffect(() => {
     const tick = () => setClock(new Date().toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US'));
     tick();
     const timerId = setInterval(tick, 30000);
@@ -54,7 +47,6 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
   };
 
   const toggleLanguage = () => {

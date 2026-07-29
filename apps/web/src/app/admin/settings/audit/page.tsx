@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
-import { api } from '../../../../lib/api';
+import { api, getApiBaseUrl, getApiRequestHeaders } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Input, Select, Card, CardContent, Pagination, PageHeader, LoadingState, Modal } from '../../../../components/admin/ui';
@@ -81,9 +81,10 @@ export default function AuditLogPage() {
       if (dateFrom) params.set('dateFrom', dateFrom);
       if (dateTo) params.set('dateTo', dateTo);
       const qs = params.toString();
-      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/audit-logs/export/csv${qs ? '?' + qs : ''}`;
-      const token = localStorage.getItem('accessToken');
-      const res = await fetch(url, { headers: { Authorization: token ? `Bearer ${token}` : '' } });
+      const url = `${getApiBaseUrl()}/audit-logs/export/csv${qs ? '?' + qs : ''}`;
+      const res = await fetch(url, {
+        headers: getApiRequestHeaders({ includeJsonContentType: false }),
+      });
       if (!res.ok) throw new Error('Export failed');
       const blob = await res.blob();
       const downloadUrl = window.URL.createObjectURL(blob);

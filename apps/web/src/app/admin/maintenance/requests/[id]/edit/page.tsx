@@ -7,7 +7,7 @@ import { useToast } from '../../../../../../components/admin/toast-provider';
 import { Button, Input, Select, Textarea, Card, CardContent, LoadingState, ErrorState, StatusBadge } from '../../../../../../components/admin/ui';
 import { F9Lookup, machineAdapter, userAdapter, productionLineAdapter, machineComponentAdapter, operationTypeAdapter, costCenterAdapter, sparePartAdapter } from '../../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon, ActionViewIcon } from '../../../../../../components/admin/admin-action-bar';
-import type { MaintenanceRequest, Machine } from '../../../../../../lib/admin-types';
+import type { MaintenanceRequest, Machine, SparePart } from '../../../../../../lib/admin-types';
 
 const REQUEST_TYPES = [
   { value: 'CORRECTIVE', label: 'Corrective' },
@@ -177,16 +177,46 @@ export default function EditMaintenanceRequestPage() {
             <Textarea label={t('maintenance.description')} value={form.description} onChange={(e) => setField('description', e.target.value)} disabled={isReadOnly} />
 
             <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.machine')}</h2>
-            <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setField('machineId', v)} onItemSelect={(machine: Machine) => { if (!isReadOnly) { setForm(prev => ({ ...prev, machineId: machine.id, productionLineId: machine.productionLineId || prev.productionLineId, costCenterId: machine.defaultCostCenterId || prev.costCenterId })); setDirty(true); } }} adapter={machineAdapter} error={errors.machineId} />
+            <F9Lookup
+              label={t('maintenance.machine')}
+              value={form.machineId}
+              onChange={(value) => {
+                if (isReadOnly) return;
+                setForm((previous) => ({
+                  ...previous,
+                  machineId: value,
+                  productionLineId: '',
+                  machineComponentId: '',
+                  operationTypeId: '',
+                  costCenterId: '',
+                }));
+                setDirty(true);
+              }}
+              onItemSelect={(machine: Machine) => {
+                if (isReadOnly) return;
+                setForm((previous) => ({
+                  ...previous,
+                  machineId: machine.id,
+                  productionLineId: machine.productionLineId || '',
+                  machineComponentId: '',
+                  operationTypeId: machine.operationTypeId || '',
+                  costCenterId: machine.defaultCostCenterId || '',
+                }));
+                setDirty(true);
+              }}
+              adapter={machineAdapter}
+              error={errors.machineId}
+              disabled={isReadOnly}
+            />
 
             <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.operationalContext')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <F9Lookup label={t('maintenance.productionLine')} value={form.productionLineId} onChange={(v) => setField('productionLineId', v)} adapter={productionLineAdapter} />
-              <F9Lookup label={t('maintenance.machineComponent')} value={form.machineComponentId} onChange={(v) => setField('machineComponentId', v)} adapter={machineComponentAdapter} />
+              <F9Lookup label={t('maintenance.productionLine')} value={form.productionLineId} onChange={(v) => setField('productionLineId', v)} adapter={productionLineAdapter} disabled={isReadOnly || Boolean(form.machineId)} />
+              <F9Lookup label={t('maintenance.machineComponent')} value={form.machineComponentId} onChange={(v) => setField('machineComponentId', v)} adapter={machineComponentAdapter} filters={{ machineId: form.machineId }} disabled={isReadOnly || !form.machineId} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <F9Lookup label={t('maintenance.operationType')} value={form.operationTypeId} onChange={(v) => setField('operationTypeId', v)} adapter={operationTypeAdapter} />
-              <F9Lookup label={t('maintenance.costCenter')} value={form.costCenterId} onChange={(v) => setField('costCenterId', v)} adapter={costCenterAdapter} />
+              <F9Lookup label={t('maintenance.operationType')} value={form.operationTypeId} onChange={(v) => setField('operationTypeId', v)} adapter={operationTypeAdapter} disabled={isReadOnly || Boolean(form.machineId)} />
+              <F9Lookup label={t('maintenance.costCenter')} value={form.costCenterId} onChange={(v) => setField('costCenterId', v)} adapter={costCenterAdapter} disabled={isReadOnly || Boolean(form.machineId)} />
             </div>
 
             <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.requiredSpareParts')}</h2>
@@ -199,11 +229,27 @@ export default function EditMaintenanceRequestPage() {
                       <Button variant="danger" size="sm" onClick={() => removeRequiredPart(index)}>{t('actions.remove')}</Button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <F9Lookup label={t('maintenance.selectSparePart')} value={part.sparePartId} onChange={(v) => updateRequiredPart(index, 'sparePartId', v)} adapter={sparePartAdapter} />
+                      <F9Lookup
+                        label={t('maintenance.selectSparePart')}
+                        value={part.sparePartId}
+                        onChange={(value) => updateRequiredPart(index, 'sparePartId', value)}
+                        onItemSelect={(sparePart: SparePart) => {
+                          if (isReadOnly) return;
+                          setRequiredParts((previous) => previous.map((entry, entryIndex) => (
+                            entryIndex === index
+                              ? { ...entry, sparePartId: sparePart.id, unit: sparePart.unit || '' }
+                              : entry
+                          )));
+                          setDirty(true);
+                        }}
+                        adapter={sparePartAdapter}
+                        filters={{ machineId: form.machineId, componentId: form.machineComponentId }}
+                        disabled={isReadOnly}
+                      />
                       <Input label={t('maintenance.partRequiredQuantity')} type="number" min="1" value={part.quantity} onChange={(e) => updateRequiredPart(index, 'quantity', e.target.value)} disabled={isReadOnly} />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Input label={t('maintenance.unit')} value={part.unit} onChange={(e) => updateRequiredPart(index, 'unit', e.target.value)} disabled={isReadOnly} />
+                      <Input label={t('maintenance.unit')} value={part.unit} onChange={(e) => updateRequiredPart(index, 'unit', e.target.value)} disabled />
                       <div className="flex items-center gap-2 pt-6">
                         <input type="checkbox" id={`isPrimary-${index}`} checked={part.isPrimary} onChange={(e) => updateRequiredPart(index, 'isPrimary', e.target.checked)} disabled={isReadOnly} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                         <label htmlFor={`isPrimary-${index}`} className="text-sm text-gray-700">{t('maintenance.isPrimary') || 'Primary'}</label>

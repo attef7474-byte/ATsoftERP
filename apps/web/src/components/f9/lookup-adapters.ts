@@ -3,6 +3,7 @@ import type { Company, Branch, Administration, Department, Warehouse, ProductCat
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
+  contextField: 'companyId',
   displayLabel: (c) => `[${c.code}] ${c.name}`,
   searchFields: ['code', 'name'],
   columns: [
@@ -14,6 +15,7 @@ export const companyAdapter: LookupAdapter<Company> = {
 
 export const branchAdapter: LookupAdapter<Branch> = {
   endpoint: '/branches',
+  contextField: 'branchId',
   displayLabel: (b) => `[${b.code}] ${b.name}`,
   searchFields: ['code', 'name'],
   columns: [
@@ -26,6 +28,7 @@ export const branchAdapter: LookupAdapter<Branch> = {
 
 export const departmentAdapter: LookupAdapter<Department> = {
   endpoint: '/departments',
+  contextField: 'departmentId',
   displayLabel: (d) => `[${d.code}] ${d.name}`,
   searchFields: ['code', 'name'],
   columns: [
@@ -192,7 +195,7 @@ export const inventoryAdjustmentAdapter: LookupAdapter<InventoryAdjustment> = {
 };
 
 export const warehouseLocationAdapter: LookupAdapter<WarehouseLocation> = {
-  endpoint: '/inventory/warehouses',
+  endpoint: '/inventory/locations',
   displayLabel: (l) => `[${l.code}] ${l.name}`,
   searchFields: ['code', 'name'],
   columns: [
@@ -279,6 +282,7 @@ export const machinePartAdapter: LookupAdapter<MachinePart> = {
 
 export const administrationAdapter: LookupAdapter<Administration> = {
   endpoint: '/administrations',
+  contextField: 'administrationId',
   displayLabel: (a) => `[${a.code}] ${a.name}`,
   searchFields: ['code', 'name'],
   columns: [

@@ -158,6 +158,7 @@ export function MovementLinesPanel({ lines, onAddLine, onRemoveLine, onUpdateLin
                 onChange={(v) => handleFieldChange('warehouseLocationId', v)}
                 adapter={warehouseLocationAdapter}
                 filters={locationsFilters}
+                disabled={!warehouseId}
               />
               <Input
                 label={t('common.quantity')}

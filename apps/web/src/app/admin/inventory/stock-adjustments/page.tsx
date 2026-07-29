@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../lib/api';
+import { useOperationalContext } from '../../../../lib/auth-context';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Input, Select, Textarea, Card, Pagination, PageHeader, LoadingState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
@@ -43,6 +44,7 @@ interface StockAdjustment {
 export default function StockAdjustmentsPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { activeContext } = useOperationalContext();
   const [data, setData] = useState<StockAdjustment[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -78,7 +80,14 @@ export default function StockAdjustmentsPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ companyId: '', branchId: '', warehouseId: '', locationId: '', reason: '', notes: '' });
+    setForm({
+      companyId: activeContext?.companyId || '',
+      branchId: activeContext?.branchId || '',
+      warehouseId: '',
+      locationId: '',
+      reason: '',
+      notes: '',
+    });
     setLines([]);
     setModalOpen(true);
   };
@@ -208,9 +217,18 @@ export default function StockAdjustmentsPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.editStockAdjustment') : t('inventory.newStockAdjustment')} size="lg">
         <div className="space-y-4 max-h-96 overflow-y-auto">
           <div className="grid grid-cols-3 gap-4">
-            <F9Lookup label={t('inventoryCounting.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
-            <F9Lookup label={t('inventoryCounting.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} />
-            <F9Lookup label={t('inventoryCounting.warehouse')} value={form.warehouseId} onChange={(v) => setForm({ ...form, warehouseId: v })} adapter={warehouseAdapter} />
+            <Input label={t('inventoryCounting.company')} value={activeContext?.companyName || ''} disabled />
+            <Input label={t('inventoryCounting.branch')} value={activeContext?.branchName || ''} disabled />
+            <F9Lookup
+              label={t('inventoryCounting.warehouse')}
+              value={form.warehouseId}
+              onChange={(v) => {
+                setForm({ ...form, warehouseId: v, locationId: '' });
+                setLines([]);
+                setLineForm((previous) => ({ ...previous, locationId: '' }));
+              }}
+              adapter={warehouseAdapter}
+            />
           </div>
           <Textarea label={t('inventoryCounting.reason')} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} required />
           <Textarea label={t('inventoryCounting.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
@@ -227,6 +245,14 @@ export default function StockAdjustmentsPage() {
                     { value: 'ADJUSTMENT_IN', label: t('inventory.adjustmentIncrease') }, { value: 'ADJUSTMENT_OUT', label: t('inventory.adjustmentDecrease') },
                   ]} />
                 </div>
+                <F9Lookup
+                  label={t('inventory.location')}
+                  value={lineForm.locationId}
+                  onChange={(v) => setLineForm({ ...lineForm, locationId: v })}
+                  adapter={warehouseLocationAdapter}
+                  filters={{ warehouseId: form.warehouseId }}
+                  disabled={!form.warehouseId}
+                />
                 <Input label={t('inventoryCounting.quantity')} type="number" value={String(lineForm.quantity)} onChange={(e) => setLineForm({ ...lineForm, quantity: Number(e.target.value) })} />
                 <Textarea label={t('inventoryCounting.notes')} value={lineForm.notes} onChange={(e) => setLineForm({ ...lineForm, notes: e.target.value })} />
                 <Button onClick={handleAddLine}>{t('common.add')}</Button>

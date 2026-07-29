@@ -1092,6 +1092,29 @@ cd apps/web && npm run build        # typecheck included
 
 ## 👤 Current User Context
 
+### ✅ Global Operational Context + Smart Form Defaults + Full Forms Coverage Matrix (COMPLETED — commit `pending`)
+Global operational context system: backend UserOperationalScope model + OperationalContextModule (10 files), frontend context provider (auth-context.tsx + operational-context.ts), 6 context UI components, F9 binding, search filtering, API header injection, smart defaults on 7 inventory + maintenance pages, i18n 13 frontend + 9 API keys, 18 proof docs.
+
+**Tags:**
+- `atsoft-erp-global-operational-context-smart-defaults`
+- `atsoft-erp-current-release-final-audited-v7-operational-context`
+- `atsoft-erp-operational-context-browser-proof`
+
+**Key outcomes:**
+- Schema: `UserOperationalScope` model (28 cols) added via additive migration → 91 tables / 1307 columns
+- Backend: `OperationalContextModule` — 10 files: types, service, validator, interceptor, resolver, decorators, helpers
+- Auth: 2 new endpoints (`/auth/contexts` returns 5 contexts with default, `/auth/context/validate`)
+- Search: 734-line context-aware filtering for all entity types
+- Frontend: auth-context.tsx (376 lines) + operational-context.ts (253 lines) + 6 new UI components
+- Smart defaults: 5 inventory + 2 maintenance pages auto-fill company/branch/machine fields
+- F9: context binding, auto-clear on context change, context-aware refresh
+- API i18n: 9 new localized messages (EN + AR)
+- Frontend i18n: 13 new keys (EN + AR)
+- Build: API build PASS, Web build PASS (166 pages), Prisma validate/generate PASS
+- Runtime: API server verified — health 200, login 200, auth/contexts 200 (5 contexts)
+- Forbidden modules: zero activation
+- Proof: 18 documents in `docs/proofs/global-operational-context-smart-form-defaults/`
+
 ### ✅ SLA Final Closure Patch (COMPLETED — commit `cc2bf68`)
 SLA limitation closed — stale server 404 resolved, frontend fallback code removed, API verified working.
 
@@ -1119,5 +1142,5 @@ SLA limitation closed — stale server 404 resolved, frontend fallback code remo
 language: Arabic (primary)
 working_dir: C:\Users\attef\PycharmProjects\Trae\ATsofterp
 external_copy: C:\Users\attef\PycharmProjects\Trae\maintenance-completion-discovery-pack\
-next_batch: FINAL — All 11 stages of maintenance completion plan + SLA closure completed. Release is RELEASE_READY_FULL_RUNTIME_VERIFIED. Next: user decision.
+next_batch: Operational context implementation complete. Runtime proof verified (health/login/contexts endpoints). Next: user decision on commit/tag/push.
 ```

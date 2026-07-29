@@ -97,6 +97,16 @@ const messages: Record<string, { ar: string; en: string }> = {
   'organization.branchNotFound': { ar: 'الفرع غير موجود', en: 'Branch not found' },
   'organization.companyNotAllowed': { ar: 'الشركة غير مسموح بها', en: 'Company not allowed' },
   'organization.branchNotAllowed': { ar: 'الفرع غير مسموح به', en: 'Branch not allowed' },
+
+  'operationalContext.headersRequired': { ar: 'يجب تحديد الشركة والفرع في سياق العمل النشط', en: 'Active company and branch context headers are required' },
+  'operationalContext.companyRequired': { ar: 'الشركة مطلوبة لسياق العمل', en: 'Company is required for the operational context' },
+  'operationalContext.branchRequired': { ar: 'الفرع مطلوب لسياق العمل', en: 'Branch is required for the operational context' },
+  'operationalContext.notAllowed': { ar: 'سياق العمل المحدد غير مسموح لهذا المستخدم', en: 'The selected operational context is not allowed for this user' },
+  'operationalContext.invalidRelationship': { ar: 'علاقة الشركة أو الفرع أو الإدارة أو القسم غير صالحة', en: 'The company, branch, administration, or department relationship is invalid' },
+  'operationalContext.companyMismatch': { ar: 'الشركة في الطلب لا تطابق سياق العمل النشط', en: 'The request company does not match the active operational context' },
+  'operationalContext.branchMismatch': { ar: 'الفرع في الطلب لا يطابق سياق العمل النشط', en: 'The request branch does not match the active operational context' },
+  'operationalContext.administrationMismatch': { ar: 'الإدارة في الطلب لا تطابق سياق العمل النشط', en: 'The request administration does not match the active operational context' },
+  'operationalContext.departmentMismatch': { ar: 'القسم في الطلب لا يطابق سياق العمل النشط', en: 'The request department does not match the active operational context' },
 };
 
 export function getApiMessage(key: string, locale: string, params?: Record<string, string>): string {

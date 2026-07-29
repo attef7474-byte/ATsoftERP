@@ -7,9 +7,11 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { jwtConstants } from './constants/auth.constants';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
+import { OperationalContextModule } from '../../common/operational-context/operational-context.module';
 
 @Module({
   imports: [
+    OperationalContextModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: jwtConstants.secret,

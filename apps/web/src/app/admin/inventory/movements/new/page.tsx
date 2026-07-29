@@ -1,18 +1,21 @@
 'use client';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '../../../../../lib/api';
+import { useOperationalContext } from '../../../../../lib/auth-context';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { Button, Input, Textarea, Select, Card, CardContent } from '../../../../../components/admin/ui';
-import { F9Lookup, companyAdapter, branchAdapter, warehouseAdapter, productAdapter, warehouseLocationAdapter } from '../../../../../components/f9';
+import { F9Lookup, warehouseAdapter, productAdapter, warehouseLocationAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
+import type { Product } from '../../../../../lib/admin-types';
 
 export default function CreateInventoryMovementPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { showToast } = useToast();
-  const [form, setForm] = useState({ companyId: '', branchId: '', warehouseId: '', movementType: 'OPENING', direction: 'IN', movementDate: new Date().toISOString().split('T')[0], notes: '' });
+  const { activeContext } = useOperationalContext();
+  const [form, setForm] = useState({ companyId: activeContext?.companyId || '', branchId: activeContext?.branchId || '', warehouseId: '', movementType: 'OPENING', direction: 'IN', movementDate: new Date().toISOString().split('T')[0], notes: '' });
   const [lines, setLines] = useState<any[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -20,6 +23,15 @@ export default function CreateInventoryMovementPage() {
 
   const [lineFormOpen, setLineFormOpen] = useState(false);
   const [lineForm, setLineForm] = useState({ productId: '', warehouseLocationId: '', quantity: 1, direction: 'IN', unit: '', notes: '' });
+
+  useEffect(() => {
+    if (!activeContext || dirty) return;
+    setForm((previous) => ({
+      ...previous,
+      companyId: activeContext.companyId,
+      branchId: activeContext.branchId || '',
+    }));
+  }, [activeContext, dirty]);
 
   const movementTypeOptions = [
     { value: 'OPENING', label: t('status.OPENING') },
@@ -40,7 +52,10 @@ export default function CreateInventoryMovementPage() {
 
   const setField = (field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
-    if (field === 'companyId') setForm(prev => ({ ...prev, branchId: '' }));
+    if (field === 'warehouseId') {
+      setLines([]);
+      setLineForm((previous) => ({ ...previous, warehouseLocationId: '' }));
+    }
     setDirty(true);
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
@@ -84,7 +99,7 @@ export default function CreateInventoryMovementPage() {
 
   const { exec } = useStableHandlers({
     back: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
-    refresh: () => { setForm({ companyId: '', branchId: '', warehouseId: '', movementType: 'OPENING', direction: 'IN', movementDate: new Date().toISOString().split('T')[0], notes: '' }); setLines([]); setErrors({}); setDirty(false); },
+    refresh: () => { setForm({ companyId: activeContext?.companyId || '', branchId: activeContext?.branchId || '', warehouseId: '', movementType: 'OPENING', direction: 'IN', movementDate: new Date().toISOString().split('T')[0], notes: '' }); setLines([]); setErrors({}); setDirty(false); },
     save: () => handleSave(),
     cancel: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
   });
@@ -103,8 +118,8 @@ export default function CreateInventoryMovementPage() {
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-gray-900">{t('complexForms.basicInformation')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setField('companyId', v)} adapter={companyAdapter} error={errors.companyId} />
-              <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setField('branchId', v)} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} error={errors.branchId} />
+              <Input label={t('core.company')} value={activeContext?.companyName || ''} disabled error={errors.companyId} />
+              <Input label={t('core.branch')} value={activeContext?.branchName || ''} disabled error={errors.branchId} />
               <F9Lookup label={t('inventory.warehouse')} value={form.warehouseId} onChange={(v) => setField('warehouseId', v)} adapter={warehouseAdapter} error={errors.warehouseId} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -123,13 +138,19 @@ export default function CreateInventoryMovementPage() {
               {lineFormOpen && (
                 <div className="border rounded p-3 mb-3 space-y-3 bg-gray-50">
                   <div className="grid grid-cols-2 gap-3">
-                    <F9Lookup label={t('inventoryCounting.product')} value={lineForm.productId} onChange={(v) => setLineForm({ ...lineForm, productId: v })} adapter={productAdapter} />
-                    <F9Lookup label={t('inventoryCounting.warehouseLocation')} value={lineForm.warehouseLocationId} onChange={(v) => setLineForm({ ...lineForm, warehouseLocationId: v })} adapter={warehouseLocationAdapter} />
+                    <F9Lookup
+                      label={t('inventoryCounting.product')}
+                      value={lineForm.productId}
+                      onChange={(v) => setLineForm({ ...lineForm, productId: v, unit: '' })}
+                      onItemSelect={(product: Product) => setLineForm((previous) => ({ ...previous, productId: product.id, unit: product.unit || '' }))}
+                      adapter={productAdapter}
+                    />
+                    <F9Lookup label={t('inventoryCounting.warehouseLocation')} value={lineForm.warehouseLocationId} onChange={(v) => setLineForm({ ...lineForm, warehouseLocationId: v })} adapter={warehouseLocationAdapter} filters={{ warehouseId: form.warehouseId }} disabled={!form.warehouseId} />
                   </div>
                   <div className="grid grid-cols-4 gap-3">
                     <Input label={t('inventoryCounting.quantity')} type="number" value={String(lineForm.quantity)} onChange={(e) => setLineForm({ ...lineForm, quantity: Number(e.target.value) })} />
                     <Select label={t('inventoryCounting.direction')} value={lineForm.direction} onChange={(e) => setLineForm({ ...lineForm, direction: e.target.value })} options={directionOptions} />
-                    <Input label={t('inventoryCounting.unit')} value={lineForm.unit} onChange={(e) => setLineForm({ ...lineForm, unit: e.target.value })} />
+                    <Input label={t('inventoryCounting.unit')} value={lineForm.unit} onChange={(e) => setLineForm({ ...lineForm, unit: e.target.value })} disabled />
                     <div className="flex items-end">
                       <Button onClick={handleAddLine}>{t('actions.add')}</Button>
                     </div>

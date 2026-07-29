@@ -9,4 +9,5 @@ export interface LookupAdapter<T extends Record<string, any>> {
   displayLabel: (item: T) => string;
   searchFields: string[];
   columns: F9Column<T>[];
+  contextField?: 'companyId' | 'branchId' | 'administrationId' | 'departmentId';
 }

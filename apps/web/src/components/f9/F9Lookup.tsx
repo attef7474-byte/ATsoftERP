@@ -1,6 +1,8 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { api } from '../../lib/api';
+import { useOperationalContext } from '../../lib/auth-context';
 import { useTranslation } from '../../lib/i18n/use-translation';
 import { F9LookupModal } from './F9LookupModal';
 import type { LookupAdapter } from './types';
@@ -15,13 +17,61 @@ interface F9LookupProps<T extends Record<string, any>> {
   placeholder?: string;
   error?: string;
   disabled?: boolean;
+  clearOnContextChange?: boolean;
+  clearOnFilterChange?: boolean;
+  bindToActiveContext?: boolean;
 }
 
-export function F9Lookup<T extends Record<string, any>>({ label, value, onChange, onItemSelect, adapter, filters, placeholder, error, disabled }: F9LookupProps<T>) {
+export function F9Lookup<T extends Record<string, any>>({
+  label,
+  value,
+  onChange,
+  onItemSelect,
+  adapter,
+  filters,
+  placeholder,
+  error,
+  disabled,
+  clearOnContextChange = true,
+  clearOnFilterChange = true,
+  bindToActiveContext = true,
+}: F9LookupProps<T>) {
   const { t } = useTranslation();
+  const { activeContext, contextVersion } = useOperationalContext();
+  const pathname = usePathname();
   const [modalOpen, setModalOpen] = useState(false);
   const [displayText, setDisplayText] = useState('');
   const [dataCache, setDataCache] = useState<Map<string, T>>(new Map());
+  const contextKey = [
+    activeContext?.companyId,
+    activeContext?.branchId,
+    activeContext?.administrationId,
+    activeContext?.departmentId,
+  ].filter(Boolean).join(':');
+  const filterKey = useMemo(
+    () => JSON.stringify(Object.entries(filters ?? {}).sort(([left], [right]) => left.localeCompare(right))),
+    [filters],
+  );
+  const previousContextKeyRef = useRef<string | undefined>(undefined);
+  const previousFilterKeyRef = useRef<string | undefined>(undefined);
+  const operationalRoute = /^\/admin\/(inventory|maintenance|barcodes|reports)(\/|$)/.test(pathname || '');
+  const contextBinding = useMemo(() => {
+    if (!operationalRoute || !bindToActiveContext || !adapter.contextField || !activeContext) return null;
+    const id = activeContext[adapter.contextField];
+    if (!id) return null;
+
+    const nameField = adapter.contextField.replace(/Id$/, 'Name') as
+      'companyName' | 'branchName' | 'administrationName' | 'departmentName';
+    const codeField = adapter.contextField.replace(/Id$/, 'Code') as
+      'companyCode' | 'branchCode' | 'administrationCode' | 'departmentCode';
+    return {
+      id,
+      label: activeContext[codeField]
+        ? `[${activeContext[codeField]}] ${activeContext[nameField] || ''}`.trim()
+        : activeContext[nameField] || id,
+    };
+  }, [activeContext, adapter.contextField, bindToActiveContext, operationalRoute]);
+  const effectiveDisabled = Boolean(disabled || contextBinding);
 
   const fetchItem = useCallback(async (id: string) => {
     if (dataCache.has(id)) {
@@ -41,15 +91,44 @@ export function F9Lookup<T extends Record<string, any>>({ label, value, onChange
   }, [adapter, dataCache]);
 
   useEffect(() => {
+    if (contextBinding) {
+      setDisplayText(contextBinding.label);
+      if (value !== contextBinding.id) onChange(contextBinding.id);
+      return;
+    }
     if (value) {
       fetchItem(value);
     } else {
       setDisplayText('');
     }
-  }, [value, fetchItem]);
+  }, [contextBinding, value, fetchItem, onChange]);
+
+  useEffect(() => {
+    const previous = previousContextKeyRef.current;
+    previousContextKeyRef.current = contextKey;
+    setDataCache(new Map());
+
+    if (contextBinding && previous && previous !== contextKey) {
+      setDisplayText(contextBinding.label);
+      onChange(contextBinding.id);
+    } else if (clearOnContextChange && previous && previous !== contextKey && value) {
+      setDisplayText('');
+      onChange('');
+    }
+  }, [clearOnContextChange, contextBinding, contextKey, contextVersion, onChange, value]);
+
+  useEffect(() => {
+    const previous = previousFilterKeyRef.current;
+    previousFilterKeyRef.current = filterKey;
+
+    if (!contextBinding && clearOnFilterChange && previous !== undefined && previous !== filterKey && value) {
+      setDisplayText('');
+      onChange('');
+    }
+  }, [clearOnFilterChange, contextBinding, filterKey, onChange, value]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (disabled) return;
+    if (effectiveDisabled) return;
     if (e.key === 'F9' || (e.key === ' ' && e.ctrlKey)) {
       e.preventDefault();
       setModalOpen(true);
@@ -73,12 +152,13 @@ export function F9Lookup<T extends Record<string, any>>({ label, value, onChange
     <div className="w-full">
       {label && <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
       <div
-        tabIndex={disabled ? -1 : 0}
+        tabIndex={effectiveDisabled ? -1 : 0}
         role="button"
         id={inputId}
-        onClick={() => { if (!disabled) setModalOpen(true); }}
+        onClick={() => { if (!effectiveDisabled) setModalOpen(true); }}
         onKeyDown={handleKeyDown}
-        className={`block w-full rounded-lg border px-3 py-2 text-sm shadow-sm flex items-center justify-between ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'cursor-pointer'} ${error ? 'border-red-300 bg-red-50' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+        aria-label={label || t('f9.pressToSearch')}
+        className={`block w-full rounded-lg border px-3 py-2 text-sm shadow-sm flex items-center justify-between ${effectiveDisabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'cursor-pointer'} ${error ? 'border-red-300 bg-red-50' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
       >
         <span className={displayText ? 'text-gray-900' : 'text-gray-400'}>
           {displayText || placeholder || t('f9.pressToSearch')}
@@ -88,7 +168,7 @@ export function F9Lookup<T extends Record<string, any>>({ label, value, onChange
         </svg>
       </div>
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-      {value && !disabled && (
+      {value && !effectiveDisabled && (
         <button
           type="button"
           onClick={() => { onChange(''); setDisplayText(''); }}
@@ -103,6 +183,7 @@ export function F9Lookup<T extends Record<string, any>>({ label, value, onChange
         onSelect={handleSelect}
         adapter={adapter}
         filters={filters}
+        contextVersion={contextVersion}
       />
     </div>
   );

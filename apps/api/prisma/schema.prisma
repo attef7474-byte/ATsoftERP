@@ -231,6 +231,7 @@ model Company {
   stockTransfers   InventoryStockTransfer[]
   operationalReceipts InventoryOperationalReceipt[]
   physicalCounts      InventoryPhysicalCount[]
+  operationalScopes   UserOperationalScope[]
 
   @@index([status])
   @@index([code])
@@ -267,6 +268,7 @@ model Branch {
   stockTransfers   InventoryStockTransfer[]
   operationalReceipts InventoryOperationalReceipt[]
   physicalCounts      InventoryPhysicalCount[]
+  operationalScopes   UserOperationalScope[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -290,6 +292,7 @@ model Administration {
   costCenters      CostCenter[]
   productionLines  ProductionLine[]
   technicalMachines Machine[] @relation("TechnicalAdministration")
+  operationalScopes UserOperationalScope[]
 
   @@unique([branchId, code])
   @@index([branchId])
@@ -321,6 +324,7 @@ model Department {
   technicalMachines Machine[] @relation("TechnicalDepartment")
   costCenters      CostCenter[]
   productionLines  ProductionLine[]
+  operationalScopes UserOperationalScope[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -414,6 +418,7 @@ model User {
   conditionMovements                   SparePartConditionMovement[]
   createdBomVersions                   MaintenanceBomVersion[]
   generatedSparePartPlans              PreventiveSparePartPlan[]
+  operationalScopes                    UserOperationalScope[]
 
   @@index([email])
   @@index([status])
@@ -423,6 +428,35 @@ model User {
   @@index([departmentId])
   @@index([status, createdAt])
   @@map("users")
+}
+
+model UserOperationalScope {
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companyId        String
+  company          Company         @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId         String
+  branch           Branch          @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  administrationId String?
+  administration   Administration? @relation(fields: [administrationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId     String?
+  department       Department?     @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  isDefault        Boolean         @default(false)
+  status           String          @default("ACTIVE") @db.NVarChar(50)
+  notes            String?         @db.NVarChar(Max)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  deletedAt        DateTime?
+
+  @@index([userId])
+  @@index([userId, isDefault])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([administrationId])
+  @@index([departmentId])
+  @@index([status])
+  @@map("user_operational_scopes")
 }
 
 model Role {

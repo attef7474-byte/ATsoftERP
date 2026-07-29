@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../../components/admin/toast-provider';
-import { InventoryMovement, InventoryMovementLine } from '../../../../../../lib/admin-types';
+import { InventoryMovement, InventoryMovementLine, Product } from '../../../../../../lib/admin-types';
 import { Button, Input, Textarea, Select, Card, CardContent, CardHeader, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '../../../../../../components/admin/ui';
 import { F9Lookup, productAdapter, warehouseLocationAdapter } from '../../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionAddIcon } from '../../../../../../components/admin/admin-action-bar';
@@ -156,13 +156,19 @@ export default function MovementLinesPage() {
             <div className="border rounded p-3 mb-4 space-y-3 bg-gray-50">
               <h4 className="font-medium text-sm">{editingLine ? t('inventoryCounting.editLine') : t('inventoryCounting.addLine')}</h4>
               <div className="grid grid-cols-2 gap-3">
-                <F9Lookup label={t('inventoryCounting.product')} value={lineForm.productId} onChange={(v) => setLineForm({ ...lineForm, productId: v })} adapter={productAdapter} />
-                <F9Lookup label={t('inventoryCounting.warehouseLocation')} value={lineForm.warehouseLocationId} onChange={(v) => setLineForm({ ...lineForm, warehouseLocationId: v })} adapter={warehouseLocationAdapter} />
+                <F9Lookup
+                  label={t('inventoryCounting.product')}
+                  value={lineForm.productId}
+                  onChange={(v) => setLineForm({ ...lineForm, productId: v, unit: '' })}
+                  onItemSelect={(product: Product) => setLineForm((previous) => ({ ...previous, productId: product.id, unit: product.unit || '' }))}
+                  adapter={productAdapter}
+                />
+                <F9Lookup label={t('inventoryCounting.warehouseLocation')} value={lineForm.warehouseLocationId} onChange={(v) => setLineForm({ ...lineForm, warehouseLocationId: v })} adapter={warehouseLocationAdapter} filters={{ warehouseId: movement.warehouseId }} disabled={!movement.warehouseId} />
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <Input label={t('inventoryCounting.quantity')} type="number" value={String(lineForm.quantity)} onChange={(e) => setLineForm({ ...lineForm, quantity: Number(e.target.value) })} />
                 <Select label={t('inventoryCounting.direction')} value={lineForm.direction} onChange={(e) => setLineForm({ ...lineForm, direction: e.target.value })} options={directionOptions} />
-                <Input label={t('inventoryCounting.unit')} value={lineForm.unit} onChange={(e) => setLineForm({ ...lineForm, unit: e.target.value })} />
+                <Input label={t('inventoryCounting.unit')} value={lineForm.unit} onChange={(e) => setLineForm({ ...lineForm, unit: e.target.value })} disabled />
               </div>
               <Textarea label={t('inventoryCounting.notes')} value={lineForm.notes} onChange={(e) => setLineForm({ ...lineForm, notes: e.target.value })} />
               <div className="flex justify-end gap-2">

@@ -11,9 +11,17 @@ interface F9LookupModalProps<T extends Record<string, any>> {
   onSelect: (item: T) => void;
   adapter: LookupAdapter<T>;
   filters?: Record<string, string>;
+  contextVersion?: number;
 }
 
-export function F9LookupModal<T extends Record<string, any>>({ open, onClose, onSelect, adapter, filters }: F9LookupModalProps<T>) {
+export function F9LookupModal<T extends Record<string, any>>({
+  open,
+  onClose,
+  onSelect,
+  adapter,
+  filters,
+  contextVersion = 0,
+}: F9LookupModalProps<T>) {
   const { t } = useTranslation();
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(false);
@@ -37,23 +45,25 @@ export function F9LookupModal<T extends Record<string, any>>({ open, onClose, on
       setTotalPages(res.meta?.totalPages || 1);
     } catch { setData([]); }
     finally { setLoading(false); }
-  }, [adapter.endpoint, filters]);
+  }, [adapter.endpoint, contextVersion, filters]);
 
   useEffect(() => {
     if (open) {
+      setData([]);
       setSearch('');
       setPage(1);
       setHighlightedIndex(-1);
       fetchData(1, '');
       setTimeout(() => searchRef.current?.focus(), 100);
     }
-  }, [open, fetchData]);
+  }, [contextVersion, open, fetchData]);
 
   useEffect(() => {
+    if (!open) return;
     setPage(1);
     setHighlightedIndex(-1);
     fetchData(1, search);
-  }, [search, fetchData]);
+  }, [search, fetchData, open]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     switch (e.key) {
@@ -139,14 +149,22 @@ export function F9LookupModal<T extends Record<string, any>>({ open, onClose, on
             <div className="text-sm text-gray-600">{t('f9.page')} {page} {t('f9.of')} {totalPages}</div>
             <div className="flex gap-2">
               <button
-                onClick={() => { setPage((p) => Math.max(1, p - 1)); fetchData(page - 1, search); }}
+                onClick={() => {
+                  const nextPage = Math.max(1, page - 1);
+                  setPage(nextPage);
+                  fetchData(nextPage, search);
+                }}
                 disabled={page <= 1}
                 className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('common.previous')}
               </button>
               <button
-                onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); fetchData(page + 1, search); }}
+                onClick={() => {
+                  const nextPage = Math.min(totalPages, page + 1);
+                  setPage(nextPage);
+                  fetchData(nextPage, search);
+                }}
                 disabled={page >= totalPages}
                 className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
