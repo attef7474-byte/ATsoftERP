@@ -68,31 +68,36 @@ export const navItems: NavItem[] = [
   },
   {
     id: 'reports', label: 'navigation.reports', href: '#', icon: 'report', children: [
+      // Reports Home
       { id: 'rpt-index', label: 'navigation.reportsHome', href: '/admin/reports' },
+      // Maintenance Reports
       { id: 'rpt-mnt-overview', label: 'navigation.maintenanceOverview', href: '/admin/reports/maintenance' },
       { id: 'rpt-mnt-kpis', label: 'navigation.maintenanceKpisReport', href: '/admin/reports/maintenance/kpis' },
       { id: 'rpt-mnt-requests', label: 'navigation.maintenanceRequestsReport', href: '/admin/reports/maintenance/requests' },
       { id: 'rpt-mnt-downtime', label: 'navigation.downtimeReport', href: '/admin/reports/maintenance/downtime' },
       { id: 'rpt-mnt-costs', label: 'navigation.maintenanceCostsReport', href: '/admin/reports/maintenance/costs' },
       { id: 'rpt-mnt-schedules', label: 'navigation.maintenanceSchedulesReport', href: '/admin/reports/maintenance/schedules' },
+      { id: 'rpt-assets', label: 'navigation.assetsReport', href: '/admin/reports/assets' },
+      { id: 'rpt-machine-log', label: 'navigation.machineLogReport', href: '/admin/reports/machine-log' },
+      { id: 'rpt-parts-usage', label: 'navigation.partsUsageReport', href: '/admin/reports/parts-usage' },
+      { id: 'rpt-upcoming-pm', label: 'navigation.upcomingPreventiveReport', href: '/admin/reports/upcoming-preventive' },
+      { id: 'rpt-overdue-pm', label: 'navigation.overduePreventiveReport', href: '/admin/reports/overdue-preventive' },
+      { id: 'rpt-parts', label: 'navigation.partsReport', href: '/admin/reports/parts' },
+      { id: 'rpt-low-stock', label: 'navigation.lowStockReport', href: '/admin/reports/low-stock' },
+      // Inventory Reports
       { id: 'rpt-inv-overview', label: 'navigation.inventoryOverview', href: '/admin/reports/inventory' },
       { id: 'rpt-inv-balances', label: 'navigation.inventoryBalancesReport', href: '/admin/reports/inventory/balances' },
       { id: 'rpt-inv-movements', label: 'navigation.inventoryMovementsReport', href: '/admin/reports/inventory/movements' },
       { id: 'rpt-inv-adjustments', label: 'navigation.inventoryAdjustmentsReport', href: '/admin/reports/inventory/adjustments' },
       { id: 'rpt-inv-count-variance', label: 'navigation.countVarianceReport', href: '/admin/reports/inventory/count-variance' },
+      // Barcode Reports
       { id: 'rpt-barcode-scans', label: 'navigation.barcodeScansReport', href: '/admin/reports/barcodes/scans' },
-      { id: 'rpt-assets', label: 'navigation.assetsReport', href: '/admin/reports/assets' },
-      { id: 'rpt-parts', label: 'navigation.partsReport', href: '/admin/reports/parts' },
-      { id: 'rpt-partners', label: 'navigation.partnersReport', href: '/admin/reports/partners' },
-      { id: 'rpt-attachments', label: 'navigation.attachmentsReport', href: '/admin/reports/attachments' },
+      // System Reports
       { id: 'rpt-audit', label: 'navigation.auditTrailReport', href: '/admin/reports/audit' },
       { id: 'rpt-user-activity', label: 'navigation.userActivityReport', href: '/admin/reports/user-activity' },
       { id: 'rpt-notifications', label: 'navigation.notificationsReport', href: '/admin/reports/notifications' },
-      { id: 'rpt-machine-log', label: 'navigation.machineLogReport', href: '/admin/reports/machine-log' },
-      { id: 'rpt-parts-usage', label: 'navigation.partsUsageReport', href: '/admin/reports/parts-usage' },
-      { id: 'rpt-upcoming-pm', label: 'navigation.upcomingPreventiveReport', href: '/admin/reports/upcoming-preventive' },
-      { id: 'rpt-overdue-pm', label: 'navigation.overduePreventiveReport', href: '/admin/reports/overdue-preventive' },
-      { id: 'rpt-low-stock', label: 'navigation.lowStockReport', href: '/admin/reports/low-stock' },
+      { id: 'rpt-attachments', label: 'navigation.attachmentsReport', href: '/admin/reports/attachments' },
+      { id: 'rpt-partners', label: 'navigation.partnersReport', href: '/admin/reports/partners' },
     ],
   },
   {
@@ -128,7 +133,7 @@ export const navItems: NavItem[] = [
     id: 'search', label: 'navigation.search', href: '/admin/search', icon: 'search',
   },
   {
-    id: 'alerts', label: 'navigation.alerts', href: '/admin/alerts', icon: 'dashboard',
+    id: 'alerts', label: 'navigation.alerts', href: '/admin/alerts', icon: 'notification',
   },
   {
     id: 'documents', label: 'navigation.documents', href: '#', icon: 'document', children: [
