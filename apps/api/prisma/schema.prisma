@@ -412,6 +412,8 @@ model User {
   issuedStockRequiredParts             MaintenanceRequestRequiredPart[] @relation("PartStockIssuedBy")
   operationalReceipts                  InventoryOperationalReceipt[]
   conditionMovements                   SparePartConditionMovement[]
+  createdBomVersions                   MaintenanceBomVersion[]
+  generatedSparePartPlans              PreventiveSparePartPlan[]
 
   @@index([email])
   @@index([status])
@@ -1379,6 +1381,8 @@ model Machine {
   installedParts      MachineInstalledPart[]
   replacementHistories SparePartReplacementHistory[]
   repairOrders        SparePartRepairOrder[]
+  boms                MaintenanceBom[]
+  sparePartPlans      PreventiveSparePartPlan[]
 
   @@index([categoryId])
   @@index([companyId])
@@ -1462,6 +1466,7 @@ model MachineComponent {
   installedParts      MachineInstalledPart[]
   replacementHistories SparePartReplacementHistory[]
   repairOrders        SparePartRepairOrder[]
+  boms                MaintenanceBom[]
 
   @@unique([machineId, code])
   @@index([machineId])
@@ -1510,6 +1515,8 @@ model SparePart {
   oldReplacementHistories SparePartReplacementHistory[] @relation("OldSparePart")
   newReplacementHistories SparePartReplacementHistory[] @relation("NewSparePart")
   repairOrders          SparePartRepairOrder[]
+  bomItems              MaintenanceBomItem[]
+  planItems             PreventiveSparePartPlanItem[]
 
   @@index([code])
   @@index([name])
@@ -1622,6 +1629,7 @@ model MaintenanceRequest {
   replacementHistories SparePartReplacementHistory[]
   repairOrders         SparePartRepairOrder[]
   slaState            MaintenanceSlaState?
+  sparePartPlanItems   PreventiveSparePartPlanItem[]
 
   @@index([machineId])
   @@index([productionLineId])
@@ -1970,6 +1978,7 @@ model MaintenanceSchedule {
 
   checklistItems    MaintenanceChecklistItem[]
   checklistExecutions MaintenanceChecklistExecution[]
+  sparePartPlans    PreventiveSparePartPlan[]
 
   @@index([machineId])
   @@index([status])
@@ -2612,4 +2621,119 @@ model SparePartReplacementHistory {
   @@index([replacedAt])
   @@index([replacementNumber])
   @@map("spare_part_replacement_histories")
+}
+
+// ── BOM Versioning ─────────────────────────────────────────────
+model MaintenanceBom {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  name       String
+  description String?
+  machineId  String?
+  machine    Machine? @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  componentId String?
+  component  MachineComponent? @relation(fields: [componentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  versions MaintenanceBomVersion[]
+
+  @@index([machineId])
+  @@index([componentId])
+  @@index([status])
+  @@index([code])
+  @@map("maintenance_boms")
+}
+
+model MaintenanceBomVersion {
+  id             String   @id @default(cuid())
+  bomId          String
+  bom            MaintenanceBom @relation(fields: [bomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  versionNumber  Int
+  versionLabel   String
+  description    String?
+  isActive       Boolean  @default(false)
+  effectiveDate  DateTime?
+  createdById    String?
+  createdBy      User?    @relation(fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  items MaintenanceBomItem[]
+
+  @@unique([bomId, versionNumber])
+  @@index([bomId])
+  @@index([isActive])
+  @@index([bomId, isActive])
+  @@map("maintenance_bom_versions")
+}
+
+model MaintenanceBomItem {
+  id            String   @id @default(cuid())
+  bomVersionId  String
+  bomVersion    MaintenanceBomVersion @relation(fields: [bomVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sparePartId   String
+  sparePart     SparePart @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity      Float
+  unit          String?
+  usageNote     String?
+  isCritical    Boolean  @default(false)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([bomVersionId])
+  @@index([sparePartId])
+  @@map("maintenance_bom_items")
+}
+
+// ── Preventive Spare Parts Planning ────────────────────────────
+model PreventiveSparePartPlan {
+  id            String   @id @default(cuid())
+  planNumber    String   @unique
+  scheduleId    String
+  schedule      MaintenanceSchedule @relation(fields: [scheduleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId     String
+  machine       Machine  @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title         String
+  description   String?
+  status        String   @default("DRAFT")
+  generatedById String?
+  generatedBy   User?    @relation(fields: [generatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  generatedAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items PreventiveSparePartPlanItem[]
+
+  @@index([scheduleId])
+  @@index([machineId])
+  @@index([status])
+  @@index([planNumber])
+  @@map("preventive_spare_part_plans")
+}
+
+model PreventiveSparePartPlanItem {
+  id                String                 @id @default(cuid())
+  planId            String
+  plan              PreventiveSparePartPlan @relation(fields: [planId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sparePartId       String
+  sparePart         SparePart              @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  plannedQuantity   Float
+  availableQuantity Float?
+  condition         String?
+  unit              String?
+  isAvailable       Boolean                @default(false)
+  copyToRequestId   String?
+  copyToRequest     MaintenanceRequest?    @relation(fields: [copyToRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  notes             String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([planId])
+  @@index([sparePartId])
+  @@index([copyToRequestId])
+  @@map("preventive_spare_part_plan_items")
 }

@@ -76,6 +76,20 @@ const messages: Record<string, { ar: string; en: string }> = {
   'maintenance.repairAlreadyCancelled': { ar: 'أمر الإصلاح ملغي بالفعل', en: 'Repair order is already cancelled' },
   'maintenance.repairCancelReasonRequired': { ar: 'سبب الإلغاء مطلوب', en: 'Cancel reason is required' },
 
+  'maintenance.bomNotFound': { ar: 'قائمة المكونات غير موجودة', en: 'BOM not found' },
+  'maintenance.bomCannotScopeToBothMachineAndComponent': { ar: 'لا يمكن تحديد ماكينة ومكون معاً لنفس القائمة', en: 'Cannot scope BOM to both machine and component' },
+  'maintenance.bomVersionNotFound': { ar: 'إصدار قائمة المكونات غير موجود', en: 'BOM version not found' },
+  'maintenance.bomItemNotFound': { ar: 'عنصر قائمة المكونات غير موجود', en: 'BOM item not found' },
+  'maintenance.planNotFound': { ar: 'خطة قطع الغيار غير موجودة', en: 'Spare part plan not found' },
+  'maintenance.planItemNotFound': { ar: 'عنصر خطة قطع الغيار غير موجود', en: 'Plan item not found' },
+  'maintenance.cannotUpdateNonDraftPlan': { ar: 'لا يمكن تعديل الخطة خارج حالة المسودة', en: 'Cannot update plan outside DRAFT status' },
+  'maintenance.cannotDeleteNonDraftPlan': { ar: 'لا يمكن حذف الخطة خارج حالة المسودة', en: 'Cannot delete plan outside DRAFT status' },
+  'maintenance.invalidPlanStatusTransition': { ar: 'لا يمكن تغيير حالة الخطة إلى الحالة المطلوبة', en: 'Cannot transition plan to the requested status' },
+  'maintenance.cannotModifyPlanItemsInCurrentStatus': { ar: 'لا يمكن تعديل عناصر الخطة في الحالة الحالية', en: 'Cannot modify plan items in current status' },
+  'maintenance.scheduleNotFound': { ar: 'جدول الصيانة غير موجود', en: 'Schedule not found' },
+  'maintenance.scheduleMachineMismatch': { ar: 'الماكينة لا تطابق جدول الصيانة', en: 'Machine does not match the schedule' },
+  'maintenance.noItemsToCopy': { ar: 'لا توجد عناصر لنسخها', en: 'No items to copy' },
+
   'permissions.permissionDenied': { ar: 'تم رفض الإذن', en: 'Permission denied' },
   'permissions.roleRequired': { ar: 'الدور مطلوب', en: 'Role is required' },
 

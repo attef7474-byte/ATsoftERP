@@ -74,6 +74,8 @@ const settings: Pick<LocaleTranslations, 'settings' | 'notifications' | 'messagi
                 INVOICE: 'فاتورة',
                 HR_EMPLOYEE: 'موظف',
                 FINANCE_TRANSACTION: 'عملية مالية',
+                MAINTENANCE_BOM: 'قائمة المكونات',
+                PREVENTIVE_SPARE_PART_PLAN: 'خطة قطع الغيار الوقائية',
             },
             modelName: 'اسم النموذج',
             modelNameMap: {
@@ -125,6 +127,8 @@ const settings: Pick<LocaleTranslations, 'settings' | 'notifications' | 'messagi
                 INVOICE: 'فاتورة',
                 HR_EMPLOYEE: 'موظف',
                 FINANCE_TRANSACTION: 'عملية مالية',
+                MAINTENANCE_BOM: 'قائمة المكونات',
+                PREVENTIVE_SPARE_PART_PLAN: 'خطة قطع الغيار الوقائية',
             },
             status: 'الحالة',
             statusOptions: {

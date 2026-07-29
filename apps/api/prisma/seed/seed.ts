@@ -22,6 +22,7 @@ const MODULES = [
   "search",
   "messaging",
   "operation-type", "cost-center", "production-line",
+  "maintenance-bom", "preventive-spare-part-plan",
 ] as const;
 
 const ACTIONS = ["create", "read", "update", "delete"] as const;
@@ -144,6 +145,16 @@ async function main() {
     { key: "repair-orders:scrap", module: "repair-orders", action: "scrap" },
     { key: "repair-actions:read", module: "repair-actions", action: "read" },
     { key: "repair-actions:create", module: "repair-actions", action: "create" },
+    // BOM permissions
+    { key: "maintenance-bom:create", module: "maintenance-bom", action: "create" },
+    { key: "maintenance-bom:read", module: "maintenance-bom", action: "read" },
+    { key: "maintenance-bom:update", module: "maintenance-bom", action: "update" },
+    { key: "maintenance-bom:delete", module: "maintenance-bom", action: "delete" },
+    // Preventive spare part plan permissions
+    { key: "preventive-spare-part-plan:create", module: "preventive-spare-part-plan", action: "create" },
+    { key: "preventive-spare-part-plan:read", module: "preventive-spare-part-plan", action: "read" },
+    { key: "preventive-spare-part-plan:update", module: "preventive-spare-part-plan", action: "update" },
+    { key: "preventive-spare-part-plan:delete", module: "preventive-spare-part-plan", action: "delete" },
   ];
 
   for (const p of extraPermissions) {
@@ -214,6 +225,8 @@ async function main() {
     { code: "SPARE_PART_CONDITION_MOVEMENT", name: "Spare Part Condition Movement", operationName: "Spare Part Condition Movement", modelName: "SparePartConditionMovement", domain: "inventory", prefix: "SCM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "SPARE_PART_REPLACEMENT", name: "Spare Part Replacement", operationName: "Spare Part Replacement", modelName: "SparePartReplacementHistory", domain: "inventory", prefix: "SPR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "SPARE_PART_REPAIR_ORDER", name: "Spare Part Repair Order", operationName: "Spare Part Repair Order", modelName: "SparePartRepairOrder", domain: "inventory", prefix: "RPO-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "MAINTENANCE_BOM", name: "Maintenance BOM", operationName: "Maintenance BOM", modelName: "MaintenanceBom", domain: "maintenance", prefix: "BOM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "PREVENTIVE_SPARE_PART_PLAN", name: "Preventive Spare Part Plan", operationName: "Preventive Spare Part Plan", modelName: "PreventiveSparePartPlan", domain: "maintenance", prefix: "PSP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
 
     // Rejected domains - marked as USER_REJECTED_FOR_CURRENT_RELEASE
     { code: "BUSINESS_PARTNER", name: "Business Partner", operationName: "Business Partner", modelName: "BusinessPartner", domain: "sales", prefix: "BP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "USER_REJECTED_FOR_CURRENT_RELEASE" },

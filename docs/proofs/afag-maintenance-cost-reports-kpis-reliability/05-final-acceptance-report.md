@@ -248,6 +248,16 @@ Proceed to **AH-AI (BOM Versioning + Preventive Spare Parts Planning)**.
 
 | Tag | Status |
 |-----|--------|
-| `atsoft-erp-afag-maintenance-cost-reports-kpis-reliability` | ✅ Created and pushed |
-| `atsoft-erp-current-release-final-audited-v3-maintenance-reports-kpis` | ✅ Created and pushed |
-| `atsoft-erp-afag-maintenance-kpi-proof` | ✅ Created and pushed |
+| `atsoft-erp-afag-maintenance-cost-reports-kpis-reliability` | ✅ Created and pushed (unchanged) |
+| `atsoft-erp-current-release-final-audited-v3-maintenance-reports-kpis` | ✅ Created and pushed (unchanged) |
+| `atsoft-erp-afag-maintenance-kpi-proof` | ✅ Created and pushed (unchanged) |
+| `atsoft-erp-afag-maintenance-kpi-proof-corrective` | ✅ **NEW** (corrective fix) |
+| `atsoft-erp-current-release-final-audited-v3-maintenance-reports-kpis-corrective` | ✅ **NEW** (corrective fix) |
+
+## Final Commit
+
+| Item | Value |
+|------|-------|
+| Corrective commit | `2f5c880` |
+| Final git status | Clean — 0/0 ahead/behind |
+| Branch | `main` → pushed |

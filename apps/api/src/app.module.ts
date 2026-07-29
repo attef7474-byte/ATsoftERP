@@ -68,6 +68,8 @@ import { MaintenanceStockIssueModule } from './modules/factory/maintenance/maint
 import { SparePartConditionModule } from './modules/factory/maintenance/spare-part-conditions/spare-part-conditions.module'
 import { InstalledPartsReplacementModule } from './modules/factory/maintenance/installed-parts-replacement/installed-parts-replacement.module'
 import { RepairOrdersModule } from './modules/factory/maintenance/repair-orders/repair-orders.module'
+import { MaintenanceBomModule } from './modules/factory/maintenance/maintenance-bom/maintenance-bom.module'
+import { PreventiveSparePartPlanModule } from './modules/factory/maintenance/preventive-spare-part-plan/preventive-spare-part-plan.module'
 import { InventoryLedgerReconciliationModule } from './modules/factory/inventory-ledger-reconciliation/inventory-ledger-reconciliation.module'
 import { InventoryOpeningBalancesModule } from './modules/factory/inventory-opening-balances/inventory-opening-balances.module'
 import { InventoryStockAdjustmentsModule } from './modules/factory/inventory-stock-adjustments/inventory-stock-adjustments.module'
@@ -107,6 +109,8 @@ import { InventoryLocksModule } from './modules/factory/inventory-locks/inventor
     SparePartConditionModule,
     InstalledPartsReplacementModule,
     RepairOrdersModule,
+    MaintenanceBomModule,
+    PreventiveSparePartPlanModule,
     InventoryLedgerReconciliationModule,
     InventoryOpeningBalancesModule,
     InventoryStockAdjustmentsModule,

@@ -74,6 +74,8 @@ const settings: Pick<LocaleTranslations, 'settings' | 'notifications' | 'messagi
                 INVOICE: 'Invoice',
                 HR_EMPLOYEE: 'HR Employee',
                 FINANCE_TRANSACTION: 'Finance Transaction',
+                MAINTENANCE_BOM: 'Maintenance BOM',
+                PREVENTIVE_SPARE_PART_PLAN: 'Preventive Spare Part Plan',
             },
             modelName: 'Model Name',
             modelNameMap: {
@@ -125,6 +127,8 @@ const settings: Pick<LocaleTranslations, 'settings' | 'notifications' | 'messagi
                 INVOICE: 'Invoice',
                 HR_EMPLOYEE: 'Employee',
                 FINANCE_TRANSACTION: 'FinanceTransaction',
+                MAINTENANCE_BOM: 'MaintenanceBom',
+                PREVENTIVE_SPARE_PART_PLAN: 'PreventiveSparePartPlan',
             },
             status: 'Status',
             statusOptions: {
