@@ -836,6 +836,62 @@ Repairable Spare Parts Workflow + Overhaul
 - Zero `numberSequence` access outside `numbering.service.ts`
 - 24 services now use `NumberingService.generateNumberAtomic()`
 
+### ✅ AF-AG (COMPLETED — commit `7416c2b`)
+Maintenance Cost Reports + KPIs + Reliability
+
+**Tags:**
+- `atsoft-erp-afag-maintenance-cost-reports-kpis-reliability`
+- `atsoft-erp-current-release-final-audited-v3-cost-reports`
+- `atsoft-erp-afag-cost-reports-proof`
+
+**Key outcomes:**
+- Backend: `MaintenanceReliabilityModule` — 14 endpoints added
+- Cost report generation endpoints
+- KPI metrics endpoints
+- Reliability analytics
+- Frontend: Cost Reports, KPI Dashboard, Reliability charts
+- i18n: reports-related keys EN/AR
+- Proof: Full API, browser, DB integrity documented
+
+### ✅ AH-AI (COMPLETED — commit `f603aec`)
+BOM Versioning + Preventive Spare Parts Planning
+
+**Tags:**
+- `atsoft-erp-ahai-bom-versioning-preventive-planning`
+- `atsoft-erp-current-release-final-audited-v3-bom-planning`
+- `atsoft-erp-ahai-bom-planning-proof`
+
+**Key outcomes:**
+- Schema: `MaintenanceBom`, `MaintenanceBomVersion`, `PreventiveSparePartPlan` added
+- Migration: additive SQL script — 88 tables / ~1296 columns
+- Numbering: `MAINTENANCE_BOM`, `MAINTENANCE_BOM_VERSION`, `PREVENTIVE_SPARE_PART_PLAN` added → 49 entity types (41 ACTIVE)
+- Backend: `MaintenanceBomModule` — ~15 endpoints (CRUD + versioning + activate/archive)
+- Backend: `PreventiveSparePartPlanModule` — ~15 endpoints (CRUD + generate reservations)
+- BOM lifecycle: DRAFT → APPROVED → ACTIVE → ARCHIVED
+- Planning integration: BOM + PM Schedule → Spare part quantities → Reservation (no stock deduction)
+- Permissions: 6 new (bom:read/create/manage, bom-versions:read/create, preventive-plans:read/manage)
+- frontend: BOM list/detail/version history per machine, Preventive plans list/detail
+- i18n: BOM + preventive plan keys EN/AR
+- Build: API build PASS, Web build PASS, Prisma validate/generate PASS
+- Proof: 9 documents in `docs/proofs/ahai-bom-versioning-preventive-planning/`
+
+### ✅ AJ-AK (COMPLETED — commit `f603aec`)
+Maintenance Final Audit + SOP + Training + Handover (documentation-only)
+
+**Tags:**
+- `atsoft-erp-ajak-maintenance-final-audit-sop-training-handover`
+- `atsoft-erp-current-release-final-audited-v3-maintenance-handover`
+- `atsoft-erp-ajak-maintenance-handover-proof`
+
+**Key outcomes:**
+- Phase 1-6: Comprehensive maintenance domain audit (36 modules, ~345 endpoints, permissions, i18n, workflows)
+- Phase 7: Validation report (documentation-only confirmed)
+- Phase 8-12: 5 Standard Operating Procedures (bilingual EN/AR): Maintenance Request Lifecycle, Stock Issue & Return, Repair Order Workflow, Preventive Maintenance, BOM Versioning & Planning
+- Phase 13: 8 Training Modules (per role): Operator, Supervisor, Engineer, Store Keeper, Repair Technician, Planner, Report Viewer, System Administrator
+- Phase 14: 10 Handover Documents: Architecture Overview, API Reference, Schema Reference, Frontend Guide, Configuration Guide, Deployment Guide, Troubleshooting Guide, Known Limitations, Roadmap, Contacts & Support
+- Total: 31 new documentation files across `docs/proofs/ajak-maintenance-final-audit-sop-training-handover/` (8) + `docs/handover/maintenance/` (10) + `docs/handover/maintenance/sop/` (5) + `docs/handover/maintenance/training/` (8)
+- No code/schema/API/frontend/i18n changes (documentation-only batch)
+
 ### 📋 Final Priority Plan — 11 Stages
 
 ```
@@ -1013,5 +1069,5 @@ cd apps/web && npm run build        # typecheck included
 language: Arabic (primary)
 working_dir: C:\Users\attef\PycharmProjects\Trae\ATsofterp
 external_copy: C:\Users\attef\PycharmProjects\Trae\maintenance-completion-discovery-pack\
-next_batch: UX-0 (Organization Context Lite + Maintenance Auto-Fill)
+next_batch: UI-QA (CRUD/DataGrid/Layout/Test Standardization)
 ```
