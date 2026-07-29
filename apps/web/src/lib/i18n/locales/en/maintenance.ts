@@ -83,6 +83,7 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         nextDueDate: 'Next Due Date',
         lastRunAt: 'Last Run',
         lastGeneratedAt: 'Last Generated',
+        due: 'Due',
         intervalDays: 'Interval (Days)',
         isEmergency: 'Emergency',
         generateRequest: 'Generate Request',

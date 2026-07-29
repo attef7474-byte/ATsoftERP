@@ -28,6 +28,7 @@ const barcodes: Pick<LocaleTranslations, 'barcodes'> = {
         scanCount: 'عدد مرات المسح',
         printedAt: 'تاريخ الطباعة',
         printCount: 'عدد مرات الطباعة',
+        partNumber: 'رقم القطعة',
         templateName: 'اسم القالب',
         templateConfig: 'إعدادات القالب',
         generateLabel: 'إنشاء ملصق',

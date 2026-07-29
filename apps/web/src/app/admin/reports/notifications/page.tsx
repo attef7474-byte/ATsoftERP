@@ -44,7 +44,7 @@ export default function NotificationsReportPage() {
   const columns = [
     { key: 'title', header: t('common.name') },
     { key: 'type', header: t('reports.category'), render: (r: any) => r.type || '-' },
-    { key: 'read', header: 'Read', render: (r: any) => r.read ? t('reports.completed') : t('reports.unreadNotifications') },
+    { key: 'read', header: t('notifications.read'), render: (r: any) => r.read ? t('reports.completed') : t('reports.unreadNotifications') },
     { key: 'createdAt', header: t('common.createdAt'), render: (r: any) => r.createdAt ? new Date(r.createdAt).toLocaleString() : '-' },
   ];
 

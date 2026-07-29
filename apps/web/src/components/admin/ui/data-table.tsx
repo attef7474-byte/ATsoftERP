@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslation } from '../../../lib/i18n/use-translation';
 
 interface Column<T> {
   key: string;
@@ -20,11 +21,12 @@ interface DataTableProps<T> {
 }
 
 export function DataTable<T>({ columns, data, keyExtractor, onRowClick, loading, emptyMessage, selectedKey }: DataTableProps<T>) {
+  const { t } = useTranslation();
   if (loading) {
     return (
       <div className="text-center py-12">
         <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto" />
-        <p className="mt-2 text-sm text-gray-500">Loading...</p>
+        <p className="mt-2 text-sm text-gray-500">{t('common.loading')}</p>
       </div>
     );
   }
@@ -32,7 +34,7 @@ export function DataTable<T>({ columns, data, keyExtractor, onRowClick, loading,
   if (!data || data.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">{emptyMessage || 'No data available'}</p>
+        <p className="text-gray-500">{emptyMessage || t('common.noData')}</p>
       </div>
     );
   }

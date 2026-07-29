@@ -50,51 +50,51 @@ export default function InventoryGovernanceAuditPage() {
 
   return (
     <div dir={dir}>
-      <PageHeader title="Inventory Governance Audit" />
+      <PageHeader title={t('inventory.audit')} />
       <div className="flex gap-4 mb-4 items-end">
         <div className="w-40">
           <Select
             value={filters.action}
             onChange={e => setFilters(f => ({ ...f, action: e.target.value }))}
             options={[
-              { value: '', label: 'All Actions' },
-              { value: 'CREATE', label: 'CREATE' },
-              { value: 'UPDATE', label: 'UPDATE' },
-              { value: 'DELETE', label: 'DELETE' },
-              { value: 'ACTIVATE', label: 'ACTIVATE' },
-              { value: 'DEACTIVATE', label: 'DEACTIVATE' },
+              { value: '', label: t('inventory.allActions') },
+              { value: 'CREATE', label: t('common.create') },
+              { value: 'UPDATE', label: t('common.update') },
+              { value: 'DELETE', label: t('common.delete') },
+              { value: 'ACTIVATE', label: t('common.activate') },
+              { value: 'DEACTIVATE', label: t('common.deactivate') },
             ]}
-            placeholder="Action"
+            placeholder={t('common.actions')}
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">From</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('inventory.dateFrom')}</label>
           <Input type="date" value={filters.startDate} onChange={e => setFilters(f => ({ ...f, startDate: e.target.value }))} />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">To</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('inventory.dateTo')}</label>
           <Input type="date" value={filters.endDate} onChange={e => setFilters(f => ({ ...f, endDate: e.target.value }))} />
         </div>
         <div className="flex-1" />
-        <Button onClick={() => fetchData()} variant="secondary">Refresh</Button>
+        <Button onClick={() => fetchData()} variant="secondary">{t('common.refresh')}</Button>
       </div>
       {loading ? (
-        <div className="text-center py-8 text-gray-500">Loading...</div>
+        <div className="text-center py-8 text-gray-500">{t('common.loading')}</div>
       ) : error ? (
         <div className="text-red-500 py-4">{error}</div>
       ) : data.length === 0 ? (
-        <EmptyState message="No audit entries found. Inventory governance audit entries will appear here as actions are performed." />
+        <EmptyState message={t('inventory.noAuditEntries')} />
       ) : (
         <>
           <table className="w-full border-collapse bg-white rounded-lg shadow-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-left text-sm font-semibold text-gray-700">
-                <th className="px-4 py-3">Date/Time</th>
-                <th className="px-4 py-3">User</th>
-                <th className="px-4 py-3">Action</th>
-                <th className="px-4 py-3">Entity</th>
-                <th className="px-4 py-3">Entity ID</th>
-                <th className="px-4 py-3">Details</th>
+                <th className="px-4 py-3">{t('inventory.dateTime')}</th>
+                <th className="px-4 py-3">{t('common.user')}</th>
+                <th className="px-4 py-3">{t('common.actions')}</th>
+                <th className="px-4 py-3">{t('inventory.entity')}</th>
+                <th className="px-4 py-3">{t('inventory.entityId')}</th>
+                <th className="px-4 py-3">{t('inventory.detailLabel')}</th>
               </tr>
             </thead>
             <tbody>
@@ -118,7 +118,7 @@ export default function InventoryGovernanceAuditPage() {
                       className="text-blue-600 hover:underline text-xs"
                       onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
                     >
-                      {expandedId === entry.id ? 'Hide' : 'Show'}
+                      {expandedId === entry.id ? t('inventory.hide') : t('inventory.show')}
                     </button>
                   </td>
                 </tr>
@@ -126,7 +126,7 @@ export default function InventoryGovernanceAuditPage() {
               {expandedId && data.find(e => e.id === expandedId) && (
                 <tr key={`${expandedId}-detail`} className="bg-gray-50">
                   <td colSpan={6} className="px-4 py-3 text-sm text-gray-600">
-                    <strong>Details:</strong> {data.find(e => e.id === expandedId)?.details || 'N/A'}
+                    <strong>{t('inventory.detailLabel')}:</strong> {data.find(e => e.id === expandedId)?.details || t('common.unavailable')}
                   </td>
                 </tr>
               )}

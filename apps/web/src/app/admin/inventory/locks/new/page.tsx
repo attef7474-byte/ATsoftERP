@@ -7,13 +7,13 @@ import { Button, Input, Select, Textarea, PageHeader } from '../../../../../comp
 import { F9Lookup, companyAdapter, warehouseAdapter } from '../../../../../components/f9'
 import { useRouter } from 'next/navigation'
 
-const LOCK_TYPES = [
-  { value: 'PERIOD_LOCK', label: 'Period Lock' },
-  { value: 'WAREHOUSE_LOCK', label: 'Warehouse Lock' },
-  { value: 'LOCATION_LOCK', label: 'Location Lock' },
-  { value: 'ITEM_LOCK', label: 'Item Lock' },
-  { value: 'GLOBAL_INVENTORY_LOCK', label: 'Global Inventory Lock' },
-]
+const LOCK_TYPES_KEYS: Record<string, string> = {
+  PERIOD_LOCK: 'inventory.periodLock',
+  WAREHOUSE_LOCK: 'inventory.warehouseLock',
+  LOCATION_LOCK: 'inventory.locationLock',
+  ITEM_LOCK: 'inventory.itemLock',
+  GLOBAL_INVENTORY_LOCK: 'inventory.globalInventoryLock',
+}
 
 export default function NewInventoryLockPage() {
   const router = useRouter()
@@ -55,45 +55,45 @@ export default function NewInventoryLockPage() {
 
   return (
     <div dir={dir}>
-      <PageHeader title="Create Inventory Lock" actions={<Button variant="secondary" onClick={() => router.back()}>Back</Button>} />
+      <PageHeader title={t('inventory.createLock')} actions={<Button variant="secondary" onClick={() => router.back()}>{t('common.back')}</Button>} />
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-4 bg-white p-6 rounded-lg shadow-sm">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Code</label>
+            <label className="block text-sm font-medium mb-1">{t('common.code')}</label>
             <Input value={form.code} onChange={e => handleChange('code', e.target.value)} required placeholder="LOCK-001" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Lock Type</label>
-            <Select value={form.lockType} onChange={e => handleChange('lockType', e.target.value)} options={LOCK_TYPES} />
+            <label className="block text-sm font-medium mb-1">{t('inventory.lockType')}</label>
+            <Select value={form.lockType} onChange={e => handleChange('lockType', e.target.value)} options={Object.entries(LOCK_TYPES_KEYS).map(([value, key]) => ({ value, label: t(key) }))} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Date From</label>
+            <label className="block text-sm font-medium mb-1">{t('inventory.dateFrom')}</label>
             <Input type="date" value={form.dateFrom} onChange={e => handleChange('dateFrom', e.target.value)} required />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Date To</label>
+            <label className="block text-sm font-medium mb-1">{t('inventory.dateTo')}</label>
             <Input type="date" value={form.dateTo} onChange={e => handleChange('dateTo', e.target.value)} required />
           </div>
         </div>
         {showWarehousePicker && (
           <div>
-            <label className="block text-sm font-medium mb-1">Warehouse</label>
+            <label className="block text-sm font-medium mb-1">{t('inventory.warehouse')}</label>
             <F9Lookup adapter={warehouseAdapter} value={form.warehouseId} onChange={v => handleChange('warehouseId', v)} />
           </div>
         )}
         <div>
-          <label className="block text-sm font-medium mb-1">Reason</label>
-          <Textarea value={form.reason} onChange={e => handleChange('reason', e.target.value)} required rows={3} placeholder="Reason for this lock..." />
+          <label className="block text-sm font-medium mb-1">{t('inventoryCounting.reason')}</label>
+          <Textarea value={form.reason} onChange={e => handleChange('reason', e.target.value)} required rows={3} placeholder={t('inventory.lockReasonPlaceholder')} />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Notes</label>
+          <label className="block text-sm font-medium mb-1">{t('inventoryCounting.notes')}</label>
           <Textarea value={form.notes} onChange={e => handleChange('notes', e.target.value)} rows={2} />
         </div>
         <div className="flex justify-end gap-3 pt-4">
-          <Button variant="secondary" onClick={() => router.back()} type="button">Cancel</Button>
-          <Button type="submit" loading={saving}>Create Lock</Button>
+          <Button variant="secondary" onClick={() => router.back()} type="button">{t('common.cancel')}</Button>
+          <Button type="submit" loading={saving}>{t('inventory.createLock')}</Button>
         </div>
       </form>
     </div>

@@ -28,6 +28,7 @@ const barcodes: Pick<LocaleTranslations, 'barcodes'> = {
         scanCount: 'Scan Count',
         printedAt: 'Printed At',
         printCount: 'Print Count',
+        partNumber: 'Part #',
         templateName: 'Template Name',
         templateConfig: 'Template Configuration',
         generateLabel: 'Generate Label',

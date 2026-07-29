@@ -43,7 +43,7 @@ export default function UserActivityReportPage() {
 
   const columns = [
     { key: 'name', header: t('common.name') },
-    { key: 'email', header: 'Email' },
+    { key: 'email', header: t('common.email') },
     { key: 'status', header: t('reports.status'), render: (r: any) => <span className="capitalize">{r.status?.toLowerCase()}</span> },
     { key: 'lastLoginAt', header: t('reports.lastLogin'), render: (r: any) => r.lastLoginAt ? new Date(r.lastLoginAt).toLocaleString() : '-' },
     { key: 'createdAt', header: t('common.createdAt'), render: (r: any) => r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '-' },

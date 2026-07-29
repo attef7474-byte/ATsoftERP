@@ -29,12 +29,15 @@ interface InventoryLock {
 }
 
 const LOCK_TYPES = ['PERIOD_LOCK', 'WAREHOUSE_LOCK', 'LOCATION_LOCK', 'ITEM_LOCK', 'GLOBAL_INVENTORY_LOCK']
-const LOCK_TYPES_MAP: Record<string, string> = {
-  PERIOD_LOCK: 'Period Lock',
-  WAREHOUSE_LOCK: 'Warehouse Lock',
-  LOCATION_LOCK: 'Location Lock',
-  ITEM_LOCK: 'Item Lock',
-  GLOBAL_INVENTORY_LOCK: 'Global Lock',
+const getLockTypeLabel = (type: string, t: (key: string) => string) => {
+  const map: Record<string, string> = {
+    PERIOD_LOCK: t('inventory.periodLock'),
+    WAREHOUSE_LOCK: t('inventory.warehouseLock'),
+    LOCATION_LOCK: t('inventory.locationLock'),
+    ITEM_LOCK: t('inventory.itemLock'),
+    GLOBAL_INVENTORY_LOCK: t('inventory.globalInventoryLock'),
+  }
+  return map[type] || type
 }
 
 export default function InventoryLocksPage() {
@@ -107,70 +110,70 @@ export default function InventoryLocksPage() {
   return (
     <div dir={dir}>
       <PageHeader
-        title="Inventory Locks"
-        actions={<Button onClick={() => router.push('/admin/inventory/locks/new')}>Create Lock</Button>}
+        title={t('inventory.inventoryLocks')}
+        actions={<Button onClick={() => router.push('/admin/inventory/locks/new')}>{t('inventory.createLock')}</Button>}
       />
       <div className="flex gap-4 mb-4 items-end">
         <div className="w-48">
           <Select
             value={filters.status}
             onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
-            options={[{ value: '', label: 'All Status' }, { value: 'ACTIVE', label: 'Active' }, { value: 'INACTIVE', label: 'Inactive' }]}
-            placeholder="Status"
+            options={[{ value: '', label: t('inventory.allStatuses') }, { value: 'ACTIVE', label: t('common.active') }, { value: 'INACTIVE', label: t('common.inactive') }]}
+            placeholder={t('common.status')}
           />
         </div>
         <div className="w-48">
           <Select
             value={filters.lockType}
             onChange={e => setFilters(f => ({ ...f, lockType: e.target.value }))}
-            options={[{ value: '', label: 'All Types' }, ...LOCK_TYPES.map(lt => ({ value: lt, label: LOCK_TYPES_MAP[lt] }))]}
-            placeholder="Lock Type"
+            options={[{ value: '', label: t('inventory.allTypes') }, ...LOCK_TYPES.map(lt => ({ value: lt, label: getLockTypeLabel(lt, t) }))]}
+            placeholder={t('inventory.lockType')}
           />
         </div>
         <div className="flex-1" />
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." className="w-64" />
-        <Button onClick={() => fetchData()} variant="secondary">Refresh</Button>
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('common.search')} className="w-64" />
+        <Button onClick={() => fetchData()} variant="secondary">{t('common.refresh')}</Button>
       </div>
       {loading ? (
-        <div className="text-center py-8 text-gray-500">Loading...</div>
+        <div className="text-center py-8 text-gray-500">{t('common.loading')}</div>
       ) : error ? (
         <div className="text-red-500 py-4">{error}</div>
       ) : data.length === 0 ? (
-        <EmptyState message="No locks found. Create your first inventory lock to start governing inventory operations." />
+        <EmptyState message={t('inventory.noLocks')} />
       ) : (
         <>
           <table className="w-full border-collapse bg-white rounded-lg shadow-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-left text-sm font-semibold text-gray-700">
-                <th className="px-4 py-3">Code</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Date Range</th>
-                <th className="px-4 py-3">Reason</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3">{t('common.code')}</th>
+                <th className="px-4 py-3">{t('common.type')}</th>
+                <th className="px-4 py-3">{t('inventory.dateRange')}</th>
+                <th className="px-4 py-3">{t('inventoryCounting.reason')}</th>
+                <th className="px-4 py-3">{t('common.status')}</th>
+                <th className="px-4 py-3">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {data.map(lock => (
                 <tr key={lock.id} className="border-b hover:bg-gray-50 text-sm">
                   <td className="px-4 py-3 font-medium">{lock.code}</td>
-                  <td className="px-4 py-3">{LOCK_TYPES_MAP[lock.lockType] || lock.lockType}</td>
+                  <td className="px-4 py-3">{getLockTypeLabel(lock.lockType, t)}</td>
                   <td className="px-4 py-3">{new Date(lock.dateFrom).toLocaleDateString()} - {new Date(lock.dateTo).toLocaleDateString()}</td>
                   <td className="px-4 py-3 max-w-xs truncate">{lock.reason}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${lock.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                      {lock.status}
+                      {lock.status === 'ACTIVE' ? t('common.active') : t('common.inactive')}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Button size="sm" variant="secondary" onClick={() => router.push(`/admin/inventory/locks/${lock.id}`)}>View</Button>
+                      <Button size="sm" variant="secondary" onClick={() => router.push(`/admin/inventory/locks/${lock.id}`)}>{t('common.view')}</Button>
                       {lock.status === 'INACTIVE' ? (
-                        <Button size="sm" variant="primary" onClick={() => handleActivate(lock.id)}>Activate</Button>
+                        <Button size="sm" variant="primary" onClick={() => handleActivate(lock.id)}>{t('common.activate')}</Button>
                       ) : (
-                        <Button size="sm" variant="secondary" onClick={() => handleDeactivate(lock.id)}>Deactivate</Button>
+                        <Button size="sm" variant="secondary" onClick={() => handleDeactivate(lock.id)}>{t('common.deactivate')}</Button>
                       )}
-                      <Button size="sm" variant="danger" onClick={() => setDeleteTarget(lock)}>Delete</Button>
+                      <Button size="sm" variant="danger" onClick={() => setDeleteTarget(lock)}>{t('common.delete')}</Button>
                     </div>
                   </td>
                 </tr>
@@ -182,8 +185,8 @@ export default function InventoryLocksPage() {
       )}
       <ConfirmDialog
         open={!!deleteTarget}
-        title="Delete Lock"
-        message={`Are you sure you want to delete lock "${deleteTarget?.code}"?`}
+        title={t('common.confirmDeleteTitle')}
+        message={`${t('inventory.confirmDeleteLock')} "${deleteTarget?.code}"?`}
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
         loading={deleting}

@@ -150,97 +150,97 @@ export default function StockAdjustmentsPage() {
   };
 
   const columns: GridColumn<StockAdjustment>[] = [
-    { key: 'code', header: 'Document #', sortable: true },
-    { key: 'warehouse', header: 'Warehouse', render: (r: StockAdjustment) => r.warehouse?.name || '-' },
-    { key: 'status', header: 'Status', render: (r: StockAdjustment) => <InventoryStatusBadge status={r.status} /> },
-    { key: 'documentDate', header: 'Date', sortable: true, render: (r: StockAdjustment) => r.documentDate ? new Date(r.documentDate).toLocaleDateString() : '-' },
-    { key: 'reason', header: 'Reason', render: (r: StockAdjustment) => r.reason?.substring(0, 50) || '-' },
-    { key: 'lineCount', header: 'Lines', align: 'center', render: (r: any) => r._count?.lines ?? '-' },
-    { key: 'createdAt', header: 'Created', render: (r: StockAdjustment) => new Date(r.createdAt).toLocaleDateString() },
+    { key: 'code', header: t('inventory.stockAdjustmentCode'), sortable: true },
+    { key: 'warehouse', header: t('inventory.warehouse'), render: (r: StockAdjustment) => r.warehouse?.name || '-' },
+    { key: 'status', header: t('common.status'), render: (r: StockAdjustment) => <InventoryStatusBadge status={r.status} /> },
+    { key: 'documentDate', header: t('common.date'), sortable: true, render: (r: StockAdjustment) => r.documentDate ? new Date(r.documentDate).toLocaleDateString() : '-' },
+    { key: 'reason', header: t('inventoryCounting.reason'), render: (r: StockAdjustment) => r.reason?.substring(0, 50) || '-' },
+    { key: 'lineCount', header: t('inventoryCounting.lines'), align: 'center', render: (r: any) => r._count?.lines ?? '-' },
+    { key: 'createdAt', header: t('common.createdAt'), render: (r: StockAdjustment) => new Date(r.createdAt).toLocaleDateString() },
   ];
 
   const gridActions: GridAction<StockAdjustment>[] = [
-    { label: 'Edit', onClick: (r) => openEdit(r), enabled: (r) => canAction(r.status, 'edit') },
-    { label: 'Submit', onClick: (r) => confirmAction(r.id, 'submit'), enabled: (r) => canAction(r.status, 'submit') },
-    { label: 'Approve', onClick: (r) => confirmAction(r.id, 'approve'), enabled: (r) => canAction(r.status, 'approve') },
-    { label: 'Reject', onClick: (r) => confirmAction(r.id, 'reject'), enabled: (r) => canAction(r.status, 'reject') },
-    { label: 'Post', onClick: (r) => confirmAction(r.id, 'post'), enabled: (r) => canAction(r.status, 'post') },
-    { label: 'Cancel', onClick: (r) => confirmAction(r.id, 'cancel'), enabled: (r) => canAction(r.status, 'cancel'), variant: 'danger' },
+    { label: t('common.edit'), onClick: (r) => openEdit(r), enabled: (r) => canAction(r.status, 'edit') },
+    { label: t('actions.submit'), onClick: (r) => confirmAction(r.id, 'submit'), enabled: (r) => canAction(r.status, 'submit') },
+    { label: t('status.APPROVED'), onClick: (r) => confirmAction(r.id, 'approve'), enabled: (r) => canAction(r.status, 'approve') },
+    { label: t('status.REJECTED'), onClick: (r) => confirmAction(r.id, 'reject'), enabled: (r) => canAction(r.status, 'reject') },
+    { label: t('common.post'), onClick: (r) => confirmAction(r.id, 'post'), enabled: (r) => canAction(r.status, 'post') },
+    { label: t('common.cancel'), onClick: (r) => confirmAction(r.id, 'cancel'), enabled: (r) => canAction(r.status, 'cancel'), variant: 'danger' },
   ];
 
   const actionLabels: Record<string, string> = {
-    submit: 'Submit this adjustment?', approve: 'Approve this adjustment?',
-    reject: 'Reject this adjustment?', post: 'Post this adjustment? This will create inventory movements.',
-    cancel: 'Cancel this adjustment?', delete: 'Delete this adjustment?',
+    submit: t('inventory.confirmAdjSubmit'), approve: t('inventory.confirmAdjApprove'),
+    reject: t('inventory.confirmAdjReject'), post: t('inventory.confirmAdjPost'),
+    cancel: t('inventory.confirmAdjCancel'), delete: t('inventory.confirmAdjDelete'),
   };
 
   return (
     <div>
-      <PageHeader title="Stock Adjustments" />
+      <PageHeader title={t('inventory.stockAdjustments')} />
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-        <F9Lookup label="Company" value={filters.companyId} onChange={(v) => setFilters({ ...filters, companyId: v })} adapter={companyAdapter} />
-        <F9Lookup label="Branch" value={filters.branchId} onChange={(v) => setFilters({ ...filters, branchId: v })} adapter={branchAdapter} />
-        <F9Lookup label="Warehouse" value={filters.warehouseId} onChange={(v) => setFilters({ ...filters, warehouseId: v })} adapter={warehouseAdapter} />
-        <Select label="Status" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} options={[
-          { value: '', label: 'All' }, { value: 'DRAFT', label: 'Draft' }, { value: 'SUBMITTED', label: 'Submitted' },
-          { value: 'APPROVED', label: 'Approved' }, { value: 'POSTED', label: 'Posted' }, { value: 'REJECTED', label: 'Rejected' },
-          { value: 'CANCELLED', label: 'Cancelled' },
+        <F9Lookup label={t('inventoryCounting.company')} value={filters.companyId} onChange={(v) => setFilters({ ...filters, companyId: v })} adapter={companyAdapter} />
+        <F9Lookup label={t('inventoryCounting.branch')} value={filters.branchId} onChange={(v) => setFilters({ ...filters, branchId: v })} adapter={branchAdapter} />
+        <F9Lookup label={t('inventoryCounting.warehouse')} value={filters.warehouseId} onChange={(v) => setFilters({ ...filters, warehouseId: v })} adapter={warehouseAdapter} />
+        <Select label={t('common.status')} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} options={[
+          { value: '', label: t('common.all') }, { value: 'DRAFT', label: t('status.DRAFT') }, { value: 'SUBMITTED', label: t('status.SUBMITTED') },
+          { value: 'APPROVED', label: t('status.APPROVED') }, { value: 'POSTED', label: t('status.POSTED') }, { value: 'REJECTED', label: t('status.REJECTED') },
+          { value: 'CANCELLED', label: t('status.CANCELLED') },
         ]} />
       </div>
       {!error && loading && data.length === 0 && <LoadingState />}
-      {!error && !loading && data.length === 0 && <div className="text-center py-12"><p className="text-gray-500">No stock adjustments found</p></div>}
+      {!error && !loading && data.length === 0 && <div className="text-center py-12"><p className="text-gray-500">{t('inventory.noStockAdjustments')}</p></div>}
       {data.length > 0 && (
         <>
           <AdminDataGrid columns={columns} data={data} keyExtractor={(r) => r.id}
             onRowClick={(r) => setSelectedId(r.id)} selectedKey={selectedId} loading={loading}
-            emptyMessage="No stock adjustments" error={error || undefined} actions={gridActions}
-            globalSearch={search} onGlobalSearch={setSearch} searchPlaceholder="Search..."
+            emptyMessage={t('inventory.noStockAdjustments')} error={error || undefined} actions={gridActions}
+            globalSearch={search} onGlobalSearch={setSearch} searchPlaceholder={t('common.search')}
             onRefresh={() => fetchData(meta.page)} refreshLoading={loading} />
           <div className="mt-3">
             <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
           </div>
           <div className="mt-4 flex gap-2">
-            <Button onClick={openCreate}>New Adjustment</Button>
-            <Button variant="secondary" onClick={() => fetchData(meta.page)}>Refresh</Button>
+            <Button onClick={openCreate}>{t('inventory.newStockAdjustment')}</Button>
+            <Button variant="secondary" onClick={() => fetchData(meta.page)}>{t('common.refresh')}</Button>
           </div>
         </>
       )}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? 'Edit Adjustment' : 'New Adjustment'} size="lg">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.editStockAdjustment') : t('inventory.newStockAdjustment')} size="lg">
         <div className="space-y-4 max-h-96 overflow-y-auto">
           <div className="grid grid-cols-3 gap-4">
-            <F9Lookup label="Company" value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
-            <F9Lookup label="Branch" value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} />
-            <F9Lookup label="Warehouse" value={form.warehouseId} onChange={(v) => setForm({ ...form, warehouseId: v })} adapter={warehouseAdapter} />
+            <F9Lookup label={t('inventoryCounting.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
+            <F9Lookup label={t('inventoryCounting.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} />
+            <F9Lookup label={t('inventoryCounting.warehouse')} value={form.warehouseId} onChange={(v) => setForm({ ...form, warehouseId: v })} adapter={warehouseAdapter} />
           </div>
-          <Textarea label="Reason" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} required />
-          <Textarea label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <Textarea label={t('inventoryCounting.reason')} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} required />
+          <Textarea label={t('inventoryCounting.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="border-t pt-4">
             <div className="flex justify-between items-center mb-2">
-              <h4 className="font-medium">Adjustment Lines</h4>
-              <Button variant="secondary" size="sm" onClick={() => setLineFormOpen(!lineFormOpen)}>Add Line</Button>
+              <h4 className="font-medium">{t('inventory.adjustmentLines')}</h4>
+              <Button variant="secondary" size="sm" onClick={() => setLineFormOpen(!lineFormOpen)}>{t('inventoryCounting.addLine')}</Button>
             </div>
             {lineFormOpen && (
               <div className="border rounded p-3 mb-3 space-y-3 bg-gray-50">
                 <div className="grid grid-cols-2 gap-3">
-                  <F9Lookup label="Product" value={lineForm.productId} onChange={(v) => setLineForm({ ...lineForm, productId: v })} adapter={productAdapter} />
-                  <Select label="Type" value={lineForm.adjustmentType} onChange={(e) => setLineForm({ ...lineForm, adjustmentType: e.target.value })} options={[
-                    { value: 'ADJUSTMENT_IN', label: 'Increase' }, { value: 'ADJUSTMENT_OUT', label: 'Decrease' },
+                  <F9Lookup label={t('inventoryCounting.product')} value={lineForm.productId} onChange={(v) => setLineForm({ ...lineForm, productId: v })} adapter={productAdapter} />
+                  <Select label={t('common.type')} value={lineForm.adjustmentType} onChange={(e) => setLineForm({ ...lineForm, adjustmentType: e.target.value })} options={[
+                    { value: 'ADJUSTMENT_IN', label: t('inventory.adjustmentIncrease') }, { value: 'ADJUSTMENT_OUT', label: t('inventory.adjustmentDecrease') },
                   ]} />
                 </div>
-                <Input label="Quantity" type="number" value={String(lineForm.quantity)} onChange={(e) => setLineForm({ ...lineForm, quantity: Number(e.target.value) })} />
-                <Textarea label="Notes" value={lineForm.notes} onChange={(e) => setLineForm({ ...lineForm, notes: e.target.value })} />
-                <Button onClick={handleAddLine}>Add</Button>
+                <Input label={t('inventoryCounting.quantity')} type="number" value={String(lineForm.quantity)} onChange={(e) => setLineForm({ ...lineForm, quantity: Number(e.target.value) })} />
+                <Textarea label={t('inventoryCounting.notes')} value={lineForm.notes} onChange={(e) => setLineForm({ ...lineForm, notes: e.target.value })} />
+                <Button onClick={handleAddLine}>{t('common.add')}</Button>
               </div>
             )}
             {lines.length > 0 && (
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="border-b bg-gray-50">
-                    <th className="text-left p-2">Product</th>
-                    <th className="text-center p-2">Type</th>
-                    <th className="text-right p-2">Quantity</th>
-                    <th className="text-left p-2">Notes</th>
-                    <th className="text-center p-2">Action</th>
+                    <th className="text-left p-2">{t('inventoryCounting.product')}</th>
+                    <th className="text-center p-2">{t('common.type')}</th>
+                    <th className="text-right p-2">{t('inventoryCounting.quantity')}</th>
+                    <th className="text-left p-2">{t('inventoryCounting.notes')}</th>
+                    <th className="text-center p-2">{t('common.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -249,13 +249,13 @@ export default function StockAdjustmentsPage() {
                       <td className="p-2">{line.product?.name || line.productId}</td>
                       <td className="p-2 text-center">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${line.adjustmentType === 'ADJUSTMENT_IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                          {line.adjustmentType === 'ADJUSTMENT_IN' ? '+ Increase' : '- Decrease'}
+                          {line.adjustmentType === 'ADJUSTMENT_IN' ? `+ ${t('inventory.adjustmentIncrease')}` : `- ${t('inventory.adjustmentDecrease')}`}
                         </span>
                       </td>
                       <td className="p-2 text-right">{line.quantity}</td>
                       <td className="p-2">{line.notes || '-'}</td>
                       <td className="p-2 text-center">
-                        <button onClick={() => handleRemoveLine(line._id!)} className="text-red-600 hover:text-red-800 text-sm">Remove</button>
+                        <button onClick={() => handleRemoveLine(line._id!)} className="text-red-600 hover:text-red-800 text-sm">{t('actions.remove')}</button>
                       </td>
                     </tr>
                   ))}
@@ -264,13 +264,13 @@ export default function StockAdjustmentsPage() {
             )}
           </div>
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} loading={saving}>Save</Button>
+            <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
+            <Button onClick={handleSave} loading={saving}>{t('common.save')}</Button>
           </div>
         </div>
       </Modal>
       <ConfirmDialog open={actionConfirmOpen} onClose={() => setActionConfirmOpen(false)} onConfirm={handleAction}
-        title="Confirm" message={actionLabels[pendingAction] || 'Confirm action?'}
+        title={t('common.confirm')} message={actionLabels[pendingAction] || t('common.confirm')}
         variant={pendingAction === 'cancel' || pendingAction === 'reject' ? 'danger' : 'primary'} loading={saving} />
     </div>
   );

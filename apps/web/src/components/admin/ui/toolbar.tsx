@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslation } from '../../../lib/i18n/use-translation';
 
 interface ToolbarProps {
   searchValue: string;
@@ -17,6 +18,7 @@ interface ToolbarProps {
 export function Toolbar({
   searchValue, onSearchChange, onClear, onRefresh, onCreate, createLabel, searchPlaceholder, loading, extraActions,
 }: ToolbarProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-wrap items-center gap-3 mb-4">
       <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -24,7 +26,7 @@ export function Toolbar({
           type="text"
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={searchPlaceholder || 'Search...'}
+          placeholder={searchPlaceholder || t('common.search')}
           className="block w-full rounded-lg border border-gray-300 px-3 py-2 pl-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <svg className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -32,14 +34,14 @@ export function Toolbar({
         </svg>
       </div>
       {searchValue && (
-        <button onClick={onClear} className="text-sm text-gray-500 hover:text-gray-700">Clear</button>
+        <button onClick={onClear} className="text-sm text-gray-500 hover:text-gray-700">{t('common.clearSearch')}</button>
       )}
       <button onClick={onRefresh} disabled={loading} className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
-        {loading ? '...' : 'Refresh'}
+        {loading ? '...' : t('actions.refresh')}
       </button>
       {onCreate && (
         <button onClick={onCreate} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          {createLabel || 'New'}
+          {createLabel || t('actions.newItem')}
         </button>
       )}
       {extraActions}

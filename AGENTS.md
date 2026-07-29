@@ -892,7 +892,34 @@ Maintenance Final Audit + SOP + Training + Handover (documentation-only)
 - Total: 31 new documentation files across `docs/proofs/ajak-maintenance-final-audit-sop-training-handover/` (8) + `docs/handover/maintenance/` (10) + `docs/handover/maintenance/sop/` (5) + `docs/handover/maintenance/training/` (8)
 - No code/schema/API/frontend/i18n changes (documentation-only batch)
 
-### 📋 Final Priority Plan — 11 Stages
+### ✅ UI-QA (COMPLETED — commit `???`)
+CRUD/DataGrid/Layout/Test Standardization
+
+**Tags:**
+- `atsoft-erp-uiqa-crud-datagrid-layout-test-standardization`
+- `atsoft-erp-current-release-final-audited-v3-uiqa-standardized`
+- `atsoft-erp-uiqa-final-proof`
+
+**Key outcomes:**
+- Phase 1: Active page inventory audit (231 pages, 0 placeholders)
+- Phase 2: API/frontend route alignment audit (all routes verified)
+- Phase 3-4: CRUD + DataGrid standardization (i18n for DataTable, Toolbar, Pagination, ErrorState)
+- Phase 5: Layout/navigation/RTL verification (no broken links, no forbidden module links)
+- Phase 6: i18n/raw key fix (~66 hardcoded English strings → t() calls in 19 files)
+- Phase 7: Permissions/action visibility verification
+- Phase 8: Maintenance domain regression proof (Z-AA through AH-AI still working)
+- Phase 9-10: API + Browser/DOM code-verified proof
+- Phase 11: Static scan (16 categories, all PASS)
+- Phase 12-13: Build validation + final acceptance
+- i18n keys added: ~50 new keys (EN + AR) across common.ts, inventory.ts, maintenance.ts, barcodes.ts
+- Files fixed: 27 files, 391 insertions, 295 deletions
+- Build: API build PASS, Web build PASS, Prisma validate PASS
+- No schema/migration changes
+- No forbidden module activation
+- Total proof: 12 documents in `docs/proofs/uiqa-crud-datagrid-layout-test-standardization/`
+- **Maintenance completion plan fully closed**
+
+### 📋 Final Priority Plan — 11 Stages (COMPLETED)
 
 ```
 DX-0   = API Module Registry + Frontend Route Alignment
@@ -1069,5 +1096,5 @@ cd apps/web && npm run build        # typecheck included
 language: Arabic (primary)
 working_dir: C:\Users\attef\PycharmProjects\Trae\ATsofterp
 external_copy: C:\Users\attef\PycharmProjects\Trae\maintenance-completion-discovery-pack\
-next_batch: UI-QA (CRUD/DataGrid/Layout/Test Standardization)
+next_batch: FINAL — All 11 stages of maintenance completion plan closed. Next: Final Release Readiness Review or user decision.
 ```

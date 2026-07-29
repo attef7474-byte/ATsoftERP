@@ -45,8 +45,8 @@ export default function PartnersReportPage() {
     { key: 'code', header: t('common.code') },
     { key: 'name', header: t('common.name') },
     { key: 'type', header: t('maintenance.type'), render: (r: any) => <span className="capitalize">{r.type?.toLowerCase()}</span> },
-    { key: 'email', header: 'Email' },
-    { key: 'phone', header: 'Phone' },
+    { key: 'email', header: t('common.email') },
+    { key: 'phone', header: t('common.phone') },
     { key: 'isBlocked', header: t('reports.status'), render: (r: any) => r.isBlocked ? t('reports.inactive') : t('reports.active') },
   ];
 
@@ -57,9 +57,9 @@ export default function PartnersReportPage() {
           <div className="w-48"><Input value={filters.search || ''} onChange={e => setFilters((f: any) => ({ ...f, search: e.target.value || undefined, page: 1 }))} placeholder={t('common.search')} /></div>
           <div className="w-40">
             <Select value={filters.type || ''} onChange={e => setFilters((f: any) => ({ ...f, type: e.target.value || undefined, page: 1 }))} placeholder={t('maintenance.type')} options={[
-              { value: 'SUPPLIER', label: 'Supplier' },
-              { value: 'CUSTOMER', label: 'Customer' },
-              { value: 'BOTH', label: 'Both' },
+              { value: 'SUPPLIER', label: t('common.supplier') },
+              { value: 'CUSTOMER', label: t('common.customer') },
+              { value: 'BOTH', label: t('common.both') },
             ]} />
           </div>
           <Button variant="ghost" onClick={clearFilters}>{t('reports.clearFilters')}</Button>

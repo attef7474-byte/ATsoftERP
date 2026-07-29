@@ -82,6 +82,7 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         nextDueDate: 'تاريخ الاستحقاق القادم',
         lastRunAt: 'آخر تشغيل',
         lastGeneratedAt: 'آخر توليد',
+        due: 'تاريخ الاستحقاق',
         intervalDays: 'الفاصل (أيام)',
         isEmergency: 'طارئ',
         generateRequest: 'توليد طلب',

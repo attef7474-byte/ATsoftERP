@@ -25,22 +25,22 @@ const ENTITY_TYPES: { value: string; label: string }[] = [
 
 const SYMBOLOGIES = ['QR_CODE', 'CODE128', 'DATA_MATRIX'];
 
-const machinePartAdapter: LookupAdapter<MachinePart> = {
-  endpoint: '/maintenance/machine-parts',
-  displayLabel: (p) => `[${p.code}] ${p.name}`,
-  searchFields: ['code', 'name', 'partNumber'],
-  columns: [
-    { key: 'code', header: 'Code' },
-    { key: 'name', header: 'Name' },
-    { key: 'partNumber', header: 'Part #', render: (p) => p.partNumber || '-' },
-    { key: 'status', header: 'Status', render: (p) => p.status },
-  ],
-};
-
 export default function BarcodeGeneratePage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const router = useRouter();
+
+  const machinePartAdapter: LookupAdapter<MachinePart> = {
+    endpoint: '/maintenance/machine-parts',
+    displayLabel: (p) => `[${p.code}] ${p.name}`,
+    searchFields: ['code', 'name', 'partNumber'],
+    columns: [
+      { key: 'code', header: t('common.code') },
+      { key: 'name', header: t('common.name') },
+      { key: 'partNumber', header: t('barcodes.partNumber'), render: (p) => p.partNumber || '-' },
+      { key: 'status', header: t('common.status'), render: (p) => p.status },
+    ],
+  };
 
   const [entityType, setEntityType] = useState('PRODUCT');
   const [entityId, setEntityId] = useState('');

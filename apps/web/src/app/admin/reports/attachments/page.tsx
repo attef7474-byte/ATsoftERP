@@ -44,7 +44,7 @@ export default function AttachmentsReportPage() {
   const columns = [
     { key: 'originalName', header: t('common.name') },
     { key: 'entityName', header: t('reports.byEntity'), render: (r: any) => r.entityName || '-' },
-    { key: 'mimeType', header: 'Type' },
+    { key: 'mimeType', header: t('common.type') },
     { key: 'size', header: t('reports.totalAttachmentsSize'), render: (r: any) => r.size ? `${(r.size / 1024).toFixed(1)} KB` : '-' },
     { key: 'uploadedBy', header: t('reports.generatedBy'), render: (r: any) => r.uploadedBy?.name || '-' },
     { key: 'createdAt', header: t('common.createdAt'), render: (r: any) => r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '-' },
