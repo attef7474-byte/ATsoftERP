@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../../../lib/auth-context';
 import { useTranslation } from '../../../lib/i18n/use-translation';
@@ -9,7 +9,7 @@ import { UnifiedSearchModal } from '../../f9/UnifiedSearchModal';
 import { Breadcrumb } from './breadcrumb';
 import { useF9Shortcut } from './f9-shortcut';
 import { MobileMenuOverlay, MobileMenuPanel } from './mobile-menu';
-import { Sidebar } from './sidebar';
+import { Sidebar, getActiveGroupId } from './sidebar';
 import { TopBar } from './top-bar';
 
 function AdminShellInner({ children }: { children: React.ReactNode }) {
@@ -19,24 +19,54 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
   const { visible: actionBarVisible, actions } = useAdminActionBar();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [clock, setClock] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const isRtl = locale === 'ar';
+
+  // Sidebar theme settings (loaded from data-attrs on mount)
+  const [sidebarBg, setSidebarBg] = useState('navy');
+  const [sidebarAccent, setSidebarAccent] = useState('teal');
+  const [sidebarDensity, setSidebarDensity] = useState('default');
+  const [sidebarFont, setSidebarFont] = useState('normal');
 
   const toggleSearch = useCallback(() => {
     setSearchOpen((previous) => !previous);
   }, []);
   useF9Shortcut(toggleSearch);
 
-  const toggleSection = (id: string) => {
-    setExpandedSections((previous) => ({ ...previous, [id]: !previous[id] }));
-  };
+  // Auto-collapse accordion: only one group open at a time
+  const toggleGroup = useCallback((id: string) => {
+    setOpenGroup((prev) => (prev === id ? null : id));
+  }, []);
 
-  const onCollapsedIconClick = (id: string) => {
+  // When navigating, auto-open the correct group
+  const activeGroupId = useMemo(() => getActiveGroupId(pathname), [pathname]);
+
+  // Sync openGroup with activeGroupId on route changes
+  useEffect(() => {
+    if (activeGroupId) {
+      setOpenGroup(activeGroupId);
+    }
+  }, [activeGroupId]);
+
+  // On collapsed icon click: expand sidebar + open that group
+  const onCollapsedIconClick = useCallback((id: string) => {
     setSidebarCollapsed(false);
-    setExpandedSections((previous) => ({ ...previous, [id]: true }));
-  };
+    setOpenGroup(id);
+  }, []);
+
+  // Load sidebar theme settings from localStorage (synced from Appearance page)
+  useEffect(() => {
+    const bg = localStorage.getItem('sidebar-background-mode') || 'navy';
+    const accent = localStorage.getItem('sidebar-accent-color') || 'teal';
+    const density = localStorage.getItem('sidebar-density') || 'default';
+    const font = localStorage.getItem('sidebar-font-size') || 'normal';
+    setSidebarBg(bg);
+    setSidebarAccent(accent);
+    setSidebarDensity(density);
+    setSidebarFont(font);
+  }, []);
 
   useEffect(() => {
     const tick = () => setClock(new Date().toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US'));
@@ -45,13 +75,8 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timerId);
   }, [locale]);
 
-  const handleLogout = () => {
-    logout();
-  };
-
-  const toggleLanguage = () => {
-    setLocale(locale === 'ar' ? 'en' : 'ar');
-  };
+  const handleLogout = () => { logout(); };
+  const toggleLanguage = () => { setLocale(locale === 'ar' ? 'en' : 'ar'); };
 
   const toggleSidebar = () => {
     if (window.innerWidth < 1024) {
@@ -61,13 +86,22 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Combine sidebar theme data-attrs
+  const sidebarDataAttrs = {
+    'data-sidebar-bg': sidebarBg,
+    'data-sidebar-accent': sidebarAccent,
+    'data-sidebar-density': sidebarDensity,
+    'data-sidebar-font': sidebarFont,
+  } as Record<string, string>;
+
   return (
     <div
       className="admin-workspace-shell"
       dir={isRtl ? 'rtl' : 'ltr'}
+      {...sidebarDataAttrs}
       style={{
         '--app-actionbar-active-height': actionBarVisible ? 'var(--app-actionbar-height)' : '0px',
-        '--app-sidebar-collapsed': sidebarCollapsed ? '56px' : 'var(--app-sidebar-width)',
+        '--app-sidebar-collapsed': sidebarCollapsed ? '72px' : 'var(--app-sidebar-width)',
       } as React.CSSProperties}
     >
       {sidebarOpen && <MobileMenuOverlay onClose={() => setSidebarOpen(false)} />}
@@ -102,8 +136,6 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
           isRtl={isRtl}
           pathname={pathname}
           profile={profile}
-          expandedSections={expandedSections}
-          onToggleSection={toggleSection}
           onClose={() => setSidebarOpen(false)}
         />
       )}
@@ -112,8 +144,8 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
         collapsed={sidebarCollapsed}
         pathname={pathname}
         t={t}
-        expandedSections={expandedSections}
-        onToggleSection={toggleSection}
+        openGroup={openGroup}
+        onToggleGroup={toggleGroup}
         onCollapsedIconClick={onCollapsedIconClick}
         onNavigate={() => setSidebarOpen(false)}
       />
