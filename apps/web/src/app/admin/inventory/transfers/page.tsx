@@ -64,6 +64,7 @@ export default function StockTransfersPage() {
   const [form, setForm] = useState({ companyId: '', branchId: '', sourceWarehouseId: '', sourceLocationId: '', destinationWarehouseId: '', destinationLocationId: '', reason: '', notes: '' });
   const [lines, setLines] = useState<TransferLine[]>([]);
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [lineFormOpen, setLineFormOpen] = useState(false);
   const [lineForm, setLineForm] = useState({ productId: '', quantity: 1, notes: '' });
   const [actionConfirmOpen, setActionConfirmOpen] = useState(false);
@@ -98,7 +99,7 @@ export default function StockTransfersPage() {
       reason: '',
       notes: '',
     });
-    setLines([]);
+    setValidationErrors({});
     setModalOpen(true);
   };
 
@@ -111,13 +112,20 @@ export default function StockTransfersPage() {
       reason: item.reason, notes: item.notes || '',
     });
     setLines((item.lines || []).map((l: any) => ({ ...l, _id: l.id || Date.now().toString() })));
+    setValidationErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.companyId || !form.sourceWarehouseId || !form.destinationWarehouseId || !form.reason) { showToast('Required fields missing', 'error'); return; }
-    if (form.sourceWarehouseId === form.destinationWarehouseId) { showToast('Source and destination must be different', 'error'); return; }
-    if (lines.length === 0) { showToast('Add at least one line', 'error'); return; }
+    const errs: Record<string, string> = {};
+    if (!form.companyId) errs.companyId = t('validation.required');
+    if (!form.sourceWarehouseId) errs.sourceWarehouseId = t('validation.required');
+    if (!form.destinationWarehouseId) errs.destinationWarehouseId = t('validation.required');
+    if (form.sourceWarehouseId && form.destinationWarehouseId && form.sourceWarehouseId === form.destinationWarehouseId) errs.destinationWarehouseId = t('inventoryCounting.sourceDestinationMustDiffer');
+    if (!form.reason) errs.reason = t('validation.required');
+    if (lines.length === 0) errs.lines = t('inventoryCounting.noLines');
+    if (Object.keys(errs).length) { setValidationErrors(errs); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       const payload: any = {
@@ -260,14 +268,23 @@ export default function StockTransfersPage() {
             <Input label={t('inventoryCounting.branch')} value={activeContext?.branchName || ''} disabled />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <F9Lookup label={t('inventory.sourceWarehouse')} value={form.sourceWarehouseId} onChange={(v) => setForm({ ...form, sourceWarehouseId: v, sourceLocationId: '' })} adapter={warehouseAdapter} />
+            <div>
+              <F9Lookup label={t('inventory.sourceWarehouse')} value={form.sourceWarehouseId} onChange={(v) => { setForm({ ...form, sourceWarehouseId: v, sourceLocationId: '' }); setValidationErrors(p => ({ ...p, sourceWarehouseId: '', destinationWarehouseId: '' })); }} adapter={warehouseAdapter} />
+              {validationErrors.sourceWarehouseId && <p className="text-red-500 text-sm mt-1">{validationErrors.sourceWarehouseId}</p>}
+            </div>
             <F9Lookup label={t('inventory.sourceLocation')} value={form.sourceLocationId} onChange={(v) => setForm({ ...form, sourceLocationId: v })} adapter={warehouseLocationAdapter} filters={{ warehouseId: form.sourceWarehouseId }} disabled={!form.sourceWarehouseId} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <F9Lookup label={t('inventory.destinationWarehouse')} value={form.destinationWarehouseId} onChange={(v) => setForm({ ...form, destinationWarehouseId: v, destinationLocationId: '' })} adapter={warehouseAdapter} />
+            <div>
+              <F9Lookup label={t('inventory.destinationWarehouse')} value={form.destinationWarehouseId} onChange={(v) => { setForm({ ...form, destinationWarehouseId: v, destinationLocationId: '' }); setValidationErrors(p => ({ ...p, destinationWarehouseId: '', sourceWarehouseId: '' })); }} adapter={warehouseAdapter} />
+              {validationErrors.destinationWarehouseId && <p className="text-red-500 text-sm mt-1">{validationErrors.destinationWarehouseId}</p>}
+            </div>
             <F9Lookup label={t('inventory.destinationLocation')} value={form.destinationLocationId} onChange={(v) => setForm({ ...form, destinationLocationId: v })} adapter={warehouseLocationAdapter} filters={{ warehouseId: form.destinationWarehouseId }} disabled={!form.destinationWarehouseId} />
           </div>
-          <Textarea label={t('inventoryCounting.reason')} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} required />
+          <div>
+            <Textarea label={t('inventoryCounting.reason')} value={form.reason} onChange={(e) => { setForm({ ...form, reason: e.target.value }); setValidationErrors(p => ({ ...p, reason: '' })); }} required />
+            {validationErrors.reason && <p className="text-red-500 text-sm mt-1">{validationErrors.reason}</p>}
+          </div>
           <Textarea label={t('inventoryCounting.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="border-t pt-4">
             <div className="flex justify-between items-center mb-2">
@@ -284,6 +301,8 @@ export default function StockTransfersPage() {
                 <Button onClick={handleAddLine}>{t('common.add')}</Button>
               </div>
             )}
+            {lines.length === 0 && <p className="text-gray-500 text-sm">{t('common.noData')}</p>}
+            {validationErrors.lines && <p className="text-red-500 text-sm mt-1">{validationErrors.lines}</p>}
             {lines.length > 0 && (
               <table className="w-full text-sm border-collapse">
                 <thead>

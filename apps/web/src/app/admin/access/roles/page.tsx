@@ -27,6 +27,7 @@ export default function RolesPage() {
   const [permModalOpen, setPermModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Role | null>(null);
   const [form, setForm] = useState({ name: '', description: '' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -90,6 +91,7 @@ export default function RolesPage() {
     setEditItem(null);
     setForm({ name: '', description: '' });
     setSelectedPerms([]);
+    setValidationErrors({});
     setModalOpen(true);
   };
 
@@ -97,11 +99,15 @@ export default function RolesPage() {
     setEditItem(item);
     setForm({ name: item.name || '', description: item.description || '' });
     setSelectedPerms(item.permissions?.map((p) => p.permission?.id).filter(Boolean) || []);
+    setValidationErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.name) { showToast(t('errors.requiredFields'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!form.name) errors.name = t('errors.requiredFields');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       const body = { name: form.name, description: form.description || undefined };
@@ -247,7 +253,10 @@ export default function RolesPage() {
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('roles.edit') : t('roles.create')}>
         <div className="space-y-4">
-          <Input label={t('roles.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <div>
+            <Input label={t('roles.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} required />
+            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
+          </div>
           <Input label={t('roles.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="flex justify-end space-x-2 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>

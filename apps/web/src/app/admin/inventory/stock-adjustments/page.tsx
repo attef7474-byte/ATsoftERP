@@ -58,6 +58,7 @@ export default function StockAdjustmentsPage() {
   const [form, setForm] = useState({ companyId: '', branchId: '', warehouseId: '', locationId: '', reason: '', notes: '' });
   const [lines, setLines] = useState<StockAdjustmentLine[]>([]);
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [lineFormOpen, setLineFormOpen] = useState(false);
   const [lineForm, setLineForm] = useState({ productId: '', locationId: '', adjustmentType: 'ADJUSTMENT_IN', quantity: 1, notes: '' });
   const [actionConfirmOpen, setActionConfirmOpen] = useState(false);
@@ -90,7 +91,7 @@ export default function StockAdjustmentsPage() {
       reason: '',
       notes: '',
     });
-    setLines([]);
+    setValidationErrors({});
     setModalOpen(true);
   };
 
@@ -101,12 +102,18 @@ export default function StockAdjustmentsPage() {
       locationId: item.locationId || '', reason: item.reason, notes: item.notes || '',
     });
     setLines((item.lines || []).map((l: any) => ({ ...l, _id: l.id || Date.now().toString() })));
+    setValidationErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.companyId || !form.warehouseId || !form.reason) { showToast('Reason is required', 'error'); return; }
-    if (lines.length === 0) { showToast('Add at least one line', 'error'); return; }
+    const errs: Record<string, string> = {};
+    if (!form.companyId) errs.companyId = t('validation.required');
+    if (!form.warehouseId) errs.warehouseId = t('validation.required');
+    if (!form.reason) errs.reason = t('validation.required');
+    if (lines.length === 0) errs.lines = t('inventoryCounting.noLines');
+    if (Object.keys(errs).length) { setValidationErrors(errs); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       const payload: any = {
@@ -221,18 +228,25 @@ export default function StockAdjustmentsPage() {
           <div className="grid grid-cols-3 gap-4">
             <Input label={t('inventoryCounting.company')} value={activeContext?.companyName || ''} disabled />
             <Input label={t('inventoryCounting.branch')} value={activeContext?.branchName || ''} disabled />
-            <F9Lookup
-              label={t('inventoryCounting.warehouse')}
-              value={form.warehouseId}
-              onChange={(v) => {
-                setForm({ ...form, warehouseId: v, locationId: '' });
-                setLines([]);
-                setLineForm((previous) => ({ ...previous, locationId: '' }));
-              }}
-              adapter={warehouseAdapter}
-            />
+            <div>
+              <F9Lookup
+                label={t('inventoryCounting.warehouse')}
+                value={form.warehouseId}
+                onChange={(v) => {
+                  setForm({ ...form, warehouseId: v, locationId: '' });
+                  setLines([]);
+                  setLineForm((previous) => ({ ...previous, locationId: '' }));
+                  setValidationErrors(p => ({ ...p, warehouseId: '' }));
+                }}
+                adapter={warehouseAdapter}
+              />
+              {validationErrors.warehouseId && <p className="text-red-500 text-sm mt-1">{validationErrors.warehouseId}</p>}
+            </div>
           </div>
-          <Textarea label={t('inventoryCounting.reason')} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} required />
+          <div>
+            <Textarea label={t('inventoryCounting.reason')} value={form.reason} onChange={(e) => { setForm({ ...form, reason: e.target.value }); setValidationErrors(p => ({ ...p, reason: '' })); }} required />
+              {validationErrors.reason && <p className="text-red-500 text-sm mt-1">{validationErrors.reason}</p>}
+            </div>
           <Textarea label={t('inventoryCounting.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="border-t pt-4">
             <div className="flex justify-between items-center mb-2">
@@ -260,6 +274,8 @@ export default function StockAdjustmentsPage() {
                 <Button onClick={handleAddLine}>{t('common.add')}</Button>
               </div>
             )}
+            {lines.length === 0 && <p className="text-gray-500 text-sm">{t('common.noData')}</p>}
+            {validationErrors.lines && <p className="text-red-500 text-sm mt-1">{validationErrors.lines}</p>}
             {lines.length > 0 && (
               <table className="w-full text-sm border-collapse">
                 <thead>

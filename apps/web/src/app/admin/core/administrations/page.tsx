@@ -35,6 +35,7 @@ export default function AdministrationsPage() {
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate'>('deactivate');
   const [statusSaving, setStatusSaving] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const {
     data,
@@ -85,7 +86,7 @@ export default function AdministrationsPage() {
       return operation === 'create' ? t('errors.createFailed') : t('errors.updateFailed');
     },
     onError: (message, operation) => {
-      if (operation !== 'list') showToast(message, 'error');
+      if (operation !== 'list') setValidationErrors({ form: message });
     },
     onSuccess: (operation) => {
       showToast(operation === 'create' ? t('common.successCreated') : t('common.successUpdated'), 'success');
@@ -207,13 +208,14 @@ export default function AdministrationsPage() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={closeFormModal} title={editItem ? t('core.editAdministration') : t('core.newAdministration')}>
+      <Modal open={modalOpen} onClose={() => { closeFormModal(); setValidationErrors({}); }} title={editItem ? t('core.editAdministration') : t('core.newAdministration')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
+          {validationErrors.form && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{validationErrors.form}</div>}
           <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={closeFormModal}>{t('actions.cancel')}</Button>
+            <Button variant="secondary" onClick={() => { closeFormModal(); setValidationErrors({}); }}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
         </div>}

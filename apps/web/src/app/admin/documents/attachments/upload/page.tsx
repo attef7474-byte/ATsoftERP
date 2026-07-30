@@ -19,17 +19,21 @@ export default function UploadAttachmentPage() {
   const [entityId, setEntityId] = useState('');
   const [description, setDescription] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
+    if (e.target.files && e.target.files[0]) { setFile(e.target.files[0]); setValidationErrors(prev => ({ ...prev, file: '' })); }
   };
 
   const handleUpload = async () => {
-    if (!file) { showToast(t('attachments.noFileSelected'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!file) errors.file = t('attachments.noFileSelected');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setUploading(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', file!);
       if (entityName) formData.append('entityName', entityName);
       if (entityId) formData.append('entityId', entityId);
       if (description) formData.append('description', description);
@@ -54,6 +58,7 @@ export default function UploadAttachmentPage() {
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400" onClick={() => fileInputRef.current?.click()}>
             {file ? <p className="text-sm font-medium">{file.name} ({(file.size / 1024).toFixed(1)} KB)</p> : <p className="text-sm text-gray-500">{t('attachments.dropFile')}</p>}
             <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+            {validationErrors.file && <p className="text-red-500 text-sm mt-1">{validationErrors.file}</p>}
           </div>
           <Input label={t('attachments.entityName')} value={entityName} onChange={(e) => setEntityName(e.target.value)} placeholder="e.g. machine, product" />
           <Input label={t('attachments.entityId')} value={entityId} onChange={(e) => setEntityId(e.target.value)} />

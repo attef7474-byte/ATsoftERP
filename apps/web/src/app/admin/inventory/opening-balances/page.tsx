@@ -29,6 +29,7 @@ export default function OpeningBalancesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<OpeningBalance | null>(null);
   const [form, setForm] = useState({ companyId: '', branchId: '', warehouseId: '', reason: '', notes: '' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [lines, setLines] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -102,6 +103,7 @@ export default function OpeningBalancesPage() {
     setEditItem(null);
     setForm({ companyId: '', branchId: '', warehouseId: '', reason: '', notes: '' });
     setLines([]);
+    setValidationErrors({});
     setModalOpen(true);
   };
   const openEdit = (item: OpeningBalance) => {
@@ -111,11 +113,17 @@ export default function OpeningBalancesPage() {
       reason: item.reason || '', notes: item.notes || '',
     });
     setLines((item.lines || []).map((l: any) => ({ ...l, _id: l.id || Date.now().toString() })));
+    setValidationErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.companyId || !form.branchId || !form.warehouseId) { showToast(t('validation.required'), 'error'); return; }
+    const errs: Record<string, string> = {};
+    if (!form.companyId) errs.companyId = t('validation.required');
+    if (!form.branchId) errs.branchId = t('validation.required');
+    if (!form.warehouseId) errs.warehouseId = t('validation.required');
+    if (Object.keys(errs).length) { setValidationErrors(errs); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       const payload: any = {
@@ -239,9 +247,18 @@ export default function OpeningBalancesPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.editOpeningBalance') : t('inventory.newOpeningBalance')} size="lg">
         <div className="space-y-4 max-h-96 overflow-y-auto">
           <div className="grid grid-cols-3 gap-4">
-            <F9Lookup label={t('inventoryCounting.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
-            <F9Lookup label={t('inventoryCounting.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} />
-            <F9Lookup label={t('inventoryCounting.warehouse')} value={form.warehouseId} onChange={(v) => setForm({ ...form, warehouseId: v })} adapter={warehouseAdapter} />
+            <div>
+              <F9Lookup label={t('inventoryCounting.company')} value={form.companyId} onChange={(v) => { setForm({ ...form, companyId: v }); setValidationErrors(p => ({ ...p, companyId: '' })); }} adapter={companyAdapter} />
+              {validationErrors.companyId && <p className="text-red-500 text-sm mt-1">{validationErrors.companyId}</p>}
+            </div>
+            <div>
+              <F9Lookup label={t('inventoryCounting.branch')} value={form.branchId} onChange={(v) => { setForm({ ...form, branchId: v }); setValidationErrors(p => ({ ...p, branchId: '' })); }} adapter={branchAdapter} />
+              {validationErrors.branchId && <p className="text-red-500 text-sm mt-1">{validationErrors.branchId}</p>}
+            </div>
+            <div>
+              <F9Lookup label={t('inventoryCounting.warehouse')} value={form.warehouseId} onChange={(v) => { setForm({ ...form, warehouseId: v }); setValidationErrors(p => ({ ...p, warehouseId: '' })); }} adapter={warehouseAdapter} />
+              {validationErrors.warehouseId && <p className="text-red-500 text-sm mt-1">{validationErrors.warehouseId}</p>}
+            </div>
           </div>
           <Textarea label={t('inventoryCounting.reason')} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
           <Textarea label={t('inventoryCounting.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />

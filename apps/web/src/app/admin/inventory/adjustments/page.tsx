@@ -33,6 +33,7 @@ export default function InventoryAdjustmentsPage() {
     adjustmentDate: new Date().toISOString().split('T')[0],
     reason: '', notes: '',
   });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [lines, setLines] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -93,6 +94,7 @@ export default function InventoryAdjustmentsPage() {
 
   const openCreate = () => {
     setEditItem(null);
+    setValidationErrors({});
     setForm({
       companyId: '', branchId: '', warehouseId: '',
       adjustmentDate: new Date().toISOString().split('T')[0],
@@ -103,6 +105,7 @@ export default function InventoryAdjustmentsPage() {
 
   const openEdit = (item: InventoryAdjustment) => {
     setEditItem(item);
+    setValidationErrors({});
     setForm({
       companyId: item.companyId, branchId: item.branchId, warehouseId: item.warehouseId,
       adjustmentDate: item.adjustmentDate ? item.adjustmentDate.split('T')[0] : new Date().toISOString().split('T')[0],
@@ -125,10 +128,13 @@ export default function InventoryAdjustmentsPage() {
   };
 
   const handleSave = async () => {
-    if (!form.companyId || !form.branchId || !form.warehouseId) {
-      showToast(t('validation.required'), 'error'); return;
-    }
-    if (lines.length === 0) { showToast(t('validation.required'), 'error'); return; }
+    const errs: Record<string, string> = {};
+    if (!form.companyId) errs.companyId = t('validation.required');
+    if (!form.branchId) errs.branchId = t('validation.required');
+    if (!form.warehouseId) errs.warehouseId = t('validation.required');
+    if (lines.length === 0) errs.lines = t('inventoryCounting.noLines');
+    if (Object.keys(errs).length) { setValidationErrors(errs); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       const payload: any = {

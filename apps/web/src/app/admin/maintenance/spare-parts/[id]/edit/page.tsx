@@ -20,6 +20,7 @@ export default function EditSparePartPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     code: '', name: '', description: '', category: '', specification: '', unit: '',
     manufacturer: '', model: '', partNumber: '', barcode: '',
@@ -49,7 +50,10 @@ export default function EditSparePartPage() {
   }, [id]);
 
   const handleSave = async () => {
-    if (!form.code || !form.name) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!form.name) errors.name = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       await api.patch(`/maintenance/spare-parts/${id}`, form);
@@ -75,7 +79,10 @@ export default function EditSparePartPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label={`${t('maintenance.sparePart.form.code')} *`} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-            <Input label={`${t('maintenance.sparePart.form.name')} *`} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <div>
+              <Input label={`${t('maintenance.sparePart.form.name')} *`} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} />
+              {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
+            </div>
             <Input label={t('maintenance.sparePart.form.category')} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
             <Input label={t('maintenance.sparePart.form.unit')} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
             <Input label={t('maintenance.sparePart.form.manufacturer')} value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })} />

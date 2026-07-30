@@ -35,6 +35,7 @@ export default function InventoryCountsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<InventoryCount | null>(null);
   const [form, setForm] = useState({ companyId: '', branchId: '', warehouseId: '', countDate: '', notes: '' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   const [actionConfirmOpen, setActionConfirmOpen] = useState(false);
@@ -114,9 +115,13 @@ export default function InventoryCountsPage() {
   const openEdit = (item: InventoryCount) => { router.push(`/admin/inventory/counts/${item.id}/edit`); };
 
   const handleSave = async () => {
-    if (!form.companyId || !form.branchId || !form.warehouseId || !form.countDate) {
-      showToast(t('validation.required'), 'error'); return;
-    }
+    const errs: Record<string, string> = {};
+    if (!form.companyId) errs.companyId = t('validation.required');
+    if (!form.branchId) errs.branchId = t('validation.required');
+    if (!form.warehouseId) errs.warehouseId = t('validation.required');
+    if (!form.countDate) errs.countDate = t('validation.required');
+    if (Object.keys(errs).length) { setValidationErrors(errs); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       const payload: any = { companyId: form.companyId, branchId: form.branchId, warehouseId: form.warehouseId, countDate: form.countDate };
@@ -232,10 +237,22 @@ export default function InventoryCountsPage() {
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventoryCounting.editCount') : t('inventoryCounting.newCount')} size="lg">
         <div className="space-y-4">
-          <F9Lookup label={t('inventoryCounting.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
-          <F9Lookup label={t('inventoryCounting.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} />
-          <F9Lookup label={t('inventoryCounting.warehouse')} value={form.warehouseId} onChange={(v) => setForm({ ...form, warehouseId: v })} adapter={warehouseAdapter} />
-          <Input label={t('inventoryCounting.countDate')} type="date" value={form.countDate} onChange={(e) => setForm({ ...form, countDate: e.target.value })} required />
+          <div>
+            <F9Lookup label={t('inventoryCounting.company')} value={form.companyId} onChange={(v) => { setForm({ ...form, companyId: v }); setValidationErrors(p => ({ ...p, companyId: '' })); }} adapter={companyAdapter} />
+            {validationErrors.companyId && <p className="text-red-500 text-sm mt-1">{validationErrors.companyId}</p>}
+          </div>
+          <div>
+            <F9Lookup label={t('inventoryCounting.branch')} value={form.branchId} onChange={(v) => { setForm({ ...form, branchId: v }); setValidationErrors(p => ({ ...p, branchId: '' })); }} adapter={branchAdapter} />
+            {validationErrors.branchId && <p className="text-red-500 text-sm mt-1">{validationErrors.branchId}</p>}
+          </div>
+          <div>
+            <F9Lookup label={t('inventoryCounting.warehouse')} value={form.warehouseId} onChange={(v) => { setForm({ ...form, warehouseId: v }); setValidationErrors(p => ({ ...p, warehouseId: '' })); }} adapter={warehouseAdapter} />
+            {validationErrors.warehouseId && <p className="text-red-500 text-sm mt-1">{validationErrors.warehouseId}</p>}
+          </div>
+          <div>
+            <Input label={t('inventoryCounting.countDate')} type="date" value={form.countDate} onChange={(e) => { setForm({ ...form, countDate: e.target.value }); setValidationErrors(p => ({ ...p, countDate: '' })); }} required />
+            {validationErrors.countDate && <p className="text-red-500 text-sm mt-1">{validationErrors.countDate}</p>}
+          </div>
           <Input label={t('common.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>

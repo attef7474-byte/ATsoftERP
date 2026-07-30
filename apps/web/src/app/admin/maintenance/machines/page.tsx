@@ -30,6 +30,7 @@ export default function MachinesPage() {
     model: '', serialNumber: '', manufacturer: '', purchaseDate: '', warrantyEnd: '', location: '', notes: '',
   });
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
@@ -75,7 +76,11 @@ useRegisterAdminActions([
   const openEdit = (item: Machine) => { router.push(`/admin/maintenance/machines/${item.id}/edit`); };
 
   const handleSave = async () => {
-    if (!form.code || !form.name) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!form.code) errors.code = t('validation.required');
+    if (!form.name) errors.name = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       const payload: any = { code: form.code, name: form.name };
@@ -183,8 +188,14 @@ useRegisterAdminActions([
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editMachine') : t('maintenance.newMachine')} size="lg">
         <div className="space-y-4 max-h-96 overflow-y-auto">
           <div className="grid grid-cols-2 gap-4">
-            <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
-            <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <div>
+              <Input label={t('common.code')} value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} required />
+              {validationErrors.code && <p className="text-red-500 text-sm mt-1">{validationErrors.code}</p>}
+            </div>
+            <div>
+              <Input label={t('common.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} required />
+              {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
+            </div>
           </div>
           <F9Lookup label={t('maintenance.machineCategory')} value={form.categoryId} onChange={(v) => setForm({ ...form, categoryId: v })} adapter={machineCategoryAdapter} />
           <div className="grid grid-cols-2 gap-4">

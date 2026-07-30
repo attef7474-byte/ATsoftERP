@@ -19,6 +19,7 @@ export default function NewPhysicalCountPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ companyId: '', branchId: '', warehouseId: '', notes: '' });
   const [lines, setLines] = useState<LineEntry[]>([]);
 
@@ -35,14 +36,12 @@ export default function NewPhysicalCountPage() {
   };
 
   const handleSave = async () => {
-    if (!form.companyId || !form.warehouseId) {
-      showToast('Company and Warehouse are required', 'error');
-      return;
-    }
-    if (lines.length === 0) {
-      showToast('Add at least one product to count', 'error');
-      return;
-    }
+    const errs: Record<string, string> = {};
+    if (!form.companyId) errs.companyId = t('validation.required');
+    if (!form.warehouseId) errs.warehouseId = t('validation.required');
+    if (lines.length === 0) errs.lines = t('inventoryCounting.noLines');
+    if (Object.keys(errs).length) { setValidationErrors(errs); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       const res = await api.post<{ id: string }>('/inventory/physical-counts', {
@@ -68,7 +67,8 @@ export default function NewPhysicalCountPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">{t('inventoryCounting.company')} *</label>
-            <F9Lookup adapter={companyAdapter} value={form.companyId} onChange={v => setForm(f => ({ ...f, companyId: v || '' }))} />
+            <F9Lookup adapter={companyAdapter} value={form.companyId} onChange={v => { setForm(f => ({ ...f, companyId: v || '' })); setValidationErrors(p => ({ ...p, companyId: '' })); }} />
+            {validationErrors.companyId && <p className="text-red-500 text-sm mt-1">{validationErrors.companyId}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">{t('inventoryCounting.branch')}</label>
@@ -76,7 +76,8 @@ export default function NewPhysicalCountPage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">{t('inventoryCounting.warehouse')} *</label>
-            <F9Lookup adapter={warehouseAdapter} value={form.warehouseId} onChange={v => setForm(f => ({ ...f, warehouseId: v || '' }))} />
+            <F9Lookup adapter={warehouseAdapter} value={form.warehouseId} onChange={v => { setForm(f => ({ ...f, warehouseId: v || '' })); setValidationErrors(p => ({ ...p, warehouseId: '' })); }} />
+            {validationErrors.warehouseId && <p className="text-red-500 text-sm mt-1">{validationErrors.warehouseId}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">{t('common.notes')}</label>
@@ -91,6 +92,7 @@ export default function NewPhysicalCountPage() {
           <Button onClick={addLine} variant="secondary" size="sm">{t('physicalCount.addProduct', 'physicalCount')}</Button>
         </div>
         {lines.length === 0 && <p className="text-gray-500 text-sm">{t('inventoryCounting.noLines')}</p>}
+        {validationErrors.lines && <p className="text-red-500 text-sm mt-1">{validationErrors.lines}</p>}
         {lines.map(line => (
           <div key={line._id} className="flex gap-2 items-center mb-2">
             <div className="flex-1">

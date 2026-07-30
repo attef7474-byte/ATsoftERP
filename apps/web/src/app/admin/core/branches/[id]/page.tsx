@@ -35,6 +35,7 @@ export default function BranchDetailPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ code: '', name: '', address: '', phone: '' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'activate' | 'deactivate'>('deactivate');
@@ -109,11 +110,16 @@ export default function BranchDetailPage() {
       address: branch.address || '',
       phone: branch.phone || '',
     });
+    setValidationErrors({});
     setModalOpen(true);
   }, [branch]);
 
   const handleSave = async () => {
-    if (!form.code || !form.name) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!form.code) errors.code = t('validation.required');
+    if (!form.name) errors.name = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       await api.patch(`/branches/${id}`, form);
@@ -321,8 +327,14 @@ export default function BranchDetailPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('core.editBranch')}>
         <div className="space-y-4">
-          <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
-          <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <div>
+            <Input label={t('common.code')} value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} required />
+            {validationErrors.code && <p className="text-red-500 text-sm mt-1">{validationErrors.code}</p>}
+          </div>
+          <div>
+            <Input label={t('common.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} required />
+            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
+          </div>
           <Input label={t('common.address')} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           <Input label={t('common.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <div className="flex justify-end gap-3 pt-4">

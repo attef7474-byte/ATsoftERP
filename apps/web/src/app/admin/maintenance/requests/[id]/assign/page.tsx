@@ -22,6 +22,7 @@ export default function AssignTechnicianPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [assignedToId, setAssignedToId] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -36,7 +37,10 @@ export default function AssignTechnicianPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleSave = async () => {
-    if (!assignedToId) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!assignedToId) errors.assignedToId = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       await api.patch(`/maintenance/requests/${id}/assign`, { assignedToId });
@@ -74,7 +78,10 @@ export default function AssignTechnicianPage() {
               {request.assignedTo && <p className="text-sm"><span className="font-medium">{t('maintenanceWorkflow.currentAssignee')}:</span> {request.assignedTo.name}</p>}
             </div>
           )}
-          <F9Lookup label={t('maintenanceWorkflow.selectTechnician')} value={assignedToId} onChange={setAssignedToId} adapter={userAdapter} />
+          <div>
+            <F9Lookup label={t('maintenanceWorkflow.selectTechnician')} value={assignedToId} onChange={(v) => { setAssignedToId(v); setValidationErrors(prev => ({ ...prev, assignedToId: '' })); }} adapter={userAdapter} />
+            {validationErrors.assignedToId && <p className="text-red-500 text-sm mt-1">{validationErrors.assignedToId}</p>}
+          </div>
           <div className="flex justify-end gap-3 mt-6">
             <Button variant="secondary" onClick={() => router.back()}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>

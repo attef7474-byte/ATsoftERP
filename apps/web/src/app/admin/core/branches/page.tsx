@@ -36,6 +36,7 @@ export default function BranchesPage() {
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate'>('deactivate');
   const [statusSaving, setStatusSaving] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const {
     data,
@@ -87,7 +88,7 @@ export default function BranchesPage() {
       return operation === 'create' ? t('errors.createFailed') : t('errors.updateFailed');
     },
     onError: (message, operation) => {
-      if (operation !== 'list') showToast(message, 'error');
+      if (operation !== 'list') setValidationErrors({ form: message });
     },
     onSuccess: (operation) => {
       showToast(operation === 'create' ? t('common.successCreated') : t('common.successUpdated'), 'success');
@@ -210,14 +211,15 @@ export default function BranchesPage() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={closeFormModal} title={editItem ? t('core.editBranch') : t('core.newBranch')}>
+      <Modal open={modalOpen} onClose={() => { closeFormModal(); setValidationErrors({}); }} title={editItem ? t('core.editBranch') : t('core.newBranch')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
+          {validationErrors.form && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{validationErrors.form}</div>}
           <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label={t('common.address')} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           <Input label={t('common.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={closeFormModal}>{t('actions.cancel')}</Button>
+            <Button variant="secondary" onClick={() => { closeFormModal(); setValidationErrors({}); }}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
         </div>}

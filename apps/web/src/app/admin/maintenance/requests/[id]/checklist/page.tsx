@@ -21,6 +21,7 @@ export default function RequestChecklistPage() {
   const [error, setError] = useState('');
   const [scheduleId, setScheduleId] = useState('');
   const [creating, setCreating] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [selectedExecution, setSelectedExecution] = useState<MaintenanceChecklistExecution | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -36,7 +37,10 @@ export default function RequestChecklistPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleCreate = async () => {
-    if (!scheduleId) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!scheduleId) errors.scheduleId = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setCreating(true);
     try {
       await api.post(`/maintenance/requests/${id}/checklist`, { scheduleId });
@@ -79,7 +83,8 @@ export default function RequestChecklistPage() {
         <CardContent>
           <div className="flex items-end gap-4">
             <div className="flex-1">
-              <F9Lookup label={t('maintenance.schedule')} value={scheduleId} onChange={setScheduleId} adapter={maintenanceScheduleAdapter} />
+              <F9Lookup label={t('maintenance.schedule')} value={scheduleId} onChange={(v) => { setScheduleId(v); setValidationErrors(prev => ({ ...prev, scheduleId: '' })); }} adapter={maintenanceScheduleAdapter} />
+              {validationErrors.scheduleId && <p className="text-red-500 text-sm mt-1">{validationErrors.scheduleId}</p>}
             </div>
             <Button onClick={handleCreate} loading={creating} disabled={!scheduleId}>{t('common.create')}</Button>
           </div>

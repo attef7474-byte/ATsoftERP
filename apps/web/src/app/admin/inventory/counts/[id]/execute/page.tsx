@@ -35,6 +35,7 @@ export default function CountExecutePage() {
   const [countLineId, setCountLineId] = useState('');
   const [countLineSystemQty, setCountLineSystemQty] = useState(0);
   const [countedQty, setCountedQty] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [countSaving, setCountSaving] = useState(false);
 
   const [verifyConfirmOpen, setVerifyConfirmOpen] = useState(false);
@@ -59,11 +60,12 @@ export default function CountExecutePage() {
 
   const handleScan = async () => {
     if (!scanValue.trim() || !count) return;
+    setValidationErrors({});
     setScanning(true);
     try {
       const result = await api.post<any>('/barcodes/scan', { value: scanValue.trim(), purpose: 'INVENTORY_COUNTING' });
       const productId = result?.label?.entityId || result?.entityId;
-      if (!productId) { showToast(t('inventoryCountWorkflow.barcodeNotFound'), 'error'); return; }
+      if (!productId) { setValidationErrors({ scan: t('inventoryCountWorkflow.barcodeNotFound') }); return; }
       await api.post(`/inventory/counts/${id}/lines`, { productId });
       showToast(t('inventoryCountWorkflow.productAddedToCount'), 'success');
       setScanValue('');
@@ -73,7 +75,8 @@ export default function CountExecutePage() {
   };
 
   const handleAddLine = async () => {
-    if (!lineForm.productId) { showToast(t('validation.required'), 'error'); return; }
+    if (!lineForm.productId) { setValidationErrors({ productId: t('validation.required') }); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       const payload: any = { productId: lineForm.productId, notes: lineForm.notes || undefined };
@@ -91,12 +94,14 @@ export default function CountExecutePage() {
     setCountLineId(line.id);
     setCountLineSystemQty(line.systemQty);
     setCountedQty(line.countedQty != null ? String(line.countedQty) : '');
+    setValidationErrors({});
     setCountModalOpen(true);
   };
 
   const handleCount = async () => {
     const qty = parseFloat(countedQty);
-    if (isNaN(qty)) { showToast(t('validation.required'), 'error'); return; }
+    if (isNaN(qty)) { setValidationErrors({ countedQty: t('validation.required') }); return; }
+    setValidationErrors({});
     setCountSaving(true);
     try {
       await api.patch(`/inventory/count-lines/${countLineId}/count`, { countedQty: qty });
@@ -124,7 +129,7 @@ export default function CountExecutePage() {
     back: () => router.back(),
     refresh: () => fetchData(),
     scan: () => handleScan(),
-    addLine: () => { setLineForm({ productId: '', warehouseLocationId: '', notes: '' }); setLineModalOpen(true); },
+    addLine: () => { setLineForm({ productId: '', warehouseLocationId: '', notes: '' }); setValidationErrors({}); setLineModalOpen(true); },
   });
 
   useRegisterAdminActions([
@@ -180,15 +185,16 @@ export default function CountExecutePage() {
         <CardContent>
           <div className="flex gap-3 items-end">
             <div className="flex-1">
-              <input ref={scanInputRef} type="text" value={scanValue} onChange={(e) => setScanValue(e.target.value)}
+              <input ref={scanInputRef} type="text" value={scanValue} onChange={(e) => { setScanValue(e.target.value); setValidationErrors(p => ({ ...p, scan: '' })); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleScan(); }}
                 placeholder={t('inventoryCountWorkflow.scanPlaceholder')}
                 className="block w-full rounded-lg border-2 border-blue-400 px-4 py-2 text-lg font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              {validationErrors.scan && <p className="text-red-500 text-sm mt-1">{validationErrors.scan}</p>}
             </div>
             <Button onClick={handleScan} loading={scanning} disabled={!scanValue.trim()}>{t('inventoryCountWorkflow.scanBarcode')}</Button>
             <Button variant="secondary" onClick={() => { setLineForm({ productId: '', warehouseLocationId: '', notes: '' }); setLineModalOpen(true); }}>{t('inventoryCountWorkflow.manualAdd')}</Button>
           </div>
-          <p className="text-xs text-gray-400 mt-2">{t('inventoryCountWorkflow.executeNote')}</p>
+          <p className="text-xs text-gray-400 mt-1">{t('inventoryCountWorkflow.executeNote')}</p>
         </CardContent>
       </Card>
 
@@ -203,7 +209,10 @@ export default function CountExecutePage() {
 
       <Modal open={lineModalOpen} onClose={() => setLineModalOpen(false)} title={t('inventoryCountWorkflow.manualAdd')} size="md">
         <div className="space-y-4">
-          <F9Lookup label={t('inventoryCounting.product')} value={lineForm.productId} onChange={(v) => setLineForm({ ...lineForm, productId: v })} adapter={productAdapter} />
+          <div>
+            <F9Lookup label={t('inventoryCounting.product')} value={lineForm.productId} onChange={(v) => { setLineForm({ ...lineForm, productId: v }); setValidationErrors(p => ({ ...p, productId: '' })); }} adapter={productAdapter} />
+            {validationErrors.productId && <p className="text-red-500 text-sm mt-1">{validationErrors.productId}</p>}
+          </div>
           {count.warehouseId && (
             <F9Lookup label={t('inventoryCounting.warehouseLocation')} value={lineForm.warehouseLocationId} onChange={(v) => setLineForm({ ...lineForm, warehouseLocationId: v })} adapter={warehouseLocationAdapter} filters={locationFilters} />
           )}
@@ -218,7 +227,10 @@ export default function CountExecutePage() {
       <Modal open={countModalOpen} onClose={() => setCountModalOpen(false)} title={t('inventoryCountWorkflow.executeActionRecordCount')} size="sm">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">{t('inventoryCounting.systemQty')}: <strong>{countLineSystemQty}</strong></p>
-          <Input label={t('inventoryCounting.countedQty')} type="number" value={countedQty} onChange={(e) => setCountedQty(e.target.value)} required />
+          <div>
+            <Input label={t('inventoryCounting.countedQty')} type="number" value={countedQty} onChange={(e) => { setCountedQty(e.target.value); setValidationErrors(p => ({ ...p, countedQty: '' })); }} required />
+            {validationErrors.countedQty && <p className="text-red-500 text-sm mt-1">{validationErrors.countedQty}</p>}
+          </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setCountModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleCount} loading={countSaving}>{t('actions.save')}</Button>

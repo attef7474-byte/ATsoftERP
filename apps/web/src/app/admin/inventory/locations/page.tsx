@@ -22,6 +22,7 @@ export default function WarehouseLocationsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const [form, setForm] = useState({ warehouseId: '', code: '', name: '', description: '' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
@@ -66,6 +67,7 @@ export default function WarehouseLocationsPage() {
   const openCreate = () => {
     setEditItem(null);
     setForm({ warehouseId: '', code: '', name: '', description: '' });
+    setValidationErrors({});
     setModalOpen(true);
   };
 
@@ -77,11 +79,17 @@ export default function WarehouseLocationsPage() {
       name: item.name,
       description: item.description || '',
     });
+    setValidationErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.code || !form.name || !form.warehouseId) { showToast(t('validation.required'), 'error'); return; }
+    const errs: Record<string, string> = {};
+    if (!form.warehouseId) errs.warehouseId = t('validation.required');
+    if (!form.code) errs.code = t('validation.required');
+    if (!form.name) errs.name = t('validation.required');
+    if (Object.keys(errs).length) { setValidationErrors(errs); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       const payload: any = { warehouseId: form.warehouseId, code: form.code, name: form.name };
@@ -164,9 +172,18 @@ export default function WarehouseLocationsPage() {
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.locations.editLocation') : t('inventory.locations.newLocation')}>
         <div className="space-y-4">
-          <F9Lookup label={t('inventory.locations.warehouse')} value={form.warehouseId} onChange={(v) => setForm({ ...form, warehouseId: v })} adapter={warehouseAdapter} />
-          <Input label={t('inventory.locations.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
-          <Input label={t('inventory.locations.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <div>
+            <F9Lookup label={t('inventory.locations.warehouse')} value={form.warehouseId} onChange={(v) => { setForm({ ...form, warehouseId: v }); setValidationErrors(p => ({ ...p, warehouseId: '' })); }} adapter={warehouseAdapter} />
+            {validationErrors.warehouseId && <p className="text-red-500 text-sm mt-1">{validationErrors.warehouseId}</p>}
+          </div>
+          <div>
+            <Input label={t('inventory.locations.code')} value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(p => ({ ...p, code: '' })); }} required />
+            {validationErrors.code && <p className="text-red-500 text-sm mt-1">{validationErrors.code}</p>}
+          </div>
+          <div>
+            <Input label={t('inventory.locations.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(p => ({ ...p, name: '' })); }} required />
+            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
+          </div>
           <Textarea label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>

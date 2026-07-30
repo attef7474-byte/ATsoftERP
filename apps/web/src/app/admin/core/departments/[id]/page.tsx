@@ -30,6 +30,7 @@ export default function DepartmentDetailPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ code: '', name: '' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -96,6 +97,7 @@ export default function DepartmentDetailPage() {
     edit: () => {
       if (!data) return;
       setForm({ code: data.code, name: data.name });
+      setValidationErrors({});
       setModalOpen(true);
     },
     activate: () => { setConfirmAction('activate'); setConfirmOpen(true); },
@@ -111,7 +113,11 @@ export default function DepartmentDetailPage() {
   ]);
 
   const handleSave = async () => {
-    if (!form.code || !form.name) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!form.code) errors.code = t('validation.required');
+    if (!form.name) errors.name = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       await api.patch(`/departments/${id}`, { code: form.code, name: form.name });
@@ -311,8 +317,14 @@ export default function DepartmentDetailPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('core.editDepartment')}>
         <div className="space-y-4">
-          <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
-          <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <div>
+            <Input label={t('common.code')} value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} required />
+            {validationErrors.code && <p className="text-red-500 text-sm mt-1">{validationErrors.code}</p>}
+          </div>
+          <div>
+            <Input label={t('common.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} required />
+            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
+          </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>

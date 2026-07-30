@@ -24,6 +24,7 @@ export default function UsedPartsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MaintenanceRequestPartUsage | null>(null);
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ productId: '', quantity: 0, unitCost: 0, notes: '' });
 
   const fetchData = useCallback(async () => {
@@ -44,17 +45,23 @@ export default function UsedPartsPage() {
   const openCreate = () => {
     setEditItem(null);
     setForm({ productId: '', quantity: 1, unitCost: 0, notes: '' });
+    setValidationErrors({});
     setModalOpen(true);
   };
 
   const openEdit = (item: MaintenanceRequestPartUsage) => {
     setEditItem(item);
     setForm({ productId: item.productId, quantity: item.quantity, unitCost: item.unitCost ?? 0, notes: item.notes || '' });
+    setValidationErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.productId || !form.quantity) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!form.productId) errors.productId = t('validation.required');
+    if (!form.quantity) errors.quantity = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       const payload = { requestId: id, ...form, totalCost: form.unitCost * form.quantity };
@@ -127,8 +134,14 @@ export default function UsedPartsPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenanceWorkflow.editPart') : t('maintenanceWorkflow.addPart')} size="md">
         <div className="space-y-4">
-          <F9Lookup label={t('maintenanceWorkflow.partProduct')} value={form.productId} onChange={(v) => setForm({ ...form, productId: v })} adapter={productAdapter} />
-          <Input label={t('maintenanceWorkflow.partQuantity')} type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: parseFloat(e.target.value) || 0 })} />
+          <div>
+            <F9Lookup label={t('maintenanceWorkflow.partProduct')} value={form.productId} onChange={(v) => { setForm({ ...form, productId: v }); setValidationErrors(prev => ({ ...prev, productId: '' })); }} adapter={productAdapter} />
+            {validationErrors.productId && <p className="text-red-500 text-sm mt-1">{validationErrors.productId}</p>}
+          </div>
+          <div>
+            <Input label={t('maintenanceWorkflow.partQuantity')} type="number" value={form.quantity} onChange={(e) => { setForm({ ...form, quantity: parseFloat(e.target.value) || 0 }); setValidationErrors(prev => ({ ...prev, quantity: '' })); }} />
+            {validationErrors.quantity && <p className="text-red-500 text-sm mt-1">{validationErrors.quantity}</p>}
+          </div>
           <Input label={t('maintenanceWorkflow.partUnitCost')} type="number" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: parseFloat(e.target.value) || 0 })} />
           <Textarea label={t('maintenanceWorkflow.partNotes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="flex justify-end gap-3 pt-4">

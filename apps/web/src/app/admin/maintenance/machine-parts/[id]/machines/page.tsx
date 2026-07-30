@@ -22,6 +22,7 @@ export default function MachinePartMachinesPage() {
   const [error, setError] = useState('');
   const [linking, setLinking] = useState(false);
   const [selectedMachineId, setSelectedMachineId] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [unlinking, setUnlinking] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -37,7 +38,10 @@ export default function MachinePartMachinesPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleLink = async () => {
-    if (!selectedMachineId) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!selectedMachineId) errors.selectedMachineId = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setLinking(true);
     try {
       await api.post(`/maintenance/machine-parts/${id}/machines`, { machineId: selectedMachineId });
@@ -106,7 +110,10 @@ export default function MachinePartMachinesPage() {
         <CardHeader><h3 className="text-sm font-semibold text-gray-700">{t('maintenance.linkToMachine')}</h3></CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <F9Lookup label={t('maintenance.machine')} value={selectedMachineId} onChange={setSelectedMachineId} adapter={machineAdapter} />
+            <div>
+              <F9Lookup label={t('maintenance.machine')} value={selectedMachineId} onChange={(v) => { setSelectedMachineId(v); setValidationErrors(prev => ({ ...prev, selectedMachineId: '' })); }} adapter={machineAdapter} />
+              {validationErrors.selectedMachineId && <p className="text-red-500 text-sm mt-1">{validationErrors.selectedMachineId}</p>}
+            </div>
             <div className="flex justify-end">
               <Button onClick={handleLink} loading={linking} disabled={!selectedMachineId || !!currentMachine}>
                 {t('maintenance.linkMachine')}

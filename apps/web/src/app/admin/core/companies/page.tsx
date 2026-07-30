@@ -45,6 +45,7 @@ export default function CompaniesPage() {
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate'>('deactivate');
   const [statusSaving, setStatusSaving] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const {
     data,
@@ -103,7 +104,7 @@ export default function CompaniesPage() {
       return operation === 'create' ? t('errors.createFailed') : t('errors.updateFailed');
     },
     onError: (message, operation) => {
-      if (operation !== 'list') showToast(message, 'error');
+      if (operation !== 'list') setValidationErrors({ form: message });
     },
     onSuccess: (operation) => {
       const message = operation === 'create'
@@ -236,8 +237,9 @@ export default function CompaniesPage() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={closeFormModal} title={editItem ? t('core.editCompany') : t('core.newCompany')}>
+      <Modal open={modalOpen} onClose={() => { closeFormModal(); setValidationErrors({}); }} title={editItem ? t('core.editCompany') : t('core.newCompany')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
+          {validationErrors.form && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{validationErrors.form}</div>}
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <Input label={t('core.legalName')} value={form.legalName} onChange={(e) => setForm({ ...form, legalName: e.target.value })} />
           <Input label={t('core.taxNumber')} value={form.taxNumber} onChange={(e) => setForm({ ...form, taxNumber: e.target.value })} />
@@ -245,7 +247,7 @@ export default function CompaniesPage() {
           <Input label={t('common.email')} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <Input label={t('common.address')} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={closeFormModal}>{t('actions.cancel')}</Button>
+            <Button variant="secondary" onClick={() => { closeFormModal(); setValidationErrors({}); }}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
         </div>}

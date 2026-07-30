@@ -21,6 +21,7 @@ export default function ProductCategoriesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<ProductCategory | null>(null);
   const [form, setForm] = useState({ code: '', name: '', description: '', parentId: '' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
@@ -66,15 +67,20 @@ export default function ProductCategoriesPage() {
 
   useEffect(() => { fetchData(); fetchParents(); }, []);
 
-  const openCreate = () => { setEditItem(null); setForm({ code: '', name: '', description: '', parentId: '' }); setModalOpen(true); };
+  const openCreate = () => { setEditItem(null); setForm({ code: '', name: '', description: '', parentId: '' }); setValidationErrors({}); setModalOpen(true); };
   const openEdit = (item: ProductCategory) => {
     setEditItem(item);
     setForm({ code: item.code, name: item.name, description: item.description || '', parentId: item.parentId || '' });
+    setValidationErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.code || !form.name) { showToast(t('validation.required'), 'error'); return; }
+    const errs: Record<string, string> = {};
+    if (!form.code) errs.code = t('validation.required');
+    if (!form.name) errs.name = t('validation.required');
+    if (Object.keys(errs).length) { setValidationErrors(errs); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       const payload: any = { code: form.code, name: form.name, description: form.description || undefined };
@@ -149,8 +155,14 @@ export default function ProductCategoriesPage() {
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.editProductCategory') : t('inventory.newProductCategory')}>
         <div className="space-y-4">
-          <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
-          <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <div>
+            <Input label={t('common.code')} value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(p => ({ ...p, code: '' })); }} required />
+            {validationErrors.code && <p className="text-red-500 text-sm mt-1">{validationErrors.code}</p>}
+          </div>
+          <div>
+            <Input label={t('common.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(p => ({ ...p, name: '' })); }} required />
+            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
+          </div>
           <Input label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <Select label={t('inventory.parentCategory')} value={form.parentId} onChange={(e) => setForm({ ...form, parentId: e.target.value })}
             options={parents.filter((p) => p.id !== editItem?.id).map((c) => ({ value: c.id, label: `[${c.code}] ${c.name}` }))} placeholder='-' />

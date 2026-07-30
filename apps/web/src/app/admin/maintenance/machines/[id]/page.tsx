@@ -37,6 +37,7 @@ export default function MachineDetailPage() {
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [editingMachineLink, setEditingMachineLink] = useState<any | null>(null);
   const [linkForm, setLinkForm] = useState({ sparePartId: '', quantity: 1, unit: '', usageNote: '', isPrimary: false });
+  const [linkValidationErrors, setLinkValidationErrors] = useState<Record<string, string>>({});
   const [savingLink, setSavingLink] = useState(false);
   const [deleteLinkId, setDeleteLinkId] = useState<string | null>(null);
 
@@ -93,17 +94,22 @@ export default function MachineDetailPage() {
   const openNewMachineLink = useCallback(() => {
     setEditingMachineLink(null);
     setLinkForm({ sparePartId: '', quantity: 1, unit: '', usageNote: '', isPrimary: false });
+    setLinkValidationErrors({});
     setLinkModalOpen(true);
   }, []);
 
   const openEditMachineLink = useCallback((link: any) => {
     setEditingMachineLink(link);
     setLinkForm({ sparePartId: link.sparePartId, quantity: link.quantity, unit: link.unit || '', usageNote: link.usageNote || '', isPrimary: link.isPrimary });
+    setLinkValidationErrors({});
     setLinkModalOpen(true);
   }, []);
 
   const handleSaveMachineLink = async () => {
-    if (!linkForm.sparePartId) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!linkForm.sparePartId) errors.sparePartId = t('validation.required');
+    setLinkValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSavingLink(true);
     try {
       const payload = { ...linkForm, machineId: id };
@@ -356,12 +362,15 @@ export default function MachineDetailPage() {
 
       <Modal open={linkModalOpen} onClose={() => setLinkModalOpen(false)} title={editingMachineLink ? t('common.edit') : t('common.add')}>
         <div className="space-y-4">
-          <F9Lookup
-            label={t('maintenance.sparePart.form.selectSparePart')}
-            adapter={sparePartAdapter}
-            value={linkForm.sparePartId}
-            onChange={(val) => setLinkForm({ ...linkForm, sparePartId: val })}
-          />
+          <div>
+            <F9Lookup
+              label={t('maintenance.sparePart.form.selectSparePart')}
+              adapter={sparePartAdapter}
+              value={linkForm.sparePartId}
+              onChange={(val) => { setLinkForm({ ...linkForm, sparePartId: val }); setLinkValidationErrors(prev => ({ ...prev, sparePartId: '' })); }}
+            />
+            {linkValidationErrors.sparePartId && <p className="text-red-500 text-sm mt-1">{linkValidationErrors.sparePartId}</p>}
+          </div>
           <Input label={t('maintenance.sparePart.form.quantity')} type="number" value={linkForm.quantity} onChange={(e) => setLinkForm({ ...linkForm, quantity: Number(e.target.value) })} />
           <Input label={t('maintenance.sparePart.form.unit')} value={linkForm.unit} onChange={(e) => setLinkForm({ ...linkForm, unit: e.target.value })} />
           <Input label={t('maintenance.sparePart.form.usageNote')} value={linkForm.usageNote} onChange={(e) => setLinkForm({ ...linkForm, usageNote: e.target.value })} />

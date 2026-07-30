@@ -25,6 +25,7 @@ export default function ProductDetailPage() {
   const [subLoading, setSubLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState({ code: '', name: '', unit: '', barcode: '' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -61,7 +62,12 @@ export default function ProductDetailPage() {
   };
 
   const handleSave = async () => {
-    if (!form.code || !form.name || !form.unit) { showToast(t('validation.required'), 'error'); return; }
+    const errs: Record<string, string> = {};
+    if (!form.code) errs.code = t('validation.required');
+    if (!form.name) errs.name = t('validation.required');
+    if (!form.unit) errs.unit = t('validation.required');
+    if (Object.keys(errs).length) { setValidationErrors(errs); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       await api.patch(`/products/${id}`, { code: form.code, name: form.name, unit: form.unit, barcode: form.barcode || undefined });

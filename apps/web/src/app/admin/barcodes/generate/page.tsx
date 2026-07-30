@@ -50,6 +50,7 @@ export default function BarcodeGeneratePage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [labels, setLabels] = useState<BarcodeLabel[]>([]);
   const [loadingLabels, setLoadingLabels] = useState(false);
 
@@ -77,7 +78,10 @@ export default function BarcodeGeneratePage() {
   }, [entityType, entityId]);
 
   const handleGenerate = async () => {
-    if (!entityId) { showToast(t('barcodes.generate.noEntity'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!entityId) errors.entityId = t('barcodes.generate.noEntity');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setGenerating(true);
     try {
       await api.post('/barcodes/labels/generate', {
@@ -158,17 +162,23 @@ export default function BarcodeGeneratePage() {
               onChange={(e) => setSymbology(e.target.value)}
               options={SYMBOLOGIES.map((s) => ({ value: s, label: s }))} />
             {entityAdapter ? (
-              <F9Lookup<MachinePart>
-                label={t('barcodes.entityId')}
-                value={entityId}
-                onChange={(v) => { setEntityId(v); setLabels([]); }}
-                adapter={entityAdapter as LookupAdapter<any>}
-                placeholder={t('barcodes.generate.entityPlaceholder')}
-              />
+              <div>
+                <F9Lookup<MachinePart>
+                  label={t('barcodes.entityId')}
+                  value={entityId}
+                  onChange={(v) => { setEntityId(v); setLabels([]); setValidationErrors(prev => ({ ...prev, entityId: '' })); }}
+                  adapter={entityAdapter as LookupAdapter<any>}
+                  placeholder={t('barcodes.generate.entityPlaceholder')}
+                />
+                {validationErrors.entityId && <p className="text-red-500 text-sm mt-1">{validationErrors.entityId}</p>}
+              </div>
             ) : (
-              <Input label={t('barcodes.entityId')} value={entityId}
-                onChange={(e) => { setEntityId(e.target.value); setLabels([]); }}
-                placeholder="e.g., entity id" />
+              <div>
+                <Input label={t('barcodes.entityId')} value={entityId}
+                  onChange={(e) => { setEntityId(e.target.value); setLabels([]); setValidationErrors(prev => ({ ...prev, entityId: '' })); }}
+                  placeholder="e.g., entity id" />
+                {validationErrors.entityId && <p className="text-red-500 text-sm mt-1">{validationErrors.entityId}</p>}
+              </div>
             )}
             <Input label={t('barcodes.generate.labelTitle')} value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>

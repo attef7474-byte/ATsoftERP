@@ -20,6 +20,7 @@ export default function AdjustmentLinesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const [lineFormOpen, setLineFormOpen] = useState(false);
   const [editingLine, setEditingLine] = useState<any>(null);
@@ -55,6 +56,7 @@ export default function AdjustmentLinesPage() {
     setEditingLine(null);
     setLineForm({ productId: '', countedQty: 0, notes: '' });
     setLineSystemQty(0);
+    setValidationErrors({});
     setLineFormOpen(true);
   };
 
@@ -66,7 +68,11 @@ export default function AdjustmentLinesPage() {
   };
 
   const handleSaveLine = async () => {
-    if (!lineForm.productId || lineForm.countedQty < 0) { showToast(t('validation.required'), 'error'); return; }
+    const errs: Record<string, string> = {};
+    if (!lineForm.productId) errs.productId = t('validation.required');
+    if (lineForm.countedQty < 0) errs.countedQty = t('validation.required');
+    if (Object.keys(errs).length > 0) { setValidationErrors(errs); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       const payload = { productId: lineForm.productId, countedQty: lineForm.countedQty, notes: lineForm.notes || undefined };
@@ -144,10 +150,16 @@ export default function AdjustmentLinesPage() {
           {lineFormOpen && (
             <div className="border rounded p-3 mb-4 space-y-3 bg-gray-50">
               <h4 className="font-medium text-sm">{editingLine ? t('inventoryCounting.editLine') : t('inventoryCounting.addLine')}</h4>
-              <F9Lookup label={t('inventoryCounting.product')} value={lineForm.productId} onChange={(v) => setLineForm({ ...lineForm, productId: v })} adapter={productAdapter} />
+              <div>
+                <F9Lookup label={t('inventoryCounting.product')} value={lineForm.productId} onChange={(v) => { setLineForm({ ...lineForm, productId: v }); setValidationErrors((prev) => ({ ...prev, productId: '' })); }} adapter={productAdapter} />
+                {validationErrors.productId && <p className="text-red-500 text-sm mt-1">{validationErrors.productId}</p>}
+              </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-sm"><span className="block text-gray-500">{t('inventoryCounting.systemQty')}</span><span className="font-medium">{lineSystemQty}</span></div>
-                <Input label={t('inventoryCounting.countedQty')} type="number" value={String(lineForm.countedQty)} onChange={(e) => setLineForm({ ...lineForm, countedQty: Number(e.target.value) })} />
+                <div>
+                  <Input label={t('inventoryCounting.countedQty')} type="number" value={String(lineForm.countedQty)} onChange={(e) => { setLineForm({ ...lineForm, countedQty: Number(e.target.value) }); setValidationErrors((prev) => ({ ...prev, countedQty: '' })); }} />
+                  {validationErrors.countedQty && <p className="text-red-500 text-sm mt-1">{validationErrors.countedQty}</p>}
+                </div>
                 <div className="flex items-end gap-2">
                   <Button onClick={handleSaveLine} loading={saving} disabled={!lineForm.productId}>{t('actions.save')}</Button>
                   <Button variant="secondary" onClick={() => setLineFormOpen(false)}>{t('actions.cancel')}</Button>

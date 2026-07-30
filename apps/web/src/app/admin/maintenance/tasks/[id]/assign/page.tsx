@@ -21,6 +21,7 @@ export default function AssignMaintenanceTaskPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -37,7 +38,10 @@ export default function AssignMaintenanceTaskPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleAssign = async () => {
-    if (!assignedToId) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!assignedToId) errors.assignedToId = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       await api.patch(`/maintenance/tasks/${id}/assign`, { assignedToId });
@@ -86,7 +90,10 @@ export default function AssignMaintenanceTaskPage() {
           </dl>
 
           <div className="space-y-4">
-            <F9Lookup label={t('maintenance.selectAssignee')} value={assignedToId} onChange={setAssignedToId} adapter={userAdapter} />
+            <div>
+              <F9Lookup label={t('maintenance.selectAssignee')} value={assignedToId} onChange={(v) => { setAssignedToId(v); setValidationErrors(prev => ({ ...prev, assignedToId: '' })); }} adapter={userAdapter} />
+              {validationErrors.assignedToId && <p className="text-red-500 text-sm mt-1">{validationErrors.assignedToId}</p>}
+            </div>
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="secondary" onClick={() => router.back()}>{t('actions.cancel')}</Button>
               <Button onClick={handleAssign} loading={saving}>{t('maintenance.assign')}</Button>

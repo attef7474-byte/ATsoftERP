@@ -44,6 +44,7 @@ export default function CompanyDetailPage() {
 
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState({ code: '', name: '', legalName: '', taxNumber: '', phone: '', email: '', address: '' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -120,14 +121,16 @@ export default function CompanyDetailPage() {
       email: company.email || '',
       address: company.address || '',
     });
+    setValidationErrors({});
     setEditOpen(true);
   }, [company]);
 
   const handleSave = async () => {
-    if (!form.code || !form.name) {
-      showToast(t('validation.required'), 'error');
-      return;
-    }
+    const errors: Record<string, string> = {};
+    if (!form.code) errors.code = t('validation.required');
+    if (!form.name) errors.name = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       await api.patch(`/companies/${companyId}`, form);
@@ -399,15 +402,17 @@ export default function CompanyDetailPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.code')}</label>
             <input
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })}
+              value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }}
             />
+            {validationErrors.code && <p className="text-red-500 text-sm mt-1">{validationErrors.code}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.name')}</label>
             <input
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+              value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }}
             />
+            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{t('core.legalName')}</label>

@@ -38,6 +38,7 @@ export default function MaintenanceRequestDetailPage() {
   const [addPartQuantity, setAddPartQuantity] = useState(1);
   const [addPartReason, setAddPartReason] = useState('');
   const [addPartNote, setAddPartNote] = useState('');
+  const [addPartErrors, setAddPartErrors] = useState<Record<string, string>>({});
   const [partLineActionLoading, setPartLineActionLoading] = useState('');
   const [rejectLineId, setRejectLineId] = useState('');
   const [stockIssueLineId, setStockIssueLineId] = useState('');
@@ -45,6 +46,7 @@ export default function MaintenanceRequestDetailPage() {
   const [stockIssueQuantity, setStockIssueQuantity] = useState(0);
   const [stockIssueNotes, setStockIssueNotes] = useState('');
   const [stockIssueLoading, setStockIssueLoading] = useState(false);
+  const [stockIssueErrors, setStockIssueErrors] = useState<Record<string, string>>({});
   const [stockIssueCondition, setStockIssueCondition] = useState('NEW');
   const [stockIssueReplacementAction, setStockIssueReplacementAction] = useState('NEW_INSTALLATION');
   const [stockIssueRemovedCondition, setStockIssueRemovedCondition] = useState('');
@@ -163,8 +165,11 @@ export default function MaintenanceRequestDetailPage() {
   };
 
   const addPartLine = async () => {
-    if (!addPartSparePartId) { showToast(t('maintenance.sparePartLabel') + ' ' + t('common.required'), 'error'); return; }
-    if (addPartQuantity <= 0) { showToast(t('maintenance.quantityMustBeGreaterThanZero'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!addPartSparePartId) errors.addPartSparePartId = t('maintenance.sparePartLabel') + ' ' + t('common.required');
+    if (addPartQuantity <= 0) errors.addPartQuantity = t('maintenance.quantityMustBeGreaterThanZero');
+    setAddPartErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setPartLineActionLoading('add');
     try {
       await api.post(`/maintenance/requests/${id}/parts`, {
@@ -186,8 +191,11 @@ export default function MaintenanceRequestDetailPage() {
   };
 
   const execStockIssue = async () => {
-    if (!stockIssueWarehouseId) { showToast(t('maintenance.sparePartRequest.selectWarehouseForIssue'), 'error'); return; }
-    if (stockIssueQuantity <= 0) { showToast(t('validation.quantityMustBePositive'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!stockIssueWarehouseId) errors.stockIssueWarehouseId = t('maintenance.sparePartRequest.selectWarehouseForIssue');
+    if (stockIssueQuantity <= 0) errors.stockIssueQuantity = t('validation.quantityMustBePositive');
+    setStockIssueErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setStockIssueLoading(true);
     try {
       const payload: any = {
@@ -443,12 +451,14 @@ export default function MaintenanceRequestDetailPage() {
                 <h4 className="text-sm font-medium text-gray-700">{t('maintenance.sparePartRequest.addSparePart')}</h4>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartLabel')}</label>
-                  <F9Lookup value={addPartSparePartId} onChange={setAddPartSparePartId} adapter={sparePartAdapter} />
+                  <F9Lookup value={addPartSparePartId} onChange={(v) => { setAddPartSparePartId(v); setAddPartErrors(prev => ({ ...prev, addPartSparePartId: '' })); }} adapter={sparePartAdapter} />
+                  {addPartErrors.addPartSparePartId && <p className="text-red-500 text-sm mt-1">{addPartErrors.addPartSparePartId}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.requestedQuantity')}</label>
-                    <input type="number" min="0.01" step="0.01" value={addPartQuantity} onChange={e => setAddPartQuantity(parseFloat(e.target.value) || 0)} className="w-full border rounded px-2 py-1 text-sm" />
+                    <input type="number" min="0.01" step="0.01" value={addPartQuantity} onChange={e => { setAddPartQuantity(parseFloat(e.target.value) || 0); setAddPartErrors(prev => ({ ...prev, addPartQuantity: '' })); }} className="w-full border rounded px-2 py-1 text-sm" />
+                    {addPartErrors.addPartQuantity && <p className="text-red-500 text-sm mt-1">{addPartErrors.addPartQuantity}</p>}
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.requestReason')}</label>
@@ -541,7 +551,8 @@ export default function MaintenanceRequestDetailPage() {
           <CardContent className="space-y-3">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">{t('inventory.warehouse')}</label>
-              <F9Lookup value={stockIssueWarehouseId} onChange={setStockIssueWarehouseId} adapter={warehouseAdapter} />
+              <F9Lookup value={stockIssueWarehouseId} onChange={(v) => { setStockIssueWarehouseId(v); setStockIssueErrors(prev => ({ ...prev, stockIssueWarehouseId: '' })); }} adapter={warehouseAdapter} />
+              {stockIssueErrors.stockIssueWarehouseId && <p className="text-red-500 text-sm mt-1">{stockIssueErrors.stockIssueWarehouseId}</p>}
               <p className="text-xs text-amber-600 mt-1">{t('maintenance.sparePartRequest.selectSparePartWarehouseOnly')}</p>
             </div>
             {conditionBalancesLoading ? (
@@ -569,7 +580,8 @@ export default function MaintenanceRequestDetailPage() {
             ) : null}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.issuedQuantity')}</label>
-              <input type="number" min="0.001" step="0.001" value={stockIssueQuantity || ''} onChange={e => setStockIssueQuantity(parseFloat(e.target.value) || 0)} className="w-full border rounded px-2 py-1 text-sm" />
+              <input type="number" min="0.001" step="0.001" value={stockIssueQuantity || ''} onChange={e => { setStockIssueQuantity(parseFloat(e.target.value) || 0); setStockIssueErrors(prev => ({ ...prev, stockIssueQuantity: '' })); }} className="w-full border rounded px-2 py-1 text-sm" />
+              {stockIssueErrors.stockIssueQuantity && <p className="text-red-500 text-sm mt-1">{stockIssueErrors.stockIssueQuantity}</p>}
             </div>
             <Select label={t('maintenance.sparePartRequest.issuedStockCondition')} value={stockIssueCondition} onChange={e => setStockIssueCondition(e.target.value)} options={[
               { value: 'NEW', label: t('maintenance.sparePartRequest.conditionNew') },

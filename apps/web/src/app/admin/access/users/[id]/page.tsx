@@ -27,6 +27,7 @@ export default function UserDetailPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -73,11 +74,16 @@ export default function UserDetailPage() {
   const openEdit = () => {
     if (!user) return;
     setForm({ name: user.name, email: user.email, phone: user.phone || '' });
+    setValidationErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.email) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!form.name) errors.name = t('validation.required');
+    if (!form.email) errors.email = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       await api.patch(`/users/${id}`, { name: form.name, email: form.email, phone: form.phone || undefined });
@@ -167,8 +173,14 @@ export default function UserDetailPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('users.edit')}>
         <div className="space-y-4">
-          <Input label={t('users.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <Input label={t('users.email')} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+          <div>
+            <Input label={t('users.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} required />
+            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
+          </div>
+          <div>
+            <Input label={t('users.email')} type="email" value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); setValidationErrors(prev => ({ ...prev, email: '' })); }} required />
+            {validationErrors.email && <p className="text-red-500 text-sm mt-1">{validationErrors.email}</p>}
+          </div>
           <Input label={t('users.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>

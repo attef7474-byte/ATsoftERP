@@ -1170,5 +1170,5 @@ SLA limitation closed — stale server 404 resolved, frontend fallback code remo
 language: Arabic (primary)
 working_dir: C:\Users\attef\PycharmProjects\Trae\ATsofterp
 external_copy: C:\Users\attef\PycharmProjects\Trae\maintenance-completion-discovery-pack\
-next_batch: Corrective patch batch — sidebar accordion transition + Global Error Dialog + error toast migration complete. Next: build validation, browser proof, commit/tag/push.
+next_batch: v10 validation error toast corrective complete. Next: commit/tag/push v10 changes.
 ```

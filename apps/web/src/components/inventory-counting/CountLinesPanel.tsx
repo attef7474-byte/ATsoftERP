@@ -29,12 +29,14 @@ export default function CountLinesPanel({ countId, status: countStatus, warehous
   const [editLine, setEditLine] = useState<InventoryCountLine | null>(null);
   const [lineForm, setLineForm] = useState({ productId: '', warehouseLocationId: '', notes: '' });
   const [saving, setSaving] = useState(false);
+  const [lineValidationErrors, setLineValidationErrors] = useState<Record<string, string>>({});
 
   const [countModalOpen, setCountModalOpen] = useState(false);
   const [countLineId, setCountLineId] = useState('');
   const [countLineSystemQty, setCountLineSystemQty] = useState(0);
   const [countedQty, setCountedQty] = useState('');
   const [countSaving, setCountSaving] = useState(false);
+  const [countValidationErrors, setCountValidationErrors] = useState<Record<string, string>>({});
 
   const [verifyConfirmOpen, setVerifyConfirmOpen] = useState(false);
   const [verifyLineId, setVerifyLineId] = useState('');
@@ -58,17 +60,22 @@ export default function CountLinesPanel({ countId, status: countStatus, warehous
   const openCreateLine = () => {
     setEditLine(null);
     setLineForm({ productId: '', warehouseLocationId: '', notes: '' });
+    setLineValidationErrors({});
     setLineModalOpen(true);
   };
 
   const openEditLine = (item: InventoryCountLine) => {
     setEditLine(item);
     setLineForm({ productId: item.productId, warehouseLocationId: item.warehouseLocationId || '', notes: item.notes || '' });
+    setLineValidationErrors({});
     setLineModalOpen(true);
   };
 
   const handleSaveLine = async () => {
-    if (!lineForm.productId) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!lineForm.productId) errors.productId = t('validation.required');
+    setLineValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       const payload: any = { productId: lineForm.productId, notes: lineForm.notes || undefined };
@@ -89,12 +96,16 @@ export default function CountLinesPanel({ countId, status: countStatus, warehous
     setCountLineId(line.id);
     setCountLineSystemQty(line.systemQty);
     setCountedQty(line.countedQty != null ? String(line.countedQty) : '');
+    setCountValidationErrors({});
     setCountModalOpen(true);
   };
 
   const handleCount = async () => {
     const qty = parseFloat(countedQty);
-    if (isNaN(qty)) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (isNaN(qty)) errors.countedQty = t('validation.required');
+    setCountValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setCountSaving(true);
     try {
       await api.patch(`/inventory/count-lines/${countLineId}/count`, { countedQty: qty });
@@ -169,9 +180,12 @@ export default function CountLinesPanel({ countId, status: countStatus, warehous
         )}
       </div>
 
-      <Modal open={lineModalOpen} onClose={() => setLineModalOpen(false)} title={editLine ? t('inventory.editLine') : t('inventory.addLine')} size="md">
+      <Modal open={lineModalOpen} onClose={() => { setLineModalOpen(false); setLineValidationErrors({}); }} title={editLine ? t('inventory.editLine') : t('inventory.addLine')} size="md">
         <div className="space-y-4">
-          <F9Lookup label={t('inventory.product')} value={lineForm.productId} onChange={(v) => setLineForm({ ...lineForm, productId: v })} adapter={productAdapter} />
+          <div>
+            <F9Lookup label={t('inventory.product')} value={lineForm.productId} onChange={(v) => { setLineForm({ ...lineForm, productId: v }); setLineValidationErrors(prev => ({ ...prev, productId: '' })); }} adapter={productAdapter} />
+            {lineValidationErrors.productId && <p className="text-red-500 text-sm mt-1">{lineValidationErrors.productId}</p>}
+          </div>
           {warehouseId && (
             <F9Lookup label={t('inventory.warehouseLocation')} value={lineForm.warehouseLocationId} onChange={(v) => setLineForm({ ...lineForm, warehouseLocationId: v })} adapter={warehouseLocationAdapter} filters={locationFilters} />
           )}
@@ -183,10 +197,13 @@ export default function CountLinesPanel({ countId, status: countStatus, warehous
         </div>
       </Modal>
 
-      <Modal open={countModalOpen} onClose={() => setCountModalOpen(false)} title={t('inventory.countLine')} size="sm">
+      <Modal open={countModalOpen} onClose={() => { setCountModalOpen(false); setCountValidationErrors({}); }} title={t('inventory.countLine')} size="sm">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">{t('inventory.systemQty')}: <strong>{countLineSystemQty}</strong></p>
-          <Input label={t('inventory.countedQty')} type="number" value={countedQty} onChange={(e) => setCountedQty(e.target.value)} required />
+          <div>
+            <Input label={t('inventory.countedQty')} type="number" value={countedQty} onChange={(e) => { setCountedQty(e.target.value); setCountValidationErrors(prev => ({ ...prev, countedQty: '' })); }} required />
+            {countValidationErrors.countedQty && <p className="text-red-500 text-sm mt-1">{countValidationErrors.countedQty}</p>}
+          </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setCountModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleCount} loading={countSaving}>{t('actions.save')}</Button>

@@ -25,6 +25,7 @@ export default function MachineDocumentsPage() {
   const [editItem, setEditItem] = useState<MachineDocument | null>(null);
   const [form, setForm] = useState({ machineId: '', title: '', documentType: '', description: '' });
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
 
@@ -69,7 +70,10 @@ useRegisterAdminActions([
   };
 
   const handleSave = async () => {
-    if (!form.title) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!form.title) errors.title = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       const payload: any = { machineId: form.machineId, title: form.title };
@@ -140,7 +144,10 @@ useRegisterAdminActions([
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editMachineDocument') : t('maintenance.newMachineDocument')} size="lg">
         <div className="space-y-4">
-          <Input label={t('maintenance.title')} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+          <div>
+            <Input label={t('maintenance.title')} value={form.title} onChange={(e) => { setForm({ ...form, title: e.target.value }); setValidationErrors(prev => ({ ...prev, title: '' })); }} required />
+            {validationErrors.title && <p className="text-red-500 text-sm mt-1">{validationErrors.title}</p>}
+          </div>
           <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setForm({ ...form, machineId: v })} adapter={machineAdapter} />
           <Input label={t('maintenance.documentType')} value={form.documentType} onChange={(e) => setForm({ ...form, documentType: e.target.value })} />
           <Input label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />

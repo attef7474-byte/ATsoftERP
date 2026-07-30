@@ -22,6 +22,7 @@ export default function ProductLabelDesignerPage() {
   const [templates, setTemplates] = useState<BarcodeLabelTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [generatedLabel, setGeneratedLabel] = useState<BarcodeLabel | null>(null);
 
   const fetchTemplates = useCallback(async () => {
@@ -35,7 +36,10 @@ export default function ProductLabelDesignerPage() {
   useMemo(() => { fetchTemplates(); }, []);
 
   const handleGenerate = async () => {
-    if (!productId) { showToast(t('barcodes.designer.noProduct'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!productId) errors.productId = t('barcodes.designer.noProduct');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setGenerating(true);
     setGeneratedLabel(null);
     try {
@@ -87,13 +91,16 @@ export default function ProductLabelDesignerPage() {
       <Card>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <F9Lookup
-              label={t('barcodes.designer.selectProduct')}
-              value={productId}
-              onChange={(v) => { setProductId(v); setGeneratedLabel(null); }}
-              adapter={productAdapter}
-              placeholder={t('barcodes.designer.productPlaceholder')}
-            />
+            <div>
+              <F9Lookup
+                label={t('barcodes.designer.selectProduct')}
+                value={productId}
+                onChange={(v) => { setProductId(v); setGeneratedLabel(null); setValidationErrors(prev => ({ ...prev, productId: '' })); }}
+                adapter={productAdapter}
+                placeholder={t('barcodes.designer.productPlaceholder')}
+              />
+              {validationErrors.productId && <p className="text-red-500 text-sm mt-1">{validationErrors.productId}</p>}
+            </div>
             <Select label={t('barcodes.designer.template')} value={templateCode}
               onChange={(e) => setTemplateCode(e.target.value)}
               options={templates.map((tpl) => ({ value: tpl.code, label: `${tpl.name} (${tpl.symbology})` }))}

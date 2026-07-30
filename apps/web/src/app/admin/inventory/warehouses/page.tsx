@@ -22,6 +22,7 @@ export default function WarehousesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Warehouse | null>(null);
   const [form, setForm] = useState({ companyId: '', branchId: '', name: '', location: '', warehouseType: '' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -67,6 +68,7 @@ export default function WarehousesPage() {
   const openCreate = () => {
     setEditItem(null);
     setForm({ companyId: '', branchId: '', name: '', location: '', warehouseType: '' });
+    setValidationErrors({});
     setModalOpen(true);
   };
 
@@ -93,7 +95,11 @@ export default function WarehousesPage() {
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.companyId) { showToast(t('validation.required'), 'error'); return; }
+    const errs: Record<string, string> = {};
+    if (!form.companyId) errs.companyId = t('validation.required');
+    if (!form.name) errs.name = t('validation.required');
+    if (Object.keys(errs).length) { setValidationErrors(errs); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       const payload: any = { companyId: form.companyId, name: form.name };
@@ -192,9 +198,15 @@ export default function WarehousesPage() {
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.editWarehouse') : t('inventory.newWarehouse')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
-          <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
+          <div>
+            <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => { setForm({ ...form, companyId: v }); setValidationErrors(p => ({ ...p, companyId: '' })); }} adapter={companyAdapter} />
+            {validationErrors.companyId && <p className="text-red-500 text-sm mt-1">{validationErrors.companyId}</p>}
+          </div>
           <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
-          <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <div>
+            <Input label={t('common.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(p => ({ ...p, name: '' })); }} required />
+            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
+          </div>
           <Input label={t('inventory.location')} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
           <Select label={t('inventory.warehouseType')} value={form.warehouseType} onChange={(e) => setForm({ ...form, warehouseType: e.target.value })} options={[
             { value: '', label: '' },

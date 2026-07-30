@@ -45,6 +45,7 @@ export default function DepartmentsPage() {
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate'>('deactivate');
   const [statusSaving, setStatusSaving] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const {
     data,
@@ -103,7 +104,7 @@ export default function DepartmentsPage() {
       return operation === 'create' ? t('errors.createFailed') : t('errors.updateFailed');
     },
     onError: (message, operation) => {
-      if (operation !== 'list') showToast(message, 'error');
+      if (operation !== 'list') setValidationErrors({ form: message });
     },
     onSuccess: (operation) => {
       showToast(operation === 'create' ? t('common.successCreated') : t('common.successUpdated'), 'success');
@@ -227,15 +228,16 @@ export default function DepartmentsPage() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={closeFormModal} title={editItem ? t('core.editDepartment') : t('core.newDepartment')}>
+      <Modal open={modalOpen} onClose={() => { closeFormModal(); setValidationErrors({}); }} title={editItem ? t('core.editDepartment') : t('core.newDepartment')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
+          {validationErrors.form && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{validationErrors.form}</div>}
           <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
           <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v, administrationId: '' })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
           <F9Lookup label={t('core.administration')} value={form.administrationId} onChange={(v) => setForm({ ...form, administrationId: v })} adapter={administrationAdapter} filters={form.branchId ? { branchId: form.branchId } : undefined} />
           <F9Lookup label={t('core.parentDepartment')} value={form.parentId} onChange={(v) => setForm({ ...form, parentId: v })} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
           <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={closeFormModal}>{t('actions.cancel')}</Button>
+            <Button variant="secondary" onClick={() => { closeFormModal(); setValidationErrors({}); }}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
         </div>}

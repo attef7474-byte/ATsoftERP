@@ -22,6 +22,7 @@ export default function CostEntriesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MaintenanceRequestCostEntry | null>(null);
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ type: 'LABOR', description: '', amount: 0, incurredAt: new Date().toISOString().slice(0, 10) });
 
   const fetchData = useCallback(async () => {
@@ -38,17 +39,22 @@ export default function CostEntriesPage() {
   const openCreate = () => {
     setEditItem(null);
     setForm({ type: 'LABOR', description: '', amount: 0, incurredAt: new Date().toISOString().slice(0, 10) });
+    setValidationErrors({});
     setModalOpen(true);
   };
 
   const openEdit = (item: MaintenanceRequestCostEntry) => {
     setEditItem(item);
     setForm({ type: item.type, description: item.description || '', amount: item.amount, incurredAt: item.incurredAt.slice(0, 10) });
+    setValidationErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.amount) { showToast(t('validation.required'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!form.amount) errors.amount = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       const payload = { requestId: id, ...form };
@@ -128,7 +134,10 @@ export default function CostEntriesPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenanceWorkflow.editCost') : t('maintenanceWorkflow.addCost')} size="md">
         <div className="space-y-4">
           <Select label={t('maintenanceWorkflow.costType')} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} options={typeOptions} />
-          <Input label={t('maintenanceWorkflow.costAmount')} type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: parseFloat(e.target.value) || 0 })} />
+          <div>
+            <Input label={t('maintenanceWorkflow.costAmount')} type="number" value={form.amount} onChange={(e) => { setForm({ ...form, amount: parseFloat(e.target.value) || 0 }); setValidationErrors(prev => ({ ...prev, amount: '' })); }} />
+            {validationErrors.amount && <p className="text-red-500 text-sm mt-1">{validationErrors.amount}</p>}
+          </div>
           <Input label={t('maintenanceWorkflow.costDate')} type="date" value={form.incurredAt} onChange={(e) => setForm({ ...form, incurredAt: e.target.value })} />
           <Textarea label={t('maintenanceWorkflow.costDescription')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="flex justify-end gap-3 pt-4">

@@ -31,6 +31,7 @@ export default function MessagingPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({ title: '', participantUserIds: '' });
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
 
   const selectedRecord = useMemo(() => conversations.find(c => c.id === selectedId), [conversations, selectedId]);
@@ -56,10 +57,10 @@ export default function MessagingPage() {
   };
 
   const handleCreate = async () => {
-    if (!createForm.participantUserIds.trim()) {
-      showToast(t('validation.required'), 'error');
-      return;
-    }
+    const errors: Record<string, string> = {};
+    if (!createForm.participantUserIds.trim()) errors.participantUserIds = t('validation.required');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       const userIds = createForm.participantUserIds.split(',').map(s => s.trim()).filter(Boolean);
@@ -74,7 +75,7 @@ export default function MessagingPage() {
   const { exec } = useStableHandlers({
     back: () => router.back(),
     refresh: () => fetchConversations(meta.page),
-    new: () => { fetchUsers(); setCreateOpen(true); },
+    new: () => { fetchUsers(); setCreateOpen(true); setValidationErrors({}); },
     open: () => { if (selectedId) router.push(`/admin/messaging/${selectedId}`); },
   });
 
@@ -105,7 +106,7 @@ export default function MessagingPage() {
           {meta.totalPages > 1 && <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchConversations} />}
         </Card>
       )}
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title={t('messaging.newConversation')} size="md">
+      <Modal open={createOpen} onClose={() => { setCreateOpen(false); setValidationErrors({}); }} title={t('messaging.newConversation')} size="md">
         <div className="space-y-4">
           <Input label={t('messaging.subject')} value={createForm.title} onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })} placeholder="(optional)" />
           <div>
@@ -114,9 +115,11 @@ export default function MessagingPage() {
               onChange={(e) => {
                 const selected = Array.from(e.target.selectedOptions, opt => opt.value);
                 setCreateForm({ ...createForm, participantUserIds: selected.join(',') });
+                setValidationErrors(prev => ({ ...prev, participantUserIds: '' }));
               }}>
               {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
+            {validationErrors.participantUserIds && <p className="text-red-500 text-sm mt-1">{validationErrors.participantUserIds}</p>}
             <p className="text-xs text-gray-400 mt-1">{t('messaging.selectParticipantsHint')}</p>
           </div>
           <div className="flex justify-end gap-3 pt-2">

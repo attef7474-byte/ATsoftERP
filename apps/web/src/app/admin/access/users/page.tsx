@@ -33,6 +33,7 @@ export default function UsersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<User | null>(null);
   const [form, setForm] = useState({ email: '', password: '', name: '', phone: '', companyId: '', branchId: '', departmentId: '', roleId: '' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -97,6 +98,7 @@ export default function UsersPage() {
   const openCreate = () => {
     setEditItem(null);
     setForm({ email: '', password: '', name: '', phone: '', companyId: '', branchId: '', departmentId: '', roleId: '' });
+    setValidationErrors({});
     setModalOpen(true);
   };
 
@@ -117,8 +119,12 @@ export default function UsersPage() {
   };
 
   const handleSave = async () => {
-    if (!form.email || !form.name) { showToast(t('validation.required'), 'error'); return; }
-    if (!editItem && !form.password) { showToast(t('users.passwordRequired'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!form.email) errors.email = t('validation.required');
+    if (!form.name) errors.name = t('validation.required');
+    if (!editItem && !form.password) errors.password = t('users.passwordRequired');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       const body: any = { email: form.email, name: form.name, phone: form.phone || undefined, companyId: form.companyId || undefined, branchId: form.branchId || undefined, departmentId: form.departmentId || undefined, roleId: form.roleId || undefined };
@@ -234,10 +240,19 @@ export default function UsersPage() {
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('users.edit') : t('users.create')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
-          <Input label={t('users.email')} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-          <Input label={t('users.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <div>
+            <Input label={t('users.email')} type="email" value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); setValidationErrors(prev => ({ ...prev, email: '' })); }} required />
+            {validationErrors.email && <p className="text-red-500 text-sm mt-1">{validationErrors.email}</p>}
+          </div>
+          <div>
+            <Input label={t('users.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} required />
+            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
+          </div>
           <Input label={t('users.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          {!editItem && <Input label={t('users.password')} type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />}
+          {!editItem && <div>
+            <Input label={t('users.password')} type="password" value={form.password} onChange={(e) => { setForm({ ...form, password: e.target.value }); setValidationErrors(prev => ({ ...prev, password: '' })); }} required />
+            {validationErrors.password && <p className="text-red-500 text-sm mt-1">{validationErrors.password}</p>}
+          </div>}
           <F9Lookup label={t('users.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
           <F9Lookup label={t('users.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
           <F9Lookup label={t('users.department')} value={form.departmentId} onChange={(v) => setForm({ ...form, departmentId: v })} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />

@@ -21,6 +21,7 @@ export default function MovementLinesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const [lineFormOpen, setLineFormOpen] = useState(false);
   const [editingLine, setEditingLine] = useState<any>(null);
@@ -55,6 +56,7 @@ export default function MovementLinesPage() {
   const openAddLine = () => {
     setEditingLine(null);
     setLineForm({ productId: '', warehouseLocationId: '', quantity: 1, direction: 'IN', unit: '', notes: '' });
+    setValidationErrors({});
     setLineFormOpen(true);
   };
 
@@ -65,7 +67,11 @@ export default function MovementLinesPage() {
   };
 
   const handleSaveLine = async () => {
-    if (!lineForm.productId || !lineForm.quantity) { showToast(t('validation.required'), 'error'); return; }
+    const errs: Record<string, string> = {};
+    if (!lineForm.productId) errs.productId = t('validation.required');
+    if (!lineForm.quantity) errs.quantity = t('validation.required');
+    if (Object.keys(errs).length > 0) { setValidationErrors(errs); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       const payload = { productId: lineForm.productId, warehouseLocationId: lineForm.warehouseLocationId || undefined, quantity: lineForm.quantity, direction: lineForm.direction, unit: lineForm.unit || undefined, notes: lineForm.notes || undefined };
@@ -156,17 +162,23 @@ export default function MovementLinesPage() {
             <div className="border rounded p-3 mb-4 space-y-3 bg-gray-50">
               <h4 className="font-medium text-sm">{editingLine ? t('inventoryCounting.editLine') : t('inventoryCounting.addLine')}</h4>
               <div className="grid grid-cols-2 gap-3">
-                <F9Lookup
-                  label={t('inventoryCounting.product')}
-                  value={lineForm.productId}
-                  onChange={(v) => setLineForm({ ...lineForm, productId: v, unit: '' })}
-                  onItemSelect={(product: Product) => setLineForm((previous) => ({ ...previous, productId: product.id, unit: product.unit || '' }))}
-                  adapter={productAdapter}
-                />
+                <div>
+                  <F9Lookup
+                    label={t('inventoryCounting.product')}
+                    value={lineForm.productId}
+                    onChange={(v) => { setLineForm({ ...lineForm, productId: v, unit: '' }); setValidationErrors((prev) => ({ ...prev, productId: '' })); }}
+                    onItemSelect={(product: Product) => setLineForm((previous) => ({ ...previous, productId: product.id, unit: product.unit || '' }))}
+                    adapter={productAdapter}
+                  />
+                  {validationErrors.productId && <p className="text-red-500 text-sm mt-1">{validationErrors.productId}</p>}
+                </div>
                 <F9Lookup label={t('inventoryCounting.warehouseLocation')} value={lineForm.warehouseLocationId} onChange={(v) => setLineForm({ ...lineForm, warehouseLocationId: v })} adapter={warehouseLocationAdapter} filters={{ warehouseId: movement.warehouseId }} disabled={!movement.warehouseId} />
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <Input label={t('inventoryCounting.quantity')} type="number" value={String(lineForm.quantity)} onChange={(e) => setLineForm({ ...lineForm, quantity: Number(e.target.value) })} />
+                <div>
+                  <Input label={t('inventoryCounting.quantity')} type="number" value={String(lineForm.quantity)} onChange={(e) => { setLineForm({ ...lineForm, quantity: Number(e.target.value) }); setValidationErrors((prev) => ({ ...prev, quantity: '' })); }} />
+                  {validationErrors.quantity && <p className="text-red-500 text-sm mt-1">{validationErrors.quantity}</p>}
+                </div>
                 <Select label={t('inventoryCounting.direction')} value={lineForm.direction} onChange={(e) => setLineForm({ ...lineForm, direction: e.target.value })} options={directionOptions} />
                 <Input label={t('inventoryCounting.unit')} value={lineForm.unit} onChange={(e) => setLineForm({ ...lineForm, unit: e.target.value })} disabled />
               </div>

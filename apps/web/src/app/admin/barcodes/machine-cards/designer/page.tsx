@@ -22,6 +22,7 @@ export default function MachineCardDesignerPage() {
   const [templates, setTemplates] = useState<BarcodeLabelTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [generatedLabel, setGeneratedLabel] = useState<BarcodeLabel | null>(null);
 
   const fetchTemplates = useCallback(async () => {
@@ -35,7 +36,10 @@ export default function MachineCardDesignerPage() {
   useMemo(() => { fetchTemplates(); }, []);
 
   const handleGenerate = async () => {
-    if (!machineId) { showToast(t('barcodes.designer.noMachine'), 'error'); return; }
+    const errors: Record<string, string> = {};
+    if (!machineId) errors.machineId = t('barcodes.designer.noMachine');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setGenerating(true);
     setGeneratedLabel(null);
     try {
@@ -87,13 +91,16 @@ export default function MachineCardDesignerPage() {
       <Card>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <F9Lookup
-              label={t('barcodes.designer.selectMachine')}
-              value={machineId}
-              onChange={(v) => { setMachineId(v); setGeneratedLabel(null); }}
-              adapter={machineAdapter}
-              placeholder={t('barcodes.designer.machinePlaceholder')}
-            />
+            <div>
+              <F9Lookup
+                label={t('barcodes.designer.selectMachine')}
+                value={machineId}
+                onChange={(v) => { setMachineId(v); setGeneratedLabel(null); setValidationErrors(prev => ({ ...prev, machineId: '' })); }}
+                adapter={machineAdapter}
+                placeholder={t('barcodes.designer.machinePlaceholder')}
+              />
+              {validationErrors.machineId && <p className="text-red-500 text-sm mt-1">{validationErrors.machineId}</p>}
+            </div>
             <Select label={t('barcodes.designer.template')} value={templateCode}
               onChange={(e) => setTemplateCode(e.target.value)}
               options={templates.map((tpl) => ({ value: tpl.code, label: `${tpl.name} (${tpl.symbology})` }))}

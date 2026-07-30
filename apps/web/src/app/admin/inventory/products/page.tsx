@@ -24,6 +24,7 @@ export default function ProductsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Product | null>(null);
   const [form, setForm] = useState({ code: '', name: '', description: '', categoryId: '', unit: '', barcode: '', minStock: '0', maxStock: '0' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
@@ -67,7 +68,12 @@ export default function ProductsPage() {
   const openEdit = (item: Product) => { router.push(`/admin/inventory/products/${item.id}/edit`); };
 
   const handleSave = async () => {
-    if (!form.code || !form.name || !form.unit) { showToast(t('validation.required'), 'error'); return; }
+    const errs: Record<string, string> = {};
+    if (!form.code) errs.code = t('validation.required');
+    if (!form.name) errs.name = t('validation.required');
+    if (!form.unit) errs.unit = t('validation.required');
+    if (Object.keys(errs).length) { setValidationErrors(errs); return; }
+    setValidationErrors({});
     setSaving(true);
     try {
       const payload: any = {
@@ -168,13 +174,22 @@ export default function ProductsPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.editProduct') : t('inventory.newProduct')} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
-            <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <div>
+              <Input label={t('common.code')} value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(p => ({ ...p, code: '' })); }} required />
+              {validationErrors.code && <p className="text-red-500 text-sm mt-1">{validationErrors.code}</p>}
+            </div>
+            <div>
+              <Input label={t('common.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(p => ({ ...p, name: '' })); }} required />
+              {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
+            </div>
           </div>
           <Input label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="grid grid-cols-2 gap-4">
             <F9Lookup label={t('inventory.productCategory')} value={form.categoryId} onChange={(v) => setForm({ ...form, categoryId: v })} adapter={productCategoryAdapter} />
-            <Input label={t('inventory.unit')} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} required />
+            <div>
+              <Input label={t('inventory.unit')} value={form.unit} onChange={(e) => { setForm({ ...form, unit: e.target.value }); setValidationErrors(p => ({ ...p, unit: '' })); }} required />
+              {validationErrors.unit && <p className="text-red-500 text-sm mt-1">{validationErrors.unit}</p>}
+            </div>
           </div>
           <Input label={t('inventory.barcode')} value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
           <div className="grid grid-cols-2 gap-4">
