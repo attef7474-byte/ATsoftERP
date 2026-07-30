@@ -4,6 +4,7 @@ import { api } from '../../../../lib/api';
 import { unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { InventoryCount } from '../../../../lib/admin-types';
 import { checkCrudPermissions, CrudPermissions } from '../../../../lib/crud-permissions';
 import { getUserPermissions } from '../../../../lib/auth';
@@ -20,6 +21,7 @@ export default function InventoryCountsPage() {
   const router = useRouter();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
 
   const [perms, setPerms] = useState<CrudPermissions>({ canCreate: false, canRead: false, canUpdate: false, canDelete: false, canActivate: false, isSuperAdmin: false });
   const [userPerms, setUserPerms] = useState<string[]>([]);
@@ -127,7 +129,7 @@ export default function InventoryCountsPage() {
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -139,7 +141,7 @@ export default function InventoryCountsPage() {
       await api.patch(`/inventory/counts/${selectedId}/${pendingAction}`);
       showToast(t('common.successUpdated'), 'success');
       setActionConfirmOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -151,7 +153,7 @@ export default function InventoryCountsPage() {
       await api.post(`/inventory/counts/${adjustCountId}/generate-adjustment`);
       showToast(t('common.successCreated'), 'success');
       setAdjustConfirmOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setAdjustSaving(false); }
   };
 

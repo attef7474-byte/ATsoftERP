@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { I18nProvider } from '../lib/i18n/i18n-provider';
 import { ToastProvider } from '../components/admin/toast-provider';
+import { ErrorModalProvider } from '../components/admin/error-modal';
 import { AuthProvider } from '../lib/auth-context';
 
 export const metadata: Metadata = {
@@ -15,9 +16,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-gray-50 text-gray-900 antialiased">
         <I18nProvider>
           <ToastProvider>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
+            <ErrorModalProvider>
+              <AuthProvider>
+                {children}
+              </AuthProvider>
+            </ErrorModalProvider>
           </ToastProvider>
         </I18nProvider>
       </body>

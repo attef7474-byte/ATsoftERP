@@ -4,6 +4,7 @@ import { api } from '../../../../lib/api';
 import { safeBoolean, safeString, unwrapApiData, unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { Button, Input, Select, Card, Pagination, PageHeader, LoadingState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionEditIcon, ActionRefreshIcon, ActionBackIcon, ActionActivateIcon, ActionDeactivateIcon, ActionAddIcon } from '../../../../components/admin/admin-action-bar';
@@ -15,6 +16,7 @@ const CHANNELS = ['IN_APP', 'EMAIL', 'SMS', 'PUSH'];
 export default function NotificationRulesPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const router = useRouter();
   const [data, setData] = useState<any[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
@@ -58,7 +60,7 @@ export default function NotificationRulesPage() {
       const detail = unwrapApiData<Record<string, unknown>>(res);
       setForm({ code: safeString(detail.code), nameAr: safeString(detail.nameAr), nameEn: safeString(detail.nameEn), description: safeString(detail.description), eventType: safeString(detail.eventType, 'LOGIN'), channel: safeString(detail.channel, 'IN_APP'), severity: safeString(detail.severity, 'INFO'), enabled: safeBoolean(detail.enabled, true), targetRoleId: safeString(detail.targetRoleId), targetPermission: safeString(detail.targetPermission) });
     } catch (err: any) {
-      showToast(err?.message || t('errors.loadFailed'), 'error');
+      handleApiError(err);
       setModalOpen(false);
     } finally {
       setDetailLoading(false);
@@ -83,7 +85,7 @@ export default function NotificationRulesPage() {
       }
       setModalOpen(false);
       fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -95,7 +97,7 @@ export default function NotificationRulesPage() {
       setConfirmDelete(null);
       setSelectedId('');
       fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const handleActivate = async (id = selectedId) => {
@@ -104,7 +106,7 @@ export default function NotificationRulesPage() {
       await api.patch(`/notifications/rules/${id}/activate`);
       showToast(t('settings.notificationRules.activated'), 'success');
       fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const handleDeactivate = async (id = selectedId) => {
@@ -113,7 +115,7 @@ export default function NotificationRulesPage() {
       await api.patch(`/notifications/rules/${id}/deactivate`);
       showToast(t('settings.notificationRules.deactivated'), 'success');
       fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const { exec } = useStableHandlers({

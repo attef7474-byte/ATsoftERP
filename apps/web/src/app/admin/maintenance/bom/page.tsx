@@ -4,6 +4,7 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Input, Textarea, Pagination, PageHeader, Modal, ConfirmDialog, StatusBadge } from '../../../../components/admin/ui';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
@@ -18,6 +19,7 @@ interface BomItem {
 export default function BomPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<BomItem[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -65,7 +67,7 @@ export default function BomPage() {
       await api.delete(`/maintenance/bom/${selectedId}`);
       showToast(t('common.successDeleted'), 'success');
       setConfirmDeleteOpen(false); setSelectedId(''); fetchData(1);
-    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 

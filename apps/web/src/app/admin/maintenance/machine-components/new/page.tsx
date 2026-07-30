@@ -8,11 +8,13 @@ import type { MachineComponent } from '../../../../../lib/admin-types';
 import { Card, CardContent, Input, Select, PageHeader, Button, LoadingState, ErrorState } from '../../../../../components/admin/ui';
 import { F9Lookup, machineComponentAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionSaveIcon, ActionCancelIcon, ActionBackIcon } from '../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 
 export default function CreateMachineComponentPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [form, setForm] = useState({
     code: '',
     name: '',
@@ -60,7 +62,7 @@ export default function CreateMachineComponentPage() {
       showToast(t('complexForms.recordCreated'), 'success');
       router.push(`/admin/maintenance/machine-components/${res.id}`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.createFailed'), 'error');
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 

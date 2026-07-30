@@ -7,12 +7,14 @@ import { useToast } from '../../../../../../components/admin/toast-provider';
 import { MaintenanceRequestCostEntry } from '../../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, Modal, Button, Input, Textarea, Select } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionAddIcon } from '../../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function CostEntriesPage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [entries, setEntries] = useState<MaintenanceRequestCostEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,7 @@ export default function CostEntriesPage() {
       }
       setModalOpen(false);
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.saveFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -68,7 +70,7 @@ export default function CostEntriesPage() {
       await api.delete(`/maintenance/request-costs/${entryId}`);
       showToast(t('maintenanceWorkflow.costDeleted'), 'success');
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const { exec } = useStableHandlers({

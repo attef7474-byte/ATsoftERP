@@ -6,6 +6,7 @@ import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Input, Select, Card, CardContent, CardHeader, PageHeader, LoadingState, EmptyState, StatusBadge } from '../../../../components/admin/ui';
 import { useRegisterAdminActions } from '../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { F9Lookup } from '../../../../components/f9/F9Lookup';
 import { productAdapter, machineAdapter, warehouseAdapter, warehouseLocationAdapter, maintenanceRequestAdapter, maintenanceTaskAdapter, inventoryCountAdapter } from '../../../../components/f9/lookup-adapters';
 import { BarcodeLabel } from '../../../../lib/admin-types';
@@ -28,6 +29,7 @@ const SYMBOLOGIES = ['QR_CODE', 'CODE128', 'DATA_MATRIX'];
 export default function BarcodeGeneratePage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const router = useRouter();
 
   const machinePartAdapter: LookupAdapter<MachinePart> = {
@@ -86,7 +88,7 @@ export default function BarcodeGeneratePage() {
       showToast(t('barcodes.generate.success'), 'success');
       setTitle(''); setDescription('');
       fetchLabels();
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); } finally { setGenerating(false); }
+    } catch (err: any) { handleApiError(err); } finally { setGenerating(false); }
   };
 
   const handleClear = () => {
@@ -122,7 +124,7 @@ export default function BarcodeGeneratePage() {
       await api.post(`/barcodes/labels/${labelId}/mark-printed`);
       showToast(t('barcodes.print.printedSuccess'), 'success');
       fetchLabels();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   useRegisterAdminActions([

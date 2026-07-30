@@ -3,9 +3,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
-import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Card, PageHeader, LoadingState } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 interface Message {
   id: string;
@@ -23,7 +23,7 @@ export default function ConversationDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useTranslation();
-  const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const conversationId = params.id as string;
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,8 +45,8 @@ export default function ConversationDetailPage() {
         setMessages((prev) => [...(res.data || []), ...prev]);
       }
       setMeta({ page: res.meta?.page || p, totalPages: res.meta?.totalPages || 1 });
-    } catch { showToast(t('errors.loadFailed'), 'error'); } finally { setLoading(false); }
-  }, [conversationId, t, showToast]);
+    } catch { handleApiError(new Error(t('errors.loadFailed'))); } finally { setLoading(false); }
+  }, [conversationId, t]);
 
   const fetchConversation = useCallback(async () => {
     try {
@@ -78,7 +78,7 @@ export default function ConversationDetailPage() {
       const msg = await api.post<Message>('/messaging/messages', { conversationId, body: newMessage.trim() });
       setMessages((prev) => [...prev, msg]);
       setNewMessage('');
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); } finally { setSending(false); }
+    } catch (err: any) { handleApiError(err); } finally { setSending(false); }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

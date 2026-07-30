@@ -7,12 +7,14 @@ import { useToast } from '../../../../../../components/admin/toast-provider';
 import { Button, Input, Card, CardContent, Select, PageHeader, LoadingState, ErrorState } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionSaveIcon, ActionCancelIcon, ActionBackIcon } from '../../../../../../components/admin/admin-action-bar';
 import type { SparePart } from '../../../../../../lib/admin-types';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function EditSparePartPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params?.id as string;
 
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,7 @@ export default function EditSparePartPage() {
       await api.patch(`/maintenance/spare-parts/${id}`, form);
       showToast(t('maintenance.sparePartUpdated'), 'success');
       router.push(`/admin/maintenance/spare-parts/${id}`);
-    } catch (e: any) { showToast(e.message || 'Save failed', 'error'); }
+    } catch (e: any) { handleApiError(e); }
     finally { setSaving(false); }
   };
 

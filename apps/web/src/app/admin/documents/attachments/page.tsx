@@ -5,6 +5,7 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, ConfirmDialog } from '../../../../components/admin/ui';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionBackIcon, ActionAddIcon } from '../../../../components/admin/admin-action-bar';
 import { useRouter } from 'next/navigation';
 
@@ -20,6 +21,7 @@ function formatSize(bytes: number): string {
 export default function AttachmentsPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const router = useRouter();
   const [data, setData] = useState<any[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
@@ -53,7 +55,7 @@ export default function AttachmentsPage() {
       setConfirmDelete(null);
       setSelectedId('');
       fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const handleDownload = async () => {

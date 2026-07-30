@@ -8,12 +8,14 @@ import { MachinePart, Machine } from '../../../../../../lib/admin-types';
 import { Button, Card, CardContent, CardHeader, LoadingState, ErrorState, PageHeader } from '../../../../../../components/admin/ui';
 import { F9Lookup, machineAdapter } from '../../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function MachinePartMachinesPage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [part, setPart] = useState<MachinePart | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,7 +45,7 @@ export default function MachinePartMachinesPage() {
       fetchData();
       setSelectedMachineId('');
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setLinking(false); }
   };
 
@@ -55,7 +57,7 @@ export default function MachinePartMachinesPage() {
       showToast(t('common.successUpdated'), 'success');
       fetchData();
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setUnlinking(false); }
   };
 

@@ -4,6 +4,7 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Input, Select, Card, CardContent, CardHeader, PageHeader, LoadingState, EmptyState, StatusBadge } from '../../../../components/admin/ui';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { useRegisterAdminActions, useStableHandlers } from '../../../../components/admin/admin-action-bar';
 import { BarcodeLabel } from '../../../../lib/admin-types';
 
@@ -12,6 +13,7 @@ const ENTITY_TYPES = ['', 'PRODUCT', 'MACHINE', 'MACHINE_PART', 'WAREHOUSE', 'WA
 export default function BarcodePrintPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
 
   const [labels, setLabels] = useState<BarcodeLabel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +42,7 @@ export default function BarcodePrintPage() {
       await api.post(`/barcodes/labels/${selectedId}/mark-printed`);
       showToast(t('barcodes.print.printedSuccess'), 'success');
       fetchLabels();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const handlePrint = () => {
@@ -75,7 +77,7 @@ export default function BarcodePrintPage() {
       await api.patch(`/barcodes/labels/${selectedId}/${action}`);
       showToast(t('common.successUpdated'), 'success');
       fetchLabels();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const { exec } = useStableHandlers({

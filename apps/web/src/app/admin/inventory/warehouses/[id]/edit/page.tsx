@@ -7,6 +7,7 @@ import { useToast } from '../../../../../../components/admin/toast-provider';
 import { Button, Input, Select, Textarea, Card, CardContent, LoadingState, ErrorState, StatusBadge } from '../../../../../../components/admin/ui';
 import { F9Lookup, companyAdapter, branchAdapter } from '../../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon, ActionViewIcon } from '../../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 import type { Warehouse } from '../../../../../../lib/admin-types';
 
 export default function EditWarehousePage() {
@@ -14,6 +15,7 @@ export default function EditWarehousePage() {
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params?.id as string;
   const [data, setData] = useState<Warehouse | null>(null);
   const [form, setForm] = useState({ companyId: '', branchId: '', code: '', name: '', location: '', warehouseType: '' });
@@ -68,7 +70,7 @@ export default function EditWarehousePage() {
       showToast(t('complexForms.recordUpdated'), 'success');
       router.push(`/admin/inventory/warehouses/${id}`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 

@@ -11,6 +11,7 @@ import barcodes from './barcodes';
 import reports from './reports';
 import validation from './validation';
 import system from './system';
+import errorDialog from './error-dialog';
 
 const en: LocaleTranslations = {
   ...common,
@@ -25,6 +26,7 @@ const en: LocaleTranslations = {
   ...reports,
   ...validation,
   ...system,
+  ...errorDialog,
 };
 
 export default en;

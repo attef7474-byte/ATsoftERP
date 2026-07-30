@@ -8,12 +8,14 @@ import { useToast } from '../../../../../../components/admin/toast-provider';
 import { Button, Card, CardContent, CardHeader, PageHeader, LoadingState, ErrorState, StatusBadge } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionAddIcon, ActionPrintIcon } from '../../../../../../components/admin/admin-action-bar';
 import { Machine, BarcodeLabel, BarcodeScanEvent } from '../../../../../../lib/admin-types';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function MachineBarcodeRecordsPage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [machine, setMachine] = useState<Machine | null>(null);
   const [labels, setLabels] = useState<BarcodeLabel[]>([]);
@@ -46,7 +48,7 @@ export default function MachineBarcodeRecordsPage() {
       await api.post('/barcodes/labels/generate', { entityType: 'MACHINE', entityId: machine.id });
       showToast(t('common.successCreated'), 'success');
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setGenerating(false); }
   };
 
@@ -55,7 +57,7 @@ export default function MachineBarcodeRecordsPage() {
       await api.post(`/barcodes/labels/${labelId}/mark-printed`);
       showToast(t('barcodes.print.printedSuccess'), 'success');
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const handleStatusAction = async (labelId: string, action: string) => {
@@ -63,7 +65,7 @@ export default function MachineBarcodeRecordsPage() {
       await api.patch(`/barcodes/labels/${labelId}/${action}`);
       showToast(t('common.successUpdated'), 'success');
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const handlePrint = (label: BarcodeLabel) => {

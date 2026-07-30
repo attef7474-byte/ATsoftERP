@@ -7,12 +7,14 @@ import { useToast } from '../../../../../../components/admin/toast-provider';
 import { MaintenanceChecklistExecution, MaintenanceChecklistExecutionItem, MaintenanceSchedule } from '../../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, LoadingState, ErrorState, Button } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionStartIcon, ActionCompleteIcon } from '../../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function ChecklistExecutionPage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const scheduleId = params.id as string;
   const [schedule, setSchedule] = useState<MaintenanceSchedule | null>(null);
   const [execution, setExecution] = useState<MaintenanceChecklistExecution | null>(null);
@@ -49,7 +51,7 @@ export default function ChecklistExecutionPage() {
       const detail = await api.get<MaintenanceChecklistExecution>(`/maintenance/checklist-executions/${exec.id}`);
       setExecution(detail);
       showToast(t('maintenanceWorkflow.checklistStarted'), 'success');
-    } catch (err: any) { showToast(err?.message || t('errors.saveFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setActionLoading(false); }
   };
 
@@ -60,7 +62,7 @@ export default function ChecklistExecutionPage() {
       await api.patch(`/maintenance/checklist-executions/${execution.id}/complete`, {});
       showToast(t('maintenanceWorkflow.checklistCompleted'), 'success');
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setActionLoading(false); }
   };
 
@@ -71,7 +73,7 @@ export default function ChecklistExecutionPage() {
       showToast(t('maintenanceWorkflow.checklistItemUpdated'), 'success');
       const detail = await api.get<MaintenanceChecklistExecution>(`/maintenance/checklist-executions/${execution.id}`);
       setExecution(detail);
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const { exec } = useStableHandlers({

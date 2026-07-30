@@ -8,12 +8,14 @@ import { InventoryCount, InventoryCountLine } from '../../../../../../lib/admin-
 import { Card, CardContent, CardHeader, Button, DataTable, LoadingState, ErrorState, EmptyState, ConfirmDialog } from '../../../../../../components/admin/ui';
 import { InventoryStatusBadge, QuantityDifferenceBadge } from '../../../../../../components/inventory-counting/InventoryStatusBadge';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionCompleteIcon } from '../../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function CountApprovePage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
 
   const [count, setCount] = useState<InventoryCount | null>(null);
@@ -50,7 +52,7 @@ export default function CountApprovePage() {
       showToast(t('inventoryCountWorkflow.countCompleted'), 'success');
       setConfirmOpen(false);
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setCompleting(false); }
   };
 

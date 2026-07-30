@@ -10,6 +10,7 @@ import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefre
 import { F9Lookup, sparePartAdapter } from '../../../../../components/f9';
 import { InstalledPartsCard } from '../../../../../components/admin/maintenance/installed-parts-card';
 import { ReplacementHistoryCard } from '../../../../../components/admin/maintenance/replacement-history-card';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 
 interface MachineDetail extends Machine {
   parts?: MachinePart[];
@@ -21,6 +22,7 @@ export default function MachineDetailPage() {
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [data, setData] = useState<MachineDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,7 +87,7 @@ export default function MachineDetailPage() {
   useEffect(() => { fetchData(); fetchRequests(); fetchLabels(); fetchMachineSpareLinks(); fetchResponsibilities(); }, [fetchData, fetchRequests, fetchLabels, fetchMachineSpareLinks, fetchResponsibilities]);
 
   const handleStatusChange = async (newStatus: string) => {
-    try { await api.patch(`/maintenance/machines/${id}`, { status: newStatus }); fetchData(); showToast(t('common.successUpdated'), 'success'); } catch (err: any) { showToast(err?.message, 'error'); }
+    try { await api.patch(`/maintenance/machines/${id}`, { status: newStatus }); fetchData(); showToast(t('common.successUpdated'), 'success'); } catch (err: any) { handleApiError(err); }
   };
 
   const openNewMachineLink = useCallback(() => {
@@ -113,7 +115,7 @@ export default function MachineDetailPage() {
       showToast(editingMachineLink ? t('maintenance.machineSparePartUpdated') : t('maintenance.machineSparePartCreated'), 'success');
       setLinkModalOpen(false);
       fetchMachineSpareLinks();
-    } catch (e: any) { showToast(e.message || 'Save failed', 'error'); }
+    } catch (e: any) { handleApiError(e); }
     finally { setSavingLink(false); }
   };
 
@@ -124,7 +126,7 @@ export default function MachineDetailPage() {
       showToast(t('maintenance.machineSparePartDeactivated'), 'success');
       setDeleteLinkId(null);
       fetchMachineSpareLinks();
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { handleApiError(e); }
   };
 
   const { exec } = useStableHandlers({

@@ -7,11 +7,13 @@ import { useToast } from '../../../../../components/admin/toast-provider';
 import { Button, Input, Textarea, Card, CardContent } from '../../../../../components/admin/ui';
 import { F9Lookup, machineAdapter, productAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 
 export default function CreateMachinePartPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [form, setForm] = useState({
     name: '', description: '',
     unit: '', unitPrice: '', stockQuantity: 0, minimumStock: 0,
@@ -52,7 +54,7 @@ export default function CreateMachinePartPage() {
       showToast(t('complexForms.recordCreated'), 'success');
       router.push(`/admin/maintenance/machine-parts/${res.data.id}`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.createFailed'), 'error');
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 

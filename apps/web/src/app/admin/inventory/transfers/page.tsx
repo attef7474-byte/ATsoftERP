@@ -4,6 +4,7 @@ import { api } from '../../../../lib/api';
 import { useOperationalContext } from '../../../../lib/auth-context';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { Button, Input, Select, Textarea, Card, Pagination, PageHeader, LoadingState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { InventoryStatusBadge } from '../../../../components/inventory-counting/InventoryStatusBadge';
@@ -50,6 +51,7 @@ interface StockTransfer {
 export default function StockTransfersPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const { activeContext } = useOperationalContext();
   const [data, setData] = useState<StockTransfer[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -135,7 +137,7 @@ export default function StockTransfersPage() {
         showToast('Created successfully', 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || 'Save failed', 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -156,7 +158,7 @@ export default function StockTransfersPage() {
       await api.post(`/inventory/transfers/${selectedId}/${pendingAction}`);
       showToast('Action completed', 'success');
       setActionConfirmOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || 'Action failed', 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 

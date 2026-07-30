@@ -347,6 +347,19 @@ body {
   transform: rotate(-90deg);
 }
 
+/* Sidebar group content (accordion expand/collapse transition) */
+.sidebar-group-content {
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+  max-height: 0;
+  opacity: 0;
+}
+
+.sidebar-group-content.open {
+  max-height: 2000px;
+  opacity: 1;
+}
+
 /* Sidebar section heading */
 .sidebar-section {
   padding-inline-start: var(--sidebar-section-indent);

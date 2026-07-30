@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { MaintenanceSchedule } from '../../../../lib/admin-types';
 import { Button, Input, Select, Textarea, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../components/maintenance';
@@ -14,6 +15,7 @@ import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIc
 export default function MaintenanceSchedulesPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<MaintenanceSchedule[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -97,7 +99,7 @@ useRegisterAdminActions([
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -114,7 +116,7 @@ useRegisterAdminActions([
       }
       showToast(isActive ? t('common.successDeactivated') : t('common.successActivated'), 'success');
       setConfirmOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -126,7 +128,7 @@ useRegisterAdminActions([
       setConfirmDeleteOpen(false);
       setSelectedId('');
       fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 

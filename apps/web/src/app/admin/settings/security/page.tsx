@@ -4,12 +4,14 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Input, Select, Card, PageHeader, LoadingState } from '../../../../components/admin/ui';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionSaveIcon } from '../../../../components/admin/admin-action-bar';
 import { useRouter } from 'next/navigation';
 
 export default function SecuritySettingsPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const router = useRouter();
   const [settings, setSettings] = useState<any>({ minLength: 8, requireUppercase: true, requireLowercase: true, requireNumbers: true, requireSpecialChars: false, maxAgeDays: 90, twoFactorEnabled: false, sessionTimeout: 30, maxLoginAttempts: 5, lockoutDuration: 15 });
   const [loading, setLoading] = useState(true);
@@ -30,7 +32,7 @@ export default function SecuritySettingsPage() {
       await api.patch('/settings/security', settings);
       showToast(t('settings.security.saveSuccess'), 'success');
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 

@@ -1,6 +1,6 @@
 # ATsoft ERP — AGENTS.md
 
-> **آخر تحديث**: 2026-07-28  
+> **آخر تحديث**: 2026-07-30  
 > **الغرض**: سياق دائم للجلسات المستقبلية — يمنع إعادة اكتشاف المعلومات
 
 ---
@@ -1012,6 +1012,34 @@ Forecasting (التنبؤ)
 5 of 53 defined namespaces are NOT implemented:
 `inventoryCounting`, `maintenanceDashboard`, `preventiveMaintenance`, `downtimeAnalysis`, `sparePartRequest`
 
+### Frontend Error Handling
+
+**Global Error Dialog Rules:**
+
+- **Operational/API errors** (catch blocks) MUST use `useApiErrorHandler()` hook → shows Global Error Modal, NOT toast
+- **Validation errors** (if/guard blocks) may use `showToast(..., 'error')` — quick inline feedback
+- **Success/info messages** MUST use `showToast(..., 'success'/'info')` — brief feedback, no modal
+- **Import**: `import { useApiErrorHandler } from '.../components/admin/error-handler'`
+- **Usage**: `const handleApiError = useApiErrorHandler();` then `catch (err) { handleApiError(err); }`
+- `ErrorModalProvider` is mounted in `layout.tsx` inside `ToastProvider` — available to all pages
+- `normalizeApiError()` in `lib/error-utils.ts` extracts `messageKey` + `message` + `details` from API responses for localization
+- `errorDialog` i18n namespace exists for dialog-specific keys (EN + AR)
+
+### Sidebar Development Rules
+
+- **Accordion transitions**: Always use `sidebar-group-content` + `.open` CSS classes for expand/collapse animation
+- **New sidebar groups/items**: Must add i18n keys in both `en/navigation.ts` and `ar/navigation.ts`
+- **New settings/appearance keys**: Must add in both `en/settings.ts` and `ar/settings.ts`
+- **Collapsed mode**: Icon-only `.sidebar-icon-btn` with `title={t(...)}` and `aria-label={t(...)}`
+- **RTL**: Chevron rotation uses `[dir="rtl"] .sidebar-chevron.open { transform: rotate(-90deg); }`
+- **No hardcoded labels**: All sidebar text must use `t(key)` — NO raw Arabic/English strings
+
+### i18n Registration Rules
+
+- **New namespace file**: Create in both `en/` and `ar/` directories
+- **Register in index.ts**: Both `en/index.ts` AND `ar/index.ts` must import and spread the new namespace
+- **Add to TranslationNamespace type**: Must add to `TranslationNamespace` union in `types.ts`
+
 ---
 
 ## 🧪 Acceptance Criteria (standard per batch)
@@ -1142,5 +1170,5 @@ SLA limitation closed — stale server 404 resolved, frontend fallback code remo
 language: Arabic (primary)
 working_dir: C:\Users\attef\PycharmProjects\Trae\ATsofterp
 external_copy: C:\Users\attef\PycharmProjects\Trae\maintenance-completion-discovery-pack\
-next_batch: Operational context implementation complete. Runtime proof verified (health/login/contexts endpoints). Next: user decision on commit/tag/push.
+next_batch: Corrective patch batch — sidebar accordion transition + Global Error Dialog + error toast migration complete. Next: build validation, browser proof, commit/tag/push.
 ```

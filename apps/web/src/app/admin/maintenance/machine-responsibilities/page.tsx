@@ -7,6 +7,7 @@ import { Button, Input, Pagination, PageHeader, Modal, ConfirmDialog } from '../
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionDeleteIcon } from '../../../../components/admin/admin-action-bar';
 import { F9Lookup, machineAdapter, maintenancePersonnelAdapter } from '../../../../components/f9';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 interface MachineResp {
   id: string;
@@ -26,6 +27,7 @@ interface MachineResp {
 export default function MachineResponsibilitiesPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<MachineResp[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -69,7 +71,7 @@ export default function MachineResponsibilitiesPage() {
       const item = await api.get<MachineResp>(`/maintenance/machine-responsibilities/${id}`);
       setForm({ code: item.code || '', machineId: item.machineId, maintenancePersonnelId: item.maintenancePersonnelId, responsibilityRole: item.responsibilityRole, isPrimary: item.isPrimary, startDate: item.startDate.slice(0, 10), notes: item.notes || '' });
     } catch (e: any) {
-      showToast(e.message || t('errors.loadFailed'), 'error');
+      handleApiError(e);
       setModalOpen(false);
     } finally {
       setLoadingDetail(false);
@@ -90,7 +92,7 @@ export default function MachineResponsibilitiesPage() {
         showToast(t('maintenance.responsibilityAssigned'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (e: any) { showToast(e.message || 'Save failed', 'error'); }
+    } catch (e: any) { handleApiError(e); }
     finally { setSaving(false); }
   }, [form, editingId, meta.page, showToast, t, fetchData]);
 
@@ -100,7 +102,7 @@ export default function MachineResponsibilitiesPage() {
       await api.delete(`/maintenance/machine-responsibilities/${id}`);
       showToast(t('maintenance.responsibilityEnded'), 'success');
       fetchData(meta.page);
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { handleApiError(e); }
   }, [meta.page, showToast, t, fetchData]);
 
   const handleDelete = useCallback(async () => {
@@ -110,7 +112,7 @@ export default function MachineResponsibilitiesPage() {
       showToast(t('common.successDeleted'), 'success');
       setSelectedId('');
       fetchData(meta.page);
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { handleApiError(e); }
   }, [selectedId, meta.page, showToast, t, fetchData]);
 
   const { exec } = useStableHandlers({ add: () => openNew(), edit: () => selectedRecord && openEdit(selectedRecord.id), refresh: () => fetchData(meta.page), delete: () => setConfirmDeleteOpen(true) });

@@ -8,12 +8,14 @@ import { InventoryCount, InventoryCountLine, InventoryAdjustment } from '../../.
 import { Card, CardContent, CardHeader, Button, DataTable, LoadingState, ErrorState, EmptyState, ConfirmDialog } from '../../../../../../components/admin/ui';
 import { QuantityDifferenceBadge } from '../../../../../../components/inventory-counting/InventoryStatusBadge';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionGenerateIcon, ActionPostIcon } from '../../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function CountAdjustPage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
 
   const [count, setCount] = useState<InventoryCount | null>(null);
@@ -62,7 +64,7 @@ export default function CountAdjustPage() {
       showToast(t('inventoryCountWorkflow.adjustGenerateSuccess'), 'success');
       setGenerateConfirmOpen(false);
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setGenerating(false); }
   };
 
@@ -74,7 +76,7 @@ export default function CountAdjustPage() {
       showToast(t('inventoryCountWorkflow.adjustPostSuccess'), 'success');
       setPostConfirmOpen(false);
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setPosting(false); }
   };
 

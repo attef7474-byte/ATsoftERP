@@ -4,6 +4,7 @@ import { api } from '../../../lib/api';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { useToast } from '../../../components/admin/toast-provider';
 import { Button, Select, Card, DataTable, Pagination, PageHeader, LoadingState, EmptyState, ErrorState, StatusBadge, Modal } from '../../../components/admin/ui';
+import { useApiErrorHandler } from '../../../components/admin/error-handler';
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionBackIcon } from '../../../components/admin/admin-action-bar';
 import { useRouter } from 'next/navigation';
 
@@ -24,6 +25,7 @@ const READ_OPTIONS = [
 export default function NotificationsPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const router = useRouter();
   const [data, setData] = useState<any[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
@@ -64,7 +66,7 @@ export default function NotificationsPage() {
       showToast(t('common.successUpdated'), 'success');
       fetchData(meta.page);
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     }
   };
 
@@ -74,7 +76,7 @@ export default function NotificationsPage() {
       showToast(t('common.successUpdated'), 'success');
       fetchData(1);
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     }
   };
 
@@ -86,7 +88,7 @@ export default function NotificationsPage() {
       setSelectedId('');
       fetchData(meta.page);
     } catch (err: any) {
-      showToast(err?.message || t('errors.deleteFailed'), 'error');
+      handleApiError(err);
     }
   };
 

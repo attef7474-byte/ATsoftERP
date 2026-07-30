@@ -7,12 +7,14 @@ import { useToast } from '../../../../../components/admin/toast-provider';
 import { Product, InventoryBalance, BarcodeLabel } from '../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionBarcodeIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [data, setData] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,12 +69,12 @@ export default function ProductDetailPage() {
       setEditOpen(false);
       fetchData();
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 
   const handleStatusChange = async (newStatus: string) => {
-    try { await api.patch(`/products/${id}`, { status: newStatus }); fetchData(); } catch (err: any) { showToast(err?.message, 'error'); }
+    try { await api.patch(`/products/${id}`, { status: newStatus }); fetchData(); } catch (err: any) { handleApiError(err); }
   };
 
   const { exec } = useStableHandlers({

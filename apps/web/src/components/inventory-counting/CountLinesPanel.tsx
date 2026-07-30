@@ -5,6 +5,7 @@ import { useTranslation } from '../../lib/i18n/use-translation';
 import { useToast } from '../admin/toast-provider';
 import { InventoryCountLine } from '../../lib/admin-types';
 import { Button, Input, Modal, ConfirmDialog, DataTable, LoadingState, EmptyState, ErrorState } from '../admin/ui';
+import { useApiErrorHandler } from '../admin/error-handler';
 import { F9Lookup, productAdapter, warehouseLocationAdapter } from '../f9';
 import { InventoryStatusBadge, QuantityDifferenceBadge } from './InventoryStatusBadge';
 
@@ -19,6 +20,7 @@ interface CountLinesPanelProps {
 export default function CountLinesPanel({ countId, status: countStatus, warehouseId, open, onClose }: CountLinesPanelProps) {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [lines, setLines] = useState<InventoryCountLine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -79,7 +81,7 @@ export default function CountLinesPanel({ countId, status: countStatus, warehous
         showToast(t('common.successCreated'), 'success');
       }
       setLineModalOpen(false); fetchLines();
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -98,8 +100,8 @@ export default function CountLinesPanel({ countId, status: countStatus, warehous
       await api.patch(`/inventory/count-lines/${countLineId}/count`, { countedQty: qty });
       showToast(t('common.successUpdated'), 'success');
       setCountModalOpen(false); fetchLines();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
-    finally { setCountSaving(false); }
+    } catch (err: any) { handleApiError(err); }
+    finally { setSaving(false); }
   };
 
   const openVerifyConfirm = (lineId: string) => {
@@ -113,7 +115,7 @@ export default function CountLinesPanel({ countId, status: countStatus, warehous
       await api.patch(`/inventory/count-lines/${verifyLineId}/verify`);
       showToast(t('common.successUpdated'), 'success');
       setVerifyConfirmOpen(false); fetchLines();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setVerifySaving(false); }
   };
 

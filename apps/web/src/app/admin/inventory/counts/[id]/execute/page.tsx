@@ -9,12 +9,14 @@ import { Button, Input, Card, CardHeader, CardContent, DataTable, LoadingState, 
 import { F9Lookup, productAdapter, warehouseLocationAdapter } from '../../../../../../components/f9';
 import { InventoryStatusBadge, QuantityDifferenceBadge } from '../../../../../../components/inventory-counting/InventoryStatusBadge';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionBarcodeIcon, ActionAddIcon } from '../../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function CountExecutePage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const scanInputRef = useRef<HTMLInputElement>(null);
 
@@ -66,7 +68,7 @@ export default function CountExecutePage() {
       showToast(t('inventoryCountWorkflow.productAddedToCount'), 'success');
       setScanValue('');
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('inventoryCountWorkflow.barcodeNotFound'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setScanning(false); scanInputRef.current?.focus(); }
   };
 
@@ -81,7 +83,7 @@ export default function CountExecutePage() {
       setLineModalOpen(false);
       setLineForm({ productId: '', warehouseLocationId: '', notes: '' });
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -101,7 +103,7 @@ export default function CountExecutePage() {
       showToast(t('inventoryCountWorkflow.countLineRecorded'), 'success');
       setCountModalOpen(false);
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setCountSaving(false); }
   };
 
@@ -114,7 +116,7 @@ export default function CountExecutePage() {
       showToast(t('inventoryCountWorkflow.countLineVerified'), 'success');
       setVerifyConfirmOpen(false);
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setVerifySaving(false); }
   };
 

@@ -49,7 +49,8 @@ export type TranslationNamespace =
   | 'inventoryLedger'
   | 'inventoryReconciliation'
   | 'physicalCount'
-  | 'varianceControl';
+  | 'varianceControl'
+  | 'errorDialog';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

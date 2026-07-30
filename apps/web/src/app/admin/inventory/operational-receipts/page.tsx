@@ -10,6 +10,7 @@ import { InventoryStatusBadge } from '../../../../components/inventory-counting/
 import { F9Lookup, companyAdapter, branchAdapter, warehouseAdapter, productAdapter, warehouseLocationAdapter } from '../../../../components/f9';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionPostIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 interface ReceiptLine {
   _id?: string;
@@ -46,6 +47,7 @@ interface OperationalReceipt {
 export default function OperationalReceiptsPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const { activeContext } = useOperationalContext();
   const [data, setData] = useState<OperationalReceipt[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -130,7 +132,7 @@ export default function OperationalReceiptsPage() {
         showToast('Created successfully', 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || 'Save failed', 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -151,7 +153,7 @@ export default function OperationalReceiptsPage() {
       await api.post(`/inventory/operational-receipts/${selectedId}/${pendingAction}`);
       showToast('Action completed', 'success');
       setActionConfirmOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || 'Action failed', 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 

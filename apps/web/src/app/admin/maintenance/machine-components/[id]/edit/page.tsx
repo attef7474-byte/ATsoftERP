@@ -8,6 +8,7 @@ import { Button, Input, Card, CardContent, Select, PageHeader, LoadingState, Err
 import { F9Lookup, machineComponentAdapter } from '../../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionSaveIcon, ActionCancelIcon, ActionBackIcon } from '../../../../../../components/admin/admin-action-bar';
 import type { MachineComponent } from '../../../../../../lib/admin-types';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 const COMPONENT_TYPE_OPTIONS = [
   { value: 'MECHANICAL', label: 'MECHANICAL' },
@@ -37,6 +38,7 @@ export default function EditMachineComponentPage() {
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params?.id as string;
   const [data, setData] = useState<MachineComponent | null>(null);
   const [form, setForm] = useState({ code: '', name: '', description: '', componentType: '', criticality: '', locationInMachine: '', manufacturer: '', model: '', serialNumber: '', parentComponentId: '' });
@@ -109,7 +111,7 @@ export default function EditMachineComponentPage() {
       showToast(t('complexForms.recordUpdated'), 'success');
       router.push(`/admin/maintenance/machine-components/${id}`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 

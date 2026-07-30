@@ -6,6 +6,7 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { Button, Input, Select, Card, CardContent, CardHeader, PageHeader, LoadingState, EmptyState, StatusBadge } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions } from '../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { F9Lookup } from '../../../../../components/f9/F9Lookup';
 import { productAdapter } from '../../../../../components/f9/lookup-adapters';
 import { BarcodeLabel, BarcodeLabelTemplate } from '../../../../../lib/admin-types';
@@ -13,6 +14,7 @@ import { BarcodeLabel, BarcodeLabelTemplate } from '../../../../../lib/admin-typ
 export default function ProductLabelDesignerPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
 
   const [productId, setProductId] = useState('');
   const [templateCode, setTemplateCode] = useState('');
@@ -45,7 +47,7 @@ export default function ProductLabelDesignerPage() {
       });
       setGeneratedLabel(res);
       showToast(t('barcodes.designer.generateSuccess'), 'success');
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); } finally { setGenerating(false); }
+    } catch (err: any) { handleApiError(err); } finally { setGenerating(false); }
   };
 
   const handlePrint = (label: BarcodeLabel) => {

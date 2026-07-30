@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { MaintenancePersonnel } from '../../../../lib/admin-types';
 import { User } from '../../../../lib/admin-types/access';
 import { Button, Input, Select, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
@@ -10,8 +11,9 @@ import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/ad
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionRefreshIcon, ActionDeleteIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MaintenancePersonnelPage() {
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<MaintenancePersonnel[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -109,7 +111,7 @@ export default function MaintenancePersonnelPage() {
       if (editingId) { await api.patch(`/maintenance/personnel/${editingId}`, payload); showToast(t('maintenance.personnelUpdated'), 'success'); }
       else { await api.post('/maintenance/personnel', payload); showToast(t('maintenance.personnelCreated'), 'success'); }
       setModalOpen(false); fetchData(meta.page);
-    } catch (e: any) { showToast(e.message || 'Save failed', 'error'); }
+    } catch (e: any) { handleApiError(e); }
     finally { setSaving(false); }
   }, [form, editingId, meta.page, showToast, t, fetchData]);
 
@@ -134,7 +136,7 @@ export default function MaintenancePersonnelPage() {
       await api.patch(`/maintenance/personnel/${id}/${action}`, {});
       showToast(action === 'activate' ? t('maintenance.personnelActivated') : t('maintenance.personnelDeactivated'), 'success');
       fetchData(meta.page);
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { handleApiError(e); }
   }, [meta.page, showToast, t, fetchData]);
 
   const { exec } = useStableHandlers({ add: () => openNew(), refresh: () => fetchData(meta.page), delete: () => setConfirmDeleteOpen(true) });

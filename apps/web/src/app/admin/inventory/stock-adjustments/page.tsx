@@ -9,6 +9,7 @@ import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/ad
 import { InventoryStatusBadge } from '../../../../components/inventory-counting/InventoryStatusBadge';
 import { F9Lookup, companyAdapter, branchAdapter, warehouseAdapter, productAdapter, warehouseLocationAdapter } from '../../../../components/f9';
 import { useMemo } from 'react';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 interface StockAdjustmentLine {
   _id?: string;
@@ -44,6 +45,7 @@ interface StockAdjustment {
 export default function StockAdjustmentsPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const { activeContext } = useOperationalContext();
   const [data, setData] = useState<StockAdjustment[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -123,7 +125,7 @@ export default function StockAdjustmentsPage() {
         showToast('Created successfully', 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || 'Save failed', 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -144,7 +146,7 @@ export default function StockAdjustmentsPage() {
       await api.post(`/inventory/stock-adjustments/${selectedId}/${pendingAction}`);
       showToast('Action completed', 'success');
       setActionConfirmOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || 'Action failed', 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 

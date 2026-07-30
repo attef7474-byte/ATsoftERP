@@ -8,12 +8,14 @@ import { MaintenanceSchedule } from '../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, LoadingState, ErrorState, StatusBadge } from '../../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../../components/maintenance';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionActivateIcon, ActionDeactivateIcon, ActionAddIcon } from '../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 
 export default function MaintenanceScheduleDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +41,7 @@ export default function MaintenanceScheduleDetailPage() {
       await api.post(`/maintenance/schedules/${id}/generate-request`, {});
       showToast(t('maintenance.requestGenerated'), 'success');
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setGenerating(false); }
   };
 
@@ -48,7 +50,7 @@ export default function MaintenanceScheduleDetailPage() {
       await api.patch(`/maintenance/schedules/${id}/activate`, {});
       showToast(t('common.successActivated'), 'success');
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const handleDeactivate = async () => {
@@ -56,7 +58,7 @@ export default function MaintenanceScheduleDetailPage() {
       await api.patch(`/maintenance/schedules/${id}/deactivate`, {});
       showToast(t('common.successDeactivated'), 'success');
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const { exec } = useStableHandlers({

@@ -7,12 +7,14 @@ import { useToast } from '../../../../../components/admin/toast-provider';
 import { MachineCategory, Machine } from '../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, PageHeader } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 
 export default function MachineCategoryDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [data, setData] = useState<MachineCategory | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,7 +54,7 @@ export default function MachineCategoryDetailPage() {
       fetchData();
       showToast(t('common.successUpdated'), 'success');
     } catch (err: any) {
-      showToast(err?.message, 'error');
+      handleApiError(err);
     }
   };
 

@@ -9,10 +9,12 @@ import { F9Lookup, machineAdapter } from '../../../../components/f9';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 export default function MachineDocumentsPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<MachineDocument[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -81,7 +83,7 @@ useRegisterAdminActions([
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -92,7 +94,7 @@ useRegisterAdminActions([
       await api.delete(`/maintenance/machine-documents/${selectedId}`);
       showToast(t('common.successDeleted'), 'success');
       setConfirmOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 

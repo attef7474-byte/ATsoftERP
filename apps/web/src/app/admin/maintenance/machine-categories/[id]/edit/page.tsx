@@ -8,12 +8,14 @@ import { Button, Input, Textarea, Card, CardContent, LoadingState, ErrorState, S
 import { F9Lookup, machineCategoryAdapter } from '../../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon, ActionViewIcon } from '../../../../../../components/admin/admin-action-bar';
 import type { MachineCategory } from '../../../../../../lib/admin-types';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function EditMachineCategoryPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params?.id as string;
   const [data, setData] = useState<MachineCategory | null>(null);
   const [form, setForm] = useState({ code: '', name: '', description: '', parentId: '' });
@@ -67,7 +69,7 @@ export default function EditMachineCategoryPage() {
       showToast(t('complexForms.recordUpdated'), 'success');
       router.push(`/admin/maintenance/machine-categories/${id}`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 

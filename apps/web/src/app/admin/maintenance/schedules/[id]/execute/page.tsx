@@ -8,12 +8,14 @@ import { MaintenanceSchedule } from '../../../../../../lib/admin-types';
 import { Button, Card, CardContent, PageHeader, LoadingState, ErrorState } from '../../../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../../../components/maintenance';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionStartIcon } from '../../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function ExecuteSchedulePage() {
   const { t } = useTranslation();
   const params = useParams();
   const router = useRouter();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params?.id as string;
 
   const [schedule, setSchedule] = useState<MaintenanceSchedule | null>(null);
@@ -39,7 +41,7 @@ export default function ExecuteSchedulePage() {
       const res = await api.post<{ data: { id: string } }>(`/maintenance/schedules/${id}/execute`);
       setExecutionResult(res.data);
       showToast(t('maintenance.executionCreated'), 'success');
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setExecuting(false); }
   };
 

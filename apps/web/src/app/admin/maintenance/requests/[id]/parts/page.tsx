@@ -8,12 +8,14 @@ import { MaintenanceRequestPartUsage, MaintenanceRequest } from '../../../../../
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, Modal, Button, Input, Textarea } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionAddIcon } from '../../../../../../components/admin/admin-action-bar';
 import { F9Lookup, productAdapter } from '../../../../../../components/f9';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function UsedPartsPage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [parts, setParts] = useState<MaintenanceRequestPartUsage[]>([]);
   const [request, setRequest] = useState<MaintenanceRequest | null>(null);
@@ -65,7 +67,7 @@ export default function UsedPartsPage() {
       }
       setModalOpen(false);
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.saveFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -74,7 +76,7 @@ export default function UsedPartsPage() {
       await api.delete(`/maintenance/request-parts/${itemId}`);
       showToast(t('maintenanceWorkflow.partDeleted'), 'success');
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const { exec } = useStableHandlers({

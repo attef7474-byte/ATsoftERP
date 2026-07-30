@@ -10,10 +10,12 @@ import { F9Lookup, maintenanceScheduleAdapter, maintenanceTaskAdapter } from '..
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 export default function MaintenanceChecklistItemsPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<MaintenanceChecklistItem[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -75,7 +77,7 @@ useRegisterAdminActions([
       setEditItem(item);
       setForm({ code: item.code || '', scheduleId: item.scheduleId || '', taskId: item.taskId || '', title: item.title, description: item.description || '', sortOrder: item.sortOrder, required: item.required });
       setModalOpen(true);
-    } catch (err: any) { showToast(err?.message || t('errors.loadFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setLoadingDetail(false); }
   };
 
@@ -95,7 +97,7 @@ useRegisterAdminActions([
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -112,7 +114,7 @@ useRegisterAdminActions([
       }
       showToast(status === 'ACTIVE' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
       setConfirmOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -125,7 +127,7 @@ useRegisterAdminActions([
       setConfirmDeleteOpen(false);
       setSelectedId('');
       fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 

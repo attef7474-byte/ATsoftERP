@@ -8,11 +8,13 @@ import { SparePart } from '../../../../lib/admin-types';
 import { Button, Input, Select, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon, ActionDeleteIcon, ActionBackIcon } from '../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 export default function SparePartsPage() {
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<SparePart[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -72,7 +74,7 @@ export default function SparePartsPage() {
         usageType: item.usageType || '', nature: item.nature || '', importance: item.importance || '',
       });
     } catch (e: any) {
-      showToast(e.message || t('errors.loadFailed'), 'error');
+      handleApiError(e);
       setModalOpen(false);
     }
     finally { setLoadingDetail(false); }
@@ -91,7 +93,7 @@ export default function SparePartsPage() {
         showToast(t('maintenance.sparePartCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (e: any) { showToast(e.message || 'Save failed', 'error'); }
+    } catch (e: any) { handleApiError(e); }
     finally { setSaving(false); }
   }, [form, editingId, meta.page, showToast, t, fetchData]);
 
@@ -101,7 +103,7 @@ export default function SparePartsPage() {
       await api.patch(`/maintenance/spare-parts/${id}/${action}`, {});
       showToast(action === 'activate' ? t('common.activated') : t('common.deactivated'), 'success');
       fetchData(meta.page);
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { handleApiError(e); }
   }, [meta.page, showToast, t, fetchData]);
 
   const handleDelete = useCallback(async () => {
@@ -110,7 +112,7 @@ export default function SparePartsPage() {
       await api.delete(`/maintenance/spare-parts/${selectedId}`);
       showToast(t('common.successDeleted'), 'success');
       setConfirmDeleteOpen(false); setSelectedId(''); fetchData(1);
-    } catch (e: any) { showToast(e.message || t('errors.deleteFailed'), 'error'); }
+    } catch (e: any) { handleApiError(e); }
     finally { setSaving(false); }
   }, [selectedId, showToast, t, fetchData]);
 

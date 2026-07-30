@@ -11,11 +11,13 @@ import { F9Lookup, companyAdapter, branchAdapter, warehouseAdapter, productAdapt
 import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionPostIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 export default function InventoryMovementsPage() {
   const router = useRouter();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<InventoryMovement[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -105,7 +107,7 @@ export default function InventoryMovementsPage() {
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -124,7 +126,7 @@ export default function InventoryMovementsPage() {
       await api.patch(`/inventory/movements/${selectedId}/${pendingAction}`);
       showToast(t('common.successUpdated'), 'success');
       setActionConfirmOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 

@@ -8,12 +8,14 @@ import { Button, Input, Textarea, Card, CardContent, LoadingState, ErrorState, S
 import { F9Lookup, machineAdapter, productAdapter } from '../../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon, ActionViewIcon } from '../../../../../../components/admin/admin-action-bar';
 import type { MachinePart } from '../../../../../../lib/admin-types';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function EditMachinePartPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params?.id as string;
   const [data, setData] = useState<MachinePart | null>(null);
   const [form, setForm] = useState({
@@ -88,7 +90,7 @@ export default function EditMachinePartPage() {
       showToast(t('complexForms.recordUpdated'), 'success');
       router.push(`/admin/maintenance/machine-parts/${id}`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 

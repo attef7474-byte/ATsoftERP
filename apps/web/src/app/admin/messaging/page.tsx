@@ -4,6 +4,7 @@ import { api } from '../../../lib/api';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { useToast } from '../../../components/admin/toast-provider';
 import { Button, Card, DataTable, Pagination, PageHeader, LoadingState, EmptyState, Input, Modal, Textarea } from '../../../components/admin/ui';
+import { useApiErrorHandler } from '../../../components/admin/error-handler';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../components/admin/admin-action-bar';
 import { useRouter } from 'next/navigation';
 
@@ -20,6 +21,7 @@ interface Conversation {
 export default function MessagingPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
@@ -41,7 +43,7 @@ export default function MessagingPage() {
       const res = await api.get<{ data: Conversation[]; meta: any }>('/messaging/conversations', { params });
       setConversations(res.data || []);
       setMeta(res.meta);
-    } catch { showToast(t('errors.loadFailed'), 'error'); } finally { setLoading(false); }
+    } catch { handleApiError(new Error(t('errors.loadFailed'))); } finally { setLoading(false); }
   }, [search, t, showToast]);
 
   useEffect(() => { fetchConversations(); }, []);
@@ -66,7 +68,7 @@ export default function MessagingPage() {
       setCreateOpen(false);
       setCreateForm({ title: '', participantUserIds: '' });
       fetchConversations(1);
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); } finally { setSaving(false); }
+    } catch (err: any) { handleApiError(err); } finally { setSaving(false); }
   };
 
   const { exec } = useStableHandlers({

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { useToast } from '../toast-provider';
 import { api } from '../../../lib/api';
+import { useApiErrorHandler } from '../error-handler';
 import { NotificationItem, NotificationItemData } from './notification-item';
 import { NotificationFilters } from './notification-filters';
 import { Button, Pagination, Card, LoadingState, EmptyState } from '../ui';
@@ -10,6 +11,7 @@ import { Button, Pagination, Card, LoadingState, EmptyState } from '../ui';
 export function NotificationCenter() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [items, setItems] = useState<NotificationItemData[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -33,7 +35,7 @@ export function NotificationCenter() {
         setTotal(res.meta.total);
       }
     } catch {
-      showToast(t('errors.loadFailed'), 'error');
+      handleApiError(new Error(t('errors.loadFailed')));
     } finally {
       setLoading(false);
     }
@@ -45,7 +47,7 @@ export function NotificationCenter() {
     try {
       await api.patch(`/notifications/${id}/read`);
       setItems((prev) => prev.map((i) => (i.id === id ? { ...i, read: true } : i)));
-    } catch { showToast(t('errors.updateFailed'), 'error'); }
+    } catch { handleApiError(new Error(t('errors.updateFailed'))); }
   };
 
   const handleMarkAllRead = async () => {
@@ -53,7 +55,7 @@ export function NotificationCenter() {
       await api.post('/notifications/mark-all-read');
       setItems((prev) => prev.map((i) => ({ ...i, read: true })));
       showToast(t('common.successUpdated'), 'success');
-    } catch { showToast(t('errors.updateFailed'), 'error'); }
+    } catch { handleApiError(new Error(t('errors.updateFailed'))); }
   };
 
   const handleDelete = async (id: string) => {
@@ -61,7 +63,7 @@ export function NotificationCenter() {
       await api.delete(`/notifications/${id}`);
       setItems((prev) => prev.filter((i) => i.id !== id));
       setTotal((prev) => prev - 1);
-    } catch { showToast(t('errors.deleteFailed'), 'error'); }
+    } catch { handleApiError(new Error(t('errors.deleteFailed'))); }
   };
 
   return (

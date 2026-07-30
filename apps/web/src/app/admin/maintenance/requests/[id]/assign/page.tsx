@@ -8,12 +8,14 @@ import { MaintenanceRequest } from '../../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, LoadingState, ErrorState, Button } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon } from '../../../../../../components/admin/admin-action-bar';
 import { F9Lookup, userAdapter } from '../../../../../../components/f9';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function AssignTechnicianPage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [request, setRequest] = useState<MaintenanceRequest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,7 +42,7 @@ export default function AssignTechnicianPage() {
       await api.patch(`/maintenance/requests/${id}/assign`, { assignedToId });
       showToast(t('maintenanceWorkflow.assignSuccess'), 'success');
       router.back();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 

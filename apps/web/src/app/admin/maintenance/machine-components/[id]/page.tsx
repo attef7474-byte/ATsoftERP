@@ -9,12 +9,14 @@ import { Card, CardContent, CardHeader, PageHeader, Button, DataTable, LoadingSt
 import { CmmsStatusBadge } from '../../../../../components/maintenance';
 import { useRegisterAdminActions, useStableHandlers, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon, ActionBackIcon } from '../../../../../components/admin/admin-action-bar';
 import { F9Lookup, sparePartAdapter } from '../../../../../components/f9';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 
 export default function MachineComponentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [data, setData] = useState<MachineComponent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,7 @@ export default function MachineComponentDetailPage() {
       showToast(editingLink ? t('maintenance.componentSparePartUpdated') : t('maintenance.componentSparePartCreated'), 'success');
       setLinkModalOpen(false);
       fetchSpareLinks();
-    } catch (e: any) { showToast(e.message || 'Save failed', 'error'); }
+    } catch (e: any) { handleApiError(e); }
     finally { setSavingLink(false); }
   };
 
@@ -87,7 +89,7 @@ export default function MachineComponentDetailPage() {
       showToast(t('maintenance.componentSparePartDeactivated'), 'success');
       setDeleteLinkId(null);
       fetchSpareLinks();
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { handleApiError(e); }
   };
 
   const handleStatusChange = useCallback(async (newStatus: string) => {
@@ -101,7 +103,7 @@ export default function MachineComponentDetailPage() {
       fetchData();
       showToast(t('common.successUpdated'), 'success');
     } catch (err: any) {
-      showToast(err?.message, 'error');
+      handleApiError(err);
     }
   }, [id, fetchData, showToast, t]);
 

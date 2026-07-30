@@ -7,11 +7,13 @@ import { useToast } from '../../../../../components/admin/toast-provider';
 import { Button, Input, Select, Textarea, Card, CardContent } from '../../../../../components/admin/ui';
 import { F9Lookup, companyAdapter, branchAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 
 export default function CreateWarehousePage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [form, setForm] = useState({ companyId: '', branchId: '', name: '', location: '', warehouseType: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -44,7 +46,7 @@ export default function CreateWarehousePage() {
       showToast(t('complexForms.recordCreated'), 'success');
       router.push(`/admin/inventory/warehouses/${res.data.id}`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.createFailed'), 'error');
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 

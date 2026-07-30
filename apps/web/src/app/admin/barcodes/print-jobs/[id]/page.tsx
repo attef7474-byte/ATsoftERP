@@ -6,6 +6,7 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { Button, Card, CardContent, CardHeader, PageHeader, LoadingState, ErrorState, ConfirmDialog, LocalizedValue } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { BarcodePrintJob } from '../../../../../lib/admin-types';
 
 export default function PrintJobDetailPage() {
@@ -13,6 +14,7 @@ export default function PrintJobDetailPage() {
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [job, setJob] = useState<BarcodePrintJob | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ export default function PrintJobDetailPage() {
       showToast(t('common.successUpdated'), 'success');
       setShowCancelConfirm(false);
       fetchJob();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setCancelling(false); }
   };
 

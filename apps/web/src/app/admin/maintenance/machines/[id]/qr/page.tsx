@@ -7,12 +7,14 @@ import { useToast } from '../../../../../../components/admin/toast-provider';
 import { Machine, BarcodeLabel } from '../../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, LoadingState, ErrorState, Button, DataTable, StatusBadge } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function MachineQRPage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [machine, setMachine] = useState<Machine | null>(null);
   const [labels, setLabels] = useState<BarcodeLabel[]>([]);
@@ -47,7 +49,7 @@ export default function MachineQRPage() {
       });
       showToast(t('common.successCreated'), 'success');
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setGenerating(false); }
   };
 
@@ -56,7 +58,7 @@ export default function MachineQRPage() {
       await api.post(`/barcodes/labels/${labelId}/mark-printed`);
       showToast(t('barcodes.print.printedSuccess'), 'success');
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const handleStatusAction = async (labelId: string, action: string) => {
@@ -64,7 +66,7 @@ export default function MachineQRPage() {
       await api.patch(`/barcodes/labels/${labelId}/${action}`);
       showToast(t('common.successUpdated'), 'success');
       fetchData();
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const handlePrint = (label: BarcodeLabel) => {

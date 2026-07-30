@@ -8,6 +8,7 @@ import { Button, Card, PageHeader, LoadingState, Modal, ConfirmDialog } from '..
 import { InventoryStatusBadge } from '../../../../../components/inventory-counting/InventoryStatusBadge';
 import { useRouter } from 'next/navigation';
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionPostIcon, ActionCancelIcon, ActionBackIcon } from '../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 
 interface ReceiptDetail {
   id: string;
@@ -53,6 +54,7 @@ export default function OperationalReceiptDetailPage({ params }: { params: Promi
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<ReceiptDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -80,7 +82,7 @@ export default function OperationalReceiptDetailPage({ params }: { params: Promi
       await api.post(`/inventory/operational-receipts/${data.id}/${pendingAction}`);
       showToast('Action completed', 'success');
       setActionConfirmOpen(false); fetchData();
-    } catch (err: any) { showToast(err?.message || 'Action failed', 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 

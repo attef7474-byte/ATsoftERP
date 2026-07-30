@@ -10,11 +10,13 @@ import { CmmsStatusBadge } from '../../../../components/maintenance';
 import { F9Lookup, machineAdapter, maintenanceRequestAdapter } from '../../../../components/f9';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 export default function DowntimeLogsPage() {
   const router = useRouter();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<DowntimeLog[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -84,7 +86,7 @@ export default function DowntimeLogsPage() {
         notes: item.notes || '',
       });
     } catch (err: any) {
-      showToast(err?.message || t('errors.loadFailed'), 'error');
+      handleApiError(err);
       setModalOpen(false);
     }
     finally { setLoadingDetail(false); }
@@ -103,7 +105,7 @@ export default function DowntimeLogsPage() {
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -114,7 +116,7 @@ export default function DowntimeLogsPage() {
       await api.patch(`/maintenance/downtime-logs/${selectedId}/${pendingAction}`);
       showToast(t('common.successUpdated'), 'success');
       setActionConfirmOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -124,7 +126,7 @@ export default function DowntimeLogsPage() {
       await api.delete(`/maintenance/downtime-logs/${selectedId}`);
       showToast(t('common.successDeleted'), 'success');
       setConfirmDeleteOpen(false); setSelectedId(''); fetchData(1);
-    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 

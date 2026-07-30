@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api, getApiBaseUrl, getApiRequestHeaders } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { Button, Input, Select, Card, CardContent, Pagination, PageHeader, LoadingState, Modal } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionBackIcon } from '../../../../components/admin/admin-action-bar';
@@ -27,6 +28,7 @@ function sanitizeDetails(detailsStr: string | null): string {
 export default function AuditLogPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const router = useRouter();
   const [data, setData] = useState<any[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
@@ -92,7 +94,7 @@ export default function AuditLogPage() {
       a.href = downloadUrl; a.download = `audit-log-${new Date().toISOString().split('T')[0]}.csv`; a.click();
       window.URL.revokeObjectURL(downloadUrl);
       showToast(t('settings.audit.exportSuccess'), 'success');
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
   };
 
   const openDetail = async (item: any) => {

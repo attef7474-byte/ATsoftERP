@@ -5,11 +5,13 @@ import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { Button, Input, Card, PageHeader } from '../../../../../components/admin/ui';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon } from '../../../../../components/admin/admin-action-bar';
 
 export default function UploadAttachmentPage() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -35,7 +37,7 @@ export default function UploadAttachmentPage() {
       showToast(t('attachments.uploadSuccess'), 'success');
       router.push('/admin/documents/attachments');
     } catch (err: any) {
-      showToast(err?.message || t('errors.createFailed'), 'error');
+      handleApiError(err);
     } finally { setUploading(false); }
   };
 

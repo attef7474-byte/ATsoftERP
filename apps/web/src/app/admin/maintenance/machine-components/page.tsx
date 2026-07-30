@@ -9,6 +9,7 @@ import { CmmsStatusBadge } from '../../../../components/maintenance';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 import { F9Lookup, machineComponentAdapter } from '../../../../components/f9';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 const COMPONENT_TYPE_OPTIONS = [
   { value: 'MECHANICAL', label: 'Mechanical' },
@@ -36,6 +37,7 @@ const CRITICALITY_OPTIONS = [
 export default function MachineComponentsPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<MachineComponent[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -109,7 +111,7 @@ export default function MachineComponentsPage() {
         parentComponentId: item.parentComponentId || '',
       });
     } catch (err: any) {
-      showToast(err?.message || t('errors.loadFailed'), 'error');
+      handleApiError(err);
       setModalOpen(false);
     }
     finally { setLoadingDetail(false); }
@@ -137,7 +139,7 @@ export default function MachineComponentsPage() {
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.createFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -154,7 +156,7 @@ export default function MachineComponentsPage() {
       }
       showToast(status === 'ACTIVE' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
       setConfirmStatusOpen(false); fetchData(meta.page);
-    } catch (err: any) { showToast(err?.message || t('errors.updateFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
@@ -164,7 +166,7 @@ export default function MachineComponentsPage() {
       await api.delete(`/maintenance/machine-components/${selectedId}`);
       showToast(t('common.successDeleted'), 'success');
       setConfirmDeleteOpen(false); setSelectedId(''); fetchData(1);
-    } catch (err: any) { showToast(err?.message || t('errors.deleteFailed'), 'error'); }
+    } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
 
