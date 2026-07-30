@@ -12,6 +12,7 @@ import reports from './reports';
 import validation from './validation';
 import system from './system';
 import errorDialog from './error-dialog';
+import workspace from './workspace';
 
 const en: LocaleTranslations = {
   ...common,
@@ -27,6 +28,7 @@ const en: LocaleTranslations = {
   ...validation,
   ...system,
   ...errorDialog,
+  ...workspace,
 };
 
 export default en;

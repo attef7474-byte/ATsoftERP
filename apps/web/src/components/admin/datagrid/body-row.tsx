@@ -51,9 +51,16 @@ export function BodyRow<T>({
     />
   ) : null;
 
+  const handleRowClick = (e: React.MouseEvent) => {
+    // Row click guard: skip if clicking interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest?.('button, a, input, select, textarea, [role="button"], [data-no-row-open], .admin-grid-row-action-btn, [data-actions-menu]')) return;
+    onRowClick?.(item);
+  };
+
   return (
     <tr
-      onClick={() => onRowClick?.(item)}
+      onClick={handleRowClick}
       className={`${
         onRowClick ? 'cursor-pointer' : ''
       } ${

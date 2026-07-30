@@ -1,0 +1,40 @@
+import type { LocaleTranslations } from '../../types';
+
+const workspace: Pick<LocaleTranslations, 'workspace'> = {
+  workspace: {
+    recordDetails: 'تفاصيل السجل',
+    closePanel: 'إغلاق اللوحة',
+    openDetails: 'فتح التفاصيل',
+    selectedRow: 'الصف المحدد',
+    overview: 'نظرة عامة',
+    branches: 'الفروع',
+    departments: 'الأقسام',
+    users: 'المستخدمون',
+    warehouses: 'المستودعات',
+    roles: 'الأدوار',
+    permissions: 'الصلاحيات',
+    operationalScopes: 'النطاقات التشغيلية',
+    locations: 'المواقع',
+    balanceSummary: 'ملخص الأرصدة',
+    noData: 'لا توجد بيانات',
+    noRelatedData: 'لا توجد بيانات مرتبطة',
+    noBranches: 'لا توجد فروع لهذه الشركة',
+    noRelatedDepartments: 'لا توجد أقسام مرتبطة',
+    noRelatedUsers: 'لا يوجد مستخدمون مرتبطون',
+    noRelatedWarehouses: 'لا توجد مستودعات مرتبطة',
+    create: 'إنشاء',
+    edit: 'تعديل',
+    delete: 'حذف',
+    refresh: 'تحديث',
+    filter: 'تصفية',
+    more: 'المزيد',
+    export: 'تصدير',
+    search: 'بحث',
+    status: 'الحالة',
+    active: 'نشط',
+    inactive: 'غير نشط',
+    companies: 'الشركات',
+  },
+};
+
+export default workspace;

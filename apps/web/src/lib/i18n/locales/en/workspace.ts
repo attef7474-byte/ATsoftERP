@@ -1,0 +1,40 @@
+import type { LocaleTranslations } from '../../types';
+
+const workspace: Pick<LocaleTranslations, 'workspace'> = {
+  workspace: {
+    recordDetails: 'Record Details',
+    closePanel: 'Close panel',
+    openDetails: 'Open details',
+    selectedRow: 'Selected row',
+    overview: 'Overview',
+    branches: 'Branches',
+    departments: 'Departments',
+    users: 'Users',
+    warehouses: 'Warehouses',
+    roles: 'Roles',
+    permissions: 'Permissions',
+    operationalScopes: 'Operational scopes',
+    locations: 'Locations',
+    balanceSummary: 'Balance summary',
+    noData: 'No data available',
+    noRelatedData: 'No related data',
+    noBranches: 'No branches for this company',
+    noRelatedDepartments: 'No related departments',
+    noRelatedUsers: 'No related users',
+    noRelatedWarehouses: 'No related warehouses',
+    create: 'Create',
+    edit: 'Edit',
+    delete: 'Delete',
+    refresh: 'Refresh',
+    filter: 'Filter',
+    more: 'More',
+    export: 'Export',
+    search: 'Search',
+    status: 'Status',
+    active: 'Active',
+    inactive: 'Inactive',
+    companies: 'Companies',
+  },
+};
+
+export default workspace;

@@ -5,9 +5,11 @@ import { unwrapApiData, unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { User, Company, Branch, Department, Role } from '../../../../lib/admin-types';
-import { useRouter } from 'next/navigation';
-import { Button, Input, Card, Pagination, PageHeader, LoadingState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
-import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
+import { useRouter, usePathname } from 'next/navigation';
+import { Button, Input, Card, Pagination, LoadingState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
+import { EntityWorkspaceLayout, EntityPageHeader, EntityDataTable, EntityDetailDrawer, EntityStatusBadge } from '../../../../components/entity';
+import type { DrawerSection } from '../../../../components/entity';
 import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter, roleAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
@@ -36,6 +38,14 @@ export default function UsersPage() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('overview');
+  const [drawerRoles, setDrawerRoles] = useState<any[]>([]);
+  const [drawerRolesLoading, setDrawerRolesLoading] = useState(false);
+  const [drawerScopes, setDrawerScopes] = useState<any[]>([]);
+  const [drawerScopesLoading, setDrawerScopesLoading] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate'>('deactivate');
@@ -162,6 +172,43 @@ export default function UsersPage() {
 
   const getCompanyName = (id?: string | null) => id ? companies.find((c) => c.id === id)?.name || '-' : '-';
   const getBranchName = (id?: string | null) => id ? branches.find((b) => b.id === id)?.name || '-' : '-';
+  const getDepartmentName = (id?: string | null) => id ? departments.find((d) => d.id === id)?.name || '-' : '-';
+
+  const fetchDrawerRoles = useCallback(async (userId: string) => {
+    setDrawerRolesLoading(true);
+    try {
+      const res = await api.get<{ data: any[] }>(`/users/${userId}/roles`);
+      setDrawerRoles(res.data || []);
+    } catch {
+      // ignore - roles shown from inline data
+    } finally {
+      setDrawerRolesLoading(false);
+    }
+  }, []);
+
+  const fetchDrawerScopes = useCallback(async (userId: string) => {
+    setDrawerScopesLoading(true);
+    try {
+      const res = await api.get<{ data: any[] }>(`/users/${userId}/operational-scopes`);
+      setDrawerScopes(res.data || []);
+    } catch {
+      // ignore
+    } finally {
+      setDrawerScopesLoading(false);
+    }
+  }, []);
+
+  const handleRowClick = useCallback((item: User) => {
+    setSelectedId(item.id);
+    setSelectedUser(item);
+    setActiveSection('overview');
+    setDrawerOpen(true);
+  }, []);
+
+  const closeDrawer = useCallback(() => {
+    setDrawerOpen(false);
+    setActiveSection('overview');
+  }, []);
 
   const baseColumns: GridColumn<User>[] = [
     { key: 'name', header: t('users.name'), sortable: true, filterable: true },
@@ -197,20 +244,129 @@ export default function UsersPage() {
     setSearch('');
   }, []);
 
+  const pathname = usePathname();
+  useEffect(() => {
+    if (drawerOpen) setDrawerOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  useEffect(() => {
+    if (drawerOpen && selectedUser && !data.find(d => d.id === selectedUser.id)) {
+      setDrawerOpen(false);
+      setSelectedUser(null);
+    }
+  }, [data, drawerOpen, selectedUser]);
+
+  useEffect(() => {
+    if (drawerOpen && selectedUser) {
+      fetchDrawerRoles(selectedUser.id);
+      fetchDrawerScopes(selectedUser.id);
+    }
+  }, [drawerOpen, selectedUser?.id, fetchDrawerRoles, fetchDrawerScopes]);
+
+  const drawerNavItems = useMemo(() => [
+    { id: 'overview', label: t('workspace.overview'), icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg> },
+    { id: 'roles', label: t('workspace.roles'), icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg> },
+    { id: 'scopes', label: t('workspace.operationalScopes'), icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
+  ], [t]);
+
+  const drawerSections = useMemo((): DrawerSection[] => [
+    {
+      id: 'overview',
+      label: t('workspace.overview'),
+      content: selectedUser ? (
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-gray-500">{t('users.name')}</label>
+            <p className="text-sm font-medium text-gray-900">{selectedUser.name}</p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">{t('users.email')}</label>
+            <p className="text-sm text-gray-700">{selectedUser.email}</p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">{t('common.status')}</label>
+            <div className="mt-0.5">
+              <EntityStatusBadge status={selectedUser.status} activeLabel={t('common.active')} inactiveLabel={t('common.inactive')} />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">{t('users.company')}</label>
+            <p className="text-sm text-gray-700">{getCompanyName(selectedUser.companyId)}</p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">{t('users.branch')}</label>
+            <p className="text-sm text-gray-700">{getBranchName(selectedUser.branchId)}</p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">{t('users.department')}</label>
+            <p className="text-sm text-gray-700">{getDepartmentName(selectedUser.departmentId)}</p>
+          </div>
+        </div>
+      ) : null,
+    },
+    {
+      id: 'roles',
+      label: t('workspace.roles'),
+      content: (
+        <div>
+          {drawerRolesLoading ? <LoadingState /> : (
+            <div className="space-y-2">
+              {(selectedUser?.roles || drawerRoles).length > 0 ? (
+                (selectedUser?.roles || drawerRoles).map((r: any, i: number) => (
+                  <div key={r.id || r.role?.id || i} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <span className="text-sm font-medium">{r.role?.name || r.name}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-sm">{t('common.noData')}</p>
+              )}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'scopes',
+      label: t('workspace.operationalScopes'),
+      content: (
+        <div>
+          {drawerScopesLoading ? <LoadingState /> : (
+            <div className="space-y-2">
+              {drawerScopes.length > 0 ? drawerScopes.map((s: any) => (
+                <div key={s.id} className="p-2 bg-gray-50 rounded text-sm">
+                  {s.company?.name || s.companyId}
+                </div>
+              )) : (
+                <p className="text-gray-500 text-sm">{t('common.noData')}</p>
+              )}
+            </div>
+          )}
+        </div>
+      ),
+    },
+  ], [selectedUser, t, getCompanyName, getBranchName, getDepartmentName, drawerRoles, drawerRolesLoading, drawerScopes, drawerScopesLoading]);
+
+  const usersIcon = (
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+  );
+
   return (
-    <div>
-      <PageHeader title={t('users.title')} />
+    <EntityWorkspaceLayout drawerOpen={drawerOpen} drawer={drawerOpen ? <EntityDetailDrawer open={drawerOpen} onClose={closeDrawer} title={selectedUser?.name || ''} subtitle={selectedUser?.email} statusBadge={<EntityStatusBadge status={selectedUser?.status || ''} activeLabel={t('common.active')} inactiveLabel={t('common.inactive')} />} sections={drawerSections} activeSection={activeSection} onSectionChange={setActiveSection} navItems={drawerNavItems} dir={dir} /> : undefined}>
+      <EntityPageHeader title={t('users.title')} icon={usersIcon} />
       {error && <div className="text-center py-12"><p className="text-red-500 mb-4">{error}</p></div>}
       {!error && loading && data.length === 0 && <LoadingState />}
       {!error && !loading && data.length === 0 && (
         <div className="text-center py-12"><p className="text-gray-500">{t('common.noData')}</p></div>
       )}
       {(!error || !loading) && data.length > 0 && (
-        <AdminDataGrid
+        <EntityDataTable
           columns={baseColumns}
           data={data}
           keyExtractor={(item) => item.id}
-          onRowClick={(item) => setSelectedId(item.id)}
+          onRowClick={handleRowClick}
           selectedKey={selectedId}
           loading={loading}
           emptyMessage={t('common.noData')}
@@ -264,6 +420,6 @@ export default function UsersPage() {
         </div>}
       </Modal>
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleConfirm} title={confirmAction === 'activate' ? t('users.activateTitle') : t('users.deactivateTitle')} message={confirmAction === 'activate' ? t('users.activateConfirm') : t('users.deactivateConfirm')} />
-    </div>
+    </EntityWorkspaceLayout>
   );
 }

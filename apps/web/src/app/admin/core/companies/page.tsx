@@ -1,15 +1,17 @@
 'use client';
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { api } from '../../../../lib/api';
 import { safeString } from '../../../../lib/form-utils';
 import { useCrudList, CrudOperation } from '../../../../hooks/useCrudList';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Company, PaginationMeta } from '../../../../lib/admin-types';
-import { useRouter } from 'next/navigation';
-import { Button, Input, Select, Card, Pagination, PageHeader, LoadingState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
-import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { Button, Input, Select, Card, Pagination, LoadingState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
+import { GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
+import { EntityWorkspaceLayout, EntityPageHeader, EntityDataTable, EntityDetailDrawer, EntityEmptyState, type DrawerSection } from '../../../../components/entity';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 interface CompanyForm {
   name: string;
@@ -31,10 +33,43 @@ const EMPTY_COMPANY_FORM: CompanyForm = {
 
 const INITIAL_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
 
+const overviewIcon = (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const buildingIcon = (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+  </svg>
+);
+
+const peopleIcon = (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+
+const userIcon = (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+  </svg>
+);
+
+const warehouseIcon = (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v11a1 1 0 001 1h16a1 1 0 001-1V7M3 7l9-4 9 4M3 7l9 4m0-4v4" />
+  </svg>
+);
+
 export default function CompaniesPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [search, setSearch] = useState('');
   const [sortColumn, setSortColumn] = useState('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -46,6 +81,18 @@ export default function CompaniesPage() {
   const [statusSaving, setStatusSaving] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  const [selectedCompany, setSelectedCompany] = useState<any>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('overview');
+  const [drawerBranches, setDrawerBranches] = useState<any[]>([]);
+  const [drawerBranchesLoading, setDrawerBranchesLoading] = useState(false);
+  const [drawerDepartments, setDrawerDepartments] = useState<any[]>([]);
+  const [drawerDepartmentsLoading, setDrawerDepartmentsLoading] = useState(false);
+  const [drawerUsers, setDrawerUsers] = useState<any[]>([]);
+  const [drawerUsersLoading, setDrawerUsersLoading] = useState(false);
+  const [drawerWarehouses, setDrawerWarehouses] = useState<any[]>([]);
+  const [drawerWarehousesLoading, setDrawerWarehousesLoading] = useState(false);
 
   const {
     data,
@@ -195,20 +242,228 @@ export default function CompaniesPage() {
     setSearch('');
   }, []);
 
+  const handleRowClick = useCallback((item: any) => {
+    setSelectedCompany(item);
+    setSelectedId(item.id);
+    setActiveSection('overview');
+    setDrawerOpen(true);
+    fetchDrawerBranches(item.id);
+    fetchDrawerDepartments(item.id);
+    fetchDrawerUsers(item.id);
+    fetchDrawerWarehouses(item.id);
+  }, []);
+
+  const closeDrawer = useCallback(() => {
+    setDrawerOpen(false);
+    setSelectedCompany(null);
+    setActiveSection('overview');
+  }, []);
+
+  useEffect(() => {
+    return () => closeDrawer();
+  }, [pathname, searchParams, closeDrawer]);
+
+  useEffect(() => {
+    if (selectedCompany && drawerOpen && data.length > 0) {
+      const exists = data.some((d: any) => d.id === selectedCompany.id);
+      if (!exists) closeDrawer();
+    }
+  }, [data, selectedCompany, drawerOpen, closeDrawer]);
+
+  const fetchDrawerBranches = useCallback(async (companyId: string) => {
+    setDrawerBranchesLoading(true);
+    try {
+      const res = await api.get<{ data: any[] }>('/branches', { params: { companyId, limit: 50 } });
+      setDrawerBranches(res.data || []);
+    } catch { /* ignore */ } finally { setDrawerBranchesLoading(false); }
+  }, []);
+
+  const fetchDrawerDepartments = useCallback(async (companyId: string) => {
+    setDrawerDepartmentsLoading(true);
+    try {
+      const res = await api.get<{ data: any[] }>('/departments', { params: { companyId, limit: 50 } });
+      setDrawerDepartments(res.data || []);
+    } catch { /* ignore */ } finally { setDrawerDepartmentsLoading(false); }
+  }, []);
+
+  const fetchDrawerUsers = useCallback(async (companyId: string) => {
+    setDrawerUsersLoading(true);
+    try {
+      const res = await api.get<{ data: any[] }>('/users', { params: { companyId, limit: 50 } });
+      setDrawerUsers(res.data || []);
+    } catch { /* ignore */ } finally { setDrawerUsersLoading(false); }
+  }, []);
+
+  const fetchDrawerWarehouses = useCallback(async (companyId: string) => {
+    setDrawerWarehousesLoading(true);
+    try {
+      const res = await api.get<{ data: any[] }>('/warehouses', { params: { companyId, limit: 50 } });
+      setDrawerWarehouses(res.data || []);
+    } catch { /* ignore */ } finally { setDrawerWarehousesLoading(false); }
+  }, []);
+
+  const drawerNavItems = [
+    { id: 'overview', label: t('workspace.overview'), icon: overviewIcon },
+    { id: 'branches', label: t('workspace.branches'), icon: buildingIcon },
+    { id: 'departments', label: t('workspace.departments'), icon: peopleIcon },
+    { id: 'users', label: t('workspace.users'), icon: userIcon },
+    { id: 'warehouses', label: t('workspace.warehouses'), icon: warehouseIcon },
+  ];
+
+  const drawerSections: DrawerSection[] = [
+    {
+      id: 'overview',
+      label: t('workspace.overview'),
+      content: selectedCompany ? (
+        <div className="space-y-4">
+          <div className="bg-teal-50/50 rounded-lg p-4 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-500">{t('common.code')}</span>
+              <span className="text-sm font-medium text-gray-900">{selectedCompany.code}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-500">{t('common.name')}</span>
+              <span className="text-sm font-medium text-gray-900">{selectedCompany.name}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-500">{t('core.legalName')}</span>
+              <span className="text-sm font-medium text-gray-900">{selectedCompany.legalName || '-'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-500">{t('core.taxNumber')}</span>
+              <span className="text-sm font-medium text-gray-900">{selectedCompany.taxNumber || '-'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-500">{t('common.phone')}</span>
+              <span className="text-sm font-medium text-gray-900">{selectedCompany.phone || '-'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-500">{t('common.email')}</span>
+              <span className="text-sm font-medium text-gray-900">{selectedCompany.email || '-'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-500">{t('common.status')}</span>
+              <StatusBadge status={selectedCompany.status} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-gray-50 rounded-lg p-3 text-center">
+              <div className="text-lg font-bold text-teal-700">{drawerBranches.length}</div>
+              <div className="text-xs text-gray-500">{t('workspace.branches')}</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 text-center">
+              <div className="text-lg font-bold text-teal-700">{drawerDepartments.length}</div>
+              <div className="text-xs text-gray-500">{t('workspace.departments')}</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 text-center">
+              <div className="text-lg font-bold text-teal-700">{drawerUsers.length}</div>
+              <div className="text-xs text-gray-500">{t('workspace.users')}</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 text-center">
+              <div className="text-lg font-bold text-teal-700">{drawerWarehouses.length}</div>
+              <div className="text-xs text-gray-500">{t('workspace.warehouses')}</div>
+            </div>
+          </div>
+        </div>
+      ) : null,
+    },
+    {
+      id: 'branches',
+      label: t('workspace.branches'),
+      content: drawerBranchesLoading ? <LoadingState /> : drawerBranches.length === 0 ? <EntityEmptyState title={t('workspace.noBranches')} /> : (
+        <div className="space-y-2">
+          {drawerBranches.map((item: any) => (
+            <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-100 hover:border-teal-200 transition-colors">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                <p className="text-xs text-gray-500">{item.code}</p>
+              </div>
+              <StatusBadge status={item.status} />
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: 'departments',
+      label: t('workspace.departments'),
+      content: drawerDepartmentsLoading ? <LoadingState /> : drawerDepartments.length === 0 ? <EntityEmptyState title={t('workspace.noRelatedDepartments')} /> : (
+        <div className="space-y-2">
+          {drawerDepartments.map((item: any) => (
+            <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-100 hover:border-teal-200 transition-colors">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                <p className="text-xs text-gray-500">{item.code}</p>
+              </div>
+              <StatusBadge status={item.status} />
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: 'users',
+      label: t('workspace.users'),
+      content: drawerUsersLoading ? <LoadingState /> : drawerUsers.length === 0 ? <EntityEmptyState title={t('workspace.noRelatedUsers')} /> : (
+        <div className="space-y-2">
+          {drawerUsers.map((item: any) => (
+            <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-100 hover:border-teal-200 transition-colors">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{item.name || item.username || item.email}</p>
+                <p className="text-xs text-gray-500">{item.email || item.username}</p>
+              </div>
+              <StatusBadge status={item.status} />
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: 'warehouses',
+      label: t('workspace.warehouses'),
+      content: drawerWarehousesLoading ? <LoadingState /> : drawerWarehouses.length === 0 ? <EntityEmptyState title={t('workspace.noRelatedWarehouses')} /> : (
+        <div className="space-y-2">
+          {drawerWarehouses.map((item: any) => (
+            <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-100 hover:border-teal-200 transition-colors">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                <p className="text-xs text-gray-500">{item.code}</p>
+              </div>
+              <StatusBadge status={item.status} />
+            </div>
+          ))}
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div>
-      <PageHeader title={t('core.companies')} />
+    <EntityWorkspaceLayout drawerOpen={drawerOpen} drawer={
+      <EntityDetailDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title={selectedCompany?.name || ''}
+        subtitle={selectedCompany?.code || ''}
+        statusBadge={selectedCompany && <StatusBadge status={selectedCompany.status} />}
+        sections={drawerSections}
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+        navItems={drawerNavItems}
+        dir={dir}
+      />
+    }>
+      <EntityPageHeader title={t('core.companies')} icon={buildingIcon} />
       {error && <div className="text-center py-12"><p className="text-red-500 mb-4">{error}</p></div>}
       {!error && loading && data.length === 0 && <LoadingState />}
       {!error && !loading && data.length === 0 && (
         <div className="text-center py-12"><p className="text-gray-500">{t('common.noData')}</p></div>
       )}
       {(!error || !loading) && data.length > 0 && (
-        <AdminDataGrid
+        <EntityDataTable
           columns={baseColumns}
           data={data}
           keyExtractor={(item) => item.id}
-          onRowClick={(item) => setSelectedId(item.id)}
+          onRowClick={handleRowClick}
           selectedKey={selectedId}
           loading={loading}
           emptyMessage={t('common.noData')}
@@ -271,6 +526,6 @@ export default function CompaniesPage() {
         variant="danger"
         loading={deleting}
       />
-    </div>
+    </EntityWorkspaceLayout>
   );
 }
