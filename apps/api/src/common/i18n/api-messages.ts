@@ -25,6 +25,8 @@ const messages: Record<string, { ar: string; en: string }> = {
   'auth.loggedOut': { ar: 'تم تسجيل الخروج بنجاح', en: 'Logged out successfully' },
 
   'validation.required': { ar: 'هذا الحقل مطلوب', en: 'This field is required' },
+  'validation.duplicateValue': { ar: 'قيمة مكررة، يرجى اختيار قيمة مختلفة', en: 'Duplicate value, please choose a different one' },
+  'validation.invalidReference': { ar: 'المرجع المحدد غير صالح أو غير موجود', en: 'The selected reference is invalid or does not exist' },
   'validation.invalidEnum': { ar: 'قيمة غير صالحة للتعداد', en: 'Invalid enum value' },
   'validation.invalidQuantity': { ar: 'الكمية غير صالحة', en: 'Invalid quantity' },
   'validation.invalidDate': { ar: 'التاريخ غير صالح', en: 'Invalid date' },
@@ -102,6 +104,15 @@ const messages: Record<string, { ar: string; en: string }> = {
 
   'organization.companyNotFound': { ar: 'الشركة غير موجودة', en: 'Company not found' },
   'organization.branchNotFound': { ar: 'الفرع غير موجود', en: 'Branch not found' },
+  'organization.administrationNotFound': { ar: 'الإدارة غير موجودة', en: 'Administration not found' },
+  'organization.departmentNotFound': { ar: 'القسم غير موجود', en: 'Department not found' },
+  'organization.roleNotFound': { ar: 'الدور غير موجود', en: 'Role not found' },
+  'organization.permissionNotFound': { ar: 'الإذن غير موجود', en: 'Permission not found' },
+  'organization.userNotFound': { ar: 'المستخدم غير موجود', en: 'User not found' },
+  'organization.systemRoleProtected': { ar: 'لا يمكن تعديل أو حذف دور النظام', en: 'System roles cannot be modified or deleted' },
+  'organization.cannotDeleteRoleWithUsers': { ar: 'لا يمكن حذف دور مرتبط بمستخدمين. قم بإزالة المستخدمين أولاً', en: 'Cannot delete a role assigned to users. Remove the users first' },
+  'organization.cannotRemoveLastSuperAdmin': { ar: 'لا يمكن إزالة آخر مستخدم بدور مدير النظام', en: 'Cannot remove the last SUPER_ADMIN user' },
+  'organization.cannotDeleteAdministrationWithDepartments': { ar: 'لا يمكن حذف إدارة مرتبطة بأقسام نشطة. قم بإلغاء تنشيط الأقسام أولاً', en: 'Cannot delete an administration with active departments. Deactivate the departments first' },
   'organization.companyNotAllowed': { ar: 'الشركة غير مسموح بها', en: 'Company not allowed' },
   'organization.branchNotAllowed': { ar: 'الفرع غير مسموح به', en: 'Branch not allowed' },
 

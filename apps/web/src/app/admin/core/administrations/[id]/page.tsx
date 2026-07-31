@@ -8,12 +8,18 @@ import { Administration, Department } from '../../../../../lib/admin-types';
 import { Button, Card, DataTable, LoadingState, EmptyState, ErrorState, StatusBadge, Modal, ConfirmDialog, Input, CardContent } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../../components/admin/admin-action-bar';
 import { useParams, useRouter } from 'next/navigation';
+import { formatDateTime } from '../../../../../lib/i18n/literals';
+import { useErrorModal } from '../../../../../components/admin/error-modal';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../lib/form-validation';
 
 type TabId = 'overview' | 'departments';
 
 export default function AdministrationDetailPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const { showError } = useErrorModal();
+  const handleApiError = useApiErrorHandler();
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
@@ -40,16 +46,17 @@ export default function AdministrationDetailPage() {
     try {
       const res = await api.get<Administration>(`/administrations/${id}`);
       setAdministration(res);
-    } catch (err: any) {
-      if (err?.status === 404) {
+    } catch (err) {
+      if ((err as any)?.status === 404) {
         setAdministration(null);
       } else {
-        setError(err?.message || t('errors.loadFailed'));
+        const config = handleApiError(err);
+        setError(config.message);
       }
     } finally {
       setLoading(false);
     }
-  }, [id, t]);
+  }, [id, handleApiError]);
 
   useEffect(() => { fetchAdministration(); }, [fetchAdministration]);
 
@@ -82,6 +89,9 @@ export default function AdministrationDetailPage() {
     if (!form.code) errors.code = t('validation.required');
     if (!form.name) errors.name = t('validation.required');
     setValidationErrors(errors);
+    focusFirstInvalidField(
+      Object.keys(errors).map((field) => ({ field, message: errors[field] })),
+    );
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
@@ -89,8 +99,14 @@ export default function AdministrationDetailPage() {
       showToast(t('common.successUpdated'), 'success');
       setModalOpen(false);
       fetchAdministration();
-    } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+    } catch (err) {
+      const config = handleApiError(err, { dialog: false });
+      if (config.errors?.length) {
+        setValidationErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      } else {
+        showError(config);
+      }
     } finally {
       setSaving(false);
     }
@@ -109,8 +125,8 @@ export default function AdministrationDetailPage() {
       showToast(confirmAction === 'activate' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
       setConfirmOpen(false);
       fetchAdministration();
-    } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+    } catch (err) {
+      handleApiError(err);
     } finally {
       setSaving(false);
     }
@@ -189,11 +205,11 @@ export default function AdministrationDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-500">{t('common.createdAt')}</label>
-                    <p className="mt-1 text-sm text-gray-900">{new Date(administration.createdAt).toLocaleString()}</p>
+                    <p className="mt-1 text-sm text-gray-900">{formatDateTime(administration.createdAt, locale)}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-500">{t('common.updatedAt')}</label>
-                    <p className="mt-1 text-sm text-gray-900">{new Date(administration.updatedAt).toLocaleString()}</p>
+                    <p className="mt-1 text-sm text-gray-900">{formatDateTime(administration.updatedAt, locale)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -241,15 +257,9 @@ export default function AdministrationDetailPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('core.editAdministration')}>
         <div className="space-y-4">
-          <div>
-            <Input label={t('common.code')} value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} required />
-            {validationErrors.code && <p className="text-red-500 text-sm mt-1">{validationErrors.code}</p>}
-          </div>
-          <div>
-            <Input label={t('common.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} required />
-            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
-          </div>
-          <Input label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <Input label={t('common.code')} name="code" value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} error={validationErrors.code} required />
+          <Input label={t('common.name')} name="name" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} error={validationErrors.name} required />
+          <Input label={t('common.description')} name="description" value={form.description} onChange={(e) => { setForm({ ...form, description: e.target.value }); setValidationErrors(prev => ({ ...prev, description: '' })); }} error={validationErrors.description} />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>

@@ -12,6 +12,10 @@ const dictionary: Record<string, string> = {
   'auth.invalidCredentials': 'Invalid credentials.',
   'validation.required': 'This field is required.',
   'validation.invalidNumber': 'Must be a valid number.',
+  'validation.duplicateValue': 'Duplicate value, please choose a different one.',
+  'validation.invalidReference': 'The selected reference is invalid or does not exist.',
+  'organization.branchNotFound': 'Branch not found.',
+  'organization.roleNotFound': 'Role not found.',
 };
 
 const t = (key: string): string => dictionary[key] ?? key;
@@ -61,6 +65,25 @@ describe('normalizeApiError', () => {
   it('localizes string-typed field errors through the validation namespace', () => {
     const config = normalizeApiError(canonicalError({ messageKey: 'common.validationFailed', errors: ['validation.required'] }), t);
     expect(config.errors).toEqual([{ code: 'validation.required', message: 'This field is required.' }]);
+  });
+
+  it('localizes duplicate and invalid-reference field error codes', () => {
+    const fieldErrors: ApiFieldError[] = [
+      { field: 'code', code: 'validation.duplicateValue', message: 'validation.duplicateValue' },
+      { field: 'companyId', code: 'validation.invalidReference', message: 'Company not found' },
+    ];
+    const config = normalizeApiError(canonicalError({ messageKey: 'common.validationFailed', errors: fieldErrors }), t);
+    expect(config.errors).toEqual([
+      { field: 'code', code: 'validation.duplicateValue', message: 'Duplicate value, please choose a different one.' },
+      { field: 'companyId', code: 'validation.invalidReference', message: 'Company not found' },
+    ]);
+  });
+
+  it('resolves organization message keys against the web dictionary', () => {
+    const err = canonicalError({ messageKey: 'organization.roleNotFound', message: ['organization.roleNotFound'] });
+    const config = normalizeApiError(err, t);
+    expect(config.message).toBe('Role not found.');
+    expect(config.messageKey).toBe('organization.roleNotFound');
   });
 
   it('falls back to status-based text for unknown keys and never leaks the raw key', () => {

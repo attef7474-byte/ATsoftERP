@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
@@ -11,8 +11,25 @@ export class BranchesService {
     private numberingService: NumberingService,
   ) {}
 
+  private validationError(field: string, code: string, message: string): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'common.validationFailed',
+      message: 'Validation failed',
+      errors: [{ field, code, message }],
+    });
+  }
+
   async create(dto: CreateBranchDto) {
-    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('BRANCH');
+    const company = await this.prisma.company.findUnique({ where: { id: dto.companyId } });
+    if (!company) throw this.validationError('companyId', 'validation.invalidReference', 'Company not found');
+
+    const code = dto.code?.trim() || (await this.numberingService.generateNumberAtomic('BRANCH'));
+
+    const existing = await this.prisma.branch.findFirst({
+      where: { companyId: dto.companyId, code, deletedAt: null },
+    });
+    if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Branch code already exists');
+
     return this.prisma.branch.create({ data: { ...dto, code } });
   }
 
@@ -41,12 +58,30 @@ export class BranchesService {
       where: { id },
       include: { company: { select: { id: true, name: true, code: true } } },
     });
-    if (!branch) throw new NotFoundException('Branch not found');
+    if (!branch) {
+      throw new NotFoundException({ messageKey: 'organization.branchNotFound', message: 'Branch not found' });
+    }
     return branch;
   }
 
   async update(id: string, dto: UpdateBranchDto) {
-    await this.findOne(id);
+    const branch = await this.findOne(id);
+
+    if (dto.companyId) {
+      const company = await this.prisma.company.findUnique({ where: { id: dto.companyId } });
+      if (!company) throw this.validationError('companyId', 'validation.invalidReference', 'Company not found');
+    }
+
+    const code = dto.code?.trim();
+    if (code) {
+      const companyId = dto.companyId ?? branch.companyId;
+      const existing = await this.prisma.branch.findFirst({
+        where: { companyId, code, deletedAt: null, NOT: { id } },
+      });
+      if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Branch code already exists');
+      dto = { ...dto, code };
+    }
+
     return this.prisma.branch.update({ where: { id }, data: dto });
   }
 

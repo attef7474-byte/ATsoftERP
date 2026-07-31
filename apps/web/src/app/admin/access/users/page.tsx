@@ -12,13 +12,16 @@ import { EntityWorkspaceLayout, EntityPageHeader, EntityDataTable, EntityDetailD
 import type { DrawerSection } from '../../../../components/entity';
 import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter, roleAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
+import { useErrorModal } from '../../../../components/admin/error-modal';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
 
 export default function UsersPage() {
   const router = useRouter();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
+  const { showError } = useErrorModal();
   const [data, setData] = useState<User[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -79,12 +82,13 @@ export default function UsersPage() {
       const listResult = unwrapApiList<User, typeof meta>(res);
       setData(listResult.data);
       if (listResult.meta) setMeta(listResult.meta);
-    } catch (err: any) {
-      setError(err?.message || t('errors.loadFailed'));
+    } catch (err) {
+      const config = handleApiError(err);
+      setError(config.message);
     } finally {
       setLoading(false);
     }
-  }, [search, t, sortColumn, sortDirection, filters]);
+  }, [search, handleApiError, sortColumn, sortDirection, filters]);
 
   const fetchLookups = useCallback(async () => {
     try {
@@ -132,10 +136,14 @@ export default function UsersPage() {
     if (!form.name) errors.name = t('validation.required');
     if (!editItem && !form.password) errors.password = t('users.passwordRequired');
     setValidationErrors(errors);
+    focusFirstInvalidField(
+      Object.keys(errors).map((field) => ({ field, message: errors[field] })),
+    );
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
-      const body: any = { email: form.email, name: form.name, phone: form.phone || undefined, companyId: form.companyId || undefined, branchId: form.branchId || undefined, departmentId: form.departmentId || undefined, roleId: form.roleId || undefined };
+      const body: any = { email: form.email, name: form.name, phone: form.phone || undefined, companyId: form.companyId || undefined, branchId: form.branchId || undefined, departmentId: form.departmentId || undefined };
+      if (form.roleId) body.roleIds = [form.roleId];
       if (!editItem) body.password = form.password;
       if (editItem) {
         await api.patch(`/users/${editItem.id}`, body);
@@ -146,8 +154,14 @@ export default function UsersPage() {
       }
       setModalOpen(false);
       fetchData(meta.page);
-    } catch (err: any) {
-      handleApiError(err);
+    } catch (err) {
+      const config = handleApiError(err, { dialog: false });
+      if (config.errors?.length) {
+        setValidationErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      } else {
+        showError(config);
+      }
     } finally {
       setSaving(false);
     }
@@ -341,23 +355,14 @@ export default function UsersPage() {
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('users.edit') : t('users.create')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
-          <div>
-            <Input label={t('users.email')} type="email" value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); setValidationErrors(prev => ({ ...prev, email: '' })); }} required />
-            {validationErrors.email && <p className="text-red-500 text-sm mt-1">{validationErrors.email}</p>}
-          </div>
-          <div>
-            <Input label={t('users.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} required />
-            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
-          </div>
-          <Input label={t('users.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          {!editItem && <div>
-            <Input label={t('users.password')} type="password" value={form.password} onChange={(e) => { setForm({ ...form, password: e.target.value }); setValidationErrors(prev => ({ ...prev, password: '' })); }} required />
-            {validationErrors.password && <p className="text-red-500 text-sm mt-1">{validationErrors.password}</p>}
-          </div>}
-          <F9Lookup label={t('users.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
-          <F9Lookup label={t('users.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
-          <F9Lookup label={t('users.department')} value={form.departmentId} onChange={(v) => setForm({ ...form, departmentId: v })} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
-          <F9Lookup label={t('users.role')} value={form.roleId} onChange={(v) => setForm({ ...form, roleId: v })} adapter={roleAdapter} />
+          <Input label={t('users.email')} name="email" type="email" value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); setValidationErrors(prev => ({ ...prev, email: '' })); }} error={validationErrors.email} required />
+          <Input label={t('users.name')} name="name" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} error={validationErrors.name} required />
+          <Input label={t('users.phone')} name="phone" value={form.phone} onChange={(e) => { setForm({ ...form, phone: e.target.value }); setValidationErrors(prev => ({ ...prev, phone: '' })); }} error={validationErrors.phone} />
+          {!editItem && <Input label={t('users.password')} name="password" type="password" value={form.password} onChange={(e) => { setForm({ ...form, password: e.target.value }); setValidationErrors(prev => ({ ...prev, password: '' })); }} error={validationErrors.password} required />}
+          <F9Lookup label={t('users.company')} name="companyId" value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} error={validationErrors.companyId} adapter={companyAdapter} />
+          <F9Lookup label={t('users.branch')} name="branchId" value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} error={validationErrors.branchId} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
+          <F9Lookup label={t('users.department')} name="departmentId" value={form.departmentId} onChange={(v) => setForm({ ...form, departmentId: v })} error={validationErrors.departmentId} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
+          <F9Lookup label={t('users.role')} name="roleId" value={form.roleId} onChange={(v) => setForm({ ...form, roleId: v })} error={validationErrors.roleId} adapter={roleAdapter} />
           <div className="flex justify-end space-x-2 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleSave} disabled={saving}>{saving ? t('common.saving') : t('common.save')}</Button>

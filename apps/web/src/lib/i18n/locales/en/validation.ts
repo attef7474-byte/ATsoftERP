@@ -11,6 +11,8 @@ const validation: Pick<LocaleTranslations, 'validation' | 'errors' | 'complexFor
         number: 'Please enter a valid number.',
         pattern: 'Invalid format.',
         unique: 'This value must be unique.',
+        duplicateValue: 'Duplicate value, please choose a different one.',
+        invalidReference: 'The selected reference is invalid or does not exist.',
         invalidEnum: 'Invalid value for this field.',
         invalidDate: 'Invalid date.',
         invalidId: 'Invalid ID.',

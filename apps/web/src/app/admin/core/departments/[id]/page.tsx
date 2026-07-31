@@ -7,12 +7,16 @@ import { Department, User, Machine } from '../../../../../lib/admin-types';
 import { Button, Card, CardHeader, CardContent, DataTable, LoadingState, EmptyState, ErrorState, StatusBadge, Modal, Input, ConfirmDialog } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../../components/admin/admin-action-bar';
 import { useParams, useRouter } from 'next/navigation';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../lib/form-validation';
+import { formatDateTime } from '../../../../../lib/i18n/literals';
 
 type Tab = 'overview' | 'users' | 'machines' | 'children';
 
 export default function DepartmentDetailPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
@@ -48,12 +52,12 @@ export default function DepartmentDetailPage() {
       if (err?.status === 404) {
         setNotFound(true);
       } else {
-        setError(err?.message || t('errors.loadFailed'));
+        handleApiError(err);
       }
     } finally {
       setLoading(false);
     }
-  }, [id, t]);
+  }, [id, handleApiError]);
 
   const fetchUsers = useCallback(async () => {
     if (!id) return;
@@ -117,7 +121,12 @@ export default function DepartmentDetailPage() {
     if (!form.code) errors.code = t('validation.required');
     if (!form.name) errors.name = t('validation.required');
     setValidationErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      focusFirstInvalidField(
+        Object.entries(errors).map(([field, message]) => ({ field, code: 'validation.required', message })),
+      );
+      return;
+    }
     setSaving(true);
     try {
       await api.patch(`/departments/${id}`, { code: form.code, name: form.name });
@@ -125,7 +134,11 @@ export default function DepartmentDetailPage() {
       setModalOpen(false);
       fetchData();
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      const config = handleApiError(err);
+      if (config?.errors?.length) {
+        setValidationErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      }
     } finally {
       setSaving(false);
     }
@@ -139,8 +152,8 @@ export default function DepartmentDetailPage() {
       showToast(confirmAction === 'activate' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
       setConfirmOpen(false);
       fetchData();
-    } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+    } catch (err) {
+      handleApiError(err);
     } finally {
       setSaving(false);
     }
@@ -239,11 +252,11 @@ export default function DepartmentDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-gray-500">{t('common.createdAt')}</span>
-              <p className="font-medium text-gray-900 mt-1">{new Date(data.createdAt).toLocaleString()}</p>
+              <p className="font-medium text-gray-900 mt-1">{formatDateTime(data.createdAt, locale)}</p>
             </div>
             <div>
               <span className="text-gray-500">{t('common.updatedAt')}</span>
-              <p className="font-medium text-gray-900 mt-1">{new Date(data.updatedAt).toLocaleString()}</p>
+              <p className="font-medium text-gray-900 mt-1">{formatDateTime(data.updatedAt, locale)}</p>
             </div>
           </div>
         </CardContent>
@@ -317,14 +330,8 @@ export default function DepartmentDetailPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('core.editDepartment')}>
         <div className="space-y-4">
-          <div>
-            <Input label={t('common.code')} value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} required />
-            {validationErrors.code && <p className="text-red-500 text-sm mt-1">{validationErrors.code}</p>}
-          </div>
-          <div>
-            <Input label={t('common.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} required />
-            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
-          </div>
+          <Input label={t('common.code')} name="code" value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} error={validationErrors.code} required />
+          <Input label={t('common.name')} name="name" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} error={validationErrors.name} required />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>

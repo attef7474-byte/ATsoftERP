@@ -5,12 +5,14 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useRouter, useParams } from 'next/navigation';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon } from '../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 
 export default function RoleDetailPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [role, setRole] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -20,10 +22,10 @@ export default function RoleDetailPage() {
     try {
       const res = await api.get<any>(`/roles/${params.id}`);
       setRole(res);
-    } catch (err: any) {
-      setError(err?.message || t('access.loadFailed'));
+    } catch (err) {
+      handleApiError(err);
     } finally { setLoading(false); }
-  }, [params.id, t]);
+  }, [params.id, handleApiError]);
 
   useEffect(() => { fetchRole(); }, [fetchRole]);
 

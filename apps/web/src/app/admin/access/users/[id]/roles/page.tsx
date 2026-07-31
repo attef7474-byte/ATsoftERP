@@ -6,12 +6,14 @@ import { useToast } from '../../../../../../components/admin/toast-provider';
 import { useRouter, useParams } from 'next/navigation';
 import { Input, Button } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 export default function UserRolesPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [user, setUser] = useState<any>(null);
   const [allRoles, setAllRoles] = useState<any[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
@@ -33,10 +35,11 @@ export default function UserRolesPage() {
       const assigned = new Set<string>((userRes.roles || []).map((ur: any) => ur.role?.id || ur.roleId));
       setSelectedRoleIds(assigned);
       setChanged(false);
-    } catch (err: any) {
-      setError(err?.message || t('access.loadFailed'));
+    } catch (err) {
+      const config = handleApiError(err);
+      setError(config.message);
     } finally { setLoading(false); }
-  }, [params.id, t, showToast]);
+  }, [params.id, handleApiError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -55,8 +58,8 @@ export default function UserRolesPage() {
       await api.post(`/users/${params.id}/roles`, { roleIds: Array.from(selectedRoleIds) });
       showToast(t('access.assignRolesSuccess'), 'success');
       setChanged(false);
-    } catch (err: any) {
-      showToast(err?.message || t('access.assignRolesFailed'), 'error');
+    } catch (err) {
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 

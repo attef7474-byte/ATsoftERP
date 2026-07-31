@@ -11,20 +11,24 @@ import { Button, Input, Pagination, PageHeader, LoadingState, Modal, StatusBadge
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { F9Lookup, companyAdapter, branchAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
 
 interface AdministrationForm {
   branchId: string;
+  code: string;
   name: string;
   description: string;
 }
 
-const EMPTY_FORM: AdministrationForm = { branchId: '', name: '', description: '' };
+const EMPTY_FORM: AdministrationForm = { branchId: '', code: '', name: '', description: '' };
 const INITIAL_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
 
 export default function AdministrationsPage() {
   const router = useRouter();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [search, setSearch] = useState('');
   const [sortColumn, setSortColumn] = useState('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -74,19 +78,36 @@ export default function AdministrationsPage() {
     updateRequest: (id, payload) => api.patch(`/administrations/${id}`, payload),
     mapRecordToForm: (detail) => ({
       branchId: safeString(detail.branchId),
+      code: safeString(detail.code),
       name: safeString(detail.name),
       description: safeString(detail.description),
     }),
-    mapFormToPayload: (currentForm) => ({ ...currentForm }),
-    validate: (currentForm) => currentForm.name.trim() && currentForm.branchId.trim()
-      ? null
-      : t('validation.required'),
+    mapFormToPayload: (currentForm) => ({
+      branchId: currentForm.branchId,
+      name: currentForm.name,
+      description: currentForm.description,
+      code: currentForm.code.trim(),
+    }),
+    validate: (currentForm) => {
+      const fieldErrors: Record<string, string> = {};
+      if (!currentForm.branchId.trim()) fieldErrors.branchId = t('validation.required');
+      if (!currentForm.name.trim()) fieldErrors.name = t('validation.required');
+      if (Object.keys(fieldErrors).length > 0) {
+        return { message: t('validation.required'), fieldErrors };
+      }
+      return null;
+    },
     errorMessage: (operation: CrudOperation) => {
       if (operation === 'list' || operation === 'detail') return t('errors.loadFailed');
       return operation === 'create' ? t('errors.createFailed') : t('errors.updateFailed');
     },
     onError: (message, operation) => {
       if (operation !== 'list') setValidationErrors({ form: message });
+    },
+    onFieldErrors: (errors, operation) => {
+      if (operation === 'list' || operation === 'detail') return;
+      setValidationErrors(adaptFieldErrorsToMap(errors));
+      focusFirstInvalidField(errors);
     },
     onSuccess: (operation) => {
       showToast(operation === 'create' ? t('common.successCreated') : t('common.successUpdated'), 'success');
@@ -127,8 +148,8 @@ export default function AdministrationsPage() {
       showToast(confirmAction === 'activate' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
       setConfirmOpen(false);
       fetchData(paginationMeta.page);
-    } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+    } catch (err) {
+      handleApiError(err);
     } finally {
       setStatusSaving(false);
     }
@@ -211,9 +232,10 @@ export default function AdministrationsPage() {
       <Modal open={modalOpen} onClose={() => { closeFormModal(); setValidationErrors({}); }} title={editItem ? t('core.editAdministration') : t('core.newAdministration')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
           {validationErrors.form && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{validationErrors.form}</div>}
-          <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} />
-          <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <Input label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <F9Lookup label={t('core.branch')} name="branchId" value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} error={validationErrors.branchId} adapter={branchAdapter} />
+          <Input label={t('common.code')} name="code" value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} error={validationErrors.code} />
+          <Input label={t('common.name')} name="name" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} error={validationErrors.name} required />
+          <Input label={t('common.description')} name="description" value={form.description} onChange={(e) => { setForm({ ...form, description: e.target.value }); setValidationErrors(prev => ({ ...prev, description: '' })); }} error={validationErrors.description} />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => { closeFormModal(); setValidationErrors({}); }}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>

@@ -11,6 +11,8 @@ const validation: Pick<LocaleTranslations, 'validation' | 'errors' | 'complexFor
         number: 'يرجى إدخال رقم صحيح.',
         pattern: 'تنسيق غير صحيح.',
         unique: 'يجب أن تكون هذه القيمة فريدة.',
+        duplicateValue: 'قيمة مكررة، يرجى اختيار قيمة مختلفة.',
+        invalidReference: 'المرجع المحدد غير صالح أو غير موجود.',
         invalidEnum: 'قيمة غير صالحة لهذا الحقل.',
         invalidDate: 'تاريخ غير صالح.',
         invalidId: 'معرف غير صالح.',

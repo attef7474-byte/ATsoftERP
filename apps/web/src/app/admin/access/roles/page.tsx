@@ -3,7 +3,11 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
+import { translatePermissionKey } from '../../../../lib/i18n/literals';
 import { useToast } from '../../../../components/admin/toast-provider';
+import { useErrorModal } from '../../../../components/admin/error-modal';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
 import { Role, Permission } from '../../../../lib/admin-types';
 import { Button, Input, Card, Pagination, PageHeader, LoadingState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
@@ -11,8 +15,10 @@ import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIc
 import { useRouter } from 'next/navigation';
 
 export default function RolesPage() {
-  const { t, dir } = useTranslation();
+  const { t, dir, locale } = useTranslation();
   const { showToast } = useToast();
+  const { showError } = useErrorModal();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<Role[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -26,11 +32,12 @@ export default function RolesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [permModalOpen, setPermModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Role | null>(null);
-  const [form, setForm] = useState({ name: '', description: '' });
+  const [form, setForm] = useState({ code: '', name: '', description: '' });
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [permLoadError, setPermLoadError] = useState('');
   const [selectedPerms, setSelectedPerms] = useState<string[]>([]);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -71,25 +78,30 @@ export default function RolesPage() {
       const listResult = unwrapApiList<Role, typeof meta>(res);
       setData(listResult.data);
       if (listResult.meta) setMeta(listResult.meta);
-    } catch (err: any) {
-      setError(err?.message || t('errors.loadFailed'));
+    } catch (err) {
+      const config = handleApiError(err);
+      setError(config.message);
     } finally {
       setLoading(false);
     }
-  }, [search, t, sortColumn, sortDirection, filters]);
+  }, [search, t, sortColumn, sortDirection, filters, handleApiError]);
 
   const fetchPermissions = useCallback(async () => {
+    setPermLoadError('');
     try {
       const res = await api.get<{ data: Permission[] }>('/permissions', { params: { page: 1, limit: 1000 } });
       setPermissions(unwrapApiList<Permission>(res).data);
-    } catch (_) { }
-  }, []);
+    } catch (err) {
+      const config = handleApiError(err, { dialog: false });
+      setPermLoadError(config.message);
+    }
+  }, [handleApiError]);
 
   useEffect(() => { fetchData(); fetchPermissions(); }, []);
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ name: '', description: '' });
+    setForm({ code: '', name: '', description: '' });
     setSelectedPerms([]);
     setValidationErrors({});
     setModalOpen(true);
@@ -97,7 +109,7 @@ export default function RolesPage() {
 
   const openEdit = (item: Role) => {
     setEditItem(item);
-    setForm({ name: item.name || '', description: item.description || '' });
+    setForm({ code: item.code || '', name: item.name || '', description: item.description || '' });
     setSelectedPerms(item.permissions?.map((p) => p.permission?.id).filter(Boolean) || []);
     setValidationErrors({});
     setModalOpen(true);
@@ -105,23 +117,32 @@ export default function RolesPage() {
 
   const handleSave = async () => {
     const errors: Record<string, string> = {};
-    if (!form.name) errors.name = t('errors.requiredFields');
+    if (!form.name) errors.name = t('validation.required');
     setValidationErrors(errors);
+    focusFirstInvalidField(
+      Object.keys(errors).map((field) => ({ field, message: errors[field] })),
+    );
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
-      const body = { name: form.name, description: form.description || undefined };
+      const body = { code: form.code.trim() || undefined, name: form.name.trim(), description: form.description.trim() || undefined };
       if (editItem) {
         await api.patch(`/roles/${editItem.id}`, body);
-        showToast(t('common.updated'), 'success');
+        showToast(t('common.successUpdated'), 'success');
       } else {
         await api.post('/roles', body);
-        showToast(t('common.created'), 'success');
+        showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false);
       fetchData(meta.page);
-    } catch (err: any) {
-      showToast(err?.message || t('errors.saveFailed'), 'error');
+    } catch (err) {
+      const config = handleApiError(err, { dialog: false });
+      if (config.errors?.length) {
+        setValidationErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      } else {
+        showError(config);
+      }
     } finally {
       setSaving(false);
     }
@@ -136,12 +157,12 @@ export default function RolesPage() {
   const handleSavePermissions = async () => {
     setSaving(true);
     try {
-      await api.put(`/roles/${editItem!.id}/permissions`, { permissionIds: selectedPerms });
+      await api.post(`/roles/${editItem!.id}/permissions`, { permissionIds: selectedPerms });
       showToast(t('roles.permissionsUpdated'), 'success');
       setPermModalOpen(false);
       fetchData(meta.page);
-    } catch (err: any) {
-      showToast(err?.message || t('errors.saveFailed'), 'error');
+    } catch (err) {
+      handleApiError(err);
     } finally {
       setSaving(false);
     }
@@ -158,15 +179,15 @@ export default function RolesPage() {
     try {
       if (confirmAction === 'activate') {
         await api.patch(`/roles/${selectedId}/reactivate`, {});
-        showToast(t('common.activated'), 'success');
+        showToast(t('common.successActivated'), 'success');
       } else {
         await api.delete(`/roles/${selectedId}`);
-        showToast(t('common.deactivated'), 'success');
+        showToast(t('common.successDeactivated'), 'success');
       }
       setConfirmOpen(false);
       fetchData(meta.page);
-    } catch (err: any) {
-      showToast(err?.message || t('errors.operationFailed'), 'error');
+    } catch (err) {
+      handleApiError(err);
     }
   };
 
@@ -253,11 +274,9 @@ export default function RolesPage() {
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('roles.edit') : t('roles.create')}>
         <div className="space-y-4">
-          <div>
-            <Input label={t('roles.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} required />
-            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
-          </div>
-          <Input label={t('roles.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <Input label={t('access.roleCode')} name="code" value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} error={validationErrors.code} />
+          <Input label={t('roles.name')} name="name" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} error={validationErrors.name} required />
+          <Input label={t('roles.description')} name="description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="flex justify-end space-x-2 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleSave} disabled={saving}>{saving ? t('common.saving') : t('common.save')}</Button>
@@ -266,6 +285,7 @@ export default function RolesPage() {
       </Modal>
       <Modal open={permModalOpen} onClose={() => setPermModalOpen(false)} title={t('roles.assignPermissions')} size="lg">
         <div className="space-y-4 max-h-96 overflow-y-auto">
+          {permLoadError && <p className="text-red-500 text-sm">{permLoadError}</p>}
           {Object.entries(groupedPermissions).map(([module, perms]) => (
             <div key={module}>
               <h4 className="text-sm font-semibold text-gray-700 uppercase mb-2">{module}</h4>
@@ -273,7 +293,8 @@ export default function RolesPage() {
                 {perms.map((perm) => (
                   <label key={perm.id} className="flex items-center space-x-2 text-sm cursor-pointer">
                     <input type="checkbox" checked={selectedPerms.includes(perm.id)} onChange={() => togglePerm(perm.id)} className="rounded border-gray-300" />
-                    <span>{perm.action} {perm.key && `(${perm.key})`}</span>
+                    <span>{translatePermissionKey(perm.key, locale)}</span>
+                    <span className="text-xs text-gray-400 truncate" dir="ltr">({perm.key})</span>
                   </label>
                 ))}
               </div>

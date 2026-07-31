@@ -6,10 +6,12 @@ import { useRouter } from 'next/navigation';
 import { Input, Select, Button } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../../components/admin/admin-action-bar';
 import { translatePermissionKey, translateEnum } from '../../../../../lib/i18n/literals';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 
 export default function PermissionsMatrixPage() {
   const { t, locale } = useTranslation();
   const router = useRouter();
+  const handleApiError = useApiErrorHandler();
   const [matrix, setMatrix] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -22,10 +24,10 @@ export default function PermissionsMatrixPage() {
     try {
       const res = await api.get<any>('/permissions/matrix');
       setMatrix(res);
-    } catch (err: any) {
-      setError(err?.message || t('access.loadFailed'));
+    } catch (err) {
+      handleApiError(err);
     } finally { setLoading(false); }
-  }, [t]);
+  }, [handleApiError]);
 
   useEffect(() => { fetchMatrix(); }, [fetchMatrix]);
 
@@ -91,7 +93,7 @@ export default function PermissionsMatrixPage() {
                 </td>
                 <td className="px-4 py-2">{translateEnum(perm.module, locale, 'access')}</td>
                 <td className="px-4 py-2">{translateEnum(perm.action, locale, 'actions')}</td>
-                {matrix.roles.map((role: any) => {
+                {matrix?.roles?.map((role: any) => {
                   const assigned = perm.roles?.find((r: any) => r.roleId === role.id)?.assigned;
                   return (
                     <td key={role.id} className="text-center px-3 py-2">

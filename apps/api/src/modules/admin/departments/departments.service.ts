@@ -11,15 +11,66 @@ export class DepartmentsService {
     private numberingService: NumberingService,
   ) {}
 
+  private validationError(field: string, code: string, message: string): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'common.validationFailed',
+      message: 'Validation failed',
+      errors: [{ field, code, message }],
+    });
+  }
+
   async create(dto: CreateDepartmentDto) {
-    if (dto.administrationId) {
-      const admin = await this.prisma.administration.findUnique({ where: { id: dto.administrationId } });
-      if (!admin) throw new BadRequestException('Administration not found');
-      if (admin.branchId !== dto.branchId) throw new BadRequestException('Administration does not belong to the selected branch');
+    await this.validateReferences({
+      companyId: dto.companyId,
+      branchId: dto.branchId,
+      administrationId: dto.administrationId,
+      parentId: dto.parentId,
+    });
+
+    const code = dto.code?.trim() || (await this.numberingService.generateNumberAtomic('DEPARTMENT'));
+
+    const existing = await this.prisma.department.findFirst({
+      where: { companyId: dto.companyId, code, deletedAt: null },
+    });
+    if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Department code already exists');
+
+    return this.prisma.department.create({ data: { ...dto, code } });
+  }
+
+  private async validateReferences(refs: {
+    companyId?: string;
+    branchId?: string;
+    administrationId?: string;
+    parentId?: string;
+  }) {
+    if (refs.companyId) {
+      const company = await this.prisma.company.findUnique({ where: { id: refs.companyId } });
+      if (!company) throw this.validationError('companyId', 'validation.invalidReference', 'Company not found');
     }
 
-    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('DEPARTMENT');
-    return this.prisma.department.create({ data: { ...dto, code } });
+    if (refs.branchId) {
+      const branch = await this.prisma.branch.findUnique({ where: { id: refs.branchId } });
+      if (!branch) throw this.validationError('branchId', 'validation.invalidReference', 'Branch not found');
+      if (refs.companyId && branch.companyId !== refs.companyId) {
+        throw this.validationError('branchId', 'validation.invalidReference', 'Branch does not belong to the selected company');
+      }
+    }
+
+    if (refs.administrationId) {
+      const admin = await this.prisma.administration.findUnique({ where: { id: refs.administrationId } });
+      if (!admin) throw this.validationError('administrationId', 'validation.invalidReference', 'Administration not found');
+      if (refs.branchId && admin.branchId !== refs.branchId) {
+        throw this.validationError('administrationId', 'validation.invalidReference', 'Administration does not belong to the selected branch');
+      }
+    }
+
+    if (refs.parentId) {
+      const parent = await this.prisma.department.findUnique({ where: { id: refs.parentId } });
+      if (!parent) throw this.validationError('parentId', 'validation.invalidReference', 'Parent department not found');
+      if (refs.companyId && parent.companyId !== refs.companyId) {
+        throw this.validationError('parentId', 'validation.invalidReference', 'Parent department does not belong to the selected company');
+      }
+    }
   }
 
   async findAll(query: { page?: number; limit?: number; search?: string; companyId?: string; branchId?: string; administrationId?: string }) {
@@ -62,18 +113,30 @@ export class DepartmentsService {
         _count: { select: { children: true, users: true, machines: true } },
       },
     });
-    if (!department) throw new NotFoundException('Department not found');
+    if (!department) {
+      throw new NotFoundException({ messageKey: 'organization.departmentNotFound', message: 'Department not found' });
+    }
     return department;
   }
 
   async update(id: string, dto: UpdateDepartmentDto) {
-    await this.findOne(id);
+    const department = await this.findOne(id);
 
-    if (dto.administrationId) {
-      const admin = await this.prisma.administration.findUnique({ where: { id: dto.administrationId } });
-      if (!admin) throw new BadRequestException('Administration not found');
-      const targetBranchId = dto.branchId || (await this.prisma.department.findUnique({ where: { id } }))?.branchId;
-      if (admin.branchId !== targetBranchId) throw new BadRequestException('Administration does not belong to the selected branch');
+    await this.validateReferences({
+      companyId: dto.companyId ?? department.companyId,
+      branchId: dto.branchId ?? department.branchId ?? undefined,
+      administrationId: dto.administrationId ?? department.administrationId ?? undefined,
+      parentId: dto.parentId ?? department.parentId ?? undefined,
+    });
+
+    const code = dto.code?.trim();
+    if (code) {
+      const companyId = dto.companyId ?? department.companyId;
+      const existing = await this.prisma.department.findFirst({
+        where: { companyId, code, deletedAt: null, NOT: { id } },
+      });
+      if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Department code already exists');
+      dto = { ...dto, code };
     }
 
     return this.prisma.department.update({

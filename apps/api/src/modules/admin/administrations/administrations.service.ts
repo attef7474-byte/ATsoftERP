@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import { CreateAdministrationDto } from './dto/create-administration.dto';
@@ -11,8 +11,25 @@ export class AdministrationsService {
     private numberingService: NumberingService,
   ) {}
 
+  private validationError(field: string, code: string, message: string): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'common.validationFailed',
+      message: 'Validation failed',
+      errors: [{ field, code, message }],
+    });
+  }
+
   async create(dto: CreateAdministrationDto) {
-    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('ADMINISTRATION');
+    const branch = await this.prisma.branch.findUnique({ where: { id: dto.branchId } });
+    if (!branch) throw this.validationError('branchId', 'validation.invalidReference', 'Branch not found');
+
+    const code = dto.code?.trim() || (await this.numberingService.generateNumberAtomic('ADMINISTRATION'));
+
+    const existing = await this.prisma.administration.findFirst({
+      where: { branchId: dto.branchId, code, deletedAt: null },
+    });
+    if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Administration code already exists');
+
     return this.prisma.administration.create({ data: { ...dto, code } });
   }
 
@@ -55,12 +72,30 @@ export class AdministrationsService {
         _count: { select: { departments: true } },
       },
     });
-    if (!administration) throw new NotFoundException('Administration not found');
+    if (!administration) {
+      throw new NotFoundException({ messageKey: 'organization.administrationNotFound', message: 'Administration not found' });
+    }
     return administration;
   }
 
   async update(id: string, dto: UpdateAdministrationDto) {
-    await this.findOne(id);
+    const administration = await this.findOne(id);
+
+    if (dto.branchId) {
+      const branch = await this.prisma.branch.findUnique({ where: { id: dto.branchId } });
+      if (!branch) throw this.validationError('branchId', 'validation.invalidReference', 'Branch not found');
+    }
+
+    const code = dto.code?.trim();
+    if (code) {
+      const branchId = dto.branchId ?? administration.branchId;
+      const existing = await this.prisma.administration.findFirst({
+        where: { branchId, code, deletedAt: null, NOT: { id } },
+      });
+      if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Administration code already exists');
+      dto = { ...dto, code };
+    }
+
     return this.prisma.administration.update({
       where: { id },
       data: dto,
@@ -77,7 +112,10 @@ export class AdministrationsService {
 
     const deptCount = await this.prisma.department.count({ where: { administrationId: id, deletedAt: null } });
     if (deptCount > 0) {
-      throw new NotFoundException('Cannot delete administration with active departments. Deactivate departments first.');
+      throw new ConflictException({
+        messageKey: 'organization.cannotDeleteAdministrationWithDepartments',
+        message: 'Cannot delete administration with active departments. Deactivate departments first.',
+      });
     }
 
     await this.prisma.administration.update({ where: { id }, data: { deletedAt: new Date() } });

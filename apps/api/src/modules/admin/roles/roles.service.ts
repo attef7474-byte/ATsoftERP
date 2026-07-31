@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { CreateRoleDto } from './dto/create-role.dto';
@@ -8,9 +8,21 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 export class RolesService {
   constructor(private prisma: PrismaService, private auditService: AuditService) {}
 
+  private validationError(field: string, code: string, message: string): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'common.validationFailed',
+      message: 'Validation failed',
+      errors: [{ field, code, message }],
+    });
+  }
+
   async create(dto: CreateRoleDto, userId?: string) {
     const existing = await this.prisma.role.findUnique({ where: { code: dto.code } });
-    if (existing) throw new ConflictException('Role code already exists');
+    if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Role code already exists');
+
+    if (dto.permissionIds?.length) {
+      await this.assertPermissionsExist(dto.permissionIds);
+    }
 
     const { permissionIds, ...rest } = dto;
     const role = await this.prisma.role.create({
@@ -65,14 +77,31 @@ export class RolesService {
       where: { id },
       include: { permissions: { include: { permission: true } }, _count: { select: { users: true } } },
     });
-    if (!role) throw new NotFoundException('Role not found');
+    if (!role) {
+      throw new NotFoundException({ messageKey: 'organization.roleNotFound', message: 'Role not found' });
+    }
     return role;
   }
 
   async update(id: string, dto: UpdateRoleDto, userId?: string) {
     const role = await this.prisma.role.findUnique({ where: { id } });
-    if (!role) throw new NotFoundException('Role not found');
-    if (role.isSystem) throw new ForbiddenException('Cannot modify system role');
+    if (!role) {
+      throw new NotFoundException({ messageKey: 'organization.roleNotFound', message: 'Role not found' });
+    }
+    if (role.isSystem) {
+      throw new ForbiddenException({ messageKey: 'organization.systemRoleProtected', message: 'Cannot modify system role' });
+    }
+
+    if (dto.code) {
+      const existing = await this.prisma.role.findUnique({ where: { code: dto.code } });
+      if (existing && existing.id !== id) {
+        throw this.validationError('code', 'validation.duplicateValue', 'Role code already exists');
+      }
+    }
+
+    if (dto.permissionIds?.length) {
+      await this.assertPermissionsExist(dto.permissionIds);
+    }
 
     const { permissionIds, ...rest } = dto as any;
     const data: any = { ...rest };
@@ -96,12 +125,19 @@ export class RolesService {
 
   async remove(id: string, userId?: string) {
     const role = await this.prisma.role.findUnique({ where: { id } });
-    if (!role) throw new NotFoundException('Role not found');
-    if (role.isSystem) throw new ConflictException('Cannot delete system role');
+    if (!role) {
+      throw new NotFoundException({ messageKey: 'organization.roleNotFound', message: 'Role not found' });
+    }
+    if (role.isSystem) {
+      throw new ConflictException({ messageKey: 'organization.systemRoleProtected', message: 'Cannot delete system role' });
+    }
 
     const userCount = await this.prisma.userRole.count({ where: { roleId: id } });
     if (userCount > 0) {
-      throw new ConflictException('Cannot delete role with assigned users. Remove all users first.');
+      throw new ConflictException({
+        messageKey: 'organization.cannotDeleteRoleWithUsers',
+        message: 'Cannot delete role with assigned users. Remove all users first.',
+      });
     }
 
     await this.prisma.role.update({ where: { id }, data: { deletedAt: new Date() } });
@@ -114,7 +150,9 @@ export class RolesService {
 
   async getUsers(id: string, query: { page?: number; limit?: number }) {
     const role = await this.prisma.role.findUnique({ where: { id } });
-    if (!role) throw new NotFoundException('Role not found');
+    if (!role) {
+      throw new NotFoundException({ messageKey: 'organization.roleNotFound', message: 'Role not found' });
+    }
 
     const page = query.page || 1;
     const limit = query.limit || 20;
@@ -145,17 +183,11 @@ export class RolesService {
 
   async assignPermissions(id: string, permissionIds: string[], userId?: string) {
     const role = await this.prisma.role.findUnique({ where: { id } });
-    if (!role) throw new NotFoundException('Role not found');
-
-    const existingPermissions = await this.prisma.permission.findMany({
-      where: { id: { in: permissionIds } },
-      select: { id: true },
-    });
-    const existingIds = new Set(existingPermissions.map((p) => p.id));
-    const invalidIds = permissionIds.filter((pid) => !existingIds.has(pid));
-    if (invalidIds.length > 0) {
-      throw new NotFoundException(`Permissions not found: ${invalidIds.join(', ')}`);
+    if (!role) {
+      throw new NotFoundException({ messageKey: 'organization.roleNotFound', message: 'Role not found' });
     }
+
+    await this.assertPermissionsExist(permissionIds);
 
     await this.prisma.rolePermission.deleteMany({ where: { roleId: id } });
     await this.prisma.rolePermission.createMany({
@@ -170,5 +202,17 @@ export class RolesService {
     }
 
     return this.findOne(id);
+  }
+
+  private async assertPermissionsExist(permissionIds: string[]): Promise<void> {
+    const existingPermissions = await this.prisma.permission.findMany({
+      where: { id: { in: permissionIds } },
+      select: { id: true },
+    });
+    const existingIds = new Set(existingPermissions.map((p) => p.id));
+    const invalidIds = permissionIds.filter((pid) => !existingIds.has(pid));
+    if (invalidIds.length > 0) {
+      throw this.validationError('permissionIds', 'validation.invalidReference', `Permissions not found: ${invalidIds.join(', ')}`);
+    }
   }
 }

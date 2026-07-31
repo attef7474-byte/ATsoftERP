@@ -9,6 +9,7 @@ import inventory from './inventory';
 import maintenance from './maintenance';
 import barcodes from './barcodes';
 import reports from './reports';
+import organization from './organization';
 import validation from './validation';
 import system from './system';
 import errorDialog from './error-dialog';
@@ -25,6 +26,7 @@ const ar: LocaleTranslations = {
   ...maintenance,
   ...barcodes,
   ...reports,
+  ...organization,
   ...validation,
   ...system,
   ...errorDialog,

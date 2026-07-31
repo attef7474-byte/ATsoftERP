@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../modules/audit/audit.service';
@@ -10,9 +10,21 @@ import { UsersQueryDto } from './dto/users-query.dto';
 export class UsersService {
   constructor(private prisma: PrismaService, private auditService: AuditService) {}
 
+  private validationError(field: string, code: string, message: string): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'common.validationFailed',
+      message: 'Validation failed',
+      errors: [{ field, code, message }],
+    });
+  }
+
   async create(dto: CreateUserDto) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (existing) throw new ConflictException('Email already in use');
+    if (existing) throw this.validationError('email', 'validation.duplicateValue', 'Email already in use');
+
+    if (dto.roleIds?.length) {
+      await this.assertRolesExist(dto.roleIds);
+    }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const { password, roleIds, ...rest } = dto;
@@ -81,13 +93,26 @@ export class UsersService {
         roles: { include: { role: { select: { id: true, code: true, name: true } } } },
       },
     });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) {
+      throw new NotFoundException({ messageKey: 'organization.userNotFound', message: 'User not found' });
+    }
     return user;
   }
 
   async update(id: string, dto: UpdateUserDto) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) {
+      throw new NotFoundException({ messageKey: 'organization.userNotFound', message: 'User not found' });
+    }
+
+    if (dto.email && dto.email !== user.email) {
+      const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+      if (existing) throw this.validationError('email', 'validation.duplicateValue', 'Email already in use');
+    }
+
+    if (dto.roleIds?.length) {
+      await this.assertRolesExist(dto.roleIds);
+    }
 
     const { roleIds, ...rest } = dto as any;
     const data: any = { ...rest };
@@ -109,14 +134,22 @@ export class UsersService {
 
   async remove(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) {
+      throw new NotFoundException({ messageKey: 'organization.userNotFound', message: 'User not found' });
+    }
     await this.prisma.user.update({ where: { id }, data: { deletedAt: new Date() } });
     return { message: 'User deleted successfully' };
   }
 
   async assignRoles(id: string, roleIds: string[], actorId?: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) {
+      throw new NotFoundException({ messageKey: 'organization.userNotFound', message: 'User not found' });
+    }
+
+    if (roleIds.length) {
+      await this.assertRolesExist(roleIds);
+    }
 
     const hasSuperAdmin = await this.prisma.userRole.findFirst({
       where: { userId: id, role: { code: 'SUPER_ADMIN' } },
@@ -130,7 +163,10 @@ export class UsersService {
         where: { role: { code: 'SUPER_ADMIN' }, user: { deletedAt: null, status: 'ACTIVE' } },
       });
       if (adminCount <= 1) {
-        throw new ForbiddenException('Cannot remove the last SUPER_ADMIN role. System would have no administrator.');
+        throw new ForbiddenException({
+          messageKey: 'organization.cannotRemoveLastSuperAdmin',
+          message: 'Cannot remove the last SUPER_ADMIN role. System would have no administrator.',
+        });
       }
     }
 
@@ -150,5 +186,17 @@ export class UsersService {
     }
 
     return this.findOne(id);
+  }
+
+  private async assertRolesExist(roleIds: string[]): Promise<void> {
+    const existingRoles = await this.prisma.role.findMany({
+      where: { id: { in: roleIds } },
+      select: { id: true },
+    });
+    const existingIds = new Set(existingRoles.map((r) => r.id));
+    const invalidIds = roleIds.filter((rid) => !existingIds.has(rid));
+    if (invalidIds.length > 0) {
+      throw this.validationError('roleIds', 'validation.invalidReference', `Roles not found: ${invalidIds.join(', ')}`);
+    }
   }
 }

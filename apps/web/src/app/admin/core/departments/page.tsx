@@ -13,24 +13,27 @@ import { F9Lookup, companyAdapter, branchAdapter, administrationAdapter, departm
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 import { EntityWorkspaceLayout, EntityPageHeader, EntityDataTable, EntityDetailDrawer, EntityEmptyState, useDrawerSectionData, type DrawerSection } from '../../../../components/entity';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
 
 interface DepartmentForm {
   companyId: string;
   branchId: string;
   administrationId: string;
   parentId: string;
+  code: string;
   name: string;
 }
 
 interface DepartmentPayload {
   companyId: string;
   name: string;
+  code?: string;
   branchId?: string;
   administrationId?: string;
   parentId?: string;
 }
 
-const EMPTY_DEPARTMENT_FORM: DepartmentForm = { companyId: '', branchId: '', administrationId: '', parentId: '', name: '' };
+const EMPTY_DEPARTMENT_FORM: DepartmentForm = { companyId: '', branchId: '', administrationId: '', parentId: '', code: '', name: '' };
 const INITIAL_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
 
 const overviewIcon = (
@@ -130,24 +133,36 @@ export default function DepartmentsPage() {
       branchId: safeString(detail.branchId),
       administrationId: safeString(detail.administrationId),
       parentId: safeString(detail.parentId),
+      code: safeString(detail.code),
       name: safeString(detail.name),
     }),
     mapFormToPayload: (currentForm) => ({
       companyId: currentForm.companyId,
       name: currentForm.name,
+      ...(currentForm.code.trim() ? { code: currentForm.code.trim() } : {}),
       ...(currentForm.branchId ? { branchId: currentForm.branchId } : {}),
       ...(currentForm.administrationId ? { administrationId: currentForm.administrationId } : {}),
       ...(currentForm.parentId ? { parentId: currentForm.parentId } : {}),
     }),
-    validate: (currentForm) => currentForm.name.trim() && currentForm.companyId.trim()
-      ? null
-      : t('validation.required'),
+    validate: (currentForm) => {
+      const fieldErrors: Record<string, string> = {};
+      if (!currentForm.companyId.trim()) fieldErrors.companyId = t('validation.required');
+      if (!currentForm.name.trim()) fieldErrors.name = t('validation.required');
+      if (Object.keys(fieldErrors).length > 0) {
+        return { message: t('validation.required'), fieldErrors };
+      }
+      return null;
+    },
     errorMessage: (operation: CrudOperation) => {
       if (operation === 'list' || operation === 'detail') return t('errors.loadFailed');
       return operation === 'create' ? t('errors.createFailed') : t('errors.updateFailed');
     },
     onError: (message, operation) => {
       if (operation !== 'list') setValidationErrors({ form: message });
+    },
+    onFieldErrors: (errors) => {
+      setValidationErrors(adaptFieldErrorsToMap(errors));
+      focusFirstInvalidField(errors);
     },
     onSuccess: (operation) => {
       showToast(operation === 'create' ? t('common.successCreated') : t('common.successUpdated'), 'success');
@@ -379,11 +394,12 @@ export default function DepartmentsPage() {
       <Modal open={modalOpen} onClose={() => { closeFormModal(); setValidationErrors({}); }} title={editItem ? t('core.editDepartment') : t('core.newDepartment')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
           {validationErrors.form && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{validationErrors.form}</div>}
-          <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
-          <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v, administrationId: '' })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
-          <F9Lookup label={t('core.administration')} value={form.administrationId} onChange={(v) => setForm({ ...form, administrationId: v })} adapter={administrationAdapter} filters={form.branchId ? { branchId: form.branchId } : undefined} />
-          <F9Lookup label={t('core.parentDepartment')} value={form.parentId} onChange={(v) => setForm({ ...form, parentId: v })} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
-          <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <F9Lookup label={t('core.company')} name="companyId" value={form.companyId} onChange={(v) => { setForm({ ...form, companyId: v, branchId: '', administrationId: '' }); setValidationErrors(prev => ({ ...prev, companyId: '' })); }} adapter={companyAdapter} error={validationErrors.companyId} />
+          <F9Lookup label={t('core.branch')} name="branchId" value={form.branchId} onChange={(v) => { setForm({ ...form, branchId: v, administrationId: '' }); setValidationErrors(prev => ({ ...prev, branchId: '' })); }} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} error={validationErrors.branchId} />
+          <F9Lookup label={t('core.administration')} name="administrationId" value={form.administrationId} onChange={(v) => { setForm({ ...form, administrationId: v }); setValidationErrors(prev => ({ ...prev, administrationId: '' })); }} adapter={administrationAdapter} filters={form.branchId ? { branchId: form.branchId } : undefined} error={validationErrors.administrationId} />
+          <F9Lookup label={t('core.parentDepartment')} name="parentId" value={form.parentId} onChange={(v) => { setForm({ ...form, parentId: v }); setValidationErrors(prev => ({ ...prev, parentId: '' })); }} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} error={validationErrors.parentId} />
+          <Input label={t('common.code')} name="code" value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} error={validationErrors.code} />
+          <Input label={t('common.name')} name="name" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} error={validationErrors.name} required />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => { closeFormModal(); setValidationErrors({}); }}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>

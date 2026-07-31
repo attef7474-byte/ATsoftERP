@@ -31,6 +31,7 @@ export type TranslationNamespace =
   | 'complexForms'
   | 'reports'
   | 'alerts'
+  | 'organization'
   | 'companyProfile'
   | 'languageSettings'
   | 'appearanceSettings'

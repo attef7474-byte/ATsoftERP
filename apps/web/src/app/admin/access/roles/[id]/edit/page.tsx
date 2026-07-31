@@ -3,8 +3,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../../components/admin/toast-provider';
+import { useErrorModal } from '../../../../../../components/admin/error-modal';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../../lib/form-validation';
 import { useRouter, useParams } from 'next/navigation';
-import { Input, Button } from '../../../../../../components/admin/ui';
+import { Input, Button, Textarea } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../../components/admin/admin-action-bar';
 
 export default function EditRolePage() {
@@ -12,6 +15,8 @@ export default function EditRolePage() {
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
+  const { showError } = useErrorModal();
+  const handleApiError = useApiErrorHandler();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -19,6 +24,8 @@ export default function EditRolePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const clearError = (field: string) => setErrors((prev) => ({ ...prev, [field]: '' }));
 
   const fetchRole = useCallback(async () => {
     setLoading(true);
@@ -29,10 +36,10 @@ export default function EditRolePage() {
       setName(role.name);
       setDescription(role.description ?? '');
       setIsSystem(role.isSystem);
-    } catch (err: any) {
-      showToast(err?.message || t('access.loadFailed'), 'error');
+    } catch (err) {
+      handleApiError(err);
     } finally { setLoading(false); }
-  }, [params.id, t, showToast]);
+  }, [params.id, handleApiError]);
 
   useEffect(() => { fetchRole(); }, [fetchRole]);
 
@@ -41,6 +48,9 @@ export default function EditRolePage() {
     if (!code.trim()) next.code = t('validation.required');
     if (!name.trim()) next.name = t('validation.required');
     setErrors(next);
+    focusFirstInvalidField(
+      Object.keys(next).map((field) => ({ field, message: next[field] })),
+    );
     return Object.keys(next).length === 0;
   };
 
@@ -51,8 +61,14 @@ export default function EditRolePage() {
       await api.patch(`/roles/${params.id}`, { code: code.trim(), name: name.trim(), description: description.trim() || undefined });
       showToast(t('access.updateRoleSuccess'), 'success');
       router.push(`/admin/access/roles/${params.id}`);
-    } catch (err: any) {
-      showToast(err?.message || t('access.updateFailed'), 'error');
+    } catch (err) {
+      const config = handleApiError(err, { dialog: false });
+      if (config.errors?.length) {
+        setErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      } else {
+        showError(config);
+      }
     } finally { setSaving(false); }
   };
 
@@ -77,12 +93,9 @@ export default function EditRolePage() {
       {isSystem && <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6"><p className="text-yellow-800 text-sm">{t('access.superAdminProtected')}</p></div>}
 
       <div className="space-y-4 bg-white rounded-lg border p-6">
-        <Input label={t('access.roleCode')} value={code} onChange={(e) => setCode(e.target.value)} error={errors.code} disabled={isSystem} />
-        <Input label={t('access.roleName')} value={name} onChange={(e) => setName(e.target.value)} error={errors.name} disabled={isSystem} />
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.description')}</label>
-          <textarea className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} disabled={isSystem} />
-        </div>
+        <Input label={t('access.roleCode')} name="code" value={code} onChange={(e) => { setCode(e.target.value); clearError('code'); }} error={errors.code} disabled={isSystem} />
+        <Input label={t('access.roleName')} name="name" value={name} onChange={(e) => { setName(e.target.value); clearError('name'); }} error={errors.name} disabled={isSystem} />
+        <Textarea label={t('common.description')} name="description" value={description} onChange={(e) => { setDescription(e.target.value); clearError('description'); }} error={errors.description} disabled={isSystem} />
         <div className="flex gap-3 pt-4">
           <Button onClick={handleSave} disabled={saving || isSystem}>{saving ? t('common.saving') : t('actions.save')}</Button>
           <Button variant="ghost" onClick={() => router.push(`/admin/access/roles/${params.id}`)}>{t('actions.cancel')}</Button>

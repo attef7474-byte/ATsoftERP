@@ -8,10 +8,15 @@ import { Button, Card, CardContent, LoadingState, ErrorState, StatusBadge, Modal
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../../components/admin/admin-action-bar';
 import { useParams, useRouter } from 'next/navigation';
 import { formatDateTime } from '../../../../../lib/i18n/literals';
+import { useErrorModal } from '../../../../../components/admin/error-modal';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../lib/form-validation';
 
 export default function UserDetailPage() {
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const { showError } = useErrorModal();
+  const handleApiError = useApiErrorHandler();
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
@@ -41,16 +46,17 @@ export default function UserDetailPage() {
     try {
       const res = await api.get<User>(`/users/${id}`);
       setUser(res);
-    } catch (err: any) {
-      if (err.status === 404) {
+    } catch (err) {
+      if ((err as any)?.status === 404) {
         setNotFound(true);
       } else {
-        setError(err?.message || t('errors.loadFailed'));
+        const config = handleApiError(err);
+        setError(config.message);
       }
     } finally {
       setLoading(false);
     }
-  }, [id, t]);
+  }, [id, handleApiError]);
 
   const fetchLookups = useCallback(async () => {
     try {
@@ -83,6 +89,9 @@ export default function UserDetailPage() {
     if (!form.name) errors.name = t('validation.required');
     if (!form.email) errors.email = t('validation.required');
     setValidationErrors(errors);
+    focusFirstInvalidField(
+      Object.keys(errors).map((field) => ({ field, message: errors[field] })),
+    );
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
@@ -90,8 +99,14 @@ export default function UserDetailPage() {
       showToast(t('common.successUpdated'), 'success');
       setModalOpen(false);
       fetchUser();
-    } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+    } catch (err) {
+      const config = handleApiError(err, { dialog: false });
+      if (config.errors?.length) {
+        setValidationErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      } else {
+        showError(config);
+      }
     } finally {
       setSaving(false);
     }
@@ -108,8 +123,8 @@ export default function UserDetailPage() {
       showToast(confirmAction === 'activate' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
       setConfirmOpen(false);
       fetchUser();
-    } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+    } catch (err) {
+      handleApiError(err);
     } finally {
       setConfirmLoading(false);
     }
@@ -173,15 +188,9 @@ export default function UserDetailPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('users.edit')}>
         <div className="space-y-4">
-          <div>
-            <Input label={t('users.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} required />
-            {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
-          </div>
-          <div>
-            <Input label={t('users.email')} type="email" value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); setValidationErrors(prev => ({ ...prev, email: '' })); }} required />
-            {validationErrors.email && <p className="text-red-500 text-sm mt-1">{validationErrors.email}</p>}
-          </div>
-          <Input label={t('users.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <Input label={t('users.name')} name="name" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} error={validationErrors.name} required />
+          <Input label={t('users.email')} name="email" type="email" value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); setValidationErrors(prev => ({ ...prev, email: '' })); }} error={validationErrors.email} required />
+          <Input label={t('users.phone')} name="phone" value={form.phone} onChange={(e) => { setForm({ ...form, phone: e.target.value }); setValidationErrors(prev => ({ ...prev, phone: '' })); }} error={validationErrors.phone} />
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleSave} disabled={saving}>{saving ? t('common.saving') : t('common.save')}</Button>

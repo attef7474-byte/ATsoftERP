@@ -9,9 +9,11 @@ import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionVi
 import { useRouter } from 'next/navigation';
 import { Button } from '../../../../components/admin/ui';
 import { translatePermissionKey, translateEnum } from '../../../../lib/i18n/literals';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 export default function PermissionsPage() {
   const { t, dir, locale } = useTranslation();
+  const handleApiError = useApiErrorHandler();
   const humanizeModule = useCallback((module: string) => translateEnum(module, locale, 'access'), [locale]);
   const translateActionLabel = useCallback((action: string) => translateEnum(action, locale, 'actions'), [locale]);
   const [data, setData] = useState<Permission[]>([]);
@@ -50,12 +52,12 @@ export default function PermissionsPage() {
       const res = await api.get<{ data: Permission[]; meta: any }>('/permissions', { params });
       setData(res.data || []);
       setMeta(res.meta);
-    } catch (err: any) {
-      setError(err?.message || t('errors.loadFailed'));
+    } catch (err) {
+      handleApiError(err);
     } finally {
       setLoading(false);
     }
-  }, [search, t, sortColumn, sortDirection, filters]);
+  }, [search, sortColumn, sortDirection, filters, handleApiError]);
 
   useEffect(() => { fetchData(); }, []);
 

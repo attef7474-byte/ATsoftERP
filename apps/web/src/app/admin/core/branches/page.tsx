@@ -13,15 +13,17 @@ import { F9Lookup, companyAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 import { EntityWorkspaceLayout, EntityPageHeader, EntityDataTable, EntityDetailDrawer, EntityEmptyState, useDrawerSectionData, type DrawerSection } from '../../../../components/entity';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
 
 interface BranchForm {
   companyId: string;
+  code: string;
   name: string;
   address: string;
   phone: string;
 }
 
-const EMPTY_BRANCH_FORM: BranchForm = { companyId: '', name: '', address: '', phone: '' };
+const EMPTY_BRANCH_FORM: BranchForm = { companyId: '', code: '', name: '', address: '', phone: '' };
 const INITIAL_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
 
 const overviewIcon = (
@@ -147,20 +149,38 @@ export default function BranchesPage() {
     updateRequest: (id, payload) => api.patch(`/branches/${id}`, payload),
     mapRecordToForm: (detail) => ({
       companyId: safeString(detail.companyId),
+      code: safeString(detail.code),
       name: safeString(detail.name),
       address: safeString(detail.address),
       phone: safeString(detail.phone),
     }),
-    mapFormToPayload: (currentForm) => ({ ...currentForm }),
-    validate: (currentForm) => currentForm.name.trim() && currentForm.companyId.trim()
-      ? null
-      : t('validation.required'),
+    mapFormToPayload: (currentForm) => ({
+      companyId: currentForm.companyId,
+      name: currentForm.name,
+      address: currentForm.address,
+      phone: currentForm.phone,
+      code: currentForm.code.trim(),
+    }),
+    validate: (currentForm) => {
+      const fieldErrors: Record<string, string> = {};
+      if (!currentForm.companyId.trim()) fieldErrors.companyId = t('validation.required');
+      if (!currentForm.name.trim()) fieldErrors.name = t('validation.required');
+      if (Object.keys(fieldErrors).length > 0) {
+        return { message: t('validation.required'), fieldErrors };
+      }
+      return null;
+    },
     errorMessage: (operation: CrudOperation) => {
       if (operation === 'list' || operation === 'detail') return t('errors.loadFailed');
       return operation === 'create' ? t('errors.createFailed') : t('errors.updateFailed');
     },
     onError: (message, operation) => {
       if (operation !== 'list') setValidationErrors({ form: message });
+    },
+    onFieldErrors: (errors, operation) => {
+      if (operation === 'list' || operation === 'detail') return;
+      setValidationErrors(adaptFieldErrorsToMap(errors));
+      focusFirstInvalidField(errors);
     },
     onSuccess: (operation) => {
       showToast(operation === 'create' ? t('common.successCreated') : t('common.successUpdated'), 'success');
@@ -433,10 +453,11 @@ export default function BranchesPage() {
       <Modal open={modalOpen} onClose={() => { closeFormModal(); setValidationErrors({}); }} title={editItem ? t('core.editBranch') : t('core.newBranch')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
           {validationErrors.form && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{validationErrors.form}</div>}
-          <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
-          <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <Input label={t('common.address')} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-          <Input label={t('common.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <F9Lookup label={t('core.company')} name="companyId" value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} error={validationErrors.companyId} adapter={companyAdapter} />
+          <Input label={t('common.code')} name="code" value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} error={validationErrors.code} />
+          <Input label={t('common.name')} name="name" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} error={validationErrors.name} required />
+          <Input label={t('common.address')} name="address" value={form.address} onChange={(e) => { setForm({ ...form, address: e.target.value }); setValidationErrors(prev => ({ ...prev, address: '' })); }} error={validationErrors.address} />
+          <Input label={t('common.phone')} name="phone" value={form.phone} onChange={(e) => { setForm({ ...form, phone: e.target.value }); setValidationErrors(prev => ({ ...prev, phone: '' })); }} error={validationErrors.phone} />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => { closeFormModal(); setValidationErrors({}); }}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
