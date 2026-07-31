@@ -38,6 +38,8 @@ const inventory: Pick<LocaleTranslations, 'inventory' | 'inventoryCounting' | 'i
         lockType: 'Lock Type',
         inventoryLocks: 'Inventory Locks',
         createLock: 'Create Lock',
+        lockCreatedSuccessfully: 'Lock created successfully',
+        lockCreateFailed: 'Failed to create lock',
         dateRange: 'Date Range',
         dateFrom: 'Date From',
         dateTo: 'Date To',

@@ -81,21 +81,6 @@ export class InventoryAdjustmentsController {
   summary(@Param('id') id: string) { return this.service.summary(id); }
 }
 
-@ApiTags('Inventory Adjustments')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard, PermissionsGuard)
-@Controller({ path: 'inventory/adjustments', version: '1' })
-export class InventoryAdjustmentFromCountController {
-  constructor(private service: InventoryAdjustmentsService) {}
-
-  @Post('from-count/:countId')
-  @Permissions('inventory-count:generateAdjustment')
-  @ApiOperation({ summary: 'Generate inventory adjustment from count' })
-  generateFromCount(@Param('countId') countId: string, @CurrentUser('id') userId: string) {
-    return this.service.generateFromCount(countId, userId);
-  }
-}
-
 @ApiTags('Inventory Counts')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, PermissionsGuard)

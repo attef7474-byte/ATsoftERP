@@ -1,5 +1,7 @@
 'use client';
 import React from 'react';
+import { useTranslation } from '../../lib/i18n/use-translation';
+import { translateStatus } from '../../lib/i18n/literals';
 
 interface EntityStatusBadgeProps {
   status: string;
@@ -22,10 +24,11 @@ const statusConfig: Record<string, { bg: string; text: string; dot: string }> = 
 };
 
 export function EntityStatusBadge({ status, activeLabel, inactiveLabel }: EntityStatusBadgeProps) {
+  const { locale } = useTranslation();
   const config = statusConfig[status] || { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
-  let label = status;
-  if (status === 'ACTIVE') label = activeLabel || label;
-  else if (status === 'INACTIVE') label = inactiveLabel || label;
+  let label = translateStatus(status, locale);
+  if (status === 'ACTIVE' && activeLabel) label = activeLabel;
+  else if (status === 'INACTIVE' && inactiveLabel) label = inactiveLabel;
 
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>

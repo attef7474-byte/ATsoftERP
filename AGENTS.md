@@ -1,1174 +1,1031 @@
-# ATsoft ERP — AGENTS.md
+# ATsofterp Permanent Engineering Instructions
 
-> **آخر تحديث**: 2026-07-30  
-> **الغرض**: سياق دائم للجلسات المستقبلية — يمنع إعادة اكتشاف المعلومات
+## 1. Project Identity
 
----
+Project name: `ATsofterp`
 
-## 📋 القواعد الثابتة (Global Rules)
+ATsofterp is a production-grade, multi-company system for maintenance, production, assets, inventory, spare parts, operational costing, factory organization, and daily factory operations.
 
-```yaml
-database:   SQL Server 2016 Express (127.0.0.1:50079, DB=ATsoftERP_DB, user=atsofterp_app)
-runtime:    Windows local only
-docker:     FORBIDDEN
-postgresql: FORBIDDEN
-prisma_migrate_dev: FORBIDDEN
-prisma_db_push: FORBIDDEN
-prisma_migrate_reset: FORBIDDEN
-delete_data: FORBIDDEN
-drop_tables: FORBIDDEN
-mock_apis: FORBIDDEN
-placeholder_pages: FORBIDDEN
-screenshots: DISABLED_BY_USER
-commit_per_lane: FORBIDDEN  # commit/tag/push only after full proof
-```
+Current primary technologies:
 
-### التنقل بين الملفات
+* Windows local runtime.
+* SQL Server.
+* Prisma.
+* NestJS API.
+* Next.js App Router frontend.
+* TypeScript.
+* Arabic and English user interfaces.
+* RTL and LTR support.
+* JWT and permission-based authorization.
+* No Docker for the approved current development baseline unless explicitly changed later.
 
-```
-API:      apps/api/src/
-Frontend: apps/web/src/
-Prisma:   apps/api/prisma/schema.prisma
-Seed:     apps/api/prisma/seed/seed.ts
-i18n EN:  apps/web/src/lib/i18n/locales/en/
-i18n AR:  apps/web/src/lib/i18n/locales/ar/
-Docs:     docs/proofs/
-```
+The repository already contains substantial implemented maintenance, inventory, asset, reporting, settings, audit, notification, attachment, barcode, and administrative functionality.
 
-### البنية الأساسية
+Do not treat the repository as a new project.
 
-- **API**: NestJS (TypeScript) — 76 modules registered in `app.module.ts`
-- **Frontend**: Next.js (TypeScript) — ~250 page.tsx files
-- **DB**: Prisma ORM → SQL Server via `sqlcmd` for manual migrations
-- **i18n**: React Context (I18nProvider) — 13 TS files × 2 languages (~2,977 keys each)
-- **Auth**: JWT-based with role/permission guards
+Do not rebuild existing working modules unless a task explicitly requires a justified migration or replacement.
+
+The current code is the final source of truth. Previous reports may be used as discovery aids but must not override the current implementation.
+
+The current architecture discovery report is located at:
+
+`docs/proofs/atsofterp-current-architecture-discovery-report.md`
+
+Use it to reduce unnecessary repository-wide scanning, but verify every task-relevant fact against the current code before changing it.
 
 ---
 
-## 🧭 Instruction Priority
+## 2. Primary Product Goals
 
-When working in this repository, follow instructions in this order:
+Every implementation must contribute to these goals:
 
-1. Current user request in the active task.
-2. AGENTS.md global rules and forbidden rules.
-3. Batch-specific prompt.
-4. Existing project architecture and code patterns.
-5. General best practices.
+1. Real operational use in companies and factories.
+2. Strong multi-company and multi-branch isolation.
+3. Minimum daily manual data entry.
+4. Automatic reuse of previously stored information.
+5. Clear and simple workflows for non-technical users.
+6. Flexible configuration for companies with different structures.
+7. Full traceability of operational and financial-impacting actions.
+8. Reliable maintenance, inventory, spare-parts, and production integration.
+9. Accurate reporting without duplicated totals.
+10. Safe extension without breaking existing working modules.
 
-If a task request conflicts with any hard forbidden rule in AGENTS.md, STOP and report BLOCKED.
+Do not optimize only for code generation speed.
 
-Do not silently override:
-- database/runtime rules
-- forbidden modules
-- destructive database rules
-- no mock/no placeholder rules
-- no screenshots rule
-- no partial commit/push rule
-- current release scope limitations
+Optimize for:
 
-If unsure whether an action violates the rules, do not guess. Stop, document the risk, and ask for confirmation.
-
----
-
-## ✅ Acceptance Status Policy
-
-Allowed final statuses:
-
-### ACCEPTED
-
-Use only when all required conditions are true:
-
-- implementation complete
-- API proof complete
-- Browser/DOM proof complete
-- DB integrity proof complete when DB is touched
-- health check PASS
-- smoke test PASS
-- build/typecheck PASS
-- i18n check PASS when UI/API messages changed
-- git status clean
-- commit created when the task explicitly requires commit
-- tags created and pushed when the task explicitly requires tags
-- branch pushed when the task explicitly requires push
-- no undocumented limitations
-- no hidden broken flows
-- no unexpected 404 from active frontend pages
-
-Never call a batch ACCEPTED based only on build success.
-
-### ACCEPTED_WITH_DOCUMENTED_LIMITATION
-
-Use only when:
-
-- implementation is complete
-- all required validation passes
-- limitation is real, documented, and not hiding a broken user-facing flow
-- limitation is outside current scope or environmental/runtime-only
-- the user-facing operational path is not broken
-
-### PARTIAL
-
-Use when any of the following is true:
-
-- implementation is incomplete
-- proof incomplete
-- some routes/pages fail
-- git not clean when a clean final state is required
-- tags not pushed when tags are required
-- health/smoke failed
-- API/browser proof missing
-- DB integrity proof missing after DB changes
-- i18n keys are unbalanced after UI/API message changes
-
-### BLOCKED
-
-Use when:
-
-- required dependency is missing
-- DB/runtime unavailable
-- task conflicts with forbidden rules
-- schema/migration risk cannot be resolved safely
-- user decision is required
-- a required module is forbidden for current release
-- safe proof cannot be produced
-
-Final status must be honest. Do not hide failures inside long reports.
+* Operational correctness.
+* Data integrity.
+* User effort reduction.
+* Maintainability.
+* Testability.
+* Security.
+* Traceability.
+* Long-term extensibility.
 
 ---
 
-## 🧩 Module Activation Policy
+## 3. Non-Negotiable Reality Rule
 
-Do NOT register a module in `app.module.ts` just because code exists on disk.
+ATsofterp must contain real, connected, production-capable functionality.
 
-Each module must be classified before any activation:
+The following are prohibited:
 
-### ACTIVE_REGISTERED
+* Mock operational data.
+* Fake pages.
+* Demonstration-only pages presented as completed work.
+* Static success responses.
+* Buttons without real handlers.
+* Forms that do not save through a real API.
+* APIs that are not connected to real database operations.
+* Empty services, controllers, DTOs, tests, or page files.
+* Placeholder modules presented as implemented.
+* Hard-coded operational records.
+* Silent fallbacks that hide missing backend functionality.
+* Catch blocks that suppress errors.
+* Disabling validation or tests to make a build pass.
+* Claiming completion based only on compilation.
 
-Already registered and verified at runtime.
+A feature is not complete because files exist.
 
-### READY_TO_REGISTER
-
-May be registered only if all are true:
-
-- inside current approved release scope
-- controller/service/DTOs are complete
-- real frontend dependency exists
-- permissions are defined
-- i18n keys exist
-- API proof possible
-- Browser proof possible
-- no dependency on forbidden modules
-- no mock/placeholder flow
-
-### USER_REJECTED_FOR_CURRENT_RELEASE
-
-Must not be:
-
-- registered in `app.module.ts`
-- mounted in runtime
-- linked in sidebar/navigation
-- counted as completion
-- shown as active in dashboard
-- used by frontend API calls
-
-Current rejected modules include:
-
-- Finance
-- Purchasing
-- Sales
-- HR
-- AI
-- IoT
-- BI
-- Workflows
-- Universal Requests
-- Import-Export
-- Forecasting
-- Predictive Maintenance
-- Print Template Designer
-- any other module explicitly rejected by the user
-
-### LEGACY_UNUSED
-
-Existing old code, not active, not called by frontend, and not part of current release.
-
-### BROKEN_REQUIRES_FIX
-
-Code exists but cannot be safely activated.
-
-Hard rules:
-
-- No frontend page may call an endpoint from an unregistered module.
-- No sidebar link may point to a rejected or unregistered module.
-- No placeholder API may be created to hide 404.
-- No forbidden module may be activated to satisfy a route.
-- If a page depends on a forbidden module, hide or document the page instead of activating the module.
+A feature is complete only when its database, backend, permissions, frontend, translations, tests, and runtime flow are connected and verified.
 
 ---
 
-## 🛣️ Frontend/API Route Alignment Rules
+## 4. Task Execution Discipline
 
-Before adding new features:
+For every implementation task:
 
-1. Scan all frontend API calls.
-2. Confirm corresponding API runtime route exists.
-3. Confirm route is visible in Swagger or runtime route map.
-4. Confirm no unexpected 404.
-5. Ensure API paths use leading `/` consistently.
-6. Do not leave frontend buttons calling missing endpoints.
-7. Do not hide broken endpoints with mock responses.
-8. Do not create fake success responses.
-9. Do not leave disabled buttons unless disabled by permission or documented workflow state.
-10. Do not mount pages for rejected modules.
+1. Read the user's scope carefully.
+2. Inspect only the relevant current code first.
+3. Identify the existing implementation and reuse its established patterns.
+4. Detect duplicate or legacy implementations before creating new files.
+5. Define the smallest safe implementation boundary that fully satisfies the requested outcome.
+6. Implement the complete vertical slice.
+7. Run focused validation first.
+8. Run the required broader validation.
+9. inspect the final diff.
+10. Report exact evidence.
 
-Every batch that changes routes must update:
+Do not repeatedly scan the whole repository when the relevant structure is already known.
 
-- route map
-- API proof
-- browser/DOM proof
-- navigation/sidebar proof
-- 404 proof
+Do not stop after planning when the task requests implementation.
 
-A frontend route is not accepted until its API dependencies are active and proven.
+Do not ask unnecessary questions that can be resolved from:
 
----
+* Existing code.
+* Existing naming patterns.
+* Database relationships.
+* Existing pages.
+* Existing API behavior.
+* Existing reports.
+* The current task specification.
 
-## 🔢 Numbering Hard Rules
+Ask a question only when an unresolved decision would materially risk:
 
-All generated codes/numbers must use:
+* Data loss.
+* Cross-company data exposure.
+* Destructive migration.
+* Incorrect accounting.
+* Irreversible workflow behavior.
+* Breaking existing production data.
 
-`NumberingService.generateNumberAtomic()`
+When safe assumptions are available, use them and document them.
 
-Forbidden:
+Do not pause after every minor file change.
 
-- direct `prisma.numberSequence.findUnique()` for generation
-- manual `currentNumber + 1`
-- manual prefix/suffix formatting inside business services
-- frontend-generated codes
-- editable codes after creation
-- consuming numbers during preview
-- consuming numbers on failed validation
-- generating a new code during edit/update
-- creating entity-specific numbering logic outside NumberingService
-
-Required:
-
-- generation must be backend-only
-- generation must be transaction-safe
-- `currentNumber` must update atomically
-- `lastGeneratedCode` must update
-- preview must not consume numbers
-- edit must not generate a new number
-- code/number must be immutable after creation
-- every entityType must exist in seed + UI filter + i18n
-- no duplicate codes
-- failed validation must not consume a number
-- API errors must use localized message keys
-- frontend must show generated codes as read-only after creation
-
-Target services known to require centralization include:
-
-- inventory-movements.service.ts
-- inventory-counts.service.ts
-- inventory-adjustments.service.ts
-- inventory-opening-balances.service.ts
-- inventory-stock-adjustments.service.ts
-- inventory-stock-transfers.service.ts
-- inventory-operational-receipts.service.ts
-- inventory-physical-counts.service.ts
-- maintenance-requests.service.ts
-- preventive-maintenance.service.ts
-- maintenance-schedules.service.ts
-- barcode-labels.service.ts
-- maintenance-stock-issue.service.ts
-
-If new services generate numbers, they must use NumberingService from the start.
+Complete a coherent batch, verify it, and then report.
 
 ---
 
-## 🌐 API i18n Rules
+## 5. Scope Control
 
-API errors must not be English-only.
+Modify only the files required by the current task.
 
-Every new user-facing API error should return:
+Do not:
 
-- `messageKey`
-- localized `message`
-- safe `details` only when needed
+* Refactor unrelated modules.
+* Rename unrelated models or routes.
+* Reformat the entire repository.
+* Enable rejected or inactive domains.
+* Activate empty modules merely because they exist on disk.
+* Add Finance, Sales, Purchasing, HR payroll, AI, IoT, BI, forecasting, or other unapproved scopes unless explicitly requested.
+* Create speculative future modules.
+* create files that are not used by the implemented runtime.
 
-Language resolution order:
+When adjacent changes are required for correctness, explain why they are necessary.
 
-1. `x-locale`
-2. `Accept-Language`
-3. user preference if available
-4. fallback: `ar`
+Avoid both extremes:
 
-Forbidden:
-
-- raw English-only exceptions for user-facing errors
-- leaking stack traces
-- leaking SQL errors
-- leaking secrets
-- returning untranslated enum names to Arabic UI unless intentionally technical
-- returning Prisma/Nest internal messages directly to users
-
-Required:
-
-- API message keys must be stable.
-- Arabic and English messages must both exist.
-- Frontend should display localized API messages when available.
-- New frontend text must have EN and AR keys.
-- No raw i18n keys may appear in browser proof.
-
-Priority message domains:
-
-- auth
-- validation
-- numbering
-- maintenance
-- stock
-- inventory
-- permissions
-- organization context
+* Do not make an incomplete one-file patch when an end-to-end change is required.
+* Do not perform repository-wide restructuring for a localized requirement.
 
 ---
 
-## 🗄️ SQL Server Migration Safety
+## 6. Preserve and Extend Existing Working Modules
 
-Allowed:
+The existing maintenance, inventory, machines, spare parts, installed parts, replacement history, repair orders, reporting, search, numbering, settings, notifications, audit, and attachment modules contain significant implemented work.
 
-- inspect schema first
-- create safe SQL Server migration scripts manually when needed
-- run migration using `sqlcmd`
-- run `npx prisma validate`
-- run `npx prisma generate`
-- verify tables/enums/indexes after migration
-- document pre/post DB counters
+Before changing an existing domain:
 
-Forbidden:
+* Trace the current frontend-to-database path.
+* Identify current permissions.
+* Identify current status transitions.
+* Identify current numbering behavior.
+* Identify current audit behavior.
+* Identify current integrations.
+* Identify existing data that may require migration.
+* Add regression tests before or with risky changes.
 
-- `prisma db push`
-- `prisma migrate reset`
-- `prisma migrate dev`
-- database reset
-- table drop
-- deleting seed data
-- destructive re-seeding
-- changing existing data without documented backfill plan
-- destructive column changes without proof and explicit approval
+Prefer safe extension over replacement.
 
-Schema changes require:
+Do not create parallel replacements for existing concepts unless the task explicitly approves a migration plan.
 
-1. preflight DB counters
-2. migration script
-3. rollback/mitigation note when possible
-4. post-migration DB counters
-5. Prisma validate/generate
-6. API build
-7. DB integrity proof
-8. data-loss assessment
-9. no forbidden module activation
+Examples of prohibited duplication:
 
-If migration safety is unclear, report BLOCKED.
+* A second maintenance-request model.
+* A second installed-part workflow.
+* A second inventory balance system.
+* A second numbering service.
+* A second unified search system.
+* A second error handling system.
+* Duplicate permission keys for the same action.
+* Duplicate status vocabularies for the same entity.
 
 ---
 
-## 🧰 Inventory/Maintenance Stock Safety
+## 7. Multi-Company and Multi-Branch Invariants
 
-Current inventory balance model is Product-based.
+Multi-company isolation is a mandatory security boundary, not an optional frontend filter.
 
-Do not change `InventoryBalance` structure unless a dedicated approved batch explicitly requires it.
+Every tenant-owned operational aggregate must have a clear owning company.
 
-For spare part condition tracking, use side ledger models:
+Every branch-owned aggregate must have a clear owning branch.
 
-- `SparePartConditionBalance`
-- `SparePartConditionMovement`
+Direct ownership fields are preferred for critical operational records, even when ownership can be inferred through relationships.
 
-Hard rules:
+Global/shared records are allowed only when intentionally designed, documented, and approved.
 
-- no double deduction
-- no direct manual balance edits from UI
-- no stock movement outside a transaction
-- maintenance issue must use SPARE_PART warehouse only
-- PRODUCT warehouse must be blocked for maintenance spare part issue
-- RAW_MATERIAL warehouse must be blocked for maintenance spare part issue
-- planning/reservation must not deduct stock
-- actual issue only deducts stock
-- repair workflow must not create Finance/Purchasing entries
-- cost reporting is operational only, not accounting
-- do not create accounting journals
-- do not create purchase orders
-- do not create supplier invoices
+For every create, read, update, delete, search, report, export, print, attachment, notification, audit, and background operation:
 
-Required proof for stock-related batches:
+* Enforce company scope in the backend.
+* Enforce branch scope when applicable.
+* Never rely only on a frontend header or hidden field.
+* Never trust a client-provided company or branch without authorization validation.
+* Never fetch by `id` alone for tenant-owned records.
+* Include tenant scope in direct record queries.
+* Validate that all referenced records belong to compatible company and branch contexts.
+* Prevent cross-company and unauthorized cross-branch relationships.
+* Scope unique constraints appropriately.
+* Scope numbering sequences appropriately.
+* Scope search results and exports.
+* Scope attachments and audit records.
+* Test cross-company ID manipulation.
 
-- before/after InventoryBalance
-- before/after condition balance when applicable
-- InventoryMovement proof when applicable
-- SparePartConditionMovement proof when applicable
-- no double deduction proof
-- blocked warehouse proof
-- DB integrity proof
-- audit proof
+For write operations, the active operational context must be valid and authorized.
+
+A missing context must not silently broaden access.
+
+SUPER_ADMIN behavior must be explicit and audited. Do not use SUPER_ADMIN behavior to hide missing tenant enforcement for normal roles.
 
 ---
 
-## 🧑‍🏭 UX Simplification Rules
+## 8. Organizational and Factory Flexibility
 
-Daily users must not manually enter fields that the system can derive.
+Keep these structures conceptually separate:
 
-Hide from daily maintenance forms:
+1. Legal and administrative organization.
+2. Factory and operational topology.
+3. Workforce assignments and supervision.
+4. Cost-center hierarchy.
+5. User authorization and data scope.
 
-- companyId
-- branchId
-- departmentId
-- productionLineId
-- costCenterId
-- productId behind sparePartId
-- warehouseType
-- technicalClassification
-- usageType
-- importance
-- generated codes/numbers
-- audit fields
-- workflow status fields unless shown read-only
+Do not overload a single table to represent all five structures.
 
-System must derive:
+The system must support different companies with different depths and names.
 
-- company/branch from current context
-- department/line/cost center from selected machine
-- unit/component list from selected machine
-- spare part classification from SparePart
-- Product link from `SparePart.productId`
-- available condition balance from stock ledger
-- totalCost from quantity × unitCost
-- requestNumber/code from NumberingService
-- createdBy/updatedBy from current user
-- timestamps from backend
+Do not hard-code assumptions such as:
 
-User should normally enter/select only:
+* Every company has exactly four branches.
+* Every factory has only chips and puffed-corn sections.
+* Every area has exactly manufacturing and packaging.
+* Every line has exactly six machines.
+* Every administration has exactly two departments.
+* Every company uses the same reporting hierarchy.
 
-- machine
-- component/unit
-- spare part
-- quantity
-- warehouse filtered to SPARE_PART
-- issued condition
-- replacement action
-- removed part details only when required
-- notes
-- reason when required
-- receivedBy when required
+The structure must allow:
 
-UX priority:
+* Variable numbers of companies and branches.
+* Variable organizational depth.
+* Recursive departments or approved recursive organizational units.
+* Variable factory areas and process sections.
+* Variable numbers of production lines.
+* Variable numbers of machines and components.
+* Temporary and permanent employee assignments.
+* Multiple responsibility scopes.
+* Company-specific terminology and configuration.
 
-1. reduce repeated data entry
-2. use F9/search for long lists
-3. use filtered dropdowns by context
-4. show read-only derived fields
-5. show clear Arabic API errors
-6. support bulk add where useful
-7. do not expose internal IDs to users
+Configuration flexibility must not weaken transactional integrity.
+
+Use configurable reference data for:
+
+* Types.
+* Categories.
+* Reasons.
+* priorities.
+* classifications.
+* templates.
+* thresholds.
+* schedules.
+* optional fields.
+* display settings.
+
+Keep critical transactional rules strongly typed and validated in code.
+
+Do not convert stock, production, maintenance, costing, or approval integrity into uncontrolled JSON configuration.
 
 ---
 
-## ⚙️ Parallel Execution Rules
+## 9. Minimum Data Entry and Automatic Field Population
 
-Work may be organized into lanes, but commit/tag/push happens only after all lanes are merged and validated.
+The fundamental UX rule is:
 
-Allowed lanes:
+> Enter information once, reuse it everywhere safely.
 
-- Lane A: Schema / Migration / DB Safety
-- Lane B: Backend / API / Services
-- Lane C: Frontend / UX / Routes
-- Lane D: i18n / Permissions / Audit
-- Lane E: API / Browser / DB Proof
-- Lane F: Documentation / Closeout
+Daily operational forms must request only information that the system cannot derive reliably.
 
-Ownership:
+Automatically derive and populate where possible:
 
-- `schema.prisma` = Lane A only
-- migration scripts = Lane A only
-- shared backend services = one owner only
-- i18n files = Lane D only
-- sidebar/navigation = one owner only
-- proof docs = Lane E/F
-- app.module.ts = DX/module registry owner only
-- NumberingService = NX owner only
+* Company.
+* Branch.
+* Facility.
+* Organizational unit.
+* Production area.
+* Process section.
+* Production line.
+* Machine.
+* Machine component.
+* Operation type.
+* Cost center.
+* Warehouse.
+* Shift.
+* Current user.
+* Current employee.
+* Date and time.
+* Document number.
+* Initial status.
+* Responsible maintenance group.
+* Assigned line responsibility.
+* Product unit.
+* Product or machine defaults.
+* Related order or request data.
+* Known spare-part compatibility.
+* Existing machine and component metadata.
 
-Merge gates:
+Examples:
 
-1. Preflight clean
-2. Analysis complete
-3. Schema/migration complete
-4. Backend API stable
-5. Frontend wired
-6. i18n/permissions/audit complete
-7. proof complete
-8. validation complete
-9. final report complete
-10. commit/tag/push complete if requested
+* Selecting a machine should populate its company, branch, line, area, section, default cost center, operation type, and relevant maintenance scope.
+* Opening a maintenance request from a machine page should prefill the machine and its hierarchy.
+* Opening a request from a production interruption should prefill the active production run, product, shift, line, machine, and interruption start time.
+* Selecting a spare part should show compatible machines/components, available stock, warehouse, condition, and recent usage.
+* Selecting a production order should populate product, approved routing, BOM, target quantity, target rate, line, and unit.
+* Editing a record must load the same existing record and prefill all editable fields.
+* Repeated transactions should support templates, copy-from-previous, and controlled defaults.
 
-No lane may commit independently.
-No lane may push independently.
-No lane may bypass validation.
+Automatically generated or derived fields must not be duplicated as independent manual inputs.
 
----
+When an auto-populated field may be changed:
 
-## 📄 Proof Documentation Standard
+* Only authorized users may override it.
+* The override must be visible.
+* A reason may be required for sensitive overrides.
+* The previous and new values must be audited.
 
-Every batch must create proof docs under:
+Do not auto-populate stale data from a previously opened unrelated record.
 
-`docs/proofs/<batch-slug>/`
-
-Minimum required files:
-
-- `00-summary.md`
-- `01-scope-and-rules.md`
-- `02-implementation-map.md`
-- `03-api-proof.md`
-- `04-browser-dom-proof.md`
-- `05-db-integrity-proof.md` when DB touched
-- `06-i18n-proof.md` when UI/API messages changed
-- `07-permissions-audit-proof.md` when permissions/audit changed
-- `08-validation-report.md`
-- `09-final-acceptance-report.md`
-
-Screenshots are disabled by user.
-
-Use instead:
-
-- Playwright/browser DOM assertions
-- route status proof
-- console error proof
-- network request proof
-- API response proof
-- DB counter proof
-- SQL read-only verification
-- build/typecheck logs
-- health/smoke logs
-
-A proof document must state what was tested, how it was tested, and the result.
+Defaults must be scoped to the current user, company, branch, workflow, and entity.
 
 ---
 
-## 🧾 Required Batch Report Template
+## 10. Form and Workflow UX Standards
 
-Every batch final report must include:
+Use progressive disclosure.
 
-1. Overall status:
-   - ACCEPTED
-   - ACCEPTED_WITH_DOCUMENTED_LIMITATION
-   - PARTIAL
-   - BLOCKED
+Show only fields required for the current operation and status.
 
-2. Repository:
-   - branch
-   - starting commit
-   - final commit
-   - tags
-   - push status
-   - git status
-   - ahead/behind
+Separate:
 
-3. Scope:
-   - implemented
-   - explicitly not implemented
-   - forbidden modules untouched
+* Essential fields.
+* Optional details.
+* Advanced fields.
+* Audit and system-generated fields.
 
-4. Database:
-   - schema changed yes/no
-   - migration name/script
-   - pre/post counters
-   - Prisma validate/generate
-   - no db push/reset confirmation
+Do not display system-generated IDs as user-facing values when readable names or codes exist.
 
-5. Backend:
-   - modules/controllers/services/DTOs
-   - endpoints
-   - permissions
-   - audit
-   - API i18n messages
+Use searchable lookups for large reference datasets.
 
-6. Frontend:
-   - routes/pages/components
-   - i18n
-   - no raw keys
-   - no unexpected 404
-   - no placeholder pages
+Reuse the project's unified F9 and search patterns instead of creating inconsistent selectors.
 
-7. Proof:
-   - API proof count
-   - Browser proof count
-   - DB integrity
-   - health/smoke
-   - build/typecheck
+Every operational page must include, where applicable:
 
-8. Security:
-   - no secrets printed
-   - no passwordHash/twoFactorSecret/JWT leakage
-   - permission checks
+* Loading state.
+* Empty state.
+* Error state.
+* Permission state.
+* Disabled-state explanation.
+* Success feedback.
+* Search.
+* Filtering.
+* Pagination or virtualization for large datasets.
+* Clear current status.
+* Allowed next actions.
+* Audit or history access.
+* Attachments where operationally relevant.
 
-9. Limitations:
-   - documented limitations only
-   - no hidden broken flows
+Prevent duplicate submissions.
 
-10. Next batch recommendation.
+Disable action buttons while requests are running.
+
+Preserve entered data when a recoverable API error occurs.
+
+Use confirmation for destructive or irreversible actions.
+
+Do not require users to re-enter information already stored in the selected machine, line, product, request, order, employee, warehouse, or operational context.
 
 ---
 
-## ♻️ Stale Facts Rule
+## 11. Database Safety
 
-Numbers in AGENTS.md are baseline facts, not permanent truth.
+The database is SQL Server and contains important existing data.
 
-Before each batch, re-check:
+Never execute or recommend:
 
-- registered modules count
-- route map
-- i18n key counts
-- Numbering sequences
-- services bypassing NumberingService
-- git status
-- DB counters
-- frontend route/API call map
-- active/rejected module list
-- current branch/commit/tag state
+* `prisma migrate reset`
+* Database deletion.
+* Table truncation.
+* Destructive reset.
+* Unreviewed `prisma db push`.
+* Editing an already-applied migration.
+* Deleting migration history.
+* Recreating the database to solve a schema issue.
+* Unscoped delete or update operations.
 
-If actual code differs from AGENTS.md:
+Use reviewed migrations.
 
-1. document the difference
-2. continue based on current code
-3. do not violate global rules
-4. do not silently overwrite AGENTS.md facts unless the task is to update them
+For sensitive schema changes, use phased migrations:
 
----
+1. Add nullable or backward-compatible structure.
+2. Backfill existing records.
+3. Verify the backfill.
+4. Add required constraints.
+5. Update application behavior.
+6. Remove deprecated structure only in a separately approved task.
 
-## 🔐 Security and Secrets Rules
+Every migration must explain:
 
-Never print, commit, or expose:
+* Existing-data impact.
+* Default or backfill behavior.
+* Rollback or recovery approach.
+* Index impact.
+* Tenant impact.
+* Runtime compatibility.
 
-- DATABASE_URL
-- JWT secret
-- password hashes
-- two factor secrets
-- refresh tokens
-- access tokens
-- API keys
-- SMTP passwords
-- connection strings with passwords
-- private certificates
+Use database transactions for multi-record operations.
 
-When proof requires authentication:
+Inventory, costing, installation, replacement, production posting, and workflow transitions must be atomic where partial completion would corrupt data.
 
-- use safe test credentials only if already configured locally
-- do not write real passwords in reports
-- mask secrets in logs
-- never include `.env` contents in proof docs
+Use `Decimal`-appropriate storage for money and precise quantities. Do not use floating-point values for monetary truth.
 
-API errors must not leak:
+Add indexes for real query paths, tenant filters, foreign keys, status filters, and date ranges.
 
-- SQL Server errors
-- Prisma raw exceptions
-- stack traces
-- internal file paths
-- sensitive user fields
+Do not add indexes without understanding write and storage impact.
 
 ---
 
-## 🔒 Current Release Scope Lock
+## 12. Data Integrity and Derived Values
 
-Current approved release scope includes:
+Do not store the same business amount as separate independent facts at every hierarchy level.
 
-- Auth
-- Access Control
-- Companies
-- Branches
-- Administrations
-- Departments
-- Warehouses
-- Locations
-- Products
-- Inventory operational flows
-- Maintenance/CMMS operational flows
-- Barcode/QR operational support
-- Basic reports
-- Audit
-- Notifications/settings where already active
-- Backup/restore/runtime support where already active
+Record the atomic transaction once with all required dimensions, then aggregate it in reports.
 
-Current release explicitly excludes:
+Examples:
 
-- Sales
-- Purchasing
-- Finance
-- HR
-- AI Assistant
-- IoT
-- BI
-- Forecasting
-- Predictive Maintenance
-- Dynamic Engine
-- Workflows
-- Universal Requests
-- Import/Export Designer
-- Print Template Designer
+* One spare-part cost transaction may be reportable by machine, line, section, area, branch, and maintenance administration.
+* Do not create six separate cost transactions for the same physical issue.
+* Production output from sequential machines must not be summed as if each machine produced separate final goods.
+* Final line output must come from an approved measurement point or defined aggregation rule.
+* Manufacturing output and packaging output must not be double-counted as the same finished product.
 
-Excluded modules may exist on disk but must remain inactive until the user approves a separate review and activation batch.
+Derived totals must come from authoritative source records.
+
+Cached totals are allowed only with a documented reconciliation strategy.
+
+Every quantity, cost, downtime duration, and status transition must have a clear source of truth.
 
 ---
 
-## 🗂️ Current Priority Plan Enforcement
+## 13. Backend Standards
 
-The next work must follow this order unless the user explicitly changes priority:
+Every new or changed backend operation must include:
 
-1. DX-0 — API Module Registry + Frontend Route Alignment
-2. I18N-0 — API Messages Foundation + Frontend i18n Cleanup
-3. NX — Numbering Centralization + Sequence UI Completion
-4. UX-0 — Organization Context Lite + Maintenance Auto-Fill
-5. Z-AA — Spare Part Condition Balance + Removed Part Return
-6. AB-AC — Installed Parts Register + Replacement History
-7. AD-AE — Repairable Spare Parts Workflow + Overhaul
-8. AF-AG — Maintenance Cost Reports + KPIs + Reliability
-9. AH-AI — BOM Versioning + Preventive Spare Parts Planning
-10. AJ-AK — Maintenance Final Audit + SOP + Training + Handover
-11. UI-QA — CRUD/DataGrid/Layout/Test Standardization
+* Authentication unless explicitly public.
+* Backend permission enforcement.
+* Tenant and branch validation.
+* DTO validation.
+* Unknown-field rejection.
+* Business-rule validation.
+* Clear service boundaries.
+* Proper transactions.
+* Stable error contracts.
+* Audit logging for sensitive actions.
+* Idempotency or duplicate prevention where repeated submission is possible.
+* Pagination for potentially large lists.
+* Filtering and sorting where operationally required.
+* Consistent status transition enforcement.
 
-Do not start Z-AA before DX-0, I18N-0, NX, and UX-0 are accepted or explicitly skipped by the user.
+Controllers must remain thin.
 
----
+Business rules belong in services or dedicated domain policies, not duplicated across controllers.
 
-## 📝 Documentation-Only Task Rules
+Do not trust frontend validation.
 
-For documentation-only tasks:
+Do not expose secret, password, token, or internal security values.
 
-Allowed:
+Do not return raw database exceptions to users.
 
-- edit markdown files
-- update planning docs
-- update proof docs
-- update AGENTS.md
-- run git diff/status
+Use consistent localized error keys or the established API error format.
 
-Forbidden:
+A state transition must validate:
 
-- application code changes
-- schema changes
-- package changes
-- migrations
-- database commands
-- module activation
-- frontend route changes
-- API route changes
-- dependency installation
+* Current state.
+* Requested next state.
+* User permission.
+* Tenant scope.
+* Required data.
+* Related-record state.
+* Inventory or production impact.
+* Audit metadata.
 
-If documentation-only scope expands into code changes, STOP and report BLOCKED.
+Do not update status through unrestricted generic edit endpoints when a dedicated transition is required.
 
 ---
 
-## 🏗️ Batch History
+## 14. Frontend Standards
 
-### ✅ Batch Y (COMPLETED — commit `31858ee`)
-Maintenance spare part classification + cost attribution + warehouse types
+Every frontend operation must use the real backend API.
 
-**Tags:**
-- `atsoft-erp-maintenance-sparepart-classification-cost-attribution`
-- `atsoft-erp-current-release-final-audited-v3-maintenance-sparepart-structure`
-- `atsoft-erp-maintenance-sparepart-classification-proof`
+A complete CRUD flow requires:
 
-### ✅ NX (COMPLETED — commit `4296675`)
-Numbering centralization + sequence UI completion
+* Real list.
+* Real details.
+* Real create.
+* Real edit of the same record.
+* Real delete/deactivate where allowed.
+* Real permission checks.
+* Real loading and error handling.
+* Real empty states.
+* Arabic and English translations.
+* RTL and LTR verification.
 
-### ✅ AB-AC (COMPLETED — commit `874f7be`)
-Installed Parts Register + Replacement History (integrated into Z-AA stock issue flow)
+Use `POST` for creation and the project's established `PATCH /:id` pattern for updating the same record.
 
-**Tags:**
-- `atsoft-erp-abac-installed-parts-replacement-history`
-- `atsoft-erp-current-release-final-audited-v3-installed-parts-history`
-- `atsoft-erp-abac-installed-parts-proof`
+Edit pages must fetch the existing record and map it into the form.
 
-**Key outcomes:**
-- Schema: `MachineInstalledPart` (26 cols) + `SparePartReplacementHistory` (24 cols) added
-- Migration: additive SQL script — 83 tables / 1182 columns (pre: 81 / 1132)
-- Numbering: `SPARE_PART_REPLACEMENT` added → 45 entity types (37 ACTIVE)
-- Backend: `InstalledPartsReplacementModule` — 10 read-only GET endpoints registered
-- Integration: `MaintenanceStockIssueService.issue()` now auto-records installed part + replacement history
-- Frontend: `InstalledPartsCard` + `ReplacementHistoryCard` wired into machine detail + request detail pages
-- i18n: 9 maintenance keys + 3 API messages + 1 settings key — EN/AR matched
-- Proof: 9 documents in `docs/proofs/abac-installed-parts-replacement-history/`
+Editing must never create a new record.
 
-### ✅ AD-AE (COMPLETED — commit `c4b87ff`)
-Repairable Spare Parts Workflow + Overhaul
+Do not use hard-coded operational options when an API or configurable reference table exists.
 
-**Tags:**
-- `atsoft-erp-adae-repairable-spareparts-overhaul`
-- `atsoft-erp-current-release-final-audited-v3-repairable-spareparts`
-- `atsoft-erp-adae-repair-workflow-proof`
+Do not show actions that the current user cannot perform.
 
-**Key outcomes:**
-- Schema: `SparePartRepairOrder` (48 cols) + `SparePartRepairAction` (12 cols) added
-- Migration: additive SQL script — 85 tables / ~1248 columns (pre: 83 / 1182)
-- Numbering: `SPARE_PART_REPAIR_ORDER` added → 46 entity types (38 ACTIVE)
-- Backend: `RepairOrdersModule` — 17 endpoints (5 read, 2 create, 8 status transitions, 2 actions)
-- Integration: Repairable queue from AB-AC replacement history + create from returned repairable part
-- Condition conversion: Complete serviceable → OUT from source, IN to target
-- InventoryBalance unchanged during condition conversion
-- Permissions: 7 new (repair-orders:read/create/manage/complete/scrap, repair-actions:read/create)
-- API i18n: 10 new localized messages (EN + AR)
-- Frontend i18n: ~60 maintenance keys + settings key — EN/AR matched
-- Status lifecycle: DRAFT → OPEN → IN_INSPECTION → APPROVED_FOR_REPAIR → UNDER_REPAIR → UNDER_TEST → COMPLETED_SERVICEABLE
-- Duplicate guard: by replacementHistoryId / sourceType+sourceId
-- Stock mutation: Create → none; Complete → condition OUT/IN; Scrap → condition OUT only
-- Audit: 11 lifecycle events
-- Validation: API build PASS, Web build PASS, Prisma validate/generate PASS
-- Proof: 11 documents in `docs/proofs/adae-repairable-spareparts-overhaul/`
+Frontend permission hiding does not replace backend permission enforcement.
 
-**Tags:**
-- `atsoft-erp-nx-numbering-centralization-sequence-ui`
-- `atsoft-erp-current-release-final-audited-v3-nx-numbering`
-- `atsoft-erp-nx-numbering-proof`
+Reuse existing shared components:
 
-**Key outcomes:**
-- 24 numbering bypass instances eliminated (13 services converted)
-- `numbering.service.ts` hardened with `ACTIVE` status check
-- `numbering.constants.ts` created as single source of truth for 45 entity type codes
-- UI filter now covers all 36 active-release entity types
-- 10 missing i18n keys added to EN/AR
-- Zero `numberSequence` access outside `numbering.service.ts`
-- 24 services now use `NumberingService.generateNumberAtomic()`
+* Error modal.
+* Toasts.
+* Unified F9 lookup.
+* Search adapters.
+* Admin action patterns.
+* Data-grid patterns.
+* Entity components.
+* Operational-context components.
 
-### ✅ AF-AG (COMPLETED — commit `7416c2b`)
-Maintenance Cost Reports + KPIs + Reliability
-
-**Tags:**
-- `atsoft-erp-afag-maintenance-cost-reports-kpis-reliability`
-- `atsoft-erp-current-release-final-audited-v3-cost-reports`
-- `atsoft-erp-afag-cost-reports-proof`
-
-**Key outcomes:**
-- Backend: `MaintenanceReliabilityModule` — 14 endpoints added
-- Cost report generation endpoints
-- KPI metrics endpoints
-- Reliability analytics
-- Frontend: Cost Reports, KPI Dashboard, Reliability charts
-- i18n: reports-related keys EN/AR
-- Proof: Full API, browser, DB integrity documented
-
-### ✅ AH-AI (COMPLETED — commit `f603aec`)
-BOM Versioning + Preventive Spare Parts Planning
-
-**Tags:**
-- `atsoft-erp-ahai-bom-versioning-preventive-planning`
-- `atsoft-erp-current-release-final-audited-v3-bom-planning`
-- `atsoft-erp-ahai-bom-planning-proof`
-
-**Key outcomes:**
-- Schema: `MaintenanceBom`, `MaintenanceBomVersion`, `PreventiveSparePartPlan` added
-- Migration: additive SQL script — 88 tables / ~1296 columns
-- Numbering: `MAINTENANCE_BOM`, `MAINTENANCE_BOM_VERSION`, `PREVENTIVE_SPARE_PART_PLAN` added → 49 entity types (41 ACTIVE)
-- Backend: `MaintenanceBomModule` — ~15 endpoints (CRUD + versioning + activate/archive)
-- Backend: `PreventiveSparePartPlanModule` — ~15 endpoints (CRUD + generate reservations)
-- BOM lifecycle: DRAFT → APPROVED → ACTIVE → ARCHIVED
-- Planning integration: BOM + PM Schedule → Spare part quantities → Reservation (no stock deduction)
-- Permissions: 6 new (bom:read/create/manage, bom-versions:read/create, preventive-plans:read/manage)
-- frontend: BOM list/detail/version history per machine, Preventive plans list/detail
-- i18n: BOM + preventive plan keys EN/AR
-- Build: API build PASS, Web build PASS, Prisma validate/generate PASS
-- Proof: 9 documents in `docs/proofs/ahai-bom-versioning-preventive-planning/`
-
-### ✅ AJ-AK (COMPLETED — commit `f603aec`)
-Maintenance Final Audit + SOP + Training + Handover (documentation-only)
-
-**Tags:**
-- `atsoft-erp-ajak-maintenance-final-audit-sop-training-handover`
-- `atsoft-erp-current-release-final-audited-v3-maintenance-handover`
-- `atsoft-erp-ajak-maintenance-handover-proof`
-
-**Key outcomes:**
-- Phase 1-6: Comprehensive maintenance domain audit (36 modules, ~345 endpoints, permissions, i18n, workflows)
-- Phase 7: Validation report (documentation-only confirmed)
-- Phase 8-12: 5 Standard Operating Procedures (bilingual EN/AR): Maintenance Request Lifecycle, Stock Issue & Return, Repair Order Workflow, Preventive Maintenance, BOM Versioning & Planning
-- Phase 13: 8 Training Modules (per role): Operator, Supervisor, Engineer, Store Keeper, Repair Technician, Planner, Report Viewer, System Administrator
-- Phase 14: 10 Handover Documents: Architecture Overview, API Reference, Schema Reference, Frontend Guide, Configuration Guide, Deployment Guide, Troubleshooting Guide, Known Limitations, Roadmap, Contacts & Support
-- Total: 31 new documentation files across `docs/proofs/ajak-maintenance-final-audit-sop-training-handover/` (8) + `docs/handover/maintenance/` (10) + `docs/handover/maintenance/sop/` (5) + `docs/handover/maintenance/training/` (8)
-- No code/schema/API/frontend/i18n changes (documentation-only batch)
-
-### ✅ UI-QA (COMPLETED — commit `???`)
-CRUD/DataGrid/Layout/Test Standardization
-
-**Tags:**
-- `atsoft-erp-uiqa-crud-datagrid-layout-test-standardization`
-- `atsoft-erp-current-release-final-audited-v3-uiqa-standardized`
-- `atsoft-erp-uiqa-final-proof`
-
-**Key outcomes:**
-- Phase 1: Active page inventory audit (231 pages, 0 placeholders)
-- Phase 2: API/frontend route alignment audit (all routes verified)
-- Phase 3-4: CRUD + DataGrid standardization (i18n for DataTable, Toolbar, Pagination, ErrorState)
-- Phase 5: Layout/navigation/RTL verification (no broken links, no forbidden module links)
-- Phase 6: i18n/raw key fix (~66 hardcoded English strings → t() calls in 19 files)
-- Phase 7: Permissions/action visibility verification
-- Phase 8: Maintenance domain regression proof (Z-AA through AH-AI still working)
-- Phase 9-10: API + Browser/DOM code-verified proof
-- Phase 11: Static scan (16 categories, all PASS)
-- Phase 12-13: Build validation + final acceptance
-- i18n keys added: ~50 new keys (EN + AR) across common.ts, inventory.ts, maintenance.ts, barcodes.ts
-- Files fixed: 27 files, 391 insertions, 295 deletions
-- Build: API build PASS, Web build PASS, Prisma validate PASS
-- No schema/migration changes
-- No forbidden module activation
-- Total proof: 12 documents in `docs/proofs/uiqa-crud-datagrid-layout-test-standardization/`
-- **Maintenance completion plan fully closed**
-
-### 📋 Final Priority Plan — 11 Stages (COMPLETED)
-
-```
-DX-0   = API Module Registry + Frontend Route Alignment
-I18N-0 = API Messages Foundation + Frontend i18n Cleanup
-NX     = Numbering Centralization + Sequence UI Completion
-UX-0   = Organization Context Lite + Maintenance Auto-Fill
-Z-AA   = Spare Part Condition Balance + Removed Part Return
-AB-AC  = Installed Parts Register + Replacement History
-AD-AE  = Repairable Spare Parts Workflow + Overhaul
-AF-AG  = Maintenance Cost Reports + KPIs + Reliability
-AH-AI  = BOM Versioning + Preventive Spare Parts Planning
-AJ-AK  = Maintenance Final Audit + SOP + Training + Handover
-UI-QA  = CRUD/DataGrid/Layout/Test Standardization
-```
-
-### 🚫 الوحدات الممنوعة من التفعيل في جميع الدفعات
-
-```
-Finance (المالية)
-Purchasing (المشتريات)
-Sales (المبيعات)
-HR (الموارد البشرية)
-AI (الذكاء الاصطناعي)
-IoT (إنترنت الأشياء)
-BI (ذكاء الأعمال)
-Workflows (سير العمل)
-Universal Requests (الطلبات العامة)
-Import-Export (استيراد/تصدير)
-Forecasting (التنبؤ)
-```
+Do not create a second competing UI pattern without explicit approval.
 
 ---
 
-## 🔍 Key Technical Findings
+## 15. Arabic, English, RTL, and LTR
 
-### API Module Registry (`app.module.ts` — 76 modules)
+Every user-facing feature must support Arabic and English.
 
-**Registered modules** (active at runtime):
-- Core: Auth, Users, Roles, Permissions, Companies, Branches, Administrations, Departments
-- Factory: Products, ProductCategories, Inventory, Maintenance (and all sub-modules)
-- Inventory: Counts, CountLines, Movements, Adjustments, Balances, Ledger, OpeningBalances, StockAdjustments, StockTransfers, OperationalReceipts, PhysicalCounts, Locks
-- Maintenance: MachineCategories, MachineParts, MachineDocuments, Requests, Tasks, Schedules, ChecklistItems, DowntimeLogs, RequestParts, RequestCosts, ChecklistExecutions, Dashboard, PreventiveMaintenance, OperationTypes, CostCenters, ProductionLines, MachineComponents, SpareParts, ComponentSpareParts, MachineSpareParts, Personnel, ResponsibilityAssignments, RequestAssignments, PartAccountability, Reliability, SparePartRequestLines, Notification, Sla, CalendarWorkload, StockIssue
-- Other: Barcodes, BusinessPartners, Audit, Numbering, Notifications, Search, Reports, Dashboard, Alerts, Messaging, Attachments
-- Inventory: LedgerReconciliation
-- Maintenance: InstalledPartsReplacement
-- Maintenance: RepairOrders
-- Settings: SystemSettings, CompanyProfile, Language, Appearance, Security, NotificationRules
+Do not hard-code user-facing text in components, controllers, services, reports, or validation responses.
 
-**Unregistered modules** (code exists but NOT loaded):
-- AI, Approvals, Backups, BI, BusinessRules, Dynamic, Finance, FinancialDisbursementRequests, Forecasting, HR, HRRequests, ImportExport, InventoryIssueRequests, IoT, Monitoring, PredictiveMaintenance, PrintTemplates, Purchasing, Sales, Settings(parent), SystemHealth, SystemUpdate, UniversalRequests, Workflows, Admin/AccessControl, Factory/BOM, Factory/Materials, Factory/MaterialCategories, Factory/Units, Factory/Quality, Factory/Production, Documents(parent)
+Add matching translation keys for both languages.
 
-### i18n System
+Translation key sets must remain synchronized.
 
-| Metric | Value |
-|--------|-------|
-| Total EN keys | 2,977 |
-| Total AR keys | 2,977 |
-| EN/AR match | 100% (identical keys in all 12 files) |
-| Coverage | ~99% UI, ~30% API foundation (46 keys in 9 domains) |
-| Provider | React Context → returns raw key if not found |
-| Files | 13 TS files/en + 13 TS files/ar |
-| API foundation | `api-messages.ts` + `get-request-language.ts` implemented in I18N-0 |
-| Orphan JSON | `en-numbering.json` + `ar-numbering.json` (deleted in I18N-0 — content was duplicated in settings.ts) |
-| Known bugs FIXED in I18N-0 | `ar/settings.ts` `OperationalPerson` → `موظفي الصيانة`; login hardcoded placeholder → i18n key |
+Arabic must be tested in RTL.
 
-### Numbering System
+English must be tested in LTR.
 
-| Metric | Value |
-|--------|-------|
-| Seeded sequences | 46 (38 ACTIVE + 8 DISABLED) |
-| Used by services | 26 of 38 active |
-| Centralized service | `NumberingService.generateNumberAtomic()` |
-| Entity type constant | `numbering.constants.ts` — 46 codes |
-| UI filter coverage | All 38 active-release entity types |
-| Sequence inactive check | Added to `generateNumber()` and `generateNumberAtomic()` |
-| Services fully centralized | 26 services now use `NumberingService.generateNumberAtomic()` |
-| Zero bypass instances | Confirmed by grep — all `numberSequence` access inside `numbering.service.ts` only |
-| Orphan sequences | MACHINE_ASSET, MACHINE_DOCUMENT, MAINTENANCE_TASK, DOWNTIME, PREVENTIVE_MAINTENANCE, QR_LABEL, BARCODE_RECORD, BARCODE_PRINT_JOB, REPORT_EXPORT_JOB, ATTACHMENT, NOTIFICATION_RULE (still seeded but not yet consumed by any service — OK for future use) |
+Verify:
 
-### Frontend Patterns
+* Form alignment.
+* Table alignment.
+* Modal direction.
+* Icons.
+* Numbers.
+* Dates.
+* Pagination.
+* Side panels.
+* Print layouts.
+* Export labels.
+* Error messages.
+* Empty states.
+* Status labels.
+* Action labels.
 
-- **CRUD**: Two competing patterns — modal-based (core entities via `useCrudList`) vs standalone pages (newer entities)
-- **Grids**: Mix of `AdminDataGrid` (rich) and `DataTable` (simple)
-- **Layouts**: Only root + admin layouts; no nested layouts for sections
-- **Tests**: Only 7 spec files across the entire project
-- **Hardcoded strings**: 1 found (`placeholder="admin@atsofterp.com"` in login page)
-- **API path bugs FIXED in DX-0**: 10 paths missing leading `/` (9 in inventory locks pages + 1 in governance-audit) — all now use `/inventory/locks` and `/inventory/audit` with proper leading slash
-
-### i18n Namespace Gap
-5 of 53 defined namespaces are NOT implemented:
-`inventoryCounting`, `maintenanceDashboard`, `preventiveMaintenance`, `downtimeAnalysis`, `sparePartRequest`
-
-### Frontend Error Handling
-
-**Global Error Dialog Rules:**
-
-- **Operational/API errors** (catch blocks) MUST use `useApiErrorHandler()` hook → shows Global Error Modal, NOT toast
-- **Validation errors** (if/guard blocks) may use `showToast(..., 'error')` — quick inline feedback
-- **Success/info messages** MUST use `showToast(..., 'success'/'info')` — brief feedback, no modal
-- **Import**: `import { useApiErrorHandler } from '.../components/admin/error-handler'`
-- **Usage**: `const handleApiError = useApiErrorHandler();` then `catch (err) { handleApiError(err); }`
-- `ErrorModalProvider` is mounted in `layout.tsx` inside `ToastProvider` — available to all pages
-- `normalizeApiError()` in `lib/error-utils.ts` extracts `messageKey` + `message` + `details` from API responses for localization
-- `errorDialog` i18n namespace exists for dialog-specific keys (EN + AR)
-
-### Sidebar Development Rules
-
-- **Accordion transitions**: Always use `sidebar-group-content` + `.open` CSS classes for expand/collapse animation
-- **New sidebar groups/items**: Must add i18n keys in both `en/navigation.ts` and `ar/navigation.ts`
-- **New settings/appearance keys**: Must add in both `en/settings.ts` and `ar/settings.ts`
-- **Collapsed mode**: Icon-only `.sidebar-icon-btn` with `title={t(...)}` and `aria-label={t(...)}`
-- **RTL**: Chevron rotation uses `[dir="rtl"] .sidebar-chevron.open { transform: rotate(-90deg); }`
-- **No hardcoded labels**: All sidebar text must use `t(key)` — NO raw Arabic/English strings
-
-### i18n Registration Rules
-
-- **New namespace file**: Create in both `en/` and `ar/` directories
-- **Register in index.ts**: Both `en/index.ts` AND `ar/index.ts` must import and spread the new namespace
-- **Add to TranslationNamespace type**: Must add to `TranslationNamespace` union in `types.ts`
+Do not return raw translation keys to the user.
 
 ---
 
-## 🧪 Acceptance Criteria (standard per batch)
+## 16. Permissions, Audit, and Accountability
 
-```yaml
-health_check:    4/4 (API, DB, Web, Auth)
-smoke_test:      8/8 (CRUD operations)
-api_proof:       varies by batch (80-180+ endpoints)
-browser_proof:   varies by batch (35-90+ screens)
-db_integrity:    PASS
-git_clean:       yes
-tags_pushed:     yes
-```
+Every sensitive action requires a stable, seeded permission key.
 
-### Smoke Test Endpoints
-```typescript
-GET  /health
-GET  /auth/profile
-GET  /companies
-POST /companies (with cleanup)
-PATCH /companies/:id
-DELETE /companies/:id
-GET  /branches
-GET  /departments
-```
+Before creating a permission:
 
----
+* Search existing permission definitions.
+* Search controllers.
+* Search frontend usage.
+* Search seed files.
+* Avoid synonyms and mismatches.
 
-## 📁 Discovery Pack Location
+A permission is incomplete until:
 
-```
-External: C:\Users\attef\PycharmProjects\Trae\maintenance-completion-discovery-pack\
-Internal: docs/proofs/maintenance-completion-discovery-pack/
-```
+* Defined.
+* Seeded.
+* Assigned as required.
+* Enforced in backend.
+* Used correctly in frontend.
+* Translated where displayed.
+* Tested for allowed and denied roles.
 
-### Current Files (14 total)
-```
-00-summary.md
-01-schema-map.md
-02-stock-model-inventory-balance.md
-03-flow-map.md
-04-api-endpoint-map.md
-05-frontend-route-map.md
-06-permissions-audit-map.md
-07-database-counters.md
-08-batch-y-fields.md
-09-limitations-risks.md
-10-next-batch-recommendations.md
-11-parallel-execution-plan.md
-12-models-fields-ux.md
-13-i18n-audit-report.md
-14-observations-suggestions.md
-```
+Audit sensitive actions, including:
 
----
+* Create.
+* Update.
+* Delete or deactivate.
+* Approval.
+* Rejection.
+* Cancellation.
+* Status transitions.
+* Inventory posting.
+* Spare-part issue.
+* Part installation and removal.
+* Cost override.
+* Tenant or branch override.
+* Assignment changes.
+* Production posting.
+* Downtime ownership changes.
 
-## ⚙️ Useful Commands
+Audit data should include:
 
-```powershell
-# Start API
-cd apps/api && npm run start:dev
-
-# Start Web
-cd apps/web && npm run dev
-
-# Manual migration
-sqlcmd -S 127.0.0.1,50079 -U atsofterp_app -P <password> -d ATsoftERP_DB -i migration.sql
-
-# Prisma generate
-cd apps/api && npx prisma generate
-
-# Build checks
-cd apps/api && npm run build        # typecheck included
-cd apps/web && npm run build        # typecheck included
-```
+* User.
+* Employee where available.
+* Company.
+* Branch.
+* Entity type.
+* Entity ID.
+* Action.
+* Timestamp.
+* Previous values when relevant.
+* New values when relevant.
+* Reason where required.
 
 ---
 
-## 👤 Current User Context
+## 17. Maintenance and Inventory Protection
 
-### ✅ Global Operational Context + Smart Form Defaults + Full Forms Coverage Matrix (COMPLETED — commit `33854f7`)
-Global operational context system: backend UserOperationalScope model + OperationalContextModule (10 files), frontend context provider (auth-context.tsx + operational-context.ts), 6 context UI components, F9 binding, search filtering, API header injection, smart defaults on 7 inventory + maintenance pages, i18n 13 frontend + 9 API keys, 18 proof docs.
+Do not weaken the existing maintenance and inventory transactional behavior.
 
-**Tags:**
-- `atsoft-erp-global-operational-context-smart-defaults`
-- `atsoft-erp-current-release-final-audited-v7-operational-context`
-- `atsoft-erp-operational-context-browser-proof`
+For maintenance work:
 
-**Key outcomes:**
-- Schema: `UserOperationalScope` model (28 cols) added via additive migration → 91 tables / 1307 columns
-- Backend: `OperationalContextModule` — 10 files: types, service, validator, interceptor, resolver, decorators, helpers
-- Auth: 2 new endpoints (`/auth/contexts` returns 5 contexts with default, `/auth/context/validate`)
-- Search: 734-line context-aware filtering for all entity types
-- Frontend: auth-context.tsx (376 lines) + operational-context.ts (253 lines) + 6 new UI components
-- Smart defaults: 5 inventory + 2 maintenance pages auto-fill company/branch/machine fields
-- F9: context binding, auto-clear on context change, context-aware refresh
-- API i18n: 9 new localized messages (EN + AR)
-- Frontend i18n: 13 new keys (EN + AR)
-- Build: API build PASS, Web build PASS (166 pages), Prisma validate/generate PASS
-- Runtime: API server verified — health 200, login 200, auth/contexts 200 (5 contexts)
-- Forbidden modules: zero activation
-- Proof: 18 documents in `docs/proofs/global-operational-context-smart-form-defaults/`
+* Preserve request history.
+* Preserve assignments.
+* Preserve downtime records.
+* Preserve parts accountability.
+* Preserve installed-part and replacement history.
+* Preserve preventive schedules and checklists.
+* Preserve numbering.
+* Preserve stock issue transactions.
 
-### ✅ SLA Final Closure Patch (COMPLETED — commit `cc2bf68`)
-SLA limitation closed — stale server 404 resolved, frontend fallback code removed, API verified working.
+For spare-part issue and installation:
 
-**Tags:**
-- `atsoft-erp-sla-final-closure-patch`
-- `atsoft-erp-current-release-final-audited-v5-sla-closed`
-- `atsoft-erp-sla-final-closure-proof`
+* Validate compatible tenant, warehouse, machine, component, and work order.
+* Validate available quantity.
+* Prevent negative inventory.
+* Create inventory movement.
+* Update inventory balance.
+* Record requester, approver, issuer, receiver, installer, machine, component, and source document as applicable.
+* Record cost ownership.
+* Record installation and replaced part.
+* Perform dependent updates atomically.
 
-**Key outcomes:**
-- Root cause identified: `MaintenanceSlaModule` was already registered in `app.module.ts` since v3 — the 404 was a stale NestJS dev server issue (same as BOM/SparePartPlans)
-- Backend: Added `total` field to `getSlaStats()` response
-- Frontend: Removed 404 catch, `apiAvailable` state, and yellow warning banner from SLA page
-- Frontend: Compliance percentage now computed client-side as `onTrack / total`
-- All 5 SLA endpoints return HTTP 200 with real data
-- 4 integrated SLA endpoints (dashboard, reliability, calendar) also verified 200
-- Web build: 166 pages PASS
-- Proof: 11 documents in `docs/proofs/sla-final-closure-patch/`
-- Release achieves **RELEASE_READY_FULL_RUNTIME_VERIFIED** — zero 404s from active frontend pages
+Do not directly edit an inventory balance without an authorized source transaction.
 
 ---
 
-## 👤 Current User Context
+## 18. Production Module Principles
 
-```yaml
-language: Arabic (primary)
-working_dir: C:\Users\attef\PycharmProjects\Trae\ATsofterp
-external_copy: C:\Users\attef\PycharmProjects\Trae\maintenance-completion-discovery-pack\
-next_batch: v10 validation error toast corrective complete. Next: commit/tag/push v10 changes.
-```
+The production module does not currently exist as a complete operational domain.
+
+Build it incrementally as tested vertical slices.
+
+Do not create the entire production domain in one uncontrolled batch.
+
+Recommended implementation order:
+
+1. Production master data required by execution.
+2. Shifts and operational assignments.
+3. Product capacity standards.
+4. Production orders.
+5. Production execution sessions or runs.
+6. Machine and line output recording.
+7. Downtime and loss reasons.
+8. Waste and rework.
+9. Material issue and consumption.
+10. Finished-goods receipt.
+11. Quality integration.
+12. Cost integration.
+13. OEE and performance reporting.
+
+Production must integrate with existing:
+
+* Companies.
+* Branches.
+* Organizational structure.
+* Production lines.
+* Machines.
+* Machine components.
+* Warehouses.
+* Products.
+* Cost centers.
+* Maintenance requests.
+* Downtime.
+* Notifications.
+* Audit.
+* Numbering.
+* Search.
+* Attachments.
+
+Do not duplicate existing entities only to make production development easier.
+
+---
+
+## 19. Tests Are Mandatory
+
+The existence of an empty test file is not a test.
+
+Every operational change must add meaningful tests appropriate to its risk.
+
+Required test categories include:
+
+* Business-rule unit tests.
+* Service/database integration tests.
+* API authorization tests.
+* Tenant-isolation tests.
+* Permission allow/deny tests.
+* Status-transition tests.
+* Inventory atomicity tests.
+* Duplicate-submission tests.
+* Invalid-reference tests.
+* Regression tests for fixed defects.
+* Frontend interaction or browser tests for critical workflows.
+
+For tenant-owned entities, test at minimum:
+
+* Company A can access its record.
+* Company B cannot read it by ID.
+* Company B cannot edit it by ID.
+* Company B cannot reference it in a new transaction.
+* Unauthorized branch access is rejected.
+* Search and export do not leak the record.
+
+Do not:
+
+* Add empty specs.
+* Skip failing tests without documented approval.
+* Delete tests to pass validation.
+* weaken assertions.
+* mock away the business rule under test.
+* claim success without showing actual results.
+
+---
+
+## 20. Validation Order
+
+Use focused validation first to reduce wasted time.
+
+Then run the broader required checks.
+
+Typical order:
+
+1. Inspect changed files.
+2. Run focused unit tests.
+3. Run focused integration/API tests.
+4. Run Prisma validation when schema-related.
+5. Run Prisma generation when required.
+6. Run API type checking or build.
+7. Run Web type checking.
+8. Run Web build.
+9. Run i18n consistency check.
+10. Run focused browser proof.
+11. Inspect `git diff --check`.
+12. Inspect final `git status`.
+
+Do not repeatedly run the full build after every small edit.
+
+Run it when the coherent implementation batch is ready.
+
+Never hide pre-existing failures.
+
+Clearly separate:
+
+* New failures caused by the task.
+* Pre-existing failures.
+* Warnings.
+* Unverified areas.
+
+---
+
+## 21. Runtime Proof
+
+A build passing is not sufficient proof of an operational feature.
+
+For a critical workflow, prove the real path:
+
+`Frontend → API → Permission → Service → Database → Audit → Result`
+
+Where applicable, verify:
+
+* Create.
+* Read.
+* Edit same record.
+* Status transition.
+* Permission denial.
+* Tenant denial.
+* Inventory effect.
+* Cost effect.
+* Audit event.
+* Arabic UI.
+* English UI.
+* Error handling.
+* Duplicate prevention.
+
+Do not report `COMPLETE` when runtime wiring was not verified.
+
+Use:
+
+* `COMPLETE`
+* `PARTIAL`
+* `BLOCKED`
+* `NOT_VERIFIED`
+
+honestly.
+
+---
+
+## 22. Git and Repository Safety
+
+Do not perform Git write operations unless the current task explicitly requests them.
+
+Do not automatically:
+
+* Commit.
+* Push.
+* Merge.
+* Rebase.
+* Reset.
+* Clean.
+* Delete untracked files.
+* Create or move tags.
+* Switch branches.
+
+Before work, record:
+
+* Current branch.
+* Current commit.
+* Existing modified files.
+* Existing untracked files.
+
+Do not overwrite pre-existing user changes.
+
+Do not claim a clean tree when task-created proof files are present.
+
+Do not include generated, build, cache, log, secret, or temporary artifacts in commits.
+
+Never force-push.
+
+---
+
+## 23. Secrets and Environment Files
+
+Never expose or commit:
+
+* Database credentials.
+* JWT secrets.
+* API keys.
+* SMTP passwords.
+* Tokens.
+* Private certificates.
+* User passwords.
+* Production connection strings.
+
+Do not display secret values in reports.
+
+Use `REDACTED`.
+
+Read `.env.example` where needed.
+
+Do not read real `.env` files unless the task explicitly requires a safe configuration diagnosis and permission allows it.
+
+Do not modify environment files without explicit instruction.
+
+---
+
+## 24. Performance and Scalability
+
+Avoid unbounded list queries.
+
+Use pagination and targeted field selection.
+
+Prevent N+1 query patterns.
+
+Use indexes aligned with real filters.
+
+Do not load complete attachment bodies or large histories in normal list endpoints.
+
+Do not calculate large aggregates in the browser when they belong in the backend or database.
+
+Do not add caching before defining invalidation and tenant isolation.
+
+For reports:
+
+* Apply tenant filters.
+* Apply date limits.
+* Stream or paginate large exports where needed.
+* Avoid loading all operational history into memory.
+
+Performance changes must preserve correctness.
+
+---
+
+## 25. Definition of Done
+
+A requested feature is complete only when all applicable items are satisfied:
+
+* Existing implementation inspected.
+* No duplicate domain created.
+* Database model and migration are safe.
+* Existing data is preserved.
+* Tenant isolation is enforced.
+* Branch scope is enforced where applicable.
+* Backend API is real.
+* DTO validation is complete.
+* Permissions are defined and seeded.
+* Backend permissions are enforced.
+* Frontend permissions are applied.
+* Audit is implemented.
+* Frontend is connected to the real API.
+* Create works.
+* Details work.
+* Edit updates the same record.
+* Status actions work.
+* Loading, empty, and error states work.
+* Daily input is minimized.
+* Existing data auto-populates safely.
+* Arabic is complete.
+* English is complete.
+* RTL works.
+* LTR works.
+* Tests are meaningful and passing.
+* Runtime workflow is proven where required.
+* No unrelated files changed.
+* No mock data or placeholders were introduced.
+* Documentation is updated only where necessary.
+* Final diff is reviewed.
+* Final status is honestly reported.
+
+---
+
+## 26. Final Response Format
+
+At the end of an implementation task, report:
+
+1. Task status.
+2. Exact scope completed.
+3. Files created.
+4. Files modified.
+5. Database models or migrations changed.
+6. API endpoints added or changed.
+7. Frontend routes added or changed.
+8. Permissions added or changed.
+9. Tests added and results.
+10. Build and validation results.
+11. Runtime proof results.
+12. Tenant-isolation proof.
+13. Known limitations.
+14. Pre-existing issues encountered.
+15. Git status.
+16. Commit and tag status only when explicitly requested.
+
+Do not use vague statements such as:
+
+* "Everything should work."
+* "The feature is likely complete."
+* "Tests appear fine."
+* "Production ready" without evidence.
+
+---
+
+## 27. Task-Specific Rule Loading
+
+Do not load all detailed rule files for every task.
+
+Load only the relevant files:
+
+* Architecture, organization, or cross-module changes:
+  `docs/agent-rules/architecture-and-tenancy.md`
+
+* Prisma, SQL Server, models, indexes, or migrations:
+  `docs/agent-rules/database-and-migrations.md`
+
+* NestJS, API, permissions, auditing, or business rules:
+  `docs/agent-rules/backend-and-security.md`
+
+* Next.js, forms, tables, Arabic/English, F9, or user experience:
+  `docs/agent-rules/frontend-and-ux.md`
+
+* Tests, builds, browser proof, or release validation:
+  `docs/agent-rules/testing-and-proof.md`
+
+* Maintenance changes:
+  `docs/agent-rules/domain-rules/maintenance.md`
+
+* Inventory or spare-parts changes:
+  `docs/agent-rules/domain-rules/inventory.md`
+
+* Production changes:
+  `docs/agent-rules/domain-rules/production.md`
+
+When a referenced file does not exist:
+
+* Do not invent its contents.
+* Continue using this `AGENTS.md`.
+* Report the missing rule file.
+* Do not create it unless the task explicitly requests rule-file creation.
+
+Treat loaded rule files as mandatory extensions of this document.
+
+When a task-specific prompt conflicts with this file, follow the task-specific prompt only when it explicitly overrides the relevant rule and does not cause data loss, security failure, or destructive database behavior.

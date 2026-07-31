@@ -6,14 +6,18 @@ import { useErrorModal } from './error-modal';
 import { normalizeApiError } from '../../lib/error-utils';
 import type { ErrorConfig } from '../../lib/error-utils';
 
+type ErrorHandlerOptions = Partial<ErrorConfig> & { dialog?: boolean };
+
 export function useApiErrorHandler() {
   const { showError } = useErrorModal();
   const { t } = useTranslation();
 
   const handleApiError = useCallback(
-    (err: unknown, customConfig?: Partial<ErrorConfig>) => {
+    (err: unknown, options?: ErrorHandlerOptions): ErrorConfig => {
       const config = normalizeApiError(err, t as (key: string, ns?: string) => string);
-      showError({ ...config, ...customConfig });
+      const merged: ErrorConfig = { ...config, ...options };
+      if (options?.dialog !== false) showError(merged);
+      return merged;
     },
     [showError, t],
   );

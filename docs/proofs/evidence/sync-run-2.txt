@@ -1,0 +1,4 @@
+Command: npm run seed:permissions --workspace apps/api (second run, idempotency check)
+
+CMMS permissions seed completed. Added 0 new permissions, migrated 0 keys.
+Total permissions linked to SUPER_ADMIN: 475

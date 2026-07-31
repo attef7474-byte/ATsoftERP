@@ -8,8 +8,11 @@ import {
   unwrapApiList,
   UnwrappedApiList,
 } from '../lib/form-utils';
+import { ApiFieldError } from '../lib/error-utils';
 
 export type CrudOperation = 'list' | 'detail' | 'create' | 'update' | 'delete';
+
+export type ValidationResult = string | null | undefined | { message?: string; fieldErrors?: Record<string, string> };
 
 export interface CrudPayloadContext<TRecord> {
   mode: 'create' | 'edit';
@@ -36,9 +39,10 @@ export interface UseCrudListOptions<
   mapRecordToForm: (record: TRecord) => TForm;
   mapFormToPayload: (form: TForm, context: CrudPayloadContext<TRecord>) => TPayload;
   getRecordId?: (record: TRecord) => string;
-  validate?: (form: TForm, context: CrudPayloadContext<TRecord>) => string | null | undefined;
+  validate?: (form: TForm, context: CrudPayloadContext<TRecord>) => ValidationResult;
   errorMessage?: (operation: CrudOperation) => string;
   onError?: (message: string, operation: CrudOperation, error: unknown) => void;
+  onFieldErrors?: (errors: ApiFieldError[], operation: CrudOperation) => void;
   onSuccess?: (operation: Exclude<CrudOperation, 'list' | 'detail'>, result: unknown) => void;
 }
 
@@ -92,6 +96,10 @@ export function useCrudList<
   const reportError = useCallback((operation: CrudOperation, thrown: unknown) => {
     const message = safeErrorMessage(thrown, getFallback(operation));
     optionsRef.current.onError?.(message, operation, thrown);
+    const apiErrors = (thrown as { errors?: ApiFieldError[] })?.errors;
+    if (Array.isArray(apiErrors) && apiErrors.length > 0) {
+      optionsRef.current.onFieldErrors?.(apiErrors, operation);
+    }
     return message;
   }, [getFallback]);
 
@@ -251,14 +259,23 @@ export function useCrudList<
     }
 
     const context: CrudPayloadContext<TRecord> = { mode: isEdit ? 'edit' : 'create', record };
-    const validationMessage = optionsRef.current.validate?.(form, context);
-    if (validationMessage) {
-      optionsRef.current.onError?.(validationMessage, isEdit ? 'update' : 'create', new Error(validationMessage));
+    const operation: 'create' | 'update' = isEdit ? 'update' : 'create';
+    const validationResult = optionsRef.current.validate?.(form, context);
+    if (validationResult) {
+      if (typeof validationResult === 'object') {
+        const fieldEntries: ApiFieldError[] = Object.entries(validationResult.fieldErrors ?? {}).map(([field, message]) => ({ field, message }));
+        if (fieldEntries.length > 0) {
+          optionsRef.current.onFieldErrors?.(fieldEntries, operation);
+        } else if (validationResult.message) {
+          optionsRef.current.onError?.(validationResult.message, operation, new Error(validationResult.message));
+        }
+      } else {
+        optionsRef.current.onError?.(validationResult, operation, new Error(validationResult));
+      }
       return false;
     }
 
     setSaving(true);
-    const operation: 'create' | 'update' = isEdit ? 'update' : 'create';
     try {
       // Payload mapping is intentionally mandatory. A page must explicitly
       // whitelist editable fields instead of PATCHing a partial list row or a

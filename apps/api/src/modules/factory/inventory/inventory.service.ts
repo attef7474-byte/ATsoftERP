@@ -5,7 +5,6 @@ import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 import { CreateWarehouseLocationDto } from './dto/create-warehouse-location.dto';
 import { UpdateWarehouseLocationDto } from './dto/update-warehouse-location.dto';
-import { CreateStockAdjustmentDto } from './dto/create-stock-adjustment.dto';
 
 @Injectable()
 export class InventoryService {
@@ -181,55 +180,5 @@ export class InventoryService {
       orderBy: { updatedAt: 'desc' },
     });
     return { location: loc, balances };
-  }
-
-  async adjustStock(dto: CreateStockAdjustmentDto) {
-    const existing = await this.prisma.inventoryBalance.findFirst({
-      where: {
-        warehouseId: dto.warehouseId,
-        productId: dto.productId,
-        locationId: dto.locationId || null,
-      },
-    });
-
-    if (existing) {
-      return this.prisma.inventoryBalance.update({
-        where: { id: existing.id },
-        data: { quantity: existing.quantity + dto.quantity },
-      });
-    }
-
-    return this.prisma.inventoryBalance.create({
-      data: {
-        warehouseId: dto.warehouseId,
-        productId: dto.productId,
-        locationId: dto.locationId,
-        quantity: dto.quantity,
-      },
-    });
-  }
-
-  async getBalances(query: { warehouseId?: string; productId?: string; page?: number; limit?: number }) {
-    const page = query.page || 1;
-    const limit = query.limit || 10;
-    const skip = (page - 1) * limit;
-
-    const where: any = {};
-    if (query.warehouseId) where.warehouseId = query.warehouseId;
-    if (query.productId) where.productId = query.productId;
-
-    const [data, total] = await Promise.all([
-      this.prisma.inventoryBalance.findMany({
-        where, skip, take: limit, orderBy: { updatedAt: 'desc' },
-        include: {
-          warehouse: { select: { id: true, name: true, code: true } },
-          product: { select: { id: true, name: true, code: true, unit: true } },
-          location: { select: { id: true, name: true, code: true } },
-        },
-      }),
-      this.prisma.inventoryBalance.count({ where }),
-    ]);
-
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 }

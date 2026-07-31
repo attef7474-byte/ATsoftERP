@@ -37,7 +37,7 @@ export default function InventoryCountDetailPage() {
   const execWorkflow = async (action: string) => {
     setActionLoading(true);
     try {
-      const endpoint = action === 'generateAdjustment' ? `/inventory/adjustments/${id}/generate-adjustment` : `/inventory/counts/${id}/${action}`;
+      const endpoint = `/inventory/counts/${id}/${action}`;
       const method = action === 'generateAdjustment' ? api.post : api.patch;
       await method(endpoint, {});
       showToast(t('common.successUpdated'), 'success');

@@ -9,6 +9,8 @@ import type { LookupAdapter } from './types';
 
 interface F9LookupProps<T extends Record<string, any>> {
   label?: string;
+  name?: string;
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   onItemSelect?: (item: T) => void;
@@ -16,6 +18,7 @@ interface F9LookupProps<T extends Record<string, any>> {
   filters?: Record<string, string>;
   placeholder?: string;
   error?: string;
+  description?: string;
   disabled?: boolean;
   clearOnContextChange?: boolean;
   clearOnFilterChange?: boolean;
@@ -24,6 +27,8 @@ interface F9LookupProps<T extends Record<string, any>> {
 
 export function F9Lookup<T extends Record<string, any>>({
   label,
+  name,
+  id,
   value,
   onChange,
   onItemSelect,
@@ -31,6 +36,7 @@ export function F9Lookup<T extends Record<string, any>>({
   filters,
   placeholder,
   error,
+  description,
   disabled,
   clearOnContextChange = true,
   clearOnFilterChange = true,
@@ -146,15 +152,21 @@ export function F9Lookup<T extends Record<string, any>>({
     onItemSelect?.(item);
   };
 
-  const inputId = label ? label.toLowerCase().replace(/\s+/g, '-') : undefined;
+  const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  const errorId = error ? `${inputId}-error` : undefined;
+  const descriptionId = description ? `${inputId}-description` : undefined;
+  const describedBy = [errorId, descriptionId].filter(Boolean).join(' ') || undefined;
 
   return (
-    <div className="w-full">
+    <div className="w-full" data-field={name}>
       {label && <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
       <div
         tabIndex={effectiveDisabled ? -1 : 0}
         role="button"
         id={inputId}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        aria-haspopup="dialog"
         onClick={() => { if (!effectiveDisabled) setModalOpen(true); }}
         onKeyDown={handleKeyDown}
         aria-label={label || t('f9.pressToSearch')}
@@ -163,11 +175,12 @@ export function F9Lookup<T extends Record<string, any>>({
         <span className={displayText ? 'text-gray-900' : 'text-gray-400'}>
           {displayText || placeholder || t('f9.pressToSearch')}
         </span>
-        <svg className="h-4 w-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="h-4 w-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
       </div>
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      {description && !error && <p id={descriptionId} className="mt-1 text-xs text-gray-500">{description}</p>}
+      {error && <p id={errorId} className="mt-1 text-sm text-red-600">{error}</p>}
       {value && !effectiveDisabled && (
         <button
           type="button"

@@ -91,6 +91,15 @@ export function translateMovementType(value: string, locale: Locale): string {
   return translateFromNamespaces(value, locale, ['status', 'inventoryCounting', 'inventory']) || humanize(value);
 }
 
+export function translatePermissionKey(key: string, locale: Locale): string {
+  if (!key) return '-';
+  const parts = key.split('.').filter(Boolean);
+  const last = parts.pop() || '';
+  const prefix = parts.map(humanize);
+  const action = translateEnum(last, locale, 'actions');
+  return prefix.length > 0 ? `${prefix.join(' / ')} / ${action}` : action;
+}
+
 export function formatDate(date: string | Date | null | undefined, locale: Locale): string {
   if (!date) return '-';
   try {

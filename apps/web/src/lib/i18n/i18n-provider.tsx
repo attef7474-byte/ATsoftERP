@@ -1,6 +1,8 @@
 'use client';
 import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { Locale, I18nContextValue, TranslationNamespace } from './types';
+import { Locale, I18nContextValue, TranslationNamespace, TranslationParams } from './types';
+import { resolveTranslation, reportMissingTranslationKey } from './translation-core';
+import { LOCALE_COOKIE_NAME, normalizeLocale, parseCookieValue } from './locale-shared';
 import en from './locales/en';
 import ar from './locales/ar';
 
@@ -8,15 +10,26 @@ const translations = { en, ar };
 
 export const I18nContext = createContext<I18nContextValue | null>(null);
 
-function getNestedValue(obj: any, path: string): string | undefined {
-  return path.split('.').reduce((acc, part) => (acc && acc[part] !== undefined ? acc[part] : undefined), obj);
+export { LOCALE_COOKIE_NAME, normalizeLocale };
+
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  return parseCookieValue(document.cookie, name);
 }
 
-function normalizeLocale(raw: unknown): Locale {
-  if (typeof raw !== 'string') return 'ar';
-  const lower = raw.toLowerCase().replace(/-/g, '_');
-  if (lower === 'en' || lower.startsWith('en_')) return 'en';
-  if (lower === 'ar' || lower.startsWith('ar_')) return 'ar';
+function setCookie(name: string, value: string, maxAgeDays: number): void {
+  if (typeof document === 'undefined') return;
+  const maxAge = maxAgeDays * 24 * 60 * 60;
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+}
+
+export function getStoredLocale(): Locale {
+  if (typeof document !== 'undefined') {
+    const fromCookie = getCookie(LOCALE_COOKIE_NAME);
+    if (fromCookie) return normalizeLocale(fromCookie);
+    const fromStorage = localStorage.getItem('locale');
+    if (fromStorage) return normalizeLocale(fromStorage);
+  }
   return 'ar';
 }
 
@@ -24,14 +37,18 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('ar');
 
   useEffect(() => {
-    const stored = localStorage.getItem('locale');
-    setLocaleState(normalizeLocale(stored));
+    setLocaleState(getStoredLocale());
   }, []);
 
   const setLocale = useCallback((newLocale: Locale) => {
     const safe = normalizeLocale(newLocale);
     setLocaleState(safe);
-    localStorage.setItem('locale', safe);
+    setCookie(LOCALE_COOKIE_NAME, safe, 365);
+    try {
+      localStorage.setItem('locale', safe);
+    } catch {
+      // Storage may be unavailable (private mode); cookie still applies.
+    }
     document.documentElement.lang = safe;
     document.documentElement.dir = safe === 'ar' ? 'rtl' : 'ltr';
   }, []);
@@ -42,18 +59,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [locale]);
 
   const t = useCallback(
-    (key: string, ns?: TranslationNamespace): string => {
+    (key: string, ns?: TranslationNamespace, params?: TranslationParams): string => {
       const safeLocale = normalizeLocale(locale);
-      const localeData = translations[safeLocale];
-      if (!localeData) return key;
-      const dotIndex = key.indexOf('.');
-      const actualNs = ns ?? (dotIndex >= 0 ? key.substring(0, dotIndex) as TranslationNamespace : 'common');
-      const actualKey = (dotIndex >= 0 && ns === undefined) ? key.substring(dotIndex + 1) : key;
-      const nsData = localeData[actualNs];
-      if (!nsData) return key;
-      const value = getNestedValue(nsData, actualKey);
-      if (typeof value === 'string') return value;
-      return key;
+      const localeData = translations[safeLocale] as Partial<Record<TranslationNamespace, Record<string, unknown>>>;
+      return resolveTranslation(localeData, safeLocale, key, ns, params);
     },
     [locale],
   );
@@ -67,3 +76,5 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   return React.createElement(I18nContext.Provider, { value }, children);
 }
+
+export { reportMissingTranslationKey };

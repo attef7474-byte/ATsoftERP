@@ -1,0 +1,65 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "*": "allow",
+
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow"
+    },
+
+    "glob": "allow",
+    "grep": "allow",
+    "lsp": "allow",
+
+    "external_directory": "deny",
+
+    "edit": {
+      "*": "allow"
+    },
+
+    "bash": {
+      "*": "allow",
+
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git show*": "allow",
+      "git branch --show-current*": "allow",
+      "git rev-parse*": "allow",
+      "git ls-files*": "allow",
+
+      "rg *": "allow",
+      "grep *": "allow",
+      "Get-Content *": "allow",
+      "Get-ChildItem *": "allow",
+      "Select-String *": "allow",
+
+      "npm run build*": "allow",
+      "npm run typecheck*": "allow",
+      "npm run test*": "allow",
+      "npm run i18n*": "allow",
+      "npx prisma validate*": "allow",
+
+      "npx prisma generate*": "allow",
+      "npx prisma migrate dev*": "allow",
+      "npx prisma migrate deploy*": "allow",
+      "npm install*": "allow",
+      "npm update*": "allow",
+      "git commit*": "allow",
+      "git push*": "allow",
+
+      "npx prisma migrate reset*": "deny",
+      "npx prisma db push*": "deny",
+      "git reset --hard*": "deny",
+      "git clean*": "deny",
+      "git push --force*": "deny",
+      "git push -f*": "deny",
+      "rm -rf *": "deny",
+      "rmdir /s *": "deny",
+      "Remove-Item *-Recurse*-Force*": "deny"
+    }
+  }
+}

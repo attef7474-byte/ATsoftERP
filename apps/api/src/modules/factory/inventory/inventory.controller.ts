@@ -5,7 +5,6 @@ import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 import { CreateWarehouseLocationDto } from './dto/create-warehouse-location.dto';
 import { UpdateWarehouseLocationDto } from './dto/update-warehouse-location.dto';
-import { CreateStockAdjustmentDto } from './dto/create-stock-adjustment.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
@@ -112,21 +111,4 @@ export class InventoryController {
   @Permissions('inventory:update')
   @ApiOperation({ summary: 'Activate warehouse location' })
   activateLocation(@Param('id') id: string) { return this.service.activateLocation(id); }
-
-  @Post('adjustments')
-  @Permissions('inventory:update')
-  @ApiOperation({ summary: 'Adjust stock quantity' })
-  adjustStock(@Body() dto: CreateStockAdjustmentDto) { return this.service.adjustStock(dto); }
-
-  @Get('balances')
-  @Permissions('inventory:read')
-  @ApiOperation({ summary: 'Get inventory balances' })
-  getBalances(@Query() query: { warehouseId?: string; productId?: string; page?: string; limit?: string }) {
-    return this.service.getBalances({
-      warehouseId: query.warehouseId,
-      productId: query.productId,
-      page: query.page ? parseInt(query.page, 10) : undefined,
-      limit: query.limit ? parseInt(query.limit, 10) : undefined,
-    });
-  }
 }

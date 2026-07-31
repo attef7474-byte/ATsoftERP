@@ -7,6 +7,7 @@ export {
   translateEnum,
   translateMaintenanceType,
   translateMovementType,
+  translatePermissionKey,
   translatePriority,
   translateStatus,
   translateUnit,

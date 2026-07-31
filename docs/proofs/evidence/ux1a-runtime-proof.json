@@ -1,0 +1,88 @@
+{
+  "ranAt": "2026-07-31T21:03:06.905Z",
+  "steps": [
+    {
+      "labels": [
+        {
+          "name": "default html lang=ar dir=rtl (server-side cookies())",
+          "status": "PASS",
+          "detail": "{\"lang\":\"ar\",\"dir\":\"rtl\"}"
+        },
+        {
+          "name": "cookie atsoft_locale=en -> html lang=en dir=ltr",
+          "status": "PASS",
+          "detail": "{\"lang\":\"en\",\"dir\":\"ltr\"}"
+        },
+        {
+          "name": "empty login -> inline errors + aria-invalid + aria-describedby (EN)",
+          "status": "PASS",
+          "detail": "{\"emailInvalid\":\"true\",\"emailDescribedBy\":\"email-error\",\"passwordInvalid\":\"true\",\"passwordDescribedBy\":\"password-error\",\"emailError\":\"This field is required.\",\"passwordError\":\"This field is required.\"}"
+        },
+        {
+          "name": "login failure -> global error dialog (title=Error, role=alert, requestId)",
+          "status": "PASS",
+          "detail": "{\"heading\":\"Error\",\"alert\":\"Invalid credentials\",\"rid\":\"2f10e138-7db7-4796-9a7f-ee463ca3bd16\",\"hasFocusTrapAttr\":true}"
+        },
+        {
+          "name": "x-locale=en sent on API requests",
+          "status": "PASS",
+          "detail": "[\"en\"]"
+        },
+        {
+          "name": "focus moved into dialog on open",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "name": "Escape closes dialog and restores focus to trigger button",
+          "status": "PASS",
+          "detail": "{\"activeTag\":\"BUTTON\",\"restored\":true}"
+        },
+        {
+          "name": "admin login succeeded",
+          "status": "PASS",
+          "detail": "http://localhost:3000/admin/dashboard"
+        },
+        {
+          "name": "create company modal: role=dialog aria-modal aria-labelledby -> \"New Company\"",
+          "status": "PASS",
+          "detail": "{\"heading\":\"New Company\",\"labelledBy\":\"modal-title-ds1xlz\"}"
+        },
+        {
+          "name": "empty company submit -> inline error + focus on first invalid field, NO global dialog",
+          "status": "PASS",
+          "detail": "{\"nameInvalid\":\"true\",\"nameDescribedBy\":\"name-error\",\"activeName\":\"name\",\"globalAlert\":false,\"errorText\":\"This field is required.\"}"
+        },
+        {
+          "name": "operational context resolved in browser storage",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "name": "backend 400 validation contract (EN): messageKey+field errors+requestId, no raw exception leak",
+          "status": "PASS",
+          "detail": "{\"status\":400,\"messageKey\":\"common.validationFailed\",\"errors\":[{\"field\":\"name\",\"code\":\"validation.invalidValue\",\"message\":\"Invalid field value\"}],\"requestId\":\"e97f9de4-303d-4c5a-ab21-cca7883adad1\"}"
+        },
+        {
+          "name": "backend validation message localized to Arabic via x-locale: ar",
+          "status": "PASS",
+          "detail": "فشل التحقق من صحة البيانات"
+        },
+        {
+          "name": "arabic runtime: lang=ar dir=rtl with Arabic text",
+          "status": "PASS",
+          "detail": "{\"lang\":\"ar\",\"dir\":\"rtl\",\"hasArabic\":true}"
+        },
+        {
+          "name": "arabic error dialog: localized AR heading + message + requestId, no raw key",
+          "status": "PASS",
+          "detail": "{\"heading\":\"خطأ\",\"alert\":\"بيانات الدخول غير صحيحة\",\"rid\":\"271bf325-0e14-4336-b016-46f160d0c9a5\"}"
+        }
+      ]
+    }
+  ],
+  "total": 15,
+  "failed": 0,
+  "passed": 15,
+  "ok": true
+}

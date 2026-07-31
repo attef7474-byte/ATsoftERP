@@ -15,6 +15,7 @@ const errorDialog: Pick<LocaleTranslations, 'errorDialog'> = {
     serverUnavailable: 'الخادم غير متاح. يرجى المحاولة لاحقاً.',
     validationErrors: 'أخطاء التحقق',
     confirmClose: 'هل أنت متأكد من الإغلاق؟',
+    requestId: 'معرف الطلب',
   },
 };
 

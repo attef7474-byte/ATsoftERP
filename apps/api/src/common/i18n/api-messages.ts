@@ -29,6 +29,13 @@ const messages: Record<string, { ar: string; en: string }> = {
   'validation.invalidQuantity': { ar: 'الكمية غير صالحة', en: 'Invalid quantity' },
   'validation.invalidDate': { ar: 'التاريخ غير صالح', en: 'Invalid date' },
   'validation.invalidId': { ar: 'المعرف غير صالح', en: 'Invalid ID' },
+  'validation.invalidValue': { ar: 'قيمة الحقل غير صالحة', en: 'Invalid field value' },
+  'validation.invalidNumber': { ar: 'القيمة يجب أن تكون رقماً صالحاً', en: 'Value must be a valid number' },
+  'validation.invalidEmail': { ar: 'البريد الإلكتروني غير صالح', en: 'Invalid email address' },
+  'validation.invalidFormat': { ar: 'صيغة الحقل غير صالحة', en: 'Invalid field format' },
+  'validation.unknownField': { ar: 'حقل غير معروف', en: 'Unknown field' },
+  'validation.tooShort': { ar: 'القيمة أقصر من الحد الأدنى المسموح', en: 'Value is shorter than the allowed minimum' },
+  'validation.tooLong': { ar: 'القيمة أطول من الحد الأقصى المسموح', en: 'Value is longer than the allowed maximum' },
 
   'numbering.sequenceNotFound': { ar: 'تسلسل الأرقام غير موجود', en: 'Number sequence not found' },
   'numbering.sequenceInactive': { ar: 'تسلسل الأرقام غير نشط', en: 'Number sequence is inactive' },

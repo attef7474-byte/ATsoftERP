@@ -38,6 +38,8 @@ const inventory: Pick<LocaleTranslations, 'inventory' | 'inventoryCounting' | 'i
         lockType: 'نوع القفل',
         inventoryLocks: 'أقفال المخزون',
         createLock: 'إنشاء قفل',
+        lockCreatedSuccessfully: 'تم إنشاء القفل بنجاح',
+        lockCreateFailed: 'فشل إنشاء القفل',
         dateRange: 'نطاق التاريخ',
         dateFrom: 'من تاريخ',
         dateTo: 'إلى تاريخ',

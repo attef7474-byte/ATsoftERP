@@ -7,6 +7,9 @@ import { useToast } from '../../../../../components/admin/toast-provider';
 import { Button, Input, Select, Textarea, Card, CardContent } from '../../../../../components/admin/ui';
 import { F9Lookup, machineAdapter, userAdapter, productionLineAdapter, machineComponentAdapter, operationTypeAdapter, costCenterAdapter, sparePartAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
+import { useErrorModal } from '../../../../../components/admin/error-modal';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../lib/form-validation';
 import type { Machine, SparePart } from '../../../../../lib/admin-types';
 
 const REQUEST_TYPES = [
@@ -27,6 +30,8 @@ export default function CreateMaintenanceRequestPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
+  const { showError } = useErrorModal();
   const [form, setForm] = useState({ machineId: '', type: 'CORRECTIVE', priority: 'MEDIUM', title: '', description: '', assignedToId: '', notes: '', productionLineId: '', machineComponentId: '', operationTypeId: '', costCenterId: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -86,8 +91,14 @@ export default function CreateMaintenanceRequestPage() {
       const res = await api.post<{ data: { id: string } }>('/maintenance/requests', payload);
       showToast(t('complexForms.recordCreated'), 'success');
       router.push(`/admin/maintenance/requests/${res.data.id}`);
-    } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.createFailed'), 'error');
+    } catch (err) {
+      const config = handleApiError(err, { dialog: false });
+      if (config.errors && config.errors.length > 0) {
+        setErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      } else {
+        showError(config);
+      }
     } finally { setSaving(false); }
   };
 
@@ -112,7 +123,7 @@ export default function CreateMaintenanceRequestPage() {
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-gray-900">{t('complexForms.requestInformation')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label={t('maintenance.title')} value={form.title} onChange={(e) => setField('title', e.target.value)} error={errors.title} required />
+              <Input label={t('maintenance.title')} name="title" value={form.title} onChange={(e) => setField('title', e.target.value)} error={errors.title} required />
               <Select label={t('maintenance.type')} value={form.type} onChange={(e) => setField('type', e.target.value)} options={REQUEST_TYPES} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -123,6 +134,7 @@ export default function CreateMaintenanceRequestPage() {
             <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.machine')}</h2>
             <F9Lookup
               label={t('maintenance.machine')}
+              name="machineId"
               value={form.machineId}
               onChange={(value) => {
                 setForm((previous) => ({

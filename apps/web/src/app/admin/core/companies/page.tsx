@@ -12,6 +12,8 @@ import { GridColumn, GridAction } from '../../../../components/admin/admin-data-
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 import { EntityWorkspaceLayout, EntityPageHeader, EntityDataTable, EntityDetailDrawer, EntityEmptyState, useDrawerSectionData, type DrawerSection } from '../../../../components/entity';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
+import { useErrorModal } from '../../../../components/admin/error-modal';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
 
 interface CompanyForm {
   name: string;
@@ -70,6 +72,7 @@ export default function CompaniesPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
+  const { showError } = useErrorModal();
   const [search, setSearch] = useState('');
   const [sortColumn, setSortColumn] = useState('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -170,14 +173,30 @@ export default function CompaniesPage() {
       address: safeString(detail.address),
     }),
     mapFormToPayload: (currentForm) => ({ ...currentForm }),
-    validate: (currentForm) => currentForm.name.trim() ? null : t('validation.required'),
+    validate: (currentForm) => {
+      if (!currentForm.name.trim()) {
+        return { message: t('validation.required'), fieldErrors: { name: t('validation.required') } };
+      }
+      return null;
+    },
     errorMessage: (operation: CrudOperation) => {
       if (operation === 'list' || operation === 'detail') return t('errors.loadFailed');
       if (operation === 'delete') return t('errors.deleteFailed');
       return operation === 'create' ? t('errors.createFailed') : t('errors.updateFailed');
     },
-    onError: (message, operation) => {
-      if (operation !== 'list') setValidationErrors({ form: message });
+    onError: (message, operation, error) => {
+      if (operation === 'list' || operation === 'detail') return;
+      const config = handleApiError(error, { dialog: false });
+      if (config.errors && config.errors.length > 0) {
+        setValidationErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      } else {
+        showError(config);
+      }
+    },
+    onFieldErrors: (errors) => {
+      setValidationErrors(adaptFieldErrorsToMap(errors));
+      focusFirstInvalidField(errors);
     },
     onSuccess: (operation) => {
       const message = operation === 'create'
@@ -486,12 +505,37 @@ export default function CompaniesPage() {
       <Modal open={modalOpen} onClose={() => { closeFormModal(); setValidationErrors({}); }} title={editItem ? t('core.editCompany') : t('core.newCompany')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
           {validationErrors.form && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{validationErrors.form}</div>}
-          <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <Input label={t('core.legalName')} value={form.legalName} onChange={(e) => setForm({ ...form, legalName: e.target.value })} />
-          <Input label={t('core.taxNumber')} value={form.taxNumber} onChange={(e) => setForm({ ...form, taxNumber: e.target.value })} />
-          <Input label={t('common.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <Input label={t('common.email')} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <Input label={t('common.address')} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          <Input
+            label={t('common.name')}
+            name="name"
+            value={form.name}
+            error={validationErrors.name}
+            onChange={(e) => {
+              setForm({ ...form, name: e.target.value });
+              setValidationErrors((prev) => { const next = { ...prev }; delete next.name; return next; });
+            }}
+            required
+          />
+          <Input label={t('core.legalName')} name="legalName" value={form.legalName} error={validationErrors.legalName} onChange={(e) => {
+            setForm({ ...form, legalName: e.target.value });
+            setValidationErrors((prev) => { const next = { ...prev }; delete next.legalName; return next; });
+          }} />
+          <Input label={t('core.taxNumber')} name="taxNumber" value={form.taxNumber} error={validationErrors.taxNumber} onChange={(e) => {
+            setForm({ ...form, taxNumber: e.target.value });
+            setValidationErrors((prev) => { const next = { ...prev }; delete next.taxNumber; return next; });
+          }} />
+          <Input label={t('common.phone')} name="phone" value={form.phone} error={validationErrors.phone} onChange={(e) => {
+            setForm({ ...form, phone: e.target.value });
+            setValidationErrors((prev) => { const next = { ...prev }; delete next.phone; return next; });
+          }} />
+          <Input label={t('common.email')} name="email" value={form.email} error={validationErrors.email} onChange={(e) => {
+            setForm({ ...form, email: e.target.value });
+            setValidationErrors((prev) => { const next = { ...prev }; delete next.email; return next; });
+          }} />
+          <Input label={t('common.address')} name="address" value={form.address} error={validationErrors.address} onChange={(e) => {
+            setForm({ ...form, address: e.target.value });
+            setValidationErrors((prev) => { const next = { ...prev }; delete next.address; return next; });
+          }} />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => { closeFormModal(); setValidationErrors({}); }}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>

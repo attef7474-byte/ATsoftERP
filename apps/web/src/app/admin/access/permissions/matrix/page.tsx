@@ -5,9 +5,10 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useRouter } from 'next/navigation';
 import { Input, Select, Button } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../../components/admin/admin-action-bar';
+import { translatePermissionKey, translateEnum } from '../../../../../lib/i18n/literals';
 
 export default function PermissionsMatrixPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
   const [matrix, setMatrix] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -57,10 +58,10 @@ export default function PermissionsMatrixPage() {
 
       <div className="flex flex-wrap gap-4 mb-6 items-end">
         <div className="w-48">
-          <Select value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)} placeholder={t('access.filterByModule')} options={[{ value: '', label: t('common.all') }, ...modules.map((m: string) => ({ value: m, label: m }))]} />
+          <Select value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)} placeholder={t('access.filterByModule')} options={[{ value: '', label: t('common.all') }, ...modules.map((m: string) => ({ value: m, label: translateEnum(m, locale, 'access') }))]} />
         </div>
         <div className="w-48">
-          <Select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} placeholder={t('access.filterByAction')} options={[{ value: '', label: t('common.all') }, ...actions.map((a: string) => ({ value: a, label: a }))]} />
+          <Select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} placeholder={t('access.filterByAction')} options={[{ value: '', label: t('common.all') }, ...actions.map((a: string) => ({ value: a, label: translateEnum(a, locale, 'actions') }))]} />
         </div>
         <div className="w-64">
           <Input placeholder={t('access.searchPermissions')} value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -84,9 +85,12 @@ export default function PermissionsMatrixPage() {
           <tbody>
             {filteredPermissions.map((perm: any) => (
               <tr key={perm.id} className="border-b hover:bg-gray-50">
-                <td className="px-4 py-2 text-xs font-mono text-gray-600 sticky left-0 bg-white">{perm.key}</td>
-                <td className="px-4 py-2">{perm.module}</td>
-                <td className="px-4 py-2">{perm.action}</td>
+                <td className="px-4 py-2 sticky left-0 bg-white">
+                  <span className="block font-medium text-gray-900">{translatePermissionKey(perm.key, locale)}</span>
+                  <span className="block text-xs font-mono text-gray-400" dir="ltr">{perm.key}</span>
+                </td>
+                <td className="px-4 py-2">{translateEnum(perm.module, locale, 'access')}</td>
+                <td className="px-4 py-2">{translateEnum(perm.action, locale, 'actions')}</td>
                 {matrix.roles.map((role: any) => {
                   const assigned = perm.roles?.find((r: any) => r.roleId === role.id)?.assigned;
                   return (

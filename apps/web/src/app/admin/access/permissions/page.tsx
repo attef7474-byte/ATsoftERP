@@ -8,9 +8,12 @@ import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/ad
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionViewIcon } from '../../../../components/admin/admin-action-bar';
 import { useRouter } from 'next/navigation';
 import { Button } from '../../../../components/admin/ui';
+import { translatePermissionKey, translateEnum } from '../../../../lib/i18n/literals';
 
 export default function PermissionsPage() {
-  const { t, dir } = useTranslation();
+  const { t, dir, locale } = useTranslation();
+  const humanizeModule = useCallback((module: string) => translateEnum(module, locale, 'access'), [locale]);
+  const translateActionLabel = useCallback((action: string) => translateEnum(action, locale, 'actions'), [locale]);
   const [data, setData] = useState<Permission[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -57,9 +60,20 @@ export default function PermissionsPage() {
   useEffect(() => { fetchData(); }, []);
 
   const baseColumns: GridColumn<Permission>[] = [
-    { key: 'key', header: t('permissions.key'), sortable: true, filterable: true },
-    { key: 'module', header: t('permissions.module'), sortable: true, filterable: true },
-    { key: 'action', header: t('permissions.action'), sortable: true, filterable: true },
+    {
+      key: 'key',
+      header: t('permissions.key'),
+      sortable: true,
+      filterable: true,
+      render: (r) => (
+        <span className="flex flex-col">
+          <span className="font-medium text-gray-900">{translatePermissionKey(r.key, locale)}</span>
+          <span className="text-xs text-gray-400 font-mono" dir="ltr">{r.key}</span>
+        </span>
+      ),
+    },
+    { key: 'module', header: t('permissions.module'), sortable: true, filterable: true, render: (r) => humanizeModule(r.module) },
+    { key: 'action', header: t('permissions.action'), sortable: true, filterable: true, render: (r) => translateActionLabel(r.action) },
     { key: 'description', header: t('permissions.description'), sortable: true, render: (r) => r.description || '-' },
     { key: 'status', header: t('common.status'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
       { value: 'ACTIVE', label: t('common.active') },

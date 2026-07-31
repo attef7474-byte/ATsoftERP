@@ -15,6 +15,7 @@ const errorDialog: Pick<LocaleTranslations, 'errorDialog'> = {
     serverUnavailable: 'Server unavailable. Please try again later.',
     validationErrors: 'Validation errors',
     confirmClose: 'Are you sure you want to close?',
+    requestId: 'Request ID',
   },
 };
 

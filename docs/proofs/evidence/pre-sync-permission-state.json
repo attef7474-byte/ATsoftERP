@@ -1,0 +1,39 @@
+{
+  "capturedAt": "2026-07-31T18:16:44.205Z",
+  "totals": {
+    "permissions": 474,
+    "rolePermissions": 480,
+    "activeRoles": 4
+  },
+  "canonical": [
+    { "key": "installed-parts:read", "present": false },
+    { "key": "maintenance-request:activity.view", "present": false },
+    { "key": "maintenance-request:attachments.view", "present": false },
+    { "key": "maintenance-request:print", "present": false }
+  ],
+  "obsolete": [
+    {
+      "key": "maintenance-request:activity",
+      "present": true,
+      "id": "cmrxi2g9g000y7c95ych21w27",
+      "linkedRoles": ["SUPER_ADMIN"],
+      "linkedRoleCount": 1
+    },
+    {
+      "key": "maintenance-request:attachments",
+      "present": true,
+      "id": "cmrxi2g9m000z7c95u6uptv9r",
+      "linkedRoles": ["SUPER_ADMIN"],
+      "linkedRoleCount": 1
+    },
+    {
+      "key": "maintenance-request:printData",
+      "present": true,
+      "id": "cmrxi2g9v00107c95pnvz2n9q",
+      "linkedRoles": ["SUPER_ADMIN"],
+      "linkedRoleCount": 1
+    }
+  ],
+  "duplicateKeys": [],
+  "duplicateAssignments": []
+}

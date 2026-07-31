@@ -56,9 +56,11 @@ export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;
 export type LocaleTranslations = Record<TranslationNamespace, Translations>;
 
+export type TranslationParams = Record<string, string | number>;
+
 export interface I18nContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (key: string, ns?: TranslationNamespace) => string;
+  t: (key: string, ns?: TranslationNamespace, params?: TranslationParams) => string;
   dir: 'ltr' | 'rtl';
 }

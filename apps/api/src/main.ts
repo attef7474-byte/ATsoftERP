@@ -2,10 +2,11 @@ import { config } from 'dotenv';
 config({ path: '.env' });
 
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { BadRequestException, ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { transformValidationErrors } from './common/validation/validation-error-transformer';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -20,6 +21,13 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      exceptionFactory: (errors) => {
+        return new BadRequestException({
+          messageKey: 'common.validationFailed',
+          message: 'Validation failed',
+          errors: transformValidationErrors(errors),
+        });
+      },
     }),
   );
 

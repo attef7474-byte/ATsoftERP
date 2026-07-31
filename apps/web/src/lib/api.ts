@@ -1,4 +1,5 @@
 import { getOperationalContextHeaders } from './operational-context';
+import { getClientLocale } from './i18n/locale-shared';
 
 export const getApiBaseUrl = (): string => {
   return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
@@ -27,6 +28,9 @@ export function getApiRequestHeaders(options: ApiHeaderOptions = {}): Headers {
     const token = localStorage.getItem('accessToken');
     if (token && !headers.has('Authorization')) {
       headers.set('Authorization', `Bearer ${token}`);
+    }
+    if (!headers.has('x-locale')) {
+      headers.set('x-locale', getClientLocale());
     }
     if (!options.skipOperationalContext) {
       Object.entries(getOperationalContextHeaders()).forEach(([name, value]) => {
@@ -59,11 +63,15 @@ async function handleResponse<T>(response: Response): Promise<T> {
       code?: number | string;
       messageKey?: string;
       details?: unknown;
+      errors?: unknown;
+      requestId?: string;
     };
     error.status = response.status;
     error.code = json.code ?? response.status;
     error.messageKey = json.messageKey;
     error.details = json.details;
+    error.errors = json.errors;
+    error.requestId = json.requestId;
     throw error;
   }
 

@@ -1,8 +1,9 @@
 'use client';
 import { useTranslation } from '../../lib/i18n/use-translation';
+import { translatePriority } from '../../lib/i18n/literals';
 
 export function CmmsPriorityBadge({ priority }: { priority?: string | null }) {
-  const { t } = useTranslation();
+  const { locale } = useTranslation();
   const p = priority || '';
   const colors: Record<string, string> = {
     LOW: 'bg-gray-100 text-gray-800',
@@ -11,5 +12,5 @@ export function CmmsPriorityBadge({ priority }: { priority?: string | null }) {
     CRITICAL: 'bg-red-100 text-red-800',
   };
   const color = colors[p] || 'bg-gray-100 text-gray-800';
-  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>{t('status.' + p) || p}</span>;
+  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>{translatePriority(p, locale)}</span>;
 }

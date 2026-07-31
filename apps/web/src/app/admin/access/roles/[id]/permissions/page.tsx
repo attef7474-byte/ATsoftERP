@@ -6,6 +6,8 @@ import { useToast } from '../../../../../../components/admin/toast-provider';
 import { useRouter, useParams } from 'next/navigation';
 import { Input, Button } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon } from '../../../../../../components/admin/admin-action-bar';
+import { translatePermissionKey, translateEnum } from '../../../../../../lib/i18n/literals';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 function ModuleCheckbox({ checked, indeterminate, onChange }: { checked: boolean; indeterminate: boolean; onChange: (checked: boolean) => void }) {
   const ref = useRef<HTMLInputElement>(null);
@@ -16,10 +18,11 @@ function ModuleCheckbox({ checked, indeterminate, onChange }: { checked: boolean
 }
 
 export default function RolePermissionsPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [groups, setGroups] = useState<any[]>([]);
   const [role, setRole] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -41,10 +44,10 @@ export default function RolePermissionsPage() {
       groupsRes.forEach((g: any) => g.permissions.forEach((p: any) => { if (p.assigned) assigned.add(p.id); }));
       setSelectedIds(assigned);
       setChanged(false);
-    } catch (err: any) {
-      showToast(err?.message || t('access.loadFailed'), 'error');
+    } catch (err) {
+      handleApiError(err);
     } finally { setLoading(false); }
-  }, [params.id, t, showToast]);
+  }, [params.id, t, handleApiError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -74,8 +77,8 @@ export default function RolePermissionsPage() {
       await api.post(`/roles/${params.id}/permissions`, { permissionIds: Array.from(selectedIds) });
       showToast(t('access.assignPermissionsSuccess'), 'success');
       setChanged(false);
-    } catch (err: any) {
-      showToast(err?.message || t('access.assignmentFailed'), 'error');
+    } catch (err) {
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 
@@ -132,7 +135,7 @@ export default function RolePermissionsPage() {
               <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-lg">
                 <div className="flex items-center gap-3">
                   <ModuleCheckbox checked={allChecked} indeterminate={!allChecked && someChecked} onChange={(checked) => toggleModule(group.module, checked)} />
-                  <h3 className="font-semibold text-sm uppercase tracking-wide text-gray-700">{group.module}</h3>
+                  <h3 className="font-semibold text-sm uppercase tracking-wide text-gray-700">{translateEnum(group.module, locale, 'access')}</h3>
                 </div>
                 <span className="text-xs text-gray-500">{modulePerms.filter((p: any) => selectedIds.has(p.id)).length}/{modulePerms.length}</span>
               </div>
@@ -140,8 +143,10 @@ export default function RolePermissionsPage() {
                 {modulePerms.map((perm: any) => (
                   <label key={perm.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 rounded p-1">
                     <input type="checkbox" checked={selectedIds.has(perm.id)} onChange={() => togglePermission(perm.id)} className="rounded border-gray-300" />
-                    <span className="text-xs font-medium">{perm.action}</span>
-                    <span className="text-xs text-gray-400 truncate">{perm.key}</span>
+                    <span className="flex flex-col min-w-0">
+                      <span className="text-xs font-medium">{translatePermissionKey(perm.key, locale)}</span>
+                      <span className="text-xs text-gray-400 truncate" dir="ltr">{perm.key}</span>
+                    </span>
                   </label>
                 ))}
               </div>

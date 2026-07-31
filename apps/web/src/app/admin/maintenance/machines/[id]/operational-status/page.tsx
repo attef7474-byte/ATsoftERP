@@ -89,7 +89,7 @@ export default function OperationalStatusPage() {
       </Card>
 
       <Card>
-        <CardHeader><h3 className="text-sm font-semibold text-gray-700">{t('maintenanceSchedules')}</h3></CardHeader>
+        <CardHeader><h3 className="text-sm font-semibold text-gray-700">{t('maintenance.maintenanceSchedules')}</h3></CardHeader>
         <CardContent>
           {data.nextMaintenanceDueDate ? (
             <div className="flex items-center justify-between">

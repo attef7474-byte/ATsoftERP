@@ -1,0 +1,7 @@
+Command: npm run seed:permissions --workspace apps/api (first run, after pre-sync state capture)
+
+CMMS permissions seed completed. Added 1 new permissions, migrated 3 keys.
+  - maintenance-request:activity -> maintenance-request:activity.view (1 role(s) reassigned)
+  - maintenance-request:attachments -> maintenance-request:attachments.view (1 role(s) reassigned)
+  - maintenance-request:printData -> maintenance-request:print (1 role(s) reassigned)
+Total permissions linked to SUPER_ADMIN: 475

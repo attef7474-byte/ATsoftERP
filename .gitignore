@@ -19,3 +19,5 @@ packages/shared/src/*.js
 test-results/
 
 token.txt
+# SQL Server backups (tools/backup/backup-sqlserver.ps1 output)
+tools/backup/backups/

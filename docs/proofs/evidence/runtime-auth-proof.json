@@ -1,0 +1,155 @@
+{
+  "syncResult": {
+    "added": 0,
+    "migrated": 3,
+    "migrationDetails": [
+      {
+        "oldKey": "maintenance-request:activity",
+        "newKey": "maintenance-request:activity.view",
+        "reassignedRoles": 1
+      },
+      {
+        "oldKey": "maintenance-request:attachments",
+        "newKey": "maintenance-request:attachments.view",
+        "reassignedRoles": 1
+      },
+      {
+        "oldKey": "maintenance-request:printData",
+        "newKey": "maintenance-request:print",
+        "reassignedRoles": 1
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "SUPER_ADMIN can read installed parts",
+      "method": "GET",
+      "endpoint": "/installed-parts",
+      "expected": "200",
+      "actual": "200",
+      "pass": true
+    },
+    {
+      "name": "user without permissions is denied",
+      "method": "GET",
+      "endpoint": "/installed-parts",
+      "expected": "403",
+      "actual": "403",
+      "pass": true,
+      "responseBody": {
+        "success": false,
+        "statusCode": 403,
+        "message": [
+          "氐賱丕丨賷丕鬲 睾賷乇 賰丕賮賷丞"
+        ],
+        "timestamp": "2026-07-31T18:30:09.230Z",
+        "messageKey": "auth.insufficientPermissions"
+      }
+    },
+    {
+      "name": "obsolete key grants nothing (activity)",
+      "method": "GET",
+      "endpoint": "/maintenance/requests/000000000000000000000000/activity",
+      "expected": "403",
+      "actual": "403",
+      "pass": true,
+      "responseBody": {
+        "success": false,
+        "statusCode": 403,
+        "message": [
+          "氐賱丕丨賷丕鬲 睾賷乇 賰丕賮賷丞"
+        ],
+        "timestamp": "2026-07-31T18:30:09.240Z",
+        "messageKey": "auth.insufficientPermissions"
+      }
+    },
+    {
+      "name": "unrelated permission does not grant access",
+      "method": "GET",
+      "endpoint": "/installed-parts",
+      "expected": "403",
+      "actual": "403",
+      "pass": true
+    },
+    {
+      "name": "obsolete keys are removed by the sync",
+      "method": "db",
+      "endpoint": "permissions",
+      "expected": "none",
+      "actual": "none",
+      "pass": true
+    },
+    {
+      "name": "migrated obsolete links were re-pointed to canonical keys",
+      "method": "db",
+      "endpoint": "role_permissions",
+      "expected": "3 keys linked (activity.view, attachments.view, print)",
+      "actual": "3 keys linked",
+      "pass": true
+    },
+    {
+      "name": "user with canonical key can read installed parts",
+      "method": "GET",
+      "endpoint": "/installed-parts",
+      "expected": "200",
+      "actual": "200",
+      "pass": true
+    },
+    {
+      "name": "user with canonical key can open request activity",
+      "method": "GET",
+      "endpoint": "/maintenance/requests/cms2hzyu50038sg95lw8akm7g/activity",
+      "expected": "200/404",
+      "actual": "200",
+      "pass": true
+    },
+    {
+      "name": "user with canonical key can open request attachments",
+      "method": "GET",
+      "endpoint": "/maintenance/requests/cms2hzyu50038sg95lw8akm7g/attachments",
+      "expected": "200/404",
+      "actual": "200",
+      "pass": true
+    },
+    {
+      "name": "user with canonical key can open request print",
+      "method": "GET",
+      "endpoint": "/maintenance/requests/cms2hzyu50038sg95lw8akm7g/print",
+      "expected": "200/404",
+      "actual": "200",
+      "pass": true
+    },
+    {
+      "name": "SUPER_ADMIN can open request activity",
+      "method": "GET",
+      "endpoint": "/maintenance/requests/cms2hzyu50038sg95lw8akm7g/activity",
+      "expected": "200/404",
+      "actual": "200",
+      "pass": true
+    },
+    {
+      "name": "SUPER_ADMIN can open request attachments",
+      "method": "GET",
+      "endpoint": "/maintenance/requests/cms2hzyu50038sg95lw8akm7g/attachments",
+      "expected": "200/404",
+      "actual": "200",
+      "pass": true
+    },
+    {
+      "name": "SUPER_ADMIN can open request print",
+      "method": "GET",
+      "endpoint": "/maintenance/requests/cms2hzyu50038sg95lw8akm7g/print",
+      "expected": "200/404",
+      "actual": "200",
+      "pass": true
+    },
+    {
+      "name": "second sync run is a no-op (idempotency)",
+      "method": "db",
+      "endpoint": "syncPermissionKeys",
+      "expected": "added=0 migrated=0",
+      "actual": "added=0 migrated=0",
+      "pass": true
+    }
+  ]
+}
