@@ -122,7 +122,7 @@ export default function MachinePartDetailPage() {
             </div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.minimumStock')}</dt><dd className="mt-1 text-sm text-gray-900">{minStock}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.machine')}</dt><dd className="mt-1 text-sm text-gray-900">{data.machine ? <button onClick={() => router.push(`/admin/maintenance/machines/${data.machine!.id}`)} className="text-blue-600 hover:underline">{data.machine.name}</button> : '-'}</dd></div>
-            <div><dt className="text-sm font-medium text-gray-500">{t('inventory.product')}</dt><dd className="mt-1 text-sm text-gray-900">{data.product?.name || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.linkedInventoryItem')}</dt><dd className="mt-1 text-sm text-gray-900">{data.product?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('common.createdAt')}</dt><dd className="mt-1 text-sm text-gray-900">{fmt(data.createdAt)}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('common.updatedAt')}</dt><dd className="mt-1 text-sm text-gray-900">{fmt(data.updatedAt)}</dd></div>
           </dl>

@@ -207,7 +207,7 @@ useRegisterAdminActions([
             </div>
           </div>
           <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setForm({ ...form, machineId: v })} adapter={machineAdapter} />
-          <F9Lookup label={t('inventory.product')} value={form.productId} onChange={(v) => setForm({ ...form, productId: v })} adapter={productAdapter} />
+          <F9Lookup label={t('maintenance.linkedInventoryItem')} value={form.productId} onChange={(v) => setForm({ ...form, productId: v })} adapter={productAdapter} />
           <Input label={t('maintenance.partNumber')} value={form.partNumber} onChange={(e) => setForm({ ...form, partNumber: e.target.value })} />
           <div className="grid grid-cols-2 gap-4">
             <Input label={t('maintenance.quantity')} type="number" value={String(form.quantity)} onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 0 })} />

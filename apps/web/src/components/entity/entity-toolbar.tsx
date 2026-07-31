@@ -20,7 +20,7 @@ interface EntityToolbarProps {
 }
 
 const variantClass: Record<string, string> = {
-  primary: 'bg-teal-700 hover:bg-teal-800 text-white shadow-sm',
+  primary: 'bg-[var(--ws-primary)] hover:bg-[var(--ws-primary-strong)] text-white shadow-sm',
   secondary: 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 shadow-sm',
   danger: 'bg-white hover:bg-red-50 text-red-600 border border-red-300 shadow-sm',
   ghost: 'bg-transparent hover:bg-gray-100 text-gray-600',

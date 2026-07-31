@@ -23,6 +23,8 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         parentCategory: 'التصنيف الرئيسي',
         machineParts: 'قطع غيار الماكينات',
         machinePart: 'قطعة غيار',
+        linkedInventoryItem: 'الصنف المخزني المرتبط',
+        linkedInventoryItemHint: 'صنف مخزني اختياري مرتبط بقطعة الغيار هذه.',
         newMachinePart: 'قطعة غيار جديدة',
         editMachinePart: 'تعديل قطعة الغيار',
         partNumber: 'رقم القطعة',

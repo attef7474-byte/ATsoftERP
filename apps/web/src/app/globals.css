@@ -83,6 +83,65 @@
   --sidebar-active-indicator: #A78BFA;
 }
 
+/* ======= Entity Workspace Design Tokens ======= */
+/* Drive EntityPageHeader, EntityDetailDrawer, EntityEmptyState, nav rail, rows */
+/* Defaults = teal palette (matches data-sidebar-accent="teal") */
+:root {
+  --ws-primary: #0F766E;
+  --ws-primary-strong: #115E59;
+  --ws-accent: #14B8A6;
+  --ws-cyan: #06B6D4;
+  --ws-blue: #2563EB;
+  --ws-navy: #071A2F;
+  --ws-slate: #334155;
+  --ws-bg: #F8FAFC;
+  --ws-aqua: #ECFEFF;
+  --ws-soft: #F0FDFA;
+  --ws-border: #DDEAF0;
+  --ws-border-strong: #CBD5E1;
+  --ws-row-bg: #CCFBF1;
+  --ws-row-ring: rgba(20, 184, 166, 0.16);
+}
+
+[data-sidebar-accent="blue"] {
+  --ws-primary: #1D4ED8;
+  --ws-primary-strong: #1E40AF;
+  --ws-accent: #3B82F6;
+  --ws-cyan: #0EA5E9;
+  --ws-soft: #EFF6FF;
+  --ws-aqua: #EFF6FF;
+  --ws-border: #DBEAFE;
+  --ws-border-strong: #93C5FD;
+  --ws-row-bg: #DBEAFE;
+  --ws-row-ring: rgba(59, 130, 246, 0.16);
+}
+
+[data-sidebar-accent="emerald"] {
+  --ws-primary: #065F46;
+  --ws-primary-strong: #064E3B;
+  --ws-accent: #10B981;
+  --ws-cyan: #2DD4BF;
+  --ws-soft: #ECFDF5;
+  --ws-aqua: #ECFDF5;
+  --ws-border: #D1FAE5;
+  --ws-border-strong: #6EE7B7;
+  --ws-row-bg: #D1FAE5;
+  --ws-row-ring: rgba(16, 185, 129, 0.16);
+}
+
+[data-sidebar-accent="violet"] {
+  --ws-primary: #5B21B6;
+  --ws-primary-strong: #4C1D95;
+  --ws-accent: #8B5CF6;
+  --ws-cyan: #A78BFA;
+  --ws-soft: #F5F3FF;
+  --ws-aqua: #F5F3FF;
+  --ws-border: #EDE9FE;
+  --ws-border-strong: #C4B5FD;
+  --ws-row-bg: #EDE9FE;
+  --ws-row-ring: rgba(139, 92, 246, 0.16);
+}
+
 /* Sidebar density variants */
 [data-sidebar-density="compact"] {
   --sidebar-group-height: 38px;

@@ -24,6 +24,8 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         parentCategory: 'Parent Category',
         machineParts: 'Machine Parts',
         machinePart: 'Machine Part',
+        linkedInventoryItem: 'Linked Inventory Item',
+        linkedInventoryItemHint: 'Optional inventory item linked to this spare part (derived from SparePart.productId).',
         newMachinePart: 'New Machine Part',
         editMachinePart: 'Edit Machine Part',
         partNumber: 'Part Number',

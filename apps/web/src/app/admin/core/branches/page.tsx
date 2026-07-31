@@ -11,7 +11,7 @@ import { Button, Input, Card, Pagination, LoadingState, Modal, StatusBadge, Conf
 import { GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { F9Lookup, companyAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
-import { EntityWorkspaceLayout, EntityPageHeader, EntityDataTable, EntityDetailDrawer, EntityEmptyState, type DrawerSection } from '../../../../components/entity';
+import { EntityWorkspaceLayout, EntityPageHeader, EntityDataTable, EntityDetailDrawer, EntityEmptyState, useDrawerSectionData, type DrawerSection } from '../../../../components/entity';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 interface BranchForm {
@@ -76,12 +76,39 @@ export default function BranchesPage() {
   const [selectedBranch, setSelectedBranch] = useState<any>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('overview');
-  const [drawerDepartments, setDrawerDepartments] = useState<any[]>([]);
-  const [drawerDepartmentsLoading, setDrawerDepartmentsLoading] = useState(false);
-  const [drawerUsers, setDrawerUsers] = useState<any[]>([]);
-  const [drawerUsersLoading, setDrawerUsersLoading] = useState(false);
-  const [drawerWarehouses, setDrawerWarehouses] = useState<any[]>([]);
-  const [drawerWarehousesLoading, setDrawerWarehousesLoading] = useState(false);
+
+  // Related data is scoped by the branch's company because the Users and
+  // Warehouses APIs do not expose a branchId filter (branchId is dropped).
+  const selectedBranchCompanyId = selectedBranch?.companyId || selectedBranch?.company?.id || null;
+
+  const drawerDepartments = useDrawerSectionData<any>(selectedBranch?.id ?? null, async (branchId) => {
+    const res = await api.get<{ data: any[] }>('/departments', { params: { branchId, limit: 50 } });
+    return res.data || [];
+  });
+  const drawerUsers = useDrawerSectionData<any>(selectedBranchCompanyId, async (companyId) => {
+    const res = await api.get<{ data: any[] }>('/users', { params: { companyId, limit: 50 } });
+    return res.data || [];
+  });
+  const drawerWarehouses = useDrawerSectionData<any>(selectedBranchCompanyId, async (companyId) => {
+    const res = await api.get<{ data: any[] }>('/inventory/warehouses', { params: { companyId, limit: 50 } });
+    return res.data || [];
+  });
+
+  const drawerErrors = [
+    drawerDepartments.error,
+    drawerUsers.error,
+    drawerWarehouses.error,
+  ].filter(Boolean);
+  const drawerErrorKey = drawerErrors
+    .map((e: any) => `${e?.status ?? ''}:${e?.message ?? ''}`)
+    .join('|');
+
+  useEffect(() => {
+    if (drawerErrorKey) {
+      handleApiError(drawerErrors[drawerErrors.length - 1]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawerErrorKey, handleApiError]);
 
   const {
     data,
@@ -175,7 +202,7 @@ export default function BranchesPage() {
       setConfirmOpen(false);
       fetchData(paginationMeta.page);
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     } finally {
       setStatusSaving(false);
     }
@@ -219,9 +246,6 @@ export default function BranchesPage() {
     setSelectedId(item.id);
     setActiveSection('overview');
     setDrawerOpen(true);
-    fetchDrawerDepartments(item.id);
-    fetchDrawerUsers(item.id);
-    fetchDrawerWarehouses(item.id);
   }, []);
 
   const closeDrawer = useCallback(() => {
@@ -241,30 +265,6 @@ export default function BranchesPage() {
     }
   }, [data, selectedBranch, drawerOpen, closeDrawer]);
 
-  const fetchDrawerDepartments = useCallback(async (branchId: string) => {
-    setDrawerDepartmentsLoading(true);
-    try {
-      const res = await api.get<{ data: any[] }>('/departments', { params: { branchId, limit: 50 } });
-      setDrawerDepartments(res.data || []);
-    } catch { /* ignore */ } finally { setDrawerDepartmentsLoading(false); }
-  }, []);
-
-  const fetchDrawerUsers = useCallback(async (branchId: string) => {
-    setDrawerUsersLoading(true);
-    try {
-      const res = await api.get<{ data: any[] }>('/users', { params: { branchId, limit: 50 } });
-      setDrawerUsers(res.data || []);
-    } catch { /* ignore */ } finally { setDrawerUsersLoading(false); }
-  }, []);
-
-  const fetchDrawerWarehouses = useCallback(async (branchId: string) => {
-    setDrawerWarehousesLoading(true);
-    try {
-      const res = await api.get<{ data: any[] }>('/warehouses', { params: { branchId, limit: 50 } });
-      setDrawerWarehouses(res.data || []);
-    } catch { /* ignore */ } finally { setDrawerWarehousesLoading(false); }
-  }, []);
-
   const drawerNavItems = [
     { id: 'overview', label: t('workspace.overview'), icon: overviewIcon },
     { id: 'departments', label: t('workspace.departments'), icon: peopleIcon },
@@ -278,7 +278,7 @@ export default function BranchesPage() {
       label: t('workspace.overview'),
       content: selectedBranch ? (
         <div className="space-y-4">
-          <div className="bg-teal-50/50 rounded-lg p-4 space-y-2">
+          <div className="bg-[var(--ws-soft)] border border-[var(--ws-border)] rounded-lg p-4 space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-500">{t('common.code')}</span>
               <span className="text-sm font-medium text-gray-900">{selectedBranch.code}</span>
@@ -305,16 +305,16 @@ export default function BranchesPage() {
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <div className="text-lg font-bold text-teal-700">{drawerDepartments.length}</div>
+            <div className="bg-[var(--ws-soft)] border border-[var(--ws-border)] rounded-lg p-3 text-center">
+              <div className="text-lg font-bold text-[var(--ws-primary)]">{drawerDepartments.loading ? '—' : drawerDepartments.data.length}</div>
               <div className="text-xs text-gray-500">{t('workspace.departments')}</div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <div className="text-lg font-bold text-teal-700">{drawerUsers.length}</div>
+            <div className="bg-[var(--ws-soft)] border border-[var(--ws-border)] rounded-lg p-3 text-center">
+              <div className="text-lg font-bold text-[var(--ws-primary)]">{drawerUsers.loading ? '—' : drawerUsers.data.length}</div>
               <div className="text-xs text-gray-500">{t('workspace.users')}</div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <div className="text-lg font-bold text-teal-700">{drawerWarehouses.length}</div>
+            <div className="bg-[var(--ws-soft)] border border-[var(--ws-border)] rounded-lg p-3 text-center">
+              <div className="text-lg font-bold text-[var(--ws-primary)]">{drawerWarehouses.loading ? '—' : drawerWarehouses.data.length}</div>
               <div className="text-xs text-gray-500">{t('workspace.warehouses')}</div>
             </div>
           </div>
@@ -324,10 +324,10 @@ export default function BranchesPage() {
     {
       id: 'departments',
       label: t('workspace.departments'),
-      content: drawerDepartmentsLoading ? <LoadingState /> : drawerDepartments.length === 0 ? <EntityEmptyState title={t('workspace.noRelatedDepartments')} /> : (
+      content: drawerDepartments.loading ? <LoadingState /> : drawerDepartments.loaded && drawerDepartments.data.length === 0 ? <EntityEmptyState title={t('workspace.noRelatedDepartments')} /> : (
         <div className="space-y-2">
-          {drawerDepartments.map((item: any) => (
-            <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-100 hover:border-teal-200 transition-colors">
+          {drawerDepartments.data.map((item: any) => (
+            <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-[var(--ws-border)] hover:border-[var(--ws-accent)] transition-colors">
               <div>
                 <p className="text-sm font-medium text-gray-900">{item.name}</p>
                 <p className="text-xs text-gray-500">{item.code}</p>
@@ -341,10 +341,10 @@ export default function BranchesPage() {
     {
       id: 'users',
       label: t('workspace.users'),
-      content: drawerUsersLoading ? <LoadingState /> : drawerUsers.length === 0 ? <EntityEmptyState title={t('workspace.noRelatedUsers')} /> : (
+      content: drawerUsers.loading ? <LoadingState /> : drawerUsers.loaded && drawerUsers.data.length === 0 ? <EntityEmptyState title={t('workspace.noRelatedUsers')} /> : (
         <div className="space-y-2">
-          {drawerUsers.map((item: any) => (
-            <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-100 hover:border-teal-200 transition-colors">
+          {drawerUsers.data.map((item: any) => (
+            <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-[var(--ws-border)] hover:border-[var(--ws-accent)] transition-colors">
               <div>
                 <p className="text-sm font-medium text-gray-900">{item.name || item.username || item.email}</p>
                 <p className="text-xs text-gray-500">{item.email || item.username}</p>
@@ -358,10 +358,10 @@ export default function BranchesPage() {
     {
       id: 'warehouses',
       label: t('workspace.warehouses'),
-      content: drawerWarehousesLoading ? <LoadingState /> : drawerWarehouses.length === 0 ? <EntityEmptyState title={t('workspace.noRelatedWarehouses')} /> : (
+      content: drawerWarehouses.loading ? <LoadingState /> : drawerWarehouses.loaded && drawerWarehouses.data.length === 0 ? <EntityEmptyState title={t('workspace.noRelatedWarehouses')} /> : (
         <div className="space-y-2">
-          {drawerWarehouses.map((item: any) => (
-            <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-100 hover:border-teal-200 transition-colors">
+          {drawerWarehouses.data.map((item: any) => (
+            <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-[var(--ws-border)] hover:border-[var(--ws-accent)] transition-colors">
               <div>
                 <p className="text-sm font-medium text-gray-900">{item.name}</p>
                 <p className="text-xs text-gray-500">{item.code}</p>
@@ -387,6 +387,7 @@ export default function BranchesPage() {
         onSectionChange={setActiveSection}
         navItems={drawerNavItems}
         dir={dir}
+        closeLabel={t('workspace.closePanel')}
       />
     }>
       <EntityPageHeader title={t('core.branches')} icon={branchIcon} />

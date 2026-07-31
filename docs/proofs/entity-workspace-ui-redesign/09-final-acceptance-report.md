@@ -9,32 +9,36 @@
 | Metric | Value |
 |--------|-------|
 | Branch | `main` |
-| Starting commit | `2a5ead7` — v10 validation error toast corrective |
-| Final commit | *(to be created)* |
-| Tags | *(to be pushed)* |
-| Git status | 9 modified + 12 untracked files |
+| Design-phase baseline | `2a5ead7` — v10 validation error toast corrective |
+| Corrective-phase HEAD | `c151e2e` (prior committed work); corrective fixes currently **uncommitted** |
+| Final commit | *(to be created on user request)* |
+| Tags | *(to be pushed on user request)* |
+| Git status | 15 modified files (5 pages, 2 entity components + hook + barrel, globals.css, 4 machine-parts pages, 2 locale files) + 1 untracked proof token |
 
 ## Scope
 
-### Implemented
+### Implemented (design phase + corrective phase)
 
-- 9 reusable entity workspace components in `apps/web/src/components/entity/`
-- BodyRow click guard (skips interactive elements)
-- 73 lines of workspace design tokens in `globals.css`
-- workspace i18n namespace (11 keys, EN+AR)
-- 5 redesigned pages:
-  - Companies: gradient header + drawer with 5 sections
-  - Branches: gradient header + drawer with 4 sections
-  - Departments: gradient header + drawer with 2 sections
-  - Users: gradient header + drawer with 3 sections
-  - Warehouses: gradient header + drawer with 3 sections
-- Drawer lifecycle: open on row click, close on route change, close on entity deletion, close on × button
-- Section data fetched per-section with loading/empty states
+- **10 reusable entity workspace components** in `apps/web/src/components/entity/` (incl. race-safe `useDrawerSectionData` hook)
+- **Drawer rendered via portal** to `document.body` (overlay z-80, panel z-90) — fixes close-button interception by the fixed topbar (z-60)
+- **BodyRow click guard** (skips interactive elements)
+- **`--ws-*` design tokens + 3 accent variants** (`data-sidebar-accent=blue|emerald|violet`) in `globals.css` — follows the Appearance page theme
+- **workspace i18n namespace** (11 keys, EN+AR) + **2 maintenance keys** (`linkedInventoryItem`, `linkedInventoryItemHint`, EN+AR)
+- **5 pages refactored with real, verified data flows**:
+  - Companies: drawer sections Branches / Departments / Users / Warehouses — all via `useDrawerSectionData`, real rows (6 / 3 / 3 / 18 in default context)
+  - Branches: Departments (real empty OK), Users, Warehouses — keyed on branch company
+  - Departments: Users section keyed on department company
+  - Users: Roles inline from `user.roles` — 404 endpoints (`/users/:id/roles`, `/users/:id/operational-scopes`) removed from UI
+  - Warehouses: Locations via plain-array mapping; Balance Summary section removed (no such endpoint)
+- All 5 pages route API errors through `useApiErrorHandler` (Global Error Dialog, localized)
+- Machine Parts label: `المنتج` → `الصنف المخزني المرتبط` (Linked Inventory Item) in list, form, edit, detail pages
+- **Playwright browser proof: 25/25 PASS** — zero console errors, zero request failures, zero unexpected 4xx/5xx
+- Drawer lifecycle: open on row click, close on route change, entity deletion, × button, Esc, overlay
 
 ### Explicitly not implemented
 
 - No detail page replacement — existing `/[id]/page.tsx` routes remain
-- No API changes
+- No API changes (404 endpoints were removed from frontend usage, not added)
 - No permission changes
 - No DB/schema changes
 - No sidebar/navigation changes
@@ -81,23 +85,24 @@
 
 | Check | Result |
 |-------|--------|
-| New components | 9 reusable entity components |
-| Modified pages | 5 (all refactored) |
-| New i18n keys | 11 (workspace namespace) |
+| New components | 10 entity workspace components + hook |
+| Modified pages | 5 refactored + 4 label-only machine-parts pages |
+| New i18n keys | 13 (11 workspace + 2 maintenance), EN + AR |
 | Raw keys in JSX | 0 |
-| Build errors | 0 |
+| Build errors | 0 (`✓ Compiled successfully`, 166/166 pages) |
 | Page count | 166 (unchanged) |
 
 ## Proof
 
 | Evidence | Count/Result |
 |----------|-------------|
-| Build proof | ✓ 166 pages, 0 errors |
-| i18n proof | ✓ 11 keys, 100% EN/AR balanced |
+| Build proof | ✓ 166 pages, 0 errors (final run after portal change) |
+| i18n proof | ✓ 2,990 keys EN / 2,990 AR — 100% match (parity sweep) |
+| Browser/DOM proof | ✓ **25/25 Playwright checks PASS** (real Chromium, DOM assertions, console/network clean) |
+| Bugs caught by proof | ✓ close-button interception (portal fix) — re-proven PASS |
 | Permissions proof | ✓ No changes |
 | DB integrity proof | ✓ No changes |
-| API proof | ✓ No changes |
-| Browser/DOM proof | ✓ Code-verified for all 5 pages |
+| API proof | ✓ HTTP probes: companies 200, warehouses 200, locations 200 `[]`, removed endpoints confirmed 404 (hence removed) |
 
 ## Security
 
@@ -105,16 +110,17 @@
 |-------|--------|
 | No secrets printed | ✓ |
 | No passwordHash leakage | ✓ |
-| No JWT leakage | ✓ |
+| No JWT leakage | ✓ (token kept in untracked local file, not committed) |
 | No SQL errors exposed | ✓ |
 | Permission checks preserved | ✓ |
 
-## Limitations
+## Limitations (documented)
 
-- **No runtime Playwright tests**: Screenshots are disabled per user policy. Automated browser assertions were not executed (no test infrastructure for these pages).
-- **Drawer sections use existing API endpoints**: Section data loading depends on API response times — no client-side caching added.
-- **Warehouse balance summary**: Uses existing `/inventory/balances?warehouseId=:id` endpoint — may not have all desired summary fields.
+- **Cross-company rows**: opening a drawer row whose company differs from the active context triggers `ActiveContextInterceptor` 403 → localized Global Error Dialog. This is the platform's strict context rule — the user switches context via the top-bar switcher. Verified safe, not a broken flow.
+- **Warehouses Locations in default context**: API returns `[]` — the empty state shown is the true state (probe-verified), not a loading/error artifact.
+- **Section data caching**: none added — each drawer open fetches fresh section data.
+- No runtime screenshots (disabled per user policy) — proof is DOM/console/network assertions.
 
 ## Next batch recommendation
 
-Consider applying the same entity workspace pattern to other CRUD-only list pages (Administrations, Machine Categories, Operation Types, Production Lines, Cost Centers) for visual consistency.
+Apply the same entity workspace pattern to remaining CRUD-only list pages (Administrations, Machine Categories, Operation Types, Production Lines, Cost Centers), then commit/tag/push the v11 corrective phase (3 tags: `atsoft-erp-v11-entity-workspace-ui-redesign`, `atsoft-erp-current-release-final-audited-v11-entity-workspace`, `atsoft-erp-v11-entity-workspace-proof`) when the user requests it.

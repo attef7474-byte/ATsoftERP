@@ -8,15 +8,17 @@ import { User, Company, Branch, Department, Role } from '../../../../lib/admin-t
 import { useRouter, usePathname } from 'next/navigation';
 import { Button, Input, Card, Pagination, LoadingState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { EntityWorkspaceLayout, EntityPageHeader, EntityDataTable, EntityDetailDrawer, EntityStatusBadge } from '../../../../components/entity';
+import { EntityWorkspaceLayout, EntityPageHeader, EntityDataTable, EntityDetailDrawer, EntityStatusBadge, EntityEmptyState } from '../../../../components/entity';
 import type { DrawerSection } from '../../../../components/entity';
 import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter, roleAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 export default function UsersPage() {
   const router = useRouter();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<User[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -42,10 +44,6 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('overview');
-  const [drawerRoles, setDrawerRoles] = useState<any[]>([]);
-  const [drawerRolesLoading, setDrawerRolesLoading] = useState(false);
-  const [drawerScopes, setDrawerScopes] = useState<any[]>([]);
-  const [drawerScopesLoading, setDrawerScopesLoading] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate'>('deactivate');
@@ -121,7 +119,7 @@ export default function UsersPage() {
       const detail = unwrapApiData<User>(res);
       setForm({ email: detail.email ?? '', password: '', name: detail.name ?? '', phone: detail.phone ?? '', companyId: detail.companyId ?? '', branchId: detail.branchId ?? '', departmentId: detail.departmentId ?? '', roleId: (detail.roles && detail.roles.length > 0) ? detail.roles[0].role.id : '' });
     } catch (err: any) {
-      showToast(err?.message || t('errors.loadFailed'), 'error');
+      handleApiError(err);
       setModalOpen(false);
     } finally {
       setDetailLoading(false);
@@ -149,7 +147,7 @@ export default function UsersPage() {
       setModalOpen(false);
       fetchData(meta.page);
     } catch (err: any) {
-      showToast(err?.message || t('errors.createFailed'), 'error');
+      handleApiError(err);
     } finally {
       setSaving(false);
     }
@@ -166,37 +164,13 @@ export default function UsersPage() {
       setConfirmOpen(false);
       fetchData(meta.page);
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     }
   };
 
   const getCompanyName = (id?: string | null) => id ? companies.find((c) => c.id === id)?.name || '-' : '-';
   const getBranchName = (id?: string | null) => id ? branches.find((b) => b.id === id)?.name || '-' : '-';
   const getDepartmentName = (id?: string | null) => id ? departments.find((d) => d.id === id)?.name || '-' : '-';
-
-  const fetchDrawerRoles = useCallback(async (userId: string) => {
-    setDrawerRolesLoading(true);
-    try {
-      const res = await api.get<{ data: any[] }>(`/users/${userId}/roles`);
-      setDrawerRoles(res.data || []);
-    } catch {
-      // ignore - roles shown from inline data
-    } finally {
-      setDrawerRolesLoading(false);
-    }
-  }, []);
-
-  const fetchDrawerScopes = useCallback(async (userId: string) => {
-    setDrawerScopesLoading(true);
-    try {
-      const res = await api.get<{ data: any[] }>(`/users/${userId}/operational-scopes`);
-      setDrawerScopes(res.data || []);
-    } catch {
-      // ignore
-    } finally {
-      setDrawerScopesLoading(false);
-    }
-  }, []);
 
   const handleRowClick = useCallback((item: User) => {
     setSelectedId(item.id);
@@ -257,17 +231,9 @@ export default function UsersPage() {
     }
   }, [data, drawerOpen, selectedUser]);
 
-  useEffect(() => {
-    if (drawerOpen && selectedUser) {
-      fetchDrawerRoles(selectedUser.id);
-      fetchDrawerScopes(selectedUser.id);
-    }
-  }, [drawerOpen, selectedUser?.id, fetchDrawerRoles, fetchDrawerScopes]);
-
   const drawerNavItems = useMemo(() => [
     { id: 'overview', label: t('workspace.overview'), icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg> },
     { id: 'roles', label: t('workspace.roles'), icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg> },
-    { id: 'scopes', label: t('workspace.operationalScopes'), icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
   ], [t]);
 
   const drawerSections = useMemo((): DrawerSection[] => [
@@ -310,42 +276,21 @@ export default function UsersPage() {
       label: t('workspace.roles'),
       content: (
         <div>
-          {drawerRolesLoading ? <LoadingState /> : (
-            <div className="space-y-2">
-              {(selectedUser?.roles || drawerRoles).length > 0 ? (
-                (selectedUser?.roles || drawerRoles).map((r: any, i: number) => (
-                  <div key={r.id || r.role?.id || i} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                    <span className="text-sm font-medium">{r.role?.name || r.name}</span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-sm">{t('common.noData')}</p>
-              )}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      id: 'scopes',
-      label: t('workspace.operationalScopes'),
-      content: (
-        <div>
-          {drawerScopesLoading ? <LoadingState /> : (
-            <div className="space-y-2">
-              {drawerScopes.length > 0 ? drawerScopes.map((s: any) => (
-                <div key={s.id} className="p-2 bg-gray-50 rounded text-sm">
-                  {s.company?.name || s.companyId}
+          <div className="space-y-2">
+            {selectedUser?.roles && selectedUser.roles.length > 0 ? (
+              selectedUser.roles.map((r: any, i: number) => (
+                <div key={r.role?.id || i} className="flex items-center gap-2 p-2 bg-[var(--ws-soft)] border border-[var(--ws-border)] rounded-lg">
+                  <span className="text-sm font-medium">{r.role?.name || r.name}</span>
                 </div>
-              )) : (
-                <p className="text-gray-500 text-sm">{t('common.noData')}</p>
-              )}
-            </div>
-          )}
+              ))
+            ) : (
+              <p className="text-gray-500 text-sm">{t('common.noData')}</p>
+            )}
+          </div>
         </div>
       ),
     },
-  ], [selectedUser, t, getCompanyName, getBranchName, getDepartmentName, drawerRoles, drawerRolesLoading, drawerScopes, drawerScopesLoading]);
+  ], [selectedUser, t, getCompanyName, getBranchName, getDepartmentName]);
 
   const usersIcon = (
     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -354,7 +299,7 @@ export default function UsersPage() {
   );
 
   return (
-    <EntityWorkspaceLayout drawerOpen={drawerOpen} drawer={drawerOpen ? <EntityDetailDrawer open={drawerOpen} onClose={closeDrawer} title={selectedUser?.name || ''} subtitle={selectedUser?.email} statusBadge={<EntityStatusBadge status={selectedUser?.status || ''} activeLabel={t('common.active')} inactiveLabel={t('common.inactive')} />} sections={drawerSections} activeSection={activeSection} onSectionChange={setActiveSection} navItems={drawerNavItems} dir={dir} /> : undefined}>
+    <EntityWorkspaceLayout drawerOpen={drawerOpen} drawer={drawerOpen ? <EntityDetailDrawer open={drawerOpen} onClose={closeDrawer} title={selectedUser?.name || ''} subtitle={selectedUser?.email} statusBadge={<EntityStatusBadge status={selectedUser?.status || ''} activeLabel={t('common.active')} inactiveLabel={t('common.inactive')} />} sections={drawerSections} activeSection={activeSection} onSectionChange={setActiveSection} navItems={drawerNavItems} dir={dir} closeLabel={t('workspace.closePanel')} /> : undefined}>
       <EntityPageHeader title={t('users.title')} icon={usersIcon} />
       {error && <div className="text-center py-12"><p className="text-red-500 mb-4">{error}</p></div>}
       {!error && loading && data.length === 0 && <LoadingState />}

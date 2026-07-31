@@ -159,7 +159,7 @@ export default function EditMachinePartPage() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('maintenance.linkedEntities')}</h2>
           <div className="space-y-4">
             <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setField('machineId', v)} adapter={machineAdapter} />
-            <F9Lookup label={t('inventory.product')} value={form.productId} onChange={(v) => setField('productId', v)} adapter={productAdapter} />
+            <F9Lookup label={t('maintenance.linkedInventoryItem')} value={form.productId} onChange={(v) => setField('productId', v)} adapter={productAdapter} />
           </div>
         </CardContent>
       </Card>

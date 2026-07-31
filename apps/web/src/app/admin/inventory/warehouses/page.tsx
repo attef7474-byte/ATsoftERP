@@ -7,15 +7,17 @@ import { useToast } from '../../../../components/admin/toast-provider';
 import { Warehouse } from '../../../../lib/admin-types';
 import { Button, Input, Select, Card, Pagination, LoadingState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { EntityWorkspaceLayout, EntityPageHeader, EntityDataTable, EntityDetailDrawer, EntityStatusBadge } from '../../../../components/entity';
+import { EntityWorkspaceLayout, EntityPageHeader, EntityDataTable, EntityDetailDrawer, EntityStatusBadge, useDrawerSectionData } from '../../../../components/entity';
 import type { DrawerSection } from '../../../../components/entity';
 import { usePathname } from 'next/navigation';
 import { F9Lookup, companyAdapter, branchAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 export default function WarehousesPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<Warehouse[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -32,10 +34,12 @@ export default function WarehousesPage() {
   const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('overview');
-  const [drawerLocations, setDrawerLocations] = useState<any[]>([]);
-  const [drawerLocationsLoading, setDrawerLocationsLoading] = useState(false);
-  const [drawerBalance, setDrawerBalance] = useState<any[]>([]);
-  const [drawerBalanceLoading, setDrawerBalanceLoading] = useState(false);
+  const [drawerErrorKey, setDrawerErrorKey] = useState('');
+
+  const drawerLocations = useDrawerSectionData<any>(selectedWarehouse?.id || null, async (id: string) => {
+    const res = await api.get<any>(`/inventory/warehouses/${id}/locations`);
+    return Array.isArray(res) ? res : (res as any)?.data && Array.isArray((res as any).data) ? (res as any).data : [];
+  });
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
@@ -99,7 +103,7 @@ export default function WarehousesPage() {
         warehouseType: safeString(detail.warehouseType),
       });
     } catch (err: any) {
-      showToast(err?.message || t('errors.loadFailed'), 'error');
+      handleApiError(err);
       setModalOpen(false);
     } finally {
       setDetailLoading(false);
@@ -128,37 +132,13 @@ export default function WarehousesPage() {
       setModalOpen(false);
       fetchData(meta.page);
     } catch (err: any) {
-      showToast(err?.message || t('errors.createFailed'), 'error');
+      handleApiError(err);
     } finally {
       setSaving(false);
     }
   };
 
   const confirmStatus = (id: string) => { setSelectedId(id); setConfirmOpen(true); };
-
-  const fetchDrawerLocations = useCallback(async (warehouseId: string) => {
-    setDrawerLocationsLoading(true);
-    try {
-      const res = await api.get<{ data: any[] }>(`/inventory/warehouses/${warehouseId}/locations`);
-      setDrawerLocations(res.data || []);
-    } catch {
-      // ignore
-    } finally {
-      setDrawerLocationsLoading(false);
-    }
-  }, []);
-
-  const fetchDrawerBalance = useCallback(async (warehouseId: string) => {
-    setDrawerBalanceLoading(true);
-    try {
-      const res = await api.get<{ data: any[] }>(`/inventory/warehouses/${warehouseId}/balance-summary`);
-      setDrawerBalance(res.data || []);
-    } catch {
-      // ignore
-    } finally {
-      setDrawerBalanceLoading(false);
-    }
-  }, []);
 
   const handleRowClick = useCallback((item: Warehouse) => {
     setSelectedId(item.id);
@@ -172,6 +152,19 @@ export default function WarehousesPage() {
     setActiveSection('overview');
   }, []);
 
+  useEffect(() => {
+    if (drawerLocations.error) {
+      const e = drawerLocations.error as { status?: number | string; message?: string };
+      setDrawerErrorKey(`${e.status || 'ERR'}:${e.message || ''}`);
+    } else {
+      setDrawerErrorKey('');
+    }
+  }, [drawerLocations.error]);
+
+  useEffect(() => {
+    if (drawerErrorKey) handleApiError(drawerErrorKey);
+  }, [drawerErrorKey, handleApiError]);
+
   const handleStatusChange = async () => {
     setSaving(true);
     try {
@@ -182,7 +175,7 @@ export default function WarehousesPage() {
       setConfirmOpen(false);
       fetchData(meta.page);
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 
@@ -199,17 +192,9 @@ export default function WarehousesPage() {
     }
   }, [data, drawerOpen, selectedWarehouse]);
 
-  useEffect(() => {
-    if (drawerOpen && selectedWarehouse) {
-      fetchDrawerLocations(selectedWarehouse.id);
-      fetchDrawerBalance(selectedWarehouse.id);
-    }
-  }, [drawerOpen, selectedWarehouse?.id, fetchDrawerLocations, fetchDrawerBalance]);
-
   const drawerNavItems = useMemo(() => [
     { id: 'overview', label: t('workspace.overview'), icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v11a1 1 0 001 1h16a1 1 0 001-1V7M3 7l9-4 9 4M3 7l9 4m0-4v4" /></svg> },
     { id: 'locations', label: t('workspace.locations'), icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg> },
-    { id: 'balance', label: t('workspace.balanceSummary'), icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> },
   ], [t]);
 
   const drawerSections = useMemo((): DrawerSection[] => [
@@ -256,10 +241,10 @@ export default function WarehousesPage() {
       label: t('workspace.locations'),
       content: (
         <div>
-          {drawerLocationsLoading ? <LoadingState /> : (
+          {drawerLocations.loading ? <LoadingState /> : (
             <div className="space-y-2">
-              {drawerLocations.length > 0 ? drawerLocations.map((loc: any) => (
-                <div key={loc.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+              {drawerLocations.data.length > 0 ? drawerLocations.data.map((loc: any) => (
+                <div key={loc.id} className="flex items-center justify-between p-2 bg-[var(--ws-soft)] border border-[var(--ws-border)] rounded-lg">
                   <span className="text-sm">{loc.name}</span>
                   <EntityStatusBadge status={loc.status} activeLabel={t('common.active')} inactiveLabel={t('common.inactive')} />
                 </div>
@@ -271,27 +256,7 @@ export default function WarehousesPage() {
         </div>
       ),
     },
-    {
-      id: 'balance',
-      label: t('workspace.balanceSummary'),
-      content: (
-        <div>
-          {drawerBalanceLoading ? <LoadingState /> : (
-            <div className="space-y-2">
-              {drawerBalance.length > 0 ? drawerBalance.map((b: any) => (
-                <div key={b.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                  <span className="text-sm">{b.product?.name || b.name || '-'}</span>
-                  <span className="text-sm font-medium">{b.quantity ?? b.totalQuantity ?? '-'}</span>
-                </div>
-              )) : (
-                <p className="text-gray-500 text-sm">{t('common.noData')}</p>
-              )}
-            </div>
-          )}
-        </div>
-      ),
-    },
-  ], [selectedWarehouse, t, drawerLocations, drawerLocationsLoading, drawerBalance, drawerBalanceLoading]);
+  ], [selectedWarehouse, t, drawerLocations.loading, drawerLocations.data]);
 
   const warehousesIcon = (
     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -320,7 +285,7 @@ export default function WarehousesPage() {
   ];
 
   return (
-    <EntityWorkspaceLayout drawerOpen={drawerOpen} drawer={drawerOpen ? <EntityDetailDrawer open={drawerOpen} onClose={closeDrawer} title={selectedWarehouse?.name || ''} subtitle={selectedWarehouse?.code} statusBadge={<EntityStatusBadge status={selectedWarehouse?.status || ''} activeLabel={t('common.active')} inactiveLabel={t('common.inactive')} />} sections={drawerSections} activeSection={activeSection} onSectionChange={setActiveSection} navItems={drawerNavItems} dir={dir} /> : undefined}>
+    <EntityWorkspaceLayout drawerOpen={drawerOpen} drawer={drawerOpen ? <EntityDetailDrawer open={drawerOpen} onClose={closeDrawer} title={selectedWarehouse?.name || ''} subtitle={selectedWarehouse?.code} statusBadge={<EntityStatusBadge status={selectedWarehouse?.status || ''} activeLabel={t('common.active')} inactiveLabel={t('common.inactive')} />} sections={drawerSections} activeSection={activeSection} onSectionChange={setActiveSection} navItems={drawerNavItems} dir={dir} closeLabel={t('workspace.closePanel')} /> : undefined}>
       <EntityPageHeader title={t('inventory.warehouses')} icon={warehousesIcon} />
       {error && (
         <div className="text-center py-12">

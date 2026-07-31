@@ -16,13 +16,13 @@ const defaultIcon = (
 
 export function EntityPageHeader({ title, subtitle, icon, iconBg }: EntityPageHeaderProps) {
   return (
-    <div className="relative bg-gradient-to-r from-teal-50 via-cyan-50 to-slate-50 rounded-2xl border border-teal-100/60 px-6 py-5 mb-4">
+    <div className="relative bg-gradient-to-r from-[var(--ws-soft)] via-[var(--ws-aqua)] to-slate-50 rounded-2xl border border-[var(--ws-border)] px-6 py-5 mb-4">
       <div className="flex items-center gap-4">
-        <div className={`shrink-0 w-14 h-14 rounded-xl flex items-center justify-center text-white shadow-sm ring-2 ring-white/80 ${iconBg || 'bg-gradient-to-br from-teal-600 to-cyan-600'}`}>
+        <div className={`shrink-0 w-14 h-14 rounded-xl flex items-center justify-center text-white shadow-md ring-2 ring-white/80 bg-gradient-to-br ${iconBg || 'from-[var(--ws-primary)] to-[var(--ws-cyan)]'}`}>
           {icon ?? defaultIcon}
         </div>
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-[26px] font-extrabold text-gray-900 tracking-tight">{title}</h1>
+          <h1 className="text-2xl sm:text-[26px] font-extrabold text-[var(--ws-navy)] tracking-tight">{title}</h1>
           {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
         </div>
       </div>

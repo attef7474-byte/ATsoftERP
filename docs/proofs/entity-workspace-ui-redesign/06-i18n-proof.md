@@ -34,9 +34,22 @@ All 11 keys exist in both `en/workspace.ts` and `ar/workspace.ts` — 100% balan
 
 All 5 modified pages use `t('workspace.overview')`, `t('workspace.branches')`, etc. for drawer section labels and nav items. No raw English/Arabic strings.
 
-## Pre-existing i18n status
+## Corrective phase additions — `maintenance` namespace
 
-- 12 existing namespaces: unchanged
-- Total EN keys: 2,977 + 11 = **2,988**
-- Total AR keys: 2,977 + 11 = **2,988**
-- Match: **100%**
+| Key | EN | AR |
+|-----|----|----|
+| `maintenance.linkedInventoryItem` | Linked Inventory Item | الصنف المخزني المرتبط |
+| `maintenance.linkedInventoryItemHint` | The inventory item this spare part maps to (shown read-only) | الصنف المخزني الذي يرتبط به هذا الجزء (يظهر للقراءة فقط) |
+
+Applied to 4 usages in Machine Parts form/detail pages.
+
+## Final i18n state
+
+- EN total: 2,977 (v10) + 11 (`workspace`) + 2 (`maintenance`) = **2,990 keys**
+- AR total: 2,977 (v10) + 11 (`workspace`) + 2 (`maintenance`) = **2,990 keys**
+- Match: **100%** (verified by parity sweep script)
+- AR files valid UTF-8 (console `????` artifacts were PowerShell display encoding only — file bytes verified)
+
+## Balanced check (all namespaces)
+
+All 11 `workspace` keys and both new `maintenance` keys exist in EN and AR — 100% balance.

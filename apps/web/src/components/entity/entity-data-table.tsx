@@ -19,7 +19,7 @@ export function EntityDataTable<T>(props: AdminDataGridProps<T>) {
   }, [onRowClick]);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl border border-[var(--ws-border)] shadow-sm overflow-hidden">
       <AdminDataGrid
         {...rest}
         onRowClick={handleRowClick}

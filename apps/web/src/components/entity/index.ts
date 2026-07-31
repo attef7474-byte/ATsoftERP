@@ -7,3 +7,4 @@ export { EntityDrawerNav, type NavItem } from './entity-drawer-nav';
 export { EntityEmptyState } from './entity-empty-state';
 export { EntityStatusBadge } from './entity-status-badge';
 export { EntityDataTable, type EntityDataTableRef } from './entity-data-table';
+export { useDrawerSectionData, type DrawerSectionData } from './use-drawer-section-data';
