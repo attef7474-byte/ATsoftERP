@@ -7,6 +7,7 @@ import { MaintenanceSlaService } from '../maintenance-sla/maintenance-sla.servic
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
 import { UpdateMaintenanceRequestDto } from './dto/update-maintenance-request.dto';
 import { CurrentUserType } from '../../../../modules/auth/types/current-user.type';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class MaintenanceRequestsService {
@@ -18,15 +19,43 @@ export class MaintenanceRequestsService {
     private slaService: MaintenanceSlaService,
   ) {}
 
-  private async validateOperationalContext(dto: { machineId: string; productionLineId?: string; machineComponentId?: string; operationTypeId?: string; costCenterId?: string }, requestId?: string) {
+  private notFound(key: string, message: string): NotFoundException {
+    return new NotFoundException({ messageKey: key, message });
+  }
+
+  private badRequest(key: string, message: string, params?: Record<string, string>): BadRequestException {
+    return new BadRequestException({ messageKey: key, message, ...(params ? { params } : {}) });
+  }
+
+  private validationError(field: string, code: string, message: string): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'common.validationFailed',
+      message: 'Validation failed',
+      errors: [{ field, code, message }],
+    });
+  }
+
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
+  }
+
+  private machineOwns(machine: { companyId?: string | null; branchId?: string | null }, ctx: ActiveOperationalContext): boolean {
+    return machine.companyId === ctx.companyId
+      && (machine.branchId === null || machine.branchId === ctx.branchId);
+  }
+
+  private async validateOperationalContext(dto: { machineId: string; productionLineId?: string; machineComponentId?: string; operationTypeId?: string; costCenterId?: string }, ctx: ActiveOperationalContext, requestId?: string) {
     const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
-    if (!machine) throw new NotFoundException('Machine not found');
+    if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
 
     if (dto.productionLineId) {
       const pl = await this.prisma.productionLine.findUnique({ where: { id: dto.productionLineId } });
-      if (!pl) throw new NotFoundException('Production line not found');
+      if (!pl) throw this.notFound('maintenance.productionLineNotFound', 'Production line not found');
       if (machine.productionLineId && dto.productionLineId !== machine.productionLineId) {
-        throw new BadRequestException('Production line does not match machine');
+        throw this.badRequest('maintenance.productionLineMachineMismatch', 'Production line does not match machine');
       }
     } else if (machine.productionLineId) {
       dto.productionLineId = machine.productionLineId;
@@ -34,30 +63,30 @@ export class MaintenanceRequestsService {
 
     if (dto.machineComponentId) {
       const comp = await this.prisma.machineComponent.findUnique({ where: { id: dto.machineComponentId } });
-      if (!comp) throw new NotFoundException('Machine component not found');
+      if (!comp) throw this.notFound('maintenance.componentNotFound', 'Machine component not found');
       if (comp.machineId !== dto.machineId) {
-        throw new BadRequestException('Component does not belong to selected machine');
+        throw this.badRequest('maintenance.componentMachineMismatch', 'Component does not belong to selected machine');
       }
     }
     if (dto.operationTypeId) {
       const ot = await this.prisma.operationType.findUnique({ where: { id: dto.operationTypeId } });
-      if (!ot) throw new NotFoundException('Operation type not found');
+      if (!ot) throw this.notFound('maintenance.operationTypeNotFound', 'Operation type not found');
     }
     if (dto.costCenterId) {
       const cc = await this.prisma.costCenter.findUnique({ where: { id: dto.costCenterId } });
-      if (!cc) throw new NotFoundException('Cost center not found');
+      if (!cc) throw this.notFound('maintenance.costCenterNotFound', 'Cost center not found');
     } else if (machine.defaultCostCenterId) {
       dto.costCenterId = machine.defaultCostCenterId;
     }
     return machine;
   }
 
-  async create(dto: CreateMaintenanceRequestDto, user: CurrentUserType) {
-    return this.createRequest(dto, user, false);
+  async create(dto: CreateMaintenanceRequestDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
+    return this.createRequest(dto, user, false, ctx);
   }
 
-  async createEmergency(dto: CreateMaintenanceRequestDto, user: CurrentUserType) {
-    const request = await this.createRequest(dto, user, true);
+  async createEmergency(dto: CreateMaintenanceRequestDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
+    const request = await this.createRequest(dto, user, true, ctx);
 
     await this.prisma.downtimeLog.create({
       data: {
@@ -74,13 +103,13 @@ export class MaintenanceRequestsService {
     return request;
   }
 
-  private async createRequest(dto: CreateMaintenanceRequestDto, user: CurrentUserType, isEmergency: boolean) {
-    const machine = await this.validateOperationalContext(dto);
+  private async createRequest(dto: CreateMaintenanceRequestDto, user: CurrentUserType, isEmergency: boolean, ctx: ActiveOperationalContext) {
+    const machine = await this.validateOperationalContext(dto, ctx);
     const userId = user.id;
 
     if (dto.assignedToId) {
       const user = await this.prisma.user.findUnique({ where: { id: dto.assignedToId } });
-      if (!user) throw new NotFoundException('Assigned user not found');
+      if (!user) throw this.notFound('maintenance.assignedUserNotFound', 'Assigned user not found');
     }
 
     const { machineId, assignedToId, requiredParts, ...rest } = dto;
@@ -130,12 +159,13 @@ export class MaintenanceRequestsService {
     requestedById?: string; assignedToId?: string;
     productionLineId?: string; machineComponentId?: string; operationTypeId?: string; costCenterId?: string; sparePartId?: string;
     isEmergency?: string;
-  }) {
+  }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
     const where: any = { deletedAt: null };
+    where.machine = this.machineScope(ctx);
     if (query.search) {
       where.OR = [
         { title: { contains: query.search } },
@@ -208,7 +238,7 @@ export class MaintenanceRequestsService {
     return { data: dataWithSummary, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, ctx: ActiveOperationalContext) {
     const request = await this.prisma.maintenanceRequest.findUnique({
       where: { id },
       include: {
@@ -231,28 +261,30 @@ export class MaintenanceRequestsService {
         },
       },
     });
-    if (!request || request.deletedAt) throw new NotFoundException('Maintenance request not found');
+    if (!request || request.deletedAt || !this.machineOwns(request.machine, ctx)) {
+      throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
+    }
     return request;
   }
 
-  async update(id: string, dto: UpdateMaintenanceRequestDto, userId: string) {
-    const req = await this.findOne(id);
+  async update(id: string, dto: UpdateMaintenanceRequestDto, userId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(id, ctx);
     if (req.status === 'COMPLETED' || req.status === 'CANCELLED' || req.status === 'CLOSED') {
-      throw new BadRequestException('Cannot update completed, cancelled, or closed requests');
+      throw this.badRequest('maintenance.cannotUpdateTerminalRequest', 'Cannot update completed, cancelled, or closed requests');
     }
 
     if (dto.machineId) {
-      await this.validateOperationalContext(dto as any, id);
+      await this.validateOperationalContext(dto as any, ctx);
     } else {
       if (dto.productionLineId || dto.machineComponentId || dto.operationTypeId || dto.costCenterId) {
         const currentMachineId = dto.machineId || req.machineId;
-        await this.validateOperationalContext({ machineId: currentMachineId, ...dto } as any, id);
+        await this.validateOperationalContext({ machineId: currentMachineId, ...dto } as any, ctx);
       }
     }
 
     if (dto.assignedToId) {
       const user = await this.prisma.user.findUnique({ where: { id: dto.assignedToId } });
-      if (!user) throw new NotFoundException('Assigned user not found');
+      if (!user) throw this.notFound('maintenance.assignedUserNotFound', 'Assigned user not found');
     }
 
     const { requiredParts, ...rest } = dto as any;
@@ -300,8 +332,8 @@ export class MaintenanceRequestsService {
 
   // -- Required Parts sub-resource --
 
-  async getRequiredParts(requestId: string) {
-    const req = await this.findOne(requestId);
+  async getRequiredParts(requestId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(requestId, ctx);
     return this.prisma.maintenanceRequestRequiredPart.findMany({
       where: { maintenanceRequestId: requestId },
       include: {
@@ -312,28 +344,28 @@ export class MaintenanceRequestsService {
     });
   }
 
-  async addRequiredPart(requestId: string, dto: { sparePartId: string; machineComponentId?: string; machineId?: string; quantity: number; unit?: string; usageNote?: string; isPrimary?: boolean }, userId: string) {
-    const req = await this.findOne(requestId);
+  async addRequiredPart(requestId: string, dto: { sparePartId: string; machineComponentId?: string; machineId?: string; quantity: number; unit?: string; usageNote?: string; isPrimary?: boolean }, userId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(requestId, ctx);
     if (req.status === 'COMPLETED' || req.status === 'CANCELLED') {
-      throw new BadRequestException('Cannot add parts to completed, cancelled, or closed requests');
+      throw this.badRequest('maintenance.cannotUpdatePartsTerminalRequest', 'Cannot update parts on completed or cancelled requests');
     }
 
     const sparePart = await this.prisma.sparePart.findUnique({ where: { id: dto.sparePartId } });
-    if (!sparePart) throw new NotFoundException('Spare part not found');
-    if (sparePart.status !== 'ACTIVE') throw new BadRequestException('Inactive spare part cannot be requested');
+    if (!sparePart) throw this.notFound('maintenance.sparePartNotFound', 'Spare part not found');
+    if (sparePart.status !== 'ACTIVE') throw this.badRequest('maintenance.inactiveSparePart', 'Inactive spare part cannot be requested');
 
     const existing = await this.prisma.maintenanceRequestRequiredPart.findUnique({
       where: { maintenanceRequestId_sparePartId: { maintenanceRequestId: requestId, sparePartId: dto.sparePartId } },
     });
-    if (existing) throw new BadRequestException('This spare part is already added to the request');
+    if (existing) throw this.badRequest('maintenance.sparePartAlreadyAdded', 'This spare part is already added to the request');
 
     if (dto.machineComponentId) {
       const comp = await this.prisma.machineComponent.findUnique({ where: { id: dto.machineComponentId } });
-      if (!comp) throw new NotFoundException('Machine component not found');
-      if (comp.machineId !== req.machineId) throw new BadRequestException('Component does not belong to selected machine');
+      if (!comp) throw this.notFound('maintenance.componentNotFound', 'Machine component not found');
+      if (comp.machineId !== req.machineId) throw this.badRequest('maintenance.componentMachineMismatch', 'Component does not belong to selected machine');
     }
     if (dto.machineId && dto.machineId !== req.machineId) {
-      throw new BadRequestException('Machine does not match request machine');
+      throw this.badRequest('maintenance.machineRequestMismatch', 'Machine does not match request machine');
     }
 
     const part = await this.prisma.maintenanceRequestRequiredPart.create({
@@ -353,11 +385,11 @@ export class MaintenanceRequestsService {
     return part;
   }
 
-  async updateRequiredPart(id: string, dto: { quantity?: number; unit?: string; usageNote?: string; isPrimary?: boolean }, userId: string) {
-    const part = await this.prisma.maintenanceRequestRequiredPart.findUnique({ where: { id }, include: { maintenanceRequest: true } });
-    if (!part) throw new NotFoundException('Required part not found');
+  async updateRequiredPart(id: string, dto: { quantity?: number; unit?: string; usageNote?: string; isPrimary?: boolean }, userId: string, ctx: ActiveOperationalContext) {
+    const part = await this.prisma.maintenanceRequestRequiredPart.findUnique({ where: { id }, include: { maintenanceRequest: { include: { machine: true } } } });
+    if (!part || !this.machineOwns(part.maintenanceRequest.machine, ctx)) throw this.notFound('maintenance.requiredPartNotFound', 'Required part not found');
     if (part.maintenanceRequest.status === 'COMPLETED' || part.maintenanceRequest.status === 'CANCELLED') {
-      throw new BadRequestException('Cannot update parts on completed or cancelled requests');
+      throw this.badRequest('maintenance.cannotUpdatePartsTerminalRequest', 'Cannot update parts on completed or cancelled requests');
     }
     const updated = await this.prisma.maintenanceRequestRequiredPart.update({
       where: { id },
@@ -367,10 +399,10 @@ export class MaintenanceRequestsService {
     return updated;
   }
 
-  async cancelRequiredPart(id: string, userId: string) {
-    const part = await this.prisma.maintenanceRequestRequiredPart.findUnique({ where: { id }, include: { maintenanceRequest: true } });
-    if (!part) throw new NotFoundException('Required part not found');
-    if (part.status === 'CANCELLED') throw new BadRequestException('Part is already cancelled');
+  async cancelRequiredPart(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const part = await this.prisma.maintenanceRequestRequiredPart.findUnique({ where: { id }, include: { maintenanceRequest: { include: { machine: true } } } });
+    if (!part || !this.machineOwns(part.maintenanceRequest.machine, ctx)) throw this.notFound('maintenance.requiredPartNotFound', 'Required part not found');
+    if (part.status === 'CANCELLED') throw this.badRequest('maintenance.partAlreadyCancelled', 'Part is already cancelled');
     const updated = await this.prisma.maintenanceRequestRequiredPart.update({
       where: { id },
       data: { status: 'CANCELLED' },
@@ -381,9 +413,9 @@ export class MaintenanceRequestsService {
 
   // -- Existing methods unchanged below --
 
-  async start(id: string, userId: string) {
-    const req = await this.findOne(id);
-    if (req.status !== 'OPEN') throw new BadRequestException('Only OPEN requests can be started');
+  async start(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(id, ctx);
+    if (req.status !== 'OPEN') throw this.badRequest('maintenance.onlyOpenCanStart', 'Only OPEN requests can be started');
 
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.machine.update({
@@ -400,16 +432,16 @@ export class MaintenanceRequestsService {
       { oldStatus: req.status, newStatus: 'IN_PROGRESS', machineId: req.machineId });
 
     try {
-      const startedRequest = await this.findOne(id);
+      const startedRequest = await this.findOne(id, ctx);
       await this.notificationService.notifyRequestStarted(startedRequest);
       await this.slaService.recalculateSla(id);
     } catch { }
     return updated;
   }
 
-  async complete(id: string, userId: string) {
-    const req = await this.findOne(id);
-    if (req.status !== 'IN_PROGRESS') throw new BadRequestException('Only IN_PROGRESS requests can be completed');
+  async complete(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(id, ctx);
+    if (req.status !== 'IN_PROGRESS') throw this.badRequest('maintenance.onlyInProgressCanComplete', 'Only IN_PROGRESS requests can be completed');
 
     const incompleteChecklists = await this.prisma.maintenanceChecklistExecution.findMany({
       where: { requestId: id, status: 'IN_PROGRESS' },
@@ -422,7 +454,11 @@ export class MaintenanceRequestsService {
     });
     const blockingMandatory = incompleteChecklists.flatMap(ce => ce.items);
     if (blockingMandatory.length > 0) {
-      throw new BadRequestException(`Cannot complete request: ${blockingMandatory.length} mandatory checklist item(s) still pending. Complete all mandatory checklist items first.`);
+      throw this.badRequest(
+        'maintenance.mandatoryChecklistPending',
+        `Cannot complete request: ${blockingMandatory.length} mandatory checklist item(s) still pending. Complete all mandatory checklist items first.`,
+        { count: String(blockingMandatory.length) },
+      );
     }
 
     const downtimeAgg = await this.prisma.downtimeLog.aggregate({
@@ -453,16 +489,16 @@ export class MaintenanceRequestsService {
       { oldStatus: req.status, newStatus: 'COMPLETED', machineId: req.machineId, downtimeHours });
 
     try {
-      const completedRequest = await this.findOne(id);
+      const completedRequest = await this.findOne(id, ctx);
       await this.notificationService.notifyRequestCompleted(completedRequest);
     } catch { }
     return updated;
   }
 
-  async close(id: string, userId: string) {
-    const req = await this.findOne(id);
+  async close(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(id, ctx);
     if (req.status !== 'COMPLETED') {
-      throw new BadRequestException('Only COMPLETED requests can be closed');
+      throw this.badRequest('maintenance.onlyCompletedCanClose', 'Only COMPLETED requests can be closed');
     }
     const updated = await this.prisma.maintenanceRequest.update({
       where: { id },
@@ -472,16 +508,16 @@ export class MaintenanceRequestsService {
       { oldStatus: req.status, newStatus: 'CLOSED' });
 
     try {
-      const closedRequest = await this.findOne(id);
+      const closedRequest = await this.findOne(id, ctx);
       await this.notificationService.notifyRequestClosed(closedRequest);
     } catch { }
     return updated;
   }
 
-  async cancel(id: string, userId: string) {
-    const req = await this.findOne(id);
+  async cancel(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(id, ctx);
     if (req.status !== 'OPEN' && req.status !== 'IN_PROGRESS') {
-      throw new BadRequestException('Only OPEN or IN_PROGRESS requests can be cancelled');
+      throw this.badRequest('maintenance.onlyOpenInProgressCanCancel', 'Only OPEN or IN_PROGRESS requests can be cancelled');
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -507,14 +543,14 @@ export class MaintenanceRequestsService {
     return updated;
   }
 
-  async assign(id: string, assignedToId: string, userId: string) {
-    const req = await this.findOne(id);
+  async assign(id: string, assignedToId: string, userId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(id, ctx);
     if (req.status === 'COMPLETED' || req.status === 'CANCELLED' || req.status === 'CLOSED') {
-      throw new BadRequestException('Cannot assign completed, cancelled, or closed requests');
+      throw this.badRequest('maintenance.cannotAssignTerminalRequest', 'Cannot assign completed, cancelled, or closed requests');
     }
 
     const user = await this.prisma.user.findUnique({ where: { id: assignedToId } });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw this.notFound('organization.userNotFound', 'User not found');
 
     const updated = await this.prisma.maintenanceRequest.update({
       where: { id },
@@ -524,16 +560,16 @@ export class MaintenanceRequestsService {
       { action: 'assign', assignedToId, oldAssignedToId: req.assignedToId });
 
     try {
-      const assignedRequest = await this.findOne(id);
+      const assignedRequest = await this.findOne(id, ctx);
       await this.notificationService.notifyRequestAssigned(assignedRequest, assignedToId);
     } catch { }
     return updated;
   }
 
-  async remove(id: string, userId: string) {
-    const req = await this.findOne(id);
+  async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(id, ctx);
     if (req.status === 'IN_PROGRESS') {
-      throw new BadRequestException('Cannot delete an in-progress request');
+      throw this.badRequest('maintenance.cannotDeleteInProgressRequest', 'Cannot delete an in-progress request');
     }
     await this.prisma.maintenanceRequest.update({
       where: { id },
@@ -544,10 +580,10 @@ export class MaintenanceRequestsService {
     return { message: 'Maintenance request deleted successfully' };
   }
 
-  async reopen(id: string, userId: string) {
-    const req = await this.findOne(id);
+  async reopen(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(id, ctx);
     if (req.status !== 'COMPLETED' && req.status !== 'CANCELLED' && req.status !== 'CLOSED') {
-      throw new BadRequestException('Only completed, cancelled, or closed requests can be reopened');
+      throw this.badRequest('maintenance.onlyTerminalCanReopen', 'Only completed, cancelled, or closed requests can be reopened');
     }
     const updated = await this.prisma.maintenanceRequest.update({
       where: { id },
@@ -558,30 +594,52 @@ export class MaintenanceRequestsService {
     return updated;
   }
 
-  async getWorkflow(id: string) {
-    const req = await this.findOne(id);
-    const transitions: { from: string; to: string; action: string; permission: string }[] = [];
+  async getWorkflow(id: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(id, ctx);
+    const transitions: { action: string; fromStatus: string; toStatus: string; permission: string }[] = [];
     switch (req.status) {
       case 'OPEN':
-        transitions.push({ from: 'OPEN', to: 'IN_PROGRESS', action: 'start', permission: 'maintenance-request:start' });
-        transitions.push({ from: 'OPEN', to: 'CANCELLED', action: 'cancel', permission: 'maintenance-request:cancel' });
+        transitions.push({ fromStatus: 'OPEN', toStatus: 'IN_PROGRESS', action: 'start', permission: 'maintenance-request:start' });
+        transitions.push({ fromStatus: 'OPEN', toStatus: 'CANCELLED', action: 'cancel', permission: 'maintenance-request:cancel' });
         break;
       case 'IN_PROGRESS':
-        transitions.push({ from: 'IN_PROGRESS', to: 'COMPLETED', action: 'complete', permission: 'maintenance-request:complete' });
-        transitions.push({ from: 'IN_PROGRESS', to: 'CANCELLED', action: 'cancel', permission: 'maintenance-request:cancel' });
+        transitions.push({ fromStatus: 'IN_PROGRESS', toStatus: 'COMPLETED', action: 'complete', permission: 'maintenance-request:complete' });
+        transitions.push({ fromStatus: 'IN_PROGRESS', toStatus: 'CANCELLED', action: 'cancel', permission: 'maintenance-request:cancel' });
         break;
       case 'COMPLETED':
-        transitions.push({ from: 'COMPLETED', to: 'CLOSED', action: 'close', permission: 'maintenance-request:close' });
-        transitions.push({ from: 'COMPLETED', to: 'OPEN', action: 'reopen', permission: 'maintenance-request:reopen' });
+        transitions.push({ fromStatus: 'COMPLETED', toStatus: 'CLOSED', action: 'close', permission: 'maintenance-request:close' });
+        transitions.push({ fromStatus: 'COMPLETED', toStatus: 'OPEN', action: 'reopen', permission: 'maintenance-request:reopen' });
         break;
       case 'CANCELLED':
-        transitions.push({ from: 'CANCELLED', to: 'OPEN', action: 'reopen', permission: 'maintenance-request:reopen' });
+        transitions.push({ fromStatus: 'CANCELLED', toStatus: 'OPEN', action: 'reopen', permission: 'maintenance-request:reopen' });
         break;
     }
-    return { currentStatus: req.status, transitions };
+    const historyLogs = await this.prisma.auditLog.findMany({
+      where: { entity: 'MaintenanceRequest', entityId: id, action: { in: ['CREATE', 'START', 'COMPLETE', 'CLOSE', 'CANCEL', 'REOPEN', 'UPDATE'] } },
+      orderBy: { createdAt: 'asc' },
+      include: { user: { select: { id: true, name: true } } },
+    });
+    const history = historyLogs.map((log) => {
+      let details: any = null;
+      if (typeof log.details === 'string') {
+        try { details = JSON.parse(log.details); } catch { details = null; }
+      } else {
+        details = log.details;
+      }
+      return {
+        id: log.id,
+        action: log.action,
+        performedBy: log.user,
+        createdAt: log.createdAt,
+        fromStatus: details?.oldStatus || null,
+        toStatus: details?.newStatus || null,
+        notes: details?.notes || null,
+      };
+    });
+    return { id: req.id, requestNumber: req.requestNumber, title: req.title, status: req.status, currentStatus: req.status, transitions, history };
   }
 
-  async getActivity(id: string, query: { page?: number; limit?: number }) {
+  async getActivity(id: string, query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const [data, total] = await Promise.all([
@@ -595,16 +653,16 @@ export class MaintenanceRequestsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getAttachments(id: string) {
-    await this.findOne(id);
+  async getAttachments(id: string, ctx: ActiveOperationalContext) {
+    await this.findOne(id, ctx);
     return this.prisma.attachment.findMany({
       where: { entityName: 'MAINTENANCE_REQUEST', entityId: id },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async getPrintData(id: string) {
-    const req = await this.findOne(id);
+  async getPrintData(id: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(id, ctx);
     const [parts, costs, tasks, downtimes] = await Promise.all([
       this.prisma.maintenanceRequestPartUsage.findMany({
         where: { requestId: id },
@@ -620,12 +678,21 @@ export class MaintenanceRequestsService {
         include: { machine: { select: { id: true, name: true, code: true } } },
       }),
     ]);
-    return { ...req, parts, costs, tasks, downtimes };
+    return {
+      ...req,
+      parts,
+      costs,
+      tasks,
+      downtimes,
+      partsUsed: parts,
+      costEntries: costs,
+      downtimeLogs: downtimes,
+    };
   }
 
-  async getChecklists(id: string) {
-    await this.findOne(id);
-    return this.prisma.maintenanceChecklistExecution.findMany({
+  async getChecklists(id: string, ctx: ActiveOperationalContext) {
+    await this.findOne(id, ctx);
+    const executions = await this.prisma.maintenanceChecklistExecution.findMany({
       where: { requestId: id },
       include: {
         schedule: { select: { id: true, title: true } },
@@ -636,10 +703,14 @@ export class MaintenanceRequestsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+    return executions.map((execution) => ({
+      ...execution,
+      _count: { items: execution.items.length },
+    }));
   }
 
-  async getChecklistExecution(requestId: string, executionId: string) {
-    await this.findOne(requestId);
+  async getChecklistExecution(requestId: string, executionId: string, ctx: ActiveOperationalContext) {
+    await this.findOne(requestId, ctx);
     const execution = await this.prisma.maintenanceChecklistExecution.findFirst({
       where: { id: executionId, requestId },
       include: {
@@ -651,14 +722,14 @@ export class MaintenanceRequestsService {
         },
       },
     });
-    if (!execution) throw new NotFoundException('Checklist execution not found for this request');
+    if (!execution) throw this.notFound('maintenance.checklistExecutionNotFound', 'Checklist execution not found for this request');
     return execution;
   }
 
-  async createChecklist(id: string, scheduleId: string, userId: string) {
-    await this.findOne(id);
-    const schedule = await this.prisma.maintenanceSchedule.findUnique({ where: { id: scheduleId } });
-    if (!schedule) throw new NotFoundException('Schedule not found');
+  async createChecklist(id: string, scheduleId: string, userId: string, ctx: ActiveOperationalContext) {
+    await this.findOne(id, ctx);
+    const schedule = await this.prisma.maintenanceSchedule.findUnique({ where: { id: scheduleId }, include: { machine: true } });
+    if (!schedule || !this.machineOwns(schedule.machine, ctx)) throw this.notFound('maintenance.checklistScheduleNotFound', 'Schedule not found');
 
     const checklistItems = await this.prisma.maintenanceChecklistItem.findMany({
       where: { scheduleId },
@@ -687,8 +758,8 @@ export class MaintenanceRequestsService {
     return execution;
   }
 
-  async getRequestSummary(id: string) {
-    const req = await this.findOne(id);
+  async getRequestSummary(id: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(id, ctx);
     const [partsCount, costsCount, tasksCount, downtimeCount, totalCost] = await Promise.all([
       this.prisma.maintenanceRequestPartUsage.count({ where: { requestId: id } }),
       this.prisma.maintenanceRequestCostEntry.count({ where: { requestId: id } }),

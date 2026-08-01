@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 import { Button, Card, CardContent, LoadingState, ErrorState } from '../../../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../../../components/maintenance';
 import { F9Lookup, userAdapter } from '../../../../../../components/f9';
@@ -15,6 +16,7 @@ export default function AssignMaintenanceTaskPage() {
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params?.id as string;
   const [data, setData] = useState<MaintenanceTask | null>(null);
   const [assignedToId, setAssignedToId] = useState('');
@@ -48,7 +50,7 @@ export default function AssignMaintenanceTaskPage() {
       showToast(t('common.successUpdated'), 'success');
       router.push(`/admin/maintenance/tasks/${id}`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 

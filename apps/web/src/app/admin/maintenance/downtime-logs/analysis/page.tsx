@@ -31,8 +31,8 @@ export default function DowntimeAnalysisPage() {
     setLoading(true); setError('');
     try {
       const params: Record<string, any> = {};
-      if (sd) params.startDate = sd;
-      if (ed) params.endDate = ed;
+      if (sd) params.dateFrom = sd;
+      if (ed) params.dateTo = ed;
       const res = await api.get<AnalysisResponse>('/maintenance/downtime-logs/analysis', { params });
       setData(res);
     } catch (err: any) {

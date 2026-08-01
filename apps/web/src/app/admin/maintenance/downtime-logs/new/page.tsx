@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { Button, Input, Textarea, Card, CardContent } from '../../../../../components/admin/ui';
 import { F9Lookup, machineAdapter, maintenanceRequestAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
@@ -12,6 +13,7 @@ export default function CreateDowntimeLogPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [form, setForm] = useState({ machineId: '', requestId: '', startTime: new Date().toISOString().slice(0, 16), reason: '', notes: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -43,7 +45,7 @@ export default function CreateDowntimeLogPage() {
       showToast(t('complexForms.recordCreated'), 'success');
       router.push(`/admin/maintenance/downtime-logs`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.createFailed'), 'error');
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 

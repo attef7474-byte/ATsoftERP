@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceTasksService } from './maintenance-tasks.service';
 import { CreateMaintenanceTaskDto } from './dto/create-maintenance-task.dto';
@@ -7,6 +7,8 @@ import { JwtAuthGuard } from '../../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @ApiTags('Maintenance Tasks')
 @ApiBearerAuth()
@@ -18,8 +20,8 @@ export class MaintenanceTasksController {
   @Post()
   @Permissions('maintenance-task:create')
   @ApiOperation({ summary: 'Create maintenance task' })
-  create(@Body() dto: CreateMaintenanceTaskDto, @CurrentUser('id') userId: string) {
-    return this.service.create(dto, userId);
+  create(@Body() dto: CreateMaintenanceTaskDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.create(dto, userId, ctx);
   }
 
   @Get()
@@ -28,7 +30,7 @@ export class MaintenanceTasksController {
   findAll(@Query() query: {
     page?: string; limit?: string; search?: string;
     requestId?: string; assignedToId?: string; status?: string;
-  }) {
+  }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
@@ -36,76 +38,76 @@ export class MaintenanceTasksController {
       requestId: query.requestId,
       assignedToId: query.assignedToId,
       status: query.status,
-    });
+    }, ctx);
   }
 
   @Get('my-tasks')
   @Permissions('maintenance-task:myTasks.view')
   @ApiOperation({ summary: 'Get my assigned tasks' })
-  myTasks(@CurrentUser('id') userId: string, @Query() query: { page?: string; limit?: string; status?: string }) {
+  myTasks(@CurrentUser('id') userId: string, @Query() query: { page?: string; limit?: string; status?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.myTasks(userId, {
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       status: query.status,
-    });
+    }, ctx);
   }
 
   @Get('by-request/:requestId')
   @Permissions('maintenance-task:read')
   @ApiOperation({ summary: 'Get tasks by request ID' })
-  byRequest(@Param('requestId') requestId: string, @Query() query: { page?: string; limit?: string }) {
+  byRequest(@Param('requestId') requestId: string, @Query() query: { page?: string; limit?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.byRequest(requestId, {
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
-    });
+    }, ctx);
   }
 
   @Get('overdue')
   @Permissions('maintenance-task:overdue.view')
   @ApiOperation({ summary: 'Get overdue tasks' })
-  overdue(@Query() query: { page?: string; limit?: string }) {
+  overdue(@Query() query: { page?: string; limit?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.overdue({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
-    });
+    }, ctx);
   }
 
   @Patch(':id/assign')
   @Permissions('maintenance-task:assign')
   @ApiOperation({ summary: 'Assign maintenance task' })
-  assign(@Param('id') id: string, @Body('assignedToId') assignedToId: string, @CurrentUser('id') userId: string) {
-    return this.service.assignTask(id, assignedToId, userId);
+  assign(@Param('id') id: string, @Body('assignedToId') assignedToId: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.assignTask(id, assignedToId, userId, ctx);
   }
 
   @Get(':id')
   @Permissions('maintenance-task:read')
   @ApiOperation({ summary: 'Get maintenance task by ID' })
-  findOne(@Param('id') id: string) { return this.service.findOne(id); }
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOne(id, ctx); }
 
   @Patch(':id')
   @Permissions('maintenance-task:update')
   @ApiOperation({ summary: 'Update maintenance task' })
-  update(@Param('id') id: string, @Body() dto: UpdateMaintenanceTaskDto, @CurrentUser('id') userId: string) {
-    return this.service.update(id, dto, userId);
+  update(@Param('id') id: string, @Body() dto: UpdateMaintenanceTaskDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.update(id, dto, userId, ctx);
   }
 
   @Patch(':id/start')
   @Permissions('maintenance-task:start')
   @ApiOperation({ summary: 'Start maintenance task' })
-  start(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.start(id, userId); }
+  start(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.start(id, userId, ctx); }
 
   @Patch(':id/complete')
   @Permissions('maintenance-task:complete')
   @ApiOperation({ summary: 'Complete maintenance task' })
-  complete(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.complete(id, userId); }
+  complete(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.complete(id, userId, ctx); }
 
   @Patch(':id/cancel')
   @Permissions('maintenance-task:cancel')
   @ApiOperation({ summary: 'Cancel maintenance task' })
-  cancel(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.cancel(id, userId); }
+  cancel(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.cancel(id, userId, ctx); }
 
   @Delete(':id')
   @Permissions('maintenance-task:delete')
   @ApiOperation({ summary: 'Delete maintenance task' })
-  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @CurrentUser('id') userId: string) { return this.service.remove(id, userId); }
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.remove(id, userId, ctx); }
 }

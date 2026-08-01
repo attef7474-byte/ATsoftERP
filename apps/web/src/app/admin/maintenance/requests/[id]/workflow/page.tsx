@@ -4,42 +4,45 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 import { Card, CardContent, CardHeader, LoadingState, ErrorState, EmptyState, StatusBadge, Button, ConfirmDialog } from '../../../../../../components/admin/ui';
-import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon } from '../../../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../../../components/admin/admin-action-bar';
+
+interface WorkflowTransition {
+  action: string;
+  fromStatus: string;
+  toStatus: string;
+  permission?: string;
+}
+
+interface WorkflowHistoryEntry {
+  id: string;
+  action: string;
+  fromStatus?: string | null;
+  toStatus?: string | null;
+  performedBy?: { id: string; name: string } | null;
+  notes?: string | null;
+  createdAt: string;
+}
 
 interface WorkflowState {
   id: string;
   requestNumber: string;
   title: string;
   status: string;
+  currentStatus: string;
   transitions: WorkflowTransition[];
   history: WorkflowHistoryEntry[];
 }
 
-interface WorkflowTransition {
-  action: string;
-  label: string;
-  fromStatus: string;
-  toStatus: string;
-  variant?: 'primary' | 'danger';
-}
-
-interface WorkflowHistoryEntry {
-  id: string;
-  action: string;
-  fromStatus: string;
-  toStatus: string;
-  performedById?: string | null;
-  performedBy?: { id: string; name: string } | null;
-  notes?: string | null;
-  createdAt: string;
-}
+const actionKey = (action: string) => `common.${action}`;
 
 export default function RequestWorkflowPage() {
   const params = useParams();
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
 
   const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
@@ -69,7 +72,7 @@ export default function RequestWorkflowPage() {
       setConfirmOpen(false);
       fetchData();
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setTransitionLoading(false); }
   };
 
@@ -94,31 +97,37 @@ export default function RequestWorkflowPage() {
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
   if (!workflow) return <ErrorState message={t('details.notFound')} onRetry={() => router.back()} />;
 
+  const transitions = workflow.transitions.map((tr) => ({
+    ...tr,
+    label: t(actionKey(tr.action), 'common'),
+    variant: (tr.action === 'cancel' ? 'danger' : 'primary') as 'primary' | 'danger',
+  }));
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader><h3 className="text-sm font-semibold text-gray-700">{t('maintenanceWorkflow.currentStatus')}</h3></CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500">{t('maintenance.request')}: {workflow.requestNumber} - {workflow.title}</span>
+            <span className="text-sm text-gray-500">{t('maintenance.maintenanceRequest')}: {workflow.requestNumber} - {workflow.title}</span>
             <StatusBadge status={workflow.status} />
           </div>
         </CardContent>
       </Card>
 
-      {workflow.transitions.length > 0 && (
+      {transitions.length > 0 && (
         <Card>
           <CardHeader><h3 className="text-sm font-semibold text-gray-700">{t('maintenanceWorkflow.availableTransitions')}</h3></CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3">
-              {workflow.transitions.map((tr) => (
-                <Button key={tr.action} variant={tr.variant || 'primary'} onClick={() => requestTransition(tr.action)}>
+              {transitions.map((tr) => (
+                <Button key={tr.action} variant={tr.variant} disabled={transitionLoading} onClick={() => requestTransition(tr.action)}>
                   {tr.label}
                 </Button>
               ))}
             </div>
             <div className="mt-3 text-xs text-gray-500">
-              {t('maintenanceWorkflow.transitionDescription')}: {workflow.transitions.map((tr) => `${tr.fromStatus} → ${tr.toStatus}`).join(', ')}
+              {t('maintenanceWorkflow.transitionDescription')}: {transitions.map((tr) => `${tr.fromStatus} → ${tr.toStatus}`).join(', ')}
             </div>
           </CardContent>
         </Card>
@@ -143,7 +152,7 @@ export default function RequestWorkflowPage() {
                         <span className="text-xs text-gray-400">{fmt(entry.createdAt)}</span>
                       </div>
                       <p className="text-sm text-gray-600 mt-0.5">
-                        {entry.fromStatus} <span className="text-gray-400">→</span> {entry.toStatus}
+                        {entry.fromStatus || '-'} <span className="text-gray-400">→</span> {entry.toStatus || '-'}
                         {entry.notes && <span className="text-gray-400 ml-2">- {entry.notes}</span>}
                       </p>
                     </div>

@@ -4,8 +4,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { DowntimeLog } from '../../../../../lib/admin-types';
-import { Card, CardContent, CardHeader, LoadingState, ErrorState, ConfirmDialog } from '../../../../../components/admin/ui';
+import { Card, CardContent, CardHeader, LoadingState, ErrorState, ConfirmDialog, Modal, Input, Button } from '../../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../../components/maintenance';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionCancelIcon, ActionStartIcon, ActionCompleteIcon } from '../../../../../components/admin/admin-action-bar';
 
@@ -14,6 +15,7 @@ export default function DowntimeLogDetailPage() {
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [data, setData] = useState<DowntimeLog | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +23,8 @@ export default function DowntimeLogDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [classifyOpen, setClassifyOpen] = useState(false);
+  const [classifyForm, setClassifyForm] = useState({ reason: '', category: '' });
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -42,13 +46,35 @@ export default function DowntimeLogDetailPage() {
       setConfirmOpen(false);
       fetchData();
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
+    } finally { setActionLoading(false); }
+  };
+
+  const execClassify = async () => {
+    if (!classifyForm.reason) {
+      showToast(t('validation.required'), 'error');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await api.patch(`/maintenance/downtime-logs/${id}/classify`, { reason: classifyForm.reason, category: classifyForm.category || undefined });
+      showToast(t('common.successUpdated'), 'success');
+      setClassifyOpen(false);
+      setClassifyForm({ reason: '', category: '' });
+      fetchData();
+    } catch (err: any) {
+      handleApiError(err);
     } finally { setActionLoading(false); }
   };
 
   const confirmAndExec = (action: string) => {
     setPendingAction(action);
     setConfirmOpen(true);
+  };
+
+  const openClassify = () => {
+    setClassifyForm({ reason: data?.failureCause || '', category: data?.failureCategory || '' });
+    setClassifyOpen(true);
   };
 
   const { exec } = useStableHandlers({
@@ -58,7 +84,7 @@ export default function DowntimeLogDetailPage() {
     end: () => confirmAndExec('end'),
     close: () => confirmAndExec('close'),
     cancel: () => confirmAndExec('cancel'),
-    classify: () => confirmAndExec('classify'),
+    classify: () => openClassify(),
   });
 
   useRegisterAdminActions([
@@ -68,7 +94,7 @@ export default function DowntimeLogDetailPage() {
     { id: 'end', labelKey: 'maintenance.endDowntime', icon: <ActionCompleteIcon />, onClick: () => exec('end'), enabled: !!(data && !data.endTime && data.status !== 'CANCELLED') },
     { id: 'close', labelKey: 'maintenance.close', icon: <ActionStartIcon />, onClick: () => exec('close'), enabled: !!(data && data.endTime && data.status !== 'CLOSED' && data.status !== 'CANCELLED') },
     { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(data && !data.endTime && data.status !== 'CANCELLED'), variant: 'danger' },
-    { id: 'classify', labelKey: 'maintenance.classify', icon: <ActionEditIcon />, onClick: () => exec('classify'), enabled: !!(data && data.endTime && data.status !== 'CLASSIFIED' && data.status !== 'CANCELLED') },
+    { id: 'classify', labelKey: 'maintenance.classify', icon: <ActionEditIcon />, onClick: () => exec('classify'), enabled: !!(data && data.endTime && data.status !== 'CANCELLED') },
   ]);
 
   const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
@@ -223,6 +249,17 @@ export default function DowntimeLogDetailPage() {
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={() => execAction(pendingAction)}
         title={t('common.confirm')} message={`${t('maintenance.confirmAction')}: ${pendingAction}`} 
         variant={pendingAction === 'cancel' ? 'danger' : 'primary'} loading={actionLoading} />
+
+      <Modal open={classifyOpen} onClose={() => setClassifyOpen(false)} title={t('maintenance.classifyDowntime')}>
+        <div className="space-y-4">
+          <Input label={t('maintenance.failureCause')} value={classifyForm.reason} onChange={(e) => setClassifyForm({ ...classifyForm, reason: e.target.value })} />
+          <Input label={t('maintenance.failureCategory')} value={classifyForm.category} onChange={(e) => setClassifyForm({ ...classifyForm, category: e.target.value })} />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setClassifyOpen(false)} disabled={actionLoading}>{t('common.cancel')}</Button>
+            <Button onClick={execClassify} loading={actionLoading}>{t('actions.save')}</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

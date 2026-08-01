@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceRequestsService } from './maintenance-requests.service';
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
@@ -8,6 +8,8 @@ import { PermissionsGuard } from '../../../../modules/auth/guards/permissions.gu
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { CurrentUserType } from '../../../../modules/auth/types/current-user.type';
+import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @ApiTags('Maintenance Requests')
 @ApiBearerAuth()
@@ -19,15 +21,15 @@ export class MaintenanceRequestsController {
   @Post()
   @Permissions('maintenance-request:create')
   @ApiOperation({ summary: 'Create maintenance request' })
-  create(@Body() dto: CreateMaintenanceRequestDto, @CurrentUser() user: CurrentUserType) {
-    return this.service.create(dto, user);
+  create(@Body() dto: CreateMaintenanceRequestDto, @CurrentUser() user: CurrentUserType, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.create(dto, user, ctx);
   }
 
   @Post('emergency')
   @Permissions('maintenance-request:createEmergency')
   @ApiOperation({ summary: 'Create emergency maintenance request with downtime log' })
-  createEmergency(@Body() dto: CreateMaintenanceRequestDto, @CurrentUser() user: CurrentUserType) {
-    return this.service.createEmergency(dto, user);
+  createEmergency(@Body() dto: CreateMaintenanceRequestDto, @CurrentUser() user: CurrentUserType, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.createEmergency(dto, user, ctx);
   }
 
   @Get()
@@ -39,7 +41,7 @@ export class MaintenanceRequestsController {
     requestedById?: string; assignedToId?: string;
     productionLineId?: string; machineComponentId?: string; operationTypeId?: string; costCenterId?: string; sparePartId?: string;
     isEmergency?: string;
-  }) {
+  }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
@@ -56,131 +58,131 @@ export class MaintenanceRequestsController {
       costCenterId: query.costCenterId,
       sparePartId: query.sparePartId,
       isEmergency: query.isEmergency,
-    });
+    }, ctx);
   }
 
   @Get(':id')
   @Permissions('maintenance-request:read')
   @ApiOperation({ summary: 'Get maintenance request by ID' })
-  findOne(@Param('id') id: string) { return this.service.findOne(id); }
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOne(id, ctx); }
 
   @Patch(':id')
   @Permissions('maintenance-request:update')
   @ApiOperation({ summary: 'Update maintenance request' })
-  update(@Param('id') id: string, @Body() dto: UpdateMaintenanceRequestDto, @CurrentUser('id') userId: string) {
-    return this.service.update(id, dto, userId);
+  update(@Param('id') id: string, @Body() dto: UpdateMaintenanceRequestDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.update(id, dto, userId, ctx);
   }
 
   @Patch(':id/start')
   @Permissions('maintenance-request:start')
   @ApiOperation({ summary: 'Start maintenance request' })
-  start(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.start(id, userId); }
+  start(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.start(id, userId, ctx); }
 
   @Patch(':id/complete')
   @Permissions('maintenance-request:complete')
   @ApiOperation({ summary: 'Complete maintenance request' })
-  complete(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.complete(id, userId); }
+  complete(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.complete(id, userId, ctx); }
 
   @Patch(':id/assign')
   @Permissions('maintenance-request:assign')
   @ApiOperation({ summary: 'Assign technician to maintenance request' })
-  assign(@Param('id') id: string, @Body('assignedToId') assignedToId: string, @CurrentUser('id') userId: string) {
-    return this.service.assign(id, assignedToId, userId);
+  assign(@Param('id') id: string, @Body('assignedToId') assignedToId: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.assign(id, assignedToId, userId, ctx);
   }
 
   @Patch(':id/cancel')
   @Permissions('maintenance-request:cancel')
   @ApiOperation({ summary: 'Cancel maintenance request' })
-  cancel(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.cancel(id, userId); }
+  cancel(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.cancel(id, userId, ctx); }
 
   @Patch(':id/close')
   @Permissions('maintenance-request:close')
   @ApiOperation({ summary: 'Close a completed maintenance request' })
-  close(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.close(id, userId); }
+  close(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.close(id, userId, ctx); }
 
   @Delete(':id')
   @Permissions('maintenance-request:delete')
   @ApiOperation({ summary: 'Soft delete maintenance request' })
-  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @CurrentUser('id') userId: string) { return this.service.remove(id, userId); }
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.remove(id, userId, ctx); }
 
   @Patch(':id/reopen')
   @Permissions('maintenance-request:reopen')
   @ApiOperation({ summary: 'Reopen a cancelled or completed maintenance request' })
-  reopen(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.service.reopen(id, userId);
+  reopen(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.reopen(id, userId, ctx);
   }
 
   @Get(':id/workflow')
   @Permissions('maintenance-request:read')
   @ApiOperation({ summary: 'Get allowed workflow transitions for request' })
-  getWorkflow(@Param('id') id: string) {
-    return this.service.getWorkflow(id);
+  getWorkflow(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getWorkflow(id, ctx);
   }
 
   @Get(':id/activity')
   @Permissions('maintenance-request:activity.view')
   @ApiOperation({ summary: 'Get activity history for request' })
-  getActivity(@Param('id') id: string, @Query() query: { page?: string; limit?: string }) {
+  getActivity(@Param('id') id: string, @Query() query: { page?: string; limit?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.getActivity(id, {
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
-    });
+    }, ctx);
   }
 
   @Get(':id/attachments')
   @Permissions('maintenance-request:attachments.view')
   @ApiOperation({ summary: 'Get attachments for request' })
-  getAttachments(@Param('id') id: string) {
-    return this.service.getAttachments(id);
+  getAttachments(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getAttachments(id, ctx);
   }
 
   @Get(':id/print')
   @Permissions('maintenance-request:print')
   @ApiOperation({ summary: 'Get request data formatted for printing' })
-  getPrintData(@Param('id') id: string) {
-    return this.service.getPrintData(id);
+  getPrintData(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getPrintData(id, ctx);
   }
 
   @Get(':id/checklist')
   @Permissions('maintenance-request:checklist.view')
   @ApiOperation({ summary: 'Get checklists for request' })
-  getChecklists(@Param('id') id: string) {
-    return this.service.getChecklists(id);
+  getChecklists(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getChecklists(id, ctx);
   }
 
   @Post(':id/checklist')
   @Permissions('maintenance-request:checklist.manage')
   @ApiOperation({ summary: 'Create checklist execution for request' })
-  createChecklist(@Param('id') id: string, @Body('scheduleId') scheduleId: string, @CurrentUser('id') userId: string) {
-    return this.service.createChecklist(id, scheduleId, userId);
+  createChecklist(@Param('id') id: string, @Body('scheduleId') scheduleId: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.createChecklist(id, scheduleId, userId, ctx);
   }
 
   @Get(':id/checklist-executions')
   @Permissions('maintenance-request:checklist.view')
   @ApiOperation({ summary: 'List checklist executions for request' })
-  getChecklistExecutions(@Param('id') id: string) {
-    return this.service.getChecklists(id);
+  getChecklistExecutions(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getChecklists(id, ctx);
   }
 
   @Post(':id/checklist-executions')
   @Permissions('maintenance-request:checklist.manage')
   @ApiOperation({ summary: 'Create checklist execution for request' })
-  createChecklistExecution(@Param('id') id: string, @Body('scheduleId') scheduleId: string, @CurrentUser('id') userId: string) {
-    return this.service.createChecklist(id, scheduleId, userId);
+  createChecklistExecution(@Param('id') id: string, @Body('scheduleId') scheduleId: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.createChecklist(id, scheduleId, userId, ctx);
   }
 
   @Get(':id/checklist-executions/:executionId')
   @Permissions('maintenance-request:checklist.view')
   @ApiOperation({ summary: 'Get checklist execution detail for request' })
-  getChecklistExecution(@Param('id') id: string, @Param('executionId') executionId: string) {
-    return this.service.getChecklistExecution(id, executionId);
+  getChecklistExecution(@Param('id') id: string, @Param('executionId') executionId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getChecklistExecution(id, executionId, ctx);
   }
 
   @Get(':id/summary')
   @Permissions('maintenance-request:read')
   @ApiOperation({ summary: 'Get request summary with all related data' })
-  getSummary(@Param('id') id: string) {
-    return this.service.getRequestSummary(id);
+  getSummary(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getRequestSummary(id, ctx);
   }
 
   // -- Required Parts endpoints --
@@ -188,28 +190,28 @@ export class MaintenanceRequestsController {
   @Get(':id/required-parts')
   @Permissions('maintenance-request-required-part:read')
   @ApiOperation({ summary: 'List required parts for a maintenance request' })
-  getRequiredParts(@Param('id') id: string) {
-    return this.service.getRequiredParts(id);
+  getRequiredParts(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getRequiredParts(id, ctx);
   }
 
   @Post(':id/required-parts')
   @Permissions('maintenance-request-required-part:create')
   @ApiOperation({ summary: 'Add a required spare part to a maintenance request' })
-  addRequiredPart(@Param('id') id: string, @Body() dto: { sparePartId: string; machineComponentId?: string; machineId?: string; quantity: number; unit?: string; usageNote?: string; isPrimary?: boolean }, @CurrentUser('id') userId: string) {
-    return this.service.addRequiredPart(id, dto, userId);
+  addRequiredPart(@Param('id') id: string, @Body() dto: { sparePartId: string; machineComponentId?: string; machineId?: string; quantity: number; unit?: string; usageNote?: string; isPrimary?: boolean }, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.addRequiredPart(id, dto, userId, ctx);
   }
 
   @Patch('required-parts/:partId')
   @Permissions('maintenance-request-required-part:update')
   @ApiOperation({ summary: 'Update a required spare part' })
-  updateRequiredPart(@Param('partId') partId: string, @Body() dto: { quantity?: number; unit?: string; usageNote?: string; isPrimary?: boolean }, @CurrentUser('id') userId: string) {
-    return this.service.updateRequiredPart(partId, dto, userId);
+  updateRequiredPart(@Param('partId') partId: string, @Body() dto: { quantity?: number; unit?: string; usageNote?: string; isPrimary?: boolean }, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.updateRequiredPart(partId, dto, userId, ctx);
   }
 
   @Patch('required-parts/:partId/cancel')
   @Permissions('maintenance-request-required-part:cancel')
   @ApiOperation({ summary: 'Cancel a required spare part' })
-  cancelRequiredPart(@Param('partId') partId: string, @CurrentUser('id') userId: string) {
-    return this.service.cancelRequiredPart(partId, userId);
+  cancelRequiredPart(@Param('partId') partId: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.cancelRequiredPart(partId, userId, ctx);
   }
 }

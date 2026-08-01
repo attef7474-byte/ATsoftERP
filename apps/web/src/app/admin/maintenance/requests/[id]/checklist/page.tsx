@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 import { MaintenanceChecklistExecution, MaintenanceChecklistExecutionItem } from '../../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, EmptyState, StatusBadge, Button } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../../../components/admin/admin-action-bar';
@@ -14,6 +15,7 @@ export default function RequestChecklistPage() {
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
 
   const [executions, setExecutions] = useState<MaintenanceChecklistExecution[]>([]);
@@ -48,7 +50,7 @@ export default function RequestChecklistPage() {
       setScheduleId('');
       fetchData();
     } catch (err: any) {
-      showToast(err?.message || t('errors.createFailed'), 'error');
+      handleApiError(err);
     } finally { setCreating(false); }
   };
 

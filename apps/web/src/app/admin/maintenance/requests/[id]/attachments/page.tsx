@@ -1,29 +1,26 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api } from '../../../../../../lib/api';
+import { api, getApiBaseUrl, getApiRequestHeaders } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../../components/admin/toast-provider';
-import { Card, CardContent, CardHeader, LoadingState, ErrorState, EmptyState } from '../../../../../../components/admin/ui';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
+import { Card, CardContent, CardHeader, LoadingState, ErrorState, EmptyState, Button } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../../../components/admin/admin-action-bar';
 
 interface Attachment {
   id: string;
-  requestId: string;
-  fileName: string;
-  fileUrl: string;
+  originalName: string;
+  filePath: string;
   mimeType: string;
-  sizeBytes: number;
-  uploadedById: string;
-  uploadedBy?: { id: string; name: string };
-  description?: string | null;
+  size: number;
+  uploadedById?: string | null;
+  uploadedBy?: { id: string; name: string } | null;
   createdAt: string;
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-
 function formatSize(bytes: number): string {
-  if (bytes === 0) return '0 B';
+  if (!bytes) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -35,11 +32,13 @@ export default function RequestAttachmentsPage() {
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [downloadingId, setDownloadingId] = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -52,6 +51,26 @@ export default function RequestAttachmentsPage() {
   }, [id, t]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const downloadAttachment = async (att: Attachment) => {
+    setDownloadingId(att.id);
+    try {
+      const url = `${getApiBaseUrl()}/attachments/${att.id}/download`;
+      const res = await fetch(url, {
+        headers: getApiRequestHeaders({ includeJsonContentType: false }),
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = att.originalName || `attachment-${att.id}`;
+      a.click();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err: any) {
+      handleApiError(err);
+    } finally { setDownloadingId(''); }
+  };
 
   const { exec } = useStableHandlers({
     back: () => router.back(),
@@ -92,22 +111,17 @@ export default function RequestAttachmentsPage() {
                 <div key={att.id} className="flex items-center gap-4 py-3">
                   <div className="text-2xl flex-shrink-0">{getFileIcon(att.mimeType)}</div>
                   <div className="flex-1 min-w-0">
-                    <a href={`${BASE_URL}/files/${att.fileUrl}`} target="_blank" rel="noopener noreferrer"
-                      className="text-sm font-medium text-blue-600 hover:text-blue-800 truncate block">
-                      {att.fileName}
-                    </a>
+                    <span className="text-sm font-medium text-gray-900 truncate block">{att.originalName}</span>
                     <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
                       <span>{att.mimeType}</span>
-                      <span>{formatSize(att.sizeBytes)}</span>
+                      <span>{formatSize(att.size)}</span>
                       <span>{fmt(att.createdAt)}</span>
                       {att.uploadedBy && <span>{t('maintenance.uploadedBy')}: {att.uploadedBy.name}</span>}
                     </div>
-                    {att.description && <p className="text-xs text-gray-400 mt-1">{att.description}</p>}
                   </div>
-                  <a href={`${BASE_URL}/files/${att.fileUrl}`} target="_blank" rel="noopener noreferrer"
-                    className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50">
+                  <Button variant="secondary" size="sm" loading={downloadingId === att.id} onClick={() => downloadAttachment(att)}>
                     {t('common.download')}
-                  </a>
+                  </Button>
                 </div>
               ))}
             </div>

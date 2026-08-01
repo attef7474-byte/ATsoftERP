@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { CreateMaintenanceTaskDto } from './dto/create-maintenance-task.dto';
 import { UpdateMaintenanceTaskDto } from './dto/update-maintenance-task.dto';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class MaintenanceTasksService {
@@ -11,16 +12,41 @@ export class MaintenanceTasksService {
     private audit: AuditService,
   ) {}
 
-  async create(dto: CreateMaintenanceTaskDto, userId: string) {
-    const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: dto.requestId } });
-    if (!request) throw new NotFoundException('Maintenance request not found');
+  private notFound(key: string, message: string): NotFoundException {
+    return new NotFoundException({ messageKey: key, message });
+  }
+
+  private badRequest(key: string, message: string): BadRequestException {
+    return new BadRequestException({ messageKey: key, message });
+  }
+
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
+  }
+
+  private machineOwns(machine: { companyId?: string | null; branchId?: string | null }, ctx: ActiveOperationalContext): boolean {
+    return machine.companyId === ctx.companyId
+      && (machine.branchId === null || machine.branchId === ctx.branchId);
+  }
+
+  async create(dto: CreateMaintenanceTaskDto, userId: string, ctx: ActiveOperationalContext) {
+    const request = await this.prisma.maintenanceRequest.findUnique({
+      where: { id: dto.requestId },
+      include: { machine: true },
+    });
+    if (!request || !this.machineOwns(request.machine, ctx)) {
+      throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
+    }
     if (request.status === 'COMPLETED' || request.status === 'CANCELLED') {
-      throw new BadRequestException('Cannot add tasks to completed or cancelled requests');
+      throw this.badRequest('maintenance.cannotAddTaskTerminalRequest', 'Cannot add tasks to completed or cancelled requests');
     }
 
     if (dto.assignedToId) {
       const user = await this.prisma.user.findUnique({ where: { id: dto.assignedToId } });
-      if (!user) throw new NotFoundException('Assigned user not found');
+      if (!user) throw this.notFound('maintenance.assignedUserNotFound', 'Assigned user not found');
     }
 
     const task = await this.prisma.maintenanceTask.create({ data: dto as any });
@@ -32,12 +58,12 @@ export class MaintenanceTasksService {
   async findAll(query: {
     page?: number; limit?: number; search?: string;
     requestId?: string; assignedToId?: string; status?: string;
-  }) {
+  }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = { request: { machine: this.machineScope(ctx) } };
     if (query.search) {
       where.OR = [
         { title: { contains: query.search } },
@@ -62,31 +88,38 @@ export class MaintenanceTasksService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, ctx: ActiveOperationalContext) {
     const task = await this.prisma.maintenanceTask.findUnique({
       where: { id },
       include: {
-        request: { select: { id: true, requestNumber: true, title: true, status: true } },
+        request: { select: { id: true, requestNumber: true, title: true, status: true, machine: { select: { id: true, companyId: true, branchId: true } } } },
         assignedTo: { select: { id: true, name: true, email: true } },
       },
     });
-    if (!task) throw new NotFoundException('Maintenance task not found');
+    if (!task || !this.machineOwns(task.request.machine, ctx)) {
+      throw this.notFound('maintenance.taskNotFound', 'Maintenance task not found');
+    }
     return task;
   }
 
-  async update(id: string, dto: UpdateMaintenanceTaskDto, userId: string) {
-    const task = await this.findOne(id);
+  async update(id: string, dto: UpdateMaintenanceTaskDto, userId: string, ctx: ActiveOperationalContext) {
+    const task = await this.findOne(id, ctx);
     if (task.status === 'DONE' || task.status === 'CANCELLED') {
-      throw new BadRequestException('Cannot update completed or cancelled tasks');
+      throw this.badRequest('maintenance.cannotUpdateTerminalTask', 'Cannot update completed or cancelled tasks');
     }
 
     if (dto.requestId) {
-      const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: dto.requestId } });
-      if (!request) throw new NotFoundException('Maintenance request not found');
+      const request = await this.prisma.maintenanceRequest.findUnique({
+        where: { id: dto.requestId },
+        include: { machine: true },
+      });
+      if (!request || !this.machineOwns(request.machine, ctx)) {
+        throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
+      }
     }
     if (dto.assignedToId) {
       const user = await this.prisma.user.findUnique({ where: { id: dto.assignedToId } });
-      if (!user) throw new NotFoundException('Assigned user not found');
+      if (!user) throw this.notFound('maintenance.assignedUserNotFound', 'Assigned user not found');
     }
 
     const updated = await this.prisma.maintenanceTask.update({ where: { id }, data: dto as any });
@@ -95,9 +128,9 @@ export class MaintenanceTasksService {
     return updated;
   }
 
-  async start(id: string, userId: string) {
-    const task = await this.findOne(id);
-    if (task.status !== 'PENDING') throw new BadRequestException('Only PENDING tasks can be started');
+  async start(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const task = await this.findOne(id, ctx);
+    if (task.status !== 'PENDING') throw this.badRequest('maintenance.onlyPendingCanStart', 'Only PENDING tasks can be started');
     const updated = await this.prisma.maintenanceTask.update({
       where: { id },
       data: { status: 'IN_PROGRESS', startedAt: new Date() },
@@ -107,9 +140,9 @@ export class MaintenanceTasksService {
     return updated;
   }
 
-  async complete(id: string, userId: string) {
-    const task = await this.findOne(id);
-    if (task.status !== 'IN_PROGRESS') throw new BadRequestException('Only IN_PROGRESS tasks can be completed');
+  async complete(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const task = await this.findOne(id, ctx);
+    if (task.status !== 'IN_PROGRESS') throw this.badRequest('maintenance.onlyInProgressTaskCanComplete', 'Only IN_PROGRESS tasks can be completed');
     const updated = await this.prisma.maintenanceTask.update({
       where: { id },
       data: { status: 'DONE', completedAt: new Date() },
@@ -119,10 +152,10 @@ export class MaintenanceTasksService {
     return updated;
   }
 
-  async cancel(id: string, userId: string) {
-    const task = await this.findOne(id);
+  async cancel(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const task = await this.findOne(id, ctx);
     if (task.status !== 'PENDING' && task.status !== 'IN_PROGRESS') {
-      throw new BadRequestException('Only PENDING or IN_PROGRESS tasks can be cancelled');
+      throw this.badRequest('maintenance.onlyPendingInProgressCanCancelTask', 'Only PENDING or IN_PROGRESS tasks can be cancelled');
     }
     const updated = await this.prisma.maintenanceTask.update({
       where: { id },
@@ -133,10 +166,10 @@ export class MaintenanceTasksService {
     return updated;
   }
 
-  async remove(id: string, userId: string) {
-    const task = await this.findOne(id);
+  async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const task = await this.findOne(id, ctx);
     if (task.status === 'IN_PROGRESS') {
-      throw new BadRequestException('Cannot delete an in-progress task');
+      throw this.badRequest('maintenance.cannotDeleteInProgressTask', 'Cannot delete an in-progress task');
     }
     await this.prisma.maintenanceTask.delete({ where: { id } });
     await this.audit.log(userId, 'DELETE', 'MaintenanceTask', id,
@@ -144,10 +177,10 @@ export class MaintenanceTasksService {
     return { message: 'Maintenance task deleted successfully' };
   }
 
-  async myTasks(userId: string, query: { page?: number; limit?: number; status?: string }) {
+  async myTasks(userId: string, query: { page?: number; limit?: number; status?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
-    const where: any = { assignedToId: userId };
+    const where: any = { assignedToId: userId, request: { machine: this.machineScope(ctx) } };
     if (query.status) where.status = query.status;
 
     const [data, total] = await Promise.all([
@@ -163,9 +196,16 @@ export class MaintenanceTasksService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async byRequest(requestId: string, query: { page?: number; limit?: number }) {
+  async byRequest(requestId: string, query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
+    const request = await this.prisma.maintenanceRequest.findUnique({
+      where: { id: requestId },
+      include: { machine: true },
+    });
+    if (!request || !this.machineOwns(request.machine, ctx)) {
+      throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
+    }
     const where = { requestId };
 
     const [data, total] = await Promise.all([
@@ -180,14 +220,14 @@ export class MaintenanceTasksService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async overdue(query: { page?: number; limit?: number }) {
+  async overdue(query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const now = new Date();
     // Tasks that are overdue: PENDING or IN_PROGRESS tasks where the request's endDate has passed
     const where = {
       status: { in: ['PENDING', 'IN_PROGRESS'] },
-      request: { endDate: { lt: now }, deletedAt: null },
+      request: { machine: this.machineScope(ctx), endDate: { lt: now }, deletedAt: null },
     };
 
     const [data, total] = await Promise.all([
@@ -203,13 +243,13 @@ export class MaintenanceTasksService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async assignTask(id: string, assignedToId: string, userId: string) {
-    const task = await this.findOne(id);
+  async assignTask(id: string, assignedToId: string, userId: string, ctx: ActiveOperationalContext) {
+    const task = await this.findOne(id, ctx);
     if (task.status === 'DONE' || task.status === 'CANCELLED') {
-      throw new BadRequestException('Cannot assign completed or cancelled tasks');
+      throw this.badRequest('maintenance.cannotAssignTerminalTask', 'Cannot assign completed or cancelled tasks');
     }
     const user = await this.prisma.user.findUnique({ where: { id: assignedToId } });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw this.notFound('organization.userNotFound', 'User not found');
 
     const updated = await this.prisma.maintenanceTask.update({
       where: { id },

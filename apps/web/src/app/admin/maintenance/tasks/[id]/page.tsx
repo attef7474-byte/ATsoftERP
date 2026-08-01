@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { MaintenanceTask } from '../../../../../lib/admin-types';
 import { Card, CardContent, LoadingState, ErrorState } from '../../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../../components/maintenance';
@@ -15,6 +16,7 @@ export default function MaintenanceTaskDetailPage() {
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [data, setData] = useState<MaintenanceTask | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +40,7 @@ export default function MaintenanceTaskDetailPage() {
       showToast(t('common.successUpdated'), 'success');
       fetchData();
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     }
   };
 

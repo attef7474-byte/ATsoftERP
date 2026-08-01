@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { MaintenanceRequest, MaintenanceTask, DowntimeLog, SparePartRequestLine } from '../../../../../lib/admin-types';
 
 interface RequestDetail extends MaintenanceRequest {
@@ -21,6 +22,7 @@ export default function MaintenanceRequestDetailPage() {
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [data, setData] = useState<RequestDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -104,7 +106,7 @@ export default function MaintenanceRequestDetailPage() {
       setConfirmOpen(false);
       fetchData();
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setActionLoading(false); }
   };
 
@@ -160,7 +162,7 @@ export default function MaintenanceRequestDetailPage() {
       showToast(t('common.successUpdated'), 'success');
       fetchPartLines();
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setPartLineActionLoading(''); }
   };
 
@@ -186,7 +188,7 @@ export default function MaintenanceRequestDetailPage() {
       setAddPartNote('');
       fetchPartLines();
     } catch (err: any) {
-      showToast(err?.message || t('errors.createFailed'), 'error');
+      handleApiError(err);
     } finally { setPartLineActionLoading(''); }
   };
 
@@ -227,7 +229,7 @@ export default function MaintenanceRequestDetailPage() {
       setStockIssueNoReturnReason('');
       fetchPartLines();
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setStockIssueLoading(false); }
   };
 

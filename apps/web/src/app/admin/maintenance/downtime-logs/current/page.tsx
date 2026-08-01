@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { DowntimeLog } from '../../../../../lib/admin-types';
 import { Card, CardHeader, DataTable, PageHeader, LoadingState, EmptyState, ErrorState, ConfirmDialog } from '../../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../../components/maintenance';
@@ -13,6 +14,7 @@ export default function CurrentDowntimePage() {
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<DowntimeLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -24,8 +26,8 @@ export default function CurrentDowntimePage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<DowntimeLog[]>('/maintenance/downtime-logs/current');
-      setData(Array.isArray(res) ? res : []);
+      const res = await api.get<{ data: DowntimeLog[]; meta: any }>('/maintenance/downtime-logs/current');
+      setData(Array.isArray(res) ? res : (res?.data || []));
     } catch (err: any) {
       setError(err?.message || t('errors.loadFailed'));
     } finally { setLoading(false); }
@@ -47,7 +49,7 @@ export default function CurrentDowntimePage() {
       setConfirmOpen(false);
       fetchData();
     } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setActionLoading(false); }
   };
 

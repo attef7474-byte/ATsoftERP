@@ -107,7 +107,8 @@ export default function DowntimeLogsPage() {
         await api.patch(`/maintenance/downtime-logs/${editItem.id}`, payload);
         showToast(t('common.successUpdated'), 'success');
       } else {
-        await api.post('/maintenance/downtime-logs', form);
+        const { code, ...payload } = form;
+        await api.post('/maintenance/downtime-logs', { ...payload, requestId: payload.requestId || undefined });
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);

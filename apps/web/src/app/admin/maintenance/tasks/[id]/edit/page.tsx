@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../../components/admin/toast-provider';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 import { Button, Input, Textarea, Card, CardContent, LoadingState, ErrorState } from '../../../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../../../components/maintenance';
 import { F9Lookup, maintenanceRequestAdapter, userAdapter } from '../../../../../../components/f9';
@@ -15,6 +16,7 @@ export default function EditMaintenanceTaskPage() {
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params?.id as string;
   const [data, setData] = useState<MaintenanceTask | null>(null);
   const [form, setForm] = useState({ requestId: '', title: '', description: '', assignedToId: '', notes: '' });
@@ -69,7 +71,7 @@ export default function EditMaintenanceTaskPage() {
       showToast(t('complexForms.recordUpdated'), 'success');
       router.push(`/admin/maintenance/tasks/${id}`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.updateFailed'), 'error');
+      handleApiError(err);
     } finally { setSaving(false); }
   };
 

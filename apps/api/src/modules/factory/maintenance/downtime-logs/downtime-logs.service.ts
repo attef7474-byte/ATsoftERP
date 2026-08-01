@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { CreateDowntimeLogDto } from './dto/create-downtime-log.dto';
 import { UpdateDowntimeLogDto } from './dto/update-downtime-log.dto';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class DowntimeLogsService {
@@ -11,27 +12,48 @@ export class DowntimeLogsService {
     private audit: AuditService,
   ) {}
 
-  async create(dto: CreateDowntimeLogDto, userId: string) {
+  private notFound(key: string, message: string): NotFoundException {
+    return new NotFoundException({ messageKey: key, message });
+  }
+
+  private badRequest(key: string, message: string): BadRequestException {
+    return new BadRequestException({ messageKey: key, message });
+  }
+
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
+  }
+
+  private machineOwns(machine: { companyId?: string | null; branchId?: string | null }, ctx: ActiveOperationalContext): boolean {
+    return machine.companyId === ctx.companyId
+      && (machine.branchId === null || machine.branchId === ctx.branchId);
+  }
+
+  async create(dto: CreateDowntimeLogDto, userId: string, ctx: ActiveOperationalContext) {
     const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
-    if (!machine) throw new NotFoundException('Machine not found');
+    if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
 
     if (dto.requestId) {
-      const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: dto.requestId } });
-      if (!request) throw new NotFoundException('Maintenance request not found');
+      const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: dto.requestId }, include: { machine: true } });
+      if (!request || !this.machineOwns(request.machine, ctx)) throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
     }
 
     const activeDowntime = await this.prisma.downtimeLog.findFirst({
       where: { machineId: dto.machineId, endTime: null, cancelledAt: null },
     });
     if (activeDowntime) {
-      throw new BadRequestException('Machine already has an active downtime log. Close it before creating a new one.');
+      throw this.badRequest('maintenance.activeDowntimeExists', 'Machine already has an active downtime log. Close it before creating a new one.');
     }
 
     const data: any = { ...dto };
+    data.requestId = dto.requestId || null;
     data.startTime = dto.startTime ? new Date(dto.startTime) : new Date();
     if (dto.endTime) data.endTime = new Date(dto.endTime);
     if (data.endTime && data.endTime <= data.startTime) {
-      throw new BadRequestException('End time must be after start time');
+      throw this.badRequest('maintenance.endTimeAfterStartTime', 'End time must be after start time');
     }
     if (data.endTime && !data.durationMinutes) {
       data.durationMinutes = (data.endTime.getTime() - data.startTime.getTime()) / 60000;
@@ -48,12 +70,12 @@ export class DowntimeLogsService {
     machineId?: string; requestId?: string;
     dateFrom?: string; dateTo?: string;
     failureCategory?: string; rcaStatus?: string;
-  }) {
+  }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = { machine: this.machineScope(ctx) };
     if (query.search) {
       where.OR = [
         { reason: { contains: query.search } },
@@ -92,16 +114,16 @@ export class DowntimeLogsService {
     return { data: enriched, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, ctx: ActiveOperationalContext) {
     const log = await this.prisma.downtimeLog.findUnique({
       where: { id },
       include: {
-        machine: { select: { id: true, code: true, name: true, productionLineId: true } },
+        machine: { select: { id: true, code: true, name: true, productionLineId: true, companyId: true, branchId: true } },
         request: { select: { id: true, requestNumber: true, title: true } },
         rcaCompletedBy: { select: { id: true, name: true } },
       },
     });
-    if (!log) throw new NotFoundException('Downtime log not found');
+    if (!log || !this.machineOwns(log.machine, ctx)) throw this.notFound('maintenance.downtimeLogNotFound', 'Downtime log not found');
     return {
       ...log,
       status: log.cancelledAt ? 'CANCELLED' : log.endTime ? 'CLOSED' : 'ACTIVE',
@@ -109,10 +131,10 @@ export class DowntimeLogsService {
     };
   }
 
-  async update(id: string, dto: UpdateDowntimeLogDto, userId: string) {
-    const existing = await this.findOne(id);
+  async update(id: string, dto: UpdateDowntimeLogDto, userId: string, ctx: ActiveOperationalContext) {
+    const existing = await this.findOne(id, ctx);
     if (existing.endTime || existing.cancelledAt) {
-      throw new BadRequestException('Cannot update a closed or cancelled downtime log');
+      throw this.badRequest('maintenance.cannotUpdateClosedCancelledDowntime', 'Cannot update a closed or cancelled downtime log');
     }
 
     const data: any = { ...dto };
@@ -121,7 +143,7 @@ export class DowntimeLogsService {
       data.endTime = new Date(dto.endTime);
       const start = data.startTime || existing.startTime;
       if (data.endTime <= start) {
-        throw new BadRequestException('End time must be after start time');
+        throw this.badRequest('maintenance.endTimeAfterStartTime', 'End time must be after start time');
       }
       data.durationMinutes = (data.endTime.getTime() - start.getTime()) / 60000;
     }
@@ -131,19 +153,19 @@ export class DowntimeLogsService {
     return log;
   }
 
-  async close(id: string, userId: string) {
-    const existing = await this.findOne(id);
+  async close(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const existing = await this.findOne(id, ctx);
     if (existing.cancelledAt) {
-      throw new BadRequestException('Cannot close a cancelled downtime log');
+      throw this.badRequest('maintenance.cannotCloseCancelledDowntime', 'Cannot close a cancelled downtime log');
     }
     if (existing.endTime) {
-      throw new BadRequestException('Downtime log is already closed');
+      throw this.badRequest('maintenance.downtimeAlreadyClosed', 'Downtime log is already closed');
     }
 
     const now = new Date();
     const durationMinutes = (now.getTime() - new Date(existing.startTime).getTime()) / 60000;
     if (durationMinutes <= 0) {
-      throw new BadRequestException('Duration must be positive');
+      throw this.badRequest('maintenance.durationMustBePositive', 'Duration must be positive');
     }
 
     const log = await this.prisma.downtimeLog.update({
@@ -155,13 +177,13 @@ export class DowntimeLogsService {
     return { ...log, status: 'CLOSED', durationHours: durationMinutes / 60 };
   }
 
-  async cancel(id: string, userId: string) {
-    const existing = await this.findOne(id);
+  async cancel(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const existing = await this.findOne(id, ctx);
     if (existing.cancelledAt) {
-      throw new BadRequestException('Downtime log is already cancelled');
+      throw this.badRequest('maintenance.downtimeAlreadyCancelled', 'Downtime log is already cancelled');
     }
     if (existing.endTime) {
-      throw new BadRequestException('Cannot cancel a closed downtime log');
+      throw this.badRequest('maintenance.cannotCancelClosedDowntime', 'Cannot cancel a closed downtime log');
     }
 
     const log = await this.prisma.downtimeLog.update({
@@ -173,10 +195,10 @@ export class DowntimeLogsService {
     return { ...log, status: 'CANCELLED' };
   }
 
-  async remove(id: string, userId: string) {
-    const existing = await this.findOne(id);
+  async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const existing = await this.findOne(id, ctx);
     if (!existing.endTime && !existing.cancelledAt) {
-      throw new BadRequestException('Close or cancel the downtime log before deleting');
+      throw this.badRequest('maintenance.closeOrCancelBeforeDelete', 'Close or cancel the downtime log before deleting');
     }
     await this.prisma.downtimeLog.delete({ where: { id } });
     await this.audit.log(userId, 'DELETE', 'DowntimeLog', id,
@@ -184,15 +206,15 @@ export class DowntimeLogsService {
     return { message: 'Downtime log deleted successfully' };
   }
 
-  async startDowntime(machineId: string, reason: string, userId: string) {
+  async startDowntime(machineId: string, reason: string, userId: string, ctx: ActiveOperationalContext) {
     const machine = await this.prisma.machine.findUnique({ where: { id: machineId } });
-    if (!machine) throw new NotFoundException('Machine not found');
+    if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
 
     const activeDowntime = await this.prisma.downtimeLog.findFirst({
       where: { machineId, endTime: null, cancelledAt: null },
     });
     if (activeDowntime) {
-      throw new BadRequestException('Machine already has an active downtime log');
+      throw this.badRequest('maintenance.activeDowntimeExists', 'Machine already has an active downtime log');
     }
 
     const log = await this.prisma.downtimeLog.create({
@@ -203,10 +225,10 @@ export class DowntimeLogsService {
     return { ...log, status: 'ACTIVE' };
   }
 
-  async getCurrent(query: { page?: number; limit?: number }) {
+  async getCurrent(query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
-    const where = { endTime: null, cancelledAt: null };
+    const where: any = { endTime: null, cancelledAt: null, machine: this.machineScope(ctx) };
 
     const [data, total] = await Promise.all([
       this.prisma.downtimeLog.findMany({
@@ -221,9 +243,13 @@ export class DowntimeLogsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getAnalysis(query: { dateFrom?: string; dateTo?: string; machineId?: string }) {
-    const where: any = { cancelledAt: null };
-    if (query.machineId) where.machineId = query.machineId;
+  async getAnalysis(query: { dateFrom?: string; dateTo?: string; machineId?: string }, ctx: ActiveOperationalContext) {
+    const where: any = { cancelledAt: null, machine: this.machineScope(ctx) };
+    if (query.machineId) {
+      const machine = await this.prisma.machine.findUnique({ where: { id: query.machineId } });
+      if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+      where.machineId = query.machineId;
+    }
     if (query.dateFrom || query.dateTo) {
       where.startTime = {};
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
@@ -297,9 +323,11 @@ export class DowntimeLogsService {
     };
   }
 
-  async getByMachine(machineId: string, query: { page?: number; limit?: number }) {
+  async getByMachine(machineId: string, query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
+    const machine = await this.prisma.machine.findUnique({ where: { id: machineId } });
+    if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
     const where = { machineId };
 
     const [data, total] = await Promise.all([
@@ -322,8 +350,8 @@ export class DowntimeLogsService {
     return { data: enriched, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getLogSummary(id: string) {
-    const log = await this.findOne(id);
+  async getLogSummary(id: string, ctx: ActiveOperationalContext) {
+    const log = await this.findOne(id, ctx);
     const relatedRequests = log.requestId
       ? await this.prisma.maintenanceRequest.findUnique({
           where: { id: log.requestId },
@@ -333,10 +361,10 @@ export class DowntimeLogsService {
     return { ...log, relatedRequest: relatedRequests };
   }
 
-  async endDowntime(id: string, userId: string) {
-    const existing = await this.findOne(id);
-    if (existing.endTime) throw new BadRequestException('Downtime log is already ended');
-    if (existing.cancelledAt) throw new BadRequestException('Cannot end a cancelled downtime log');
+  async endDowntime(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const existing = await this.findOne(id, ctx);
+    if (existing.endTime) throw this.badRequest('maintenance.downtimeAlreadyEnded', 'Downtime log is already ended');
+    if (existing.cancelledAt) throw this.badRequest('maintenance.cannotEndCancelledDowntime', 'Cannot end a cancelled downtime log');
 
     const now = new Date();
     const durationMinutes = (now.getTime() - new Date(existing.startTime).getTime()) / 60000;
@@ -350,8 +378,8 @@ export class DowntimeLogsService {
     return { ...log, status: 'CLOSED', durationHours: durationMinutes / 60 };
   }
 
-  async classify(id: string, reason: string, category: string | undefined, userId: string) {
-    const existing = await this.findOne(id);
+  async classify(id: string, reason: string, category: string | undefined, userId: string, ctx: ActiveOperationalContext) {
+    const existing = await this.findOne(id, ctx);
     const data: any = {};
     if (reason) data.reason = reason;
     if (category) data.failureCategory = category;
@@ -367,9 +395,9 @@ export class DowntimeLogsService {
 
   // ── RCA Methods ──
 
-  async setFailureCause(id: string, failureCause: string, failureCategory: string | undefined, userId: string) {
-    const existing = await this.findOne(id);
-    if (existing.cancelledAt) throw new BadRequestException('Cannot update a cancelled downtime log');
+  async setFailureCause(id: string, failureCause: string, failureCategory: string | undefined, userId: string, ctx: ActiveOperationalContext) {
+    const existing = await this.findOne(id, ctx);
+    if (existing.cancelledAt) throw this.badRequest('maintenance.cannotUpdateCancelledDowntime', 'Cannot update a cancelled downtime log');
 
     const data: any = { failureCause };
     if (failureCategory) data.failureCategory = failureCategory;
@@ -380,10 +408,10 @@ export class DowntimeLogsService {
     return log;
   }
 
-  async setRca(id: string, dto: { rootCause?: string; correctiveAction?: string; preventiveAction?: string }, userId: string) {
-    const existing = await this.findOne(id);
-    if (existing.cancelledAt) throw new BadRequestException('Cannot update a cancelled downtime log');
-    if (existing.rcaStatus === 'COMPLETED') throw new BadRequestException('RCA is already completed');
+  async setRca(id: string, dto: { rootCause?: string; correctiveAction?: string; preventiveAction?: string }, userId: string, ctx: ActiveOperationalContext) {
+    const existing = await this.findOne(id, ctx);
+    if (existing.cancelledAt) throw this.badRequest('maintenance.cannotUpdateCancelledDowntime', 'Cannot update a cancelled downtime log');
+    if (existing.rcaStatus === 'COMPLETED') throw this.badRequest('maintenance.rcaAlreadyCompleted', 'RCA is already completed');
 
     const data: any = {};
     if (dto.rootCause !== undefined) data.rootCause = dto.rootCause;
@@ -397,10 +425,10 @@ export class DowntimeLogsService {
     return log;
   }
 
-  async completeRca(id: string, userId: string) {
-    const existing = await this.findOne(id);
-    if (existing.cancelledAt) throw new BadRequestException('Cannot complete RCA for a cancelled downtime log');
-    if (existing.rcaStatus === 'COMPLETED') throw new BadRequestException('RCA is already completed');
+  async completeRca(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const existing = await this.findOne(id, ctx);
+    if (existing.cancelledAt) throw this.badRequest('maintenance.cannotCompleteRcaCancelledDowntime', 'Cannot complete RCA for a cancelled downtime log');
+    if (existing.rcaStatus === 'COMPLETED') throw this.badRequest('maintenance.rcaAlreadyCompleted', 'RCA is already completed');
 
     const log = await this.prisma.downtimeLog.update({
       where: { id },
@@ -415,8 +443,8 @@ export class DowntimeLogsService {
     return log;
   }
 
-  async getRca(id: string) {
-    const existing = await this.findOne(id);
+  async getRca(id: string, ctx: ActiveOperationalContext) {
+    const existing = await this.findOne(id, ctx);
     return {
       id: existing.id,
       failureCause: existing.failureCause,
@@ -449,7 +477,6 @@ export class DowntimeLogsService {
       if (query.dateFrom) where.endTime.gte = new Date(query.dateFrom);
       if (query.dateTo) where.endTime.lte = new Date(query.dateTo);
     }
-
     const result = await this.prisma.downtimeLog.aggregate({
       where,
       _avg: { durationMinutes: true },
@@ -477,17 +504,14 @@ export class DowntimeLogsService {
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
       if (query.dateTo) where.startTime.lte = new Date(query.dateTo);
     }
-
     const [totalEvents, firstEvent, lastEvent] = await Promise.all([
       this.prisma.downtimeLog.count({ where }),
       this.prisma.downtimeLog.findFirst({ where, orderBy: { startTime: 'asc' }, select: { startTime: true } }),
       this.prisma.downtimeLog.findFirst({ where, orderBy: { startTime: 'desc' }, select: { startTime: true } }),
     ]);
-
     if (totalEvents < 2 || !firstEvent || !lastEvent) {
       return { mtbfMinutes: 0, mtbfHours: 0, totalEvents };
     }
-
     const totalHours = (lastEvent.startTime.getTime() - firstEvent.startTime.getTime()) / 3600000;
     const mtbfHours = totalHours / (totalEvents - 1);
     return {
@@ -512,7 +536,6 @@ export class DowntimeLogsService {
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
       if (query.dateTo) where.startTime.lte = new Date(query.dateTo);
     }
-
     const result = await this.prisma.downtimeLog.aggregate({
       where,
       _sum: { durationMinutes: true },
@@ -532,7 +555,6 @@ export class DowntimeLogsService {
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
       if (query.dateTo) where.startTime.lte = new Date(query.dateTo);
     }
-
     const grouped = await this.prisma.downtimeLog.groupBy({
       by: ['machineId'],
       where,
@@ -541,12 +563,10 @@ export class DowntimeLogsService {
       orderBy: { _sum: { durationMinutes: 'desc' } },
       take: query.limit || 10,
     });
-
     const machines = await this.prisma.machine.findMany({
       where: { id: { in: grouped.map(g => g.machineId) } },
       select: { id: true, code: true, name: true, productionLineId: true },
     });
-
     const machineMap = new Map(machines.map(m => [m.id, m]));
     return grouped.map(g => ({
       machine: machineMap.get(g.machineId) || null,
@@ -563,7 +583,6 @@ export class DowntimeLogsService {
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
       if (query.dateTo) where.startTime.lte = new Date(query.dateTo);
     }
-
     const allLogs = await this.prisma.downtimeLog.findMany({
       where,
       select: {
@@ -573,8 +592,7 @@ export class DowntimeLogsService {
         machine: { select: { productionLineId: true } },
       },
     });
-
-    const lineMap = new Map<string, { totalMinutes: number; count: number }>();
+    const lineMap = new Map();
     for (const log of allLogs) {
       const lineId = log.machine?.productionLineId || 'UNKNOWN';
       const entry = lineMap.get(lineId) || { totalMinutes: 0, count: 0 };
@@ -582,15 +600,13 @@ export class DowntimeLogsService {
       entry.count += 1;
       lineMap.set(lineId, entry);
     }
-
     const productionLines = await this.prisma.productionLine.findMany({
       where: { id: { in: Array.from(lineMap.keys()).filter(k => k !== 'UNKNOWN') } },
       select: { id: true, code: true, name: true },
     });
     const lineMap2 = new Map(productionLines.map(l => [l.id, l]));
-
     return Array.from(lineMap.entries())
-      .map(([lineId, data]) => ({
+      .map(([lineId, data]: [string, { totalMinutes: number; count: number }]) => ({
         productionLine: lineId === 'UNKNOWN' ? null : (lineMap2.get(lineId) || null),
         totalMinutes: data.totalMinutes,
         totalHours: data.totalMinutes / 60,
@@ -606,7 +622,6 @@ export class DowntimeLogsService {
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
       if (query.dateTo) where.startTime.lte = new Date(query.dateTo);
     }
-
     const grouped = await this.prisma.downtimeLog.groupBy({
       by: ['failureCause'],
       where,
@@ -615,7 +630,6 @@ export class DowntimeLogsService {
       orderBy: { _sum: { durationMinutes: 'desc' } },
       take: 10,
     });
-
     return grouped.map(g => ({
       failureCause: g.failureCause,
       totalMinutes: g._sum.durationMinutes || 0,
@@ -631,7 +645,6 @@ export class DowntimeLogsService {
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
       if (query.dateTo) where.startTime.lte = new Date(query.dateTo);
     }
-
     const logs = await this.prisma.downtimeLog.findMany({
       where,
       orderBy: { startTime: 'desc' },
@@ -640,8 +653,7 @@ export class DowntimeLogsService {
         machine: { select: { id: true, code: true, name: true } },
       },
     });
-
-    return logs.map((log: any) => ({
+    return logs.map((log) => ({
       ...log,
       status: log.cancelledAt ? 'CANCELLED' : log.endTime ? 'CLOSED' : 'ACTIVE',
       durationHours: log.durationMinutes ? log.durationMinutes / 60 : null,
@@ -655,26 +667,23 @@ export class DowntimeLogsService {
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
       if (query.dateTo) where.startTime.lte = new Date(query.dateTo);
     }
-
     const logs = await this.prisma.downtimeLog.findMany({
       where,
       select: { detectedAt: true, responseStartedAt: true, startTime: true },
     });
-
     if (logs.length === 0) {
       return { avgResponseTimeMinutes: 0, avgResponseTimeHours: 0, totalEvents: 0 };
     }
-
     let totalResponseMinutes = 0;
     let count = 0;
     for (const log of logs) {
-      const responseTime = log.responseStartedAt!.getTime() - log.detectedAt!.getTime();
+      if (!log.responseStartedAt || !log.detectedAt) continue;
+      const responseTime = log.responseStartedAt.getTime() - log.detectedAt.getTime();
       if (responseTime > 0) {
         totalResponseMinutes += responseTime / 60000;
         count++;
       }
     }
-
     return {
       avgResponseTimeMinutes: count > 0 ? totalResponseMinutes / count : 0,
       avgResponseTimeHours: count > 0 ? totalResponseMinutes / count / 60 : 0,
