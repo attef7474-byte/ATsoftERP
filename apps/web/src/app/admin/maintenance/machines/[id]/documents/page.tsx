@@ -7,15 +7,6 @@ import { MachineDocument } from '../../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../../../components/admin/admin-action-bar';
 
-function formatFileSize(bytes: number | null | undefined): string {
-  if (!bytes && bytes !== 0) return '-';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let size = bytes;
-  let unitIdx = 0;
-  while (size >= 1024 && unitIdx < units.length - 1) { size /= 1024; unitIdx++; }
-  return `${size.toFixed(1)} ${units[unitIdx]}`;
-}
-
 export default function MachineDocumentsPage() {
   const params = useParams();
   const router = useRouter();
@@ -28,8 +19,8 @@ export default function MachineDocumentsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<{ data: MachineDocument[] }>(`/maintenance/machines/${id}/documents`);
-      setData(res.data || []);
+      const items = await api.get<MachineDocument[]>(`/maintenance/machines/${id}/documents`);
+      setData(items || []);
     } catch (err: any) {
       setError(err?.message || t('errors.loadFailed'));
     } finally { setLoading(false); }
@@ -68,19 +59,14 @@ export default function MachineDocumentsPage() {
             <p className="text-sm text-gray-500 py-4">{t('common.noData')}</p>
           ) : (
             <DataTable columns={[
-              { key: 'fileName', header: t('maintenance.fileName'), render: (d: MachineDocument) => d.fileName || d.title || '-' },
-              { key: 'type', header: t('maintenance.documentType'), render: (d: MachineDocument) => d.documentType || d.mimeType || '-' },
-              { key: 'size', header: t('maintenance.fileSize'), render: (d: MachineDocument) => formatFileSize(d.sizeBytes) },
+              { key: 'title', header: t('maintenance.title'), render: (d: MachineDocument) => d.title || '-' },
+              { key: 'type', header: t('maintenance.type'), render: (d: MachineDocument) => d.type || '-' },
               { key: 'uploadedAt', header: t('common.createdAt'), render: (d: MachineDocument) => fmt(d.createdAt) },
               { key: 'actions', header: t('common.actions'), render: (d: MachineDocument) => (
                 <div className="flex gap-2">
-                  {d.fileUrl ? (
-                    <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                      {t('common.view')}
-                    </a>
-                  ) : (
-                    <span className="text-sm text-gray-400">-</span>
-                  )}
+                  <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                    {t('common.view')}
+                  </a>
                 </div>
               )},
             ]} data={data} keyExtractor={(d: MachineDocument) => d.id} />

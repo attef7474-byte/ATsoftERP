@@ -9,6 +9,7 @@ import { F9Lookup, machineCategoryAdapter } from '../../../../../../components/f
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon, ActionViewIcon } from '../../../../../../components/admin/admin-action-bar';
 import type { MachineCategory } from '../../../../../../lib/admin-types';
 import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../../lib/form-validation';
 
 export default function EditMachineCategoryPage() {
   const { t } = useTranslation();
@@ -30,14 +31,14 @@ export default function EditMachineCategoryPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<any>(`/maintenance/machine-categories/${id}`);
-      const item = res;
+      const item = await api.get<MachineCategory>(`/maintenance/machine-categories/${id}`);
       setData(item);
       setForm({ code: item.code || '', name: item.name || '', description: item.description || '', parentId: item.parentId || '' });
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || t('complexForms.loadFailed'));
+      handleApiError(err);
+      setError(err?.message || t('complexForms.loadFailed'));
     } finally { setLoading(false); }
-  }, [id, t]);
+  }, [id, t, handleApiError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -50,9 +51,9 @@ export default function EditMachineCategoryPage() {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.code.trim()) errs.code = t('complexForms.requiredField');
-    if (!form.name.trim()) errs.name = t('complexForms.requiredField');
+    if (!form.name.trim()) errs.name = t('validation.required');
     setErrors(errs);
+    focusFirstInvalidField(Object.entries(errs).map(([field, message]) => ({ field, code: 'validation.required', message })));
     return Object.keys(errs).length === 0;
   };
 
@@ -61,15 +62,18 @@ export default function EditMachineCategoryPage() {
     setSaving(true);
     try {
       const payload: Record<string, any> = {};
-      if (form.code.trim() !== data?.code) payload.code = form.code.trim();
       if (form.name.trim() !== data?.name) payload.name = form.name.trim();
-      if (form.description !== data?.description) payload.description = form.description.trim() || null;
-      if (form.parentId !== data?.parentId) payload.parentId = form.parentId || null;
+      if (form.description !== (data?.description || '')) payload.description = form.description.trim() || null;
+      if (form.parentId !== (data?.parentId || '')) payload.parentId = form.parentId || null;
       await api.patch(`/maintenance/machine-categories/${id}`, payload);
       showToast(t('complexForms.recordUpdated'), 'success');
       router.push(`/admin/maintenance/machine-categories/${id}`);
     } catch (err: any) {
-      handleApiError(err);
+      const config = handleApiError(err);
+      if (config.errors?.length) {
+        setErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      }
     } finally { setSaving(false); }
   };
 
@@ -113,7 +117,10 @@ export default function EditMachineCategoryPage() {
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-gray-900">{t('complexForms.basicInformation')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label={t('maintenance.code')} value={form.code} onChange={(e) => setField('code', e.target.value)} error={errors.code} required disabled={isReadOnly} />
+              <div>
+                <Input label={t('maintenance.code')} value={form.code} disabled />
+                <p className="text-xs text-gray-500 mt-1">{t('common.codeImmutableHint')}</p>
+              </div>
               <Input label={t('maintenance.name')} value={form.name} onChange={(e) => setField('name', e.target.value)} error={errors.name} required disabled={isReadOnly} />
             </div>
             <F9Lookup label={t('maintenance.parentCategory')} value={form.parentId} onChange={(v) => setField('parentId', v)} adapter={machineCategoryAdapter} />

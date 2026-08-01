@@ -40,7 +40,7 @@ export default function BarcodeGeneratePage() {
       { key: 'code', header: t('common.code') },
       { key: 'name', header: t('common.name') },
       { key: 'partNumber', header: t('barcodes.partNumber'), render: (p) => p.partNumber || '-' },
-      { key: 'status', header: t('common.status'), render: (p) => p.status },
+      { key: 'quantity', header: t('maintenance.quantity'), render: (p) => p.quantity },
     ],
   };
 

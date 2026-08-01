@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceService } from './maintenance.service';
 import { CreateMachineDto, UpdateMachineDto, CreateMachinePartDto, CreateMachineDocumentDto, UpdateMachineStatusDto, UpdateMachineLocationDto, UpdateMachineManufacturerDto, UpdateMachineWarrantyDto, UpdateMachineImageDto } from './dto/maintenance.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 
 @ApiTags('Maintenance')
 @ApiBearerAuth()
@@ -16,7 +17,7 @@ export class MaintenanceController {
   @Post('machines')
   @Permissions('machines:create')
   @ApiOperation({ summary: 'Create a machine' })
-  createMachine(@Body() dto: CreateMachineDto) { return this.service.createMachine(dto); }
+  createMachine(@Body() dto: CreateMachineDto, @CurrentUser('sub') userId: string) { return this.service.createMachine(dto, userId); }
 
   @Get('machines')
   @Permissions('machines:read')
@@ -45,47 +46,47 @@ export class MaintenanceController {
   @Patch('machines/:id')
   @Permissions('machines:update')
   @ApiOperation({ summary: 'Update machine' })
-  updateMachine(@Param('id') id: string, @Body() dto: UpdateMachineDto) { return this.service.updateMachine(id, dto); }
+  updateMachine(@Param('id') id: string, @Body() dto: UpdateMachineDto, @CurrentUser('sub') userId: string) { return this.service.updateMachine(id, dto, userId); }
 
   @Delete('machines/:id')
   @Permissions('machines:delete')
   @ApiOperation({ summary: 'Soft delete machine' })
-  removeMachine(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) { return this.service.removeMachine(id); }
+  removeMachine(@Param('id') id: string, @CurrentUser('sub') userId: string) { return this.service.removeMachine(id, userId); }
 
   @Patch('machines/:id/activate')
   @Permissions('machines:update')
   @ApiOperation({ summary: 'Activate machine' })
-  activateMachine(@Param('id') id: string) { return this.service.activateMachine(id); }
+  activateMachine(@Param('id') id: string, @CurrentUser('sub') userId: string) { return this.service.activateMachine(id, userId); }
 
   @Patch('machines/:id/deactivate')
   @Permissions('machines:update')
   @ApiOperation({ summary: 'Deactivate machine' })
-  deactivateMachine(@Param('id') id: string) { return this.service.deactivateMachine(id); }
+  deactivateMachine(@Param('id') id: string, @CurrentUser('sub') userId: string) { return this.service.deactivateMachine(id, userId); }
 
   @Patch('machines/:id/status')
   @Permissions('machines:update')
   @ApiOperation({ summary: 'Update machine status' })
-  updateMachineStatus(@Param('id') id: string, @Body() dto: UpdateMachineStatusDto) { return this.service.updateMachineStatus(id, dto.status); }
+  updateMachineStatus(@Param('id') id: string, @Body() dto: UpdateMachineStatusDto, @CurrentUser('sub') userId: string) { return this.service.updateMachineStatus(id, dto.status, userId); }
 
   @Patch('machines/:id/location')
   @Permissions('machines:update')
   @ApiOperation({ summary: 'Update machine location' })
-  updateMachineLocation(@Param('id') id: string, @Body() dto: UpdateMachineLocationDto) { return this.service.updateMachineLocation(id, dto); }
+  updateMachineLocation(@Param('id') id: string, @Body() dto: UpdateMachineLocationDto, @CurrentUser('sub') userId: string) { return this.service.updateMachineLocation(id, dto, userId); }
 
   @Patch('machines/:id/manufacturer')
   @Permissions('machines:update')
   @ApiOperation({ summary: 'Update machine manufacturer info' })
-  updateMachineManufacturer(@Param('id') id: string, @Body() dto: UpdateMachineManufacturerDto) { return this.service.updateMachineManufacturer(id, dto); }
+  updateMachineManufacturer(@Param('id') id: string, @Body() dto: UpdateMachineManufacturerDto, @CurrentUser('sub') userId: string) { return this.service.updateMachineManufacturer(id, dto, userId); }
 
   @Patch('machines/:id/warranty')
   @Permissions('machines:update')
   @ApiOperation({ summary: 'Update machine warranty' })
-  updateMachineWarranty(@Param('id') id: string, @Body() dto: UpdateMachineWarrantyDto) { return this.service.updateMachineWarranty(id, dto); }
+  updateMachineWarranty(@Param('id') id: string, @Body() dto: UpdateMachineWarrantyDto, @CurrentUser('sub') userId: string) { return this.service.updateMachineWarranty(id, dto, userId); }
 
   @Patch('machines/:id/image')
   @Permissions('machines:update')
   @ApiOperation({ summary: 'Update machine image' })
-  updateMachineImage(@Param('id') id: string, @Body() dto: UpdateMachineImageDto) { return this.service.updateMachineImage(id, dto); }
+  updateMachineImage(@Param('id') id: string, @Body() dto: UpdateMachineImageDto, @CurrentUser('sub') userId: string) { return this.service.updateMachineImage(id, dto, userId); }
 
   @Get('machines/:id/card')
   @Permissions('machines:read')
@@ -140,7 +141,7 @@ export class MaintenanceController {
   @Delete('parts/:id')
   @Permissions('machines:delete')
   @ApiOperation({ summary: 'Delete machine part' })
-  removePart(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) { return this.service.removePart(id); }
+  removePart(@Param('id') id: string) { return this.service.removePart(id); }
 
   @Post('documents')
   @Permissions('machines:create')
@@ -155,7 +156,7 @@ export class MaintenanceController {
   @Delete('documents/:id')
   @Permissions('machines:delete')
   @ApiOperation({ summary: 'Delete machine document' })
-  removeDocument(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) { return this.service.removeDocument(id); }
+  removeDocument(@Param('id') id: string) { return this.service.removeDocument(id); }
 
   @Get('summary/machines')
   @Permissions('machines:read')

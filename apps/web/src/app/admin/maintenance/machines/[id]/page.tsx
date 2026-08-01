@@ -220,7 +220,7 @@ export default function MachineDetailPage() {
                 { key: 'name', header: t('common.name'), render: (p: MachinePart) => p.name },
                 { key: 'quantity', header: t('maintenance.quantity'), render: (p: MachinePart) => p.quantity },
                 { key: 'unit', header: t('maintenance.unit'), render: (p: MachinePart) => <LocalizedValue value={p.unit} kind="unit" /> },
-                { key: 'status', header: t('common.status'), render: (p: MachinePart) => <StatusBadge status={p.status} /> },
+                { key: 'stock', header: t('maintenance.inventoryStatus'), render: (p: MachinePart) => { const ms = p.minStock ?? 0; if (p.quantity <= 0) return <span className="text-red-600 text-sm">{t('maintenance.outOfStock')}</span>; if (p.quantity <= ms) return <span className="text-red-600 text-sm">{t('maintenance.lowStock')}</span>; if (p.quantity <= ms * 2) return <span className="text-yellow-600 text-sm">{t('maintenance.adequateStock')}</span>; return <span className="text-green-600 text-sm">{t('maintenance.inStock')}</span>; } },
               ]} data={data.parts} keyExtractor={(p: MachinePart) => p.id} />
             )}
           </CardContent>
@@ -267,8 +267,8 @@ export default function MachineDetailPage() {
             {!data.documents || data.documents.length === 0 ? <p className="text-sm text-gray-500 py-4">{t('common.noData')}</p> : (
               <DataTable columns={[
                 { key: 'title', header: t('common.name'), render: (d: MachineDocument) => d.title },
-                { key: 'type', header: t('maintenance.documentType'), render: (d: MachineDocument) => <LocalizedValue value={d.documentType} /> },
-                { key: 'fileName', header: t('maintenance.fileName'), render: (d: MachineDocument) => d.fileName || '-' },
+                { key: 'type', header: t('maintenance.type'), render: (d: MachineDocument) => d.type || '-' },
+                { key: 'fileUrl', header: t('maintenance.fileUrl'), render: (d: MachineDocument) => d.fileUrl ? <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">{t('common.view')}</a> : '-' },
                 { key: 'createdAt', header: t('common.createdAt'), render: (d: MachineDocument) => fmt(d.createdAt) },
               ]} data={data.documents} keyExtractor={(d: MachineDocument) => d.id} />
             )}

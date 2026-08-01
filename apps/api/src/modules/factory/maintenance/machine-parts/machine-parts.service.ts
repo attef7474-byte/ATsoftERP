@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
+import { NumberingService } from '../../../numbering/numbering.service';
 import { CreateMachinePartDto } from './dto/create-machine-part.dto';
 import { UpdateMachinePartDto } from './dto/update-machine-part.dto';
 
@@ -9,23 +10,33 @@ export class MachinePartsService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private numberingService: NumberingService,
   ) {}
 
+  private validationError(field: string, code: string, message: string): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'common.validationFailed',
+      message: 'Validation failed',
+      errors: [{ field, code, message }],
+    });
+  }
+
   async create(dto: CreateMachinePartDto, userId: string) {
-    const existing = await this.prisma.machinePart.findUnique({ where: { code: dto.code } });
-    if (existing) throw new ConflictException('Machine part code already exists');
+    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('MACHINE_PART');
+    const existing = await this.prisma.machinePart.findUnique({ where: { code } });
+    if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Machine part code already exists');
 
     if (dto.machineId) {
       const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
-      if (!machine) throw new NotFoundException('Machine not found');
+      if (!machine) throw this.validationError('machineId', 'validation.invalidReference', 'Machine not found');
     }
 
     if (dto.productId) {
       const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
-      if (!product) throw new NotFoundException('Product not found');
+      if (!product) throw this.validationError('productId', 'validation.invalidReference', 'Product not found');
     }
 
-    const part = await this.prisma.machinePart.create({ data: dto });
+    const part = await this.prisma.machinePart.create({ data: { ...dto, code } });
     await this.auditService.log(userId, 'CREATE', 'MachinePart', part.id, { message: `Created machine part: ${part.code}` });
     return part;
   }
@@ -61,25 +72,25 @@ export class MachinePartsService {
       where: { id },
       include: { machine: { select: { id: true, name: true, code: true } }, product: { select: { id: true, name: true, code: true } } },
     });
-    if (!part) throw new NotFoundException('Machine part not found');
+    if (!part) throw new NotFoundException({ messageKey: 'maintenance.machinePartNotFound', message: 'Machine part not found' });
     return part;
   }
 
   async update(id: string, dto: UpdateMachinePartDto, userId: string) {
     const existing = await this.findOne(id);
     if (dto.code && dto.code !== existing.code) {
-      throw new BadRequestException('Code cannot be changed after creation');
+      throw this.validationError('code', 'validation.invalidValue', 'Code cannot be changed after creation');
     }
     const { code, ...updateDto } = dto;
 
     if (updateDto.machineId) {
       const machine = await this.prisma.machine.findUnique({ where: { id: updateDto.machineId } });
-      if (!machine) throw new NotFoundException('Machine not found');
+      if (!machine) throw this.validationError('machineId', 'validation.invalidReference', 'Machine not found');
     }
 
     if (updateDto.productId) {
       const product = await this.prisma.product.findUnique({ where: { id: updateDto.productId } });
-      if (!product) throw new NotFoundException('Product not found');
+      if (!product) throw this.validationError('productId', 'validation.invalidReference', 'Product not found');
     }
 
     const part = await this.prisma.machinePart.update({ where: { id }, data: updateDto });
@@ -121,7 +132,7 @@ export class MachinePartsService {
   async linkToMachine(partId: string, machineId: string, userId: string) {
     const part = await this.findOne(partId);
     const machine = await this.prisma.machine.findUnique({ where: { id: machineId } });
-    if (!machine) throw new NotFoundException('Machine not found');
+    if (!machine) throw new NotFoundException({ messageKey: 'maintenance.machineNotFound', message: 'Machine not found' });
     const updated = await this.prisma.machinePart.update({
       where: { id: partId },
       data: { machineId },

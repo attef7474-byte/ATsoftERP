@@ -276,7 +276,7 @@ export const machinePartAdapter: LookupAdapter<MachinePart> = {
     { key: 'name', header: 'Name' },
     { key: 'partNumber', header: 'Part #' },
     { key: 'machine', header: 'Machine', render: (p) => p.machine?.name || '-' },
-    { key: 'status', header: 'Status', render: (p) => p.status },
+    { key: 'quantity', header: 'Qty' },
   ],
 };
 

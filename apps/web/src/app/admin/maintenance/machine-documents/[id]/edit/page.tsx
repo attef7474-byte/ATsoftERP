@@ -6,6 +6,8 @@ import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../../components/admin/toast-provider';
 import { Button, Input, Textarea, Card, CardContent, LoadingState, ErrorState } from '../../../../../../components/admin/ui';
 import { F9Lookup, machineAdapter } from '../../../../../../components/f9';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../../lib/form-validation';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon, ActionViewIcon } from '../../../../../../components/admin/admin-action-bar';
 import type { MachineDocument } from '../../../../../../lib/admin-types';
 
@@ -14,11 +16,11 @@ export default function EditMachineDocumentPage() {
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params?.id as string;
   const [data, setData] = useState<MachineDocument | null>(null);
   const [form, setForm] = useState({
-    fileName: '', fileUrl: '', fileSize: 0, mimeType: '',
-    description: '', machineId: '',
+    title: '', type: '', fileUrl: '', notes: '', machineId: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -29,21 +31,20 @@ export default function EditMachineDocumentPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<any>(`/maintenance/machine-documents/${id}`);
-      const item = res;
+      const item = await api.get<MachineDocument>(`/maintenance/machine-documents/${id}`);
       setData(item);
       setForm({
-        fileName: item.fileName || '',
+        title: item.title || '',
+        type: item.type || '',
         fileUrl: item.fileUrl || '',
-        fileSize: item.sizeBytes ?? 0,
-        mimeType: item.mimeType || '',
-        description: item.description || '',
+        notes: item.notes || '',
         machineId: item.machineId || '',
       });
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || t('complexForms.loadFailed'));
+      handleApiError(err);
+      setError(err?.message || t('complexForms.loadFailed'));
     } finally { setLoading(false); }
-  }, [id, t]);
+  }, [id, t, handleApiError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -55,10 +56,12 @@ export default function EditMachineDocumentPage() {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.fileName.trim()) errs.fileName = t('complexForms.requiredField');
-    if (!form.fileUrl.trim()) errs.fileUrl = t('complexForms.requiredField');
-    if (!form.machineId) errs.machineId = t('complexForms.requiredField');
+    if (!form.title.trim()) errs.title = t('validation.required');
+    if (!form.type.trim()) errs.type = t('validation.required');
+    if (!form.fileUrl.trim()) errs.fileUrl = t('validation.required');
+    if (!form.machineId) errs.machineId = t('validation.required');
     setErrors(errs);
+    focusFirstInvalidField(Object.entries(errs).map(([field, message]) => ({ field, code: 'validation.required', message })));
     return Object.keys(errs).length === 0;
   };
 
@@ -67,17 +70,20 @@ export default function EditMachineDocumentPage() {
     setSaving(true);
     try {
       const payload: Record<string, any> = {};
-      if (form.fileName.trim() !== (data?.fileName || '')) payload.fileName = form.fileName.trim();
-      if (form.fileUrl.trim() !== (data?.fileUrl || '')) payload.fileUrl = form.fileUrl.trim();
-      if (form.fileSize !== (data?.sizeBytes ?? 0)) payload.fileSize = form.fileSize;
-      if (form.mimeType !== (data?.mimeType || '')) payload.mimeType = form.mimeType.trim() || null;
-      if (form.description !== (data?.description || '')) payload.description = form.description.trim() || null;
       if (form.machineId !== (data?.machineId || '')) payload.machineId = form.machineId;
+      if (form.title.trim() !== (data?.title || '')) payload.title = form.title.trim();
+      if (form.type.trim() !== (data?.type || '')) payload.type = form.type.trim();
+      if (form.fileUrl.trim() !== (data?.fileUrl || '')) payload.fileUrl = form.fileUrl.trim();
+      if (form.notes !== (data?.notes || '')) payload.notes = form.notes.trim() || null;
       await api.patch(`/maintenance/machine-documents/${id}`, payload);
       showToast(t('complexForms.recordUpdated'), 'success');
       router.push(`/admin/maintenance/machine-documents/${id}`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.updateFailed'), 'error');
+      const config = handleApiError(err);
+      if (config.errors?.length) {
+        setErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      }
     } finally { setSaving(false); }
   };
 
@@ -107,18 +113,19 @@ export default function EditMachineDocumentPage() {
         <CardContent>
           <div className="mb-4">
             <h1 className="text-lg font-semibold text-gray-900">{t('maintenance.editMachineDocument')}</h1>
-            <p className="text-sm text-gray-500">{data.fileName || data.title}</p>
+            <p className="text-sm text-gray-500">{data.title}</p>
           </div>
 
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-gray-900">{t('complexForms.basicInformation')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label={t('maintenance.fileName')} value={form.fileName} onChange={(e) => setField('fileName', e.target.value)} error={errors.fileName} required />
-              <Input label={t('maintenance.fileUrl')} value={form.fileUrl} onChange={(e) => setField('fileUrl', e.target.value)} error={errors.fileUrl} required />
-              <Input label={t('maintenance.fileSize')} type="number" value={String(form.fileSize)} onChange={(e) => setField('fileSize', parseInt(e.target.value) || 0)} />
-              <Input label={t('maintenance.mimeType')} value={form.mimeType} onChange={(e) => setField('mimeType', e.target.value)} />
+              <Input label={t('maintenance.title')} value={form.title} onChange={(e) => setField('title', e.target.value)} error={errors.title} required />
+              <Input label={t('maintenance.type')} value={form.type} onChange={(e) => setField('type', e.target.value)} error={errors.type} required />
+              <div className="md:col-span-2">
+                <Input label={t('maintenance.fileUrl')} value={form.fileUrl} onChange={(e) => setField('fileUrl', e.target.value)} error={errors.fileUrl} required />
+              </div>
             </div>
-            <Textarea label={t('common.description')} value={form.description} onChange={(e) => setField('description', e.target.value)} />
+            <Textarea label={t('maintenance.notes')} value={form.notes} onChange={(e) => setField('notes', e.target.value)} />
           </div>
         </CardContent>
       </Card>

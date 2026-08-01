@@ -1,36 +1,37 @@
 'use client';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../../components/admin/toast-provider';
-import { Button, Input, Card, CardContent, Select, PageHeader, LoadingState, ErrorState } from '../../../../../../components/admin/ui';
-import { F9Lookup, machineComponentAdapter } from '../../../../../../components/f9';
+import { Input, Card, CardContent, Select, LoadingState, ErrorState } from '../../../../../../components/admin/ui';
+import { F9Lookup, machineComponentAdapter, machineAdapter } from '../../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionSaveIcon, ActionCancelIcon, ActionBackIcon } from '../../../../../../components/admin/admin-action-bar';
 import type { MachineComponent } from '../../../../../../lib/admin-types';
 import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../../lib/form-validation';
 
-const COMPONENT_TYPE_OPTIONS = [
-  { value: 'MECHANICAL', label: 'MECHANICAL' },
-  { value: 'ELECTRICAL', label: 'ELECTRICAL' },
-  { value: 'CONTROL', label: 'CONTROL' },
-  { value: 'PNEUMATIC', label: 'PNEUMATIC' },
-  { value: 'HYDRAULIC', label: 'HYDRAULIC' },
-  { value: 'HEATING', label: 'HEATING' },
-  { value: 'COOLING', label: 'COOLING' },
-  { value: 'SENSOR', label: 'SENSOR' },
-  { value: 'SAFETY', label: 'SAFETY' },
-  { value: 'CONVEYOR', label: 'CONVEYOR' },
-  { value: 'FRAME', label: 'FRAME' },
-  { value: 'UTILITY', label: 'UTILITY' },
-  { value: 'OTHER', label: 'OTHER' },
+const COMPONENT_TYPE_KEYS: { value: string; labelKey: string }[] = [
+  { value: 'MECHANICAL', labelKey: 'maintenance.componentTypeOptions.MECHANICAL' },
+  { value: 'ELECTRICAL', labelKey: 'maintenance.componentTypeOptions.ELECTRICAL' },
+  { value: 'CONTROL', labelKey: 'maintenance.componentTypeOptions.CONTROL' },
+  { value: 'PNEUMATIC', labelKey: 'maintenance.componentTypeOptions.PNEUMATIC' },
+  { value: 'HYDRAULIC', labelKey: 'maintenance.componentTypeOptions.HYDRAULIC' },
+  { value: 'HEATING', labelKey: 'maintenance.componentTypeOptions.HEATING' },
+  { value: 'COOLING', labelKey: 'maintenance.componentTypeOptions.COOLING' },
+  { value: 'SENSOR', labelKey: 'maintenance.componentTypeOptions.SENSOR' },
+  { value: 'SAFETY', labelKey: 'maintenance.componentTypeOptions.SAFETY' },
+  { value: 'CONVEYOR', labelKey: 'maintenance.componentTypeOptions.CONVEYOR' },
+  { value: 'FRAME', labelKey: 'maintenance.componentTypeOptions.FRAME' },
+  { value: 'UTILITY', labelKey: 'maintenance.componentTypeOptions.UTILITY' },
+  { value: 'OTHER', labelKey: 'maintenance.componentTypeOptions.OTHER' },
 ];
 
-const CRITICALITY_OPTIONS = [
-  { value: 'LOW', label: 'LOW' },
-  { value: 'MEDIUM', label: 'MEDIUM' },
-  { value: 'HIGH', label: 'HIGH' },
-  { value: 'CRITICAL', label: 'CRITICAL' },
+const CRITICALITY_KEYS: { value: string; labelKey: string }[] = [
+  { value: 'LOW', labelKey: 'maintenance.criticalityOptions.LOW' },
+  { value: 'MEDIUM', labelKey: 'maintenance.criticalityOptions.MEDIUM' },
+  { value: 'HIGH', labelKey: 'maintenance.criticalityOptions.HIGH' },
+  { value: 'CRITICAL', labelKey: 'maintenance.criticalityOptions.CRITICAL' },
 ];
 
 export default function EditMachineComponentPage() {
@@ -41,7 +42,7 @@ export default function EditMachineComponentPage() {
   const handleApiError = useApiErrorHandler();
   const id = params?.id as string;
   const [data, setData] = useState<MachineComponent | null>(null);
-  const [form, setForm] = useState({ code: '', name: '', description: '', componentType: '', criticality: '', locationInMachine: '', manufacturer: '', model: '', serialNumber: '', parentComponentId: '' });
+  const [form, setForm] = useState({ code: '', name: '', description: '', componentType: '', criticality: '', locationInMachine: '', manufacturer: '', model: '', serialNumber: '', parentComponentId: '', machineId: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -53,8 +54,7 @@ export default function EditMachineComponentPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<any>(`/maintenance/machine-components/${id}`);
-      const item = res;
+      const item = await api.get<MachineComponent>(`/maintenance/machine-components/${id}`);
       setData(item);
       setForm({
         code: item.code || '',
@@ -67,11 +67,13 @@ export default function EditMachineComponentPage() {
         model: item.model || '',
         serialNumber: item.serialNumber || '',
         parentComponentId: item.parentComponentId || '',
+        machineId: item.machineId || '',
       });
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || t('complexForms.loadFailed'));
+      const config = handleApiError(err);
+      setError(config.message || err?.message || t('complexForms.loadFailed'));
     } finally { setLoading(false); }
-  }, [id, t]);
+  }, [id, t, handleApiError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -84,11 +86,11 @@ export default function EditMachineComponentPage() {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.code.trim()) errs.code = t('complexForms.requiredField');
-    if (!form.name.trim()) errs.name = t('complexForms.requiredField');
-    if (!form.componentType) errs.componentType = t('complexForms.requiredField');
-    if (!form.criticality) errs.criticality = t('complexForms.requiredField');
+    if (!form.name.trim()) errs.name = t('validation.required');
+    if (!form.componentType) errs.componentType = t('validation.required');
+    if (!form.machineId) errs.machineId = t('validation.required');
     setErrors(errs);
+    focusFirstInvalidField(Object.entries(errs).map(([field, message]) => ({ field, code: 'validation.required', message })));
     return Object.keys(errs).length === 0;
   };
 
@@ -97,11 +99,11 @@ export default function EditMachineComponentPage() {
     setSaving(true);
     try {
       const payload: Record<string, any> = {};
-      if (form.code.trim() !== data?.code) payload.code = form.code.trim();
       if (form.name.trim() !== data?.name) payload.name = form.name.trim();
       if (form.description !== data?.description) payload.description = form.description.trim() || null;
       if (form.componentType !== data?.componentType) payload.componentType = form.componentType;
       if (form.criticality !== data?.criticality) payload.criticality = form.criticality;
+      if (form.machineId !== data?.machineId) payload.machineId = form.machineId;
       if (form.locationInMachine !== data?.locationInMachine) payload.locationInMachine = form.locationInMachine.trim() || null;
       if (form.manufacturer !== data?.manufacturer) payload.manufacturer = form.manufacturer.trim() || null;
       if (form.model !== data?.model) payload.model = form.model.trim() || null;
@@ -111,7 +113,11 @@ export default function EditMachineComponentPage() {
       showToast(t('complexForms.recordUpdated'), 'success');
       router.push(`/admin/maintenance/machine-components/${id}`);
     } catch (err: any) {
-      handleApiError(err);
+      const config = handleApiError(err);
+      if (config.errors?.length) {
+        setErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      }
     } finally { setSaving(false); }
   };
 
@@ -150,10 +156,18 @@ export default function EditMachineComponentPage() {
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-gray-900">{t('complexForms.basicInformation')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label={t('maintenance.components.form.code')} value={form.code} onChange={(e) => setField('code', e.target.value)} error={errors.code} required disabled={isReadOnly} />
-              <Input label={t('maintenance.components.form.name')} value={form.name} onChange={(e) => setField('name', e.target.value)} error={errors.name} required disabled={isReadOnly} />
-              <Select label={t('maintenance.components.form.componentType')} value={form.componentType} onChange={(e) => setField('componentType', e.target.value)} options={COMPONENT_TYPE_OPTIONS} placeholder={t('common.select')} error={errors.componentType} required disabled={isReadOnly} />
-              <Select label={t('maintenance.components.form.criticality')} value={form.criticality} onChange={(e) => setField('criticality', e.target.value)} options={CRITICALITY_OPTIONS} placeholder={t('common.select')} error={errors.criticality} required disabled={isReadOnly} />
+              <Input label={t('maintenance.components.form.code')} value={form.code} disabled />
+              <p className="text-sm text-gray-500 self-end pb-2">{t('common.codeImmutableHint')}</p>
+              <Input label={t('maintenance.components.form.name')} name="name" value={form.name} onChange={(e) => setField('name', e.target.value)} error={errors.name} required disabled={isReadOnly} />
+              <div>
+                <Select label={t('maintenance.components.form.componentType')} value={form.componentType} onChange={(e) => setField('componentType', e.target.value)} options={COMPONENT_TYPE_KEYS.map(o => ({ value: o.value, label: t(o.labelKey) }))} placeholder={t('common.select')} error={errors.componentType} required disabled={isReadOnly} />
+                {errors.componentType && <p className="text-red-500 text-sm mt-1">{errors.componentType}</p>}
+              </div>
+              <div>
+                <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setField('machineId', v)} adapter={machineAdapter} disabled={isReadOnly} />
+                {errors.machineId && <p className="text-red-500 text-sm mt-1">{errors.machineId}</p>}
+              </div>
+              <Select label={t('maintenance.components.form.criticality')} value={form.criticality} onChange={(e) => setField('criticality', e.target.value)} options={CRITICALITY_KEYS.map(o => ({ value: o.value, label: t(o.labelKey) }))} placeholder={t('common.select')} error={errors.criticality} disabled={isReadOnly} />
               <Input label={t('maintenance.components.form.locationInMachine')} value={form.locationInMachine} onChange={(e) => setField('locationInMachine', e.target.value)} disabled={isReadOnly} />
               <Input label={t('maintenance.components.form.manufacturer')} value={form.manufacturer} onChange={(e) => setField('manufacturer', e.target.value)} disabled={isReadOnly} />
               <Input label={t('maintenance.components.form.model')} value={form.model} onChange={(e) => setField('model', e.target.value)} disabled={isReadOnly} />

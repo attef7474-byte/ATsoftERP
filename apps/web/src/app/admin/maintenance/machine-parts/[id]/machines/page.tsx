@@ -28,8 +28,8 @@ export default function MachinePartMachinesPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<{ data: MachinePart }>(`/maintenance/machine-parts/${id}`);
-      setPart(res.data);
+      const item = await api.get<MachinePart>(`/maintenance/machine-parts/${id}`);
+      setPart(item);
     } catch (err: any) {
       setError(err?.message || t('errors.loadFailed'));
     } finally { setLoading(false); }
@@ -54,10 +54,12 @@ export default function MachinePartMachinesPage() {
   };
 
   const handleUnlink = async () => {
+    const machine = part?.machine;
+    if (!machine) return;
     if (!confirm(t('maintenance.confirmUnlinkMachine'))) return;
     setUnlinking(true);
     try {
-      await api.delete(`/maintenance/machine-parts/${id}/machines`);
+      await api.delete(`/maintenance/machine-parts/${id}/machines/${machine.id}`);
       showToast(t('common.successUpdated'), 'success');
       fetchData();
     } catch (err: any) {

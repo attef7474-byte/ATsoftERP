@@ -7,9 +7,11 @@ import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { MachineCategory } from '../../../../lib/admin-types';
 import { Button, Input, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../components/maintenance';
+import { F9Lookup, machineCategoryAdapter } from '../../../../components/f9';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
 
 export default function MachineCategoriesPage() {
   const { t, dir } = useTranslation();
@@ -66,17 +68,19 @@ useRegisterAdminActions([
   const openCreate = () => {
     setEditItem(null);
     setForm({ code: '', name: '', description: '', parentId: '' });
+    setValidationErrors({});
     setModalOpen(true);
   };
   const openEdit = async (id: string) => {
     setLoading(true);
+    setValidationErrors({});
     try {
       const item = await api.get<MachineCategory>(`/maintenance/machine-categories/${id}`);
       setEditItem(item);
       setForm({ code: item.code, name: item.name, description: item.description || '', parentId: item.parentId || '' });
       setModalOpen(true);
     } catch (err: any) {
-      showToast(err?.message || t('errors.loadFailed'), 'error');
+      handleApiError(err);
     } finally {
       setLoading(false);
     }
@@ -84,13 +88,16 @@ useRegisterAdminActions([
 
   const handleSave = async () => {
     const errors: Record<string, string> = {};
-    if (!form.name) errors.name = t('validation.required');
+    if (!form.name.trim()) errors.name = t('validation.required');
     setValidationErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      focusFirstInvalidField(Object.entries(errors).map(([field, message]) => ({ field, code: 'validation.required', message })));
+      return;
+    }
     setSaving(true);
     try {
-      const payload: any = editItem ? { name: form.name } : { code: form.code, name: form.name };
-      if (form.description) payload.description = form.description;
+      const payload: any = editItem ? { name: form.name.trim() } : { name: form.name.trim() };
+      if (form.description.trim()) payload.description = form.description.trim();
       if (form.parentId) payload.parentId = form.parentId;
       if (editItem) {
         await api.patch(`/maintenance/machine-categories/${editItem.id}`, payload);
@@ -100,7 +107,13 @@ useRegisterAdminActions([
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { handleApiError(err); }
+    } catch (err: any) {
+      const config = handleApiError(err);
+      if (config.errors?.length) {
+        setValidationErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      }
+    }
     finally { setSaving(false); }
   };
 
@@ -189,6 +202,10 @@ useRegisterAdminActions([
             </div>
           </div>
           <Input label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <div>
+            <F9Lookup label={t('maintenance.parentCategory')} value={form.parentId} onChange={(v) => setForm({ ...form, parentId: v })} adapter={machineCategoryAdapter} />
+            {validationErrors.parentId && <p className="text-red-500 text-sm mt-1">{validationErrors.parentId}</p>}
+          </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>

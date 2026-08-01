@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { AuditService } from '../../../common/audit/audit.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import { CreateMachineDto, UpdateMachineDto, CreateMachinePartDto, CreateMachineDocumentDto, UpdateMachineLocationDto, UpdateMachineManufacturerDto, UpdateMachineWarrantyDto, UpdateMachineImageDto } from './dto/maintenance.dto';
 
@@ -8,7 +9,16 @@ export class MaintenanceService {
   constructor(
     private prisma: PrismaService,
     private numberingService: NumberingService,
+    private auditService: AuditService,
   ) {}
+
+  private validationError(field: string, code: string, message: string): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'common.validationFailed',
+      message: 'Validation failed',
+      errors: [{ field, code, message }],
+    });
+  }
 
   private async validateMachineReferences(dto: any, existing?: any) {
     const companyId = dto.companyId ?? existing?.companyId;
@@ -18,44 +28,44 @@ export class MaintenanceService {
 
     if (dto.productionLineId) {
       const line = await this.prisma.productionLine.findUnique({ where: { id: dto.productionLineId } });
-      if (!line) throw new BadRequestException('Production line not found');
-      if (companyId && line.companyId !== companyId) throw new BadRequestException('Production line does not belong to the selected company');
-      if (branchId && line.branchId !== branchId) throw new BadRequestException('Production line does not belong to the selected branch');
-      if (administrationId && line.administrationId && line.administrationId !== administrationId) throw new BadRequestException('Production line does not belong to the selected administration');
-      if (departmentId && line.departmentId !== departmentId) throw new BadRequestException('Production line does not belong to the selected department');
+      if (!line) throw this.validationError('productionLineId', 'validation.invalidReference', 'Production line not found');
+      if (companyId && line.companyId !== companyId) throw this.validationError('productionLineId', 'validation.invalidValue', 'Production line does not belong to the selected company');
+      if (branchId && line.branchId !== branchId) throw this.validationError('productionLineId', 'validation.invalidValue', 'Production line does not belong to the selected branch');
+      if (administrationId && line.administrationId && line.administrationId !== administrationId) throw this.validationError('productionLineId', 'validation.invalidValue', 'Production line does not belong to the selected administration');
+      if (departmentId && line.departmentId !== departmentId) throw this.validationError('productionLineId', 'validation.invalidValue', 'Production line does not belong to the selected department');
     }
 
     if (dto.operationTypeId) {
       const ot = await this.prisma.operationType.findUnique({ where: { id: dto.operationTypeId } });
-      if (!ot) throw new BadRequestException('Operation type not found');
+      if (!ot) throw this.validationError('operationTypeId', 'validation.invalidReference', 'Operation type not found');
     }
 
     if (dto.defaultCostCenterId) {
       const cc = await this.prisma.costCenter.findUnique({ where: { id: dto.defaultCostCenterId } });
-      if (!cc) throw new BadRequestException('Cost center not found');
+      if (!cc) throw this.validationError('defaultCostCenterId', 'validation.invalidReference', 'Cost center not found');
     }
 
     if (dto.technicalAdministrationId) {
       const ta = await this.prisma.administration.findUnique({ where: { id: dto.technicalAdministrationId } });
-      if (!ta) throw new BadRequestException('Technical administration not found');
+      if (!ta) throw this.validationError('technicalAdministrationId', 'validation.invalidReference', 'Technical administration not found');
     }
 
     if (dto.technicalDepartmentId) {
       const td = await this.prisma.department.findUnique({ where: { id: dto.technicalDepartmentId } });
-      if (!td) throw new BadRequestException('Technical department not found');
+      if (!td) throw this.validationError('technicalDepartmentId', 'validation.invalidReference', 'Technical department not found');
       if (dto.technicalAdministrationId && td.administrationId !== dto.technicalAdministrationId) {
-        throw new BadRequestException('Technical department does not belong to the selected technical administration');
+        throw this.validationError('technicalDepartmentId', 'validation.invalidValue', 'Technical department does not belong to the selected technical administration');
       }
     }
   }
 
-  async createMachine(dto: CreateMachineDto) {
+  async createMachine(dto: CreateMachineDto, userId: string) {
     const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('MACHINE');
     const existing = await this.prisma.machine.findUnique({ where: { code } });
-    if (existing) throw new ConflictException('Machine code already exists');
+    if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Machine code already exists');
     await this.validateMachineReferences(dto);
     const { purchaseDate, warrantyEnd, ...rest } = dto;
-    return this.prisma.machine.create({
+    const machine = await this.prisma.machine.create({
       data: {
         ...rest,
         code,
@@ -74,6 +84,8 @@ export class MaintenanceService {
         technicalDepartment: { select: { id: true, name: true } },
       },
     });
+    await this.auditService.log(userId, 'CREATE', 'Machine', machine.id, { message: `Created machine: ${machine.code}` });
+    return machine;
   }
 
   async findAllMachines(query: { page?: number; limit?: number; search?: string; categoryId?: string; companyId?: string; branchId?: string; administrationId?: string; departmentId?: string; productionLineId?: string; operationTypeId?: string; status?: string }) {
@@ -137,21 +149,21 @@ export class MaintenanceService {
         _count: { select: { maintenanceReqs: true, schedules: true, downtimeLogs: true } },
       },
     });
-    if (!machine) throw new NotFoundException('Machine not found');
+    if (!machine) throw new NotFoundException({ messageKey: 'maintenance.machineNotFound', message: 'Machine not found' });
     return machine;
   }
 
-  async updateMachine(id: string, dto: UpdateMachineDto) {
+  async updateMachine(id: string, dto: UpdateMachineDto, userId: string) {
     const existing = await this.findOneMachine(id);
     if (dto.code && dto.code !== existing.code) {
-      throw new BadRequestException('Code cannot be changed after creation');
+      throw this.validationError('code', 'validation.invalidValue', 'Code cannot be changed after creation');
     }
     await this.validateMachineReferences(dto, existing);
     const { code, purchaseDate, warrantyEnd, ...rest } = dto as any;
     const data: any = { ...rest };
     if (purchaseDate) data.purchaseDate = new Date(purchaseDate);
     if (warrantyEnd) data.warrantyEnd = new Date(warrantyEnd);
-    return this.prisma.machine.update({
+    const machine = await this.prisma.machine.update({
       where: { id },
       data,
       include: {
@@ -166,9 +178,11 @@ export class MaintenanceService {
         technicalDepartment: { select: { id: true, name: true } },
       },
     });
+    await this.auditService.log(userId, 'UPDATE', 'Machine', id, { message: `Updated machine: ${machine.code}` });
+    return machine;
   }
 
-  async removeMachine(id: string) {
+  async removeMachine(id: string, userId: string) {
     const existing = await this.findOneMachine(id);
     const componentCount = await this.prisma.machineComponent.count({ where: { machineId: id, deletedAt: null } });
     if (componentCount > 0) throw new ConflictException('Cannot delete machine with linked components');
@@ -179,6 +193,7 @@ export class MaintenanceService {
     const dtCount = await this.prisma.downtimeLog.count({ where: { machineId: id } });
     if (dtCount > 0) throw new ConflictException('Cannot delete machine with linked downtime logs');
     await this.prisma.machine.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.auditService.log(userId, 'DELETE', 'Machine', id, { message: `Deleted machine: ${existing.code}` });
     return { message: 'Machine deleted successfully' };
   }
 
@@ -220,42 +235,56 @@ export class MaintenanceService {
     });
   }
 
-  async activateMachine(id: string) {
+  async activateMachine(id: string, userId: string) {
     await this.findOneMachine(id);
-    return this.prisma.machine.update({ where: { id }, data: { status: 'ACTIVE' } });
+    const machine = await this.prisma.machine.update({ where: { id }, data: { status: 'ACTIVE' } });
+    await this.auditService.log(userId, 'ACTIVATE', 'Machine', id, { message: `Activated machine: ${machine.code}` });
+    return machine;
   }
 
-  async deactivateMachine(id: string) {
+  async deactivateMachine(id: string, userId: string) {
     await this.findOneMachine(id);
-    return this.prisma.machine.update({ where: { id }, data: { status: 'INACTIVE' } });
+    const machine = await this.prisma.machine.update({ where: { id }, data: { status: 'INACTIVE' } });
+    await this.auditService.log(userId, 'DEACTIVATE', 'Machine', id, { message: `Deactivated machine: ${machine.code}` });
+    return machine;
   }
 
-  async updateMachineStatus(id: string, status: string) {
+  async updateMachineStatus(id: string, status: string, userId: string) {
     await this.findOneMachine(id);
-    return this.prisma.machine.update({ where: { id }, data: { status } });
+    const machine = await this.prisma.machine.update({ where: { id }, data: { status } });
+    await this.auditService.log(userId, 'UPDATE', 'Machine', id, { message: `Changed machine status: ${machine.code}` });
+    return machine;
   }
 
-  async updateMachineLocation(id: string, dto: UpdateMachineLocationDto) {
+  async updateMachineLocation(id: string, dto: UpdateMachineLocationDto, userId: string) {
     await this.findOneMachine(id);
-    return this.prisma.machine.update({ where: { id }, data: { location: dto.location } });
+    const machine = await this.prisma.machine.update({ where: { id }, data: { location: dto.location } });
+    await this.auditService.log(userId, 'UPDATE', 'Machine', id, { message: `Updated machine location: ${machine.code}` });
+    return machine;
   }
 
-  async updateMachineManufacturer(id: string, dto: UpdateMachineManufacturerDto) {
+  async updateMachineManufacturer(id: string, dto: UpdateMachineManufacturerDto, userId: string) {
     await this.findOneMachine(id);
-    return this.prisma.machine.update({ where: { id }, data: dto });
+    const machine = await this.prisma.machine.update({ where: { id }, data: dto });
+    await this.auditService.log(userId, 'UPDATE', 'Machine', id, { message: `Updated machine manufacturer: ${machine.code}` });
+    return machine;
   }
 
-  async updateMachineWarranty(id: string, dto: UpdateMachineWarrantyDto) {
+  async updateMachineWarranty(id: string, dto: UpdateMachineWarrantyDto, userId: string) {
     await this.findOneMachine(id);
     const data: any = {};
     if (dto.purchaseDate) data.purchaseDate = new Date(dto.purchaseDate);
     if (dto.warrantyEnd) data.warrantyEnd = new Date(dto.warrantyEnd);
-    return this.prisma.machine.update({ where: { id }, data });
+    const machine = await this.prisma.machine.update({ where: { id }, data });
+    await this.auditService.log(userId, 'UPDATE', 'Machine', id, { message: `Updated machine warranty: ${machine.code}` });
+    return machine;
   }
 
-  async updateMachineImage(id: string, dto: UpdateMachineImageDto) {
+  async updateMachineImage(id: string, dto: UpdateMachineImageDto, userId: string) {
     await this.findOneMachine(id);
-    return this.prisma.machine.update({ where: { id }, data: { image: dto.image } });
+    const machine = await this.prisma.machine.update({ where: { id }, data: { image: dto.image } });
+    await this.auditService.log(userId, 'UPDATE', 'Machine', id, { message: `Updated machine image: ${machine.code}` });
+    return machine;
   }
 
   async getMachineCard(id: string) {
@@ -274,7 +303,7 @@ export class MaintenanceService {
         _count: { select: { parts: true, documents: true, maintenanceReqs: true, schedules: true, downtimeLogs: true } },
       },
     });
-    if (!machine) throw new NotFoundException('Machine not found');
+    if (!machine) throw new NotFoundException({ messageKey: 'maintenance.machineNotFound', message: 'Machine not found' });
     return machine;
   }
 
@@ -401,7 +430,7 @@ export class MaintenanceService {
         category: { select: { id: true, name: true, code: true } },
       },
     });
-    if (!machine) throw new NotFoundException('Machine not found');
+    if (!machine) throw new NotFoundException({ messageKey: 'maintenance.machineNotFound', message: 'Machine not found' });
 
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);

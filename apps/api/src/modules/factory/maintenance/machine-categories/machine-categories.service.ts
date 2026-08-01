@@ -13,14 +13,22 @@ export class MachineCategoriesService {
     private numberingService: NumberingService,
   ) {}
 
+  private validationError(field: string, code: string, message: string): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'common.validationFailed',
+      message: 'Validation failed',
+      errors: [{ field, code, message }],
+    });
+  }
+
   async create(dto: CreateMachineCategoryDto, userId: string) {
     const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('MACHINE_CATEGORY');
     const existing = await this.prisma.machineCategory.findUnique({ where: { code } });
-    if (existing) throw new ConflictException('Machine category code already exists');
+    if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Machine category code already exists');
 
     if (dto.parentId) {
       const parent = await this.prisma.machineCategory.findUnique({ where: { id: dto.parentId } });
-      if (!parent) throw new NotFoundException('Parent category not found');
+      if (!parent) throw this.validationError('parentId', 'validation.invalidReference', 'Parent category not found');
     }
 
     const category = await this.prisma.machineCategory.create({ data: { ...dto, code } });
@@ -62,21 +70,21 @@ export class MachineCategoriesService {
         _count: { select: { machines: true } },
       },
     });
-    if (!category) throw new NotFoundException('Machine category not found');
+    if (!category) throw new NotFoundException({ messageKey: 'maintenance.machineCategoryNotFound', message: 'Machine category not found' });
     return category;
   }
 
   async update(id: string, dto: UpdateMachineCategoryDto, userId: string) {
     const existing = await this.findOne(id);
     if (dto.code && dto.code !== existing.code) {
-      throw new BadRequestException('Code cannot be changed after creation');
+      throw this.validationError('code', 'validation.invalidValue', 'Code cannot be changed after creation');
     }
     const { code, ...updateDto } = dto;
 
     if (updateDto.parentId) {
-      if (updateDto.parentId === id) throw new BadRequestException('A category cannot be its own parent');
+      if (updateDto.parentId === id) throw this.validationError('parentId', 'validation.invalidValue', 'A category cannot be its own parent');
       const parent = await this.prisma.machineCategory.findUnique({ where: { id: updateDto.parentId } });
-      if (!parent) throw new NotFoundException('Parent category not found');
+      if (!parent) throw this.validationError('parentId', 'validation.invalidReference', 'Parent category not found');
     }
 
     const category = await this.prisma.machineCategory.update({ where: { id }, data: updateDto });

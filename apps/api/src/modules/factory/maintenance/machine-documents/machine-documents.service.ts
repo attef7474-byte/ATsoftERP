@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { CreateMachineDocumentDto } from './dto/create-machine-document.dto';
@@ -11,9 +11,17 @@ export class MachineDocumentsService {
     private auditService: AuditService,
   ) {}
 
+  private validationError(field: string, code: string, message: string): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'common.validationFailed',
+      message: 'Validation failed',
+      errors: [{ field, code, message }],
+    });
+  }
+
   async create(dto: CreateMachineDocumentDto, userId: string) {
     const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
-    if (!machine) throw new NotFoundException('Machine not found');
+    if (!machine) throw this.validationError('machineId', 'validation.invalidReference', 'Machine not found');
 
     const doc = await this.prisma.machineDocument.create({ data: dto });
     await this.auditService.log(userId, 'CREATE', 'MachineDocument', doc.id, { message: `Created document: ${doc.title}` });
@@ -50,7 +58,7 @@ export class MachineDocumentsService {
       where: { id },
       include: { machine: { select: { id: true, name: true, code: true } } },
     });
-    if (!doc) throw new NotFoundException('Machine document not found');
+    if (!doc) throw new NotFoundException({ messageKey: 'maintenance.machineDocumentNotFound', message: 'Machine document not found' });
     return doc;
   }
 
@@ -59,7 +67,7 @@ export class MachineDocumentsService {
 
     if (dto.machineId) {
       const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
-      if (!machine) throw new NotFoundException('Machine not found');
+      if (!machine) throw this.validationError('machineId', 'validation.invalidReference', 'Machine not found');
     }
 
     const doc = await this.prisma.machineDocument.update({ where: { id }, data: dto });
@@ -102,7 +110,7 @@ export class MachineDocumentsService {
 
   async getDocumentsByMachine(machineId: string) {
     const machine = await this.prisma.machine.findUnique({ where: { id: machineId } });
-    if (!machine) throw new NotFoundException('Machine not found');
+    if (!machine) throw new NotFoundException({ messageKey: 'maintenance.machineNotFound', message: 'Machine not found' });
     return this.prisma.machineDocument.findMany({
       where: { machineId },
       orderBy: { createdAt: 'desc' },

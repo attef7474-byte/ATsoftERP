@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Res, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Res } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Response } from 'express';
 import { MachineDocumentsService } from './machine-documents.service';
@@ -67,7 +67,7 @@ export class MachineDocumentsController {
   @Delete(':id')
   @Permissions('machine-document:deactivate')
   @ApiOperation({ summary: 'Delete machine document' })
-  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @CurrentUser('sub') userId: string) {
+  remove(@Param('id') id: string, @CurrentUser('sub') userId: string) {
     return this.service.remove(id, userId);
   }
 

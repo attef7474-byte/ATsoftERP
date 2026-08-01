@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { MachinePart } from '../../../../../../lib/admin-types';
-import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge } from '../../../../../../components/admin/ui';
+import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../../../components/admin/admin-action-bar';
 
 export default function MachinePartsPage() {
@@ -61,7 +61,7 @@ export default function MachinePartsPage() {
               { key: 'name', header: t('common.name'), render: (p: MachinePart) => p.name },
               { key: 'quantity', header: t('maintenance.quantity'), render: (p: MachinePart) => p.quantity },
               { key: 'unit', header: t('maintenance.unit'), render: (p: MachinePart) => p.unit || '-' },
-              { key: 'status', header: t('common.status'), render: (p: MachinePart) => <StatusBadge status={p.status} /> },
+              { key: 'stock', header: t('maintenance.inventoryStatus'), render: (p: MachinePart) => { const ms = p.minStock ?? 0; if (p.quantity <= 0) return <span className="text-red-600 text-sm">{t('maintenance.outOfStock')}</span>; if (p.quantity <= ms) return <span className="text-red-600 text-sm">{t('maintenance.lowStock')}</span>; if (p.quantity <= ms * 2) return <span className="text-yellow-600 text-sm">{t('maintenance.adequateStock')}</span>; return <span className="text-green-600 text-sm">{t('maintenance.inStock')}</span>; } },
             ]} data={data} keyExtractor={(p: MachinePart) => p.id} />
           )}
         </CardContent>

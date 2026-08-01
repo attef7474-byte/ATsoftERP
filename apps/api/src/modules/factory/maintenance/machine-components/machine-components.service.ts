@@ -13,12 +13,20 @@ export class MachineComponentsService {
     private auditService: AuditService,
   ) {}
 
+  private validationError(field: string, code: string, message: string): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'common.validationFailed',
+      message: 'Validation failed',
+      errors: [{ field, code, message }],
+    });
+  }
+
   async create(dto: CreateMachineComponentDto, userId: string) {
     const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
-    if (!machine) throw new BadRequestException('Machine not found');
+    if (!machine) throw this.validationError('machineId', 'validation.invalidReference', 'Machine not found');
 
     const existing = await this.prisma.machineComponent.findUnique({ where: { machineId_code: { machineId: dto.machineId, code: dto.code } } });
-    if (existing) throw new ConflictException('Component code already exists for this machine');
+    if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Component code already exists for this machine');
 
     if (dto.parentComponentId) {
       await this.validateParent(dto.parentComponentId, dto.machineId);
@@ -75,24 +83,24 @@ export class MachineComponentsService {
         children: { where: { deletedAt: null }, select: { id: true, name: true, code: true, componentType: true, criticality: true, status: true } },
       },
     });
-    if (!component) throw new NotFoundException('Machine component not found');
+    if (!component) throw new NotFoundException({ messageKey: 'maintenance.componentNotFound', message: 'Machine component not found' });
     return component;
   }
 
   async update(id: string, dto: UpdateMachineComponentDto, userId: string) {
     const existing = await this.findOne(id);
     if (dto.code && dto.code !== existing.code) {
-      throw new BadRequestException('Code cannot be changed after creation');
+      throw this.validationError('code', 'validation.invalidValue', 'Code cannot be changed after creation');
     }
     const { code, ...updateDto } = dto;
 
     if (updateDto.machineId) {
       const machine = await this.prisma.machine.findUnique({ where: { id: updateDto.machineId } });
-      if (!machine) throw new BadRequestException('Machine not found');
+      if (!machine) throw this.validationError('machineId', 'validation.invalidReference', 'Machine not found');
     }
 
     if (updateDto.parentComponentId) {
-      if (updateDto.parentComponentId === id) throw new BadRequestException('A component cannot be its own parent');
+      if (updateDto.parentComponentId === id) throw this.validationError('parentComponentId', 'validation.invalidValue', 'A component cannot be its own parent');
       const targetMachineId = updateDto.machineId || (await this.prisma.machineComponent.findUnique({ where: { id } }))?.machineId;
       await this.validateParent(updateDto.parentComponentId, targetMachineId!);
       await this.detectCycle(id, updateDto.parentComponentId);
@@ -136,15 +144,15 @@ export class MachineComponentsService {
 
   private async validateParent(parentComponentId: string, machineId: string) {
     const parent = await this.prisma.machineComponent.findUnique({ where: { id: parentComponentId } });
-    if (!parent) throw new BadRequestException('Parent component not found');
-    if (parent.machineId !== machineId) throw new BadRequestException('Parent component must belong to the same machine');
+    if (!parent) throw this.validationError('parentComponentId', 'validation.invalidReference', 'Parent component not found');
+    if (parent.machineId !== machineId) throw this.validationError('parentComponentId', 'validation.invalidValue', 'Parent component must belong to the same machine');
   }
 
   private async detectCycle(componentId: string, proposedParentId: string) {
     let currentId: string | null = proposedParentId;
     const visited = new Set<string>();
     while (currentId) {
-      if (currentId === componentId) throw new BadRequestException('Setting this parent would create a circular reference');
+      if (currentId === componentId) throw this.validationError('parentComponentId', 'validation.invalidValue', 'Setting this parent would create a circular reference');
       if (visited.has(currentId)) break;
       visited.add(currentId);
       const comp: { parentComponentId: string | null } | null = await this.prisma.machineComponent.findUnique({ where: { id: currentId }, select: { parentComponentId: true } });

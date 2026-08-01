@@ -7,11 +7,14 @@ import { useToast } from '../../../../../components/admin/toast-provider';
 import { Button, Input, Textarea, Card, CardContent } from '../../../../../components/admin/ui';
 import { F9Lookup, machineCategoryAdapter, companyAdapter, branchAdapter, departmentAdapter, productionLineAdapter, operationTypeAdapter, costCenterAdapter, administrationAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../lib/form-validation';
 
 export default function CreateMachinePage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [form, setForm] = useState({ name: '', categoryId: '', companyId: '', branchId: '', departmentId: '', productionLineId: '', operationTypeId: '', defaultCostCenterId: '', technicalAdministrationId: '', technicalDepartmentId: '', model: '', serialNumber: '', manufacturer: '', location: '', notes: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -28,8 +31,9 @@ export default function CreateMachinePage() {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.name.trim()) errs.name = t('complexForms.requiredField');
+    if (!form.name.trim()) errs.name = t('validation.required');
     setErrors(errs);
+    focusFirstInvalidField(Object.entries(errs).map(([field, message]) => ({ field, code: 'validation.required', message })));
     return Object.keys(errs).length === 0;
   };
 
@@ -52,11 +56,15 @@ export default function CreateMachinePage() {
       if (form.manufacturer) payload.manufacturer = form.manufacturer.trim();
       if (form.location) payload.location = form.location.trim();
       if (form.notes) payload.notes = form.notes.trim();
-      const res = await api.post<{ data: { id: string } }>('/maintenance/machines', payload);
+      const res = await api.post<{ id: string }>('/maintenance/machines', payload);
       showToast(t('complexForms.recordCreated'), 'success');
-      router.push(`/admin/maintenance/machines/${res.data.id}`);
+      router.push(`/admin/maintenance/machines/${res.id}`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.createFailed'), 'error');
+      const config = handleApiError(err);
+      if (config.errors?.length) {
+        setErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      }
     } finally { setSaving(false); }
   };
 

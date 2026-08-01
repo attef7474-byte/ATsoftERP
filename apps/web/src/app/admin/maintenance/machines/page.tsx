@@ -6,44 +6,38 @@ import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Machine } from '../../../../lib/admin-types';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Pagination, PageHeader, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
-import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter, machineCategoryAdapter, productionLineAdapter, operationTypeAdapter, costCenterAdapter, administrationAdapter } from '../../../../components/f9';
+import { Pagination, PageHeader, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
 export default function MachinesPage() {
   const router = useRouter();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<Machine[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<Machine | null>(null);
-  const [form, setForm] = useState({
-    code: '', name: '', categoryId: '', companyId: '', branchId: '', departmentId: '',
-    productionLineId: '', operationTypeId: '', defaultCostCenterId: '', technicalAdministrationId: '', technicalDepartmentId: '',
-    model: '', serialNumber: '', manufacturer: '', purchaseDate: '', warrantyEnd: '', location: '', notes: '',
-  });
-  const [saving, setSaving] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [statusSaving, setStatusSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'activate' | 'deactivate'>('deactivate');
   const [selectedId, setSelectedId] = useState('');
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
 
 const { exec } = useStableHandlers({
-  new: () => openCreate(),
-  edit: () => selectedRecord && openEdit(selectedRecord),
+  new: () => router.push('/admin/maintenance/machines/new'),
+  edit: () => selectedRecord && router.push(`/admin/maintenance/machines/${selectedRecord.id}/edit`),
   delete: () => setConfirmDeleteOpen(true),
   refresh: () => fetchData(meta.page),
-  activate: () => confirmStatus(selectedId),
-  deactivate: () => confirmStatus(selectedId),
+  activate: () => confirmStatus(selectedId, 'activate'),
+  deactivate: () => confirmStatus(selectedId, 'deactivate'),
 });
 
 useRegisterAdminActions([
@@ -72,50 +66,30 @@ useRegisterAdminActions([
 
   useEffect(() => { fetchData(); }, []);
 
-  const openCreate = () => { router.push('/admin/maintenance/machines/new'); };
-  const openEdit = (item: Machine) => { router.push(`/admin/maintenance/machines/${item.id}/edit`); };
+  const confirmStatus = (id: string, action: 'activate' | 'deactivate') => {
+    setSelectedId(id);
+    setConfirmAction(action);
+    setConfirmOpen(true);
+  };
 
-  const handleSave = async () => {
-    const errors: Record<string, string> = {};
-    if (!form.code) errors.code = t('validation.required');
-    if (!form.name) errors.name = t('validation.required');
-    setValidationErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-    setSaving(true);
+  const handleStatusChange = async () => {
+    setStatusSaving(true);
     try {
-      const payload: any = { code: form.code, name: form.name };
-      if (form.categoryId) payload.categoryId = form.categoryId;
-      if (form.companyId) payload.companyId = form.companyId;
-      if (form.branchId) payload.branchId = form.branchId;
-      if (form.departmentId) payload.departmentId = form.departmentId;
-      if (form.productionLineId) payload.productionLineId = form.productionLineId;
-      if (form.operationTypeId) payload.operationTypeId = form.operationTypeId;
-      if (form.defaultCostCenterId) payload.defaultCostCenterId = form.defaultCostCenterId;
-      if (form.technicalAdministrationId) payload.technicalAdministrationId = form.technicalAdministrationId;
-      if (form.technicalDepartmentId) payload.technicalDepartmentId = form.technicalDepartmentId;
-      if (form.model) payload.model = form.model;
-      if (form.serialNumber) payload.serialNumber = form.serialNumber;
-      if (form.manufacturer) payload.manufacturer = form.manufacturer;
-      if (form.purchaseDate) payload.purchaseDate = form.purchaseDate;
-      if (form.warrantyEnd) payload.warrantyEnd = form.warrantyEnd;
-      if (form.location) payload.location = form.location;
-      if (form.notes) payload.notes = form.notes;
-      if (editItem) {
-        await api.patch(`/maintenance/machines/${editItem.id}`, payload);
-        showToast(t('common.successUpdated'), 'success');
+      if (confirmAction === 'activate') {
+        await api.patch(`/maintenance/machines/${selectedId}/activate`);
       } else {
-        await api.post('/maintenance/machines', payload);
-        showToast(t('common.successCreated'), 'success');
+        await api.patch(`/maintenance/machines/${selectedId}/deactivate`);
       }
-      setModalOpen(false);
+      showToast(confirmAction === 'activate' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
+      setConfirmOpen(false);
       fetchData(meta.page);
     } catch (err: any) {
-      showToast(err?.message || t('errors.createFailed'), 'error');
-    } finally { setSaving(false); }
+      handleApiError(err);
+    } finally { setStatusSaving(false); }
   };
 
   const handleDelete = async () => {
-    setSaving(true);
+    setStatusSaving(true);
     try {
       await api.delete(`/maintenance/machines/${selectedId}`);
       showToast(t('common.successDeleted'), 'success');
@@ -123,23 +97,8 @@ useRegisterAdminActions([
       setSelectedId('');
       fetchData(meta.page);
     } catch (err: any) {
-      showToast(err?.message || t('common.errorOccurred'), 'error');
-    } finally { setSaving(false); }
-  };
-
-  const confirmStatus = (id: string) => { setSelectedId(id); setConfirmOpen(true); };
-  const handleStatusChange = async () => {
-    setSaving(true);
-    try {
-      const item = data.find((m) => m.id === selectedId);
-      const status = item?.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-      await api.patch(`/maintenance/machines/${selectedId}`, { status });
-      showToast(status === 'ACTIVE' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
-      setConfirmOpen(false);
-      fetchData(meta.page);
-    } catch (err: any) {
-      showToast(err?.message || t('errors.updateFailed'), 'error');
-    } finally { setSaving(false); }
+      handleApiError(err);
+    } finally { setStatusSaving(false); }
   };
 
   const columns: GridColumn<Machine>[] = [
@@ -155,10 +114,10 @@ useRegisterAdminActions([
 
   const gridActions: GridAction<Machine>[] = [
     { label: t('details.viewDetails'), onClick: (m: Machine) => router.push(`/admin/maintenance/machines/${m.id}`) },
-    { label: t('actions.edit'), onClick: (m: Machine) => openEdit(m) },
+    { label: t('actions.edit'), onClick: (m: Machine) => router.push(`/admin/maintenance/machines/${m.id}/edit`) },
+    { label: t('actions.deactivate'), onClick: (m: Machine) => confirmStatus(m.id, 'deactivate'), enabled: (m: Machine) => m.status === 'ACTIVE', variant: 'danger' },
+    { label: t('actions.activate'), onClick: (m: Machine) => confirmStatus(m.id, 'activate'), enabled: (m: Machine) => m.status !== 'ACTIVE' },
     { label: t('common.delete'), onClick: (m: Machine) => { setSelectedId(m.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
-    { label: t('actions.deactivate'), onClick: (m: Machine) => confirmStatus(m.id), enabled: (m: Machine) => m.status === 'ACTIVE', variant: 'danger' },
-    { label: t('actions.activate'), onClick: (m: Machine) => confirmStatus(m.id), enabled: (m: Machine) => m.status !== 'ACTIVE' },
   ];
 
   return (
@@ -185,45 +144,12 @@ useRegisterAdminActions([
       {data.length > 0 && (
         <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editMachine') : t('maintenance.newMachine')} size="lg">
-        <div className="space-y-4 max-h-96 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Input label={t('common.code')} value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} required />
-              {validationErrors.code && <p className="text-red-500 text-sm mt-1">{validationErrors.code}</p>}
-            </div>
-            <div>
-              <Input label={t('common.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} required />
-              {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
-            </div>
-          </div>
-          <F9Lookup label={t('maintenance.machineCategory')} value={form.categoryId} onChange={(v) => setForm({ ...form, categoryId: v })} adapter={machineCategoryAdapter} />
-          <div className="grid grid-cols-2 gap-4">
-            <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} adapter={companyAdapter} />
-            <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
-          </div>
-          <F9Lookup label={t('core.department')} value={form.departmentId} onChange={(v) => setForm({ ...form, departmentId: v })} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label={t('maintenance.model')} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
-            <Input label={t('maintenance.serialNumber')} value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} />
-          </div>
-          <Input label={t('maintenance.manufacturer')} value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })} />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label={t('maintenance.purchaseDate')} type="date" value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} />
-            <Input label={t('maintenance.warrantyEnd')} type="date" value={form.warrantyEnd} onChange={(e) => setForm({ ...form, warrantyEnd: e.target.value })} />
-          </div>
-          <Input label={t('inventory.location')} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
-          <Input label={t('maintenance.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
-            <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
-          </div>
-        </div>
-      </Modal>
       <ConfirmDialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} onConfirm={handleDelete}
-        title={t('common.confirmDeleteTitle')} message={t('common.confirmDeleteMessage')} variant="danger" loading={saving} />
+        title={t('common.confirmDeleteTitle')} message={t('common.confirmDeleteMessage')} variant="danger" loading={statusSaving} />
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleStatusChange}
-        title={t('common.confirmDeactivateTitle')} message={t('common.confirmDeactivateMessage')} variant="danger" loading={saving} />
+        title={confirmAction === 'deactivate' ? t('common.confirmDeactivateTitle') : t('common.confirmActivateTitle')}
+        message={confirmAction === 'deactivate' ? t('common.confirmDeactivateMessage') : t('common.confirmActivateMessage')}
+        variant={confirmAction === 'deactivate' ? 'danger' : 'primary'} loading={statusSaving} />
     </div>
   );
 }

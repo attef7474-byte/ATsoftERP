@@ -6,15 +6,17 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { Button, Input, Textarea, Card, CardContent } from '../../../../../components/admin/ui';
 import { F9Lookup, machineAdapter } from '../../../../../components/f9';
+import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../lib/form-validation';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
 
 export default function CreateMachineDocumentPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const [form, setForm] = useState({
-    fileName: '', fileUrl: '', fileSize: 0, mimeType: '',
-    description: '', machineId: '',
+    title: '', type: '', fileUrl: '', notes: '', machineId: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -28,10 +30,12 @@ export default function CreateMachineDocumentPage() {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.fileName.trim()) errs.fileName = t('complexForms.requiredField');
-    if (!form.fileUrl.trim()) errs.fileUrl = t('complexForms.requiredField');
-    if (!form.machineId) errs.machineId = t('complexForms.requiredField');
+    if (!form.title.trim()) errs.title = t('validation.required');
+    if (!form.type.trim()) errs.type = t('validation.required');
+    if (!form.fileUrl.trim()) errs.fileUrl = t('validation.required');
+    if (!form.machineId) errs.machineId = t('validation.required');
     setErrors(errs);
+    focusFirstInvalidField(Object.entries(errs).map(([field, message]) => ({ field, code: 'validation.required', message })));
     return Object.keys(errs).length === 0;
   };
 
@@ -40,24 +44,27 @@ export default function CreateMachineDocumentPage() {
     setSaving(true);
     try {
       const payload: Record<string, any> = {
-        fileName: form.fileName.trim(),
-        fileUrl: form.fileUrl.trim(),
-        fileSize: form.fileSize,
-        mimeType: form.mimeType.trim() || undefined,
         machineId: form.machineId,
+        title: form.title.trim(),
+        type: form.type.trim(),
+        fileUrl: form.fileUrl.trim(),
       };
-      if (form.description) payload.description = form.description.trim();
-      const res = await api.post<{ data: { id: string } }>('/maintenance/machine-documents', payload);
+      if (form.notes.trim()) payload.notes = form.notes.trim();
+      const res = await api.post<{ id: string }>('/maintenance/machine-documents', payload);
       showToast(t('complexForms.recordCreated'), 'success');
-      router.push(`/admin/maintenance/machine-documents/${res.data.id}`);
+      router.push(`/admin/maintenance/machine-documents/${res.id}`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.createFailed'), 'error');
+      const config = handleApiError(err);
+      if (config.errors?.length) {
+        setErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      }
     } finally { setSaving(false); }
   };
 
   const { exec } = useStableHandlers({
     back: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
-    refresh: () => { setForm({ fileName: '', fileUrl: '', fileSize: 0, mimeType: '', description: '', machineId: '' }); setErrors({}); setDirty(false); },
+    refresh: () => { setForm({ title: '', type: '', fileUrl: '', notes: '', machineId: '' }); setErrors({}); setDirty(false); },
     save: () => handleSave(),
     cancel: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
   });
@@ -76,12 +83,13 @@ export default function CreateMachineDocumentPage() {
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-gray-900">{t('complexForms.basicInformation')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label={t('maintenance.fileName')} value={form.fileName} onChange={(e) => setField('fileName', e.target.value)} error={errors.fileName} required />
-              <Input label={t('maintenance.fileUrl')} value={form.fileUrl} onChange={(e) => setField('fileUrl', e.target.value)} error={errors.fileUrl} required />
-              <Input label={t('maintenance.fileSize')} type="number" value={String(form.fileSize)} onChange={(e) => setField('fileSize', parseInt(e.target.value) || 0)} />
-              <Input label={t('maintenance.mimeType')} value={form.mimeType} onChange={(e) => setField('mimeType', e.target.value)} />
+              <Input label={t('maintenance.title')} value={form.title} onChange={(e) => setField('title', e.target.value)} error={errors.title} required />
+              <Input label={t('maintenance.type')} value={form.type} onChange={(e) => setField('type', e.target.value)} error={errors.type} required />
+              <div className="md:col-span-2">
+                <Input label={t('maintenance.fileUrl')} value={form.fileUrl} onChange={(e) => setField('fileUrl', e.target.value)} error={errors.fileUrl} required />
+              </div>
             </div>
-            <Textarea label={t('common.description')} value={form.description} onChange={(e) => setField('description', e.target.value)} />
+            <Textarea label={t('maintenance.notes')} value={form.notes} onChange={(e) => setField('notes', e.target.value)} />
           </div>
         </CardContent>
       </Card>

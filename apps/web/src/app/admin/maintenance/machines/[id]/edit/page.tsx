@@ -8,12 +8,15 @@ import { Button, Input, Textarea, Card, CardContent, LoadingState, ErrorState, S
 import { F9Lookup, machineCategoryAdapter, companyAdapter, branchAdapter, departmentAdapter, productionLineAdapter, operationTypeAdapter, costCenterAdapter, administrationAdapter } from '../../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon, ActionViewIcon } from '../../../../../../components/admin/admin-action-bar';
 import type { Machine } from '../../../../../../lib/admin-types';
+import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
+import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../../lib/form-validation';
 
 export default function EditMachinePage() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const id = params?.id as string;
   const [data, setData] = useState<Machine | null>(null);
   const [form, setForm] = useState({ code: '', name: '', categoryId: '', companyId: '', branchId: '', departmentId: '', productionLineId: '', operationTypeId: '', defaultCostCenterId: '', technicalAdministrationId: '', technicalDepartmentId: '', model: '', serialNumber: '', manufacturer: '', location: '', notes: '' });
@@ -33,9 +36,10 @@ export default function EditMachinePage() {
       setData(item);
       setForm({ code: item.code || '', name: item.name || '', categoryId: item.categoryId || '', companyId: item.companyId || '', branchId: item.branchId || '', departmentId: item.departmentId || '', productionLineId: item.productionLineId || '', operationTypeId: item.operationTypeId || '', defaultCostCenterId: item.defaultCostCenterId || '', technicalAdministrationId: item.technicalAdministrationId || '', technicalDepartmentId: item.technicalDepartmentId || '', model: item.model || '', serialNumber: item.serialNumber || '', manufacturer: item.manufacturer || '', location: item.location || '', notes: item.notes || '' });
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || t('complexForms.loadFailed'));
+      handleApiError(err);
+      setError(err?.message || t('complexForms.loadFailed'));
     } finally { setLoading(false); }
-  }, [id, t]);
+  }, [id, t, handleApiError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -51,8 +55,9 @@ export default function EditMachinePage() {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.name.trim()) errs.name = t('complexForms.requiredField');
+    if (!form.name.trim()) errs.name = t('validation.required');
     setErrors(errs);
+    focusFirstInvalidField(Object.entries(errs).map(([field, message]) => ({ field, code: 'validation.required', message })));
     return Object.keys(errs).length === 0;
   };
 
@@ -80,7 +85,11 @@ export default function EditMachinePage() {
       showToast(t('complexForms.recordUpdated'), 'success');
       router.push(`/admin/maintenance/machines/${id}`);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || t('complexForms.updateFailed'), 'error');
+      const config = handleApiError(err);
+      if (config.errors?.length) {
+        setErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      }
     } finally { setSaving(false); }
   };
 
