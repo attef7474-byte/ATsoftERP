@@ -16,4 +16,9 @@ export class UpdateChecklistExecutionItemDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Result value for TEXT / NUMBER / READING / BOOLEAN result types' })
+  @IsOptional()
+  @IsString()
+  resultValue?: string;
 }

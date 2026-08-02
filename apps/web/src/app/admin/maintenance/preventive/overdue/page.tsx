@@ -33,7 +33,7 @@ export default function OverduePreventivePage() {
   ]);
 
   const getDaysOverdue = (schedule: MaintenanceSchedule): number => {
-    const dueDate = schedule.nextDueAt || schedule.startDate;
+    const dueDate = schedule.nextDueDate || schedule.startDate;
     if (!dueDate) return 0;
     const diff = new Date().getTime() - new Date(dueDate).getTime();
     return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
@@ -42,7 +42,7 @@ export default function OverduePreventivePage() {
   const columns = [
     { key: 'title', header: t('common.title'), render: (s: MaintenanceSchedule) => <a href={`/admin/maintenance/schedules/${s.id}`} className="text-blue-600 hover:text-blue-800">{s.title}</a> },
     { key: 'machine', header: t('maintenance.machine'), render: (s: MaintenanceSchedule) => s.machine?.name || '-' },
-    { key: 'maintenanceType', header: t('maintenance.maintenanceType'), render: (s: MaintenanceSchedule) => t(`status.${s.maintenanceType}` as any) || s.maintenanceType },
+    { key: 'type', header: t('maintenance.maintenanceType'), render: (s: MaintenanceSchedule) => t(`status.${s.type}` as any) || s.type },
     { key: 'startDate', header: t('maintenance.startDate'), render: (s: MaintenanceSchedule) => s.startDate ? new Date(s.startDate).toLocaleDateString() : '-' },
     { key: 'daysOverdue', header: t('maintenance.daysOverdue'), render: (s: MaintenanceSchedule) => <span className="text-red-600 font-semibold">{getDaysOverdue(s)}</span> },
     { key: 'status', header: t('common.status'), render: (s: MaintenanceSchedule) => <CmmsStatusBadge status={s.status} /> },

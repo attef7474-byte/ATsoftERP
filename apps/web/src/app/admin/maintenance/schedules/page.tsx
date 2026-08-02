@@ -24,7 +24,7 @@ export default function MaintenanceSchedulesPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MaintenanceSchedule | null>(null);
-  const [form, setForm] = useState({ machineId: '', title: '', description: '', maintenanceType: 'PREVENTIVE', frequency: 'MONTHLY', startDate: '', code: '' });
+  const [form, setForm] = useState({ machineId: '', title: '', description: '', type: 'PREVENTIVE', frequency: 'MONTHLY', intervalDays: 0, startDate: '', code: '' });
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -67,7 +67,7 @@ useRegisterAdminActions([
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ machineId: '', title: '', description: '', maintenanceType: 'PREVENTIVE', frequency: 'MONTHLY', startDate: '', code: '' });
+    setForm({ machineId: '', title: '', description: '', type: 'PREVENTIVE', frequency: 'MONTHLY', intervalDays: 0, startDate: '', code: '' });
     setModalOpen(true);
   };
   const openEdit = async (id: string) => {
@@ -77,7 +77,7 @@ useRegisterAdminActions([
       const res: any = await api.get(`/maintenance/schedules/${id}`);
       const item: MaintenanceSchedule = res.data || res;
       setEditItem(item);
-      setForm({ machineId: item.machineId, title: item.title, description: item.description || '', maintenanceType: item.maintenanceType, frequency: item.frequency, startDate: item.startDate ? item.startDate.split('T')[0] : '', code: res.code || (item as any).code || '' });
+      setForm({ machineId: item.machineId, title: item.title, description: item.description || '', type: item.type, frequency: item.frequency, intervalDays: item.intervalDays ?? 0, startDate: item.startDate ? item.startDate.split('T')[0] : '', code: res.code || (item as any).code || '' });
     } catch (err: any) {
       showToast(err?.message || t('errors.loadFailed'), 'error');
       setModalOpen(false);
@@ -94,8 +94,9 @@ useRegisterAdminActions([
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
-      const payload: any = { machineId: form.machineId, title: form.title, maintenanceType: form.maintenanceType, frequency: form.frequency, startDate: form.startDate };
+      const payload: any = { machineId: form.machineId, title: form.title, type: form.type, frequency: form.frequency, startDate: form.startDate };
       if (form.description) payload.description = form.description;
+      if (form.intervalDays > 0) payload.intervalDays = form.intervalDays;
       if (editItem) {
         await api.patch(`/maintenance/schedules/${editItem.id}`, payload);
         showToast(t('common.successUpdated'), 'success');
@@ -153,7 +154,7 @@ useRegisterAdminActions([
   const columns: GridColumn<MaintenanceSchedule>[] = [
     { key: 'title', header: t('common.title') },
     { key: 'machine', header: t('maintenance.machine'), render: (s: MaintenanceSchedule) => s.machine?.name || '-' },
-    { key: 'maintenanceType', header: t('maintenance.maintenanceType'), render: (s: MaintenanceSchedule) => t(`status.${s.maintenanceType}` as any) || s.maintenanceType },
+    { key: 'type', header: t('maintenance.maintenanceType'), render: (s: MaintenanceSchedule) => t(`status.${s.type}` as any) || s.type },
     { key: 'frequency', header: t('maintenance.frequency'), render: (s: MaintenanceSchedule) => t(`status.${s.frequency}` as any) || s.frequency },
     { key: 'nextDueDate', header: t('maintenance.nextDueDate'), render: (s: MaintenanceSchedule) => s.nextDueDate ? new Date(s.nextDueDate).toLocaleDateString() : '-' },
     { key: 'dueStatus', header: t('maintenance.due'), render: (s: MaintenanceSchedule) => s.dueStatus ? <CmmsStatusBadge status={s.dueStatus} /> : '-' },
@@ -216,9 +217,10 @@ useRegisterAdminActions([
               {validationErrors.machineId && <p className="text-red-500 text-sm mt-1">{validationErrors.machineId}</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Select label={t('maintenance.maintenanceType')} value={form.maintenanceType} onChange={(e) => setForm({ ...form, maintenanceType: e.target.value })} options={typeOptions} />
+              <Select label={t('maintenance.maintenanceType')} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} options={typeOptions} />
               <Select label={t('maintenance.frequency')} value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })} options={freqOptions} />
             </div>
+            <Input label={t('maintenance.intervalDays')} type="number" value={String(form.intervalDays || '')} onChange={(e) => setForm({ ...form, intervalDays: parseInt(e.target.value) || 0 })} />
             <Input label={t('maintenance.startDate')} type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
             <Textarea label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             <div className="flex justify-end gap-3 pt-4">

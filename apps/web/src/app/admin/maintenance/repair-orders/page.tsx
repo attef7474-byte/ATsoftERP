@@ -13,7 +13,7 @@ interface RepairOrder {
   sparePart?: { id: string; code: string; name: string };
   warehouse?: { id: string; code: string; name: string };
   maintenanceRequest?: { id: string; requestNumber: string };
-  createdAt: string;
+  openedAt: string;
 }
 
 export default function RepairOrdersPage() {
@@ -59,7 +59,7 @@ export default function RepairOrdersPage() {
     { key: 'sparePart', header: t('maintenance.sparePartLabel'), render: (r: RepairOrder) => r.sparePart?.name || '-' },
     { key: 'sourceCondition', header: t('maintenance.condition'), render: (r: RepairOrder) => <LocalizedValue value={r.sourceCondition} /> },
     { key: 'sourceQuantity', header: t('common.quantity'), render: (r: RepairOrder) => r.sourceQuantity },
-    { key: 'repairedQuantity', header: 'تم الإصلاح', render: (r: RepairOrder) => r.repairedQuantity || 0 },
+    { key: 'repairedQuantity', header: t('maintenance.repairedQuantity'), render: (r: RepairOrder) => r.repairedQuantity || 0 },
     { key: 'status', header: t('common.status'), render: (r: RepairOrder) => <StatusBadge status={r.status} /> },
   ];
 

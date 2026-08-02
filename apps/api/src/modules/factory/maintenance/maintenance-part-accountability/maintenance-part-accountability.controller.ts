@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenancePartAccountabilityService } from './maintenance-part-accountability.service';
 import { CreateMaintenancePartAccountabilityDto, UpdateMaintenancePartAccountabilityDto } from './dto/create-maintenance-part-accountability.dto';
@@ -52,7 +52,7 @@ export class MaintenancePartAccountabilityController {
   @Delete(':id')
   @Permissions('maintenance-part-accountability:delete')
   @ApiOperation({ summary: 'Cancel part accountability record' })
-  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
+  remove(@Param('id') id: string) {
     return this.service.remove(id);
   }
 }

@@ -7,6 +7,8 @@ import { JwtAuthGuard } from '../../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @ApiTags('Machine Parts')
 @ApiBearerAuth()
@@ -18,72 +20,62 @@ export class MachinePartsController {
   @Post()
   @Permissions('machine-part:create')
   @ApiOperation({ summary: 'Create machine part' })
-  create(@Body() dto: CreateMachinePartDto, @CurrentUser('sub') userId: string) {
-    return this.service.create(dto, userId);
+  create(@Body() dto: CreateMachinePartDto, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.create(dto, userId, ctx);
   }
 
   @Get()
   @Permissions('machine-part:read')
   @ApiOperation({ summary: 'List machine parts' })
-  findAll(@Query() query: { page?: string; limit?: string; search?: string; machineId?: string }) {
+  findAll(@Query() query: { page?: string; limit?: string; search?: string; machineId?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,
       machineId: query.machineId,
-    });
+    }, ctx);
   }
 
   @Get(':id')
   @Permissions('machine-part:read')
   @ApiOperation({ summary: 'Get machine part by ID' })
-  findOne(@Param('id') id: string) { return this.service.findOne(id); }
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOne(id, ctx); }
 
   @Patch(':id')
   @Permissions('machine-part:update')
   @ApiOperation({ summary: 'Update machine part' })
-  update(@Param('id') id: string, @Body() dto: UpdateMachinePartDto, @CurrentUser('sub') userId: string) {
-    return this.service.update(id, dto, userId);
+  update(@Param('id') id: string, @Body() dto: UpdateMachinePartDto, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.update(id, dto, userId, ctx);
   }
 
   @Delete(':id')
   @Permissions('machine-part:delete')
   @ApiOperation({ summary: 'Delete machine part' })
-  remove(@Param('id') id: string, @CurrentUser('sub') userId: string) {
-    return this.service.remove(id, userId);
+  remove(@Param('id') id: string, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.remove(id, userId, ctx);
   }
-
-  @Patch(':id/activate')
-  @Permissions('machine-part:activate')
-  @ApiOperation({ summary: 'Activate machine part' })
-  activate(@Param('id') id: string) { return this.service.activatePart(id); }
-
-  @Patch(':id/deactivate')
-  @Permissions('machine-part:deactivate')
-  @ApiOperation({ summary: 'Deactivate machine part' })
-  deactivate(@Param('id') id: string) { return this.service.deactivatePart(id); }
 
   @Get(':id/machines')
   @Permissions('machine-part:read')
   @ApiOperation({ summary: 'Get machines linked to this part' })
-  getPartMachines(@Param('id') id: string) { return this.service.getPartMachines(id); }
+  getPartMachines(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.getPartMachines(id, ctx); }
 
   @Post(':id/machines')
   @Permissions('machine-part:linkMachine')
   @ApiOperation({ summary: 'Link part to a machine' })
-  linkToMachine(@Param('id') id: string, @Body() body: { machineId: string }, @CurrentUser('sub') userId: string) {
-    return this.service.linkToMachine(id, body.machineId, userId);
+  linkToMachine(@Param('id') id: string, @Body() body: { machineId: string }, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.linkToMachine(id, body.machineId, userId, ctx);
   }
 
   @Delete(':id/machines/:machineId')
   @Permissions('machine-part:unlinkMachine')
   @ApiOperation({ summary: 'Unlink part from a machine' })
-  unlinkFromMachine(@Param('id') id: string, @Param('machineId') machineId: string, @CurrentUser('sub') userId: string) {
-    return this.service.unlinkFromMachine(id, machineId, userId);
+  unlinkFromMachine(@Param('id') id: string, @Param('machineId') machineId: string, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.unlinkFromMachine(id, machineId, userId, ctx);
   }
 
   @Get(':id/usage-history')
   @Permissions('machine-part:read')
   @ApiOperation({ summary: 'Get usage history for this part' })
-  getUsageHistory(@Param('id') id: string) { return this.service.getUsageHistory(id); }
+  getUsageHistory(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.getUsageHistory(id, ctx); }
 }

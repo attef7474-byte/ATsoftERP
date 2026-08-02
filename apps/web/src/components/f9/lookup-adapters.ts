@@ -153,7 +153,7 @@ export const maintenanceScheduleAdapter: LookupAdapter<MaintenanceSchedule> = {
   columns: [
     { key: 'title', header: 'Title' },
     { key: 'machine', header: 'Machine', render: (s) => s.machine?.name || '-' },
-    { key: 'maintenanceType', header: 'Type', render: (s) => s.maintenanceType },
+    { key: 'type', header: 'Type', render: (s) => s.type },
     { key: 'status', header: 'Status', render: (s) => s.status },
   ],
 };

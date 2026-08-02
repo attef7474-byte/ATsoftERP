@@ -8,6 +8,7 @@ import {
   CompleteServiceableDto, CompletePartialDto, ScrapRepairOrderDto,
   CancelRepairOrderDto, CreateRepairActionDto, QueryRepairablePartsDto,
 } from './dto/repair-order.dto';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 const VALID_SOURCE_CONDITIONS = ['USED_REPAIRABLE', 'DAMAGED_REPAIRABLE'];
 const VALID_TARGET_CONDITIONS = ['USED_SERVICEABLE', 'USED_REPAIRABLE'];
@@ -38,17 +39,109 @@ export class RepairOrdersService {
     private conditionService: SparePartConditionService,
   ) {}
 
+  private notFound(key: string, message: string): NotFoundException {
+    return new NotFoundException({ messageKey: key, message });
+  }
+
+  private badRequest(key: string, message: string, params?: Record<string, string>): BadRequestException {
+    return new BadRequestException({ messageKey: key, message, ...(params ? { params } : {}) });
+  }
+
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
+  }
+
+  private machineOwns(machine: { companyId?: string | null; branchId?: string | null }, ctx: ActiveOperationalContext): boolean {
+    return machine.companyId === ctx.companyId
+      && (machine.branchId === null || machine.branchId === ctx.branchId);
+  }
+
+  private warehouseOwns(warehouse: { companyId?: string | null; branchId?: string | null }, ctx: ActiveOperationalContext): boolean {
+    return warehouse.companyId === ctx.companyId
+      && (warehouse.branchId === null || warehouse.branchId === ctx.branchId);
+  }
+
+  private orderScopeWhere(ctx: ActiveOperationalContext) {
+    return {
+      OR: [
+        { machineId: { not: null }, machine: this.machineScope(ctx) },
+        { machineId: null, warehouse: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] } },
+      ],
+    };
+  }
+
+  private async orderAccess(id: string, ctx: ActiveOperationalContext) {
+    const order = await this.prisma.sparePartRepairOrder.findUnique({
+      where: { id },
+      include: {
+        machine: { select: { id: true, companyId: true, branchId: true } },
+        warehouse: { select: { id: true, companyId: true, branchId: true } },
+      },
+    });
+    if (!order) throw this.notFound('maintenance.repairOrderNotFound', 'Repair order not found');
+    const owned = order.machine
+      ? this.machineOwns(order.machine, ctx)
+      : this.warehouseOwns(order.warehouse, ctx);
+    if (!owned) throw this.notFound('maintenance.repairOrderNotFound', 'Repair order not found');
+    return order;
+  }
+
+  private async machineAccess(machineId: string, ctx: ActiveOperationalContext) {
+    const machine = await this.prisma.machine.findUnique({ where: { id: machineId } });
+    if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+    return machine;
+  }
+
+  private async warehouseAccess(warehouseId: string, ctx: ActiveOperationalContext) {
+    const warehouse = await this.prisma.warehouse.findUnique({ where: { id: warehouseId } });
+    if (!warehouse) throw this.notFound('inventory.warehouseNotFound', 'Warehouse not found');
+    if (!this.warehouseOwns(warehouse, ctx)) throw this.notFound('inventory.warehouseNotFound', 'Warehouse not found');
+    return warehouse;
+  }
+
+  private async requestAccess(maintenanceRequestId: string, ctx: ActiveOperationalContext) {
+    const request = await this.prisma.maintenanceRequest.findUnique({
+      where: { id: maintenanceRequestId },
+      include: { machine: { select: { id: true, companyId: true, branchId: true } } },
+    });
+    if (!request || !this.machineOwns(request.machine, ctx)) throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
+    return request;
+  }
+
+  private async replacementHistoryAccess(replacementHistoryId: string, ctx: ActiveOperationalContext) {
+    const history = await this.prisma.sparePartReplacementHistory.findUnique({
+      where: { id: replacementHistoryId },
+      include: { machine: { select: { id: true, companyId: true, branchId: true } } },
+    });
+    if (!history || !this.machineOwns(history.machine, ctx)) {
+      throw this.notFound('maintenance.repairSourceNotFound', 'Replacement history not found');
+    }
+    return history;
+  }
+
   // ── READ ─────────────────────────────────────────────────────
 
-  async findAll(query: QueryRepairOrderDto) {
-    const where: any = {};
+  async findAll(query: QueryRepairOrderDto, ctx: ActiveOperationalContext) {
+    const where: any = { ...this.orderScopeWhere(ctx) };
     if (query.status) where.status = query.status;
     if (query.sparePartId) where.sparePartId = query.sparePartId;
-    if (query.warehouseId) where.warehouseId = query.warehouseId;
+    if (query.warehouseId) {
+      await this.warehouseAccess(query.warehouseId, ctx);
+      where.warehouseId = query.warehouseId;
+    }
     if (query.sourceCondition) where.sourceCondition = query.sourceCondition;
-    if (query.maintenanceRequestId) where.maintenanceRequestId = query.maintenanceRequestId;
+    if (query.maintenanceRequestId) {
+      await this.requestAccess(query.maintenanceRequestId, ctx);
+      where.maintenanceRequestId = query.maintenanceRequestId;
+    }
     if (query.replacementHistoryId) where.replacementHistoryId = query.replacementHistoryId;
-    if (query.machineId) where.machineId = query.machineId;
+    if (query.machineId) {
+      await this.machineAccess(query.machineId, ctx);
+      where.machineId = query.machineId;
+    }
     if (query.machineComponentId) where.machineComponentId = query.machineComponentId;
 
     return this.prisma.sparePartRepairOrder.findMany({
@@ -66,7 +159,8 @@ export class RepairOrdersService {
     });
   }
 
-  async findById(id: string) {
+  async findById(id: string, ctx: ActiveOperationalContext) {
+    await this.orderAccess(id, ctx);
     const order = await this.prisma.sparePartRepairOrder.findUnique({
       where: { id },
       include: {
@@ -79,14 +173,17 @@ export class RepairOrdersService {
         actions: { orderBy: { performedAt: 'asc' } },
       },
     });
-    if (!order) throw new NotFoundException('maintenance.repairOrderNotFound');
+    if (!order) throw this.notFound('maintenance.repairOrderNotFound', 'Repair order not found');
     return order;
   }
 
-  async findRepairableQueue(query: QueryRepairablePartsDto) {
-    const where: any = { removedReturnedToStock: true };
+  async findRepairableQueue(query: QueryRepairablePartsDto, ctx: ActiveOperationalContext) {
+    const where: any = { removedReturnedToStock: true, machine: this.machineScope(ctx) };
     if (query.condition) where.removedCondition = query.condition;
-    if (query.machineId) where.machineId = query.machineId;
+    if (query.machineId) {
+      await this.machineAccess(query.machineId, ctx);
+      where.machineId = query.machineId;
+    }
     if (query.sparePartId) { where.newSparePartId = query.sparePartId; }
 
     const histories = await this.prisma.sparePartReplacementHistory.findMany({
@@ -141,35 +238,45 @@ export class RepairOrdersService {
 
   // ── CREATE ───────────────────────────────────────────────────
 
-  async create(dto: CreateRepairOrderDto, userId: string) {
-    await this.validateRepairableSource(dto.sparePartId, dto.warehouseId, dto.sourceCondition, dto.sourceQuantity);
+  async create(dto: CreateRepairOrderDto, userId: string, ctx: ActiveOperationalContext) {
+    await this.validateRepairableSource(dto.sparePartId, dto.warehouseId, dto.sourceCondition, dto.sourceQuantity, ctx);
 
     if (dto.replacementHistoryId) {
+      await this.replacementHistoryAccess(dto.replacementHistoryId, ctx);
       const existing = await this.prisma.sparePartRepairOrder.findFirst({
         where: { replacementHistoryId: dto.replacementHistoryId, status: { notIn: ['CANCELLED', 'SCRAPPED', 'COMPLETED_SERVICEABLE', 'COMPLETED_PARTIAL', 'COMPLETED_NOT_REPAIRABLE'] } },
       });
-      if (existing) throw new BadRequestException('maintenance.repairOrderAlreadyExists');
+      if (existing) throw this.badRequest('maintenance.repairOrderAlreadyExists', 'An active repair order already exists for this source');
     }
 
     if (dto.sourceType && dto.sourceId) {
       const existingSameSource = await this.prisma.sparePartRepairOrder.findFirst({
         where: { sourceType: dto.sourceType, sourceId: dto.sourceId, status: { notIn: ['CANCELLED', 'SCRAPPED', 'COMPLETED_SERVICEABLE', 'COMPLETED_PARTIAL', 'COMPLETED_NOT_REPAIRABLE'] } },
       });
-      if (existingSameSource) throw new BadRequestException('maintenance.repairOrderAlreadyExists');
+      if (existingSameSource) throw this.badRequest('maintenance.repairOrderAlreadyExists', 'An active repair order already exists for this source');
     }
 
     if (dto.sourceCondition === 'NEW') {
-      throw new BadRequestException('maintenance.repairSourceNotRepairable');
+      throw this.badRequest('maintenance.repairSourceNotRepairable', 'NEW parts are not repairable sources');
     }
 
     const sparePart = await this.prisma.sparePart.findUnique({ where: { id: dto.sparePartId } });
-    if (!sparePart) throw new NotFoundException('maintenance.sparePartNotFound');
+    if (!sparePart) throw this.notFound('maintenance.sparePartNotFound', 'Spare part not found');
 
-    const warehouse = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
-    if (!warehouse) throw new NotFoundException('inventory.warehouseNotFound');
+    const warehouse = await this.warehouseAccess(dto.warehouseId, ctx);
     if ((warehouse.warehouseType || '') !== 'SPARE_PART') {
-      throw new BadRequestException('stock.sparePartWarehouseRequired');
+      throw this.badRequest('stock.sparePartWarehouseRequired', 'Repair orders require a spare-part warehouse');
     }
+
+    if (dto.machineId) await this.machineAccess(dto.machineId, ctx);
+    if (dto.machineComponentId && dto.machineId) {
+      const comp = await this.prisma.machineComponent.findUnique({ where: { id: dto.machineComponentId } });
+      if (!comp) throw this.notFound('maintenance.componentNotFound', 'Machine component not found');
+      if (comp.machineId !== dto.machineId) {
+        throw this.badRequest('maintenance.componentMachineMismatch', 'Component does not belong to the selected machine');
+      }
+    }
+    if (dto.maintenanceRequestId) await this.requestAccess(dto.maintenanceRequestId, ctx);
 
     const repairOrderNumber = await this.numberingService.generateNumberAtomic('SPARE_PART_REPAIR_ORDER');
 
@@ -210,11 +317,13 @@ export class RepairOrdersService {
       repairOrderNumber: order.repairOrderNumber, sparePartId: dto.sparePartId, sourceCondition: dto.sourceCondition, sourceQuantity: dto.sourceQuantity,
     });
 
-    return this.findById(order.id);
+    return this.findById(order.id, ctx);
   }
 
-  async createFromReplacementHistory(dto: CreateRepairOrderFromReplacementDto, userId: string) {
-    const history = await this.prisma.sparePartReplacementHistory.findUnique({
+  async createFromReplacementHistory(dto: CreateRepairOrderFromReplacementDto, userId: string, ctx: ActiveOperationalContext) {
+    const history = await this.replacementHistoryAccess(dto.replacementHistoryId, ctx);
+
+    const fullHistory = await this.prisma.sparePartReplacementHistory.findUnique({
       where: { id: dto.replacementHistoryId },
       include: {
         newSparePart: { select: { id: true, productId: true } },
@@ -223,88 +332,92 @@ export class RepairOrdersService {
         maintenanceRequest: { select: { id: true, requestNumber: true, title: true } },
       },
     });
-    if (!history) throw new NotFoundException('maintenance.repairSourceNotFound');
-    if (!history.removedReturnedToStock) throw new BadRequestException('maintenance.repairSourceNotRepairable');
-    if (!history.removedCondition || !VALID_SOURCE_CONDITIONS.includes(history.removedCondition)) {
-      throw new BadRequestException('maintenance.repairSourceNotRepairable');
+    if (!fullHistory) throw this.notFound('maintenance.repairSourceNotFound', 'Replacement history not found');
+    if (!fullHistory.removedReturnedToStock) throw this.badRequest('maintenance.repairSourceNotRepairable', 'Removed part was not returned to stock');
+    if (!fullHistory.removedCondition || !VALID_SOURCE_CONDITIONS.includes(fullHistory.removedCondition)) {
+      throw this.badRequest('maintenance.repairSourceNotRepairable', 'Removed part condition is not repairable');
     }
 
-    const sparePartId = history.newSparePartId;
-    const productId = history.newSparePart.productId;
+    const sparePartId = fullHistory.newSparePartId;
+    const productId = fullHistory.newSparePart.productId;
 
     const existing = await this.prisma.sparePartRepairOrder.findFirst({
       where: { replacementHistoryId: history.id, status: { notIn: ['CANCELLED', 'SCRAPPED', 'COMPLETED_SERVICEABLE', 'COMPLETED_PARTIAL', 'COMPLETED_NOT_REPAIRABLE'] } },
     });
-    if (existing) throw new BadRequestException('maintenance.repairOrderAlreadyExists');
+    if (existing) throw this.badRequest('maintenance.repairOrderAlreadyExists', 'An active repair order already exists for this source');
 
     const conditionBalances = await this.prisma.sparePartConditionBalance.findMany({
-      where: { sparePartId, condition: history.removedCondition, availableQuantity: { gt: 0 } },
+      where: { sparePartId, condition: fullHistory.removedCondition, availableQuantity: { gt: 0 } },
       select: { warehouseId: true, quantity: true, availableQuantity: true },
       orderBy: { availableQuantity: 'desc' },
     });
-    if (conditionBalances.length === 0) throw new BadRequestException('stock.insufficientConditionBalance');
+    if (conditionBalances.length === 0) throw this.badRequest('stock.insufficientConditionBalance', 'No available condition balance for the removed part');
 
     const warehouseId = conditionBalances[0].warehouseId;
-    const sourceQuantity = history.removedQuantity || conditionBalances[0].availableQuantity;
+    const sourceQuantity = fullHistory.removedQuantity || conditionBalances[0].availableQuantity;
 
+    await this.warehouseAccess(warehouseId, ctx);
     const warehouse = await this.prisma.warehouse.findUnique({ where: { id: warehouseId } });
     if (!warehouse || (warehouse.warehouseType || '') !== 'SPARE_PART') {
-      throw new BadRequestException('stock.sparePartWarehouseRequired');
+      throw this.badRequest('stock.sparePartWarehouseRequired', 'Repair orders require a spare-part warehouse');
     }
 
     return this.create({
       sparePartId,
       productId: productId || undefined,
       warehouseId,
-      sourceCondition: history.removedCondition,
+      sourceCondition: fullHistory.removedCondition,
       sourceQuantity: Math.min(sourceQuantity, conditionBalances[0].availableQuantity),
       sourceType: 'REPLACEMENT_HISTORY',
       sourceId: history.id,
-      maintenanceRequestId: history.maintenanceRequestId || undefined,
-      requiredPartId: history.requiredPartId || undefined,
+      maintenanceRequestId: fullHistory.maintenanceRequestId || undefined,
+      requiredPartId: fullHistory.requiredPartId || undefined,
       replacementHistoryId: history.id,
-      installedPartId: history.newInstalledPartId || undefined,
-      conditionInMovementId: history.conditionInMovementId || undefined,
-      machineId: history.machineId,
-      machineComponentId: history.machineComponentId || undefined,
-      notes: dto.notes || `Auto-created from replacement history ${history.replacementNumber || history.id}`,
-    }, userId);
+      installedPartId: fullHistory.newInstalledPartId || undefined,
+      conditionInMovementId: fullHistory.conditionInMovementId || undefined,
+      machineId: fullHistory.machineId,
+      machineComponentId: fullHistory.machineComponentId || undefined,
+      notes: dto.notes || `Auto-created from replacement history ${fullHistory.replacementNumber || fullHistory.id}`,
+    }, userId, ctx);
   }
 
-  private async validateRepairableSource(sparePartId: string, warehouseId: string, condition: string, quantity: number) {
-    if (quantity <= 0) throw new BadRequestException('validation.invalidQuantity');
+  private async validateRepairableSource(sparePartId: string, warehouseId: string, condition: string, quantity: number, ctx: ActiveOperationalContext) {
+    if (quantity <= 0) throw this.badRequest('validation.invalidQuantity', 'Quantity must be greater than zero');
     if (FORBIDDEN_SOURCE_CONDITIONS.includes(condition)) {
-      throw new BadRequestException('maintenance.repairSourceNotRepairable');
+      throw this.badRequest('maintenance.repairSourceNotRepairable', 'NEW parts are not repairable sources');
     }
     if (!VALID_SOURCE_CONDITIONS.includes(condition)) {
-      throw new BadRequestException('maintenance.repairSourceNotRepairable');
+      throw this.badRequest('maintenance.repairSourceNotRepairable', 'Source condition is not repairable');
     }
 
     try {
       const balance = await this.conditionService.getBalanceByKey(sparePartId, warehouseId, condition);
       if (balance.availableQuantity < quantity) {
-        throw new BadRequestException('stock.insufficientConditionBalance');
+        throw this.badRequest('stock.insufficientConditionBalance', 'Insufficient available condition balance');
       }
     } catch (e: any) {
       if (e instanceof BadRequestException || e instanceof NotFoundException) throw e;
-      throw new BadRequestException('stock.conditionBalanceNotFound');
+      throw this.badRequest('stock.conditionBalanceNotFound', 'Condition balance not found');
     }
   }
 
   // ── STATUS TRANSITIONS ───────────────────────────────────────
 
-  private async transition(id: string, newStatus: string, userId: string, extra?: Record<string, any>) {
-    const order = await this.prisma.sparePartRepairOrder.findUnique({ where: { id } });
-    if (!order) throw new NotFoundException('maintenance.repairOrderNotFound');
+  private async transition(id: string, newStatus: string, userId: string, ctx: ActiveOperationalContext, extra?: Record<string, any>) {
+    const order = await this.orderAccess(id, ctx);
+
+    if (order.status === newStatus) {
+      throw this.badRequest('maintenance.repairAlreadyInStatus', `Repair order is already in status ${newStatus}`);
+    }
 
     const allowed = ALLOWED_TRANSITIONS[order.status] || [];
     if (!allowed.includes(newStatus)) {
-      throw new BadRequestException('maintenance.invalidRepairTransition');
+      throw this.badRequest('maintenance.invalidRepairTransition', 'Invalid status transition for this repair order');
     }
 
     const data: any = { status: newStatus, ...(extra || {}) };
     if (newStatus === 'CANCELLED') {
-      if (!extra?.cancelReason) throw new BadRequestException('maintenance.repairCancelReasonRequired');
+      if (!extra?.cancelReason) throw this.badRequest('maintenance.repairCancelReasonRequired', 'Cancel reason is required');
       data.cancelledAt = new Date();
     }
     if (newStatus === 'IN_INSPECTION') data.inspectionStartedAt = new Date();
@@ -324,38 +437,37 @@ export class RepairOrdersService {
     return updated;
   }
 
-  async startInspection(id: string, dto: any, userId: string) {
-    return this.transition(id, 'IN_INSPECTION', userId, { inspectedByUserId: userId });
+  async startInspection(id: string, dto: any, userId: string, ctx: ActiveOperationalContext) {
+    return this.transition(id, 'IN_INSPECTION', userId, ctx, { inspectedByUserId: userId });
   }
 
-  async approveRepair(id: string, dto: any, userId: string) {
-    return this.transition(id, 'APPROVED_FOR_REPAIR', userId);
+  async approveRepair(id: string, dto: any, userId: string, ctx: ActiveOperationalContext) {
+    return this.transition(id, 'APPROVED_FOR_REPAIR', userId, ctx);
   }
 
-  async startRepair(id: string, dto: any, userId: string) {
-    return this.transition(id, 'UNDER_REPAIR', userId, { repairedByUserId: userId });
+  async startRepair(id: string, dto: any, userId: string, ctx: ActiveOperationalContext) {
+    return this.transition(id, 'UNDER_REPAIR', userId, ctx, { repairedByUserId: userId });
   }
 
-  async startTest(id: string, dto: any, userId: string) {
-    return this.transition(id, 'UNDER_TEST', userId, { testedByUserId: userId });
+  async startTest(id: string, dto: any, userId: string, ctx: ActiveOperationalContext) {
+    return this.transition(id, 'UNDER_TEST', userId, ctx, { testedByUserId: userId });
   }
 
   // ── COMPLETE SERVICEABLE ─────────────────────────────────────
 
-  async completeServiceable(id: string, dto: CompleteServiceableDto, userId: string) {
-    const order = await this.prisma.sparePartRepairOrder.findUnique({ where: { id } });
-    if (!order) throw new NotFoundException('maintenance.repairOrderNotFound');
+  async completeServiceable(id: string, dto: CompleteServiceableDto, userId: string, ctx: ActiveOperationalContext) {
+    const order = await this.orderAccess(id, ctx);
 
     if (order.status === 'COMPLETED_SERVICEABLE' || order.status === 'COMPLETED_PARTIAL') {
-      throw new BadRequestException('maintenance.repairAlreadyCompleted');
+      throw this.badRequest('maintenance.repairAlreadyCompleted', 'Repair order already completed');
     }
 
-    if (dto.repairedQuantity <= 0) throw new BadRequestException('validation.invalidQuantity');
+    if (dto.repairedQuantity <= 0) throw this.badRequest('validation.invalidQuantity', 'Quantity must be greater than zero');
     if (dto.repairedQuantity > order.remainingQuantity) {
-      throw new BadRequestException('maintenance.repairQuantityInvalid');
+      throw this.badRequest('maintenance.repairQuantityInvalid', 'Repaired quantity exceeds remaining quantity');
     }
     if (!VALID_TARGET_CONDITIONS.includes(dto.targetCondition)) {
-      throw new BadRequestException('stock.invalidCondition');
+      throw this.badRequest('stock.invalidCondition', 'Invalid target condition');
     }
 
     const sourceDecreaseQty = dto.repairedQuantity;
@@ -363,10 +475,10 @@ export class RepairOrdersService {
       order.sparePartId, order.warehouseId, order.sourceCondition,
     );
     if (oldBalance.availableQuantity < sourceDecreaseQty) {
-      throw new BadRequestException('stock.insufficientConditionBalance');
+      throw this.badRequest('stock.insufficientConditionBalance', 'Insufficient available condition balance');
     }
 
-    const result = await this.prisma.$transaction(async (tx: any) => {
+    await this.prisma.$transaction(async (tx: any) => {
       const outMovement = await this.recordConditionMovementInTx(tx, {
         sparePartId: order.sparePartId,
         productId: order.productId || '',
@@ -394,7 +506,7 @@ export class RepairOrdersService {
       }, userId);
 
       const newRemaining = order.remainingQuantity - sourceDecreaseQty;
-      const updated = await tx.sparePartRepairOrder.update({
+      await tx.sparePartRepairOrder.update({
         where: { id },
         data: {
           status: 'COMPLETED_SERVICEABLE',
@@ -410,41 +522,38 @@ export class RepairOrdersService {
           closedByUserId: userId,
         },
       });
-
-      return updated;
     });
 
     await this.audit.log(userId, 'SPARE_PART_REPAIR_COMPLETED_SERVICEABLE', 'SparePartRepairOrder', id, {
       repairedQuantity: dto.repairedQuantity, targetCondition: dto.targetCondition,
     });
 
-    return this.findById(id);
+    return this.findById(id, ctx);
   }
 
   // ── COMPLETE PARTIAL ─────────────────────────────────────────
 
-  async completePartial(id: string, dto: CompletePartialDto, userId: string) {
-    const order = await this.prisma.sparePartRepairOrder.findUnique({ where: { id } });
-    if (!order) throw new NotFoundException('maintenance.repairOrderNotFound');
+  async completePartial(id: string, dto: CompletePartialDto, userId: string, ctx: ActiveOperationalContext) {
+    const order = await this.orderAccess(id, ctx);
     if (order.status === 'COMPLETED_SERVICEABLE' || order.status === 'COMPLETED_PARTIAL') {
-      throw new BadRequestException('maintenance.repairAlreadyCompleted');
+      throw this.badRequest('maintenance.repairAlreadyCompleted', 'Repair order already completed');
     }
 
     const totalQty = dto.repairedQuantity + dto.scrappedQuantity;
-    if (totalQty <= 0) throw new BadRequestException('validation.invalidQuantity');
+    if (totalQty <= 0) throw this.badRequest('validation.invalidQuantity', 'Quantity must be greater than zero');
     if (totalQty > order.remainingQuantity) {
-      throw new BadRequestException('maintenance.repairQuantityInvalid');
+      throw this.badRequest('maintenance.repairQuantityInvalid', 'Total quantity exceeds remaining quantity');
     }
     if (!VALID_TARGET_CONDITIONS.includes(dto.targetCondition)) {
-      throw new BadRequestException('stock.invalidCondition');
+      throw this.badRequest('stock.invalidCondition', 'Invalid target condition');
     }
 
     const oldBalance = await this.conditionService.getBalanceByKey(order.sparePartId, order.warehouseId, order.sourceCondition);
     if (oldBalance.availableQuantity < totalQty) {
-      throw new BadRequestException('stock.insufficientConditionBalance');
+      throw this.badRequest('stock.insufficientConditionBalance', 'Insufficient available condition balance');
     }
 
-    const result = await this.prisma.$transaction(async (tx: any) => {
+    await this.prisma.$transaction(async (tx: any) => {
       if (dto.repairedQuantity > 0) {
         await this.recordConditionMovementInTx(tx, {
           sparePartId: order.sparePartId,
@@ -489,7 +598,7 @@ export class RepairOrdersService {
       }
 
       const newRemaining = order.remainingQuantity - totalQty;
-      return tx.sparePartRepairOrder.update({
+      await tx.sparePartRepairOrder.update({
         where: { id },
         data: {
           status: 'COMPLETED_PARTIAL',
@@ -507,26 +616,25 @@ export class RepairOrdersService {
       repairedQuantity: dto.repairedQuantity, scrappedQuantity: dto.scrappedQuantity,
     });
 
-    return this.findById(id);
+    return this.findById(id, ctx);
   }
 
   // ── SCRAP ────────────────────────────────────────────────────
 
-  async scrap(id: string, dto: ScrapRepairOrderDto, userId: string) {
-    const order = await this.prisma.sparePartRepairOrder.findUnique({ where: { id } });
-    if (!order) throw new NotFoundException('maintenance.repairOrderNotFound');
+  async scrap(id: string, dto: ScrapRepairOrderDto, userId: string, ctx: ActiveOperationalContext) {
+    const order = await this.orderAccess(id, ctx);
     if (['COMPLETED_SERVICEABLE', 'COMPLETED_PARTIAL', 'SCRAPPED', 'CANCELLED'].includes(order.status)) {
-      throw new BadRequestException('maintenance.repairAlreadyCompleted');
+      throw this.badRequest('maintenance.repairAlreadyCompleted', 'Repair order already completed or cancelled');
     }
 
-    if (dto.scrappedQuantity <= 0) throw new BadRequestException('validation.invalidQuantity');
+    if (dto.scrappedQuantity <= 0) throw this.badRequest('validation.invalidQuantity', 'Quantity must be greater than zero');
     if (dto.scrappedQuantity > order.remainingQuantity) {
-      throw new BadRequestException('maintenance.repairQuantityInvalid');
+      throw this.badRequest('maintenance.repairQuantityInvalid', 'Scrapped quantity exceeds remaining quantity');
     }
 
     const oldBalance = await this.conditionService.getBalanceByKey(order.sparePartId, order.warehouseId, order.sourceCondition);
     if (oldBalance.availableQuantity < dto.scrappedQuantity) {
-      throw new BadRequestException('stock.insufficientConditionBalance');
+      throw this.badRequest('stock.insufficientConditionBalance', 'Insufficient available condition balance');
     }
 
     await this.prisma.$transaction(async (tx: any) => {
@@ -560,21 +668,23 @@ export class RepairOrdersService {
       scrappedQuantity: dto.scrappedQuantity, reason: dto.reason,
     });
 
-    return this.findById(id);
+    return this.findById(id, ctx);
   }
 
   // ── CANCEL ───────────────────────────────────────────────────
 
-  async cancel(id: string, dto: CancelRepairOrderDto, userId: string) {
-    const order = await this.prisma.sparePartRepairOrder.findUnique({ where: { id } });
-    if (!order) throw new NotFoundException('maintenance.repairOrderNotFound');
+  async cancel(id: string, dto: CancelRepairOrderDto, userId: string, ctx: ActiveOperationalContext) {
+    const order = await this.orderAccess(id, ctx);
     if (['COMPLETED_SERVICEABLE', 'COMPLETED_PARTIAL', 'SCRAPPED'].includes(order.status)) {
-      throw new BadRequestException('maintenance.repairAlreadyCompleted');
+      throw this.badRequest('maintenance.repairAlreadyCompleted', 'Repair order already completed');
+    }
+    if (order.status === 'CANCELLED') {
+      throw this.badRequest('maintenance.repairAlreadyInStatus', 'Repair order is already cancelled');
     }
 
     const allowed = ALLOWED_TRANSITIONS[order.status] || [];
     if (!allowed.includes('CANCELLED')) {
-      throw new BadRequestException('maintenance.invalidRepairTransition');
+      throw this.badRequest('maintenance.invalidRepairTransition', 'Invalid status transition for this repair order');
     }
 
     const updated = await this.prisma.sparePartRepairOrder.update({
@@ -597,9 +707,8 @@ export class RepairOrdersService {
 
   // ── ACTIONS ───────────────────────────────────────────────────
 
-  async getActions(repairOrderId: string) {
-    const order = await this.prisma.sparePartRepairOrder.findUnique({ where: { id: repairOrderId } });
-    if (!order) throw new NotFoundException('maintenance.repairOrderNotFound');
+  async getActions(repairOrderId: string, ctx: ActiveOperationalContext) {
+    await this.orderAccess(repairOrderId, ctx);
 
     return this.prisma.sparePartRepairAction.findMany({
       where: { repairOrderId },
@@ -607,11 +716,10 @@ export class RepairOrdersService {
     });
   }
 
-  async addAction(repairOrderId: string, dto: CreateRepairActionDto, userId: string) {
-    const order = await this.prisma.sparePartRepairOrder.findUnique({ where: { id: repairOrderId } });
-    if (!order) throw new NotFoundException('maintenance.repairOrderNotFound');
+  async addAction(repairOrderId: string, dto: CreateRepairActionDto, userId: string, ctx: ActiveOperationalContext) {
+    const order = await this.orderAccess(repairOrderId, ctx);
     if (['COMPLETED_SERVICEABLE', 'COMPLETED_PARTIAL', 'SCRAPPED', 'CANCELLED'].includes(order.status)) {
-      throw new BadRequestException('maintenance.repairAlreadyCompleted');
+      throw this.badRequest('maintenance.repairAlreadyCompleted', 'Repair order already completed or cancelled');
     }
 
     const action = await this.prisma.sparePartRepairAction.create({
@@ -664,7 +772,7 @@ export class RepairOrdersService {
     const newAvailable = balance.availableQuantity + delta;
 
     if (newQuantity < 0 || newAvailable < 0) {
-      throw new BadRequestException('stock.insufficientConditionBalance');
+      throw this.badRequest('stock.insufficientConditionBalance', 'Insufficient available condition balance');
     }
 
     await tx.sparePartConditionBalance.update({

@@ -1,19 +1,19 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { MaintenanceChecklistItem } from '../../../../lib/admin-types';
 import { Button, Input, Select, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
-import { CmmsStatusBadge } from '../../../../components/maintenance';
-import { F9Lookup, maintenanceScheduleAdapter, maintenanceTaskAdapter } from '../../../../components/f9';
+import { F9Lookup, maintenanceScheduleAdapter } from '../../../../components/f9';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { useMemo } from 'react';
-import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
+const RESULT_TYPES = ['PASS_FAIL', 'TEXT', 'NUMBER', 'BOOLEAN', 'READING'];
+
 export default function MaintenanceChecklistItemsPage() {
-  const { t, dir } = useTranslation();
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<MaintenanceChecklistItem[]>([]);
@@ -24,33 +24,44 @@ export default function MaintenanceChecklistItemsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MaintenanceChecklistItem | null>(null);
-  const [form, setForm] = useState({ code: '', scheduleId: '', taskId: '', title: '', description: '', sortOrder: 0, required: false });
+  const [form, setForm] = useState({
+    scheduleId: '',
+    title: '',
+    description: '',
+    sortOrder: 0,
+    isMandatory: false,
+    resultType: 'PASS_FAIL',
+    minValue: '',
+    maxValue: '',
+    unit: '',
+  });
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
+  const resultTypeLabelKey = (rt: string) =>
+    ({ PASS_FAIL: 'maintenance.resultTypePassFail', TEXT: 'maintenance.resultTypeText', NUMBER: 'maintenance.resultTypeNumber', BOOLEAN: 'maintenance.resultTypeBoolean', READING: 'maintenance.resultTypeReading' }[rt] || 'maintenance.resultType');
 
-const { exec } = useStableHandlers({
-  new: () => openCreate(),
-  edit: () => selectedId && openEdit(selectedId),
-  refresh: () => fetchData(meta.page),
-  activate: () => confirmStatus(selectedId),
-  deactivate: () => confirmStatus(selectedId),
-  delete: () => setConfirmDeleteOpen(true),
-});
+  const resultTypeOptions = useMemo(
+    () => RESULT_TYPES.map((rt) => ({ value: rt, label: t(resultTypeLabelKey(rt)) })),
+    [t],
+  );
 
-useRegisterAdminActions([
-  { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-  { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
-  { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-  { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-  { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
-  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!selectedId, variant: 'danger' },
-]);
+  const { exec } = useStableHandlers({
+    new: () => openCreate(),
+    edit: () => selectedId && openEdit(selectedId),
+    refresh: () => fetchData(meta.page),
+    delete: () => setConfirmDeleteOpen(true),
+  });
+
+  useRegisterAdminActions([
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!selectedId, variant: 'danger' },
+  ]);
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true); setError('');
@@ -67,16 +78,26 @@ useRegisterAdminActions([
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ code: '', scheduleId: '', taskId: '', title: '', description: '', sortOrder: 0, required: false });
+    setForm({ scheduleId: '', title: '', description: '', sortOrder: 0, isMandatory: false, resultType: 'PASS_FAIL', minValue: '', maxValue: '', unit: '' });
     setModalOpen(true);
   };
+
   const openEdit = async (id: string) => {
     setLoadingDetail(true);
     try {
-      const res = await api.get<MaintenanceChecklistItem>('/maintenance/checklist-items/' + id);
-      const item = res as any;
+      const item = await api.get<MaintenanceChecklistItem>('/maintenance/checklist-items/' + id);
       setEditItem(item);
-      setForm({ code: item.code || '', scheduleId: item.scheduleId || '', taskId: item.taskId || '', title: item.title, description: item.description || '', sortOrder: item.sortOrder, required: item.required });
+      setForm({
+        scheduleId: item.scheduleId || '',
+        title: item.title,
+        description: item.description || '',
+        sortOrder: item.sortOrder,
+        isMandatory: item.isMandatory,
+        resultType: item.resultType || 'PASS_FAIL',
+        minValue: item.minValue !== null && item.minValue !== undefined ? String(item.minValue) : '',
+        maxValue: item.maxValue !== null && item.maxValue !== undefined ? String(item.maxValue) : '',
+        unit: item.unit || '',
+      });
       setModalOpen(true);
     } catch (err: any) { handleApiError(err); }
     finally { setLoadingDetail(false); }
@@ -85,14 +106,22 @@ useRegisterAdminActions([
   const handleSave = async () => {
     const errors: Record<string, string> = {};
     if (!form.title) errors.title = t('validation.required');
+    if (!form.scheduleId) errors.scheduleId = t('validation.required');
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
-      const payload: any = { title: form.title, sortOrder: form.sortOrder, required: form.required };
-      if (form.scheduleId) payload.scheduleId = form.scheduleId;
-      if (form.taskId) payload.taskId = form.taskId;
+      const payload: any = {
+        scheduleId: form.scheduleId,
+        title: form.title,
+        sortOrder: form.sortOrder,
+        isMandatory: form.isMandatory,
+        resultType: form.resultType,
+      };
       if (form.description) payload.description = form.description;
+      if (form.minValue !== '') payload.minValue = Number(form.minValue);
+      if (form.maxValue !== '') payload.maxValue = Number(form.maxValue);
+      if (form.unit) payload.unit = form.unit;
       if (editItem) {
         await api.patch(`/maintenance/checklist-items/${editItem.id}`, payload);
         showToast(t('common.successUpdated'), 'success');
@@ -101,23 +130,6 @@ useRegisterAdminActions([
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { handleApiError(err); }
-    finally { setSaving(false); }
-  };
-
-  const confirmStatus = (id: string) => { setSelectedId(id); setConfirmOpen(true); };
-  const handleStatusChange = async () => {
-    setSaving(true);
-    try {
-      const item = data.find((c) => c.id === selectedId);
-      const status = item?.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-      if (status === 'ACTIVE') {
-        await api.patch(`/maintenance/checklist-items/${selectedId}/activate`);
-      } else {
-        await api.patch(`/maintenance/checklist-items/${selectedId}/deactivate`);
-      }
-      showToast(status === 'ACTIVE' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
-      setConfirmOpen(false); fetchData(meta.page);
     } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
   };
@@ -139,14 +151,12 @@ useRegisterAdminActions([
     { key: 'title', header: t('common.title') },
     { key: 'schedule', header: t('maintenance.maintenanceSchedule'), render: (c: MaintenanceChecklistItem) => c.schedule?.title || '-' },
     { key: 'sortOrder', header: t('maintenance.sortOrder') },
-    { key: 'required', header: t('maintenance.required'), render: (c: MaintenanceChecklistItem) => c.required ? t('status.true') : t('status.false') },
-    { key: 'status', header: t('common.status'), render: (c: MaintenanceChecklistItem) => <CmmsStatusBadge status={c.status} /> },
+    { key: 'isMandatory', header: t('maintenance.mandatory'), render: (c: MaintenanceChecklistItem) => c.isMandatory ? t('status.true') : t('status.false') },
+    { key: 'resultType', header: t('maintenance.resultType'), render: (c: MaintenanceChecklistItem) => t(resultTypeLabelKey(c.resultType)) },
   ];
 
   const gridActions: GridAction<MaintenanceChecklistItem>[] = [
     { label: t('actions.edit'), onClick: (c: MaintenanceChecklistItem) => openEdit(c.id) },
-    { label: t('actions.deactivate'), onClick: (c: MaintenanceChecklistItem) => confirmStatus(c.id), enabled: (c: MaintenanceChecklistItem) => c.status === 'ACTIVE', variant: 'danger' },
-    { label: t('actions.activate'), onClick: (c: MaintenanceChecklistItem) => confirmStatus(c.id), enabled: (c: MaintenanceChecklistItem) => c.status !== 'ACTIVE' },
     { label: t('common.delete'), onClick: (c: MaintenanceChecklistItem) => { setSelectedId(c.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
   ];
 
@@ -164,7 +174,6 @@ useRegisterAdminActions([
         error={error || undefined}
         onRetry={() => fetchData(meta.page)}
         actions={gridActions}
-        dir={dir}
         globalSearch={search}
         onGlobalSearch={setSearch}
         searchPlaceholder={t('common.search')}
@@ -176,35 +185,31 @@ useRegisterAdminActions([
       )}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editChecklistItem') : t('maintenance.newChecklistItem')} size="lg">
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            {editItem ? (
-              <div>
-                <Input label={t('common.code')} value={form.code} disabled />
-                <p className="text-xs text-gray-500 mt-1">{t('common.codeImmutableHint')}</p>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">{t('common.codeAutoGenerated')}</p>
-            )}
-            <div>
-              <Input label={t('common.title')} value={form.title} onChange={(e) => { setForm({ ...form, title: e.target.value }); setValidationErrors(prev => ({ ...prev, title: '' })); }} required />
-              {validationErrors.title && <p className="text-red-500 text-sm mt-1">{validationErrors.title}</p>}
-            </div>
-          </div>
-          <F9Lookup label={t('maintenance.maintenanceSchedule')} value={form.scheduleId} onChange={(v) => setForm({ ...form, scheduleId: v })} adapter={maintenanceScheduleAdapter} />
-          <F9Lookup label={t('maintenance.maintenanceTask')} value={form.taskId} onChange={(v) => setForm({ ...form, taskId: v })} adapter={maintenanceTaskAdapter} />
+          <F9Lookup label={t('maintenance.maintenanceSchedule')} value={form.scheduleId} onChange={(v) => { setForm({ ...form, scheduleId: v }); setValidationErrors(prev => ({ ...prev, scheduleId: '' })); }} adapter={maintenanceScheduleAdapter} />
+          {validationErrors.scheduleId && <p className="text-red-500 text-sm mt-1">{validationErrors.scheduleId}</p>}
+          <Input label={t('common.title')} value={form.title} onChange={(e) => { setForm({ ...form, title: e.target.value }); setValidationErrors(prev => ({ ...prev, title: '' })); }} required />
+          {validationErrors.title && <p className="text-red-500 text-sm mt-1">{validationErrors.title}</p>}
           <div className="grid grid-cols-2 gap-4">
             <Input label={t('maintenance.sortOrder')} type="number" value={String(form.sortOrder)} onChange={(e) => setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })} />
-            <Select label={t('maintenance.required')} value={String(form.required)} onChange={(e) => setForm({ ...form, required: e.target.value === 'true' })} options={[{ value: 'true', label: t('status.true') }, { value: 'false', label: t('status.false') }]} />
+            <Select label={t('maintenance.mandatory')} value={String(form.isMandatory)} onChange={(e) => setForm({ ...form, isMandatory: e.target.value === 'true' })} options={[{ value: 'true', label: t('status.true') }, { value: 'false', label: t('status.false') }]} />
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Select label={t('maintenance.resultType')} value={form.resultType} onChange={(e) => setForm({ ...form, resultType: e.target.value })} options={resultTypeOptions} />
+            <Input label={t('maintenance.unit')} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder={t('maintenance.unit')} />
+          </div>
+          {(form.resultType === 'NUMBER' || form.resultType === 'READING') && (
+            <div className="grid grid-cols-2 gap-4">
+              <Input label={t('maintenance.minValue')} type="number" value={form.minValue} onChange={(e) => setForm({ ...form, minValue: e.target.value })} />
+              <Input label={t('maintenance.maxValue')} type="number" value={form.maxValue} onChange={(e) => setForm({ ...form, maxValue: e.target.value })} />
+            </div>
+          )}
           <Input label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
-            <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
+            <Button onClick={handleSave} loading={saving || loadingDetail}>{t('actions.save')}</Button>
           </div>
         </div>
       </Modal>
-      <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleStatusChange}
-        title={t('common.confirmDeactivateTitle')} message={t('common.confirmDeactivateMessage')} variant="danger" loading={saving} />
       <ConfirmDialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} onConfirm={handleDelete}
         title={t('common.confirmDeleteTitle')} message={t('common.confirmDeleteMessage')} variant="danger" loading={saving} />
     </div>

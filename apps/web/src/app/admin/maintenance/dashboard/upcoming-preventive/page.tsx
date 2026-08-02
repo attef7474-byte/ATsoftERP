@@ -38,7 +38,7 @@ export default function UpcomingPreventivePage() {
   const columns = [
     { key: 'title', header: t('common.title') },
     { key: 'machine', header: t('maintenance.machine'), render: (s: MaintenanceSchedule) => s.machine?.name || '-' },
-    { key: 'maintenanceType', header: t('maintenance.maintenanceType') },
+    { key: 'type', header: t('maintenance.maintenanceType') },
     { key: 'startDate', header: t('maintenance.startDate'), render: (s: MaintenanceSchedule) => new Date(s.startDate).toLocaleDateString() },
     { key: 'status', header: t('common.status'), render: (s: MaintenanceSchedule) => <CmmsStatusBadge status={s.status} /> },
   ];

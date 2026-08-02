@@ -419,6 +419,7 @@ model User {
   createdBomVersions                   MaintenanceBomVersion[]
   generatedSparePartPlans              PreventiveSparePartPlan[]
   operationalScopes                    UserOperationalScope[]
+  installedPartReadings                MachineInstalledPartReading[]
 
   @@index([email])
   @@index([status])
@@ -2031,6 +2032,11 @@ model MaintenanceChecklistItem {
   description String?
   sortOrder   Int                 @default(0)
   isMandatory Boolean             @default(false)
+  // UX-1B-2C: checklist result type support (additive)
+  resultType  String              @default("PASS_FAIL") // PASS_FAIL | TEXT | NUMBER | BOOLEAN | READING
+  minValue    Float?
+  maxValue    Float?
+  unit        String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   executionItems  MaintenanceChecklistExecutionItem[]
@@ -2155,6 +2161,14 @@ model MaintenanceChecklistExecutionItem {
   status        String   @default("PENDING")
   passed        Boolean?
   notes         String?
+  // UX-1B-2C: immutable snapshot of the checklist item content at execution time
+  itemTitleSnapshot   String?
+  itemSortOrderSnapshot Int?
+  itemMandatorySnapshot Boolean?
+  resultTypeSnapshot  String?
+  minValueSnapshot    Float?
+  maxValueSnapshot    Float?
+  resultValue         String?
   completedAt   DateTime?
   completedById String?
   completedBy   User?    @relation("MaintenanceChecklistExecutionItemCompletedBy", fields: [completedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -2594,11 +2608,25 @@ model MachineInstalledPart {
   removedQuantity     Float?    @map("removed_quantity")
   removedReason       String?   @map("removed_reason")
   notes               String?
+  // UX-1B-2C: expected-life tracking (additive)
+  expectedLifeValue   Float?    @map("expected_life_value")
+  expectedLifeUnit    String?   @map("expected_life_unit") // DAYS | HOURS | CYCLES
+  lifeStartDate       DateTime? @map("life_start_date")
+  lifeStartReading    Float?    @map("life_start_reading")
+  currentReading      Float?    @map("current_reading")
+  warningThresholdPercent Int?  @default(80) @map("warning_threshold_percent")
+  expectedExpiryDate  DateTime? @map("expected_expiry_date")
+  expectedExpiryReading Float?  @map("expected_expiry_reading")
+  lifeStatus          String?   @default("UNKNOWN") @map("life_status") // UNKNOWN | NORMAL | WARNING | DUE | EXPIRED
+  lastEvaluatedAt     DateTime? @map("last_evaluated_at")
+  alertThresholdReached String? @default("NONE") @map("alert_threshold_reached") // NONE | WARNING | DUE | EXPIRED (idempotency marker)
+  expectedLifeAlertAt DateTime? @map("expected_life_alert_at")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
   replacementHistoryNew   SparePartReplacementHistory[] @relation("NewInstalledPart")
   replacementHistoryOld   SparePartReplacementHistory[] @relation("OldInstalledPart")
+  readings            MachineInstalledPartReading[]
 
   @@index([machineId])
   @@index([machineComponentId])
@@ -2607,7 +2635,27 @@ model MachineInstalledPart {
   @@index([requiredPartId])
   @@index([status])
   @@index([installedAt])
+  @@index([lifeStatus])
   @@map("machine_installed_parts")
+}
+
+// ── Installed Part Readings (UX-1B-2C) ─────────────────────────
+model MachineInstalledPartReading {
+  id              String   @id @default(cuid())
+  installedPartId String
+  installedPart   MachineInstalledPart @relation(fields: [installedPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  readingType     String   // HOURS | CYCLES
+  readingValue    Float
+  isReset         Boolean  @default(false)
+  recordedByUserId String?
+  recordedBy      User?    @relation(fields: [recordedByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  recordedAt      DateTime @default(now())
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([installedPartId])
+  @@index([recordedAt])
+  @@map("machine_installed_part_readings")
 }
 
 // ── Replacement History ─────────────────────────────────────────

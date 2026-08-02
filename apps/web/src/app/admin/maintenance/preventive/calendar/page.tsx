@@ -15,7 +15,7 @@ export default function PreventiveCalendarPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
-  const [data, setData] = useState<MaintenanceSchedule[]>([]);
+  const [data, setData] = useState<Record<string, MaintenanceSchedule[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
@@ -23,8 +23,8 @@ export default function PreventiveCalendarPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<{ data: MaintenanceSchedule[] }>('/maintenance/preventive/calendar', { params: { year, month: month + 1 } });
-      setData(res.data || []);
+      const res = await api.get<{ calendar: Record<string, MaintenanceSchedule[]> }>('/maintenance/preventive/calendar', { params: { year, month: month + 1 } });
+      setData(res.calendar || {});
     } catch (err: any) { setError(err?.message || t('errors.loadFailed')); }
     finally { setLoading(false); }
   }, [year, month, t]);
@@ -40,7 +40,7 @@ export default function PreventiveCalendarPage() {
   for (let d = 1; d <= daysInMonth; d++) calendarDays.push(d);
 
   const getSchedulesForDay = (day: number) => {
-    return data.filter((s) => {
+    return Object.values(data).flat().filter((s) => {
       const sd = s.startDate ? new Date(s.startDate) : null;
       return sd && sd.getFullYear() === year && sd.getMonth() === month && sd.getDate() === day;
     });
@@ -111,7 +111,7 @@ export default function PreventiveCalendarPage() {
                         <div key={s.id} className="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
                           <div>
                             <a href={`/admin/maintenance/schedules/${s.id}`} className="font-medium text-blue-600 hover:text-blue-800">{s.title}</a>
-                            <p className="text-xs text-gray-500">{s.machine?.name || '-'} - {t(`status.${s.maintenanceType}` as any) || s.maintenanceType}</p>
+                            <p className="text-xs text-gray-500">{s.machine?.name || '-'} - {t(`status.${s.type}` as any) || s.type}</p>
                           </div>
                           <CmmsStatusBadge status={s.status} />
                         </div>

@@ -4,6 +4,7 @@ import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../numbering/numbering.service';
 import { CreateMachinePartDto } from './dto/create-machine-part.dto';
 import { UpdateMachinePartDto } from './dto/update-machine-part.dto';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class MachinePartsService {
@@ -21,14 +22,50 @@ export class MachinePartsService {
     });
   }
 
-  async create(dto: CreateMachinePartDto, userId: string) {
+  private notFound(key: string, message: string): NotFoundException {
+    return new NotFoundException({ messageKey: key, message });
+  }
+
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
+  }
+
+  private machineOwns(machine: { companyId?: string | null; branchId?: string | null }, ctx: ActiveOperationalContext): boolean {
+    return machine.companyId === ctx.companyId
+      && (machine.branchId === null || machine.branchId === ctx.branchId);
+  }
+
+  private async machineAccess(machineId: string, ctx: ActiveOperationalContext) {
+    const machine = await this.prisma.machine.findUnique({ where: { id: machineId } });
+    if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+    return machine;
+  }
+
+  private async partAccess(id: string, ctx: ActiveOperationalContext) {
+    const part = await this.prisma.machinePart.findUnique({
+      where: { id },
+      include: { machine: { select: { id: true, companyId: true, branchId: true } } },
+    });
+    if (!part) throw this.notFound('maintenance.machinePartNotFound', 'Machine part not found');
+    if (part.machineId && (!part.machine || !this.machineOwns(part.machine, ctx))) {
+      throw this.notFound('maintenance.machinePartNotFound', 'Machine part not found');
+    }
+    return part;
+  }
+
+  async create(dto: CreateMachinePartDto, userId: string, ctx: ActiveOperationalContext) {
     const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('MACHINE_PART');
     const existing = await this.prisma.machinePart.findUnique({ where: { code } });
     if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Machine part code already exists');
 
     if (dto.machineId) {
       const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
-      if (!machine) throw this.validationError('machineId', 'validation.invalidReference', 'Machine not found');
+      if (!machine || !this.machineOwns(machine, ctx)) {
+        throw this.validationError('machineId', 'validation.invalidReference', 'Machine not found');
+      }
     }
 
     if (dto.productId) {
@@ -41,20 +78,31 @@ export class MachinePartsService {
     return part;
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string; machineId?: string }) {
+  async findAll(query: { page?: number; limit?: number; search?: string; machineId?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const scopedMachineIds = await this.prisma.machine.findMany({
+      where: this.machineScope(ctx),
+      select: { id: true },
+    });
+    const where: any = { OR: [{ machineId: { in: scopedMachineIds.map((m) => m.id) } }, { machineId: null }] };
     if (query.search) {
-      where.OR = [
-        { name: { contains: query.search } },
-        { code: { contains: query.search } },
-        { partNumber: { contains: query.search } },
+      where.AND = [
+        {
+          OR: [
+            { name: { contains: query.search } },
+            { code: { contains: query.search } },
+            { partNumber: { contains: query.search } },
+          ],
+        },
       ];
     }
-    if (query.machineId) where.machineId = query.machineId;
+    if (query.machineId) {
+      await this.machineAccess(query.machineId, ctx);
+      where.AND = [...(where.AND || []), { machineId: query.machineId }];
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.machinePart.findMany({
@@ -67,25 +115,25 @@ export class MachinePartsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, ctx: ActiveOperationalContext) {
+    await this.partAccess(id, ctx);
     const part = await this.prisma.machinePart.findUnique({
       where: { id },
       include: { machine: { select: { id: true, name: true, code: true } }, product: { select: { id: true, name: true, code: true } } },
     });
-    if (!part) throw new NotFoundException({ messageKey: 'maintenance.machinePartNotFound', message: 'Machine part not found' });
+    if (!part) throw this.notFound('maintenance.machinePartNotFound', 'Machine part not found');
     return part;
   }
 
-  async update(id: string, dto: UpdateMachinePartDto, userId: string) {
-    const existing = await this.findOne(id);
+  async update(id: string, dto: UpdateMachinePartDto, userId: string, ctx: ActiveOperationalContext) {
+    const existing = await this.partAccess(id, ctx);
     if (dto.code && dto.code !== existing.code) {
       throw this.validationError('code', 'validation.invalidValue', 'Code cannot be changed after creation');
     }
     const { code, ...updateDto } = dto;
 
     if (updateDto.machineId) {
-      const machine = await this.prisma.machine.findUnique({ where: { id: updateDto.machineId } });
-      if (!machine) throw this.validationError('machineId', 'validation.invalidReference', 'Machine not found');
+      await this.machineAccess(updateDto.machineId, ctx);
     }
 
     if (updateDto.productId) {
@@ -98,8 +146,8 @@ export class MachinePartsService {
     return part;
   }
 
-  async remove(id: string, userId: string) {
-    const existing = await this.findOne(id);
+  async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const existing = await this.partAccess(id, ctx);
     const usageCount = await this.prisma.maintenanceRequestPartUsage.count({ where: { productId: existing.productId || '' } });
     if (usageCount > 0) throw new ConflictException('Cannot delete machine part with linked usage records');
     await this.prisma.machinePart.delete({ where: { id } });
@@ -107,19 +155,10 @@ export class MachinePartsService {
     return { message: 'Machine part deleted successfully' };
   }
 
-  async activatePart(id: string) {
-    await this.findOne(id);
-    return { message: 'Machine part activated successfully', id };
-  }
-
-  async deactivatePart(id: string) {
-    await this.findOne(id);
-    return { message: 'Machine part deactivated successfully', id };
-  }
-
-  async getPartMachines(id: string) {
-    const part = await this.findOne(id);
+  async getPartMachines(id: string, ctx: ActiveOperationalContext) {
+    const part = await this.partAccess(id, ctx);
     if (part.machineId) {
+      await this.machineAccess(part.machineId, ctx);
       const machine = await this.prisma.machine.findUnique({
         where: { id: part.machineId },
         select: { id: true, code: true, name: true, status: true, model: true, manufacturer: true },
@@ -129,31 +168,31 @@ export class MachinePartsService {
     return [];
   }
 
-  async linkToMachine(partId: string, machineId: string, userId: string) {
-    const part = await this.findOne(partId);
-    const machine = await this.prisma.machine.findUnique({ where: { id: machineId } });
-    if (!machine) throw new NotFoundException({ messageKey: 'maintenance.machineNotFound', message: 'Machine not found' });
+  async linkToMachine(partId: string, machineId: string, userId: string, ctx: ActiveOperationalContext) {
+    await this.partAccess(partId, ctx);
+    const machine = await this.machineAccess(machineId, ctx);
     const updated = await this.prisma.machinePart.update({
       where: { id: partId },
       data: { machineId },
     });
-    await this.auditService.log(userId, 'LINK', 'MachinePart', partId, { message: `Linked part ${part.code} to machine ${machine.code}` });
+    await this.auditService.log(userId, 'LINK', 'MachinePart', partId, { message: `Linked part ${updated.code} to machine ${machine.code}` });
     return updated;
   }
 
-  async unlinkFromMachine(partId: string, machineId: string, userId: string) {
-    const part = await this.findOne(partId);
-    if (part.machineId !== machineId) throw new NotFoundException('Part is not linked to this machine');
+  async unlinkFromMachine(partId: string, machineId: string, userId: string, ctx: ActiveOperationalContext) {
+    const part = await this.partAccess(partId, ctx);
+    await this.machineAccess(machineId, ctx);
+    if (part.machineId !== machineId) throw this.notFound('maintenance.machinePartNotLinked', 'Part is not linked to this machine');
     const updated = await this.prisma.machinePart.update({
       where: { id: partId },
       data: { machineId: null },
     });
-    await this.auditService.log(userId, 'UNLINK', 'MachinePart', partId, { message: `Unlinked part ${part.code} from machine` });
+    await this.auditService.log(userId, 'UNLINK', 'MachinePart', partId, { message: `Unlinked part ${updated.code} from machine` });
     return updated;
   }
 
-  async getUsageHistory(id: string) {
-    const part = await this.findOne(id);
+  async getUsageHistory(id: string, ctx: ActiveOperationalContext) {
+    const part = await this.partAccess(id, ctx);
     if (!part.productId) return [];
     return this.prisma.maintenanceRequestPartUsage.findMany({
       where: { productId: part.productId },

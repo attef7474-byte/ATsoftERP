@@ -20,5 +20,10 @@ test-results/
 
 token.txt
 proof-token.txt
+# local AI assistant rule folders
+.clinerules/
+.roo/
+# nested lockfile inside the npm-workspace app (root package-lock.json is authoritative)
+apps/api/package-lock.json
 # SQL Server backups (tools/backup/backup-sqlserver.ps1 output)
 tools/backup/backups/

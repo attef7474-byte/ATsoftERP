@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { SparePartsService } from './spare-parts.service';
 import { CreateSparePartDto, UpdateSparePartDto } from './dto/create-spare-part.dto';
@@ -56,5 +56,5 @@ export class SparePartsController {
   @Delete(':id')
   @Permissions('spare-part:delete')
   @ApiOperation({ summary: 'Soft delete spare part' })
-  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @CurrentUser('sub') userId: string) { return this.service.remove(id, userId); }
+  remove(@Param('id') id: string, @CurrentUser('sub') userId: string) { return this.service.remove(id, userId); }
 }

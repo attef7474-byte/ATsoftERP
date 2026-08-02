@@ -96,7 +96,7 @@ export default function MaintenanceScheduleDetailPage() {
         <CardContent>
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.machine')}</dt><dd className="mt-1 text-sm text-gray-900">{data.machine?.name || '-'}</dd></div>
-            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.maintenanceType')}</dt><dd className="mt-1 text-sm text-gray-900">{t(`status.${data.maintenanceType}` as any) || data.maintenanceType}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.maintenanceType')}</dt><dd className="mt-1 text-sm text-gray-900">{t(`status.${data.type}` as any) || data.type}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.frequency')}</dt><dd className="mt-1 text-sm text-gray-900">{t(`status.${data.frequency}` as any) || data.frequency}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.intervalDays')}</dt><dd className="mt-1 text-sm text-gray-900">{data.intervalDays ?? '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.startDate')}</dt><dd className="mt-1 text-sm text-gray-900">{fmt(data.startDate)}</dd></div>

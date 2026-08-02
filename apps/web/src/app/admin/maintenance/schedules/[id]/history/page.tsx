@@ -45,7 +45,7 @@ export default function ScheduleExecutionHistoryPage() {
     { key: 'startedAt', header: t('maintenance.executionDate'), render: (e: MaintenanceChecklistExecution) => e.startedAt ? new Date(e.startedAt).toLocaleString() : '-' },
     { key: 'status', header: t('common.status'), render: (e: MaintenanceChecklistExecution) => <CmmsStatusBadge status={e.status} /> },
     { key: 'completedBy', header: t('maintenance.completedBy'), render: (e: MaintenanceChecklistExecution) => e.completedBy?.name || '-' },
-    { key: 'itemCount', header: t('maintenance.itemCount'), render: (e: MaintenanceChecklistExecution) => e._count?.items ?? '-' },
+    { key: 'itemCount', header: t('maintenance.itemCount'), render: (e: MaintenanceChecklistExecution) => e.items?.length ?? e._count?.items ?? '-' },
   ];
 
   return (

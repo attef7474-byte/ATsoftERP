@@ -35,10 +35,10 @@ export default function UpcomingPreventivePage() {
   const columns = [
     { key: 'title', header: t('common.title'), render: (s: MaintenanceSchedule) => <a href={`/admin/maintenance/schedules/${s.id}`} className="text-blue-600 hover:text-blue-800">{s.title}</a> },
     { key: 'machine', header: t('maintenance.machine'), render: (s: MaintenanceSchedule) => s.machine?.name || '-' },
-    { key: 'maintenanceType', header: t('maintenance.maintenanceType'), render: (s: MaintenanceSchedule) => t(`status.${s.maintenanceType}` as any) || s.maintenanceType },
+    { key: 'type', header: t('maintenance.maintenanceType'), render: (s: MaintenanceSchedule) => s.type || '-' },
     { key: 'startDate', header: t('maintenance.startDate'), render: (s: MaintenanceSchedule) => s.startDate ? new Date(s.startDate).toLocaleDateString() : '-' },
     { key: 'status', header: t('common.status'), render: (s: MaintenanceSchedule) => <CmmsStatusBadge status={s.status} /> },
-    { key: 'nextDueAt', header: t('maintenance.nextDue'), render: (s: MaintenanceSchedule) => s.nextDueAt ? new Date(s.nextDueAt).toLocaleDateString() : '-' },
+    { key: 'nextDueDate', header: t('maintenance.nextDue'), render: (s: MaintenanceSchedule) => s.nextDueDate ? new Date(s.nextDueDate).toLocaleDateString() : '-' },
   ];
 
   return (

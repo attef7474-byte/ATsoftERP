@@ -20,9 +20,9 @@ export default function OverduePage() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get<{ requests: MaintenanceRequest[]; schedules: MaintenanceSchedule[] }>('/maintenance/dashboard/overdue');
-      setRequests(res.requests || []);
-      setSchedules(res.schedules || []);
+      const res = await api.get<{ data: { requests: MaintenanceRequest[]; schedules: MaintenanceSchedule[] } }>('/maintenance/dashboard/overdue');
+      setRequests(res.data?.requests || []);
+      setSchedules(res.data?.schedules || []);
     } catch (err: any) {
       setError(err?.message || t('errors.loadFailed'));
     } finally { setLoading(false); }
@@ -47,7 +47,7 @@ export default function OverduePage() {
   const scheduleColumns = [
     { key: 'title', header: t('common.title') },
     { key: 'machine', header: t('maintenance.machine'), render: (s: MaintenanceSchedule) => s.machine?.name || '-' },
-    { key: 'maintenanceType', header: t('maintenance.maintenanceType') },
+    { key: 'type', header: t('maintenance.maintenanceType') },
     { key: 'startDate', header: t('maintenance.startDate'), render: (s: MaintenanceSchedule) => new Date(s.startDate).toLocaleDateString() },
     { key: 'status', header: t('common.status'), render: (s: MaintenanceSchedule) => <CmmsStatusBadge status={s.status} /> },
   ];

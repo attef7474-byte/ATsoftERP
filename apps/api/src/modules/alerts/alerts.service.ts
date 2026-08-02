@@ -1,16 +1,38 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma/prisma.service'
+import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types'
+
+const LIFE_ALERT_SEVERITY: Record<string, string> = {
+  WARNING: 'WARNING',
+  DUE: 'HIGH',
+  EXPIRED: 'CRITICAL',
+}
 
 @Injectable()
 export class AlertsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(page = 1, pageSize = 20, severity?: string, status?: string) {
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    }
+  }
+
+  private warehouseScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    }
+  }
+
+  async findAll(page = 1, pageSize = 20, severity?: string, status?: string, ctx?: ActiveOperationalContext) {
     const skip = (page - 1) * pageSize
     const alerts: any[] = []
+    const machineWhere = ctx ? this.machineScope(ctx) : undefined
 
     const criticalRequests = await this.prisma.maintenanceRequest.findMany({
-      where: { priority: 'CRITICAL', status: { in: ['OPEN', 'IN_PROGRESS'] } },
+      where: { priority: 'CRITICAL', status: { in: ['OPEN', 'IN_PROGRESS'] }, ...(machineWhere ? { machine: machineWhere } : {}) },
       include: { machine: { select: { name: true } } },
       orderBy: { createdAt: 'desc' },
     })
@@ -19,7 +41,7 @@ export class AlertsService {
     }
 
     const currentDowntime = await this.prisma.downtimeLog.findMany({
-      where: { endTime: null },
+      where: { endTime: null, ...(machineWhere ? { machine: machineWhere } : {}) },
       include: { machine: { select: { name: true } } },
       orderBy: { startTime: 'desc' },
     })
@@ -28,7 +50,7 @@ export class AlertsService {
     }
 
     const lowStock = await this.prisma.inventoryBalance.findMany({
-      where: { quantity: { lte: 0 } },
+      where: { quantity: { lte: 0 }, ...(ctx ? { warehouse: this.warehouseScope(ctx) } : {}) },
       include: { product: { select: { name: true } }, warehouse: { select: { name: true } } },
       take: 20,
     })
@@ -37,11 +59,39 @@ export class AlertsService {
     }
 
     const underMaintenance = await this.prisma.machine.findMany({
-      where: { status: 'UNDER_MAINTENANCE' },
+      where: { status: 'UNDER_MAINTENANCE', ...(machineWhere ? machineWhere : {}) },
       take: 20,
     })
     for (const m of underMaintenance) {
       alerts.push({ id: `mnt-${m.id}`, type: 'UNDER_MAINTENANCE', severity: 'INFO', status: 'ACTIVE', title: `Machine under maintenance: ${m.name}`, description: m.notes || '', entityType: 'machine', entityId: m.id, createdAt: m.updatedAt })
+    }
+
+    const lifeAlertParts = await this.prisma.machineInstalledPart.findMany({
+      where: {
+        status: 'ACTIVE',
+        alertThresholdReached: { in: ['WARNING', 'DUE', 'EXPIRED'] },
+        ...(machineWhere ? { machine: machineWhere } : {}),
+      },
+      include: {
+        machine: { select: { id: true, code: true, name: true } },
+        sparePart: { select: { id: true, code: true, name: true } },
+        machineComponent: { select: { id: true, code: true, name: true } },
+      },
+      orderBy: { expectedLifeAlertAt: 'desc' },
+    })
+    for (const p of lifeAlertParts) {
+      const severityValue = LIFE_ALERT_SEVERITY[p.alertThresholdReached || 'WARNING'] || 'WARNING'
+      alerts.push({
+        id: `life-${p.id}`,
+        type: 'EXPECTED_LIFE',
+        severity: severityValue,
+        status: 'ACTIVE',
+        title: `Expected life ${p.alertThresholdReached?.toLowerCase()}: ${p.sparePart?.name || 'N/A'} on ${p.machine?.name || 'N/A'}`,
+        description: `Part ${p.sparePart?.name || 'N/A'} on ${p.machineComponent?.name || 'machine'} has reached the ${p.alertThresholdReached?.toLowerCase()} threshold`,
+        entityType: 'machine-installed-part',
+        entityId: p.id,
+        createdAt: p.expectedLifeAlertAt || p.updatedAt || p.createdAt,
+      })
     }
 
     alerts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -55,20 +105,25 @@ export class AlertsService {
     return { data: filtered.slice(skip, skip + pageSize), total: filtered.length, page, pageSize }
   }
 
-  async getSummary() {
-    const [critical, downtime, lowStock, underMaintenance, unreadNotifications, slaOverdue, slaEscalated] = await Promise.all([
-      this.prisma.maintenanceRequest.count({ where: { priority: 'CRITICAL', status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
-      this.prisma.downtimeLog.count({ where: { endTime: null } }),
-      this.prisma.inventoryBalance.count({ where: { quantity: { lte: 0 } } }),
-      this.prisma.machine.count({ where: { status: 'UNDER_MAINTENANCE' } }),
+  async getSummary(ctx?: ActiveOperationalContext) {
+    const machineWhere = ctx ? this.machineScope(ctx) : undefined
+    const [critical, downtime, lowStock, underMaintenance, expectedLife, unreadNotifications, slaOverdue, slaEscalated] = await Promise.all([
+      this.prisma.maintenanceRequest.count({ where: { priority: 'CRITICAL', status: { in: ['OPEN', 'IN_PROGRESS'] }, ...(machineWhere ? { machine: machineWhere } : {}) } }),
+      this.prisma.downtimeLog.count({ where: { endTime: null, ...(machineWhere ? { machine: machineWhere } : {}) } }),
+      this.prisma.inventoryBalance.count({ where: { quantity: { lte: 0 }, ...(ctx ? { warehouse: this.warehouseScope(ctx) } : {}) } }),
+      this.prisma.machine.count({ where: { status: 'UNDER_MAINTENANCE', ...(machineWhere ? machineWhere : {}) } }),
+      this.prisma.machineInstalledPart.count({ where: { status: 'ACTIVE', alertThresholdReached: { in: ['WARNING', 'DUE', 'EXPIRED'] }, ...(machineWhere ? { machine: machineWhere } : {}) } }),
       this.prisma.notification.count({ where: { read: false } }),
-      this.prisma.maintenanceRequest.count({ where: { deletedAt: null, slaStatus: 'OVERDUE' } }),
-      this.prisma.maintenanceRequest.count({ where: { deletedAt: null, escalationLevel: { not: 'NONE' } } }),
+      this.prisma.maintenanceRequest.count({ where: { deletedAt: null, slaStatus: 'OVERDUE', ...(machineWhere ? { machine: machineWhere } : {}) } }),
+      this.prisma.maintenanceRequest.count({ where: { deletedAt: null, escalationLevel: { not: 'NONE' }, ...(machineWhere ? { machine: machineWhere } : {}) } }),
     ])
-    return { total: critical + downtime + lowStock + underMaintenance, critical, downtime, lowStock, underMaintenance, unreadNotifications, slaOverdue, slaEscalated }
+    return { total: critical + downtime + lowStock + underMaintenance + expectedLife, critical, downtime, lowStock, underMaintenance, expectedLife, unreadNotifications, slaOverdue, slaEscalated }
   }
 
-  async findOne(id: string) {
-    return null
+  async findOne(id: string, ctx?: ActiveOperationalContext) {
+    const list = await this.findAll(1, 500, undefined, undefined, ctx)
+    const alert = list.data.find((a: any) => a.id === id)
+    if (!alert) throw new NotFoundException({ messageKey: 'alerts.alertNotFound', message: 'Alert not found' })
+    return alert
   }
 }

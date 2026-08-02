@@ -138,12 +138,11 @@ export interface MaintenanceSchedule {
   requestId?: string | null;
   title: string;
   description?: string | null;
-  maintenanceType: string;
+  type: string;
   frequency: string;
-  intervalValue?: number | null;
+  intervalDays?: number | null;
   startDate: string;
   endDate?: string | null;
-  nextDueAt?: string | null;
   nextDueDate?: string | null;
   lastRunAt?: string | null;
   lastGeneratedAt?: string | null;
@@ -157,13 +156,15 @@ export interface MaintenanceSchedule {
 
 export interface MaintenanceChecklistItem {
   id: string;
-  scheduleId?: string | null;
-  taskId?: string | null;
+  scheduleId: string;
   title: string;
   description?: string | null;
   sortOrder: number;
-  required: boolean;
-  status: string;
+  isMandatory: boolean;
+  resultType: string;
+  minValue?: number | null;
+  maxValue?: number | null;
+  unit?: string | null;
   createdAt: string;
   updatedAt: string;
   schedule?: { id: string; title: string };
@@ -494,10 +495,43 @@ export interface MachineInstalledPart {
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
+  expectedLifeValue?: number | null;
+  expectedLifeUnit?: string | null;
+  lifeStartDate?: string | null;
+  lifeStartReading?: number | null;
+  currentReading?: number | null;
+  warningThresholdPercent?: number | null;
+  expectedExpiryDate?: string | null;
+  expectedExpiryReading?: number | null;
+  lifeStatus?: string | null;
+  lastEvaluatedAt?: string | null;
+  alertThresholdReached?: string | null;
+  expectedLifeAlertAt?: string | null;
+  life?: InstalledPartLife;
   machine?: { id: string; code: string; name: string };
   machineComponent?: { id: string; code: string; name: string };
   sparePart?: { id: string; code: string; name: string; unit?: string };
   maintenanceRequest?: { id: string; requestNumber: string; title: string };
+}
+
+export interface InstalledPartLife {
+  lifeStatus: string;
+  alertThresholdReached: string;
+  progress: number | null;
+  expectedExpiryDate: string | null;
+  expectedExpiryReading: number | null;
+}
+
+export interface MachineInstalledPartReading {
+  id: string;
+  installedPartId: string;
+  readingType: string;
+  readingValue: number;
+  isReset: boolean;
+  recordedByUserId?: string | null;
+  recordedAt: string;
+  notes?: string | null;
+  recordedBy?: { id: string; name: string };
 }
 
 export interface SparePartReplacementHistory {

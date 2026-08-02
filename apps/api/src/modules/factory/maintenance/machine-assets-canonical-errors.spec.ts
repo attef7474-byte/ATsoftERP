@@ -7,6 +7,27 @@ import { MachineCategoriesService } from './machine-categories/machine-categorie
 import { MachineComponentsService } from './machine-components/machine-components.service';
 import { MachineDocumentsService } from './machine-documents/machine-documents.service';
 import { MaintenanceService } from './maintenance.service';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+
+const ctx: ActiveOperationalContext = {
+  contextKey: 'c1:b1',
+  scopeId: 'b1',
+  companyId: 'c1',
+  companyName: 'Company One',
+  companyCode: 'C1',
+  branchId: 'b1',
+  branchName: 'Branch One',
+  branchCode: 'B1',
+  administrationId: null,
+  administrationName: null,
+  administrationCode: null,
+  departmentId: null,
+  departmentName: null,
+  departmentCode: null,
+  isDefault: true,
+  source: 'EXPLICIT_SCOPE',
+};
+const ownedMachine = { id: 'm1', code: 'M-001', name: 'Lathe', companyId: 'c1', branchId: 'b1' };
 
 const expectValidationError = async (promise: Promise<unknown>, field: string, code: string) => {
   await expect(promise).rejects.toThrow(BadRequestException);
@@ -46,7 +67,7 @@ describe('Machine assets canonical error contracts', () => {
       prisma.machinePart.findUnique.mockResolvedValue(null);
       prisma.machinePart.create.mockResolvedValue({ id: 'p1', code: 'PART-0001', name: 'Pump' });
 
-      const result = await service.create({ name: 'Pump', quantity: 1, unit: 'pc' }, 'u1');
+      const result = await service.create({ name: 'Pump', quantity: 1, unit: 'pc' }, 'u1', ctx);
       expect(numbering.generateNumberAtomic).toHaveBeenCalledWith('MACHINE_PART');
       expect(prisma.machinePart.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ code: 'PART-0001' }) }));
       expect(audit.log).toHaveBeenCalledWith('u1', 'CREATE', 'MachinePart', 'p1', expect.anything());
@@ -55,35 +76,46 @@ describe('Machine assets canonical error contracts', () => {
 
     it('rejects a duplicate code with a canonical field error', async () => {
       prisma.machinePart.findUnique.mockResolvedValue({ id: 'p9', code: 'PART-001' });
-      await expectValidationError(service.create({ code: 'PART-001', name: 'Pump', quantity: 1, unit: 'pc' }, 'u1'), 'code', 'validation.duplicateValue');
+      await expectValidationError(service.create({ code: 'PART-001', name: 'Pump', quantity: 1, unit: 'pc' }, 'u1', ctx), 'code', 'validation.duplicateValue');
     });
 
     it('rejects an unknown machineId with a canonical field error', async () => {
       prisma.machinePart.findUnique.mockResolvedValue(null);
       prisma.machine.findUnique.mockResolvedValue(null);
-      await expectValidationError(service.create({ name: 'Pump', machineId: 'ghost', quantity: 1, unit: 'pc' }, 'u1'), 'machineId', 'validation.invalidReference');
+      await expectValidationError(service.create({ name: 'Pump', machineId: 'ghost', quantity: 1, unit: 'pc' }, 'u1', ctx), 'machineId', 'validation.invalidReference');
+    });
+
+    it('rejects a machineId from another company with a canonical field error', async () => {
+      prisma.machinePart.findUnique.mockResolvedValue(null);
+      prisma.machine.findUnique.mockResolvedValue({ ...ownedMachine, id: 'mX', companyId: 'c2' });
+      await expectValidationError(service.create({ name: 'Pump', machineId: 'mX', quantity: 1, unit: 'pc' }, 'u1', ctx), 'machineId', 'validation.invalidReference');
     });
 
     it('rejects an unknown productId with a canonical field error', async () => {
       prisma.machinePart.findUnique.mockResolvedValue(null);
       prisma.product.findUnique.mockResolvedValue(null);
-      await expectValidationError(service.create({ name: 'Pump', productId: 'ghost', quantity: 1, unit: 'pc' }, 'u1'), 'productId', 'validation.invalidReference');
+      await expectValidationError(service.create({ name: 'Pump', productId: 'ghost', quantity: 1, unit: 'pc' }, 'u1', ctx), 'productId', 'validation.invalidReference');
     });
 
     it('throws a messageKey not-found when the part does not exist', async () => {
       prisma.machinePart.findUnique.mockResolvedValue(null);
-      await expectMessageKeyNotFound(service.findOne('ghost'), 'maintenance.machinePartNotFound');
+      await expectMessageKeyNotFound(service.findOne('ghost', ctx), 'maintenance.machinePartNotFound');
+    });
+
+    it('throws a messageKey not-found when the part belongs to another company', async () => {
+      prisma.machinePart.findUnique.mockResolvedValue({ id: 'pX', machineId: 'mX', machine: { id: 'mX', companyId: 'c2', branchId: 'b1' } });
+      await expectMessageKeyNotFound(service.findOne('pX', ctx), 'maintenance.machinePartNotFound');
     });
 
     it('rejects changing the code after creation', async () => {
       prisma.machinePart.findUnique.mockResolvedValue({ id: 'p1', code: 'PART-001' });
-      await expectValidationError(service.update('p1', { code: 'PART-002' }, 'u1'), 'code', 'validation.invalidValue');
+      await expectValidationError(service.update('p1', { code: 'PART-002' }, 'u1', ctx), 'code', 'validation.invalidValue');
     });
 
     it('throws a messageKey not-found when linking to an unknown machine', async () => {
       prisma.machinePart.findUnique.mockResolvedValue({ id: 'p1', code: 'PART-001', name: 'Pump' });
       prisma.machine.findUnique.mockResolvedValue(null);
-      await expectMessageKeyNotFound(service.linkToMachine('p1', 'ghost', 'u1'), 'maintenance.machineNotFound');
+      await expectMessageKeyNotFound(service.linkToMachine('p1', 'ghost', 'u1', ctx), 'maintenance.machineNotFound');
     });
 
     it('deletes the part and audits DELETE with the userId', async () => {
@@ -91,7 +123,7 @@ describe('Machine assets canonical error contracts', () => {
       prisma.maintenanceRequestPartUsage.count.mockResolvedValue(0);
       prisma.machinePart.delete.mockResolvedValue({ id: 'p1' });
 
-      const result = await service.remove('p1', 'u1');
+      const result = await service.remove('p1', 'u1', ctx);
       expect(prisma.machinePart.delete).toHaveBeenCalledWith({ where: { id: 'p1' } });
       expect(audit.log).toHaveBeenCalledWith('u1', 'DELETE', 'MachinePart', 'p1', expect.anything());
       expect(result.message).toBe('Machine part deleted successfully');
@@ -101,7 +133,7 @@ describe('Machine assets canonical error contracts', () => {
       prisma.machinePart.findUnique.mockResolvedValue({ id: 'p1', code: 'PART-001', name: 'Pump', productId: 'prod1' });
       prisma.maintenanceRequestPartUsage.count.mockResolvedValue(3);
 
-      await expect(service.remove('p1', 'u1')).rejects.toThrow(ConflictException);
+      await expect(service.remove('p1', 'u1', ctx)).rejects.toThrow(ConflictException);
       expect(prisma.machinePart.delete).not.toHaveBeenCalled();
     });
   });
@@ -213,42 +245,52 @@ describe('Machine assets canonical error contracts', () => {
 
     it('rejects an unknown machine with a canonical field error', async () => {
       prisma.machine.findUnique.mockResolvedValue(null);
-      await expectValidationError(service.create({ name: 'Gearbox', componentType: 'MECHANICAL', machineId: 'ghost' } as any, 'u1'), 'machineId', 'validation.invalidReference');
+      await expectValidationError(service.create({ name: 'Gearbox', componentType: 'MECHANICAL', machineId: 'ghost' } as any, 'u1', ctx), 'machineId', 'validation.invalidReference');
+    });
+
+    it('rejects a machine from another company with a canonical field error', async () => {
+      prisma.machine.findUnique.mockResolvedValue({ ...ownedMachine, id: 'mX', companyId: 'c2' });
+      await expectValidationError(service.create({ name: 'Gearbox', componentType: 'MECHANICAL', machineId: 'mX' } as any, 'u1', ctx), 'machineId', 'validation.invalidReference');
     });
 
     it('rejects a duplicate component code within the machine', async () => {
-      prisma.machine.findUnique.mockResolvedValue({ id: 'm1' });
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
       prisma.machineComponent.findUnique.mockResolvedValue({ id: 'x1', code: 'GB-1' });
-      await expectValidationError(service.create({ code: 'GB-1', name: 'Gearbox', componentType: 'MECHANICAL', machineId: 'm1' } as any, 'u1'), 'code', 'validation.duplicateValue');
+      await expectValidationError(service.create({ code: 'GB-1', name: 'Gearbox', componentType: 'MECHANICAL', machineId: 'm1' } as any, 'u1', ctx), 'code', 'validation.duplicateValue');
     });
 
     it('throws a messageKey not-found when the component does not exist', async () => {
       prisma.machineComponent.findUnique.mockResolvedValue(null);
-      await expectMessageKeyNotFound(service.findOne('ghost'), 'maintenance.componentNotFound');
+      await expectMessageKeyNotFound(service.findOne('ghost', ctx), 'maintenance.componentNotFound');
+    });
+
+    it('throws a messageKey not-found when the component belongs to another company', async () => {
+      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'xX', code: 'GB-2', machineId: 'mX', machine: { id: 'mX', companyId: 'c2', branchId: 'b1' } });
+      await expectMessageKeyNotFound(service.findOne('xX', ctx), 'maintenance.componentNotFound');
     });
 
     it('rejects changing the code after creation', async () => {
-      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'x1', code: 'GB-1', machineId: 'm1' });
-      await expectValidationError(service.update('x1', { code: 'GB-2' } as any, 'u1'), 'code', 'validation.invalidValue');
+      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'x1', code: 'GB-1', machineId: 'm1', machine: ownedMachine });
+      await expectValidationError(service.update('x1', { code: 'GB-2' } as any, 'u1', ctx), 'code', 'validation.invalidValue');
     });
 
     it('soft-deletes the component and audits DELETE with the userId', async () => {
-      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'x1', code: 'GB-1', machineId: 'm1' });
+      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'x1', code: 'GB-1', machineId: 'm1', machine: ownedMachine });
       prisma.machineComponent.count.mockResolvedValue(0);
       prisma.componentSparePart.count.mockResolvedValue(0);
       prisma.machineComponent.update.mockResolvedValue({ id: 'x1', deletedAt: new Date() });
 
-      const result = await service.remove('x1', 'u1');
+      const result = await service.remove('x1', 'u1', ctx);
       expect(prisma.machineComponent.update).toHaveBeenCalledWith({ where: { id: 'x1' }, data: expect.objectContaining({ deletedAt: expect.any(Date) }) });
       expect(audit.log).toHaveBeenCalledWith('u1', 'DELETE', 'MachineComponent', 'x1', expect.anything());
       expect(result.message).toBe('Machine component deleted successfully');
     });
 
     it('blocks deleting a component with child components', async () => {
-      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'x1', code: 'GB-1', machineId: 'm1' });
+      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'x1', code: 'GB-1', machineId: 'm1', machine: ownedMachine });
       prisma.machineComponent.count.mockResolvedValue(1);
 
-      await expect(service.remove('x1', 'u1')).rejects.toThrow(ConflictException);
+      await expect(service.remove('x1', 'u1', ctx)).rejects.toThrow(ConflictException);
       expect(prisma.machineComponent.update).not.toHaveBeenCalled();
     });
   });
@@ -328,63 +370,68 @@ describe('Machine assets canonical error contracts', () => {
 
     it('creates a machine with an auto code and audits CREATE with the userId', async () => {
       prisma.machine.findUnique.mockResolvedValue(null);
-      prisma.machine.create.mockResolvedValue({ id: 'm1', code: 'M-0001', name: 'Lathe' });
+      prisma.machine.create.mockResolvedValue(ownedMachine);
 
-      const result = await service.createMachine({ name: 'Lathe' } as any, 'u1');
+      const result = await service.createMachine({ name: 'Lathe' } as any, 'u1', ctx);
       expect(numbering.generateNumberAtomic).toHaveBeenCalledWith('MACHINE');
       expect(audit.log).toHaveBeenCalledWith('u1', 'CREATE', 'Machine', 'm1', expect.anything());
-      expect(result.code).toBe('M-0001');
+      expect(result.code).toBe('M-001');
     });
 
     it('rejects a duplicate machine code with a canonical field error', async () => {
       prisma.machine.findUnique.mockResolvedValue({ id: 'm9', code: 'M-001' });
-      await expectValidationError(service.createMachine({ code: 'M-001', name: 'Lathe' } as any, 'u1'), 'code', 'validation.duplicateValue');
+      await expectValidationError(service.createMachine({ code: 'M-001', name: 'Lathe' } as any, 'u1', ctx), 'code', 'validation.duplicateValue');
     });
 
     it('throws a messageKey not-found when the machine does not exist', async () => {
       prisma.machine.findUnique.mockResolvedValue(null);
-      await expectMessageKeyNotFound(service.findOneMachine('ghost'), 'maintenance.machineNotFound');
+      await expectMessageKeyNotFound(service.findOneMachine('ghost', ctx), 'maintenance.machineNotFound');
+    });
+
+    it('throws a messageKey not-found when the machine belongs to another company', async () => {
+      prisma.machine.findUnique.mockResolvedValue({ ...ownedMachine, id: 'mX', companyId: 'c2' });
+      await expectMessageKeyNotFound(service.findOneMachine('mX', ctx), 'maintenance.machineNotFound');
     });
 
     it('rejects changing the machine code after creation', async () => {
-      prisma.machine.findUnique.mockResolvedValue({ id: 'm1', code: 'M-001', name: 'Lathe' });
-      await expectValidationError(service.updateMachine('m1', { code: 'M-002' } as any, 'u1'), 'code', 'validation.invalidValue');
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      await expectValidationError(service.updateMachine('m1', { code: 'M-002' } as any, 'u1', ctx), 'code', 'validation.invalidValue');
     });
 
     it('audits activate, deactivate and status changes with the userId', async () => {
-      prisma.machine.findUnique.mockResolvedValue({ id: 'm1', code: 'M-001', name: 'Lathe' });
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
       prisma.machine.update.mockResolvedValue({ id: 'm1', code: 'M-001', status: 'ACTIVE' });
-      await service.activateMachine('m1', 'u1');
+      await service.activateMachine('m1', 'u1', ctx);
       expect(audit.log).toHaveBeenCalledWith('u1', 'ACTIVATE', 'Machine', 'm1', expect.anything());
 
       prisma.machine.update.mockResolvedValue({ id: 'm1', code: 'M-001', status: 'INACTIVE' });
-      await service.deactivateMachine('m1', 'u1');
+      await service.deactivateMachine('m1', 'u1', ctx);
       expect(audit.log).toHaveBeenCalledWith('u1', 'DEACTIVATE', 'Machine', 'm1', expect.anything());
 
       prisma.machine.update.mockResolvedValue({ id: 'm1', code: 'M-001', status: 'MAINTENANCE' });
-      await service.updateMachineStatus('m1', 'MAINTENANCE', 'u1');
+      await service.updateMachineStatus('m1', 'MAINTENANCE', 'u1', ctx);
       expect(audit.log).toHaveBeenCalledWith('u1', 'UPDATE', 'Machine', 'm1', expect.anything());
     });
 
     it('soft-deletes the machine and audits DELETE with the userId', async () => {
-      prisma.machine.findUnique.mockResolvedValue({ id: 'm1', code: 'M-001', name: 'Lathe' });
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
       prisma.machineComponent.count.mockResolvedValue(0);
       prisma.maintenanceRequest.count.mockResolvedValue(0);
       prisma.maintenanceSchedule.count.mockResolvedValue(0);
       prisma.downtimeLog.count.mockResolvedValue(0);
       prisma.machine.update.mockResolvedValue({ id: 'm1', deletedAt: new Date() });
 
-      const result = await service.removeMachine('m1', 'u1');
+      const result = await service.removeMachine('m1', 'u1', ctx);
       expect(prisma.machine.update).toHaveBeenCalledWith({ where: { id: 'm1' }, data: expect.objectContaining({ deletedAt: expect.any(Date) }) });
       expect(audit.log).toHaveBeenCalledWith('u1', 'DELETE', 'Machine', 'm1', expect.anything());
       expect(result.message).toBe('Machine deleted successfully');
     });
 
     it('blocks deleting a machine with linked components', async () => {
-      prisma.machine.findUnique.mockResolvedValue({ id: 'm1', code: 'M-001', name: 'Lathe' });
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
       prisma.machineComponent.count.mockResolvedValue(1);
 
-      await expect(service.removeMachine('m1', 'u1')).rejects.toThrow(ConflictException);
+      await expect(service.removeMachine('m1', 'u1', ctx)).rejects.toThrow(ConflictException);
       expect(prisma.machine.update).not.toHaveBeenCalled();
     });
   });

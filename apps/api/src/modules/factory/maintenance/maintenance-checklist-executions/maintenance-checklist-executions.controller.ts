@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceChecklistExecutionsService } from './maintenance-checklist-executions.service';
 import { CreateMaintenanceChecklistExecutionDto } from './dto/create-maintenance-checklist-execution.dto';
@@ -7,6 +7,8 @@ import { JwtAuthGuard } from '../../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @ApiTags('Maintenance Checklist Executions')
 @ApiBearerAuth()
@@ -18,27 +20,27 @@ export class MaintenanceChecklistExecutionsController {
   @Post()
   @Permissions('maintenance-checklist-execution:create')
   @ApiOperation({ summary: 'Start a checklist execution' })
-  create(@Body() dto: CreateMaintenanceChecklistExecutionDto, @CurrentUser('id') userId: string) {
-    return this.service.create(dto, userId);
+  create(@Body() dto: CreateMaintenanceChecklistExecutionDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.create(dto, userId, ctx);
   }
 
   @Get()
   @Permissions('maintenance-checklist-execution:read')
   @ApiOperation({ summary: 'List checklist executions' })
-  findAll(@Query() query: { scheduleId?: string; requestId?: string; status?: string }) {
-    return this.service.findAll(query);
+  findAll(@Query() query: { scheduleId?: string; requestId?: string; status?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findAll(query, ctx);
   }
 
   @Get(':id')
   @Permissions('maintenance-checklist-execution:read')
   @ApiOperation({ summary: 'Get checklist execution by ID' })
-  findOne(@Param('id') id: string) { return this.service.findOne(id); }
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOne(id, ctx); }
 
   @Patch(':id/complete')
   @Permissions('maintenance-checklist-execution:complete')
   @ApiOperation({ summary: 'Complete a checklist execution' })
-  complete(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.service.complete(id, userId);
+  complete(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.complete(id, userId, ctx);
   }
 
   @Patch(':id/items/:itemId')
@@ -49,8 +51,9 @@ export class MaintenanceChecklistExecutionsController {
     @Param('itemId') itemId: string,
     @Body() dto: UpdateChecklistExecutionItemDto,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.updateItem(id, itemId, dto, userId);
+    return this.service.updateItem(id, itemId, dto, userId, ctx);
   }
 
   @Patch('items/:itemId')
@@ -60,7 +63,8 @@ export class MaintenanceChecklistExecutionsController {
     @Param('itemId') itemId: string,
     @Body() dto: UpdateChecklistExecutionItemDto,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.updateItemDirect(itemId, dto, userId);
+    return this.service.updateItemDirect(itemId, dto, userId, ctx);
   }
 }

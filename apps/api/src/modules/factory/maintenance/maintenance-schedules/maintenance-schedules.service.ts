@@ -4,6 +4,7 @@ import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../../modules/numbering/numbering.service';
 import { CreateMaintenanceScheduleDto } from './dto/create-maintenance-schedule.dto';
 import { UpdateMaintenanceScheduleDto } from './dto/update-maintenance-schedule.dto';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class MaintenanceSchedulesService {
@@ -12,6 +13,43 @@ export class MaintenanceSchedulesService {
     private audit: AuditService,
     private numberingService: NumberingService,
   ) {}
+
+  private notFound(key: string, message: string): NotFoundException {
+    return new NotFoundException({ messageKey: key, message });
+  }
+
+  private badRequest(key: string, message: string, params?: Record<string, string>): BadRequestException {
+    return new BadRequestException({ messageKey: key, message, ...(params ? { params } : {}) });
+  }
+
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
+  }
+
+  private machineOwns(machine: { companyId?: string | null; branchId?: string | null }, ctx: ActiveOperationalContext): boolean {
+    return machine.companyId === ctx.companyId
+      && (machine.branchId === null || machine.branchId === ctx.branchId);
+  }
+
+  private async validateScheduleMachine(machineId: string, ctx: ActiveOperationalContext) {
+    const machine = await this.prisma.machine.findUnique({ where: { id: machineId } });
+    if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+    return machine;
+  }
+
+  private async validateRequest(requestId: string | undefined, machineId: string, ctx: ActiveOperationalContext) {
+    if (!requestId) return;
+    const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: requestId } });
+    if (!request) throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
+    if (request.machineId !== machineId) {
+      throw this.badRequest('maintenance.requestMachineMismatch', 'Maintenance request does not belong to the selected machine');
+    }
+    const machine = await this.prisma.machine.findUnique({ where: { id: request.machineId } });
+    if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+  }
 
   private computeDueStatus(schedule: { status: string; startDate: Date; endDate?: Date | null }): string {
     const now = new Date();
@@ -26,16 +64,13 @@ export class MaintenanceSchedulesService {
     return 'overdue';
   }
 
-  async create(dto: CreateMaintenanceScheduleDto, userId: string) {
-    const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
-    if (!machine) throw new NotFoundException('Machine not found');
-    if (dto.requestId) {
-      const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: dto.requestId } });
-      if (!request) throw new NotFoundException('Maintenance request not found');
-    }
+  async create(dto: CreateMaintenanceScheduleDto, userId: string, ctx: ActiveOperationalContext) {
+    await this.validateScheduleMachine(dto.machineId, ctx);
+    await this.validateRequest(dto.requestId, dto.machineId, ctx);
     const data: any = { ...dto };
     data.startDate = new Date(dto.startDate);
     if (dto.endDate) data.endDate = new Date(dto.endDate);
+    data.nextDueDate = data.startDate;
     const schedule = await this.prisma.maintenanceSchedule.create({ data });
     await this.audit.log(userId, 'CREATE', 'MaintenanceSchedule', schedule.id,
       { machineId: dto.machineId });
@@ -46,19 +81,22 @@ export class MaintenanceSchedulesService {
     page?: number; limit?: number; search?: string;
     machineId?: string; status?: string; type?: string;
     dueBefore?: string; dueStatus?: string;
-  }) {
+  }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = { machine: this.machineScope(ctx) };
     if (query.search) {
       where.OR = [
         { title: { contains: query.search } },
         { description: { contains: query.search } },
       ];
     }
-    if (query.machineId) where.machineId = query.machineId;
+    if (query.machineId) {
+      await this.validateScheduleMachine(query.machineId, ctx);
+      where.machineId = query.machineId;
+    }
     if (query.status) where.status = query.status;
     if (query.type) where.type = query.type;
     if (query.dueBefore) {
@@ -89,21 +127,28 @@ export class MaintenanceSchedulesService {
     return { data: enriched, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, ctx: ActiveOperationalContext) {
     const schedule = await this.prisma.maintenanceSchedule.findUnique({
       where: { id },
       include: {
-        machine: { select: { id: true, code: true, name: true, status: true } },
+        machine: { select: { id: true, code: true, name: true, status: true, companyId: true, branchId: true } },
         request: { select: { id: true, requestNumber: true, title: true } },
         checklistItems: { orderBy: { sortOrder: 'asc' } },
       },
     });
-    if (!schedule) throw new NotFoundException('Maintenance schedule not found');
+    if (!schedule) throw this.notFound('maintenance.scheduleNotFound', 'Maintenance schedule not found');
+    if (!this.machineOwns(schedule.machine, ctx)) throw this.notFound('maintenance.scheduleNotFound', 'Maintenance schedule not found');
     return { ...schedule, dueStatus: this.computeDueStatus(schedule) };
   }
 
-  async update(id: string, dto: UpdateMaintenanceScheduleDto, userId: string) {
-    const schedule = await this.findOne(id);
+  async update(id: string, dto: UpdateMaintenanceScheduleDto, userId: string, ctx: ActiveOperationalContext) {
+    const schedule = await this.findOne(id, ctx);
+    if (dto.machineId && dto.machineId !== schedule.machineId) {
+      await this.validateScheduleMachine(dto.machineId, ctx);
+      await this.validateRequest(dto.requestId, dto.machineId, ctx);
+    } else if (dto.requestId) {
+      await this.validateRequest(dto.requestId, schedule.machineId, ctx);
+    }
     const data: any = { ...dto };
     if (dto.startDate) data.startDate = new Date(dto.startDate);
     if (dto.endDate) data.endDate = new Date(dto.endDate);
@@ -113,32 +158,34 @@ export class MaintenanceSchedulesService {
     return updated;
   }
 
-  async activate(id: string, userId: string) {
-    const schedule = await this.findOne(id);
+  async activate(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const schedule = await this.findOne(id, ctx);
     await this.prisma.maintenanceSchedule.update({ where: { id }, data: { status: 'ACTIVE' } });
     await this.audit.log(userId, 'ACTIVATE', 'MaintenanceSchedule', id,
       { oldStatus: schedule.status, newStatus: 'ACTIVE' });
-    return this.findOne(id);
+    return this.findOne(id, ctx);
   }
 
-  async deactivate(id: string, userId: string) {
-    const schedule = await this.findOne(id);
+  async deactivate(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const schedule = await this.findOne(id, ctx);
     await this.prisma.maintenanceSchedule.update({ where: { id }, data: { status: 'INACTIVE' } });
     await this.audit.log(userId, 'DEACTIVATE', 'MaintenanceSchedule', id,
       { oldStatus: schedule.status, newStatus: 'INACTIVE' });
-    return this.findOne(id);
+    return this.findOne(id, ctx);
   }
 
-  async remove(id: string, userId: string) {
-    const schedule = await this.findOne(id);
+  async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const schedule = await this.findOne(id, ctx);
     await this.prisma.maintenanceSchedule.update({ where: { id }, data: { status: 'INACTIVE' } });
     await this.audit.log(userId, 'DELETE', 'MaintenanceSchedule', id,
       { status: schedule.status });
     return { message: 'Maintenance schedule deactivated successfully' };
   }
 
-  async execute(id: string, requestId: string | undefined, userId: string) {
-    const schedule = await this.findOne(id);
+  async execute(id: string, requestId: string | undefined, userId: string, ctx: ActiveOperationalContext) {
+    const schedule = await this.findOne(id, ctx);
+
+    if (requestId) await this.validateRequest(requestId, schedule.machineId, ctx);
 
     const existingExecution = await this.prisma.maintenanceChecklistExecution.findFirst({
       where: { scheduleId: id, status: 'IN_PROGRESS' },
@@ -163,6 +210,12 @@ export class MaintenanceSchedulesService {
           create: checklistItems.map(item => ({
             checklistItemId: item.id,
             status: 'PENDING',
+            itemTitleSnapshot: item.title,
+            itemSortOrderSnapshot: item.sortOrder,
+            itemMandatorySnapshot: item.isMandatory,
+            resultTypeSnapshot: item.resultType,
+            minValueSnapshot: item.minValue ?? null,
+            maxValueSnapshot: item.maxValue ?? null,
           })),
         },
       },
@@ -174,8 +227,8 @@ export class MaintenanceSchedulesService {
     return execution;
   }
 
-  async generateRequest(id: string, userId: string) {
-    const schedule = await this.findOne(id);
+  async generateRequest(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const schedule = await this.findOne(id, ctx);
     if (schedule.status !== 'ACTIVE') throw new BadRequestException('Only active schedules can generate requests');
 
     const existingRequest = await this.prisma.maintenanceRequest.findFirst({
@@ -191,7 +244,7 @@ export class MaintenanceSchedulesService {
     const request = await this.prisma.$transaction(async (tx) => {
       const requestNumber = await this.numberingService.generateNumberAtomic('MAINTENANCE_REQUEST');
 
-      const nextDue = this.calculateNextDueDate(schedule);
+      const nextDue = this.calculateNextDueDate(schedule, new Date());
 
       await tx.maintenanceSchedule.update({
         where: { id },
@@ -217,24 +270,24 @@ export class MaintenanceSchedulesService {
     return request;
   }
 
-  private calculateNextDueDate(schedule: { startDate: Date; intervalDays?: number | null; frequency: string; endDate?: Date | null }): Date | null {
-    if (schedule.endDate && new Date(schedule.endDate) < new Date()) return null;
-    const baseDate = new Date();
+  private calculateNextDueDate(schedule: { startDate: Date; intervalDays?: number | null; frequency: string; endDate?: Date | null }, from?: Date): Date | null {
+    const base = from || new Date();
+    if (schedule.endDate && new Date(schedule.endDate) < base) return null;
     if (schedule.intervalDays && schedule.intervalDays > 0) {
-      return new Date(baseDate.getTime() + schedule.intervalDays * 86400000);
+      return new Date(base.getTime() + schedule.intervalDays * 86400000);
     }
     switch (schedule.frequency) {
-      case 'DAILY': return new Date(baseDate.getTime() + 86400000);
-      case 'WEEKLY': return new Date(baseDate.getTime() + 7 * 86400000);
-      case 'MONTHLY': return new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, baseDate.getDate());
-      case 'QUARTERLY': return new Date(baseDate.getFullYear(), baseDate.getMonth() + 3, baseDate.getDate());
-      case 'YEARLY': return new Date(baseDate.getFullYear() + 1, baseDate.getMonth(), baseDate.getDate());
-      default: return schedule.intervalDays ? new Date(baseDate.getTime() + schedule.intervalDays * 86400000) : null;
+      case 'DAILY': return new Date(base.getTime() + 86400000);
+      case 'WEEKLY': return new Date(base.getTime() + 7 * 86400000);
+      case 'MONTHLY': return new Date(base.getFullYear(), base.getMonth() + 1, base.getDate());
+      case 'QUARTERLY': return new Date(base.getFullYear(), base.getMonth() + 3, base.getDate());
+      case 'YEARLY': return new Date(base.getFullYear() + 1, base.getMonth(), base.getDate());
+      default: return schedule.intervalDays ? new Date(base.getTime() + schedule.intervalDays * 86400000) : null;
     }
   }
 
-  async getHistory(id: string, query: { page?: number; limit?: number }) {
-    await this.findOne(id);
+  async getHistory(id: string, query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
+    await this.findOne(id, ctx);
     const page = query.page || 1;
     const limit = query.limit || 10;
 

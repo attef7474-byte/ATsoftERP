@@ -27,7 +27,7 @@ export default function CreateMaintenanceSchedulePage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { showToast } = useToast();
-  const [form, setForm] = useState({ machineId: '', title: '', maintenanceType: 'PREVENTIVE', frequency: 'MONTHLY', intervalValue: 0, startDate: '', endDate: '', description: '' });
+  const [form, setForm] = useState({ machineId: '', title: '', type: 'PREVENTIVE', frequency: 'MONTHLY', intervalDays: 0, startDate: '', endDate: '', description: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -51,8 +51,8 @@ export default function CreateMaintenanceSchedulePage() {
     if (!validate()) return;
     setSaving(true);
     try {
-      const payload: Record<string, any> = { machineId: form.machineId, title: form.title.trim(), maintenanceType: form.maintenanceType, frequency: form.frequency, startDate: form.startDate };
-      if (form.intervalValue > 0) payload.intervalValue = form.intervalValue;
+      const payload: Record<string, any> = { machineId: form.machineId, title: form.title.trim(), type: form.type, frequency: form.frequency, startDate: form.startDate };
+      if (form.intervalDays > 0) payload.intervalDays = form.intervalDays;
       if (form.endDate) payload.endDate = form.endDate;
       if (form.description) payload.description = form.description.trim();
       const res = await api.post<{ data: { id: string } }>('/maintenance/schedules', payload);
@@ -65,7 +65,7 @@ export default function CreateMaintenanceSchedulePage() {
 
   const { exec } = useStableHandlers({
     back: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
-    refresh: () => { setForm({ machineId: '', title: '', maintenanceType: 'PREVENTIVE', frequency: 'MONTHLY', intervalValue: 0, startDate: '', endDate: '', description: '' }); setErrors({}); setDirty(false); },
+    refresh: () => { setForm({ machineId: '', title: '', type: 'PREVENTIVE', frequency: 'MONTHLY', intervalDays: 0, startDate: '', endDate: '', description: '' }); setErrors({}); setDirty(false); },
     save: () => handleSave(),
     cancel: () => { if (dirty && !confirm(t('complexForms.confirmLeaveUnsaved'))) return; router.back(); },
   });
@@ -85,11 +85,11 @@ export default function CreateMaintenanceSchedulePage() {
             <h2 className="text-lg font-semibold text-gray-900">{t('maintenance.scheduleInformation')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input label={t('maintenance.title')} value={form.title} onChange={(e) => setField('title', e.target.value)} error={errors.title} required />
-              <Select label={t('maintenance.maintenanceType')} value={form.maintenanceType} onChange={(e) => setField('maintenanceType', e.target.value)} options={TYPE_OPTIONS} />
+              <Select label={t('maintenance.maintenanceType')} value={form.type} onChange={(e) => setField('type', e.target.value)} options={TYPE_OPTIONS} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Select label={t('maintenance.frequency')} value={form.frequency} onChange={(e) => setField('frequency', e.target.value)} options={FREQ_OPTIONS} />
-              <Input label={t('maintenance.intervalDays')} type="number" value={String(form.intervalValue)} onChange={(e) => setField('intervalValue', parseInt(e.target.value) || 0)} />
+              <Input label={t('maintenance.intervalDays')} type="number" value={String(form.intervalDays)} onChange={(e) => setField('intervalDays', parseInt(e.target.value) || 0)} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input label={t('maintenance.startDate')} type="date" value={form.startDate} onChange={(e) => setField('startDate', e.target.value)} error={errors.startDate} required />

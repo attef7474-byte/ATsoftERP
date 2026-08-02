@@ -4,6 +4,7 @@ import { api } from '../../../lib/api';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { MachineInstalledPart } from '../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, LocalizedValue } from '../ui';
+import { LifeStatusBadge } from '../../maintenance/life-status-badge';
 
 const STATUS_VARIANTS: Record<string, string> = {
   ACTIVE: 'bg-green-100 text-green-800',
@@ -74,6 +75,13 @@ export function InstalledPartsCard({ machineId, requestId, title }: Props) {
         key: 'installedAt',
         header: t('common.date') || 'Date',
         render: (row: MachineInstalledPart) => row.installedAt ? new Date(row.installedAt).toLocaleDateString() : '-',
+      },
+      {
+        key: 'life',
+        header: t('maintenance.lifeStatus') || 'Life',
+        render: (row: MachineInstalledPart) => (
+          <LifeStatusBadge status={row.life?.lifeStatus || row.lifeStatus} />
+        ),
       },
       {
         key: 'status',
