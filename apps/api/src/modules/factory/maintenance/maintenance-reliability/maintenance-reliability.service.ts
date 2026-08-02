@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { DowntimeLogsService } from '../downtime-logs/downtime-logs.service';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class MaintenanceReliabilityService {
@@ -9,54 +10,88 @@ export class MaintenanceReliabilityService {
     private downtimeLogsService: DowntimeLogsService,
   ) {}
 
-  async getMttr(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string }) {
-    return this.downtimeLogsService.getMttr(query);
+  private notFound(key: string, message: string): NotFoundException {
+    return new NotFoundException({ messageKey: key, message });
   }
 
-  async getMtbf(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string }) {
-    return this.downtimeLogsService.getMtbf(query);
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
   }
 
-  async getTotalDowntime(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string }) {
-    return this.downtimeLogsService.getTotalDowntime(query);
+  private async assertMachineAccess(machineId: string, ctx: ActiveOperationalContext) {
+    const machine = await this.prisma.machine.findFirst({
+      where: { id: machineId, ...this.machineScope(ctx) },
+      select: { id: true },
+    });
+    if (!machine) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
   }
 
-  async getDowntimeByMachine(query: { dateFrom?: string; dateTo?: string; limit?: number }) {
-    return this.downtimeLogsService.getDowntimeByMachine(query);
+  private async assertLineAccess(productionLineId: string, ctx: ActiveOperationalContext) {
+    const line = await this.prisma.productionLine.findFirst({
+      where: { id: productionLineId, companyId: ctx.companyId, branchId: ctx.branchId },
+      select: { id: true },
+    });
+    if (!line) throw this.notFound('maintenance.productionLineNotFound', 'Production line not found');
   }
 
-  async getDowntimeByProductionLine(query: { dateFrom?: string; dateTo?: string }) {
-    return this.downtimeLogsService.getDowntimeByProductionLine(query);
+  async getMttr(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
+    return this.downtimeLogsService.getMttr(query, ctx);
   }
 
-  async getDowntimeByCause(query: { dateFrom?: string; dateTo?: string }) {
-    return this.downtimeLogsService.getDowntimeByCause(query);
+  async getMtbf(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
+    return this.downtimeLogsService.getMtbf(query, ctx);
   }
 
-  async getRepeatFailures(query: { dateFrom?: string; dateTo?: string; limit?: number }) {
-    return this.downtimeLogsService.getRepeatFailures(query);
+  async getTotalDowntime(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
+    return this.downtimeLogsService.getTotalDowntime(query, ctx);
   }
 
-  async getEmergencyResponseTime(query: { dateFrom?: string; dateTo?: string }) {
-    return this.downtimeLogsService.getEmergencyResponseTime(query);
+  async getDowntimeByMachine(query: { dateFrom?: string; dateTo?: string; limit?: number }, ctx: ActiveOperationalContext) {
+    return this.downtimeLogsService.getDowntimeByMachine(query, ctx);
   }
 
-  async getTopMachines(query: { dateFrom?: string; dateTo?: string; limit?: number }) {
-    return this.downtimeLogsService.getTopMachines(query);
+  async getDowntimeByProductionLine(query: { dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
+    return this.downtimeLogsService.getDowntimeByProductionLine(query, ctx);
   }
 
-  async getTopCauses(query: { dateFrom?: string; dateTo?: string }) {
-    return this.downtimeLogsService.getTopCauses(query);
+  async getDowntimeByCause(query: { dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
+    return this.downtimeLogsService.getDowntimeByCause(query, ctx);
+  }
+
+  async getRepeatFailures(query: { dateFrom?: string; dateTo?: string; limit?: number }, ctx: ActiveOperationalContext) {
+    return this.downtimeLogsService.getRepeatFailures(query, ctx);
+  }
+
+  async getEmergencyResponseTime(query: { dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
+    return this.downtimeLogsService.getEmergencyResponseTime(query, ctx);
+  }
+
+  async getTopMachines(query: { dateFrom?: string; dateTo?: string; limit?: number }, ctx: ActiveOperationalContext) {
+    return this.downtimeLogsService.getTopMachines(query, ctx);
+  }
+
+  async getTopCauses(query: { dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
+    return this.downtimeLogsService.getTopCauses(query, ctx);
   }
 
   // ─────────────── AF-AG: New Reliability KPIs ───────────────
 
-  async getRepeatFailureRate(query: { dateFrom?: string; dateTo?: string; machineId?: string; productionLineId?: string }) {
-    const where: any = { cancelledAt: null };
-    if (query.machineId) where.machineId = query.machineId;
+  async getRepeatFailureRate(query: { dateFrom?: string; dateTo?: string; machineId?: string; productionLineId?: string; operationTypeId?: string; costCenterId?: string }, ctx: ActiveOperationalContext) {
+    const machineFilter: any = this.machineScope(ctx);
+    if (query.operationTypeId) machineFilter.operationTypeId = query.operationTypeId;
+    if (query.costCenterId) machineFilter.defaultCostCenterId = query.costCenterId;
+    const where: any = { cancelledAt: null, machine: machineFilter };
+    if (query.machineId) {
+      await this.assertMachineAccess(query.machineId, ctx);
+      where.machineId = query.machineId;
+    }
     if (query.productionLineId) {
+      await this.assertLineAccess(query.productionLineId, ctx);
       const machines = await this.prisma.machine.findMany({
-        where: { productionLineId: query.productionLineId },
+        where: { productionLineId: query.productionLineId, ...this.machineScope(ctx) },
         select: { id: true },
       });
       where.machineId = { in: machines.map(m => m.id) };
@@ -79,12 +114,19 @@ export class MaintenanceReliabilityService {
     };
   }
 
-  async getAvailability(query: { dateFrom?: string; dateTo?: string; machineId?: string; productionLineId?: string }) {
-    const where: any = { cancelledAt: null };
-    if (query.machineId) where.machineId = query.machineId;
+  async getAvailability(query: { dateFrom?: string; dateTo?: string; machineId?: string; productionLineId?: string; operationTypeId?: string; costCenterId?: string }, ctx: ActiveOperationalContext) {
+    const machineFilter: any = this.machineScope(ctx);
+    if (query.operationTypeId) machineFilter.operationTypeId = query.operationTypeId;
+    if (query.costCenterId) machineFilter.defaultCostCenterId = query.costCenterId;
+    const where: any = { cancelledAt: null, machine: machineFilter };
+    if (query.machineId) {
+      await this.assertMachineAccess(query.machineId, ctx);
+      where.machineId = query.machineId;
+    }
     if (query.productionLineId) {
+      await this.assertLineAccess(query.productionLineId, ctx);
       const machines = await this.prisma.machine.findMany({
-        where: { productionLineId: query.productionLineId },
+        where: { productionLineId: query.productionLineId, ...this.machineScope(ctx) },
         select: { id: true },
       });
       where.machineId = { in: machines.map(m => m.id) };
@@ -128,8 +170,14 @@ export class MaintenanceReliabilityService {
     };
   }
 
-  async getSlaTimes(query: { dateFrom?: string; dateTo?: string; machineId?: string; productionLineId?: string }) {
-    const where: any = { deletedAt: null };
+  async getSlaTimes(query: { dateFrom?: string; dateTo?: string; machineId?: string; productionLineId?: string; operationTypeId?: string; costCenterId?: string }, ctx: ActiveOperationalContext) {
+    if (query.machineId) await this.assertMachineAccess(query.machineId, ctx);
+    if (query.productionLineId) await this.assertLineAccess(query.productionLineId, ctx);
+
+    const machineFilter: any = this.machineScope(ctx);
+    if (query.operationTypeId) machineFilter.operationTypeId = query.operationTypeId;
+    if (query.costCenterId) machineFilter.defaultCostCenterId = query.costCenterId;
+    const where: any = { deletedAt: null, machine: machineFilter };
     if (query.machineId) where.machineId = query.machineId;
     if (query.productionLineId) where.productionLineId = query.productionLineId;
     if (query.dateFrom || query.dateTo) {

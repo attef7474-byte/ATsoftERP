@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { DowntimeLogsService } from '../downtime-logs/downtime-logs.service';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class MaintenanceDashboardService {
@@ -9,47 +10,73 @@ export class MaintenanceDashboardService {
     private downtimeLogsService: DowntimeLogsService,
   ) {}
 
-  async getSummary() {
+  private notFound(key: string, message: string): NotFoundException {
+    return new NotFoundException({ messageKey: key, message });
+  }
+
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
+  }
+
+  private machineOwns(machine: { companyId?: string | null; branchId?: string | null }, ctx: ActiveOperationalContext): boolean {
+    return machine.companyId === ctx.companyId
+      && (machine.branchId === null || machine.branchId === ctx.branchId);
+  }
+
+  private personnelTenantScope(ctx: ActiveOperationalContext) {
+    const machine = this.machineScope(ctx);
+    return [
+      { requestAssignments: { some: { maintenanceRequest: { machine } } } },
+      { machineResponsibilities: { some: { machine } } },
+      { partAccountabilities: { some: { maintenanceRequest: { machine } } } },
+    ];
+  }
+
+  async getSummary(ctx: ActiveOperationalContext) {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+    const machine = this.machineScope(ctx);
 
     const [openRequests, criticalRequests, overdueItems, machinesUnderMaintenance, currentDowntime, upcomingPreventive, totalCost, totalRequests, completedRequests, avgCompletionTime, totalPersonnel, activeAssignments, totalPartAccountabilities, pendingPartReports, preventiveDueCount, preventiveOverdueCount, preventiveCompletedCount, emergencyOpenCount, emergencyCompletedCount, slaOverdue, slaEscalated, unreadNotifications] = await Promise.all([
-      this.prisma.maintenanceRequest.count({ where: { status: 'OPEN', deletedAt: null } }),
-      this.prisma.maintenanceRequest.count({ where: { priority: { in: ['HIGH', 'URGENT'] }, status: { in: ['OPEN', 'IN_PROGRESS'] }, deletedAt: null } }),
-      this.getOverdueCount(),
-      this.prisma.machine.count({ where: { status: 'UNDER_MAINTENANCE', deletedAt: null } }),
-      this.prisma.downtimeLog.count({ where: { endTime: null, cancelledAt: null } }),
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', startDate: { gte: now }, endDate: null } }),
-      this.prisma.maintenanceRequestCostEntry.aggregate({ _sum: { amount: true } }),
-      this.prisma.maintenanceRequest.count({ where: { deletedAt: null } }),
-      this.prisma.maintenanceRequest.count({ where: { status: 'COMPLETED', deletedAt: null } }),
-      this.getAvgCompletionTime(),
-      this.prisma.maintenancePersonnel.count({ where: { isActive: true } }),
-      this.prisma.maintenanceRequestAssignment.count({ where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } } }),
-      this.prisma.maintenancePartAccountability.count(),
-      this.prisma.maintenancePartAccountability.count({ where: { status: 'ASSIGNED' } }),
+      this.prisma.maintenanceRequest.count({ where: { status: 'OPEN', deletedAt: null, machine } }),
+      this.prisma.maintenanceRequest.count({ where: { priority: { in: ['HIGH', 'URGENT'] }, status: { in: ['OPEN', 'IN_PROGRESS'] }, deletedAt: null, machine } }),
+      this.getOverdueCount(ctx),
+      this.prisma.machine.count({ where: { status: 'UNDER_MAINTENANCE', deletedAt: null, companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] } }),
+      this.prisma.downtimeLog.count({ where: { endTime: null, cancelledAt: null, machine } }),
+      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', startDate: { gte: now }, endDate: null, machine } }),
+      this.prisma.maintenanceRequestCostEntry.aggregate({ where: { request: { machine } }, _sum: { amount: true } }),
+      this.prisma.maintenanceRequest.count({ where: { deletedAt: null, machine } }),
+      this.prisma.maintenanceRequest.count({ where: { status: 'COMPLETED', deletedAt: null, machine } }),
+      this.getAvgCompletionTime(ctx),
+      this.prisma.maintenancePersonnel.count({ where: { isActive: true, OR: this.personnelTenantScope(ctx) } }),
+      this.prisma.maintenanceRequestAssignment.count({ where: { status: { notIn: ['COMPLETED', 'CANCELLED'] }, maintenanceRequest: { machine } } }),
+      this.prisma.maintenancePartAccountability.count({ where: { maintenanceRequest: { machine } } }),
+      this.prisma.maintenancePartAccountability.count({ where: { status: 'ASSIGNED', maintenanceRequest: { machine } } }),
       // --- Preventive / Emergency KPIs ---
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', startDate: { lte: now } } }),
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', startDate: { lt: now } } }),
-      this.prisma.maintenanceRequest.count({ where: { type: 'PREVENTIVE', status: 'COMPLETED', deletedAt: null } }),
-      this.prisma.maintenanceRequest.count({ where: { isEmergency: true, status: 'OPEN', deletedAt: null } }),
-      this.prisma.maintenanceRequest.count({ where: { isEmergency: true, status: 'COMPLETED', deletedAt: null } }),
-      this.prisma.maintenanceRequest.count({ where: { deletedAt: null, slaStatus: 'OVERDUE' } }),
-      this.prisma.maintenanceRequest.count({ where: { deletedAt: null, escalationLevel: { not: 'NONE' } } }),
+      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', startDate: { lte: now }, machine } }),
+      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', startDate: { lt: now }, endDate: null, machine } }),
+      this.prisma.maintenanceRequest.count({ where: { type: 'PREVENTIVE', status: 'COMPLETED', deletedAt: null, machine } }),
+      this.prisma.maintenanceRequest.count({ where: { isEmergency: true, status: 'OPEN', deletedAt: null, machine } }),
+      this.prisma.maintenanceRequest.count({ where: { isEmergency: true, status: 'COMPLETED', deletedAt: null, machine } }),
+      this.prisma.maintenanceRequest.count({ where: { deletedAt: null, slaStatus: 'OVERDUE', machine } }),
+      this.prisma.maintenanceRequest.count({ where: { deletedAt: null, escalationLevel: { not: 'NONE' }, machine } }),
       this.prisma.notification.count({ where: { read: false } }),
     ]);
 
     const totalCostThisMonth = await this.prisma.maintenanceRequestCostEntry.aggregate({
       _sum: { amount: true },
-      where: { incurredAt: { gte: thirtyDaysAgo } },
+      where: { incurredAt: { gte: thirtyDaysAgo }, request: { machine } },
     });
 
     const [mttr, mtbf, totalDowntime, topMachines, topCauses] = await Promise.all([
-      this.downtimeLogsService.getMttr({}),
-      this.downtimeLogsService.getMtbf({}),
-      this.downtimeLogsService.getTotalDowntime({}),
-      this.downtimeLogsService.getTopMachines({ limit: 5 }),
-      this.downtimeLogsService.getTopCauses({}),
+      this.downtimeLogsService.getMttr({}, ctx),
+      this.downtimeLogsService.getMtbf({}, ctx),
+      this.downtimeLogsService.getTotalDowntime({}, ctx),
+      this.downtimeLogsService.getTopMachines({ limit: 5 }, ctx),
+      this.downtimeLogsService.getTopCauses({}, ctx),
     ]);
 
     return {
@@ -88,23 +115,25 @@ export class MaintenanceDashboardService {
     };
   }
 
-  private async getOverdueCount() {
+  private async getOverdueCount(ctx: ActiveOperationalContext) {
     const now = new Date();
+    const machine = this.machineScope(ctx);
     const [overdueRequests, overdueSchedules] = await Promise.all([
       this.prisma.maintenanceRequest.count({
-        where: { status: { in: ['OPEN', 'IN_PROGRESS'] }, endDate: { lt: now }, deletedAt: null },
+        where: { status: { in: ['OPEN', 'IN_PROGRESS'] }, endDate: { lt: now }, deletedAt: null, machine },
       }),
       this.prisma.maintenanceSchedule.count({
-        where: { status: 'ACTIVE', startDate: { lt: now }, endDate: null },
+        where: { status: 'ACTIVE', startDate: { lt: now }, endDate: null, machine },
       }),
     ]);
     return overdueRequests + overdueSchedules;
   }
 
-  private async getAvgCompletionTime() {
+  private async getAvgCompletionTime(ctx: ActiveOperationalContext) {
     const completed = await this.prisma.maintenanceRequest.findMany({
-      where: { status: 'COMPLETED', startDate: { not: null }, endDate: { not: null }, deletedAt: null },
+      where: { status: 'COMPLETED', startDate: { not: null }, endDate: { not: null }, deletedAt: null, machine: this.machineScope(ctx) },
       select: { startDate: true, endDate: true },
+      take: 1000,
     });
     if (completed.length === 0) return 0;
     const totalHours = completed.reduce((sum, r) => {
@@ -114,12 +143,15 @@ export class MaintenanceDashboardService {
     return Math.round((totalHours / completed.length) * 100) / 100;
   }
 
-  async getOpenRequests(query: { page?: number; limit?: number; priority?: string; machineId?: string; assignedToId?: string }) {
+  async getOpenRequests(query: { page?: number; limit?: number; priority?: string; machineId?: string; assignedToId?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
-    const where: any = { status: 'OPEN', deletedAt: null };
+    const where: any = { status: 'OPEN', deletedAt: null, machine: this.machineScope(ctx) };
     if (query.priority) where.priority = query.priority;
-    if (query.machineId) where.machineId = query.machineId;
+    if (query.machineId) {
+      await this.assertMachineAccess(query.machineId, ctx);
+      where.machineId = query.machineId;
+    }
     if (query.assignedToId) where.assignedToId = query.assignedToId;
 
     const [data, total] = await Promise.all([
@@ -136,10 +168,10 @@ export class MaintenanceDashboardService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getCritical(query: { page?: number; limit?: number }) {
+  async getCritical(query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
-    const where = { priority: { in: ['HIGH', 'URGENT'] }, status: { in: ['OPEN', 'IN_PROGRESS'] }, deletedAt: null };
+    const where = { priority: { in: ['HIGH', 'URGENT'] }, status: { in: ['OPEN', 'IN_PROGRESS'] }, deletedAt: null, machine: this.machineScope(ctx) };
 
     const [data, total] = await Promise.all([
       this.prisma.maintenanceRequest.findMany({
@@ -155,41 +187,43 @@ export class MaintenanceDashboardService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getOverdue(query: { page?: number; limit?: number }) {
+  async getOverdue(query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const now = new Date();
+    const machine = this.machineScope(ctx);
 
-    const [overdueRequests, overdueSchedules] = await Promise.all([
+    const overdueRequestsQuery = { where: { status: { in: ['OPEN', 'IN_PROGRESS'] }, endDate: { lt: now }, deletedAt: null, machine }, skip: (page - 1) * limit, take: limit, orderBy: { endDate: 'asc' as 'asc' } };
+    const overdueSchedulesQuery = { where: { status: 'ACTIVE', startDate: { lt: now }, endDate: null, machine }, skip: (page - 1) * limit, take: limit, orderBy: { startDate: 'asc' as 'asc' } };
+
+    const [overdueRequestsList, overdueSchedulesList] = await Promise.all([
       this.prisma.maintenanceRequest.findMany({
-        where: { status: { in: ['OPEN', 'IN_PROGRESS'] }, endDate: { lt: now }, deletedAt: null },
-        skip: (page - 1) * limit, take: limit, orderBy: { endDate: 'asc' },
+        ...overdueRequestsQuery,
         include: {
           machine: { select: { id: true, code: true, name: true } },
           assignedTo: { select: { id: true, name: true } },
         },
       }),
       this.prisma.maintenanceSchedule.findMany({
-        where: { status: 'ACTIVE', startDate: { lt: now } },
-        skip: (page - 1) * limit, take: limit, orderBy: { startDate: 'asc' },
+        ...overdueSchedulesQuery,
         include: { machine: { select: { id: true, code: true, name: true } } },
       }),
     ]);
 
-    const total = overdueRequests.length + overdueSchedules.length;
+    const total = overdueRequestsList.length + overdueSchedulesList.length;
     return {
       data: {
-        requests: overdueRequests,
-        schedules: overdueSchedules,
+        requests: overdueRequestsList,
+        schedules: overdueSchedulesList,
       },
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
 
-  async getMachinesUnderMaintenance(query: { page?: number; limit?: number }) {
+  async getMachinesUnderMaintenance(query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
-    const where = { status: 'UNDER_MAINTENANCE', deletedAt: null };
+    const where = { status: 'UNDER_MAINTENANCE', deletedAt: null, companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] };
 
     const [data, total] = await Promise.all([
       this.prisma.machine.findMany({
@@ -201,13 +235,17 @@ export class MaintenanceDashboardService {
       }),
       this.prisma.machine.count({ where }),
     ]);
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    const enriched = data.map((m: any) => ({
+      ...m,
+      activeRequests: m._count?.maintenanceReqs ?? 0,
+    }));
+    return { data: enriched, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getCurrentDowntime(query: { page?: number; limit?: number }) {
+  async getCurrentDowntime(query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
-    const where = { endTime: null, cancelledAt: null };
+    const where = { endTime: null, cancelledAt: null, machine: this.machineScope(ctx) };
 
     const [data, total] = await Promise.all([
       this.prisma.downtimeLog.findMany({
@@ -222,12 +260,12 @@ export class MaintenanceDashboardService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getUpcomingPreventive(query: { page?: number; limit?: number }) {
+  async getUpcomingPreventive(query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const now = new Date();
     const thirtyDaysFromNow = new Date(now.getTime() + 30 * 86400000);
-    const where = { status: 'ACTIVE', startDate: { gte: now, lte: thirtyDaysFromNow } };
+    const where = { status: 'ACTIVE', startDate: { gte: now, lte: thirtyDaysFromNow }, machine: this.machineScope(ctx) };
 
     const [data, total] = await Promise.all([
       this.prisma.maintenanceSchedule.findMany({
@@ -241,30 +279,33 @@ export class MaintenanceDashboardService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getAccountabilityKpis() {
+  async getAccountabilityKpis(ctx: ActiveOperationalContext) {
+    const machine = this.machineScope(ctx);
+    const personnelScope = { OR: this.personnelTenantScope(ctx) };
+
     const [personnelByRole, topAssignees, machinesWithResponsibilityCount, activeResponsibilities, partAccountabilityByStatus, topPersonnelPartAccountability] = await Promise.all([
-      this.prisma.maintenancePersonnel.groupBy({ by: ['role'], _count: true, where: { isActive: true } }),
+      this.prisma.maintenancePersonnel.groupBy({ by: ['role'], _count: true, where: { isActive: true, ...personnelScope } }),
       this.prisma.maintenanceRequestAssignment.groupBy({
         by: ['maintenancePersonnelId'],
         _count: true,
-        where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+        where: { status: { notIn: ['COMPLETED', 'CANCELLED'] }, maintenanceRequest: { machine } },
         orderBy: { _count: { maintenancePersonnelId: 'desc' } },
         take: 10,
       }),
       this.prisma.machineResponsibilityAssignment.groupBy({
         by: ['machineId'],
         _count: true,
-        where: { status: 'ACTIVE' },
+        where: { status: 'ACTIVE', machine },
         orderBy: { _count: { machineId: 'desc' } },
         take: 10,
       }),
-      this.prisma.machineResponsibilityAssignment.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.maintenancePartAccountability.groupBy({ by: ['status'], _count: true }),
+      this.prisma.machineResponsibilityAssignment.count({ where: { status: 'ACTIVE', machine } }),
+      this.prisma.maintenancePartAccountability.groupBy({ by: ['status'], _count: true, where: { maintenanceRequest: { machine } } }),
       this.prisma.maintenancePartAccountability.groupBy({
         by: ['maintenancePersonnelId'],
         _count: true,
         _sum: { quantity: true },
-        where: { status: { notIn: ['CANCELLED'] } },
+        where: { status: { notIn: ['CANCELLED'] }, maintenanceRequest: { machine } },
         orderBy: { _count: { maintenancePersonnelId: 'desc' } },
         take: 10,
       }),
@@ -316,44 +357,65 @@ export class MaintenanceDashboardService {
     };
   }
 
-  async getCostKpis(query: { year?: number; month?: number }) {
+  async getCostKpis(query: { year?: number; month?: number }, ctx: ActiveOperationalContext) {
     const now = new Date();
     const year = query.year || now.getFullYear();
     const month = query.month || now.getMonth() + 1;
+    const machine = this.machineScope(ctx);
 
     const startOfMonth = new Date(year, month - 1, 1);
     const startOfNextMonth = new Date(year, month, 1);
 
     const [totalCost, monthlyCost, byType, byRequest] = await Promise.all([
-      this.prisma.maintenanceRequestCostEntry.aggregate({ _sum: { amount: true } }),
+      this.prisma.maintenanceRequestCostEntry.aggregate({ where: { request: { machine } }, _sum: { amount: true } }),
       this.prisma.maintenanceRequestCostEntry.aggregate({
+        where: { incurredAt: { gte: startOfMonth, lt: startOfNextMonth }, request: { machine } },
         _sum: { amount: true },
-        where: { incurredAt: { gte: startOfMonth, lt: startOfNextMonth } },
       }),
       this.prisma.maintenanceRequestCostEntry.groupBy({
         by: ['type'],
+        where: { request: { machine } },
         _sum: { amount: true },
         _count: true,
       }),
       this.prisma.maintenanceRequestCostEntry.groupBy({
         by: ['requestId'],
+        where: { request: { machine } },
         _sum: { amount: true },
         orderBy: { _sum: { amount: 'desc' } },
         take: 10,
       }),
     ]);
 
+    const requestIds = byRequest.map(r => r.requestId);
+    const requests = requestIds.length > 0
+      ? await this.prisma.maintenanceRequest.findMany({
+          where: { id: { in: requestIds }, machine },
+          select: { id: true, requestNumber: true, title: true, machine: { select: { id: true, code: true, name: true } } },
+        })
+      : [];
+    const requestMap = new Map(requests.map(r => [r.id, r]));
+
     return {
       totalCost: totalCost._sum.amount || 0,
       monthlyCost: monthlyCost._sum.amount || 0,
       byType: byType.map(t => ({ type: t.type, total: t._sum.amount || 0, count: t._count })),
-      topRequestsByCost: byRequest.map(r => ({ requestId: r.requestId, total: r._sum.amount || 0 })),
+      topRequestsByCost: byRequest.map(r => {
+        const req = requestMap.get(r.requestId);
+        return {
+          requestId: r.requestId,
+          requestNumber: req?.requestNumber ?? null,
+          title: req?.title ?? null,
+          machineName: req?.machine?.name ?? null,
+          total: r._sum.amount || 0,
+        };
+      }),
     };
   }
 
-  async getRecentGeneratedPreventive(limit = 5) {
+  async getRecentGeneratedPreventive(limit = 5, ctx: ActiveOperationalContext) {
     return this.prisma.maintenanceRequest.findMany({
-      where: { type: 'PREVENTIVE', description: { contains: 'Auto-generated' }, deletedAt: null },
+      where: { type: 'PREVENTIVE', description: { contains: 'Auto-generated' }, deletedAt: null, machine: this.machineScope(ctx) },
       orderBy: { createdAt: 'desc' },
       take: limit,
       select: {
@@ -363,9 +425,9 @@ export class MaintenanceDashboardService {
     });
   }
 
-  async getRecentEmergencyRequests(limit = 5) {
+  async getRecentEmergencyRequests(limit = 5, ctx: ActiveOperationalContext) {
     return this.prisma.maintenanceRequest.findMany({
-      where: { isEmergency: true, deletedAt: null },
+      where: { isEmergency: true, deletedAt: null, machine: this.machineScope(ctx) },
       orderBy: { createdAt: 'desc' },
       take: limit,
       select: {
@@ -375,10 +437,10 @@ export class MaintenanceDashboardService {
     });
   }
 
-  async getSlaOverdue(query: { page?: number; limit?: number }) {
+  async getSlaOverdue(query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
-    const where = { deletedAt: null, slaStatus: 'OVERDUE' };
+    const where = { deletedAt: null, slaStatus: 'OVERDUE', machine: this.machineScope(ctx) };
     const [data, total] = await Promise.all([
       this.prisma.maintenanceRequest.findMany({
         where, skip: (page - 1) * limit, take: limit, orderBy: { updatedAt: 'desc' },
@@ -392,10 +454,10 @@ export class MaintenanceDashboardService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getSlaEscalated(query: { page?: number; limit?: number }) {
+  async getSlaEscalated(query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
-    const where = { deletedAt: null, escalationLevel: { not: 'NONE' } };
+    const where = { deletedAt: null, escalationLevel: { not: 'NONE' }, machine: this.machineScope(ctx) };
     const [data, total] = await Promise.all([
       this.prisma.maintenanceRequest.findMany({
         where, skip: (page - 1) * limit, take: limit, orderBy: { lastEscalatedAt: 'desc' },
@@ -407,6 +469,14 @@ export class MaintenanceDashboardService {
       this.prisma.maintenanceRequest.count({ where }),
     ]);
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  private async assertMachineAccess(machineId: string, ctx: ActiveOperationalContext) {
+    const machine = await this.prisma.machine.findFirst({
+      where: { id: machineId, ...this.machineScope(ctx) },
+      select: { id: true },
+    });
+    if (!machine) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
   }
 
   private flattenPersonnel(p: any) {

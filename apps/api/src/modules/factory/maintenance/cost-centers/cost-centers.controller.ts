@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CostCentersService } from './cost-centers.service';
 import { CreateCostCenterDto } from './dto/create-cost-center.dto';
@@ -58,7 +58,7 @@ export class CostCentersController {
   @Delete(':id')
   @Permissions('costCenters:delete')
   @ApiOperation({ summary: 'Soft delete cost center' })
-  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @CurrentUser('sub') userId: string) {
+  remove(@Param('id') id: string, @CurrentUser('sub') userId: string) {
     return this.service.remove(id, userId);
   }
 

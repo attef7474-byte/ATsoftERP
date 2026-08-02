@@ -11,7 +11,7 @@ interface CostBreakdown {
   totalCost: number;
   monthlyCost: number;
   byType: { type: string; total: number }[];
-  topRequests: MaintenanceRequest[];
+  topRequestsByCost: MaintenanceRequest[];
 }
 
 export default function CostKpisPage() {
@@ -70,7 +70,7 @@ export default function CostKpisPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-gray-500">{t('maintenanceDashboard.topCostRequests')}</p>
-            <p className="text-2xl font-bold mt-1">{data?.topRequests?.length || 0}</p>
+            <p className="text-2xl font-bold mt-1">{data?.topRequestsByCost?.length || 0}</p>
           </CardContent>
         </Card>
       </div>
@@ -99,11 +99,11 @@ export default function CostKpisPage() {
           </CardContent>
         </Card>
       )}
-      {data?.topRequests && data.topRequests.length > 0 && (
+      {data?.topRequestsByCost && data.topRequestsByCost.length > 0 && (
         <Card>
           <CardHeader><h2 className="text-lg font-semibold">{t('maintenanceDashboard.topCostRequests')}</h2></CardHeader>
           <CardContent>
-            <DataTable columns={requestColumns} data={data.topRequests} keyExtractor={(r: MaintenanceRequest) => r.id} onRowClick={(item) => router.push(`/admin/maintenance/requests/${item.id}`)} />
+            <DataTable columns={requestColumns} data={data.topRequestsByCost} keyExtractor={(r: MaintenanceRequest) => r.id} onRowClick={(item) => router.push(`/admin/maintenance/requests/${item.id}`)} />
           </CardContent>
         </Card>
       )}

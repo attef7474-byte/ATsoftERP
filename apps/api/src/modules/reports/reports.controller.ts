@@ -3,6 +3,8 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger'
 import { Response } from 'express';
 import { ReportsService } from './reports.service';
 import { MaintenanceReportFilterDto, InventoryReportFilterDto, BarcodeReportFilterDto } from './dto/report-filter.dto';
+import { CurrentActiveContext } from '../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -17,36 +19,36 @@ export class ReportsController {
   @Get('maintenance/overview')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Maintenance overview report' })
-  getMaintenanceOverview(@Query() filters: MaintenanceReportFilterDto) {
-    return this.service.getMaintenanceOverview(filters);
+  getMaintenanceOverview(@Query() filters: MaintenanceReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getMaintenanceOverview(filters, ctx);
   }
 
   @Get('maintenance/requests')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Maintenance requests report' })
-  getMaintenanceRequests(@Query() filters: MaintenanceReportFilterDto) {
-    return this.service.getMaintenanceRequestsReport(filters);
+  getMaintenanceRequests(@Query() filters: MaintenanceReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getMaintenanceRequestsReport(filters, ctx);
   }
 
   @Get('maintenance/downtime')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Machine downtime report' })
-  getMachineDowntime(@Query() filters: MaintenanceReportFilterDto) {
-    return this.service.getMachineDowntimeReport(filters);
+  getMachineDowntime(@Query() filters: MaintenanceReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getMachineDowntimeReport(filters, ctx);
   }
 
   @Get('maintenance/costs')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Maintenance costs / parts usage report' })
-  getMaintenanceCosts(@Query() filters: MaintenanceReportFilterDto) {
-    return this.service.getMaintenanceCostsReport(filters);
+  getMaintenanceCosts(@Query() filters: MaintenanceReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getMaintenanceCostsReport(filters, ctx);
   }
 
   @Get('maintenance/schedules')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Preventive schedule due report' })
-  getPreventiveSchedules(@Query() filters: MaintenanceReportFilterDto) {
-    return this.service.getPreventiveSchedulesReport(filters);
+  getPreventiveSchedules(@Query() filters: MaintenanceReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getPreventiveSchedulesReport(filters, ctx);
   }
 
   @Get('inventory/overview')
@@ -147,29 +149,29 @@ export class ReportsController {
   @Get('machine-log')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Machine activity log report' })
-  getMachineLog(@Query() filters: any) {
-    return this.service.getMachineLogReport(filters);
+  getMachineLog(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getMachineLogReport(filters, ctx);
   }
 
   @Get('parts-usage')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Parts usage report' })
-  getPartsUsage(@Query() filters: any) {
-    return this.service.getPartsUsageReport(filters);
+  getPartsUsage(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getPartsUsageReport(filters, ctx);
   }
 
   @Get('upcoming-preventive')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Upcoming preventive maintenance report' })
-  getUpcomingPreventive(@Query() filters: any) {
-    return this.service.getUpcomingPreventiveReport(filters);
+  getUpcomingPreventive(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getUpcomingPreventiveReport(filters, ctx);
   }
 
   @Get('overdue-preventive')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Overdue preventive maintenance report' })
-  getOverduePreventive(@Query() filters: any) {
-    return this.service.getOverduePreventiveReport(filters);
+  getOverduePreventive(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getOverduePreventiveReport(filters, ctx);
   }
 
   @Get('low-stock')
@@ -271,15 +273,15 @@ export class ReportsController {
   @Get('maintenance/costs/analysis')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Consolidated cost analysis with trends' })
-  getCostAnalysis(@Query() filters: MaintenanceReportFilterDto) {
-    return this.service.getCostAnalysis(filters);
+  getCostAnalysis(@Query() filters: MaintenanceReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getCostAnalysis(filters, ctx);
   }
 
   @Get('maintenance/costs/by-machine')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Maintenance cost by machine' })
-  getCostByMachine(@Query() filters: MaintenanceReportFilterDto) {
-    return this.service.getCostByMachine(filters);
+  getCostByMachine(@Query() filters: MaintenanceReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getCostByMachine(filters, ctx);
   }
 
   // ─────────────── AF-AG: Schedule Compliance ───────────────
@@ -287,8 +289,8 @@ export class ReportsController {
   @Get('maintenance/schedule-compliance')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'PM schedule compliance rate' })
-  getScheduleCompliance(@Query() filters: MaintenanceReportFilterDto) {
-    return this.service.getScheduleCompliance(filters);
+  getScheduleCompliance(@Query() filters: MaintenanceReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getScheduleCompliance(filters, ctx);
   }
 
   // ─────────────── AF-AG: KPI Overview ───────────────
@@ -296,8 +298,8 @@ export class ReportsController {
   @Get('maintenance/kpi-overview')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Consolidated maintenance KPIs overview' })
-  getKpiOverview(@Query() filters: MaintenanceReportFilterDto) {
-    return this.service.getKpiOverview(filters);
+  getKpiOverview(@Query() filters: MaintenanceReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getKpiOverview(filters, ctx);
   }
 
   // ─────────────── AF-AG: Backlog Trend ───────────────
@@ -305,21 +307,22 @@ export class ReportsController {
   @Get('maintenance/backlog-trend')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Open request backlog by month' })
-  getBacklogTrend(@Query() filters: MaintenanceReportFilterDto) {
-    return this.service.getBacklogTrend(filters);
+  getBacklogTrend(@Query() filters: MaintenanceReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getBacklogTrend(filters, ctx);
   }
 
   @Get('export/csv/*endpoint')
   @Permissions('reports.maintenance:read', 'reports.inventory:read', 'reports.barcodes:read')
   @ApiOperation({ summary: 'Export report as CSV' })
-  async exportCsv(@Param('endpoint') endpoint: string, @Query() filters: any, @Res() res: Response) {
-    const csv = await this.service.exportCsv(endpoint, filters);
+  async exportCsv(@Param('endpoint') endpoint: string | string[], @Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext, @Res() res: Response) {
+    const normalized = Array.isArray(endpoint) ? endpoint.join('/') : endpoint;
+    const csv = await this.service.exportCsv(normalized, filters, ctx);
     if (!csv) {
       res.status(404).json({ message: 'No data to export' });
       return;
     }
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${endpoint.replace(/\//g, '-')}_${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${normalized.replace(/\//g, '-')}_${new Date().toISOString().slice(0, 10)}.csv"`);
     res.send(csv);
   }
 
@@ -327,13 +330,14 @@ export class ReportsController {
   @Permissions('reports.maintenance:read', 'reports.inventory:read', 'reports.barcodes:read')
   @ApiOperation({ summary: 'Export report as Excel (.xlsx)' })
   @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-  async exportExcel(@Param('endpoint') endpoint: string, @Query() filters: any, @Res() res: Response) {
-    const buffer = await this.service.exportExcel(endpoint, filters);
+  async exportExcel(@Param('endpoint') endpoint: string | string[], @Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext, @Res() res: Response) {
+    const normalized = Array.isArray(endpoint) ? endpoint.join('/') : endpoint;
+    const buffer = await this.service.exportExcel(normalized, filters, ctx);
     if (!buffer) {
       res.status(404).json({ message: 'No data to export' });
       return;
     }
-    res.setHeader('Content-Disposition', `attachment; filename="${endpoint.replace(/\//g, '-')}_${new Date().toISOString().slice(0, 10)}.xlsx"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${normalized.replace(/\//g, '-')}_${new Date().toISOString().slice(0, 10)}.xlsx"`);
     res.send(buffer);
   }
 }

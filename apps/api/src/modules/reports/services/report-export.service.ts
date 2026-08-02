@@ -6,6 +6,7 @@ import { InventoryReportsService } from './inventory-reports.service';
 import { BarcodeReportsService } from './barcode-reports.service';
 import { SystemReportsService } from './system-reports.service';
 import { AuditReportsService } from './audit-reports.service';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class ReportExportService {
@@ -18,13 +19,13 @@ export class ReportExportService {
     private readonly auditReportsService: AuditReportsService,
   ) {}
 
-  private async getReportData(endpoint: string, filters: any): Promise<any> {
+  private async getReportData(endpoint: string, filters: any, ctx: ActiveOperationalContext): Promise<any> {
     switch (endpoint) {
-      case 'maintenance/overview': return this.dashboardReportsService.getMaintenanceOverview(filters);
-      case 'maintenance/requests': return this.maintenanceReportsService.getMaintenanceRequestsReport(filters);
-      case 'maintenance/downtime': return this.maintenanceReportsService.getMachineDowntimeReport(filters);
-      case 'maintenance/costs': return this.maintenanceReportsService.getMaintenanceCostsReport(filters);
-      case 'maintenance/schedules': return this.maintenanceReportsService.getPreventiveSchedulesReport(filters);
+      case 'maintenance/overview': return this.dashboardReportsService.getMaintenanceOverview(filters, ctx);
+      case 'maintenance/requests': return this.maintenanceReportsService.getMaintenanceRequestsReport(filters, ctx);
+      case 'maintenance/downtime': return this.maintenanceReportsService.getMachineDowntimeReport(filters, ctx);
+      case 'maintenance/costs': return this.maintenanceReportsService.getMaintenanceCostsReport(filters, ctx);
+      case 'maintenance/schedules': return this.maintenanceReportsService.getPreventiveSchedulesReport(filters, ctx);
       case 'inventory/overview': return this.dashboardReportsService.getInventoryOverview(filters);
       case 'inventory/balances': return this.inventoryReportsService.getInventoryBalanceReport(filters);
       case 'inventory/count-variance': return this.inventoryReportsService.getInventoryCountVarianceReport(filters);
@@ -38,22 +39,22 @@ export class ReportExportService {
       case 'audit': return this.auditReportsService.getAuditTrailReport(filters);
       case 'user-activity': return this.auditReportsService.getUserActivityReport(filters);
       case 'notifications': return this.auditReportsService.getNotificationsReport(filters);
-      case 'machine-log': return this.maintenanceReportsService.getMachineLogReport(filters);
-      case 'parts-usage': return this.maintenanceReportsService.getPartsUsageReport(filters);
-      case 'upcoming-preventive': return this.maintenanceReportsService.getUpcomingPreventiveReport(filters);
-      case 'overdue-preventive': return this.maintenanceReportsService.getOverduePreventiveReport(filters);
+      case 'machine-log': return this.maintenanceReportsService.getMachineLogReport(filters, ctx);
+      case 'parts-usage': return this.maintenanceReportsService.getPartsUsageReport(filters, ctx);
+      case 'upcoming-preventive': return this.maintenanceReportsService.getUpcomingPreventiveReport(filters, ctx);
+      case 'overdue-preventive': return this.maintenanceReportsService.getOverduePreventiveReport(filters, ctx);
       case 'low-stock': return this.systemReportsService.getLowStockReport(filters);
-      case 'maintenance/costs/analysis': return this.maintenanceReportsService.getCostAnalysis(filters);
-      case 'maintenance/costs/by-machine': return this.maintenanceReportsService.getCostByMachine(filters);
-      case 'maintenance/schedule-compliance': return this.maintenanceReportsService.getScheduleCompliance(filters);
-      case 'maintenance/kpi-overview': return this.maintenanceReportsService.getKpiOverview(filters);
-      case 'maintenance/backlog-trend': return this.maintenanceReportsService.getBacklogTrend(filters);
+      case 'maintenance/costs/analysis': return this.maintenanceReportsService.getCostAnalysis(filters, ctx);
+      case 'maintenance/costs/by-machine': return this.maintenanceReportsService.getCostByMachine(filters, ctx);
+      case 'maintenance/schedule-compliance': return this.maintenanceReportsService.getScheduleCompliance(filters, ctx);
+      case 'maintenance/kpi-overview': return this.maintenanceReportsService.getKpiOverview(filters, ctx);
+      case 'maintenance/backlog-trend': return this.maintenanceReportsService.getBacklogTrend(filters, ctx);
       default: return null;
     }
   }
 
-  async exportCsv(endpoint: string, filters: any): Promise<string> {
-    const data = await this.getReportData(endpoint, filters);
+  async exportCsv(endpoint: string, filters: any, ctx: ActiveOperationalContext): Promise<string> {
+    const data = await this.getReportData(endpoint, filters, ctx);
     if (!data) return '';
     const rows: any[] = data?.rows || [];
     if (!rows.length) return '';
@@ -65,8 +66,8 @@ export class ReportExportService {
     return '\uFEFF' + csv;
   }
 
-  async exportExcel(endpoint: string, filters: any): Promise<Buffer | null> {
-    const data = await this.getReportData(endpoint, filters);
+  async exportExcel(endpoint: string, filters: any, ctx: ActiveOperationalContext): Promise<Buffer | null> {
+    const data = await this.getReportData(endpoint, filters, ctx);
     if (!data) return null;
     const rows: any[] = data?.rows || [];
     if (!rows.length) return null;

@@ -462,39 +462,57 @@ export class DowntimeLogsService {
 
   // ── Reliability KPI Methods ──
 
-  async getMttr(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string }) {
-    const where: any = { endTime: { not: null }, cancelledAt: null, durationMinutes: { not: null } };
-    if (query.machineId) where.machineId = query.machineId;
-    if (query.productionLineId) {
+  async getMttr(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string; days?: number }, ctx: ActiveOperationalContext) {
+    const resolved: any = { ...query };
+    if (resolved.days && !resolved.dateFrom && !resolved.dateTo) {
+      const from = new Date(Date.now() - resolved.days * 86400000);
+      resolved.dateFrom = from.toISOString();
+      resolved.dateTo = new Date().toISOString();
+    }
+    const where: any = { endTime: { not: null }, cancelledAt: null, durationMinutes: { not: null }, machine: this.machineScope(ctx) };
+    if (resolved.machineId) {
+      const machine = await this.prisma.machine.findUnique({ where: { id: resolved.machineId } });
+      if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+      where.machineId = resolved.machineId;
+    }
+    if (resolved.productionLineId) {
       const machines = await this.prisma.machine.findMany({
-        where: { productionLineId: query.productionLineId },
+        where: { productionLineId: resolved.productionLineId, ...this.machineScope(ctx) },
         select: { id: true },
       });
       where.machineId = { in: machines.map(m => m.id) };
     }
-    if (query.dateFrom || query.dateTo) {
+    if (resolved.dateFrom || resolved.dateTo) {
       where.endTime = {};
-      if (query.dateFrom) where.endTime.gte = new Date(query.dateFrom);
-      if (query.dateTo) where.endTime.lte = new Date(query.dateTo);
+      if (resolved.dateFrom) where.endTime.gte = new Date(resolved.dateFrom);
+      if (resolved.dateTo) where.endTime.lte = new Date(resolved.dateTo);
     }
     const result = await this.prisma.downtimeLog.aggregate({
       where,
       _avg: { durationMinutes: true },
+      _sum: { durationMinutes: true },
       _count: true,
     });
     return {
       mttrMinutes: result._avg.durationMinutes || 0,
       mttrHours: (result._avg.durationMinutes || 0) / 60,
       totalEvents: result._count,
+      totalRepairs: result._count,
+      totalDowntimeHours: Math.round(((result._sum.durationMinutes || 0) / 60) * 100) / 100,
+      period: resolved.days ? `${resolved.days}d` : null,
     };
   }
 
-  async getMtbf(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string }) {
-    const where: any = { cancelledAt: null };
-    if (query.machineId) where.machineId = query.machineId;
+  async getMtbf(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
+    const where: any = { cancelledAt: null, machine: this.machineScope(ctx) };
+    if (query.machineId) {
+      const machine = await this.prisma.machine.findUnique({ where: { id: query.machineId } });
+      if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+      where.machineId = query.machineId;
+    }
     if (query.productionLineId) {
       const machines = await this.prisma.machine.findMany({
-        where: { productionLineId: query.productionLineId },
+        where: { productionLineId: query.productionLineId, ...this.machineScope(ctx) },
         select: { id: true },
       });
       where.machineId = { in: machines.map(m => m.id) };
@@ -521,12 +539,16 @@ export class DowntimeLogsService {
     };
   }
 
-  async getTotalDowntime(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string }) {
-    const where: any = { cancelledAt: null };
-    if (query.machineId) where.machineId = query.machineId;
+  async getTotalDowntime(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
+    const where: any = { cancelledAt: null, machine: this.machineScope(ctx) };
+    if (query.machineId) {
+      const machine = await this.prisma.machine.findUnique({ where: { id: query.machineId } });
+      if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+      where.machineId = query.machineId;
+    }
     if (query.productionLineId) {
       const machines = await this.prisma.machine.findMany({
-        where: { productionLineId: query.productionLineId },
+        where: { productionLineId: query.productionLineId, ...this.machineScope(ctx) },
         select: { id: true },
       });
       where.machineId = { in: machines.map(m => m.id) };
@@ -548,8 +570,8 @@ export class DowntimeLogsService {
     };
   }
 
-  async getDowntimeByMachine(query: { dateFrom?: string; dateTo?: string; limit?: number }) {
-    const where: any = { cancelledAt: null };
+  async getDowntimeByMachine(query: { dateFrom?: string; dateTo?: string; limit?: number }, ctx: ActiveOperationalContext) {
+    const where: any = { cancelledAt: null, machine: this.machineScope(ctx) };
     if (query.dateFrom || query.dateTo) {
       where.startTime = {};
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
@@ -576,8 +598,8 @@ export class DowntimeLogsService {
     }));
   }
 
-  async getDowntimeByProductionLine(query: { dateFrom?: string; dateTo?: string }) {
-    const where: any = { cancelledAt: null };
+  async getDowntimeByProductionLine(query: { dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
+    const where: any = { cancelledAt: null, machine: this.machineScope(ctx) };
     if (query.dateFrom || query.dateTo) {
       where.startTime = {};
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
@@ -615,8 +637,8 @@ export class DowntimeLogsService {
       .sort((a, b) => b.totalMinutes - a.totalMinutes);
   }
 
-  async getDowntimeByCause(query: { dateFrom?: string; dateTo?: string }) {
-    const where: any = { cancelledAt: null, failureCause: { not: null } };
+  async getDowntimeByCause(query: { dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
+    const where: any = { cancelledAt: null, failureCause: { not: null }, machine: this.machineScope(ctx) };
     if (query.dateFrom || query.dateTo) {
       where.startTime = {};
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
@@ -638,8 +660,8 @@ export class DowntimeLogsService {
     }));
   }
 
-  async getRepeatFailures(query: { dateFrom?: string; dateTo?: string; limit?: number }) {
-    const where: any = { isRepeatFailure: true, cancelledAt: null };
+  async getRepeatFailures(query: { dateFrom?: string; dateTo?: string; limit?: number }, ctx: ActiveOperationalContext) {
+    const where: any = { isRepeatFailure: true, cancelledAt: null, machine: this.machineScope(ctx) };
     if (query.dateFrom || query.dateTo) {
       where.startTime = {};
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
@@ -660,8 +682,8 @@ export class DowntimeLogsService {
     }));
   }
 
-  async getEmergencyResponseTime(query: { dateFrom?: string; dateTo?: string }) {
-    const where: any = { detectedAt: { not: null }, responseStartedAt: { not: null }, cancelledAt: null };
+  async getEmergencyResponseTime(query: { dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
+    const where: any = { detectedAt: { not: null }, responseStartedAt: { not: null }, cancelledAt: null, machine: this.machineScope(ctx) };
     if (query.dateFrom || query.dateTo) {
       where.startTime = {};
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
@@ -691,11 +713,11 @@ export class DowntimeLogsService {
     };
   }
 
-  async getTopMachines(query: { dateFrom?: string; dateTo?: string; limit?: number }) {
-    return this.getDowntimeByMachine({ ...query, limit: query.limit || 5 });
+  async getTopMachines(query: { dateFrom?: string; dateTo?: string; limit?: number }, ctx: ActiveOperationalContext) {
+    return this.getDowntimeByMachine({ ...query, limit: query.limit || 5 }, ctx);
   }
 
-  async getTopCauses(query: { dateFrom?: string; dateTo?: string }) {
-    return this.getDowntimeByCause(query);
+  async getTopCauses(query: { dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
+    return this.getDowntimeByCause(query, ctx);
   }
 }

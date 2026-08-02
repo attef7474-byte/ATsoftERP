@@ -1,16 +1,62 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { MaintenanceReportFilterDto } from '../dto/report-filter.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { buildDateFilter, nowPlusDays, paginate } from './report-query-utils';
 
 @Injectable()
 export class MaintenanceReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getMaintenanceRequestsReport(filters: MaintenanceReportFilterDto) {
+  private notFound(key: string, message: string): NotFoundException {
+    return new NotFoundException({ messageKey: key, message });
+  }
+
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
+  }
+
+  private lineScope(ctx: ActiveOperationalContext) {
+    return { companyId: ctx.companyId, branchId: ctx.branchId };
+  }
+
+  private async assertMachineAccess(machineId: string, ctx: ActiveOperationalContext) {
+    const machine = await this.prisma.machine.findFirst({
+      where: { id: machineId, ...this.machineScope(ctx) },
+      select: { id: true },
+    });
+    if (!machine) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+  }
+
+  private async assertLineAccess(productionLineId: string, ctx: ActiveOperationalContext) {
+    const line = await this.prisma.productionLine.findFirst({
+      where: { id: productionLineId, ...this.lineScope(ctx) },
+      select: { id: true },
+    });
+    if (!line) throw this.notFound('maintenance.productionLineNotFound', 'Production line not found');
+  }
+
+  private applyMachineFilters(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext, where: any) {
+    if (filters.productionLineId) where.machine = { ...(where.machine || {}), productionLineId: filters.productionLineId };
+    if (filters.operationTypeId) where.machine = { ...(where.machine || {}), operationTypeId: filters.operationTypeId };
+    if (filters.costCenterId) where.machine = { ...(where.machine || {}), defaultCostCenterId: filters.costCenterId };
+    where.machine = { ...(where.machine || {}), ...this.machineScope(ctx) };
+    return where;
+  }
+
+  async getMaintenanceRequestsReport(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
     const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo) };
-    if (filters.productionLineId) where.productionLineId = filters.productionLineId;
-    if (filters.machineId) where.machineId = filters.machineId;
+    if (filters.productionLineId) {
+      await this.assertLineAccess(filters.productionLineId, ctx);
+      where.productionLineId = filters.productionLineId;
+    }
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      where.machineId = filters.machineId;
+    }
     if (filters.machineComponentId) where.machineComponentId = filters.machineComponentId;
     if (!filters.machineComponentId && filters.componentId) where.machineComponentId = filters.componentId;
     if (filters.operationTypeId) where.operationTypeId = filters.operationTypeId;
@@ -26,6 +72,7 @@ export class MaintenanceReportsService {
       { title: { contains: filters.search } },
       { requestNumber: { contains: filters.search } },
     ];
+    where.machine = this.machineScope(ctx);
 
     const [total, rows, openCount, inProgressCount, completedCount, cancelledCount] = await Promise.all([
       this.prisma.maintenanceRequest.count({ where }),
@@ -53,15 +100,22 @@ export class MaintenanceReportsService {
     };
   }
 
-  async getMachineDowntimeReport(filters: MaintenanceReportFilterDto) {
+  async getMachineDowntimeReport(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
     const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'startTime') };
-    if (filters.machineId) where.machineId = filters.machineId;
-    if (filters.productionLineId) where.request = { productionLineId: filters.productionLineId };
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      where.machineId = filters.machineId;
+    }
+    if (filters.productionLineId) {
+      await this.assertLineAccess(filters.productionLineId, ctx);
+      where.request = { productionLineId: filters.productionLineId };
+    }
     if (filters.operationTypeId) where.request = { ...where.request, operationTypeId: filters.operationTypeId };
     if (filters.costCenterId) where.request = { ...where.request, costCenterId: filters.costCenterId };
     if (filters.machineComponentId) where.request = { ...where.request, machineComponentId: filters.machineComponentId };
     if (!filters.machineComponentId && filters.componentId) where.request = { ...where.request, machineComponentId: filters.componentId };
     if (filters.search) where.reason = { contains: filters.search };
+    where.machine = { ...(where.machine || {}), ...this.machineScope(ctx) };
 
     const [total, rows, totalDuration, activeCount, avgDuration] = await Promise.all([
       this.prisma.downtimeLog.count({ where }),
@@ -87,12 +141,18 @@ export class MaintenanceReportsService {
     };
   }
 
-  async getMaintenanceCostsReport(filters: MaintenanceReportFilterDto) {
+  async getMaintenanceCostsReport(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
     const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'incurredAt');
 
-    const requestWhere: any = {};
-    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
-    if (filters.machineId) requestWhere.machineId = filters.machineId;
+    const requestWhere: any = { machine: this.machineScope(ctx) };
+    if (filters.productionLineId) {
+      await this.assertLineAccess(filters.productionLineId, ctx);
+      requestWhere.productionLineId = filters.productionLineId;
+    }
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      requestWhere.machineId = filters.machineId;
+    }
     if (filters.machineComponentId) requestWhere.machineComponentId = filters.machineComponentId;
     if (!filters.machineComponentId && filters.componentId) requestWhere.machineComponentId = filters.componentId;
     if (filters.operationTypeId) requestWhere.operationTypeId = filters.operationTypeId;
@@ -104,7 +164,10 @@ export class MaintenanceReportsService {
     const whereParts: any = {};
     if (Object.keys(requestWhere).length > 0) whereParts.request = requestWhere;
     if (filters.sparePartId) {
-      const sparePart = await this.prisma.sparePart.findUnique({ where: { id: filters.sparePartId }, select: { productId: true } });
+      const sparePart = await this.prisma.sparePart.findFirst({
+        where: { id: filters.sparePartId },
+        select: { productId: true },
+      });
       if (sparePart?.productId) whereParts.productId = sparePart.productId;
       else whereParts.id = '';
     }
@@ -143,15 +206,22 @@ export class MaintenanceReportsService {
     };
   }
 
-  async getPreventiveSchedulesReport(filters: MaintenanceReportFilterDto) {
+  async getPreventiveSchedulesReport(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
     const where: any = {};
     const now = new Date();
     const soon = nowPlusDays(7);
 
-    if (filters.machineId) where.machineId = filters.machineId;
-    if (filters.productionLineId) where.machine = { productionLineId: filters.productionLineId };
-    if (filters.operationTypeId) where.machine = { ...where.machine, operationTypeId: filters.operationTypeId };
-    if (filters.costCenterId) where.machine = { ...where.machine, defaultCostCenterId: filters.costCenterId };
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      where.machineId = filters.machineId;
+    }
+    if (filters.productionLineId) {
+      await this.assertLineAccess(filters.productionLineId, ctx);
+      where.machine = { productionLineId: filters.productionLineId };
+    }
+    if (filters.operationTypeId) where.machine = { ...(where.machine || {}), operationTypeId: filters.operationTypeId };
+    if (filters.costCenterId) where.machine = { ...(where.machine || {}), defaultCostCenterId: filters.costCenterId };
+    where.machine = { ...(where.machine || {}), ...this.machineScope(ctx) };
     if (filters.maintenanceType) where.type = filters.maintenanceType;
     if (filters.dueStatus === 'overdue') where.endDate = { lte: now };
     else if (filters.dueStatus === 'dueSoon') where.endDate = { gte: now, lte: soon };
@@ -165,11 +235,11 @@ export class MaintenanceReportsService {
         orderBy: { startDate: 'desc' },
         include: { machine: { select: { id: true, code: true, name: true } } },
       }),
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.maintenanceSchedule.count({ where: { status: 'INACTIVE' } }),
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', endDate: { lte: now } } }),
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', endDate: { gte: now, lte: soon } } }),
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', OR: [{ endDate: { gt: now } }, { endDate: null }] } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE' } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'INACTIVE' } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE', endDate: { lte: now } } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE', endDate: { gte: now, lte: soon } } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE', OR: [{ endDate: { gt: now } }, { endDate: null }] } }),
     ]);
 
     const totalPages = Math.ceil(total / (filters.pageSize || 20));
@@ -185,15 +255,22 @@ export class MaintenanceReportsService {
     };
   }
 
-  async getMachineLogReport(filters: any) {
+  async getMachineLogReport(filters: any, ctx: ActiveOperationalContext) {
     const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt') };
-    if (filters.productionLineId) where.productionLineId = filters.productionLineId;
-    if (filters.machineId) where.machineId = filters.machineId;
+    if (filters.productionLineId) {
+      if (filters.productionLineId) await this.assertLineAccess(filters.productionLineId, ctx);
+      where.productionLineId = filters.productionLineId;
+    }
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      where.machineId = filters.machineId;
+    }
     if (filters.machineComponentId) where.machineComponentId = filters.machineComponentId;
     if (!filters.machineComponentId && filters.componentId) where.machineComponentId = filters.componentId;
     if (filters.operationTypeId) where.operationTypeId = filters.operationTypeId;
     if (filters.costCenterId) where.costCenterId = filters.costCenterId;
     if (filters.search) where.OR = [{ title: { contains: filters.search } }, { requestNumber: { contains: filters.search } }];
+    where.machine = this.machineScope(ctx);
 
     const [total, rows] = await Promise.all([
       this.prisma.maintenanceRequest.count({ where }),
@@ -208,22 +285,31 @@ export class MaintenanceReportsService {
     return { rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages };
   }
 
-  async getPartsUsageReport(filters: any) {
-    const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt') };
+  async getPartsUsageReport(filters: any, ctx: ActiveOperationalContext) {
+    const where: any = { request: { machine: this.machineScope(ctx) }, ...buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt') };
     if (filters.sparePartId) {
-      const sparePart = await this.prisma.sparePart.findUnique({ where: { id: filters.sparePartId }, select: { productId: true } });
+      const sparePart = await this.prisma.sparePart.findFirst({
+        where: { id: filters.sparePartId },
+        select: { productId: true },
+      });
       if (sparePart?.productId) where.productId = sparePart.productId;
       else where.id = '';
     }
     if (filters.productId) where.productId = filters.productId;
-    const requestWhere: any = {};
-    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
-    if (filters.machineId) requestWhere.machineId = filters.machineId;
+    if (filters.productionLineId) {
+      await this.assertLineAccess(filters.productionLineId, ctx);
+      where.request = { ...(where.request || {}), productionLineId: filters.productionLineId };
+    }
+    const requestWhere: any = { machine: this.machineScope(ctx) };
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      requestWhere.machineId = filters.machineId;
+    }
     if (filters.machineComponentId) requestWhere.machineComponentId = filters.machineComponentId;
     if (!filters.machineComponentId && filters.componentId) requestWhere.machineComponentId = filters.componentId;
     if (filters.operationTypeId) requestWhere.operationTypeId = filters.operationTypeId;
     if (filters.costCenterId) requestWhere.costCenterId = filters.costCenterId;
-    if (Object.keys(requestWhere).length > 0) where.request = requestWhere;
+    where.request = { ...where.request, ...requestWhere };
     if (filters.search) where.product = { OR: [{ code: { contains: filters.search } }, { name: { contains: filters.search } }] };
 
     const [total, rows, totalQty, totalCost] = await Promise.all([
@@ -248,14 +334,21 @@ export class MaintenanceReportsService {
     };
   }
 
-  async getUpcomingPreventiveReport(filters: any) {
+  async getUpcomingPreventiveReport(filters: any, ctx: ActiveOperationalContext) {
     const now = new Date();
     const soon = nowPlusDays(30);
     const where: any = { status: 'ACTIVE', endDate: { gte: now, lte: soon } };
-    if (filters.machineId) where.machineId = filters.machineId;
-    if (filters.productionLineId) where.machine = { productionLineId: filters.productionLineId };
-    if (filters.operationTypeId) where.machine = { ...where.machine, operationTypeId: filters.operationTypeId };
-    if (filters.costCenterId) where.machine = { ...where.machine, defaultCostCenterId: filters.costCenterId };
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      where.machineId = filters.machineId;
+    }
+    if (filters.productionLineId) {
+      await this.assertLineAccess(filters.productionLineId, ctx);
+      where.machine = { productionLineId: filters.productionLineId };
+    }
+    if (filters.operationTypeId) where.machine = { ...(where.machine || {}), operationTypeId: filters.operationTypeId };
+    if (filters.costCenterId) where.machine = { ...(where.machine || {}), defaultCostCenterId: filters.costCenterId };
+    where.machine = { ...(where.machine || {}), ...this.machineScope(ctx) };
     if (filters.search) where.title = { contains: filters.search };
 
     const [total, rows, dueSoonCount, totalActive] = await Promise.all([
@@ -266,7 +359,7 @@ export class MaintenanceReportsService {
         include: { machine: { select: { id: true, code: true, name: true } } },
       }),
       this.prisma.maintenanceSchedule.count({ where: { ...where, endDate: { lte: nowPlusDays(7) } } }),
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE' } }),
     ]);
 
     const totalPages = Math.ceil(total / (filters.pageSize || 20));
@@ -280,13 +373,20 @@ export class MaintenanceReportsService {
     };
   }
 
-  async getOverduePreventiveReport(filters: any) {
+  async getOverduePreventiveReport(filters: any, ctx: ActiveOperationalContext) {
     const now = new Date();
     const where: any = { status: 'ACTIVE', endDate: { lt: now } };
-    if (filters.machineId) where.machineId = filters.machineId;
-    if (filters.productionLineId) where.machine = { productionLineId: filters.productionLineId };
-    if (filters.operationTypeId) where.machine = { ...where.machine, operationTypeId: filters.operationTypeId };
-    if (filters.costCenterId) where.machine = { ...where.machine, defaultCostCenterId: filters.costCenterId };
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      where.machineId = filters.machineId;
+    }
+    if (filters.productionLineId) {
+      await this.assertLineAccess(filters.productionLineId, ctx);
+      where.machine = { productionLineId: filters.productionLineId };
+    }
+    if (filters.operationTypeId) where.machine = { ...(where.machine || {}), operationTypeId: filters.operationTypeId };
+    if (filters.costCenterId) where.machine = { ...(where.machine || {}), defaultCostCenterId: filters.costCenterId };
+    where.machine = { ...(where.machine || {}), ...this.machineScope(ctx) };
     if (filters.search) where.title = { contains: filters.search };
 
     const [total, rows, overdueCount, totalActive] = await Promise.all([
@@ -296,8 +396,8 @@ export class MaintenanceReportsService {
         orderBy: { endDate: 'asc' },
         include: { machine: { select: { id: true, code: true, name: true } } },
       }),
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', endDate: { lt: now } } }),
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE' } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE' } }),
     ]);
 
     const totalPages = Math.ceil(total / (filters.pageSize || 20));
@@ -314,10 +414,16 @@ export class MaintenanceReportsService {
 
   // ─────────────── AF-AG: Enhanced Cost Analysis ───────────────
 
-  async getCostAnalysis(filters: MaintenanceReportFilterDto) {
-    const requestWhere: any = {};
-    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
-    if (filters.machineId) requestWhere.machineId = filters.machineId;
+  async getCostAnalysis(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    const requestWhere: any = { machine: this.machineScope(ctx) };
+    if (filters.productionLineId) {
+      await this.assertLineAccess(filters.productionLineId, ctx);
+      requestWhere.productionLineId = filters.productionLineId;
+    }
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      requestWhere.machineId = filters.machineId;
+    }
     if (filters.machineComponentId) requestWhere.machineComponentId = filters.machineComponentId;
     if (!filters.machineComponentId && filters.componentId) requestWhere.machineComponentId = filters.componentId;
     if (filters.operationTypeId) requestWhere.operationTypeId = filters.operationTypeId;
@@ -328,16 +434,21 @@ export class MaintenanceReportsService {
     const whereCostEntries: any = { ...dateFilter };
     if (Object.keys(requestWhere).length > 0) whereCostEntries.request = requestWhere;
 
-    const wherePartUsage: any = buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt');
-    if (Object.keys(requestWhere).length > 0) wherePartUsage.request = requestWhere;
+    const wherePartUsage: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'createdAt'), request: requestWhere };
     if (filters.sparePartId) {
-      const sp = await this.prisma.sparePart.findUnique({ where: { id: filters.sparePartId }, select: { productId: true } });
+      const sp = await this.prisma.sparePart.findFirst({
+        where: { id: filters.sparePartId },
+        select: { productId: true },
+      });
       if (sp?.productId) wherePartUsage.productId = sp.productId;
       else wherePartUsage.productId = '__NONE__';
     }
 
-    const whereRepairOrders: any = {};
-    if (filters.machineId) whereRepairOrders.machineId = filters.machineId;
+    const whereRepairOrders: any = { machine: this.machineScope(ctx) };
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      whereRepairOrders.machineId = filters.machineId;
+    }
     if (filters.dateFrom || filters.dateTo) {
       whereRepairOrders.completedAt = {};
       if (filters.dateFrom) whereRepairOrders.completedAt.gte = new Date(filters.dateFrom);
@@ -360,24 +471,34 @@ export class MaintenanceReportsService {
       this.prisma.maintenanceRequestCostEntry.groupBy({ by: ['type'], where: whereCostEntries, _sum: { amount: true }, _count: true }),
       this.prisma.maintenanceRequest.groupBy({
         by: ['type'],
-        where: { ...(Object.keys(requestWhere).length > 0 ? requestWhere : {}), ...(filters.dateFrom || filters.dateTo ? buildDateFilter(filters.dateFrom, filters.dateTo) : {}) },
+        where: { ...requestWhere, ...(filters.dateFrom || filters.dateTo ? buildDateFilter(filters.dateFrom, filters.dateTo) : {}) },
         _count: true,
       }),
       this.prisma.maintenanceRequest.groupBy({
         by: ['machineId'],
-        where: { ...(Object.keys(requestWhere).length > 0 ? requestWhere : {}), ...(filters.dateFrom || filters.dateTo ? buildDateFilter(filters.dateFrom, filters.dateTo) : {}) },
+        where: { ...requestWhere, ...(filters.dateFrom || filters.dateTo ? buildDateFilter(filters.dateFrom, filters.dateTo) : {}) },
         _count: true,
         orderBy: { _count: { id: 'desc' } },
         take: 20,
       }),
       this.getMonthlyCostTrend(filters.dateFrom, filters.dateTo, requestWhere),
       this.getMonthlyPartsTrend(filters.dateFrom, filters.dateTo, requestWhere),
-      this.prisma.machine.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.machine.count({ where: { status: 'ACTIVE', companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] } }),
     ]);
 
     const machineCosts = await Promise.all(
       costByMachine.map(async (m) => {
-        const machine = await this.prisma.machine.findUnique({ where: { id: m.machineId }, select: { id: true, code: true, name: true } });
+        const machine = await this.prisma.machine.findUnique({
+          where: { id: m.machineId },
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            productionLine: { select: { id: true, code: true, name: true } },
+            department: { select: { id: true, code: true, name: true } },
+            defaultCostCenter: { select: { id: true, code: true, name: true } },
+          },
+        });
         const reqWhere = { ...requestWhere, machineId: m.machineId };
         const [entrySum, partSum] = await Promise.all([
           this.prisma.maintenanceRequestCostEntry.aggregate({
@@ -404,14 +525,18 @@ export class MaintenanceReportsService {
     const totalRepairCost = repairCostSum._sum.actualRepairCost
       ? Number(repairCostSum._sum.actualRepairCost)
       : 0;
+    const grandTotalCost = totalCost + totalRepairCost;
+    const costByLine = this.aggregateMachineCosts(machineCosts, 'productionLine');
+    const costByDepartment = this.aggregateMachineCosts(machineCosts, 'department');
+    const costByCostCenter = this.aggregateMachineCosts(machineCosts, 'defaultCostCenter');
 
     return {
       cards: [
-        { label: 'totalCost', value: totalCost + totalRepairCost },
+        { label: 'totalCost', value: grandTotalCost },
         { label: 'partsCost', value: partUsageSum._sum.totalCost || 0 },
         { label: 'otherCost', value: costEntrySum._sum.amount || 0 },
         { label: 'repairCost', value: totalRepairCost },
-        { label: 'costPerMachine', value: totalMachines > 0 ? Math.round((totalCost + totalRepairCost) / totalMachines) : 0 },
+        { label: 'costPerMachine', value: totalMachines > 0 ? Math.round(grandTotalCost / totalMachines) : 0 },
         { label: 'costEntriesCount', value: costEntryCount },
         { label: 'partUsageCount', value: partUsageCount },
         { label: 'partQtyTotal', value: partUsageSum._sum.quantity || 0 },
@@ -420,9 +545,47 @@ export class MaintenanceReportsService {
       costByType: costByType.map(t => ({ type: t.type, total: t._sum.amount || 0, count: t._count })),
       costByRequestType: costByReqType.map(t => ({ type: t.type, count: t._count })),
       costByMachine: machineCosts,
+      costByLine,
+      costByDepartment,
+      costByCostCenter,
+      executiveSummary: {
+        totalCost: grandTotalCost,
+        totalMachines,
+        machinesWithCost: machineCosts.filter(m => m.totalCost > 0).length,
+        linesWithCost: costByLine.length,
+        departmentsWithCost: costByDepartment.length,
+        highestCostMachine: [...machineCosts].sort((a, b) => b.totalCost - a.totalCost)[0] || null,
+        highestCostLine: costByLine[0] || null,
+        highestCostDepartment: costByDepartment[0] || null,
+      },
       monthlyCostTrend,
       monthlyPartsTrend,
     };
+  }
+
+  private aggregateMachineCosts(machineCosts: any[], relationName: 'productionLine' | 'department' | 'defaultCostCenter') {
+    const map = new Map<string, any>();
+    for (const row of machineCosts) {
+      const entity = row.machine?.[relationName] || null;
+      const id = entity?.id || 'unassigned';
+      const current = map.get(id) || {
+        id,
+        code: entity?.code || null,
+        name: entity?.name || 'Unassigned',
+        requestCount: 0,
+        costEntryTotal: 0,
+        partCostTotal: 0,
+        totalCost: 0,
+        machineCount: 0,
+      };
+      current.requestCount += row.requestCount || 0;
+      current.costEntryTotal += row.costEntryTotal || 0;
+      current.partCostTotal += row.partCostTotal || 0;
+      current.totalCost += row.totalCost || 0;
+      current.machineCount += 1;
+      map.set(id, current);
+    }
+    return Array.from(map.values()).sort((a, b) => b.totalCost - a.totalCost);
   }
 
   private async getMonthlyCostTrend(dateFrom?: string, dateTo?: string, requestWhere?: any) {
@@ -463,10 +626,16 @@ export class MaintenanceReportsService {
     return Array.from(monthlyMap.entries()).map(([month, total]) => ({ month, total }));
   }
 
-  async getCostByMachine(filters: MaintenanceReportFilterDto) {
-    const requestWhere: any = {};
-    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
-    if (filters.machineId) requestWhere.machineId = filters.machineId;
+  async getCostByMachine(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    const requestWhere: any = { machine: this.machineScope(ctx) };
+    if (filters.productionLineId) {
+      await this.assertLineAccess(filters.productionLineId, ctx);
+      requestWhere.productionLineId = filters.productionLineId;
+    }
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      requestWhere.machineId = filters.machineId;
+    }
     if (filters.machineComponentId) requestWhere.machineComponentId = filters.machineComponentId;
     if (filters.operationTypeId) requestWhere.operationTypeId = filters.operationTypeId;
     if (filters.costCenterId) requestWhere.costCenterId = filters.costCenterId;
@@ -474,7 +643,7 @@ export class MaintenanceReportsService {
     const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'incurredAt');
 
     const machines = await this.prisma.machine.findMany({
-      where: {},
+      where: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }], deletedAt: null },
       select: { id: true, code: true, name: true, status: true, productionLineId: true },
       orderBy: { name: 'asc' },
     });
@@ -520,14 +689,21 @@ export class MaintenanceReportsService {
 
   // ─────────────── AF-AG: Schedule Compliance ───────────────
 
-  async getScheduleCompliance(filters: MaintenanceReportFilterDto) {
+  async getScheduleCompliance(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
     const now = new Date();
-    const scheduleWhere: any = {};
-    if (filters.machineId) scheduleWhere.machineId = filters.machineId;
-    if (filters.productionLineId) scheduleWhere.machine = { productionLineId: filters.productionLineId };
+    const scheduleWhere: any = { machine: this.machineScope(ctx) };
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      scheduleWhere.machineId = filters.machineId;
+    }
+    if (filters.productionLineId) {
+      await this.assertLineAccess(filters.productionLineId, ctx);
+      scheduleWhere.machine = { ...(scheduleWhere.machine || {}), productionLineId: filters.productionLineId };
+    }
     if (filters.operationTypeId) scheduleWhere.machine = { ...(scheduleWhere.machine || {}), operationTypeId: filters.operationTypeId };
+    if (filters.costCenterId) scheduleWhere.machine = { ...(scheduleWhere.machine || {}), defaultCostCenterId: filters.costCenterId };
 
-    const requestWhere: any = { type: 'PREVENTIVE' };
+    const requestWhere: any = { type: 'PREVENTIVE', machine: this.machineScope(ctx) };
     if (filters.machineId) requestWhere.machineId = filters.machineId;
     if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
 
@@ -559,10 +735,16 @@ export class MaintenanceReportsService {
 
   // ─────────────── AF-AG: KPI Overview ───────────────
 
-  async getKpiOverview(filters: MaintenanceReportFilterDto) {
-    const requestWhere: any = {};
-    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
-    if (filters.machineId) requestWhere.machineId = filters.machineId;
+  async getKpiOverview(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    const requestWhere: any = { machine: this.machineScope(ctx) };
+    if (filters.productionLineId) {
+      await this.assertLineAccess(filters.productionLineId, ctx);
+      requestWhere.productionLineId = filters.productionLineId;
+    }
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      requestWhere.machineId = filters.machineId;
+    }
     if (filters.operationTypeId) requestWhere.operationTypeId = filters.operationTypeId;
     if (filters.costCenterId) requestWhere.costCenterId = filters.costCenterId;
 
@@ -588,15 +770,15 @@ export class MaintenanceReportsService {
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'IN_PROGRESS' } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'COMPLETED', ...dateFilter } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'CANCELLED', ...dateFilter } }),
-      this.prisma.maintenanceRequestCostEntry.aggregate({ where: { ...costDateFilter, ...(Object.keys(requestWhere).length > 0 ? { request: requestWhere } : {}) }, _sum: { amount: true } }),
-      this.prisma.maintenanceRequestPartUsage.aggregate({ where: { ...partsDateFilter, ...(Object.keys(requestWhere).length > 0 ? { request: requestWhere } : {}) }, _sum: { totalCost: true } }),
+      this.prisma.maintenanceRequestCostEntry.aggregate({ where: { ...costDateFilter, request: requestWhere }, _sum: { amount: true } }),
+      this.prisma.maintenanceRequestPartUsage.aggregate({ where: { ...partsDateFilter, request: requestWhere }, _sum: { totalCost: true } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, ...dateFilter, type: 'CORRECTIVE' } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, ...dateFilter, type: 'PREVENTIVE' } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, ...dateFilter, isEmergency: true } }),
-      this.prisma.downtimeLog.count({ where: { ...downtimeDateFilter, cancelledAt: null } }),
-      this.prisma.downtimeLog.aggregate({ where: { ...downtimeDateFilter, cancelledAt: null }, _sum: { durationMinutes: true } }),
-      this.prisma.downtimeLog.count({ where: { endTime: null, cancelledAt: null } }),
-      this.prisma.maintenanceSchedule.count({ where: { ...(filters.machineId ? { machineId: filters.machineId } : {}), status: 'ACTIVE', endDate: { lt: now } } }),
+      this.prisma.downtimeLog.count({ where: { ...downtimeDateFilter, cancelledAt: null, ...(Object.keys(requestWhere).length > 0 ? { machine: requestWhere.machine } : {}) } }),
+      this.prisma.downtimeLog.aggregate({ where: { ...downtimeDateFilter, cancelledAt: null, machine: this.machineScope(ctx) }, _sum: { durationMinutes: true } }),
+      this.prisma.downtimeLog.count({ where: { endTime: null, cancelledAt: null, machine: this.machineScope(ctx) } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...(filters.machineId ? { machineId: filters.machineId } : {}), status: 'ACTIVE', endDate: { lt: now }, machine: this.machineScope(ctx) } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, slaStatus: 'OVERDUE' } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, slaStatus: { not: null } } }),
@@ -655,10 +837,16 @@ export class MaintenanceReportsService {
 
   // ─────────────── AF-AG: Backlog Trend ───────────────
 
-  async getBacklogTrend(filters: MaintenanceReportFilterDto) {
-    const requestWhere: any = {};
-    if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
-    if (filters.machineId) requestWhere.machineId = filters.machineId;
+  async getBacklogTrend(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    const requestWhere: any = { machine: this.machineScope(ctx) };
+    if (filters.productionLineId) {
+      await this.assertLineAccess(filters.productionLineId, ctx);
+      requestWhere.productionLineId = filters.productionLineId;
+    }
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      requestWhere.machineId = filters.machineId;
+    }
     if (filters.operationTypeId) requestWhere.operationTypeId = filters.operationTypeId;
 
     const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo);

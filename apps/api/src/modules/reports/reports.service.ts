@@ -6,6 +6,7 @@ import { BarcodeReportsService } from './services/barcode-reports.service';
 import { SystemReportsService } from './services/system-reports.service';
 import { AuditReportsService } from './services/audit-reports.service';
 import { ReportExportService } from './services/report-export.service';
+import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types';
 import { MaintenanceReportFilterDto, InventoryReportFilterDto, BarcodeReportFilterDto } from './dto/report-filter.dto';
 
 @Injectable()
@@ -20,44 +21,44 @@ export class ReportsService {
     private readonly reportExportService: ReportExportService,
   ) {}
 
-  getMaintenanceOverview(filters: MaintenanceReportFilterDto) {
-    return this.dashboardReportsService.getMaintenanceOverview(filters);
+  getMaintenanceOverview(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.dashboardReportsService.getMaintenanceOverview(filters, ctx);
   }
 
   getInventoryOverview(filters: InventoryReportFilterDto) {
     return this.dashboardReportsService.getInventoryOverview(filters);
   }
 
-  getMaintenanceRequestsReport(filters: MaintenanceReportFilterDto) {
-    return this.maintenanceReportsService.getMaintenanceRequestsReport(filters);
+  getMaintenanceRequestsReport(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.getMaintenanceRequestsReport(filters, ctx);
   }
 
-  getMachineDowntimeReport(filters: MaintenanceReportFilterDto) {
-    return this.maintenanceReportsService.getMachineDowntimeReport(filters);
+  getMachineDowntimeReport(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.getMachineDowntimeReport(filters, ctx);
   }
 
-  getMaintenanceCostsReport(filters: MaintenanceReportFilterDto) {
-    return this.maintenanceReportsService.getMaintenanceCostsReport(filters);
+  getMaintenanceCostsReport(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.getMaintenanceCostsReport(filters, ctx);
   }
 
-  getPreventiveSchedulesReport(filters: MaintenanceReportFilterDto) {
-    return this.maintenanceReportsService.getPreventiveSchedulesReport(filters);
+  getPreventiveSchedulesReport(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.getPreventiveSchedulesReport(filters, ctx);
   }
 
-  getMachineLogReport(filters: any) {
-    return this.maintenanceReportsService.getMachineLogReport(filters);
+  getMachineLogReport(filters: any, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.getMachineLogReport(filters, ctx);
   }
 
-  getPartsUsageReport(filters: any) {
-    return this.maintenanceReportsService.getPartsUsageReport(filters);
+  getPartsUsageReport(filters: any, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.getPartsUsageReport(filters, ctx);
   }
 
-  getUpcomingPreventiveReport(filters: any) {
-    return this.maintenanceReportsService.getUpcomingPreventiveReport(filters);
+  getUpcomingPreventiveReport(filters: any, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.getUpcomingPreventiveReport(filters, ctx);
   }
 
-  getOverduePreventiveReport(filters: any) {
-    return this.maintenanceReportsService.getOverduePreventiveReport(filters);
+  getOverduePreventiveReport(filters: any, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.getOverduePreventiveReport(filters, ctx);
   }
 
   getInventoryBalanceReport(filters: InventoryReportFilterDto) {
@@ -162,37 +163,37 @@ export class ReportsService {
 
   // ─────────────── AF-AG: Enhanced Cost Analysis ───────────────
 
-  getCostAnalysis(filters: MaintenanceReportFilterDto) {
-    return this.maintenanceReportsService.getCostAnalysis(filters);
+  getCostAnalysis(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.getCostAnalysis(filters, ctx);
   }
 
-  getCostByMachine(filters: MaintenanceReportFilterDto) {
-    return this.maintenanceReportsService.getCostByMachine(filters);
+  getCostByMachine(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.getCostByMachine(filters, ctx);
   }
 
   // ─────────────── AF-AG: Schedule Compliance ───────────────
 
-  getScheduleCompliance(filters: MaintenanceReportFilterDto) {
-    return this.maintenanceReportsService.getScheduleCompliance(filters);
+  getScheduleCompliance(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.getScheduleCompliance(filters, ctx);
   }
 
   // ─────────────── AF-AG: KPI Overview ───────────────
 
-  getKpiOverview(filters: MaintenanceReportFilterDto) {
-    return this.maintenanceReportsService.getKpiOverview(filters);
+  getKpiOverview(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.getKpiOverview(filters, ctx);
   }
 
   // ─────────────── AF-AG: Backlog Trend ───────────────
 
-  getBacklogTrend(filters: MaintenanceReportFilterDto) {
-    return this.maintenanceReportsService.getBacklogTrend(filters);
+  getBacklogTrend(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.getBacklogTrend(filters, ctx);
   }
 
-  exportCsv(endpoint: string, filters: any): Promise<string> {
-    return this.reportExportService.exportCsv(endpoint, filters);
+  exportCsv(endpoint: string, filters: any, ctx: ActiveOperationalContext): Promise<string> {
+    return this.reportExportService.exportCsv(endpoint, filters, ctx);
   }
 
-  exportExcel(endpoint: string, filters: any): Promise<Buffer | null> {
-    return this.reportExportService.exportExcel(endpoint, filters);
+  exportExcel(endpoint: string, filters: any, ctx: ActiveOperationalContext): Promise<Buffer | null> {
+    return this.reportExportService.exportExcel(endpoint, filters, ctx);
   }
 }

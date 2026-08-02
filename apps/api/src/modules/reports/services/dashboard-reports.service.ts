@@ -1,18 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { InventoryReportFilterDto, MaintenanceReportFilterDto } from '../dto/report-filter.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { buildDateFilter, nowPlusDays } from './report-query-utils';
 
 @Injectable()
 export class DashboardReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getMaintenanceOverview(filters: MaintenanceReportFilterDto) {
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
+  }
+
+  async getMaintenanceOverview(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
     const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo);
     const now = new Date();
     const soon = nowPlusDays(7);
+    const machine = this.machineScope(ctx);
 
-    const requestWhere: any = { ...dateFilter };
+    const requestWhere: any = { ...dateFilter, machine };
     if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
     if (filters.machineId) requestWhere.machineId = filters.machineId;
     if (filters.machineComponentId) requestWhere.machineComponentId = filters.machineComponentId;
@@ -23,10 +32,13 @@ export class DashboardReportsService {
     if (filters.maintenanceType) requestWhere.type = filters.maintenanceType;
     if (filters.priority) requestWhere.priority = filters.priority;
 
-    const scheduleMachineWhere: any = {};
+    const scheduleMachineWhere: any = { ...machine };
     if (filters.productionLineId) scheduleMachineWhere.productionLineId = filters.productionLineId;
     if (filters.operationTypeId) scheduleMachineWhere.operationTypeId = filters.operationTypeId;
     if (filters.costCenterId) scheduleMachineWhere.defaultCostCenterId = filters.costCenterId;
+
+    const scheduleBaseWhere: any = { machine: scheduleMachineWhere, status: 'ACTIVE' };
+    if (filters.machineId) scheduleBaseWhere.machineId = filters.machineId;
 
     const [
       totalRequests, openRequests, inProgressRequests, completedRequests, cancelledRequests,
@@ -39,17 +51,17 @@ export class DashboardReportsService {
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'IN_PROGRESS' } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'COMPLETED' } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'CANCELLED' } }),
-      this.prisma.maintenanceSchedule.count({ where: { ...(filters.machineId ? { machineId: filters.machineId } : {}), ...(Object.keys(scheduleMachineWhere).length > 0 ? { machine: scheduleMachineWhere } : {}), status: 'ACTIVE', endDate: { lte: now } } }),
-      this.prisma.downtimeLog.aggregate({ where: { ...dateFilter, ...(filters.machineId ? { machineId: filters.machineId } : {}), cancelledAt: null }, _sum: { durationMinutes: true } }),
-      this.prisma.downtimeLog.count({ where: { endTime: null, cancelledAt: null } }),
-      this.prisma.maintenanceRequestCostEntry.aggregate({ _sum: { amount: true } }),
-      this.prisma.maintenanceRequestPartUsage.count(),
+      this.prisma.maintenanceSchedule.count({ where: { ...scheduleBaseWhere, endDate: { lte: now } } }),
+      this.prisma.downtimeLog.aggregate({ where: { ...dateFilter, ...(filters.machineId ? { machineId: filters.machineId } : {}), cancelledAt: null, machine }, _sum: { durationMinutes: true } }),
+      this.prisma.downtimeLog.count({ where: { endTime: null, cancelledAt: null, machine } }),
+      this.prisma.maintenanceRequestCostEntry.aggregate({ where: { request: { machine } }, _sum: { amount: true } }),
+      this.prisma.maintenanceRequestPartUsage.count({ where: { request: { machine } } }),
       this.prisma.maintenanceRequest.groupBy({ by: ['status'], where: requestWhere, _count: true }),
       this.prisma.maintenanceRequest.groupBy({ by: ['priority'], where: requestWhere, _count: true }),
       this.prisma.maintenanceRequest.groupBy({ by: ['type'], where: requestWhere, _count: true }),
       this.prisma.maintenanceRequest.groupBy({ by: ['machineId'], where: requestWhere, _count: true, orderBy: { _count: { id: 'desc' } }, take: 10 }),
-      this.prisma.downtimeLog.groupBy({ by: ['machineId'], where: { ...dateFilter, ...(filters.machineId ? { machineId: filters.machineId } : {}), cancelledAt: null }, _sum: { durationMinutes: true }, orderBy: { _sum: { durationMinutes: 'desc' } }, take: 10 }),
-      this.prisma.maintenanceSchedule.findMany({ where: { ...(filters.machineId ? { machineId: filters.machineId } : {}), ...(Object.keys(scheduleMachineWhere).length > 0 ? { machine: scheduleMachineWhere } : {}), status: 'ACTIVE', endDate: { lte: soon } }, take: 10, include: { machine: { select: { id: true, code: true, name: true } } }, orderBy: { endDate: 'asc' } }),
+      this.prisma.downtimeLog.groupBy({ by: ['machineId'], where: { ...dateFilter, ...(filters.machineId ? { machineId: filters.machineId } : {}), cancelledAt: null, machine }, _sum: { durationMinutes: true }, orderBy: { _sum: { durationMinutes: 'desc' } }, take: 10 }),
+      this.prisma.maintenanceSchedule.findMany({ where: { ...scheduleBaseWhere, endDate: { lte: soon } }, take: 10, include: { machine: { select: { id: true, code: true, name: true } } }, orderBy: { endDate: 'asc' } }),
       this.prisma.maintenanceRequest.findMany({ where: requestWhere, take: 10, orderBy: { createdAt: 'desc' }, include: { machine: { select: { id: true, code: true, name: true } } } }),
     ]);
 
