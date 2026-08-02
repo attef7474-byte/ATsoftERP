@@ -17,6 +17,8 @@ const validation: Pick<LocaleTranslations, 'validation' | 'errors' | 'complexFor
         invalidDate: 'تاريخ غير صالح.',
         invalidId: 'معرف غير صالح.',
         invalidQuantity: 'كمية غير صالحة.',
+        invalidStatusTransition: 'هذه العملية غير مسموح بها في الحالة الحالية.',
+        insufficientStock: 'مخزون غير كافٍ لهذا الصنف.',
         unknownField: 'هذا الحقل غير مسموح به.',
         tooLong: 'القيمة طويلة جداً.',
         tooShort: 'القيمة قصيرة جداً.',

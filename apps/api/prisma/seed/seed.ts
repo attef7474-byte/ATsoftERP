@@ -9,11 +9,11 @@ const adapter = new PrismaMssql(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
 
 const MODULES = [
-  "company", "branch", "administration", "department", "user", "role", "permission",
+  "company", "branch", "administration", "department", "organizational-unit", "user", "role", "permission",
   "warehouse", "warehouse-location", "product-category", "product",
   "inventory", "machine-category", "machine", "machine-part",
   "maintenance-request", "maintenance-task", "maintenance-schedule",
-  "maintenance-checklist", "system-setting", "audit-log",
+  "maintenance-checklist", "maintenance-work-order", "system-setting", "audit-log",
   "notification", "attachment", "numbering",
   "inventory-count", "inventory-count-line", "inventory-movement",
   "inventory-adjustment", "inventory-balance", "inventory-stock-transfer",
@@ -155,6 +155,20 @@ async function main() {
     { key: "preventive-spare-part-plan:read", module: "preventive-spare-part-plan", action: "read" },
     { key: "preventive-spare-part-plan:update", module: "preventive-spare-part-plan", action: "update" },
     { key: "preventive-spare-part-plan:delete", module: "preventive-spare-part-plan", action: "delete" },
+    // Maintenance work order permissions (status transitions + part lines + costs)
+    { key: "maintenance-work-order:plan", module: "maintenance-work-order", action: "plan" },
+    { key: "maintenance-work-order:start", module: "maintenance-work-order", action: "start" },
+    { key: "maintenance-work-order:complete", module: "maintenance-work-order", action: "complete" },
+    { key: "maintenance-work-order:cancel", module: "maintenance-work-order", action: "cancel" },
+    { key: "maintenance-work-order:issueParts", module: "maintenance-work-order", action: "issueParts" },
+    { key: "maintenance-work-order-part:create", module: "maintenance-work-order-part", action: "create" },
+    { key: "maintenance-work-order-part:read", module: "maintenance-work-order-part", action: "read" },
+    { key: "maintenance-work-order-part:update", module: "maintenance-work-order-part", action: "update" },
+    { key: "maintenance-work-order-part:delete", module: "maintenance-work-order-part", action: "delete" },
+    { key: "maintenance-work-order-cost:create", module: "maintenance-work-order-cost", action: "create" },
+    { key: "maintenance-work-order-cost:read", module: "maintenance-work-order-cost", action: "read" },
+    { key: "maintenance-work-order-cost:update", module: "maintenance-work-order-cost", action: "update" },
+    { key: "maintenance-work-order-cost:delete", module: "maintenance-work-order-cost", action: "delete" },
   ];
 
   for (const p of extraPermissions) {
@@ -179,6 +193,7 @@ async function main() {
     { code: "COMPANY", name: "Company", operationName: "Company", modelName: "Company", domain: "core", prefix: "COM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "BRANCH", name: "Branch", operationName: "Branch", modelName: "Branch", domain: "core", prefix: "BRN-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "DEPARTMENT", name: "Department", operationName: "Department", modelName: "Department", domain: "core", prefix: "DEP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "ORGANIZATIONAL_UNIT", name: "Organizational Unit", operationName: "Organizational Unit", modelName: "OrganizationalUnit", domain: "core", prefix: "OU-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "ADMINISTRATION", name: "Administration", operationName: "Administration", modelName: "Administration", domain: "core", prefix: "ADM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
 
     // Inventory
@@ -200,6 +215,7 @@ async function main() {
     { code: "MACHINE_PART", name: "Machine Part", operationName: "Machine Part", modelName: "MachinePart", domain: "maintenance", prefix: "MPP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "MACHINE_DOCUMENT", name: "Machine Document", operationName: "Machine Document", modelName: "MachineDocument", domain: "maintenance", prefix: "MDC-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "MAINTENANCE_REQUEST", name: "Maintenance Request", operationName: "Maintenance Request", modelName: "MaintenanceRequest", domain: "maintenance", prefix: "MR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "MAINTENANCE_WORK_ORDER", name: "Maintenance Work Order", operationName: "Maintenance Work Order", modelName: "MaintenanceWorkOrder", domain: "maintenance", prefix: "WO-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "MAINTENANCE_TASK", name: "Maintenance Task", operationName: "Maintenance Task", modelName: "MaintenanceTask", domain: "maintenance", prefix: "MTK-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "PREVENTIVE_MAINTENANCE", name: "Preventive Maintenance", operationName: "Preventive Maintenance", modelName: "PreventiveMaintenance", domain: "maintenance", prefix: "PM-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "DOWNTIME", name: "Downtime", operationName: "Downtime", modelName: "DowntimeLog", domain: "maintenance", prefix: "DT-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },

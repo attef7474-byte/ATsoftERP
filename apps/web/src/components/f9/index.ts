@@ -8,6 +8,7 @@ export {
   companyAdapter,
   branchAdapter,
   departmentAdapter,
+  organizationalUnitAdapter,
   warehouseAdapter,
   productCategoryAdapter,
   productAdapter,

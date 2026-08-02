@@ -79,6 +79,7 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'org-branches', labelKey: 'navigation.branches', route: '/admin/core/branches' },
           { id: 'org-administrations', labelKey: 'navigation.administrations', route: '/admin/core/administrations' },
           { id: 'org-departments', labelKey: 'navigation.departments', route: '/admin/core/departments' },
+          { id: 'org-organizational-units', labelKey: 'navigation.organizationalUnits', route: '/admin/core/organizational-units' },
         ],
       },
       {
@@ -129,6 +130,7 @@ export const sidebarGroups: SidebarGroup[] = [
       {
         id: 'mnt-operations', labelKey: 'navigation.navSection.maintenanceOperations', items: [
           { id: 'mnt-requests', labelKey: 'navigation.maintenanceRequests', route: '/admin/maintenance/requests' },
+          { id: 'mnt-work-orders', labelKey: 'navigation.maintenanceWorkOrders', route: '/admin/maintenance/work-orders' },
           { id: 'mnt-tasks', labelKey: 'navigation.maintenanceTasks', route: '/admin/maintenance/tasks' },
           { id: 'mnt-schedules', labelKey: 'navigation.maintenanceSchedules', route: '/admin/maintenance/schedules' },
           { id: 'mnt-checklist-items', labelKey: 'navigation.checklistItems', route: '/admin/maintenance/checklist-items' },

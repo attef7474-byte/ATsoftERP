@@ -611,3 +611,80 @@ export interface SparePartRequestLine {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface MaintenanceWorkOrderPart {
+  id: string;
+  workOrderId: string;
+  sparePartId?: string | null;
+  productId?: string | null;
+  quantity: number;
+  unit?: string | null;
+  unitCost?: number | null;
+  totalCost?: number | null;
+  notes?: string | null;
+  issuedQuantity: number;
+  stockIssueStatus: string;
+  lastIssueAt?: string | null;
+  lastIssueById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  sparePart?: { id: string; code: string; name: string };
+  product?: { id: string; code: string; name: string };
+  lastIssueBy?: { id: string; name: string };
+}
+
+export interface MaintenanceWorkOrderCostEntry {
+  id: string;
+  workOrderId: string;
+  type: string;
+  description?: string | null;
+  amount: number;
+  incurredAt: string;
+  createdById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: { id: string; name: string };
+}
+
+export interface MaintenanceWorkOrder {
+  id: string;
+  companyId: string;
+  branchId: string;
+  workOrderNumber: string;
+  title: string;
+  description?: string | null;
+  type: string;
+  priority: string;
+  status: string;
+  machineId?: string | null;
+  machineComponentId?: string | null;
+  requestId?: string | null;
+  warehouseId?: string | null;
+  assignedToId?: string | null;
+  supervisorId?: string | null;
+  createdById?: string | null;
+  plannedStartAt?: string | null;
+  plannedEndAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
+  estimatedCost?: number | null;
+  actualCost?: number | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  company?: { id: string; name: string };
+  branch?: { id: string; name: string };
+  machine?: { id: string; code: string; name: string };
+  machineComponent?: { id: string; code: string; name: string };
+  request?: { id: string; requestNumber: string; title: string };
+  warehouse?: { id: string; code: string; name: string };
+  assignedTo?: { id: string; name: string };
+  supervisor?: { id: string; name: string };
+  createdBy?: { id: string; name: string };
+  parts?: MaintenanceWorkOrderPart[];
+  costEntries?: MaintenanceWorkOrderCostEntry[];
+  _count?: { parts: number; costEntries: number };
+}

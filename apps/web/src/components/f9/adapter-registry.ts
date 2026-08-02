@@ -4,6 +4,7 @@ import {
   branchAdapter,
   administrationAdapter,
   departmentAdapter,
+  organizationalUnitAdapter,
   warehouseAdapter,
   productCategoryAdapter,
   productAdapter,
@@ -31,14 +32,15 @@ import {
   machineComponentAdapter,
   sparePartAdapter,
   maintenancePersonnelAdapter,
+  maintenanceWorkOrderAdapter,
 } from './lookup-adapters';
 import type {
-  Company, Branch, Administration, Department, Warehouse, ProductCategory, Product,
+  Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product,
   MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask,
   MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment,
   WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification,
   AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine,
-  MachineComponent, SparePart, MaintenancePersonnel,
+  MachineComponent, SparePart, MaintenancePersonnel, MaintenanceWorkOrder,
 } from '../../lib/admin-types';
 
 export interface UnifiedSearchEntity {
@@ -79,6 +81,13 @@ const registry: UnifiedSearchEntity[] = [
     adapter: departmentAdapter as LookupAdapter<any>,
     detailRoute: (item: Department) => `/admin/core/departments/${item.id}`,
     subtitle: (item: Department) => item.company?.name || item.code,
+  },
+  {
+    entityType: 'organizationalUnit',
+    labelKey: 'core.organizationalUnits',
+    adapter: organizationalUnitAdapter as LookupAdapter<any>,
+    detailRoute: (item: OrganizationalUnit) => `/admin/core/organizational-units/${item.id}`,
+    subtitle: (item: OrganizationalUnit) => item.parent?.name || item.type || item.code,
   },
   {
     entityType: 'warehouse',
@@ -277,6 +286,13 @@ const registry: UnifiedSearchEntity[] = [
     adapter: maintenancePersonnelAdapter as LookupAdapter<any>,
     detailRoute: (item: MaintenancePersonnel) => `/admin/maintenance/personnel/${item.id}`,
     subtitle: (item: MaintenancePersonnel) => item.role + (item.specialty ? ` - ${item.specialty}` : ''),
+  },
+  {
+    entityType: 'maintenanceWorkOrder',
+    labelKey: 'maintenance.maintenanceWorkOrders',
+    adapter: maintenanceWorkOrderAdapter as LookupAdapter<any>,
+    detailRoute: (item: MaintenanceWorkOrder) => `/admin/maintenance/work-orders/${item.id}`,
+    subtitle: (item: MaintenanceWorkOrder) => item.machine?.name || item.workOrderNumber,
   },
 ];
 

@@ -57,3 +57,22 @@ export interface Department {
   children?: { id: string; name: string; code: string }[];
   _count?: { children: number; users: number; machines: number };
 }
+
+export interface OrganizationalUnit {
+  id: string;
+  companyId: string;
+  branchId: string;
+  parentId?: string | null;
+  code: string;
+  name: string;
+  type: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  company?: { id: string; name: string };
+  branch?: { id: string; name: string };
+  parent?: { id: string; name: string };
+  children?: { id: string; name: string; code: string }[];
+  _count?: { children: number };
+}

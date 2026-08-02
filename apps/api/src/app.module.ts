@@ -8,6 +8,7 @@ import { PermissionsModule } from './modules/admin/permissions/permissions.modul
 import { BranchesModule } from './modules/admin/branches/branches.module'
 import { AdministrationsModule } from './modules/admin/administrations/administrations.module'
 import { DepartmentsModule } from './modules/admin/departments/departments.module'
+import { OrganizationalUnitsModule } from './modules/admin/organizational-units/organizational-units.module'
 import { CompaniesModule } from './modules/companies/companies.module'
 import { ProductsModule } from './modules/factory/products/products.module'
 import { ProductCategoriesModule } from './modules/factory/product-categories/product-categories.module'
@@ -19,6 +20,7 @@ import { MaintenanceDashboardModule } from './modules/factory/maintenance/mainte
 import { MachinePartsModule } from './modules/factory/maintenance/machine-parts/machine-parts.module'
 import { MachineDocumentsModule } from './modules/factory/maintenance/machine-documents/machine-documents.module'
 import { MaintenanceRequestsModule } from './modules/factory/maintenance/maintenance-requests/maintenance-requests.module'
+import { MaintenanceWorkOrdersModule } from './modules/factory/maintenance/maintenance-work-orders/maintenance-work-orders.module'
 import { MaintenanceTasksModule } from './modules/factory/maintenance/maintenance-tasks/maintenance-tasks.module'
 import { MaintenanceSchedulesModule } from './modules/factory/maintenance/maintenance-schedules/maintenance-schedules.module'
 import { MaintenanceChecklistItemsModule } from './modules/factory/maintenance/maintenance-checklist-items/maintenance-checklist-items.module'
@@ -81,11 +83,12 @@ import { InventoryLocksModule } from './modules/factory/inventory-locks/inventor
 @Module({
   imports: [
     PrismaModule, HealthModule, AuthModule,
-    UsersModule, RolesModule, PermissionsModule, BranchesModule, AdministrationsModule, DepartmentsModule, CompaniesModule,
+    UsersModule, RolesModule, PermissionsModule, BranchesModule, AdministrationsModule, DepartmentsModule, OrganizationalUnitsModule, CompaniesModule,
     ProductsModule, ProductCategoriesModule, InventoryModule, MaintenanceModule,
     AuditModule,
     MachineCategoriesModule, MachinePartsModule, MachineDocumentsModule,
     MaintenanceRequestsModule, MaintenanceTasksModule, MaintenanceSchedulesModule,
+    MaintenanceWorkOrdersModule,
     MaintenanceChecklistItemsModule, DowntimeLogsModule,
     MaintenanceRequestPartsModule, MaintenanceRequestCostsModule, MaintenanceChecklistExecutionsModule,
     MaintenanceDashboardModule, PreventiveMaintenanceModule,

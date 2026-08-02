@@ -6,6 +6,7 @@ const organization: Pick<LocaleTranslations, 'organization'> = {
         branchNotFound: 'الفرع غير موجود.',
         administrationNotFound: 'الإدارة غير موجودة.',
         departmentNotFound: 'القسم غير موجود.',
+        organizationalUnitNotFound: 'الوحدة التنظيمية غير موجودة.',
         roleNotFound: 'الدور غير موجود.',
         permissionNotFound: 'الإذن غير موجود.',
         userNotFound: 'المستخدم غير موجود.',

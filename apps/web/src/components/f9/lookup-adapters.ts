@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Administration, Department, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -37,6 +37,19 @@ export const departmentAdapter: LookupAdapter<Department> = {
     { key: 'company', header: 'Company', render: (d) => d.company?.name || '-' },
     { key: 'branch', header: 'Branch', render: (d) => d.branch?.name || '-' },
     { key: 'status', header: 'Status', render: (d) => d.status },
+  ],
+};
+
+export const organizationalUnitAdapter: LookupAdapter<OrganizationalUnit> = {
+  endpoint: '/organizational-units',
+  displayLabel: (u) => `[${u.code}] ${u.name}`,
+  searchFields: ['code', 'name'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'type', header: 'Type', render: (u) => u.type },
+    { key: 'parent', header: 'Parent', render: (u) => u.parent?.name || '-' },
+    { key: 'status', header: 'Status', render: (u) => u.status },
   ],
 };
 
@@ -401,5 +414,18 @@ export const stockTransferAdapter: LookupAdapter<StockTransfer> = {
     { key: 'sourceWarehouse', header: 'From', render: (t) => t.sourceWarehouse?.name || '-' },
     { key: 'destinationWarehouse', header: 'To', render: (t) => t.destinationWarehouse?.name || '-' },
     { key: 'status', header: 'Status', render: (t) => t.status },
+  ],
+};
+
+export const maintenanceWorkOrderAdapter: LookupAdapter<MaintenanceWorkOrder> = {
+  endpoint: '/maintenance-work-orders',
+  displayLabel: (w) => `[${w.workOrderNumber}] ${w.title}`,
+  searchFields: ['workOrderNumber', 'title'],
+  columns: [
+    { key: 'workOrderNumber', header: 'Number' },
+    { key: 'title', header: 'Title' },
+    { key: 'machine', header: 'Machine', render: (w) => w.machine?.name || '-' },
+    { key: 'status', header: 'Status', render: (w) => w.status },
+    { key: 'priority', header: 'Priority', render: (w) => w.priority },
   ],
 };

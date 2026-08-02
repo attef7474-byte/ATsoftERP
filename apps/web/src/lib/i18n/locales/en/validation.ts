@@ -17,6 +17,8 @@ const validation: Pick<LocaleTranslations, 'validation' | 'errors' | 'complexFor
         invalidDate: 'Invalid date.',
         invalidId: 'Invalid ID.',
         invalidQuantity: 'Invalid quantity.',
+        invalidStatusTransition: 'This operation is not allowed in the current status.',
+        insufficientStock: 'Insufficient stock for this item.',
         unknownField: 'This field is not allowed.',
         tooLong: 'Value is too long.',
         tooShort: 'Value is too short.',

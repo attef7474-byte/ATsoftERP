@@ -6,6 +6,7 @@ const organization: Pick<LocaleTranslations, 'organization'> = {
         branchNotFound: 'Branch not found.',
         administrationNotFound: 'Administration not found.',
         departmentNotFound: 'Department not found.',
+        organizationalUnitNotFound: 'Organizational unit not found.',
         roleNotFound: 'Role not found.',
         permissionNotFound: 'Permission not found.',
         userNotFound: 'User not found.',
