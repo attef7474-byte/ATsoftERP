@@ -51,7 +51,8 @@ export type TranslationNamespace =
   | 'inventoryReconciliation'
   | 'physicalCount'
   | 'varianceControl'
-  | 'errorDialog';
+  | 'errorDialog'
+  | 'production';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

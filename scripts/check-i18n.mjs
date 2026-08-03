@@ -8,6 +8,7 @@ const NAMESPACE_FILES = [
   'common.ts', 'navigation.ts', 'grid.ts', 'core.ts', 'access.ts',
   'settings.ts', 'inventory.ts', 'maintenance.ts', 'barcodes.ts',
   'reports.ts', 'validation.ts', 'system.ts', 'error-dialog.ts', 'workspace.ts',
+  'production.ts',
 ];
 
 const INDEX_FILES = ['index.ts', 'index.ts'];
@@ -158,6 +159,7 @@ const REGISTERED_NAMESPACE_PREFIXES = new Set([
   'maintenanceDashboard', 'preventiveMaintenance', 'downtimeAnalysis',
   'sparePartRequest', 'search', 'messaging', 'grid', 'inventoryLedger',
   'inventoryReconciliation', 'physicalCount', 'varianceControl', 'errorDialog',
+  'production',
 ]);
 
 function collectFiles(dir) {

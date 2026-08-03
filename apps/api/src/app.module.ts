@@ -79,6 +79,8 @@ import { InventoryStockTransfersModule } from './modules/factory/inventory-stock
 import { InventoryOperationalReceiptsModule } from './modules/factory/inventory-operational-receipts/inventory-operational-receipts.module'
 import { InventoryPhysicalCountsModule } from './modules/factory/inventory-physical-counts/inventory-physical-counts.module'
 import { InventoryLocksModule } from './modules/factory/inventory-locks/inventory-locks.module'
+import { ProductionMasterDataModule } from './modules/factory/production-master-data/production-master-data.module'
+import { ProductionShiftsModule } from './modules/factory/production-shifts/production-shifts.module'
 
 @Module({
   imports: [
@@ -121,6 +123,8 @@ import { InventoryLocksModule } from './modules/factory/inventory-locks/inventor
     InventoryOperationalReceiptsModule,
     InventoryPhysicalCountsModule,
     InventoryLocksModule,
+    ProductionMasterDataModule,
+    ProductionShiftsModule,
   ],
 })
 export class AppModule {}

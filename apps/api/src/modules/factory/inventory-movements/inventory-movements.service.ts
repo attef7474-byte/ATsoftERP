@@ -5,6 +5,7 @@ import { NumberingService } from '../../../modules/numbering/numbering.service';
 import { CreateInventoryMovementDto, CreateInventoryMovementLineDto } from './dto/create-inventory-movement.dto';
 import { UpdateInventoryMovementDto } from './dto/update-inventory-movement.dto';
 import { InventoryMovementQueryDto } from './dto/inventory-movement-query.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class InventoryMovementsService {
@@ -14,16 +15,64 @@ export class InventoryMovementsService {
     private numberingService: NumberingService,
   ) {}
 
-  async create(dto: CreateInventoryMovementDto, userId: string) {
-    const company = await this.prisma.company.findUnique({ where: { id: dto.companyId } });
-    if (!company) throw new NotFoundException('Company not found');
+  private validationError(field: string, code: string, message: string): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'common.validationFailed',
+      message: 'Validation failed',
+      errors: [{ field, code, message }],
+    });
+  }
+
+  private notFound(message: string): NotFoundException {
+    return new NotFoundException({ messageKey: 'inventory.movementNotFound', message });
+  }
+
+  private isInContext(
+    movement: { companyId: string; branchId: string | null },
+    ctx: ActiveOperationalContext,
+  ): boolean {
+    return movement.companyId === ctx.companyId &&
+      (movement.branchId === null || movement.branchId === ctx.branchId);
+  }
+
+  private async findOwned(id: string, ctx: ActiveOperationalContext) {
+    const movement = await this.prisma.inventoryMovement.findUnique({
+      where: { id },
+      include: {
+        company: true,
+        branch: true,
+        warehouse: true,
+        lines: {
+          include: {
+            product: { select: { id: true, name: true, code: true } },
+          },
+        },
+      },
+    });
+    if (!movement || movement.deletedAt || !this.isInContext(movement, ctx)) {
+      throw this.notFound('Inventory movement not found');
+    }
+    return movement;
+  }
+
+  async create(dto: CreateInventoryMovementDto, userId: string, ctx: ActiveOperationalContext) {
+    const company = await this.prisma.company.findUnique({ where: { id: ctx.companyId } });
+    if (!company) throw new NotFoundException({ messageKey: 'organization.companyNotFound', message: 'Company not found' });
 
     const warehouse = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
-    if (!warehouse) throw new NotFoundException('Warehouse not found');
+    if (!warehouse) {
+      throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse not found');
+    }
+    if (warehouse.companyId !== ctx.companyId) {
+      throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse belongs to another company');
+    }
+    if (warehouse.branchId && warehouse.branchId !== (dto.branchId || ctx.branchId)) {
+      throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse belongs to another branch');
+    }
 
     if (dto.branchId) {
       const branch = await this.prisma.branch.findUnique({ where: { id: dto.branchId } });
-      if (!branch) throw new NotFoundException('Branch not found');
+      if (!branch) throw this.notFound('Branch not found');
     }
 
     for (const line of dto.lines) {
@@ -38,11 +87,12 @@ export class InventoryMovementsService {
     const movement = await this.prisma.$transaction(async (tx) => {
       const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
 
-      const { lines, ...rest } = dto;
+      const { lines, companyId: _ignoredCompanyId, ...rest } = dto;
 
       return tx.inventoryMovement.create({
         data: {
           ...rest,
+          companyId: ctx.companyId,
           movementNumber,
           status: 'DRAFT',
           createdById: userId,
@@ -65,20 +115,19 @@ export class InventoryMovementsService {
     return movement;
   }
 
-  async findAll(query: InventoryMovementQueryDto) {
+  async findAll(query: InventoryMovementQueryDto, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null };
+    const where: any = { deletedAt: null, companyId: ctx.companyId };
+    where.branchId = { in: [ctx.branchId, null] };
     if (query.search) {
       where.OR = [
         { movementNumber: { contains: query.search } },
         { notes: { contains: query.search } },
       ];
     }
-    if (query.companyId) where.companyId = query.companyId;
-    if (query.branchId) where.branchId = query.branchId;
     if (query.warehouseId) where.warehouseId = query.warehouseId;
     if (query.movementType) where.movementType = query.movementType;
     if (query.status) where.status = query.status;
@@ -103,27 +152,12 @@ export class InventoryMovementsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
-    const movement = await this.prisma.inventoryMovement.findUnique({
-      where: { id },
-      include: {
-        company: true,
-        branch: true,
-        warehouse: true,
-        lines: {
-          include: {
-            product: { select: { id: true, name: true, code: true } },
-          },
-        },
-
-      },
-    });
-    if (!movement || movement.deletedAt) throw new NotFoundException('Inventory movement not found');
-    return movement;
+  async findOne(id: string, ctx: ActiveOperationalContext) {
+    return this.findOwned(id, ctx);
   }
 
-  async update(id: string, dto: UpdateInventoryMovementDto, userId: string) {
-    const movement = await this.findOne(id);
+  async update(id: string, dto: UpdateInventoryMovementDto, userId: string, ctx: ActiveOperationalContext) {
+    const movement = await this.findOwned(id, ctx);
     if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be updated');
 
     const updated = await this.prisma.inventoryMovement.update({
@@ -134,12 +168,8 @@ export class InventoryMovementsService {
     return updated;
   }
 
-  async post(id: string, userId: string) {
-    const movement = await this.prisma.inventoryMovement.findUnique({
-      where: { id },
-      include: { lines: true },
-    });
-    if (!movement || movement.deletedAt) throw new NotFoundException('Inventory movement not found');
+  async post(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const movement = await this.findOwned(id, ctx);
     if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be posted');
 
     const posted = await this.prisma.$transaction(async (tx) => {
@@ -178,9 +208,8 @@ export class InventoryMovementsService {
     return posted;
   }
 
-  async cancel(id: string, userId: string) {
-    const movement = await this.prisma.inventoryMovement.findUnique({ where: { id } });
-    if (!movement || movement.deletedAt) throw new NotFoundException('Inventory movement not found');
+  async cancel(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const movement = await this.findOwned(id, ctx);
     if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be cancelled');
 
     const updated = await this.prisma.inventoryMovement.update({
@@ -192,8 +221,8 @@ export class InventoryMovementsService {
     return updated;
   }
 
-  async addLine(id: string, dto: CreateInventoryMovementLineDto, userId: string) {
-    const movement = await this.findOne(id);
+  async addLine(id: string, dto: CreateInventoryMovementLineDto, userId: string, ctx: ActiveOperationalContext) {
+    const movement = await this.findOwned(id, ctx);
     if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be modified');
     const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
     if (!product) throw new NotFoundException('Product not found');
@@ -208,11 +237,11 @@ export class InventoryMovementsService {
     return line;
   }
 
-  async updateLine(id: string, lineId: string, dto: Partial<CreateInventoryMovementLineDto>, userId: string) {
-    const movement = await this.findOne(id);
+  async updateLine(id: string, lineId: string, dto: Partial<CreateInventoryMovementLineDto>, userId: string, ctx: ActiveOperationalContext) {
+    const movement = await this.findOwned(id, ctx);
     if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be modified');
     const line = await this.prisma.inventoryMovementLine.findUnique({ where: { id: lineId } });
-    if (!line || line.movementId !== id) throw new NotFoundException('Movement line not found');
+    if (!line || line.movementId !== id) throw this.notFound('Movement line not found');
 
     const updated = await this.prisma.inventoryMovementLine.update({
       where: { id: lineId },
@@ -223,19 +252,19 @@ export class InventoryMovementsService {
     return updated;
   }
 
-  async removeLine(id: string, lineId: string, userId: string) {
-    const movement = await this.findOne(id);
+  async removeLine(id: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
+    const movement = await this.findOwned(id, ctx);
     if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be modified');
     const line = await this.prisma.inventoryMovementLine.findUnique({ where: { id: lineId } });
-    if (!line || line.movementId !== id) throw new NotFoundException('Movement line not found');
+    if (!line || line.movementId !== id) throw this.notFound('Movement line not found');
 
     await this.prisma.inventoryMovementLine.delete({ where: { id: lineId } });
     await this.audit.log(userId, 'REMOVE_LINE', 'InventoryMovement', id, { lineId });
     return { message: 'Line removed successfully' };
   }
 
-  async summary(id: string) {
-    const movement = await this.findOne(id);
+  async summary(id: string, ctx: ActiveOperationalContext) {
+    const movement = await this.findOwned(id, ctx);
     const lines = await this.prisma.inventoryMovementLine.findMany({
       where: { movementId: id },
       select: { direction: true, quantity: true },

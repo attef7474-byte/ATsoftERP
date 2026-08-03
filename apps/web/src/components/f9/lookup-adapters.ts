@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -427,5 +427,107 @@ export const maintenanceWorkOrderAdapter: LookupAdapter<MaintenanceWorkOrder> = 
     { key: 'machine', header: 'Machine', render: (w) => w.machine?.name || '-' },
     { key: 'status', header: 'Status', render: (w) => w.status },
     { key: 'priority', header: 'Priority', render: (w) => w.priority },
+  ],
+};
+
+export const productionUnitAdapter: LookupAdapter<ProductionUnit> = {
+  endpoint: '/production/units',
+  displayLabel: (u) => `[${u.code}] ${u.name}`,
+  searchFields: ['code', 'name', 'abbreviation'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'abbreviation', header: 'Abbreviation', render: (u) => u.abbreviation || '-' },
+    { key: 'decimals', header: 'Decimals', render: (u) => u.decimals },
+    { key: 'status', header: 'Status', render: (u) => u.status },
+  ],
+};
+
+export const productionProductDefinitionAdapter: LookupAdapter<ProductionProductDefinition> = {
+  endpoint: '/production/product-definitions',
+  displayLabel: (p) => `[${p.code}] ${p.name}`,
+  searchFields: ['code', 'name'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'product', header: 'Product', render: (p) => p.product?.name || '-' },
+    { key: 'defaultLine', header: 'Line', render: (p) => p.defaultLine?.name || '-' },
+    { key: 'status', header: 'Status', render: (p) => p.status },
+  ],
+};
+
+export const productionShiftAdapter: LookupAdapter<ProductionShift> = {
+  endpoint: '/production/shifts',
+  displayLabel: (s) => `[${s.code}] ${s.name} (${s.startTime} - ${s.endTime})`,
+  searchFields: ['code', 'name', 'description'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'startTime', header: 'Start', render: (s) => s.startTime },
+    { key: 'endTime', header: 'End', render: (s) => s.endTime },
+    { key: 'status', header: 'Status', render: (s) => s.status },
+  ],
+};
+
+export const productionShiftTemplateAdapter: LookupAdapter<ProductionShiftTemplate> = {
+  endpoint: '/production/shift-templates',
+  displayLabel: (t) => `[${t.code}] ${t.name}`,
+  searchFields: ['code', 'name', 'description'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'days', header: 'Days', render: (t) => `${t.days?.length ?? 0}` },
+    { key: 'status', header: 'Status', render: (t) => t.status },
+  ],
+};
+
+export const productionShiftCalendarAdapter: LookupAdapter<ProductionShiftCalendar> = {
+  endpoint: '/production/shift-calendars',
+  displayLabel: (c) => `[${c.code}] ${c.name}`,
+  searchFields: ['code', 'name', 'description'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'effectiveFrom', header: 'From', render: (c) => new Date(c.effectiveFrom).toLocaleDateString() },
+    { key: 'effectiveTo', header: 'To', render: (c) => (c.effectiveTo ? new Date(c.effectiveTo).toLocaleDateString() : '-') },
+    { key: 'status', header: 'Status', render: (c) => c.status },
+  ],
+};
+
+export const productionShiftAssignmentAdapter: LookupAdapter<ProductionShiftAssignment> = {
+  endpoint: '/production/shift-assignments',
+  displayLabel: (a) => `[${a.code}] ${a.operationalPerson?.name || a.operationalPersonId}`,
+  searchFields: ['code'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'person', header: 'Person', render: (a) => a.operationalPerson?.name || '-' },
+    { key: 'shift', header: 'Shift', render: (a) => a.shift?.name || '-' },
+    { key: 'effectiveFrom', header: 'From', render: (a) => new Date(a.effectiveFrom).toLocaleDateString() },
+    { key: 'status', header: 'Status', render: (a) => a.status },
+  ],
+};
+
+export const productionOperationalAssignmentAdapter: LookupAdapter<ProductionOperationalAssignment> = {
+  endpoint: '/production/operational-assignments',
+  displayLabel: (a) => `[${a.code}] ${a.machine?.name || a.productionLine?.name || a.productionUnit?.name || a.resourceType}`,
+  searchFields: ['code'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'resourceType', header: 'Type', render: (a) => a.resourceType },
+    { key: 'resource', header: 'Resource', render: (a) => a.machine?.name || a.productionLine?.name || a.productionUnit?.name || '-' },
+    { key: 'shift', header: 'Shift', render: (a) => a.shift?.name || '-' },
+    { key: 'status', header: 'Status', render: (a) => a.status },
+  ],
+};
+
+export const operationalPersonAdapter: LookupAdapter<OperationalPerson> = {
+  endpoint: '/production/operational-people',
+  displayLabel: (p) => `[${p.code}] ${p.name}`,
+  searchFields: ['code', 'name', 'phone', 'email'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'category', header: 'Category' },
+    { key: 'isActive', header: 'Active', render: (p) => p.isActive ? 'Yes' : 'No' },
   ],
 };

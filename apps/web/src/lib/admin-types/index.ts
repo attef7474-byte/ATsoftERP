@@ -8,3 +8,4 @@ export * from './barcodes';
 export * from './system';
 export * from './settings';
 export * from './reports';
+export * from './production';

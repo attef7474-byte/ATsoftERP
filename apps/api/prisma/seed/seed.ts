@@ -226,6 +226,10 @@ async function main() {
     { code: "MAINTENANCE_PERSONNEL", name: "Maintenance Personnel", operationName: "Maintenance Personnel", modelName: "OperationalPerson", domain: "maintenance", prefix: "MP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "PRODUCTION_LINE", name: "Production Line", operationName: "Production Line", modelName: "ProductionLine", domain: "maintenance", prefix: "PL-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
 
+    // Production master data
+    { code: "PRODUCTION_UNIT", name: "Production Unit", operationName: "Production Unit", modelName: "ProductionUnit", domain: "production", prefix: "PU-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+    { code: "PRODUCTION_PRODUCT", name: "Production Product Definition", operationName: "Production Product Definition", modelName: "ProductionProductDefinition", domain: "production", prefix: "PP-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
+
     // Barcode/QR
     { code: "BARCODE_LABEL", name: "Barcode Label", operationName: "Barcode Label", modelName: "BarcodeLabel", domain: "barcode", prefix: "BCL-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },
     { code: "QR_LABEL", name: "QR Label", operationName: "QR Label", modelName: "QRLabel", domain: "barcode", prefix: "QR-", padding: 6, scope: "GLOBAL", resetPolicy: "NEVER", status: "ACTIVE" },

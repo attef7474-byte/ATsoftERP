@@ -33,6 +33,14 @@ import {
   sparePartAdapter,
   maintenancePersonnelAdapter,
   maintenanceWorkOrderAdapter,
+  productionUnitAdapter,
+  productionProductDefinitionAdapter,
+  productionShiftAdapter,
+  productionShiftTemplateAdapter,
+  productionShiftCalendarAdapter,
+  productionShiftAssignmentAdapter,
+  productionOperationalAssignmentAdapter,
+  operationalPersonAdapter,
 } from './lookup-adapters';
 import type {
   Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product,
@@ -41,6 +49,9 @@ import type {
   WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification,
   AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine,
   MachineComponent, SparePart, MaintenancePersonnel, MaintenanceWorkOrder,
+  ProductionUnit, ProductionProductDefinition, ProductionShift, ProductionShiftTemplate,
+  ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment,
+  OperationalPerson,
 } from '../../lib/admin-types';
 
 export interface UnifiedSearchEntity {
@@ -293,6 +304,62 @@ const registry: UnifiedSearchEntity[] = [
     adapter: maintenanceWorkOrderAdapter as LookupAdapter<any>,
     detailRoute: (item: MaintenanceWorkOrder) => `/admin/maintenance/work-orders/${item.id}`,
     subtitle: (item: MaintenanceWorkOrder) => item.machine?.name || item.workOrderNumber,
+  },
+  {
+    entityType: 'productionUnit',
+    labelKey: 'production.units',
+    adapter: productionUnitAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/units`,
+    subtitle: (item: ProductionUnit) => item.code,
+  },
+  {
+    entityType: 'productionProductDefinition',
+    labelKey: 'production.productDefinitions',
+    adapter: productionProductDefinitionAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/product-definitions`,
+    subtitle: (item: ProductionProductDefinition) => item.product?.name || item.code,
+  },
+  {
+    entityType: 'productionShift',
+    labelKey: 'production.shifts',
+    adapter: productionShiftAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/shifts`,
+    subtitle: (item: ProductionShift) => `${item.startTime} - ${item.endTime}`,
+  },
+  {
+    entityType: 'productionShiftTemplate',
+    labelKey: 'production.shiftTemplates',
+    adapter: productionShiftTemplateAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/shift-templates`,
+    subtitle: (item: ProductionShiftTemplate) => item.days?.length ? `${item.days.length} days` : item.code,
+  },
+  {
+    entityType: 'productionShiftCalendar',
+    labelKey: 'production.shiftCalendars',
+    adapter: productionShiftCalendarAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/shift-calendars`,
+    subtitle: (item: ProductionShiftCalendar) => item.template?.name || item.code,
+  },
+  {
+    entityType: 'productionShiftAssignment',
+    labelKey: 'production.shiftAssignments',
+    adapter: productionShiftAssignmentAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/shift-assignments`,
+    subtitle: (item: ProductionShiftAssignment) => item.shift?.name || item.code,
+  },
+  {
+    entityType: 'productionOperationalAssignment',
+    labelKey: 'production.operationalAssignments',
+    adapter: productionOperationalAssignmentAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/operational-assignments`,
+    subtitle: (item: ProductionOperationalAssignment) => item.machine?.name || item.productionLine?.name || item.productionUnit?.name || item.code,
+  },
+  {
+    entityType: 'operationalPerson',
+    labelKey: 'production.operationalPeople',
+    adapter: operationalPersonAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/shift-assignments`,
+    subtitle: (item: OperationalPerson) => item.category,
   },
 ];
 

@@ -1,8 +1,9 @@
 # ATsofterp Current Implemented Architecture Discovery Report
 
-**التاريخ**: 2026-07-31
+**التاريخ**: 2026-08-03 (تحديث إحصاءات تم التحقق منها من الكود؛ التقرير الأصلي: 2026-07-31)
 **نوع التقرير**: تقرير اكتشاف ومراجعة معماري للبنية القائمة (Read-Only Audit)
 **الغرض**: توثيق ما هو مُنفَّذ فعلياً في المستودع الحالي دون أي توصيات أو مقارنات مع بنية ERP مثالية.
+**مسارات التحقق**: مسار المهمة `C:\Users\attef\PycharmProjects\Trae\ATsofterp` مقابل مسار العمل `C:\Users\attef\PycharmProjects\Project\ATsoft_erp` — مستنسخان متطابقان (نفس SHA `8eba533efec5b02d7986c86e2511a80938bac1a7`، نفس عدد الملفات، نفس git status). تم التدقيق على نسخة العمل.
 
 ---
 
@@ -12,7 +13,7 @@
 
 ATsofterp هو **monorepo** لإدارة أعمال المصانع (Smart Factory ERP) مبني على `npm workspaces` يضم تطبيقين فعليين: واجهة API بـ **NestJS 11** (`apps/api`) وواجهة أمامية بـ **Next.js 15** (`apps/web`) مع حزمة مشتركة `packages/shared` و`packages/config` وحزمة `packages/ui` فارغة تقريباً (`.gitkeep` فقط).
 
-وفقاً للكود الفعلي فإن النظام الحالي هو **modular monolith** في الجانب الخلفي (AppModule واحد يسجّل 78 وحدة NestJS) مع واجهة أمامية من صفحة واحدة (SPA) عبر Next.js App Router (259 صفحة إدارية + صفحتا تسجيل الدخول والرئيسية).
+وفقاً للكود الفعلي فإن النظام الحالي هو **modular monolith** في الجانب الخلفي (AppModule واحد يسجّل 80 وحدة NestJS) مع واجهة أمامية من صفحة واحدة (SPA) عبر Next.js App Router (266 صفحة في `src/app` + صفحتا تسجيل الدخول والرئيسية).
 
 ### النطاقات المنفذة فعلياً
 
@@ -21,51 +22,61 @@ ATsofterp هو **monorepo** لإدارة أعمال المصانع (Smart Factor
 | Auth / Users / Roles / Permissions | IMPLEMENTED (7 endpoints، JWT + bcrypt، guard على مستوى كل controller) |
 | Companies / Branches / Administrations / Departments | IMPLEMENTED (CRUD كامل + `GET /departments/tree`) |
 | Machines / Asset Register | IMPLEMENTED (CRUD + وثائق + مكونات + حالات تشغيلية) |
-| Maintenance / CMMS | IMPLEMENTED — النطاق الأكبر (349 endpoint عبر 35 controller) |
-| Inventory العملياتي | IMPLEMENTED (حركات، جرد، تسويات، أرصدة، تحويلات، إيصالات، عدادات فعلية) |
+| Maintenance / CMMS | IMPLEMENTED — النطاق الأكبر (362 endpoint ضمن factory عبر 36 controller صيانة) |
+| Maintenance Work Orders | IMPLEMENTED — دورة DRAFT→PLANNED→IN_PROGRESS→COMPLETED/CANCELLED + إصدار قطع موزع |
+| Inventory العملياتي | IMPLEMENTED (~160 endpoint: حركات، إيصالات تشغيلية، تسويات، أرصدة افتتاحية، تسويات مخزنية، تحويلات، جرد فعلي) |
 | Spare Parts + Conditions + Repair Orders + BOM + Planning | IMPLEMENTED (دفعات Z-AA / AB-AC / AD-AE / AH-AI) |
 | Barcodes / QR | IMPLEMENTED (40 endpoint) |
 | Reports / Dashboard / Search / Audit / Notifications / Messaging / Settings | IMPLEMENTED |
-| Production (أوامر إنتاج / BOM إنتاجي / Routing / Shifts / Waste / Rework) | **غير موجود نهائياً** — لا توجد نماذج Prisma ولا كود (ملفات factory/* فارغة 0 بايت) |
+| موبايل فلتر | IMPLEMENTED (تطبيق Flutter حقيقي في `apps/mobile` — 39 ملف Dart بفيزيائيات مصادقة/مخزون/آلات/صيانة/فاحص/مزامنة) |
+| Desktop | STUB — `apps/desktop` سقالة Tauri فقط (`src-tauri/tauri.conf.json` 0 بايت) |
+| Production (أوامر إنتاج / BOM إنتاجي / Routing / Shifts / Waste / Rework) | **غير موجود نهائياً** — لا توجد نماذج Prisma ولا كود (ملفات factory/production/* فارغة 0 بايت) |
 | Finance / Purchasing / Sales / HR / AI / IoT / BI / Workflows / Forecasting وغيرها | **على القرص كـ 0-byte stubs فقط، غير مسجلة وبدون أي كود** |
 
 ### بنية التطبيقات
 
 ```mermaid
 graph TD
-    WEB[apps/web - Next.js 15<br/>259 admin pages] --> API[apps/api - NestJS 11<br/>758 endpoints]
-    API --> PRISMA[Prisma 7.8 Client]
-    PRISMA --> SQL[SQL Server 2016 Express]
-    WEB --> I18N[i18n EN/AR - 3,458 keys لكل لغة]
-    API --> SEED[prisma/seed - 36 migration folders<br/>+ 5 manual SQL files]
+    WEB[apps/web - Next.js 15<br/>266 admin pages] --> API[apps/api - NestJS 11<br/>774 endpoints]
+    API --> PRISMA[Prisma 7.8 Client - 95 models]
+    PRISMA --> SQL[SQL Server]
+    WEB --> I18N[i18n EN/AR - 3,659 key لكل لغة]
+    MOBILE[apps/mobile - Flutter] --> API
+    API --> SEED[prisma/seed - 38 migration folders<br/>17 ملف seed]
 ```
 
 ### هل النظام متعدد الشركات فعلياً؟
 
 **جزئياً (PARTIAL)** — التفصيل في القسم 6:
 
-- 18 موديلاً فقط من 90 تحمل `companyId` (ومعظمها في نطاق المخزون)، و18 تحمل `branchId`.
+- 20 موديلاً من 95 تحمل `companyId` و20 تحمل `branchId` (غالبيتها في نطاق المخزون؛ والعد يشمل العلاقات غير المسماة).
 - `MaintenanceRequest` **لا يحمل** `companyId`/`branchId` إطلاقاً — العزل يتم بشكل غير مباشر عبر `Machine → companyId` (وهو اختياري في Machine نفسه).
 - بيانات الأصناف الرئيسية (Product، SparePart، MachineComponent، Barcode، Messaging) **عالمية بدون أعمدة tenant**.
 - لا يوجد isolation على مستوى قاعدة البيانات ولا على مستوى middleware عام؛ الحماية تأتي من guard واحد يتحقق فقط من **وجود** المستخدم وصلاحياته، ويوجد `OperationalContext` (UserOperationalScope) يضيف رؤوس سياق (`x-active-company-id`...) للطلبات لكنه نظام تفضيلات/فلترة اختيارية وليس إجبارياً (لا يرفض الطلب إذا لم يُرسَل).
 - لا يوجد فحص `branchId` على مستوى السيرفيسات.
 
+### صلاحيات متشددة مع فجوات محققة (تحديث 2026-08-03)
+
+- 416 مفتاح صلاحية فريد تُستخدم في `@Permissions(...)` عبر الـ controllers، منها **163 مفتاحاً غير مزرعة في أي ملف seed** (مثال: `*:read/create/update/delete` بصيغة الجمع مثل `machines:read`، `branches:read`، `companies:create`، بينما الـ seed يزرع الصيغة المفردة أو مفاتيح أخرى).
+- الـ `PermissionsGuard` يطابق حرفياًًً (`userPermissionKeys.has(p)`) بلا تطبيع، ويفتح SUPER_ADMIN فقط عبر `role.code === 'SUPER_ADMIN'`. النتيجة: **أي دور غير SUPER_ADMIN يرفض (403) بشكل fail-closed** عند أي endpoint يطلب مفتاحاً غير مزروع.
+- تحققت هذه الفجوة بالكشف البرمجي: 416 مفتاحاً مستخدماً في controllers مقابل 343 مفتاحاً مذكوراً في ملفات seed (غالبها داخل `CMMS_EXTRA_PERMISSIONS`، مفاتيح العمل النشطة). التفاصيل الكاملة في القسم 12.
+
 ### هل الصيانة والإنتاج مستقلان أم متكاملان؟
 
 الصيانة **منفذة بالكامل**؛ الإنتاج **غير موجود** (لا توجد نماذج ولا API ولا صفحات). التكامل الوحيد "الإنتاجي" هو: `ProductionLine` و`OperationType` و`CostCenter` — وهي **مراجع تنظيمية تُستخدم ضمن نطاق الصيانة** (تُربط بالـ Machine وطلبات الصيانة)، وليس نطاق إنتاج فعلياً. `MaintenanceBom` هو تخطيط قطع غيار للصيانة الوقائية وليس BOM إنتاجي.
 
-### مصادر الحقيقة (Sources of Truth) الحالية
+### مصادر الحقيقة (Sources of Truth)
 
-1. `apps/api/prisma/schema.prisma` (2,773 سطراً، 90 موديلاً)
-2. `apps/api/src/app.module.ts` (78 وحدة مسجلة فعلياً)
-3. الكود الفعلي للـ controllers/services (758 endpoint؛ 86 controller غير فارغ)
-4. `apps/web/src/app/admin/**/page.tsx` (259 صفحة فعلية)
-5. ملفات i18n (3,458 مفتاح EN + 3,458 AR)
-6. ملفات seed (36 migration folder + 5 SQL يدوية + 12 ملف seed)
+1. `apps/api/prisma/schema.prisma` (2,975 سطراً، 95 موديلاً)
+2. `apps/api/src/app.module.ts` (80 وحدة مسجلة فعلياً)
+3. الكود الفعلي للـ controllers/services (774 endpoint؛ 88 controller غير فارغ)
+4. `apps/web/src/app/admin/**/page.tsx` (266 صفحة فعلية)
+5. ملفات i18n (3,659 مفتاح EN + 3,659 AR، 16 ملفاً لكل لغة)
+6. ملفات seed (38 migration folder + 17 ملف seed)
 
 ### نقاط لم يمكن حسمها (Unresolved)
 
-- التصادم الفعلي بين controller-methods مكررة على نفس المسار (`inventory/adjustments` يظهر مرتين في نفس الملف) — أي منها يخدم فعلياً غير محسوم دون تشغيل الخادم.
+- التصادم الفعلي بين controller-methods مكررة على نفس المسار (`inventory/adjustments` يظهر مرة ثانية في نفس الملف) — أي منها يخدم فعلياً غير محسوم دون تشغيل الخادم.
 - هل `GET /inventory/balances` من `inventory.controller.ts` أم من `inventory-balances.controller.ts` عند التشغيل (كلاهما على نفس البادئة).
 - سلوك `SecuritySettings` وقت التشغيل (لا يوجد ربط مكتشف بينها وبين flow المصادقة).
 
@@ -75,20 +86,21 @@ graph TD
 
 | العنصر | القيمة |
 |---|---|
-| تاريخ التقرير | 2026-07-31 |
-| مسار المستودع | `C:\Users\attef\PycharmProjects\Trae\ATsofterp` |
+| تاريخ التقرير | 2026-08-03 (تحديث إحصاءات) — التقرير الأصلي 2026-07-31 |
+| مسار المستودع (أمر المهمة) | `C:\Users\attef\PycharmProjects\Trae\ATsofterp` |
+| مسار المستودع (التحقق الفعلي) | `C:\Users\attef\PycharmProjects\Project\ATsoft_erp` |
 | الفرع الحالي | `main` |
-| SHA الكامل | `c151e2eb8d136553a2a8033a145c2784d9851b65` |
-| Git status قبل المراجعة | `nothing to commit, working tree clean` |
-| Git status بعد المراجعة | نظيف — باستثناء ملف التقرير الجديد (تم إنشاؤه لاحقاً بعد الرصد) |
+| SHA الكامل | `8eba533efec5b02d7986c86e2511a80938bac1a7` |
+| Git status قبل المراجعة | متسخ (dirty) — تغييرات موجودة مسبقاً في مخزونات وأدلة الإثبات؛ الملفات المذكورة في نهاية القسم |
+| Git status بعد المراجعة | التقرير هو التغيير الوحيد للمهمة؛ بقية التغييرات مسبقة (لم يتم لمسها) |
 | الـ remote | `origin → https://github.com/attef7474-byte/ATsoftERP` |
-| بنية المستودع | Monorepo — npm workspaces (`apps/*`, `packages/*`)، packageManager `npm@11.5.1` |
-| الملفات المدروسة | ~975 ملف TS في `apps/api/src` + ~261 صفحة في `apps/web/src/app` + schema.prisma + 36 migration folder + 5 SQL يدوية + 12 ملف seed + 31 script + 28 tool + infra/deploy/release |
-| الدلائل المستثناة | `node_modules`, `.next`, `dist`, `storage`, `.git`, `test-results`, `release/ATsoftERP-current-release-final.zip` (ثنائي) |
-| الأوامر المستخدمة | `git status`, `git branch --show-current`, `git rev-parse HEAD`, `git remote -v`, `git log`, `git diff --stat`, `Get-Content`, `Select-String`, قراءة ملفات مباشرة (بدون أي أمر كتابي أو تشغيلي) |
-| قيود المنع | لم تُنفَّذ أي أوامر Prisma/DB، لا تثبيت حزم، لا build، لا تشغيل خدمات، لا git write |
-| ملفات معدلة/غير متعقبة قبل المهمة | لا شيء (working tree نظيف) |
-| هل ملف التقرير هو التغيير الوحيد المنشأ من المهمة | **نعم** — `docs/proofs/atsofterp-current-architecture-discovery-report.md` |
+| بنية المستودع | Monorepo — npm workspaces 1.11 (`apps/*`, `packages/*`)، packageManager في package.json الجذر |
+| الملفات المدروسة | كل `apps/api/src` (1,013 ملف TS)، كل `apps/web/src` (468 ملف ts/tsx)، schema.prisma (2,975 سطراً)، 38 migration folder، 17 ملف seed، apps/mobile (33 Dart)، apps/desktop (سقالة) |
+| الدلائل المستثناة | `node_modules`, `.next`, `dist`, `storage`, `.git`, `test-results`, `release/` (ثنائي) |
+| الأوامر المستخدمة | قراءة مباشرة فقط: `Get-ChildItem`, `Get-Content`, `Select-String`, `[regex]::Matches`, `git status/log/branch/remote` |
+| قيود المنع | لم تُنفَّذ أي أوامر Prisma/DB/seed، لا تثبيت حزم، لا build، لا تشغيل خدمات، لا git write |
+| الملفات المعدلة/غير المتعقبة قبل المهمة | `inventory-movements.controller.ts/.service.ts` و`.service.spec.ts`، `docs/proofs/atsofterp-phase0-workorders-runtime-tenant-inventory-proof.md`، دليل `.../inventory-opening-balance-adjustment-control/`، دليل `.../phase0-maintenance-work-orders-browser-proof/` |
+| هل ملف التقرير هو التغيير الوحيد المنشأ من المهمة | **نعم** — `docs/proofs/atsofterp-current-architecture-discovery-report.md` (تحديث في مكانه) |
 
 ---
 
@@ -99,33 +111,35 @@ graph TD
 ```text
 ATsofterp/
 ├── apps/
-│   ├── api/                      # NestJS 11 — 975 ملف TS (521 فارغ = 53%)
-│   │   ├── prisma/               # schema.prisma + migrations + seed
+│   ├── api/                      # NestJS 11 — 1,013 ملف TS (520 فارغ = 51%)
+│   │   ├── prisma/               # schema.prisma (2,975 سطر، 95 موديل) + 38 migration + 17 seed
 │   │   └── src/                  # main.ts, app.module.ts, modules/, common/
-│   └── web/                      # Next.js 15 — 259 admin page + login + home
-│       └── src/app/admin/        # 10 مجموعات تنقل، 97 رابط sidebar
+│   ├── web/                      # Next.js 15 — 266 page.tsx + login + home
+│   │   └── src/app/admin/        # مجموعات تنقل + sidebar
+│   ├── mobile/                   # Flutter — 33 ملف Dart (مصادقة/مخزون/آلات/صيانة/فاحص/مزامنة/offline)
+│   └── desktop/                  # سقالة Tauri فقط (tauri.conf.json 0 بايت)
 ├── packages/
-│   ├── config/src/index.ts       # حزمة إعدادات
-│   ├── shared/src/index.ts       # حزمة مشتركة
+│   ├── config/src/index.ts       # حزمة إعدادات (index.ts 0 بايت، tsconfig 0 بايت)
+│   ├── shared/src/index.js|.ts   # حزمة مشتركة (فارغة)
 │   └── ui/src/.gitkeep           # فارغة تقريباً
-├── docs/proofs/                  # أدلة الإثبات (17+ دفعة)
-├── infra/                        # docker-compose + prometheus + grafana + mosquitto (artifacts)
+├── docs/proofs/                  # أدلة الإثبات — 1,612 ملفاً (~50+ دورة إثبات)
+├── infra/                        # docker-compose + prometheus + grafana + mosquitto — كل ملفات compose وmonitoring فارغة 0 b (غير مستخدمة)
 ├── deploy/windows/               # تثبيت خدمات Windows (PowerShell)
-├── tools/                        # backup(5), deploy(6), health(6), installer(5), runtime(13)
-├── scripts/                      # 31 ملفاً — 6 منها فقط غير فارغة
+├── tools/                        # backup/deploy/health/installer/runtime
+├── scripts/                      # 90+ ملفاً، 6 منها فقط غير فارغة
 ├── release/                      # حزمة الإصدار الحالي + zip
-├── storage/                      # 8 مجلدات تشغيل فارغة
-└── root: package.json, .env*, *.bat/*.ps1, api.log, web.log, test-final-ui.js, api-proof-batch-h.ps1
+└── storage/                      # دليل تشغيل محلي
 ```
 
 ### خريطة الحزم (Package Map)
 
 | الحزمة | الغرض الفعلي | التبعيات الرئيسية |
 |---|---|---|
-| `apps/api` | خادم NestJS: 758 endpoint، Prisma، JWT | @nestjs/* 11، prisma 7.8، passport-jwt، bcryptjs، exceljs، mssql/msnodesqlv8 |
-| `apps/web` | واجهة Next.js 15: 259 صفحة، i18n، RTL | next 15، react 18.3، tailwind 3.4 |
-| `packages/shared` | `index.ts` مشترك (صغير) | — |
-| `packages/config` | `index.ts` إعدادات | — |
+| `apps/api` | خادم NestJS: 774 endpoint، Prisma 7.8، JWT | @nestjs/* 11، prisma 7.8، passport-jwt، bcryptjs، exceljs، mssql/msnodesqlv8 |
+| `apps/web` | واجهة Next.js 15: 266 صفحة، i18n (16 ns)، RTL | next 15، react 18.3، tailwind 3.4 |
+| `apps/mobile` | Flutter 3.2+: خيوط تشغيل ميداني/فاحص/مزامنة | flutter_localizations، sqflite، mobile_scanner، connectivity_plus |
+| `packages/shared` | `index.ts` مشترك (فارغ) | — |
+| `packages/config` | `index.ts` إعدادات (فارغ) | — |
 | `packages/ui` | فارغة (`.gitkeep`) | — |
 
 ### الطبقات (System Layers)
@@ -145,14 +159,14 @@ ATsofterp/
 | قاعدة البيانات | SQL Server | `schema.prisma` + `.env` (الأسماء فقط) |
 | المصادقة | JWT (passport-jwt) + bcryptjs | `modules/auth/strategies/jwt.strategy.ts`, `auth.service.ts:26` |
 | التفويض | `@Permissions()` + `PermissionsGuard` (per-controller، لا APP_GUARD) | `modules/auth/guards/permissions.guard.ts` |
-| i18n | React Context (`I18nProvider`)، 53 namespace | `apps/web/src/lib/i18n/` |
+| i18n | React Context (`I18nProvider`)، 53 namespace، 16 ملف/لغة (3,659 key) | `apps/web/src/lib/i18n/` |
 | RTL/LTR | خاصية `dir` على مستوى الجذر + تخطيطات CSS | `i18n-provider.tsx` |
 | State management | React hooks فقط (useState/useEffect) + `useCrudList` (4 صفحات فقط) | `hooks/useCrudList.ts` |
 | التصدير | CSV (تقرير)، Excel (exceljs) | `reports.controller.ts` (`/reports/export/csv/*`, `/excel/*`) |
 | الطباعة | QR/Barcode templates + صفحات طباعة متصفح | `barcodes/*` صفحات، `requests/[id]/print` |
 | المرفقات | Multer على القرص (`storage/uploads`) | `documents/attachments` |
-| الاختبارات | 19 spec ملف كلها **0 بايت** (لا توجد اختبارات حقيقية) | فحص بالحجم |
-| Docker | ممنوع (AGENTS.md) — ملفات `infra/` غير مستخدمة | — |
+| الاختبارات | 45 spec مكتوبة (45 في api) — **27 منها غير فارغة** وتحتوي منطق اختبار حقيقي (services/guards/validation) | fحص بالحجم |
+| Docker | ممنوع (AGENTS.md) — ملفات `infra/` كلها فارغة وغير مستخدمة | — |
 | Installer/Runtime | سكربتات PowerShell (tools/runtime, tools/deploy) + حزمة release | `tools/runtime/atsofterp-install.ps1` وغيرها |
 | Backup/Restore | سكربتات PowerShell + مجلد storage/backups | `tools/backup/*.ps1` |
 | الإشعارات | In-app فقط (Notification)، قناة `IN_APP` في NotificationRule | `modules/notifications/` |
@@ -254,19 +268,21 @@ graph TD
 
 | المقياس | القيمة |
 |---|---|
-| عدد النماذج (Models) | **90** |
+| عدد النماذج (Models) | **95** |
 | عدد الـ Enums | **0** (جميع الحالات نصوص String حرة — القيم فقط في كود TypeScript) |
 | عدد الـ Views | 0 |
-| `@unique` (أحادية) | 54 |
-| `@@unique` (مركّبة) | 16 |
+| `@unique` (أحادية) | 38 |
+| `@@unique` (مركّبة) | 18 |
 | `@@id` (مفاتيح مركّبة) | 2 (UserRole, RolePermission) |
-| `@@index` | 476 |
-| نماذج بها `deletedAt` (حذف ناعم) | 39 |
-| نماذج بها `updatedAt` | 80 |
+| `@id` مفاتيح أولية | 95 (كل نموذج) |
+| `@@index` | 507 |
+| نماذج بها `deletedAt` (حذف ناعم) | 41 |
+| نماذج بها `updatedAt` | 83 |
 | نماذج بها حقل `status` | 55 (كلها String) |
-| نماذج بها `companyId` | 18 |
-| نماذج بها `branchId` | 18 |
-| حجم schema.prisma | 2,773 سطراً |
+| نماذج بها `companyId` | 20 |
+| نماذج بها `branchId` | 20 |
+| حجم schema.prisma | 2,975 سطراً |
+| مجلدات migrations | 38 (تبدأ `20260714042111_init_core_foundation` وتنتهي `20260803000000_add_maintenance_work_order`) |
 
 ### النماذج مجمعة حسب النطاق
 
@@ -283,19 +299,19 @@ graph TD
 | Messaging (3) | InternalConversation, InternalConversationParticipant, InternalMessage |
 | حالات/إصلاح/BOM (10) | SparePartConditionBalance, SparePartConditionMovement, SparePartRepairOrder, SparePartRepairAction, MachineInstalledPart, SparePartReplacementHistory, MaintenanceBom, MaintenanceBomVersion, MaintenanceBomItem, PreventiveSparePartPlan(+Item) (11 فعلياً) |
 
-### المفاتيح المركّبة الفريدة (16 @@unique)
+### المفاتيح المركّبة الفريدة (18 @@unique)
 
 `Branch(companyId,code)`، `Administration(branchId,code)`، `Department(companyId,code)`، `Warehouse(companyId,code)`، `WarehouseLocation(warehouseId,code)`، `InventoryBalance(warehouseId,productId,batchNumber,serialNumber)`، `InventoryCountLine(countId,productId,warehouseLocationId)`، `InventoryPhysicalCountLine(...)`، `MachineComponent(machineId,code)`، `ComponentSparePart(componentId,sparePartId)`، `MachineSparePart(machineId,sparePartId)`، `MaintenanceRequestRequiredPart(maintenanceRequestId,sparePartId)`، `MaintenanceSlaState(maintenanceRequestId)`، `InternalConversationParticipant(conversationId,userId)`، `SparePartConditionBalance(sparePartId,warehouseId,condition)`، `MaintenanceBomVersion(bomId,versionNumber)`.
 
 ### فحص العزل متعدد الشركات (Tenant Isolation)
 
-- **نماذج تحمل companyId (18)**: BusinessPartner?, Branch, Department, ProductionLine, User?, UserOperationalScope, NumberSequence?, Warehouse, InventoryCount, InventoryPhysicalCount, InventoryMovement, InventoryAdjustment, InventoryOpeningBalance, InventoryStockAdjustment, InventoryStockTransfer, InventoryOperationalReceipt, Machine?, CostCenter?.
+- **نماذج تحمل companyId (20 بالعد الجسمي)**: Branch, Department, ProductionLine, User, UserOperationalScope, Warehouse, Machine, CostCenter, InventoryCount, InventoryPhysicalCount, InventoryMovement, InventoryAdjustment, InventoryOpeningBalance, InventoryStockAdjustment, InventoryStockTransfer, InventoryOperationalReceipt وغيرها — عدد حقول `companyId` في schema = 20.
 - **عزل غير مباشر (بلا companyId)**: InventoryBalance (عبر warehouseId)؛ كل جداول الخطوط (عبر المستند الأب)؛ كل نماذج الصيانة (عبر Machine → companyId اختياري!)؛ SparePartConditionBalance/Movement وSparePartRepairOrder (عبر warehouseId)؛ MachineInstalledPart/ReplacementHistory/Bom/Plans (عبر machineId).
-- **بيانات عالمية (بلا tenant إطلاقاً)**: Product، ProductCategory، SparePart، MachineComponent، MachineCategory، Barcode*، Messaging، Role، Permission، AuditLog، Notification، Attachment، SystemSetting، OperationType.
-- **حيث يتم العزل**: لا يوجد isolation على مستوى قاعدة البيانات (SQL views/RLS) ولا على مستوى middleware؛ العزل النظري هو: فلاتر `companyId` في استعلامات مخزون معينة + `OperationalContext` (رؤوس `x-active-company-id`...) التي تُقرأ عبر interceptor وترسلها الـ frontend كتفضيل سياق. **لا يوجد فحص يمنع جلب سجل شركة أخرى عند معرفة ID مباشر** (لا توجد where clauses عامة تفرض tenant على كل الخدمات).
-- **كيف تُختار الشركة النشطة**: من `UserOperationalScope` (تسلسلات per-user عبر `/auth/contexts` + `/auth/context/validate`)، وليس من JWT. الرأس `x-active-company-id` يختاره المستخدم من `context-switcher` في الشريط العلوي.
-- **هل يُفرض فرع الوصول؟** لا — branchId في السياق تفصيلي اختياري وغير مفروض.
-- **فريدية مقيّدة بالشركة**: نعم لبعضها (`@@unique(companyId, code)` في Branch/Warehouse/Department)؛ لكن `code@u` عالمي في Product/SparePart/Machine/BusinessPartner/NumberSequence — أي أكواد لا تتكرر عبر الشركات على الإطلاق.
+- **بيانات عالمية (بلا tenant إطلاقاً)**: Product، SparePart، MachineComponent، MachineCategory، Barcode*، Messaging، Role، Permission، AuditLog، Notification، Attachment، SystemSetting، OperationType.
+- **حيث يتم العزل**: لا يوجد isolation على مستوى قاعدة البيانات (SQL views/RLS) ولا على مستوى middleware؛ العزل النظري هو: فلاتر `companyId` في استعلامات مخزون معينة + `OperationalContext` (رؤوس `x-active-company-id`...) التي تُقرأ عبر interceptor وترسلها الواجهة الأمامية كتفضيل سياق. **لا يوجد فحص يمنع جلب سجل شركة أخرى عند معرفة ID مباشر** (لا توجد where clauses عامة تفرض tenant على كل الخدمات).
+- **كيف تُفتح الشركة النشطة**: من `UserOperationalScope` (تسلسلات لكل مستخدم عبر `/auth/contexts` + `/auth/context/validate`)، وليس من JWT. الرأس `x-active-company-id` يختاره المستخدم من `context-switcher` في الشريط العلوي.
+- **هل يُفعَّل فرع الوصول؟** لا — branchId في السياق اختياري وغير مفروض.
+- **فريدية مقيّدة بالشركة**: نعم لبعضها (`@@unique(companyId, code)` في Branch/Warehouse/Department/Administration)؛ لكن `code@u` عالمي في Product/SparePart/Machine/BusinessPartner/NumberSequence — أي أكواد لا تتكرر عبر الشركات.
 
 ---
 
@@ -305,17 +321,17 @@ graph TD
 
 | المقياس | القيمة |
 |---|---|
-| وحدات مسجلة في `AppModule` | **78** (تم التحقق سطراً بسطر) |
-| ملفات `.module.ts` على القرص | 200 |
-| وحدات على القرص غير مسجلة | 121 (باستثناء app.module.ts نفسه) |
-| ملفات controller | 168 (86 تحتوي مسارات حقيقية، **82 فارغة 0 بايت**) |
-| إجمالي الـ endpoints | **758** |
-| ملفات service | 141 |
-| ملفات DTO | 383 |
-| ملفات TS إجمالاً | 975 — منها **521 ملفاً فارغاً (53%)** |
-| Guard files | 7 (زوجان مكرران + inventory-lock + approval-duplication + roles.guard فارغ) |
+| وحدات مسجلة في `AppModule` | **80** (تم التحقق برمجياً من مصفوفة imports) |
+| ملفات `.module.ts` على القرص | 202 (89 غير فارغة) |
+| وحدات على القرص غير مسجلة | ~113 (باستثناء app.module.ts نفسه) |
+| ملفات controller | 170 (88 تحتوي مسارات حقيقية، **82 فارغة 0 بايت**) |
+| إجمالي الـ endpoints | **774** (GET=380، POST=161، PATCH=168، DELETE=65، PUT=0) |
+| ملفات service | 143 (96 غير فارغة) |
+| ملفات DTO | 389 |
+| ملفات TS في api/src إجمالاً | 1,013 — منها **520 ملفاً فارغاً (51%)** |
+| Guard files | 7 (زوجان مكرران Jwt/Permissions + inventory-lock + approval-duplication.guard فارغ + roles.guard فارغ) |
 
-### الوحدات المسجلة (78) — ملخص مصنف
+### الوحدات المسجلة (80) — ملخص مصنف
 
 - **Core**: PrismaModule, HealthModule, AuthModule, UsersModule, RolesModule, PermissionsModule, BranchesModule, AdministrationsModule, DepartmentsModule, CompaniesModule, AuditModule
 - **Factory/Inventory**: ProductsModule, ProductCategoriesModule, InventoryModule, InventoryCountsModule, InventoryCountLinesModule, InventoryMovementsModule, InventoryAdjustmentsModule, InventoryBalancesModule, InventoryLedgerReconciliationModule, InventoryOpeningBalancesModule, InventoryStockAdjustmentsModule, InventoryStockTransfersModule, InventoryOperationalReceiptsModule, InventoryPhysicalCountsModule, InventoryLocksModule
@@ -341,38 +357,38 @@ graph LR
     BarcodesModule --> AuditModule
 ```
 
-### توزيع الـ endpoints حسب الوحدة (758)
+### توزيع الـ endpoints حسب الوحدة (774 — عد برمجي شامل لكل decorator @Get/@Post/@Patch/@Delete)
 
-| الوحدة | العدد |
-|---|---|
-| Maintenance (35 controller) | 349 |
-| Inventory flows (مستندات + أرصدة + أقفال) | ~140 |
-| Reports | 42 |
-| Barcodes | 40 |
-| Admin (users/roles/permissions/branches/departments/administrations) | 31 |
-| Business Partners | 30 |
-| Settings (6 وحدات) | 22 |
-| Inventory core (warehouses/locations) | 18 |
-| Products + ProductCategories | 18 |
-| Auth | 7 |
-| Documents/Attachments | 7 |
-| Numbering | 7 |
-| Notifications | 6 |
-| Search | 6 |
-| Audit | 6 |
-| Companies | 5 |
-| Messaging | 9 |
-| Dashboard | 3 |
-| Alerts | 3 |
-| Health | 1 |
+| الوحدة | العدد | ملاحظة |
+|---|---|---|
+| factory※ (كل النطاق التشغيلي) | 538 | تشمل Maintenance + Inventories + Products |
+| 　└─ Maintenance (36 controller) | 362 | requests/tasks/schedules/work-orders/downtime/… |
+| 　└─ Inventory documents + أرصدة + أقفال | 142 | adjustments 11, balances 9, count-lines 6, counts 10, ledger-reconciliation 13, locks 12, movements 10, opening-balances 14, operational-receipts 14, physical-counts 14, stock-adjustments 14, stock-transfers 15 |
+| 　└─ Products + Categories | 18 | products 10، categories 8 |
+| Admin (users/roles/permissions/branches/departments/administrations/organizational-units) | 42 | 8 controllers |
+| Reports | 42 | |
+| Barcodes | 40 | 4 controllers |
+| Business Partners | 30 | 6 controllers |
+| Settings (6 وحدات) | 22 | |
+| Auth | 7 | |
+| Documents/Attachments | 7 | |
+| Numbering | 7 | |
+| Notifications | 6 | |
+| Search | 6 | |
+| Audit | 6 | |
+| Companies | 5 | |
+| Messaging | 9 | |
+| Dashboard | 3 | |
+| Alerts | 3 | |
 
 ### Guards والتفويض
 
 - لا يوجد `APP_GUARD` — الحماية **per-controller** عبر `@UseGuards(JwtAuthGuard, PermissionsGuard)` (~90 controller).
-- `JwtAuthGuard` — من `modules/auth/guards` (خطأ مترجم عربياً) ومن `common/guards` (نسخة مكررة إنجليزية) — **9 controllers تستورد النسخة المكررة**: alerts، dashboard، attachments، settings×5، maintenance-sla.
-- `PermissionsGuard` — يقرأ metadata `'permissions'`، يفتح SUPER_ADMIN (يتحقق من role.code === 'SUPER_ADMIN')، يقوم lookup في Prisma لكل طلب، خطأ مترجم.
+- `JwtAuthGuard` — نسختان: `modules/auth/guards/jwt-auth.guard.ts` (775 b) و`common/guards/jwt-auth.guard.ts` (796 b) بمنطق متطابق.
+- `PermissionsGuard` — نسختان متطابقتان أيضًا (`auth/guards/permissions.guard.ts` 1,684 b و`common/guards/permissions.guard.ts` 1,642 b): تقرأ metadata `'permissions'`، تطابق حرفياًًً (`userPermissionKeys.has(p)`)، تفتح SUPER_ADMIN فقط عبر `role.code === 'SUPER_ADMIN'`، وتقوم lookup في Prisma لكل طلب. **لا توجد أي عملية تطبيع بين مفتاح الـ controller والمفتاح المزروع.**
 - `InventoryLockGuard` — على 6 controllers للطفرات المخزنية (adjustments, movements, stock-transfers, stock-adjustments, physical-counts, operational-receipts) — يرفض الطفرات أثناء الأقفال (WAREHOUSE/LOCATION/ITEM/PERIOD/GLOBAL).
-- Decorator الصلاحيات: `@Permissions(...)` فقط (تنفيذان متطابقان: auth + common، نفس المفتاح `'permissions'`).
+- `roles.guard.ts` و`approval-duplication.guard.ts` — **0 بايت** (غير مستخدَمين).
+- Decorator الصلاحيات: `@Permissions(...)` فقط (مفتاح `'permissions'` مشترك).
 - `@Public()` على 3 endpoints فقط: `GET /health`, `POST /auth/login`, `POST /auth/logout`.
 - `@OperationalContextOptional()` على endpoints المصادقة.
 
@@ -383,6 +399,7 @@ graph LR
 - `changePassword` يرمي أخطاء إنجليزية خام (`auth.service.ts:185,191,194`) — مخالفة لقاعدة i18n API.
 - `getProfile` يعيد `{...user, user, ...}` (تكرار مفتاح user) (`auth.service.ts`).
 - الـ 2FA: حقول `twoFactorEnabled/twoFactorSecret` موجودة في User، وDTOs (confirm-two-factor, disable-two-factor, regenerate-recovery-codes, verify-two-factor-login) **0 بايت** — غير منفذة.
+- **فجوة صلاحيات محققة (تحديث 2026-08-03)**: 416 مفتاح صلاحية مستخدم في `@Permissions(...)` بالـ controllers، منها **163 غير مزرعة** في أي ملف seed. الـ `PermissionsGuard` لا يطبّع المفاتيح فيفشل أي دور غير SUPER_ADMIN (403) عند endpoint يطلب مفتاحاً مفقوداً. أمثلة على المفاتيح غير المزروعة: `machines:read/create/update/delete`، `branches:read`، `companies:read`، `administrations:*`، `attachments.*`، `alerts.view`، `downtime-log:start/end`.
 
 ---
 
@@ -392,16 +409,18 @@ graph LR
 
 | المقياس | القيمة |
 |---|---|
-| صفحات `page.tsx` تحت `admin` | **259** |
+| صفحات `page.tsx` تحت `src/app` | **266** |
 | صفحات الجذر | 2 (`/login`, `/`) |
 | layouts | 2 (root + admin) |
-| ملفات i18n EN | 15 (index + 14 namespace) — **3,458 مفتاحاً** |
-| ملفات i18n AR | 15 — **3,458 مفتاحاً** (تطابق 100%) |
-| مجموعات sidebar | 10 مجموعات / 97 رابطاً |
+| ملفات i18n EN | 16 (index + 15 namespace) — **3,659 مفتاحاً** |
+| ملفات i18n AR | 16 — **3,659 مفتاحاً** (تطابق 100% مع EN) |
+| مجلدات locales متطابقة ar/en | نعم (16 ملفاً لكل لغة، أسماء متطابقة) |
+| مجموعات sidebar | 10 مجاميع / 97 رابطاً |
 | روابط sidebar ميتة | **0** (كل الـ 97 موجودة) |
 | صفحات placeholder | **0** |
 | بيانات mock في الصفحات | **0** |
 | مكونات entity قابلة لإعادة الاستخدام | 9 ملفات (`components/entity/`) |
+| ملفات i18n في `lib/i18n/` | 42 (8 أساسية + 16 AR + 16 EN + misc) |
 | صفحات تستخدم `useCrudList` | 4 فقط (companies/branches/administrations/departments) |
 
 ### شجرة الـ Sidebar الفعلية (10 مجموعات)
@@ -454,12 +473,13 @@ system               → settings, company, language, appearance, security,
 
 ## القسم 9 — Current Maintenance Implementation
 
-### النطاق (349 endpoint عبر 35 controller — الأكبر في النظام)
+### النطاق (362 endpoint عبر 36 controller — الأكبر في النظام)
 
 | المحور | الحالة |
 |---|---|
 | Machines register + categories + documents + components + parts | IMPLEMENTED |
 | Maintenance Requests (طلب صيانة كامل) | IMPLEMENTED — 28 endpoint |
+| Work Orders (أوامر عمل + إصدار قطع) | IMPLEMENTED — دورة DRAFT→PLANNED→IN_PROGRESS→COMPLETED/CANCELLED + `issueParts` كامل بالحركة/الرصيد/التركيب |
 | Tasks | IMPLEMENTED — 13 endpoint |
 | Schedules (جدولة وقائية) | IMPLEMENTED — 10 endpoint |
 | Checklist items + executions | IMPLEMENTED |
@@ -490,6 +510,8 @@ system               → settings, company, language, appearance, security,
 | MaintenanceRequestAssignment | ASSIGNED | ASSIGNED, COMPLETED, CANCELLED (+ acceptedAt/startedAt/completedAt) |
 | MaintenancePartAccountability | ASSIGNED | ASSIGNED, REPORTED, RETURNED, CANCELLED |
 | SparePartRepairOrder | DRAFT | DRAFT, OPEN, IN_INSPECTION, INSPECTION_FAILED, APPROVED_FOR_REPAIR, UNDER_REPAIR, WAITING_PARTS, UNDER_TEST, COMPLETED_SERVICEABLE, COMPLETED_PARTIAL, COMPLETED_NOT_REPAIRABLE, SCRAPPED, CANCELLED |
+| MaintenanceWorkOrder | DRAFT | DRAFT → (plan) PLANNED → (start) IN_PROGRESS → (complete) COMPLETED، أو (cancel) CANCELLED من DRAFT/PLANNED؛ وشرط أساسي قبل الإكمال: وجوب إصدار كل أسطر القطع (لا يُسمح ببقاء أي سطر PARTIALLY_ISSUED). توجد فحوص حالة صريحة قبل كل انتقال داخل `transition()` |
+| MaintenanceWorkOrderPart | PENDING | stockIssueStatus: PENDING → PARTIALLY_ISSUED → FULLY_ISSUED (عبر `issueParts` داخل transaction) |
 | SparePartRepairAction | PLANNED | PLANNED, IN_PROGRESS, DONE, FAILED, CANCELLED |
 | MachineInstalledPart | ACTIVE | ACTIVE, REMOVED |
 | MaintenanceBom | ACTIVE | ACTIVE, INACTIVE فقط في الخدمة (AGENTS.md توثق DRAFT→APPROVED→ACTIVE→ARCHIVED — **تعارض موثق** مع الكود) |
@@ -538,26 +560,52 @@ stateDiagram-v2
     UNDER_TEST --> COMPLETED_SERVICEABLE
     UNDER_TEST --> COMPLETED_PARTIAL
     UNDER_TEST --> COMPLETED_NOT_REPAIRABLE
-    COMPLETED_SERVICEABLE --> SCRAPPED
+COMPLETED_SERVICEABLE --> SCRAPPED
     DRAFT --> CANCELLED
     OPEN --> CANCELLED
+```
+
+### دورة أمر العمل (Work Order) — تم التحقق من `maintenance-work-orders.service.ts:301`
+
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT
+    DRAFT --> PLANNED: plan
+    DRAFT --> CANCELLED: cancel (reason)
+    PLANNED --> IN_PROGRESS: start
+    PLANNED --> CANCELLED: cancel (reason)
+    IN_PROGRESS --> COMPLETED: complete (شرط عدم بقاء أي سطر PARTIALLY_ISSUED + احتساب actualCost)
+```
+
+### دورة إصدار قطع أمر العمل (MaintenanceWorkOrderPart)
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING
+    PENDING --> PARTIALLY_ISSUED: issueParts (كمية جزئية)
+    PENDING --> FULLY_ISSUED: issueParts (كامل الكمية)
+    PARTIALLY_ISSUED --> FULLY_ISSUED
 ```
 
 ### قواعد الأعمال المؤكدة (من الكود)
 
 - **Stock Issue**: `MaintenanceStockIssueService.issue()` يستخدم مستودع **SPARE_PART فقط** (كتل PRODUCT/RAW_MATERIAL)، يخصم من `InventoryBalance` (upsert)، ينشئ `InventoryMovement`، يسجل `MachineInstalledPart` + `SparePartReplacementHistory`، يحدّث `stockIssueStatus` ويحدّث رصيد الشرط (condition) عند الإرجاع.
+- **Work Order Issue**: `MaintenanceWorkOrdersService.issueParts()` (L473-624) — يتحقق من توافق المخزون/الكمية المتاحة، يكيف حركة مخزون وسطر أمر عمل، يوقف الرصيد، ويحدّث `stockIssueStatus` إلى PARTIALLY/FULLY_ISSUED — كلها داخل `transaction`.
 - **التحويل الشرطي**: تحويل حالة في `SparePartConditionBalance` (OUT من مصدر → IN لهدف) دون لمس `InventoryBalance` — يتم داخل `$transaction`.
 - **التخطيط لا يخصم**: PreventiveSparePartPlan/BOM reservation **لا يخصم** رصيداً (يحدّث availableQuantity فقط).
 - **لا توجد قيود مالية**: الـ Repair workflow لا ينشئ إدخالات Finance/Purchasing (كما في الكود؛ النماذج المالية غير موجودة أصلاً).
 - **NumberingService**: 47 موقع استدعاء عبر ~14 خدمة؛ صفر تجاوز (`numberSequence` يُلمس فقط داخل `numbering.service.ts`).
-- **الحراسة**: كل خدمات الطفرات المخزنية تستخدم `prisma.$transaction`.
+- **الحماية**: كل خدمات الطفرات المخزنية تستخدم `prisma.$transaction`.
 
-### فجوات الصلاحيات المكتشفة (4 — خطيرة للدعم غير SUPER_ADMIN)
+### فجوات الصلاحيات المكتشفة (تحديث 2026-08-03 — تم توسيعها بالفحص البرمجي الشامل)
 
-1. `installed-parts:read` **غير مزرع في أي seed** — 9 endpoints كلها تطلبها → 403 لكل دور غير SUPER_ADMIN رغم وجود الصفحات.
-2. Controller `maintenance-request:activity.view` مقابل المزروع `maintenance-request:activity` → 403.
-3. Controller `maintenance-request:attachments.view` مقابل `maintenance-request:attachments` → 403.
-4. Controller `maintenance-request:print` مقابل المزروع `maintenance-request:printData` → 403.
+- **النتيجة الموسعة**: 416 مفتاح صلاحية فريد مستخدم في `@Permissions(...)` عبر الـ controllers، منها **163 مفتاحاً غير مزرع في أي ملف seed** — ومع التطابق الحرفي في الـ guard، تكون النتيجة رفضاً (403) لأدوار غير SUPER_ADMIN عند مسارات معروضة فعلياً في الواجهة.
+- النقاط الأربع المؤكدة سابقاً تبقى صحيحة كأمثلة على هذه الفجوة:
+  1. `installed-parts:read` غير مزرع — 9 endpoints تطلبه → 403.
+  2. `maintenance-request:activity.view` مقابل المزروع `maintenance-request:activity` → 403.
+  3. `maintenance-request:attachments.view` مقابل `maintenance-request:attachments` → 403.
+  4. `maintenance-request:print` مقابل المزروع `maintenance-request:printData` → 403.
+  5. صيغ أساسية مثل `machines:*`, `branches:*`, `companies:*`, `administrations:*`, `attachments.*` غير مذكورة في أي seed.
 
 ---
 
@@ -660,11 +708,12 @@ graph TD
 | سياسات الأمان (Security settings) | مخزنة (قفل/انتهاء جلسة/كلمة مرور) لكن **غير مربوطة** بالتدفق (لا دليل على تطبيقها في auth) |
 | تسجيل الدخول التاريخ | عبر `user-activity.controller` + صفحات login-history |
 
-### مخزون الصلاحيات (من ملفات seed)
+### مخزون الصلاحيات (من قراءات seed + فحص controllers)
 
-- **~509 صلاحية** مزروعة إجمالاً عبر 12 ملف seed (198 في seed.ts + 171 CMMS + 19 counting + 13 governance + 15 reports + 10 physical-count + 28 accountability + 4 search + 27 barcode + 24 partners).
+- **فحص تكميلي جديد (2026-08-03)**: عبر فحص برمجي لكل `@Permissions('...')` في الـ controllers (416 مفتاحاً فريداً) مقابل كل مفاتيح `key: "..."` في 15 ملف seed غير فارغ (343 مفتاحاً فريداً)، تبين أن **163 مفتاحاً مستخدماً في الـ controllers غير موجود في أي seed** — وهو أكبر من التصادمات المفردة السابقة.
+- الرقم الكلي السابق **~509 صلاحية** زراعية عبر 12 ملف seed (الآن 15 ملف seed غير فارغ): seed.ts + CMMS + counting + governance + reports + physical-count + accountability + search + barcode + partners + others.
 - كل seed يعيد ربط كل الصلاحيات بـ SUPER_ADMIN.
-- مفتاح صلاحية واحد فقط معروف كتصادم/تعارض: `installed-parts:read` مستخدم في 9 endpoints لكنه غير مزرع؛ و3 مفاتيح mismatch (activity/attachments/print).
+- حالة الـ `syncPermissionKeys` (permission-sync.ts): يعمل على ترحيل مفاتيح mismatch (old→new للمفاتيح الثلاثة activity/attachments/print) ويزرع extras بدون تكرارات؛ يوجد اختبار `permission-synchronization.spec.ts` غير فارغ (27 ملف اختبار غير فارغ إجمالاً الآن).
 - صلاحيات معرّفة لكن غير مستخدمة: مفاتيح seed لـ business-partner* (الوحدات مسجلة لكن لا صفحات أمامية تستهلكها) — PARTIAL.
 - لا توجد صلاحيات Frontend مستقلة؛ الـ frontend يعتمد على `permissions` القادمة من `/auth/me` في `PermissionActionButton` وفلاتر العرض.
 
@@ -746,11 +795,11 @@ graph LR
 
 | # | التصنيف | النتيجة | الدليل |
 |---|---|---|---|
-| 1 | CRITICAL_STRUCTURAL_OBSERVATION | **521 من 975 ملف TS فارغة (53%)** — كامل نطاقات Finance/Purchasing/Sales/HR/AI/IoT/BI/Production وغيرها عبارة عن scaffolding 0 بايت على القرص | فحص حجم الملفات |
+| 1 | CRITICAL_STRUCTURAL_OBSERVATION | **520 من 1,013 ملف TS في api/src فارغة (51%)** — كامل نطاقات Finance/Purchasing/Sales/HR/AI/IoT/BI/Production وغيرها عبارة عن scaffolding 0 بايت على القرص | فحص حجم الملفات |
 | 2 | HIGH | **تصادم مسارات controllers**: `inventory-adjustments.controller.ts:17` و`:87` (نفس البادئة في نفس الملف) + `:102` يتصادم مع `inventory-counts.controller.ts:15` | قراءة الملفات |
-| 3 | HIGH | `installed-parts:read` مستخدم في 9 endpoints وغير مزرع في أي seed → 403 لغير SUPER_ADMIN | grep في 12 seed |
+| 3 | HIGH | **فجوة صلاحيات محققة موسعة**: 416 مفتاحاً فريداً في `@Permissions(...)`، **163 غير مزروعة** في أي seed → 403 لغير SUPER_ADMIN | فحص برمجي شامل controllers vs seeds |
 | 4 | HIGH | 3 مفاتيح صلاحيات mismatch (activity.view/attachments.view/print مقابل activity/attachments/printData) | controllers vs seeds |
-| 5 | MEDIUM | نسختان من JwtAuthGuard/PermissionsGuard (auth مترجمة vs common إنجليزية) — 9 controllers تستخدم النسخة الإنجليزية | guards paths |
+| 5 | MEDIUM | نسختان من JwtAuthGuard/PermissionsGuard (auth vs common) — 9 controllers تستورد common | guards paths |
 | 6 | MEDIUM | `MaintenanceBom` lifecycle في AGENTS.md (DRAFT→APPROVED→ACTIVE→ARCHIVED) يخالف كود الخدمة (ACTIVE/INACTIVE فقط) — **تعارض توثيقي** | bom service |
 | 7 | MEDIUM | 5 تسلسلات orphan بلا موديل: MACHINE_ASSET, PREVENTIVE_MAINTENANCE, QR_LABEL, BARCODE_RECORD, REPORT_EXPORT_JOB | seed vs schema |
 | 8 | MEDIUM | `inventory-count-lines.controller` بلا بادئة (مسارات كاملة يدوياً) | controller file |
@@ -764,7 +813,7 @@ graph LR
 | 16 | LOW | `.env.example` الجذر 0 بايت؛ لا .env.example في apps/web | — |
 | 17 | LOW | `scripts/`: 25 من 31 ملفاً 0 بايت | — |
 | 18 | LOW | `roles.guard.ts` فارغ (غير مستخدم) | — |
-| 19 | LOW | 19 ملف spec كلها 0 بايت — لا اختبارات فعلية | — |
+| 19 | LOW | **45 ملف spec، 27 غير فارغة** — اختبارات خدمات/guards/validation حقيقية موجودة | فحص بالحجم |
 | 20 | LOW | `spare-part-conditions` و`installed-parts` خارج بادئة `maintenance/` (مسارات مستقلة) — اختلاف تسمية فقط | controllers |
 | 21 | INFORMATIONAL | `routeGroupMap` و`navItems: []` بقايا types قديمة في navigation-data | — |
 | 22 | INFORMATIONAL | لا `x-locale` يُرسل من الـ frontend (اللغة من Accept-Language ثم fallback ar) | grep |
@@ -777,28 +826,28 @@ graph LR
 ## القسم 16 — Module Completion Matrix
 
 | الوحدة | DB | Backend | Permissions | Frontend | Tests | Runtime Wiring | الحالة العامة |
-|---|---|---|---:|---:|---:|---:|---:|---|
-| Auth | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** (مع ملاحظات changePassword/2FA) |
-| Users/Roles/Permissions | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** |
-| Companies/Branches/Administrations/Departments | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** |
-| Machines + Categories + Components + Documents | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** |
-| Maintenance Requests/Tasks/Schedules/Checklist/Downtime | COMPLETE | COMPLETE | PARTIAL (3 mismatches) | COMPLETE | STUB | COMPLETE | **COMPLETE** (مع فجوة صلاحيات) |
-| Spare Parts + Links | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** |
-| Stock Issue + Conditions + Installed Parts + Replacement | COMPLETE | COMPLETE | PARTIAL (installed-parts:read مفقودة) | COMPLETE | STUB | COMPLETE | **PARTIAL** (صلاحيات) |
-| Repair Orders | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** |
-| BOM + Preventive Plans | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** (تعارض توثيقي lifecycle) |
-| Maintenance SLA/Reliability/Calendar/Notification | COMPLETE | COMPLETE | PARTIAL | COMPLETE | STUB | COMPLETE | **COMPLETE** (SLA عبر النسخة الإنجليزية من guards) |
-| Inventory Documents (8 أنواع) | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** (مع تصادم adjustments controller) |
-| Inventory Balances/Ledger/Reconciliation/Locks | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** |
-| Barcodes/QR | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** |
-| Reports | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** |
-| Search/Dashboard/Alerts/Notifications/Messaging | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** |
-| Settings (6 وحدات) | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** (security غير مربوطة بالتدفق) |
-| Audit | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | PARTIAL (استخدام محدود) | **PARTIAL** |
-| Attachments | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** |
-| Numbering | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** |
-| Business Partners | COMPLETE | COMPLETE | COMPLETE | NOT_FOUND | STUB | NOT_WIRED (بلا مستهلك) | **NOT_WIRED** |
-| Operational Context (UX-0) | COMPLETE | COMPLETE | COMPLETE | COMPLETE | STUB | COMPLETE | **COMPLETE** |
+|---|---|---|---|---|---|---|---|---|
+| Auth | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** (مع ملاحظات changePassword/2FA) |
+| Users/Roles/Permissions | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
+| Companies/Branches/Administrations/Departments | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
+| Machines + Categories + Components + Documents | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
+| Maintenance Requests/Tasks/Schedules/Checklist/Downtime | COMPLETE | COMPLETE | PARTIAL (163 مفتاح ناقص شاملاً 3 mismatches) | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** (فجوة صلاحيات واسعة) |
+| Spare Parts + Links | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
+| Stock Issue + Conditions + Installed Parts + Replacement | COMPLETE | COMPLETE | PARTIAL (installed-parts:read مفقودة + 163 مفتاح ناقص) | COMPLETE | PARTIAL | COMPLETE | **PARTIAL** (صلاحيات) |
+| Repair Orders | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
+| BOM + Preventive Plans | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** (تعارض توثيقي lifecycle) |
+| Maintenance SLA/Reliability/Calendar/Notification | COMPLETE | COMPLETE | PARTIAL | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** (SLA عبر النسخة الإنجليزية من guards) |
+| Inventory Documents (8 أنواع) | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** (مع تصادم adjustments controller) |
+| Inventory Balances/Ledger/Reconciliation/Locks | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
+| Barcodes/QR | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
+| Reports | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
+| Search/Dashboard/Alerts/Notifications/Messaging | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
+| Settings (6 وحدات) | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** (security غير مربوطة بالتدفق) |
+| Audit | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | PARTIAL (استخدام محدود) | **PARTIAL** |
+| Attachments | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
+| Numbering | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
+| Business Partners | COMPLETE | COMPLETE | COMPLETE | NOT_FOUND | PARTIAL | NOT_WIRED (بلا مستهلك) | **NOT_WIRED** |
+| Operational Context (UX-0) | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
 | Production (factory/*) | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | STUB | NOT_WIRED | **NOT_FOUND** |
 | Finance/Purchasing/Sales/HR/AI/IoT/BI/Workflows/Import-Export/Forecasting/Predictive/PrintTemplates/Backups/Approvals/Dynamic/UniversalRequests/SystemHealth/SystemUpdate/Monitoring/InventoryIssueRequests/HRRequests/FinancialDisbursementRequests/BusinessRules | NOT_FOUND | STUB (0 بايت) | NOT_FOUND | NOT_FOUND | STUB | NOT_WIRED | **STUB / NOT_WIRED** |
 | Workflow Engine / Request Policy / Request Notifications (common) | NOT_FOUND | PARTIAL (كود موجود غير مسجل) | NOT_FOUND | NOT_FOUND | STUB | NOT_WIRED | **NOT_WIRED** |
@@ -814,10 +863,11 @@ graph LR
 | 3 | هل تُطبق سياسات Security settings (قفل/انتهاء جلسة/كلمة مرور) وقت التشغيل | modules/settings/security + auth | لا يوجد كود ربط مكتشف | grep أعمق لاستخدام SystemSetting في auth/interceptors |
 | 4 | نطاق عمل `common/workflow-engine` و`common/request-policy` و`common/request-notifications` — هل كانت مخصصة لنطاقات مرفوضة | common/ | كود موجود غير فارغ لكن بلا مستورد | مراجعة git history للـ common/ |
 | 5 | هل يوجد استخدام فعلي لنظام Audit من جميع الخدمات أم اقتصر على عدد قليل | modules/audit + grep | لا يوجد عداد شامل لاستدعاءات auditService عبر الكود | grep موسع + فحص runtime |
-| 6 | عدد الصلاحيات الفريد الصافي بعد إزالة التكرار بين الـ 12 seed | prisma/seed/*.ts | ~509 بإحصاء خام مع تكرارات (upsert يجعله غير مؤثر) | سكربت قراءة لحساب المفاتيح الفريدة |
+| 6 | عدد الصلاحيات الفريد الصافي بعد إزالة التكرار بين الـ 15 seed غير الفارغة | prisma/seed/*.ts | 343 مفتاح فريد المذكور، 416 مستخدم في controllers، 163 ناقصة | CONFIRMED (فحص برمجي) |
 | 7 | هل توجد فلاتر companyId داخل كل خدمة مخزون فعلاً أم في البعض فقط | خدمات المخزون | الفحص ركّز على balance upserts وnumbering؛ الفلترة لم تُحصى كاملة | مسح where-clauses لكل خدمة |
 | 8 | سلوك `MaintenanceBom` lifecycle عند تفعيل/أرشفة | maintenance-bom service | الوثائق تقول DRAFT→APPROVED→ACTIVE→ARCHIVED والكود ACTIVE/INACTIVE | قراءة كاملة لخدمة BOM (تم رصدها كتعارض) |
 | 9 | هل تسجيل AuditLog يتم داخل نفس transaction مع العمليات | خدمات الصيانة/المخزون | لم يُتحقق لكل خدمة على حدة | فحص per-service |
+| 10 | نطاق فجوة الصلاحيات (416 مستخدم، 343 مزروع، 163 ناقص) وتأثير fail-closed | controllers vs seeds | — | CONFIRMED |
 
 ---
 
@@ -825,32 +875,31 @@ graph LR
 
 | النتيجة | الملفات الداعمة | الفئات/الدوال | مستوى الثقة |
 |---|---|---|---|
-| 78 وحدة مسجلة | `apps/api/src/app.module.ts` (L83-120) | AppModule imports | CONFIRMED |
-| 758 endpoint / 168 controller (86 غير فارغ) | فحص جميع `*.controller.ts` | — | CONFIRMED |
-| 200 module / 121 غير مسجل / 82 controller فارغ | glob + فحص حجم | — | CONFIRMED |
-| 90 نموذج / 0 enum / 476 index / 16 @@unique | `apps/api/prisma/schema.prisma` | — | CONFIRMED |
-| 54 @unique / 2 @@id / 39 deletedAt / 55 status | schema.prisma | — | CONFIRMED |
-| 18 نموذج companyId / 18 branchId | schema.prisma | — | CONFIRMED |
+| 80 وحدة مسجلة | `apps/api/src/app.module.ts` (L83-120) | AppModule imports | CONFIRMED |
+| 774 endpoint / 170 controller (88 غير فارغ) | فحص جميع `*.controller.ts` | — | CONFIRMED |
+| 202 module / ~113 غير مسجل / 82 controller فارغ | glob + فحص حجم | — | CONFIRMED |
+| 95 نموذج / 0 enum / 507 @@index / 18 @@unique / 38 @unique / 2 @@id | `apps/api/prisma/schema.prisma` | — | CONFIRMED |
+| 41 deletedAt / 83 updatedAt / 55 status / 20 companyId / 20 branchId | schema.prisma | — | CONFIRMED |
 | MaintenanceRequest بلا companyId/branchId | schema.prisma (MaintenanceRequest) | — | CONFIRMED |
-| 349 maintenance endpoints | فحص 35 controller صيانة | — | CONFIRMED |
-| ~140 inventory endpoints | فحص controllers المخزون | — | CONFIRMED |
-| الحالات والقيم لكل كيان صيانة | خدمات maintenance + DTOs | transition maps | CONFIRMED |
+| 362 maintenance endpoints (36 controller) | فحص 36 controller صيانة | — | CONFIRMED |
+| ~160 inventory endpoints + products/categories | فحص controllers المخزون | — | CONFIRMED |
+| الحالات والقيم لكل كيان صيانة + Work Orders | خدمات maintenance + DTOs | transition maps | CONFIRMED |
 | 47 موقع generateNumberAtomic / صفر تجاوز | grep numberSequence | numbering.service.ts:84 | CONFIRMED |
 | $transaction في كل خدمات الطفرات المخزنية | خدمات المخزون (12 خدمة) | — | CONFIRMED |
 | Stock Issue يمنع PRODUCT/RAW_MATERIAL ويخصم الرصيد ويسجل التركيب/الاستبدال | maintenance-stock-issue.service | issue() | CONFIRMED |
 | RepairOrder دورة 13 حالة | repair-orders.service | transition methods | CONFIRMED |
 | التخطيط لا يخصم الرصيد | preventive-spare-part-plan.service | availability | CONFIRMED |
-| ~509 صلاحية مزروعة | 12 ملف seed | — | HIGH_CONFIDENCE |
+| 343 مفتاح فريد مذكور في 15 seed / 163 ناقصة من 416 مستخدمة | 15 seed + controllers | — | CONFIRMED |
 | installed-parts:read مفقودة (9 endpoints) | installed-parts controller vs seeds | — | CONFIRMED |
 | 3 مفاتيح mismatch | controllers vs seed-cmms | — | CONFIRMED |
-| 521 ملف TS فارغ (53%) | فحص حجم 975 ملف | — | CONFIRMED |
+| 520 ملف TS فارغ من 1,013 في api/src (51%) | فحص حجم 1,013 ملف | — | CONFIRMED |
 | تصادم inventory/adjustments + inventory/counts | inventory-adjustments.controller.ts:17/:87/:102 | — | CONFIRMED (التأثير runtime غير محسوم) |
-| 259 صفحة / 0 placeholder / 0 mock | فحص apps/web/src/app | — | CONFIRMED |
+| 266 صفحة page.tsx / 0 placeholder / 0 mock | فحص apps/web/src/app | — | CONFIRMED |
 | 97 رابط sidebar سليم / 0 ميت | navigation-data.ts vs pages | — | CONFIRMED |
-| 3,458 مفتاح EN = AR بنسبة 100% | 15 ملف لكل لغة | — | CONFIRMED |
+| 3,659 مفتاح EN = AR بنسبة 100% | 16 ملف لكل لغة | — | CONFIRMED |
 | لا إنتاج إطلاقاً | schema + factory/* + frontend grep | — | CONFIRMED |
 | لا تكلفة تعطل (hourlyRate) | grep صفري في api/src | — | CONFIRMED |
-| 19 spec ملف 0 بايت | فحص حجم | — | CONFIRMED |
+| 45 spec ملف، 27 غير فارغة | فحص حجم | — | CONFIRMED |
 | CI و.env.example فارغان | .github/workflows، .env.example | — | CONFIRMED |
 | 2FA غير منفذة | DTOs 0 بايت + auth.service | — | CONFIRMED |
 | changePassword إنجليزي خام | auth.service.ts:185-194 | — | CONFIRMED |
@@ -858,6 +907,8 @@ graph LR
 | routeGroupMap orphan search/alerts | navigation-data.ts | — | CONFIRMED |
 | BusinessPartners بلا مستهلك أمامي | grep frontend | — | CONFIRMED |
 | BOM lifecycle تعارض توثيقي | bom service vs AGENTS.md | — | CONFIRMED (تعارض) |
+| 38 migration folder / 43 sql files | prisma/migrations | — | CONFIRMED |
+| 15 seed غير فارغ (seed.ts + CMMS + counting + governance + reports + physical-count + accountability + search + barcode + partners + others) | prisma/seed | — | CONFIRMED |
 
 ---
 
@@ -866,51 +917,67 @@ graph LR
 ```
 Final Git Status
 
-- Modified application files: 0
+- Modified application files: 0 (هذه المهمة)
 - Modified database files: 0
 - Modified configuration files: 0
 - Modified translation files: 0
 - Modified test files: 0
 - Modified package or lock files: 0
-- Created or modified approved report file:
+- Pre-existing changes BEFORE this task (dirty working tree):
+  * apps/api/src/modules/factory/inventory-movements/inventory-movements.controller.ts
+  * apps/api/src/modules/factory/inventory-movements/inventory-movements.service.ts
+  * docs/proofs/atsofterp-phase0-workorders-runtime-tenant-inventory-proof.md
+  * docs/proofs/inventory-opening-balance-adjustment-control/final-acceptance-report.md
+  * docs/proofs/inventory-opening-balance-adjustment-control/validation-report.md
+- Untracked files before this task:
+  * apps/api/src/modules/factory/inventory-movements/inventory-movements.service.spec.ts
+  * docs/proofs/phase0-maintenance-work-orders-browser-proof/
+- Created or modified approved report file (THIS task):
   docs/proofs/atsofterp-current-architecture-discovery-report.md
-- Any other created, modified, deleted, or renamed files:
+- Any other created, modified, deleted, or renamed files by this task:
   None
 ```
 
 ---
 
-### ملخص الأرقام الرئيسية
+### ملخص الأرقام الرئيسية (تحديث 2026-08-03)
 
 | المقياس | القيمة |
 |---|---|
-| Prisma models | 90 |
+| Prisma models | 95 |
 | Prisma enums | 0 |
-| الوحدات المسجلة | 78 |
-| الوحدات غير المسجلة على القرص | 121 (كلها stubs 0 بايت أو common غير مستورد) |
-| API endpoints | 758 |
-| صفحات frontend | 259 admin + 2 جذر |
+| الوحدات المسجلة في AppModule | 80 |
+| ملفات .module.ts على القرص | 202 (89 غير فارغة) |
+| وحدات غير مسجلة على القرص | ~113 (stubs 0 بايت أو common غير مستورد) |
+| API endpoints (إجمالي @Get/@Post/@Patch/@Delete) | 774 (GET=380, POST=161, PATCH=168, DELETE=65) |
+| صفحات frontend (page.tsx) | 266 |
+| ملفات i18n EN/AR | 16 لكل لغة، 3,659 مفتاح |
+| migration folders / SQL files | 38 / 43 |
+| Seed files غير فارغة | 15 |
+| Controller files (إجمالي/غير فارغ) | 170 / 88 |
+| Service files (إجمالي/غير فارغ) | 143 / 96 |
+| DTO files | 389 |
+| Spec files (إجمالي/غير فارغ) | 45 / 27 |
+| Guard files غير فارغة | 5 (jwt-auth×2، permissions×2، inventory-lock) |
+| Empty files in api/src | 520 من 1,013 (51%) |
 | وحدات COMPLETE | 19 |
-| وحدات PARTIAL | 3 (Inventory adjustments collision، Stock Issue permissions، SLA guards/English) |
+| وحدات PARTIAL | 4 (Inventory adjustments collision، Stock Issue permissions، SLA guards/English، Maintenance perm gap) |
 | وحدات STUB / NOT_WIRED | 30+ (كل النطاقات المرفوضة + Production) |
 | Structural observations | 25 (في القسم 15) |
 
 ---
 
-## خاتمة التحديث — 2026-08-02 (Closing Update)
+## خاتمة التحديث — 2026-08-03 (Closing Update - Architecture Discovery Refresh)
 
-اعتباراً من 2026-08-02 يخضع هذا التقرير للتنقيح التالي وفق قرار المستخدم:
+اعتباراً من 2026-08-03 تم تحديث هذا التقرير ليعكس الإحصاءات الفعلية المُتحقق منها من الكود في وقت المراجعة (SHA `8eba533efec5b02d7986c86e2511a80938bac1a7`، branch `main`). التغييرات الجوهرية عن التقرير الأصلي (2026-07-31):
 
-1. **هذا التقرير هو أداة اكتشاف فقط (Discovery Aid)، وليس سلطة تصميم.** السلطة المرجعية الملزمة لكل التطوير المستقبلي هي:
-   - **`docs/architecture/atsoft-erp-engineering-constitution-v1.0.md`** — الدستور الهندسي (العقد الملزم).
-   - **ملفات القواعد** في `docs/agent-rules/` — القواعد التفصيلية لكل مجال.
-   - **`AGENTS.md`** — الملخص التشغيلي السريع.
-2. **الكود الحالي هو مصدر الحقيقة النهائي.** أي اختلاف بين هذا التقرير والتطبيق الحالي يُحسم لصالح الكود المطبق.
-3. **الأرقام الواردة أعلاه قديمة نسبياً.** القيم الدقيقة (عدد الوحدات، عدد الـ endpoints، عدد الصفحات، عدد النماذج) تتغير مع كل التزام مكتمل. عند الحاجة لرقم دقيق تُعاد المراجعة من الكود، وليس من هذا التقرير.
-4. **يُحفظ هذا التقرير كمرجع تاريخي.** لا يُحذف ولا يُعاد استخدامه كأساس لبناء وحدات جديدة دون مقارنة بالكود الحالي.
-5. **الخريطة المستقبلية** موثقة في:
-   - `docs/architecture/operational-vision.md` — الرؤية التشغيلية.
-   - `docs/architecture/master-plan.md` — الخطة الرئيسية.
-   - `docs/architecture/reference-prompt.md` و`docs/architecture/reference-audit-prompt.md` — قوالب التنفيذ والتدقيق.
+1. **تصحيح الأرقام الأساسية**: نماذج 90→95، endpoints 758→774، صفحات 259→266، مفاتيح i18n 3,458→3,659، الوحدات المسجلة 78→80، migration folders 36→38.
+2. **فجوة صلاحيات محققة موسعة**: 416 مفتاحاً مستخدماً في الـ controllers مقابل 343 مفتاحاً مذكوراً في 15 seed file غير فارغ = **163 مفتاحاً ناقصاً** (ليس فقط 4). الـ `PermissionsGuard` يطابق حرفياً فيؤدي إلى fail-closed (403) لكل دور غير SUPER_ADMIN عند مسارات بأسماء مفاتيح غير مزروعة (مثل `machines:*`، `branches:*`، `companies:*`، `administrations:*`، `attachments:*`).
+3. **اختبارات حقيقية**: 27 ملف spec غير فارغ (كان "19 spec 0 بايت").
+4. **تطبيق Flutter حقيقي**: `apps/mobile` يحوي 33 ملف Dart (مصادقة، مخزون، آلات، صيانة، فاحص، مزامنة offline) — ليس مجرد سقالة.
+5. **Desktop**: `apps/desktop` Tauri scaffold فقط (tauri.conf.json 0 بايت).
+6. **Production**: لا يزال غير موجود إطلاقاً (factory/production/* كلها 0 بايت، لا نماذج Prisma، لا صفحات).
+7. **مساران للمستودع**: مسار المهمة `C:\Users\attef\PycharmProjects\Trae\ATsofterp` ومسار العمل الفعلي `C:\Users\attef\PycharmProjects\Project\ATsoft_erp` — مستنسخان متطابقان (نفس SHA، نفس الملفات، نفس git status متسخ قبل المهمة).
+8. **Git status متسخ قبل المهمة**: 5 ملفات معدلة و2 غير متعقبة مسبقاً (تفصيل في قسم 19) — لم تكن نظيفة كما ورد في التقرير الأصلي.
 
-(نهاية التقرير — خاتمة التحديث)
+> **ملاحظة**: هذا التقرير أداة اكتشاف (Discovery Aid)، وليس سلطة تصميم. السلطة الملزمة هي `docs/architecture/atsoft-erp-engineering-constitution-v1.0.md` وملفات `docs/agent-rules/` و`AGENTS.md`. الكود الحالي هو مصدر الحقيقة النهائي.

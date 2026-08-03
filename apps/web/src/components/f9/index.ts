@@ -39,4 +39,13 @@ export {
   maintenancePersonnelAdapter,
   stockTransferAdapter,
   operationalReceiptAdapter,
+  maintenanceWorkOrderAdapter,
+  productionUnitAdapter,
+  productionProductDefinitionAdapter,
+  productionShiftAdapter,
+  productionShiftTemplateAdapter,
+  productionShiftCalendarAdapter,
+  productionShiftAssignmentAdapter,
+  productionOperationalAssignmentAdapter,
+  operationalPersonAdapter,
 } from './lookup-adapters';

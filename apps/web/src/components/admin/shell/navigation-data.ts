@@ -54,6 +54,7 @@ export const routeGroupMap: Record<string, string> = {
   '/admin/installed-parts': 'maintenance',
   '/admin/spare-part-conditions': 'maintenance',
   '/admin/inventory': 'inventory',
+  '/admin/production': 'production',
   '/admin/barcodes': 'barcode',
   '/admin/reports': 'reports',
   '/admin/documents': 'documents',
@@ -197,7 +198,28 @@ export const sidebarGroups: SidebarGroup[] = [
     ],
   },
 
-  // 7. Barcode
+  // 7. Production
+  {
+    id: 'production', labelKey: 'navigation.production', icon: 'production', children: [
+      {
+        id: 'prd-master-data', labelKey: 'navigation.navSection.productionMasterData', items: [
+          { id: 'prd-units', labelKey: 'navigation.productionUnits', route: '/admin/production/units' },
+          { id: 'prd-product-definitions', labelKey: 'navigation.productionProductDefinitions', route: '/admin/production/product-definitions' },
+        ],
+      },
+      {
+        id: 'prd-shifts', labelKey: 'navigation.navSection.productionShifts', items: [
+          { id: 'prd-shifts-list', labelKey: 'navigation.productionShifts', route: '/admin/production/shifts' },
+          { id: 'prd-shift-templates', labelKey: 'navigation.productionShiftTemplates', route: '/admin/production/shift-templates' },
+          { id: 'prd-shift-calendars', labelKey: 'navigation.productionShiftCalendars', route: '/admin/production/shift-calendars' },
+          { id: 'prd-shift-assignments', labelKey: 'navigation.productionShiftAssignments', route: '/admin/production/shift-assignments' },
+          { id: 'prd-operational-assignments', labelKey: 'navigation.productionOperationalAssignments', route: '/admin/production/operational-assignments' },
+        ],
+      },
+    ],
+  },
+
+  // 8. Barcode
   {
     id: 'barcode', labelKey: 'navigation.barcodes', icon: 'barcode', children: [
       {

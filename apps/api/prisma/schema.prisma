@@ -234,6 +234,13 @@ model Company {
   operationalReceipts InventoryOperationalReceipt[]
   physicalCounts      InventoryPhysicalCount[]
   operationalScopes   UserOperationalScope[]
+  productionUnits     ProductionUnit[]
+  productionProducts  ProductionProductDefinition[]
+  productionShifts    ProductionShift[]
+  productionShiftTemplates ProductionShiftTemplate[]
+  productionShiftCalendars ProductionShiftCalendar[]
+  productionShiftAssignments ProductionShiftAssignment[]
+  productionOperationalAssignments ProductionOperationalAssignment[]
 
   @@index([status])
   @@index([code])
@@ -273,6 +280,13 @@ model Branch {
   operationalReceipts InventoryOperationalReceipt[]
   physicalCounts      InventoryPhysicalCount[]
   operationalScopes   UserOperationalScope[]
+  productionUnits     ProductionUnit[]
+  productionProducts  ProductionProductDefinition[]
+  productionShifts    ProductionShift[]
+  productionShiftTemplates ProductionShiftTemplate[]
+  productionShiftCalendars ProductionShiftCalendar[]
+  productionShiftAssignments ProductionShiftAssignment[]
+  productionOperationalAssignments ProductionOperationalAssignment[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -391,6 +405,9 @@ model ProductionLine {
 
   machines            Machine[]
   maintenanceRequests MaintenanceRequest[]
+  productionProducts  ProductionProductDefinition[]
+  productionEligibilities ProductionEligibility[]
+  operationalAssignments ProductionOperationalAssignment[]
 
   @@index([code])
   @@index([companyId])
@@ -402,6 +419,372 @@ model ProductionLine {
   @@index([status])
   @@index([companyId, status])
   @@map("production_lines")
+}
+
+// ── Production Master Data (Phase 1.1) ────────────────────────
+model ProductionUnit {
+  id           String   @id @default(cuid())
+  code         String
+  name         String
+  abbreviation String?
+  description  String?
+  decimals     Int      @default(2)
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId     String
+  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  productionProducts ProductionProductDefinition[]
+  specifications     ProductionSpecification[]
+  packagings         ProductionPackaging[]
+  operationalAssignments ProductionOperationalAssignment[]
+
+  @@unique([companyId, branchId, code])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([status])
+  @@index([companyId, branchId, status])
+  @@map("production_units")
+}
+
+model ProductionProductDefinition {
+  id                 String         @id @default(cuid())
+  code               String         @unique
+  name               String
+  description        String?
+  productId          String
+  product            Product        @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  defaultUnitId      String?
+  defaultUnit        ProductionUnit? @relation(fields: [defaultUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  defaultLineId      String?
+  defaultLine        ProductionLine? @relation(fields: [defaultLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  defaultWarehouseId String?
+  defaultWarehouse   Warehouse?     @relation(fields: [defaultWarehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  defaultCostCenterId String?
+  defaultCostCenter  CostCenter?    @relation(fields: [defaultCostCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companyId          String
+  company            Company        @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId           String
+  branch             Branch         @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status             String         @default("ACTIVE")
+  createdById        String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  deletedAt          DateTime?
+
+  specifications ProductionSpecification[]
+  versions       ProductionVersion[]
+  packagings     ProductionPackaging[]
+  eligibilities  ProductionEligibility[]
+
+  @@index([code])
+  @@index([productId])
+  @@index([defaultUnitId])
+  @@index([defaultLineId])
+  @@index([defaultWarehouseId])
+  @@index([defaultCostCenterId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([status])
+  @@index([companyId, branchId, status])
+  @@map("production_product_definitions")
+}
+
+model ProductionSpecification {
+  id                 String                     @id @default(cuid())
+  productionProductId String
+  productionProduct  ProductionProductDefinition @relation(fields: [productionProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  attributeName      String
+  attributeValue     String
+  dataType           String                     @default("TEXT")
+  unitId             String?
+  unit               ProductionUnit?            @relation(fields: [unitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  isRequired         Boolean                    @default(false)
+  sortOrder          Int                        @default(0)
+  status             String                     @default("ACTIVE")
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  @@index([productionProductId])
+  @@index([unitId])
+  @@index([status])
+  @@map("production_specifications")
+}
+
+model ProductionVersion {
+  id                 String                     @id @default(cuid())
+  productionProductId String
+  productionProduct  ProductionProductDefinition @relation(fields: [productionProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  versionNumber      Int
+  versionLabel       String
+  description        String?
+  isCurrent          Boolean                    @default(false)
+  status             String                     @default("ACTIVE")
+  createdById        String?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  @@unique([productionProductId, versionNumber])
+  @@index([productionProductId])
+  @@index([status])
+  @@map("production_versions")
+}
+
+model ProductionPackaging {
+  id                 String                     @id @default(cuid())
+  productionProductId String
+  productionProduct  ProductionProductDefinition @relation(fields: [productionProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  packagingType      String
+  packQuantity       Float
+  unitId             String?
+  unit               ProductionUnit?            @relation(fields: [unitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  grossWeight        Float?
+  netWeight          Float?
+  isDefault          Boolean                    @default(false)
+  status             String                     @default("ACTIVE")
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  @@index([productionProductId])
+  @@index([unitId])
+  @@index([status])
+  @@map("production_packagings")
+}
+
+model ProductionEligibility {
+  id                 String                     @id @default(cuid())
+  productionProductId String
+  productionProduct  ProductionProductDefinition @relation(fields: [productionProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  resourceType       String
+  machineId          String?
+  machine            Machine?                   @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId   String?
+  productionLine     ProductionLine?            @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  priority           Int                        @default(0)
+  isDefault          Boolean                    @default(false)
+  notes              String?
+  status             String                     @default("ACTIVE")
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  @@unique([productionProductId, resourceType, machineId])
+  @@unique([productionProductId, resourceType, productionLineId])
+  @@index([productionProductId])
+  @@index([machineId])
+  @@index([productionLineId])
+  @@index([resourceType])
+  @@index([status])
+  @@map("production_eligibilities")
+}
+
+// ── Production Shift & Operational Assignments (Phase 1.2) ──────
+model ProductionShift {
+  id                String   @id @default(cuid())
+  code              String
+  name              String
+  description       String?
+  startTime         String
+  endTime           String
+  durationMinutes   Int      @default(480)
+  breakMinutes      Int      @default(0)
+  companyId         String
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId          String
+  branch            Branch   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status            String   @default("ACTIVE")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+
+  templateDays     ProductionShiftTemplateDay[]
+  calendarEntries  ProductionShiftCalendarEntry[]
+  shiftAssignments ProductionShiftAssignment[]
+  operationalAssignments ProductionOperationalAssignment[]
+
+  @@unique([companyId, branchId, code])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([status])
+  @@index([companyId, branchId, status])
+  @@map("production_shifts")
+}
+
+model ProductionShiftTemplate {
+  id          String   @id @default(cuid())
+  code        String
+  name        String
+  description String?
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  days      ProductionShiftTemplateDay[]
+  calendars ProductionShiftCalendar[]
+
+  @@unique([companyId, branchId, code])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([status])
+  @@index([companyId, branchId, status])
+  @@map("production_shift_templates")
+}
+
+model ProductionShiftTemplateDay {
+  id            String                  @id @default(cuid())
+  templateId    String
+  template      ProductionShiftTemplate @relation(fields: [templateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dayOfWeek     Int
+  shiftId       String
+  shift         ProductionShift         @relation(fields: [shiftId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  isWorkDay     Boolean                 @default(true)
+  sortOrder     Int                     @default(0)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  @@unique([templateId, dayOfWeek])
+  @@index([templateId])
+  @@index([shiftId])
+  @@map("production_shift_template_days")
+}
+
+model ProductionShiftCalendar {
+  id            String   @id @default(cuid())
+  code          String
+  name          String
+  description   String?
+  templateId    String?
+  template      ProductionShiftTemplate? @relation(fields: [templateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId      String
+  branch        Branch   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  entries ProductionShiftCalendarEntry[]
+  shiftAssignments ProductionShiftAssignment[]
+
+  @@unique([companyId, branchId, code])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([templateId])
+  @@index([effectiveFrom])
+  @@index([effectiveTo])
+  @@index([status])
+  @@index([companyId, branchId, status])
+  @@map("production_shift_calendars")
+}
+
+model ProductionShiftCalendarEntry {
+  id          String                  @id @default(cuid())
+  calendarId  String
+  calendar    ProductionShiftCalendar @relation(fields: [calendarId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  date        DateTime
+  shiftId     String?
+  shift       ProductionShift?        @relation(fields: [shiftId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  isWorkDay   Boolean                 @default(true)
+  notes       String?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@unique([calendarId, date])
+  @@index([calendarId])
+  @@index([shiftId])
+  @@map("production_shift_calendar_entries")
+}
+
+model ProductionShiftAssignment {
+  id                    String                    @id @default(cuid())
+  code                  String
+  shiftId               String
+  shift                 ProductionShift           @relation(fields: [shiftId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  calendarId            String?
+  calendar              ProductionShiftCalendar?  @relation(fields: [calendarId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  operationalPersonId   String
+  operationalPerson     OperationalPerson         @relation(fields: [operationalPersonId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  effectiveFrom         DateTime
+  effectiveTo           DateTime?
+  isPrimary             Boolean                   @default(false)
+  notes                 String?
+  companyId             String
+  company               Company                   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId              String
+  branch                Branch                    @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status                String                    @default("ACTIVE")
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  deletedAt             DateTime?
+
+  @@unique([code])
+  @@index([shiftId])
+  @@index([calendarId])
+  @@index([operationalPersonId])
+  @@index([effectiveFrom])
+  @@index([effectiveTo])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([status])
+  @@index([companyId, branchId, status])
+  @@index([operationalPersonId, shiftId, effectiveFrom, effectiveTo])
+  @@map("production_shift_assignments")
+}
+
+model ProductionOperationalAssignment {
+  id                  String                    @id @default(cuid())
+  code                String
+  resourceType        String
+  machineId           String?
+  machine             Machine?                  @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId    String?
+  productionLine      ProductionLine?           @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionUnitId    String?
+  productionUnit      ProductionUnit?           @relation(fields: [productionUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  shiftId             String?
+  shift               ProductionShift?          @relation(fields: [shiftId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  capacityPerShift    Decimal?                  @db.Decimal(18, 4)
+  effectiveFrom       DateTime
+  effectiveTo         DateTime?
+  isPrimary           Boolean                   @default(false)
+  notes               String?
+  createdById         String?
+  companyId           String
+  company             Company                   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId            String
+  branch              Branch                    @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status              String                    @default("ACTIVE")
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  deletedAt           DateTime?
+
+  @@unique([code])
+  @@index([resourceType])
+  @@index([machineId])
+  @@index([productionLineId])
+  @@index([productionUnitId])
+  @@index([shiftId])
+  @@index([effectiveFrom])
+  @@index([effectiveTo])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([status])
+  @@index([companyId, branchId, status])
+  @@index([resourceType, machineId, effectiveFrom, effectiveTo])
+  @@index([resourceType, productionLineId, effectiveFrom, effectiveTo])
+  @@index([resourceType, productionUnitId, effectiveFrom, effectiveTo])
+  @@map("production_operational_assignments")
 }
 
 model User {
@@ -744,6 +1127,7 @@ model Warehouse {
   conditionBalances    SparePartConditionBalance[]
   conditionMovements   SparePartConditionMovement[]
   repairOrders         SparePartRepairOrder[]
+  productionProducts   ProductionProductDefinition[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -834,6 +1218,7 @@ model Product {
   stockTransferLines     InventoryStockTransferLine[]
   operationalReceiptLines InventoryOperationalReceiptLine[]
   physicalCountLines      InventoryPhysicalCountLine[]
+  productionDefinitions  ProductionProductDefinition[]
 
   @@index([categoryId])
   @@index([code])
@@ -1458,6 +1843,8 @@ model Machine {
   repairOrders        SparePartRepairOrder[]
   boms                MaintenanceBom[]
   sparePartPlans      PreventiveSparePartPlan[]
+  productionEligibilities ProductionEligibility[]
+  operationalAssignments ProductionOperationalAssignment[]
 
   @@index([categoryId])
   @@index([companyId])
@@ -1897,6 +2284,8 @@ model OperationalPerson {
   updatedAt DateTime @updatedAt
 
   maintenancePersonnel MaintenancePersonnel?
+
+  productionShiftAssignments ProductionShiftAssignment[]
 
   @@index([code])
   @@index([category])
@@ -2560,6 +2949,7 @@ model CostCenter {
   productionLines     ProductionLine[]
   machines            Machine[]
   maintenanceRequests MaintenanceRequest[]
+  productionProducts  ProductionProductDefinition[]
 
   @@index([type, status])
   @@index([companyId, status])

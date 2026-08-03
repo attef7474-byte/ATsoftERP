@@ -14,6 +14,7 @@ import validation from './validation';
 import system from './system';
 import errorDialog from './error-dialog';
 import workspace from './workspace';
+import production from './production';
 
 const en: LocaleTranslations = {
   ...common,
@@ -31,6 +32,7 @@ const en: LocaleTranslations = {
   ...system,
   ...errorDialog,
   ...workspace,
+  ...production,
 };
 
 export default en;
