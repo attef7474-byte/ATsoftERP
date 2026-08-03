@@ -4,6 +4,7 @@ config({ path: ".env" });
 import { PrismaClient } from "@prisma/client";
 import { PrismaMssql } from "@prisma/adapter-mssql";
 import * as bcrypt from "bcryptjs";
+import { seedProductionShiftsNumbering } from "./seed-production-shifts-numbering";
 
 const adapter = new PrismaMssql(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
@@ -266,6 +267,8 @@ async function main() {
       create: ns,
     });
   }
+
+  await seedProductionShiftsNumbering(prisma);
 
   console.log("Seed completed successfully.");
   console.log(`  Company:          ${company.code} (${company.id})`);
