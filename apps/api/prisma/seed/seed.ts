@@ -5,6 +5,8 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaMssql } from "@prisma/adapter-mssql";
 import * as bcrypt from "bcryptjs";
 import { seedProductionShiftsNumbering } from "./seed-production-shifts-numbering";
+import { seedProductionCapacityNumbering } from "./seed-production-capacity-numbering";
+import { PRODUCTION_CAPACITY_PERMISSIONS } from "./seed-production-capacity-permission-keys";
 
 const adapter = new PrismaMssql(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
@@ -128,6 +130,7 @@ async function main() {
   }
 
   const extraPermissions = [
+    ...PRODUCTION_CAPACITY_PERMISSIONS,
     { key: "numbering:generate", module: "numbering", action: "generate" },
     { key: "messaging:send", module: "messaging", action: "send" },
     { key: "messaging:manage", module: "messaging", action: "manage" },
@@ -269,6 +272,7 @@ async function main() {
   }
 
   await seedProductionShiftsNumbering(prisma);
+  await seedProductionCapacityNumbering(prisma);
 
   console.log("Seed completed successfully.");
   console.log(`  Company:          ${company.code} (${company.id})`);

@@ -211,7 +211,7 @@ export default function ProductionProductDefinitionsPage() {
       } else if (childTab === 'versions') {
         payload = { versionNumber: childForm.versionNumber ? Number(childForm.versionNumber) : undefined, versionLabel: childForm.versionLabel, description: childForm.description || undefined, isCurrent: childForm.isCurrent };
       } else if (childTab === 'packagings') {
-        payload = { packagingType: childForm.packagingType, packQuantity: Number(childForm.packQuantity), unitId: childForm.unitId || undefined, grossWeight: childForm.grossWeight === '' ? undefined : Number(childForm.grossWeight), netWeight: childForm.netWeight === '' ? undefined : Number(childForm.netWeight), isDefault: childForm.isDefault };
+        payload = { packagingType: childForm.packagingType, packQuantity: String(childForm.packQuantity), unitId: childForm.unitId || undefined, grossWeight: childForm.grossWeight === '' ? undefined : String(childForm.grossWeight), netWeight: childForm.netWeight === '' ? undefined : String(childForm.netWeight), isDefault: childForm.isDefault };
       } else {
         payload = { resourceType: childForm.resourceType, machineId: childForm.resourceType === 'MACHINE' ? childForm.machineId : undefined, productionLineId: childForm.resourceType === 'LINE' ? childForm.productionLineId : undefined, priority: Number(childForm.priority) || 0, isDefault: childForm.isDefault, notes: childForm.notes || undefined };
       }

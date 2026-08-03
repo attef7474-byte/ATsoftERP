@@ -46,11 +46,11 @@ export interface ProductionPackaging {
   id: string;
   productionProductId: string;
   packagingType: string;
-  packQuantity: number;
+  packQuantity: string;
   unitId?: string | null;
   unit?: { id: string; code: string; name: string };
-  grossWeight?: number | null;
-  netWeight?: number | null;
+  grossWeight?: string | null;
+  netWeight?: string | null;
   isDefault: boolean;
   status: string;
   createdAt: string;
@@ -69,6 +69,46 @@ export interface ProductionEligibility {
   isDefault: boolean;
   notes?: string | null;
   status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ProductionCapacityStatus = 'DRAFT' | 'APPROVED' | 'SUSPENDED' | 'ARCHIVED';
+export type ProductionCapacityOutputUnit = 'PACK' | 'UNIT' | 'KG' | 'TON' | 'LITER' | 'BATCH';
+export type ProductionCapacityTimeBasis = 'MINUTE' | 'HOUR';
+
+export interface ProductionCapacityStandard {
+  id: string;
+  code: string;
+  revision: number;
+  productionProductId: string;
+  productionProduct?: { id: string; code: string; name: string };
+  productionVersionId?: string | null;
+  productionVersion?: { id: string; versionNumber: number; versionLabel: string } | null;
+  productionPackagingId?: string | null;
+  productionPackaging?: { id: string; packagingType: string; packQuantity: string } | null;
+  productionLineId: string;
+  productionLine?: { id: string; code: string; name: string };
+  machineId?: string | null;
+  machine?: { id: string; code: string; name: string } | null;
+  standardRate: string;
+  outputUnit: ProductionCapacityOutputUnit;
+  timeBasis: ProductionCapacityTimeBasis;
+  standardCycleTimeMinutes?: string | null;
+  setupMinutes: string;
+  changeoverMinutes: string;
+  cleaningMinutes: string;
+  startupAllowanceMinutes: string;
+  shutdownAllowanceMinutes: string;
+  targetEfficiencyPercent: string;
+  expectedYieldPercent: string;
+  sourceType: 'MEASURED' | 'ENGINEERING' | 'SUPPLIER' | 'HISTORICAL' | 'OWNER_OVERRIDE';
+  sourceReference?: string | null;
+  notes?: string | null;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  status: ProductionCapacityStatus;
+  matchedScope?: 'MACHINE' | 'LINE';
   createdAt: string;
   updatedAt: string;
 }

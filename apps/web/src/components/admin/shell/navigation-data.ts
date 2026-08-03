@@ -216,6 +216,11 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'prd-operational-assignments', labelKey: 'navigation.productionOperationalAssignments', route: '/admin/production/operational-assignments' },
         ],
       },
+      {
+        id: 'prd-standards', labelKey: 'navigation.navSection.productionStandards', items: [
+          { id: 'prd-capacity-standards', labelKey: 'navigation.productionCapacityStandards', route: '/admin/production/capacity-standards' },
+        ],
+      },
     ],
   },
 

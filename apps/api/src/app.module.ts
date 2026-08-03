@@ -81,6 +81,7 @@ import { InventoryPhysicalCountsModule } from './modules/factory/inventory-physi
 import { InventoryLocksModule } from './modules/factory/inventory-locks/inventory-locks.module'
 import { ProductionMasterDataModule } from './modules/factory/production-master-data/production-master-data.module'
 import { ProductionShiftsModule } from './modules/factory/production-shifts/production-shifts.module'
+import { ProductionCapacityStandardsModule } from './modules/factory/production-capacity-standards/production-capacity-standards.module'
 
 @Module({
   imports: [
@@ -125,6 +126,7 @@ import { ProductionShiftsModule } from './modules/factory/production-shifts/prod
     InventoryLocksModule,
     ProductionMasterDataModule,
     ProductionShiftsModule,
+    ProductionCapacityStandardsModule,
   ],
 })
 export class AppModule {}

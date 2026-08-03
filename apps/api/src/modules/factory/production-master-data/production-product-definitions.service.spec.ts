@@ -246,7 +246,7 @@ describe('ProductionProductDefinitionsService', () => {
       prisma.productionProductDefinition.findFirst.mockResolvedValue(definition());
 
       await expect(
-        service.addPackaging('d1', { packagingType: 'BOX', packQuantity: 0 }, 'u1', ctxA),
+        service.addPackaging('d1', { packagingType: 'BOX', packQuantity: '0' }, 'u1', ctxA),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
   });

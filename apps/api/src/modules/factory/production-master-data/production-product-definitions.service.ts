@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ConflictException }
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { NumberingService } from '../../../modules/numbering/numbering.service';
+import { Prisma } from '@prisma/client';
 import { CreateProductionProductDefinitionDto } from './dto/create-production-product-definition.dto';
 import { UpdateProductionProductDefinitionDto } from './dto/update-production-product-definition.dto';
 import { ProductionProductDefinitionQueryDto } from './dto/production-product-definition-query.dto';
@@ -402,19 +403,20 @@ export class ProductionProductDefinitionsService {
   async addPackaging(parentId: string, dto: CreatePackagingDto, userId: string, ctx: ActiveOperationalContext) {
     await this.findOwnedChild(parentId, ctx);
     if (dto.unitId) await this.validateUnit(dto.unitId, 'unitId', ctx);
-    if (dto.packQuantity <= 0) throw this.validationError('packQuantity', 'validation.positiveRequired', 'Pack quantity must be greater than 0');
+    const packQuantity = new Prisma.Decimal(dto.packQuantity);
+    if (!packQuantity.greaterThan(0)) throw this.validationError('packQuantity', 'validation.positiveRequired', 'Pack quantity must be greater than 0');
     const packaging = await this.prisma.$transaction(async (tx) => {
       if (dto.isDefault) {
         await tx.productionPackaging.updateMany({ where: { productionProductId: parentId }, data: { isDefault: false } });
       }
-      return tx.productionPackaging.create({
+      return (tx.productionPackaging as any).create({
         data: {
           productionProductId: parentId,
           packagingType: dto.packagingType,
-          packQuantity: dto.packQuantity,
+          packQuantity,
           unitId: dto.unitId ?? null,
-          grossWeight: dto.grossWeight ?? null,
-          netWeight: dto.netWeight ?? null,
+          grossWeight: dto.grossWeight === undefined ? null : new Prisma.Decimal(dto.grossWeight),
+          netWeight: dto.netWeight === undefined ? null : new Prisma.Decimal(dto.netWeight),
           isDefault: dto.isDefault ?? false,
         },
       });
@@ -434,14 +436,14 @@ export class ProductionProductDefinitionsService {
       if (dto.isDefault) {
         await tx.productionPackaging.updateMany({ where: { productionProductId: parentId }, data: { isDefault: false } });
       }
-      return tx.productionPackaging.update({
+      return (tx.productionPackaging as any).update({
         where: { id: childId },
         data: {
           packagingType: dto.packagingType ?? existing.packagingType,
-          packQuantity: dto.packQuantity ?? existing.packQuantity,
+          packQuantity: dto.packQuantity === undefined ? existing.packQuantity : new Prisma.Decimal(dto.packQuantity),
           unitId: dto.unitId !== undefined ? (dto.unitId || null) : existing.unitId,
-          grossWeight: dto.grossWeight !== undefined ? dto.grossWeight : existing.grossWeight,
-          netWeight: dto.netWeight !== undefined ? dto.netWeight : existing.netWeight,
+          grossWeight: dto.grossWeight !== undefined ? new Prisma.Decimal(dto.grossWeight) : existing.grossWeight,
+          netWeight: dto.netWeight !== undefined ? new Prisma.Decimal(dto.netWeight) : existing.netWeight,
           isDefault: dto.isDefault !== undefined ? dto.isDefault : existing.isDefault,
         },
       });

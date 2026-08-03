@@ -241,6 +241,7 @@ model Company {
   productionShiftCalendars ProductionShiftCalendar[]
   productionShiftAssignments ProductionShiftAssignment[]
   productionOperationalAssignments ProductionOperationalAssignment[]
+  productionCapacityStandards ProductionCapacityStandard[]
 
   @@index([status])
   @@index([code])
@@ -287,6 +288,7 @@ model Branch {
   productionShiftCalendars ProductionShiftCalendar[]
   productionShiftAssignments ProductionShiftAssignment[]
   productionOperationalAssignments ProductionOperationalAssignment[]
+  productionCapacityStandards ProductionCapacityStandard[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -408,6 +410,7 @@ model ProductionLine {
   productionProducts  ProductionProductDefinition[]
   productionEligibilities ProductionEligibility[]
   operationalAssignments ProductionOperationalAssignment[]
+  capacityStandards ProductionCapacityStandard[]
 
   @@index([code])
   @@index([companyId])
@@ -480,6 +483,7 @@ model ProductionProductDefinition {
   versions       ProductionVersion[]
   packagings     ProductionPackaging[]
   eligibilities  ProductionEligibility[]
+  capacityStandards ProductionCapacityStandard[]
 
   @@index([code])
   @@index([productId])
@@ -527,6 +531,7 @@ model ProductionVersion {
   createdById        String?
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
+  capacityStandards  ProductionCapacityStandard[]
 
   @@unique([productionProductId, versionNumber])
   @@index([productionProductId])
@@ -539,15 +544,16 @@ model ProductionPackaging {
   productionProductId String
   productionProduct  ProductionProductDefinition @relation(fields: [productionProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   packagingType      String
-  packQuantity       Float
+  packQuantity       Decimal                    @db.Decimal(18, 4)
   unitId             String?
   unit               ProductionUnit?            @relation(fields: [unitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  grossWeight        Float?
-  netWeight          Float?
+  grossWeight        Decimal?                   @db.Decimal(18, 4)
+  netWeight          Decimal?                   @db.Decimal(18, 4)
   isDefault          Boolean                    @default(false)
   status             String                     @default("ACTIVE")
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
+  capacityStandards  ProductionCapacityStandard[]
 
   @@index([productionProductId])
   @@index([unitId])
@@ -579,6 +585,68 @@ model ProductionEligibility {
   @@index([resourceType])
   @@index([status])
   @@map("production_eligibilities")
+}
+
+model ProductionCapacityStandard {
+  id                           String                           @id @default(cuid())
+  code                         String
+  revision                     Int                              @default(1)
+  companyId                    String
+  company                      Company                          @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                     String
+  branch                       Branch                           @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionProductId          String
+  productionProduct            ProductionProductDefinition      @relation(fields: [productionProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionVersionId          String?
+  productionVersion            ProductionVersion?                @relation(fields: [productionVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionPackagingId        String?
+  productionPackaging          ProductionPackaging?              @relation(fields: [productionPackagingId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId             String
+  productionLine               ProductionLine                    @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId                    String?
+  machine                      Machine?                          @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  standardRate                 Decimal                          @db.Decimal(18, 4)
+  outputUnit                   String
+  timeBasis                    String
+  standardCycleTimeMinutes     Decimal?                         @db.Decimal(18, 4)
+  setupMinutes                 Decimal                          @default(0) @db.Decimal(18, 2)
+  changeoverMinutes            Decimal                          @default(0) @db.Decimal(18, 2)
+  cleaningMinutes              Decimal                          @default(0) @db.Decimal(18, 2)
+  startupAllowanceMinutes      Decimal                          @default(0) @db.Decimal(18, 2)
+  shutdownAllowanceMinutes     Decimal                          @default(0) @db.Decimal(18, 2)
+  targetEfficiencyPercent      Decimal                          @db.Decimal(7, 4)
+  expectedYieldPercent         Decimal                          @db.Decimal(7, 4)
+  sourceType                   String
+  sourceReference              String?
+  notes                        String?
+  effectiveFrom                DateTime
+  effectiveTo                  DateTime?
+  status                       String                           @default("DRAFT")
+  supersedesId                 String?
+  supersedes                   ProductionCapacityStandard?      @relation("ProductionCapacityRevisions", fields: [supersedesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  revisions                    ProductionCapacityStandard[]     @relation("ProductionCapacityRevisions")
+  lastMateriallyEditedById     String
+  createdById                  String
+  updatedById                  String
+  approvedById                 String?
+  approvedAt                   DateTime?
+  suspendedById                String?
+  suspendedAt                  DateTime?
+  suspensionReason             String?
+  archivedById                 String?
+  archivedAt                   DateTime?
+  archiveReason                String?
+  createdAt                    DateTime                         @default(now())
+  updatedAt                    DateTime                         @updatedAt
+  deletedAt                    DateTime?
+
+  @@unique([companyId, branchId, code, revision])
+  @@index([companyId, branchId, status, effectiveFrom, effectiveTo])
+  @@index([companyId, branchId, productionProductId, productionLineId, machineId])
+  @@index([productionVersionId])
+  @@index([productionPackagingId])
+  @@index([supersedesId])
+  @@map("production_capacity_standards")
 }
 
 // ── Production Shift & Operational Assignments (Phase 1.2) ──────
@@ -1845,6 +1913,7 @@ model Machine {
   sparePartPlans      PreventiveSparePartPlan[]
   productionEligibilities ProductionEligibility[]
   operationalAssignments ProductionOperationalAssignment[]
+  capacityStandards ProductionCapacityStandard[]
 
   @@index([categoryId])
   @@index([companyId])
