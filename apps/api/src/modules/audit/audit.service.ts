@@ -5,6 +5,21 @@ import { PrismaService } from '../../common/prisma/prisma.service'
 export class AuditService {
   constructor(private prisma: PrismaService) {}
 
+  async logWithClient(client: any, params: { userId?: string; action: string; entity: string; entityId?: string; details?: string | Record<string, any>; ip?: string; userAgent?: string }) {
+    const details = typeof params.details === 'string' ? params.details : params.details ? JSON.stringify(params.details) : undefined
+    return client.auditLog.create({
+      data: {
+        userId: params.userId,
+        action: params.action,
+        entity: params.entity,
+        entityId: params.entityId,
+        details,
+        ip: params.ip,
+        userAgent: params.userAgent,
+      },
+    })
+  }
+
   async log(userIdOrParams: string | undefined | { userId?: string; action: string; entity: string; entityId?: string; details?: string; ip?: string; userAgent?: string }, action?: string, entity?: string, entityId?: string, details?: string | Record<string, any>) {
     if (typeof userIdOrParams === 'string' || userIdOrParams === undefined) {
       const detailsStr = typeof details === 'object' ? JSON.stringify(details) : details

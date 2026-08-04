@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UploadedFile, UseInterceptors, Res, UseGuards } from '@nestjs/common'
+import { BadRequestException, Controller, ForbiddenException, Get, Post, Patch, Delete, Param, Body, Query, UploadedFile, UseInterceptors, Res, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiQuery, ApiConsumes, ApiBearerAuth } from '@nestjs/swagger'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { Response } from 'express'
@@ -31,7 +31,9 @@ export class AttachmentsController {
   @Permissions('attachments.view')
   @ApiOperation({ summary: 'Get attachment metadata' })
   async findOne(@Param('id') id: string) {
-    return this.service.findOne(id)
+    const attachment = await this.service.findOne(id)
+    this.assertGenericAccess(attachment)
+    return attachment
   }
 
   @Get(':id/download')
@@ -39,6 +41,7 @@ export class AttachmentsController {
   @ApiOperation({ summary: 'Download attachment file' })
   async download(@Param('id') id: string, @Res() res: Response) {
     const attachment = await this.service.findOne(id)
+    this.assertGenericAccess(attachment)
     const filePath = this.service.getFilePath(attachment)
     const safePath = path.resolve(filePath)
     const uploadRoot = path.resolve(this.service['uploadRoot'])
@@ -54,6 +57,7 @@ export class AttachmentsController {
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
   async create(@UploadedFile() file: Express.Multer.File, @Body('entityName') entityName: string, @Body('entityId') entityId: string, @Body('description') description: string, @CurrentUser('id') userId: string) {
+    if (entityName === 'ProductionOrder') throw new BadRequestException({ messageKey: 'productionOrder.useScopedAttachmentEndpoint' })
     return this.service.create(file, entityName, entityId, description, userId)
   }
 
@@ -61,6 +65,8 @@ export class AttachmentsController {
   @Permissions('attachments.update')
   @ApiOperation({ summary: 'Update attachment metadata' })
   async update(@Param('id') id: string, @Body() dto: { entityName?: string; entityId?: string; description?: string }) {
+    this.assertGenericAccess(await this.service.findOne(id))
+    if (dto.entityName === 'ProductionOrder') throw new BadRequestException({ messageKey: 'productionOrder.useScopedAttachmentEndpoint' })
     return this.service.update(id, dto)
   }
 
@@ -68,6 +74,7 @@ export class AttachmentsController {
   @Permissions('attachments.delete')
   @ApiOperation({ summary: 'Delete attachment' })
   async remove(@Param('id') id: string) {
+    this.assertGenericAccess(await this.service.findOne(id))
     return this.service.remove(id)
   }
 
@@ -76,5 +83,9 @@ export class AttachmentsController {
   @ApiOperation({ summary: 'Get attachments by entity' })
   async findByEntity(@Param('entityType') entityType: string, @Param('entityId') entityId: string) {
     return this.service.findByEntity(entityType, entityId)
+  }
+
+  private assertGenericAccess(attachment: { entityName: string }) {
+    if (attachment.entityName === 'ProductionOrder') throw new ForbiddenException({ messageKey: 'productionOrder.useScopedAttachmentEndpoint' })
   }
 }

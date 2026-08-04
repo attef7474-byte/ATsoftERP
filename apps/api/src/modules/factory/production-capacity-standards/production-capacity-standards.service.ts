@@ -171,7 +171,11 @@ export class ProductionCapacityStandardsService {
   }
 
   async resolve(query: ResolveProductionCapacityStandardDto, ctx: ActiveOperationalContext) {
-    await this.validateReferences(query, ctx);
+    return this.resolveWithClient(query, ctx, this.prisma);
+  }
+
+  async resolveWithClient(query: ResolveProductionCapacityStandardDto, ctx: ActiveOperationalContext, client: any) {
+    await this.validateReferences(query, ctx, client);
     const requestedAt = new Date(query.requestedAt);
     const base: any = {
       companyId: ctx.companyId,
@@ -188,12 +192,12 @@ export class ProductionCapacityStandardsService {
       OR: [{ effectiveTo: null }, { effectiveTo: { gt: requestedAt } }],
     };
     if (query.machineId) {
-      const exact = await this.resolveRank({ ...base, machineId: query.machineId }, 'MACHINE');
+      const exact = await this.resolveRank({ ...base, machineId: query.machineId }, 'MACHINE', client.productionCapacityStandard);
       if (exact) return exact;
     }
-    const line = await this.resolveRank({ ...base, machineId: null }, 'LINE');
+    const line = await this.resolveRank({ ...base, machineId: null }, 'LINE', client.productionCapacityStandard);
     if (line) return line;
-    throw new NotFoundException({ messageKey: 'capacityStandard.notConfigured', message: 'No approved capacity standard is configured for the requested context' });
+    throw new NotFoundException({ messageKey: 'capacityStandard.notConfigured' });
   }
 
   async history(id: string, ctx: ActiveOperationalContext) {
@@ -211,8 +215,8 @@ export class ProductionCapacityStandardsService {
     return { code: current.code, revisions, audits };
   }
 
-  private async resolveRank(where: any, matchedScope: 'MACHINE' | 'LINE') {
-    const matches = await this.model.findMany({ where, take: 2, orderBy: [{ effectiveFrom: 'desc' }, { revision: 'desc' }], include: includeReferences });
+  private async resolveRank(where: any, matchedScope: 'MACHINE' | 'LINE', model: any = this.model) {
+    const matches = await model.findMany({ where, take: 2, orderBy: [{ effectiveFrom: 'desc' }, { revision: 'desc' }], include: includeReferences });
     if (matches.length > 1) throw new ConflictException({ messageKey: 'capacityStandard.ambiguousResolution', message: 'Multiple approved standards match the same resolution rank' });
     return matches[0] ? { ...matches[0], matchedScope } : null;
   }
@@ -262,24 +266,24 @@ export class ProductionCapacityStandardsService {
     };
   }
 
-  private async validateReferences(dto: any, ctx: ActiveOperationalContext) {
-    const product = await (this.prisma as any).productionProductDefinition.findFirst({ where: { id: dto.productionProductId, companyId: ctx.companyId, branchId: ctx.branchId, status: 'ACTIVE', deletedAt: null } });
+  private async validateReferences(dto: any, ctx: ActiveOperationalContext, client: any = this.prisma) {
+    const product = await client.productionProductDefinition.findFirst({ where: { id: dto.productionProductId, companyId: ctx.companyId, branchId: ctx.branchId, status: 'ACTIVE', deletedAt: null } });
     if (!product) this.invalid('productionProductId', 'capacityStandard.productInvalid', 'Production product is not active in the current context');
     if (dto.productionVersionId) {
-      const version = await (this.prisma as any).productionVersion.findFirst({ where: { id: dto.productionVersionId, productionProductId: dto.productionProductId, status: 'ACTIVE' } });
+      const version = await client.productionVersion.findFirst({ where: { id: dto.productionVersionId, productionProductId: dto.productionProductId, status: 'ACTIVE' } });
       if (!version) this.invalid('productionVersionId', 'capacityStandard.versionInvalid', 'Production version is not active for the selected product');
     }
     if (dto.productionPackagingId) {
-      const packaging = await (this.prisma as any).productionPackaging.findFirst({ where: { id: dto.productionPackagingId, productionProductId: dto.productionProductId, status: 'ACTIVE' } });
+      const packaging = await client.productionPackaging.findFirst({ where: { id: dto.productionPackagingId, productionProductId: dto.productionProductId, status: 'ACTIVE' } });
       if (!packaging) this.invalid('productionPackagingId', 'capacityStandard.packagingInvalid', 'Production packaging is not active for the selected product');
     }
-    const line = await (this.prisma as any).productionLine.findFirst({ where: { id: dto.productionLineId, companyId: ctx.companyId, branchId: ctx.branchId, status: 'ACTIVE', deletedAt: null } });
+    const line = await client.productionLine.findFirst({ where: { id: dto.productionLineId, companyId: ctx.companyId, branchId: ctx.branchId, status: 'ACTIVE', deletedAt: null } });
     if (!line) this.invalid('productionLineId', 'capacityStandard.lineInvalid', 'Production line is not active in the current context');
     if (dto.machineId) {
-      const machine = await (this.prisma as any).machine.findFirst({ where: { id: dto.machineId, companyId: ctx.companyId, branchId: ctx.branchId, productionLineId: dto.productionLineId, status: 'ACTIVE', deletedAt: null } });
+      const machine = await client.machine.findFirst({ where: { id: dto.machineId, companyId: ctx.companyId, branchId: ctx.branchId, productionLineId: dto.productionLineId, status: 'ACTIVE', deletedAt: null } });
       if (!machine) this.invalid('machineId', 'capacityStandard.machineInvalid', 'Machine is not active on the selected line in the current context');
     }
-    const eligibility = await (this.prisma as any).productionEligibility.findFirst({
+    const eligibility = await client.productionEligibility.findFirst({
       where: dto.machineId
         ? { productionProductId: dto.productionProductId, resourceType: 'MACHINE', machineId: dto.machineId, status: 'ACTIVE' }
         : { productionProductId: dto.productionProductId, resourceType: 'LINE', productionLineId: dto.productionLineId, status: 'ACTIVE' },

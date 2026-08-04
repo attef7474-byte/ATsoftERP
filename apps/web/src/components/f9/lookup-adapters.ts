@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -453,6 +453,18 @@ export const productionProductDefinitionAdapter: LookupAdapter<ProductionProduct
     { key: 'product', header: 'Product', render: (p) => p.product?.name || '-' },
     { key: 'defaultLine', header: 'Line', render: (p) => p.defaultLine?.name || '-' },
     { key: 'status', header: 'Status', render: (p) => p.status },
+  ],
+};
+
+export const productionOrderAdapter: LookupAdapter<ProductionOrder> = {
+  endpoint: '/production/orders',
+  displayLabel: (order) => `[${order.orderNumber}] ${order.productionProductDefinition?.name || ''}`,
+  searchFields: ['orderNumber', 'sourceReference'],
+  columns: [
+    { key: 'orderNumber', header: 'Number' },
+    { key: 'product', header: 'Product', render: (order) => order.productionProductDefinition?.name || '-' },
+    { key: 'line', header: 'Line', render: (order) => order.productionLine?.name || '-' },
+    { key: 'status', header: 'Status', render: (order) => order.status },
   ],
 };
 

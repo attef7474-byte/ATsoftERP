@@ -143,6 +143,109 @@ export interface ProductionProductDefinition {
   eligibilities?: ProductionEligibility[];
 }
 
+export type ProductionOrderStatus = 'DRAFT' | 'PLANNED' | 'RELEASED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'CLOSED' | 'ARCHIVED';
+export type ProductionOrderPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+export type ProductionOrderSourceType = 'MANUAL' | 'REPLENISHMENT' | 'FORECAST' | 'OTHER';
+
+export interface ProductionOrder {
+  id: string;
+  companyId: string;
+  branchId: string;
+  orderNumber: string;
+  clientRequestId: string;
+  productionProductDefinitionId: string;
+  productionProductDefinition?: { id: string; code: string; name: string };
+  productionVersionId: string;
+  productionVersion?: { id: string; versionNumber: number; versionLabel: string };
+  productionPackagingId?: string | null;
+  productionPackaging?: { id: string; packagingType: string; packQuantity: string } | null;
+  productionUnitId: string;
+  productionUnit?: { id: string; code: string; name: string; abbreviation?: string | null };
+  productionLineId: string;
+  productionLine?: { id: string; code: string; name: string };
+  machineId?: string | null;
+  machine?: { id: string; code: string; name: string } | null;
+  plannedQuantity: string;
+  quantityUnit: ProductionCapacityOutputUnit;
+  capacityTimeBasis: ProductionCapacityTimeBasis;
+  plannedStartAt: string;
+  plannedEndAt: string;
+  priority: ProductionOrderPriority;
+  sourceType: ProductionOrderSourceType;
+  sourceReference?: string | null;
+  costCenterId: string;
+  costCenter?: { id: string; code: string; name: string };
+  issueWarehouseId?: string | null;
+  issueWarehouse?: { id: string; code: string; name: string } | null;
+  receiptWarehouseId?: string | null;
+  receiptWarehouse?: { id: string; code: string; name: string } | null;
+  capacityStandardId: string;
+  capacityStandardCodeSnapshot: string;
+  capacityStandardRevisionSnapshot: number;
+  standardRateSnapshot: string;
+  outputUnitSnapshot: ProductionCapacityOutputUnit;
+  timeBasisSnapshot: ProductionCapacityTimeBasis;
+  standardCycleTimeMinutesSnapshot?: string | null;
+  setupMinutesSnapshot: string;
+  changeoverMinutesSnapshot: string;
+  cleaningMinutesSnapshot: string;
+  startupAllowanceMinutesSnapshot: string;
+  shutdownAllowanceMinutesSnapshot: string;
+  targetEfficiencyPercentSnapshot: string;
+  expectedYieldPercentSnapshot: string;
+  capacityEffectiveFromSnapshot: string;
+  capacityEffectiveToSnapshot?: string | null;
+  plannedGrossQuantity: string;
+  plannedRunMinutes: string;
+  plannedAllowanceMinutes: string;
+  plannedDurationMinutes: string;
+  durationCalculationVersion: string;
+  snapshotFrozenAt?: string | null;
+  status: ProductionOrderStatus;
+  lockVersion: number;
+  plannedById?: string | null;
+  plannedAt?: string | null;
+  releasedById?: string | null;
+  releasedAt?: string | null;
+  cancelledById?: string | null;
+  cancelledAt?: string | null;
+  cancellationReason?: string | null;
+  archivedById?: string | null;
+  archivedAt?: string | null;
+  archiveReason?: string | null;
+  notes?: string | null;
+  createdById: string;
+  updatedById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductionOrderReadiness {
+  ready: boolean;
+  blockers: Array<{ code: string; field?: string }>;
+  warnings: Array<{ code: string; details?: Record<string, unknown> }>;
+  snapshotPreview?: Record<string, string | null> | null;
+}
+
+export interface ProductionOrderTransition {
+  id: string;
+  fromStatus: string;
+  toStatus: string;
+  action: string;
+  actorId: string;
+  reason?: string | null;
+  requestId: string;
+  readinessEvidence?: string | null;
+  createdAt: string;
+}
+
+export interface ProductionOrderAttachment {
+  id: string;
+  attachmentId: string;
+  attachment: { id: string; originalName: string; mimeType: string; size: number; createdAt: string };
+  createdAt: string;
+}
+
 export interface ProductionShift {
   id: string;
   code: string;

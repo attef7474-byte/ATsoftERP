@@ -242,6 +242,9 @@ model Company {
   productionShiftAssignments ProductionShiftAssignment[]
   productionOperationalAssignments ProductionOperationalAssignment[]
   productionCapacityStandards ProductionCapacityStandard[]
+  productionOrders ProductionOrder[]
+  productionOrderTransitions ProductionOrderTransition[]
+  productionOrderAttachments ProductionOrderAttachment[]
 
   @@index([status])
   @@index([code])
@@ -289,6 +292,9 @@ model Branch {
   productionShiftAssignments ProductionShiftAssignment[]
   productionOperationalAssignments ProductionOperationalAssignment[]
   productionCapacityStandards ProductionCapacityStandard[]
+  productionOrders ProductionOrder[]
+  productionOrderTransitions ProductionOrderTransition[]
+  productionOrderAttachments ProductionOrderAttachment[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -411,6 +417,7 @@ model ProductionLine {
   productionEligibilities ProductionEligibility[]
   operationalAssignments ProductionOperationalAssignment[]
   capacityStandards ProductionCapacityStandard[]
+  productionOrders ProductionOrder[]
 
   @@index([code])
   @@index([companyId])
@@ -445,6 +452,7 @@ model ProductionUnit {
   specifications     ProductionSpecification[]
   packagings         ProductionPackaging[]
   operationalAssignments ProductionOperationalAssignment[]
+  productionOrders   ProductionOrder[]
 
   @@unique([companyId, branchId, code])
   @@index([companyId])
@@ -484,6 +492,7 @@ model ProductionProductDefinition {
   packagings     ProductionPackaging[]
   eligibilities  ProductionEligibility[]
   capacityStandards ProductionCapacityStandard[]
+  productionOrders ProductionOrder[]
 
   @@index([code])
   @@index([productId])
@@ -532,6 +541,7 @@ model ProductionVersion {
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
   capacityStandards  ProductionCapacityStandard[]
+  productionOrders   ProductionOrder[]
 
   @@unique([productionProductId, versionNumber])
   @@index([productionProductId])
@@ -554,6 +564,7 @@ model ProductionPackaging {
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
   capacityStandards  ProductionCapacityStandard[]
+  productionOrders   ProductionOrder[]
 
   @@index([productionProductId])
   @@index([unitId])
@@ -625,6 +636,7 @@ model ProductionCapacityStandard {
   supersedesId                 String?
   supersedes                   ProductionCapacityStandard?      @relation("ProductionCapacityRevisions", fields: [supersedesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   revisions                    ProductionCapacityStandard[]     @relation("ProductionCapacityRevisions")
+  productionOrders             ProductionOrder[]
   lastMateriallyEditedById     String
   createdById                  String
   updatedById                  String
@@ -647,6 +659,152 @@ model ProductionCapacityStandard {
   @@index([productionPackagingId])
   @@index([supersedesId])
   @@map("production_capacity_standards")
+}
+
+// ── Production Orders (Phase 1.4) ────────────────────────────
+model ProductionOrder {
+  id                                String                      @id @default(cuid())
+  companyId                         String
+  company                           Company                     @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                          String
+  branch                            Branch                      @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orderNumber                       String
+  clientRequestId                   String
+  productionProductDefinitionId     String
+  productionProductDefinition       ProductionProductDefinition @relation(fields: [productionProductDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionVersionId               String
+  productionVersion                 ProductionVersion           @relation(fields: [productionVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionPackagingId             String?
+  productionPackaging               ProductionPackaging?        @relation(fields: [productionPackagingId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionUnitId                  String
+  productionUnit                    ProductionUnit              @relation(fields: [productionUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId                  String
+  productionLine                    ProductionLine              @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId                         String?
+  machine                           Machine?                     @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  plannedQuantity                   Decimal                     @db.Decimal(18, 4)
+  quantityUnit                      String
+  capacityTimeBasis                 String
+  plannedStartAt                    DateTime
+  plannedEndAt                      DateTime
+  priority                          String                      @default("NORMAL")
+  sourceType                        String                      @default("MANUAL")
+  sourceReference                   String?
+  costCenterId                      String
+  costCenter                        CostCenter                  @relation(fields: [costCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  issueWarehouseId                  String?
+  issueWarehouse                    Warehouse?                  @relation("ProductionOrderIssueWarehouse", fields: [issueWarehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  receiptWarehouseId                String?
+  receiptWarehouse                  Warehouse?                  @relation("ProductionOrderReceiptWarehouse", fields: [receiptWarehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  capacityStandardId                String
+  capacityStandard                  ProductionCapacityStandard @relation(fields: [capacityStandardId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  capacityStandardCodeSnapshot      String
+  capacityStandardRevisionSnapshot  Int
+  standardRateSnapshot              Decimal                     @db.Decimal(18, 4)
+  outputUnitSnapshot                String
+  timeBasisSnapshot                 String
+  standardCycleTimeMinutesSnapshot  Decimal?                    @db.Decimal(18, 4)
+  setupMinutesSnapshot              Decimal                     @db.Decimal(18, 4)
+  changeoverMinutesSnapshot         Decimal                     @db.Decimal(18, 4)
+  cleaningMinutesSnapshot           Decimal                     @db.Decimal(18, 4)
+  startupAllowanceMinutesSnapshot   Decimal                     @db.Decimal(18, 4)
+  shutdownAllowanceMinutesSnapshot  Decimal                     @db.Decimal(18, 4)
+  targetEfficiencyPercentSnapshot   Decimal                     @db.Decimal(7, 4)
+  expectedYieldPercentSnapshot      Decimal                     @db.Decimal(7, 4)
+  capacityEffectiveFromSnapshot     DateTime
+  capacityEffectiveToSnapshot       DateTime?
+  capacityProductIdSnapshot         String
+  capacityVersionIdSnapshot         String?
+  capacityPackagingIdSnapshot       String?
+  capacityLineIdSnapshot            String
+  capacityMachineIdSnapshot         String?
+  plannedGrossQuantity              Decimal                     @db.Decimal(18, 4)
+  plannedRunMinutes                 Decimal                     @db.Decimal(18, 4)
+  plannedAllowanceMinutes           Decimal                     @db.Decimal(18, 4)
+  plannedDurationMinutes            Decimal                     @db.Decimal(18, 4)
+  durationCalculationVersion        String                      @default("PHASE_1_4_V1")
+  snapshotFrozenAt                  DateTime?
+  status                            String                      @default("DRAFT")
+  lockVersion                       Int                         @default(0)
+  plannedById                       String?
+  plannedAt                         DateTime?
+  releasedById                      String?
+  releasedAt                        DateTime?
+  cancelledById                     String?
+  cancelledAt                       DateTime?
+  cancellationReason                String?
+  archivedById                      String?
+  archivedAt                        DateTime?
+  archiveReason                     String?
+  closedById                        String?
+  closedAt                          DateTime?
+  closureReason                     String?
+  notes                             String?
+  createdById                       String
+  updatedById                       String
+  createdAt                         DateTime                    @default(now())
+  updatedAt                         DateTime                    @updatedAt
+  deletedAt                         DateTime?
+
+  transitions ProductionOrderTransition[]
+  attachments ProductionOrderAttachment[]
+
+  @@unique([companyId, branchId, orderNumber])
+  @@unique([companyId, branchId, clientRequestId])
+  @@index([companyId, branchId, status, plannedStartAt, plannedEndAt])
+  @@index([companyId, branchId, productionProductDefinitionId])
+  @@index([companyId, branchId, productionLineId, machineId, plannedStartAt, plannedEndAt])
+  @@index([companyId, branchId, sourceType, sourceReference])
+  @@index([productionVersionId])
+  @@index([productionPackagingId])
+  @@index([productionUnitId])
+  @@index([costCenterId])
+  @@index([issueWarehouseId])
+  @@index([receiptWarehouseId])
+  @@index([capacityStandardId])
+  @@map("production_orders")
+}
+
+model ProductionOrderTransition {
+  id                String          @id @default(cuid())
+  companyId         String
+  company           Company         @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId          String
+  branch            Branch          @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionOrderId String
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fromStatus        String
+  toStatus          String
+  action            String
+  actorId           String
+  reason            String?
+  requestId         String
+  readinessEvidence String?
+  createdAt         DateTime        @default(now())
+
+  @@unique([productionOrderId, requestId])
+  @@index([companyId, branchId, productionOrderId, createdAt])
+  @@index([companyId, branchId, action, createdAt])
+  @@map("production_order_transitions")
+}
+
+model ProductionOrderAttachment {
+  id                String          @id @default(cuid())
+  companyId         String
+  company           Company         @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId          String
+  branch            Branch          @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionOrderId String
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  attachmentId      String
+  attachment        Attachment      @relation(fields: [attachmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  uploadedById      String
+  createdAt         DateTime        @default(now())
+
+  @@unique([productionOrderId, attachmentId])
+  @@index([companyId, branchId, productionOrderId, createdAt])
+  @@index([attachmentId])
+  @@map("production_order_attachments")
 }
 
 // ── Production Shift & Operational Assignments (Phase 1.2) ──────
@@ -1116,6 +1274,7 @@ model Attachment {
   uploadedById String?
   uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   createdAt    DateTime @default(now())
+  productionOrderLinks ProductionOrderAttachment[]
 
   @@index([entityName])
   @@index([entityId])
@@ -1196,6 +1355,8 @@ model Warehouse {
   conditionMovements   SparePartConditionMovement[]
   repairOrders         SparePartRepairOrder[]
   productionProducts   ProductionProductDefinition[]
+  productionOrderIssueWarehouses   ProductionOrder[] @relation("ProductionOrderIssueWarehouse")
+  productionOrderReceiptWarehouses ProductionOrder[] @relation("ProductionOrderReceiptWarehouse")
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -1914,6 +2075,7 @@ model Machine {
   productionEligibilities ProductionEligibility[]
   operationalAssignments ProductionOperationalAssignment[]
   capacityStandards ProductionCapacityStandard[]
+  productionOrders ProductionOrder[]
 
   @@index([categoryId])
   @@index([companyId])
@@ -3019,6 +3181,7 @@ model CostCenter {
   machines            Machine[]
   maintenanceRequests MaintenanceRequest[]
   productionProducts  ProductionProductDefinition[]
+  productionOrders    ProductionOrder[]
 
   @@index([type, status])
   @@index([companyId, status])

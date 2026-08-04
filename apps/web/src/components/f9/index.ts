@@ -42,6 +42,7 @@ export {
   maintenanceWorkOrderAdapter,
   productionUnitAdapter,
   productionProductDefinitionAdapter,
+  productionOrderAdapter,
   productionShiftAdapter,
   productionShiftTemplateAdapter,
   productionShiftCalendarAdapter,

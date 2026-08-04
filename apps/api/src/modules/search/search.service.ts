@@ -155,6 +155,8 @@ export class SearchService {
         return this.inventoryCountDefinition(q, context, filters);
       case EntityType.PRODUCTION_LINE:
         return this.productionLineDefinition(q, context, filters);
+      case EntityType.PRODUCTION_ORDER:
+        return this.productionOrderDefinition(q, context, filters);
       case EntityType.COST_CENTER:
         return this.costCenterDefinition(q, context, filters);
       case EntityType.OPERATION_TYPE:
@@ -753,6 +755,52 @@ export class SearchService {
     };
   }
 
+  private productionOrderDefinition(
+    q: string,
+    context: ActiveOperationalContext,
+    filters: SearchEntityFilters,
+  ): SearchDefinition {
+    return {
+      delegate: this.delegate((this.prisma as any).productionOrder),
+      where: this.and(
+        { companyId: context.companyId, branchId: context.branchId, deletedAt: null },
+        filters.productionLineId ? { productionLineId: filters.productionLineId } : undefined,
+        this.textSearch(q, ['orderNumber', 'sourceReference']),
+      ),
+      orderBy: { createdAt: 'desc' },
+      query: {
+        include: {
+          productionProductDefinition: { select: { id: true, code: true, name: true } },
+          productionLine: { select: { id: true, code: true, name: true } },
+          machine: { select: { id: true, code: true, name: true } },
+        },
+      },
+      map: (order) => ({
+        id: order.id,
+        entityType: EntityType.PRODUCTION_ORDER,
+        code: order.orderNumber,
+        title: order.orderNumber,
+        subtitle: order.productionProductDefinition?.name || order.orderNumber,
+        description: order.productionLine?.name || '',
+        status: order.status,
+        route: `/admin/production/orders/${order.id}`,
+        metadata: {
+          companyId: order.companyId,
+          branchId: order.branchId,
+          productionProductDefinitionId: order.productionProductDefinitionId,
+          productionProductCode: order.productionProductDefinition?.code,
+          productionProductName: order.productionProductDefinition?.name,
+          productionLineId: order.productionLineId,
+          productionLineName: order.productionLine?.name,
+          machineId: order.machineId,
+          machineName: order.machine?.name,
+          plannedStartAt: order.plannedStartAt,
+          plannedEndAt: order.plannedEndAt,
+        },
+      }),
+    };
+  }
+
   private costCenterDefinition(
     q: string,
     context: ActiveOperationalContext,
@@ -1111,6 +1159,7 @@ export class SearchService {
       [EntityType.MAINTENANCE_REQUEST]: 'maintenance.maintenanceRequests',
       [EntityType.INVENTORY_COUNT]: 'inventoryCounting.counts',
       [EntityType.PRODUCTION_LINE]: 'maintenance.productionLines',
+      [EntityType.PRODUCTION_ORDER]: 'production.orders.title',
       [EntityType.COST_CENTER]: 'maintenance.costCenters',
       [EntityType.OPERATION_TYPE]: 'maintenance.operationTypes',
       [EntityType.MACHINE_COMPONENT]: 'maintenance.machineComponents',

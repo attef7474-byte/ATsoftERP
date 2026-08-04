@@ -221,6 +221,11 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'prd-capacity-standards', labelKey: 'navigation.productionCapacityStandards', route: '/admin/production/capacity-standards' },
         ],
       },
+      {
+        id: 'prd-orders', labelKey: 'navigation.navSection.productionOrders', items: [
+          { id: 'prd-orders-list', labelKey: 'navigation.productionOrders', route: '/admin/production/orders', permission: 'production-order:read' },
+        ],
+      },
     ],
   },
 

@@ -35,6 +35,7 @@ import {
   maintenanceWorkOrderAdapter,
   productionUnitAdapter,
   productionProductDefinitionAdapter,
+  productionOrderAdapter,
   productionShiftAdapter,
   productionShiftTemplateAdapter,
   productionShiftCalendarAdapter,
@@ -49,7 +50,7 @@ import type {
   WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification,
   AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine,
   MachineComponent, SparePart, MaintenancePersonnel, MaintenanceWorkOrder,
-  ProductionUnit, ProductionProductDefinition, ProductionShift, ProductionShiftTemplate,
+  ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionShift, ProductionShiftTemplate,
   ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment,
   OperationalPerson,
 } from '../../lib/admin-types';
@@ -318,6 +319,14 @@ const registry: UnifiedSearchEntity[] = [
     adapter: productionProductDefinitionAdapter as LookupAdapter<any>,
     detailRoute: () => `/admin/production/product-definitions`,
     subtitle: (item: ProductionProductDefinition) => item.product?.name || item.code,
+  },
+  {
+    entityType: 'productionOrder',
+    labelKey: 'production.orders.title',
+    adapter: productionOrderAdapter as LookupAdapter<any>,
+    detailRoute: (item: ProductionOrder) => `/admin/production/orders/${item.id}`,
+    subtitle: (item: ProductionOrder) => item.productionProductDefinition?.name || item.orderNumber,
+    permission: 'production-order:read',
   },
   {
     entityType: 'productionShift',
