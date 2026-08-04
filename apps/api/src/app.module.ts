@@ -83,6 +83,7 @@ import { ProductionMasterDataModule } from './modules/factory/production-master-
 import { ProductionShiftsModule } from './modules/factory/production-shifts/production-shifts.module'
 import { ProductionCapacityStandardsModule } from './modules/factory/production-capacity-standards/production-capacity-standards.module'
 import { ProductionOrdersModule } from './modules/factory/production-orders/production-orders.module'
+import { ProductionRunsModule } from './modules/factory/production-runs/production-runs.module';
 
 @Module({
   imports: [
@@ -129,6 +130,7 @@ import { ProductionOrdersModule } from './modules/factory/production-orders/prod
     ProductionShiftsModule,
     ProductionCapacityStandardsModule,
     ProductionOrdersModule,
+    ProductionRunsModule,
   ],
 })
 export class AppModule {}

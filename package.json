@@ -78,5 +78,9 @@
   },
   "dependencies": {
     "playwright": "^1.61.1"
+  },
+  "allowScripts": {
+    "@scarf/scarf@1.4.0": true,
+    "msnodesqlv8@5.2.1": true
   }
 }

@@ -245,6 +245,11 @@ model Company {
   productionOrders ProductionOrder[]
   productionOrderTransitions ProductionOrderTransition[]
   productionOrderAttachments ProductionOrderAttachment[]
+  productionRuns ProductionRun[]
+  productionRunSessions ProductionRunSession[]
+  productionRunTransitions ProductionRunTransition[]
+  productionMeasurementPoints ProductionMeasurementPoint[]
+  productionOutputEvents ProductionOutputEvent[]
 
   @@index([status])
   @@index([code])
@@ -295,6 +300,11 @@ model Branch {
   productionOrders ProductionOrder[]
   productionOrderTransitions ProductionOrderTransition[]
   productionOrderAttachments ProductionOrderAttachment[]
+  productionRuns ProductionRun[]
+  productionRunSessions ProductionRunSession[]
+  productionRunTransitions ProductionRunTransition[]
+  productionMeasurementPoints ProductionMeasurementPoint[]
+  productionOutputEvents ProductionOutputEvent[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -418,6 +428,7 @@ model ProductionLine {
   operationalAssignments ProductionOperationalAssignment[]
   capacityStandards ProductionCapacityStandard[]
   productionOrders ProductionOrder[]
+  productionMeasurementPoints ProductionMeasurementPoint[]
 
   @@index([code])
   @@index([companyId])
@@ -453,6 +464,7 @@ model ProductionUnit {
   packagings         ProductionPackaging[]
   operationalAssignments ProductionOperationalAssignment[]
   productionOrders   ProductionOrder[]
+  productionMeasurementPoints ProductionMeasurementPoint[]
 
   @@unique([companyId, branchId, code])
   @@index([companyId])
@@ -746,6 +758,7 @@ model ProductionOrder {
   updatedAt                         DateTime                    @updatedAt
   deletedAt                         DateTime?
 
+  runs ProductionRun[]
   transitions ProductionOrderTransition[]
   attachments ProductionOrderAttachment[]
 
@@ -2076,6 +2089,7 @@ model Machine {
   operationalAssignments ProductionOperationalAssignment[]
   capacityStandards ProductionCapacityStandard[]
   productionOrders ProductionOrder[]
+  productionMeasurementPoints ProductionMeasurementPoint[]
 
   @@index([categoryId])
   @@index([companyId])
@@ -2161,7 +2175,7 @@ model MachineComponent {
   replacementHistories SparePartReplacementHistory[]
   repairOrders        SparePartRepairOrder[]
   boms                MaintenanceBom[]
-
+  productionMeasurementPoints ProductionMeasurementPoint[]
   @@unique([machineId, code])
   @@index([machineId])
   @@index([parentComponentId])
@@ -3594,4 +3608,220 @@ model PreventiveSparePartPlanItem {
   @@index([sparePartId])
   @@index([copyToRequestId])
   @@map("preventive_spare_part_plan_items")
+}
+
+model ProductionRun {
+  id                                String                      @id @default(cuid())
+  companyId                         String
+  company                           Company                     @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                          String
+  branch                            Branch                      @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  runNumber                         String
+  clientRequestId                   String
+  productionOrderId                 String
+  productionOrder                   ProductionOrder             @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status                            String                      @default("READY")
+  lockVersion                       Int                         @default(0)
+  notes                             String?
+  shiftId                           String?
+  shiftCodeSnapshot                 String?
+  shiftNameSnapshot                 String?
+  shiftStartTimeSnapshot            String?
+  shiftEndTimeSnapshot              String?
+  shiftAssignmentId                 String?
+  shiftAssignmentCodeSnapshot       String?
+  operationalAssignmentId           String?
+  operationalAssignmentCodeSnapshot String?
+  operationalPersonId               String?
+  operationalPersonCodeSnapshot     String?
+  operationalPersonNameSnapshot     String?
+  assignmentResolutionSource        String                      @default("RESOURCE")
+  assignmentResolutionNote          String?
+  productionUnitId                  String
+  productionLineId                  String
+  machineId                         String?
+  productionProductDefinitionId     String
+  productionVersionId               String
+  productionPackagingId             String?
+  costCenterId                      String
+  issueWarehouseId                  String?
+  receiptWarehouseId                String?
+  orderNumberSnapshot               String
+  plannedQuantitySnapshot           Decimal                     @db.Decimal(18, 4)
+  quantityUnitSnapshot              String
+  capacityStandardCodeSnapshot      String
+  capacityStandardRevisionSnapshot  Int
+  standardRateSnapshot              Decimal                     @db.Decimal(18, 4)
+  outputUnitSnapshot                String
+  timeBasisSnapshot                 String
+  targetEfficiencyPercentSnapshot   Decimal                     @db.Decimal(7, 4)
+  expectedYieldPercentSnapshot      Decimal                     @db.Decimal(7, 4)
+  snapshotFrozenAtSnapshot          DateTime?
+  startedById                       String?
+  startedAt                         DateTime?
+  pausedById                        String?
+  pausedAt                          DateTime?
+  endedById                         String?
+  endedAt                           DateTime?
+  pauseReason                       String?
+  abortReason                       String?
+  createdById                       String
+  updatedById                       String
+  createdAt                         DateTime                    @default(now())
+  updatedAt                         DateTime                    @updatedAt
+  deletedAt                         DateTime?
+
+  sessions    ProductionRunSession[]
+  transitions ProductionRunTransition[]
+  events      ProductionOutputEvent[]
+
+  @@unique([companyId, branchId, runNumber])
+  @@unique([companyId, branchId, clientRequestId])
+  @@index([companyId, branchId, status, createdAt])
+  @@index([companyId, branchId, productionOrderId, status])
+  @@index([companyId, branchId, productionLineId, machineId, status])
+  @@index([companyId, branchId, startedAt])
+  @@index([productionOrderId])
+  @@index([shiftId])
+  @@index([shiftAssignmentId])
+  @@index([operationalAssignmentId])
+  @@index([operationalPersonId])
+  @@index([productionUnitId])
+  @@index([productionLineId])
+  @@index([machineId])
+  @@index([productionProductDefinitionId])
+  @@index([productionVersionId])
+  @@index([productionPackagingId])
+  @@index([costCenterId])
+  @@index([issueWarehouseId])
+  @@index([receiptWarehouseId])
+  @@map("production_runs")
+}
+
+model ProductionRunSession {
+  id               String        @id @default(cuid())
+  companyId        String
+  company          Company       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId         String
+  branch           Branch        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionRunId  String
+  productionRun    ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  startedAt        DateTime
+  closedAt         DateTime?
+  startedById      String?
+  closedById       String?
+  createdAt        DateTime      @default(now())
+
+  @@index([companyId, branchId, productionRunId, startedAt])
+  @@index([productionRunId])
+  @@map("production_run_sessions")
+}
+
+model ProductionRunTransition {
+  id                String        @id @default(cuid())
+  companyId         String
+  company           Company       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId          String
+  branch            Branch        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionRunId   String
+  productionRun     ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fromStatus        String
+  toStatus          String
+  action            String
+  actorId           String
+  reason            String?
+  requestId         String
+  readinessEvidence String?
+  createdAt         DateTime      @default(now())
+
+  @@unique([companyId, branchId, productionRunId, requestId])
+  @@index([companyId, branchId, productionRunId, createdAt])
+  @@index([companyId, branchId, action, createdAt])
+  @@map("production_run_transitions")
+}
+
+model ProductionMeasurementPoint {
+  id                    String            @id @default(cuid())
+  companyId             String
+  company               Company           @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId              String
+  branch                Branch            @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                  String
+  name                  String
+  description           String?
+  productionLineId      String
+  productionLine        ProductionLine    @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId             String?
+  machine               Machine?          @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineComponentId    String?
+  machineComponent      MachineComponent? @relation(fields: [machineComponentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionUnitId      String
+  productionUnit        ProductionUnit    @relation(fields: [productionUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  role                  String            @default("FINAL_OUTPUT")
+  source                String            @default("MANUAL")
+  unit                  String
+  isAuthoritativeFinal  Boolean           @default(false)
+  counterModulus        Decimal?          @db.Decimal(18, 4)
+  effectiveFrom         DateTime
+  effectiveTo           DateTime?
+  status                String            @default("DRAFT")
+  createdById           String
+  updatedById           String
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  deletedAt             DateTime?
+
+  events ProductionOutputEvent[]
+
+  @@unique([companyId, branchId, code])
+  @@index([companyId, branchId, status, role])
+  @@index([companyId, branchId, productionLineId, machineId, status])
+  @@index([companyId, branchId, isAuthoritativeFinal, status])
+  @@index([productionLineId])
+  @@index([machineId])
+  @@index([machineComponentId])
+  @@index([productionUnitId])
+  @@map("production_measurement_points")
+}
+
+model ProductionOutputEvent {
+  id                 String                       @id @default(cuid())
+  companyId          String
+  company            Company                      @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId           String
+  branch             Branch                       @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionRunId    String
+  productionRun      ProductionRun                @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  measurementPointId String
+  measurementPoint   ProductionMeasurementPoint   @relation(fields: [measurementPointId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  eventType          String                       @default("PRODUCTION")
+  classification     String
+  sourceType         String                       @default("MANUAL")
+  quantity           Decimal                      @db.Decimal(18, 4)
+  goodQuantity       Decimal                      @db.Decimal(18, 4)
+  rejectQuantity     Decimal                      @db.Decimal(18, 4)
+  unit               String
+  occurredAt         DateTime
+  requestId          String
+  sourceEventId      String?
+  previousRawCount   Decimal?                     @db.Decimal(18, 4)
+  rawCount           Decimal?                     @db.Decimal(18, 4)
+  resetValue         Decimal?                     @db.Decimal(18, 4)
+  correctsEventId    String?
+  correctsEvent      ProductionOutputEvent?       @relation("OutputEventCorrection", fields: [correctsEventId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  corrections        ProductionOutputEvent[]      @relation("OutputEventCorrection")
+  reason             String?
+  notes              String?
+  createdById        String
+  createdAt          DateTime                     @default(now())
+
+  @@unique([companyId, requestId])
+  @@index([companyId, branchId, productionRunId, occurredAt])
+  @@index([companyId, branchId, productionRunId, classification, occurredAt])
+  @@index([companyId, branchId, measurementPointId, occurredAt])
+  @@index([companyId, branchId, sourceEventId])
+  @@index([productionRunId])
+  @@index([measurementPointId])
+  @@index([correctsEventId])
+  @@map("production_output_events")
 }

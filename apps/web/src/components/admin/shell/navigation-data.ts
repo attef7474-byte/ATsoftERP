@@ -226,6 +226,16 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'prd-orders-list', labelKey: 'navigation.productionOrders', route: '/admin/production/orders', permission: 'production-order:read' },
         ],
       },
+      {
+        id: 'prd-execution', labelKey: 'navigation.navSection.productionExecution', items: [
+          { id: 'prd-runs', labelKey: 'navigation.productionRuns', route: '/admin/production/runs', permission: 'production-run:read' },
+        ],
+      },
+      {
+        id: 'prd-points', labelKey: 'navigation.navSection.productionPoints', items: [
+          { id: 'prd-measurement-points', labelKey: 'navigation.productionMeasurementPoints', route: '/admin/production/measurement-points', permission: 'production-measurement-point:read' },
+        ],
+      },
     ],
   },
 

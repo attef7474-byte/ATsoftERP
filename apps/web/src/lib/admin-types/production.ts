@@ -393,3 +393,172 @@ export interface ProductionOperationalAssignment {
   company?: { id: string; name: string; code: string };
   branch?: { id: string; name: string; code: string };
 }
+
+
+export interface ProductionRun {
+  id: string;
+  companyId: string;
+  branchId: string;
+  runNumber: string;
+  clientRequestId: string;
+  productionOrderId: string;
+  productionOrder?: { id: string; orderNumber: string; status: string; priority: string };
+  status: string;
+  lockVersion: number;
+  notes?: string | null;
+  shiftId?: string | null;
+  shiftCodeSnapshot?: string | null;
+  shiftNameSnapshot?: string | null;
+  shiftStartTimeSnapshot?: string | null;
+  shiftEndTimeSnapshot?: string | null;
+  shiftAssignmentId?: string | null;
+  shiftAssignmentCodeSnapshot?: string | null;
+  operationalAssignmentId?: string | null;
+  operationalAssignmentCodeSnapshot?: string | null;
+  operationalPersonId?: string | null;
+  operationalPersonCodeSnapshot?: string | null;
+  operationalPersonNameSnapshot?: string | null;
+  assignmentResolutionSource: string;
+  assignmentResolutionNote?: string | null;
+  productionUnitId: string;
+  productionUnit?: { id: string; code: string; name: string; abbreviation?: string | null };
+  productionLineId: string;
+  productionLine?: { id: string; code: string; name: string };
+  machineId?: string | null;
+  machine?: { id: string; code: string; name: string } | null;
+  productionProductDefinitionId: string;
+  productionVersionId: string;
+  productionPackagingId?: string | null;
+  costCenterId: string;
+  costCenter?: { id: string; code: string; name: string } | null;
+  issueWarehouseId?: string | null;
+  receiptWarehouseId?: string | null;
+  orderNumberSnapshot: string;
+  plannedQuantitySnapshot: string | number;
+  quantityUnitSnapshot: string;
+  capacityStandardCodeSnapshot: string;
+  capacityStandardRevisionSnapshot: number;
+  standardRateSnapshot: string | number;
+  outputUnitSnapshot: string;
+  timeBasisSnapshot: string;
+  targetEfficiencyPercentSnapshot: string | number;
+  expectedYieldPercentSnapshot: string | number;
+  snapshotFrozenAtSnapshot?: string | null;
+  startedById?: string | null;
+  startedAt?: string | null;
+  pausedById?: string | null;
+  pausedAt?: string | null;
+  endedById?: string | null;
+  endedAt?: string | null;
+  pauseReason?: string | null;
+  abortReason?: string | null;
+  createdById: string;
+  updatedById: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  sessions?: ProductionRunSession[];
+  transitions?: ProductionRunTransition[];
+  events?: ProductionOutputEvent[];
+}
+
+export interface ProductionRunSession {
+  id: string;
+  companyId: string;
+  branchId: string;
+  productionRunId: string;
+  startedAt: string;
+  startedById?: string | null;
+  closedAt?: string | null;
+  closedById?: string | null;
+  createdAt: string;
+}
+
+export interface ProductionRunTransition {
+  id: string;
+  companyId: string;
+  branchId: string;
+  productionRunId: string;
+  fromStatus: string;
+  toStatus: string;
+  action: string;
+  actorId: string;
+  requestId?: string | null;
+  reason?: string | null;
+  readinessEvidence?: string | null;
+  createdAt: string;
+}
+
+export interface ProductionOutputEvent {
+  id: string;
+  companyId: string;
+  branchId: string;
+  productionRunId: string;
+  measurementPointId: string;
+  measurementPoint?: {
+    id: string; code: string; name: string; role: string; source: string; unit: string; isAuthoritativeFinal: boolean;
+  };
+  eventType: string;
+  classification: string;
+  sourceType: string;
+  quantity: string | number;
+  goodQuantity: string | number;
+  rejectQuantity: string | number;
+  unit: string;
+  occurredAt: string;
+  requestId: string;
+  previousRawCount?: string | null;
+  rawCount?: string | null;
+  resetValue?: string | null;
+  correctsEventId?: string | null;
+  correctsEvent?: { id: string; eventType: string; quantity: string | number } | null;
+  reason?: string | null;
+  notes?: string | null;
+  createdById: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface ProductionRunTotals {
+  finalOutputTotal: string | number;
+  wasteTotal: string | number;
+  reworkTotal: string | number;
+  correctionsTotal: string | number;
+  netCorrectionAdjustment: string | number;
+  finalOutputQty: string | number;
+  finalOutputGood: string | number;
+  finalOutputReject: string | number;
+  finalOutputCorrection: string | number;
+  sourceBreakdown: Record<string, string | number>;
+  pointBreakdown: Array<{ measurementPointId: string; measurementPointCode?: string; role: string; quantity: string | number }>;
+  progressPercent?: number;
+}
+
+export interface ProductionMeasurementPoint {
+  id: string;
+  companyId: string;
+  branchId: string;
+  code: string;
+  name: string;
+  productionLineId: string;
+  productionLine?: { id: string; code: string; name: string };
+  machineId?: string | null;
+  machine?: { id: string; code: string; name: string } | null;
+  machineComponentId?: string | null;
+  machineComponent?: { id: string; code: string; name: string } | null;
+  productionUnitId: string;
+  productionUnit?: { id: string; code: string; name: string };
+  role: string;
+  source: string;
+  unit: string;
+  isAuthoritativeFinal: boolean;
+  counterModulus?: string | number | null;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  status: string;
+  notes?: string | null;
+  createdById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
