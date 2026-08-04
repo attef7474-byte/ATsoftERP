@@ -15,17 +15,19 @@ import type {
   ProductionRunSession,
   ProductionRunTransition,
   ProductionRunTotals,
+  RunLossesView,
 } from '../../../../../lib/admin-types';
 import { OutputForm } from './_components/output-form';
 import { CorrectionForm } from './_components/correction-form';
 
-const TABS = ['live', 'events', 'output', 'corrections', 'history'];
+const TABS = ['live', 'events', 'output', 'corrections', 'losses', 'history'];
 
 const TAB_LABEL_KEYS: Record<string, string> = {
   live: 'production.runs.liveView',
   events: 'production.runs.events',
   output: 'production.runs.recordOutput',
   corrections: 'production.runs.correctEvent',
+  losses: 'production.runs.losses',
   history: 'production.runs.history',
 };
 
@@ -113,6 +115,10 @@ export default function ProductionRunDetailPage() {
   const [historyData, setHistoryData] = useState<HistoryData | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  const [lossesData, setLossesData] = useState<RunLossesView | null>(null);
+  const [lossesLoading, setLossesLoading] = useState(false);
+  const [lossesPage, setLossesPage] = useState(1);
+
   const [measurementPoints, setMeasurementPoints] = useState<ProductionMeasurementPoint[]>([]);
 
   const [transition, setTransition] = useState<TransitionTarget | null>(null);
@@ -169,6 +175,17 @@ export default function ProductionRunDetailPage() {
     }
   }, [id, handleApiError]);
 
+  const loadLosses = useCallback(async (page: number) => {
+    setLossesLoading(true);
+    try {
+      setLossesData(await api.get<RunLossesView>('/production/runs/' + id + '/losses', { params: { page, limit: 20 } }));
+    } catch (err) {
+      handleApiError(err);
+    } finally {
+      setLossesLoading(false);
+    }
+  }, [id, handleApiError]);
+
   const loadMeasurementPoints = useCallback(async () => {
     if (!run?.productionLineId) return;
     try {
@@ -188,8 +205,9 @@ export default function ProductionRunDetailPage() {
     if (tab === 'events') loadEvents(eventsPage);
     if (tab === 'history') loadHistory();
     if (tab === 'corrections') loadEvents(1);
+    if (tab === 'losses') loadLosses(lossesPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, run?.id, eventsPage]);
+  }, [tab, run?.id, eventsPage, lossesPage]);
 
   useEffect(() => {
     if (run) loadMeasurementPoints();
@@ -463,6 +481,92 @@ export default function ProductionRunDetailPage() {
 
       {tab === 'corrections' && (
         <CorrectionForm events={eventsData?.data || []} onSuccess={refreshAfterOutput} />
+      )}
+
+      {tab === 'losses' && (
+        <div className="space-y-6">
+          {lossesLoading && <div className="text-sm text-gray-500">{t('common.loading')}</div>}
+          {!lossesLoading && lossesData && (
+            <>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {summaryCard(t('production.losses.typeWASTE'), (lossesData.totals?.WASTE || 0) + ' ')}
+                {summaryCard(t('production.losses.typeSCRAP'), (lossesData.totals?.SCRAP || 0) + ' ')}
+                {summaryCard(t('production.losses.typeREWORK_SENT'), (lossesData.totals?.REWORK_SENT || 0) + ' ')}
+                {summaryCard(t('production.losses.typeREWORK_RECOVERED'), (lossesData.totals?.REWORK_RECOVERED || 0) + ' ')}
+              </div>
+              <div className="rounded border border-gray-200 p-3 text-sm">
+                {t('production.downtime.title')}: <span dir="ltr">{lossesData.totalDowntimeMinutes} {t('production.downtime.durationMinutes')}</span>
+              </div>
+              <div>
+                <div className="mb-2 font-semibold">{t('production.downtime.title')}</div>
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.downtime.startedAt')}</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.downtime.endedAt')}</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.downtime.durationMinutes')}</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.lossReasons.title')}</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.downtime.planned')}</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.downtime.severity')}</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.downtime.ownerDomain')}</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.downtime.status')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 bg-white">
+                      {(lossesData.segments || []).map((s) => (
+                        <tr key={s.id}>
+                          <td className="whitespace-nowrap px-4 py-2">{new Date(s.startedAt).toLocaleString()}</td>
+                          <td className="whitespace-nowrap px-4 py-2">{s.endedAt ? new Date(s.endedAt).toLocaleString() : '-'}</td>
+                          <td className="px-4 py-2" dir="ltr">{String(s.durationMinutes)}</td>
+                          <td className="px-4 py-2">{s.reason ? `${s.reason.code} - ${s.reason.nameEn}` : '-'}</td>
+                          <td className="px-4 py-2">{s.planned ? t('common.yes') : t('common.no')}</td>
+                          <td className="px-4 py-2">{t('production.downtime.severity' + s.severity)}</td>
+                          <td className="px-4 py-2">{t('production.downtime.owner' + s.ownerDomain)}</td>
+                          <td className="px-4 py-2">{t('production.downtime.status' + s.status)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {!lossesData.segments?.length && <div className="text-sm text-gray-500">{t('common.noData')}</div>}
+              </div>
+              <div>
+                <div className="mb-2 font-semibold">{t('production.losses.title')}</div>
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.losses.occurredAt')}</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.losses.type')}</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.losses.stage')}</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.losses.quantity')}</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.lossReasons.title')}</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500">{t('production.losses.reasonText')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 bg-white">
+                      {(lossesData.events || []).map((e) => (
+                        <tr key={e.id}>
+                          <td className="whitespace-nowrap px-4 py-2">{new Date(e.occurredAt).toLocaleString()}</td>
+                          <td className="px-4 py-2">{t('production.losses.type' + e.type)}</td>
+                          <td className="px-4 py-2">{e.stage || '-'}</td>
+                          <td className="px-4 py-2" dir="ltr">{String(e.quantity)} {e.unit}</td>
+                          <td className="px-4 py-2">{e.reasonRef ? `${e.reasonRef.code} - ${e.reasonRef.nameEn}` : '-'}</td>
+                          <td className="px-4 py-2">{e.reason || e.correctionReason || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {!lossesData.events?.length && <div className="text-sm text-gray-500">{t('common.noData')}</div>}
+                {lossesData.meta && lossesData.meta.total > 0 && (
+                  <Pagination page={lossesData.meta.page} totalPages={lossesData.meta.totalPages} total={lossesData.meta.total} onPageChange={setLossesPage} />
+                )}
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {tab === 'history' && (

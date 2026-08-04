@@ -84,6 +84,9 @@ import { ProductionShiftsModule } from './modules/factory/production-shifts/prod
 import { ProductionCapacityStandardsModule } from './modules/factory/production-capacity-standards/production-capacity-standards.module'
 import { ProductionOrdersModule } from './modules/factory/production-orders/production-orders.module'
 import { ProductionRunsModule } from './modules/factory/production-runs/production-runs.module';
+import { ProductionLossReasonsModule } from './modules/factory/production-loss-reasons/production-loss-reasons.module';
+import { ProductionDowntimeModule } from './modules/factory/production-downtime/production-downtime.module';
+import { ProductionLossQuantityEventsModule } from './modules/factory/production-loss-quantity-events/production-loss-quantity-events.module';
 
 @Module({
   imports: [
@@ -131,6 +134,9 @@ import { ProductionRunsModule } from './modules/factory/production-runs/producti
     ProductionCapacityStandardsModule,
     ProductionOrdersModule,
     ProductionRunsModule,
+    ProductionLossReasonsModule,
+    ProductionDowntimeModule,
+    ProductionLossQuantityEventsModule,
   ],
 })
 export class AppModule {}

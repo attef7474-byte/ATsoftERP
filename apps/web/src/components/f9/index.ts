@@ -49,4 +49,8 @@ export {
   productionShiftAssignmentAdapter,
   productionOperationalAssignmentAdapter,
   operationalPersonAdapter,
+  productionLossReasonAdapter,
+  downtimeSegmentAdapter,
+  productionRunAdapter,
+  productionMeasurementPointAdapter,
 } from './lookup-adapters';

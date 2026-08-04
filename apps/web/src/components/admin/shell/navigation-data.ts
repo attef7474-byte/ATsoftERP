@@ -236,6 +236,13 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'prd-measurement-points', labelKey: 'navigation.productionMeasurementPoints', route: '/admin/production/measurement-points', permission: 'production-measurement-point:read' },
         ],
       },
+      {
+        id: 'prd-losses', labelKey: 'navigation.navSection.productionLosses', items: [
+          { id: 'prd-loss-reasons', labelKey: 'navigation.productionLossReasons', route: '/admin/production/loss-reasons', permission: 'production-loss-reason:read' },
+          { id: 'prd-downtime', labelKey: 'navigation.productionDowntime', route: '/admin/production/downtime', permission: 'production-downtime:read' },
+          { id: 'prd-losses-list', labelKey: 'navigation.productionLosses', route: '/admin/production/losses', permission: 'production-loss:read' },
+        ],
+      },
     ],
   },
 

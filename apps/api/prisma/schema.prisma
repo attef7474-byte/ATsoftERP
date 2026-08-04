@@ -250,6 +250,9 @@ model Company {
   productionRunTransitions ProductionRunTransition[]
   productionMeasurementPoints ProductionMeasurementPoint[]
   productionOutputEvents ProductionOutputEvent[]
+  operationalLossReasons OperationalLossReason[]
+  downtimeSegments DowntimeSegment[]
+  productionLossQuantityEvents ProductionLossQuantityEvent[]
 
   @@index([status])
   @@index([code])
@@ -305,6 +308,9 @@ model Branch {
   productionRunTransitions ProductionRunTransition[]
   productionMeasurementPoints ProductionMeasurementPoint[]
   productionOutputEvents ProductionOutputEvent[]
+  operationalLossReasons OperationalLossReason[]
+  downtimeSegments DowntimeSegment[]
+  productionLossQuantityEvents ProductionLossQuantityEvent[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -429,6 +435,9 @@ model ProductionLine {
   capacityStandards ProductionCapacityStandard[]
   productionOrders ProductionOrder[]
   productionMeasurementPoints ProductionMeasurementPoint[]
+  downtimeLogs DowntimeLog[]
+  downtimeSegments DowntimeSegment[]
+  lossQuantityEvents ProductionLossQuantityEvent[]
 
   @@index([code])
   @@index([companyId])
@@ -761,6 +770,9 @@ model ProductionOrder {
   runs ProductionRun[]
   transitions ProductionOrderTransition[]
   attachments ProductionOrderAttachment[]
+  downtimeLogs DowntimeLog[]
+  downtimeSegments DowntimeSegment[]
+  lossQuantityEvents ProductionLossQuantityEvent[]
 
   @@unique([companyId, branchId, orderNumber])
   @@unique([companyId, branchId, clientRequestId])
@@ -843,6 +855,8 @@ model ProductionShift {
   calendarEntries  ProductionShiftCalendarEntry[]
   shiftAssignments ProductionShiftAssignment[]
   operationalAssignments ProductionOperationalAssignment[]
+  downtimeLogs DowntimeLog[]
+  downtimeSegments DowntimeSegment[]
 
   @@unique([companyId, branchId, code])
   @@index([companyId])
@@ -2090,6 +2104,8 @@ model Machine {
   capacityStandards ProductionCapacityStandard[]
   productionOrders ProductionOrder[]
   productionMeasurementPoints ProductionMeasurementPoint[]
+  downtimeSegments DowntimeSegment[]
+  lossQuantityEvents ProductionLossQuantityEvent[]
 
   @@index([categoryId])
   @@index([companyId])
@@ -2340,6 +2356,7 @@ model MaintenanceRequest {
   repairOrders         SparePartRepairOrder[]
   slaState            MaintenanceSlaState?
   sparePartPlanItems   PreventiveSparePartPlanItem[]
+  downtimeSegments     DowntimeSegment[]
 
   @@index([machineId])
   @@index([productionLineId])
@@ -2751,10 +2768,30 @@ model DowntimeLog {
   rcaCompletedAt      DateTime?
   notes               String?
   cancelledAt         DateTime?
+  // ── Phase 1.6 production-loss extension (additive, nullable until backfill) ──
+  companyId           String?
+  branchId            String?
+  productionRunId     String?
+  productionRun       ProductionRun?      @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionOrderId   String?
+  productionOrder     ProductionOrder?    @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId    String?
+  productionLine      ProductionLine?     @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  shiftId             String?
+  shift               ProductionShift?    @relation(fields: [shiftId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  occurrenceType      String?
+  severity            String?
+  sourceType          String              @default("MAINTENANCE")
+  status              String              @default("OPEN")
+  correctsLogId       String?
+  correctsLog         DowntimeLog?        @relation("DowntimeLogCorrection", fields: [correctsLogId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  corrections         DowntimeLog[]       @relation("DowntimeLogCorrection")
+  correctionReason    String?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
   requiredParts       MaintenanceRequestRequiredPart[]
+  segments            DowntimeSegment[]
 
   @@index([machineId])
   @@index([requestId])
@@ -2764,6 +2801,13 @@ model DowntimeLog {
   @@index([endTime, cancelledAt])
   @@index([failureCategory])
   @@index([rcaStatus])
+  @@index([companyId, branchId, startTime])
+  @@index([productionRunId])
+  @@index([productionOrderId])
+  @@index([productionLineId])
+  @@index([shiftId])
+  @@index([status])
+  @@index([correctsLogId])
   @@map("downtime_logs")
 }
 
@@ -2847,6 +2891,7 @@ model MaintenanceWorkOrder {
 
   parts      MaintenanceWorkOrderPart[]
   costEntries MaintenanceWorkOrderCostEntry[]
+  downtimeSegments DowntimeSegment[]
 
   @@unique([branchId, workOrderNumber])
   @@index([companyId])
@@ -3674,6 +3719,9 @@ model ProductionRun {
   sessions    ProductionRunSession[]
   transitions ProductionRunTransition[]
   events      ProductionOutputEvent[]
+  downtimeLogs DowntimeLog[]
+  downtimeSegments DowntimeSegment[]
+  lossQuantityEvents ProductionLossQuantityEvent[]
 
   @@unique([companyId, branchId, runNumber])
   @@unique([companyId, branchId, clientRequestId])
@@ -3772,6 +3820,7 @@ model ProductionMeasurementPoint {
   deletedAt             DateTime?
 
   events ProductionOutputEvent[]
+  lossQuantityEvents ProductionLossQuantityEvent[]
 
   @@unique([companyId, branchId, code])
   @@index([companyId, branchId, status, role])
@@ -3810,6 +3859,7 @@ model ProductionOutputEvent {
   correctsEventId    String?
   correctsEvent      ProductionOutputEvent?       @relation("OutputEventCorrection", fields: [correctsEventId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   corrections        ProductionOutputEvent[]      @relation("OutputEventCorrection")
+  lossQuantityEvents ProductionLossQuantityEvent[]
   reason             String?
   notes              String?
   createdById        String
@@ -3824,4 +3874,165 @@ model ProductionOutputEvent {
   @@index([measurementPointId])
   @@index([correctsEventId])
   @@map("production_output_events")
+}
+
+// ── Phase 1.6 Downtime, Losses, Waste and Rework ─────────────────
+model OperationalLossReason {
+  id                       String                     @id @default(cuid())
+  companyId                String
+  company                  Company                    @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                 String
+  branch                   Branch                     @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                     String
+  nameAr                   String
+  nameEn                   String
+  description              String?
+  parentId                 String?
+  parent                   OperationalLossReason?     @relation("LossReasonHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children                 OperationalLossReason[]    @relation("LossReasonHierarchy")
+  lossCategory             String                     @default("OTHER")
+  plannedDefault           Boolean                    @default(false)
+  severityDefault          String?
+  maintenanceRequestPolicy String                     @default("OPTIONAL")
+  effectiveFrom            DateTime                   @default(now())
+  effectiveTo              DateTime?
+  status                   String                     @default("DRAFT")
+  createdById              String
+  updatedById              String
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  deletedAt                DateTime?
+
+  downtimeSegments   DowntimeSegment[]
+  lossQuantityEvents ProductionLossQuantityEvent[]
+
+  @@unique([companyId, branchId, code])
+  @@index([companyId, branchId, lossCategory, status])
+  @@index([companyId, branchId, status, effectiveFrom])
+  @@index([parentId])
+  @@map("operational_loss_reasons")
+}
+
+model DowntimeSegment {
+  id                     String                    @id @default(cuid())
+  companyId              String
+  company                Company                   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId               String
+  branch                 Branch                    @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  downtimeLogId          String
+  downtimeLog            DowntimeLog               @relation(fields: [downtimeLogId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionRunId        String?
+  productionRun          ProductionRun?            @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionOrderId      String?
+  productionOrder        ProductionOrder?          @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  shiftId                String?
+  shift                  ProductionShift?          @relation(fields: [shiftId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId       String?
+  productionLine         ProductionLine?           @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId              String?
+  machine                Machine?                  @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  startedAt              DateTime
+  endedAt                DateTime?
+  durationMinutes        Decimal                   @db.Decimal(18, 4)
+  reasonId               String?
+  reason                 OperationalLossReason?    @relation(fields: [reasonId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  planned                Boolean                   @default(false)
+  severity               String                    @default("MINOR")
+  ownerDomain            String                    @default("PRODUCTION")
+  maintenanceRequestId   String?
+  maintenanceRequest     MaintenanceRequest?       @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenanceWorkOrderId String?
+  maintenanceWorkOrder   MaintenanceWorkOrder?     @relation(fields: [maintenanceWorkOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sourceType             String                    @default("MANUAL")
+  status                 String                    @default("OPEN")
+  requestId              String?
+  correctsSegmentId      String?
+  correctsSegment        DowntimeSegment?          @relation("DowntimeSegmentCorrection", fields: [correctsSegmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  corrections            DowntimeSegment[]         @relation("DowntimeSegmentCorrection")
+  correctionReason       String?
+  notes                  String?
+  recordedById           String
+  closedById             String?
+  cancelledById          String?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+
+  @@unique([companyId, branchId, requestId])
+  @@index([companyId, branchId, downtimeLogId])
+  @@index([companyId, branchId, productionRunId, startedAt])
+  @@index([companyId, branchId, machineId, startedAt])
+  @@index([companyId, branchId, reasonId, startedAt])
+  @@index([downtimeLogId])
+  @@index([productionRunId])
+  @@index([productionOrderId])
+  @@index([shiftId])
+  @@index([productionLineId])
+  @@index([machineId])
+  @@index([reasonId])
+  @@index([maintenanceRequestId])
+  @@index([maintenanceWorkOrderId])
+  @@index([correctsSegmentId])
+  @@map("downtime_segments")
+}
+
+model ProductionLossQuantityEvent {
+  id                     String                            @id @default(cuid())
+  companyId              String
+  company                Company                           @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId               String
+  branch                 Branch                            @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionRunId        String?
+  productionRun          ProductionRun?                    @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionOrderId      String?
+  productionOrder        ProductionOrder?                  @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  outputEventId          String?
+  outputEvent            ProductionOutputEvent?            @relation(fields: [outputEventId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  type                   String
+  stage                  String?
+  productionLineId       String?
+  productionLine         ProductionLine?                   @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId              String?
+  machine                Machine?                          @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  measurementPointId     String?
+  measurementPoint       ProductionMeasurementPoint?       @relation(fields: [measurementPointId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId              String?
+  productCodeSnapshot    String?
+  productNameSnapshot    String?
+  versionLabelSnapshot   String?
+  packagingLabelSnapshot String?
+  unit                   String
+  quantity               Decimal                           @db.Decimal(18, 4)
+  reason                 String?
+  reasonId               String?
+  reasonRef              OperationalLossReason?            @relation(fields: [reasonId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sourceType             String                            @default("MANUAL")
+  requestId              String
+  sourceEventId          String?
+  sourceEvent            ProductionLossQuantityEvent?      @relation("LossQuantitySource", fields: [sourceEventId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sourceEvents           ProductionLossQuantityEvent[]     @relation("LossQuantitySource")
+  correctsEventId        String?
+  correctsEvent          ProductionLossQuantityEvent?      @relation("LossQuantityCorrection", fields: [correctsEventId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  corrections            ProductionLossQuantityEvent[]     @relation("LossQuantityCorrection")
+  correctionReason       String?
+  notes                  String?
+  recordedById           String
+  occurredAt             DateTime
+  createdAt              DateTime                          @default(now())
+  updatedAt              DateTime                          @updatedAt
+
+  @@unique([companyId, branchId, requestId])
+  @@index([companyId, branchId, productionRunId, occurredAt])
+  @@index([companyId, branchId, productionRunId, type, occurredAt])
+  @@index([companyId, branchId, measurementPointId, occurredAt])
+  @@index([companyId, branchId, reasonId, occurredAt])
+  @@index([productionRunId])
+  @@index([productionOrderId])
+  @@index([outputEventId])
+  @@index([productionLineId])
+  @@index([machineId])
+  @@index([measurementPointId])
+  @@index([reasonId])
+  @@index([sourceEventId])
+  @@index([correctsEventId])
+  @@map("production_loss_quantity_events")
 }

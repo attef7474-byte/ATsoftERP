@@ -7,6 +7,7 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { ProductionRunsService } from './production-runs.service';
+import { ProductionLossQuantityEventsService } from '../production-loss-quantity-events/production-loss-quantity-events.service';
 import { CreateProductionRunDto } from './dto/create-production-run.dto';
 import { RunActionDto, RunPauseActionDto, RunReasonActionDto } from './dto/run-action.dto';
 import { RecordOutputDto } from './dto/record-output.dto';
@@ -17,7 +18,10 @@ import { RunQueryDto } from './dto/run-query.dto';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('production/runs')
 export class ProductionRunsController {
-  constructor(private readonly service: ProductionRunsService) {}
+  constructor(
+    private readonly service: ProductionRunsService,
+    private readonly lossesService: ProductionLossQuantityEventsService,
+  ) {}
 
   @Post()
   @Permissions('production-run:start')
@@ -48,6 +52,12 @@ export class ProductionRunsController {
   @Permissions('production-run:read')
   ledger(@Param('id') id: string, @Query() query: Record<string, string | undefined>, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.ledger(id, { page: query.page ? Number(query.page) : undefined, limit: query.limit ? Number(query.limit) : undefined }, ctx);
+  }
+
+  @Get(':id/losses')
+  @Permissions('production-loss:read')
+  losses(@Param('id') id: string, @Query() query: Record<string, string | undefined>, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.lossesService.getRunLosses(id, { page: query.page ? Number(query.page) : undefined, limit: query.limit ? Number(query.limit) : undefined }, ctx);
   }
 
   @Get(':id')

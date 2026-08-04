@@ -42,6 +42,10 @@ import {
   productionShiftAssignmentAdapter,
   productionOperationalAssignmentAdapter,
   operationalPersonAdapter,
+  productionLossReasonAdapter,
+  downtimeSegmentAdapter,
+  productionRunAdapter,
+  productionMeasurementPointAdapter,
 } from './lookup-adapters';
 import type {
   Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product,
@@ -52,7 +56,8 @@ import type {
   MachineComponent, SparePart, MaintenancePersonnel, MaintenanceWorkOrder,
   ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionShift, ProductionShiftTemplate,
   ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment,
-  OperationalPerson,
+  OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionRun,
+  ProductionMeasurementPoint,
 } from '../../lib/admin-types';
 
 export interface UnifiedSearchEntity {
@@ -369,6 +374,34 @@ const registry: UnifiedSearchEntity[] = [
     adapter: operationalPersonAdapter as LookupAdapter<any>,
     detailRoute: () => `/admin/production/shift-assignments`,
     subtitle: (item: OperationalPerson) => item.category,
+  },
+  {
+    entityType: 'productionLossReason',
+    labelKey: 'production.lossReasons.title',
+    adapter: productionLossReasonAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/loss-reasons`,
+    subtitle: (item: OperationalLossReason) => `${item.lossCategory} - ${item.nameAr}`,
+  },
+  {
+    entityType: 'downtimeSegment',
+    labelKey: 'production.downtime.title',
+    adapter: downtimeSegmentAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/downtime`,
+    subtitle: (item: DowntimeSegment) => `${item.status}${item.durationMinutes ? ` - ${item.durationMinutes} min` : ''}`,
+  },
+  {
+    entityType: 'productionRun',
+    labelKey: 'production.runs.title',
+    adapter: productionRunAdapter as LookupAdapter<any>,
+    detailRoute: (item: ProductionRun) => `/admin/production/runs/${item.id}`,
+    subtitle: (item: ProductionRun) => item.productionLine?.name || item.orderNumberSnapshot,
+  },
+  {
+    entityType: 'productionMeasurementPoint',
+    labelKey: 'production.measurementPoints.title',
+    adapter: productionMeasurementPointAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/measurement-points`,
+    subtitle: (item: ProductionMeasurementPoint) => `${item.role} - ${item.productionLine?.name || ''}`,
   },
 ];
 

@@ -562,3 +562,162 @@ export interface ProductionMeasurementPoint {
   updatedAt: string;
   deletedAt?: string | null;
 }
+
+export interface OperationalLossReason {
+  id: string;
+  companyId: string;
+  branchId: string;
+  code: string;
+  nameAr: string;
+  nameEn: string;
+  description?: string | null;
+  parentId?: string | null;
+  parent?: { id: string; code: string; nameAr: string; nameEn: string } | null;
+  lossCategory: string;
+  plannedDefault: boolean;
+  severityDefault?: string | null;
+  maintenanceRequestPolicy: string;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  status: string;
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface DowntimeSegment {
+  id: string;
+  companyId: string;
+  branchId: string;
+  downtimeLogId: string;
+  downtimeLog?: {
+    id: string;
+    reason?: string | null;
+    durationMinutes?: number | null;
+    machineId?: string | null;
+  };
+  productionRunId?: string | null;
+  productionRun?: {
+    id: string;
+    runNumber: string;
+    status: string;
+    product?: { id: string; productCode?: string; nameAr?: string; nameEn?: string } | null;
+  } | null;
+  productionOrderId?: string | null;
+  productionOrder?: { id: string; orderNumber: string } | null;
+  shiftId?: string | null;
+  shift?: { id: string; shiftName: string } | null;
+  productionLineId?: string | null;
+  productionLine?: { id: string; name: string } | null;
+  machineId?: string | null;
+  machine?: { id: string; machineCode?: string; name: string } | null;
+  startedAt: string;
+  endedAt?: string | null;
+  durationMinutes: string | number;
+  reasonId?: string | null;
+  reason?: {
+    id: string;
+    code: string;
+    nameAr: string;
+    nameEn: string;
+    lossCategory: string;
+    plannedDefault: boolean;
+    severityDefault?: string | null;
+  } | null;
+  planned: boolean;
+  severity: string;
+  ownerDomain: string;
+  maintenanceRequestId?: string | null;
+  maintenanceRequest?: { id: string; requestNumber: string; status: string } | null;
+  maintenanceWorkOrderId?: string | null;
+  maintenanceWorkOrder?: { id: string; workOrderNumber: string; status: string } | null;
+  sourceType: string;
+  status: string;
+  requestId?: string | null;
+  correctsSegmentId?: string | null;
+  correctionReason?: string | null;
+  notes?: string | null;
+  recordedById: string;
+  recordedBy?: { id: string; firstName: string; lastName: string } | null;
+  closedBy?: { id: string; firstName: string; lastName: string } | null;
+  cancelledBy?: { id: string; firstName: string; lastName: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductionLossQuantityEvent {
+  id: string;
+  companyId: string;
+  branchId: string;
+  productionRunId?: string | null;
+  productionRun?: {
+    id: string;
+    runNumber: string;
+    status: string;
+    product?: { id: string; productCode?: string; nameAr?: string; nameEn?: string } | null;
+  } | null;
+  productionOrderId?: string | null;
+  productionOrder?: { id: string; orderNumber: string } | null;
+  outputEventId?: string | null;
+  outputEvent?: { id: string; eventType: string; classification: string; quantity: string | number } | null;
+  type: string;
+  stage?: string | null;
+  productionLineId?: string | null;
+  productionLine?: { id: string; code: string; name: string } | null;
+  machineId?: string | null;
+  machine?: { id: string; machineCode?: string; name: string } | null;
+  measurementPointId?: string | null;
+  measurementPoint?: { id: string; code: string; name: string; role: string; unit: string } | null;
+  productId?: string | null;
+  productCodeSnapshot?: string | null;
+  productNameSnapshot?: string | null;
+  versionLabelSnapshot?: string | null;
+  packagingLabelSnapshot?: string | null;
+  unit: string;
+  quantity: string | number;
+  reason?: string | null;
+  reasonId?: string | null;
+  reasonRef?: {
+    id: string;
+    code: string;
+    nameAr: string;
+    nameEn: string;
+    lossCategory: string;
+  } | null;
+  sourceType: string;
+  requestId: string;
+  sourceEventId?: string | null;
+  sourceEvent?: { id: string; type: string; quantity: string | number; occurredAt: string } | null;
+  correctsEventId?: string | null;
+  correctsEvent?: { id: string; type: string; quantity: string | number } | null;
+  correctionReason?: string | null;
+  notes?: string | null;
+  recordedById: string;
+  recordedBy?: { id: string; firstName: string; lastName: string } | null;
+  occurredAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RunLossesView {
+  runId: string;
+  runNumber: string;
+  segments: Array<{
+    id: string;
+    startedAt: string;
+    endedAt?: string | null;
+    durationMinutes: string | number;
+    planned: boolean;
+    severity: string;
+    ownerDomain: string;
+    status: string;
+    reason?: { id: string; code: string; nameAr: string; nameEn: string; lossCategory: string } | null;
+    machine?: { id: string; machineCode?: string; name: string } | null;
+  }>;
+  totalDowntimeMinutes: number;
+  events: ProductionLossQuantityEvent[];
+  totals: Record<string, string>;
+  meta: { page: number; limit: number; total: number; totalPages: number };
+}

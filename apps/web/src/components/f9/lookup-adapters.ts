@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionRun, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionMeasurementPoint } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -468,6 +468,18 @@ export const productionOrderAdapter: LookupAdapter<ProductionOrder> = {
   ],
 };
 
+export const productionRunAdapter: LookupAdapter<ProductionRun> = {
+  endpoint: '/production/runs',
+  displayLabel: (run) => `[${run.runNumber}] ${run.productionLine?.name || ''}`,
+  searchFields: ['runNumber', 'orderNumberSnapshot', 'notes'],
+  columns: [
+    { key: 'runNumber', header: 'Run Number' },
+    { key: 'orderNumber', header: 'Order', render: (run) => run.productionOrder?.orderNumber || run.orderNumberSnapshot },
+    { key: 'line', header: 'Line', render: (run) => run.productionLine?.name || '-' },
+    { key: 'status', header: 'Status', render: (run) => run.status },
+  ],
+};
+
 export const productionShiftAdapter: LookupAdapter<ProductionShift> = {
   endpoint: '/production/shifts',
   displayLabel: (s) => `[${s.code}] ${s.name} (${s.startTime} - ${s.endTime})`,
@@ -541,5 +553,43 @@ export const operationalPersonAdapter: LookupAdapter<OperationalPerson> = {
     { key: 'name', header: 'Name' },
     { key: 'category', header: 'Category' },
     { key: 'isActive', header: 'Active', render: (p) => p.isActive ? 'Yes' : 'No' },
+  ],
+};
+
+export const productionLossReasonAdapter: LookupAdapter<OperationalLossReason> = {
+  endpoint: '/production/loss-reasons/active',
+  displayLabel: (r) => `[${r.code}] ${r.nameEn}`,
+  searchFields: ['code', 'nameEn', 'nameAr', 'lossCategory'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'nameEn', header: 'Name (EN)' },
+    { key: 'nameAr', header: 'Name (AR)' },
+    { key: 'lossCategory', header: 'Category' },
+    { key: 'severityDefault', header: 'Severity', render: (r) => r.severityDefault || '-' },
+  ],
+};
+
+export const downtimeSegmentAdapter: LookupAdapter<DowntimeSegment> = {
+  endpoint: '/production/downtime',
+  displayLabel: (s) => `[${s.machine?.name || s.productionLine?.name || 'Downtime'}] ${new Date(s.startedAt).toLocaleString()} - ${s.status}`,
+  searchFields: ['notes'],
+  columns: [
+    { key: 'startedAt', header: 'Started', render: (s) => new Date(s.startedAt).toLocaleString() },
+    { key: 'machine', header: 'Machine', render: (s) => s.machine?.name || '-' },
+    { key: 'run', header: 'Run', render: (s) => s.productionRun?.runNumber || '-' },
+    { key: 'status', header: 'Status', render: (s) => s.status },
+  ],
+};
+
+export const productionMeasurementPointAdapter: LookupAdapter<ProductionMeasurementPoint> = {
+  endpoint: '/production/measurement-points',
+  displayLabel: (p) => `[${p.code}] ${p.name}`,
+  searchFields: ['code', 'name'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'role', header: 'Role' },
+    { key: 'line', header: 'Line', render: (p) => p.productionLine?.name || '-' },
+    { key: 'unit', header: 'Unit' },
   ],
 };

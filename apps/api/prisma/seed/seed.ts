@@ -11,6 +11,7 @@ import { seedProductionOrderNumbering } from "./seed-production-order-numbering"
 import { PRODUCTION_ORDER_PERMISSIONS } from "./seed-production-order-permission-keys";
 import { seedProductionRunNumbering } from "./seed-production-run-numbering";
 import { PRODUCTION_RUN_PERMISSIONS } from "./seed-production-run-permission-keys";
+import { PRODUCTION_LOSS_PERMISSIONS } from "./seed-production-loss-permission-keys";
 
 const adapter = new PrismaMssql(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
@@ -137,6 +138,7 @@ async function main() {
     ...PRODUCTION_CAPACITY_PERMISSIONS,
     ...PRODUCTION_ORDER_PERMISSIONS,
     ...PRODUCTION_RUN_PERMISSIONS,
+    ...PRODUCTION_LOSS_PERMISSIONS,
     { key: "numbering:generate", module: "numbering", action: "generate" },
     { key: "messaging:send", module: "messaging", action: "send" },
     { key: "messaging:manage", module: "messaging", action: "manage" },
