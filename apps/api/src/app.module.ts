@@ -90,6 +90,8 @@ import { ProductionLossQuantityEventsModule } from './modules/factory/production
 import { ProductionMaterialDocumentsModule } from './modules/factory/production-material-documents/production-material-documents.module';
 import { ProductionMaterialRequirementsModule } from './modules/factory/production-material-requirements/production-material-requirements.module';
 import { ProductionFinishedGoodsReceiptsModule } from './modules/factory/production-finished-goods-receipts/production-finished-goods-receipts.module';
+import { ProductionQualityModule } from './modules/factory/production-quality/production-quality.module';
+import { ProductionCostModule } from './modules/factory/production-cost/production-cost.module';
 
 @Module({
   imports: [
@@ -143,6 +145,8 @@ import { ProductionFinishedGoodsReceiptsModule } from './modules/factory/product
     ProductionMaterialDocumentsModule,
     ProductionMaterialRequirementsModule,
     ProductionFinishedGoodsReceiptsModule,
+    ProductionQualityModule,
+    ProductionCostModule,
   ],
 })
 export class AppModule {}

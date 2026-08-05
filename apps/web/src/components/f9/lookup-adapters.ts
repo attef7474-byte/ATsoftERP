@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionRun, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionMeasurementPoint, ProductionMaterialDocument, ProductionFinishedGoodsReceipt } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionRun, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionMeasurementPoint, ProductionMaterialDocument, ProductionFinishedGoodsReceipt, ProductionInspection, ProductionQualityPlan, ProductionCostRate, ProductionCostSnapshot } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -617,5 +617,59 @@ export const productionFinishedGoodsReceiptAdapter: LookupAdapter<ProductionFini
     { key: 'run', header: 'Run', render: (r) => r.productionRun?.runNumber || '-' },
     { key: 'warehouse', header: 'Warehouse', render: (r) => r.receiptWarehouse?.name || '-' },
     { key: 'status', header: 'Status', render: (r) => r.status },
+  ],
+};
+
+export const productionQualityPlanAdapter: LookupAdapter<ProductionQualityPlan> = {
+  endpoint: '/production/quality-plans',
+  displayLabel: (p) => `[${p.code}] Rev.${p.revision} - ${p.status}`,
+  searchFields: ['code'],
+  columns: [
+    { key: 'code', header: 'Plan Code' },
+    { key: 'revision', header: 'Revision', render: (p) => p.revision },
+    { key: 'productDefinition', header: 'Product Definition', render: (p) => p.productionProductDefinition?.code || '-' },
+    { key: 'product', header: 'Product', render: (p) => p.productionProductDefinition?.product?.name || '-' },
+    { key: 'status', header: 'Status', render: (p) => p.status },
+  ],
+};
+
+export const productionInspectionAdapter: LookupAdapter<ProductionInspection> = {
+  endpoint: '/production/inspections',
+  displayLabel: (i) => `[${i.inspectionNumber}] ${i.productNameSnapshot || i.product?.name || i.planCodeSnapshot} - ${i.status}`,
+  searchFields: ['inspectionNumber'],
+  columns: [
+    { key: 'inspectionNumber', header: 'Inspection Number' },
+    { key: 'plan', header: 'Quality Plan', render: (i) => i.planCodeSnapshot || '-' },
+    { key: 'product', header: 'Product', render: (i) => i.productNameSnapshot || i.product?.name || '-' },
+    { key: 'inspectedAt', header: 'Inspected At', render: (i) => new Date(i.inspectedAt).toLocaleDateString() },
+    { key: 'status', header: 'Status', render: (i) => i.status },
+  ],
+};
+
+export const productionCostRateAdapter: LookupAdapter<ProductionCostRate> = {
+  endpoint: '/production/cost-rates',
+  displayLabel: (r) => `[${r.code}] ${r.nameEn} - ${r.costType}`,
+  searchFields: ['code', 'nameEn', 'nameAr', 'costType'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'nameEn', header: 'Name (EN)' },
+    { key: 'costType', header: 'Cost Type' },
+    { key: 'unit', header: 'Unit' },
+    { key: 'rate', header: 'Rate', render: (r) => `${r.rate} ${r.currencyCode}` },
+    { key: 'status', header: 'Status', render: (r) => r.status },
+  ],
+};
+
+export const productionCostSnapshotAdapter: LookupAdapter<ProductionCostSnapshot> = {
+  endpoint: '/production/cost-snapshots',
+  displayLabel: (s) => `[${s.code}] Rev.${s.revision} - ${s.costType} (${s.amount} ${s.currencyCode})`,
+  searchFields: ['code'],
+  columns: [
+    { key: 'code', header: 'Snapshot Code' },
+    { key: 'revision', header: 'Revision', render: (s) => s.revision },
+    { key: 'productDefinition', header: 'Product Definition', render: (s) => s.productionProductDefinition?.code || '-' },
+    { key: 'costType', header: 'Cost Type' },
+    { key: 'amount', header: 'Amount', render: (s) => `${s.amount} ${s.currencyCode}` },
+    { key: 'status', header: 'Status', render: (s) => s.status },
   ],
 };

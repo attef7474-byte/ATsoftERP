@@ -1083,3 +1083,380 @@ export interface ProductionFinishedGoodsReceipt {
   updatedAt: string;
   lines: ProductionFinishedGoodsReceiptLine[];
 }
+
+// ── Phase 1.8: Production Quality ────────────────────────────────────────────
+
+export interface QualityCharacteristic {
+  id: string;
+  companyId: string;
+  branchId: string;
+  planId: string;
+  sequence: number;
+  nameAr: string;
+  nameEn: string;
+  characteristicType: 'NUMERIC' | 'BOOLEAN' | 'TEXT' | 'CHOICE';
+  unit?: string | null;
+  productionUnitId?: string | null;
+  productionUnit?: { id: string; code: string; name: string } | null;
+  lowerLimit?: number | null;
+  targetValue?: number | null;
+  upperLimit?: number | null;
+  criticality: 'CRITICAL' | 'MAJOR' | 'MINOR';
+  samplingRule?: string | null;
+  isRequired: boolean;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface QualitySamplingPoint {
+  id: string;
+  companyId: string;
+  branchId: string;
+  planId: string;
+  stage: 'INCOMING' | 'IN_PROCESS' | 'FINAL_OUTPUT';
+  measurementPointId?: string | null;
+  measurementPoint?: { id: string; code: string; name: string } | null;
+  productionLineId?: string | null;
+  productionLine?: { id: string; code: string; name: string } | null;
+  machineId?: string | null;
+  machine?: { id: string; code: string; name: string } | null;
+  appliesToMaterial: boolean;
+  appliesToFinishedGoods: boolean;
+  sampleFrequency?: string | null;
+  sampleSize?: number | null;
+  sortOrder: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface ProductionQualityPlan {
+  id: string;
+  companyId: string;
+  branchId: string;
+  code: string;
+  revision: number;
+  status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'INACTIVE';
+  productionProductDefinitionId: string;
+  productionProductDefinition?: {
+    id: string;
+    code: string;
+    productId: string;
+    product: { id: string; code: string; name: string };
+  } | null;
+  productionVersionId?: string | null;
+  productionVersion?: { id: string; code: string; name: string } | null;
+  productionPackagingId?: string | null;
+  productionPackaging?: { id: string; code: string; name: string } | null;
+  productionLineId?: string | null;
+  productionLine?: { id: string; code: string; name: string } | null;
+  machineId?: string | null;
+  machine?: { id: string; code: string; name: string } | null;
+  costCenterId?: string | null;
+  costCenter?: { id: string; code: string; name: string } | null;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  statusLabel?: string;
+  approvedById?: string | null;
+  approvedAt?: string | null;
+  rejectedById?: string | null;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
+  deactivatedById?: string | null;
+  deactivatedAt?: string | null;
+  deactivationReason?: string | null;
+  notes?: string | null;
+  createdById: string;
+  updatedById: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  characteristics: QualityCharacteristic[];
+  samplingPoints: QualitySamplingPoint[];
+}
+
+export interface ProductionInspectionResult {
+  id: string;
+  companyId: string;
+  branchId: string;
+  inspectionId: string;
+  characteristicId: string;
+  characteristic?: { id: string; nameAr: string; nameEn: string } | null;
+  characteristicSequenceSnapshot: number;
+  characteristicNameArSnapshot: string;
+  characteristicNameEnSnapshot: string;
+  characteristicTypeSnapshot: string;
+  unitSnapshot?: string | null;
+  lowerLimitSnapshot?: number | null;
+  targetSnapshot?: number | null;
+  upperLimitSnapshot?: number | null;
+  valueNumeric?: number | null;
+  valueBoolean?: boolean | null;
+  valueText?: string | null;
+  valueChoice?: string | null;
+  pass: boolean;
+  method?: string | null;
+  sourceType: string;
+  correctsResultId?: string | null;
+  correctionReason?: string | null;
+  recordedById: string;
+  recordedAt: string;
+  createdAt: string;
+}
+
+export interface ProductionQualityDisposition {
+  id: string;
+  companyId: string;
+  branchId: string;
+  inspectionId: string;
+  action: 'RELEASE' | 'REJECT' | 'REWORK' | 'SCRAP';
+  quantity: number;
+  unit: string;
+  reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requestedById: string;
+  approvedById?: string | null;
+  approvedAt?: string | null;
+  rejectionReason?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface ProductionInspection {
+  id: string;
+  companyId: string;
+  branchId: string;
+  inspectionNumber: string;
+  clientRequestId: string;
+  planId: string;
+  plan?: { id: string; code: string; revision: number; status: string } | null;
+  planCodeSnapshot: string;
+  planRevisionSnapshot: number;
+  status: 'OPEN' | 'COMPLETED' | 'HELD' | 'DISPOSITIONED';
+  productionOrderId?: string | null;
+  productionOrder?: { id: string; orderNumber: string; status: string } | null;
+  productionRunId?: string | null;
+  productionRun?: { id: string; runNumber: string; status: string } | null;
+  outputEventId?: string | null;
+  outputEvent?: { id: string; eventType: string; classification: string; quantity: number; unit: string } | null;
+  finishedGoodsReceiptId?: string | null;
+  finishedGoodsReceipt?: { id: string; receiptNumber: string; status: string } | null;
+  finishedGoodsReceiptLineId?: string | null;
+  finishedGoodsReceiptLine?: { id: string; lineNumber: number; productId: string } | null;
+  samplingPointId?: string | null;
+  samplingPoint?: { id: string; stage: string; sortOrder: number } | null;
+  productId?: string | null;
+  product?: { id: string; code: string; name: string } | null;
+  productCodeSnapshot?: string | null;
+  productNameSnapshot?: string | null;
+  productionLineId?: string | null;
+  productionLine?: { id: string; code: string; name: string } | null;
+  machineId?: string | null;
+  machine?: { id: string; code: string; name: string } | null;
+  shiftId?: string | null;
+  shift?: { id: string; code: string; name: string } | null;
+  costCenterId?: string | null;
+  costCenter?: { id: string; code: string; name: string } | null;
+  sampledQuantity: number;
+  unit: string;
+  inspectedAt: string;
+  inspectedById?: string | null;
+  inspectedAtConfirmed?: string | null;
+  notes?: string | null;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  results: ProductionInspectionResult[];
+  dispositions: ProductionQualityDisposition[];
+  nonconformances: { id: string; ncrNumber: string; severity: string; status: string; description: string }[];
+}
+
+export interface ProductionNonconformanceTransition {
+  id: string;
+  companyId: string;
+  branchId: string;
+  nonconformanceId: string;
+  fromStatus: string;
+  toStatus: string;
+  action: string;
+  actorId: string;
+  reason?: string | null;
+  requestId: string;
+  createdAt: string;
+}
+
+export interface ProductionNonconformanceAttachment {
+  id: string;
+  companyId: string;
+  branchId: string;
+  nonconformanceId: string;
+  attachmentId: string;
+  attachment?: { id: string; originalName: string; mimeType: string; size: number; createdAt: string } | null;
+  uploadedById: string;
+  createdAt: string;
+}
+
+export interface ProductionNcr {
+  id: string;
+  companyId: string;
+  branchId: string;
+  ncrNumber: string;
+  clientRequestId: string;
+  inspectionId?: string | null;
+  inspection?: {
+    id: string;
+    inspectionNumber: string;
+    status: string;
+    product: { id: string; code: string; name: string };
+  } | null;
+  dispositionId?: string | null;
+  disposition?: { id: string; action: string; quantity: number; unit: string; status: string } | null;
+  severity: 'MINOR' | 'MAJOR' | 'CRITICAL';
+  status: 'OPEN' | 'INVESTIGATING' | 'ACTION_REQUIRED' | 'VERIFIED' | 'CLOSED';
+  description: string;
+  rootCause?: string | null;
+  correctiveAction?: string | null;
+  ownerUserId?: string | null;
+  detectionDate: string;
+  targetDate?: string | null;
+  verifiedAt?: string | null;
+  closedAt?: string | null;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  transitions: ProductionNonconformanceTransition[];
+  attachments: ProductionNonconformanceAttachment[];
+}
+
+// ── Phase 1.8: Operational Cost ──────────────────────────────────────────────
+
+export interface ProductionCostRate {
+  id: string;
+  companyId: string;
+  branchId: string;
+  code: string;
+  nameAr: string;
+  nameEn: string;
+  description?: string | null;
+  costType: 'MATERIAL' | 'LABOR' | 'MACHINE' | 'OVERHEAD';
+  unit: string;
+  rate: number;
+  currencyCode: string;
+  productionLineId?: string | null;
+  productionLine?: { id: string; code: string; name: string } | null;
+  machineId?: string | null;
+  machine?: { id: string; code: string; name: string } | null;
+  costCenterId?: string | null;
+  costCenter?: { id: string; code: string; name: string } | null;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  status: 'ACTIVE' | 'INACTIVE';
+  createdById: string;
+  updatedById: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface ProductionCostSnapshot {
+  id: string;
+  companyId: string;
+  branchId: string;
+  code: string;
+  revision: number;
+  status: 'DRAFT' | 'FROZEN' | 'SUPERSEDED';
+  productionProductDefinitionId: string;
+  productionProductDefinition?: {
+    id: string;
+    code: string;
+    productId: string;
+    product: { id: string; code: string; name: string };
+  } | null;
+  productionVersionId?: string | null;
+  productionVersion?: { id: string; code: string; name: string } | null;
+  productionPackagingId?: string | null;
+  productionPackaging?: { id: string; code: string; name: string } | null;
+  productionLineId?: string | null;
+  productionLine?: { id: string; code: string; name: string } | null;
+  machineId?: string | null;
+  machine?: { id: string; code: string; name: string } | null;
+  costCenterId?: string | null;
+  costCenter?: { id: string; code: string; name: string } | null;
+  costType: 'MATERIAL' | 'LABOR' | 'MACHINE' | 'OVERHEAD';
+  unit: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  currencyCode: string;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  statusLabel?: string;
+  frozenById?: string | null;
+  frozenAt?: string | null;
+  supersededById?: string | null;
+  supersededAt?: string | null;
+  notes?: string | null;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface ProductionCostTransaction {
+  id: string;
+  companyId: string;
+  branchId: string;
+  eventType: 'MATERIAL' | 'LABOR' | 'MACHINE' | 'OVERHEAD';
+  sourceType: string;
+  sourceId: string;
+  sourceNumberSnapshot?: string | null;
+  clientRequestId: string;
+  productionOrderId?: string | null;
+  productionOrder?: { id: string; orderNumber: string; status: string } | null;
+  productionRunId?: string | null;
+  productionRun?: { id: string; runNumber: string; status: string } | null;
+  productId?: string | null;
+  product?: { id: string; code: string; name: string } | null;
+  productCodeSnapshot?: string | null;
+  productNameSnapshot?: string | null;
+  productionVersionId?: string | null;
+  productionVersion?: { id: string; code: string; name: string } | null;
+  productionPackagingId?: string | null;
+  productionPackaging?: { id: string; code: string; name: string } | null;
+  productionLineId?: string | null;
+  productionLine?: { id: string; code: string; name: string } | null;
+  machineId?: string | null;
+  machine?: { id: string; code: string; name: string } | null;
+  shiftId?: string | null;
+  shift?: { id: string; code: string; name: string } | null;
+  costCenterId?: string | null;
+  costCenter?: { id: string; code: string; name: string } | null;
+  standardCostSnapshotId?: string | null;
+  standardCostSnapshot?: { id: string; code: string; revision: number; status: string } | null;
+  outputEventId?: string | null;
+  outputEvent?: { id: string; eventType: string; classification: string; quantity: number; unit: string } | null;
+  quantity: number;
+  unit: string;
+  rate: number;
+  amount: number;
+  standardAmount?: number | null;
+  varianceAmount?: number | null;
+  currencyCode: string;
+  occurredAt: string;
+  status: 'POSTED' | 'REVERSED';
+  reversalOfId?: string | null;
+  reversalOf?: { id: string; sourceNumberSnapshot: string | null; occurredAt: string } | null;
+  reversalReason?: string | null;
+  notes?: string | null;
+  createdById: string;
+  reversedById?: string | null;
+  reversedAt?: string | null;
+  createdAt: string;
+}

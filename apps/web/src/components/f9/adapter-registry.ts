@@ -48,6 +48,10 @@ import {
   productionMeasurementPointAdapter,
   productionMaterialDocumentAdapter,
   productionFinishedGoodsReceiptAdapter,
+  productionQualityPlanAdapter,
+  productionInspectionAdapter,
+  productionCostRateAdapter,
+  productionCostSnapshotAdapter,
 } from './lookup-adapters';
 import type {
   Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product,
@@ -60,6 +64,7 @@ import type {
   ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment,
   OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionRun,
   ProductionMeasurementPoint, ProductionMaterialDocument, ProductionFinishedGoodsReceipt,
+  ProductionQualityPlan, ProductionInspection, ProductionCostRate, ProductionCostSnapshot,
 } from '../../lib/admin-types';
 
 export interface UnifiedSearchEntity {
@@ -420,6 +425,38 @@ const registry: UnifiedSearchEntity[] = [
     detailRoute: () => `/admin/production/finished-goods-receipts`,
     subtitle: (item: ProductionFinishedGoodsReceipt) => `${item.productionRun?.runNumber || item.productionOrder?.orderNumber || ''}`,
     permission: 'production-finished-goods-receipt:read',
+  },
+  {
+    entityType: 'productionQualityPlan',
+    labelKey: 'production.qualityPlans.title',
+    adapter: productionQualityPlanAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/quality/plans`,
+    subtitle: (item: ProductionQualityPlan) => `Rev.${item.revision} - ${item.productionProductDefinition?.product?.name || ''}`,
+    permission: 'production-quality-plan:read',
+  },
+  {
+    entityType: 'productionInspection',
+    labelKey: 'production.inspections.title',
+    adapter: productionInspectionAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/quality/inspections`,
+    subtitle: (item: ProductionInspection) => `${item.planCodeSnapshot || ''} - ${item.productNameSnapshot || ''}`,
+    permission: 'production-inspection:read',
+  },
+  {
+    entityType: 'operationalCostRate',
+    labelKey: 'production.costRates.title',
+    adapter: productionCostRateAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/cost/rates`,
+    subtitle: (item: ProductionCostRate) => `${item.costType} - ${item.rate} ${item.currencyCode}`,
+    permission: 'production-cost-rate:read',
+  },
+  {
+    entityType: 'operationalCostSnapshot',
+    labelKey: 'production.costSnapshots.title',
+    adapter: productionCostSnapshotAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/cost/snapshots`,
+    subtitle: (item: ProductionCostSnapshot) => `Rev.${item.revision} - ${item.amount} ${item.currencyCode}`,
+    permission: 'production-cost-snapshot:read',
   },
 ];
 

@@ -261,6 +261,18 @@ model Company {
   fgReceiptLines ProductionFinishedGoodsReceiptLine[]
   requirementLines ProductionMaterialRequirementLine[]
   consumptionCorrections ProductionMaterialConsumptionCorrection[]
+  qualityPlans ProductionQualityPlan[]
+  qualityCharacteristics QualityCharacteristic[]
+  qualitySamplingPoints QualitySamplingPoint[]
+  inspections ProductionInspection[]
+  inspectionResults ProductionInspectionResult[]
+  qualityDispositions ProductionQualityDisposition[]
+  nonconformances ProductionNonconformance[]
+  nonconformanceTransitions ProductionNonconformanceTransition[]
+  nonconformanceAttachments ProductionNonconformanceAttachment[]
+  costRates OperationalCostRate[]
+  standardCostSnapshots OperationalStandardCostSnapshot[]
+  costTransactions OperationalCostTransaction[]
 
   @@index([status])
   @@index([code])
@@ -327,6 +339,18 @@ model Branch {
   fgReceiptLines ProductionFinishedGoodsReceiptLine[]
   requirementLines ProductionMaterialRequirementLine[]
   consumptionCorrections ProductionMaterialConsumptionCorrection[]
+  qualityPlans ProductionQualityPlan[]
+  qualityCharacteristics QualityCharacteristic[]
+  qualitySamplingPoints QualitySamplingPoint[]
+  inspections ProductionInspection[]
+  inspectionResults ProductionInspectionResult[]
+  qualityDispositions ProductionQualityDisposition[]
+  nonconformances ProductionNonconformance[]
+  nonconformanceTransitions ProductionNonconformanceTransition[]
+  nonconformanceAttachments ProductionNonconformanceAttachment[]
+  costRates OperationalCostRate[]
+  standardCostSnapshots OperationalStandardCostSnapshot[]
+  costTransactions OperationalCostTransaction[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -454,6 +478,12 @@ model ProductionLine {
   downtimeLogs DowntimeLog[]
   downtimeSegments DowntimeSegment[]
   lossQuantityEvents ProductionLossQuantityEvent[]
+  qualityPlans            ProductionQualityPlan[]
+  qualitySamplingPoints   QualitySamplingPoint[]
+  inspections             ProductionInspection[]
+  costRates               OperationalCostRate[]
+  standardCostSnapshots   OperationalStandardCostSnapshot[]
+  costTransactions        OperationalCostTransaction[]
 
   @@index([code])
   @@index([companyId])
@@ -490,6 +520,7 @@ model ProductionUnit {
   operationalAssignments ProductionOperationalAssignment[]
   productionOrders   ProductionOrder[]
   productionMeasurementPoints ProductionMeasurementPoint[]
+  qualityCharacteristics QualityCharacteristic[]
 
   @@unique([companyId, branchId, code])
   @@index([companyId])
@@ -530,6 +561,8 @@ model ProductionProductDefinition {
   eligibilities  ProductionEligibility[]
   capacityStandards ProductionCapacityStandard[]
   productionOrders ProductionOrder[]
+  qualityPlans         ProductionQualityPlan[]
+  standardCostSnapshots OperationalStandardCostSnapshot[]
 
   @@index([code])
   @@index([productId])
@@ -579,6 +612,9 @@ model ProductionVersion {
   updatedAt          DateTime                   @updatedAt
   capacityStandards  ProductionCapacityStandard[]
   productionOrders   ProductionOrder[]
+  qualityPlans         ProductionQualityPlan[]
+  standardCostSnapshots OperationalStandardCostSnapshot[]
+  costTransactions     OperationalCostTransaction[]
 
   @@unique([productionProductId, versionNumber])
   @@index([productionProductId])
@@ -602,6 +638,9 @@ model ProductionPackaging {
   updatedAt          DateTime                   @updatedAt
   capacityStandards  ProductionCapacityStandard[]
   productionOrders   ProductionOrder[]
+  qualityPlans         ProductionQualityPlan[]
+  standardCostSnapshots OperationalStandardCostSnapshot[]
+  costTransactions     OperationalCostTransaction[]
 
   @@index([productionProductId])
   @@index([unitId])
@@ -793,6 +832,8 @@ model ProductionOrder {
   finishedGoodsReceipts ProductionFinishedGoodsReceipt[]
   materialRequirements ProductionMaterialRequirement[]
   materialConsumptions ProductionMaterialConsumption[]
+  inspections      ProductionInspection[]
+  costTransactions OperationalCostTransaction[]
 
   @@unique([companyId, branchId, orderNumber])
   @@unique([companyId, branchId, clientRequestId])
@@ -877,6 +918,8 @@ model ProductionShift {
   operationalAssignments ProductionOperationalAssignment[]
   downtimeLogs DowntimeLog[]
   downtimeSegments DowntimeSegment[]
+  inspections    ProductionInspection[]
+  costTransactions OperationalCostTransaction[]
 
   @@unique([companyId, branchId, code])
   @@index([companyId])
@@ -1259,6 +1302,8 @@ model InventoryLock {
   deactivatedByUserId String?
   deactivatedAt   DateTime?
 
+  qualityDispositions ProductionQualityDisposition[]
+
   @@index([lockType])
   @@index([status])
   @@index([dateFrom, dateTo])
@@ -1322,6 +1367,7 @@ model Attachment {
   uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   createdAt    DateTime @default(now())
   productionOrderLinks ProductionOrderAttachment[]
+  nonconformanceLinks ProductionNonconformanceAttachment[]
 
   @@index([entityName])
   @@index([entityId])
@@ -1505,6 +1551,8 @@ model Product {
   fgReceiptLines          ProductionFinishedGoodsReceiptLine[]
   requirementLines        ProductionMaterialRequirementLine[]
   materialConsumptions    ProductionMaterialConsumption[]
+  inspections             ProductionInspection[]
+  costTransactions        OperationalCostTransaction[]
 
   @@index([categoryId])
   @@index([code])
@@ -2144,6 +2192,12 @@ model Machine {
   productionMeasurementPoints ProductionMeasurementPoint[]
   downtimeSegments DowntimeSegment[]
   lossQuantityEvents ProductionLossQuantityEvent[]
+  qualityPlans            ProductionQualityPlan[]
+  qualitySamplingPoints   QualitySamplingPoint[]
+  inspections             ProductionInspection[]
+  costRates               OperationalCostRate[]
+  standardCostSnapshots   OperationalStandardCostSnapshot[]
+  costTransactions        OperationalCostTransaction[]
 
   @@index([categoryId])
   @@index([companyId])
@@ -3279,6 +3333,11 @@ model CostCenter {
   maintenanceRequests MaintenanceRequest[]
   productionProducts  ProductionProductDefinition[]
   productionOrders    ProductionOrder[]
+  qualityPlans            ProductionQualityPlan[]
+  inspections             ProductionInspection[]
+  costRates               OperationalCostRate[]
+  standardCostSnapshots   OperationalStandardCostSnapshot[]
+  costTransactions        OperationalCostTransaction[]
 
   @@index([type, status])
   @@index([companyId, status])
@@ -3763,6 +3822,8 @@ model ProductionRun {
   materialDocuments ProductionMaterialDocument[]
   finishedGoodsReceipts ProductionFinishedGoodsReceipt[]
   materialConsumptions ProductionMaterialConsumption[]
+  inspections      ProductionInspection[]
+  costTransactions OperationalCostTransaction[]
 
   @@unique([companyId, branchId, runNumber])
   @@unique([companyId, branchId, clientRequestId])
@@ -3862,6 +3923,7 @@ model ProductionMeasurementPoint {
 
   events ProductionOutputEvent[]
   lossQuantityEvents ProductionLossQuantityEvent[]
+  qualitySamplingPoints QualitySamplingPoint[]
 
   @@unique([companyId, branchId, code])
   @@index([companyId, branchId, status, role])
@@ -3901,6 +3963,9 @@ model ProductionOutputEvent {
   correctsEvent      ProductionOutputEvent?       @relation("OutputEventCorrection", fields: [correctsEventId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   corrections        ProductionOutputEvent[]      @relation("OutputEventCorrection")
   lossQuantityEvents ProductionLossQuantityEvent[]
+  inspections        ProductionInspection[]
+  qualityDispositions ProductionQualityDisposition[]
+  costTransactions   OperationalCostTransaction[]
   reason             String?
   notes              String?
   createdById        String
@@ -4113,6 +4178,7 @@ model ProductionMaterialDocument {
   updatedAt         DateTime           @updatedAt
 
   lines ProductionMaterialDocumentLine[]
+  qualityDispositions ProductionQualityDisposition[]
 
   @@unique([companyId, branchId, documentNumber])
   @@unique([companyId, branchId, movementId])
@@ -4203,6 +4269,8 @@ model ProductionFinishedGoodsReceipt {
   updatedAt          DateTime           @updatedAt
 
   lines ProductionFinishedGoodsReceiptLine[]
+  inspections        ProductionInspection[]
+  qualityDispositions ProductionQualityDisposition[]
 
   @@unique([companyId, branchId, receiptNumber])
   @@unique([companyId, branchId, movementId])
@@ -4241,6 +4309,8 @@ model ProductionFinishedGoodsReceiptLine {
   notes                         String?
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
+
+  inspections ProductionInspection[]
 
   @@index([receiptId])
   @@index([productId])
@@ -4379,4 +4449,534 @@ model ProductionMaterialConsumptionCorrection {
 
   @@index([consumptionId])
   @@map("production_material_consumption_corrections")
+}
+
+// ── Phase 1.8 Production Quality (plans, characteristics, sampling, inspections, dispositions, NCR) ──
+model ProductionQualityPlan {
+  id                                String                      @id @default(cuid())
+  companyId                         String
+  company                           Company                     @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                          String
+  branch                            Branch                      @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                              String
+  revision                          Int                         @default(1)
+  productionProductDefinitionId     String
+  productionProductDefinition       ProductionProductDefinition @relation(fields: [productionProductDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionVersionId               String?
+  productionVersion                 ProductionVersion?          @relation(fields: [productionVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionPackagingId             String?
+  productionPackaging               ProductionPackaging?        @relation(fields: [productionPackagingId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId                  String?
+  productionLine                    ProductionLine?             @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId                         String?
+  machine                           Machine?                    @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  costCenterId                      String?
+  costCenter                        CostCenter?                 @relation(fields: [costCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  effectiveFrom                     DateTime
+  effectiveTo                       DateTime?
+  status                            String                      @default("DRAFT")
+  approvedById                      String?
+  approvedAt                        DateTime?
+  rejectedById                      String?
+  rejectedAt                        DateTime?
+  rejectionReason                   String?
+  deactivatedById                   String?
+  deactivatedAt                     DateTime?
+  deactivationReason                String?
+  notes                             String?
+  createdById                       String
+  updatedById                       String
+  createdAt                         DateTime                    @default(now())
+  updatedAt                         DateTime                    @updatedAt
+  deletedAt                         DateTime?
+
+  characteristics QualityCharacteristic[]
+  samplingPoints  QualitySamplingPoint[]
+  inspections     ProductionInspection[]
+
+  @@unique([companyId, branchId, code, revision])
+  @@index([companyId, branchId, productionProductDefinitionId, productionVersionId, productionPackagingId, status])
+  @@index([companyId, branchId, status, effectiveFrom, effectiveTo])
+  @@index([companyId, branchId, productionLineId, machineId])
+  @@index([productionProductDefinitionId])
+  @@index([productionVersionId])
+  @@index([productionPackagingId])
+  @@index([productionLineId])
+  @@index([machineId])
+  @@index([costCenterId])
+  @@map("production_quality_plans")
+}
+
+model QualityCharacteristic {
+  id                String                  @id @default(cuid())
+  companyId         String
+  company           Company                 @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId          String
+  branch            Branch                  @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  planId            String
+  plan              ProductionQualityPlan   @relation(fields: [planId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sequence          Int
+  nameAr            String
+  nameEn            String
+  characteristicType String                 @default("NUMERIC")
+  unit              String?
+  productionUnitId  String?
+  productionUnit    ProductionUnit?         @relation(fields: [productionUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lowerLimit        Decimal?                @db.Decimal(18, 4)
+  targetValue       Decimal?                @db.Decimal(18, 4)
+  upperLimit        Decimal?                @db.Decimal(18, 4)
+  criticality       String                  @default("MAJOR")
+  samplingRule      String?
+  isRequired        Boolean                 @default(false)
+  status            String                  @default("ACTIVE")
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  deletedAt         DateTime?
+
+  results ProductionInspectionResult[]
+
+  @@unique([planId, sequence])
+  @@index([companyId, branchId, planId, status])
+  @@index([productionUnitId])
+  @@map("quality_characteristics")
+}
+
+model QualitySamplingPoint {
+  id                    String                  @id @default(cuid())
+  companyId             String
+  company               Company                 @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId              String
+  branch                Branch                  @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  planId                String
+  plan                  ProductionQualityPlan   @relation(fields: [planId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  stage                 String                  @default("FINAL_OUTPUT")
+  measurementPointId    String?
+  measurementPoint      ProductionMeasurementPoint? @relation(fields: [measurementPointId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId      String?
+  productionLine        ProductionLine?         @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId             String?
+  machine               Machine?                @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  appliesToMaterial     Boolean                 @default(false)
+  appliesToFinishedGoods Boolean                @default(true)
+  sampleFrequency       String?
+  sampleSize            Decimal?                @db.Decimal(18, 4)
+  sortOrder             Int                     @default(0)
+  status                String                  @default("ACTIVE")
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  deletedAt             DateTime?
+
+  inspections ProductionInspection[]
+
+  @@unique([planId, stage, sortOrder])
+  @@index([companyId, branchId, planId, status])
+  @@index([measurementPointId])
+  @@index([productionLineId])
+  @@index([machineId])
+  @@map("quality_sampling_points")
+}
+
+model ProductionInspection {
+  id                        String                        @id @default(cuid())
+  companyId                 String
+  company                   Company                       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                  String
+  branch                    Branch                        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inspectionNumber          String
+  clientRequestId           String
+  planId                    String
+  plan                      ProductionQualityPlan         @relation(fields: [planId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  planCodeSnapshot          String
+  planRevisionSnapshot      Int
+  productionOrderId         String?
+  productionOrder           ProductionOrder?              @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionRunId           String?
+  productionRun             ProductionRun?                @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  outputEventId             String?
+  outputEvent               ProductionOutputEvent?        @relation(fields: [outputEventId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  finishedGoodsReceiptId    String?
+  finishedGoodsReceipt      ProductionFinishedGoodsReceipt? @relation(fields: [finishedGoodsReceiptId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  finishedGoodsReceiptLineId String?
+  finishedGoodsReceiptLine  ProductionFinishedGoodsReceiptLine? @relation(fields: [finishedGoodsReceiptLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  samplingPointId           String?
+  samplingPoint             QualitySamplingPoint?         @relation(fields: [samplingPointId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId                 String?
+  product                   Product?                      @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productCodeSnapshot       String?
+  productNameSnapshot       String?
+  productionLineId          String?
+  productionLine            ProductionLine?               @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId                 String?
+  machine                   Machine?                      @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  shiftId                   String?
+  shift                     ProductionShift?              @relation(fields: [shiftId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  costCenterId              String?
+  costCenter                CostCenter?                   @relation(fields: [costCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sampledQuantity           Decimal                       @db.Decimal(18, 4)
+  unit                      String
+  inspectedAt               DateTime
+  status                    String                        @default("OPEN")
+  inspectedById             String?
+  inspectedAtConfirmed      DateTime?
+  notes                     String?
+  createdById               String
+  createdAt                 DateTime                      @default(now())
+  updatedAt                 DateTime                      @updatedAt
+  deletedAt                 DateTime?
+
+  results       ProductionInspectionResult[]
+  dispositions  ProductionQualityDisposition[]
+  nonconformances ProductionNonconformance[]
+
+  @@unique([companyId, branchId, inspectionNumber])
+  @@unique([companyId, branchId, clientRequestId])
+  @@index([companyId, branchId, status, inspectedAt])
+  @@index([companyId, branchId, productionOrderId, productionRunId])
+  @@index([companyId, branchId, planId, status])
+  @@index([companyId, branchId, productId, inspectedAt])
+  @@index([productionOrderId])
+  @@index([productionRunId])
+  @@index([outputEventId])
+  @@index([finishedGoodsReceiptId])
+  @@index([finishedGoodsReceiptLineId])
+  @@index([samplingPointId])
+  @@index([productionLineId])
+  @@index([machineId])
+  @@index([shiftId])
+  @@index([costCenterId])
+  @@map("production_inspections")
+}
+
+model ProductionInspectionResult {
+  id                          String                       @id @default(cuid())
+  companyId                   String
+  company                     Company                      @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                    String
+  branch                      Branch                       @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inspectionId                String
+  inspection                  ProductionInspection          @relation(fields: [inspectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  characteristicId            String
+  characteristic              QualityCharacteristic         @relation(fields: [characteristicId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  characteristicSequenceSnapshot Int
+  characteristicNameArSnapshot String
+  characteristicNameEnSnapshot String
+  characteristicTypeSnapshot  String
+  unitSnapshot                String?
+  lowerLimitSnapshot          Decimal?                     @db.Decimal(18, 4)
+  targetSnapshot              Decimal?                     @db.Decimal(18, 4)
+  upperLimitSnapshot          Decimal?                     @db.Decimal(18, 4)
+  valueNumeric                Decimal?                     @db.Decimal(18, 4)
+  valueBoolean                Boolean?
+  valueText                   String?
+  valueChoice                 String?
+  pass                        Boolean
+  method                      String?
+  sourceType                  String                       @default("MANUAL")
+  correctsResultId            String?
+  correctsResult              ProductionInspectionResult?   @relation("InspectionResultCorrection", fields: [correctsResultId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  corrections                 ProductionInspectionResult[]  @relation("InspectionResultCorrection")
+  correctionReason            String?
+  recordedById                String
+  recordedAt                  DateTime                     @default(now())
+  createdAt                   DateTime                     @default(now())
+
+  @@index([inspectionId])
+  @@index([inspectionId, characteristicId])
+  @@index([characteristicId])
+  @@index([companyId, branchId, recordedAt])
+  @@index([correctsResultId])
+  @@map("production_inspection_results")
+}
+
+model ProductionQualityDisposition {
+  id                       String                        @id @default(cuid())
+  companyId                String
+  company                  Company                       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                 String
+  branch                   Branch                        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inspectionId             String
+  inspection               ProductionInspection          @relation(fields: [inspectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  action                   String
+  quantity                 Decimal                       @db.Decimal(18, 4)
+  unit                     String
+  reason                   String
+  status                   String                        @default("PENDING")
+  requestedById            String
+  approvedById             String?
+  approvedAt               DateTime?
+  rejectionReason          String?
+  outputEventId            String?
+  outputEvent              ProductionOutputEvent?        @relation(fields: [outputEventId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  finishedGoodsReceiptId   String?
+  finishedGoodsReceipt     ProductionFinishedGoodsReceipt? @relation(fields: [finishedGoodsReceiptId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  materialDocumentId       String?
+  materialDocument         ProductionMaterialDocument?   @relation(fields: [materialDocumentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inventoryLockId          String?
+  inventoryLock            InventoryLock?                @relation(fields: [inventoryLockId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  notes                    String?
+  createdById              String
+  createdAt                DateTime                      @default(now())
+  updatedAt                DateTime                      @updatedAt
+  deletedAt                DateTime?
+
+  nonconformances ProductionNonconformance[]
+
+  @@index([companyId, branchId, inspectionId])
+  @@index([companyId, branchId, status, createdAt])
+  @@index([inspectionId])
+  @@index([outputEventId])
+  @@index([finishedGoodsReceiptId])
+  @@index([materialDocumentId])
+  @@index([inventoryLockId])
+  @@map("production_quality_dispositions")
+}
+
+model ProductionNonconformance {
+  id                     String                       @id @default(cuid())
+  companyId              String
+  company                Company                      @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId               String
+  branch                 Branch                       @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ncrNumber              String
+  clientRequestId        String
+  inspectionId           String?
+  inspection             ProductionInspection?         @relation(fields: [inspectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dispositionId          String?
+  disposition            ProductionQualityDisposition? @relation(fields: [dispositionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  severity               String                       @default("MAJOR")
+  status                 String                       @default("OPEN")
+  description            String
+  rootCause              String?
+  correctiveAction       String?
+  ownerUserId            String?
+  detectionDate          DateTime                     @default(now())
+  targetDate             DateTime?
+  verifiedAt             DateTime?
+  verifiedById           String?
+  closedAt               DateTime?
+  closedById             String?
+  createdById            String
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+  deletedAt              DateTime?
+
+  transitions ProductionNonconformanceTransition[]
+  attachments ProductionNonconformanceAttachment[]
+
+  @@unique([companyId, branchId, ncrNumber])
+  @@unique([companyId, branchId, clientRequestId])
+  @@index([companyId, branchId, status, detectionDate])
+  @@index([companyId, branchId, severity, status])
+  @@index([inspectionId])
+  @@index([dispositionId])
+  @@map("production_nonconformances")
+}
+
+model ProductionNonconformanceTransition {
+  id                     String                        @id @default(cuid())
+  companyId              String
+  company                Company                       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId               String
+  branch                 Branch                        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  nonconformanceId       String
+  nonconformance         ProductionNonconformance      @relation(fields: [nonconformanceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fromStatus             String
+  toStatus               String
+  action                 String
+  actorId                String
+  reason                 String?
+  requestId              String
+  createdAt              DateTime                      @default(now())
+
+  @@unique([nonconformanceId, requestId])
+  @@index([companyId, branchId, nonconformanceId, createdAt])
+  @@index([companyId, branchId, action, createdAt])
+  @@map("production_nonconformance_transitions")
+}
+
+model ProductionNonconformanceAttachment {
+  id                     String                        @id @default(cuid())
+  companyId              String
+  company                Company                       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId               String
+  branch                 Branch                        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  nonconformanceId       String
+  nonconformance         ProductionNonconformance      @relation(fields: [nonconformanceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  attachmentId           String
+  attachment             Attachment                    @relation(fields: [attachmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  uploadedById           String
+  createdAt              DateTime                      @default(now())
+
+  @@unique([nonconformanceId, attachmentId])
+  @@index([companyId, branchId, nonconformanceId, createdAt])
+  @@index([attachmentId])
+  @@map("production_nonconformance_attachments")
+}
+
+// ── Phase 1.8 Operational Cost (rates, standard-cost snapshots, immutable cost transactions) ──
+model OperationalCostRate {
+  id                     String                     @id @default(cuid())
+  companyId              String
+  company                Company                    @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId               String
+  branch                 Branch                     @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                   String
+  nameAr                 String
+  nameEn                 String
+  description            String?
+  costType               String
+  unit                   String
+  rate                   Decimal                    @db.Decimal(19, 4)
+  currencyCode           String                     @default("USD")
+  productionLineId       String?
+  productionLine         ProductionLine?            @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId              String?
+  machine                Machine?                   @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  costCenterId           String?
+  costCenter             CostCenter?                @relation(fields: [costCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  effectiveFrom          DateTime
+  effectiveTo            DateTime?
+  status                 String                     @default("ACTIVE")
+  createdById            String
+  updatedById            String
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+  deletedAt              DateTime?
+
+  @@unique([companyId, branchId, code])
+  @@index([companyId, branchId, costType, status])
+  @@index([companyId, branchId, costCenterId, effectiveFrom, effectiveTo])
+  @@index([companyId, branchId, productionLineId, machineId, effectiveFrom, effectiveTo])
+  @@index([productionLineId])
+  @@index([machineId])
+  @@index([costCenterId])
+  @@map("operational_cost_rates")
+}
+
+model OperationalStandardCostSnapshot {
+  id                            String                      @id @default(cuid())
+  companyId                     String
+  company                       Company                     @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                      String
+  branch                        Branch                      @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                          String
+  revision                      Int                         @default(1)
+  productionProductDefinitionId String
+  productionProductDefinition   ProductionProductDefinition @relation(fields: [productionProductDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionVersionId           String?
+  productionVersion             ProductionVersion?          @relation(fields: [productionVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionPackagingId         String?
+  productionPackaging           ProductionPackaging?        @relation(fields: [productionPackagingId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId              String?
+  productionLine                ProductionLine?             @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId                     String?
+  machine                       Machine?                    @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  costCenterId                  String?
+  costCenter                    CostCenter?                 @relation(fields: [costCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  costType                      String
+  unit                          String
+  quantity                      Decimal                     @db.Decimal(18, 4)
+  rate                          Decimal                     @db.Decimal(19, 4)
+  amount                        Decimal                     @db.Decimal(19, 4)
+  currencyCode                  String                      @default("USD")
+  effectiveFrom                 DateTime
+  effectiveTo                   DateTime?
+  status                        String                      @default("DRAFT")
+  frozenById                    String?
+  frozenAt                      DateTime?
+  supersededById                String?
+  supersededAt                  DateTime?
+  notes                         String?
+  createdById                   String
+  createdAt                     DateTime                    @default(now())
+  updatedAt                     DateTime                    @updatedAt
+  deletedAt                     DateTime?
+
+  costTransactions OperationalCostTransaction[]
+
+  @@unique([companyId, branchId, code, revision])
+  @@index([companyId, branchId, productionProductDefinitionId, productionVersionId, productionPackagingId, costType, status])
+  @@index([companyId, branchId, status, effectiveFrom, effectiveTo])
+  @@index([productionProductDefinitionId])
+  @@index([productionVersionId])
+  @@index([productionPackagingId])
+  @@index([productionLineId])
+  @@index([machineId])
+  @@index([costCenterId])
+  @@map("operational_standard_cost_snapshots")
+}
+
+model OperationalCostTransaction {
+  id                            String                        @id @default(cuid())
+  companyId                     String
+  company                       Company                       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                      String
+  branch                        Branch                        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  eventType                     String
+  sourceType                    String
+  sourceId                      String
+  sourceNumberSnapshot          String?
+  clientRequestId               String
+  productionOrderId             String?
+  productionOrder               ProductionOrder?               @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionRunId               String?
+  productionRun                 ProductionRun?                 @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId                     String?
+  product                       Product?                       @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productCodeSnapshot           String?
+  productNameSnapshot           String?
+  productionVersionId           String?
+  productionVersion             ProductionVersion?             @relation(fields: [productionVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionPackagingId         String?
+  productionPackaging           ProductionPackaging?           @relation(fields: [productionPackagingId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId              String?
+  productionLine                ProductionLine?                @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId                     String?
+  machine                       Machine?                       @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  shiftId                       String?
+  shift                         ProductionShift?               @relation(fields: [shiftId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  costCenterId                  String?
+  costCenter                    CostCenter?                    @relation(fields: [costCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  standardCostSnapshotId        String?
+  standardCostSnapshot          OperationalStandardCostSnapshot? @relation(fields: [standardCostSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  outputEventId                 String?
+  outputEvent                   ProductionOutputEvent?         @relation(fields: [outputEventId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity                      Decimal                       @db.Decimal(18, 4)
+  unit                          String
+  rate                          Decimal                       @db.Decimal(19, 4)
+  amount                        Decimal                       @db.Decimal(19, 4)
+  currencyCode                  String                        @default("USD")
+  standardAmount                Decimal?                      @db.Decimal(19, 4)
+  varianceAmount                Decimal?                      @db.Decimal(19, 4)
+  occurredAt                    DateTime
+  status                        String                        @default("POSTED")
+  reversalOfId                  String?
+  reversalOf                    OperationalCostTransaction?    @relation("OperationalCostReversal", fields: [reversalOfId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reversals                     OperationalCostTransaction[]   @relation("OperationalCostReversal")
+  reversalReason                String?
+  notes                         String?
+  createdById                   String
+  reversedById                  String?
+  reversedAt                    DateTime?
+  createdAt                     DateTime                      @default(now())
+
+  @@unique([companyId, branchId, clientRequestId])
+  @@index([companyId, branchId, eventType, occurredAt])
+  @@index([companyId, branchId, sourceType, sourceId])
+  @@index([companyId, branchId, productionOrderId, occurredAt])
+  @@index([companyId, branchId, productionRunId, occurredAt])
+  @@index([companyId, branchId, costCenterId, occurredAt])
+  @@index([productionOrderId])
+  @@index([productionRunId])
+  @@index([productId])
+  @@index([productionVersionId])
+  @@index([productionPackagingId])
+  @@index([productionLineId])
+  @@index([machineId])
+  @@index([shiftId])
+  @@index([costCenterId])
+  @@index([standardCostSnapshotId])
+  @@index([outputEventId])
+  @@index([reversalOfId])
+  @@map("operational_cost_transactions")
 }

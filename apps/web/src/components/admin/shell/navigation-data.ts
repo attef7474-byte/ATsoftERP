@@ -250,6 +250,20 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'prd-fg-receipts', labelKey: 'navigation.productionFinishedGoodsReceipts', route: '/admin/production/finished-goods-receipts', permission: 'production-finished-goods-receipt:read' },
         ],
       },
+      {
+        id: 'prd-quality', labelKey: 'navigation.navSection.productionQuality', items: [
+          { id: 'prd-quality-plans', labelKey: 'navigation.productionQualityPlans', route: '/admin/production/quality/plans', permission: 'production-quality-plan:read' },
+          { id: 'prd-inspections', labelKey: 'navigation.productionInspections', route: '/admin/production/quality/inspections', permission: 'production-inspection:read' },
+          { id: 'prd-ncrs', labelKey: 'navigation.productionNcrs', route: '/admin/production/quality/ncrs', permission: 'production-ncr:read' },
+        ],
+      },
+      {
+        id: 'prd-cost', labelKey: 'navigation.navSection.productionCost', items: [
+          { id: 'prd-cost-rates', labelKey: 'navigation.productionCostRates', route: '/admin/production/cost/rates', permission: 'production-cost-rate:read' },
+          { id: 'prd-cost-snapshots', labelKey: 'navigation.productionCostSnapshots', route: '/admin/production/cost/snapshots', permission: 'production-cost-snapshot:read' },
+          { id: 'prd-cost-transactions', labelKey: 'navigation.productionCostTransactions', route: '/admin/production/cost/transactions', permission: 'production-cost-transaction:read' },
+        ],
+      },
     ],
   },
 

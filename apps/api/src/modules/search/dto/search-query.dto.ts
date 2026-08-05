@@ -22,6 +22,11 @@ export enum EntityType {
   MACHINE_COMPONENT = 'machineComponent',
   COMPONENT = 'component',
   SPARE_PART = 'sparePart',
+  PRODUCTION_QUALITY_PLAN = 'productionQualityPlan',
+  PRODUCTION_INSPECTION = 'productionInspection',
+  PRODUCTION_NCR = 'productionNcr',
+  OPERATIONAL_COST_RATE = 'operationalCostRate',
+  OPERATIONAL_COST_SNAPSHOT = 'operationalCostSnapshot',
 }
 
 export const SEARCHABLE_ENTITY_TYPES: EntityType[] = [
@@ -43,6 +48,11 @@ export const SEARCHABLE_ENTITY_TYPES: EntityType[] = [
   EntityType.OPERATION_TYPE,
   EntityType.MACHINE_COMPONENT,
   EntityType.SPARE_PART,
+  EntityType.PRODUCTION_QUALITY_PLAN,
+  EntityType.PRODUCTION_INSPECTION,
+  EntityType.PRODUCTION_NCR,
+  EntityType.OPERATIONAL_COST_RATE,
+  EntityType.OPERATIONAL_COST_SNAPSHOT,
 ];
 
 export class SearchEntityFilters {

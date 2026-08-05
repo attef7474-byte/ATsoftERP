@@ -75,6 +75,12 @@ export function getPageTitle(pathname: string): string {
     notifications: 'notifications.title',
     profile: 'profile.title',
     password: 'profile.changePasswordTitle',
+    plans: 'production.qualityPlans.title',
+    inspections: 'production.inspections.title',
+    ncrs: 'production.ncrs.title',
+    rates: 'production.costRates.title',
+    snapshots: 'production.costSnapshots.title',
+    transactions: 'production.costTransactions.title',
   };
   const namespaceKey = mapping[last];
   if (namespaceKey) return namespaceKey;

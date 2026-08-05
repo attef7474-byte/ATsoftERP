@@ -55,4 +55,8 @@ export {
   productionMeasurementPointAdapter,
   productionMaterialDocumentAdapter,
   productionFinishedGoodsReceiptAdapter,
+  productionQualityPlanAdapter,
+  productionInspectionAdapter,
+  productionCostRateAdapter,
+  productionCostSnapshotAdapter,
 } from './lookup-adapters';
