@@ -46,6 +46,8 @@ import {
   downtimeSegmentAdapter,
   productionRunAdapter,
   productionMeasurementPointAdapter,
+  productionMaterialDocumentAdapter,
+  productionFinishedGoodsReceiptAdapter,
 } from './lookup-adapters';
 import type {
   Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product,
@@ -57,7 +59,7 @@ import type {
   ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionShift, ProductionShiftTemplate,
   ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment,
   OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionRun,
-  ProductionMeasurementPoint,
+  ProductionMeasurementPoint, ProductionMaterialDocument, ProductionFinishedGoodsReceipt,
 } from '../../lib/admin-types';
 
 export interface UnifiedSearchEntity {
@@ -402,6 +404,22 @@ const registry: UnifiedSearchEntity[] = [
     adapter: productionMeasurementPointAdapter as LookupAdapter<any>,
     detailRoute: () => `/admin/production/measurement-points`,
     subtitle: (item: ProductionMeasurementPoint) => `${item.role} - ${item.productionLine?.name || ''}`,
+  },
+  {
+    entityType: 'productionMaterialDocument',
+    labelKey: 'production.materialDocuments.title',
+    adapter: productionMaterialDocumentAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/material-documents`,
+    subtitle: (item: ProductionMaterialDocument) => `${item.productionRun?.runNumber || item.productionOrder?.orderNumber || ''} - ${item.documentType}`,
+    permission: 'production-material-document:read',
+  },
+  {
+    entityType: 'productionFinishedGoodsReceipt',
+    labelKey: 'production.finishedGoodsReceipts.title',
+    adapter: productionFinishedGoodsReceiptAdapter as LookupAdapter<any>,
+    detailRoute: () => `/admin/production/finished-goods-receipts`,
+    subtitle: (item: ProductionFinishedGoodsReceipt) => `${item.productionRun?.runNumber || item.productionOrder?.orderNumber || ''}`,
+    permission: 'production-finished-goods-receipt:read',
   },
 ];
 

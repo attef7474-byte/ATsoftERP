@@ -87,6 +87,9 @@ import { ProductionRunsModule } from './modules/factory/production-runs/producti
 import { ProductionLossReasonsModule } from './modules/factory/production-loss-reasons/production-loss-reasons.module';
 import { ProductionDowntimeModule } from './modules/factory/production-downtime/production-downtime.module';
 import { ProductionLossQuantityEventsModule } from './modules/factory/production-loss-quantity-events/production-loss-quantity-events.module';
+import { ProductionMaterialDocumentsModule } from './modules/factory/production-material-documents/production-material-documents.module';
+import { ProductionMaterialRequirementsModule } from './modules/factory/production-material-requirements/production-material-requirements.module';
+import { ProductionFinishedGoodsReceiptsModule } from './modules/factory/production-finished-goods-receipts/production-finished-goods-receipts.module';
 
 @Module({
   imports: [
@@ -137,6 +140,9 @@ import { ProductionLossQuantityEventsModule } from './modules/factory/production
     ProductionLossReasonsModule,
     ProductionDowntimeModule,
     ProductionLossQuantityEventsModule,
+    ProductionMaterialDocumentsModule,
+    ProductionMaterialRequirementsModule,
+    ProductionFinishedGoodsReceiptsModule,
   ],
 })
 export class AppModule {}

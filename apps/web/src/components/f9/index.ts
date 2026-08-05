@@ -53,4 +53,6 @@ export {
   downtimeSegmentAdapter,
   productionRunAdapter,
   productionMeasurementPointAdapter,
+  productionMaterialDocumentAdapter,
+  productionFinishedGoodsReceiptAdapter,
 } from './lookup-adapters';

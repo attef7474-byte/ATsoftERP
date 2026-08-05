@@ -721,3 +721,365 @@ export interface RunLossesView {
   totals: Record<string, string>;
   meta: { page: number; limit: number; total: number; totalPages: number };
 }
+
+export type ProductionMaterialDocumentType = 'ISSUE' | 'CONSUMPTION' | 'RETURN' | 'SUBSTITUTION';
+export type ProductionDocumentStatus = 'DRAFT' | 'POSTED' | 'CANCELLED';
+
+export interface ProductionMaterialDocumentLine {
+  id: string;
+  companyId: string;
+  branchId: string;
+  documentId: string;
+  productId: string;
+  product?: { id: string; code: string; name: string } | null;
+  productCodeSnapshot: string;
+  productNameSnapshot: string;
+  productVersionLabelSnapshot?: string | null;
+  productPackagingLabelSnapshot?: string | null;
+  unit: string;
+  quantity: string | number;
+  substitutedProductId?: string | null;
+  substitutedProduct?: { id: string; code: string; name: string } | null;
+  substitutionReason?: string | null;
+  warehouseLocationId?: string | null;
+  warehouseLocation?: { id: string; code: string; name: string } | null;
+  batchNumber?: string | null;
+  serialNumber?: string | null;
+  expiryDate?: string | null;
+  lineNumber: number;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductionMaterialDocument {
+  id: string;
+  companyId: string;
+  branchId: string;
+  documentNumber: string;
+  productionOrderId: string;
+  productionOrder?: { id: string; orderNumber: string; status: string } | null;
+  productionRunId: string;
+  productionRun?: {
+    id: string;
+    runNumber: string;
+    status: string;
+    startedAt?: string | null;
+    endedAt?: string | null;
+  } | null;
+  documentType: ProductionMaterialDocumentType;
+  issueWarehouseId?: string | null;
+  issueWarehouse?: { id: string; code: string; name: string } | null;
+  status: ProductionDocumentStatus;
+  movementId?: string | null;
+  movement?: { id: string; movementNumber: string; movementType: string; status: string } | null;
+  movementNumber?: string | null;
+  sourceType: string;
+  requestId?: string | null;
+  notes?: string | null;
+  documentDate: string;
+  postedAt?: string | null;
+  cancelledAt?: string | null;
+  createdById: string;
+  createdBy?: { id: string; name: string } | null;
+  postedById?: string | null;
+  postedBy?: { id: string; name: string } | null;
+  cancelledById?: string | null;
+  cancelledBy?: { id: string; name: string } | null;
+  createdAt: string;
+  updatedAt: string;
+  lines: ProductionMaterialDocumentLine[];
+}
+
+export interface ProductionFinishedGoodsReceiptLine {
+  id: string;
+  companyId: string;
+  branchId: string;
+  receiptId: string;
+  productId: string;
+  product?: { id: string; code: string; name: string } | null;
+  productCodeSnapshot: string;
+  productNameSnapshot: string;
+  productVersionLabelSnapshot?: string | null;
+  productPackagingLabelSnapshot?: string | null;
+  unit: string;
+  quantity: string | number;
+  warehouseLocationId?: string | null;
+  warehouseLocation?: { id: string; code: string; name: string } | null;
+  batchNumber?: string | null;
+  serialNumber?: string | null;
+  expiryDate?: string | null;
+  lineNumber: number;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ProductionMaterialRequirementStatus = 'DRAFT' | 'FROZEN' | 'SUPERSEDED' | 'CANCELLED';
+export type ProductionMaterialComponentRole = 'RAW_MATERIAL' | 'PACKAGING' | 'SEMI_FINISHED' | 'OTHER';
+export type ProductionMaterialOverIssuePolicy = 'NOT_ALLOWED' | 'WITH_REASON' | 'TOLERANCE';
+
+export interface ProductionMaterialRequirementLine {
+  id: string;
+  companyId: string;
+  branchId: string;
+  requirementId: string;
+  lineNumber: number;
+  productId: string;
+  product?: { id: string; code: string; name: string } | null;
+  productCodeSnapshot: string;
+  productNameSnapshot: string;
+  componentRole: ProductionMaterialComponentRole;
+  plannedQuantityPerUnit: string | number;
+  plannedQuantity: string | number;
+  baseUnit: string;
+  issueUnit: string;
+  conversionFactor: string | number;
+  warehouseId?: string | null;
+  warehouse?: { id: string; code: string; name: string } | null;
+  productionStage?: string | null;
+  lotControlRequired: boolean;
+  overIssuePolicy: ProductionMaterialOverIssuePolicy;
+  tolerancePercent?: string | number | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductionMaterialRequirement {
+  id: string;
+  companyId: string;
+  branchId: string;
+  productionOrderId: string;
+  productionOrder?: { id: string; orderNumber: string; status: string; plannedQuantity: string; quantityUnit: string } | null;
+  revision: number;
+  status: ProductionMaterialRequirementStatus;
+  sourceType: string;
+  productDefinitionCodeSnapshot?: string | null;
+  productDefinitionNameSnapshot?: string | null;
+  productVersionLabelSnapshot?: string | null;
+  productPackagingLabelSnapshot?: string | null;
+  notes?: string | null;
+  preparedById: string;
+  preparedAt: string;
+  frozenById?: string | null;
+  frozenAt?: string | null;
+  requestId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lines: ProductionMaterialRequirementLine[];
+  materialDocuments?: Array<{
+    id: string;
+    documentNumber: string;
+    documentType: ProductionMaterialDocumentType;
+    status: string;
+    documentDate: string;
+  }> | null;
+}
+
+export type ProductionMaterialReadinessLineStatus = 'OK' | 'SHORT' | 'OVER_ISSUE';
+
+export interface ProductionMaterialReadinessLine {
+  lineId: string;
+  lineNumber: number;
+  productId: string;
+  productCode?: string | null;
+  productName?: string | null;
+  componentRole: ProductionMaterialComponentRole;
+  plannedQuantity: string | number;
+  baseUnit: string;
+  issueUnit: string;
+  overIssuePolicy: ProductionMaterialOverIssuePolicy;
+  tolerancePercent?: string | number | null;
+  netIssued: string | number;
+  shortage: string | number;
+  status: ProductionMaterialReadinessLineStatus;
+  warnings: string[];
+}
+
+export interface ProductionMaterialReadiness {
+  orderId: string;
+  orderNumber: string;
+  status: 'READY' | 'NOT_READY';
+  blockers: string[];
+  warnings: string[];
+  lines: ProductionMaterialReadinessLine[];
+}
+
+export interface ProductionMaterialConsumptionCorrection {
+  id: string;
+  companyId: string;
+  branchId: string;
+  consumptionId: string;
+  previousQuantity: string | number;
+  newQuantity: string | number;
+  reason: string;
+  correctedById: string;
+  createdAt: string;
+}
+
+export interface ProductionMaterialConsumption {
+  id: string;
+  companyId: string;
+  branchId: string;
+  productionOrderId: string;
+  productionOrder?: { id: string; orderNumber: string } | null;
+  productionRunId?: string | null;
+  productionRun?: { id: string; runNumber: string } | null;
+  requirementId?: string | null;
+  requirementLineId?: string | null;
+  requirementLine?: { id: string; lineNumber: number; plannedQuantity: string; plannedQuantityPerUnit: string } | null;
+  productId: string;
+  product?: { id: string; code: string; name: string } | null;
+  productCodeSnapshot: string;
+  productNameSnapshot: string;
+  unit: string;
+  quantity: string | number;
+  method: 'EXPLICIT' | 'DERIVED_NET_ISSUE';
+  sourceType: string;
+  sourceDocumentId?: string | null;
+  sourceDocumentNumber?: string | null;
+  sourceDocumentType?: string | null;
+  recordedById: string;
+  recordedBy?: { id: string; name: string } | null;
+  recordedAt: string;
+  requestId: string;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  corrections: ProductionMaterialConsumptionCorrection[];
+}
+
+export interface ProductionConsumptionLine {
+  requirementLineId?: string | null;
+  productId: string;
+  productCode?: string | null;
+  productName?: string | null;
+  unit?: string | null;
+  consumedQuantity: string | number;
+  plannedQuantity?: string | number | null;
+  netIssued?: string | number;
+}
+
+export interface ProductionConsumptionSummary {
+  orderId?: string;
+  runId?: string;
+  orderNumber?: string;
+  runNumber?: string;
+  source: 'EXPLICIT' | 'DERIVED_NET_ISSUE';
+  lines: ProductionConsumptionLine[];
+  records?: ProductionMaterialConsumption[] | null;
+  unlistedConsumed?: ProductionConsumptionLine[] | null;
+  warnings?: string[] | null;
+}
+
+export interface ProductionRunMaterialsLine {
+  productId: string;
+  productCode?: string | null;
+  productName?: string | null;
+  requirementLineId?: string | null;
+  plannedQuantity?: string | number | null;
+  issuedQuantity: string | number;
+  returnedQuantity: string | number;
+  netIssued: string | number;
+}
+
+export interface ProductionRunMaterialsSummary {
+  runId: string;
+  runNumber: string;
+  orderId: string;
+  lines: ProductionRunMaterialsLine[];
+}
+
+export interface ProductionMaterialTraceabilityDocumentLine {
+  id: string;
+  documentId: string;
+  productId: string;
+  product?: { id: string; code: string; name: string } | null;
+  substitutedProductId?: string | null;
+  substitutedProduct?: { id: string; code: string; name: string } | null;
+  requirementLineId?: string | null;
+  requirementLine?: { id: string; lineNumber: number; plannedQuantity: string } | null;
+  originalIssueLineId?: string | null;
+  originalIssueLine?: { id: string; productId: string; lineNumber: number } | null;
+  lossQuantityEvent?: {
+    id: string;
+    eventNumber: string;
+    lossType: string;
+    lostQuantity: string;
+    unit: string;
+  } | null;
+  productCodeSnapshot: string;
+  productNameSnapshot: string;
+  unit: string;
+  quantity: string | number;
+  lineNumber: number;
+  notes?: string | null;
+}
+
+export interface ProductionMaterialTraceabilityDocument {
+  id: string;
+  documentNumber: string;
+  documentType: ProductionMaterialDocumentType;
+  status: string;
+  documentDate: string;
+  productionRun?: { id: string; runNumber: string } | null;
+  movement?: { id: string; movementNumber: string; movementType: string; status: string } | null;
+  issueWarehouse?: { id: string; code: string; name: string } | null;
+  lines: ProductionMaterialTraceabilityDocumentLine[];
+}
+
+export interface ProductionMaterialTraceability {
+  orderId: string;
+  orderNumber: string;
+  snapshot: {
+    id: string;
+    revision: number;
+    status: string;
+    preparedAt: string;
+    frozenAt?: string | null;
+    productDefinitionCodeSnapshot?: string | null;
+    productVersionLabelSnapshot?: string | null;
+    lines: ProductionMaterialRequirementLine[];
+  } | null;
+  documents: ProductionMaterialTraceabilityDocument[];
+  consumptionRecords: ProductionMaterialConsumption[];
+}
+
+export interface ProductionFinishedGoodsReceipt {
+  id: string;
+  companyId: string;
+  branchId: string;
+  receiptNumber: string;
+  productionOrderId: string;
+  productionOrder?: { id: string; orderNumber: string; status: string } | null;
+  productionRunId: string;
+  productionRun?: {
+    id: string;
+    runNumber: string;
+    status: string;
+    startedAt?: string | null;
+    endedAt?: string | null;
+  } | null;
+  receiptWarehouseId?: string | null;
+  receiptWarehouse?: { id: string; code: string; name: string } | null;
+  status: ProductionDocumentStatus;
+  movementId?: string | null;
+  movement?: { id: string; movementNumber: string; movementType: string; status: string } | null;
+  movementNumber?: string | null;
+  sourceType: string;
+  requestId?: string | null;
+  notes?: string | null;
+  receiptDate: string;
+  postedAt?: string | null;
+  cancelledAt?: string | null;
+  createdById: string;
+  createdBy?: { id: string; name: string } | null;
+  postedById?: string | null;
+  postedBy?: { id: string; name: string } | null;
+  cancelledById?: string | null;
+  cancelledBy?: { id: string; name: string } | null;
+  createdAt: string;
+  updatedAt: string;
+  lines: ProductionFinishedGoodsReceiptLine[];
+}

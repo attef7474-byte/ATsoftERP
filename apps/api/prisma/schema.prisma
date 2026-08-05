@@ -253,6 +253,14 @@ model Company {
   operationalLossReasons OperationalLossReason[]
   downtimeSegments DowntimeSegment[]
   productionLossQuantityEvents ProductionLossQuantityEvent[]
+  materialDocuments ProductionMaterialDocument[]
+  finishedGoodsReceipts ProductionFinishedGoodsReceipt[]
+  materialRequirements ProductionMaterialRequirement[]
+  materialConsumptions ProductionMaterialConsumption[]
+  materialDocumentLines ProductionMaterialDocumentLine[]
+  fgReceiptLines ProductionFinishedGoodsReceiptLine[]
+  requirementLines ProductionMaterialRequirementLine[]
+  consumptionCorrections ProductionMaterialConsumptionCorrection[]
 
   @@index([status])
   @@index([code])
@@ -311,6 +319,14 @@ model Branch {
   operationalLossReasons OperationalLossReason[]
   downtimeSegments DowntimeSegment[]
   productionLossQuantityEvents ProductionLossQuantityEvent[]
+  materialDocuments ProductionMaterialDocument[]
+  finishedGoodsReceipts ProductionFinishedGoodsReceipt[]
+  materialRequirements ProductionMaterialRequirement[]
+  materialConsumptions ProductionMaterialConsumption[]
+  materialDocumentLines ProductionMaterialDocumentLine[]
+  fgReceiptLines ProductionFinishedGoodsReceiptLine[]
+  requirementLines ProductionMaterialRequirementLine[]
+  consumptionCorrections ProductionMaterialConsumptionCorrection[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -773,6 +789,10 @@ model ProductionOrder {
   downtimeLogs DowntimeLog[]
   downtimeSegments DowntimeSegment[]
   lossQuantityEvents ProductionLossQuantityEvent[]
+  materialDocuments ProductionMaterialDocument[]
+  finishedGoodsReceipts ProductionFinishedGoodsReceipt[]
+  materialRequirements ProductionMaterialRequirement[]
+  materialConsumptions ProductionMaterialConsumption[]
 
   @@unique([companyId, branchId, orderNumber])
   @@unique([companyId, branchId, clientRequestId])
@@ -1384,6 +1404,9 @@ model Warehouse {
   productionProducts   ProductionProductDefinition[]
   productionOrderIssueWarehouses   ProductionOrder[] @relation("ProductionOrderIssueWarehouse")
   productionOrderReceiptWarehouses ProductionOrder[] @relation("ProductionOrderReceiptWarehouse")
+  materialDocuments ProductionMaterialDocument[]
+  fgReceiptDestinations ProductionFinishedGoodsReceipt[] @relation("FGReceiptWarehouse")
+  requirementLines ProductionMaterialRequirementLine[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -1416,6 +1439,8 @@ model WarehouseLocation {
   dstStockTransfers      InventoryStockTransfer[] @relation("dstLocation")
   operationalReceipts    InventoryOperationalReceipt[]
   physicalCountLines     InventoryPhysicalCountLine[]
+  materialDocumentLines  ProductionMaterialDocumentLine[]
+  fgReceiptLines         ProductionFinishedGoodsReceiptLine[]
 
   @@unique([warehouseId, code])
   @@index([status])
@@ -1475,6 +1500,11 @@ model Product {
   operationalReceiptLines InventoryOperationalReceiptLine[]
   physicalCountLines      InventoryPhysicalCountLine[]
   productionDefinitions  ProductionProductDefinition[]
+  materialDocumentLines   ProductionMaterialDocumentLine[]
+  materialSubstituteLines ProductionMaterialDocumentLine[] @relation("MaterialSubstituteProduct")
+  fgReceiptLines          ProductionFinishedGoodsReceiptLine[]
+  requirementLines        ProductionMaterialRequirementLine[]
+  materialConsumptions    ProductionMaterialConsumption[]
 
   @@index([categoryId])
   @@index([code])
@@ -1495,6 +1525,7 @@ model InventoryBalance {
   productId    String
   product      Product            @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quantity     Float              @default(0)
+  quantityBase Decimal?           @db.Decimal(18, 4)
   batchNumber  String?
   serialNumber String?
   expiryDate   DateTime?
@@ -1508,6 +1539,7 @@ model InventoryBalance {
   @@index([quantity])
   @@index([updatedAt])
   @@index([warehouseId, productId])
+  @@index([warehouseId, productId, locationId, batchNumber, serialNumber])
   @@map("inventory_balances")
 }
 
@@ -1673,6 +1705,8 @@ model InventoryMovement {
   lines               InventoryMovementLine[]
   installedParts       MachineInstalledPart[]
   replacementOutHistories SparePartReplacementHistory[] @relation("ReplacementOutMovement")
+  materialDocuments       ProductionMaterialDocument[]
+  finishedGoodsReceipts   ProductionFinishedGoodsReceipt[]
 
   @@index([companyId])
   @@index([branchId])
@@ -1696,6 +1730,10 @@ model InventoryMovementLine {
   warehouseLocationId String?
   warehouseLocation   WarehouseLocation? @relation(fields: [warehouseLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quantity            Float
+  quantityBase        Decimal?          @db.Decimal(18, 4)
+  batchNumber         String?
+  serialNumber        String?
+  expiryDate          DateTime?
   unit                String?
   direction           String
   notes               String?
@@ -3722,6 +3760,9 @@ model ProductionRun {
   downtimeLogs DowntimeLog[]
   downtimeSegments DowntimeSegment[]
   lossQuantityEvents ProductionLossQuantityEvent[]
+  materialDocuments ProductionMaterialDocument[]
+  finishedGoodsReceipts ProductionFinishedGoodsReceipt[]
+  materialConsumptions ProductionMaterialConsumption[]
 
   @@unique([companyId, branchId, runNumber])
   @@unique([companyId, branchId, clientRequestId])
@@ -4020,6 +4061,8 @@ model ProductionLossQuantityEvent {
   createdAt              DateTime                          @default(now())
   updatedAt              DateTime                          @updatedAt
 
+  materialDocumentLines ProductionMaterialDocumentLine[]
+
   @@unique([companyId, branchId, requestId])
   @@index([companyId, branchId, productionRunId, occurredAt])
   @@index([companyId, branchId, productionRunId, type, occurredAt])
@@ -4035,4 +4078,305 @@ model ProductionLossQuantityEvent {
   @@index([sourceEventId])
   @@index([correctsEventId])
   @@map("production_loss_quantity_events")
+}
+
+model ProductionMaterialDocument {
+  id                String             @id @default(cuid())
+  companyId         String
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId          String
+  branch            Branch             @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  documentNumber    String
+  productionOrderId String
+  productionOrder   ProductionOrder    @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionRunId   String
+  productionRun     ProductionRun      @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  documentType      String
+  issueWarehouseId  String?
+  issueWarehouse    Warehouse?         @relation(fields: [issueWarehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requirementId     String?
+  requirement       ProductionMaterialRequirement? @relation(fields: [requirementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status            String             @default("DRAFT")
+  movementId        String?
+  movement          InventoryMovement? @relation(fields: [movementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  movementNumber    String?
+  sourceType        String             @default("MANUAL")
+  requestId         String?
+  notes             String?
+  documentDate      DateTime           @default(now())
+  postedAt          DateTime?
+  cancelledAt       DateTime?
+  createdById       String
+  postedById        String?
+  cancelledById     String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  lines ProductionMaterialDocumentLine[]
+
+  @@unique([companyId, branchId, documentNumber])
+  @@unique([companyId, branchId, movementId])
+  @@unique([companyId, branchId, requestId])
+  @@index([companyId, branchId, documentType, status])
+  @@index([companyId, branchId, productionOrderId])
+  @@index([companyId, branchId, productionRunId, documentDate])
+  @@index([companyId, branchId, requirementId])
+  @@index([productionOrderId])
+  @@index([productionRunId])
+  @@index([movementId])
+  @@map("production_material_documents")
+}
+
+model ProductionMaterialDocumentLine {
+  id                            String                     @id @default(cuid())
+  companyId                     String
+  company                       Company                    @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                      String
+  branch                        Branch                     @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  documentId                    String
+  document                      ProductionMaterialDocument @relation(fields: [documentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId                     String
+  product                       Product                    @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productCodeSnapshot           String
+  productNameSnapshot           String
+  productVersionLabelSnapshot   String?
+  productPackagingLabelSnapshot String?
+  unit                          String
+  quantity                      Decimal                    @db.Decimal(18, 4)
+  substitutedProductId          String?
+  substitutedProduct            Product?                   @relation("MaterialSubstituteProduct", fields: [substitutedProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  substitutionReason            String?
+  requirementLineId             String?
+  requirementLine               ProductionMaterialRequirementLine? @relation(fields: [requirementLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  originalIssueLineId           String?
+  originalIssueLine             ProductionMaterialDocumentLine?    @relation("MaterialReturnReference", fields: [originalIssueLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  returnReferenceLines          ProductionMaterialDocumentLine[]   @relation("MaterialReturnReference")
+  lossQuantityEventId           String?
+  lossQuantityEvent             ProductionLossQuantityEvent?       @relation(fields: [lossQuantityEventId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseLocationId           String?
+  warehouseLocation             WarehouseLocation?         @relation(fields: [warehouseLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  batchNumber                   String?
+  serialNumber                  String?
+  expiryDate                    DateTime?
+  lineNumber                    Int                        @default(1)
+  notes                         String?
+  createdAt                     DateTime                   @default(now())
+  updatedAt                     DateTime                   @updatedAt
+
+  @@index([documentId])
+  @@index([productId])
+  @@index([warehouseLocationId])
+  @@index([documentId, productId])
+  @@index([requirementLineId])
+  @@index([originalIssueLineId])
+  @@index([lossQuantityEventId])
+  @@map("production_material_document_lines")
+}
+
+model ProductionFinishedGoodsReceipt {
+  id                 String             @id @default(cuid())
+  companyId          String
+  company            Company            @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId           String
+  branch             Branch             @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  receiptNumber      String
+  productionOrderId  String
+  productionOrder    ProductionOrder    @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionRunId    String
+  productionRun      ProductionRun      @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  receiptWarehouseId String?
+  receiptWarehouse   Warehouse?         @relation("FGReceiptWarehouse", fields: [receiptWarehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status             String             @default("DRAFT")
+  movementId         String?
+  movement           InventoryMovement? @relation(fields: [movementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  movementNumber     String?
+  sourceType         String             @default("MANUAL")
+  requestId          String?
+  notes              String?
+  receiptDate        DateTime           @default(now())
+  postedAt           DateTime?
+  cancelledAt        DateTime?
+  createdById        String
+  postedById         String?
+  cancelledById      String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  lines ProductionFinishedGoodsReceiptLine[]
+
+  @@unique([companyId, branchId, receiptNumber])
+  @@unique([companyId, branchId, movementId])
+  @@unique([companyId, branchId, requestId])
+  @@index([companyId, branchId, status])
+  @@index([companyId, branchId, productionOrderId])
+  @@index([companyId, branchId, productionRunId, receiptDate])
+  @@index([productionOrderId])
+  @@index([productionRunId])
+  @@index([movementId])
+  @@map("production_finished_goods_receipts")
+}
+
+model ProductionFinishedGoodsReceiptLine {
+  id                            String                         @id @default(cuid())
+  companyId                     String
+  company                       Company                        @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                      String
+  branch                        Branch                         @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  receiptId                     String
+  receipt                       ProductionFinishedGoodsReceipt @relation(fields: [receiptId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId                     String
+  product                       Product                        @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productCodeSnapshot           String
+  productNameSnapshot           String
+  productVersionLabelSnapshot   String?
+  productPackagingLabelSnapshot String?
+  unit                          String
+  quantity                      Decimal                        @db.Decimal(18, 4)
+  warehouseLocationId           String?
+  warehouseLocation             WarehouseLocation?             @relation(fields: [warehouseLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  batchNumber                   String?
+  serialNumber                  String?
+  expiryDate                    DateTime?
+  lineNumber                    Int                            @default(1)
+  notes                         String?
+  createdAt                     DateTime                       @default(now())
+  updatedAt                     DateTime                       @updatedAt
+
+  @@index([receiptId])
+  @@index([productId])
+  @@index([warehouseLocationId])
+  @@index([receiptId, productId])
+  @@map("production_finished_goods_receipt_lines")
+}
+
+model ProductionMaterialRequirement {
+  id                            String                        @id @default(cuid())
+  companyId                     String
+  company                       Company                       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                      String
+  branch                        Branch                        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionOrderId             String
+  productionOrder               ProductionOrder               @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  revision                      Int                           @default(1)
+  status                        String                        @default("DRAFT")
+  sourceType                    String                        @default("MANUAL")
+  productDefinitionCodeSnapshot String?
+  productDefinitionNameSnapshot String?
+  productVersionLabelSnapshot   String?
+  productPackagingLabelSnapshot String?
+  notes                         String?
+  preparedById                  String
+  preparedAt                    DateTime                      @default(now())
+  frozenById                    String?
+  frozenAt                      DateTime?
+  requestId                     String?
+  createdAt                     DateTime                      @default(now())
+  updatedAt                     DateTime                      @updatedAt
+
+  lines              ProductionMaterialRequirementLine[]
+  materialDocuments  ProductionMaterialDocument[]
+  consumptionRecords ProductionMaterialConsumption[]
+
+  @@unique([companyId, branchId, productionOrderId, revision])
+  @@unique([companyId, branchId, requestId])
+  @@index([companyId, branchId, productionOrderId, status])
+  @@index([productionOrderId])
+  @@map("production_material_requirements")
+}
+
+model ProductionMaterialRequirementLine {
+  id                     String                            @id @default(cuid())
+  companyId              String
+  company                Company                           @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId               String
+  branch                 Branch                            @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requirementId          String
+  requirement            ProductionMaterialRequirement     @relation(fields: [requirementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lineNumber             Int
+  productId              String
+  product                Product                           @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productCodeSnapshot    String
+  productNameSnapshot    String
+  componentRole          String                            @default("RAW_MATERIAL")
+  plannedQuantityPerUnit Decimal                           @db.Decimal(18, 4)
+  plannedQuantity        Decimal                           @db.Decimal(18, 4)
+  baseUnit               String
+  issueUnit              String
+  conversionFactor       Decimal                           @db.Decimal(18, 4) @default(1)
+  warehouseId            String?
+  warehouse              Warehouse?                        @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionStage        String?
+  lotControlRequired     Boolean                           @default(false)
+  overIssuePolicy        String                            @default("NOT_ALLOWED")
+  tolerancePercent       Decimal?                          @db.Decimal(7, 4)
+  notes                  String?
+  createdAt              DateTime                          @default(now())
+  updatedAt              DateTime                          @updatedAt
+
+  materialDocumentLines ProductionMaterialDocumentLine[]
+  consumptionRecords    ProductionMaterialConsumption[]
+
+  @@index([requirementId])
+  @@index([productId])
+  @@index([requirementId, productId])
+  @@map("production_material_requirement_lines")
+}
+
+model ProductionMaterialConsumption {
+  id                   String                              @id @default(cuid())
+  companyId            String
+  company              Company                             @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId             String
+  branch               Branch                              @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionOrderId    String
+  productionOrder      ProductionOrder                     @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionRunId      String?
+  productionRun        ProductionRun?                      @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requirementId        String?
+  requirement          ProductionMaterialRequirement?      @relation(fields: [requirementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requirementLineId    String?
+  requirementLine      ProductionMaterialRequirementLine?   @relation(fields: [requirementLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId            String
+  product              Product                             @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productCodeSnapshot  String
+  productNameSnapshot  String
+  unit                 String
+  quantity             Decimal                             @db.Decimal(18, 4)
+  method               String                              @default("EXPLICIT")
+  sourceType           String                              @default("MANUAL")
+  sourceDocumentId     String?
+  sourceDocumentNumber String?
+  sourceDocumentType   String?
+  recordedById         String
+  recordedAt           DateTime                            @default(now())
+  requestId            String
+  notes                String?
+  createdAt            DateTime                            @default(now())
+  updatedAt            DateTime                            @updatedAt
+
+  corrections ProductionMaterialConsumptionCorrection[]
+
+  @@unique([companyId, branchId, requestId])
+  @@index([companyId, branchId, productionOrderId])
+  @@index([companyId, branchId, productionRunId])
+  @@index([requirementLineId])
+  @@map("production_material_consumptions")
+}
+
+model ProductionMaterialConsumptionCorrection {
+  id               String                       @id @default(cuid())
+  companyId        String
+  company          Company                      @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId         String
+  branch           Branch                       @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  consumptionId    String
+  consumption      ProductionMaterialConsumption @relation(fields: [consumptionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  previousQuantity Decimal                      @db.Decimal(18, 4)
+  newQuantity      Decimal                      @db.Decimal(18, 4)
+  reason           String
+  correctedById    String
+  createdAt        DateTime                     @default(now())
+
+  @@index([consumptionId])
+  @@map("production_material_consumption_corrections")
 }

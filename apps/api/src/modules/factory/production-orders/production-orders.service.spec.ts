@@ -36,6 +36,7 @@ describe('ProductionOrdersService', () => {
   let numbering: any;
   let capacityStandards: any;
   let attachments: any;
+  let materialRequirements: any;
   let service: ProductionOrdersService;
 
   beforeEach(() => {
@@ -75,7 +76,8 @@ describe('ProductionOrdersService', () => {
       remove: jest.fn().mockResolvedValue({}),
       getFilePath: jest.fn().mockReturnValue('/tmp/spec.pdf'),
     };
-    service = new ProductionOrdersService(prisma, audit, numbering, capacityStandards, attachments);
+    materialRequirements = { freezeForRelease: jest.fn().mockResolvedValue(null) };
+    service = new ProductionOrdersService(prisma, audit, numbering, capacityStandards, attachments, materialRequirements);
   });
 
   const createDto: any = {
@@ -227,6 +229,7 @@ describe('ProductionOrdersService', () => {
     expect(released.status).toBe('RELEASED');
     expect(prisma.productionOrder.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: 'RELEASED', productionLineId: 'l1', companyId: 'c1', branchId: 'b1' }) }));
     expect(prisma.productionOrderTransition.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ fromStatus: 'PLANNED', toStatus: 'RELEASED', action: 'RELEASE' }) }));
+    expect(materialRequirements.freezeForRelease).toHaveBeenCalledWith('po1', 'u2', ctxA, prisma);
   });
 
   it('rejects release from a non-PLANNED state', async () => {

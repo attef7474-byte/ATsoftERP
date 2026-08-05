@@ -5,6 +5,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         appName: 'أتسوفت لإدارة الموارد',
         loading: 'جارٍ التحميل...',
         saving: 'جارٍ الحفظ...',
+        saved: 'تم الحفظ',
         noData: 'لا توجد بيانات',
         search: 'بحث',
         clearSearch: 'مسح البحث',

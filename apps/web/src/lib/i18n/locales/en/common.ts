@@ -5,6 +5,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         appName: 'ATsoft ERP',
         loading: 'Loading...',
         saving: 'Saving...',
+        saved: 'Saved',
         noData: 'No data available',
         search: 'Search',
         clearSearch: 'Clear search',

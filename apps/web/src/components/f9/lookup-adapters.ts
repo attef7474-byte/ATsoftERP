@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionRun, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionMeasurementPoint } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionRun, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionMeasurementPoint, ProductionMaterialDocument, ProductionFinishedGoodsReceipt } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -591,5 +591,31 @@ export const productionMeasurementPointAdapter: LookupAdapter<ProductionMeasurem
     { key: 'role', header: 'Role' },
     { key: 'line', header: 'Line', render: (p) => p.productionLine?.name || '-' },
     { key: 'unit', header: 'Unit' },
+  ],
+};
+
+export const productionMaterialDocumentAdapter: LookupAdapter<ProductionMaterialDocument> = {
+  endpoint: '/production/material-documents',
+  displayLabel: (d) => `[${d.documentNumber}] ${d.documentType} - ${d.status}`,
+  searchFields: ['documentNumber'],
+  columns: [
+    { key: 'documentNumber', header: 'Document Number' },
+    { key: 'documentType', header: 'Type', render: (d) => d.documentType },
+    { key: 'order', header: 'Order', render: (d) => d.productionOrder?.orderNumber || '-' },
+    { key: 'run', header: 'Run', render: (d) => d.productionRun?.runNumber || '-' },
+    { key: 'status', header: 'Status', render: (d) => d.status },
+  ],
+};
+
+export const productionFinishedGoodsReceiptAdapter: LookupAdapter<ProductionFinishedGoodsReceipt> = {
+  endpoint: '/production/finished-goods-receipts',
+  displayLabel: (r) => `[${r.receiptNumber}] ${r.status}`,
+  searchFields: ['receiptNumber'],
+  columns: [
+    { key: 'receiptNumber', header: 'Receipt Number' },
+    { key: 'order', header: 'Order', render: (r) => r.productionOrder?.orderNumber || '-' },
+    { key: 'run', header: 'Run', render: (r) => r.productionRun?.runNumber || '-' },
+    { key: 'warehouse', header: 'Warehouse', render: (r) => r.receiptWarehouse?.name || '-' },
+    { key: 'status', header: 'Status', render: (r) => r.status },
   ],
 };

@@ -6,6 +6,7 @@ import { AuditService } from '../../audit/audit.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import { AttachmentsService } from '../../documents/attachments/attachments.service';
 import { ProductionCapacityStandardsService } from '../production-capacity-standards/production-capacity-standards.service';
+import { ProductionMaterialRequirementsService } from '../production-material-requirements/production-material-requirements.service';
 import { CAPACITY_OUTPUT_UNITS, CAPACITY_TIME_BASES } from '../production-capacity-standards/production-capacity.constants';
 import { CreateProductionOrderDto } from './dto/create-production-order.dto';
 import { UpdateProductionOrderDto } from './dto/update-production-order.dto';
@@ -44,6 +45,7 @@ export class ProductionOrdersService {
     private readonly numbering: NumberingService,
     private readonly capacityStandards: ProductionCapacityStandardsService,
     private readonly attachments: AttachmentsService,
+    private readonly materialRequirements: ProductionMaterialRequirementsService,
   ) {
     this.model = (prisma as any).productionOrder;
   }
@@ -245,6 +247,7 @@ export class ProductionOrdersService {
       });
       if (count.count !== 1) throw new ConflictException({ messageKey: 'productionOrder.staleVersion' });
       const updated = await this.findOwned(id, ctx, tx, true);
+      await this.materialRequirements.freezeForRelease(id, userId, ctx, tx);
       const evidence = JSON.stringify({ blockers: readiness.blockers, warnings: readiness.warnings, snapshot: this.snapshotEvidence(updated) });
       await this.writeTransition(tx, updated, 'PLANNED', 'RELEASED', 'RELEASE', userId, dto.requestId, undefined, evidence);
       await this.writeAudit(tx, userId, 'RELEASE', updated, ctx, { readiness: { blockers: readiness.blockers, warnings: readiness.warnings }, snapshot: this.snapshotEvidence(updated) });

@@ -3,11 +3,12 @@ import { AuditModule } from '../../../common/audit/audit.module';
 import { NumberingModule } from '../../numbering/numbering.module';
 import { AttachmentsModule } from '../../documents/attachments/attachments.module';
 import { ProductionCapacityStandardsModule } from '../production-capacity-standards/production-capacity-standards.module';
+import { ProductionMaterialRequirementsModule } from '../production-material-requirements/production-material-requirements.module';
 import { ProductionOrdersController } from './production-orders.controller';
 import { ProductionOrdersService } from './production-orders.service';
 
 @Module({
-  imports: [AuditModule, NumberingModule, AttachmentsModule, ProductionCapacityStandardsModule],
+  imports: [AuditModule, NumberingModule, AttachmentsModule, ProductionCapacityStandardsModule, ProductionMaterialRequirementsModule],
   controllers: [ProductionOrdersController],
   providers: [ProductionOrdersService],
   exports: [ProductionOrdersService],

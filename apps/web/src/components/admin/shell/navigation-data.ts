@@ -243,6 +243,13 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'prd-losses-list', labelKey: 'navigation.productionLosses', route: '/admin/production/losses', permission: 'production-loss:read' },
         ],
       },
+      {
+        id: 'prd-materials', labelKey: 'navigation.navSection.productionMaterials', items: [
+          { id: 'prd-material-documents', labelKey: 'navigation.productionMaterialDocuments', route: '/admin/production/material-documents', permission: 'production-material-document:read' },
+          { id: 'prd-material-requirements', labelKey: 'navigation.productionMaterialRequirements', route: '/admin/production/material-requirements', permission: 'production-material-requirement:read' },
+          { id: 'prd-fg-receipts', labelKey: 'navigation.productionFinishedGoodsReceipts', route: '/admin/production/finished-goods-receipts', permission: 'production-finished-goods-receipt:read' },
+        ],
+      },
     ],
   },
 

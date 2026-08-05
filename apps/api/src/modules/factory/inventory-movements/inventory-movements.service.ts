@@ -101,6 +101,10 @@ export class InventoryMovementsService {
               productId: l.productId,
               warehouseLocationId: l.warehouseLocationId,
               quantity: l.quantity,
+              quantityBase: l.quantityBase ?? l.quantity,
+              batchNumber: l.batchNumber,
+              serialNumber: l.serialNumber,
+              expiryDate: l.expiryDate ? new Date(l.expiryDate) : undefined,
               unit: l.unit,
               direction: l.direction,
               notes: l.notes,
@@ -173,39 +177,69 @@ export class InventoryMovementsService {
     if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be posted');
 
     const posted = await this.prisma.$transaction(async (tx) => {
-      for (const line of movement.lines) {
-        const balance = await this.getOrCreateBalance(tx, movement.warehouseId, line.productId, line.warehouseLocationId);
-
-        const delta = line.direction === 'IN' ? line.quantity : -line.quantity;
-        const newQuantity = balance.quantity + delta;
-
-        if (newQuantity < 0) {
-          const product = await tx.product.findUnique({ where: { id: line.productId } });
-          throw new BadRequestException(
-            `Insufficient stock for product ${product?.name || line.productId}. Available: ${balance.quantity}, Requested: ${line.quantity}`,
-          );
-        }
-
-        await tx.inventoryBalance.update({
-          where: { id: balance.id },
-          data: { quantity: newQuantity },
-        });
-      }
-
-      return tx.inventoryMovement.update({
-        where: { id },
-        data: {
-          status: 'POSTED',
-          postedAt: new Date(),
-          postedById: userId,
-        },
-        include: { lines: true },
-      });
+      return this.postMovementWithinTransaction(tx, id, userId, ctx);
     });
 
     await this.audit.log(userId, 'POST', 'InventoryMovement', id,
       { oldStatus: 'DRAFT', newStatus: 'POSTED', warehouseId: movement.warehouseId, lineCount: movement.lines.length });
     return posted;
+  }
+
+  /**
+   * Phase 1.7 — Posts a DRAFT inventory movement and applies its balance effects inside an
+   * existing transaction. Production inventory documents call this inside their own atomic
+   * transaction so that the production source record, its linked InventoryMovement, and the
+   * resulting inventory_balances are committed or rolled back together.
+   *
+   * Writes both the legacy Float `quantity` and the phase 1.7 Decimal shadow `quantityBase`
+   * to keep the balance dual-compatible during the precision migration.
+   */
+  async postMovementWithinTransaction(tx: any, id: string, userId: string, ctx: ActiveOperationalContext) {
+    const movement = await tx.inventoryMovement.findUnique({
+      where: { id },
+      include: { lines: true },
+    });
+    if (!movement || movement.deletedAt || !this.isInContext(movement, ctx)) {
+      throw this.notFound('Inventory movement not found');
+    }
+    if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be posted');
+
+    for (const line of movement.lines) {
+      const balance = await this.getOrCreateBalance(
+        tx,
+        movement.warehouseId,
+        line.productId,
+        line.warehouseLocationId,
+        line.batchNumber,
+        line.serialNumber,
+        line.expiryDate,
+      );
+
+      const delta = line.direction === 'IN' ? line.quantity : -line.quantity;
+      const newQuantity = balance.quantity + delta;
+
+      if (newQuantity < 0) {
+        const product = await tx.product.findUnique({ where: { id: line.productId } });
+        throw new BadRequestException(
+          `Insufficient stock for product ${product?.name || line.productId}. Available: ${balance.quantity}, Requested: ${line.quantity}`,
+        );
+      }
+
+      await tx.inventoryBalance.update({
+        where: { id: balance.id },
+        data: { quantity: newQuantity, quantityBase: newQuantity },
+      });
+    }
+
+    return tx.inventoryMovement.update({
+      where: { id },
+      data: {
+        status: 'POSTED',
+        postedAt: new Date(),
+        postedById: userId,
+      },
+      include: { lines: true },
+    });
   }
 
   async cancel(id: string, userId: string, ctx: ActiveOperationalContext) {
@@ -230,7 +264,19 @@ export class InventoryMovementsService {
     if (!['IN', 'OUT'].includes(dto.direction)) throw new BadRequestException('Direction must be IN or OUT');
 
     const line = await this.prisma.inventoryMovementLine.create({
-      data: { movementId: id, productId: dto.productId, warehouseLocationId: dto.warehouseLocationId, quantity: dto.quantity, unit: dto.unit, direction: dto.direction, notes: dto.notes },
+      data: {
+        movementId: id,
+        productId: dto.productId,
+        warehouseLocationId: dto.warehouseLocationId,
+        quantity: dto.quantity,
+        quantityBase: dto.quantityBase ?? dto.quantity,
+        batchNumber: dto.batchNumber,
+        serialNumber: dto.serialNumber,
+        expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
+        unit: dto.unit,
+        direction: dto.direction,
+        notes: dto.notes,
+      },
       include: { product: { select: { id: true, name: true, code: true } } },
     });
     await this.audit.log(userId, 'ADD_LINE', 'InventoryMovement', id, { lineId: line.id, productId: dto.productId, quantity: dto.quantity });
@@ -274,13 +320,32 @@ export class InventoryMovementsService {
     return { movementId: id, movementNumber: movement.movementNumber, status: movement.status, lineCount: lines.length, totalInQty, totalOutQty };
   }
 
-  private async getOrCreateBalance(tx: any, warehouseId: string, productId: string, locationId: string | null | undefined) {
+  private async getOrCreateBalance(
+    tx: any,
+    warehouseId: string,
+    productId: string,
+    locationId: string | null | undefined,
+    batchNumber?: string | null,
+    serialNumber?: string | null,
+    expiryDate?: Date | null,
+  ) {
     const where: any = { warehouseId, productId };
     if (locationId) where.locationId = locationId; else where.locationId = null;
+    if (batchNumber) where.batchNumber = batchNumber; else where.batchNumber = null;
+    if (serialNumber) where.serialNumber = serialNumber; else where.serialNumber = null;
     let balance = await tx.inventoryBalance.findFirst({ where });
     if (!balance) {
       balance = await tx.inventoryBalance.create({
-        data: { warehouseId, productId, locationId: locationId || null, quantity: 0 },
+        data: {
+          warehouseId,
+          productId,
+          locationId: locationId || null,
+          quantity: 0,
+          quantityBase: 0,
+          batchNumber: batchNumber || null,
+          serialNumber: serialNumber || null,
+          expiryDate: expiryDate || null,
+        },
       });
     }
     return balance;

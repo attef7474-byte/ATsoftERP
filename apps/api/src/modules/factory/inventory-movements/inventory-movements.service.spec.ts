@@ -363,4 +363,62 @@ describe('InventoryMovementsService', () => {
       expect(result).toMatchObject({ movementId: 'm1', totalInQty: 5, totalOutQty: 2, lineCount: 2 });
     });
   });
+
+  describe('postMovementWithinTransaction (Phase 1.7 refactor)', () => {
+    const outLine = { id: 'l1', movementId: 'm1', productId: 'prd1', warehouseLocationId: null, quantity: 5, direction: 'OUT', batchNumber: null, serialNumber: null, expiryDate: null };
+
+    it('rejects a movement outside the active context', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ companyId: 'c2' }));
+      await expect(service.postMovementWithinTransaction(prisma, 'm1', 'u1', ctx)).rejects.toThrow(NotFoundException);
+    });
+
+    it('applies OUT deltas to the balance and writes the Decimal shadow quantityBase', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ lines: [outLine] }));
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', warehouseId: 'w1', productId: 'prd1', quantity: 20 });
+      prisma.inventoryBalance.update.mockResolvedValue({ id: 'bal1', quantity: 15 });
+
+      await service.postMovementWithinTransaction(prisma, 'm1', 'u1', ctx);
+
+      expect(prisma.inventoryBalance.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'bal1' },
+          data: { quantity: 15, quantityBase: 15 },
+        }),
+      );
+      expect(prisma.inventoryMovement.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'POSTED', postedById: 'u1' }),
+        }),
+      );
+    });
+
+    it('creates a balance row when none exists and applies the delta', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ lines: [outLine] }));
+      prisma.inventoryBalance.findFirst.mockResolvedValue(null);
+      prisma.inventoryBalance.create.mockResolvedValue({ id: 'bal1', quantity: 0 });
+
+      await expect(service.postMovementWithinTransaction(prisma, 'm1', 'u1', ctx)).rejects.toThrow(BadRequestException);
+
+      expect(prisma.inventoryBalance.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ warehouseId: 'w1', productId: 'prd1', quantity: 0, quantityBase: 0 }),
+        }),
+      );
+    });
+
+    it('rejects posting when the OUT quantity would drive the balance negative', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ lines: [outLine] }));
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', warehouseId: 'w1', productId: 'prd1', quantity: 3 });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1', name: 'Material' });
+
+      await expect(service.postMovementWithinTransaction(prisma, 'm1', 'u1', ctx)).rejects.toThrow(BadRequestException);
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovement.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects posting a movement that is not DRAFT', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ status: 'POSTED', lines: [outLine] }));
+      await expect(service.postMovementWithinTransaction(prisma, 'm1', 'u1', ctx)).rejects.toThrow(BadRequestException);
+    });
+  });
 });
