@@ -92,6 +92,7 @@ import { ProductionMaterialRequirementsModule } from './modules/factory/producti
 import { ProductionFinishedGoodsReceiptsModule } from './modules/factory/production-finished-goods-receipts/production-finished-goods-receipts.module';
 import { ProductionQualityModule } from './modules/factory/production-quality/production-quality.module';
 import { ProductionCostModule } from './modules/factory/production-cost/production-cost.module';
+import { ProductionAnalyticsModule } from './modules/factory/production-analytics/production-analytics.module';
 
 @Module({
   imports: [
@@ -147,6 +148,7 @@ import { ProductionCostModule } from './modules/factory/production-cost/producti
     ProductionFinishedGoodsReceiptsModule,
     ProductionQualityModule,
     ProductionCostModule,
+    ProductionAnalyticsModule,
   ],
 })
 export class AppModule {}

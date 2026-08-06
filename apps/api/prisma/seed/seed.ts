@@ -16,6 +16,8 @@ import { PRODUCTION_INVENTORY_DOCUMENT_PERMISSIONS } from "./seed-production-inv
 import { seedProductionInventoryDocumentNumbering } from "./seed-production-inventory-document-numbering";
 import { PRODUCTION_QUALITY_COST_PERMISSIONS } from "./seed-production-quality-cost-permission-keys";
 import { seedProductionQualityCostNumbering } from "./seed-production-quality-cost-numbering";
+import { PRODUCTION_ANALYTICS_PERMISSIONS } from "./seed-production-analytics-permission-keys";
+import { seedProductionAnalyticsNumbering } from "./seed-production-analytics-numbering";
 
 const adapter = new PrismaMssql(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
@@ -145,6 +147,7 @@ async function main() {
     ...PRODUCTION_LOSS_PERMISSIONS,
     ...PRODUCTION_INVENTORY_DOCUMENT_PERMISSIONS,
     ...PRODUCTION_QUALITY_COST_PERMISSIONS,
+    ...PRODUCTION_ANALYTICS_PERMISSIONS,
     { key: "numbering:generate", module: "numbering", action: "generate" },
     { key: "messaging:send", module: "messaging", action: "send" },
     { key: "messaging:manage", module: "messaging", action: "manage" },
@@ -291,6 +294,7 @@ async function main() {
   await seedProductionRunNumbering(prisma);
   await seedProductionInventoryDocumentNumbering(prisma);
   await seedProductionQualityCostNumbering(prisma);
+  await seedProductionAnalyticsNumbering(prisma);
 
   console.log("Seed completed successfully.");
   console.log(`  Company:          ${company.code} (${company.id})`);

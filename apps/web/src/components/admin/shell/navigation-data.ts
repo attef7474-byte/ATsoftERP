@@ -264,6 +264,12 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'prd-cost-transactions', labelKey: 'navigation.productionCostTransactions', route: '/admin/production/cost/transactions', permission: 'production-cost-transaction:read' },
         ],
       },
+      {
+        id: 'prd-analytics', labelKey: 'navigation.navSection.productionAnalytics', items: [
+          { id: 'prd-performance-targets', labelKey: 'navigation.productionPerformanceTargets', route: '/admin/production/performance-targets', permission: 'production-performance-target:read' },
+          { id: 'prd-analytics', labelKey: 'navigation.productionAnalytics', route: '/admin/production/analytics', permission: 'production-analytics:read' },
+        ],
+      },
     ],
   },
 

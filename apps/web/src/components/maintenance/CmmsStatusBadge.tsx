@@ -13,6 +13,7 @@ export function CmmsStatusBadge({ status }: { status?: string | null }) {
     PLANNED: 'bg-indigo-100 text-indigo-800',
     IN_PROGRESS: 'bg-yellow-100 text-yellow-800',
     PENDING: 'bg-gray-100 text-gray-800',
+    APPROVED: 'bg-emerald-100 text-emerald-800',
     PARTIALLY_ISSUED: 'bg-orange-100 text-orange-800',
     FULLY_ISSUED: 'bg-green-100 text-green-800',
     COMPLETED: 'bg-green-100 text-green-800',

@@ -1460,3 +1460,403 @@ export interface ProductionCostTransaction {
   reversedAt?: string | null;
   createdAt: string;
 }
+
+export type ProductionPerformanceTargetStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'INACTIVE';
+export type ProductionPerformanceTargetScopeType = 'COMPANY' | 'BRANCH' | 'UNIT' | 'LINE' | 'MACHINE' | 'PRODUCT';
+
+export interface ProductionPerformanceTarget {
+  id: string;
+  code: string;
+  revision: number;
+  supersedesId?: string | null;
+  supersedes?: { id: string; code: string; revision: number } | null;
+  scopeType: ProductionPerformanceTargetScopeType;
+  productionUnitId?: string | null;
+  productionUnit?: { id: string; code: string; name: string } | null;
+  productionLineId?: string | null;
+  productionLine?: { id: string; code: string; name: string } | null;
+  machineId?: string | null;
+  machine?: { id: string; code: string; name: string } | null;
+  productionProductDefinitionId?: string | null;
+  productionProductDefinition?: { id: string; code: string; name: string } | null;
+  availabilityTarget: string;
+  performanceTarget: string;
+  qualityTarget: string;
+  oeeTarget: string;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  approvalNote?: string | null;
+  notes?: string | null;
+  status: ProductionPerformanceTargetStatus;
+  clientRequestId: string;
+  submittedById?: string | null;
+  submittedAt?: string | null;
+  approvedById?: string | null;
+  approvedAt?: string | null;
+  deactivatedById?: string | null;
+  deactivatedAt?: string | null;
+  deactivationReason?: string | null;
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface ProductionPerformanceTargetTransition {
+  id: string;
+  targetId: string;
+  companyId: string;
+  branchId: string;
+  fromStatus: string;
+  toStatus: string;
+  action: string;
+  actorId: string;
+  reason?: string | null;
+  requestId: string;
+  createdAt: string;
+}
+
+export interface ProductionPerformanceTargetHistory {
+  code: string;
+  revisions: ProductionPerformanceTarget[];
+  transitions: ProductionPerformanceTargetTransition[];
+  audits: Array<{
+    id: string;
+    userId: string;
+    action: string;
+    entityId: string;
+    details: unknown;
+    createdAt: string;
+  }>;
+}
+
+export type ProductionAnalyticsFactor = {
+  fraction: string | null;
+  percent: string | null;
+  numerator: string;
+  denominator: string;
+  unit: string;
+  blockers: string[];
+  warnings: string[];
+};
+
+export type ProductionAnalyticsOee = {
+  fraction: string | null;
+  percent: string | null;
+  blockers: string[];
+  warnings: string[];
+};
+
+export type ProductionAnalyticsTargetStatus = 'MEETING' | 'BELOW_TARGET' | 'BLOCKED' | 'NO_TARGET';
+
+export interface ProductionAnalyticsRunSummary {
+  productionRunId: string;
+  runNumber: string;
+  status: string;
+  productionOrderId: string;
+  orderNumber: string;
+  productionUnitCode: string;
+  productionLineCode: string;
+  machineCode: string | null;
+  productCode: string;
+  productName: string;
+  shiftCode: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  metrics: {
+    plannedMinutes: string;
+    unplannedDowntimeMinutes: string;
+    operatingMinutes: string;
+    idealOutput: string;
+    totalOutput: string;
+    goodOutput: string;
+    outputEventCount: number;
+    availability: ProductionAnalyticsFactor;
+    performance: ProductionAnalyticsFactor;
+    quality: ProductionAnalyticsFactor;
+    oee: ProductionAnalyticsOee;
+  };
+  target: {
+    id: string;
+    code: string;
+    revision: number;
+    scopeType: string;
+    availabilityTarget: string;
+    performanceTarget: string;
+    qualityTarget: string;
+    oeeTarget: string;
+  } | null;
+  targetStatus: ProductionAnalyticsTargetStatus;
+}
+
+export interface ProductionAnalyticsRunDetailed extends ProductionAnalyticsRunSummary {
+  plannedDowntimeMinutes: string;
+  wasteTotal: string;
+  reworkTotal: string;
+}
+
+export type ProductionAnalyticsAggregates = {
+  runCount: number;
+  plannedMinutes: string;
+  operatingMinutes: string;
+  totalOutput: string;
+  goodOutput: string;
+  rejectOutput: string;
+  idealOutput: string;
+  availability: ProductionAnalyticsFactor;
+  performance: ProductionAnalyticsFactor;
+  quality: ProductionAnalyticsFactor;
+  oee: ProductionAnalyticsOee;
+};
+
+export interface ProductionAnalyticsWindow {
+  from: string;
+  to: string;
+}
+
+export interface ProductionAnalyticsOeeReport {
+  formulaVersion: string;
+  timezone: string;
+  window: ProductionAnalyticsWindow;
+  aggregates: ProductionAnalyticsAggregates;
+  byProduct: Array<{ key: string; label: string; runCount: number; aggregates: ProductionAnalyticsAggregates }>;
+  runs: ProductionAnalyticsRunSummary[];
+}
+
+export interface ProductionAnalyticsTrendReport {
+  grain: 'DAY' | 'WEEK' | 'MONTH';
+  formulaVersion: string;
+  timezone: string;
+  window: ProductionAnalyticsWindow;
+  bucketCount: number;
+  items: Array<{
+    key: string;
+    from: string;
+    to: string;
+    runCount: number;
+    aggregates: ProductionAnalyticsAggregates;
+  }>;
+}
+
+export interface ProductionAnalyticsLossParetoReport {
+  timezone: string;
+  window: ProductionAnalyticsWindow;
+  totals: {
+    unplannedMinutes: string;
+    plannedMinutes: string;
+    totalMinutes: string;
+    segmentCount: number;
+  };
+  items: Array<{
+    reasonId: string | null;
+    reasonCode: string | null;
+    reasonNameEn: string | null;
+    reasonNameAr: string | null;
+    lossCategory: string | null;
+    plannedDefault: boolean | null;
+    minutes: string;
+    count: number;
+    sharePercent: string;
+  }>;
+}
+
+export interface ProductionAnalyticsBottlenecksReport {
+  timezone: string;
+  window: ProductionAnalyticsWindow;
+  totalUnplannedMinutes: string;
+  items: Array<{
+    machineId: string | null;
+    machineCode: string | null;
+    machineName: string | null;
+    productionLineId: string | null;
+    productionLineCode: string | null;
+    minutes: string;
+    count: number;
+    sharePercent: string;
+  }>;
+}
+
+export interface ProductionAnalyticsCapacityVarianceReport {
+  timezone: string;
+  window: ProductionAnalyticsWindow;
+  aggregates: {
+    totalPlannedQuantity: string;
+    totalActualOutput: string;
+    totalIdealOutput: string;
+    totalVariance: string;
+    utilizationPercent: string;
+  };
+  rows: Array<{
+    productionRunId: string;
+    runNumber: string;
+    status: string;
+    productionOrderId: string;
+    orderNumber: string;
+    productCode: string;
+    productName: string;
+    productionLineCode: string;
+    machineCode: string | null;
+    capacityStandardCode: string;
+    capacityStandardRevision: number;
+    plannedQuantity: string;
+    quantityUnit: string;
+    actualOutput: string;
+    idealOutput: string;
+    variance: string;
+    utilizationPercent: string;
+  }>;
+}
+
+export interface ProductionAnalyticsDrilldownReport {
+  timezone: string;
+  window: ProductionAnalyticsWindow;
+  meta: { page: number; limit: number; total: number; totalPages: number };
+  runs: ProductionAnalyticsRunDetailed[];
+}
+
+export type ProductionAnalyticsOutputTotals = {
+  runCount: number;
+  totalOutput: string;
+  goodOutput: string;
+  rejectOutput: string;
+  waste: string;
+  rework: string;
+  yieldPercent: string;
+};
+
+export interface ProductionAnalyticsOutputReport {
+  timezone: string;
+  window: ProductionAnalyticsWindow;
+  aggregates: ProductionAnalyticsOutputTotals;
+  byProduct: Array<{ key: string; label: string; runCount: number; totals: ProductionAnalyticsOutputTotals }>;
+  byLine: Array<{ key: string; label: string; runCount: number; totals: ProductionAnalyticsOutputTotals }>;
+  byMachine: Array<{ key: string; label: string; runCount: number; totals: ProductionAnalyticsOutputTotals }>;
+}
+
+export interface ProductionAnalyticsDowntimeReport {
+  timezone: string;
+  window: ProductionAnalyticsWindow;
+  aggregates: {
+    segmentCount: number;
+    unplannedDowntimeMinutes: string;
+    plannedDowntimeMinutes: string;
+    totalDowntimeMinutes: string;
+  };
+  byReason: Array<{
+    reasonId: string | null;
+    reasonCode: string | null;
+    reasonNameEn: string | null;
+    reasonNameAr: string | null;
+    lossCategory: string | null;
+    minutes: string;
+    count: number;
+  }>;
+  byShift: Array<{ shiftId: string | null; shiftCode: string | null; minutes: string; count: number }>;
+}
+
+export interface ProductionAnalyticsLossesReport {
+  timezone: string;
+  window: ProductionAnalyticsWindow;
+  aggregates: { totalLossQuantity: string; eventCount: number };
+  byType: Array<{ type: string; quantity: string; count: number }>;
+  byReason: Array<{
+    reasonId: string | null;
+    reasonCode: string | null;
+    reasonNameEn: string | null;
+    reasonNameAr: string | null;
+    lossCategory: string | null;
+    quantity: string;
+    count: number;
+  }>;
+}
+
+export interface ProductionAnalyticsQualityReport {
+  timezone: string;
+  window: ProductionAnalyticsWindow;
+  aggregates: {
+    goodOutput: string;
+    rejectOutput: string;
+    totalOutput: string;
+    qualityFactor: ProductionAnalyticsFactor;
+    firstPassRatePercent: string;
+    inspectionCount: number;
+    passedInspections: number;
+    failedInspections: number;
+    dispositionCount: number;
+  };
+  byAction: Array<{ action: string; quantity: string; count: number }>;
+}
+
+export interface ProductionAnalyticsMaterialsReport {
+  timezone: string;
+  window: ProductionAnalyticsWindow;
+  aggregates: { totalQuantity: string; documentCount: number };
+  byProduct: Array<{
+    productId: string;
+    productCode: string;
+    productName: string;
+    unit: string;
+    quantity: string;
+    count: number;
+  }>;
+}
+
+export interface ProductionAnalyticsCostReport {
+  timezone: string;
+  window: ProductionAnalyticsWindow;
+  currencyCode: string;
+  aggregates: { totalAmount: string; transactionCount: number };
+  byEventType: Array<{ eventType: string; amount: string; count: number }>;
+  byCostCenter: Array<{
+    costCenterId: string | null;
+    costCenterCode: string | null;
+    costCenterName: string | null;
+    amount: string;
+    count: number;
+  }>;
+}
+
+export interface ProductionAnalyticsExportResult {
+  report: string;
+  timezone: string;
+  window: ProductionAnalyticsWindow;
+  generatedAt: string;
+  rowCount: number;
+  csv: string;
+}
+
+export type ProductionAnalyticsReportName =
+  | 'oee'
+  | 'trends'
+  | 'loss-pareto'
+  | 'bottlenecks'
+  | 'capacity-variance'
+  | 'drilldown'
+  | 'output'
+  | 'downtime'
+  | 'losses'
+  | 'quality'
+  | 'materials'
+  | 'cost';
+
+export interface ProductionAnalyticsQuery {
+  dateFrom: string;
+  dateTo: string;
+  productionUnitId?: string;
+  productionLineId?: string;
+  machineId?: string;
+  productionProductDefinitionId?: string;
+  shiftId?: string;
+  productionOrderId?: string;
+  productionRunId?: string;
+  reasonId?: string;
+  grain?: 'DAY' | 'WEEK' | 'MONTH';
+  lossCategory?: 'WASTE' | 'SCRAP' | 'REWORK' | 'OTHER';
+  downtimeOccurrence?: 'PLANNED' | 'UNPLANNED';
+}
+
+export interface ProductionPerformanceTargetListResponse {
+  data: ProductionPerformanceTarget[];
+  meta: { page: number; limit: number; total: number; totalPages: number };
+}

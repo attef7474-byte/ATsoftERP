@@ -273,6 +273,8 @@ model Company {
   costRates OperationalCostRate[]
   standardCostSnapshots OperationalStandardCostSnapshot[]
   costTransactions OperationalCostTransaction[]
+  performanceTargets ProductionPerformanceTarget[]
+  performanceTargetTransitions ProductionPerformanceTargetTransition[]
 
   @@index([status])
   @@index([code])
@@ -351,6 +353,8 @@ model Branch {
   costRates OperationalCostRate[]
   standardCostSnapshots OperationalStandardCostSnapshot[]
   costTransactions OperationalCostTransaction[]
+  performanceTargets ProductionPerformanceTarget[]
+  performanceTargetTransitions ProductionPerformanceTargetTransition[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -484,6 +488,7 @@ model ProductionLine {
   costRates               OperationalCostRate[]
   standardCostSnapshots   OperationalStandardCostSnapshot[]
   costTransactions        OperationalCostTransaction[]
+  performanceTargets      ProductionPerformanceTarget[]
 
   @@index([code])
   @@index([companyId])
@@ -521,6 +526,7 @@ model ProductionUnit {
   productionOrders   ProductionOrder[]
   productionMeasurementPoints ProductionMeasurementPoint[]
   qualityCharacteristics QualityCharacteristic[]
+  performanceTargets ProductionPerformanceTarget[]
 
   @@unique([companyId, branchId, code])
   @@index([companyId])
@@ -563,6 +569,7 @@ model ProductionProductDefinition {
   productionOrders ProductionOrder[]
   qualityPlans         ProductionQualityPlan[]
   standardCostSnapshots OperationalStandardCostSnapshot[]
+  performanceTargets   ProductionPerformanceTarget[]
 
   @@index([code])
   @@index([productId])
@@ -2198,6 +2205,7 @@ model Machine {
   costRates               OperationalCostRate[]
   standardCostSnapshots   OperationalStandardCostSnapshot[]
   costTransactions        OperationalCostTransaction[]
+  performanceTargets      ProductionPerformanceTarget[]
 
   @@index([categoryId])
   @@index([companyId])
@@ -4979,4 +4987,81 @@ model OperationalCostTransaction {
   @@index([outputEventId])
   @@index([reversalOfId])
   @@map("operational_cost_transactions")
+}
+
+// ════ Phase 1.9 OEE and Production Analytics ───────────────────────────────────
+model ProductionPerformanceTarget {
+  id                            String                          @id @default(cuid())
+  companyId                     String
+  company                       Company                         @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                      String
+  branch                        Branch                          @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                          String
+  scopeType                     String
+  productionUnitId              String?
+  productionUnit                ProductionUnit?                 @relation(fields: [productionUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId              String?
+  productionLine                ProductionLine?                 @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId                     String?
+  machine                       Machine?                        @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionProductDefinitionId String?
+  productionProductDefinition   ProductionProductDefinition?    @relation(fields: [productionProductDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  effectiveFrom                 DateTime
+  effectiveTo                   DateTime?
+  availabilityTarget            Decimal                         @db.Decimal(7, 4)
+  performanceTarget             Decimal                         @db.Decimal(7, 4)
+  qualityTarget                 Decimal                         @db.Decimal(7, 4)
+  oeeTarget                     Decimal                         @db.Decimal(7, 4)
+  status                        String                          @default("DRAFT")
+  revision                      Int                             @default(1)
+  supersedesId                  String?
+  supersedes                    ProductionPerformanceTarget?    @relation("PerformanceTargetRevision", fields: [supersedesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  revisions                     ProductionPerformanceTarget[]   @relation("PerformanceTargetRevision")
+  approvalNote                  String?
+  notes                         String?
+  createdById                   String
+  updatedById                   String
+  submittedById                 String?
+  submittedAt                   DateTime?
+  approvedById                  String?
+  approvedAt                    DateTime?
+  deactivatedById               String?
+  deactivatedAt                 DateTime?
+  deactivationReason            String?
+  createdAt                     DateTime                        @default(now())
+  updatedAt                     DateTime                        @updatedAt
+  deletedAt                     DateTime?
+
+  transitions ProductionPerformanceTargetTransition[]
+
+  @@unique([companyId, branchId, code])
+  @@index([companyId, branchId, scopeType, status, effectiveFrom, effectiveTo])
+  @@index([companyId, branchId, productionUnitId])
+  @@index([companyId, branchId, productionLineId])
+  @@index([companyId, branchId, machineId])
+  @@index([companyId, branchId, productionProductDefinitionId])
+  @@index([supersedesId])
+  @@map("production_performance_targets")
+}
+
+model ProductionPerformanceTargetTransition {
+  id         String                          @id @default(cuid())
+  companyId  String
+  company    Company                         @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId   String
+  branch     Branch                          @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  targetId   String
+  target     ProductionPerformanceTarget     @relation(fields: [targetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fromStatus String
+  toStatus   String
+  action     String
+  actorId    String
+  reason     String?
+  requestId  String
+  createdAt  DateTime                        @default(now())
+
+  @@unique([companyId, branchId, targetId, requestId])
+  @@index([companyId, branchId, targetId, createdAt])
+  @@index([companyId, branchId, action, createdAt])
+  @@map("production_performance_target_transitions")
 }
