@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } f
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { InventoryMovementsService } from './inventory-movements.service';
 import { CreateInventoryMovementDto } from './dto/create-inventory-movement.dto';
+import { ReverseInventoryMovementDto } from './dto/reverse-inventory-movement.dto';
 import { UpdateInventoryMovementDto } from './dto/update-inventory-movement.dto';
 import { InventoryMovementQueryDto } from './dto/inventory-movement-query.dto';
 import { CreateInventoryMovementLineDto } from './dto/create-inventory-movement.dto';
@@ -50,6 +51,11 @@ export class InventoryMovementsController {
   @Permissions('inventory-movement:post')
   @ApiOperation({ summary: 'Post inventory movement (tenant-scoped)' })
   post(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.post(id, userId, ctx); }
+
+  @Patch(':id/reverse')
+  @Permissions('inventory-movement:reverse')
+  @ApiOperation({ summary: 'Reverse a POSTED movement by creating a compensating DRAFT movement (tenant-scoped)' })
+  reverse(@Param('id') id: string, @Body() dto: ReverseInventoryMovementDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.reverse(id, dto, userId, ctx); }
 
   @Patch(':id/cancel')
   @Permissions('inventory-movement:cancel')

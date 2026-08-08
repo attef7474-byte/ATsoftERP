@@ -380,6 +380,10 @@ export interface CostCenter {
   name: string;
   description?: string | null;
   type: string;
+  parentId?: string | null;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+  isPrimary?: boolean;
   companyId?: string | null;
   branchId?: string | null;
   administrationId?: string | null;
@@ -387,10 +391,38 @@ export interface CostCenter {
   status: string;
   createdAt: string;
   updatedAt: string;
+  parent?: { id: string; code: string; name: string } | null;
+  children?: { id: string; code: string; name: string; status: string }[];
   company?: { id: string; name: string; code: string };
   branch?: { id: string; name: string; code: string };
   administration?: { id: string; name: string; code: string };
   department?: { id: string; name: string; code: string };
+}
+
+export interface OperationalCostCenterAssignment {
+  id: string;
+  code: string;
+  resourceType: string;
+  costCenterId: string;
+  machineId?: string | null;
+  productionLineId?: string | null;
+  productionUnitId?: string | null;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  priority: number;
+  source?: string | null;
+  reason?: string | null;
+  status: string;
+  companyId?: string | null;
+  branchId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  costCenter?: { id: string; code: string; name: string; status: string; isPrimary?: boolean };
+  machine?: { id: string; code: string; name: string } | null;
+  productionLine?: { id: string; code: string; name: string } | null;
+  productionUnit?: { id: string; code: string; name: string } | null;
+  company?: { id: string; name: string; code: string };
+  branch?: { id: string; name: string; code: string };
 }
 
 export interface MaintenancePersonnel {

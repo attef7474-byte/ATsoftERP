@@ -82,25 +82,35 @@ export class NumberingService {
   }
 
   async generateNumberAtomic(code: string): Promise<string> {
-    return this.prisma.$transaction(async (tx) => {
-      const seq = await tx.numberSequence.findUnique({ where: { code } });
-      if (!seq) throw new NotFoundException({ messageKey: 'numbering.sequenceNotFound', message: 'Number sequence not found' });
-      if (seq.status !== 'ACTIVE') throw new BadRequestException({ messageKey: 'numbering.sequenceInactive', message: 'Number sequence is inactive' });
+    return this.prisma.$transaction((tx) => this.generateNumberAtomicWithClient(code, tx));
+  }
 
-      const nextNumber = await this.computeNextNumber(seq);
-      const generated = this.formatNumber(seq, nextNumber);
+  async generateNumberAtomicWithClient(code: string, client: any): Promise<string> {
+    const seq = await client.numberSequence.findUnique({ where: { code } });
+    if (!seq) throw new NotFoundException({ messageKey: 'numbering.sequenceNotFound' });
+    if (seq.status !== 'ACTIVE') throw new BadRequestException({ messageKey: 'numbering.sequenceInactive' });
 
-      await tx.numberSequence.update({
+    if (seq.resetPolicy === 'NEVER') {
+      const updated = await client.numberSequence.update({
         where: { id: seq.id },
-        data: {
-          currentNumber: nextNumber,
-          lastGeneratedCode: generated,
-          lastResetAt: this.shouldReset(seq) ? new Date() : undefined
-        },
+        data: { currentNumber: { increment: seq.increment || 1 } },
       });
-
+      const generated = this.formatNumber(updated, updated.currentNumber);
+      await client.numberSequence.update({ where: { id: seq.id }, data: { lastGeneratedCode: generated } });
       return generated;
+    }
+
+    const nextNumber = await this.computeNextNumber(seq);
+    const generated = this.formatNumber(seq, nextNumber);
+    await client.numberSequence.update({
+      where: { id: seq.id },
+      data: {
+        currentNumber: nextNumber,
+        lastGeneratedCode: generated,
+        lastResetAt: this.shouldReset(seq) ? new Date() : undefined,
+      },
     });
+    return generated;
   }
 
   private formatNumber(seq: { prefix: string; suffix: string | null; padding: number }, nextNumber: number): string {

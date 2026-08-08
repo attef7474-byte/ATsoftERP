@@ -52,7 +52,11 @@ export type TranslationNamespace =
   | 'physicalCount'
   | 'varianceControl'
   | 'errorDialog'
-  | 'production';
+  | 'production'
+  | 'productionCostTransaction'
+  | 'productionCostCalculation'
+  | 'productionReliability'
+  | 'operationsReports';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

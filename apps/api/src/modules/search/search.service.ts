@@ -155,6 +155,8 @@ export class SearchService {
         return this.inventoryCountDefinition(q, context, filters);
       case EntityType.PRODUCTION_LINE:
         return this.productionLineDefinition(q, context, filters);
+      case EntityType.PRODUCTION_ORDER:
+        return this.productionOrderDefinition(q, context, filters);
       case EntityType.COST_CENTER:
         return this.costCenterDefinition(q, context, filters);
       case EntityType.OPERATION_TYPE:
@@ -164,6 +166,16 @@ export class SearchService {
         return this.machineComponentDefinition(q, context, filters);
       case EntityType.SPARE_PART:
         return this.sparePartDefinition(q, context, filters);
+      case EntityType.PRODUCTION_QUALITY_PLAN:
+        return this.productionQualityPlanDefinition(q, context, filters);
+      case EntityType.PRODUCTION_INSPECTION:
+        return this.productionInspectionDefinition(q, context, filters);
+      case EntityType.PRODUCTION_NCR:
+        return this.productionNcrDefinition(q, context, filters);
+      case EntityType.OPERATIONAL_COST_RATE:
+        return this.operationalCostRateDefinition(q, context, filters);
+      case EntityType.OPERATIONAL_COST_SNAPSHOT:
+        return this.operationalCostSnapshotDefinition(q, context, filters);
       default:
         return null;
     }
@@ -753,6 +765,52 @@ export class SearchService {
     };
   }
 
+  private productionOrderDefinition(
+    q: string,
+    context: ActiveOperationalContext,
+    filters: SearchEntityFilters,
+  ): SearchDefinition {
+    return {
+      delegate: this.delegate((this.prisma as any).productionOrder),
+      where: this.and(
+        { companyId: context.companyId, branchId: context.branchId, deletedAt: null },
+        filters.productionLineId ? { productionLineId: filters.productionLineId } : undefined,
+        this.textSearch(q, ['orderNumber', 'sourceReference']),
+      ),
+      orderBy: { createdAt: 'desc' },
+      query: {
+        include: {
+          productionProductDefinition: { select: { id: true, code: true, name: true } },
+          productionLine: { select: { id: true, code: true, name: true } },
+          machine: { select: { id: true, code: true, name: true } },
+        },
+      },
+      map: (order) => ({
+        id: order.id,
+        entityType: EntityType.PRODUCTION_ORDER,
+        code: order.orderNumber,
+        title: order.orderNumber,
+        subtitle: order.productionProductDefinition?.name || order.orderNumber,
+        description: order.productionLine?.name || '',
+        status: order.status,
+        route: `/admin/production/orders/${order.id}`,
+        metadata: {
+          companyId: order.companyId,
+          branchId: order.branchId,
+          productionProductDefinitionId: order.productionProductDefinitionId,
+          productionProductCode: order.productionProductDefinition?.code,
+          productionProductName: order.productionProductDefinition?.name,
+          productionLineId: order.productionLineId,
+          productionLineName: order.productionLine?.name,
+          machineId: order.machineId,
+          machineName: order.machine?.name,
+          plannedStartAt: order.plannedStartAt,
+          plannedEndAt: order.plannedEndAt,
+        },
+      }),
+    };
+  }
+
   private costCenterDefinition(
     q: string,
     context: ActiveOperationalContext,
@@ -1034,6 +1092,221 @@ export class SearchService {
     };
   }
 
+  private productionQualityPlanDefinition(
+    q: string,
+    context: ActiveOperationalContext,
+    filters: SearchEntityFilters,
+  ): SearchDefinition {
+    return {
+      delegate: this.delegate((this.prisma as any).productionQualityPlan),
+      where: this.and(
+        { companyId: context.companyId, branchId: context.branchId, deletedAt: null },
+        filters.productionLineId ? { productionLineId: filters.productionLineId } : undefined,
+        filters.costCenterId ? { costCenterId: filters.costCenterId } : undefined,
+        this.textSearch(q, ['code']),
+      ),
+      orderBy: { createdAt: 'desc' },
+      query: {
+        include: {
+          productionProductDefinition: { select: { id: true, code: true, name: true } },
+          productionLine: { select: { id: true, code: true, name: true } },
+          machine: { select: { id: true, code: true, name: true } },
+        },
+      },
+      map: (plan) => ({
+        id: plan.id,
+        entityType: EntityType.PRODUCTION_QUALITY_PLAN,
+        code: plan.code,
+        title: plan.code,
+        subtitle: plan.productionProductDefinition?.name || plan.code,
+        description: plan.productionLine?.name || plan.machine?.name || '',
+        status: plan.status,
+        route: `/admin/production/quality/plans/${plan.id}`,
+        metadata: {
+          companyId: plan.companyId,
+          branchId: plan.branchId,
+          revision: plan.revision,
+          productionProductDefinitionId: plan.productionProductDefinitionId,
+          productionProductName: plan.productionProductDefinition?.name,
+          productionLineId: plan.productionLineId,
+          productionLineName: plan.productionLine?.name,
+          machineId: plan.machineId,
+          machineName: plan.machine?.name,
+        },
+      }),
+    };
+  }
+
+  private productionInspectionDefinition(
+    q: string,
+    context: ActiveOperationalContext,
+    filters: SearchEntityFilters,
+  ): SearchDefinition {
+    return {
+      delegate: this.delegate((this.prisma as any).productionInspection),
+      where: this.and(
+        { companyId: context.companyId, branchId: context.branchId },
+        filters.productionLineId ? { productionLineId: filters.productionLineId } : undefined,
+        filters.costCenterId ? { costCenterId: filters.costCenterId } : undefined,
+        this.textSearch(q, ['inspectionNumber']),
+      ),
+      orderBy: { createdAt: 'desc' },
+      query: {
+        include: {
+          plan: { select: { id: true, code: true } },
+          productionOrder: { select: { id: true, orderNumber: true } },
+          productionRun: { select: { id: true, runNumber: true } },
+          product: { select: { id: true, code: true, name: true } },
+        },
+      },
+      map: (inspection) => ({
+        id: inspection.id,
+        entityType: EntityType.PRODUCTION_INSPECTION,
+        code: inspection.inspectionNumber,
+        title: inspection.inspectionNumber,
+        subtitle: inspection.product?.name || inspection.plan?.code || '',
+        description: inspection.productionOrder?.orderNumber || inspection.productionRun?.runNumber || '',
+        status: inspection.status,
+        route: `/admin/production/quality/inspections/${inspection.id}`,
+        metadata: {
+          companyId: inspection.companyId,
+          branchId: inspection.branchId,
+          planId: inspection.planId,
+          planCode: inspection.plan?.code,
+          productionOrderId: inspection.productionOrderId,
+          productionOrderNumber: inspection.productionOrder?.orderNumber,
+          productionRunId: inspection.productionRunId,
+          productionRunNumber: inspection.productionRun?.runNumber,
+          productId: inspection.productId,
+          productName: inspection.product?.name,
+        },
+      }),
+    };
+  }
+
+  private productionNcrDefinition(
+    q: string,
+    context: ActiveOperationalContext,
+    filters: SearchEntityFilters,
+  ): SearchDefinition {
+    return {
+      delegate: this.delegate((this.prisma as any).productionNonconformance),
+      where: this.and(
+        { companyId: context.companyId, branchId: context.branchId, deletedAt: null },
+        this.textSearch(q, ['ncrNumber', 'description', 'rootCause', 'correctiveAction']),
+      ),
+      orderBy: { createdAt: 'desc' },
+      map: (ncr) => ({
+        id: ncr.id,
+        entityType: EntityType.PRODUCTION_NCR,
+        code: ncr.ncrNumber,
+        title: ncr.ncrNumber,
+        subtitle: ncr.severity || '',
+        description: ncr.description || '',
+        status: ncr.status,
+        route: `/admin/production/quality/ncrs/${ncr.id}`,
+        metadata: {
+          companyId: ncr.companyId,
+          branchId: ncr.branchId,
+          severity: ncr.severity,
+          inspectionId: ncr.inspectionId,
+        },
+      }),
+    };
+  }
+
+  private operationalCostRateDefinition(
+    q: string,
+    context: ActiveOperationalContext,
+    filters: SearchEntityFilters,
+  ): SearchDefinition {
+    return {
+      delegate: this.delegate((this.prisma as any).operationalCostRate),
+      where: this.and(
+        { companyId: context.companyId, branchId: context.branchId, deletedAt: null },
+        filters.productionLineId ? { productionLineId: filters.productionLineId } : undefined,
+        filters.costCenterId ? { costCenterId: filters.costCenterId } : undefined,
+        this.textSearch(q, ['code', 'nameAr', 'nameEn']),
+      ),
+      orderBy: { createdAt: 'desc' },
+      query: {
+        include: {
+          productionLine: { select: { id: true, code: true, name: true } },
+          machine: { select: { id: true, code: true, name: true } },
+          costCenter: { select: { id: true, code: true, name: true } },
+        },
+      },
+      map: (rate) => ({
+        id: rate.id,
+        entityType: EntityType.OPERATIONAL_COST_RATE,
+        code: rate.code,
+        title: rate.nameEn || rate.code,
+        subtitle: rate.code,
+        description: rate.costType || '',
+        status: rate.status,
+        route: `/admin/production/cost/rates/${rate.id}`,
+        metadata: {
+          companyId: rate.companyId,
+          branchId: rate.branchId,
+          costType: rate.costType,
+          unit: rate.unit,
+          rate: rate.rate.toString(),
+          productionLineId: rate.productionLineId,
+          productionLineName: rate.productionLine?.name,
+          machineId: rate.machineId,
+          machineName: rate.machine?.name,
+          costCenterId: rate.costCenterId,
+          costCenterName: rate.costCenter?.name,
+        },
+      }),
+    };
+  }
+
+  private operationalCostSnapshotDefinition(
+    q: string,
+    context: ActiveOperationalContext,
+    filters: SearchEntityFilters,
+  ): SearchDefinition {
+    return {
+      delegate: this.delegate((this.prisma as any).operationalStandardCostSnapshot),
+      where: this.and(
+        { companyId: context.companyId, branchId: context.branchId, deletedAt: null },
+        filters.productionLineId ? { productionLineId: filters.productionLineId } : undefined,
+        filters.costCenterId ? { costCenterId: filters.costCenterId } : undefined,
+        this.textSearch(q, ['code']),
+      ),
+      orderBy: { createdAt: 'desc' },
+      query: {
+        include: {
+          productionProductDefinition: { select: { id: true, code: true, name: true } },
+          productionLine: { select: { id: true, code: true, name: true } },
+        },
+      },
+      map: (snapshot) => ({
+        id: snapshot.id,
+        entityType: EntityType.OPERATIONAL_COST_SNAPSHOT,
+        code: `${snapshot.code} (rev ${snapshot.revision})`,
+        title: `${snapshot.code} rev ${snapshot.revision}`,
+        subtitle: snapshot.productionProductDefinition?.name || snapshot.code,
+        description: snapshot.costType || '',
+        status: snapshot.status,
+        route: `/admin/production/cost/snapshots/${snapshot.id}`,
+        metadata: {
+          companyId: snapshot.companyId,
+          branchId: snapshot.branchId,
+          code: snapshot.code,
+          revision: snapshot.revision,
+          costType: snapshot.costType,
+          amount: snapshot.amount.toString(),
+          productionProductDefinitionId: snapshot.productionProductDefinitionId,
+          productionProductName: snapshot.productionProductDefinition?.name,
+          productionLineId: snapshot.productionLineId,
+          productionLineName: snapshot.productionLine?.name,
+        },
+      }),
+    };
+  }
+
   private machineScope(context: ActiveOperationalContext): any {
     return this.and(
       {
@@ -1111,11 +1384,17 @@ export class SearchService {
       [EntityType.MAINTENANCE_REQUEST]: 'maintenance.maintenanceRequests',
       [EntityType.INVENTORY_COUNT]: 'inventoryCounting.counts',
       [EntityType.PRODUCTION_LINE]: 'maintenance.productionLines',
+      [EntityType.PRODUCTION_ORDER]: 'production.orders.title',
       [EntityType.COST_CENTER]: 'maintenance.costCenters',
       [EntityType.OPERATION_TYPE]: 'maintenance.operationTypes',
       [EntityType.MACHINE_COMPONENT]: 'maintenance.machineComponents',
       [EntityType.COMPONENT]: 'maintenance.machineComponents',
       [EntityType.SPARE_PART]: 'maintenance.spareParts',
+      [EntityType.PRODUCTION_QUALITY_PLAN]: 'production.quality.plans.title',
+      [EntityType.PRODUCTION_INSPECTION]: 'production.quality.inspections.title',
+      [EntityType.PRODUCTION_NCR]: 'production.quality.ncrs.title',
+      [EntityType.OPERATIONAL_COST_RATE]: 'production.cost.rates.title',
+      [EntityType.OPERATIONAL_COST_SNAPSHOT]: 'production.cost.snapshots.title',
     };
     return map[entityType] || entityType;
   }

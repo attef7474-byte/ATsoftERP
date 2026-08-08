@@ -111,6 +111,12 @@ export const CMMS_EXTRA_PERMISSIONS: { key: string; module: string; action: stri
   { key: "downtime-log:analysis", module: "downtime-log", action: "analysis" },
   { key: "downtime-log:byMachine", module: "downtime-log", action: "byMachine" },
   { key: "downtime-log:logSummary", module: "downtime-log", action: "logSummary" },
+  // downtime-log controller-enforced keys (aligned with downtime-logs.controller.ts)
+  { key: "downtime-log:start", module: "downtime-log", action: "start" },
+  { key: "downtime-log:end", module: "downtime-log", action: "end" },
+  { key: "downtime-log:current.view", module: "downtime-log", action: "current.view" },
+  { key: "downtime-log:analysis.view", module: "downtime-log", action: "analysis.view" },
+  { key: "downtime-log:byMachine.view", module: "downtime-log", action: "byMachine.view" },
   // machine-component (new module, all actions)
   { key: "machine-component:create", module: "machine-component", action: "create" },
   { key: "machine-component:read", module: "machine-component", action: "read" },

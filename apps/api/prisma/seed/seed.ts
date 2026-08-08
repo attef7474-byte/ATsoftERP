@@ -5,6 +5,22 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaMssql } from "@prisma/adapter-mssql";
 import * as bcrypt from "bcryptjs";
 import { seedProductionShiftsNumbering } from "./seed-production-shifts-numbering";
+import { seedProductionCapacityNumbering } from "./seed-production-capacity-numbering";
+import { PRODUCTION_CAPACITY_PERMISSIONS } from "./seed-production-capacity-permission-keys";
+import { seedProductionOrderNumbering } from "./seed-production-order-numbering";
+import { PRODUCTION_ORDER_PERMISSIONS } from "./seed-production-order-permission-keys";
+import { seedProductionRunNumbering } from "./seed-production-run-numbering";
+import { PRODUCTION_RUN_PERMISSIONS } from "./seed-production-run-permission-keys";
+import { PRODUCTION_LOSS_PERMISSIONS } from "./seed-production-loss-permission-keys";
+import { PRODUCTION_INVENTORY_DOCUMENT_PERMISSIONS } from "./seed-production-inventory-document-permission-keys";
+import { seedProductionInventoryDocumentNumbering } from "./seed-production-inventory-document-numbering";
+import { PRODUCTION_QUALITY_COST_PERMISSIONS } from "./seed-production-quality-cost-permission-keys";
+import { seedProductionQualityCostNumbering } from "./seed-production-quality-cost-numbering";
+import { PRODUCTION_ANALYTICS_PERMISSIONS } from "./seed-production-analytics-permission-keys";
+import { seedProductionAnalyticsNumbering } from "./seed-production-analytics-numbering";
+import { OPERATIONAL_COST_CENTER_PERMISSIONS } from "./seed-operational-cost-center-permission-keys";
+import { OPERATIONAL_RELIABILITY_PERMISSIONS } from "./seed-operational-reliability-permission-keys";
+import { seedDefaultLossReasons } from "./seed-production-loss-reasons";
 
 const adapter = new PrismaMssql(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
@@ -29,8 +45,10 @@ const MODULES = [
 const ACTIONS = ["create", "read", "update", "delete"] as const;
 
 async function main() {
-  const email = process.env.SEED_ADMIN_EMAIL || "admin@atsofterp.com";
-  const rawPassword = process.env.SEED_ADMIN_PASSWORD || "Admin@123456";
+  const email = process.env.SEED_ADMIN_EMAIL;
+  if (!email) {
+    throw new Error("SEED_ADMIN_EMAIL environment variable is required");
+  }
 
   const company = await prisma.company.upsert({
     where: { code: "DEFAULT" },
@@ -78,27 +96,38 @@ async function main() {
     },
   });
 
-  const passwordHash = await bcrypt.hash(rawPassword, 10);
+  const existingUser = await prisma.user.findUnique({ where: { email } });
 
-  await prisma.user.upsert({
-    where: { email },
-    update: {
-      name: "Administrator",
-      passwordHash,
-      companyId: company.id,
-      branchId: branch.id,
-      departmentId: department.id,
-    },
-    create: {
-      email,
-      passwordHash,
-      name: "Administrator",
-      companyId: company.id,
-      branchId: branch.id,
-      departmentId: department.id,
-      status: "ACTIVE",
-    },
-  });
+  if (existingUser) {
+    await prisma.user.update({
+      where: { email },
+      data: {
+        name: "Administrator",
+        companyId: company.id,
+        branchId: branch.id,
+        departmentId: department.id,
+      },
+    });
+  } else {
+    const rawPassword = process.env.SEED_ADMIN_PASSWORD;
+    if (!rawPassword) {
+      throw new Error(
+        "SEED_ADMIN_PASSWORD environment variable is required for fresh installation"
+      );
+    }
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
+    await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        name: "Administrator",
+        companyId: company.id,
+        branchId: branch.id,
+        departmentId: department.id,
+        status: "ACTIVE",
+      },
+    });
+  }
 
   const adminUser = await prisma.user.findUniqueOrThrow({ where: { email } });
 
@@ -128,6 +157,15 @@ async function main() {
   }
 
   const extraPermissions = [
+    ...PRODUCTION_CAPACITY_PERMISSIONS,
+    ...PRODUCTION_ORDER_PERMISSIONS,
+    ...PRODUCTION_RUN_PERMISSIONS,
+    ...PRODUCTION_LOSS_PERMISSIONS,
+    ...PRODUCTION_INVENTORY_DOCUMENT_PERMISSIONS,
+    ...PRODUCTION_QUALITY_COST_PERMISSIONS,
+    ...PRODUCTION_ANALYTICS_PERMISSIONS,
+    ...OPERATIONAL_COST_CENTER_PERMISSIONS,
+    ...OPERATIONAL_RELIABILITY_PERMISSIONS,
     { key: "numbering:generate", module: "numbering", action: "generate" },
     { key: "messaging:send", module: "messaging", action: "send" },
     { key: "messaging:manage", module: "messaging", action: "manage" },
@@ -269,6 +307,13 @@ async function main() {
   }
 
   await seedProductionShiftsNumbering(prisma);
+  await seedProductionCapacityNumbering(prisma);
+  await seedProductionOrderNumbering(prisma);
+  await seedProductionRunNumbering(prisma);
+  await seedProductionInventoryDocumentNumbering(prisma);
+  await seedProductionQualityCostNumbering(prisma);
+  await seedProductionAnalyticsNumbering(prisma);
+  await seedDefaultLossReasons(prisma, company.id, branch.id, adminUser.id);
 
   console.log("Seed completed successfully.");
   console.log(`  Company:          ${company.code} (${company.id})`);

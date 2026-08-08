@@ -81,6 +81,19 @@ import { InventoryPhysicalCountsModule } from './modules/factory/inventory-physi
 import { InventoryLocksModule } from './modules/factory/inventory-locks/inventory-locks.module'
 import { ProductionMasterDataModule } from './modules/factory/production-master-data/production-master-data.module'
 import { ProductionShiftsModule } from './modules/factory/production-shifts/production-shifts.module'
+import { ProductionCapacityStandardsModule } from './modules/factory/production-capacity-standards/production-capacity-standards.module'
+import { ProductionOrdersModule } from './modules/factory/production-orders/production-orders.module'
+import { ProductionRunsModule } from './modules/factory/production-runs/production-runs.module';
+import { ProductionLossReasonsModule } from './modules/factory/production-loss-reasons/production-loss-reasons.module';
+import { ProductionDowntimeModule } from './modules/factory/production-downtime/production-downtime.module';
+import { ProductionLossQuantityEventsModule } from './modules/factory/production-loss-quantity-events/production-loss-quantity-events.module';
+import { ProductionMaterialDocumentsModule } from './modules/factory/production-material-documents/production-material-documents.module';
+import { ProductionMaterialRequirementsModule } from './modules/factory/production-material-requirements/production-material-requirements.module';
+import { ProductionFinishedGoodsReceiptsModule } from './modules/factory/production-finished-goods-receipts/production-finished-goods-receipts.module';
+import { ProductionQualityModule } from './modules/factory/production-quality/production-quality.module';
+import { ProductionCostModule } from './modules/factory/production-cost/production-cost.module';
+import { ProductionAnalyticsModule } from './modules/factory/production-analytics/production-analytics.module';
+import { OperationalReliabilityModule } from './modules/factory/operational-analytics/reliability/operational-reliability.module';
 
 @Module({
   imports: [
@@ -125,6 +138,19 @@ import { ProductionShiftsModule } from './modules/factory/production-shifts/prod
     InventoryLocksModule,
     ProductionMasterDataModule,
     ProductionShiftsModule,
+    ProductionCapacityStandardsModule,
+    ProductionOrdersModule,
+    ProductionRunsModule,
+    ProductionLossReasonsModule,
+    ProductionDowntimeModule,
+    ProductionLossQuantityEventsModule,
+    ProductionMaterialDocumentsModule,
+    ProductionMaterialRequirementsModule,
+    ProductionFinishedGoodsReceiptsModule,
+    ProductionQualityModule,
+    ProductionCostModule,
+    ProductionAnalyticsModule,
+    OperationalReliabilityModule,
   ],
 })
 export class AppModule {}

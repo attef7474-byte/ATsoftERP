@@ -16,7 +16,9 @@ export class AttachmentsService {
   async findAll(page = 1, pageSize = 20, entityType?: string, mimeType?: string) {
     const skip = (page - 1) * pageSize
     const where: any = {}
+    if (entityType === 'ProductionOrder') return { data: [], total: 0, page, pageSize }
     if (entityType) where.entityName = entityType
+    else where.entityName = { not: 'ProductionOrder' }
     if (mimeType) where.mimeType = { startsWith: mimeType }
     const [data, total] = await Promise.all([
       this.prisma.attachment.findMany({ where, skip, take: pageSize, orderBy: { createdAt: 'desc' }, include: { uploadedBy: { select: { id: true, name: true } } } }),
@@ -62,6 +64,7 @@ export class AttachmentsService {
   }
 
   async findByEntity(entityType: string, entityId: string) {
+    if (entityType === 'ProductionOrder') return []
     return this.prisma.attachment.findMany({ where: { entityName: entityType, entityId }, orderBy: { createdAt: 'desc' } })
   }
 

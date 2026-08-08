@@ -216,6 +216,61 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'prd-operational-assignments', labelKey: 'navigation.productionOperationalAssignments', route: '/admin/production/operational-assignments' },
         ],
       },
+      {
+        id: 'prd-standards', labelKey: 'navigation.navSection.productionStandards', items: [
+          { id: 'prd-capacity-standards', labelKey: 'navigation.productionCapacityStandards', route: '/admin/production/capacity-standards' },
+        ],
+      },
+      {
+        id: 'prd-orders', labelKey: 'navigation.navSection.productionOrders', items: [
+          { id: 'prd-orders-list', labelKey: 'navigation.productionOrders', route: '/admin/production/orders', permission: 'production-order:read' },
+        ],
+      },
+      {
+        id: 'prd-execution', labelKey: 'navigation.navSection.productionExecution', items: [
+          { id: 'prd-runs', labelKey: 'navigation.productionRuns', route: '/admin/production/runs', permission: 'production-run:read' },
+        ],
+      },
+      {
+        id: 'prd-points', labelKey: 'navigation.navSection.productionPoints', items: [
+          { id: 'prd-measurement-points', labelKey: 'navigation.productionMeasurementPoints', route: '/admin/production/measurement-points', permission: 'production-measurement-point:read' },
+        ],
+      },
+      {
+        id: 'prd-losses', labelKey: 'navigation.navSection.productionLosses', items: [
+          { id: 'prd-loss-reasons', labelKey: 'navigation.productionLossReasons', route: '/admin/production/loss-reasons', permission: 'production-loss-reason:read' },
+          { id: 'prd-downtime', labelKey: 'navigation.productionDowntime', route: '/admin/production/downtime', permission: 'production-downtime:read' },
+          { id: 'prd-losses-list', labelKey: 'navigation.productionLosses', route: '/admin/production/losses', permission: 'production-loss:read' },
+        ],
+      },
+      {
+        id: 'prd-materials', labelKey: 'navigation.navSection.productionMaterials', items: [
+          { id: 'prd-material-documents', labelKey: 'navigation.productionMaterialDocuments', route: '/admin/production/material-documents', permission: 'production-material-document:read' },
+          { id: 'prd-material-requirements', labelKey: 'navigation.productionMaterialRequirements', route: '/admin/production/material-requirements', permission: 'production-material-requirement:read' },
+          { id: 'prd-fg-receipts', labelKey: 'navigation.productionFinishedGoodsReceipts', route: '/admin/production/finished-goods-receipts', permission: 'production-finished-goods-receipt:read' },
+        ],
+      },
+      {
+        id: 'prd-quality', labelKey: 'navigation.navSection.productionQuality', items: [
+          { id: 'prd-quality-plans', labelKey: 'navigation.productionQualityPlans', route: '/admin/production/quality/plans', permission: 'production-quality-plan:read' },
+          { id: 'prd-inspections', labelKey: 'navigation.productionInspections', route: '/admin/production/quality/inspections', permission: 'production-inspection:read' },
+          { id: 'prd-ncrs', labelKey: 'navigation.productionNcrs', route: '/admin/production/quality/ncrs', permission: 'production-ncr:read' },
+        ],
+      },
+      {
+        id: 'prd-cost', labelKey: 'navigation.navSection.productionCost', items: [
+          { id: 'prd-cost-rates', labelKey: 'navigation.productionCostRates', route: '/admin/production/cost/rates', permission: 'production-cost-rate:read' },
+          { id: 'prd-cost-snapshots', labelKey: 'navigation.productionCostSnapshots', route: '/admin/production/cost/snapshots', permission: 'production-cost-snapshot:read' },
+          { id: 'prd-cost-transactions', labelKey: 'navigation.productionCostTransactions', route: '/admin/production/cost/transactions', permission: 'production-cost-transaction:read' },
+        ],
+      },
+      {
+        id: 'prd-analytics', labelKey: 'navigation.navSection.productionAnalytics', items: [
+          { id: 'prd-performance-targets', labelKey: 'navigation.productionPerformanceTargets', route: '/admin/production/performance-targets', permission: 'production-performance-target:read' },
+          { id: 'prd-analytics', labelKey: 'navigation.productionAnalytics', route: '/admin/production/analytics', permission: 'production-analytics:read' },
+          { id: 'prd-reliability', labelKey: 'navigation.productionReliability', route: '/admin/production/reliability', permission: 'operational-reliability:read' },
+        ],
+      },
     ],
   },
 
@@ -250,6 +305,7 @@ export const sidebarGroups: SidebarGroup[] = [
       {
         id: 'rpt-main', labelKey: 'navigation.navSection.reportsMain', items: [
           { id: 'rpt-index', labelKey: 'navigation.reportsHome', route: '/admin/reports' },
+          { id: 'rpt-operations', labelKey: 'navigation.operationsReport', route: '/admin/reports/operations', permission: 'reports.operations:read' },
         ],
       },
       {

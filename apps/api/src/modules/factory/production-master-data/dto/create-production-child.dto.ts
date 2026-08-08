@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber, IsInt } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber, IsInt, IsDecimal } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -35,13 +35,13 @@ export class CreatePackagingDto {
   @ApiProperty({ description: 'BAG | BOX | CARTON | PALLET | DRUM | TANK | OTHER' })
   @IsString() @IsNotEmpty() packagingType: string;
 
-  @ApiProperty() @Type(() => Number) @IsNumber() packQuantity: number;
+  @ApiProperty({ type: String, example: '10.0000' }) @IsDecimal({ decimal_digits: '0,4', force_decimal: false }) packQuantity: string;
 
   @ApiPropertyOptional() @IsOptional() @IsString() unitId?: string;
 
-  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() grossWeight?: number;
+  @ApiPropertyOptional({ type: String, example: '10.5000' }) @IsOptional() @IsDecimal({ decimal_digits: '0,4', force_decimal: false }) grossWeight?: string;
 
-  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() netWeight?: number;
+  @ApiPropertyOptional({ type: String, example: '10.0000' }) @IsOptional() @IsDecimal({ decimal_digits: '0,4', force_decimal: false }) netWeight?: string;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional() @IsBoolean() isDefault?: boolean;

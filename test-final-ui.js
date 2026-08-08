@@ -15,6 +15,7 @@ const results = { pass: 0, fail: 0, details: [] };
 const screenshotNames = [];
 let token = null;
 let userId = null;
+let defaultContext = null;
 
 async function screenshot(page, name) {
   const filePath = path.join(SCREENSHOT_DIR, `${name}.png`);
@@ -40,22 +41,28 @@ async function navigateAdmin(page, url) {
   await page.goto(WEB_URL + url, { waitUntil: 'networkidle0', timeout: 60000 }).catch(() => {});
   await delay(3000);
 
-  const text = await page.evaluate(() => document.body.innerText.substring(0, 100));
-  
-  if ((text.includes('Sign In') || text.includes('Welcome back')) && token) {
-    // On login page - set token and retry
-    await page.evaluate((t) => { localStorage.setItem('accessToken', t); }, token);
+  if (token) {
+    await page.evaluate((t, uid, ctx) => { 
+      localStorage.setItem('accessToken', t); 
+      if (uid && ctx) {
+        const storageKey = `atsoft.erp.operational-context.user.${encodeURIComponent(uid)}`;
+        const stored = { 
+          version: 1, 
+          userId: uid, 
+          context: {
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+            administrationId: ctx.administrationId,
+            departmentId: ctx.departmentId
+          } 
+        };
+        localStorage.setItem(storageKey, JSON.stringify(stored));
+        localStorage.setItem('atsoft.erp.operational-context.current-user', uid);
+      }
+    }, token, userId, defaultContext);
     await delay(500);
     await page.goto(WEB_URL + url, { waitUntil: 'networkidle0', timeout: 60000 }).catch(() => {});
     await delay(3000);
-
-    const text2 = await page.evaluate(() => document.body.innerText.substring(0, 100));
-    if (text2.includes('Sign In') || text2.includes('Welcome back')) {
-      // Token was cleared again (beforeunload) - manual navigate via fetch + reload
-      await page.evaluate((t) => { localStorage.setItem('accessToken', t); }, token);
-      await page.goto(WEB_URL + '/admin/dashboard', { waitUntil: 'networkidle0', timeout: 60000 }).catch(() => {});
-      await delay(3000);
-    }
   }
 
   // Ensure token is set
@@ -109,6 +116,35 @@ async function navigateAdmin(page, url) {
     userId = userInfo.id || userInfo.sub || '';
     console.log(`  User ID: ${userId}, Email: ${userInfo.email}`);
 
+    // Get allowed contexts
+    const contextsResult = await page.evaluate(async (apiUrl, t) => {
+      const res = await fetch(apiUrl + '/api/v1/auth/contexts', {
+        headers: { 'Authorization': `Bearer ${t}` }
+      });
+      return await res.json();
+    }, API_URL, token);
+
+    defaultContext = contextsResult.defaultContext || (contextsResult.contexts && contextsResult.contexts[0]);
+    if (defaultContext) {
+      console.log(`  Setting Operational Context: ${defaultContext.companyId} / ${defaultContext.branchId}`);
+      await page.goto(WEB_URL, { waitUntil: 'networkidle0' }).catch(() => {});
+      await page.evaluate((uid, ctx) => {
+        const storageKey = `atsoft.erp.operational-context.user.${encodeURIComponent(uid)}`;
+        const stored = {
+          version: 1,
+          userId: uid,
+          context: {
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+            administrationId: ctx.administrationId,
+            departmentId: ctx.departmentId
+          }
+        };
+        localStorage.setItem(storageKey, JSON.stringify(stored));
+        localStorage.setItem('atsoft.erp.operational-context.current-user', uid);
+      }, userId, defaultContext);
+    }
+
     // Navigate to dashboard
     let content = await navigateAdmin(page, '/admin/dashboard');
     await result('Login: Dashboard reachable',
@@ -126,15 +162,20 @@ async function navigateAdmin(page, url) {
     console.log(`  Appearance page loaded: ${content.includes('Appearance')}`);
 
     // Trigger invalid PATCH via direct API call
-    const errorResp = await page.evaluate(async (apiUrl, t) => {
+    const errorResp = await page.evaluate(async (apiUrl, t, ctx) => {
       const res = await fetch(apiUrl + '/api/v1/settings/appearance', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${t}` },
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${t}`,
+          'x-active-company-id': ctx.companyId,
+          'x-active-branch-id': ctx.branchId
+        },
         body: JSON.stringify({ totallyInvalidField: 'should fail' })
       });
       const data = await res.json();
       return { status: res.status, body: JSON.stringify(data) };
-    }, API_URL, token);
+    }, API_URL, token, defaultContext);
 
     await result('Error Modal: Invalid payload rejected', errorResp.status === 400 ? 'PASS' : 'FAIL');
     const b = errorResp.body.toLowerCase();

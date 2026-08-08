@@ -8,7 +8,8 @@ const NAMESPACE_FILES = [
   'common.ts', 'navigation.ts', 'grid.ts', 'core.ts', 'access.ts',
   'settings.ts', 'inventory.ts', 'maintenance.ts', 'barcodes.ts',
   'reports.ts', 'validation.ts', 'system.ts', 'error-dialog.ts', 'workspace.ts',
-  'production.ts',
+  'production.ts', 'production-cost-transaction.ts', 'production-cost-calculation.ts',
+  'production-reliability.ts', 'operations-reports.ts',
 ];
 
 const INDEX_FILES = ['index.ts', 'index.ts'];
@@ -111,14 +112,14 @@ const missingNamespaceRegistrationEn = EN_NAMESPACE_FILE_NAMES.filter((f) => !en
 if (missingNamespaceRegistrationEn.length > 0) {
   fail(`Namespaces not registered in en/index.ts: ${missingNamespaceRegistrationEn.join(', ')}`);
 } else {
-  passes.push('All 14 namespace files registered in en/index.ts.');
+  passes.push(`All ${NAMESPACE_FILES.length} namespace files registered in en/index.ts.`);
 }
 
 const missingNamespaceRegistrationAr = EN_NAMESPACE_FILE_NAMES.filter((f) => !arRegistered.has(f));
 if (missingNamespaceRegistrationAr.length > 0) {
   fail(`Namespaces not registered in ar/index.ts: ${missingNamespaceRegistrationAr.join(', ')}`);
 } else {
-  passes.push('All 14 namespace files registered in ar/index.ts.');
+  passes.push(`All ${NAMESPACE_FILES.length} namespace files registered in ar/index.ts.`);
 }
 
 if (enResult.emptyValues.length > 0) {
@@ -159,7 +160,8 @@ const REGISTERED_NAMESPACE_PREFIXES = new Set([
   'maintenanceDashboard', 'preventiveMaintenance', 'downtimeAnalysis',
   'sparePartRequest', 'search', 'messaging', 'grid', 'inventoryLedger',
   'inventoryReconciliation', 'physicalCount', 'varianceControl', 'errorDialog',
-  'production',
+  'production', 'productionCostTransaction', 'productionCostCalculation',
+  'productionReliability', 'operationsReports',
 ]);
 
 function collectFiles(dir) {

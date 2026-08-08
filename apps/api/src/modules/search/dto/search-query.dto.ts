@@ -16,11 +16,17 @@ export enum EntityType {
   MAINTENANCE_REQUEST = 'maintenanceRequest',
   INVENTORY_COUNT = 'inventoryCount',
   PRODUCTION_LINE = 'productionLine',
+  PRODUCTION_ORDER = 'productionOrder',
   COST_CENTER = 'costCenter',
   OPERATION_TYPE = 'operationType',
   MACHINE_COMPONENT = 'machineComponent',
   COMPONENT = 'component',
   SPARE_PART = 'sparePart',
+  PRODUCTION_QUALITY_PLAN = 'productionQualityPlan',
+  PRODUCTION_INSPECTION = 'productionInspection',
+  PRODUCTION_NCR = 'productionNcr',
+  OPERATIONAL_COST_RATE = 'operationalCostRate',
+  OPERATIONAL_COST_SNAPSHOT = 'operationalCostSnapshot',
 }
 
 export const SEARCHABLE_ENTITY_TYPES: EntityType[] = [
@@ -37,10 +43,16 @@ export const SEARCHABLE_ENTITY_TYPES: EntityType[] = [
   EntityType.MAINTENANCE_REQUEST,
   EntityType.INVENTORY_COUNT,
   EntityType.PRODUCTION_LINE,
+  EntityType.PRODUCTION_ORDER,
   EntityType.COST_CENTER,
   EntityType.OPERATION_TYPE,
   EntityType.MACHINE_COMPONENT,
   EntityType.SPARE_PART,
+  EntityType.PRODUCTION_QUALITY_PLAN,
+  EntityType.PRODUCTION_INSPECTION,
+  EntityType.PRODUCTION_NCR,
+  EntityType.OPERATIONAL_COST_RATE,
+  EntityType.OPERATIONAL_COST_SNAPSHOT,
 ];
 
 export class SearchEntityFilters {

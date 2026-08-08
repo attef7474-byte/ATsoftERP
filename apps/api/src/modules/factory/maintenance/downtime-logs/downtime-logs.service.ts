@@ -5,6 +5,8 @@ import { CreateDowntimeLogDto } from './dto/create-downtime-log.dto';
 import { UpdateDowntimeLogDto } from './dto/update-downtime-log.dto';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
+const MAX_RELIABILITY_SUMMARY_EVENTS = 2000;
+
 @Injectable()
 export class DowntimeLogsService {
   constructor(
@@ -469,7 +471,7 @@ export class DowntimeLogsService {
       resolved.dateFrom = from.toISOString();
       resolved.dateTo = new Date().toISOString();
     }
-    const where: any = { endTime: { not: null }, cancelledAt: null, durationMinutes: { not: null }, machine: this.machineScope(ctx) };
+    const where: any = { endTime: { not: null }, cancelledAt: null, corrections: { none: {} }, durationMinutes: { not: null }, machine: this.machineScope(ctx) };
     if (resolved.machineId) {
       const machine = await this.prisma.machine.findUnique({ where: { id: resolved.machineId } });
       if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
@@ -504,7 +506,7 @@ export class DowntimeLogsService {
   }
 
   async getMtbf(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
-    const where: any = { cancelledAt: null, machine: this.machineScope(ctx) };
+    const where: any = { cancelledAt: null, corrections: { none: {} }, machine: this.machineScope(ctx) };
     if (query.machineId) {
       const machine = await this.prisma.machine.findUnique({ where: { id: query.machineId } });
       if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
@@ -540,7 +542,7 @@ export class DowntimeLogsService {
   }
 
   async getTotalDowntime(query: { machineId?: string; productionLineId?: string; dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
-    const where: any = { cancelledAt: null, machine: this.machineScope(ctx) };
+    const where: any = { cancelledAt: null, corrections: { none: {} }, machine: this.machineScope(ctx) };
     if (query.machineId) {
       const machine = await this.prisma.machine.findUnique({ where: { id: query.machineId } });
       if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
@@ -571,7 +573,7 @@ export class DowntimeLogsService {
   }
 
   async getDowntimeByMachine(query: { dateFrom?: string; dateTo?: string; limit?: number }, ctx: ActiveOperationalContext) {
-    const where: any = { cancelledAt: null, machine: this.machineScope(ctx) };
+    const where: any = { cancelledAt: null, corrections: { none: {} }, machine: this.machineScope(ctx) };
     if (query.dateFrom || query.dateTo) {
       where.startTime = {};
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
@@ -599,31 +601,39 @@ export class DowntimeLogsService {
   }
 
   async getDowntimeByProductionLine(query: { dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
-    const where: any = { cancelledAt: null, machine: this.machineScope(ctx) };
+    const where: any = { cancelledAt: null, corrections: { none: {} }, machine: this.machineScope(ctx) };
     if (query.dateFrom || query.dateTo) {
       where.startTime = {};
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
       if (query.dateTo) where.startTime.lte = new Date(query.dateTo);
     }
-    const allLogs = await this.prisma.downtimeLog.findMany({
+    // Aggregate once per machine in SQL Server, then roll the bounded machine
+    // cardinality up to its production line in memory. Never materialize all facts.
+    const grouped = await this.prisma.downtimeLog.groupBy({
+      by: ['machineId'],
       where,
-      select: {
-        id: true,
-        machineId: true,
-        durationMinutes: true,
-        machine: { select: { productionLineId: true } },
-      },
+      _sum: { durationMinutes: true },
+      _count: true,
     });
+    const machines = await this.prisma.machine.findMany({
+      where: { id: { in: grouped.map((row) => row.machineId) }, ...this.machineScope(ctx) },
+      select: { id: true, productionLineId: true },
+    });
+    const machineMap = new Map(machines.map((machine) => [machine.id, machine]));
     const lineMap = new Map();
-    for (const log of allLogs) {
-      const lineId = log.machine?.productionLineId || 'UNKNOWN';
+    for (const row of grouped) {
+      const lineId = machineMap.get(row.machineId)?.productionLineId || 'UNKNOWN';
       const entry = lineMap.get(lineId) || { totalMinutes: 0, count: 0 };
-      entry.totalMinutes += log.durationMinutes || 0;
-      entry.count += 1;
+      entry.totalMinutes += row._sum.durationMinutes || 0;
+      entry.count += row._count;
       lineMap.set(lineId, entry);
     }
     const productionLines = await this.prisma.productionLine.findMany({
-      where: { id: { in: Array.from(lineMap.keys()).filter(k => k !== 'UNKNOWN') } },
+      where: {
+        id: { in: Array.from(lineMap.keys()).filter(k => k !== 'UNKNOWN') },
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+      },
       select: { id: true, code: true, name: true },
     });
     const lineMap2 = new Map(productionLines.map(l => [l.id, l]));
@@ -638,7 +648,7 @@ export class DowntimeLogsService {
   }
 
   async getDowntimeByCause(query: { dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
-    const where: any = { cancelledAt: null, failureCause: { not: null }, machine: this.machineScope(ctx) };
+    const where: any = { cancelledAt: null, corrections: { none: {} }, failureCause: { not: null }, machine: this.machineScope(ctx) };
     if (query.dateFrom || query.dateTo) {
       where.startTime = {};
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
@@ -661,7 +671,7 @@ export class DowntimeLogsService {
   }
 
   async getRepeatFailures(query: { dateFrom?: string; dateTo?: string; limit?: number }, ctx: ActiveOperationalContext) {
-    const where: any = { isRepeatFailure: true, cancelledAt: null, machine: this.machineScope(ctx) };
+    const where: any = { isRepeatFailure: true, cancelledAt: null, corrections: { none: {} }, machine: this.machineScope(ctx) };
     if (query.dateFrom || query.dateTo) {
       where.startTime = {};
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
@@ -683,15 +693,20 @@ export class DowntimeLogsService {
   }
 
   async getEmergencyResponseTime(query: { dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
-    const where: any = { detectedAt: { not: null }, responseStartedAt: { not: null }, cancelledAt: null, machine: this.machineScope(ctx) };
+    const where: any = { detectedAt: { not: null }, responseStartedAt: { not: null }, cancelledAt: null, corrections: { none: {} }, machine: this.machineScope(ctx) };
     if (query.dateFrom || query.dateTo) {
       where.startTime = {};
       if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
       if (query.dateTo) where.startTime.lte = new Date(query.dateTo);
     }
+    const total = await this.prisma.downtimeLog.count({ where });
+    if (total > MAX_RELIABILITY_SUMMARY_EVENTS) {
+      throw this.badRequest('analytics.resultTooLarge', `The report matches more than ${MAX_RELIABILITY_SUMMARY_EVENTS} response events; narrow the filters`);
+    }
     const logs = await this.prisma.downtimeLog.findMany({
       where,
       select: { detectedAt: true, responseStartedAt: true, startTime: true },
+      take: MAX_RELIABILITY_SUMMARY_EVENTS,
     });
     if (logs.length === 0) {
       return { avgResponseTimeMinutes: 0, avgResponseTimeHours: 0, totalEvents: 0 };
@@ -719,5 +734,60 @@ export class DowntimeLogsService {
 
   async getTopCauses(query: { dateFrom?: string; dateTo?: string }, ctx: ActiveOperationalContext) {
     return this.getDowntimeByCause(query, ctx);
+  }
+
+  /**
+   * Paged effective reliability events for the 2C drilldown. Returns live events only:
+   * cancelled excluded, superseded/corrected originals excluded, corrected replacements
+   * counted once (correction-chain normalization). Includes linked production segment
+   * detail so the facade can expose the D-2C-1 single-event link without double counting.
+   */
+  async getReliabilityDrilldown(query: { page?: number; limit?: number; dateFrom?: string; dateTo?: string; machineId?: string; productionLineId?: string }, ctx: ActiveOperationalContext) {
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const where: any = { cancelledAt: null, corrections: { none: {} }, machine: this.machineScope(ctx) };
+    if (query.machineId) {
+      const machine = await this.prisma.machine.findUnique({ where: { id: query.machineId } });
+      if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+      where.machineId = query.machineId;
+    }
+    if (query.productionLineId) {
+      const machines = await this.prisma.machine.findMany({
+        where: { productionLineId: query.productionLineId, ...this.machineScope(ctx) },
+        select: { id: true },
+      });
+      where.machineId = { in: machines.map(m => m.id) };
+    }
+    if (query.dateFrom || query.dateTo) {
+      where.startTime = {};
+      if (query.dateFrom) where.startTime.gte = new Date(query.dateFrom);
+      if (query.dateTo) where.startTime.lte = new Date(query.dateTo);
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.downtimeLog.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { startTime: 'desc' },
+        include: {
+          machine: { select: { id: true, code: true, name: true, productionLineId: true } },
+          request: { select: { id: true, requestNumber: true, title: true } },
+          segments: {
+            select: { id: true, planned: true, startedAt: true, endedAt: true, durationMinutes: true, productionRunId: true, status: true },
+          },
+        },
+      }),
+      this.prisma.downtimeLog.count({ where }),
+    ]);
+
+    return {
+      data: data.map((log: any) => ({
+        ...log,
+        status: log.cancelledAt ? 'CANCELLED' : log.endTime ? 'CLOSED' : 'ACTIVE',
+        durationHours: log.durationMinutes ? log.durationMinutes / 60 : null,
+      })),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 }

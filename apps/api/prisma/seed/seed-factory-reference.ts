@@ -40,11 +40,22 @@ async function main() {
     created++;
   }
 
+  // Cost centers are company-scoped (Phase 2 Batch 2A: companyId required,
+  // unique per company + code). Scope to the DEFAULT/oldest ACTIVE company.
+  const costCenterCompany = await prisma.company.findFirst({
+    where: { status: "ACTIVE" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  if (!costCenterCompany) {
+    throw new Error("Cannot seed cost centers: no ACTIVE company found");
+  }
+
   for (const cc of COST_CENTERS) {
     await prisma.costCenter.upsert({
-      where: { code: cc.code },
+      where: { companyId_code: { companyId: costCenterCompany.id, code: cc.code } },
       update: {},
-      create: { code: cc.code, name: cc.name, type: cc.type, status: "ACTIVE" },
+      create: { code: cc.code, name: cc.name, type: cc.type, status: "ACTIVE", companyId: costCenterCompany.id },
     });
     created++;
   }
