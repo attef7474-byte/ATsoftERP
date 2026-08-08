@@ -45,8 +45,10 @@ const MODULES = [
 const ACTIONS = ["create", "read", "update", "delete"] as const;
 
 async function main() {
-  const email = process.env.SEED_ADMIN_EMAIL || "admin@atsofterp.com";
-  const rawPassword = process.env.SEED_ADMIN_PASSWORD || "Admin@123456";
+  const email = process.env.SEED_ADMIN_EMAIL;
+  if (!email) {
+    throw new Error("SEED_ADMIN_EMAIL environment variable is required");
+  }
 
   const company = await prisma.company.upsert({
     where: { code: "DEFAULT" },
@@ -94,27 +96,38 @@ async function main() {
     },
   });
 
-  const passwordHash = await bcrypt.hash(rawPassword, 10);
+  const existingUser = await prisma.user.findUnique({ where: { email } });
 
-  await prisma.user.upsert({
-    where: { email },
-    update: {
-      name: "Administrator",
-      passwordHash,
-      companyId: company.id,
-      branchId: branch.id,
-      departmentId: department.id,
-    },
-    create: {
-      email,
-      passwordHash,
-      name: "Administrator",
-      companyId: company.id,
-      branchId: branch.id,
-      departmentId: department.id,
-      status: "ACTIVE",
-    },
-  });
+  if (existingUser) {
+    await prisma.user.update({
+      where: { email },
+      data: {
+        name: "Administrator",
+        companyId: company.id,
+        branchId: branch.id,
+        departmentId: department.id,
+      },
+    });
+  } else {
+    const rawPassword = process.env.SEED_ADMIN_PASSWORD;
+    if (!rawPassword) {
+      throw new Error(
+        "SEED_ADMIN_PASSWORD environment variable is required for fresh installation"
+      );
+    }
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
+    await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        name: "Administrator",
+        companyId: company.id,
+        branchId: branch.id,
+        departmentId: department.id,
+        status: "ACTIVE",
+      },
+    });
+  }
 
   const adminUser = await prisma.user.findUniqueOrThrow({ where: { email } });
 
