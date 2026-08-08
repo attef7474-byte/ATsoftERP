@@ -540,6 +540,10 @@ describe('ProductionMaterialRequirementsService', () => {
     it('creates an audited correction and updates the consumption quantity', async () => {
       const { prisma, service } = makeService();
       prisma.productionMaterialConsumption.findFirst.mockResolvedValue(consumptionRecord());
+      prisma.productionMaterialConsumption.findMany.mockResolvedValue([]);
+      prisma.productionMaterialDocument.findMany.mockResolvedValue([
+        { id: 'doc1', documentType: 'ISSUE', lines: [{ productId: 'prod1', quantity: 100, substitutedProductId: null }] },
+      ]);
       prisma.productionMaterialConsumptionCorrection.create.mockResolvedValue({ id: 'corr1' });
       prisma.productionMaterialConsumption.update.mockResolvedValue(consumptionRecord({ quantity: 40 }));
 
@@ -551,6 +555,46 @@ describe('ProductionMaterialRequirementsService', () => {
       expect(correctionData.newQuantity.toString()).toBe('40');
       expect(correctionData.reason).toBe('Weighing error');
       expect(correctionData.correctedById).toBe('u1');
+    });
+
+    it('rejects a correction that would push the effective consumption beyond the net issued quantity', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialConsumption.findFirst.mockResolvedValue(consumptionRecord({ quantity: 10 }));
+      // Another consumption record on the same line already consumes 90 (net issued is 100).
+      prisma.productionMaterialConsumption.findMany.mockResolvedValue([
+        consumptionRecord({ id: 'cons-other', quantity: 90 }),
+      ]);
+      prisma.productionMaterialDocument.findMany.mockResolvedValue([
+        { id: 'doc1', documentType: 'ISSUE', lines: [{ productId: 'prod1', quantity: 100, substitutedProductId: null }] },
+      ]);
+
+      const promise = service.correctConsumption('cons1', { newQuantity: 15, reason: 'recount' }, 'u1', ctxA);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      expect(prisma.productionMaterialConsumptionCorrection.create).not.toHaveBeenCalled();
+      expect(prisma.productionMaterialConsumption.update).not.toHaveBeenCalled();
+    });
+
+    it('allows a correction that stays within the ceiling and accounts for earlier corrections of sibling records', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialConsumption.findFirst.mockResolvedValue(consumptionRecord({ quantity: 10 }));
+      // The sibling record was corrected from 100 down to 60, so its effective quantity is 60.
+      prisma.productionMaterialConsumption.findMany.mockResolvedValue([
+        consumptionRecord({
+          id: 'cons-other',
+          quantity: 100,
+          corrections: [{ id: 'corr-1', newQuantity: 60 }],
+        }),
+      ]);
+      prisma.productionMaterialDocument.findMany.mockResolvedValue([
+        { id: 'doc1', documentType: 'ISSUE', lines: [{ productId: 'prod1', quantity: 100, substitutedProductId: null }] },
+      ]);
+      prisma.productionMaterialConsumptionCorrection.create.mockResolvedValue({ id: 'corr1' });
+      prisma.productionMaterialConsumption.update.mockResolvedValue(consumptionRecord({ quantity: 40 }));
+
+      const result = await service.correctConsumption('cons1', { newQuantity: 40, reason: 'recount' }, 'u1', ctxA);
+
+      expect(result.quantity).toBe(40);
+      expect(prisma.productionMaterialConsumptionCorrection.create).toHaveBeenCalled();
     });
 
     it('rejects correcting a consumption from another company', async () => {

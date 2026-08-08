@@ -352,6 +352,10 @@ export const costCenterAdapter: LookupAdapter<CostCenter> = {
     { key: 'name', header: 'Name' },
     { key: 'type', header: 'Type' },
     { key: 'status', header: 'Status', render: (c) => c.status },
+    { key: 'effectiveFrom', header: 'Effective From', render: (c) => c.effectiveFrom ?? '' },
+    { key: 'effectiveTo', header: 'Effective To', render: (c) => c.effectiveTo ?? '' },
+    { key: 'company', header: 'Company', render: (c) => c.company?.code ?? '' },
+    { key: 'branch', header: 'Branch', render: (c) => c.branch?.code ?? '' },
   ],
 };
 

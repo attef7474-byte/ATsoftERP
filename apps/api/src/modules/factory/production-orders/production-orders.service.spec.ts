@@ -24,6 +24,7 @@ const record = (overrides: Record<string, any> = {}) => ({
   plannedById: null, plannedAt: null, releasedById: null, releasedAt: null,
   cancelledById: null, cancelledAt: null, cancellationReason: null,
   archivedById: null, archivedAt: null, archiveReason: null,
+  closedById: null, closedAt: null, closureReason: null,
   notes: null, createdById: 'maker', updatedById: 'maker',
   createdAt: new Date('2026-02-01T07:00:00.000Z'), updatedAt: new Date('2026-02-01T07:00:00.000Z'), deletedAt: null,
   ...overrides,
@@ -55,6 +56,7 @@ describe('ProductionOrdersService', () => {
       productionEligibility: { findFirst: jest.fn().mockResolvedValue({ id: 'e1', resourceType: 'LINE', productionLineId: 'l1' }) },
       costCenter: { findFirst: jest.fn().mockResolvedValue({ id: 'cc1' }) },
       warehouse: { findFirst: jest.fn().mockResolvedValue({ id: 'w1' }) },
+      productionRun: { count: jest.fn().mockResolvedValue(0) },
       $transaction: jest.fn((fn: any) => fn(prisma)),
     };
     audit = { logWithClient: jest.fn().mockResolvedValue({}) };
@@ -270,6 +272,91 @@ describe('ProductionOrdersService', () => {
     await expect(service.archive('po1', { requestId: 'req-a', lockVersion: 0, reason: 'x' }, 'u2', ctxA)).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('closes a COMPLETED order with a reason, stamped actor and audit', async () => {
+    model.findFirst.mockResolvedValueOnce(record({ status: 'COMPLETED' })).mockResolvedValueOnce(record({ status: 'CLOSED', lockVersion: 1, closedById: 'u2', closedAt: new Date('2026-02-02T10:00:00Z'), closureReason: 'done' }));
+    model.updateMany.mockResolvedValue({ count: 1 });
+    const closed = await service.close('po1', { requestId: 'req-cl', lockVersion: 0, reason: 'done' }, 'u2', ctxA);
+    expect(closed.status).toBe('CLOSED');
+    expect(model.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: 'po1', status: 'COMPLETED', lockVersion: 0, companyId: 'c1', branchId: 'b1' }),
+      data: expect.objectContaining({ status: 'CLOSED', closedById: 'u2', closedAt: expect.any(Date), closureReason: 'done' }),
+    }));
+    expect(prisma.productionOrderTransition.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ fromStatus: 'COMPLETED', toStatus: 'CLOSED', action: 'CLOSE', reason: 'done' }) }));
+    expect(audit.logWithClient).toHaveBeenCalledWith(prisma, expect.objectContaining({ action: 'CLOSE', entity: 'ProductionOrder' }));
+  });
+
+  it('rejects closing an order that is not COMPLETED', async () => {
+    model.findFirst.mockResolvedValue(record({ status: 'IN_PROGRESS' }));
+    const error: any = await service.close('po1', { requestId: 'req-cl', lockVersion: 0, reason: 'done' }, 'u2', ctxA).catch((e) => e);
+    expect(error.getResponse()).toEqual(expect.objectContaining({ messageKey: 'productionOrder.closeStateInvalid' }));
+    expect(model.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('reopens a CLOSED order and clears the closure stamp with an audit trail', async () => {
+    model.findFirst.mockResolvedValueOnce(record({ status: 'CLOSED' })).mockResolvedValueOnce(record({ status: 'COMPLETED', lockVersion: 1, closedById: null, closedAt: null, closureReason: null }));
+    model.updateMany.mockResolvedValue({ count: 1 });
+    const reopened = await service.reopen('po1', { requestId: 'req-re', lockVersion: 0, reason: 'more work' }, 'u2', ctxA);
+    expect(reopened.status).toBe('COMPLETED');
+    expect(model.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: 'po1', status: 'CLOSED', lockVersion: 0 }),
+      data: expect.objectContaining({ status: 'COMPLETED', closedById: null, closedAt: null, closureReason: null }),
+    }));
+    expect(prisma.productionOrderTransition.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ fromStatus: 'CLOSED', toStatus: 'COMPLETED', action: 'REOPEN', reason: 'more work' }) }));
+  });
+
+  it('rejects reopening an order that is not CLOSED', async () => {
+    model.findFirst.mockResolvedValue(record({ status: 'COMPLETED' }));
+    const error: any = await service.reopen('po1', { requestId: 'req-re', lockVersion: 0, reason: 'x' }, 'u2', ctxA).catch((e) => e);
+    expect(error.getResponse()).toEqual(expect.objectContaining({ messageKey: 'productionOrder.reopenStateInvalid' }));
+  });
+
+  it('replays a close with the same request id idempotently', async () => {
+    prisma.productionOrderTransition.findFirst.mockResolvedValue({ id: 't1', action: 'CLOSE' });
+    model.findFirst.mockResolvedValue(record({ status: 'CLOSED', lockVersion: 1 }));
+    const closed = await service.close('po1', { requestId: 'req-cl', lockVersion: 1, reason: 'done' }, 'u2', ctxA);
+    expect(closed.status).toBe('CLOSED');
+    expect(model.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('finalizes an IN_PROGRESS order to COMPLETED when the last run ends', async () => {
+    const orderRow = record({ status: 'IN_PROGRESS' });
+    prisma.productionOrder.findFirst.mockResolvedValueOnce(orderRow).mockResolvedValueOnce(record({ status: 'COMPLETED', lockVersion: 1 }));
+    prisma.productionRun.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+    prisma.productionOrder.updateMany.mockResolvedValue({ count: 1 });
+    const result = await service.finalizeOrderAfterLastRun('po1', 'req-order-end', 'u2', ctxA, prisma, { runId: 'run1', runNumber: 'RUN-000001', action: 'COMPLETE' });
+    expect(result?.status).toBe('COMPLETED');
+    expect(prisma.productionOrder.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: 'po1', status: 'IN_PROGRESS', companyId: 'c1', branchId: 'b1' }),
+      data: expect.objectContaining({ status: 'COMPLETED', updatedById: 'u2' }),
+    }));
+    expect(prisma.productionOrderTransition.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ fromStatus: 'IN_PROGRESS', toStatus: 'COMPLETED', action: 'RUN_END', requestId: 'req-order-end' }) }));
+    expect(audit.logWithClient).toHaveBeenCalledWith(prisma, expect.objectContaining({ action: 'AUTO_COMPLETE', entity: 'ProductionOrder' }));
+  });
+
+  it('does not finalize while another run is still active', async () => {
+    prisma.productionOrder.findFirst.mockResolvedValue(record({ status: 'IN_PROGRESS' }));
+    prisma.productionRun.count.mockResolvedValueOnce(1);
+    const result = await service.finalizeOrderAfterLastRun('po1', 'req-order-end', 'u2', ctxA, prisma, { runId: 'run1', runNumber: 'RUN-000001', action: 'ABORT' });
+    expect(result).toBeNull();
+    expect(prisma.productionOrder.updateMany).not.toHaveBeenCalled();
+    expect(prisma.productionOrderTransition.create).not.toHaveBeenCalled();
+  });
+
+  it('leaves the order IN_PROGRESS when every run ended aborted', async () => {
+    prisma.productionOrder.findFirst.mockResolvedValue(record({ status: 'IN_PROGRESS' }));
+    prisma.productionRun.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+    const result = await service.finalizeOrderAfterLastRun('po1', 'req-order-end', 'u2', ctxA, prisma, { runId: 'run1', runNumber: 'RUN-000001', action: 'ABORT' });
+    expect(result).toBeNull();
+    expect(prisma.productionOrder.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('does not finalize an order outside the active tenant', async () => {
+    prisma.productionOrder.findFirst.mockResolvedValue(null);
+    const result = await service.finalizeOrderAfterLastRun('po1', 'req-order-end', 'u2', ctxB, prisma, { runId: 'run1', runNumber: 'RUN-000001', action: 'COMPLETE' });
+    expect(result).toBeNull();
+    expect(prisma.productionOrder.updateMany).not.toHaveBeenCalled();
+  });
+
   it('soft-deletes DRAFT orders only', async () => {
     model.findFirst.mockResolvedValue(record({ status: 'PLANNED' }));
     await expect(service.remove('po1', 'u2', ctxA)).rejects.toBeInstanceOf(ConflictException);
@@ -342,6 +429,8 @@ describe('ProductionOrdersService', () => {
     await expect(service.release('po1', { requestId: 'req-r', lockVersion: 0 }, 'u2', ctxB)).rejects.toBeInstanceOf(NotFoundException);
     await expect(service.cancel('po1', { requestId: 'req-c', lockVersion: 0, reason: 'x' }, 'u2', ctxB)).rejects.toBeInstanceOf(NotFoundException);
     await expect(service.archive('po1', { requestId: 'req-a', lockVersion: 0, reason: 'x' }, 'u2', ctxB)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.close('po1', { requestId: 'req-cl', lockVersion: 0, reason: 'x' }, 'u2', ctxB)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.reopen('po1', { requestId: 'req-re', lockVersion: 0, reason: 'x' }, 'u2', ctxB)).rejects.toBeInstanceOf(NotFoundException);
     await expect(service.remove('po1', 'u2', ctxB)).rejects.toBeInstanceOf(NotFoundException);
     await expect(service.history('po1', ctxB)).rejects.toBeInstanceOf(NotFoundException);
     expect(model.updateMany).not.toHaveBeenCalled();

@@ -6,6 +6,7 @@ import {
   PRODUCTION_COST_RATE_PERMISSION_KEYS,
   PRODUCTION_COST_SNAPSHOT_PERMISSION_KEYS,
   PRODUCTION_COST_TRANSACTION_PERMISSION_KEYS,
+  PRODUCTION_COST_CALCULATION_PERMISSION_KEYS,
 } from './seed-production-quality-cost-permission-keys';
 
 describe('Phase 1.8 permission keys', () => {
@@ -48,6 +49,14 @@ describe('Phase 1.8 permission keys', () => {
       'production-cost-transaction:post',
       'production-cost-transaction:read',
       'production-cost-transaction:reverse',
+    ].sort());
+    expect([...PRODUCTION_COST_CALCULATION_PERMISSION_KEYS].sort()).toEqual([
+      'production-cost-calculation:create',
+      'production-cost-calculation:finalize',
+      'production-cost-calculation:link',
+      'production-cost-calculation:read',
+      'production-cost-calculation:reopen',
+      'production-cost-calculation:review',
     ].sort());
   });
 

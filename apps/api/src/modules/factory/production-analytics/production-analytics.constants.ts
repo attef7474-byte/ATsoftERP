@@ -13,6 +13,7 @@ export const ANALYTICS_TIMEZONE = 'UTC';
 
 export const PERFORMANCE_TARGET_AUDIT_ENTITY = 'ProductionPerformanceTarget';
 export const ANALYTICS_EXPORT_AUDIT_ENTITY = 'ProductionAnalyticsExport';
+export const ANALYTICS_INVALIDATE_AUDIT_ENTITY = 'ProductionAnalyticsInvalidation';
 export const PERFORMANCE_TARGET_NUMBER_SEQUENCE = 'PRODUCTION_PERFORMANCE_TARGET';
 
 export const PERFORMANCE_TARGET_PERMISSION_KEYS = {
@@ -28,6 +29,7 @@ export const PERFORMANCE_TARGET_PERMISSION_KEYS = {
 export const ANALYTICS_PERMISSION_KEYS = {
   analyticsRead: 'production-analytics:read',
   analyticsExport: 'production-analytics:export',
+  analyticsInvalidate: 'production-analytics:invalidate',
 } as const;
 
 export const PERFORMANCE_TARGET_PERMISSION_KEYS_LIST = [
@@ -43,6 +45,7 @@ export const PERFORMANCE_TARGET_PERMISSION_KEYS_LIST = [
 export const ANALYTICS_PERMISSION_KEYS_LIST = [
   ANALYTICS_PERMISSION_KEYS.analyticsRead,
   ANALYTICS_PERMISSION_KEYS.analyticsExport,
+  ANALYTICS_PERMISSION_KEYS.analyticsInvalidate,
 ] as const;
 
 export const ANALYTICS_LIMITS = {

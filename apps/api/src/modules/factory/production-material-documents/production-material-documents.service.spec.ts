@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { ProductionMaterialDocumentsService } from './production-material-documents.service';
 
 const ctxA: any = { companyId: 'c1', branchId: 'b1' };
@@ -121,8 +121,9 @@ function makeService(overrides: Record<string, any> = {}) {
     generateNumberAtomicWithClient: jest.fn().mockResolvedValue('SEQ-000001'),
   };
   const movements: any = { postMovementWithinTransaction: jest.fn().mockResolvedValue({}) };
-  const service = new ProductionMaterialDocumentsService(prisma, audit, numbering, movements);
-  return { prisma, audit, numbering, movements, service };
+  const sourceChanges: any = { recordChange: jest.fn(), summaryForScope: jest.fn(), findByWindow: jest.fn(), findOne: jest.fn() };
+  const service = new ProductionMaterialDocumentsService(prisma, audit, numbering, movements, sourceChanges);
+  return { prisma, audit, numbering, movements, sourceChanges, service };
 }
 
 describe('ProductionMaterialDocumentsService', () => {
@@ -149,6 +150,18 @@ describe('ProductionMaterialDocumentsService', () => {
       prisma.productionMaterialDocument.findFirst.mockResolvedValueOnce(document());
       const result = await service.create(baseDto(), 'u1', ctxA);
       expect(result.id).toBe('doc1');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('throws a canonical conflict when the same requestId arrives with a different payload', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValueOnce(
+        document({ lines: [{ id: 'line1', productId: 'prod1', quantity: 6, unit: 'KG', substitutedProductId: null }] }),
+      );
+      const promise = service.create(baseDto(), 'u1', ctxA);
+      await expect(promise).rejects.toThrow(ConflictException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('productionMaterial.requestPayloadConflict');
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
@@ -432,6 +445,149 @@ describe('ProductionMaterialDocumentsService', () => {
         return Promise.resolve(null);
       });
       await expect(service.reverse('doc1', {}, 'u1', ctxA)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects reversing a reversal document itself', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id) return Promise.resolve(document({ status: 'POSTED', sourceType: 'REVERSE', reversesDocumentId: 'doc0' }));
+        return Promise.resolve(null);
+      });
+      const promise = service.reverse('doc1', { requestId: 'req-rev-2' }, 'u1', ctxA);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('productionMaterial.cannotReverseReversal');
+    });
+
+    it('blocks a second reversal of the same source even with a different requestId (double reversal prevention)', async () => {
+      const { prisma, service } = makeService();
+      const source = document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' });
+      const existingReversal = document({
+        id: 'doc2', documentNumber: 'PMD-000002', documentType: 'RETURN', status: 'DRAFT',
+        reversesDocumentId: 'doc1', requestId: 'req-rev-1',
+        lines: [{ id: 'l2', productId: 'prod1', quantity: 5, unit: 'KG', substitutedProductId: null }],
+      });
+      prisma.productionMaterialDocument.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id) return Promise.resolve(source);
+        if (where.reversesDocumentId) return Promise.resolve(existingReversal);
+        return Promise.resolve(null);
+      });
+      const promise = service.reverse('doc1', { requestId: 'req-rev-OTHER' }, 'u1', ctxA);
+      await expect(promise).rejects.toThrow(ConflictException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('productionMaterial.alreadyReversed');
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.productionMaterialDocument.create).not.toHaveBeenCalled();
+    });
+
+    it('is idempotent: reusing the same reversal requestId returns the committed reversal', async () => {
+      const { prisma, service } = makeService();
+      const source = document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' });
+      const committed = document({
+        id: 'doc2', documentNumber: 'PMD-000002', documentType: 'RETURN', status: 'DRAFT',
+        reversesDocumentId: 'doc1', requestId: 'req-rev-1',
+        lines: [{ id: 'l2', productId: 'prod1', quantity: 5, unit: 'KG', substitutedProductId: null }],
+      });
+      prisma.productionMaterialDocument.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id) return Promise.resolve(source);
+        if (where.reversesDocumentId) return Promise.resolve(committed);
+        return Promise.resolve(null);
+      });
+      const result = await service.reverse('doc1', { requestId: 'req-rev-1' }, 'u1', ctxA);
+      expect(result.id).toBe('doc2');
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.productionMaterialDocument.create).not.toHaveBeenCalled();
+    });
+
+    it('throws a canonical conflict when the same reversal requestId arrives with different notes', async () => {
+      const { prisma, service } = makeService();
+      const source = document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' });
+      const committed = document({
+        id: 'doc2', documentNumber: 'PMD-000002', documentType: 'RETURN', status: 'DRAFT',
+        reversesDocumentId: 'doc1', requestId: 'req-rev-1', notes: 'Original note',
+        lines: [{ id: 'l2', productId: 'prod1', quantity: 5, unit: 'KG', substitutedProductId: null }],
+      });
+      prisma.productionMaterialDocument.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id) return Promise.resolve(source);
+        if (where.reversesDocumentId) return Promise.resolve(committed);
+        return Promise.resolve(null);
+      });
+      const promise = service.reverse('doc1', { requestId: 'req-rev-1', notes: 'A different note' }, 'u1', ctxA);
+      await expect(promise).rejects.toThrow(ConflictException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('productionMaterial.requestPayloadConflict');
+    });
+
+    it('revalidates warehouse tenant scope when reversing', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id) return Promise.resolve(document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
+        return Promise.resolve(null);
+      });
+      prisma.productionRun.findFirst.mockResolvedValue(run());
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse({ companyId: 'c2' }));
+      const promise = service.reverse('doc1', { requestId: 'req-rev-3' }, 'u1', ctxA);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('productionMaterial.warehouseTenantMismatch');
+      expect(prisma.productionMaterialDocument.create).not.toHaveBeenCalled();
+    });
+
+    it('writes a REVERSE audit, creates a new compensating movement, and never mutates the source document', async () => {
+      const { prisma, service, audit } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id) return Promise.resolve(document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
+        return Promise.resolve(null);
+      });
+      prisma.productionRun.findFirst.mockResolvedValue(run());
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov2', movementNumber: 'IM-000002' });
+      prisma.productionMaterialDocument.create.mockResolvedValue(document({ id: 'doc2', documentNumber: 'PMD-000002', documentType: 'RETURN' }));
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({ id: 'doc2', documentType: 'RETURN' }));
+
+      await service.reverse('doc1', { requestId: 'req-rev-4' }, 'u1', ctxA);
+
+      const movementData = prisma.inventoryMovement.create.mock.calls[0][0].data;
+      expect(movementData.lines.create[0].direction).toBe('IN');
+      expect(movementData.sourceType).toBe('PRODUCTION_MATERIAL_DOCUMENT');
+      const docData = prisma.productionMaterialDocument.create.mock.calls[0][0].data;
+      expect(docData.sourceType).toBe('REVERSE');
+      expect(docData.reversesDocumentId).toBe('doc1');
+      expect(docData.requestId).toBe('req-rev-4');
+      expect(audit.logWithClient).toHaveBeenCalledTimes(1);
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ userId: 'u1', action: 'REVERSE', entityId: 'doc2' }),
+      );
+      const sourceUpdates = prisma.productionMaterialDocument.update.mock.calls.filter(([args]: any[]) => args?.where?.id === 'doc1');
+      expect(sourceUpdates).toHaveLength(0);
+    });
+
+    it('resolves a P2002 race on the reversal by returning the concurrently committed reversal', async () => {
+      const { prisma, service, audit } = makeService();
+      const source = document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' });
+      const raced = document({
+        id: 'doc2', documentNumber: 'PMD-000002', documentType: 'RETURN', status: 'DRAFT',
+        reversesDocumentId: 'doc1', requestId: 'req-rev-5',
+        lines: [{ id: 'l2', productId: 'prod1', quantity: 5, unit: 'KG', substitutedProductId: null }],
+      });
+      prisma.productionMaterialDocument.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id) return Promise.resolve(source);
+        if (where.reversesDocumentId) return Promise.resolve(null);
+        if (where.requestId) return Promise.resolve(raced);
+        return Promise.resolve(null);
+      });
+      prisma.productionRun.findFirst.mockResolvedValue(run());
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov2', movementNumber: 'IM-000002' });
+      prisma.productionMaterialDocument.create.mockRejectedValue({ code: 'P2002' });
+
+      const result = await service.reverse('doc1', { requestId: 'req-rev-5' }, 'u1', ctxA);
+      expect(result.id).toBe('doc2');
+      expect(audit.logWithClient).toHaveBeenCalledTimes(0);
     });
   });
 

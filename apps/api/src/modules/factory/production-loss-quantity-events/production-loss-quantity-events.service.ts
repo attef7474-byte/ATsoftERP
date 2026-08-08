@@ -23,15 +23,15 @@ export class ProductionLossQuantityEventsService {
   ) {}
 
   private notFound(key: string): NotFoundException {
-    return new NotFoundException({ messageKey: key, message: key });
+    return new NotFoundException({ messageKey: key });
   }
 
   private badRequest(key: string): BadRequestException {
-    return new BadRequestException({ messageKey: key, message: key });
+    return new BadRequestException({ messageKey: key });
   }
 
   private conflict(key: string): ConflictException {
-    return new ConflictException({ messageKey: key, message: key });
+    return new ConflictException({ messageKey: key });
   }
 
   private machineScope(ctx: ActiveOperationalContext) {

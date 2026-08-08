@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { InventoryMovementsService } from './inventory-movements.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
@@ -24,6 +24,22 @@ const ctx: ActiveOperationalContext = {
   source: 'EXPLICIT_SCOPE',
 };
 
+const line = (overrides: Record<string, any> = {}) => ({
+  id: 'l1',
+  movementId: 'm1',
+  productId: 'prd1',
+  warehouseLocationId: null,
+  quantity: 5,
+  quantityBase: null,
+  batchNumber: null,
+  serialNumber: null,
+  expiryDate: null,
+  unit: 'pcs',
+  direction: 'IN',
+  notes: null,
+  ...overrides,
+});
+
 const movement = (overrides: Record<string, any> = {}) => ({
   id: 'm1',
   companyId: 'c1',
@@ -32,6 +48,11 @@ const movement = (overrides: Record<string, any> = {}) => ({
   movementType: 'MANUAL',
   warehouseId: 'w1',
   status: 'DRAFT',
+  sourceType: null,
+  sourceId: null,
+  requestId: null,
+  reversesMovementId: null,
+  movementDate: new Date('2026-08-01T10:00:00.000Z'),
   postedAt: null,
   postedById: null,
   createdById: 'u1',
@@ -39,9 +60,7 @@ const movement = (overrides: Record<string, any> = {}) => ({
   deletedAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
-  lines: [
-    { id: 'l1', movementId: 'm1', productId: 'prd1', quantity: 5, direction: 'IN' },
-  ],
+  lines: [line()],
   ...overrides,
 });
 
@@ -55,20 +74,30 @@ const createDto = {
   ],
 };
 
+const outLine = {
+  id: 'l1', movementId: 'm1', productId: 'prd1', warehouseLocationId: null,
+  quantity: 5, quantityBase: null, batchNumber: null, serialNumber: null,
+  expiryDate: null, unit: 'pcs', direction: 'OUT',
+};
+
 describe('InventoryMovementsService', () => {
   let prisma: any;
   let numbering: any;
   let audit: any;
   let service: InventoryMovementsService;
+  let txOptions: any;
 
   beforeEach(() => {
+    txOptions = undefined;
     prisma = {
       company: { findUnique: jest.fn() },
       branch: { findUnique: jest.fn() },
       warehouse: { findUnique: jest.fn() },
+      warehouseLocation: { findUnique: jest.fn() },
       product: { findUnique: jest.fn() },
       inventoryMovement: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -86,12 +115,18 @@ describe('InventoryMovementsService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
-      $transaction: jest.fn(),
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>, options?: any) => {
+        txOptions = options;
+        return fn(prisma);
+      }),
     };
     numbering = {
       generateNumberAtomic: jest.fn().mockResolvedValue('IM-0001'),
     };
-    audit = { log: jest.fn().mockResolvedValue(undefined) };
+    audit = {
+      log: jest.fn().mockResolvedValue(undefined),
+      logWithClient: jest.fn().mockResolvedValue(undefined),
+    };
     service = new InventoryMovementsService(
       prisma as PrismaService,
       audit as AuditService,
@@ -100,12 +135,11 @@ describe('InventoryMovementsService', () => {
   });
 
   describe('create', () => {
-    it('creates the movement in the active company and audits it', async () => {
+    it('creates the movement in the active company and audits it inside the transaction', async () => {
       prisma.company.findUnique.mockResolvedValue({ id: 'c1' });
       prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1' });
       prisma.branch.findUnique.mockResolvedValue({ id: 'b1' });
       prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(prisma));
       prisma.inventoryMovement.create.mockResolvedValue(movement());
 
       const result = await service.create(createDto, 'u1', ctx);
@@ -123,7 +157,11 @@ describe('InventoryMovementsService', () => {
         quantity: 5,
         direction: 'IN',
       });
-      expect(audit.log).toHaveBeenCalledWith('u1', 'CREATE', 'InventoryMovement', 'm1', expect.any(Object));
+      expect(txOptions).toEqual({ isolationLevel: 'Serializable' });
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ userId: 'u1', action: 'CREATE', entity: 'InventoryMovement', entityId: 'm1' }),
+      );
       expect(result.id).toBe('m1');
     });
 
@@ -145,6 +183,81 @@ describe('InventoryMovementsService', () => {
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
       expect(response.errors[0]).toMatchObject({ field: 'warehouseId', code: 'validation.invalidReference' });
+    });
+
+    it('rejects a location that belongs to another warehouse', async () => {
+      prisma.company.findUnique.mockResolvedValue({ id: 'c1' });
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1' });
+      prisma.branch.findUnique.mockResolvedValue({ id: 'b1' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
+      prisma.warehouseLocation.findUnique.mockResolvedValue({ id: 'locX', warehouseId: 'wOther' });
+
+      const dto = {
+        ...createDto,
+        lines: [{ productId: 'prd1', quantity: 5, unit: 'pcs', direction: 'IN' as const, warehouseLocationId: 'locX' }],
+      };
+      const promise = service.create(dto, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('returns the committed movement when the same requestId is reused with identical data (idempotency)', async () => {
+      const dto = { ...createDto, requestId: 'req-1' };
+      const committed = movement({ requestId: 'req-1' });
+      prisma.inventoryMovement.findFirst.mockResolvedValue(committed);
+
+      const result = await service.create(dto, 'u1', ctx);
+
+      expect(result.id).toBe('m1');
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(numbering.generateNumberAtomic).not.toHaveBeenCalled();
+    });
+
+    it('rejects the same requestId reused with different data (canonical conflict)', async () => {
+      const dto = { ...createDto, requestId: 'req-1' };
+      const committed = movement({
+        requestId: 'req-1',
+        lines: [line({ quantity: 9 })], // different payload than the retry
+      });
+      prisma.inventoryMovement.findFirst.mockResolvedValue(committed);
+
+      const promise = service.create(dto, 'u1', ctx);
+      await expect(promise).rejects.toThrow(ConflictException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventory.movementRequestConflict');
+    });
+
+    it('resolves a P2002 race by returning the concurrently committed movement', async () => {
+      const dto = { ...createDto, requestId: 'req-1' };
+      prisma.company.findUnique.mockResolvedValue({ id: 'c1' });
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1' });
+      prisma.branch.findUnique.mockResolvedValue({ id: 'b1' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
+      prisma.inventoryMovement.findFirst
+        .mockResolvedValueOnce(null) // pre-check: no existing requestId
+        .mockResolvedValueOnce(null) // in-transaction race check: still none
+        .mockResolvedValueOnce(movement({ requestId: 'req-1' })); // re-check after P2002
+      prisma.inventoryMovement.create.mockRejectedValue({ code: 'P2002' });
+
+      const result = await service.create(dto, 'u1', ctx);
+
+      expect(result.id).toBe('m1');
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('throws a canonical conflict when P2002 has no committed movement to return', async () => {
+      const dto = { ...createDto, requestId: 'req-1' };
+      prisma.company.findUnique.mockResolvedValue({ id: 'c1' });
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1' });
+      prisma.branch.findUnique.mockResolvedValue({ id: 'b1' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
+      prisma.inventoryMovement.findFirst.mockResolvedValue(null);
+      prisma.inventoryMovement.create.mockRejectedValue({ code: 'P2002' });
+
+      const promise = service.create(dto, 'u1', ctx);
+      await expect(promise).rejects.toThrow(ConflictException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventory.movementRequestConflict');
     });
   });
 
@@ -245,15 +358,21 @@ describe('InventoryMovementsService', () => {
       await expect(service.cancel('m1', 'u1', ctx)).rejects.toThrow(NotFoundException);
     });
 
-    it('cancels an owned DRAFT movement and audits it', async () => {
+    it('cancels an owned DRAFT movement, records cancellation metadata and audits inside the transaction', async () => {
       prisma.inventoryMovement.findUnique.mockResolvedValue(movement());
       prisma.inventoryMovement.update.mockResolvedValue(movement({ status: 'CANCELLED' }));
 
       const result = await service.cancel('m1', 'u1', ctx);
       expect(prisma.inventoryMovement.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'm1' }, data: expect.objectContaining({ status: 'CANCELLED' }) }),
+        expect.objectContaining({
+          where: { id: 'm1' },
+          data: expect.objectContaining({ status: 'CANCELLED', cancelledById: 'u1', cancelledAt: expect.any(Date) }),
+        }),
       );
-      expect(audit.log).toHaveBeenCalledWith('u1', 'CANCEL', 'InventoryMovement', 'm1', expect.any(Object));
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ userId: 'u1', action: 'CANCEL', entity: 'InventoryMovement', entityId: 'm1' }),
+      );
       expect(result.status).toBe('CANCELLED');
     });
 
@@ -263,34 +382,141 @@ describe('InventoryMovementsService', () => {
       expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
     });
 
-    it('posts an owned DRAFT movement, updates balances and audits it', async () => {
+    it('posts an owned DRAFT movement with Serializable isolation, updates balances and audits inside the transaction', async () => {
       prisma.inventoryMovement.findUnique.mockResolvedValue(movement());
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(prisma));
       prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'b1', quantity: 10 });
       prisma.inventoryBalance.update.mockResolvedValue({ id: 'b1', quantity: 15 });
       prisma.inventoryMovement.update.mockResolvedValue(movement({ status: 'POSTED' }));
 
       const result = await service.post('m1', 'u1', ctx);
+
+      expect(txOptions).toEqual({ isolationLevel: 'Serializable' });
       expect(prisma.inventoryBalance.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ quantity: 15 }) }),
       );
+      const balanceUpdateCall = prisma.inventoryBalance.update.mock.calls[0][0];
+      expect(Number(balanceUpdateCall.data.quantityBase)).toBe(15);
       expect(prisma.inventoryMovement.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: 'POSTED', postedById: 'u1' }) }),
       );
-      expect(audit.log).toHaveBeenCalledWith('u1', 'POST', 'InventoryMovement', 'm1', expect.any(Object));
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ userId: 'u1', action: 'POST', entity: 'InventoryMovement', entityId: 'm1' }),
+      );
       expect(result.status).toBe('POSTED');
     });
 
-    it('rejects a negative balance when posting OUT movement', async () => {
+    it('returns the same committed result when posting an already POSTED movement (idempotency)', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ status: 'POSTED' }));
+
+      const result = await service.post('m1', 'u1', ctx);
+
+      expect(result.status).toBe('POSTED');
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovement.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('rejects a negative balance when posting OUT movement and leaves no partial writes', async () => {
       prisma.inventoryMovement.findUnique.mockResolvedValue(
-        movement({ lines: [{ id: 'l1', movementId: 'm1', productId: 'prd1', quantity: 5, direction: 'OUT' }] }),
+        movement({ lines: [line(outLine)] }),
       );
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(prisma));
       prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'b1', quantity: 2 });
       prisma.product.findUnique.mockResolvedValue({ id: 'prd1', name: 'Bearing' });
 
       await expect(service.post('m1', 'u1', ctx)).rejects.toThrow(BadRequestException);
       expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovement.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('reverse (Phase 2)', () => {
+    it('rejects reversing a movement of another company', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ companyId: 'c2' }));
+      await expect(service.reverse('m1', {}, 'u1', ctx)).rejects.toThrow(NotFoundException);
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects reversing a movement of another branch', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ branchId: 'b2' }));
+      await expect(service.reverse('m1', {}, 'u1', ctx)).rejects.toThrow(NotFoundException);
+    });
+
+    it('only POSTED movements can be reversed', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ status: 'DRAFT' }));
+      const promise = service.reverse('m1', {}, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventory.movementOnlyPostedCanReverse');
+    });
+
+    it('a reversal movement itself cannot be reversed', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(
+        movement({ status: 'POSTED', reversesMovementId: 'm0' }),
+      );
+      const promise = service.reverse('m1', {}, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventory.movementReversalCannotReverse');
+    });
+
+    it('creates a compensating DRAFT movement with flipped directions and never mutates the original', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(
+        movement({ status: 'POSTED', lines: [line(), line({ id: 'l2', productId: 'prd2', quantity: 3, direction: 'OUT' })] }),
+      );
+      prisma.inventoryMovement.create.mockResolvedValue(movement({ id: 'm2', movementNumber: 'IM-0002', status: 'DRAFT' }));
+
+      const result = await service.reverse('m1', {}, 'u1', ctx);
+
+      const createCall = prisma.inventoryMovement.create.mock.calls[0][0];
+      expect(createCall.data).toMatchObject({
+        companyId: 'c1',
+        branchId: 'b1',
+        warehouseId: 'w1',
+        movementType: 'MANUAL',
+        status: 'DRAFT',
+        sourceType: 'INVENTORY_MOVEMENT_REVERSAL',
+        sourceId: 'm1',
+        reversesMovementId: 'm1',
+        createdById: 'u1',
+      });
+      expect(createCall.data.lines.create[0].direction).toBe('OUT'); // IN flipped
+      expect(createCall.data.lines.create[1].direction).toBe('IN');  // OUT flipped
+      expect(txOptions).toEqual({ isolationLevel: 'Serializable' });
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ userId: 'u1', action: 'REVERSE', entity: 'InventoryMovement', entityId: 'm1' }),
+      );
+      // The original movement is never deleted or updated by the reversal.
+      expect(prisma.inventoryMovement.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovementLine.delete).not.toHaveBeenCalled();
+      expect(result.status).toBe('DRAFT');
+    });
+
+    it('is idempotent: reusing the same requestId returns the committed reversal', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ status: 'POSTED' }));
+      const committed = movement({ id: 'm2', movementNumber: 'IM-0002', status: 'DRAFT', requestId: 'req-rev-1' });
+      prisma.inventoryMovement.findFirst.mockResolvedValue(committed);
+
+      const result = await service.reverse('m1', { requestId: 'req-rev-1' }, 'u1', ctx);
+
+      expect(result.id).toBe('m2');
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('throws a canonical conflict when the same reversal requestId arrives with different notes', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ status: 'POSTED' }));
+      const committed = movement({
+        id: 'm2', movementNumber: 'IM-0002', status: 'DRAFT', requestId: 'req-rev-1', notes: 'Original note',
+      });
+      prisma.inventoryMovement.findFirst.mockResolvedValue(committed);
+
+      const promise = service.reverse('m1', { requestId: 'req-rev-1', notes: 'A different note' }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(ConflictException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventory.movementRequestConflict');
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
     });
   });
 
@@ -364,27 +590,23 @@ describe('InventoryMovementsService', () => {
     });
   });
 
-  describe('postMovementWithinTransaction (Phase 1.7 refactor)', () => {
-    const outLine = { id: 'l1', movementId: 'm1', productId: 'prd1', warehouseLocationId: null, quantity: 5, direction: 'OUT', batchNumber: null, serialNumber: null, expiryDate: null };
-
+  describe('postMovementWithinTransaction (Phase 1.7 refactor, Phase 2 hardening)', () => {
     it('rejects a movement outside the active context', async () => {
       prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ companyId: 'c2' }));
       await expect(service.postMovementWithinTransaction(prisma, 'm1', 'u1', ctx)).rejects.toThrow(NotFoundException);
     });
 
-    it('applies OUT deltas to the balance and writes the Decimal shadow quantityBase', async () => {
-      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ lines: [outLine] }));
+    it('applies OUT deltas to the balance using Decimal arithmetic for quantityBase', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ lines: [line(outLine)] }));
       prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', warehouseId: 'w1', productId: 'prd1', quantity: 20 });
       prisma.inventoryBalance.update.mockResolvedValue({ id: 'bal1', quantity: 15 });
 
       await service.postMovementWithinTransaction(prisma, 'm1', 'u1', ctx);
 
-      expect(prisma.inventoryBalance.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 'bal1' },
-          data: { quantity: 15, quantityBase: 15 },
-        }),
-      );
+      const balanceCall = prisma.inventoryBalance.update.mock.calls[0][0];
+      expect(balanceCall.where).toEqual({ id: 'bal1' });
+      expect(balanceCall.data.quantity).toBe(15);
+      expect(Number(balanceCall.data.quantityBase)).toBe(15);
       expect(prisma.inventoryMovement.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ status: 'POSTED', postedById: 'u1' }),
@@ -392,8 +614,21 @@ describe('InventoryMovementsService', () => {
       );
     });
 
+    it('keeps the balance Decimal-safe for fractional quantities', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(
+        movement({ lines: [line({ quantity: 0.3333, quantityBase: 0.3333 })] }),
+      );
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', warehouseId: 'w1', productId: 'prd1', quantity: 10 });
+      prisma.inventoryBalance.update.mockResolvedValue({ id: 'bal1', quantity: 10.3333 });
+
+      await service.postMovementWithinTransaction(prisma, 'm1', 'u1', ctx);
+
+      const balanceCall = prisma.inventoryBalance.update.mock.calls[0][0];
+      expect(Number(balanceCall.data.quantityBase)).toBeCloseTo(10.3333, 4);
+    });
+
     it('creates a balance row when none exists and applies the delta', async () => {
-      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ lines: [outLine] }));
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ lines: [line(outLine)] }));
       prisma.inventoryBalance.findFirst.mockResolvedValue(null);
       prisma.inventoryBalance.create.mockResolvedValue({ id: 'bal1', quantity: 0 });
 
@@ -407,7 +642,7 @@ describe('InventoryMovementsService', () => {
     });
 
     it('rejects posting when the OUT quantity would drive the balance negative', async () => {
-      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ lines: [outLine] }));
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ lines: [line(outLine)] }));
       prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', warehouseId: 'w1', productId: 'prd1', quantity: 3 });
       prisma.product.findUnique.mockResolvedValue({ id: 'prd1', name: 'Material' });
 
@@ -416,8 +651,20 @@ describe('InventoryMovementsService', () => {
       expect(prisma.inventoryMovement.update).not.toHaveBeenCalled();
     });
 
+    it('rejects a line location that belongs to another warehouse', async () => {
+      prisma.inventoryMovement.findUnique.mockResolvedValue(
+        movement({ lines: [line({ warehouseLocationId: 'locX' })] }),
+      );
+      prisma.warehouseLocation.findUnique.mockResolvedValue({ id: 'locX', warehouseId: 'wOther' });
+
+      const promise = service.postMovementWithinTransaction(prisma, 'm1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      expect(prisma.inventoryBalance.findFirst).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovement.update).not.toHaveBeenCalled();
+    });
+
     it('rejects posting a movement that is not DRAFT', async () => {
-      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ status: 'POSTED', lines: [outLine] }));
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ status: 'POSTED', lines: [line(outLine)] }));
       await expect(service.postMovementWithinTransaction(prisma, 'm1', 'u1', ctx)).rejects.toThrow(BadRequestException);
     });
   });

@@ -23,15 +23,15 @@ export class ProductionLossReasonsService {
   ) {}
 
   private notFound(): NotFoundException {
-    return new NotFoundException({ messageKey: 'productionLossReason.notFound', message: 'productionLossReason.notFound' });
+    return new NotFoundException({ messageKey: 'productionLossReason.notFound' });
   }
 
   private badRequest(key: string): BadRequestException {
-    return new BadRequestException({ messageKey: key, message: key });
+    return new BadRequestException({ messageKey: key });
   }
 
   private conflict(key: string): ConflictException {
-    return new ConflictException({ messageKey: key, message: key });
+    return new ConflictException({ messageKey: key });
   }
 
   private tenantWhere(ctx: ActiveOperationalContext) {

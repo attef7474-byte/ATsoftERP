@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsISO8601, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsISO8601, IsNotEmpty, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 import { ANALYTICS_REPORTS, ANALYTICS_LIMITS, ANALYTICS_GRAINS, LOSS_CATEGORIES } from '../production-analytics.constants';
 
 export class PerformanceTargetQueryDto {
@@ -37,4 +37,21 @@ export class AnalyticsPageDto extends AnalyticsQueryDto {
 
 export class AnalyticsExportQueryDto extends AnalyticsQueryDto {
   @IsIn(ANALYTICS_REPORTS) report!: string;
+}
+
+const INVALIDATION_SCOPE_TYPES = ['ORDER', 'RUN', 'PRODUCT', 'LINE', 'MACHINE'] as const;
+
+export class AnalyticsInvalidateDto {
+  @IsIn(INVALIDATION_SCOPE_TYPES)
+  @IsNotEmpty()
+  scopeType!: string;
+
+  @IsUUID()
+  @IsNotEmpty()
+  scopeId!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  reason!: string;
 }

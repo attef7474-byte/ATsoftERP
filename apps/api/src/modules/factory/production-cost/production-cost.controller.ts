@@ -11,6 +11,14 @@ import {
   UpdateCostSnapshotDto,
 } from './dto/cost-snapshot.dto';
 import { CostTransactionQueryDto, PostCostTransactionDto, ReverseCostTransactionDto } from './dto/cost-transaction.dto';
+import {
+  AttachTransactionToCalculationDto,
+  CostCalculationQueryDto,
+  CreateCostCalculationDto,
+  FinalizeCostCalculationDto,
+  ReopenCostCalculationDto,
+  ReviewCostCalculationDto,
+} from './dto/cost-calculation.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -141,5 +149,56 @@ export class ProductionCostController {
   @ApiOperation({ summary: 'Reverse a POSTED transaction (creates a REVERSED row; original stays immutable)' })
   reverseTransaction(@Param('id') id: string, @Body() dto: ReverseCostTransactionDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.reverseTransaction(id, dto, userId, ctx);
+  }
+
+  // ── Cost calculations (draft → review → finalize → reopen) ──────────────────
+
+  @Post('cost-calculations')
+  @Permissions(PRODUCTION_COST_PERMISSION_KEYS.calculationCreate)
+  @ApiOperation({ summary: 'Create a DRAFT cost calculation for an order/run/branch period' })
+  createCalculation(@Body() dto: CreateCostCalculationDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.createCalculation(dto, userId, ctx);
+  }
+
+  @Get('cost-calculations')
+  @Permissions(PRODUCTION_COST_PERMISSION_KEYS.calculationRead)
+  @ApiOperation({ summary: 'List cost calculations scoped to the active context' })
+  findCalculations(@Query() query: CostCalculationQueryDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findCalculations(query, ctx);
+  }
+
+  @Get('cost-calculations/:id')
+  @Permissions(PRODUCTION_COST_PERMISSION_KEYS.calculationRead)
+  @ApiOperation({ summary: 'Get cost calculation by ID (tenant-scoped, includes linked transactions)' })
+  findOneCalculation(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findOneCalculation(id, ctx);
+  }
+
+  @Patch('cost-calculations/:id/transactions')
+  @Permissions(PRODUCTION_COST_PERMISSION_KEYS.calculationLink)
+  @ApiOperation({ summary: 'Attach a POSTED transaction to a DRAFT calculation' })
+  attachTransaction(@Param('id') id: string, @Body() dto: AttachTransactionToCalculationDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.attachTransactionToCalculation(id, dto, userId, ctx);
+  }
+
+  @Patch('cost-calculations/:id/review')
+  @Permissions(PRODUCTION_COST_PERMISSION_KEYS.calculationReview)
+  @ApiOperation({ summary: 'Move a DRAFT calculation to REVIEW' })
+  reviewCalculation(@Param('id') id: string, @Body() dto: ReviewCostCalculationDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.reviewCalculation(id, dto, userId, ctx);
+  }
+
+  @Patch('cost-calculations/:id/finalize')
+  @Permissions(PRODUCTION_COST_PERMISSION_KEYS.calculationFinalize)
+  @ApiOperation({ summary: 'Finalize a REVIEW calculation (immutable thereafter)' })
+  finalizeCalculation(@Param('id') id: string, @Body() dto: FinalizeCostCalculationDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.finalizeCalculation(id, dto, userId, ctx);
+  }
+
+  @Patch('cost-calculations/:id/reopen')
+  @Permissions(PRODUCTION_COST_PERMISSION_KEYS.calculationReopen)
+  @ApiOperation({ summary: 'Reopen a FINALIZED calculation as a new DRAFT revision (finalized revision preserved)' })
+  reopenCalculation(@Param('id') id: string, @Body() dto: ReopenCostCalculationDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.reopenCalculation(id, dto, userId, ctx);
   }
 }

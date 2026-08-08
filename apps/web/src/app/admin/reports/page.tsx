@@ -8,6 +8,7 @@ const reportGroups = [
   {
     titleKey: 'navigation.maintenanceReports',
     links: [
+      { href: '/admin/reports/operations', labelKey: 'navigation.operationsReport' },
       { href: '/admin/reports/maintenance', labelKey: 'navigation.maintenanceOverview' },
       { href: '/admin/reports/maintenance/kpis', labelKey: 'navigation.maintenanceKpisReport' },
       { href: '/admin/reports/maintenance/requests', labelKey: 'navigation.maintenanceRequestsReport' },

@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { CostCentersController } from './cost-centers.controller';
 import { CostCentersService } from './cost-centers.service';
+import { OperationalCostCenterResolver } from './operational-cost-center-resolver.service';
 import { AuditModule } from '../../../../common/audit/audit.module';
 
 @Module({
   imports: [AuditModule],
   controllers: [CostCentersController],
-  providers: [CostCentersService],
-  exports: [CostCentersService],
+  providers: [CostCentersService, OperationalCostCenterResolver],
+  exports: [CostCentersService, OperationalCostCenterResolver],
 })
 export class CostCentersModule {}

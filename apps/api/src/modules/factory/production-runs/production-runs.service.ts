@@ -4,6 +4,7 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { AuditService } from '../../audit/audit.service';
 import { NumberingService } from '../../numbering/numbering.service';
+import { ProductionOrdersService } from '../production-orders/production-orders.service';
 import { CreateProductionRunDto } from './dto/create-production-run.dto';
 import { RunActionDto } from './dto/run-action.dto';
 import { RecordOutputDto } from './dto/record-output.dto';
@@ -55,6 +56,7 @@ export class ProductionRunsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly numbering: NumberingService,
+    private readonly orders: ProductionOrdersService,
   ) {}
 
   async findAll(query: RunQueryDto, ctx: ActiveOperationalContext) {
@@ -531,6 +533,16 @@ export class ProductionRunsService {
         toStatus: targetStatus,
         reason: reason || null,
       });
+      if (action === 'COMPLETE' || action === 'ABORT') {
+        await this.orders.finalizeOrderAfterLastRun(
+          updated.productionOrderId,
+          `${dto.requestId}:order-end`,
+          userId,
+          ctx,
+          tx,
+          { runId: updated.id, runNumber: updated.runNumber, action },
+        );
+      }
       return updated;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }

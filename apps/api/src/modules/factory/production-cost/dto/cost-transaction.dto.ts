@@ -96,6 +96,10 @@ export class PostCostTransactionDto {
   @IsUUID()
   outputEventId?: string;
 
+  @IsOptional()
+  @IsUUID()
+  calculationId?: string;
+
   @IsNumber({ maxDecimalPlaces: 4 })
   @IsPositive()
   quantity!: number;

@@ -18,6 +18,9 @@ import { PRODUCTION_QUALITY_COST_PERMISSIONS } from "./seed-production-quality-c
 import { seedProductionQualityCostNumbering } from "./seed-production-quality-cost-numbering";
 import { PRODUCTION_ANALYTICS_PERMISSIONS } from "./seed-production-analytics-permission-keys";
 import { seedProductionAnalyticsNumbering } from "./seed-production-analytics-numbering";
+import { OPERATIONAL_COST_CENTER_PERMISSIONS } from "./seed-operational-cost-center-permission-keys";
+import { OPERATIONAL_RELIABILITY_PERMISSIONS } from "./seed-operational-reliability-permission-keys";
+import { seedDefaultLossReasons } from "./seed-production-loss-reasons";
 
 const adapter = new PrismaMssql(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
@@ -148,6 +151,8 @@ async function main() {
     ...PRODUCTION_INVENTORY_DOCUMENT_PERMISSIONS,
     ...PRODUCTION_QUALITY_COST_PERMISSIONS,
     ...PRODUCTION_ANALYTICS_PERMISSIONS,
+    ...OPERATIONAL_COST_CENTER_PERMISSIONS,
+    ...OPERATIONAL_RELIABILITY_PERMISSIONS,
     { key: "numbering:generate", module: "numbering", action: "generate" },
     { key: "messaging:send", module: "messaging", action: "send" },
     { key: "messaging:manage", module: "messaging", action: "manage" },
@@ -295,6 +300,7 @@ async function main() {
   await seedProductionInventoryDocumentNumbering(prisma);
   await seedProductionQualityCostNumbering(prisma);
   await seedProductionAnalyticsNumbering(prisma);
+  await seedDefaultLossReasons(prisma, company.id, branch.id, adminUser.id);
 
   console.log("Seed completed successfully.");
   console.log(`  Company:          ${company.code} (${company.id})`);

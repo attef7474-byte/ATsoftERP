@@ -18,6 +18,7 @@ export function CmmsStatusBadge({ status }: { status?: string | null }) {
     FULLY_ISSUED: 'bg-green-100 text-green-800',
     COMPLETED: 'bg-green-100 text-green-800',
     CANCELLED: 'bg-red-100 text-red-800',
+    ENDED: 'bg-orange-100 text-orange-800',
     DONE: 'bg-green-100 text-green-800',
     active: 'bg-green-100 text-green-800',
     expired: 'bg-red-100 text-red-800',

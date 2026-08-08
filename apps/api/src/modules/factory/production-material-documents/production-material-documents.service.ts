@@ -5,6 +5,7 @@ import { NumberingService } from '../../numbering/numbering.service';
 import { InventoryMovementsService } from '../inventory-movements/inventory-movements.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { AuditService } from '../../audit/audit.service';
+import { OperationalSourceChangesService } from '../operational-source-changes/operational-source-changes.service';
 import {
   PRODUCTION_MATERIAL_DOCUMENT_AUDIT_ENTITY,
   PRODUCTION_MATERIAL_DOCUMENT_INCLUDE,
@@ -35,6 +36,7 @@ export class ProductionMaterialDocumentsService {
     private readonly audit: AuditService,
     private readonly numberingService: NumberingService,
     private readonly movementsService: InventoryMovementsService,
+    private readonly sourceChangesService: OperationalSourceChangesService,
   ) {}
 
   private notFound(key: string): NotFoundException {
@@ -73,6 +75,107 @@ export class ProductionMaterialDocumentsService {
       where: { companyId: ctx.companyId, branchId: ctx.branchId, requestId },
       include: PRODUCTION_MATERIAL_DOCUMENT_INCLUDE,
     });
+  }
+
+  /**
+   * Canonical fingerprint of an incoming create payload. Only business-relevant
+   * fields participate so a retry of the same submission is stable.
+   */
+  private fingerprintCreatePayload(dto: CreateMaterialDocumentDto): string {
+    const lines = dto.lines
+      .map((l) =>
+        [
+          l.productId,
+          l.substitutedProductId ?? '',
+          new Prisma.Decimal(l.quantity).toFixed(4),
+          l.unit ?? '',
+          l.warehouseLocationId ?? '',
+          l.batchNumber ?? '',
+          l.serialNumber ?? '',
+          l.substitutionReason ?? '',
+          l.originalIssueLineId ?? '',
+        ].join(':'),
+      )
+      .sort()
+      .join('~');
+    return [dto.documentType, dto.productionOrderId, dto.productionRunId, dto.issueWarehouseId ?? '', lines].join('|');
+  }
+
+  private fingerprintStoredDocument(doc: any): string {
+    const lines = doc.lines
+      .map((l: any) =>
+        [
+          l.productId,
+          l.substitutedProductId ?? '',
+          new Prisma.Decimal(l.quantity).toFixed(4),
+          l.unit ?? '',
+          l.warehouseLocationId ?? '',
+          l.batchNumber ?? '',
+          l.serialNumber ?? '',
+          l.substitutionReason ?? '',
+          l.originalIssueLineId ?? '',
+        ].join(':'),
+      )
+      .sort()
+      .join('~');
+    return [doc.documentType, doc.productionOrderId, doc.productionRunId, doc.issueWarehouseId ?? '', lines].join('|');
+  }
+
+  private resolveIdempotentCreate(existing: any, dto: CreateMaterialDocumentDto) {
+    if (this.fingerprintStoredDocument(existing) !== this.fingerprintCreatePayload(dto)) {
+      throw this.conflict('productionMaterial.requestPayloadConflict');
+    }
+    return existing;
+  }
+
+  /** Canonical fingerprint of a reversal derived from the POSTED source document. */
+  private fingerprintReversePayload(source: any, dto: ReverseMaterialDocumentDto): string {
+    const reverseType = materialReverseType(source.documentType as any);
+    const lines = source.lines
+      .map((line: any) => {
+        const productId = reverseType === 'SUBSTITUTION' && line.substitutedProductId ? line.substitutedProductId : line.productId;
+        const substitutedProductId = reverseType === 'SUBSTITUTION' && line.substitutedProductId ? line.productId : null;
+        return [
+          productId,
+          substitutedProductId ?? '',
+          new Prisma.Decimal(line.quantity).toFixed(4),
+          line.unit ?? '',
+          line.warehouseLocationId ?? '',
+          line.batchNumber ?? '',
+          line.serialNumber ?? '',
+        ].join(':');
+      })
+      .sort()
+      .join('~');
+    return [source.id, reverseType, lines].join('|');
+  }
+
+  private fingerprintStoredReversal(doc: any): string {
+    const lines = doc.lines
+      .map((l: any) =>
+        [
+          l.productId,
+          l.substitutedProductId ?? '',
+          new Prisma.Decimal(l.quantity).toFixed(4),
+          l.unit ?? '',
+          l.warehouseLocationId ?? '',
+          l.batchNumber ?? '',
+          l.serialNumber ?? '',
+        ].join(':'),
+      )
+      .sort()
+      .join('~');
+    return [doc.reversesDocumentId ?? '', doc.documentType, lines].join('|');
+  }
+
+  private resolveIdempotentReverse(existing: any, source: any, dto: ReverseMaterialDocumentDto) {
+    const sameFingerprint = this.fingerprintStoredReversal(existing) === this.fingerprintReversePayload(source, dto);
+    const sameNotes = !dto.notes || existing.notes === dto.notes;
+    const sameDate = !dto.documentDate || existing.documentDate.toISOString() === new Date(dto.documentDate).toISOString();
+    if (!sameFingerprint || !sameNotes || !sameDate) {
+      throw this.conflict('productionMaterial.requestPayloadConflict');
+    }
+    return existing;
   }
 
   /** Resolves the run + order context, the issue warehouse, and all line products in one place. */
@@ -270,6 +373,7 @@ export class ProductionMaterialDocumentsService {
     dto: CreateMaterialDocumentDto | { documentDate?: string; notes?: string; lines: CreateMaterialDocumentLineDto[]; requestId?: string },
     sourceDocId: string | null,
     sourceDocNumber: string | null,
+    reversesDocumentId: string | null = null,
   ) {
     const documentNumber = await this.numberingService.generateNumberAtomicWithClient('PRODUCTION_MATERIAL_DOCUMENT', client);
     const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', client);
@@ -309,6 +413,7 @@ export class ProductionMaterialDocumentsService {
         movementNumber: movement.movementNumber,
         sourceType: sourceDocId ? 'REVERSE' : 'MANUAL',
         requestId: dto.requestId ?? null,
+        reversesDocumentId,
         notes: dto.notes ?? null,
         documentDate,
         createdById: userId,
@@ -358,7 +463,7 @@ export class ProductionMaterialDocumentsService {
   async create(dto: CreateMaterialDocumentDto, userId: string, ctx: ActiveOperationalContext) {
     if (dto.requestId) {
       const existing = await this.findDocumentByRequestId(dto.requestId, ctx);
-      if (existing) return existing;
+      if (existing) return this.resolveIdempotentCreate(existing, dto);
     }
     if (dto.documentType === 'SUBSTITUTION' && dto.lines.some((l) => !l.substitutedProductId)) {
       throw this.badRequest('productionMaterial.substitutionRequiresSubstitute');
@@ -366,7 +471,7 @@ export class ProductionMaterialDocumentsService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const raced = dto.requestId ? await this.findDocumentByRequestId(dto.requestId, ctx, tx) : null;
-        if (raced) return raced;
+        if (raced) return this.resolveIdempotentCreate(raced, dto);
 
         const context = await this.resolveContext(dto, ctx, tx);
         await this.validateReturnReferences(tx, ctx, dto.lines, context.order.id);
@@ -385,7 +490,7 @@ export class ProductionMaterialDocumentsService {
     } catch (error: any) {
       if (error?.code === 'P2002') {
         const raced = dto.requestId ? await this.findDocumentByRequestId(dto.requestId, ctx) : null;
-        if (raced) return raced;
+        if (raced) return this.resolveIdempotentCreate(raced, dto);
         throw this.conflict('productionMaterial.duplicateRequest');
       }
       throw error;
@@ -514,6 +619,22 @@ export class ProductionMaterialDocumentsService {
         include: PRODUCTION_MATERIAL_DOCUMENT_INCLUDE,
       });
 
+      if (doc.sourceType === 'REVERSE') {
+        await this.sourceChangesService.recordChange(
+          tx,
+          ctx,
+          {
+            scopeType: 'ORDER',
+            scopeId: doc.productionOrderId,
+            entityType: 'PRODUCTION_MATERIAL_DOCUMENT',
+            entityId: doc.id,
+            changeType: 'REVERSAL',
+            reason: `Material reversal document ${doc.documentNumber}`,
+          },
+          userId,
+        );
+      }
+
       await this.writeAudit(tx, userId, 'POST', id, ctx, {
         documentNumber: doc.documentNumber,
         movementId: doc.movementId,
@@ -557,19 +678,39 @@ export class ProductionMaterialDocumentsService {
    * Reverses a POSTED document by creating a new DRAFT document of the complementary
    * type whose linked DRAFT movement carries the inverted ledger effect. Posting the
    * reversal returns the exact quantities previously consumed/returned.
+   *
+   * Phase 2 hardening: the reversal is immutable-linked to its source via
+   * `reversesDocumentId`; a source can only ever be reversed once (double reversal is
+   * blocked even with a different requestId); a reversal can never itself be reversed;
+   * warehouse tenant/branch scope is re-validated; reversal quantities reconcile with
+   * the source to the exact Decimal; and requestId idempotency now compares the
+   * canonical payload fingerprint (same requestId + different payload is a conflict).
    */
   async reverse(id: string, dto: ReverseMaterialDocumentDto, userId: string, ctx: ActiveOperationalContext) {
-    if (dto.requestId) {
-      const existing = await this.findDocumentByRequestId(dto.requestId, ctx);
-      if (existing) return existing;
-    }
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const raced = dto.requestId ? await this.findDocumentByRequestId(dto.requestId, ctx, tx) : null;
-        if (raced) return raced;
-
         const source = await this.findDocument(id, ctx, tx);
         if (source.status !== 'POSTED') throw this.badRequest('productionMaterial.reverseOnlyPosted');
+        if (source.sourceType === 'REVERSE' || source.reversesDocumentId) throw this.badRequest('productionMaterial.cannotReverseReversal');
+
+        const existingReversal = await tx.productionMaterialDocument.findFirst({
+          where: {
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+            reversesDocumentId: source.id,
+            status: { not: 'CANCELLED' },
+          },
+          include: PRODUCTION_MATERIAL_DOCUMENT_INCLUDE,
+        });
+        if (existingReversal) {
+          if (dto.requestId && existingReversal.requestId === dto.requestId) {
+            return this.resolveIdempotentReverse(existingReversal, source, dto);
+          }
+          throw this.conflict('productionMaterial.alreadyReversed');
+        }
+
+        const raced = dto.requestId ? await this.findDocumentByRequestId(dto.requestId, ctx, tx) : null;
+        if (raced) return this.resolveIdempotentReverse(raced, source, dto);
 
         const reverseType = materialReverseType(source.documentType as any);
         const reverseLines: CreateMaterialDocumentLineDto[] = source.lines.map((line: any) => {
@@ -590,14 +731,22 @@ export class ProductionMaterialDocumentsService {
           return base;
         });
 
+        const originalTotal = source.lines.reduce((sum: Prisma.Decimal, l: any) => sum.plus(new Prisma.Decimal(l.quantity)), new Prisma.Decimal(0));
+        const reversalTotal = reverseLines.reduce((sum: Prisma.Decimal, l: any) => sum.plus(new Prisma.Decimal(l.quantity)), new Prisma.Decimal(0));
+        if (!originalTotal.equals(reversalTotal)) throw this.badRequest('productionMaterial.reversalReconciliationMismatch');
+
         const run = await tx.productionRun.findFirst({ where: { id: source.productionRunId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } });
         const order = await tx.productionOrder.findFirst({ where: { id: source.productionOrderId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } });
         if (!run) throw this.notFound('productionMaterial.runNotFound');
         if (!order) throw this.notFound('productionMaterial.orderNotFound');
 
-        const warehouse = source.issueWarehouseId
-          ? await tx.warehouse.findUnique({ where: { id: source.issueWarehouseId } })
-          : null;
+        let warehouse: any = null;
+        if (source.issueWarehouseId) {
+          warehouse = await tx.warehouse.findUnique({ where: { id: source.issueWarehouseId } });
+          if (!warehouse) throw this.notFound('productionMaterial.warehouseNotFound');
+          if (warehouse.companyId !== ctx.companyId) throw this.badRequest('productionMaterial.warehouseTenantMismatch');
+          if (warehouse.branchId && warehouse.branchId !== ctx.branchId) throw this.badRequest('productionMaterial.warehouseBranchMismatch');
+        }
 
         const reversal = await this.createDocumentWithMovement(
           tx,
@@ -610,6 +759,7 @@ export class ProductionMaterialDocumentsService {
           { documentDate: dto.documentDate, notes: dto.notes ?? `Reverses document ${source.documentNumber}`, lines: reverseLines, requestId: dto.requestId },
           source.id,
           source.documentNumber,
+          source.id,
         );
 
         await this.writeAudit(tx, userId, 'REVERSE', reversal.id, ctx, {
@@ -623,7 +773,7 @@ export class ProductionMaterialDocumentsService {
     } catch (error: any) {
       if (error?.code === 'P2002') {
         const raced = dto.requestId ? await this.findDocumentByRequestId(dto.requestId, ctx) : null;
-        if (raced) return raced;
+        if (raced) return this.resolveIdempotentReverse(raced, (await this.findDocument(id, ctx)), dto);
         throw this.conflict('productionMaterial.duplicateRequest');
       }
       throw error;

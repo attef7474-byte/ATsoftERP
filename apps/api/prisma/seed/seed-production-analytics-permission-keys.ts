@@ -11,6 +11,7 @@ export const PRODUCTION_PERFORMANCE_TARGET_PERMISSION_KEYS = [
 export const PRODUCTION_ANALYTICS_PERMISSION_KEYS = [
   'production-analytics:read',
   'production-analytics:export',
+  'production-analytics:invalidate',
 ] as const;
 
 export const PRODUCTION_ANALYTICS_PERMISSIONS = [

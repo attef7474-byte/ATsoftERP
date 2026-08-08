@@ -265,6 +265,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         CLOSED: 'مغلق',
         LOCKED: 'مقفل',
         ARCHIVED: 'مؤرشف',
+        ENDED: 'منتهي',
         RELEASED: 'مُصدر',
         true: 'نعم',
         false: 'لا',

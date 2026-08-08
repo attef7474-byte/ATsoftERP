@@ -265,6 +265,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         CLOSED: 'Closed',
         LOCKED: 'Locked',
         ARCHIVED: 'Archived',
+        ENDED: 'Ended',
         RELEASED: 'Released',
         true: 'Yes',
         false: 'No',

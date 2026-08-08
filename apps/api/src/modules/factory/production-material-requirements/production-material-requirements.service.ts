@@ -764,6 +764,39 @@ export class ProductionMaterialRequirementsService {
       const previousQuantity = new Prisma.Decimal(consumption.quantity);
       const newQuantity = new Prisma.Decimal(Number(dto.newQuantity.toFixed(4)));
 
+      // Phase 2 — re-validate the net-issued ceiling before committing the correction.
+      // A correction may never push the effective consumption of a requirement line
+      // beyond the net quantity actually issued for the product (the same invariant
+      // recordConsumption enforces on new facts). Records are re-read inside this
+      // Serializable transaction so a concurrent correction cannot jointly exceed
+      // the ceiling.
+      if (consumption.requirementLineId) {
+        const records = await (tx as any).productionMaterialConsumption.findMany({
+          where: {
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+            productionOrderId: consumption.productionOrderId,
+            requirementLineId: consumption.requirementLineId,
+          },
+          include: { corrections: true },
+        });
+        const effectiveConsumed = records
+          .filter((r: any) => r.id !== id)
+          .reduce(
+            (sum: Prisma.Decimal, r: any) => sum.plus(
+              r.corrections.length > 0
+                ? new Prisma.Decimal(r.corrections[r.corrections.length - 1].newQuantity)
+                : new Prisma.Decimal(r.quantity),
+            ),
+            new Prisma.Decimal(0),
+          );
+        const net = await this.postedNetIssuedByProduct(consumption.productionOrderId, ctx, tx);
+        const issued = net.get(consumption.productId) ?? new Prisma.Decimal(0);
+        if (effectiveConsumed.plus(newQuantity).greaterThan(issued)) {
+          throw this.badRequest('productionMaterialRequirement.consumptionExceedsIssued');
+        }
+      }
+
       await (tx as any).productionMaterialConsumptionCorrection.create({
         data: {
           companyId: ctx.companyId,
@@ -789,7 +822,7 @@ export class ProductionMaterialRequirementsService {
         reason: dto.reason,
       });
       return updated;
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async getConsumptionHistory(orderId: string, query: ConsumptionQueryDto, ctx: ActiveOperationalContext) {

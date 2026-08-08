@@ -20,8 +20,15 @@ ALTER TABLE [dbo].[inventory_movement_lines] ADD [quantityBase] DECIMAL(18,4),
 -- AlterTable
 ALTER TABLE [dbo].[inventory_balances] ADD [quantityBase] DECIMAL(18,4);
 
--- Backfill the Decimal shadow from the legacy Float quantity (dual-compatible precision conversion).
-UPDATE [dbo].[inventory_balances] SET [quantityBase] = [quantity] WHERE [quantityBase] IS NULL;
+-- Backfill the Decimal shadow from the legacy Float quantity (dual-compatible
+-- precision conversion). SQL Server compiles a static UPDATE against this
+-- pre-existing table before the preceding ALTER TABLE has added quantityBase.
+-- Compile the data-preserving backfill only after the column exists.
+EXEC sys.sp_executesql N'
+UPDATE [dbo].[inventory_balances]
+SET [quantityBase] = [quantity]
+WHERE [quantityBase] IS NULL;
+';
 
 -- CreateIndex (location-aware lookup support until the unique key is corrected)
 CREATE NONCLUSTERED INDEX [inventory_balances_warehouseId_productId_locationId_batchNumber_serialNumber_idx] ON [dbo].[inventory_balances]([warehouseId], [productId], [locationId], [batchNumber], [serialNumber]);

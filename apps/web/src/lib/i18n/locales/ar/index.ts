@@ -15,6 +15,10 @@ import system from './system';
 import errorDialog from './error-dialog';
 import workspace from './workspace';
 import production from './production';
+import productionCostTransaction from './production-cost-transaction';
+import productionCostCalculation from './production-cost-calculation';
+import productionReliability from './production-reliability';
+import operationsReports from './operations-reports';
 
 const ar: LocaleTranslations = {
   ...common,
@@ -33,6 +37,10 @@ const ar: LocaleTranslations = {
   ...errorDialog,
   ...workspace,
   ...production,
+  ...productionCostTransaction,
+  ...productionCostCalculation,
+  ...productionReliability,
+  ...operationsReports,
 };
 
 export default ar;

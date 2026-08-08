@@ -2,7 +2,7 @@ import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ProductionAnalyticsService } from './production-analytics.service';
 import { ANALYTICS_PERMISSION_KEYS } from './production-analytics.constants';
-import { AnalyticsExportQueryDto, AnalyticsPageDto, AnalyticsQueryDto } from './dto/analytics-query.dto';
+import { AnalyticsExportQueryDto, AnalyticsInvalidateDto, AnalyticsPageDto, AnalyticsQueryDto } from './dto/analytics-query.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -106,5 +106,12 @@ export class ProductionAnalyticsController {
   @ApiOperation({ summary: 'Export a production analytics report as CSV (audited)' })
   export(@Body() dto: AnalyticsExportQueryDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext): Promise<any> {
     return this.service.export(dto, userId, ctx);
+  }
+
+  @Post('invalidate')
+  @Permissions(ANALYTICS_PERMISSION_KEYS.analyticsInvalidate)
+  @ApiOperation({ summary: 'Record a manual analytics invalidation watermark (audited, reason required)' })
+  invalidate(@Body() dto: AnalyticsInvalidateDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext): Promise<any> {
+    return this.service.invalidate(dto, userId, ctx);
   }
 }

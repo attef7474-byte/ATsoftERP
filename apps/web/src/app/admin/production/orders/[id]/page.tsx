@@ -11,7 +11,7 @@ import { Button, Input, Modal, PageHeader, Textarea } from '../../../../../compo
 import { CmmsStatusBadge } from '../../../../../components/maintenance';
 import type { ProductionOrder, ProductionOrderAttachment, ProductionOrderReadiness } from '../../../../../lib/admin-types';
 import { orderErrorMessageKey } from '../_components/order-form';
-import { ORDER_ARCHIVABLE_STATUSES, ORDER_CANCELLABLE_STATUSES, ORDER_EDITABLE_STATUSES, priorityLabelKey, statusLabelKey } from '../_components/order-labels';
+import { ORDER_ARCHIVABLE_STATUSES, ORDER_CANCELLABLE_STATUSES, ORDER_CLOSEABLE_STATUSES, ORDER_EDITABLE_STATUSES, ORDER_REOPENABLE_STATUSES, priorityLabelKey, statusLabelKey } from '../_components/order-labels';
 
 const TABS = ['snapshot', 'history', 'attachments'];
 
@@ -192,9 +192,17 @@ export default function ProductionOrderDetailPage() {
   const transitionTitle = (action: string) => {
     if (action === 'cancel') return t('production.orders.cancelOrder');
     if (action === 'archive') return t('production.orders.archiveOrder');
+    if (action === 'close') return t('production.orders.closeOrder');
+    if (action === 'reopen') return t('production.orders.reopenOrder');
     if (action === 'plan') return t('production.orders.plan');
     if (action === 'release') return t('production.orders.release');
     return t('production.orders.recalculate');
+  };
+
+  const transitionMessage = (action: string) => {
+    if (action === 'close') return t('production.orders.closeConfirmation');
+    if (action === 'reopen') return t('production.orders.reopenConfirmation');
+    return t('production.orders.actionConfirmation');
   };
 
   if (loading) {
@@ -217,6 +225,8 @@ export default function ProductionOrderDetailPage() {
     if (action === 'recalculate') return can('recalculate') && ORDER_EDITABLE_STATUSES.includes(order.status);
     if (action === 'cancel') return can('cancel') && ORDER_CANCELLABLE_STATUSES.includes(order.status);
     if (action === 'archive') return can('archive') && ORDER_ARCHIVABLE_STATUSES.includes(order.status);
+    if (action === 'close') return can('close') && ORDER_CLOSEABLE_STATUSES.includes(order.status);
+    if (action === 'reopen') return can('reopen') && ORDER_REOPENABLE_STATUSES.includes(order.status);
     return false;
   };
 
@@ -246,6 +256,8 @@ export default function ProductionOrderDetailPage() {
           {can('update') && ORDER_EDITABLE_STATUSES.includes(order.status) && <Button variant="secondary" onClick={() => router.push('/admin/production/orders/' + id + '/edit')}>{t('actions.edit')}</Button>}
           {canTransition('cancel') && <Button variant="danger" onClick={() => setTransition({ action: 'cancel', reasonRequired: true })}>{t('production.orders.cancelOrder')}</Button>}
           {canTransition('archive') && <Button variant="danger" onClick={() => setTransition({ action: 'archive', reasonRequired: true })}>{t('production.orders.archiveOrder')}</Button>}
+          {canTransition('close') && <Button onClick={() => setTransition({ action: 'close', reasonRequired: true })}>{t('production.orders.closeOrder')}</Button>}
+          {canTransition('reopen') && <Button variant="secondary" onClick={() => setTransition({ action: 'reopen', reasonRequired: true })}>{t('production.orders.reopenOrder')}</Button>}
           <Button variant="secondary" onClick={() => router.push('/admin/production/orders')}>{t('common.backToList')}</Button>
         </div>
       </div>
@@ -360,7 +372,7 @@ export default function ProductionOrderDetailPage() {
 
       <Modal open={Boolean(transition)} onClose={() => setTransition(null)} title={transitionTitle(transition?.action || '')}>
         <div className="space-y-4">
-          <p>{t('production.orders.actionConfirmation')}</p>
+          <p>{transitionMessage(transition?.action || '')}</p>
           {transition?.reasonRequired && <Textarea label={t('production.orders.reason')} value={reason} onChange={(e) => setReason(e.target.value)} required />}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setTransition(null)}>{t('actions.cancel')}</Button>

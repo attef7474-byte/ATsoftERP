@@ -143,6 +143,7 @@ describe('ProductionRunsService', () => {
   let model: any;
   let audit: any;
   let numbering: any;
+  let orders: any;
   let service: ProductionRunsService;
 
   beforeEach(() => {
@@ -163,7 +164,8 @@ describe('ProductionRunsService', () => {
     };
     audit = { logWithClient: jest.fn().mockResolvedValue({}) };
     numbering = { generateNumberAtomicWithClient: jest.fn().mockResolvedValue('RUN-000001') };
-    service = new ProductionRunsService(prisma, audit, numbering);
+    orders = { finalizeOrderAfterLastRun: jest.fn().mockResolvedValue(null) };
+    service = new ProductionRunsService(prisma, audit, numbering, orders);
   });
 
   describe('start', () => {
@@ -327,6 +329,25 @@ describe('ProductionRunsService', () => {
 
       expect(result.status).toBe('COMPLETED');
       expect(model.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'COMPLETED', endedAt: expect.any(Date) }) }));
+      expect(orders.finalizeOrderAfterLastRun).toHaveBeenCalledWith('po1', 'req-c:order-end', 'u2', ctxA, prisma, expect.objectContaining({ runId: 'run1', runNumber: 'RUN-000001', action: 'COMPLETE' }));
+    });
+
+    it('asks the order service to finalize when a run is aborted', async () => {
+      model.findFirst.mockResolvedValueOnce(run({ status: 'READY' })).mockResolvedValueOnce(run({ status: 'ABORTED', lockVersion: 1, endedAt: new Date() }));
+      model.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.abort('run1', { requestId: 'req-a', lockVersion: 0, reason: 'no material' } as any, 'u2', ctxA);
+
+      expect(orders.finalizeOrderAfterLastRun).toHaveBeenCalledWith('po1', 'req-a:order-end', 'u2', ctxA, prisma, expect.objectContaining({ action: 'ABORT' }));
+    });
+
+    it('does not finalize the order on pause or resume', async () => {
+      model.findFirst.mockResolvedValueOnce(run({ status: 'RUNNING' })).mockResolvedValueOnce(run({ status: 'PAUSED', lockVersion: 1, pausedAt: new Date() }));
+      model.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.pause('run1', { requestId: 'req-p', lockVersion: 0 }, 'u2', ctxA);
+
+      expect(orders.finalizeOrderAfterLastRun).not.toHaveBeenCalled();
     });
 
     it('protects a completed run from a second completion', async () => {

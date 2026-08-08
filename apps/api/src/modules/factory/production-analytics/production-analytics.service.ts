@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { OperationalSourceChangesService } from '../operational-source-changes/operational-source-changes.service';
 import { deriveRunTotals, TotalsInputEvent } from '../production-runs/production-runs.util';
 import {
   aggregateFactor,
@@ -16,8 +17,8 @@ import {
 } from './oee-formula.util';
 import { clampToPeriod, intersectionMinutes, mergeIntervals, totalDurationMinutes } from './downtime-union.util';
 import { ProductionPerformanceTargetsService } from './production-performance-targets.service';
-import { ANALYTICS_EXPORT_AUDIT_ENTITY, ANALYTICS_LIMITS, ANALYTICS_TIMEZONE, OEE_FORMULA_VERSION } from './production-analytics.constants';
-import { AnalyticsExportQueryDto, AnalyticsPageDto, AnalyticsQueryDto } from './dto/analytics-query.dto';
+import { ANALYTICS_EXPORT_AUDIT_ENTITY, ANALYTICS_INVALIDATE_AUDIT_ENTITY, ANALYTICS_LIMITS, ANALYTICS_TIMEZONE, OEE_FORMULA_VERSION } from './production-analytics.constants';
+import { AnalyticsExportQueryDto, AnalyticsInvalidateDto, AnalyticsPageDto, AnalyticsQueryDto } from './dto/analytics-query.dto';
 
 interface Window {
   from: Date;
@@ -79,6 +80,7 @@ export class ProductionAnalyticsService {
     private readonly prisma: PrismaService,
     private readonly targets: ProductionPerformanceTargetsService,
     private readonly audit: AuditService,
+    private readonly sourceChanges: OperationalSourceChangesService,
   ) {}
 
   async oee(query: AnalyticsQueryDto, ctx: ActiveOperationalContext) {
@@ -92,6 +94,7 @@ export class ProductionAnalyticsService {
       aggregates: this.aggregate(metrics),
       byProduct: this.groupBy(metrics, (v) => v.productionProductDefinitionId, (v) => v.productCode),
       runs: metrics.map((entry) => this.serializeRun(entry)),
+      sourceChanges: await this.sourceChangeMetadata(query, window, ctx),
     };
   }
 
@@ -123,6 +126,7 @@ export class ProductionAnalyticsService {
       window: this.windowPayload(window),
       bucketCount: items.length,
       items,
+      sourceChanges: await this.sourceChangeMetadata(query, window, ctx),
     };
   }
 
@@ -174,6 +178,7 @@ export class ProductionAnalyticsService {
         segmentCount: segments.length,
       },
       items: list,
+      sourceChanges: await this.sourceChangeMetadata(query, window, ctx),
     };
   }
 
@@ -210,6 +215,7 @@ export class ProductionAnalyticsService {
       window: this.windowPayload(window),
       totalUnplannedMinutes: total.toDecimalPlaces(4).toString(),
       items: list,
+      sourceChanges: await this.sourceChangeMetadata(query, window, ctx),
     };
   }
 
@@ -261,6 +267,7 @@ export class ProductionAnalyticsService {
         utilizationPercent: sums.planned.greaterThan(0) ? sums.actual.div(sums.planned).mul(100).toDecimalPlaces(4).toString() : '0',
       },
       rows,
+      sourceChanges: await this.sourceChangeMetadata(query, window, ctx),
     };
   }
 
@@ -275,6 +282,7 @@ export class ProductionAnalyticsService {
       window: this.windowPayload(window),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
       runs: metrics.map((entry) => this.serializeRun(entry, true)),
+      sourceChanges: await this.sourceChangeMetadata(query, window, ctx),
     };
   }
 
@@ -289,6 +297,7 @@ export class ProductionAnalyticsService {
       byProduct: this.groupBy(metrics, (v) => v.productionProductDefinitionId, (v) => v.productCode).map((row) => ({ key: row.key, label: row.label, runCount: row.runCount, totals: this.outputTotals(row.entries) })),
       byLine: this.groupBy(metrics, (v) => v.productionLineId, (v) => v.productionLineCode).map((row) => ({ key: row.key, label: row.label, runCount: row.runCount, totals: this.outputTotals(row.entries) })),
       byMachine: this.groupBy(metrics, (v) => v.machineId ?? '__UNASSIGNED__', (v) => v.machineCode ?? '__UNASSIGNED__').map((row) => ({ key: row.key, label: row.label, runCount: row.runCount, totals: this.outputTotals(row.entries) })),
+      sourceChanges: await this.sourceChangeMetadata(query, window, ctx),
     };
   }
 
@@ -330,6 +339,7 @@ export class ProductionAnalyticsService {
       },
       byReason: [...byReason.values()].map((row) => ({ ...row, minutes: row.minutes.toDecimalPlaces(4).toString() })).sort((a, b) => decimal(b.minutes).minus(decimal(a.minutes)).toNumber()),
       byShift: [...byShift.values()].map((row) => ({ ...row, minutes: row.minutes.toDecimalPlaces(4).toString() })).sort((a, b) => decimal(b.minutes).minus(decimal(a.minutes)).toNumber()),
+      sourceChanges: await this.sourceChangeMetadata(query, window, ctx),
     };
   }
 
@@ -373,6 +383,7 @@ export class ProductionAnalyticsService {
       aggregates: { totalLossQuantity: total.toDecimalPlaces(4).toString(), eventCount: events.length },
       byType: [...byType.values()].map((row) => ({ type: row.type, quantity: row.quantity.toDecimalPlaces(4).toString(), count: row.count })),
       byReason: [...byReason.values()].map((row) => ({ ...row, quantity: row.quantity.toDecimalPlaces(4).toString() })).sort((a, b) => decimal(b.quantity).minus(decimal(a.quantity)).toNumber()),
+      sourceChanges: await this.sourceChangeMetadata(query, window, ctx),
     };
   }
 
@@ -428,6 +439,7 @@ export class ProductionAnalyticsService {
         dispositionCount: dispositions.length,
       },
       byAction: [...byAction.values()].map((row) => ({ action: row.action, quantity: row.quantity.toDecimalPlaces(4).toString(), count: row.count })),
+      sourceChanges: await this.sourceChangeMetadata(query, window, ctx),
     };
   }
 
@@ -452,45 +464,107 @@ export class ProductionAnalyticsService {
       window: this.windowPayload(window),
       aggregates: { totalQuantity: total.toDecimalPlaces(4).toString(), documentCount: consumptions.length },
       byProduct: [...byProduct.values()].map((row) => ({ ...row, quantity: row.quantity.toDecimalPlaces(4).toString() })).sort((a, b) => decimal(b.quantity).minus(decimal(a.quantity)).toNumber()),
+      sourceChanges: await this.sourceChangeMetadata(query, window, ctx),
     };
   }
 
   async cost(query: AnalyticsQueryDto, ctx: ActiveOperationalContext) {
     const window = this.window(query, ctx);
-    const where: any = { companyId: ctx.companyId, branchId: ctx.branchId, status: 'POSTED', reversalOfId: null, occurredAt: { gte: window.from, lte: window.to } };
+    const where: any = { companyId: ctx.companyId, branchId: ctx.branchId, status: 'POSTED', reversalOfId: null, reversedAt: null, occurredAt: { gte: window.from, lte: window.to } };
     if (query.productionLineId) where.productionLineId = query.productionLineId;
     if (query.machineId) where.machineId = query.machineId;
     if (query.shiftId) where.shiftId = query.shiftId;
     if (query.productionOrderId) where.productionOrderId = query.productionOrderId;
     if (query.productionRunId) where.productionRunId = query.productionRunId;
-    const transactions = await this.prisma.operationalCostTransaction.findMany({
-      where,
-      include: { costCenter: { select: { id: true, code: true, name: true } } },
-    });
-    const byEventType = new Map<string, any>();
-    const byCostCenter = new Map<string, any>();
-    let totalAmount = new Prisma.Decimal(0);
-    for (const transaction of transactions) {
-      const amount = new Prisma.Decimal(transaction.amount);
-      totalAmount = totalAmount.plus(amount);
-      const typeRow = byEventType.get(transaction.eventType) || { eventType: transaction.eventType, amount: new Prisma.Decimal(0), count: 0 };
-      typeRow.amount = typeRow.amount.plus(amount);
-      typeRow.count += 1;
-      byEventType.set(transaction.eventType, typeRow);
-      const ccKey = transaction.costCenterId ?? '__UNASSIGNED__';
-      const ccRow = byCostCenter.get(ccKey) || { costCenterId: transaction.costCenterId, costCenterCode: transaction.costCenter?.code ?? null, costCenterName: transaction.costCenter?.name ?? null, amount: new Prisma.Decimal(0), count: 0 };
-      ccRow.amount = ccRow.amount.plus(amount);
-      ccRow.count += 1;
-      byCostCenter.set(ccKey, ccRow);
+    // Batch 2E: aggregate at the database authority instead of materializing every
+    // matching transaction in the API process. The same tenant/status/reversal
+    // predicate is reused by every aggregation so the sections reconcile exactly.
+    const [totals, eventGroups, costCenterGroups, currencyGroups] = await Promise.all([
+      this.prisma.operationalCostTransaction.aggregate({ where, _sum: { amount: true }, _count: true }),
+      this.prisma.operationalCostTransaction.groupBy({ by: ['eventType'], where, _sum: { amount: true }, _count: true }),
+      this.prisma.operationalCostTransaction.groupBy({ by: ['costCenterId'], where, _sum: { amount: true }, _count: true }),
+      this.prisma.operationalCostTransaction.groupBy({ by: ['currencyCode'], where, _sum: { amount: true }, _count: true }),
+    ]);
+    if (currencyGroups.length > 1) {
+      throw new BadRequestException({
+        messageKey: 'analytics.mixedCurrenciesUnsupported',
+        message: 'A single cost report cannot aggregate multiple currencies',
+      });
     }
+    const costCenterIds = costCenterGroups.map((row) => row.costCenterId).filter((id): id is string => Boolean(id));
+    const costCenters = costCenterIds.length > 0
+      ? await this.prisma.costCenter.findMany({
+        where: {
+          id: { in: costCenterIds },
+          companyId: ctx.companyId,
+          OR: [{ branchId: ctx.branchId }, { branchId: null }],
+        },
+        select: { id: true, code: true, name: true },
+      })
+      : [];
+    const costCenterMap = new Map(costCenters.map((center) => [center.id, center]));
+    const countOf = (row: { _count: number | { _all?: number } }) => typeof row._count === 'number' ? row._count : row._count._all ?? 0;
+    const totalAmount = new Prisma.Decimal(totals._sum.amount ?? 0);
     return {
       timezone: ANALYTICS_TIMEZONE,
       window: this.windowPayload(window),
-      currencyCode: transactions[0]?.currencyCode ?? 'USD',
-      aggregates: { totalAmount: totalAmount.toDecimalPlaces(4).toString(), transactionCount: transactions.length },
-      byEventType: [...byEventType.values()].map((row) => ({ eventType: row.eventType, amount: row.amount.toDecimalPlaces(4).toString(), count: row.count })),
-      byCostCenter: [...byCostCenter.values()].map((row) => ({ ...row, amount: row.amount.toDecimalPlaces(4).toString() })).sort((a, b) => decimal(b.amount).minus(decimal(a.amount)).toNumber()),
+      currencyCode: currencyGroups[0]?.currencyCode ?? 'USD',
+      aggregates: { totalAmount: totalAmount.toDecimalPlaces(4).toString(), transactionCount: countOf(totals) },
+      byEventType: eventGroups.map((row) => ({
+        eventType: row.eventType,
+        amount: new Prisma.Decimal(row._sum.amount ?? 0).toDecimalPlaces(4).toString(),
+        count: countOf(row),
+      })),
+      byCostCenter: costCenterGroups.map((row) => {
+        const center = row.costCenterId ? costCenterMap.get(row.costCenterId) : null;
+        return {
+          costCenterId: row.costCenterId,
+          costCenterCode: center?.code ?? null,
+          costCenterName: center?.name ?? null,
+          amount: new Prisma.Decimal(row._sum.amount ?? 0).toDecimalPlaces(4).toString(),
+          count: countOf(row),
+        };
+      }).sort((a, b) => decimal(b.amount).minus(decimal(a.amount)).toNumber()),
+      sourceChanges: await this.sourceChangeMetadata(query, window, ctx),
     };
+  }
+
+  /**
+   * Phase 2 — manual analytics invalidation/refresh watermark. Analytics are always
+   * computed live, so there is no cache to flush; this records an audited,
+   * tenant-scoped SOURCE_UPDATE change so consumers of the affected scope see
+   * `dataAdjusted: true` on subsequent reads. A reason is mandatory and the action
+   * is permission-gated.
+   */
+  async invalidate(dto: AnalyticsInvalidateDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.prisma.$transaction(async (tx) => {
+      const change = await this.sourceChanges.recordChange(
+        tx,
+        ctx,
+        {
+          scopeType: dto.scopeType as any,
+          scopeId: dto.scopeId,
+          entityType: 'PRODUCTION_ANALYTICS',
+          entityId: dto.scopeId,
+          changeType: 'SOURCE_UPDATE',
+          reason: dto.reason,
+        },
+        userId,
+      );
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'INVALIDATE',
+        entity: ANALYTICS_INVALIDATE_AUDIT_ENTITY,
+        entityId: change.id,
+        details: { companyId: ctx.companyId, branchId: ctx.branchId, scopeType: dto.scopeType, scopeId: dto.scopeId, reason: dto.reason },
+      });
+      return {
+        invalidatedAt: change.createdAt.toISOString(),
+        scopeType: dto.scopeType,
+        scopeId: dto.scopeId,
+        changeId: change.id,
+      };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async export(query: AnalyticsExportQueryDto, userId: string, ctx: ActiveOperationalContext) {
@@ -597,6 +671,33 @@ export class ProductionAnalyticsService {
     return { from: window.from.toISOString(), to: window.to.toISOString() };
   }
 
+  /**
+   * Phase 2 — watermark metadata for analytics read endpoints. Analytics are always
+   * computed live from the source tables; this surfaces whether any underlying
+   * source fact (material-document reversal, cost reversal, snapshot/rate
+   * correction, manual invalidation) changed inside the reporting window and within
+   * the requested scope, so consumers can warn that a previously exported figure is
+   * stale. Run scope is resolved to its order so a run-filtered report also sees
+   * order-level changes.
+   */
+  private async sourceChangeMetadata(query: AnalyticsQueryDto, window: Window, ctx: ActiveOperationalContext) {
+    const scope: { orderId?: string; runId?: string; productionLineId?: string; machineId?: string; productDefinitionId?: string } = {};
+    if (query.productionOrderId) scope.orderId = query.productionOrderId;
+    if (query.productionRunId) scope.runId = query.productionRunId;
+    if (query.productionLineId) scope.productionLineId = query.productionLineId;
+    if (query.machineId) scope.machineId = query.machineId;
+    if (query.productionProductDefinitionId) scope.productDefinitionId = query.productionProductDefinitionId;
+    if (!scope.orderId && query.productionRunId) {
+      const run = await this.prisma.productionRun.findFirst({
+        where: { id: query.productionRunId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
+        select: { productionOrderId: true },
+      });
+      if (run) scope.orderId = run.productionOrderId;
+    }
+    const changes = await this.sourceChanges.findByWindow(ctx, window, scope);
+    return { changeCount: changes.length, dataAdjusted: changes.length > 0, changes };
+  }
+
   private bucket(date: Date, grain: string): { key: string; from: Date; to: Date } {
     const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
     if (grain === 'DAY') {
@@ -634,28 +735,53 @@ export class ProductionAnalyticsService {
     if (query.shiftId) where.shiftId = query.shiftId;
     if (query.productionOrderId) where.productionOrderId = query.productionOrderId;
     if (query.productionRunId) where.id = query.productionRunId;
-    const include = {
+    const include: Prisma.ProductionRunInclude = {
       productionOrder: { select: { id: true, orderNumber: true } },
       productionUnit: { select: { id: true, code: true, name: true } },
       productionLine: { select: { id: true, code: true, name: true } },
       machine: { select: { id: true, code: true, name: true } },
       productionProductDefinition: { select: { id: true, code: true, name: true } },
-      sessions: true,
-      outputEvents: { include: { measurementPoint: { select: { isAuthoritativeFinal: true } } } },
-      downtimeSegments: { where: { status: { not: 'CANCELLED' } } },
-      lossQuantityEvents: true,
+      sessions: { take: ANALYTICS_LIMITS.maxDrilldownEventsPerRun + 1 },
+      outputEvents: {
+        take: ANALYTICS_LIMITS.maxDrilldownEventsPerRun + 1,
+        include: { measurementPoint: { select: { isAuthoritativeFinal: true } } },
+      },
+      downtimeSegments: {
+        where: { status: { notIn: ['CANCELLED', 'SUPERSEDED'] } },
+        take: ANALYTICS_LIMITS.maxDrilldownEventsPerRun + 1,
+      },
+      lossQuantityEvents: { take: ANALYTICS_LIMITS.maxDrilldownEventsPerRun + 1 },
     };
     const limit = options.paginate ? Math.min(options.limit || 20, ANALYTICS_LIMITS.maxPageSize) : ANALYTICS_LIMITS.maxSummaryRuns;
-    const [records, total] = await Promise.all([
-      this.prisma.productionRun.findMany({
+    const findRecords = () => this.prisma.productionRun.findMany({
         where,
         skip: options.paginate ? ((options.page || 1) - 1) * limit : undefined,
         take: limit,
         orderBy: [{ startedAt: 'desc' }],
         include,
-      }),
-      options.paginate ? this.prisma.productionRun.count({ where }) : undefined,
-    ]);
+      });
+    let records: Awaited<ReturnType<typeof findRecords>>;
+    let total: number;
+    if (options.paginate) {
+      [records, total] = await Promise.all([findRecords(), this.prisma.productionRun.count({ where })]);
+    } else {
+      total = await this.prisma.productionRun.count({ where });
+      if (total > ANALYTICS_LIMITS.maxSummaryRuns) {
+        throw new BadRequestException({
+          messageKey: 'analytics.resultTooLarge',
+          message: `The report matches more than ${ANALYTICS_LIMITS.maxSummaryRuns} production runs; narrow the filters`,
+        });
+      }
+      records = await findRecords();
+    }
+    const oversizedRun = records.find((run: any) => [run.sessions, run.outputEvents, run.downtimeSegments, run.lossQuantityEvents]
+      .some((events: unknown[]) => Array.isArray(events) && events.length > ANALYTICS_LIMITS.maxDrilldownEventsPerRun));
+    if (oversizedRun) {
+      throw new BadRequestException({
+        messageKey: 'analytics.resultTooLarge',
+        message: `A production run exceeds the ${ANALYTICS_LIMITS.maxDrilldownEventsPerRun}-event calculation limit; narrow the filters`,
+      });
+    }
     const views: RunView[] = records.map((run: any) => ({
       id: run.id,
       runNumber: run.runNumber,
@@ -684,15 +810,14 @@ export class ProductionAnalyticsService {
       targetEfficiencyPercent: new Prisma.Decimal(run.targetEfficiencyPercentSnapshot ?? 0),
       expectedYieldPercent: new Prisma.Decimal(run.expectedYieldPercentSnapshot ?? 0),
     }));
-    return { runs: records, views, total: total ?? records.length };
+    return { runs: records, views, total };
   }
 
   private downtimeWhere(query: AnalyticsQueryDto, ctx: ActiveOperationalContext, window: Window) {
     const where: any = {
       companyId: ctx.companyId,
       branchId: ctx.branchId,
-      status: { not: 'CANCELLED' },
-      correctsSegmentId: null,
+      status: { notIn: ['CANCELLED', 'SUPERSEDED'] },
       startedAt: { lte: window.to },
       OR: [{ endedAt: null }, { endedAt: { gte: window.from } }],
     };
@@ -733,7 +858,7 @@ export class ProductionAnalyticsService {
       .filter(Boolean);
     const mergedSessions = mergeIntervals(sessionIntervals);
     const plannedMinutes = new Prisma.Decimal(totalDurationMinutes(mergedSessions)).toDecimalPlaces(4);
-    const rawSegments = (run.downtimeSegments || []).filter((segment: any) => !segment.correctsSegmentId && segment.status !== 'CANCELLED');
+    const rawSegments = (run.downtimeSegments || []).filter((segment: any) => segment.status !== 'CANCELLED' && segment.status !== 'SUPERSEDED');
     const unplannedIntervals: any[] = [];
     const plannedIntervals: any[] = [];
     for (const segment of rawSegments) {

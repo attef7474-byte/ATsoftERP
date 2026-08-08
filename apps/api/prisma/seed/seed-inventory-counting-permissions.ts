@@ -4,10 +4,7 @@ config({ path: ".env" });
 import { PrismaClient } from "@prisma/client";
 import { PrismaMssql } from "@prisma/adapter-mssql";
 
-const adapter = new PrismaMssql(process.env.DATABASE_URL!);
-const prisma = new PrismaClient({ adapter });
-
-const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
+export const INVENTORY_COUNTING_EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   // inventory-count
   { key: "inventory-count:start", module: "inventory-count", action: "start" },
   { key: "inventory-count:complete", module: "inventory-count", action: "complete" },
@@ -19,6 +16,7 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   // inventory-movement
   { key: "inventory-movement:post", module: "inventory-movement", action: "post" },
   { key: "inventory-movement:cancel", module: "inventory-movement", action: "cancel" },
+  { key: "inventory-movement:reverse", module: "inventory-movement", action: "reverse" },
   // inventory-adjustment
   { key: "inventory-adjustment:post", module: "inventory-adjustment", action: "post" },
   { key: "inventory-adjustment:cancel", module: "inventory-adjustment", action: "cancel" },
@@ -38,10 +36,10 @@ const EXTRA_PERMISSIONS: { key: string; module: string; action: string }[] = [
   { key: "product-category:deactivate", module: "product-category", action: "deactivate" },
 ];
 
-async function main() {
+async function main(prisma: PrismaClient) {
   let addedCount = 0;
 
-  for (const p of EXTRA_PERMISSIONS) {
+  for (const p of INVENTORY_COUNTING_EXTRA_PERMISSIONS) {
     const existing = await prisma.permission.findUnique({ where: { key: p.key } });
     if (!existing) {
       await prisma.permission.create({ data: { key: p.key, module: p.module, action: p.action, status: "ACTIVE" } });
@@ -64,9 +62,13 @@ async function main() {
   console.log(`Total permissions linked to SUPER_ADMIN: ${allPermissions.length}`);
 }
 
-main()
-  .catch((e) => {
-    console.error("Inventory counting permissions seed failed:", e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+if (require.main === module) {
+  const adapter = new PrismaMssql(process.env.DATABASE_URL!);
+  const prisma = new PrismaClient({ adapter });
+  main(prisma)
+    .catch((e) => {
+      console.error("Inventory counting permissions seed failed:", e);
+      process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());
+}

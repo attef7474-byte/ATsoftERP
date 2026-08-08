@@ -36,15 +36,15 @@ export class ProductionDowntimeService {
   ) {}
 
   private notFound(key: string): NotFoundException {
-    return new NotFoundException({ messageKey: key, message: key });
+    return new NotFoundException({ messageKey: key });
   }
 
   private badRequest(key: string): BadRequestException {
-    return new BadRequestException({ messageKey: key, message: key });
+    return new BadRequestException({ messageKey: key });
   }
 
   private conflict(key: string): ConflictException {
-    return new ConflictException({ messageKey: key, message: key });
+    return new ConflictException({ messageKey: key });
   }
 
   private machineScope(ctx: ActiveOperationalContext) {
@@ -219,6 +219,22 @@ export class ProductionDowntimeService {
 
         const context = await this.resolveRunContext(dto, ctx, tx);
         const reason = await this.resolveActiveReason(dto.reasonId, ctx, tx);
+
+        const maintenanceRequestPolicy = reason?.maintenanceRequestPolicy ?? 'OPTIONAL';
+        if (maintenanceRequestPolicy === 'REQUIRED' && !dto.maintenanceRequestId) {
+          throw this.badRequest('productionDowntime.maintenanceRequestRequired');
+        }
+        if (maintenanceRequestPolicy === 'FORBIDDEN' && dto.maintenanceRequestId) {
+          throw this.badRequest('productionDowntime.maintenanceRequestForbidden');
+        }
+        if (dto.maintenanceRequestId) {
+          const request = await tx.maintenanceRequest.findFirst({
+            where: { id: dto.maintenanceRequestId, machineId: context.machineId },
+            include: { machine: true },
+          });
+          if (!request || !this.machineOwns(request.machine, ctx)) throw this.notFound('productionDowntime.maintenanceRequestNotFound');
+        }
+
         const startedAt = dto.startedAt ? toDate(dto.startedAt) : new Date();
         const endedAt = dto.endedAt ? toDate(dto.endedAt) : null;
         if (!Number.isFinite(startedAt.getTime())) throw this.badRequest('productionDowntime.invalidTime');

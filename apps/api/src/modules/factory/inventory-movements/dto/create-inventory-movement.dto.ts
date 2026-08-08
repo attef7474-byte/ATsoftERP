@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, ValidateNested, IsNumber, Min, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsArray, ValidateNested, IsNumber, Min, IsDateString, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -80,6 +80,12 @@ export class CreateInventoryMovementDto {
   @IsOptional()
   @IsString()
   sourceId?: string;
+
+  @ApiPropertyOptional({ description: 'Idempotency token scoped to the active company and branch. Reusing the same requestId with identical data returns the same movement; with different data it is rejected with a conflict.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  requestId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

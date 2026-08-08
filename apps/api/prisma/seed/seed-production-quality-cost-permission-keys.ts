@@ -64,6 +64,15 @@ export const PRODUCTION_COST_TRANSACTION_PERMISSION_KEYS = [
   'production-cost-transaction:reverse',
 ] as const;
 
+export const PRODUCTION_COST_CALCULATION_PERMISSION_KEYS = [
+  'production-cost-calculation:create',
+  'production-cost-calculation:read',
+  'production-cost-calculation:link',
+  'production-cost-calculation:review',
+  'production-cost-calculation:finalize',
+  'production-cost-calculation:reopen',
+] as const;
+
 export const PRODUCTION_QUALITY_COST_PERMISSIONS = [
   ...PRODUCTION_QUALITY_PLAN_PERMISSION_KEYS,
   ...QUALITY_CHARACTERISTIC_PERMISSION_KEYS,
@@ -74,6 +83,7 @@ export const PRODUCTION_QUALITY_COST_PERMISSIONS = [
   ...PRODUCTION_COST_RATE_PERMISSION_KEYS,
   ...PRODUCTION_COST_SNAPSHOT_PERMISSION_KEYS,
   ...PRODUCTION_COST_TRANSACTION_PERMISSION_KEYS,
+  ...PRODUCTION_COST_CALCULATION_PERMISSION_KEYS,
 ].map((key) => ({
   key,
   module: key.split(':')[0],

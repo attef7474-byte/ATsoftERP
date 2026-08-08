@@ -9,6 +9,8 @@ export const PRODUCTION_ORDER_PERMISSION_KEYS = [
   'production-order:release',
   'production-order:cancel',
   'production-order:archive',
+  'production-order:close',
+  'production-order:reopen',
   'production-order:attach',
 ] as const;
 

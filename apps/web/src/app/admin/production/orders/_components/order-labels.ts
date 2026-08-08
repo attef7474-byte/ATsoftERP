@@ -3,6 +3,8 @@ export const ORDER_PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'URGENT'];
 export const ORDER_EDITABLE_STATUSES = ['DRAFT', 'PLANNED'];
 export const ORDER_CANCELLABLE_STATUSES = ['DRAFT', 'PLANNED', 'RELEASED'];
 export const ORDER_ARCHIVABLE_STATUSES = ['DRAFT', 'PLANNED', 'CANCELLED'];
+export const ORDER_CLOSEABLE_STATUSES = ['COMPLETED'];
+export const ORDER_REOPENABLE_STATUSES = ['CLOSED'];
 
 export function statusLabelKey(value: string): string {
   switch (value) {

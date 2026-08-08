@@ -268,6 +268,7 @@ export const sidebarGroups: SidebarGroup[] = [
         id: 'prd-analytics', labelKey: 'navigation.navSection.productionAnalytics', items: [
           { id: 'prd-performance-targets', labelKey: 'navigation.productionPerformanceTargets', route: '/admin/production/performance-targets', permission: 'production-performance-target:read' },
           { id: 'prd-analytics', labelKey: 'navigation.productionAnalytics', route: '/admin/production/analytics', permission: 'production-analytics:read' },
+          { id: 'prd-reliability', labelKey: 'navigation.productionReliability', route: '/admin/production/reliability', permission: 'operational-reliability:read' },
         ],
       },
     ],
@@ -304,6 +305,7 @@ export const sidebarGroups: SidebarGroup[] = [
       {
         id: 'rpt-main', labelKey: 'navigation.navSection.reportsMain', items: [
           { id: 'rpt-index', labelKey: 'navigation.reportsHome', route: '/admin/reports' },
+          { id: 'rpt-operations', labelKey: 'navigation.operationsReport', route: '/admin/reports/operations', permission: 'reports.operations:read' },
         ],
       },
       {

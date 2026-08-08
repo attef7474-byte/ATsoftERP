@@ -114,6 +114,18 @@ export class ProductionOrdersController {
     return this.service.archive(id, dto, userId, ctx);
   }
 
+  @Post(':id/close')
+  @Permissions('production-order:close')
+  close(@Param('id') id: string, @Body() dto: ProductionOrderReasonActionDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.close(id, dto, userId, ctx);
+  }
+
+  @Post(':id/reopen')
+  @Permissions('production-order:reopen')
+  reopen(@Param('id') id: string, @Body() dto: ProductionOrderReasonActionDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.reopen(id, dto, userId, ctx);
+  }
+
   @Post(':id/attachments')
   @Permissions('production-order:attach')
   @ApiConsumes('multipart/form-data')

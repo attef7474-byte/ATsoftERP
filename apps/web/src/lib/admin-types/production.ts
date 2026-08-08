@@ -213,6 +213,9 @@ export interface ProductionOrder {
   archivedById?: string | null;
   archivedAt?: string | null;
   archiveReason?: string | null;
+  closedById?: string | null;
+  closedAt?: string | null;
+  closureReason?: string | null;
   notes?: string | null;
   createdById: string;
   updatedById: string;

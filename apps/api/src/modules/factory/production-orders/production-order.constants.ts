@@ -8,6 +8,9 @@ export const PRODUCTION_ORDER_SOURCE_TYPES = ['MANUAL', 'REPLENISHMENT', 'FORECA
 export const PRODUCTION_ORDER_EDITABLE_STATUSES = ['DRAFT', 'PLANNED'] as const;
 export const PRODUCTION_ORDER_CANCELLABLE_STATUSES = ['DRAFT', 'PLANNED', 'RELEASED'] as const;
 export const PRODUCTION_ORDER_ARCHIVABLE_STATUSES = ['DRAFT', 'PLANNED', 'CANCELLED'] as const;
+export const PRODUCTION_ORDER_CLOSEABLE_STATUSES = ['COMPLETED'] as const;
+export const PRODUCTION_ORDER_REOPENABLE_STATUSES = ['CLOSED'] as const;
+export const PRODUCTION_ORDER_RUN_ACTIVE_STATUSES = ['READY', 'RUNNING', 'PAUSED'] as const;
 
 export const PRODUCTION_ORDER_PERMISSION_KEYS = [
   'production-order:read',
@@ -20,5 +23,7 @@ export const PRODUCTION_ORDER_PERMISSION_KEYS = [
   'production-order:release',
   'production-order:cancel',
   'production-order:archive',
+  'production-order:close',
+  'production-order:reopen',
   'production-order:attach',
 ] as const;

@@ -275,6 +275,9 @@ model Company {
   costTransactions OperationalCostTransaction[]
   performanceTargets ProductionPerformanceTarget[]
   performanceTargetTransitions ProductionPerformanceTargetTransition[]
+  costCalculations OperationalCostCalculation[]
+  sourceChanges OperationalSourceChange[]
+  operationalCostCenterAssignments OperationalCostCenterAssignment[]
 
   @@index([status])
   @@index([code])
@@ -355,6 +358,9 @@ model Branch {
   costTransactions OperationalCostTransaction[]
   performanceTargets ProductionPerformanceTarget[]
   performanceTargetTransitions ProductionPerformanceTargetTransition[]
+  costCalculations OperationalCostCalculation[]
+  sourceChanges OperationalSourceChange[]
+  operationalCostCenterAssignments OperationalCostCenterAssignment[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -476,6 +482,7 @@ model ProductionLine {
   productionProducts  ProductionProductDefinition[]
   productionEligibilities ProductionEligibility[]
   operationalAssignments ProductionOperationalAssignment[]
+  operationalCostCenterAssignments OperationalCostCenterAssignment[]
   capacityStandards ProductionCapacityStandard[]
   productionOrders ProductionOrder[]
   productionMeasurementPoints ProductionMeasurementPoint[]
@@ -489,6 +496,7 @@ model ProductionLine {
   standardCostSnapshots   OperationalStandardCostSnapshot[]
   costTransactions        OperationalCostTransaction[]
   performanceTargets      ProductionPerformanceTarget[]
+  productionRuns          ProductionRun[]
 
   @@index([code])
   @@index([companyId])
@@ -523,10 +531,12 @@ model ProductionUnit {
   specifications     ProductionSpecification[]
   packagings         ProductionPackaging[]
   operationalAssignments ProductionOperationalAssignment[]
+  operationalCostCenterAssignments OperationalCostCenterAssignment[]
   productionOrders   ProductionOrder[]
   productionMeasurementPoints ProductionMeasurementPoint[]
   qualityCharacteristics QualityCharacteristic[]
   performanceTargets ProductionPerformanceTarget[]
+  productionRuns     ProductionRun[]
 
   @@unique([companyId, branchId, code])
   @@index([companyId])
@@ -570,6 +580,7 @@ model ProductionProductDefinition {
   qualityPlans         ProductionQualityPlan[]
   standardCostSnapshots OperationalStandardCostSnapshot[]
   performanceTargets   ProductionPerformanceTarget[]
+  productionRuns       ProductionRun[]
 
   @@index([code])
   @@index([productId])
@@ -841,6 +852,7 @@ model ProductionOrder {
   materialConsumptions ProductionMaterialConsumption[]
   inspections      ProductionInspection[]
   costTransactions OperationalCostTransaction[]
+  costCalculations OperationalCostCalculation[]
 
   @@unique([companyId, branchId, orderNumber])
   @@unique([companyId, branchId, clientRequestId])
@@ -1746,6 +1758,7 @@ model InventoryMovement {
   status         String    @default("DRAFT")
   sourceType     String?
   sourceId       String?
+  requestId      String?
   movementDate   DateTime  @default(now())
   postedAt       DateTime?
   cancelledAt    DateTime?
@@ -1757,12 +1770,22 @@ model InventoryMovement {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
+  /// Set on a compensating movement that reverses another movement. The original movement is never deleted.
+  reversesMovementId String?
+  reversesMovement   InventoryMovement?   @relation("MovementReversal", fields: [reversesMovementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reversalMovements  InventoryMovement[]  @relation("MovementReversal")
+
   lines               InventoryMovementLine[]
   installedParts       MachineInstalledPart[]
   replacementOutHistories SparePartReplacementHistory[] @relation("ReplacementOutMovement")
   materialDocuments       ProductionMaterialDocument[]
   finishedGoodsReceipts   ProductionFinishedGoodsReceipt[]
 
+  // NOTE: non-null uniqueness on (companyId, branchId, requestId) is enforced by a
+  // SQL Server filtered unique index in migration 20260806200000 (WHERE [requestId]
+  // IS NOT NULL). Prisma cannot express filtered unique indexes, so this is a plain
+  // index here; the filtered index is the single source of truth for idempotency.
+  @@index([companyId, branchId, requestId])
   @@index([companyId])
   @@index([branchId])
   @@index([warehouseId])
@@ -1773,6 +1796,7 @@ model InventoryMovement {
   @@index([createdAt])
   @@index([warehouseId, status])
   @@index([status, movementDate])
+  @@index([reversesMovementId])
   @@map("inventory_movements")
 }
 
@@ -2194,6 +2218,7 @@ model Machine {
   sparePartPlans      PreventiveSparePartPlan[]
   productionEligibilities ProductionEligibility[]
   operationalAssignments ProductionOperationalAssignment[]
+  operationalCostCenterAssignments OperationalCostCenterAssignment[]
   capacityStandards ProductionCapacityStandard[]
   productionOrders ProductionOrder[]
   productionMeasurementPoints ProductionMeasurementPoint[]
@@ -2206,6 +2231,7 @@ model Machine {
   standardCostSnapshots   OperationalStandardCostSnapshot[]
   costTransactions        OperationalCostTransaction[]
   performanceTargets      ProductionPerformanceTarget[]
+  productionRuns          ProductionRun[]
 
   @@index([categoryId])
   @@index([companyId])
@@ -3312,44 +3338,102 @@ model OperationType {
 // ── Cost Center ───────────────────────────────────────────────
 model CostCenter {
   id               String         @id @default(cuid())
-  code             String         @unique
+  code             String
   name             String
   description      String?
   type             String
-  companyId        String?
-  company          Company?       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentId         String?
+  parent           CostCenter?    @relation("CostCenterHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children         CostCenter[]   @relation("CostCenterHierarchy")
+  companyId        String
+  company          Company        @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   branchId         String?
   branch           Branch?        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   administrationId String?
   administration   Administration? @relation(fields: [administrationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   departmentId     String?
   department       Department?    @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  effectiveFrom    DateTime?
+  effectiveTo      DateTime?
+  isPrimary        Boolean        @default(false)
   status           String         @default("ACTIVE")
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   deletedAt        DateTime?
 
+  @@unique([companyId, code])
   @@index([code])
   @@index([type])
   @@index([companyId])
   @@index([branchId])
   @@index([administrationId])
   @@index([departmentId])
+  @@index([parentId])
   @@index([status])
-  productionLines     ProductionLine[]
-  machines            Machine[]
-  maintenanceRequests MaintenanceRequest[]
-  productionProducts  ProductionProductDefinition[]
-  productionOrders    ProductionOrder[]
-  qualityPlans            ProductionQualityPlan[]
-  inspections             ProductionInspection[]
-  costRates               OperationalCostRate[]
-  standardCostSnapshots   OperationalStandardCostSnapshot[]
-  costTransactions        OperationalCostTransaction[]
+  productionLines           ProductionLine[]
+  machines                  Machine[]
+  maintenanceRequests       MaintenanceRequest[]
+  productionProducts        ProductionProductDefinition[]
+  productionOrders          ProductionOrder[]
+  qualityPlans              ProductionQualityPlan[]
+  inspections               ProductionInspection[]
+  costRates                 OperationalCostRate[]
+  standardCostSnapshots     OperationalStandardCostSnapshot[]
+  costTransactions          OperationalCostTransaction[]
+  operationalAssignments    OperationalCostCenterAssignment[]
 
   @@index([type, status])
   @@index([companyId, status])
+  @@index([companyId, parentId, status])
   @@map("cost_centers")
+}
+
+// ── Operational Cost Center Assignment (Phase 2 Batch 2A) ─────
+// Company-level (branchId-null) and branch-level assignments allowed.
+// Resolution precedence is exclusive: specificity chain machine > line > unit,
+// then effective-range containment at referenceDate, then priority (lower wins),
+// then effectiveFrom, then createdAt. isPrimary is a display flag only.
+model OperationalCostCenterAssignment {
+  id                String        @id @default(cuid())
+  code              String        @unique
+  resourceType      String
+  costCenterId      String
+  costCenter        CostCenter    @relation(fields: [costCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId         String?
+  machine           Machine?      @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId  String?
+  productionLine    ProductionLine? @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionUnitId  String?
+  productionUnit    ProductionUnit? @relation(fields: [productionUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  effectiveFrom     DateTime
+  effectiveTo       DateTime?
+  priority          Int           @default(0)
+  source            String        @default("MANUAL")
+  reason            String?
+  companyId         String
+  company           Company       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId          String?
+  branch            Branch?       @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status            String        @default("DRAFT")
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  deletedAt         DateTime?
+
+  @@index([code])
+  @@index([resourceType])
+  @@index([costCenterId])
+  @@index([machineId])
+  @@index([productionLineId])
+  @@index([productionUnitId])
+  @@index([effectiveFrom])
+  @@index([effectiveTo])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([status])
+  @@index([resourceType, machineId, effectiveFrom, effectiveTo])
+  @@index([resourceType, productionLineId, effectiveFrom, effectiveTo])
+  @@index([resourceType, productionUnitId, effectiveFrom, effectiveTo])
+  @@map("operational_cost_center_assignments")
 }
 
 model SparePartConditionBalance {
@@ -3788,9 +3872,13 @@ model ProductionRun {
   assignmentResolutionSource        String                      @default("RESOURCE")
   assignmentResolutionNote          String?
   productionUnitId                  String
+  productionUnit                    ProductionUnit               @relation(fields: [productionUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "production_runs_unit_fkey")
   productionLineId                  String
+  productionLine                    ProductionLine               @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "production_runs_line_fkey")
   machineId                         String?
+  machine                           Machine?                      @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "production_runs_machine_fkey")
   productionProductDefinitionId     String
+  productionProductDefinition       ProductionProductDefinition  @relation(fields: [productionProductDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "production_runs_product_fkey")
   productionVersionId               String
   productionPackagingId             String?
   costCenterId                      String
@@ -3823,7 +3911,7 @@ model ProductionRun {
 
   sessions    ProductionRunSession[]
   transitions ProductionRunTransition[]
-  events      ProductionOutputEvent[]
+  outputEvents ProductionOutputEvent[]
   downtimeLogs DowntimeLog[]
   downtimeSegments DowntimeSegment[]
   lossQuantityEvents ProductionLossQuantityEvent[]
@@ -3832,6 +3920,7 @@ model ProductionRun {
   materialConsumptions ProductionMaterialConsumption[]
   inspections      ProductionInspection[]
   costTransactions OperationalCostTransaction[]
+  costCalculations OperationalCostCalculation[]
 
   @@unique([companyId, branchId, runNumber])
   @@unique([companyId, branchId, clientRequestId])
@@ -4188,9 +4277,20 @@ model ProductionMaterialDocument {
   lines ProductionMaterialDocumentLine[]
   qualityDispositions ProductionQualityDisposition[]
 
+  /// Set on a compensating reversal document (sourceType REVERSE) that offsets a POSTED
+  /// source document. Immutable once created; the original document is never mutated.
+  reversesDocumentId String?
+  reversesDocument    ProductionMaterialDocument? @relation("ProductionMaterialDocumentReversal", fields: [reversesDocumentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reversalDocuments   ProductionMaterialDocument[] @relation("ProductionMaterialDocumentReversal")
+
+  // NOTE: non-null uniqueness on (companyId, branchId, requestId) is enforced by a
+  // SQL Server filtered unique index in migration 20260806210000 (WHERE [requestId]
+  // IS NOT NULL). Prisma cannot express filtered unique indexes, so this is a plain
+  // index here; the filtered index is the single source of truth for idempotency.
+  @@index([companyId, branchId, requestId])
+  @@index([reversesDocumentId])
   @@unique([companyId, branchId, documentNumber])
   @@unique([companyId, branchId, movementId])
-  @@unique([companyId, branchId, requestId])
   @@index([companyId, branchId, documentType, status])
   @@index([companyId, branchId, productionOrderId])
   @@index([companyId, branchId, productionRunId, documentDate])
@@ -4924,7 +5024,18 @@ model OperationalCostTransaction {
   sourceType                    String
   sourceId                      String
   sourceNumberSnapshot          String?
+  /// Canonical identity of the authoritative source valuation (sourceType:sourceId:eventType).
+  /// Set for real operational sources only (never MANUAL/REVERSAL). Non-null uniqueness per
+  /// tenant is enforced by a SQL Server filtered unique index in migration 20260806210000;
+  /// it prevents the same authoritative source+event from being valued twice.
+  sourceFingerprint             String?
+  /// Canonical idempotency fingerprint of the request payload that created this row
+  /// (same requestId + same payload is a replay; same requestId + different payload
+  /// is a conflict). Legacy rows may be NULL and fall back to a stored-field fingerprint.
+  requestPayloadFingerprint      String?
   clientRequestId               String
+  calculationId                 String?
+  calculation                   OperationalCostCalculation? @relation(fields: [calculationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   productionOrderId             String?
   productionOrder               ProductionOrder?               @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   productionRunId               String?
@@ -4971,6 +5082,8 @@ model OperationalCostTransaction {
   @@unique([companyId, branchId, clientRequestId])
   @@index([companyId, branchId, eventType, occurredAt])
   @@index([companyId, branchId, sourceType, sourceId])
+  @@index([companyId, branchId, sourceFingerprint])
+  @@index([companyId, branchId, calculationId, occurredAt])
   @@index([companyId, branchId, productionOrderId, occurredAt])
   @@index([companyId, branchId, productionRunId, occurredAt])
   @@index([companyId, branchId, costCenterId, occurredAt])
@@ -4987,6 +5100,78 @@ model OperationalCostTransaction {
   @@index([outputEventId])
   @@index([reversalOfId])
   @@map("operational_cost_transactions")
+}
+
+// ════ Phase 2 Reversal + Cost + Analytics slice ────────────────────────────────
+// Calculation lifecycle (draft → review → finalize → reopen/recalculate). Finalized
+// revisions are preserved immutably; the amounts themselves are never duplicated here
+// (per Constitution rule 6) — a calculation aggregates its linked atomic transactions.
+model OperationalCostCalculation {
+  id                            String                       @id @default(cuid())
+  companyId                     String
+  company                       Company                      @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                      String
+  branch                        Branch                       @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                          String
+  revision                      Int                          @default(1)
+  scopeType                     String
+  scopeId                       String
+  productionOrderId             String?
+  productionOrder               ProductionOrder?              @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionRunId               String?
+  productionRun                 ProductionRun?                @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  periodFrom                    DateTime
+  periodTo                      DateTime
+  status                        String                       @default("DRAFT")
+  currencyCode                  String                       @default("USD")
+  reviewedById                  String?
+  reviewedAt                    DateTime?
+  finalizedById                 String?
+  finalizedAt                   DateTime?
+  supersedesId                  String?
+  supersedes                    OperationalCostCalculation?   @relation("CostCalculationRevision", fields: [supersedesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  revisions                     OperationalCostCalculation[]  @relation("CostCalculationRevision")
+  reason                        String?
+  notes                         String?
+  createdById                   String
+  createdAt                     DateTime                     @default(now())
+  updatedAt                     DateTime                     @updatedAt
+  deletedAt                     DateTime?
+
+  transactions OperationalCostTransaction[]
+
+  @@unique([companyId, branchId, code, revision])
+  @@index([companyId, branchId, scopeType, scopeId, status])
+  @@index([companyId, branchId, productionOrderId, periodFrom, periodTo])
+  @@index([companyId, branchId, productionRunId, periodFrom, periodTo])
+  @@index([supersedesId])
+  @@map("operational_cost_calculations")
+}
+
+/// Tenant-scoped source-change / invalidation watermark. Recorded deterministically
+/// whenever a fact feeding live analytics changes (material-document reversal, cost
+/// reversal/correction). Analytics are always computed live from the source tables;
+/// this table carries the metadata/warning surfaced on read endpoints.
+model OperationalSourceChange {
+  id         String   @id @default(cuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId   String
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  scopeType  String
+  scopeId    String
+  entityType String
+  entityId   String
+  changeType String
+  reason     String?
+  actorId    String
+  actorName  String?
+  createdAt  DateTime @default(now())
+
+  @@index([companyId, branchId, scopeType, scopeId, createdAt])
+  @@index([companyId, branchId, entityType, entityId])
+  @@index([companyId, branchId, changeType, createdAt])
+  @@map("operational_source_changes")
 }
 
 // ════ Phase 1.9 OEE and Production Analytics ───────────────────────────────────

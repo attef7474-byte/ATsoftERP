@@ -18,8 +18,11 @@ import {
   PRODUCTION_ORDER_ATTACHMENT_ENTITY,
   PRODUCTION_ORDER_AUDIT_ENTITY,
   PRODUCTION_ORDER_CANCELLABLE_STATUSES,
+  PRODUCTION_ORDER_CLOSEABLE_STATUSES,
   PRODUCTION_ORDER_EDITABLE_STATUSES,
   PRODUCTION_ORDER_NUMBER_SEQUENCE,
+  PRODUCTION_ORDER_REOPENABLE_STATUSES,
+  PRODUCTION_ORDER_RUN_ACTIVE_STATUSES,
 } from './production-order.constants';
 
 const orderInclude = {
@@ -269,6 +272,55 @@ export class ProductionOrdersService {
       archivedAt: new Date(),
       archiveReason: dto.reason,
     });
+  }
+
+  async close(id: string, dto: ProductionOrderReasonActionDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.reasonTransition(id, dto, userId, ctx, 'CLOSE', 'CLOSED', PRODUCTION_ORDER_CLOSEABLE_STATUSES, {
+      closedById: userId,
+      closedAt: new Date(),
+      closureReason: dto.reason,
+    });
+  }
+
+  async reopen(id: string, dto: ProductionOrderReasonActionDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.reasonTransition(id, dto, userId, ctx, 'REOPEN', 'COMPLETED', PRODUCTION_ORDER_REOPENABLE_STATUSES, {
+      closedById: null,
+      closedAt: null,
+      closureReason: null,
+    });
+  }
+
+  async finalizeOrderAfterLastRun(
+    orderId: string,
+    requestId: string,
+    userId: string,
+    ctx: ActiveOperationalContext,
+    client: any,
+    evidence: { runId: string; runNumber: string; action: string },
+  ) {
+    const order = await client.productionOrder.findFirst({
+      where: { id: orderId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
+    });
+    if (!order || order.status !== 'IN_PROGRESS') return null;
+    const activeRuns = await client.productionRun.count({
+      where: { productionOrderId: orderId, companyId: ctx.companyId, branchId: ctx.branchId, status: { in: [...PRODUCTION_ORDER_RUN_ACTIVE_STATUSES] }, deletedAt: null },
+    });
+    if (activeRuns > 0) return null;
+    const completedRuns = await client.productionRun.count({
+      where: { productionOrderId: orderId, companyId: ctx.companyId, branchId: ctx.branchId, status: 'COMPLETED', deletedAt: null },
+    });
+    if (completedRuns === 0) return null;
+    const count = await client.productionOrder.updateMany({
+      where: { id: orderId, companyId: ctx.companyId, branchId: ctx.branchId, status: 'IN_PROGRESS', deletedAt: null },
+      data: { status: 'COMPLETED', updatedById: userId, lockVersion: { increment: 1 } },
+    });
+    if (count.count !== 1) return null;
+    const updated = await client.productionOrder.findFirst({
+      where: { id: orderId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
+    });
+    await this.writeTransition(client, updated, 'IN_PROGRESS', 'COMPLETED', 'RUN_END', userId, requestId, undefined, JSON.stringify({ ...evidence, completedRuns }));
+    await this.writeAudit(client, userId, 'AUTO_COMPLETE', updated, ctx, { ...evidence, fromStatus: 'IN_PROGRESS', toStatus: 'COMPLETED' });
+    return updated;
   }
 
   async remove(id: string, userId: string, ctx: ActiveOperationalContext) {

@@ -148,6 +148,90 @@ describe('ProductionDowntimeService', () => {
         service.open({ requestId: 'req-open-4', machineId: 'm-foreign' } as any, 'u1', ctxB),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('rejects opening without a maintenance request when the reason policy is REQUIRED', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(null);
+      prisma.machine.findFirst.mockResolvedValue(machine());
+      prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
+      prisma.productionShift.findFirst.mockResolvedValue(null);
+      prisma.operationalLossReason.findFirst.mockResolvedValue({
+        id: 'r1', code: 'BREAKDOWN', plannedDefault: false, severityDefault: 'CRITICAL', maintenanceRequestPolicy: 'REQUIRED',
+      });
+      await expect(
+        service.open({ requestId: 'req-open-5', machineId: 'm1', reasonId: 'r1' } as any, 'u1', ctxA),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects opening with a maintenance request when the reason policy is FORBIDDEN', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(null);
+      prisma.machine.findFirst.mockResolvedValue(machine());
+      prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
+      prisma.productionShift.findFirst.mockResolvedValue(null);
+      prisma.operationalLossReason.findFirst.mockResolvedValue({
+        id: 'r2', code: 'SETUP', plannedDefault: true, severityDefault: 'MINOR', maintenanceRequestPolicy: 'FORBIDDEN',
+      });
+      await expect(
+        service.open({ requestId: 'req-open-6', machineId: 'm1', reasonId: 'r2', maintenanceRequestId: 'mreq1' } as any, 'u1', ctxA),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a maintenance request that does not belong to the segment machine', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(null);
+      prisma.machine.findFirst.mockResolvedValue(machine());
+      prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
+      prisma.productionShift.findFirst.mockResolvedValue(null);
+      prisma.operationalLossReason.findFirst.mockResolvedValue(null);
+      prisma.maintenanceRequest.findFirst.mockResolvedValue(null);
+      await expect(
+        service.open({ requestId: 'req-open-7', machineId: 'm1', maintenanceRequestId: 'mreq-other' } as any, 'u1', ctxA),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects a maintenance request from another company', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(null);
+      prisma.machine.findFirst.mockResolvedValue(machine());
+      prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
+      prisma.productionShift.findFirst.mockResolvedValue(null);
+      prisma.operationalLossReason.findFirst.mockResolvedValue(null);
+      prisma.maintenanceRequest.findFirst.mockResolvedValue({ id: 'mreq-x', machineId: 'm1', machine: machine({ companyId: 'c2' }) });
+      await expect(
+        service.open({ requestId: 'req-open-8', machineId: 'm1', maintenanceRequestId: 'mreq-x' } as any, 'u1', ctxA),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('links a matching maintenance request on the log and segment when provided', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(null);
+      prisma.machine.findFirst.mockResolvedValue(machine());
+      prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
+      prisma.productionShift.findFirst.mockResolvedValue(null);
+      prisma.operationalLossReason.findFirst.mockResolvedValue({
+        id: 'r1', code: 'BREAKDOWN', plannedDefault: false, severityDefault: 'CRITICAL', maintenanceRequestPolicy: 'REQUIRED',
+      });
+      prisma.maintenanceRequest.findFirst.mockResolvedValue({ id: 'mreq1', machineId: 'm1', machine: machine() });
+      prisma.downtimeSegment.findMany.mockResolvedValue([]);
+      prisma.downtimeLog.create.mockResolvedValue({ id: 'log1' });
+      prisma.downtimeSegment.create.mockResolvedValue(segment());
+
+      const result = await service.open(
+        { requestId: 'req-open-9', machineId: 'm1', reasonId: 'r1', maintenanceRequestId: 'mreq1' } as any, 'u1', ctxA,
+      );
+
+      expect(result.id).toBe('seg1');
+      const logData = prisma.downtimeLog.create.mock.calls[0][0].data;
+      expect(logData.requestId).toBe('mreq1');
+      const segData = prisma.downtimeSegment.create.mock.calls[0][0].data;
+      expect(segData.maintenanceRequestId).toBe('mreq1');
+    });
   });
 
   describe('close', () => {

@@ -17,6 +17,7 @@ describe('Phase 1.9 permission keys', () => {
     ].sort());
     expect([...PRODUCTION_ANALYTICS_PERMISSION_KEYS].sort()).toEqual([
       'production-analytics:export',
+      'production-analytics:invalidate',
       'production-analytics:read',
     ].sort());
   });

@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { DowntimeLogsService } from '../downtime-logs/downtime-logs.service';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+
+const MAX_SLA_SUMMARY_REQUESTS = 1000;
 
 @Injectable()
 export class MaintenanceReliabilityService {
@@ -12,6 +14,10 @@ export class MaintenanceReliabilityService {
 
   private notFound(key: string, message: string): NotFoundException {
     return new NotFoundException({ messageKey: key, message });
+  }
+
+  private badRequest(key: string, message: string): BadRequestException {
+    return new BadRequestException({ messageKey: key, message });
   }
 
   private machineScope(ctx: ActiveOperationalContext) {
@@ -83,7 +89,7 @@ export class MaintenanceReliabilityService {
     const machineFilter: any = this.machineScope(ctx);
     if (query.operationTypeId) machineFilter.operationTypeId = query.operationTypeId;
     if (query.costCenterId) machineFilter.defaultCostCenterId = query.costCenterId;
-    const where: any = { cancelledAt: null, machine: machineFilter };
+    const where: any = { cancelledAt: null, corrections: { none: {} }, machine: machineFilter };
     if (query.machineId) {
       await this.assertMachineAccess(query.machineId, ctx);
       where.machineId = query.machineId;
@@ -118,7 +124,7 @@ export class MaintenanceReliabilityService {
     const machineFilter: any = this.machineScope(ctx);
     if (query.operationTypeId) machineFilter.operationTypeId = query.operationTypeId;
     if (query.costCenterId) machineFilter.defaultCostCenterId = query.costCenterId;
-    const where: any = { cancelledAt: null, machine: machineFilter };
+    const where: any = { cancelledAt: null, corrections: { none: {} }, machine: machineFilter };
     if (query.machineId) {
       await this.assertMachineAccess(query.machineId, ctx);
       where.machineId = query.machineId;
@@ -186,15 +192,20 @@ export class MaintenanceReliabilityService {
       if (query.dateTo) where.createdAt.lte = new Date(query.dateTo);
     }
 
+    const slaWhere = {
+      ...where,
+      responseDueAt: { not: null },
+      startDueAt: { not: null },
+      completeDueAt: { not: null },
+    };
+    const total = await this.prisma.maintenanceRequest.count({ where: slaWhere });
+    if (total > MAX_SLA_SUMMARY_REQUESTS) {
+      throw this.badRequest('analytics.resultTooLarge', `The report matches more than ${MAX_SLA_SUMMARY_REQUESTS} SLA requests; narrow the filters`);
+    }
     const requests = await this.prisma.maintenanceRequest.findMany({
-      where: {
-        ...where,
-        responseDueAt: { not: null },
-        startDueAt: { not: null },
-        completeDueAt: { not: null },
-      },
+      where: slaWhere,
       select: { createdAt: true, responseDueAt: true, startDueAt: true, completeDueAt: true, startDate: true, endDate: true },
-      take: 1000,
+      take: MAX_SLA_SUMMARY_REQUESTS,
     });
 
     const responseTimes: number[] = [];

@@ -34,7 +34,7 @@ describe('MaintenanceReliabilityService', () => {
       machine: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() },
       productionLine: { findFirst: jest.fn() },
       downtimeLog: { count: jest.fn(), aggregate: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() },
-      maintenanceRequest: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn() },
+      maintenanceRequest: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
     };
     downtimeLogs = {
       getMttr: jest.fn().mockResolvedValue({ mttrHours: 1, totalEvents: 2 }),
@@ -104,6 +104,16 @@ describe('MaintenanceReliabilityService', () => {
 
       await expect(service.getRepeatFailureRate({ productionLineId: 'lineForeign' }, ctx)).rejects.toThrow(NotFoundException);
     });
+
+    it('excludes cancelled and superseded originals via correction normalization', async () => {
+      prisma.downtimeLog.count.mockResolvedValue(0);
+
+      await service.getRepeatFailureRate({}, ctx);
+
+      const where = prisma.downtimeLog.count.mock.calls[0][0].where;
+      expect(where.cancelledAt).toBeNull();
+      expect(where.corrections).toEqual({ none: {} });
+    });
   });
 
   describe('getAvailability', () => {
@@ -129,6 +139,17 @@ describe('MaintenanceReliabilityService', () => {
 
       expect(result.availabilityPercent).toBeNull();
       expect(result.note).toBe('Insufficient data to calculate period');
+    });
+
+    it('excludes cancelled and superseded originals via correction normalization', async () => {
+      prisma.downtimeLog.aggregate.mockResolvedValue({ _sum: { durationMinutes: 0 } });
+      prisma.downtimeLog.findFirst.mockResolvedValue(null);
+
+      await service.getAvailability({}, ctx);
+
+      const where = prisma.downtimeLog.aggregate.mock.calls[0][0].where;
+      expect(where.cancelledAt).toBeNull();
+      expect(where.corrections).toEqual({ none: {} });
     });
   });
 
@@ -157,6 +178,14 @@ describe('MaintenanceReliabilityService', () => {
       prisma.machine.findFirst.mockResolvedValue(null);
 
       await expect(service.getSlaTimes({ machineId: 'mForeign' }, ctx)).rejects.toThrow(NotFoundException);
+    });
+
+    it('fails before loading a silently truncated SLA sample', async () => {
+      prisma.maintenanceRequest.count.mockResolvedValue(1001);
+
+      await expect(service.getSlaTimes({}, ctx)).rejects.toThrow('narrow the filters');
+
+      expect(prisma.maintenanceRequest.findMany).not.toHaveBeenCalled();
     });
   });
 });
