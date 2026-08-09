@@ -2,6 +2,7 @@ import type { LocaleTranslations } from '../../types';
 
 const workspace: Pick<LocaleTranslations, 'workspace'> = {
   workspace: {
+    sidebar: 'الشريط الجانبي',
     recordDetails: 'تفاصيل السجل',
     closePanel: 'إغلاق اللوحة',
     openDetails: 'فتح التفاصيل',

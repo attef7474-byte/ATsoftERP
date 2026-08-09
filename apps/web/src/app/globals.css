@@ -779,3 +779,21 @@ html{font-size:calc(16px * var(--ats-font-scale))}
 .admin-main button:active{transform:scale(.98)}
 [role=dialog],.admin-modal,.admin-drawer{border-radius:var(--ats-radius)!important;box-shadow:var(--ats-shadow)!important}
 [data-theme-preview]{background:rgba(255,255,255,var(--ats-glass-opacity));backdrop-filter:blur(var(--ats-glass-blur));border-radius:var(--ats-radius)}
+/* Appearance Studio remediation layer */
+:root{--ats-form-header-gradient:linear-gradient(135deg,#2563eb,#14b8a6)}
+[data-form-header],.ats-form-header{background:var(--ats-form-header-gradient)!important}
+[role=dialog],.admin-modal,.admin-drawer{background:rgba(255,255,255,var(--ats-glass-opacity))!important;backdrop-filter:blur(var(--ats-glass-blur))!important}
+[data-table-density="compact"] .admin-main table th,[data-table-density="compact"] .admin-main table td{padding:.4rem .6rem!important}
+[data-table-density="comfortable"] .admin-main table th,[data-table-density="comfortable"] .admin-main table td{padding:.85rem 1rem!important}
+[data-compact-mode="true"] .admin-topbar{min-height:56px!important}
+[data-show-statusbar="false"] .admin-statusbar{display:none!important}
+[data-show-actionbar="false"] .admin-actionbar{display:none!important}
+[data-theme-mode="dark"]{color-scheme:dark}
+[data-theme-mode="dark"] body{background:#0f172a!important}
+[data-theme-mode="dark"] .admin-main{background:linear-gradient(180deg,#111827 0%,#0f172a 42%,#0b1120 100%)!important}
+[data-theme-mode="dark"] .admin-main-inner{background:transparent!important}
+[data-theme-mode="dark"] .admin-topbar{background:linear-gradient(105deg,#1e293b 0%,#111827 100%)!important;border-bottom-color:#334155!important}
+[data-theme-mode="dark"] .admin-main h1,[data-theme-mode="dark"] .admin-main h2,[data-theme-mode="dark"] .admin-main h3{color:#e2e8f0!important}
+[data-theme-mode="dark"] .admin-main .bg-white{background:#1e293b!important;border-color:#334155!important}
+[data-theme-mode="dark"] .admin-main input,[data-theme-mode="dark"] .admin-main select,[data-theme-mode="dark"] .admin-main textarea,[data-theme-mode="dark"] .admin-main [role="combobox"]{background:#0f172a!important;color:#e2e8f0!important;border-color:#334155!important}
+[data-theme-mode="dark"] .admin-main .shadow,[data-theme-mode="dark"] .admin-main .shadow-sm,[data-theme-mode="dark"] .admin-main .shadow-md{box-shadow:none!important}

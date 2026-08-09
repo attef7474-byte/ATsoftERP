@@ -6,6 +6,7 @@ import { useAuth } from '../../../lib/auth-context';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { AdminActionBarProvider, useAdminActionBar } from '../admin-action-bar';
 import { UnifiedSearchModal } from '../../f9/UnifiedSearchModal';
+import { useAppearance } from '../theme/appearance-provider';
 import { Breadcrumb } from './breadcrumb';
 import { useF9Shortcut } from './f9-shortcut';
 import { MobileMenuOverlay, MobileMenuPanel } from './mobile-menu';
@@ -23,12 +24,14 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
   const [clock, setClock] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const isRtl = locale === 'ar';
+  const { settings: appearanceSettings, loading: appearanceLoading } = useAppearance();
 
   // Sidebar theme settings (loaded from data-attrs on mount)
   const [sidebarBg, setSidebarBg] = useState('navy');
   const [sidebarAccent, setSidebarAccent] = useState('teal');
   const [sidebarDensity, setSidebarDensity] = useState('default');
   const [sidebarFont, setSidebarFont] = useState('normal');
+  const [appearanceSynced, setAppearanceSynced] = useState(false);
 
   const toggleSearch = useCallback(() => {
     setSearchOpen((previous) => !previous);
@@ -67,6 +70,18 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
     setSidebarDensity(density);
     setSidebarFont(font);
   }, []);
+
+  // Server state is authoritative once appearance settings load
+  useEffect(() => {
+    if (!appearanceLoading && !appearanceSynced) {
+      setSidebarBg(appearanceSettings.sidebarBg);
+      setSidebarAccent(appearanceSettings.sidebarAccent);
+      setSidebarDensity(appearanceSettings.sidebarDensity);
+      setSidebarFont(appearanceSettings.sidebarFont);
+      setSidebarCollapsed(appearanceSettings.sidebarCollapsed);
+      setAppearanceSynced(true);
+    }
+  }, [appearanceLoading, appearanceSettings, appearanceSynced]);
 
   useEffect(() => {
     const tick = () => setClock(new Date().toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US'));
