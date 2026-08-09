@@ -1,0 +1,98 @@
+apps/api/src/app.module.ts:59:import { AppearanceModule } from './modules/settings/appearance/appearance.module'
+apps/api/src/modules/settings/appearance/appearance.controller.ts:3:import { AppearanceService } from './appearance.service'
+apps/api/src/modules/settings/appearance/appearance.controller.ts:17:  @Permissions('settings.appearance.view')
+apps/api/src/modules/settings/appearance/appearance.controller.ts:24:  @Permissions('settings.appearance.manage')
+apps/api/src/modules/settings/appearance/appearance.module.ts:3:import { AppearanceController } from './appearance.controller'
+apps/api/src/modules/settings/appearance/appearance.module.ts:4:import { AppearanceService } from './appearance.service'
+apps/api/src/modules/settings/appearance/appearance.service.ts:13:      themeMode: map['appearance.themeMode'] || 'light',
+apps/api/src/modules/settings/appearance/appearance.service.ts:14:      accentColor: map['appearance.accentColor'] || '#2563eb',
+apps/api/src/modules/settings/appearance/appearance.service.ts:15:      compactMode: map['appearance.compactMode'] === 'true',
+apps/api/src/modules/settings/appearance/appearance.service.ts:16:      sidebarDensity: map['appearance.sidebarDensity'] || 'default',
+apps/api/src/modules/settings/appearance/appearance.service.ts:17:      tableDensity: map['appearance.tableDensity'] || 'default',
+apps/api/src/modules/settings/appearance/appearance.service.ts:18:      showStatusBar: map['appearance.showStatusBar'] !== 'false',
+apps/api/src/modules/settings/appearance/appearance.service.ts:19:      showActionBar: map['appearance.showActionBar'] !== 'false',
+apps/api/src/modules/settings/appearance/appearance.service.ts:25:      themeMode: 'appearance.themeMode',
+apps/api/src/modules/settings/appearance/appearance.service.ts:26:      accentColor: 'appearance.accentColor',
+apps/api/src/modules/settings/appearance/appearance.service.ts:27:      compactMode: 'appearance.compactMode',
+apps/api/src/modules/settings/appearance/appearance.service.ts:28:      sidebarDensity: 'appearance.sidebarDensity',
+apps/api/src/modules/settings/appearance/appearance.service.ts:29:      tableDensity: 'appearance.tableDensity',
+apps/api/src/modules/settings/appearance/appearance.service.ts:30:      showStatusBar: 'appearance.showStatusBar',
+apps/api/src/modules/settings/appearance/appearance.service.ts:31:      showActionBar: 'appearance.showActionBar',
+apps/api/src/modules/settings/dto/update-appearance-settings.dto.ts:8:  themeMode?: string
+apps/api/src/modules/settings/dto/update-appearance-settings.dto.ts:13:  accentColor?: string
+apps/api/src/modules/settings/dto/update-appearance-settings.dto.ts:18:  compactMode?: boolean
+apps/api/src/modules/settings/dto/update-appearance-settings.dto.ts:23:  sidebarDensity?: string
+apps/api/src/modules/settings/dto/update-appearance-settings.dto.ts:28:  tableDensity?: string
+apps/api/src/modules/settings/dto/update-appearance-settings.dto.ts:33:  showStatusBar?: boolean
+apps/api/src/modules/settings/dto/update-appearance-settings.dto.ts:38:  showActionBar?: boolean
+apps/web/src/app/admin/settings/appearance/page.tsx:15:    theme: 'light', primaryColor: '#3b82f6', fontSize: 'medium',
+apps/web/src/app/admin/settings/appearance/page.tsx:16:    compactMode: false, sidebarCollapsed: false,
+apps/web/src/app/admin/settings/appearance/page.tsx:17:    sidebarBg: 'navy', sidebarAccent: 'teal',
+apps/web/src/app/admin/settings/appearance/page.tsx:18:    sidebarDensity: 'default', sidebarFont: 'normal',
+apps/web/src/app/admin/settings/appearance/page.tsx:29:          sidebarBg: res.sidebarBg || localStorage.getItem('sidebar-background-mode') || 'navy',
+apps/web/src/app/admin/settings/appearance/page.tsx:30:          sidebarAccent: res.sidebarAccent || localStorage.getItem('sidebar-accent-color') || 'teal',
+apps/web/src/app/admin/settings/appearance/page.tsx:31:          sidebarDensity: res.sidebarDensity || localStorage.getItem('sidebar-density') || 'default',
+apps/web/src/app/admin/settings/appearance/page.tsx:32:          sidebarFont: res.sidebarFont || localStorage.getItem('sidebar-font-size') || 'normal',
+apps/web/src/app/admin/settings/appearance/page.tsx:38:          sidebarBg: localStorage.getItem('sidebar-background-mode') || 'navy',
+apps/web/src/app/admin/settings/appearance/page.tsx:39:          sidebarAccent: localStorage.getItem('sidebar-accent-color') || 'teal',
+apps/web/src/app/admin/settings/appearance/page.tsx:40:          sidebarDensity: localStorage.getItem('sidebar-density') || 'default',
+apps/web/src/app/admin/settings/appearance/page.tsx:41:          sidebarFont: localStorage.getItem('sidebar-font-size') || 'normal',
+apps/web/src/app/admin/settings/appearance/page.tsx:50:      const { theme, primaryColor, fontSize, sidebarCollapsed, compactMode, sidebarBg, sidebarAccent, sidebarDensity, sidebarFont } = settings;
+apps/web/src/app/admin/settings/appearance/page.tsx:52:        themeMode: theme, accentColor: primaryColor, compactMode, sidebarCollapsed,
+apps/web/src/app/admin/settings/appearance/page.tsx:55:      localStorage.setItem('sidebar-background-mode', sidebarBg);
+apps/web/src/app/admin/settings/appearance/page.tsx:56:      localStorage.setItem('sidebar-accent-color', sidebarAccent);
+apps/web/src/app/admin/settings/appearance/page.tsx:57:      localStorage.setItem('sidebar-density', sidebarDensity);
+apps/web/src/app/admin/settings/appearance/page.tsx:58:      localStorage.setItem('sidebar-font-size', sidebarFont);
+apps/web/src/app/admin/settings/appearance/page.tsx:60:      document.documentElement.setAttribute('data-sidebar-bg', sidebarBg);
+apps/web/src/app/admin/settings/appearance/page.tsx:61:      document.documentElement.setAttribute('data-sidebar-accent', sidebarAccent);
+apps/web/src/app/admin/settings/appearance/page.tsx:62:      document.documentElement.setAttribute('data-sidebar-density', sidebarDensity);
+apps/web/src/app/admin/settings/appearance/page.tsx:63:      document.documentElement.setAttribute('data-sidebar-font', sidebarFont);
+apps/web/src/app/admin/settings/appearance/page.tsx:64:      showToast(t('settings.appearance.saveSuccess'), 'success');
+apps/web/src/app/admin/settings/appearance/page.tsx:78:  const sidebarBgOptions = [
+apps/web/src/app/admin/settings/appearance/page.tsx:96:    { value: 'normal', label: t('settings.appearance.medium') },
+apps/web/src/app/admin/settings/appearance/page.tsx:97:    { value: 'large', label: t('settings.appearance.large') },
+apps/web/src/app/admin/settings/appearance/page.tsx:102:      <PageHeader title={t('settings.appearance.title')} />
+apps/web/src/app/admin/settings/appearance/page.tsx:106:          <Select label={t('settings.appearance.theme')} value={settings.theme}
+apps/web/src/app/admin/settings/appearance/page.tsx:108:            options={[{ value: 'light', label: t('settings.appearance.light') }, { value: 'dark', label: t('settings.appearance.dark') }, { value: 'auto', label: t('settings.appearance.auto') }]} />
+apps/web/src/app/admin/settings/appearance/page.tsx:109:          <Input label={t('settings.appearance.primaryColor')} type="color" value={settings.primaryColor || '#3b82f6'}
+apps/web/src/app/admin/settings/appearance/page.tsx:110:            onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })} />
+apps/web/src/app/admin/settings/appearance/page.tsx:111:          <Select label={t('settings.appearance.fontSize')} value={settings.fontSize}
+apps/web/src/app/admin/settings/appearance/page.tsx:113:            options={[{ value: 'small', label: t('settings.appearance.small') }, { value: 'medium', label: t('settings.appearance.medium') }, { value: 'large', label: t('settings.appearance.large') }]} />
+apps/web/src/app/admin/settings/appearance/page.tsx:115:            <input type="checkbox" checked={!!settings.compactMode}
+apps/web/src/app/admin/settings/appearance/page.tsx:116:              onChange={(e) => setSettings({ ...settings, compactMode: e.target.checked })} />
+apps/web/src/app/admin/settings/appearance/page.tsx:117:            {t('settings.appearance.compactMode')}
+apps/web/src/app/admin/settings/appearance/page.tsx:122:            {t('settings.appearance.sidebarCollapsed')}
+apps/web/src/app/admin/settings/appearance/page.tsx:126:          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">{t('appearanceSettings.sidebarBg')}</h3>
+apps/web/src/app/admin/settings/appearance/page.tsx:127:          <Select label={t('appearanceSettings.sidebarBg')} value={settings.sidebarBg}
+apps/web/src/app/admin/settings/appearance/page.tsx:128:            onChange={(e) => setSettings({ ...settings, sidebarBg: e.target.value })}
+apps/web/src/app/admin/settings/appearance/page.tsx:129:            options={sidebarBgOptions} />
+apps/web/src/app/admin/settings/appearance/page.tsx:130:          <Select label={t('appearanceSettings.sidebarAccent')} value={settings.sidebarAccent}
+apps/web/src/app/admin/settings/appearance/page.tsx:131:            onChange={(e) => setSettings({ ...settings, sidebarAccent: e.target.value })}
+apps/web/src/app/admin/settings/appearance/page.tsx:133:          <Select label={t('appearanceSettings.sidebarDensity')} value={settings.sidebarDensity}
+apps/web/src/app/admin/settings/appearance/page.tsx:134:            onChange={(e) => setSettings({ ...settings, sidebarDensity: e.target.value })}
+apps/web/src/app/admin/settings/appearance/page.tsx:136:          <Select label={t('appearanceSettings.sidebarFontSize')} value={settings.sidebarFont}
+apps/web/src/app/admin/settings/appearance/page.tsx:137:            onChange={(e) => setSettings({ ...settings, sidebarFont: e.target.value })}
+apps/web/src/components/admin/shell/admin-shell.tsx:28:  const [sidebarBg, setSidebarBg] = useState('navy');
+apps/web/src/components/admin/shell/admin-shell.tsx:29:  const [sidebarAccent, setSidebarAccent] = useState('teal');
+apps/web/src/components/admin/shell/admin-shell.tsx:30:  const [sidebarDensity, setSidebarDensity] = useState('default');
+apps/web/src/components/admin/shell/admin-shell.tsx:31:  const [sidebarFont, setSidebarFont] = useState('normal');
+apps/web/src/components/admin/shell/admin-shell.tsx:91:    'data-sidebar-bg': sidebarBg,
+apps/web/src/components/admin/shell/admin-shell.tsx:92:    'data-sidebar-accent': sidebarAccent,
+apps/web/src/components/admin/shell/admin-shell.tsx:93:    'data-sidebar-density': sidebarDensity,
+apps/web/src/components/admin/shell/admin-shell.tsx:94:    'data-sidebar-font': sidebarFont,
+apps/web/src/lib/i18n/locales/ar/settings.ts:325:            primaryColor: '丕賱賱賵賳 丕賱兀爻丕爻賷',
+apps/web/src/lib/i18n/locales/ar/settings.ts:330:            compactMode: '丕賱賵囟毓 丕賱賲囟睾賵胤',
+apps/web/src/lib/i18n/locales/ar/settings.ts:440:            primaryColor: '\u0627\u0644\u0644\u0648\u0646 \u0627\u0644\u0623\u0633\u0627\u0633\u064a',
+apps/web/src/lib/i18n/locales/ar/settings.ts:442:            compactMode: '\u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0645\u0636\u063a\u0648\u0637',
+apps/web/src/lib/i18n/locales/ar/settings.ts:447:            sidebarBg: '\u062e\u0644\u0641\u064a\u0629 \u0627\u0644\u0634\u0631\u064a\u0637 \u0627\u0644\u062c\u0627\u0646\u0628\u064a',
+apps/web/src/lib/i18n/locales/ar/settings.ts:448:            sidebarAccent: '\u0644\u0648\u0646 \u0627\u0644\u062a\u0645\u064a\u0632',
+apps/web/src/lib/i18n/locales/ar/settings.ts:449:            sidebarDensity: '\u0643\u062b\u0627\u0641\u0629 \u0627\u0644\u0634\u0631\u064a\u0637 \u0627\u0644\u062c\u0627\u0646\u0628\u064a',
+apps/web/src/lib/i18n/locales/ar/settings.ts:450:            sidebarFontSize: '\u062d\u062c\u0645 \u062e\u0637 \u0627\u0644\u0634\u0631\u064a\u0637 \u0627\u0644\u062c\u0627\u0646\u0628\u064a',
+apps/web/src/lib/i18n/locales/en/settings.ts:325:            primaryColor: 'Primary Color',
+apps/web/src/lib/i18n/locales/en/settings.ts:330:            compactMode: 'Compact Mode',
+apps/web/src/lib/i18n/locales/en/settings.ts:440:            primaryColor: 'Primary Color',
+apps/web/src/lib/i18n/locales/en/settings.ts:442:            compactMode: 'Compact Mode',
+apps/web/src/lib/i18n/locales/en/settings.ts:447:            sidebarBg: 'Sidebar Background',
+apps/web/src/lib/i18n/locales/en/settings.ts:448:            sidebarAccent: 'Accent Color',
+apps/web/src/lib/i18n/locales/en/settings.ts:449:            sidebarDensity: 'Sidebar Density',
+apps/web/src/lib/i18n/locales/en/settings.ts:450:            sidebarFontSize: 'Sidebar Font Size',
