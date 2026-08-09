@@ -1,147 +1,70 @@
 'use client';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
-import { Permission } from '../../../../lib/admin-types';
-import { Card, Pagination, PageHeader, LoadingState, StatusBadge } from '../../../../components/admin/ui';
-import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionViewIcon } from '../../../../components/admin/admin-action-bar';
-import { useRouter } from 'next/navigation';
-import { Button } from '../../../../components/admin/ui';
-import { translatePermissionKey, translateEnum } from '../../../../lib/i18n/literals';
-import { useApiErrorHandler } from '../../../../components/admin/error-handler';
+import { useToast } from '../../../../components/admin/toast-provider';
+import { PageHeader, LoadingState, Pagination } from '../../../../components/admin/ui';
+import { translatePermissionKey } from '../../../../lib/i18n/literals';
+
+type PermissionRow = { id: string; key: string; description?: string | null; status?: string; isActive?: boolean; module?: string; action?: string };
+type Tab = 'all' | 'active' | 'inactive';
+
+const actionNames: Record<string, [string, string]> = { create: ['إنشاء', 'Create'], read: ['قراءة', 'Read'], view: ['عرض', 'View'], update: ['تحديث', 'Update'], delete: ['حذف', 'Delete'], manage: ['إدارة', 'Manage'], approve: ['اعتماد', 'Approve'], export: ['تصدير', 'Export'], import: ['استيراد', 'Import'] };
+const moduleNames: Record<string, [string, string]> = { administration: ['الإدارة', 'Administration'], attachments: ['المرفقات', 'Attachments'], 'audit log': ['سجل التدقيق', 'Audit Log'], inventory: ['المخزون', 'Inventory'], maintenance: ['الصيانة', 'Maintenance'], production: ['الإنتاج', 'Production'], quality: ['الجودة', 'Quality'], organization: ['التنظيم', 'Organization'], roles: ['الأدوار', 'Roles'], users: ['المستخدمون', 'Users'], settings: ['الإعدادات', 'Settings'] };
+const human = (value: string, isAr: boolean) => { const key = value.toLowerCase().replace(/[_-]+/g, ' ').trim(); if (actionNames[key]) return actionNames[key][isAr ? 0 : 1]; if (moduleNames[key]) return moduleNames[key][isAr ? 0 : 1]; return value.split(/\s+/).map((x) => x.charAt(0).toUpperCase() + x.slice(1).toLowerCase()).join(' '); };
+const splitKey = (key: string) => { const parts = key.split(/[.:/]/).filter(Boolean); const action = (parts.pop() || '').replace(/[_-]+/g, ' '); return { module: parts.join(' ').replace(/[_-]+/g, ' ').trim(), action }; };
 
 export default function PermissionsPage() {
-  const { t, dir, locale } = useTranslation();
-  const handleApiError = useApiErrorHandler();
-  const humanizeModule = useCallback((module: string) => translatePermissionKey(module + ':read', locale).split(' — ')[0], [locale]);
-  const translateActionLabel = useCallback((action: string) => translatePermissionKey('administration:' + action, locale).split(' — ')[1] || action, [locale]);
-  const [data, setData] = useState<Permission[]>([]);
-  const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
+  const { locale } = useTranslation();
+  const { showToast } = useToast();
+  const isAr = locale === 'ar';
+  const [rows, setRows] = useState<PermissionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [tab, setTab] = useState<Tab>('all');
+  const [moduleFilter, setModuleFilter] = useState('all');
+  const [actionFilter, setActionFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState('');
-  const [sortColumn, setSortColumn] = useState('');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
 
-  const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
-
-  const router = useRouter();
-
-  const { exec } = useStableHandlers({
-    refresh: () => fetchData(meta.page),
-    matrix: () => router.push('/admin/access/permissions/matrix'),
-  });
-
-  useRegisterAdminActions([
-    { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'matrix', labelKey: 'access.matrixOverview', icon: <ActionViewIcon />, onClick: () => exec('matrix') },
-  ]);
-
-  const fetchData = useCallback(async (page = 1) => {
-    setLoading(true);
-    setError('');
+  const fetchPermissions = useCallback(async (targetPage = page) => {
+    setLoading(true); setError('');
     try {
-      const params: Record<string, any> = { page, limit: 10 };
-      if (search) params.search = search;
-      if (sortColumn) { params.sortBy = sortColumn; params.sortOrder = sortDirection; }
-      Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
-      const res = await api.get<{ data: Permission[]; meta: any }>('/permissions', { params });
-      setData(res.data || []);
-      setMeta(res.meta);
-    } catch (err) {
-      handleApiError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [search, sortColumn, sortDirection, filters, handleApiError]);
+      const params: Record<string, string | number> = { page: targetPage, limit: 100 };
+      if (search.trim()) params.search = search.trim();
+      if (moduleFilter !== 'all') params.module = moduleFilter;
+      if (actionFilter !== 'all') params.action = actionFilter;
+      const response = await api.get<{ data: PermissionRow[]; meta: typeof meta }>('/permissions/matrix', { params });
+      setRows(response.data || []); setMeta(response.meta || { page: targetPage, totalPages: 1, total: response.data?.length || 0 });
+    } catch { setError(isAr ? 'تعذر تحميل الصلاحيات. حاول التحديث مرة أخرى.' : 'Unable to load permissions. Please refresh and try again.'); }
+    finally { setLoading(false); }
+  }, [page, search, moduleFilter, actionFilter, isAr]);
+  useEffect(() => { fetchPermissions(1); }, [search, moduleFilter, actionFilter]);
+  useEffect(() => { fetchPermissions(page); }, [page]);
 
-  useEffect(() => { fetchData(); }, []);
+  const enriched = useMemo(() => rows.map((row) => { const parsed = splitKey(row.key || ''); const active = row.isActive ?? String(row.status || '').toUpperCase() !== 'INACTIVE'; return { ...row, ...parsed, active }; }), [rows]);
+  const filtered = useMemo(() => enriched.filter((row) => tab === 'all' || (tab === 'active' ? row.active : !row.active)), [enriched, tab]);
+  const modules = useMemo(() => Array.from(new Set(enriched.map((r) => r.module))).filter(Boolean).sort(), [enriched]);
+  const actions = useMemo(() => Array.from(new Set(enriched.map((r) => r.action))).filter(Boolean).sort(), [enriched]);
+  const groups = useMemo(() => modules.map((module) => ({ module, count: filtered.filter((r) => r.module === module).length })).filter((x) => x.count > 0), [modules, filtered]);
+  const totalActive = enriched.filter((r) => r.active).length;
+  const clearFilters = () => { setSearch(''); setModuleFilter('all'); setActionFilter('all'); setTab('all'); setPage(1); };
 
-  const baseColumns: GridColumn<Permission>[] = [
-    {
-      key: 'key',
-      header: t('permissions.key'),
-      sortable: true,
-      filterable: true,
-      render: (r) => (
-        <span className="flex flex-col">
-          <span className="font-medium text-gray-900">{translatePermissionKey(r.key, locale)}</span>
-        </span>
-      ),
-    },
-    { key: 'module', header: t('permissions.module'), sortable: true, filterable: true, render: (r) => humanizeModule(r.module) },
-    { key: 'action', header: t('permissions.action'), sortable: true, filterable: true, render: (r) => translateActionLabel(r.action) },
-    { key: 'description', header: t('permissions.description'), sortable: true, render: (r) => r.description || (locale === 'ar' ? 'غير متوفر' : 'Not available') },
-    { key: 'status', header: t('common.status'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
-      { value: 'ACTIVE', label: t('common.active') },
-      { value: 'INACTIVE', label: t('common.inactive') },
-    ], render: (r) => <StatusBadge status={r.status} /> },
-  ];
-
-  const gridActions: GridAction<Permission>[] = [];
-
-  const handleSort = useCallback((col: string, dir: 'asc' | 'desc') => {
-    setSortColumn(col);
-    setSortDirection(dir);
-  }, []);
-
-  const handleFilter = useCallback((col: string, value: string) => {
-    setFilters(prev => ({ ...prev, [col]: value }));
-  }, []);
-
-  const handleClearFilters = useCallback(() => {
-    setFilters({});
-    setSearch('');
-  }, []);
-
-  return (
-    <div>
-      <div className="flex items-center justify-between">
-        <PageHeader title={t('permissions.title')} />
-        <Button variant="secondary" onClick={() => router.push('/admin/access/permissions/matrix')}>{t('access.matrixOverview')}</Button>
+  return <div className="space-y-5" dir={isAr ? 'rtl' : 'ltr'}>
+    <PageHeader title={isAr ? 'إدارة الصلاحيات' : 'Permissions Management'} />
+    <div className="grid gap-3 sm:grid-cols-3"><Stat label={isAr ? 'إجمالي الصلاحيات' : 'Total Permissions'} value={meta.total || rows.length} /><Stat label={isAr ? 'النشطة في الصفحة' : 'Active on page'} value={totalActive} tone="green" /><Stat label={isAr ? 'الوحدات الظاهرة' : 'Visible Modules'} value={groups.length} tone="blue" /></div>
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 bg-gradient-to-r from-sky-50 to-cyan-50 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold text-slate-900">{isAr ? 'دليل الصلاحيات' : 'Permission Directory'}</h2><p className="mt-1 text-xs text-slate-600">{isAr ? 'استخدم التبويبات والفلاتر للوصول إلى المطلوب بسرعة.' : 'Use tabs and filters to find the required permission quickly.'}</p></div><button type="button" onClick={() => fetchPermissions(page)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{isAr ? 'تحديث' : 'Refresh'}</button></div>
+        <div className="mt-4 flex flex-wrap gap-2">{([['all', isAr ? 'الكل' : 'All'], ['active', isAr ? 'النشطة' : 'Active'], ['inactive', isAr ? 'غير النشطة' : 'Inactive']] as [Tab, string][]).map(([value, text]) => <button key={value} type="button" onClick={() => setTab(value)} className={`rounded-full px-4 py-2 text-sm font-bold ${tab === value ? 'bg-blue-700 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'}`}>{text}</button>)}</div>
       </div>
-      {error && <div className="text-center py-12"><p className="text-red-500 mb-4">{error}</p></div>}
-      {!error && loading && data.length === 0 && <LoadingState />}
-      {!error && !loading && data.length === 0 && (
-        <div className="text-center py-12"><p className="text-gray-500">{t('common.noData')}</p></div>
-      )}
-      {(!error || !loading) && data.length > 0 && (
-        <AdminDataGrid
-          columns={baseColumns}
-          data={data}
-          keyExtractor={(item) => item.id}
-          onRowClick={(item) => setSelectedId(item.id)}
-          selectedKey={selectedId}
-          loading={loading}
-          emptyMessage={t('common.noData')}
-          loadingMessage={t('common.loading')}
-          error={error || undefined}
-          actions={gridActions}
-          sortColumn={sortColumn}
-          sortDirection={sortDirection}
-          onSort={handleSort}
-          filters={filters}
-          onFilter={handleFilter}
-          onClearFilters={handleClearFilters}
-          showFilters={showFilters}
-          onToggleFilters={() => setShowFilters(!showFilters)}
-          dir={dir}
-          globalSearch={search}
-          onGlobalSearch={(v) => setSearch(v)}
-          searchPlaceholder={t('grid.searchPlaceholder')}
-          onRefresh={() => fetchData(meta.page)}
-          refreshLoading={loading}
-        />
-      )}
-      {data.length > 0 && (
-        <div className="mt-3">
-          <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-        </div>
-      )}
-    </div>
-  );
+      <div className="space-y-3 border-b border-slate-200 p-4"><div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_190px_190px_auto]"><label className="sr-only" htmlFor="permission-search">{isAr ? 'بحث' : 'Search'}</label><input id="permission-search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder={isAr ? 'ابحث باسم الصلاحية أو الوحدة أو الإجراء…' : 'Search permission, module, or action…'} className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100" /><select value={moduleFilter} onChange={(e) => { setModuleFilter(e.target.value); setPage(1); }} className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm"><option value="all">{isAr ? 'كل الوحدات' : 'All modules'}</option>{modules.map((m) => <option key={m} value={m}>{human(m, isAr)}</option>)}</select><select value={actionFilter} onChange={(e) => { setActionFilter(e.target.value); setPage(1); }} className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm"><option value="all">{isAr ? 'كل الإجراءات' : 'All actions'}</option>{actions.map((a) => <option key={a} value={a}>{human(a, isAr)}</option>)}</select><button type="button" onClick={clearFilters} className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50">{isAr ? 'مسح الفلاتر' : 'Clear filters'}</button></div><div className="flex flex-wrap gap-2">{groups.map((group) => <button type="button" key={group.module} onClick={() => { setModuleFilter(group.module); setPage(1); }} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${moduleFilter === group.module ? 'bg-cyan-100 text-cyan-800 ring-1 ring-cyan-300' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{human(group.module, isAr)} <span className="opacity-70">({group.count})</span></button>)}</div></div>
+      {loading && <LoadingState />}
+      {!loading && error && <div className="p-8 text-center text-sm text-red-600">{error}</div>}
+      {!loading && !error && filtered.length === 0 && <div className="p-12 text-center text-sm text-slate-500">{isAr ? 'لا توجد صلاحيات مطابقة للفلاتر الحالية.' : 'No permissions match the current filters.'}</div>}
+      {!loading && !error && filtered.length > 0 && <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead className="bg-slate-50 text-start text-xs uppercase text-slate-500"><tr><th className="px-4 py-3 text-start">{isAr ? 'الصلاحية' : 'Permission'}</th><th className="px-4 py-3 text-start">{isAr ? 'الوحدة' : 'Module'}</th><th className="px-4 py-3 text-start">{isAr ? 'الإجراء' : 'Action'}</th><th className="px-4 py-3 text-start">{isAr ? 'الوصف' : 'Description'}</th><th className="px-4 py-3 text-start">{isAr ? 'الحالة' : 'Status'}</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((row) => <tr key={row.id} className="hover:bg-sky-50/40"><td className="px-4 py-3 font-semibold text-slate-900">{translatePermissionKey(row.key, locale)}</td><td className="px-4 py-3 text-slate-600">{human(row.module, isAr)}</td><td className="px-4 py-3 text-slate-600">{human(row.action, isAr)}</td><td className="max-w-[300px] px-4 py-3 text-slate-500">{row.description || (isAr ? 'غير متوفر' : 'Not available')}</td><td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${row.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{row.active ? (isAr ? 'نشطة' : 'Active') : (isAr ? 'غير نشطة' : 'Inactive')}</span></td></tr>)}</tbody></table></div>}
+      {!loading && !error && <div className="border-t border-slate-200 p-4"><Pagination page={meta.page || page} totalPages={meta.totalPages || 1} total={meta.total || filtered.length} onPageChange={(next) => { setPage(next); fetchPermissions(next); }} /></div>}
+    </section>
+  </div>;
 }
+function Stat({ label, value, tone = 'slate' }: { label: string; value: string | number; tone?: string }) { return <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="text-xs font-semibold uppercase text-slate-500">{label}</div><div className={`mt-2 text-2xl font-black ${tone === 'green' ? 'text-emerald-700' : tone === 'blue' ? 'text-blue-700' : 'text-slate-900'}`}>{value}</div></div>; }

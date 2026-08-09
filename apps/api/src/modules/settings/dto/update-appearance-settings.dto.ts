@@ -1,4 +1,4 @@
-import { IsString, IsBoolean, IsOptional } from 'class-validator'
+import { IsString, IsBoolean, IsOptional, IsNumber } from 'class-validator'
 import { ApiPropertyOptional } from '@nestjs/swagger'
 
 export class UpdateAppearanceSettingsDto {
@@ -21,6 +21,36 @@ export class UpdateAppearanceSettingsDto {
   @IsOptional()
   @IsString()
   sidebarDensity?: string
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  primaryColor?: string
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  gradientStrength?: string
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  gradientFocus?: string
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  gradientDirection?: string
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  preset?: string
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  fontScale?: string
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  shadow?: string
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  radius?: string
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  glassOpacity?: string
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  glassBlur?: string
 
   @ApiPropertyOptional()
   @IsOptional()
