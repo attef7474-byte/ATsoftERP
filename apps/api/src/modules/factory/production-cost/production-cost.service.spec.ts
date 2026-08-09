@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ProductionCostService } from './production-cost.service';
+import { OPERATIONAL_COST_SNAPSHOT_INCLUDE, OPERATIONAL_COST_TRANSACTION_INCLUDE } from './production-cost.constants';
 
 const ctxA: any = { companyId: 'c1', branchId: 'b1' };
 const ctxB: any = { companyId: 'c2', branchId: 'b2' };
@@ -212,6 +213,20 @@ describe('ProductionCostService', () => {
       expect(audit.logWithClient).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'SNAPSHOT_UPDATE' }));
     });
 
+    it('selects real ProductionVersion fields (versionNumber/versionLabel) for the snapshot include, never stale code/name', () => {
+      const versionSelect = OPERATIONAL_COST_SNAPSHOT_INCLUDE.productionVersion?.select ?? {};
+      expect(versionSelect).toEqual(expect.objectContaining({ id: true, versionNumber: true, versionLabel: true }));
+      expect(versionSelect).not.toHaveProperty('code');
+      expect(versionSelect).not.toHaveProperty('name');
+    });
+
+    it('selects real ProductionPackaging fields (packagingType/packQuantity) for the snapshot include, never stale code/name', () => {
+      const packagingSelect = OPERATIONAL_COST_SNAPSHOT_INCLUDE.productionPackaging?.select ?? {};
+      expect(packagingSelect).toEqual(expect.objectContaining({ id: true, packagingType: true, packQuantity: true }));
+      expect(packagingSelect).not.toHaveProperty('code');
+      expect(packagingSelect).not.toHaveProperty('name');
+    });
+
     it('freezes only DRAFT and supersedes only FROZEN snapshots', async () => {
       prisma.operationalStandardCostSnapshot.findFirst.mockResolvedValue(snapshot({ status: 'FROZEN' }));
       await expect(service.freezeSnapshot('snap1', {}, 'maker', ctxA)).rejects.toBeInstanceOf(BadRequestException);
@@ -304,6 +319,20 @@ describe('ProductionCostService', () => {
       prisma.operationalCostTransaction.findFirst.mockResolvedValue(null);
       await expect(service.findOneTransaction('tx1', ctxB)).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.operationalCostTransaction.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: 'tx1', companyId: 'c2', branchId: 'b2' }) }));
+    });
+
+    it('selects real ProductionVersion fields (versionNumber/versionLabel) for the transaction include, never stale code/name', () => {
+      const versionSelect = OPERATIONAL_COST_TRANSACTION_INCLUDE.productionVersion?.select ?? {};
+      expect(versionSelect).toEqual(expect.objectContaining({ id: true, versionNumber: true, versionLabel: true }));
+      expect(versionSelect).not.toHaveProperty('code');
+      expect(versionSelect).not.toHaveProperty('name');
+    });
+
+    it('selects real ProductionPackaging fields (packagingType/packQuantity) for the transaction include, never stale code/name', () => {
+      const packagingSelect = OPERATIONAL_COST_TRANSACTION_INCLUDE.productionPackaging?.select ?? {};
+      expect(packagingSelect).toEqual(expect.objectContaining({ id: true, packagingType: true, packQuantity: true }));
+      expect(packagingSelect).not.toHaveProperty('code');
+      expect(packagingSelect).not.toHaveProperty('name');
     });
 
     it('reverses only POSTED non-reversed transactions, negating every amount and marking the original', async () => {

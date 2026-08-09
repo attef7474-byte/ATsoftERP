@@ -1383,9 +1383,9 @@ export interface ProductionCostSnapshot {
     product: { id: string; code: string; name: string };
   } | null;
   productionVersionId?: string | null;
-  productionVersion?: { id: string; code: string; name: string } | null;
+  productionVersion?: { id: string; versionNumber: number; versionLabel: string } | null;
   productionPackagingId?: string | null;
-  productionPackaging?: { id: string; code: string; name: string } | null;
+  productionPackaging?: { id: string; packagingType: string; packQuantity: string } | null;
   productionLineId?: string | null;
   productionLine?: { id: string; code: string; name: string } | null;
   machineId?: string | null;
@@ -1430,9 +1430,9 @@ export interface ProductionCostTransaction {
   productCodeSnapshot?: string | null;
   productNameSnapshot?: string | null;
   productionVersionId?: string | null;
-  productionVersion?: { id: string; code: string; name: string } | null;
+  productionVersion?: { id: string; versionNumber: number; versionLabel: string } | null;
   productionPackagingId?: string | null;
-  productionPackaging?: { id: string; code: string; name: string } | null;
+  productionPackaging?: { id: string; packagingType: string; packQuantity: string } | null;
   productionLineId?: string | null;
   productionLine?: { id: string; code: string; name: string } | null;
   machineId?: string | null;
