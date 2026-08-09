@@ -93,13 +93,17 @@ export function translateMovementType(value: string, locale: Locale): string {
 
 export function translatePermissionKey(key: string, locale: Locale): string {
   if (!key) return '-';
-  const parts = key.split('.').filter(Boolean);
-  const last = parts.pop() || '';
-  const prefix = parts.map(humanize);
-  const action = translateEnum(last, locale, 'actions');
-  return prefix.length > 0 ? `${prefix.join(' / ')} / ${action}` : action;
+  const parts = key.split(/[.:/]/).filter(Boolean);
+  const action = (parts.pop() || '').toLowerCase();
+  const module = parts.join(' ').toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const ar: Record<string, string> = { administration: 'الإدارة', attachment: 'المرفقات', 'audit log': 'سجل التدقيق', inventory: 'المخزون', maintenance: 'الصيانة', production: 'الإنتاج', quality: 'الجودة', organization: 'التنظيم', role: 'الأدوار', user: 'المستخدمون' };
+  const en: Record<string, string> = { administration: 'Administration', attachment: 'Attachments', 'audit log': 'Audit Log', inventory: 'Inventory', maintenance: 'Maintenance', production: 'Production', quality: 'Quality', organization: 'Organization', role: 'Roles', user: 'Users' };
+  const arActions: Record<string, string> = { create: 'إنشاء', read: 'عرض', update: 'تحديث', delete: 'حذف', approve: 'اعتماد', assign: 'تعيين' };
+  const enActions: Record<string, string> = { create: 'Create', read: 'View', update: 'Update', delete: 'Delete', approve: 'Approve', assign: 'Assign' };
+  const moduleLabel = (locale === 'ar' ? ar : en)[module] || translateEnum(module, locale, 'access') || humanize(module);
+  const actionLabel = (locale === 'ar' ? arActions : enActions)[action] || translateEnum(action, locale, 'actions') || humanize(action);
+  return moduleLabel ? moduleLabel + ' — ' + actionLabel : actionLabel;
 }
-
 export function formatDate(date: string | Date | null | undefined, locale: Locale): string {
   if (!date) return '-';
   try {

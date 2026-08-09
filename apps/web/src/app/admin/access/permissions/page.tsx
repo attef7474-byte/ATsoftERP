@@ -14,8 +14,8 @@ import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 export default function PermissionsPage() {
   const { t, dir, locale } = useTranslation();
   const handleApiError = useApiErrorHandler();
-  const humanizeModule = useCallback((module: string) => translateEnum(module, locale, 'access'), [locale]);
-  const translateActionLabel = useCallback((action: string) => translateEnum(action, locale, 'actions'), [locale]);
+  const humanizeModule = useCallback((module: string) => translatePermissionKey(module + ':read', locale).split(' — ')[0], [locale]);
+  const translateActionLabel = useCallback((action: string) => translatePermissionKey('administration:' + action, locale).split(' — ')[1] || action, [locale]);
   const [data, setData] = useState<Permission[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -70,13 +70,12 @@ export default function PermissionsPage() {
       render: (r) => (
         <span className="flex flex-col">
           <span className="font-medium text-gray-900">{translatePermissionKey(r.key, locale)}</span>
-          <span className="text-xs text-gray-400 font-mono" dir="ltr">{r.key}</span>
         </span>
       ),
     },
     { key: 'module', header: t('permissions.module'), sortable: true, filterable: true, render: (r) => humanizeModule(r.module) },
     { key: 'action', header: t('permissions.action'), sortable: true, filterable: true, render: (r) => translateActionLabel(r.action) },
-    { key: 'description', header: t('permissions.description'), sortable: true, render: (r) => r.description || '-' },
+    { key: 'description', header: t('permissions.description'), sortable: true, render: (r) => r.description || (locale === 'ar' ? 'غير متوفر' : 'Not available') },
     { key: 'status', header: t('common.status'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
       { value: 'ACTIVE', label: t('common.active') },
       { value: 'INACTIVE', label: t('common.inactive') },
