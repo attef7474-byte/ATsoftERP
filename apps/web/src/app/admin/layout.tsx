@@ -5,6 +5,7 @@ import { isAuthenticated } from '../../lib/auth';
 import { useAuth } from '../../lib/auth-context';
 import { AdminShell } from '../../components/admin/admin-shell';
 import { OperationalContextGate } from '../../components/admin/operational-context';
+import { AppearanceProvider } from '../../components/admin/theme/appearance-provider';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -28,5 +29,5 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return <OperationalContextGate />;
   }
 
-  return <AdminShell>{children}</AdminShell>;
+  return <AppearanceProvider><AdminShell>{children}</AdminShell></AppearanceProvider>;
 }
