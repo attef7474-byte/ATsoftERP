@@ -103,7 +103,7 @@ export default function EditWarehousePage() {
       )}
       <Card>
         <CardContent>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4" data-form-header>
             <div>
               <h1 className="text-lg font-semibold text-gray-900">{t('inventory.editWarehouse')}</h1>
               <p className="text-sm text-gray-500">[{data.code}] {data.name}</p>

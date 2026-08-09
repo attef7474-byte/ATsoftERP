@@ -184,6 +184,8 @@ async function main() {
     { key: "repair-orders:scrap", module: "repair-orders", action: "scrap" },
     { key: "repair-actions:read", module: "repair-actions", action: "read" },
     { key: "repair-actions:create", module: "repair-actions", action: "create" },
+    { key: "settings.appearance.view", module: "appearance", action: "view" },
+    { key: "settings.appearance.manage", module: "appearance", action: "manage" },
     // BOM permissions
     { key: "maintenance-bom:create", module: "maintenance-bom", action: "create" },
     { key: "maintenance-bom:read", module: "maintenance-bom", action: "read" },

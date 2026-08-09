@@ -87,7 +87,7 @@ export function EntityDetailDrawer({
         }}
       >
         {/* Drawer header */}
-        <div className="shrink-0 bg-gradient-to-r from-[var(--ws-soft)] via-white to-white border-b border-[var(--ws-border)] px-4 py-3">
+        <div className="shrink-0 bg-gradient-to-r from-[var(--ws-soft)] via-white to-white border-b border-[var(--ws-border)] px-4 py-3" data-form-header>
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">

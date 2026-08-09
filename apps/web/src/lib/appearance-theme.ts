@@ -131,6 +131,11 @@ export function buildRadiusValue(radius: string): string {
   return radius === 'large' ? '1rem' : radius === 'small' ? '.375rem' : '.625rem';
 }
 
+export function buildFormHeaderTokens(s: Pick<AppearanceSettings, 'gradientEnabled'>): { text: string; border: string } {
+  if (!s.gradientEnabled) return { text: '#ffffff', border: 'rgba(255,255,255,.22)' };
+  return { text: '#073d7d', border: 'rgba(7,61,125,.14)' };
+}
+
 export function buildSidebarPalette(s: Pick<AppearanceSettings, 'sidebarBg' | 'primaryColor'>): { main: string; secondary: string } {
   if (s.sidebarBg === 'custom') {
     return { main: shadeHex(s.primaryColor, 0.6), secondary: s.primaryColor };

@@ -69,7 +69,7 @@ export default function CreateWarehousePage() {
       <Card>
         <CardContent>
           <div className="space-y-6">
-            <h2 className="text-lg font-semibold text-gray-900">{t('complexForms.basicInformation')}</h2>
+            <h2 data-form-header className="text-lg font-semibold text-gray-900">{t('complexForms.basicInformation')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setField('companyId', v)} adapter={companyAdapter} error={errors.companyId} />
               <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setField('branchId', v)} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />

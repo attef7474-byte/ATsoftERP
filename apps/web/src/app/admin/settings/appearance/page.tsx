@@ -132,7 +132,7 @@ export default function AppearanceSettingsPage() {
 }
 
 function PreviewPanel({ isAr, style, draft, compact = false }: { isAr: boolean; style: React.CSSProperties; draft: any; compact?: boolean }) {
-  return <section className={`overflow-hidden rounded-2xl border border-slate-200 shadow-sm ${compact ? 'self-start' : ''}`} style={style}>
+  return <section data-theme-preview className={`overflow-hidden rounded-2xl border border-slate-200 shadow-sm ${compact ? 'self-start' : ''}`} style={style}>
     <div className="p-4 text-sm font-bold text-white" style={{ background: `linear-gradient(110deg, ${draft.primaryColor}, ${draft.accentColor})` }}>{isAr ? 'معاينة مباشرة' : 'Live Preview'}</div>
     <div className="grid min-h-[420px] grid-cols-[110px_1fr] bg-slate-100" style={{ fontSize: draft.fontScale === 'large' ? '1.1rem' : draft.fontScale === 'small' ? '0.9rem' : '1rem' }}>
       <aside className="p-3 text-white" style={{ background: draft.sidebarBg === 'navy' ? '#062b49' : draft.sidebarBg === 'slate' ? '#0f172a' : draft.sidebarBg === 'teal' ? '#0d3b3a' : draft.primaryColor }}><div className="mb-5 font-bold">ATsoft</div><div className="space-y-2 text-xs"><div className="rounded bg-white/20 p-2">{isAr ? 'الرئيسية' : 'Dashboard'}</div><div className="p-2">{isAr ? 'المخزون' : 'Inventory'}</div><div className="p-2">{isAr ? 'الإعدادات' : 'Settings'}</div></div></aside>

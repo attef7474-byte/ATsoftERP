@@ -12,6 +12,7 @@ import {
   buildTopbarGradientCss,
   buildRadiusValue,
   buildSidebarPalette,
+  buildFormHeaderTokens,
   mixHex,
   shadeHex,
   normalizeAppearanceSettings,
@@ -67,6 +68,9 @@ export function applyAppearance(s: AppearanceSettings) {
   root.style.setProperty('--ats-topbar-gradient', buildTopbarGradientCss(s));
   root.style.setProperty('--ats-form-gradient', s.gradientEnabled ? gradient : '#e9f8ff');
   root.style.setProperty('--ats-form-header-gradient', s.gradientEnabled ? gradient : s.primaryColor);
+  const headerTokens = buildFormHeaderTokens(s);
+  root.style.setProperty('--ats-form-header-text', headerTokens.text);
+  root.style.setProperty('--ats-form-header-border', headerTokens.border);
   root.style.setProperty('--ats-radius', buildRadiusValue(s.radius));
   root.style.setProperty('--ats-shadow', SHADOW_DEPTH_VALUES[s.shadowDepth] || SHADOW_DEPTH_VALUES.medium);
   root.style.setProperty('--ats-glass-opacity', String(s.glassOpacity));
