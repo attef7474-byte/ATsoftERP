@@ -34,8 +34,8 @@ export const PRODUCTION_QUALITY_PERMISSION_KEYS = {
 
 export const PRODUCTION_QUALITY_PLAN_INCLUDE = {
   productionProductDefinition: { select: { id: true, code: true, productId: true, product: { select: { id: true, code: true, name: true } } } },
-  productionVersion: { select: { id: true, code: true, name: true } },
-  productionPackaging: { select: { id: true, code: true, name: true } },
+  productionVersion: { select: { id: true, versionNumber: true, versionLabel: true } },
+  productionPackaging: { select: { id: true, packagingType: true, packQuantity: true } },
   productionLine: { select: { id: true, code: true, name: true } },
   machine: { select: { id: true, code: true, name: true } },
   costCenter: { select: { id: true, code: true, name: true } },

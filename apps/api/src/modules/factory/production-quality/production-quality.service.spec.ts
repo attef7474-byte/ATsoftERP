@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProductionQualityService } from './production-quality.service';
+import { PRODUCTION_QUALITY_PLAN_INCLUDE } from './production-quality.constants';
 
 const ctxA: any = { companyId: 'c1', branchId: 'b1' };
 const ctxB: any = { companyId: 'c2', branchId: 'b2' };
@@ -154,6 +155,65 @@ describe('ProductionQualityService', () => {
       prisma.productionQualityPlan.update.mockResolvedValue(plan({ status: 'DRAFT', deletedAt: new Date() }));
       await service.deletePlan('qp1', 'maker', ctxA);
       expect(audit.logWithClient).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'PLAN_DELETE' }));
+    });
+
+    it('selects real ProductionVersion fields (versionNumber/versionLabel) for the plan include, never stale code/name', () => {
+      const versionSelect = PRODUCTION_QUALITY_PLAN_INCLUDE.productionVersion?.select ?? {};
+      expect(versionSelect).toEqual(expect.objectContaining({ id: true, versionNumber: true, versionLabel: true }));
+      expect(versionSelect).not.toHaveProperty('code');
+      expect(versionSelect).not.toHaveProperty('name');
+    });
+
+    it('selects real ProductionPackaging fields (packagingType/packQuantity) for the plan include, never stale code/name', () => {
+      const packagingSelect = PRODUCTION_QUALITY_PLAN_INCLUDE.productionPackaging?.select ?? {};
+      expect(packagingSelect).toEqual(expect.objectContaining({ id: true, packagingType: true, packQuantity: true }));
+      expect(packagingSelect).not.toHaveProperty('code');
+      expect(packagingSelect).not.toHaveProperty('name');
+    });
+
+    it('lists tenant-scoped plans with pagination and returns related production version fields', async () => {
+      const versioned = plan({
+        productionVersionId: 'v1',
+        productionVersion: { id: 'v1', versionNumber: 3, versionLabel: 'Cheese 500g' },
+      });
+      prisma.productionQualityPlan.findMany.mockResolvedValue([versioned]);
+      prisma.productionQualityPlan.count.mockResolvedValue(1);
+      const result = await service.findPlans({ page: 2, limit: 10 }, ctxA);
+      expect(prisma.productionQualityPlan.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'c1', branchId: 'b1', deletedAt: null }),
+          skip: 10,
+          take: 10,
+        }),
+      );
+      expect(result.data[0].productionVersion).toEqual({ id: 'v1', versionNumber: 3, versionLabel: 'Cheese 500g' });
+      expect(result.meta).toEqual({ page: 2, limit: 10, total: 1, totalPages: 1 });
+    });
+
+    it('handles a nullable productionVersion relation safely in list output', async () => {
+      prisma.productionQualityPlan.findMany.mockResolvedValue([plan({ productionVersionId: null, productionVersion: null })]);
+      prisma.productionQualityPlan.count.mockResolvedValue(1);
+      const result = await service.findPlans({}, ctxA);
+      expect(result.data[0].productionVersion).toBeNull();
+      expect(result.data[0].id).toBe('qp1');
+    });
+
+    it('filters plans by status, product definition and search while keeping tenant scope', async () => {
+      prisma.productionQualityPlan.findMany.mockResolvedValue([]);
+      prisma.productionQualityPlan.count.mockResolvedValue(0);
+      await service.findPlans({ status: 'APPROVED', productionProductDefinitionId: 'pd1', search: 'PQP', page: 1, limit: 5 }, ctxA);
+      expect(prisma.productionQualityPlan.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            companyId: 'c1',
+            branchId: 'b1',
+            deletedAt: null,
+            status: 'APPROVED',
+            productionProductDefinitionId: 'pd1',
+            code: { contains: 'PQP' },
+          }),
+        }),
+      );
     });
   });
 
