@@ -6,7 +6,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -17,7 +16,7 @@ export class CreateCostCalculationDto {
   @IsNotEmpty()
   scopeType!: string;
 
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   scopeId!: string;
 
@@ -80,7 +79,7 @@ export class ReopenCostCalculationDto {
 }
 
 export class AttachTransactionToCalculationDto {
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   transactionId!: string;
 }
@@ -107,11 +106,11 @@ export class CostCalculationQueryDto {
   scopeType?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionOrderId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionRunId?: string;
 
   @IsOptional()

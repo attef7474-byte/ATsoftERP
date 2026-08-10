@@ -13,7 +13,7 @@ import {
 } from 'class-validator';
 
 export class CreateFgReceiptLineDto {
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   productId!: string;
 
@@ -27,7 +27,7 @@ export class CreateFgReceiptLineDto {
   unit!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   warehouseLocationId?: string;
 
   @IsOptional()
@@ -51,16 +51,16 @@ export class CreateFgReceiptLineDto {
 }
 
 export class CreateFgReceiptDto {
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   productionOrderId!: string;
 
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   productionRunId!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   receiptWarehouseId?: string;
 
   @IsOptional()
@@ -131,11 +131,11 @@ export class FgReceiptQueryDto {
   limit?: number;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionOrderId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionRunId?: string;
 
   @IsOptional()

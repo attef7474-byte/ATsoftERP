@@ -32,15 +32,15 @@ export class RecordLossDto {
   unit!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionRunId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionOrderId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   outputEventId?: string;
 
   @IsOptional()
@@ -49,19 +49,19 @@ export class RecordLossDto {
   stage?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionLineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   machineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   measurementPointId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productId?: string;
 
   @IsOptional()
@@ -70,11 +70,11 @@ export class RecordLossDto {
   reason?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   reasonId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   sourceEventId?: string;
 
   @IsOptional()
@@ -103,7 +103,7 @@ export class CorrectLossDto {
   quantity?: number;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   reasonId?: string;
 
   @IsOptional()
@@ -130,19 +130,19 @@ export class LossQueryDto {
   type?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionRunId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionOrderId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   machineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionLineId?: string;
 
   @IsOptional()

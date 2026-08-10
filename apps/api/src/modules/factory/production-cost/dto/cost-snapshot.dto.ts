@@ -8,7 +8,6 @@ import {
   IsOptional,
   IsPositive,
   IsString,
-  IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -20,28 +19,28 @@ export class CreateCostSnapshotDto {
   @MaxLength(100)
   code!: string;
 
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   productionProductDefinitionId!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionVersionId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionPackagingId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionLineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   machineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   costCenterId?: string;
 
   @IsIn(COST_TYPES)
@@ -140,7 +139,7 @@ export class CostSnapshotQueryDto {
   status?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionProductDefinitionId?: string;
 }
 

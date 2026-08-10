@@ -18,11 +18,11 @@ export class CreateNcrDto {
   clientRequestId!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   inspectionId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   dispositionId?: string;
 
   @IsIn(['MINOR', 'MAJOR', 'CRITICAL'])
@@ -45,7 +45,7 @@ export class CreateNcrDto {
   correctiveAction?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   ownerUserId?: string;
 
   @IsOptional()
@@ -79,7 +79,7 @@ export class NcrQueryDto {
   severity?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   inspectionId?: string;
 
   @IsOptional()
@@ -117,7 +117,7 @@ export class NcrTransitionDto {
 }
 
 export class NcrAttachDto {
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   attachmentId!: string;
 }

@@ -18,7 +18,7 @@ import {
 import { DISPOSITION_ACTIONS, QUALITY_UNITS } from '../production-quality.constants';
 
 export class CreateInspectionDto {
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   planId!: string;
 
@@ -27,47 +27,47 @@ export class CreateInspectionDto {
   clientRequestId!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionOrderId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionRunId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   outputEventId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   finishedGoodsReceiptId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   finishedGoodsReceiptLineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   samplingPointId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionLineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   machineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   shiftId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   costCenterId?: string;
 
   @IsNumber({ maxDecimalPlaces: 4 })
@@ -106,15 +106,15 @@ export class InspectionQueryDto {
   status?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   planId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionOrderId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionRunId?: string;
 
   @IsOptional()
@@ -132,7 +132,7 @@ export class InspectionQueryDto {
 }
 
 export class InspectionResultEntryDto {
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   characteristicId!: string;
 

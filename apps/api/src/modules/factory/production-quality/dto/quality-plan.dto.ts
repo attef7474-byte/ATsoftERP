@@ -10,7 +10,6 @@ import {
   IsOptional,
   IsPositive,
   IsString,
-  IsUUID,
   MaxLength,
   Min,
   ValidateNested,
@@ -18,28 +17,28 @@ import {
 import { CHARACTERISTIC_TYPES, CRITICALITY_LEVELS, INSPECTION_STAGES } from '../production-quality.constants';
 
 export class CreateQualityPlanDto {
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   productionProductDefinitionId!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionVersionId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionPackagingId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionLineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   machineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   costCenterId?: string;
 
   @IsDateString()
@@ -103,7 +102,7 @@ export class QualityPlanQueryDto {
   status?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionProductDefinitionId?: string;
 
   @IsOptional()
@@ -133,7 +132,7 @@ export class CreateCharacteristicDto {
   unit?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionUnitId?: string;
 
   @IsOptional()
@@ -170,15 +169,15 @@ export class CreateSamplingPointDto {
   stage?: string = 'FINAL_OUTPUT';
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   measurementPointId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionLineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   machineId?: string;
 
   @IsOptional()

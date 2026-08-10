@@ -43,7 +43,7 @@ export class PrepareRequirementLineDto {
   componentRole?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   warehouseId?: string;
 
   @IsOptional()
@@ -71,7 +71,7 @@ export class PrepareRequirementLineDto {
 }
 
 export class CreateRequirementLineDto extends PrepareRequirementLineDto {
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   productId!: string;
 }
@@ -113,19 +113,19 @@ export class CancelMaterialRequirementDto {
 }
 
 export class RecordMaterialConsumptionDto {
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   productionOrderId!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionRunId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   requirementLineId?: string;
 
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   productId!: string;
 
@@ -139,7 +139,7 @@ export class RecordMaterialConsumptionDto {
   quantity!: number;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   sourceDocumentId?: string;
 
   @IsOptional()

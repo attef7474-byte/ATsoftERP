@@ -43,15 +43,15 @@ export class PostCostTransactionDto {
   sourceNumberSnapshot?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionOrderId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionRunId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productId?: string;
 
   @IsOptional()
@@ -65,39 +65,39 @@ export class PostCostTransactionDto {
   productNameSnapshot?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionVersionId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionPackagingId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionLineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   machineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   shiftId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   costCenterId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   standardCostSnapshotId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   outputEventId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   calculationId?: string;
 
   @IsNumber({ maxDecimalPlaces: 4 })
@@ -177,14 +177,14 @@ export class CostTransactionQueryDto {
   dateTo?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionRunId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionOrderId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   costCenterId?: string;
 }

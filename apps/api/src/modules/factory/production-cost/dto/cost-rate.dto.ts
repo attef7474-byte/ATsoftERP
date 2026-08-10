@@ -8,7 +8,6 @@ import {
   IsOptional,
   IsPositive,
   IsString,
-  IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -53,15 +52,15 @@ export class CreateCostRateDto {
   currencyCode?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionLineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   machineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   costCenterId?: string;
 
   @IsDateString()
@@ -108,15 +107,15 @@ export class UpdateCostRateDto {
   currencyCode?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionLineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   machineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   costCenterId?: string;
 
   @IsOptional()
@@ -159,6 +158,6 @@ export class CostRateQueryDto {
   status?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   costCenterId?: string;
 }

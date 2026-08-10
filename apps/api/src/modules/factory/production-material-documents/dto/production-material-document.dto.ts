@@ -15,7 +15,7 @@ import {
 import { PRODUCTION_MATERIAL_DOCUMENT_TYPES } from '../production-material-documents.constants';
 
 export class CreateMaterialDocumentLineDto {
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   productId!: string;
 
@@ -29,7 +29,7 @@ export class CreateMaterialDocumentLineDto {
   unit!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   warehouseLocationId?: string;
 
   @IsOptional()
@@ -47,7 +47,7 @@ export class CreateMaterialDocumentLineDto {
   expiryDate?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   substitutedProductId?: string;
 
   @IsOptional()
@@ -56,7 +56,7 @@ export class CreateMaterialDocumentLineDto {
   substitutionReason?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   originalIssueLineId?: string;
 
   @IsOptional()
@@ -69,16 +69,16 @@ export class CreateMaterialDocumentDto {
   @IsEnum(PRODUCTION_MATERIAL_DOCUMENT_TYPES)
   documentType!: string;
 
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   productionOrderId!: string;
 
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   productionRunId!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   issueWarehouseId?: string;
 
   @IsOptional()
@@ -153,11 +153,11 @@ export class MaterialDocumentQueryDto {
   documentType?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionOrderId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionRunId?: string;
 
   @IsOptional()

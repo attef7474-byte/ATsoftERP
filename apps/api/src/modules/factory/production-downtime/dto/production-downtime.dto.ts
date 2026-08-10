@@ -17,23 +17,23 @@ export class OpenDowntimeDto {
   requestId!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionRunId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionOrderId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   shiftId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionLineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   machineId?: string;
 
   @IsOptional()
@@ -45,11 +45,11 @@ export class OpenDowntimeDto {
   endedAt?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   reasonId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   maintenanceRequestId?: string;
 
   @IsOptional()
@@ -96,7 +96,7 @@ export class CorrectDowntimeDto {
   endedAt?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   reasonId?: string;
 
   @IsOptional()
@@ -112,15 +112,15 @@ export class CorrectDowntimeDto {
   ownerDomain?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   shiftId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionLineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   machineId?: string;
 
   @IsOptional()
@@ -137,12 +137,12 @@ export class CancelDowntimeDto {
 }
 
 export class LinkMaintenanceDto {
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   maintenanceRequestId!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   maintenanceWorkOrderId?: string;
 
   @IsString()
@@ -165,19 +165,19 @@ export class DowntimeQueryDto {
   status?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionRunId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionOrderId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   machineId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   productionLineId?: string;
 
   @IsOptional()
