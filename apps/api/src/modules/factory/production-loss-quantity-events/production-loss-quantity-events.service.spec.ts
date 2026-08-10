@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ProductionLossQuantityEventsService } from './production-loss-quantity-events.service';
+import { PRODUCTION_LOSS_EVENT_INCLUDE } from './production-loss-quantity-events.constants';
 
 const ctxA: any = { companyId: 'c1', branchId: 'b1' };
 const ctxB: any = { companyId: 'c2', branchId: 'b2' };
@@ -66,12 +67,13 @@ function makeService(overrides: Record<string, any> = {}) {
     productionProductDefinition: { findFirst: jest.fn() },
     productionVersion: { findUnique: jest.fn() },
     productionPackaging: { findUnique: jest.fn() },
-    product: { findFirst: jest.fn() },
+    product: { findUnique: jest.fn() },
     machine: { findFirst: jest.fn() },
     productionLine: { findFirst: jest.fn() },
     productionMeasurementPoint: { findFirst: jest.fn() },
     productionOutputEvent: { findFirst: jest.fn() },
     operationalLossReason: { findFirst: jest.fn() },
+    downtimeSegment: { findMany: jest.fn() },
     ...overrides,
   };
   prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
@@ -107,7 +109,7 @@ describe('ProductionLossQuantityEventsService', () => {
       prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
       prisma.productionProductDefinition.findFirst.mockResolvedValue({ code: 'DEF-1', name: 'Product', productId: 'prod1' });
       prisma.productionVersion.findUnique.mockResolvedValue({ versionLabel: 'V1' });
-      prisma.productionPackaging.findUnique.mockResolvedValue({ label: 'PKG' });
+      prisma.productionPackaging.findUnique.mockResolvedValue({ packagingType: 'PKG' });
       prisma.operationalLossReason.findFirst.mockResolvedValue(null);
       prisma.productionOutputEvent.findFirst.mockResolvedValue(null);
       prisma.productionLossQuantityEvent.create.mockResolvedValue(lossEvent());
@@ -122,8 +124,37 @@ describe('ProductionLossQuantityEventsService', () => {
       expect(data.productionOrderId).toBe('po1');
       expect(data.productCodeSnapshot).toBe('DEF-1');
       expect(data.versionLabelSnapshot).toBe('V1');
+      expect(data.packagingLabelSnapshot).toBe('PKG');
+      expect(prisma.productionPackaging.findUnique).toHaveBeenCalledWith({
+        where: { id: 'pkg1' },
+        select: { packagingType: true },
+      });
       expect(data.type).toBe('WASTE');
       expect(data.quantity.toString()).toBe('12.5');
+      expect(audit.logWithClient).toHaveBeenCalled();
+    });
+
+    it('records a product-only event using Product.code/name snapshots', async () => {
+      const { prisma, audit, service } = makeService();
+      prisma.productionLossQuantityEvent.findFirst.mockResolvedValue(null);
+      prisma.product.findUnique.mockResolvedValue({ id: 'prod1', code: 'PROD-1', name: 'Widget' });
+      prisma.productionLossQuantityEvent.create.mockResolvedValue(lossEvent());
+
+      const result = await service.record(
+        baseRecord({ requestId: 'req-prod-1', productionRunId: undefined, productId: 'prod1' }),
+        'u1',
+        ctxA,
+      );
+
+      expect(result.id).toBe('ev1');
+      const data = prisma.productionLossQuantityEvent.create.mock.calls[0][0].data;
+      expect(data.productionRunId).toBeNull();
+      expect(data.productId).toBe('prod1');
+      expect(data.productCodeSnapshot).toBe('PROD-1');
+      expect(data.productNameSnapshot).toBe('Widget');
+      expect(data.versionLabelSnapshot).toBeNull();
+      expect(data.packagingLabelSnapshot).toBeNull();
+      expect(prisma.product.findUnique).toHaveBeenCalledWith({ where: { id: 'prod1' } });
       expect(audit.logWithClient).toHaveBeenCalled();
     });
 
@@ -138,7 +169,7 @@ describe('ProductionLossQuantityEventsService', () => {
       prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
       prisma.productionProductDefinition.findFirst.mockResolvedValue({ code: 'DEF-1', name: 'Product', productId: 'prod1' });
       prisma.productionVersion.findUnique.mockResolvedValue({ versionLabel: 'V1' });
-      prisma.productionPackaging.findUnique.mockResolvedValue({ label: 'PKG' });
+      prisma.productionPackaging.findUnique.mockResolvedValue({ packagingType: 'PKG' });
       prisma.operationalLossReason.findFirst.mockResolvedValue(null);
       prisma.productionOutputEvent.findFirst.mockResolvedValue(null);
       prisma.productionLossQuantityEvent.count.mockResolvedValue(0);
@@ -162,7 +193,7 @@ describe('ProductionLossQuantityEventsService', () => {
       prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
       prisma.productionProductDefinition.findFirst.mockResolvedValue({ code: 'DEF-1', name: 'Product', productId: 'prod1' });
       prisma.productionVersion.findUnique.mockResolvedValue({ versionLabel: 'V1' });
-      prisma.productionPackaging.findUnique.mockResolvedValue({ label: 'PKG' });
+      prisma.productionPackaging.findUnique.mockResolvedValue({ packagingType: 'PKG' });
       prisma.operationalLossReason.findFirst.mockResolvedValue(null);
       prisma.productionOutputEvent.findFirst.mockResolvedValue(null);
       prisma.productionLossQuantityEvent.count.mockResolvedValue(0);
@@ -191,7 +222,7 @@ describe('ProductionLossQuantityEventsService', () => {
       prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
       prisma.productionProductDefinition.findFirst.mockResolvedValue({ code: 'DEF-1', name: 'Product', productId: 'prod1' });
       prisma.productionVersion.findUnique.mockResolvedValue({ versionLabel: 'V1' });
-      prisma.productionPackaging.findUnique.mockResolvedValue({ label: 'PKG' });
+      prisma.productionPackaging.findUnique.mockResolvedValue({ packagingType: 'PKG' });
       prisma.operationalLossReason.findFirst.mockResolvedValue({ id: 'r1', lossCategory: 'SCRAP' });
       await expect(
         service.record(baseRecord({ requestId: 'req-cat-1', reasonId: 'r1' }), 'u1', ctxA),
@@ -261,6 +292,37 @@ describe('ProductionLossQuantityEventsService', () => {
     it('rejects an unknown type filter', async () => {
       const { service } = makeService();
       await expect(service.findAll({ type: 'BOGUS' } as any, ctxA)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('include contract regression', () => {
+    it('references only real schema relations and fields', () => {
+      const inc = PRODUCTION_LOSS_EVENT_INCLUDE;
+      expect(inc).not.toHaveProperty('recordedBy');
+      expect((inc.productionRun as any).select).not.toHaveProperty('product');
+      expect((inc.machine as any).select).toHaveProperty('code');
+      expect((inc.machine as any).select).not.toHaveProperty('machineCode');
+      expect((inc.measurementPoint as any).select).toHaveProperty('unit');
+      expect((inc.reasonRef as any).select).toHaveProperty('lossCategory');
+      expect((inc.productionOrder as any).select).toHaveProperty('orderNumber');
+      expect((inc.outputEvent as any).select).toHaveProperty('eventType');
+    });
+  });
+
+  describe('getRunLosses', () => {
+    it('returns run losses with segments using machine.code selection', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionRun.findFirst.mockResolvedValue({ id: 'run1', runNumber: 'RN-1' });
+      prisma.downtimeSegment.findMany.mockResolvedValue([]);
+      prisma.productionLossQuantityEvent.findMany.mockResolvedValue([]);
+      prisma.productionLossQuantityEvent.count.mockResolvedValue(0);
+
+      const result = await service.getRunLosses('run1', {}, ctxA);
+
+      expect(result.runNumber).toBe('RN-1');
+      const segArgs = prisma.downtimeSegment.findMany.mock.calls[0][0];
+      expect(segArgs.select.machine.select).toEqual({ id: true, code: true, name: true });
+      expect(segArgs.select.machine.select).not.toHaveProperty('machineCode');
     });
   });
 });

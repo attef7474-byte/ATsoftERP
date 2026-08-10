@@ -663,7 +663,6 @@ export interface ProductionLossQuantityEvent {
     id: string;
     runNumber: string;
     status: string;
-    product?: { id: string; productCode?: string; nameAr?: string; nameEn?: string } | null;
   } | null;
   productionOrderId?: string | null;
   productionOrder?: { id: string; orderNumber: string } | null;
@@ -674,7 +673,7 @@ export interface ProductionLossQuantityEvent {
   productionLineId?: string | null;
   productionLine?: { id: string; code: string; name: string } | null;
   machineId?: string | null;
-  machine?: { id: string; machineCode?: string; name: string } | null;
+  machine?: { id: string; code?: string; name: string } | null;
   measurementPointId?: string | null;
   measurementPoint?: { id: string; code: string; name: string; role: string; unit: string } | null;
   productId?: string | null;
@@ -702,7 +701,6 @@ export interface ProductionLossQuantityEvent {
   correctionReason?: string | null;
   notes?: string | null;
   recordedById: string;
-  recordedBy?: { id: string; firstName: string; lastName: string } | null;
   occurredAt: string;
   createdAt: string;
   updatedAt: string;
@@ -721,7 +719,7 @@ export interface RunLossesView {
     ownerDomain: string;
     status: string;
     reason?: { id: string; code: string; nameAr: string; nameEn: string; lossCategory: string } | null;
-    machine?: { id: string; machineCode?: string; name: string } | null;
+    machine?: { id: string; code?: string; name: string } | null;
   }>;
   totalDowntimeMinutes: number;
   events: ProductionLossQuantityEvent[];

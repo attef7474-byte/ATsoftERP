@@ -114,22 +114,22 @@ export class ProductionLossQuantityEventsService {
         ? await client.productionVersion.findUnique({ where: { id: run.productionVersionId }, select: { versionLabel: true } })
         : null;
       const packaging = run.productionPackagingId
-        ? await client.productionPackaging.findUnique({ where: { id: run.productionPackagingId }, select: { label: true } })
+        ? await client.productionPackaging.findUnique({ where: { id: run.productionPackagingId }, select: { packagingType: true } })
         : null;
       snapshots = {
         productId: definition?.productId ?? null,
         productCodeSnapshot: definition?.code ?? null,
         productNameSnapshot: definition?.name ?? null,
         versionLabelSnapshot: version?.versionLabel ?? null,
-        packagingLabelSnapshot: packaging?.label ?? null,
+        packagingLabelSnapshot: packaging?.packagingType ?? null,
       };
     } else if (dto.productId) {
-      const product = await client.product.findFirst({ where: { id: dto.productId, companyId: ctx.companyId } });
+      const product = await client.product.findUnique({ where: { id: dto.productId } });
       if (!product) throw this.notFound('productionLoss.productNotFound');
       snapshots = {
         productId: product.id,
-        productCodeSnapshot: product.productCode ?? null,
-        productNameSnapshot: product.nameAr ?? product.nameEn ?? null,
+        productCodeSnapshot: product.code ?? null,
+        productNameSnapshot: product.name ?? null,
         versionLabelSnapshot: null,
         packagingLabelSnapshot: null,
       };
@@ -427,7 +427,7 @@ export class ProductionLossQuantityEventsService {
           ownerDomain: true,
           status: true,
           reason: { select: { id: true, code: true, nameAr: true, nameEn: true, lossCategory: true } },
-          machine: { select: { id: true, machineCode: true, name: true } },
+          machine: { select: { id: true, code: true, name: true } },
         },
       }),
       (this.prisma as any).productionLossQuantityEvent.count({ where }),
