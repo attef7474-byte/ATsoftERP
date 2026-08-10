@@ -1079,11 +1079,8 @@ export interface ProductionFinishedGoodsReceipt {
   postedAt?: string | null;
   cancelledAt?: string | null;
   createdById: string;
-  createdBy?: { id: string; name: string } | null;
   postedById?: string | null;
-  postedBy?: { id: string; name: string } | null;
   cancelledById?: string | null;
-  cancelledBy?: { id: string; name: string } | null;
   createdAt: string;
   updatedAt: string;
   lines: ProductionFinishedGoodsReceiptLine[];

@@ -29,7 +29,4 @@ export const PRODUCTION_FG_RECEIPT_INCLUDE = {
       warehouseLocation: { select: { id: true, code: true, name: true } },
     },
   },
-  createdBy: { select: { id: true, name: true } },
-  postedBy: { select: { id: true, name: true } },
-  cancelledBy: { select: { id: true, name: true } },
 } as const;

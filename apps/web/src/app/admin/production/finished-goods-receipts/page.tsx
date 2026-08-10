@@ -518,10 +518,10 @@ export default function ProductionFinishedGoodsReceiptsPage() {
               <div><span className="text-gray-500">{t('production.finishedGoodsReceipts.receiptWarehouse')}: </span>{viewRecord.receiptWarehouse?.name || '-'}</div>
               <div><span className="text-gray-500">{t('production.finishedGoodsReceipts.receiptDate')}: </span>{new Date(viewRecord.receiptDate).toLocaleDateString()}</div>
               <div><span className="text-gray-500">{t('production.finishedGoodsReceipts.source')}: </span>{t(sourceLabelKey(viewRecord.sourceType || 'MANUAL'))}</div>
-              <div><span className="text-gray-500">{t('production.finishedGoodsReceipts.createdBy')}: </span>{viewRecord.createdBy?.name || '-'}</div>
-              <div><span className="text-gray-500">{t('production.finishedGoodsReceipts.postedBy')}: </span>{viewRecord.postedBy ? viewRecord.postedBy.name : '-'}</div>
+              <div><span className="text-gray-500">{t('production.finishedGoodsReceipts.createdBy')}: </span><span dir="ltr">{viewRecord.createdById || '-'}</span></div>
+              <div><span className="text-gray-500">{t('production.finishedGoodsReceipts.postedBy')}: </span><span dir="ltr">{viewRecord.postedById || '-'}</span></div>
               {viewRecord.postedAt && <div><span className="text-gray-500">{t('production.finishedGoodsReceipts.postedAt')}: </span>{new Date(viewRecord.postedAt).toLocaleString()}</div>}
-              {viewRecord.cancelledBy && <div><span className="text-gray-500">{t('production.finishedGoodsReceipts.cancelledBy')}: </span>{viewRecord.cancelledBy.name}</div>}
+              {viewRecord.cancelledById && <div><span className="text-gray-500">{t('production.finishedGoodsReceipts.cancelledBy')}: </span><span dir="ltr">{viewRecord.cancelledById}</span></div>}
               {viewRecord.cancelledAt && <div><span className="text-gray-500">{t('production.finishedGoodsReceipts.cancelledAt')}: </span>{new Date(viewRecord.cancelledAt).toLocaleString()}</div>}
             </div>
             {viewRecord.notes && <p className="text-sm text-gray-600"><span className="text-gray-500">{t('production.finishedGoodsReceipts.notes')}: </span>{viewRecord.notes}</p>}

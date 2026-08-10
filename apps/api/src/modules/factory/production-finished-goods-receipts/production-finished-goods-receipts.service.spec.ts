@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ProductionFinishedGoodsReceiptsService } from './production-finished-goods-receipts.service';
+import { PRODUCTION_FG_RECEIPT_INCLUDE } from './production-finished-goods-receipts.constants';
 
 const ctxA: any = { companyId: 'c1', branchId: 'b1' };
 const ctxB: any = { companyId: 'c2', branchId: 'b2' };
@@ -372,6 +373,100 @@ describe('ProductionFinishedGoodsReceiptsService', () => {
         expect.objectContaining({ where: { id: 'mov1' }, data: expect.objectContaining({ status: 'CANCELLED' }) }),
       );
       expect(result.status).toBe('CANCELLED');
+    });
+  });
+
+  describe('FG receipt include contract (phantom actor relations)', () => {
+    it('does not contain the phantom createdBy relation (schema has createdById scalar only)', () => {
+      expect(PRODUCTION_FG_RECEIPT_INCLUDE).not.toHaveProperty('createdBy');
+    });
+
+    it('does not contain the phantom postedBy relation (schema has postedById scalar only)', () => {
+      expect(PRODUCTION_FG_RECEIPT_INCLUDE).not.toHaveProperty('postedBy');
+    });
+
+    it('does not contain the phantom cancelledBy relation (schema has cancelledById scalar only)', () => {
+      expect(PRODUCTION_FG_RECEIPT_INCLUDE).not.toHaveProperty('cancelledBy');
+    });
+
+    it('keeps every legitimate receipt relation in the include', () => {
+      expect(PRODUCTION_FG_RECEIPT_INCLUDE).toHaveProperty('productionOrder');
+      expect(PRODUCTION_FG_RECEIPT_INCLUDE).toHaveProperty('productionRun');
+      expect(PRODUCTION_FG_RECEIPT_INCLUDE).toHaveProperty('receiptWarehouse');
+      expect(PRODUCTION_FG_RECEIPT_INCLUDE).toHaveProperty('movement');
+      expect(PRODUCTION_FG_RECEIPT_INCLUDE).toHaveProperty('lines');
+      const linesInclude = (PRODUCTION_FG_RECEIPT_INCLUDE.lines as any).include;
+      expect(linesInclude).toHaveProperty('product');
+      expect(linesInclude).toHaveProperty('warehouseLocation');
+    });
+
+    it('retains the scalar actor identifier fields in the receipt record', () => {
+      const row = receipt({ status: 'POSTED', postedAt: new Date(), postedById: 'u1', cancelledById: null });
+      expect(row.createdById).toBe('u1');
+      expect(row.postedById).toBe('u1');
+      expect(row.cancelledById).toBeNull();
+    });
+
+    it('findOne sends the corrected include (no phantom actor relations)', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionFinishedGoodsReceipt.findFirst.mockResolvedValue(receipt());
+      await service.findOne('rct1', ctxA);
+      const arg = prisma.productionFinishedGoodsReceipt.findFirst.mock.calls[0][0];
+      expect(arg.include).toBe(PRODUCTION_FG_RECEIPT_INCLUDE);
+      expect(arg.include).not.toHaveProperty('createdBy');
+      expect(arg.include).not.toHaveProperty('postedBy');
+      expect(arg.include).not.toHaveProperty('cancelledBy');
+    });
+
+    it('findAll sends the corrected include to the list query', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionFinishedGoodsReceipt.findMany.mockResolvedValue([]);
+      prisma.productionFinishedGoodsReceipt.count.mockResolvedValue(0);
+      await service.findAll({}, ctxA);
+      const arg = prisma.productionFinishedGoodsReceipt.findMany.mock.calls[0][0];
+      expect(arg.include).toBe(PRODUCTION_FG_RECEIPT_INCLUDE);
+      expect(arg.include).not.toHaveProperty('createdBy');
+      expect(arg.include).not.toHaveProperty('postedBy');
+      expect(arg.include).not.toHaveProperty('cancelledBy');
+    });
+
+    it('posting continues to set the scalar postedById actor on the receipt', async () => {
+      const { prisma, service, movements } = makeService();
+      prisma.productionFinishedGoodsReceipt.findFirst.mockResolvedValue(receipt());
+      prisma.productionFinishedGoodsReceipt.findMany.mockResolvedValue([]);
+      prisma.productionRun.findFirst.mockResolvedValue(run());
+      prisma.productionOutputEvent.findMany.mockResolvedValue([
+        {
+          id: 'ev1',
+          eventType: 'PRODUCTION',
+          classification: 'FINAL_OUTPUT',
+          quantity: new Prisma.Decimal(10),
+          goodQuantity: new Prisma.Decimal(10),
+          rejectQuantity: new Prisma.Decimal(0),
+          correctsEventId: null,
+          measurementPointId: 'mp1',
+          measurementPoint: { isAuthoritativeFinal: true },
+        },
+      ]);
+      prisma.productionFinishedGoodsReceipt.update.mockResolvedValue(receipt({ status: 'POSTED', postedById: 'u1' }));
+
+      await service.post('rct1', 'u1', ctxA);
+
+      const updateArg = prisma.productionFinishedGoodsReceipt.update.mock.calls[0][0];
+      expect(updateArg.data).toMatchObject({ status: 'POSTED', postedById: 'u1' });
+      expect(movements.postMovementWithinTransaction).toHaveBeenCalled();
+    });
+
+    it('cancellation continues to set the scalar cancelledById actor on the receipt', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionFinishedGoodsReceipt.findFirst.mockResolvedValue(receipt());
+      prisma.inventoryMovement.findUnique.mockResolvedValue({ id: 'mov1', status: 'DRAFT' });
+      prisma.productionFinishedGoodsReceipt.update.mockResolvedValue(receipt({ status: 'CANCELLED', cancelledById: 'u1' }));
+
+      await service.cancel('rct1', { reason: 'Wrong entry' }, 'u1', ctxA);
+
+      const updateArg = prisma.productionFinishedGoodsReceipt.update.mock.calls[0][0];
+      expect(updateArg.data).toMatchObject({ status: 'CANCELLED', cancelledById: 'u1' });
     });
   });
 });
