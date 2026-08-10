@@ -575,10 +575,10 @@ export default function ProductionMaterialDocumentsPage() {
               <div><span className="text-gray-500">{t('production.materialDocuments.status')}: </span>{t(statusLabelKey(viewRecord.status))}</div>
               <div><span className="text-gray-500">{t('production.materialDocuments.documentDate')}: </span>{new Date(viewRecord.documentDate).toLocaleDateString()}</div>
               <div><span className="text-gray-500">{t('production.materialDocuments.source')}: </span>{t(sourceLabelKey(viewRecord.sourceType || 'MANUAL'))}</div>
-              <div><span className="text-gray-500">{t('production.materialDocuments.createdBy')}: </span>{viewRecord.createdBy?.name || '-'}</div>
-              <div><span className="text-gray-500">{t('production.materialDocuments.postedBy')}: </span>{viewRecord.postedBy ? `${viewRecord.postedBy.name}` : '-'}</div>
+              <div><span className="text-gray-500">{t('production.materialDocuments.createdBy')}: </span><span dir="ltr">{viewRecord.createdById || '-'}</span></div>
+              <div><span className="text-gray-500">{t('production.materialDocuments.postedBy')}: </span><span dir="ltr">{viewRecord.postedById || '-'}</span></div>
               {viewRecord.postedAt && <div><span className="text-gray-500">{t('production.materialDocuments.postedAt')}: </span>{new Date(viewRecord.postedAt).toLocaleString()}</div>}
-              {viewRecord.cancelledBy && <div><span className="text-gray-500">{t('production.materialDocuments.cancelledBy')}: </span>{viewRecord.cancelledBy.name}</div>}
+              {viewRecord.cancelledById && <div><span className="text-gray-500">{t('production.materialDocuments.cancelledBy')}: </span><span dir="ltr">{viewRecord.cancelledById}</span></div>}
               {viewRecord.cancelledAt && <div><span className="text-gray-500">{t('production.materialDocuments.cancelledAt')}: </span>{new Date(viewRecord.cancelledAt).toLocaleString()}</div>}
             </div>
             {viewRecord.notes && <p className="text-sm text-gray-600"><span className="text-gray-500">{t('production.materialDocuments.notes')}: </span>{viewRecord.notes}</p>}

@@ -32,7 +32,4 @@ export const PRODUCTION_MATERIAL_DOCUMENT_INCLUDE = {
       warehouseLocation: { select: { id: true, code: true, name: true } },
     },
   },
-  createdBy: { select: { id: true, name: true } },
-  postedBy: { select: { id: true, name: true } },
-  cancelledBy: { select: { id: true, name: true } },
 } as const;

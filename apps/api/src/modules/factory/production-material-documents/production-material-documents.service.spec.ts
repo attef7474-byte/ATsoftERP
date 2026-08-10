@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { ProductionMaterialDocumentsService } from './production-material-documents.service';
+import { PRODUCTION_MATERIAL_DOCUMENT_INCLUDE } from './production-material-documents.constants';
 
 const ctxA: any = { companyId: 'c1', branchId: 'b1' };
 const ctxB: any = { companyId: 'c2', branchId: 'b2' };
@@ -604,6 +605,100 @@ describe('ProductionMaterialDocumentsService', () => {
         expect.objectContaining({ where: { id: 'mov1' }, data: expect.objectContaining({ status: 'CANCELLED' }) }),
       );
       expect(result.status).toBe('CANCELLED');
+    });
+  });
+
+  describe('material document include contract (phantom actor relations)', () => {
+    it('does not contain the phantom createdBy relation (schema has createdById scalar only)', () => {
+      expect(PRODUCTION_MATERIAL_DOCUMENT_INCLUDE).not.toHaveProperty('createdBy');
+    });
+
+    it('does not contain the phantom postedBy relation (schema has postedById scalar only)', () => {
+      expect(PRODUCTION_MATERIAL_DOCUMENT_INCLUDE).not.toHaveProperty('postedBy');
+    });
+
+    it('does not contain the phantom cancelledBy relation (schema has cancelledById scalar only)', () => {
+      expect(PRODUCTION_MATERIAL_DOCUMENT_INCLUDE).not.toHaveProperty('cancelledBy');
+    });
+
+    it('keeps every legitimate document relation in the include', () => {
+      expect(PRODUCTION_MATERIAL_DOCUMENT_INCLUDE).toHaveProperty('productionOrder');
+      expect(PRODUCTION_MATERIAL_DOCUMENT_INCLUDE).toHaveProperty('productionRun');
+      expect(PRODUCTION_MATERIAL_DOCUMENT_INCLUDE).toHaveProperty('issueWarehouse');
+      expect(PRODUCTION_MATERIAL_DOCUMENT_INCLUDE).toHaveProperty('movement');
+      expect(PRODUCTION_MATERIAL_DOCUMENT_INCLUDE).toHaveProperty('lines');
+      const linesInclude = (PRODUCTION_MATERIAL_DOCUMENT_INCLUDE.lines as any).include;
+      expect(linesInclude).toHaveProperty('product');
+      expect(linesInclude).toHaveProperty('substitutedProduct');
+      expect(linesInclude).toHaveProperty('warehouseLocation');
+    });
+
+    it('retains the scalar actor identifier fields on the document record', () => {
+      const row = document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1', cancelledById: null });
+      expect(row.createdById).toBe('u1');
+      expect(row.postedById).toBe('u1');
+      expect(row.cancelledById).toBeNull();
+    });
+
+    it('findOne sends the corrected include (no phantom actor relations)', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      await service.findOne('doc1', ctxA);
+      const arg = prisma.productionMaterialDocument.findFirst.mock.calls[0][0];
+      expect(arg.include).toBe(PRODUCTION_MATERIAL_DOCUMENT_INCLUDE);
+      expect(arg.include).not.toHaveProperty('createdBy');
+      expect(arg.include).not.toHaveProperty('postedBy');
+      expect(arg.include).not.toHaveProperty('cancelledBy');
+    });
+
+    it('findAll sends the corrected include to the list query', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
+      prisma.productionMaterialDocument.count.mockResolvedValue(0);
+      await service.findAll({}, ctxA);
+      const arg = prisma.productionMaterialDocument.findMany.mock.calls[0][0];
+      expect(arg.include).toBe(PRODUCTION_MATERIAL_DOCUMENT_INCLUDE);
+      expect(arg.include).not.toHaveProperty('createdBy');
+      expect(arg.include).not.toHaveProperty('postedBy');
+      expect(arg.include).not.toHaveProperty('cancelledBy');
+    });
+
+    it('create stores the scalar createdById actor on the document', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(run());
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov1', movementNumber: 'IM-000001' });
+      prisma.productionMaterialDocument.create.mockResolvedValue(document());
+      prisma.productionMaterialDocument.update.mockResolvedValue(document());
+      await service.create(baseDto(), 'u1', ctxA);
+      const docData = prisma.productionMaterialDocument.create.mock.calls[0][0].data;
+      expect(docData.createdById).toBe('u1');
+    });
+
+    it('posting continues to set the scalar postedById actor on the document', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
+      prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
+      await service.post('doc1', 'u1', ctxA);
+      expect(prisma.productionMaterialDocument.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'POSTED', postedById: 'u1' }) }),
+      );
+    });
+
+    it('cancelling continues to set the scalar cancelledById actor on the document', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      prisma.inventoryMovement.findUnique.mockResolvedValue({ id: 'mov1', status: 'DRAFT' });
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'CANCELLED', cancelledAt: new Date(), cancelledById: 'u1' }));
+      await service.cancel('doc1', { reason: 'Wrong data' }, 'u1', ctxA);
+      expect(prisma.productionMaterialDocument.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELLED', cancelledById: 'u1' }) }),
+      );
     });
   });
 });
