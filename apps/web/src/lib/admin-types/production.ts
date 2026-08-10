@@ -606,16 +606,21 @@ export interface DowntimeSegment {
     id: string;
     runNumber: string;
     status: string;
-    product?: { id: string; productCode?: string; nameAr?: string; nameEn?: string } | null;
+    productionProductDefinition?: {
+      id: string;
+      code: string;
+      name: string;
+      product?: { id: string; code: string; name: string } | null;
+    } | null;
   } | null;
   productionOrderId?: string | null;
   productionOrder?: { id: string; orderNumber: string } | null;
   shiftId?: string | null;
-  shift?: { id: string; shiftName: string } | null;
+  shift?: { id: string; code: string; name: string } | null;
   productionLineId?: string | null;
   productionLine?: { id: string; name: string } | null;
   machineId?: string | null;
-  machine?: { id: string; machineCode?: string; name: string } | null;
+  machine?: { id: string; code: string; name: string } | null;
   startedAt: string;
   endedAt?: string | null;
   durationMinutes: string | number;
@@ -633,7 +638,7 @@ export interface DowntimeSegment {
   severity: string;
   ownerDomain: string;
   maintenanceRequestId?: string | null;
-  maintenanceRequest?: { id: string; requestNumber: string; status: string } | null;
+  maintenanceRequest?: { id: string; requestNumber: string; status: string; machine?: { id: string; code: string } | null } | null;
   maintenanceWorkOrderId?: string | null;
   maintenanceWorkOrder?: { id: string; workOrderNumber: string; status: string } | null;
   sourceType: string;
@@ -643,9 +648,8 @@ export interface DowntimeSegment {
   correctionReason?: string | null;
   notes?: string | null;
   recordedById: string;
-  recordedBy?: { id: string; firstName: string; lastName: string } | null;
-  closedBy?: { id: string; firstName: string; lastName: string } | null;
-  cancelledBy?: { id: string; firstName: string; lastName: string } | null;
+  closedById?: string | null;
+  cancelledById?: string | null;
   createdAt: string;
   updatedAt: string;
 }

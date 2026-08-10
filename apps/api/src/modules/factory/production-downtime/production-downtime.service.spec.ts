@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ProductionDowntimeService } from './production-downtime.service';
+import { DOWNTIME_SEGMENT_INCLUDE } from './production-downtime.constants';
 
 const ctxA: any = { companyId: 'c1', branchId: 'b1' };
 const ctxB: any = { companyId: 'c2', branchId: 'b2' };
@@ -360,6 +361,57 @@ describe('ProductionDowntimeService', () => {
       const where = prisma.downtimeSegment.findMany.mock.calls[0][0].where;
       expect(where.companyId).toBe('c1');
       expect(where.branchId).toBe('b1');
+    });
+  });
+
+  describe('DOWNTIME_SEGMENT_INCLUDE contract', () => {
+    it('productionRun selects the valid productionProductDefinition -> product path (no stale `product` on ProductionRun)', () => {
+      const run = DOWNTIME_SEGMENT_INCLUDE.productionRun;
+      expect(run.select).not.toHaveProperty('product');
+      expect(run.select).toHaveProperty('id', true);
+      expect(run.select).toHaveProperty('runNumber', true);
+      expect(run.select).toHaveProperty('status', true);
+      expect(run.select.productionProductDefinition.select).toMatchObject({
+        id: true,
+        code: true,
+        name: true,
+      });
+      expect(run.select.productionProductDefinition.select.product.select).toMatchObject({
+        id: true,
+        code: true,
+        name: true,
+      });
+      expect(run.select.productionProductDefinition.select.product.select).not.toHaveProperty('productCode');
+      expect(run.select.productionProductDefinition.select.product.select).not.toHaveProperty('nameAr');
+      expect(run.select.productionProductDefinition.select.product.select).not.toHaveProperty('nameEn');
+    });
+
+    it('shift selects valid ProductionShift fields (code/name, no stale `shiftName`)', () => {
+      const shift = DOWNTIME_SEGMENT_INCLUDE.shift;
+      expect(shift.select).not.toHaveProperty('shiftName');
+      expect(shift.select).toMatchObject({ id: true, code: true, name: true });
+    });
+
+    it('machine selects valid Machine fields (code/name, no stale `machineCode`)', () => {
+      const machineSel = DOWNTIME_SEGMENT_INCLUDE.machine;
+      expect(machineSel.select).not.toHaveProperty('machineCode');
+      expect(machineSel.select).toMatchObject({ id: true, code: true, name: true });
+    });
+
+    it('maintenanceRequest nested machine selects valid Machine fields (code, no stale `machineCode`)', () => {
+      const req = DOWNTIME_SEGMENT_INCLUDE.maintenanceRequest;
+      expect(req.select).toMatchObject({ id: true, requestNumber: true, status: true });
+      expect(req.select.machine.select).not.toHaveProperty('machineCode');
+      expect(req.select.machine.select).toMatchObject({ id: true, code: true });
+    });
+
+    it('does not declare nonexistent actor relations (recordedBy/closedBy/cancelledBy)', () => {
+      expect(DOWNTIME_SEGMENT_INCLUDE).not.toHaveProperty('recordedBy');
+      expect(DOWNTIME_SEGMENT_INCLUDE).not.toHaveProperty('closedBy');
+      expect(DOWNTIME_SEGMENT_INCLUDE).not.toHaveProperty('cancelledBy');
+      expect(DOWNTIME_SEGMENT_INCLUDE).not.toHaveProperty('recordedById');
+      expect(DOWNTIME_SEGMENT_INCLUDE).not.toHaveProperty('closedById');
+      expect(DOWNTIME_SEGMENT_INCLUDE).not.toHaveProperty('cancelledById');
     });
   });
 });
