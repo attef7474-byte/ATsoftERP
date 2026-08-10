@@ -433,7 +433,6 @@ export interface ProductionRun {
   productionVersionId: string;
   productionPackagingId?: string | null;
   costCenterId: string;
-  costCenter?: { id: string; code: string; name: string } | null;
   issueWarehouseId?: string | null;
   receiptWarehouseId?: string | null;
   orderNumberSnapshot: string;

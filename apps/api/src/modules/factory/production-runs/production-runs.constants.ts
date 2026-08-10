@@ -37,6 +37,18 @@ export const PRODUCTION_OUTPUT_PERMISSION_KEYS = [
   'production-output:correct',
 ] as const;
 
+export const PRODUCTION_RUN_INCLUDE = {
+  productionOrder: { select: { id: true, orderNumber: true, status: true, priority: true } },
+  productionUnit: { select: { id: true, code: true, name: true, abbreviation: true } },
+  productionLine: { select: { id: true, code: true, name: true } },
+  machine: { select: { id: true, code: true, name: true } },
+} as const;
+
+export const PRODUCTION_OUTPUT_EVENT_INCLUDE = {
+  measurementPoint: { select: { id: true, code: true, name: true, role: true, source: true, unit: true, isAuthoritativeFinal: true } },
+  correctsEvent: { select: { id: true, eventType: true, quantity: true } },
+} as const;
+
 export const PRODUCTION_MEASUREMENT_POINT_PERMISSION_KEYS = [
   'production-measurement-point:create',
   'production-measurement-point:read',

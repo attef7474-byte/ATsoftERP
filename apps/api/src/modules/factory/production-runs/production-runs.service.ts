@@ -14,24 +14,13 @@ import { normalizeCounterDelta as counterDelta, deriveRunTotals, progressPercent
 import { ResolvedRunAssignments } from './types';
 import {
   PRODUCTION_OUTPUT_EVENT_AUDIT_ENTITY,
+  PRODUCTION_OUTPUT_EVENT_INCLUDE,
   PRODUCTION_RUN_ACTIONABLE_STATUSES,
   PRODUCTION_RUN_ACTIVE_STATUSES,
   PRODUCTION_RUN_AUDIT_ENTITY,
+  PRODUCTION_RUN_INCLUDE,
   PRODUCTION_RUN_NUMBER_SEQUENCE,
 } from './production-runs.constants';
-
-const runInclude = {
-  productionOrder: { select: { id: true, orderNumber: true, status: true, priority: true } },
-  productionUnit: { select: { id: true, code: true, name: true, abbreviation: true } },
-  productionLine: { select: { id: true, code: true, name: true } },
-  machine: { select: { id: true, code: true, name: true } },
-  costCenter: { select: { id: true, code: true, name: true } },
-};
-
-const eventInclude = {
-  measurementPoint: { select: { id: true, code: true, name: true, role: true, source: true, unit: true, isAuthoritativeFinal: true } },
-  correctsEvent: { select: { id: true, eventType: true, quantity: true } },
-};
 
 const emptyAssignments: ResolvedRunAssignments = {
   shiftId: null,
@@ -80,7 +69,7 @@ export class ProductionRunsService {
       ];
     }
     const [data, total] = await Promise.all([
-      (this.prisma as any).productionRun.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: [{ createdAt: 'desc' }], include: runInclude }),
+      (this.prisma as any).productionRun.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: [{ createdAt: 'desc' }], include: PRODUCTION_RUN_INCLUDE }),
       (this.prisma as any).productionRun.count({ where }),
     ]);
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
@@ -97,7 +86,7 @@ export class ProductionRunsService {
       (this.prisma as any).productionOutputEvent.findMany({
         where: { productionRunId: id, companyId: ctx.companyId, branchId: ctx.branchId },
         orderBy: { occurredAt: 'asc' },
-        include: eventInclude,
+        include: PRODUCTION_OUTPUT_EVENT_INCLUDE,
       }),
     ]);
     const totalsInput = allEvents.map((e: any) => ({
@@ -136,7 +125,7 @@ export class ProductionRunsService {
     const limit = query.limit || 50;
     const where = { productionRunId: id, companyId: ctx.companyId, branchId: ctx.branchId };
     const [data, total] = await Promise.all([
-      (this.prisma as any).productionOutputEvent.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: [{ occurredAt: 'desc' }], include: eventInclude }),
+      (this.prisma as any).productionOutputEvent.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: [{ occurredAt: 'desc' }], include: PRODUCTION_OUTPUT_EVENT_INCLUDE }),
       (this.prisma as any).productionOutputEvent.count({ where }),
     ]);
     return { runId: run.id, runNumber: run.runNumber, data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
@@ -199,7 +188,7 @@ export class ProductionRunsService {
             createdById: userId,
             updatedById: userId,
           },
-          include: runInclude,
+          include: PRODUCTION_RUN_INCLUDE,
         });
 
         await tx.productionRunSession.create({
@@ -371,7 +360,7 @@ export class ProductionRunsService {
             notes: dto.notes || null,
             createdById: userId,
           },
-          include: eventInclude,
+          include: PRODUCTION_OUTPUT_EVENT_INCLUDE,
         });
         await this.writeAudit(tx, userId, 'OUTPUT_CORRECT', PRODUCTION_OUTPUT_EVENT_AUDIT_ENTITY, correction.id, ctx, {
           runId: run.id,
@@ -467,7 +456,7 @@ export class ProductionRunsService {
         notes: dto.notes || null,
         createdById: userId,
       },
-      include: eventInclude,
+      include: PRODUCTION_OUTPUT_EVENT_INCLUDE,
     });
   }
 
@@ -661,7 +650,7 @@ export class ProductionRunsService {
   private async findOwnedRun(id: string, ctx: ActiveOperationalContext, client: any = this.prisma, include = false) {
     const record = await client.productionRun.findFirst({
       where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
-      ...(include ? { include: runInclude } : {}),
+      ...(include ? { include: PRODUCTION_RUN_INCLUDE } : {}),
     });
     if (!record) throw new NotFoundException({ messageKey: 'productionRun.notFound' });
     return record;
@@ -670,12 +659,12 @@ export class ProductionRunsService {
   private async findByRequestId(requestId: string, ctx: ActiveOperationalContext, client: any = this.prisma) {
     return client.productionRun.findFirst({
       where: { companyId: ctx.companyId, branchId: ctx.branchId, clientRequestId: requestId, deletedAt: null },
-      include: runInclude,
+      include: PRODUCTION_RUN_INCLUDE,
     });
   }
 
   private async findEventByRequestId(requestId: string, ctx: ActiveOperationalContext, client: any = this.prisma) {
-    return client.productionOutputEvent.findFirst({ where: { companyId: ctx.companyId, requestId }, include: eventInclude });
+    return client.productionOutputEvent.findFirst({ where: { companyId: ctx.companyId, requestId }, include: PRODUCTION_OUTPUT_EVENT_INCLUDE });
   }
 
   private async findDuplicateRunAction(client: any, runId: string, requestId: string, action: string, ctx: ActiveOperationalContext) {

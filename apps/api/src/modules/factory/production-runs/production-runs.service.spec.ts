@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ProductionRunsService } from './production-runs.service';
+import { PRODUCTION_OUTPUT_EVENT_INCLUDE, PRODUCTION_RUN_INCLUDE } from './production-runs.constants';
 
 const ctxA: any = { companyId: 'c1', branchId: 'b1' };
 const ctxB: any = { companyId: 'c2', branchId: 'b2' };
@@ -54,7 +55,6 @@ const run = (overrides: Record<string, any> = {}) => ({
   productionUnit: { id: 'u1', code: 'UNIT', name: 'Unit', abbreviation: 'U' },
   productionLine: { id: 'l1', code: 'L1', name: 'Line 1' },
   machine: { id: 'm1', code: 'M1', name: 'Machine 1' },
-  costCenter: { id: 'cc1', code: 'CC1', name: 'Cost Center' },
   ...overrides,
 });
 
@@ -644,6 +644,30 @@ describe('ProductionRunsService', () => {
       await expect(service.history('run1', ctxB)).rejects.toBeInstanceOf(NotFoundException);
       await expect(service.ledger('run1', { page: 1, limit: 50 }, ctxB)).rejects.toBeInstanceOf(NotFoundException);
       expect(model.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('include contracts', () => {
+    it('PRODUCTION_RUN_INCLUDE selects only relations declared on ProductionRun', () => {
+      expect(PRODUCTION_RUN_INCLUDE).not.toHaveProperty('costCenter');
+      expect(PRODUCTION_RUN_INCLUDE).not.toHaveProperty('costCenterId');
+      expect(PRODUCTION_RUN_INCLUDE.productionOrder.select).toMatchObject({ id: true, orderNumber: true, status: true, priority: true });
+      expect(PRODUCTION_RUN_INCLUDE.productionUnit.select).toMatchObject({ id: true, code: true, name: true, abbreviation: true });
+      expect(PRODUCTION_RUN_INCLUDE.productionLine.select).toMatchObject({ id: true, code: true, name: true });
+      expect(PRODUCTION_RUN_INCLUDE.machine.select).toMatchObject({ id: true, code: true, name: true });
+    });
+
+    it('PRODUCTION_OUTPUT_EVENT_INCLUDE selects valid ProductionOutputEvent relations', () => {
+      expect(PRODUCTION_OUTPUT_EVENT_INCLUDE.measurementPoint.select).toMatchObject({
+        id: true,
+        code: true,
+        name: true,
+        role: true,
+        source: true,
+        unit: true,
+        isAuthoritativeFinal: true,
+      });
+      expect(PRODUCTION_OUTPUT_EVENT_INCLUDE.correctsEvent.select).toMatchObject({ id: true, eventType: true, quantity: true });
     });
   });
 });

@@ -347,7 +347,7 @@ export default function ProductionRunDetailPage() {
         {infoCell(t('production.line'), run.productionLine?.name || '-')}
         {infoCell(t('production.machine'), run.machine?.name || '-')}
         {infoCell(t('production.units'), run.productionUnit?.name || '-')}
-        {infoCell(t('production.orders.costCenter'), run.costCenter?.name || '-')}
+        {infoCell(t('production.orders.costCenter'), run.costCenterId || '-')}
         {infoCell(t('production.runs.shift'), run.shiftNameSnapshot || '-')}
         {infoCell(t('production.runs.operator'), run.operationalPersonNameSnapshot || '-')}
         {infoCell(t('production.runs.startedAt'), run.startedAt ? new Date(run.startedAt).toLocaleString() : '-')}
