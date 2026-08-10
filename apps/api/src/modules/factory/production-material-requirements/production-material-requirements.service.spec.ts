@@ -177,6 +177,59 @@ describe('ProductionMaterialRequirementsService', () => {
       expect(data.lines.create[0].overIssuePolicy).toBe('NOT_ALLOWED');
     });
 
+    it('snapshots the real packagingType when the order has a packaging (no stale packaging.label access)', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(null);
+      prisma.productionOrder.findFirst.mockResolvedValue(order({ productionPackagingId: 'pkg1', productionVersionId: 'ver1' }));
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.productionProductDefinition.findUnique.mockResolvedValue({ id: 'def1', code: 'DEF1', name: 'Def' });
+      prisma.productionVersion.findUnique.mockResolvedValue({ id: 'ver1', versionLabel: 'V2.0' });
+      prisma.productionPackaging.findUnique.mockResolvedValue({ packagingType: 'CARTON' });
+      prisma.productionMaterialRequirement.create.mockResolvedValue(draftRequirement());
+
+      await service.prepare('po1', prepareDto(), 'u1', ctxA);
+
+      expect(prisma.productionPackaging.findUnique).toHaveBeenCalledWith({
+        where: { id: 'pkg1' },
+        select: { packagingType: true },
+      });
+      const data = prisma.productionMaterialRequirement.create.mock.calls[0][0].data;
+      expect(data.productPackagingLabelSnapshot).toBe('CARTON');
+      expect(data.productVersionLabelSnapshot).toBe('V2.0');
+      expect(data.productDefinitionCodeSnapshot).toBe('DEF1');
+      expect(data.lines.create[0].plannedQuantity.toString()).toBe('250');
+    });
+
+    it('leaves the packaging snapshot null when the order has no packaging', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(null);
+      prisma.productionOrder.findFirst.mockResolvedValue(order({ productionPackagingId: null }));
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.productionProductDefinition.findUnique.mockResolvedValue({ id: 'def1', code: 'DEF1', name: 'Def' });
+      prisma.productionMaterialRequirement.create.mockResolvedValue(draftRequirement());
+
+      await service.prepare('po1', prepareDto(), 'u1', ctxA);
+
+      expect(prisma.productionPackaging.findUnique).not.toHaveBeenCalled();
+      const data = prisma.productionMaterialRequirement.create.mock.calls[0][0].data;
+      expect(data.productPackagingLabelSnapshot).toBeNull();
+    });
+
+    it('leaves the packaging snapshot null when the packaging row does not exist', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(null);
+      prisma.productionOrder.findFirst.mockResolvedValue(order({ productionPackagingId: 'pkg-missing' }));
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.productionProductDefinition.findUnique.mockResolvedValue({ id: 'def1', code: 'DEF1', name: 'Def' });
+      prisma.productionPackaging.findUnique.mockResolvedValue(null);
+      prisma.productionMaterialRequirement.create.mockResolvedValue(draftRequirement());
+
+      await service.prepare('po1', prepareDto(), 'u1', ctxA);
+
+      const data = prisma.productionMaterialRequirement.create.mock.calls[0][0].data;
+      expect(data.productPackagingLabelSnapshot).toBeNull();
+    });
+
     it('returns the existing snapshot when the requestId already produced one (idempotency)', async () => {
       const { prisma, service } = makeService();
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(draftRequirement());

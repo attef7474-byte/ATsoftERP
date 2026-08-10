@@ -138,7 +138,7 @@ export class ProductionMaterialRequirementsService {
       ? await client.productionVersion.findUnique({ where: { id: order.productionVersionId } })
       : null;
     const packaging = order.productionPackagingId
-      ? await client.productionPackaging.findUnique({ where: { id: order.productionPackagingId } })
+      ? await client.productionPackaging.findUnique({ where: { id: order.productionPackagingId }, select: { packagingType: true } })
       : null;
     const orderPlannedQuantity = new Prisma.Decimal(order.plannedQuantity);
     const lines = dto.lines.map((line, index) => {
@@ -167,7 +167,7 @@ export class ProductionMaterialRequirementsService {
       productDefinitionCodeSnapshot: definition?.code ?? null,
       productDefinitionNameSnapshot: definition?.name ?? null,
       productVersionLabelSnapshot: version?.versionLabel ?? null,
-      productPackagingLabelSnapshot: packaging?.label ?? null,
+      productPackagingLabelSnapshot: packaging?.packagingType ?? null,
       lines,
     };
   }
