@@ -55,7 +55,7 @@
 | Test | Result | Details |
 |---|---|---|
 | API Health | ✅ PASS | 4/4 - API, Web, Swagger, SQL Server |
-| Auth login | ✅ PASS | admin@atsofterp.com / Admin@123456 |
+| Auth login | ✅ PASS | admin@atsofterp.com / <REDACTED> |
 | Schedule create + generate | ✅ PASS | Schedule ACTIVE default, generate creates request with nextDueDate |
 | Duplicate generation blocked | ✅ PASS | 409 Conflict |
 | Emergency creation | ✅ PASS | isEmergency=true, priority=HIGH, auto DowntimeLog |

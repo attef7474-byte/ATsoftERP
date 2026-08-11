@@ -13,7 +13,7 @@
 
 | # | Endpoint | Status | Result |
 |---|----------|--------|--------|
-| 3 | POST `/api/v1/auth/login` (admin@atsofterp.com / Admin@123456) | 200 + JWT | ✅ |
+| 3 | POST `/api/v1/auth/login` (admin@atsofterp.com / <REDACTED>) | 200 + JWT | ✅ |
 
 ## Post-Login Checks (Authenticated)
 

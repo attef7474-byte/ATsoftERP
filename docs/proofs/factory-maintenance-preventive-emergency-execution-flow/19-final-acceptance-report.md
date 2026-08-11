@@ -2,7 +2,7 @@
 
 **Date**: 2026-07-26  
 **Tester**: Automated Proof Suite  
-**Credentials**: admin@atsofterp.com / Admin@123456  
+**Credentials**: admin@atsofterp.com / <REDACTED>
 **Environment**: Windows + SQL Server (:50079), no Docker/PostgreSQL
 
 ## Acceptance Result: **ACCEPTED** ✅

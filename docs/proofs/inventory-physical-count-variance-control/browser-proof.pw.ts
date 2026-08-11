@@ -1,9 +1,17 @@
 import { test, expect, Page } from '@playwright/test';
 
+if (!process.env.SEED_ADMIN_EMAIL) {
+  throw new Error('SEED_ADMIN_EMAIL environment variable is required');
+}
+
+if (!process.env.SEED_ADMIN_PASSWORD) {
+  throw new Error('SEED_ADMIN_PASSWORD environment variable is required');
+}
+
 const WEB = 'http://localhost:3000';
 const API = 'http://localhost:4000/api/v1';
-const ADMIN_EMAIL = 'admin@atsofterp.com';
-const ADMIN_PASSWORD = 'Admin@123456';
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
 
 let knownPostedId: string | null = null;
 let knownSubmittedId: string | null = null;

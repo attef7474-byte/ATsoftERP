@@ -1,11 +1,13 @@
 $ErrorActionPreference = 'Continue'
 $base = 'http://localhost:4000/api/v1'
+if ([string]::IsNullOrEmpty($env:SEED_ADMIN_EMAIL)) { throw 'SEED_ADMIN_EMAIL environment variable is required' }
+if ([string]::IsNullOrEmpty($env:SEED_ADMIN_PASSWORD)) { throw 'SEED_ADMIN_PASSWORD environment variable is required' }
 
 Write-Output "=== UX-1B-2D Maintenance Analytics KPIs / Dashboard Runtime Proof ==="
 Write-Output ("Started: " + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
 
 # ── Auth ──────────────────────────────────────────────────────────────
-$login = Invoke-RestMethod -Method Post -Uri ($base + '/auth/login') -ContentType 'application/json' -Body (@{ email = 'admin@atsofterp.com'; password = 'Admin@123456' } | ConvertTo-Json)
+$login = Invoke-RestMethod -Method Post -Uri ($base + '/auth/login') -ContentType 'application/json' -Body (@{ email = $env:SEED_ADMIN_EMAIL; password = $env:SEED_ADMIN_PASSWORD } | ConvertTo-Json)
 $t = $login.accessToken
 Write-Output ("LOGIN_OK token=" + $t.Substring(0, 20) + "...")
 

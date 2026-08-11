@@ -1,7 +1,15 @@
 /* eslint-disable */
+if (!process.env.SEED_ADMIN_EMAIL) {
+  throw new Error('SEED_ADMIN_EMAIL environment variable is required');
+}
+
+if (!process.env.SEED_ADMIN_PASSWORD) {
+  throw new Error('SEED_ADMIN_PASSWORD environment variable is required');
+}
+
 const API = 'http://localhost:4000/api/v1';
-const EMAIL = 'admin@atsofterp.com';
-const PASSWORD = 'Admin@123456';
+const EMAIL = process.env.SEED_ADMIN_EMAIL;
+const PASSWORD = process.env.SEED_ADMIN_PASSWORD;
 
 let token = '';
 const badToken = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';

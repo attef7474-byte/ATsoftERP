@@ -5,6 +5,10 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaMssql } from "@prisma/adapter-mssql";
 import { DEFAULT_LOSS_REASONS } from "../../src/modules/factory/production-loss-reasons/production-loss-reasons.constants";
 
+if (!process.env.SEED_ADMIN_EMAIL) {
+  throw new Error("SEED_ADMIN_EMAIL environment variable is required");
+}
+
 export async function seedDefaultLossReasons(
   prisma: PrismaClient,
   companyId: string,
@@ -44,7 +48,7 @@ async function main() {
     const company = await prisma.company.findUniqueOrThrow({ where: { code: "DEFAULT" } });
     const branch = await prisma.branch.findFirstOrThrow({ where: { companyId: company.id, code: "HQ" } });
     const admin = await prisma.user.findFirstOrThrow({
-      where: { email: process.env.SEED_ADMIN_EMAIL || "admin@atsofterp.com" },
+      where: { email: process.env.SEED_ADMIN_EMAIL },
     });
     await seedDefaultLossReasons(prisma, company.id, branch.id, admin.id);
   } finally {

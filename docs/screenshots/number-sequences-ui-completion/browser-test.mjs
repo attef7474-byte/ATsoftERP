@@ -1,6 +1,14 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 
+if (!process.env.SEED_ADMIN_EMAIL) {
+  throw new Error('SEED_ADMIN_EMAIL environment variable is required');
+}
+
+if (!process.env.SEED_ADMIN_PASSWORD) {
+  throw new Error('SEED_ADMIN_PASSWORD environment variable is required');
+}
+
 const BASE = 'http://localhost:3000';
 const API_BASE = 'http://localhost:4000/api/v1';
 const DIR = 'C:\\Users\\attef\\PycharmProjects\\Trae\\ATsofterp\\docs\\screenshots\\number-sequences-ui-completion';
@@ -9,7 +17,7 @@ async function apiToken() {
   const resp = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@atsofterp.com', password: 'Admin@123456' }),
+    body: JSON.stringify({ email: process.env.SEED_ADMIN_EMAIL, password: process.env.SEED_ADMIN_PASSWORD }),
   });
   return (await resp.json()).accessToken;
 }

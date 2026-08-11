@@ -97,7 +97,7 @@ A: 34 entries (27 modified + 4 spec files + accepted report + proof script + thi
 
 ## 5. Secret-Safety Review
 
-Read-only pattern scan of all staging candidates (passwords, secrets, bearer tokens, API keys, connection strings, private keys, cert blocks, e-mail addresses): zero matches. The single hit — the demo login `admin@atsofterp.com`/`Admin@123456` in `ux1b2b-proof.ps1` — is the identical, already-committed seed-demo convention (`ux1b1-proof.mjs`, `ux1b2a-proof.mjs`). `proof-token.txt` remains untracked and unstaged.
+Read-only pattern scan of all staging candidates (passwords, secrets, bearer tokens, API keys, connection strings, private keys, cert blocks, e-mail addresses): zero matches. The single hit — the demo login `admin@atsofterp.com`/`<REDACTED>` in `ux1b2b-proof.ps1` — is the identical, already-committed seed-demo convention (`ux1b1-proof.mjs`, `ux1b2a-proof.mjs`). `proof-token.txt` remains untracked and unstaged.
 
 ## 6. Dependency and Integrity Review
 

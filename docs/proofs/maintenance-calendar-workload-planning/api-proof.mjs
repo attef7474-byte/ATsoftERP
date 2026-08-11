@@ -1,4 +1,4 @@
-const API = 'http://localhost:4000/api/v1';
+﻿const API = 'http://localhost:4000/api/v1';
 let passed = 0, failed = 0, na = 0, total = 0;
 let token = '';
 let testRequestId = '';
@@ -33,7 +33,7 @@ async function assertNA(label) {
 const loginRes = await fetch(`${API}/auth/login`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email: 'admin@atsofterp.com', password: 'Admin@123456' }),
+  body: JSON.stringify({ email: process.env.SEED_ADMIN_EMAIL, password: process.env.SEED_ADMIN_PASSWORD }),
 });
 const loginData = await loginRes.json();
 if (loginRes.ok && (loginData.accessToken || loginData.token)) {
@@ -440,4 +440,11 @@ if (failed > 0) {
   process.exit(1);
 } else {
   console.log(`\n✅ ALL TESTS PASSED`);
+}
+if (!process.env.SEED_ADMIN_PASSWORD) {
+  throw new Error('SEED_ADMIN_PASSWORD environment variable is required');
+}
+
+if (!process.env.SEED_ADMIN_EMAIL) {
+  throw new Error('SEED_ADMIN_EMAIL environment variable is required');
 }

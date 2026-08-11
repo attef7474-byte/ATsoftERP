@@ -14,10 +14,19 @@ const adapter = new PrismaMssql(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
 
 const API_URL = process.env.PROOF_API_URL || "http://localhost:4000/api/v1";
-const SUPER_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || "admin@atsofterp.com";
-const SUPER_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "Admin@123456";
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} environment variable is required to run this proof script`);
+  }
+  return value;
+}
+
+const SUPER_ADMIN_EMAIL = requireEnv("SEED_ADMIN_EMAIL");
+const SUPER_ADMIN_PASSWORD = requireEnv("SEED_ADMIN_PASSWORD");
 const PROOF_ROLE_CODE = "TMP_AUTH_PROOF_ROLE";
-const PROOF_PASSWORD = "ProofPass@2026!";
+const PROOF_PASSWORD = requireEnv("PROOF_PASSWORD");
 
 const CANONICAL_KEYS = [
   "installed-parts:read",

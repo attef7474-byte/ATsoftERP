@@ -3,6 +3,14 @@ import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+if (!process.env.SEED_ADMIN_EMAIL) {
+  throw new Error('SEED_ADMIN_EMAIL environment variable is required');
+}
+
+if (!process.env.SEED_ADMIN_PASSWORD) {
+  throw new Error('SEED_ADMIN_PASSWORD environment variable is required');
+}
+
 const ROOT = new URL('../../', import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -118,7 +126,7 @@ try {
   }
 
   // 4. Wrong credentials -> global error dialog with requestId, focus restore, Escape close
-  await page.fill('input[name="email"]', 'admin@atsofterp.com');
+  await page.fill('input[name="email"]', process.env.SEED_ADMIN_EMAIL);
   await page.fill('input[name="password"]', 'definitely-wrong-password');
   await page.click('form button[type="submit"]');
   await page.waitForSelector('[role="dialog"][aria-modal="true"]', { timeout: 10000 });
@@ -159,7 +167,7 @@ try {
   }
 
   // 5. Successful login as seeded admin
-  await page.fill('input[name="password"]', 'Admin@123456');
+  await page.fill('input[name="password"]', process.env.SEED_ADMIN_PASSWORD);
   await Promise.all([
     page.waitForURL((url) => !url.pathname.endsWith('/login'), { timeout: 15000 }),
     page.click('form button[type="submit"]'),
@@ -260,7 +268,7 @@ try {
 
   // 10. Arabic error dialog (untranslated-key safety: message must be Arabic, never a raw key)
   await page.goto(`${WEB}/login`, { waitUntil: 'networkidle' });
-  await page.fill('input[name="email"]', 'admin@atsofterp.com');
+  await page.fill('input[name="email"]', process.env.SEED_ADMIN_EMAIL);
   await page.fill('input[name="password"]', 'wrong-password-ar');
   await page.click('form button[type="submit"]');
   await page.waitForSelector('[role="dialog"][aria-modal="true"]', { timeout: 10000 });

@@ -94,7 +94,7 @@ Committed. Conditions met: (1) the repository intentionally tracks proof screens
 
 ## 11. Secret Scan Result
 
-Clean. Scanned all modified/new source, tests, and tooling for connection strings, JWT secrets, API keys, and passwords. Only occurrences: seed demo credentials `admin@atsofterp.com` / `Admin@123456` in proof scripts — identical to the tracked convention (`final-proof.mjs` line 10-11, `rtl-test.mjs`, `full-audit.mjs`, `remaining-audit.mjs`), and mocked test fixture values in unit tests. No real secrets, tokens, or connection strings anywhere in the staged diff.
+Clean. Scanned all modified/new source, tests, and tooling for connection strings, JWT secrets, API keys, and passwords. Only occurrences: seed demo credentials `admin@atsofterp.com` / `<REDACTED>` in proof scripts — identical to the tracked convention (`final-proof.mjs` line 10-11, `rtl-test.mjs`, `full-audit.mjs`, `remaining-audit.mjs`), and mocked test fixture values in unit tests. No real secrets, tokens, or connection strings anywhere in the staged diff.
 
 ## 12. Dependency Integrity
 

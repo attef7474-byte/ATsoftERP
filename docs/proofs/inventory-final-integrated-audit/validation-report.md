@@ -58,7 +58,7 @@ powershell -File tools/health/health-check.ps1
 
 ### 10. Smoke Check
 ```bash
-powershell -File tools/health/smoke-check.ps1 -Password "Admin@123456"
+powershell -File tools/health/smoke-check.ps1 -Password "<REDACTED>"
 ```
 **Result**: PASS — 8/8 smoke checks passed (Web homepage, login, API login, users, products, roles, profile, Swagger).
 

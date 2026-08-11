@@ -8,7 +8,7 @@ Verify that the 6 new operational context filter fields (`productionLineId`, `op
 - **Port**: 4000
 - **API base**: `http://localhost:4000/api/v1`
 - **Database**: SQL Server at `localhost:50079`, database `ATsoftERP_DB`
-- **Auth**: JWT token (admin@atsofterp.com / Admin@123456)
+- **Auth**: JWT token (admin@atsofterp.com / <REDACTED>)
 - **Date**: 2026-07-23
 
 ## Method

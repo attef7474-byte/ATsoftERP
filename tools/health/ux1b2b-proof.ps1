@@ -1,5 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $base = 'http://localhost:4000/api/v1'
+if ([string]::IsNullOrEmpty($env:SEED_ADMIN_EMAIL)) { throw 'SEED_ADMIN_EMAIL environment variable is required' }
+if ([string]::IsNullOrEmpty($env:SEED_ADMIN_PASSWORD)) { throw 'SEED_ADMIN_PASSWORD environment variable is required' }
 $companyA = 'cmru455nm0000a895rtmc2m6h'
 $branchA  = 'cmrl31uw10001ok95yiz5wb42'
 $companyB = 'cmrvaph2200009g95oj1o8m1j'
@@ -30,7 +32,7 @@ function Check($name, $ok, $detail = '') {
   $results.Add("$($(if ($ok) {'PASS'} else {'FAIL'})) | $name | $detail")
 }
 
-$login = @{ email = 'admin@atsofterp.com'; password = 'Admin@123456' } | ConvertTo-Json
+$login = @{ email = $env:SEED_ADMIN_EMAIL; password = $env:SEED_ADMIN_PASSWORD } | ConvertTo-Json
 $auth = Invoke-RestMethod -Method Post -Uri "$base/auth/login" -ContentType 'application/json' -Body $login -TimeoutSec 20
 $token = $auth.accessToken
 $ha = HeadersA $token

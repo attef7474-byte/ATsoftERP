@@ -44,8 +44,8 @@ No node_modules directory found in release package.
 
 | Issue | Remediation |
 |-------|-------------|
-| `tools/health/smoke-check.ps1` had hardcoded `[string]$Password = "Admin@123456"` | Changed default to empty string with `Read-Host` prompt |
-| Release package proof files contained `Admin@123456` | Redacted to `<redacted>` and removed from report |
+| `tools/health/smoke-check.ps1` had hardcoded `[string]$Password = "<REDACTED>"` | Changed default to empty string with `Read-Host` prompt |
+| Release package proof files contained `<REDACTED>` | Redacted to `<redacted>` and removed from report |
 
 ## Overall Result
 

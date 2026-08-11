@@ -1,16 +1,23 @@
 // API Proof for Batch Q — Opening Balance + Stock Adjustment Control
 // Run: node docs/proofs/inventory-opening-balance-adjustment-control/api-proof.mjs
 
+if (!process.env.SEED_ADMIN_EMAIL) {
+  throw new Error('SEED_ADMIN_EMAIL environment variable is required');
+}
+
 const BASE = 'http://localhost:4000/api/v1';
 let TOKEN = '';
 const RESULTS = [];
 let passCount = 0, failCount = 0, naCount = 0;
 
 async function login() {
+  if (!process.env.SEED_ADMIN_PASSWORD) {
+    throw new Error('SEED_ADMIN_PASSWORD environment variable is required');
+  }
   const res = await fetch(`${BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@atsofterp.com', password: process.env.SEED_ADMIN_PASSWORD || 'Admin@123456' }),
+    body: JSON.stringify({ email: process.env.SEED_ADMIN_EMAIL, password: process.env.SEED_ADMIN_PASSWORD }),
   });
   const data = await res.json();
   TOKEN = data.accessToken || data.access_token || data.token || '';

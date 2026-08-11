@@ -9,7 +9,7 @@
 ## Results
 
 ```
-Login:                    ✓ (admin@atsofterp.com / Admin@123456)
+Login:                    ✓ (admin@atsofterp.com / <REDACTED>)
 Sidebar visible:          ✓
 Dashboard accessible:     ✓
 Group buttons found:      9

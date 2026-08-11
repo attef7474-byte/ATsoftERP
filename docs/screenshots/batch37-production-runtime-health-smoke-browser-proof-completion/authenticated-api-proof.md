@@ -4,7 +4,7 @@
 
 ## Credentials
 - Email: `admin@atsofterp.com`
-- Password: `Admin@123456`
+- Password: `<REDACTED>`
 - JWT obtained via POST `/api/v1/auth/login`
 
 ## Endpoint Verification

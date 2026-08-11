@@ -3,16 +3,27 @@
 
 import { test, expect, Page } from '@playwright/test';
 
+if (!process.env.SEED_ADMIN_EMAIL) {
+  throw new Error('SEED_ADMIN_EMAIL environment variable is required');
+}
+
+if (!process.env.SEED_ADMIN_PASSWORD) {
+  throw new Error('SEED_ADMIN_PASSWORD environment variable is required');
+}
+
 const ADMIN_LOGIN = 'http://localhost:3000/login';
 const RECEIPT_PAGE = 'http://localhost:3000/admin/inventory/operational-receipts';
+
+const SEED_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL as string;
+const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD as string;
 
 async function login(page: Page) {
   await page.goto(ADMIN_LOGIN, { waitUntil: 'networkidle', timeout: 15000 }).catch(() => {});
   await page.waitForTimeout(2000);
   const emailInput = page.locator('input[type="email"], input[name="email"], input[placeholder*="email"]').first();
   if (await emailInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await emailInput.fill('admin@atsofterp.com');
-    await page.locator('input[type="password"], input[name="password"]').first().fill('Admin@123456');
+    await emailInput.fill(SEED_ADMIN_EMAIL);
+    await page.locator('input[type="password"], input[name="password"]').first().fill(SEED_ADMIN_PASSWORD);
     await page.locator('button[type="submit"]').first().click();
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);

@@ -3,12 +3,20 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+if (!process.env.SEED_ADMIN_EMAIL) {
+  throw new Error('SEED_ADMIN_EMAIL environment variable is required');
+}
+
+if (!process.env.SEED_ADMIN_PASSWORD) {
+  throw new Error('SEED_ADMIN_PASSWORD environment variable is required');
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SS = path.join(__dirname, '..', '..', 'docs', 'screenshots', 'full-application-functional-audit');
 const WEB = 'http://localhost:3000';
 const API = 'http://localhost:4000';
-const EMAIL = 'admin@atsofterp.com';
-const PASS = 'Admin@123456';
+const EMAIL = process.env.SEED_ADMIN_EMAIL;
+const PASS = process.env.SEED_ADMIN_PASSWORD;
 
 const R = { pass: 0, fail: 0, na: 0 };
 function ok(m) { R.pass++; console.log(`  OK: ${m}`); }

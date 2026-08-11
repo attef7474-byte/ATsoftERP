@@ -8,7 +8,7 @@
 
 ## Auth Token
 
-`POST /api/v1/auth/login` with `admin@atsofterp.com` / `Admin@123456` → **201** ✅
+`POST /api/v1/auth/login` with `admin@atsofterp.com` / `<REDACTED>` → **201** ✅
 
 ## Endpoint Results
 

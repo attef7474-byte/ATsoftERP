@@ -1,12 +1,14 @@
 param(
   [string]$BaseUrl = "http://localhost:4000/api/v1",
-  [string]$Email = "admin@atsofterp.com",
-  [string]$Password = "Admin@123456",
+  [string]$Email = $env:SEED_ADMIN_EMAIL,
+  [string]$Password = $env:SEED_ADMIN_PASSWORD,
   [int]$ThresholdMs = 3000,
   [switch]$Quiet
 )
 
 $ErrorActionPreference = "Stop"
+if ([string]::IsNullOrEmpty($Email)) { throw "SEED_ADMIN_EMAIL environment variable is required" }
+if ([string]::IsNullOrEmpty($Password)) { throw "SEED_ADMIN_PASSWORD environment variable is required" }
 $results = @()
 $passed = 0
 $failed = 0

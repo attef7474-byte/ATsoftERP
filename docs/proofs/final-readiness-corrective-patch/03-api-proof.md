@@ -12,7 +12,7 @@
 
 | Credential | Result |
 |---|---|
-| `POST /auth/login` with `{"email":"admin@atsofterp.com","password":"Admin@123456"}` | **200 OK** → `accessToken` and `user` object returned |
+| `POST /auth/login` with `{"email":"admin@atsofterp.com","password":"<REDACTED>"}` | **200 OK** → `accessToken` and `user` object returned |
 
 ---
 

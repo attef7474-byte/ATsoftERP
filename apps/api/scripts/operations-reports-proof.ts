@@ -9,7 +9,16 @@ import { OPERATIONS_REPORT_PERMISSION_KEYS } from '../src/modules/reports/operat
 const adapter = new PrismaMssql(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
 const API_URL = process.env.PROOF_API_URL || 'http://localhost:4000/api/v1';
-const PROOF_PASSWORD = 'OperationsProof@2026!';
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} environment variable is required to run this proof script`);
+  }
+  return value;
+}
+
+const PROOF_PASSWORD = requireEnv('PROOF_PASSWORD');
 
 type ProofCase = { name: string; expected: string; actual: string; pass: boolean };
 const cases: ProofCase[] = [];

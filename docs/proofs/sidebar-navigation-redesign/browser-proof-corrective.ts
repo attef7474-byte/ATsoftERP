@@ -4,8 +4,16 @@
  */
 import { chromium, type Browser, type Page } from 'playwright';
 
+if (!process.env.SEED_ADMIN_EMAIL) {
+  throw new Error('SEED_ADMIN_EMAIL environment variable is required');
+}
+
+if (!process.env.SEED_ADMIN_PASSWORD) {
+  throw new Error('SEED_ADMIN_PASSWORD environment variable is required');
+}
+
 const BASE = 'http://localhost:3000';
-const CREDENTIALS = { email: 'admin@atsofterp.com', password: 'Admin@123456' };
+const CREDENTIALS = { email: process.env.SEED_ADMIN_EMAIL, password: process.env.SEED_ADMIN_PASSWORD };
 
 async function waitForSelector(page: Page, selector: string, timeout = 10000) {
   await page.waitForSelector(selector, { timeout });

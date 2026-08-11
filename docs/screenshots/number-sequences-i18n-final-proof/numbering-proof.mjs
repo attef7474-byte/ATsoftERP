@@ -1,10 +1,18 @@
 import { chromium } from 'playwright';
 import { writeFileSync } from 'fs';
 
+if (!process.env.SEED_ADMIN_EMAIL) {
+  throw new Error('SEED_ADMIN_EMAIL environment variable is required');
+}
+
+if (!process.env.SEED_ADMIN_PASSWORD) {
+  throw new Error('SEED_ADMIN_PASSWORD environment variable is required');
+}
+
 const BASE = 'http://localhost:3000';
 const API_BASE = 'http://localhost:4000/api/v1';
-const EMAIL = 'admin@atsofterp.com';
-const PASSWORD = 'Admin@123456';
+const EMAIL = process.env.SEED_ADMIN_EMAIL;
+const PASSWORD = process.env.SEED_ADMIN_PASSWORD;
 
 async function getToken() {
   const resp = await fetch(`${API_BASE}/auth/login`, {

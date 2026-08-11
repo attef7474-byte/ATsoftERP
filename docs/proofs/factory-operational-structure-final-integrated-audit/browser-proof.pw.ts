@@ -1,5 +1,13 @@
 import { test, expect, Page } from '@playwright/test';
 
+if (!process.env.SEED_ADMIN_EMAIL) {
+  throw new Error('SEED_ADMIN_EMAIL environment variable is required');
+}
+
+if (!process.env.SEED_ADMIN_PASSWORD) {
+  throw new Error('SEED_ADMIN_PASSWORD environment variable is required');
+}
+
 const API_BASE = 'http://localhost:4000/api/v1';
 const WEB_BASE = 'http://localhost:3000';
 
@@ -7,7 +15,7 @@ async function loginAndSetup(page: Page, lang: string) {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@atsofterp.com', password: 'Admin@123456' }),
+    body: JSON.stringify({ email: process.env.SEED_ADMIN_EMAIL, password: process.env.SEED_ADMIN_PASSWORD }),
   });
   const json = await res.json();
   await page.addInitScript(({ token, locale }: { token: string; locale: string }) => {
@@ -20,7 +28,7 @@ async function getToken(): Promise<string> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@atsofterp.com', password: 'Admin@123456' }),
+    body: JSON.stringify({ email: process.env.SEED_ADMIN_EMAIL, password: process.env.SEED_ADMIN_PASSWORD }),
   });
   const json = await res.json();
   return json.accessToken;

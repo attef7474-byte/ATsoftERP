@@ -1,6 +1,8 @@
 #Requires -Version 7
 $apiUrl = "http://localhost:4000/api/v1"
 $logFile = "$env:TEMP\zaa-api-test.log"
+if ([string]::IsNullOrEmpty($env:SEED_ADMIN_EMAIL)) { throw "SEED_ADMIN_EMAIL environment variable is required" }
+if ([string]::IsNullOrEmpty($env:SEED_ADMIN_PASSWORD)) { throw "SEED_ADMIN_PASSWORD environment variable is required" }
 $results = @()
 $pass = 0
 $fail = 0
@@ -35,7 +37,7 @@ $health = Test-Endpoint -Name "Health check" -Method GET -Url "$apiUrl/health"
 
 # Step 2: Login
 Write-Output "`n--- Auth ---"
-$login = Test-Endpoint -Name "Login" -Method POST -Url "$apiUrl/auth/login" -Body @{ email = 'admin@atsofterp.com'; password = 'Admin@123456' } -ExpectedStatus 201
+$login = Test-Endpoint -Name "Login" -Method POST -Url "$apiUrl/auth/login" -Body @{ email = $env:SEED_ADMIN_EMAIL; password = $env:SEED_ADMIN_PASSWORD } -ExpectedStatus 201
 $token = if ($login -and $login.accessToken) { $login.accessToken } else { "" }
 $authHeader = @{ Authorization = "Bearer $token" }
 if ($token) { Write-Output "PASS`tGot JWT token" } else { Write-Output "FAIL`tNo JWT token"; exit 1 }

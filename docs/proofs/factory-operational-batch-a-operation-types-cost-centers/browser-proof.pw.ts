@@ -1,5 +1,13 @@
 import { test, expect, Page } from '@playwright/test';
 
+if (!process.env.SEED_ADMIN_EMAIL) {
+  throw new Error('SEED_ADMIN_EMAIL environment variable is required');
+}
+
+if (!process.env.SEED_ADMIN_PASSWORD) {
+  throw new Error('SEED_ADMIN_PASSWORD environment variable is required');
+}
+
 const BASE = 'http://localhost:3000';
 const API = 'http://localhost:4000/api/v1';
 
@@ -10,7 +18,7 @@ async function getToken(): Promise<string> {
   const res = await fetch(`${API}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@atsofterp.com', password: 'Admin@123456' }),
+    body: JSON.stringify({ email: process.env.SEED_ADMIN_EMAIL, password: process.env.SEED_ADMIN_PASSWORD }),
   });
   const body = await res.json();
   sharedToken = body.accessToken;
