@@ -5,9 +5,14 @@ const fs = require('fs');
 const SCREENSHOT_DIR = path.join(__dirname, 'docs/screenshots/post-release-operational-ux-numbering-notifications-messaging/final-ui-verified');
 const WEB_URL = 'http://localhost:3000';
 const API_URL = 'http://localhost:4000';
-const ADMIN_EMAIL = 'admin@atsofterp.com';
-const ADMIN_PASSWORD = 'Admin@123456';
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
 const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  console.error('ERROR: SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD environment variables are required to run the UI verification test.');
+  process.exit(1);
+}
 
 fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
