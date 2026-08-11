@@ -5,10 +5,11 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useRouter, useParams } from 'next/navigation';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon } from '../../../../../components/admin/admin-action-bar';
+import { translatePermissionKey, translateEnum, translateRoleName, translateRoleDescription } from '../../../../../lib/i18n/literals';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 
 export default function RoleDetailPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
@@ -52,13 +53,13 @@ export default function RoleDetailPage() {
       <div className="bg-white rounded-lg border p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold">{role.name}</h1>
+            <h1 className="text-2xl font-bold">{translateRoleName(role.code, role.name, !!role.isSystem, locale)}</h1>
             <p className="text-sm text-gray-500">{role.code}</p>
           </div>
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${role.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{t(`status.${role.status}`)}</span>
         </div>
 
-        {role.description && <p className="text-gray-600 mb-6">{role.description}</p>}
+        {role.description && <p className="text-gray-600 mb-6">{translateRoleDescription(role.code, role.description, !!role.isSystem, locale)}</p>}
 
         {role.isSystem && <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6"><p className="text-yellow-800 text-sm">{t('access.superAdminProtected')}</p></div>}
 
@@ -79,8 +80,8 @@ export default function RoleDetailPage() {
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {role.permissions.map((rp: any) => (
                 <div key={rp.permission.id} className="flex items-center justify-between bg-gray-50 rounded px-3 py-2 text-sm">
-                  <span>{rp.permission.key}</span>
-                  <span className="text-gray-500 text-xs">{rp.permission.module} / {rp.permission.action}</span>
+                  <span>{translatePermissionKey(rp.permission.key, locale)}</span>
+                  <span className="text-gray-500 text-xs">{translateEnum(rp.permission.module, locale, 'access')} / {translateEnum(rp.permission.action, locale, 'actions')}</span>
                 </div>
               ))}
             </div>

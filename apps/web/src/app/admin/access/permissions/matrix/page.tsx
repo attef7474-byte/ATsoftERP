@@ -5,7 +5,7 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useRouter } from 'next/navigation';
 import { Input, Select, Button } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../../components/admin/admin-action-bar';
-import { translatePermissionKey, translateEnum } from '../../../../../lib/i18n/literals';
+import { translatePermissionKey, translateEnum, translateRoleName } from '../../../../../lib/i18n/literals';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 
 export default function PermissionsMatrixPage() {
@@ -79,7 +79,7 @@ export default function PermissionsMatrixPage() {
               <th className="text-left px-4 py-3 font-medium text-gray-700">{t('access.action')}</th>
               {matrix?.roles?.map((role: any) => (
                 <th key={role.id} className="text-center px-3 py-3 font-medium text-gray-700 text-xs uppercase tracking-wide min-w-[100px]">
-                  <button onClick={() => router.push(`/admin/access/roles/${role.id}`)} className="hover:text-blue-600">{role.name}</button>
+                  <button onClick={() => router.push(`/admin/access/roles/${role.id}`)} className="hover:text-blue-600">{translateRoleName(role.code, role.name, !!role.isSystem, locale)}</button>
                 </th>
               ))}
             </tr>
@@ -89,7 +89,6 @@ export default function PermissionsMatrixPage() {
               <tr key={perm.id} className="border-b hover:bg-gray-50">
                 <td className="px-4 py-2 sticky left-0 bg-white">
                   <span className="block font-medium text-gray-900">{translatePermissionKey(perm.key, locale)}</span>
-                  <span className="block text-xs font-mono text-gray-400" dir="ltr">{perm.key}</span>
                 </td>
                 <td className="px-4 py-2">{translateEnum(perm.module, locale, 'access')}</td>
                 <td className="px-4 py-2">{translateEnum(perm.action, locale, 'actions')}</td>

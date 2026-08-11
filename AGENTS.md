@@ -13,8 +13,9 @@ Reference priority on conflict:
 1. The Engineering Constitution (`docs/architecture/atsoft-erp-engineering-constitution-v1.0.md`).
 2. Domain rule files in `docs/agent-rules/` (load only the relevant ones per task).
 3. The Permanent Development Contract (`docs/architecture/atsoft-erp-development-contract-v1.0.md`) — read it fully at the start of every implementation session; its section 17 is the task execution template.
-4. This file (concise summary).
-5. `docs/proofs/atsofterp-current-architecture-discovery-report.md` (discovery aid, not design authority).
+4. UI / i18n / appearance / access baseline protection (`docs/governance/ui-baseline-protection.md` + machine-readable manifest `docs/governance/accepted-ui-i18n-baseline.json` + `scripts/check-ui-baseline.mjs`).
+5. This file (concise summary).
+6. `docs/proofs/atsofterp-current-architecture-discovery-report.md` (discovery aid, not design authority).
 
 Domain rule files (load the relevant subset, never all):
 
@@ -178,9 +179,10 @@ Do not add empty specs, skip failing tests, delete tests to pass validation, wea
 7. Web type checking.
 8. Web build.
 9. i18n consistency check.
-10. Focused browser proof.
-11. `git diff --check`.
-12. Final `git status`.
+10. UI / appearance baseline integrity check (`npm run ui-baseline:check` or `node scripts/check-ui-baseline.mjs`, which reads `docs/governance/accepted-ui-i18n-baseline.json`).
+11. Focused browser proof.
+12. `git diff --check`.
+13. Final `git status`.
 
 Never hide pre-existing failures. Separate new failures, pre-existing failures, warnings, and unverified areas.
 

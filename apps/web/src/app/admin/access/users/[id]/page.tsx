@@ -7,7 +7,7 @@ import { User, Company, Branch, Department } from '../../../../../lib/admin-type
 import { Button, Card, CardContent, LoadingState, ErrorState, StatusBadge, Modal, Input, ConfirmDialog } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../../components/admin/admin-action-bar';
 import { useParams, useRouter } from 'next/navigation';
-import { formatDateTime } from '../../../../../lib/i18n/literals';
+import { formatDateTime, translateRoleName } from '../../../../../lib/i18n/literals';
 import { useErrorModal } from '../../../../../components/admin/error-modal';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../lib/form-validation';
@@ -175,7 +175,7 @@ export default function UserDetailPage() {
             {field(t('details.user.email'), user.email)}
             {field(t('details.user.phone'), user.phone || '-')}
             {field(t('common.status'), <StatusBadge status={user.status} />)}
-            {field(t('details.user.roles'), user.roles && user.roles.length > 0 ? user.roles.map(r => r.role.name).join(', ') : '-')}
+            {field(t('details.user.roles'), user.roles && user.roles.length > 0 ? user.roles.map(r => translateRoleName(r.role?.code, r.role?.name, !!r.role?.isSystem, locale)).join(', ') : '-')}
             {field(t('details.user.company'), getCompanyName(user.companyId))}
             {field(t('details.user.branch'), getBranchName(user.branchId))}
             {field(t('details.user.department'), getDepartmentName(user.departmentId))}

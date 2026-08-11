@@ -84,3 +84,25 @@ Every operational page must include, where applicable:
 
 * All user-visible strings come from translation keys.
 * Entity references display readable names/codes, not raw internal IDs.
+
+## 12. Protected UI / Appearance / i18n Baseline
+
+The appearance, theming, translation, and access UI layers are part of the **official protected application baseline** (see `docs/governance/ui-baseline-protection.md`; machine-readable contract: `docs/governance/accepted-ui-i18n-baseline.json`). Do not silently revert, empty, or rewrite these files:
+
+* `apps/web/src/lib/appearance-theme.ts` — theme builder and preset profiles.
+* `apps/web/src/components/admin/theme/appearance-provider.tsx` — `AppearanceProvider`, `useAppearance`, `applyAppearance`.
+* `apps/web/src/components/admin/theme/use-appearance.ts` — re-export facade.
+* `apps/web/src/app/admin/settings/appearance/page.tsx` — appearance studio.
+* `apps/web/src/app/admin/access/` pages — must render translated permission labels via `translatePermissionKey`; **no visible raw permission keys**.
+* `apps/web/src/lib/i18n/literals.ts` — must export `translatePermissionKey`, `translateRoleName`, `translateRoleDescription`, `translateEnum`.
+* `apps/web/src/lib/i18n/` — locale namespaces must stay non-empty and en/ar synchronized.
+* `apps/web/src/app/globals.css` — the 14 `--ats-*` design tokens.
+
+Raw permission keys (`administration:update`, `attachment:read`, ...) must never render in normal user-facing pages; they are internal-only (state/API/database/debug/matching). System roles (`SUPER_ADMIN`) display localized labels/descriptions via `translateRoleName`/`translateRoleDescription`; custom roles preserve stored content.
+
+Guardrails (must be run and pass before finishing any UI/i18n task):
+
+* `npm run ui-baseline:check` (reads the manifest: baseline integrity + i18n + raw keys + permission UI).
+* `npm run i18n:check`, `npm run raw-keys:check`, `node scripts/verify-permission-ui.mjs`.
+
+If a protected file is missing, empty, or reverted, restore it from `origin/main` (authoritative source; never the stale `Trae/ATsofterp` checkout) and re-run the checks. Never replace a protected file with an empty placeholder to make a build pass.

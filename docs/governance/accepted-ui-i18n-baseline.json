@@ -1,0 +1,160 @@
+{
+  "manifestName": "accepted-ui-i18n-baseline",
+  "version": "1.0.0",
+  "status": "ACTIVE",
+  "description": "Machine-readable definition of the accepted appearance / i18n / access UI baseline for ATsofterp. Origin/main is the sole authoritative source. The stale legacy local checkout (Trae/ATsofterp at e78b0e7) is NOT the baseline.",
+  "authoritativeSource": "origin/main",
+  "acceptedMinimumCommits": [
+    {
+      "sha": "d9d0486c71665a3e966e78f1ebe9faa7cb56e71d",
+      "subject": "appearance",
+      "purpose": "resolve final appearance integration regressions",
+      "required": true
+    },
+    {
+      "sha": "95b8f9f446c5d2e0c678383744e2c2f1daac7150",
+      "subject": "permission-localization",
+      "purpose": "localize access permission labels",
+      "required": true
+    }
+  ],
+  "protectedFiles": {
+    "apps/web/src/components/admin/theme/appearance-provider.tsx": {
+      "nonEmpty": true,
+      "requiredExports": ["AppearanceProvider", "useAppearance", "applyAppearance"]
+    },
+    "apps/web/src/components/admin/theme/use-appearance.ts": {
+      "nonEmpty": true,
+      "requiredExports": ["useAppearance"]
+    },
+    "apps/web/src/lib/appearance-theme.ts": {
+      "nonEmpty": true,
+      "requiredExports": [
+        "REFERENCE_DEFAULT",
+        "PRESET_PROFILES",
+        "normalizeAppearanceSettings",
+        "buildAppearancePayload",
+        "buildGradientCss",
+        "buildTopbarGradientCss",
+        "buildRadiusValue",
+        "buildSidebarPalette",
+        "buildFormHeaderTokens"
+      ]
+    },
+    "apps/web/src/app/admin/layout.tsx": {
+      "nonEmpty": true,
+      "requiredPatterns": ["<AppearanceProvider><AdminShell>"]
+    },
+    "apps/web/src/components/admin/shell/admin-shell.tsx": {
+      "nonEmpty": true,
+      "requiredPatterns": ["useAppearance", "useAdminActionBar"]
+    },
+    "apps/web/src/app/admin/settings/appearance/page.tsx": {
+      "nonEmpty": true,
+      "requiredPatterns": ["data-theme-preview", "PRESET_PROFILES"]
+    },
+    "apps/web/src/app/admin/access/permissions/page.tsx": {
+      "nonEmpty": true,
+      "requiredPatterns": ["translatePermissionKey"]
+    },
+    "apps/web/src/app/admin/access/roles/page.tsx": {
+      "nonEmpty": true,
+      "requiredPatterns": ["translatePermissionKey", "translateRoleName"]
+    },
+    "apps/web/src/app/admin/access/roles/[id]/permissions/page.tsx": {
+      "nonEmpty": true,
+      "requiredPatterns": ["translatePermissionKey"]
+    },
+    "apps/web/src/app/admin/access/roles/[id]/page.tsx": {
+      "nonEmpty": true,
+      "requiredPatterns": ["translatePermissionKey"]
+    },
+    "apps/web/src/app/admin/access/permissions/matrix/page.tsx": {
+      "nonEmpty": true,
+      "requiredPatterns": ["translatePermissionKey"]
+    },
+    "apps/web/src/lib/i18n/literals.ts": {
+      "nonEmpty": true,
+      "requiredExports": [
+        "translatePermissionKey",
+        "translateRoleName",
+        "translateRoleDescription",
+        "translateEnum"
+      ]
+    },
+    "apps/web/src/app/globals.css": {
+      "nonEmpty": true,
+      "requiredTokens": [
+        "--ats-primary",
+        "--ats-accent",
+        "--ats-active-nav",
+        "--ats-sidebar-gradient",
+        "--ats-topbar-gradient",
+        "--ats-form-gradient",
+        "--ats-form-header-gradient",
+        "--ats-form-header-text",
+        "--ats-form-header-border",
+        "--ats-radius",
+        "--ats-shadow",
+        "--ats-glass-opacity",
+        "--ats-glass-blur",
+        "--ats-font-scale"
+      ]
+    }
+  },
+  "i18nLocaleNamespaces": {
+    "enDir": "apps/web/src/lib/i18n/locales/en",
+    "arDir": "apps/web/src/lib/i18n/locales/ar",
+    "namespaces": [
+      "common.ts",
+      "navigation.ts",
+      "grid.ts",
+      "core.ts",
+      "access.ts",
+      "settings.ts",
+      "inventory.ts",
+      "maintenance.ts",
+      "barcodes.ts",
+      "reports.ts",
+      "validation.ts",
+      "system.ts",
+      "error-dialog.ts",
+      "workspace.ts",
+      "organization.ts"
+    ]
+  },
+  "systemRoleLocalization": {
+    "SUPER_ADMIN": {
+      "labelKey": "access.roleSuperAdmin",
+      "descriptionKey": "access.roleSuperAdminDescription"
+    },
+    "customRoleContentPreserved": true
+  },
+  "forbiddenVisiblePatterns": [
+    "perm.key",
+    "permission.key",
+    "p.key"
+  ],
+  "requiredRoutes": [
+    "/admin/settings/appearance",
+    "/admin/access/permissions",
+    "/admin/access/roles",
+    "/admin/access/roles/[id]/permissions"
+  ],
+  "governanceRules": [
+    "No visible raw permission keys in normal user-facing pages.",
+    "System roles display localized labels and descriptions; custom roles preserve stored content.",
+    "Arabic UI renders in RTL; English UI renders in LTR.",
+    "Any protected file missing, empty, or missing a required export/token fails the build gate.",
+    "Never replace a protected file with an empty placeholder to make a build pass.",
+    "Baseline verification is part of qa:all (ui-baseline:check)."
+  ],
+  "releaseGate": {
+    "scripts": [
+      "npm run ui-baseline:check",
+      "npm run i18n:check",
+      "npm run raw-keys:check",
+      "node scripts/verify-permission-ui.mjs"
+    ]
+  }
+}

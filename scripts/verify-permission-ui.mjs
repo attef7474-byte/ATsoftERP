@@ -114,8 +114,16 @@ console.log('--- 4. Shared error dialog structure ---');
 const errorModal = read('apps/web/src/components/admin/error-modal.tsx');
 if (errorModal.includes("t('common.close')")) pass('error-modal close button is localized');
 else fail('error-modal close button not localized');
-if (errorModal.includes("t('errors.generalError')")) pass('error-modal title fallback is localized');
+const hasLocalizedTitle = errorModal.includes("t('errorDialog.unexpectedError'") || errorModal.includes("t('errors.generalError'");
+if (hasLocalizedTitle) pass('error-modal title fallback is localized');
 else fail('error-modal title fallback not localized');
+const enErrorDialogLocale = read('apps/web/src/lib/i18n/locales/en/error-dialog.ts');
+const arErrorDialogLocale = read('apps/web/src/lib/i18n/locales/ar/error-dialog.ts');
+if (enErrorDialogLocale.includes('unexpectedError') && arErrorDialogLocale.includes('unexpectedError')) {
+  pass('errorDialog.unexpectedError exists in EN and AR');
+} else {
+  fail('errorDialog.unexpectedError missing in one or both locales');
+}
 if (errorModal.includes("Modal open={!!config}")) pass('error-modal uses the shared Modal component');
 else fail('error-modal does not use the shared Modal component');
 const errorUtils = read('apps/web/src/lib/error-utils.ts');

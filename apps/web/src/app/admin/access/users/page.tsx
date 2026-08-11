@@ -15,10 +15,11 @@ import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIc
 import { useErrorModal } from '../../../../components/admin/error-modal';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
+import { translateRoleName } from '../../../../lib/i18n/literals';
 
 export default function UsersPage() {
   const router = useRouter();
-  const { t, dir } = useTranslation();
+  const { t, dir, locale } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
   const { showError } = useErrorModal();
@@ -204,7 +205,7 @@ export default function UsersPage() {
     { key: 'phone', header: t('users.phone'), sortable: true, render: (r) => r.phone || '-' },
     { key: 'company', header: t('users.company'), sortable: true, render: (r) => getCompanyName(r.companyId) },
     { key: 'branch', header: t('users.branch'), sortable: true, render: (r) => getBranchName(r.branchId) },
-    { key: 'role', header: t('users.role'), sortable: true, render: (r) => (r.roles && r.roles.length > 0) ? r.roles[0].role.name : '-' },
+    { key: 'role', header: t('users.role'), sortable: true, render: (r) => (r.roles && r.roles.length > 0) ? translateRoleName(r.roles[0].role.code, r.roles[0].role.name, !!r.roles[0].role.isSystem, locale) : '-' },
     { key: 'status', header: t('common.status'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
       { value: 'ACTIVE', label: t('common.active') },
       { value: 'INACTIVE', label: t('common.inactive') },
@@ -294,7 +295,7 @@ export default function UsersPage() {
             {selectedUser?.roles && selectedUser.roles.length > 0 ? (
               selectedUser.roles.map((r: any, i: number) => (
                 <div key={r.role?.id || i} className="flex items-center gap-2 p-2 bg-[var(--ws-soft)] border border-[var(--ws-border)] rounded-lg">
-                  <span className="text-sm font-medium">{r.role?.name || r.name}</span>
+                  <span className="text-sm font-medium">{r.role ? translateRoleName(r.role.code, r.role.name, !!r.role.isSystem, locale) : (r.name || '-')}</span>
                 </div>
               ))
             ) : (

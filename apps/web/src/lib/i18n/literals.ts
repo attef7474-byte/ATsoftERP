@@ -115,6 +115,36 @@ export function translatePermissionKey(key: string, locale: Locale): string {
   return moduleLabel ? moduleLabel + ' — ' + actionLabel : actionLabel;
 }
 
+const SYSTEM_ROLE_LABEL_KEYS: Record<string, string> = {
+  SUPER_ADMIN: 'roleSuperAdmin',
+};
+
+const SYSTEM_ROLE_DESCRIPTION_KEYS: Record<string, string> = {
+  SUPER_ADMIN: 'roleSuperAdminDescription',
+};
+
+export function translateRoleName(code: string | undefined, name: string | undefined, isSystem: boolean, locale: Locale): string {
+  if (isSystem && code) {
+    const labelKey = SYSTEM_ROLE_LABEL_KEYS[code.toUpperCase()] || SYSTEM_ROLE_LABEL_KEYS[code];
+    if (labelKey) {
+      const translated = translateFromNamespaces(labelKey, locale, ['access']);
+      if (translated) return translated;
+    }
+  }
+  return name || code || '-';
+}
+
+export function translateRoleDescription(code: string | undefined, description: string | null | undefined, isSystem: boolean, locale: Locale): string {
+  if (isSystem && code) {
+    const labelKey = SYSTEM_ROLE_DESCRIPTION_KEYS[code.toUpperCase()] || SYSTEM_ROLE_DESCRIPTION_KEYS[code];
+    if (labelKey) {
+      const translated = translateFromNamespaces(labelKey, locale, ['access']);
+      if (translated) return translated;
+    }
+  }
+  return description || '-';
+}
+
 export function formatDateTime(date: string | Date | null | undefined, locale: Locale): string {
   if (!date) return '-';
   try {

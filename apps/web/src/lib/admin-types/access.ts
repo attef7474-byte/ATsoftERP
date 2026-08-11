@@ -14,7 +14,7 @@ export interface User {
 }
 
 export interface UserRole {
-  role: { id: string; code: string; name: string };
+  role: { id: string; code: string; name: string; isSystem?: boolean };
 }
 
 export interface Role {

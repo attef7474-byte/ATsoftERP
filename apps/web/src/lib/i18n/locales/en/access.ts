@@ -88,6 +88,7 @@ const access: Pick<LocaleTranslations, 'access' | 'users' | 'roles' | 'permissio
         assignRolesSuccess: 'Roles assigned successfully.',
         assignRolesFailed: 'Failed to assign roles.',
         roleSuperAdmin: 'Super Administrator',
+        roleSuperAdminDescription: 'Full system access',
         roleManager: 'Manager',
         roleViewer: 'Viewer',
         roleOperator: 'Operator',

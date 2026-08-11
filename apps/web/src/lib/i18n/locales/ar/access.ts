@@ -88,6 +88,7 @@ const access: Pick<LocaleTranslations, 'access' | 'users' | 'roles' | 'permissio
         assignRolesSuccess: 'تم تعيين الأدوار بنجاح.',
         assignRolesFailed: 'فشل تعيين الأدوار.',
         roleSuperAdmin: 'مشرف عام',
+        roleSuperAdminDescription: 'صلاحية كاملة على النظام',
         roleManager: 'مدير',
         roleViewer: 'مشاهد',
         roleOperator: 'مشغل',

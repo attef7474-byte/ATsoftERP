@@ -6,7 +6,7 @@ import { useToast } from '../../../../../../components/admin/toast-provider';
 import { useRouter, useParams } from 'next/navigation';
 import { Input, Button } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon } from '../../../../../../components/admin/admin-action-bar';
-import { translatePermissionKey, translateEnum } from '../../../../../../lib/i18n/literals';
+import { translatePermissionKey, translateEnum, translateRoleName } from '../../../../../../lib/i18n/literals';
 import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 
 function ModuleCheckbox({ checked, indeterminate, onChange }: { checked: boolean; indeterminate: boolean; onChange: (checked: boolean) => void }) {
@@ -113,7 +113,7 @@ export default function RolePermissionsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">{t('access.managePermissions')}</h1>
-          {role && <p className="text-sm text-gray-500">{role.name} ({role.code})</p>}
+          {role && <p className="text-sm text-gray-500">{translateRoleName(role.code, role.name, !!role.isSystem, locale)} ({role.code})</p>}
         </div>
         <div className="flex items-center gap-3">
           <Input placeholder={t('access.searchPermissions')} value={search} onChange={(e) => setSearch(e.target.value)} className="w-64" />
@@ -145,7 +145,6 @@ export default function RolePermissionsPage() {
                     <input type="checkbox" checked={selectedIds.has(perm.id)} onChange={() => togglePermission(perm.id)} className="rounded border-gray-300" />
                     <span className="flex flex-col min-w-0">
                       <span className="text-xs font-medium">{translatePermissionKey(perm.key, locale)}</span>
-                      <span className="text-xs text-gray-400 truncate" dir="ltr">{perm.key}</span>
                     </span>
                   </label>
                 ))}

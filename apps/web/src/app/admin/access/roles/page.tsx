@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { unwrapApiList } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
-import { translatePermissionKey } from '../../../../lib/i18n/literals';
+import { translatePermissionKey, translateEnum, translateRoleName, translateRoleDescription } from '../../../../lib/i18n/literals';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useErrorModal } from '../../../../components/admin/error-modal';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
@@ -200,8 +200,8 @@ export default function RolesPage() {
 
   const baseColumns: GridColumn<Role>[] = [
     { key: 'code', header: t('common.code'), sortable: true, filterable: true },
-    { key: 'name', header: t('roles.name'), sortable: true, filterable: true },
-    { key: 'description', header: t('roles.description'), sortable: true, render: (r) => r.description || '-' },
+    { key: 'name', header: t('roles.name'), sortable: true, filterable: true, render: (r) => translateRoleName(r.code, r.name, !!r.isSystem, locale) },
+    { key: 'description', header: t('roles.description'), sortable: true, render: (r) => translateRoleDescription(r.code, r.description, !!r.isSystem, locale) },
     { key: 'isSystem', header: t('roles.isSystem'), sortable: true, render: (r) => r.isSystem ? t('common.yes') : t('common.no') },
     { key: 'status', header: t('common.status'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
       { value: 'ACTIVE', label: t('common.active') },
@@ -288,13 +288,12 @@ export default function RolesPage() {
           {permLoadError && <p className="text-red-500 text-sm">{permLoadError}</p>}
           {Object.entries(groupedPermissions).map(([module, perms]) => (
             <div key={module}>
-              <h4 className="text-sm font-semibold text-gray-700 uppercase mb-2">{module}</h4>
+              <h4 className="text-sm font-semibold text-gray-700 uppercase mb-2">{translateEnum(module, locale, 'access')}</h4>
               <div className="flex flex-wrap gap-2">
                 {perms.map((perm) => (
                   <label key={perm.id} className="flex items-center space-x-2 text-sm cursor-pointer">
                     <input type="checkbox" checked={selectedPerms.includes(perm.id)} onChange={() => togglePerm(perm.id)} className="rounded border-gray-300" />
                     <span>{translatePermissionKey(perm.key, locale)}</span>
-                    <span className="text-xs text-gray-400 truncate" dir="ltr">({perm.key})</span>
                   </label>
                 ))}
               </div>

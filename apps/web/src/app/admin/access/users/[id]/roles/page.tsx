@@ -7,9 +7,10 @@ import { useRouter, useParams } from 'next/navigation';
 import { Input, Button } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../../components/admin/admin-action-bar';
 import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
+import { translateRoleName, translateRoleDescription } from '../../../../../../lib/i18n/literals';
 
 export default function UserRolesPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
   const params = useParams();
   const { showToast } = useToast();
@@ -101,10 +102,10 @@ export default function UserRolesPage() {
             <label key={role.id} className={`flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${checked ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>
               <input type="checkbox" checked={checked} onChange={() => toggleRole(role.id)} className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
               <div className="flex-1">
-                <p className="font-medium text-sm">{role.name}</p>
+                <p className="font-medium text-sm">{translateRoleName(role.code, role.name, !!role.isSystem, locale)}</p>
                 <p className="text-xs text-gray-500">{role.code}{role.isSystem ? ` - ${t('access.systemRole')}` : ''}</p>
               </div>
-              {role.description && <p className="text-xs text-gray-400 max-w-xs truncate">{role.description}</p>}
+                  {role.description && <p className="text-xs text-gray-400 max-w-xs truncate">{translateRoleDescription(role.code, role.description, !!role.isSystem, locale)}</p>}
               {role.isSystem && <span className="px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-700">{t('access.systemRole')}</span>}
             </label>
           );
