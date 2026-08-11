@@ -55,12 +55,11 @@ const BINARY_EXTENSIONS = new Set([
 
 // Candidate extraction for fingerprint matching. A previously exposed value may
 // appear quoted in code or bare in prose (for example Markdown), so both shapes
-// are fingerprinted. Candidates are normalized only by trimming surrounding
-// quote/whitespace boundaries; interior characters are never altered.
+// are fingerprinted. Every candidate is fingerprinted — a known leaked value is
+// never skipped merely because the file contains many preceding tokens.
 const CANDIDATE_QUOTED = /['"`][^'"`\n]{6,200}['"`]/g;
 const CANDIDATE_BARE =
   /(?:^|[\s"'([{<>:=,;])([A-Za-z0-9][A-Za-z0-9_@.\-!*$%^&+#]{5,79})(?=[\s"')\]}<>:=,;.!?]|$)/g;
-const MAX_CANDIDATES_PER_FILE = 20000;
 
 // Self-test hook: additionally scan explicit paths (repo-relative or absolute,
 // newline separated) passed via CRED_CHECK_EXTRA_FILES. This only adds scan
@@ -88,7 +87,6 @@ function sha256Hex(s) {
 function scanForKnownLeaks(rel, content, findings) {
   const raw = content.replace(/\u0000/g, '');
   let matches = 0;
-  let candidates = 0;
   const emit = (id) => {
     if (matches < 5) {
       findings.push(`${rel}: known leaked credential fingerprint matched (${id})`);
@@ -96,8 +94,6 @@ function scanForKnownLeaks(rel, content, findings) {
     }
   };
   const check = (candidate) => {
-    if (candidates >= MAX_CANDIDATES_PER_FILE) return;
-    candidates += 1;
     const c = candidate.replace(/^['"`]+|['"`]+$/g, '').trim();
     if (c.length < 6 || c.length > 128) return;
     const id = KNOWN_LEAKED_SHA256.get(sha256Hex(c));
@@ -111,6 +107,19 @@ function scanForKnownLeaks(rel, content, findings) {
     if (matches >= 5) break;
     check(m[1]);
   }
+}
+
+// Env-file detection by basename so all common forms are recognized regardless
+// of path depth: `.env`, `.env.example`, `.env.local`, `config.env`,
+// `config.env.example`, `apps/api/.env.example`, and similar.
+function isEnvFile(rel) {
+  const baseName = rel.split(/[\\/]/).pop() || '';
+  return (
+    baseName === '.env' ||
+    baseName.startsWith('.env.') ||
+    baseName.endsWith('.env') ||
+    baseName.includes('.env.')
+  );
 }
 
 // Safe placeholder values accepted in .env.example templates. Values that look
@@ -172,8 +181,7 @@ for (const rel of scanTargets) {
 
   scanForKnownLeaks(rel, content, findings);
 
-  const isEnvFile = /(^|\/)[^/]+\.env(\.[^/]+)?$/i.test(rel);
-  if (isEnvFile) {
+  if (isEnvFile(rel)) {
     scanEnvFile(rel, content, findings);
     continue;
   }
