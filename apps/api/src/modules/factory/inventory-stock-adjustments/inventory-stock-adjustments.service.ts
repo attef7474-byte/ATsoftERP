@@ -5,6 +5,7 @@ import { AuditService } from '../../../common/audit/audit.service';
 import { NumberingService } from '../../../modules/numbering/numbering.service';
 import { CreateStockAdjustmentDto, CreateStockAdjustmentLineDto } from './dto/create-stock-adjustment.dto';
 import { UpdateStockAdjustmentDto } from './dto/update-stock-adjustment.dto';
+import { UpdateStockAdjustmentLineDto } from './dto/update-stock-adjustment-line.dto';
 import { StockAdjustmentQueryDto } from './dto/stock-adjustment-query.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
@@ -64,10 +65,6 @@ export class InventoryStockAdjustmentsService {
     return doc;
   }
 
-  private async assertWarehouseInContext(warehouseId: string, ctx: ActiveOperationalContext) {
-    return this.assertWarehouseInContextWithClient(this.prisma, warehouseId, ctx);
-  }
-
   private async assertWarehouseInContextWithClient(client: any, warehouseId: string, ctx: ActiveOperationalContext) {
     const warehouse = await client.warehouse.findUnique({ where: { id: warehouseId } });
     if (!warehouse || warehouse.deletedAt != null) {
@@ -86,10 +83,6 @@ export class InventoryStockAdjustmentsService {
       throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse is inactive');
     }
     return warehouse;
-  }
-
-  private async assertLocationInWarehouse(locationId: string, warehouseId: string, field = 'locationId') {
-    return this.assertLocationInWarehouseWithClient(this.prisma, locationId, warehouseId, field);
   }
 
   private async assertLocationInWarehouseWithClient(client: any, locationId: string, warehouseId: string, field = 'locationId') {
@@ -141,23 +134,27 @@ export class InventoryStockAdjustmentsService {
   }
 
   async create(dto: CreateStockAdjustmentDto, userId: string, ctx: ActiveOperationalContext) {
-    const company = await this.prisma.company.findUnique({ where: { id: ctx.companyId } });
-    if (!company) throw new NotFoundException({ messageKey: 'organization.companyNotFound', message: 'Company not found' });
-
-    const warehouse = await this.assertWarehouseInContext(dto.warehouseId, ctx);
-    if (dto.locationId) await this.assertLocationInWarehouse(dto.locationId, warehouse.id);
-
-    for (const line of dto.lines) {
-      const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
-      if (!product || product.deletedAt != null) throw new NotFoundException(`Product ${line.productId} not found`);
-      if (line.quantity <= 0) throw this.badRequest('inventory.stockAdjustmentQuantityMustBePositive');
-      if (!['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'].includes(line.adjustmentType)) {
-        throw this.badRequest('inventory.stockAdjustmentInvalidType');
-      }
-      if (line.locationId) await this.assertLocationInWarehouse(line.locationId, warehouse.id, 'lines.locationId');
-    }
-
     return this.prisma.$transaction(async (tx) => {
+      // Company, warehouse, location, and line-product validation all run on the
+      // SAME transaction client that performs the mutation, so a tenant/relation
+      // change cannot race between validation and persistence.
+      const company = await tx.company.findUnique({ where: { id: ctx.companyId } });
+      if (!company) throw new NotFoundException({ messageKey: 'organization.companyNotFound', message: 'Company not found' });
+
+      const warehouse = await this.assertWarehouseInContextWithClient(tx, dto.warehouseId, ctx);
+      if (dto.locationId) await this.assertLocationInWarehouseWithClient(tx, dto.locationId, warehouse.id, 'locationId');
+
+      for (const line of dto.lines) {
+        const product = await tx.product.findUnique({ where: { id: line.productId } });
+        if (!product || product.deletedAt != null) throw new NotFoundException(`Product ${line.productId} not found`);
+        if (line.quantity <= 0) throw this.badRequest('inventory.stockAdjustmentQuantityMustBePositive');
+        if (!['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'].includes(line.adjustmentType)) {
+          throw this.badRequest('inventory.stockAdjustmentInvalidType');
+        }
+        if (line.locationId) await this.assertLocationInWarehouseWithClient(tx, line.locationId, warehouse.id, 'lines.locationId');
+      }
+
+      // Number generation happens only after every relation validation passes.
       const code = await this.numberingService.generateNumberAtomicWithClient('STOCK_ADJUSTMENT', tx);
 
       const { lines, companyId: _ignoredCompanyId, branchId: _ignoredBranchId, ...rest } = dto;
@@ -252,6 +249,11 @@ export class InventoryStockAdjustmentsService {
       if (current.status !== 'DRAFT') throw this.badRequest('inventory.stockAdjustmentOnlyDraftCanUpdate');
 
       const data: any = { ...rest };
+      // The document warehouse is mandatory: a null warehouseId must be
+      // rejected with a clean validation error, never stored.
+      if (warehouseId === null) {
+        throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse is required');
+      }
       const targetWarehouseId = warehouseId ?? current.warehouseId;
       await this.assertWarehouseInContextWithClient(tx, targetWarehouseId, ctx);
 
@@ -273,8 +275,13 @@ export class InventoryStockAdjustmentsService {
         data.warehouseId = warehouseId;
       }
       if (locationId !== undefined) {
-        await this.assertLocationInWarehouseWithClient(tx, locationId, targetWarehouseId, 'locationId');
-        data.locationId = locationId;
+        // Null explicitly clears the optional document location (same
+        // semantics as updateLine); a non-null value must belong to the
+        // target warehouse.
+        if (locationId) {
+          await this.assertLocationInWarehouseWithClient(tx, locationId, targetWarehouseId, 'locationId');
+        }
+        data.locationId = locationId ?? null;
       }
 
       const updated = await tx.inventoryStockAdjustment.update({ where: { id }, data });
@@ -290,36 +297,72 @@ export class InventoryStockAdjustmentsService {
   }
 
   async submit(id: string, userId: string, ctx: ActiveOperationalContext) {
-    const doc = await this.findOwned(id, ctx);
-    if (doc.status !== 'DRAFT') throw this.badRequest('inventory.stockAdjustmentOnlyDraftCanSubmit');
-    const updated = await this.prisma.inventoryStockAdjustment.update({
-      where: { id },
-      data: { status: 'SUBMITTED', submittedAt: new Date(), submittedById: userId },
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.inventoryStockAdjustment.findUnique({ where: { id } });
+      if (!current || current.deletedAt || !this.isInContext(current, ctx)) {
+        throw this.notFound('Stock adjustment not found');
+      }
+      if (current.status !== 'DRAFT') throw this.badRequest('inventory.stockAdjustmentOnlyDraftCanSubmit');
+
+      const updated = await tx.inventoryStockAdjustment.update({
+        where: { id },
+        data: { status: 'SUBMITTED', submittedAt: new Date(), submittedById: userId },
+      });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'SUBMIT',
+        entity: 'InventoryStockAdjustment',
+        entityId: id,
+        details: { companyId: ctx.companyId, branchId: ctx.branchId, oldStatus: current.status, newStatus: 'SUBMITTED' },
+      });
+      return updated;
     });
-    await this.audit.log(userId, 'SUBMIT', 'InventoryStockAdjustment', id, { oldStatus: doc.status, newStatus: 'SUBMITTED' });
-    return updated;
   }
 
   async approve(id: string, userId: string, ctx: ActiveOperationalContext) {
-    const doc = await this.findOwned(id, ctx);
-    if (doc.status !== 'SUBMITTED') throw this.badRequest('inventory.stockAdjustmentOnlySubmittedCanApprove');
-    const updated = await this.prisma.inventoryStockAdjustment.update({
-      where: { id },
-      data: { status: 'APPROVED', approvedAt: new Date(), approvedById: userId },
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.inventoryStockAdjustment.findUnique({ where: { id } });
+      if (!current || current.deletedAt || !this.isInContext(current, ctx)) {
+        throw this.notFound('Stock adjustment not found');
+      }
+      if (current.status !== 'SUBMITTED') throw this.badRequest('inventory.stockAdjustmentOnlySubmittedCanApprove');
+
+      const updated = await tx.inventoryStockAdjustment.update({
+        where: { id },
+        data: { status: 'APPROVED', approvedAt: new Date(), approvedById: userId },
+      });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'APPROVE',
+        entity: 'InventoryStockAdjustment',
+        entityId: id,
+        details: { companyId: ctx.companyId, branchId: ctx.branchId, oldStatus: current.status, newStatus: 'APPROVED' },
+      });
+      return updated;
     });
-    await this.audit.log(userId, 'APPROVE', 'InventoryStockAdjustment', id, { oldStatus: doc.status, newStatus: 'APPROVED' });
-    return updated;
   }
 
   async reject(id: string, userId: string, ctx: ActiveOperationalContext) {
-    const doc = await this.findOwned(id, ctx);
-    if (doc.status !== 'SUBMITTED') throw this.badRequest('inventory.stockAdjustmentOnlySubmittedCanReject');
-    const updated = await this.prisma.inventoryStockAdjustment.update({
-      where: { id },
-      data: { status: 'REJECTED', rejectedAt: new Date(), rejectedById: userId },
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.inventoryStockAdjustment.findUnique({ where: { id } });
+      if (!current || current.deletedAt || !this.isInContext(current, ctx)) {
+        throw this.notFound('Stock adjustment not found');
+      }
+      if (current.status !== 'SUBMITTED') throw this.badRequest('inventory.stockAdjustmentOnlySubmittedCanReject');
+
+      const updated = await tx.inventoryStockAdjustment.update({
+        where: { id },
+        data: { status: 'REJECTED', rejectedAt: new Date(), rejectedById: userId },
+      });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'REJECT',
+        entity: 'InventoryStockAdjustment',
+        entityId: id,
+        details: { companyId: ctx.companyId, branchId: ctx.branchId, oldStatus: current.status, newStatus: 'REJECTED' },
+      });
+      return updated;
     });
-    await this.audit.log(userId, 'REJECT', 'InventoryStockAdjustment', id, { oldStatus: doc.status, newStatus: 'REJECTED' });
-    return updated;
   }
 
   async post(id: string, userId: string, ctx: ActiveOperationalContext) {
@@ -344,6 +387,18 @@ export class InventoryStockAdjustmentsService {
       // A tenant-owned document is never authority for foreign/deleted/inactive
       // warehouse, location, or product references (hostile legacy data).
       await this.assertAdjustmentRelationsWithClient(tx, current, ctx);
+
+      // Atomic double-post claim: only one concurrent post can win the
+      // APPROVED -> POSTED transition. The guarded updateMany takes the row
+      // lock, so a second concurrent post either sees count 0 (already claimed)
+      // or is serialized after the winner; the loser rejects with no number
+      // generation or stock side effect. On any later failure this whole
+      // transaction rolls back, restoring APPROVED.
+      const claim = await tx.inventoryStockAdjustment.updateMany({
+        where: { id: current.id, status: 'APPROVED', deletedAt: null },
+        data: { status: 'POSTED', postedAt: new Date(), postedById: userId },
+      });
+      if (claim.count !== 1) throw this.badRequest('inventory.stockAdjustmentOnlyApprovedCanPost');
 
       const inLines = current.lines.filter(l => l.adjustmentType === 'ADJUSTMENT_IN');
       const outLines = current.lines.filter(l => l.adjustmentType === 'ADJUSTMENT_OUT');
@@ -437,12 +492,15 @@ export class InventoryStockAdjustmentsService {
   }
 
   async cancel(id: string, userId: string, ctx: ActiveOperationalContext) {
-    const doc = await this.findOwned(id, ctx);
-    if (doc.status !== 'DRAFT' && doc.status !== 'SUBMITTED') {
-      throw this.badRequest('inventory.stockAdjustmentOnlyDraftOrSubmittedCanCancel');
-    }
-
     return this.prisma.$transaction(async (tx) => {
+      const current = await tx.inventoryStockAdjustment.findUnique({ where: { id } });
+      if (!current || current.deletedAt || !this.isInContext(current, ctx)) {
+        throw this.notFound('Stock adjustment not found');
+      }
+      if (current.status !== 'DRAFT' && current.status !== 'SUBMITTED') {
+        throw this.badRequest('inventory.stockAdjustmentOnlyDraftOrSubmittedCanCancel');
+      }
+
       const cancelled = await tx.inventoryStockAdjustment.update({
         where: { id },
         data: { status: 'CANCELLED', cancelledAt: new Date(), cancelledById: userId },
@@ -452,7 +510,7 @@ export class InventoryStockAdjustmentsService {
         action: 'CANCEL',
         entity: 'InventoryStockAdjustment',
         entityId: id,
-        details: { companyId: ctx.companyId, branchId: ctx.branchId, oldStatus: doc.status, newStatus: 'CANCELLED' },
+        details: { companyId: ctx.companyId, branchId: ctx.branchId, oldStatus: current.status, newStatus: 'CANCELLED' },
       });
       return cancelled;
     });
@@ -489,56 +547,119 @@ export class InventoryStockAdjustmentsService {
   }
 
   async addLine(id: string, dto: CreateStockAdjustmentLineDto, userId: string, ctx: ActiveOperationalContext) {
-    const doc = await this.findOwned(id, ctx);
-    if (doc.status !== 'DRAFT') throw this.badRequest('inventory.stockAdjustmentOnlyDraftCanModify');
-    const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
-    if (!product) throw new NotFoundException('Product not found');
-    if (dto.quantity <= 0) throw this.badRequest('inventory.stockAdjustmentQuantityMustBePositive');
-    if (!['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'].includes(dto.adjustmentType)) {
-      throw this.badRequest('inventory.stockAdjustmentInvalidType');
-    }
-    if (dto.locationId) await this.assertLocationInWarehouse(dto.locationId, doc.warehouseId, 'lines.locationId');
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.inventoryStockAdjustment.findUnique({ where: { id } });
+      if (!current || current.deletedAt || !this.isInContext(current, ctx)) {
+        throw this.notFound('Stock adjustment not found');
+      }
+      if (current.status !== 'DRAFT') throw this.badRequest('inventory.stockAdjustmentOnlyDraftCanModify');
 
-    const line = await this.prisma.inventoryStockAdjustmentLine.create({
-      data: {
-        adjustmentId: id,
-        productId: dto.productId,
-        locationId: dto.locationId,
-        adjustmentType: dto.adjustmentType,
-        quantity: dto.quantity,
-        notes: dto.notes,
-      },
-      include: { product: { select: { id: true, name: true, code: true } } },
+      const product = await tx.product.findUnique({ where: { id: dto.productId } });
+      if (!product || product.deletedAt != null) throw new NotFoundException('Product not found');
+      if (dto.quantity <= 0) throw this.badRequest('inventory.stockAdjustmentQuantityMustBePositive');
+      if (!['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'].includes(dto.adjustmentType)) {
+        throw this.badRequest('inventory.stockAdjustmentInvalidType');
+      }
+      if (dto.locationId) {
+        await this.assertWarehouseInContextWithClient(tx, current.warehouseId, ctx);
+        await this.assertLocationInWarehouseWithClient(tx, dto.locationId, current.warehouseId, 'lines.locationId');
+      }
+
+      const line = await tx.inventoryStockAdjustmentLine.create({
+        data: {
+          adjustmentId: id,
+          productId: dto.productId,
+          locationId: dto.locationId,
+          adjustmentType: dto.adjustmentType,
+          quantity: dto.quantity,
+          notes: dto.notes,
+        },
+        include: { product: { select: { id: true, name: true, code: true } } },
+      });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'ADD_LINE',
+        entity: 'InventoryStockAdjustment',
+        entityId: id,
+        details: { companyId: ctx.companyId, branchId: ctx.branchId, lineId: line.id },
+      });
+      return line;
     });
-    await this.audit.log(userId, 'ADD_LINE', 'InventoryStockAdjustment', id, { lineId: line.id });
-    return line;
   }
 
-  async updateLine(id: string, lineId: string, dto: Partial<CreateStockAdjustmentLineDto>, userId: string, ctx: ActiveOperationalContext) {
-    const doc = await this.findOwned(id, ctx);
-    if (doc.status !== 'DRAFT') throw this.badRequest('inventory.stockAdjustmentOnlyDraftCanModify');
-    const line = await this.prisma.inventoryStockAdjustmentLine.findUnique({ where: { id: lineId } });
-    if (!line || line.adjustmentId !== id) throw this.notFound('Stock adjustment line not found');
-    if (dto.locationId) await this.assertLocationInWarehouse(dto.locationId, doc.warehouseId, 'lines.locationId');
+  async updateLine(id: string, lineId: string, dto: UpdateStockAdjustmentLineDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.inventoryStockAdjustment.findUnique({ where: { id } });
+      if (!current || current.deletedAt || !this.isInContext(current, ctx)) {
+        throw this.notFound('Stock adjustment not found');
+      }
+      if (current.status !== 'DRAFT') throw this.badRequest('inventory.stockAdjustmentOnlyDraftCanModify');
 
-    const updated = await this.prisma.inventoryStockAdjustmentLine.update({
-      where: { id: lineId },
-      data: dto,
-      include: { product: { select: { id: true, name: true, code: true } } },
+      const line = await tx.inventoryStockAdjustmentLine.findUnique({ where: { id: lineId } });
+      if (!line || line.adjustmentId !== current.id) throw this.notFound('Stock adjustment line not found');
+
+      const data: any = {};
+      if (dto.productId !== undefined) {
+        const product = await tx.product.findUnique({ where: { id: dto.productId } });
+        if (!product || product.deletedAt != null) throw new NotFoundException('Product not found');
+        data.productId = dto.productId;
+      }
+      if (dto.quantity !== undefined) {
+        if (dto.quantity <= 0) throw this.badRequest('inventory.stockAdjustmentQuantityMustBePositive');
+        data.quantity = dto.quantity;
+      }
+      if (dto.adjustmentType !== undefined) {
+        if (!['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'].includes(dto.adjustmentType)) {
+          throw this.badRequest('inventory.stockAdjustmentInvalidType');
+        }
+        data.adjustmentType = dto.adjustmentType;
+      }
+      if (dto.locationId !== undefined) {
+        if (dto.locationId) {
+          await this.assertWarehouseInContextWithClient(tx, current.warehouseId, ctx);
+          await this.assertLocationInWarehouseWithClient(tx, dto.locationId, current.warehouseId, 'lines.locationId');
+        }
+        data.locationId = dto.locationId || null;
+      }
+      if (dto.notes !== undefined) data.notes = dto.notes;
+
+      const updated = await tx.inventoryStockAdjustmentLine.update({
+        where: { id: lineId },
+        data,
+        include: { product: { select: { id: true, name: true, code: true } } },
+      });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'UPDATE_LINE',
+        entity: 'InventoryStockAdjustment',
+        entityId: id,
+        details: { companyId: ctx.companyId, branchId: ctx.branchId, lineId },
+      });
+      return updated;
     });
-    await this.audit.log(userId, 'UPDATE_LINE', 'InventoryStockAdjustment', id, { lineId });
-    return updated;
   }
 
   async removeLine(id: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
-    const doc = await this.findOwned(id, ctx);
-    if (doc.status !== 'DRAFT') throw this.badRequest('inventory.stockAdjustmentOnlyDraftCanModify');
-    const line = await this.prisma.inventoryStockAdjustmentLine.findUnique({ where: { id: lineId } });
-    if (!line || line.adjustmentId !== id) throw this.notFound('Stock adjustment line not found');
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.inventoryStockAdjustment.findUnique({ where: { id } });
+      if (!current || current.deletedAt || !this.isInContext(current, ctx)) {
+        throw this.notFound('Stock adjustment not found');
+      }
+      if (current.status !== 'DRAFT') throw this.badRequest('inventory.stockAdjustmentOnlyDraftCanModify');
 
-    await this.prisma.inventoryStockAdjustmentLine.delete({ where: { id: lineId } });
-    await this.audit.log(userId, 'REMOVE_LINE', 'InventoryStockAdjustment', id, { lineId });
-    return { message: 'Line removed successfully' };
+      const line = await tx.inventoryStockAdjustmentLine.findUnique({ where: { id: lineId } });
+      if (!line || line.adjustmentId !== current.id) throw this.notFound('Stock adjustment line not found');
+
+      await tx.inventoryStockAdjustmentLine.delete({ where: { id: lineId } });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'REMOVE_LINE',
+        entity: 'InventoryStockAdjustment',
+        entityId: id,
+        details: { companyId: ctx.companyId, branchId: ctx.branchId, lineId },
+      });
+      return { message: 'Line removed successfully' };
+    });
   }
 
   async summary(id: string, ctx: ActiveOperationalContext) {

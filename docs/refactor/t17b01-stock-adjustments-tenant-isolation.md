@@ -186,3 +186,74 @@ Verified in source: `generateNumberAtomic('...')` bare occurrences = 0;
   NumberSequence values were consumed by this branch.
 - The correction's runtime-sensitive behavior is established by the previous live isolation proof, the focused
   regression suite, and the same-client transaction design (`generateNumberAtomicWithClient(..., tx)`).
+
+---
+
+## 6. Final implementation — committed source review (uncommitted hardening)
+
+The final commit (`fix(inventory): finalize stock adjustment tenant isolation`) closes the module. Verified
+from the committed source (`apps/api/src/modules/factory/inventory-stock-adjustments/`):
+
+### 6.1 Per-method final state (14 public methods, 14/14 TENANT-SCOPED)
+
+| # | METHOD | SERVICE | DB_MODELS_TOUCHED | MUTATES_INVENTORY | SCOPE | KEY GUARANTEE |
+|---|---|---|---|---|---|---|
+| 1 | `create` | `create(dto, userId, ctx)` | Company, Warehouse, WarehouseLocation, Product, InventoryStockAdjustment, InventoryStockAdjustmentLine, AuditLog | no | TENANT-SCOPED | all validation + numbering + insert + audit in ONE tx; client `companyId`/`branchId` destructured out and never written; `generateNumberAtomicWithClient('STOCK_ADJUSTMENT', tx)` |
+| 2 | `findAll` | `findAll(query, ctx)` | InventoryStockAdjustment, Company, Warehouse | no | TENANT-SCOPED | `where.companyId = ctx.companyId` AND `branchId = ctx.branchId` (exact) + `deletedAt: null`; client `query.companyId`/`branchId` ignored |
+| 3 | `findOne` | `findOne(id, ctx)` | InventoryStockAdjustment, Company, Branch, Warehouse, Product | no | TENANT-SCOPED | `findOwned` (company + exact branch + non-deleted) |
+| 4 | `update` | `update(id, dto, userId, ctx)` | InventoryStockAdjustment, Warehouse, WarehouseLocation, AuditLog | no | TENANT-SCOPED | in-tx ownership/DRAFT re-read; warehouse validated in-tenant/in-branch/active; warehouse change validates every existing location against the target warehouse; `locationId` cleared on null, validated when set; `companyId`/`branchId`/`lines` ignored |
+| 5 | `submit` | `submit(id, userId, ctx)` | InventoryStockAdjustment, AuditLog | no | TENANT-SCOPED | in-tx ownership re-read + DRAFT→SUBMITTED + audit in-tx |
+| 6 | `approve` | `approve(id, userId, ctx)` | InventoryStockAdjustment, AuditLog | no | TENANT-SCOPED | in-tx ownership re-read + SUBMITTED→APPROVED + audit in-tx |
+| 7 | `reject` | `reject(id, userId, ctx)` | InventoryStockAdjustment, AuditLog | no | TENANT-SCOPED | in-tx ownership re-read + SUBMITTED→REJECTED + audit in-tx |
+| 8 | `post` | `post(id, userId, ctx)` | InventoryStockAdjustment, InventoryStockAdjustmentLine, InventoryMovement, InventoryMovementLine, InventoryBalance, Product, AuditLog | YES | TENANT-SCOPED | Serializable tx; in-tx ownership re-read; full relation graph revalidated in-tx BEFORE numbering/mutation; atomic APPROVED→POSTED claim via `updateMany({id,status:'APPROVED',deletedAt:null})` (count≠1 → reject, no side effects); movements inherit doc tenant; Decimal balance deltas; audit in-tx; second post rejected before side effects |
+| 9 | `cancel` | `cancel(id, userId, ctx)` | InventoryStockAdjustment, AuditLog | no | TENANT-SCOPED | in-tx ownership re-read + DRAFT/SUBMITTED→CANCELLED + audit in-tx |
+| 10 | `remove` | `remove(id, userId, ctx)` | InventoryStockAdjustment, InventoryStockAdjustmentLine, AuditLog | no | TENANT-SCOPED | `findOwned` pre-check + in-tx ownership/DRAFT re-read; lines+doc+audit atomically; failure leaves doc intact |
+| 11 | `addLine` | `addLine(id, dto, userId, ctx)` | InventoryStockAdjustment, Product, Warehouse, WarehouseLocation, InventoryStockAdjustmentLine, AuditLog | no | TENANT-SCOPED | in-tx ownership re-read + DRAFT-only; product existence/deletion; qty>0; type whitelist; line location validated against doc warehouse |
+| 12 | `updateLine` | `updateLine(id, lineId, dto, userId, ctx)` | InventoryStockAdjustment, InventoryStockAdjustmentLine, Product, Warehouse, WarehouseLocation, AuditLog | no | TENANT-SCOPED | in-tx ownership re-read + DRAFT-only; line must belong to doc; per-field validation (product, qty>0, type whitelist, location); `locationId:null` clears |
+| 13 | `removeLine` | `removeLine(id, lineId, userId, ctx)` | InventoryStockAdjustment, InventoryStockAdjustmentLine, AuditLog | no | TENANT-SCOPED | in-tx ownership re-read + DRAFT-only; line must belong to doc; delete + audit in-tx |
+| 14 | `summary` | `summary(id, ctx)` | InventoryStockAdjustment, InventoryStockAdjustmentLine | no | TENANT-SCOPED | `findOwned` before any line aggregation |
+
+`TENANT_UNSAFE_AFTER = 0`.
+
+### 6.2 Controller (14 endpoints, all context-scoped)
+
+- All 14 endpoints pass `@CurrentActiveContext() ctx` to the service; permissions unchanged
+  (`inventory:stock-adjustment:*`); `InventoryLockGuard` unchanged; `@Permissions` set per endpoint.
+- `updateLine` now typed with `UpdateStockAdjustmentLineDto` (`PartialType(CreateStockAdjustmentLineDto)`,
+  new untracked DTO file) instead of the raw create-line DTO.
+
+### 6.3 Audit
+
+- All mutations audit INSIDE the transaction via `AuditService.logWithClient`: CREATE, UPDATE, SUBMIT, APPROVE,
+  REJECT, POST, CANCEL, DELETE, ADD_LINE, UPDATE_LINE, REMOVE_LINE — each with user, company, branch, entity,
+  entityId, and relevant old/new values.
+
+---
+
+## 7. Adversarial review findings (committed-source review)
+
+Review iterated on the committed source per the master closeout task. Two in-scope defects were found in
+`update` and fixed with regression coverage:
+
+| # | FINDING | SEVERITY | FIX | REGRESSION TEST |
+|---|---|---|---|---|
+| 1 | `PATCH /:id` with `warehouseId: null` passed DTO validation (`@IsOptional()` skips null) and silently set `doc.warehouseId = null`, corrupting the document | HIGH (data integrity) | reject `warehouseId === null` with `validation.invalidReference` before any lookup/mutation | `rejects a null warehouseId with a clean validation error before any mutation` |
+| 2 | `PATCH /:id` with `locationId: null` (intent: clear) called `warehouseLocation.findUnique({ where: { id: null } })` → raw `PrismaClientValidationError` (500, unstable contract) instead of clearing the optional document location | MEDIUM (unstable error contract; inconsistent with `updateLine`) | null explicitly clears `locationId`; non-null values validated against the target warehouse (mirrors `updateLine`) | `clears the document location when locationId is null` |
+
+`FINAL_ADVERSARIAL_FINDINGS_OPEN = 0`.
+
+### 7.1 Final test state
+
+- Focused module spec: `inventory-stock-adjustments.service.spec.ts` — **95 tests, all passing** (create 9,
+  findOne 5, findAll 3, update 14, submit/approve/reject 11, cancel 4, post 17, remove 6, lines 24, summary 2,
+  including in-tx hostile re-reads, the atomic double-post claim, and the two new regression tests above).
+- Sibling module `inventory-movements.service.spec.ts`: 46 tests, all passing (no regression in shared patterns).
+- Full `npm run test:api`: **1200 tests passed**; the only suite failures are the 18 pre-existing empty spec files
+  (iot/mqtt, hr-requests, numbering.helpers, auth guards/roles, business-rules, workflow-engine, request-policy,
+  request-notifications, helpers) — unrelated modules, none touched by this change set
+  (`FAILURE_DUE_TO_PREEXISTING_EMPTY_SUITES_ONLY`).
+- `npm run build:api` (tsc): PASS. `npm run i18n:check`: PASS (5388 EN = 5388 AR, synchronized).
+  `npm run ui-baseline:check`: PASS (99 checks). `npm run raw-keys:check`: PASS.
+  `npm run credentials:check`: PASS. `git diff --check`: PASS.
+- ESLint is not installed (absent from root and `apps/api` package.json) — `ESLINT=NOT_RUN_PREEXISTING_TOOLING_MISSING`.
+- No schema, migration, permission, seed, or frontend change is part of this branch.

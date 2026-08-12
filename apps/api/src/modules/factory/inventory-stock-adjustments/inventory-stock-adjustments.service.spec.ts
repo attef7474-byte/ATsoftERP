@@ -98,6 +98,7 @@ describe('InventoryStockAdjustmentsService', () => {
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         delete: jest.fn(),
         count: jest.fn(),
       },
@@ -223,6 +224,16 @@ describe('InventoryStockAdjustmentsService', () => {
       prisma.product.findUnique.mockResolvedValue(null);
 
       await expect(service.create(createDto, 'u1', ctx)).rejects.toThrow(NotFoundException);
+      expect(prisma.inventoryStockAdjustment.create).not.toHaveBeenCalled();
+      expect(numbering.generateNumberAtomicWithClient).not.toHaveBeenCalled();
+    });
+
+    it('does not generate a number when in-transaction relation validation fails', async () => {
+      prisma.company.findUnique.mockResolvedValue({ id: 'c1' });
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'wX', companyId: 'c2', branchId: 'b1' });
+
+      await expect(service.create(createDto, 'u1', ctx)).rejects.toThrow(BadRequestException);
+      expect(numbering.generateNumberAtomicWithClient).not.toHaveBeenCalled();
       expect(prisma.inventoryStockAdjustment.create).not.toHaveBeenCalled();
     });
 
@@ -396,6 +407,35 @@ describe('InventoryStockAdjustmentsService', () => {
       expect(response.errors[0]).toMatchObject({ field: 'locationId', code: 'validation.invalidReference' });
     });
 
+    it('rejects a null warehouseId with a clean validation error before any mutation', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+
+      const promise = service.update('a1', { warehouseId: null } as any, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'warehouseId', code: 'validation.invalidReference' });
+      expect(prisma.warehouse.findUnique).not.toHaveBeenCalled();
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('clears the document location when locationId is null', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ locationId: 'locDoc' }));
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.inventoryStockAdjustment.update.mockResolvedValue(adjustment({ locationId: null }));
+
+      const result = await service.update('a1', { locationId: null } as any, 'u1', ctx);
+
+      expect(prisma.warehouseLocation.findUnique).not.toHaveBeenCalled();
+      const updateCall = prisma.inventoryStockAdjustment.update.mock.calls[0][0];
+      expect(updateCall.data).toMatchObject({ locationId: null });
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ userId: 'u1', action: 'UPDATE', entity: 'InventoryStockAdjustment', entityId: 'a1' }),
+      );
+      expect(result.locationId).toBeNull();
+    });
+
     it('rejects a warehouse change that would strand an existing located line', async () => {
       prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(
         adjustment({ lines: [line({ locationId: 'loc1' })] }),
@@ -457,6 +497,8 @@ describe('InventoryStockAdjustmentsService', () => {
     it('rejects submit of another company', async () => {
       prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ companyId: 'c2' }));
       await expect(service.submit('a1', 'u1', ctx)).rejects.toThrow(NotFoundException);
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
     });
 
     it('submits an owned DRAFT and audits it', async () => {
@@ -470,7 +512,10 @@ describe('InventoryStockAdjustmentsService', () => {
           data: expect.objectContaining({ status: 'SUBMITTED', submittedById: 'u1' }),
         }),
       );
-      expect(audit.log).toHaveBeenCalledWith('u1', 'SUBMIT', 'InventoryStockAdjustment', 'a1', expect.any(Object));
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ userId: 'u1', action: 'SUBMIT', entity: 'InventoryStockAdjustment', entityId: 'a1' }),
+      );
       expect(result.status).toBe('SUBMITTED');
     });
 
@@ -485,6 +530,8 @@ describe('InventoryStockAdjustmentsService', () => {
     it('rejects approve of another branch', async () => {
       prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ branchId: 'b2' }));
       await expect(service.approve('a1', 'u1', ctx)).rejects.toThrow(NotFoundException);
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
     });
 
     it('approves an owned SUBMITTED adjustment and audits it', async () => {
@@ -492,7 +539,10 @@ describe('InventoryStockAdjustmentsService', () => {
       prisma.inventoryStockAdjustment.update.mockResolvedValue(adjustment({ status: 'APPROVED' }));
 
       const result = await service.approve('a1', 'u1', ctx);
-      expect(audit.log).toHaveBeenCalledWith('u1', 'APPROVE', 'InventoryStockAdjustment', 'a1', expect.any(Object));
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ userId: 'u1', action: 'APPROVE', entity: 'InventoryStockAdjustment', entityId: 'a1' }),
+      );
       expect(result.status).toBe('APPROVED');
     });
 
@@ -507,6 +557,8 @@ describe('InventoryStockAdjustmentsService', () => {
     it('rejects reject of another company', async () => {
       prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ companyId: 'c2' }));
       await expect(service.reject('a1', 'u1', ctx)).rejects.toThrow(NotFoundException);
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
     });
 
     it('rejects a non-SUBMITTED adjustment', async () => {
@@ -515,6 +567,30 @@ describe('InventoryStockAdjustmentsService', () => {
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
       expect(response.messageKey).toBe('inventory.stockAdjustmentOnlySubmittedCanReject');
+    });
+
+    it('submit re-reads inside the transaction: a status raced to APPROVED leaves no mutation', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'APPROVED' }));
+      const promise = service.submit('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('approve re-reads inside the transaction: a status raced to REJECTED leaves no mutation', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'REJECTED' }));
+      const promise = service.approve('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('reject re-reads inside the transaction: a status raced to POSTED leaves no mutation', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'POSTED' }));
+      const promise = service.reject('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
     });
   });
 
@@ -549,6 +625,16 @@ describe('InventoryStockAdjustmentsService', () => {
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
       expect(response.messageKey).toBe('inventory.stockAdjustmentOnlyDraftOrSubmittedCanCancel');
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('cancel re-reads inside the transaction: a status raced to APPROVED leaves no mutation', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'APPROVED' }));
+      const promise = service.cancel('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
     });
   });
 
@@ -601,6 +687,42 @@ describe('InventoryStockAdjustmentsService', () => {
       await expect(service.post('a1', 'u1', ctx)).rejects.toThrow(NotFoundException);
       expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
       expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('atomic double-post claim: a lost claim (count 0) rejects with no number generation or side effect', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'APPROVED' }));
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
+      prisma.inventoryStockAdjustment.updateMany.mockResolvedValue({ count: 0 }); // a concurrent post claimed it first
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mv1' });
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'b1', quantity: 10 });
+
+      const promise = service.post('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventory.stockAdjustmentOnlyApprovedCanPost');
+      expect(numbering.generateNumberAtomicWithClient).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('atomic double-post claim: updateMany targets only the APPROVED, non-deleted document', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'APPROVED' }));
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mv1' });
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'b1', quantity: 10 });
+      prisma.inventoryBalance.update.mockResolvedValue({ id: 'b1', quantity: 15 });
+
+      await service.post('a1', 'u1', ctx);
+      expect(prisma.inventoryStockAdjustment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'a1', status: 'APPROVED', deletedAt: null },
+          data: expect.objectContaining({ status: 'POSTED', postedById: 'u1', postedAt: expect.any(Date) }),
+        }),
+      );
     });
 
     it('posts IN lines atomically: movement inherits the adjustment tenant, balances updated with Decimal, audit in-tx, Serializable', async () => {
@@ -866,6 +988,7 @@ describe('InventoryStockAdjustmentsService', () => {
 
     it('rejects addLine with a location that does not belong to the adjustment warehouse', async () => {
       prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
       prisma.warehouseLocation.findUnique.mockResolvedValue({ id: 'locX', warehouseId: 'wOther' });
       prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
 
@@ -882,7 +1005,10 @@ describe('InventoryStockAdjustmentsService', () => {
       prisma.inventoryStockAdjustmentLine.create.mockResolvedValue({ id: 'l2', adjustmentId: 'a1', productId: 'prd1', quantity: 3 });
 
       const result = await service.addLine('a1', { productId: 'prd1', adjustmentType: 'ADJUSTMENT_IN', quantity: 3 }, 'u1', ctx);
-      expect(audit.log).toHaveBeenCalledWith('u1', 'ADD_LINE', 'InventoryStockAdjustment', 'a1', expect.any(Object));
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ userId: 'u1', action: 'ADD_LINE', entity: 'InventoryStockAdjustment', entityId: 'a1' }),
+      );
       expect(result.id).toBe('l2');
     });
 
@@ -922,8 +1048,138 @@ describe('InventoryStockAdjustmentsService', () => {
       expect(prisma.inventoryStockAdjustmentLine.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'l1' }, data: expect.objectContaining({ quantity: 9 }) }),
       );
-      expect(audit.log).toHaveBeenCalledWith('u1', 'UPDATE_LINE', 'InventoryStockAdjustment', 'a1', expect.any(Object));
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ userId: 'u1', action: 'UPDATE_LINE', entity: 'InventoryStockAdjustment', entityId: 'a1' }),
+      );
       expect(result.quantity).toBe(9);
+    });
+
+    it('rejects updateLine with a non-positive quantity before any mutation', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+      prisma.inventoryStockAdjustmentLine.findUnique.mockResolvedValue({ id: 'l1', adjustmentId: 'a1' });
+
+      const promise = service.updateLine('a1', 'l1', { quantity: 0 }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventory.stockAdjustmentQuantityMustBePositive');
+      expect(prisma.inventoryStockAdjustmentLine.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects updateLine with a negative quantity before any mutation', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+      prisma.inventoryStockAdjustmentLine.findUnique.mockResolvedValue({ id: 'l1', adjustmentId: 'a1' });
+
+      const promise = service.updateLine('a1', 'l1', { quantity: -3 }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      expect(prisma.inventoryStockAdjustmentLine.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects updateLine with an invalid adjustmentType before any mutation', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+      prisma.inventoryStockAdjustmentLine.findUnique.mockResolvedValue({ id: 'l1', adjustmentId: 'a1' });
+
+      const promise = service.updateLine('a1', 'l1', { adjustmentType: 'SHRINKAGE' }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventory.stockAdjustmentInvalidType');
+      expect(prisma.inventoryStockAdjustmentLine.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects updateLine when the target product does not exist', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+      prisma.inventoryStockAdjustmentLine.findUnique.mockResolvedValue({ id: 'l1', adjustmentId: 'a1' });
+      prisma.product.findUnique.mockResolvedValue(null);
+
+      const promise = service.updateLine('a1', 'l1', { productId: 'ghost' }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(NotFoundException);
+      expect(prisma.inventoryStockAdjustmentLine.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects updateLine when the target product is soft-deleted', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+      prisma.inventoryStockAdjustmentLine.findUnique.mockResolvedValue({ id: 'l1', adjustmentId: 'a1' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prdDel', deletedAt: new Date() });
+
+      const promise = service.updateLine('a1', 'l1', { productId: 'prdDel' }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(NotFoundException);
+      expect(prisma.inventoryStockAdjustmentLine.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects updateLine of a non-DRAFT adjustment', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'SUBMITTED' }));
+      const promise = service.updateLine('a1', 'l1', { quantity: 9 }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventory.stockAdjustmentOnlyDraftCanModify');
+      expect(prisma.inventoryStockAdjustmentLine.update).not.toHaveBeenCalled();
+    });
+
+    it('addLine re-reads the adjustment inside the transaction: hostile company change leaves no line', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ companyId: 'c2' }));
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
+
+      await expect(
+        service.addLine('a1', { productId: 'prd1', adjustmentType: 'ADJUSTMENT_IN', quantity: 3 }, 'u1', ctx),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.inventoryStockAdjustmentLine.create).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('rejects addLine when the product does not exist', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+      prisma.product.findUnique.mockResolvedValue(null);
+
+      const promise = service.addLine('a1', { productId: 'ghost', adjustmentType: 'ADJUSTMENT_IN', quantity: 3 }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(NotFoundException);
+      expect(prisma.inventoryStockAdjustmentLine.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects addLine when the product is soft-deleted', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+      prisma.product.findUnique.mockResolvedValue({ id: 'prdDel', deletedAt: new Date() });
+
+      const promise = service.addLine('a1', { productId: 'prdDel', adjustmentType: 'ADJUSTMENT_IN', quantity: 3 }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(NotFoundException);
+      expect(prisma.inventoryStockAdjustmentLine.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects addLine with a non-positive quantity', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
+
+      const promise = service.addLine('a1', { productId: 'prd1', adjustmentType: 'ADJUSTMENT_IN', quantity: 0 }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventory.stockAdjustmentQuantityMustBePositive');
+      expect(prisma.inventoryStockAdjustmentLine.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects addLine of a non-DRAFT adjustment', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'APPROVED' }));
+      const promise = service.addLine('a1', { productId: 'prd1', adjustmentType: 'ADJUSTMENT_IN', quantity: 3 }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventory.stockAdjustmentOnlyDraftCanModify');
+      expect(prisma.inventoryStockAdjustmentLine.create).not.toHaveBeenCalled();
+    });
+
+    it('removeLine re-reads the adjustment inside the transaction: hostile branch change leaves the line intact', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ branchId: 'b2' }));
+      prisma.inventoryStockAdjustmentLine.findUnique.mockResolvedValue({ id: 'l1', adjustmentId: 'a1' });
+
+      await expect(service.removeLine('a1', 'l1', 'u1', ctx)).rejects.toThrow(NotFoundException);
+      expect(prisma.inventoryStockAdjustmentLine.delete).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('rejects removeLine of a non-DRAFT adjustment', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'SUBMITTED' }));
+      const promise = service.removeLine('a1', 'l1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventory.stockAdjustmentOnlyDraftCanModify');
+      expect(prisma.inventoryStockAdjustmentLine.delete).not.toHaveBeenCalled();
     });
 
     it('rejects removeLine for an adjustment of another company', async () => {
@@ -946,7 +1202,10 @@ describe('InventoryStockAdjustmentsService', () => {
 
       const result = await service.removeLine('a1', 'l1', 'u1', ctx);
       expect(prisma.inventoryStockAdjustmentLine.delete).toHaveBeenCalledWith({ where: { id: 'l1' } });
-      expect(audit.log).toHaveBeenCalledWith('u1', 'REMOVE_LINE', 'InventoryStockAdjustment', 'a1', expect.any(Object));
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ userId: 'u1', action: 'REMOVE_LINE', entity: 'InventoryStockAdjustment', entityId: 'a1' }),
+      );
       expect(result.message).toBe('Line removed successfully');
     });
   });
