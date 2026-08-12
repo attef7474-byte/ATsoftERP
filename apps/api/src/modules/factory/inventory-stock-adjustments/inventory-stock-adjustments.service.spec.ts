@@ -122,6 +122,7 @@ describe('InventoryStockAdjustmentsService', () => {
     };
     numbering = {
       generateNumberAtomic: jest.fn().mockResolvedValue('SA-0001'),
+      generateNumberAtomicWithClient: jest.fn().mockResolvedValue('SA-0001'),
     };
     audit = {
       log: jest.fn().mockResolvedValue(undefined),
@@ -144,7 +145,8 @@ describe('InventoryStockAdjustmentsService', () => {
       // Client attempts to force a different tenant; the service must ignore it.
       const result = await service.create({ ...createDto, companyId: 'c2', branchId: 'b9' }, 'u1', ctx);
 
-      expect(numbering.generateNumberAtomic).toHaveBeenCalledWith('STOCK_ADJUSTMENT');
+      expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledWith('STOCK_ADJUSTMENT', prisma);
+      expect(numbering.generateNumberAtomic).not.toHaveBeenCalled();
       const createCall = prisma.inventoryStockAdjustment.create.mock.calls[0][0];
       expect(createCall.data).toMatchObject({
         companyId: 'c1',
@@ -339,18 +341,23 @@ describe('InventoryStockAdjustmentsService', () => {
 
     it('updates an owned DRAFT and audits it', async () => {
       prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
       prisma.inventoryStockAdjustment.update.mockResolvedValue(adjustment({ reason: 'changed' }));
 
       const result = await service.update('a1', { reason: 'changed' }, 'u1', ctx);
       expect(prisma.inventoryStockAdjustment.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'a1' } }),
       );
-      expect(audit.log).toHaveBeenCalledWith('u1', 'UPDATE', 'InventoryStockAdjustment', 'a1', expect.any(Object));
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ userId: 'u1', action: 'UPDATE', entity: 'InventoryStockAdjustment', entityId: 'a1' }),
+      );
       expect(result.reason).toBe('changed');
     });
 
     it('never rewrites tenant fields from the client payload', async () => {
       prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
       prisma.inventoryStockAdjustment.update.mockResolvedValue(adjustment());
 
       await service.update('a1', { companyId: 'c2', branchId: 'b9', reason: 'changed' }, 'u1', ctx);
@@ -380,12 +387,61 @@ describe('InventoryStockAdjustmentsService', () => {
 
     it('rejects a locationId that does not belong to the adjustment warehouse', async () => {
       prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
       prisma.warehouseLocation.findUnique.mockResolvedValue({ id: 'locX', warehouseId: 'wOther' });
 
       const promise = service.update('a1', { locationId: 'locX' }, 'u1', ctx);
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
       expect(response.errors[0]).toMatchObject({ field: 'locationId', code: 'validation.invalidReference' });
+    });
+
+    it('rejects a warehouse change that would strand an existing located line', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(
+        adjustment({ lines: [line({ locationId: 'loc1' })] }),
+      );
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w2', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.warehouseLocation.findUnique.mockResolvedValue({ id: 'loc1', warehouseId: 'w1' });
+
+      const promise = service.update('a1', { warehouseId: 'w2' }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'lines.locationId', code: 'validation.invalidReference' });
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a warehouse change that would strand the document location', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ locationId: 'locDoc' }));
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w2', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.warehouseLocation.findUnique.mockResolvedValue({ id: 'locDoc', warehouseId: 'w1' });
+
+      const promise = service.update('a1', { warehouseId: 'w2' }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'locationId', code: 'validation.invalidReference' });
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+    });
+
+    it('allows a warehouse change when every existing location belongs to the target warehouse', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ locationId: null }));
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w2', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.inventoryStockAdjustment.update.mockResolvedValue(adjustment({ warehouseId: 'w2' }));
+
+      const result = await service.update('a1', { warehouseId: 'w2' }, 'u1', ctx);
+      expect(prisma.inventoryStockAdjustment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'a1' }, data: expect.objectContaining({ warehouseId: 'w2' }) }),
+      );
+      expect(result.warehouseId).toBe('w2');
+    });
+
+    it('rejects an inactive warehouse on update', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment());
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'INACTIVE' });
+
+      const promise = service.update('a1', { reason: 'X' }, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'warehouseId', code: 'validation.invalidReference' });
     });
 
     it('rejects updating a non-DRAFT adjustment', async () => {
@@ -549,6 +605,8 @@ describe('InventoryStockAdjustmentsService', () => {
 
     it('posts IN lines atomically: movement inherits the adjustment tenant, balances updated with Decimal, audit in-tx, Serializable', async () => {
       prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'APPROVED' }));
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
       prisma.inventoryMovement.create.mockResolvedValue({ id: 'mv1' });
       prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'b1', warehouseId: 'w1', productId: 'prd1', quantity: 10 });
       prisma.inventoryBalance.update.mockResolvedValue({ id: 'b1', quantity: 15 });
@@ -558,6 +616,8 @@ describe('InventoryStockAdjustmentsService', () => {
       const result = await service.post('a1', 'u1', ctx);
 
       expect(txOptions).toEqual({ isolationLevel: 'Serializable' });
+      expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledWith('INVENTORY_MOVEMENT', prisma);
+      expect(numbering.generateNumberAtomic).not.toHaveBeenCalled();
       const movementCall = prisma.inventoryMovement.create.mock.calls[0][0];
       expect(movementCall.data).toMatchObject({
         movementNumber: 'SA-0001',
@@ -598,6 +658,8 @@ describe('InventoryStockAdjustmentsService', () => {
       prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(
         adjustment({ status: 'APPROVED', lines: [line({ adjustmentType: 'ADJUSTMENT_OUT' })] }),
       );
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
       prisma.inventoryMovement.create.mockResolvedValue({ id: 'mv2' });
       prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'b1', warehouseId: 'w1', productId: 'prd1', quantity: 20 });
       prisma.inventoryBalance.update.mockResolvedValue({ id: 'b1', quantity: 15 });
@@ -605,6 +667,8 @@ describe('InventoryStockAdjustmentsService', () => {
 
       const result = await service.post('a1', 'u1', ctx);
 
+      expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledWith('INVENTORY_MOVEMENT', prisma);
+      expect(numbering.generateNumberAtomic).not.toHaveBeenCalled();
       const movementCall = prisma.inventoryMovement.create.mock.calls[0][0];
       expect(movementCall.data.movementType).toBe('STOCK_ADJUSTMENT_OUT');
       expect(movementCall.data.lines.create[0]).toMatchObject({ productId: 'prd1', direction: 'OUT', quantity: 5 });
@@ -619,9 +683,10 @@ describe('InventoryStockAdjustmentsService', () => {
       prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(
         adjustment({ status: 'APPROVED', lines: [line({ adjustmentType: 'ADJUSTMENT_OUT' })] }),
       );
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1', name: 'Bearing' });
       prisma.inventoryMovement.create.mockResolvedValue({ id: 'mv2' });
       prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'b1', warehouseId: 'w1', productId: 'prd1', quantity: 2 });
-      prisma.product.findUnique.mockResolvedValue({ id: 'prd1', name: 'Bearing' });
 
       await expect(service.post('a1', 'u1', ctx)).rejects.toThrow(BadRequestException);
       expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
@@ -632,6 +697,8 @@ describe('InventoryStockAdjustmentsService', () => {
 
     it('creates a zero balance row when none exists before applying the delta', async () => {
       prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'APPROVED' }));
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
       prisma.inventoryMovement.create.mockResolvedValue({ id: 'mv1' });
       prisma.inventoryBalance.findFirst.mockResolvedValue(null);
       prisma.inventoryBalance.create.mockResolvedValue({ id: 'b1', quantity: 0, quantityBase: 0 });
@@ -645,6 +712,81 @@ describe('InventoryStockAdjustmentsService', () => {
           data: expect.objectContaining({ warehouseId: 'w1', productId: 'prd1', quantity: 0, quantityBase: 0 }),
         }),
       );
+    });
+
+    it('rejects post when the document warehouse became foreign after approval', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'APPROVED' }));
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'wF', companyId: 'c2', branchId: 'b2', status: 'ACTIVE' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
+
+      const promise = service.post('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'warehouseId', code: 'validation.invalidReference' });
+      expect(numbering.generateNumberAtomicWithClient).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects post when the document warehouse became inactive after approval', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'APPROVED' }));
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'INACTIVE' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
+
+      await expect(service.post('a1', 'u1', ctx)).rejects.toThrow(BadRequestException);
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects post when a line location became foreign/incompatible after approval', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(
+        adjustment({ status: 'APPROVED', lines: [line({ locationId: 'loc1' })] }),
+      );
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.warehouseLocation.findUnique.mockResolvedValue({ id: 'loc1', warehouseId: 'wOther' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
+
+      const promise = service.post('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'lines.locationId', code: 'validation.invalidReference' });
+      expect(numbering.generateNumberAtomicWithClient).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects post when the document location became incompatible after approval', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'APPROVED', locationId: 'locDoc' }));
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.warehouseLocation.findUnique.mockResolvedValue({ id: 'locDoc', warehouseId: 'wOther' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
+
+      const promise = service.post('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'locationId', code: 'validation.invalidReference' });
+      expect(numbering.generateNumberAtomicWithClient).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects post when a line product became deleted after approval', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'APPROVED' }));
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1', deletedAt: new Date() });
+
+      const promise = service.post('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'lines.productId', code: 'validation.invalidReference' });
+      expect(numbering.generateNumberAtomicWithClient).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
     });
   });
 

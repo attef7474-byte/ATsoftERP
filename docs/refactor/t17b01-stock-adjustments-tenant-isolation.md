@@ -106,3 +106,83 @@ authoritative.
 | 14 | `GET /:id/summary` | GET | `summary` | `inventory:stock-adjustment:read` | `ctx` | TENANT-SCOPED | InventoryStockAdjustment, InventoryStockAdjustmentLine | no | NO | `findOwned` |
 
 `TENANT_UNSAFE_AFTER = 0`.
+
+---
+
+## 5. Final implementation — local correction (review closure)
+
+Correction commit on top of `f9d3cea` (`fix(inventory): close stock adjustment posting isolation gaps`).
+Scope: `inventory-stock-adjustments.service.ts`, its spec, and this document only. No schema, no migration,
+no UI, no permissions, no `.env`.
+
+### A. UPDATE (`PATCH /inventory/stock-adjustments/:id`)
+
+`update` is now fully transactional. The previous version validated ownership and DRAFT status outside the
+transaction and validated the warehouse via the global client, so a raced tenant change could be combined with
+stale validation. Final behavior, all inside ONE `prisma.$transaction`:
+
+- ownership re-check (`tx.inventoryStockAdjustment.findUnique` + `isInContext`) — inside tx;
+- DRAFT status re-check — inside tx;
+- target warehouse validation — `assertWarehouseInContextWithClient(tx, targetWarehouseId, ctx)`
+  (target = `warehouseId ?? current.warehouseId`), rejecting foreign / other-branch / soft-deleted / inactive
+  warehouses;
+- existing document-location validation — when the warehouse changes, the current document `locationId` must
+  belong to the target warehouse (`assertLocationInWarehouseWithClient(tx, current.locationId, targetWarehouseId, ...)`),
+  otherwise the warehouse change is rejected (no silent migration);
+- existing line-location validation — when the warehouse changes, every existing line `locationId` must belong
+  to the target warehouse, otherwise the warehouse change is rejected;
+- mutation + audit — `tx.inventoryStockAdjustment.update` and `audit.logWithClient(tx, { action: 'UPDATE', ... })`
+  in the same transaction.
+
+Client `companyId` / `branchId` remain destructured out and never written.
+
+### B. POST (`POST /:id/post`)
+
+`post` re-reads the adjustment inside a `Serializable` transaction (unchanged) and now revalidates the COMPLETE
+relation graph through `assertAdjustmentRelationsWithClient(tx, current, ctx)` BEFORE any number generation,
+movement creation, or balance mutation:
+
+- adjustment ownership re-read in the Serializable transaction — unchanged, still first;
+- warehouse revalidated inside tx — foreign / other-branch / soft-deleted / inactive warehouse is rejected;
+- document location revalidated inside tx — must belong to the adjustment warehouse;
+- every line location revalidated inside tx — must belong to the adjustment warehouse;
+- products revalidated — every line `productId` must still exist and not be soft-deleted;
+- all relation validation occurs BEFORE number generation or stock mutation, so hostile legacy rows
+  (created before relation validation existed) are rejected with no side effects.
+
+### C. NUMBERING
+
+All document/movement numbers now participate in the same transaction as their mutation:
+
+- `create` uses `generateNumberAtomicWithClient('STOCK_ADJUSTMENT', tx)`;
+- `post` IN movement uses `generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx)`;
+- `post` OUT movement uses `generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx)`;
+- no bare `generateNumberAtomic(...)` (own-transaction variant) remains for this module's document or movement
+  number generation — counters roll back with the rest of the transaction on failure.
+
+Verified in source: `generateNumberAtomic('...')` bare occurrences = 0;
+`generateNumberAtomicWithClient('STOCK_ADJUSTMENT', tx)` = 1; `generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx)` = 2.
+
+### D. Previous live proof — number-sequence mutation correction
+
+- `PREVIOUS_LIVE_PROOF_NUMBER_SEQUENCE_MUTATED=YES`
+- The previous live proof was run against the OLD implementation where `generateNumberAtomic()` opened its own
+  transaction, so the successful/failed post proof operations consumed/changed shared `INVENTORY_MOVEMENT`
+  NumberSequence state that cleanup did not restore.
+- `PREVIOUS_LIVE_PROOF_PREEXISTING_DATA_MODIFIED_CLAIM=CORRECTED` — the earlier claim that no pre-existing data
+  was modified is corrected: shared NumberSequence counters were advanced and not restored.
+- `NUMBER_SEQUENCE_MANUAL_ROLLBACK_PERFORMED=NO` — sequence counters were NOT manually decremented or rewritten.
+- `PREVIOUS_SEQUENCE_NET_DELTA_VERIFIABLE=NO` — the exact before/after counter values were not recorded, so the
+  net delta cannot be reconstructed. No guesses are made; no manual counter adjustment is performed.
+
+### E. Period lock
+
+- `PF-TEST-001` remained unchanged.
+- `create` / `addLine` positive HTTP paths remain blocked by the pre-existing period lock.
+
+### F. Post-correction DB state
+
+- No successful shared-DB `POST /:id/post` was rerun after the transaction correction, and no further
+  NumberSequence values were consumed by this branch.
+- The correction's runtime-sensitive behavior is established by the previous live isolation proof, the focused
+  regression suite, and the same-client transaction design (`generateNumberAtomicWithClient(..., tx)`).

@@ -65,25 +65,79 @@ export class InventoryStockAdjustmentsService {
   }
 
   private async assertWarehouseInContext(warehouseId: string, ctx: ActiveOperationalContext) {
-    const warehouse = await this.prisma.warehouse.findUnique({ where: { id: warehouseId } });
-    if (!warehouse) {
+    return this.assertWarehouseInContextWithClient(this.prisma, warehouseId, ctx);
+  }
+
+  private async assertWarehouseInContextWithClient(client: any, warehouseId: string, ctx: ActiveOperationalContext) {
+    const warehouse = await client.warehouse.findUnique({ where: { id: warehouseId } });
+    if (!warehouse || warehouse.deletedAt != null) {
       throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse not found');
     }
     if (warehouse.companyId !== ctx.companyId) {
       throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse belongs to another company');
     }
+    // Established supported relation: company-wide warehouses (branchId null) are
+    // usable from any branch of the company; branch-bound warehouses are usable
+    // from their own branch only.
     if (warehouse.branchId && warehouse.branchId !== ctx.branchId) {
       throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse belongs to another branch');
+    }
+    if (warehouse.status !== undefined && warehouse.status !== null && warehouse.status !== 'ACTIVE') {
+      throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse is inactive');
     }
     return warehouse;
   }
 
   private async assertLocationInWarehouse(locationId: string, warehouseId: string, field = 'locationId') {
-    const location = await this.prisma.warehouseLocation.findUnique({ where: { id: locationId } });
+    return this.assertLocationInWarehouseWithClient(this.prisma, locationId, warehouseId, field);
+  }
+
+  private async assertLocationInWarehouseWithClient(client: any, locationId: string, warehouseId: string, field = 'locationId') {
+    const location = await client.warehouseLocation.findUnique({ where: { id: locationId } });
     if (!location || location.warehouseId !== warehouseId) {
       throw this.validationError(field, 'validation.invalidReference', 'Location does not belong to the adjustment warehouse');
     }
+    if (location.status !== undefined && location.status !== null && location.status !== 'ACTIVE') {
+      throw this.validationError(field, 'validation.invalidReference', 'Location is inactive');
+    }
     return location;
+  }
+
+  /**
+   * Revalidates the complete relation graph of a Stock Adjustment using the SAME
+   * transaction client that will perform the mutation. Used by post() and the
+   * warehouse-change path of update() so a tenant-owned document can never become
+   * authority for foreign/deleted/inactive related records, and so hostile legacy
+   * rows (created before relation validation existed) are rejected before any
+   * number generation or inventory mutation.
+   */
+  private async assertAdjustmentRelationsWithClient(
+    client: any,
+    doc: {
+      warehouseId: string;
+      locationId: string | null;
+      lines: { productId: string; locationId: string | null }[];
+    },
+    ctx: ActiveOperationalContext,
+  ): Promise<void> {
+    const warehouse = await this.assertWarehouseInContextWithClient(client, doc.warehouseId, ctx);
+
+    if (doc.locationId) {
+      await this.assertLocationInWarehouseWithClient(client, doc.locationId, warehouse.id, 'locationId');
+    }
+
+    for (const line of doc.lines) {
+      if (line.locationId) {
+        await this.assertLocationInWarehouseWithClient(client, line.locationId, warehouse.id, 'lines.locationId');
+      }
+    }
+
+    for (const line of doc.lines) {
+      const product = await client.product.findUnique({ where: { id: line.productId } });
+      if (!product || product.deletedAt != null) {
+        throw this.validationError('lines.productId', 'validation.invalidReference', 'Product not found or deleted');
+      }
+    }
   }
 
   async create(dto: CreateStockAdjustmentDto, userId: string, ctx: ActiveOperationalContext) {
@@ -95,7 +149,7 @@ export class InventoryStockAdjustmentsService {
 
     for (const line of dto.lines) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
-      if (!product) throw new NotFoundException(`Product ${line.productId} not found`);
+      if (!product || product.deletedAt != null) throw new NotFoundException(`Product ${line.productId} not found`);
       if (line.quantity <= 0) throw this.badRequest('inventory.stockAdjustmentQuantityMustBePositive');
       if (!['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'].includes(line.adjustmentType)) {
         throw this.badRequest('inventory.stockAdjustmentInvalidType');
@@ -104,7 +158,7 @@ export class InventoryStockAdjustmentsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const code = await this.numberingService.generateNumberAtomic('STOCK_ADJUSTMENT');
+      const code = await this.numberingService.generateNumberAtomicWithClient('STOCK_ADJUSTMENT', tx);
 
       const { lines, companyId: _ignoredCompanyId, branchId: _ignoredBranchId, ...rest } = dto;
       const doc = await tx.inventoryStockAdjustment.create({
@@ -182,24 +236,57 @@ export class InventoryStockAdjustmentsService {
   }
 
   async update(id: string, dto: UpdateStockAdjustmentDto, userId: string, ctx: ActiveOperationalContext) {
-    const doc = await this.findOwned(id, ctx);
-    if (doc.status !== 'DRAFT') throw this.badRequest('inventory.stockAdjustmentOnlyDraftCanUpdate');
-
     const { lines: _ignoredLines, companyId: _ignoredCompanyId, branchId: _ignoredBranchId, warehouseId, locationId, ...rest } = dto;
 
-    const data: any = { ...rest };
-    if (warehouseId !== undefined) {
-      const warehouse = await this.assertWarehouseInContext(warehouseId, ctx);
-      data.warehouseId = warehouse.id;
-    }
-    if (locationId !== undefined) {
-      await this.assertLocationInWarehouse(locationId, data.warehouseId ?? doc.warehouseId);
-      data.locationId = locationId;
-    }
+    // Ownership check, DRAFT status check, warehouse/location validation,
+    // existing-line validation, and the mutation all happen in ONE transaction
+    // so a raced tenant change cannot be combined with stale validation.
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.inventoryStockAdjustment.findUnique({
+        where: { id },
+        include: { lines: true },
+      });
+      if (!current || current.deletedAt || !this.isInContext(current, ctx)) {
+        throw this.notFound('Stock adjustment not found');
+      }
+      if (current.status !== 'DRAFT') throw this.badRequest('inventory.stockAdjustmentOnlyDraftCanUpdate');
 
-    const updated = await this.prisma.inventoryStockAdjustment.update({ where: { id }, data });
-    await this.audit.log(userId, 'UPDATE', 'InventoryStockAdjustment', id, { dto });
-    return updated;
+      const data: any = { ...rest };
+      const targetWarehouseId = warehouseId ?? current.warehouseId;
+      await this.assertWarehouseInContextWithClient(tx, targetWarehouseId, ctx);
+
+      // Warehouse change must not strand existing lines: every existing line
+      // location and the document location must belong to the target warehouse,
+      // otherwise the warehouse change is rejected (no silent migration).
+      if (warehouseId !== undefined && warehouseId !== current.warehouseId) {
+        for (const line of current.lines) {
+          if (line.locationId) {
+            await this.assertLocationInWarehouseWithClient(tx, line.locationId, targetWarehouseId, 'lines.locationId');
+          }
+        }
+        if (current.locationId) {
+          await this.assertLocationInWarehouseWithClient(tx, current.locationId, targetWarehouseId, 'locationId');
+        }
+      }
+
+      if (warehouseId !== undefined) {
+        data.warehouseId = warehouseId;
+      }
+      if (locationId !== undefined) {
+        await this.assertLocationInWarehouseWithClient(tx, locationId, targetWarehouseId, 'locationId');
+        data.locationId = locationId;
+      }
+
+      const updated = await tx.inventoryStockAdjustment.update({ where: { id }, data });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'UPDATE',
+        entity: 'InventoryStockAdjustment',
+        entityId: id,
+        details: { companyId: ctx.companyId, branchId: ctx.branchId },
+      });
+      return updated;
+    });
   }
 
   async submit(id: string, userId: string, ctx: ActiveOperationalContext) {
@@ -252,11 +339,17 @@ export class InventoryStockAdjustmentsService {
       }
       if (current.status !== 'APPROVED') throw this.badRequest('inventory.stockAdjustmentOnlyApprovedCanPost');
 
+      // Revalidate the COMPLETE relation graph inside the posting transaction,
+      // before any number generation, movement creation, or balance mutation.
+      // A tenant-owned document is never authority for foreign/deleted/inactive
+      // warehouse, location, or product references (hostile legacy data).
+      await this.assertAdjustmentRelationsWithClient(tx, current, ctx);
+
       const inLines = current.lines.filter(l => l.adjustmentType === 'ADJUSTMENT_IN');
       const outLines = current.lines.filter(l => l.adjustmentType === 'ADJUSTMENT_OUT');
 
       if (inLines.length > 0) {
-        const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
+        const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
         const movement = await tx.inventoryMovement.create({
           data: {
@@ -287,7 +380,7 @@ export class InventoryStockAdjustmentsService {
       }
 
       if (outLines.length > 0) {
-        const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
+        const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
         const movement = await tx.inventoryMovement.create({
           data: {
