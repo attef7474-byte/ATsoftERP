@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, ValidateNested, IsNumber, Min, IsDateString, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsArray, ValidateNested, IsNumber, Min, IsDateString, MaxLength, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -43,8 +43,8 @@ export class CreateInventoryMovementLineDto {
   @IsString()
   unit?: string;
 
-  @ApiProperty()
-  @IsString()
+  @ApiProperty({ enum: ['IN', 'OUT'] })
+  @IsIn(['IN', 'OUT'])
   direction: string;
 
   @ApiPropertyOptional()
@@ -54,15 +54,6 @@ export class CreateInventoryMovementLineDto {
 }
 
 export class CreateInventoryMovementDto {
-  @ApiProperty()
-  @IsString()
-  companyId: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  branchId?: string;
-
   @ApiProperty()
   @IsString()
   warehouseId: string;

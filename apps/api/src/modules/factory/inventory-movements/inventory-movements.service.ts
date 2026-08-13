@@ -10,6 +10,7 @@ import { InventoryMovementQueryDto } from './dto/inventory-movement-query.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 const MOVEMENT_REVERSAL_SOURCE_TYPE = 'INVENTORY_MOVEMENT_REVERSAL';
+const MOVEMENT_REVERSAL_TOKEN_PREFIX = 'REVERSAL:';
 
 @Injectable()
 export class InventoryMovementsService {
@@ -25,6 +26,21 @@ export class InventoryMovementsService {
       message: 'Validation failed',
       errors: [{ field, code, message }],
     });
+  }
+
+  /**
+   * Converts an optional date field and rejects syntactically invalid values so
+   * an Invalid Date can never be stored. undefined stays undefined, empty/null
+   * stays null.
+   */
+  private toDateOrThrow(value: string | null | undefined, field: string): Date | null | undefined {
+    if (value === undefined) return undefined;
+    if (value === null || value === '') return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      throw this.validationError(field, 'validation.invalidValue', `Invalid date "${value}" for field ${field}`);
+    }
+    return date;
   }
 
   private notFound(message: string): NotFoundException {
@@ -65,6 +81,76 @@ export class InventoryMovementsService {
       throw this.notFound('Inventory movement not found');
     }
     return movement;
+  }
+
+  /**
+   * Validates that a warehouse is active and belongs to the active operational
+   * context, using the SAME transaction client that will perform the mutation.
+   * Established supported relation: company-wide warehouses (branchId null) are
+   * usable from any branch of the company; branch-bound warehouses are usable
+   * from their own branch only.
+   */
+  private async assertWarehouseInContextWithClient(client: any, warehouseId: string, ctx: ActiveOperationalContext) {
+    const warehouse = await client.warehouse.findUnique({ where: { id: warehouseId } });
+    if (!warehouse || warehouse.deletedAt != null) {
+      throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse not found');
+    }
+    if (warehouse.companyId !== ctx.companyId) {
+      throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse belongs to another company');
+    }
+    if (warehouse.branchId && warehouse.branchId !== ctx.branchId) {
+      throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse belongs to another branch');
+    }
+    if (warehouse.status !== undefined && warehouse.status !== null && warehouse.status !== 'ACTIVE') {
+      throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse is inactive');
+    }
+    return warehouse;
+  }
+
+  private async assertLocationInWarehouseWithClient(client: any, locationId: string, warehouseId: string, field = 'warehouseLocationId') {
+    const location = await client.warehouseLocation.findUnique({ where: { id: locationId } });
+    if (!location || location.warehouseId !== warehouseId) {
+      throw this.validationError(field, 'validation.invalidReference', 'Location does not belong to the movement warehouse');
+    }
+    if (location.status !== undefined && location.status !== null && location.status !== 'ACTIVE') {
+      throw this.validationError(field, 'validation.invalidReference', 'Location is inactive');
+    }
+    return location;
+  }
+
+  /**
+   * Products are a company-global catalog (no tenant column), so only existence
+   * and non-deleted state are validated — matching the established inventory
+   * domain rule. Validation runs on the transaction client that mutates.
+   */
+  private async assertProductActiveWithClient(client: any, productId: string) {
+    const product = await client.product.findUnique({ where: { id: productId } });
+    if (!product || product.deletedAt != null) {
+      throw this.validationError('productId', 'validation.invalidReference', 'Product not found or deleted');
+    }
+    return product;
+  }
+
+  /**
+   * Revalidates the complete relation graph of a stored movement using the SAME
+   * transaction client that will perform the mutation. Used by post and reversal
+   * paths so a tenant-owned movement can never become authority for
+   * foreign/deleted/inactive warehouse, location, or product records, and so
+   * hostile legacy rows (created before relation validation existed) are
+   * rejected before any inventory mutation.
+   */
+  private async assertMovementRelationsWithClient(
+    client: any,
+    movement: { warehouseId: string; lines: { productId: string; warehouseLocationId: string | null }[] },
+    ctx: ActiveOperationalContext,
+  ): Promise<void> {
+    const warehouse = await this.assertWarehouseInContextWithClient(client, movement.warehouseId, ctx);
+    for (const line of movement.lines) {
+      if (line.warehouseLocationId) {
+        await this.assertLocationInWarehouseWithClient(client, line.warehouseLocationId, warehouse.id, 'lines.warehouseLocationId');
+      }
+      await this.assertProductActiveWithClient(client, line.productId);
+    }
   }
 
   /**
@@ -143,44 +229,17 @@ export class InventoryMovementsService {
     return existing;
   }
 
+  /**
+   * Phase 2 — tenant-harded create. The client-supplied companyId/branchId are
+   * not accepted at all (removed from the DTO): the movement is always created
+   * in the active operational context. All relation validation runs on the SAME
+   * transaction client that performs the mutation, and number generation happens
+   * only after every validation passes, inside the same transaction.
+   */
   async create(dto: CreateInventoryMovementDto, userId: string, ctx: ActiveOperationalContext) {
     if (dto.requestId) {
       const existing = await this.findMovementByRequestId(dto.requestId, ctx);
       if (existing) return this.resolveIdempotentCreate(existing, dto);
-    }
-
-    const company = await this.prisma.company.findUnique({ where: { id: ctx.companyId } });
-    if (!company) throw new NotFoundException({ messageKey: 'organization.companyNotFound', message: 'Company not found' });
-
-    const warehouse = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
-    if (!warehouse) {
-      throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse not found');
-    }
-    if (warehouse.companyId !== ctx.companyId) {
-      throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse belongs to another company');
-    }
-    if (warehouse.branchId && warehouse.branchId !== (dto.branchId || ctx.branchId)) {
-      throw this.validationError('warehouseId', 'validation.invalidReference', 'Warehouse belongs to another branch');
-    }
-
-    if (dto.branchId) {
-      const branch = await this.prisma.branch.findUnique({ where: { id: dto.branchId } });
-      if (!branch) throw this.notFound('Branch not found');
-    }
-
-    for (const line of dto.lines) {
-      const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
-      if (!product) throw new NotFoundException(`Product ${line.productId} not found`);
-      if (line.quantity <= 0) throw new BadRequestException('Quantity must be greater than 0');
-      if (!['IN', 'OUT'].includes(line.direction)) {
-        throw new BadRequestException(`Invalid direction "${line.direction}". Must be IN or OUT`);
-      }
-      if (line.warehouseLocationId) {
-        const location = await this.prisma.warehouseLocation.findUnique({ where: { id: line.warehouseLocationId } });
-        if (!location || location.warehouseId !== dto.warehouseId) {
-          throw this.validationError('warehouseLocationId', 'validation.invalidReference', 'Location does not belong to the movement warehouse');
-        }
-      }
     }
 
     try {
@@ -188,14 +247,34 @@ export class InventoryMovementsService {
         const raced = dto.requestId ? await this.findMovementByRequestId(dto.requestId, ctx, tx) : null;
         if (raced) return this.resolveIdempotentCreate(raced, dto);
 
-        const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
+        const company = await tx.company.findUnique({ where: { id: ctx.companyId } });
+        if (!company) throw new NotFoundException({ messageKey: 'organization.companyNotFound', message: 'Company not found' });
 
-        const { lines, companyId: _ignoredCompanyId, ...rest } = dto;
+        const warehouse = await this.assertWarehouseInContextWithClient(tx, dto.warehouseId, ctx);
+
+        for (const line of dto.lines) {
+          if (line.quantity <= 0) {
+            throw this.validationError('lines', 'validation.invalidQuantity', 'Quantity must be greater than 0');
+          }
+          if (!['IN', 'OUT'].includes(line.direction)) {
+            throw this.validationError('lines', 'validation.invalidValue', `Invalid direction "${line.direction}". Must be IN or OUT`);
+          }
+          await this.assertProductActiveWithClient(tx, line.productId);
+          if (line.warehouseLocationId) {
+            await this.assertLocationInWarehouseWithClient(tx, line.warehouseLocationId, warehouse.id, 'lines.warehouseLocationId');
+          }
+        }
+
+        // Number generation happens only after every relation validation passes.
+        const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
+
+        const { lines, ...rest } = dto;
 
         const movement = await tx.inventoryMovement.create({
           data: {
             ...rest,
             companyId: ctx.companyId,
+            branchId: ctx.branchId,
             movementNumber,
             status: 'DRAFT',
             createdById: userId,
@@ -207,7 +286,7 @@ export class InventoryMovementsService {
                 quantityBase: l.quantityBase ?? l.quantity,
                 batchNumber: l.batchNumber,
                 serialNumber: l.serialNumber,
-                expiryDate: l.expiryDate ? new Date(l.expiryDate) : undefined,
+                expiryDate: this.toDateOrThrow(l.expiryDate, 'lines.expiryDate'),
                 unit: l.unit,
                 direction: l.direction,
                 notes: l.notes,
@@ -277,16 +356,32 @@ export class InventoryMovementsService {
     return this.findOwned(id, ctx);
   }
 
+  /**
+   * Phase 2 — tenant-hardened update. Ownership re-check, DRAFT status check,
+   * and the mutation all happen in ONE transaction so a raced tenant change or
+   * a concurrent post/cancel cannot be combined with stale validation.
+   */
   async update(id: string, dto: UpdateInventoryMovementDto, userId: string, ctx: ActiveOperationalContext) {
-    const movement = await this.findOwned(id, ctx);
-    if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be updated');
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.inventoryMovement.findUnique({ where: { id } });
+      if (!current || current.deletedAt || !this.isInContext(current, ctx)) {
+        throw this.notFound('Inventory movement not found');
+      }
+      if (current.status !== 'DRAFT') throw this.badRequest('inventory.movementOnlyDraftCanUpdate');
 
-    const updated = await this.prisma.inventoryMovement.update({
-      where: { id },
-      data: { notes: dto.notes },
+      const updated = await tx.inventoryMovement.update({
+        where: { id },
+        data: { notes: dto.notes },
+      });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'UPDATE',
+        entity: 'InventoryMovement',
+        entityId: id,
+        details: { companyId: ctx.companyId, branchId: ctx.branchId },
+      });
+      return updated;
     });
-    await this.audit.log(userId, 'UPDATE', 'InventoryMovement', id, { dto });
-    return updated;
   }
 
   async post(id: string, userId: string, ctx: ActiveOperationalContext) {
@@ -296,22 +391,7 @@ export class InventoryMovementsService {
     if (movement.status !== 'DRAFT') throw this.badRequest('inventory.movementOnlyDraftCanPost');
 
     const posted = await this.prisma.$transaction(async (tx) => {
-      const postedMovement = await this.postMovementWithinTransaction(tx, id, userId, ctx);
-      await this.audit.logWithClient(tx, {
-        userId,
-        action: 'POST',
-        entity: 'InventoryMovement',
-        entityId: id,
-        details: {
-          companyId: ctx.companyId,
-          branchId: ctx.branchId,
-          oldStatus: 'DRAFT',
-          newStatus: 'POSTED',
-          warehouseId: movement.warehouseId,
-          lineCount: movement.lines.length,
-        },
-      });
-      return postedMovement;
+      return this.postMovementWithinTransaction(tx, id, userId, ctx);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     return posted;
@@ -330,6 +410,12 @@ export class InventoryMovementsService {
    * Phase 2 — the caller must open the transaction with Serializable isolation so the
    * find-then-update balance write is race-safe (the find is no longer the sole protection)
    * and the negative-stock guard cannot be bypassed by concurrent OUT postings.
+   *
+   * Phase 2 hardening: the complete relation graph is revalidated on the same transaction
+   * client, and the DRAFT -> POSTED transition is an atomic updateMany claim performed
+   * BEFORE any balance mutation. A concurrent double post therefore cannot re-apply balance
+   * effects: the loser either sees claim count 0 (already posted) or is serialized after the
+   * winner and rejects before touching inventory_balances.
    */
   async postMovementWithinTransaction(tx: any, id: string, userId: string, ctx: ActiveOperationalContext) {
     const movement = await tx.inventoryMovement.findUnique({
@@ -339,16 +425,48 @@ export class InventoryMovementsService {
     if (!movement || movement.deletedAt || !this.isInContext(movement, ctx)) {
       throw this.notFound('Inventory movement not found');
     }
-    if (movement.status !== 'DRAFT') throw this.badRequest('inventory.movementOnlyDraftCanPost');
+    if (movement.status !== 'DRAFT') {
+      // Idempotent re-entry: an already POSTED movement must never re-apply its
+      // balance effects. Any other terminal state cannot be posted.
+      if (movement.status === 'POSTED') return movement;
+      throw this.badRequest('inventory.movementOnlyDraftCanPost');
+    }
+
+    // Revalidate the complete relation graph inside the posting transaction,
+    // before any claim or balance mutation (hostile legacy rows are rejected).
+    await this.assertMovementRelationsWithClient(tx, movement, ctx);
+
+    // Atomic double-post claim: only one concurrent post can win the
+    // DRAFT -> POSTED transition. The guarded updateMany takes the row lock,
+    // so the loser cannot apply balance effects even if it entered the loop.
+    const claim = await tx.inventoryMovement.updateMany({
+      where: { id: movement.id, status: 'DRAFT', deletedAt: null },
+      data: { status: 'POSTED', postedAt: new Date(), postedById: userId },
+    });
+    if (claim.count !== 1) {
+      const reRead = await tx.inventoryMovement.findUnique({ where: { id } });
+      if (reRead && reRead.status === 'POSTED') return reRead;
+      throw this.badRequest('inventory.movementOnlyDraftCanPost');
+    }
+
+    // Audit only after the claim succeeded: the POST audit is recorded for every
+    // posting flow (endpoint and production callers) exactly once.
+    await this.audit.logWithClient(tx, {
+      userId,
+      action: 'POST',
+      entity: 'InventoryMovement',
+      entityId: movement.id,
+      details: {
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+        oldStatus: 'DRAFT',
+        newStatus: 'POSTED',
+        warehouseId: movement.warehouseId,
+        lineCount: movement.lines.length,
+      },
+    });
 
     for (const line of movement.lines) {
-      if (line.warehouseLocationId) {
-        const location = await tx.warehouseLocation.findUnique({ where: { id: line.warehouseLocationId } });
-        if (!location || location.warehouseId !== movement.warehouseId) {
-          throw this.validationError('warehouseLocationId', 'validation.invalidReference', 'Location does not belong to the movement warehouse');
-        }
-      }
-
       const balance = await this.getOrCreateBalance(
         tx,
         movement.warehouseId,
@@ -378,13 +496,8 @@ export class InventoryMovementsService {
       });
     }
 
-    return tx.inventoryMovement.update({
+    return tx.inventoryMovement.findUnique({
       where: { id },
-      data: {
-        status: 'POSTED',
-        postedAt: new Date(),
-        postedById: userId,
-      },
       include: { lines: true },
     });
   }
@@ -393,7 +506,15 @@ export class InventoryMovementsService {
    * Phase 2 — Reverses a POSTED movement by creating a NEW compensating DRAFT movement
    * with flipped line directions. The original movement is never deleted or mutated, so
    * the audit trail and the inventory history remain intact. Posting the compensating
-   * movement nets the balances back to zero. Idempotent via the optional requestId.
+   * movement nets the balances back to zero.
+   *
+   * Phase 2 hardening — the compensating movement always carries a deterministic
+   * `requestId` token derived from the compensated movement id. The SQL Server filtered
+   * unique index on (companyId, branchId, requestId) WHERE requestId IS NOT NULL therefore
+   * permits at most ONE reversal per original movement per tenant, making concurrent
+   * double reversal impossible at the database level without any schema change. A retry
+   * (with or without a client requestId) returns the already-committed reversal
+   * idempotently via the token lookup.
    */
   async reverse(id: string, dto: ReverseInventoryMovementDto, userId: string, ctx: ActiveOperationalContext) {
     if (dto.requestId) {
@@ -405,10 +526,17 @@ export class InventoryMovementsService {
     if (movement.status !== 'POSTED') throw this.badRequest('inventory.movementOnlyPostedCanReverse');
     if (movement.reversesMovementId) throw this.badRequest('inventory.movementReversalCannotReverse');
 
+    const reversalToken = `${MOVEMENT_REVERSAL_TOKEN_PREFIX}${id}`;
+
     try {
       return await this.prisma.$transaction(async (tx) => {
         const raced = dto.requestId ? await this.findMovementByRequestId(dto.requestId, ctx, tx) : null;
         if (raced) return this.resolveIdempotentReverse(raced, dto);
+
+        // Any prior reversal of the same original movement (committed under any
+        // client requestId) resolves this submission idempotently.
+        const priorByToken = await this.findMovementByRequestId(reversalToken, ctx, tx);
+        if (priorByToken) return this.resolveIdempotentReverse(priorByToken, dto);
 
         const current = await tx.inventoryMovement.findUnique({
           where: { id },
@@ -420,7 +548,7 @@ export class InventoryMovementsService {
         if (current.status !== 'POSTED') throw this.badRequest('inventory.movementOnlyPostedCanReverse');
         if (current.reversesMovementId) throw this.badRequest('inventory.movementReversalCannotReverse');
 
-        const reversalNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
+        const reversalNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
         const reversal = await tx.inventoryMovement.create({
           data: {
             movementNumber: reversalNumber,
@@ -432,8 +560,8 @@ export class InventoryMovementsService {
             sourceType: MOVEMENT_REVERSAL_SOURCE_TYPE,
             sourceId: current.id,
             reversesMovementId: current.id,
-            requestId: dto.requestId ?? null,
-            movementDate: dto.movementDate ? new Date(dto.movementDate) : new Date(),
+            requestId: reversalToken,
+            movementDate: this.toDateOrThrow(dto.movementDate, 'movementDate') ?? new Date(),
             notes: dto.notes ?? `Reverses movement ${current.movementNumber}`,
             createdById: userId,
             lines: {
@@ -473,85 +601,177 @@ export class InventoryMovementsService {
       if (error?.code === 'P2002') {
         const raced = dto.requestId ? await this.findMovementByRequestId(dto.requestId, ctx) : null;
         if (raced) return this.resolveIdempotentReverse(raced, dto);
+        const prior = await this.findMovementByRequestId(reversalToken, ctx);
+        if (prior) return this.resolveIdempotentReverse(prior, dto);
         throw this.conflict('inventory.movementRequestConflict');
       }
       throw error;
     }
   }
 
+  /**
+   * Phase 2 — tenant-hardened cancel. The guarded DRAFT -> CANCELLED updateMany
+   * is the atomic claim: a concurrent post can win the DRAFT state first, and
+   * the cancel then loses cleanly instead of mutating a POSTED movement.
+   */
   async cancel(id: string, userId: string, ctx: ActiveOperationalContext) {
-    const movement = await this.findOwned(id, ctx);
-    if (movement.status !== 'DRAFT') throw this.badRequest('inventory.movementOnlyDraftCanCancel');
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.inventoryMovement.findUnique({ where: { id } });
+      if (!current || current.deletedAt || !this.isInContext(current, ctx)) {
+        throw this.notFound('Inventory movement not found');
+      }
+      if (current.status !== 'DRAFT') throw this.badRequest('inventory.movementOnlyDraftCanCancel');
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const cancelled = await tx.inventoryMovement.update({
-        where: { id },
+      const claim = await tx.inventoryMovement.updateMany({
+        where: { id: current.id, status: 'DRAFT', deletedAt: null },
         data: { status: 'CANCELLED', cancelledAt: new Date(), cancelledById: userId },
       });
+      if (claim.count !== 1) {
+        const reRead = await tx.inventoryMovement.findUnique({ where: { id } });
+        if (reRead && reRead.status === 'CANCELLED') return reRead;
+        throw this.badRequest('inventory.movementOnlyDraftCanCancel');
+      }
+
       await this.audit.logWithClient(tx, {
         userId,
         action: 'CANCEL',
         entity: 'InventoryMovement',
         entityId: id,
-        details: { companyId: ctx.companyId, branchId: ctx.branchId, oldStatus: movement.status, newStatus: 'CANCELLED' },
+        details: { companyId: ctx.companyId, branchId: ctx.branchId, oldStatus: current.status, newStatus: 'CANCELLED' },
       });
-      return cancelled;
+      return tx.inventoryMovement.findUnique({ where: { id } });
     });
-    return updated;
   }
 
+  /**
+   * Phase 2 — tenant-hardened line operations. Ownership re-check, DRAFT status
+   * check, relation validation, the mutation, and the audit all share one
+   * transaction so a concurrent post/cancel cannot combine with stale validation.
+   */
   async addLine(id: string, dto: CreateInventoryMovementLineDto, userId: string, ctx: ActiveOperationalContext) {
-    const movement = await this.findOwned(id, ctx);
-    if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be modified');
-    const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
-    if (!product) throw new NotFoundException('Product not found');
-    if (dto.quantity <= 0) throw new BadRequestException('Quantity must be greater than 0');
-    if (!['IN', 'OUT'].includes(dto.direction)) throw new BadRequestException('Direction must be IN or OUT');
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.inventoryMovement.findUnique({ where: { id } });
+      if (!current || current.deletedAt || !this.isInContext(current, ctx)) {
+        throw this.notFound('Inventory movement not found');
+      }
+      if (current.status !== 'DRAFT') throw this.badRequest('inventory.movementOnlyDraftCanModify');
+      if (dto.quantity <= 0) throw this.validationError('quantity', 'validation.invalidQuantity', 'Quantity must be greater than 0');
+      if (!['IN', 'OUT'].includes(dto.direction)) throw this.validationError('direction', 'validation.invalidValue', 'Direction must be IN or OUT');
 
-    const line = await this.prisma.inventoryMovementLine.create({
-      data: {
-        movementId: id,
-        productId: dto.productId,
-        warehouseLocationId: dto.warehouseLocationId,
-        quantity: dto.quantity,
-        quantityBase: dto.quantityBase ?? dto.quantity,
-        batchNumber: dto.batchNumber,
-        serialNumber: dto.serialNumber,
-        expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
-        unit: dto.unit,
-        direction: dto.direction,
-        notes: dto.notes,
-      },
-      include: { product: { select: { id: true, name: true, code: true } } },
+      await this.assertProductActiveWithClient(tx, dto.productId);
+      if (dto.warehouseLocationId) {
+        await this.assertLocationInWarehouseWithClient(tx, dto.warehouseLocationId, current.warehouseId, 'warehouseLocationId');
+      }
+
+      const line = await tx.inventoryMovementLine.create({
+        data: {
+          movementId: id,
+          productId: dto.productId,
+          warehouseLocationId: dto.warehouseLocationId,
+          quantity: dto.quantity,
+          quantityBase: dto.quantityBase ?? dto.quantity,
+          batchNumber: dto.batchNumber,
+          serialNumber: dto.serialNumber,
+          expiryDate: this.toDateOrThrow(dto.expiryDate, 'expiryDate'),
+          unit: dto.unit,
+          direction: dto.direction,
+          notes: dto.notes,
+        },
+        include: { product: { select: { id: true, name: true, code: true } } },
+      });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'ADD_LINE',
+        entity: 'InventoryMovement',
+        entityId: id,
+        details: { companyId: ctx.companyId, branchId: ctx.branchId, lineId: line.id, productId: dto.productId, quantity: dto.quantity },
+      });
+      return line;
     });
-    await this.audit.log(userId, 'ADD_LINE', 'InventoryMovement', id, { lineId: line.id, productId: dto.productId, quantity: dto.quantity });
-    return line;
   }
 
+  /**
+   * Phase 2 — tenant-hardened line update. Only explicitly listed fields are
+   * written and every one is re-validated in-transaction; the raw DTO is never
+   * passed through to the database.
+   */
   async updateLine(id: string, lineId: string, dto: Partial<CreateInventoryMovementLineDto>, userId: string, ctx: ActiveOperationalContext) {
-    const movement = await this.findOwned(id, ctx);
-    if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be modified');
-    const line = await this.prisma.inventoryMovementLine.findUnique({ where: { id: lineId } });
-    if (!line || line.movementId !== id) throw this.notFound('Movement line not found');
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.inventoryMovement.findUnique({ where: { id } });
+      if (!current || current.deletedAt || !this.isInContext(current, ctx)) {
+        throw this.notFound('Inventory movement not found');
+      }
+      if (current.status !== 'DRAFT') throw this.badRequest('inventory.movementOnlyDraftCanModify');
 
-    const updated = await this.prisma.inventoryMovementLine.update({
-      where: { id: lineId },
-      data: dto,
-      include: { product: { select: { id: true, name: true, code: true } } },
+      const line = await tx.inventoryMovementLine.findUnique({ where: { id: lineId } });
+      if (!line || line.movementId !== id) throw this.notFound('Movement line not found');
+
+      const data: any = {};
+      if (dto.productId !== undefined) {
+        await this.assertProductActiveWithClient(tx, dto.productId);
+        data.productId = dto.productId;
+      }
+      if (dto.quantity !== undefined) {
+        if (dto.quantity <= 0) throw this.validationError('quantity', 'validation.invalidQuantity', 'Quantity must be greater than 0');
+        data.quantity = dto.quantity;
+      }
+      if (dto.quantityBase !== undefined) {
+        if (dto.quantityBase <= 0) throw this.validationError('quantityBase', 'validation.invalidQuantity', 'Quantity must be greater than 0');
+        data.quantityBase = dto.quantityBase;
+      }
+      if (dto.direction !== undefined) {
+        if (!['IN', 'OUT'].includes(dto.direction)) throw this.validationError('direction', 'validation.invalidValue', 'Direction must be IN or OUT');
+        data.direction = dto.direction;
+      }
+      if (dto.warehouseLocationId !== undefined) {
+        if (dto.warehouseLocationId) {
+          await this.assertLocationInWarehouseWithClient(tx, dto.warehouseLocationId, current.warehouseId, 'warehouseLocationId');
+        }
+        data.warehouseLocationId = dto.warehouseLocationId || null;
+      }
+      if (dto.batchNumber !== undefined) data.batchNumber = dto.batchNumber;
+      if (dto.serialNumber !== undefined) data.serialNumber = dto.serialNumber;
+      if (dto.expiryDate !== undefined) data.expiryDate = this.toDateOrThrow(dto.expiryDate, 'expiryDate');
+      if (dto.unit !== undefined) data.unit = dto.unit;
+      if (dto.notes !== undefined) data.notes = dto.notes;
+
+      const updated = await tx.inventoryMovementLine.update({
+        where: { id: lineId },
+        data,
+        include: { product: { select: { id: true, name: true, code: true } } },
+      });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'UPDATE_LINE',
+        entity: 'InventoryMovement',
+        entityId: id,
+        details: { companyId: ctx.companyId, branchId: ctx.branchId, lineId },
+      });
+      return updated;
     });
-    await this.audit.log(userId, 'UPDATE_LINE', 'InventoryMovement', id, { lineId });
-    return updated;
   }
 
   async removeLine(id: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
-    const movement = await this.findOwned(id, ctx);
-    if (movement.status !== 'DRAFT') throw new BadRequestException('Only DRAFT movements can be modified');
-    const line = await this.prisma.inventoryMovementLine.findUnique({ where: { id: lineId } });
-    if (!line || line.movementId !== id) throw this.notFound('Movement line not found');
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.inventoryMovement.findUnique({ where: { id } });
+      if (!current || current.deletedAt || !this.isInContext(current, ctx)) {
+        throw this.notFound('Inventory movement not found');
+      }
+      if (current.status !== 'DRAFT') throw this.badRequest('inventory.movementOnlyDraftCanModify');
 
-    await this.prisma.inventoryMovementLine.delete({ where: { id: lineId } });
-    await this.audit.log(userId, 'REMOVE_LINE', 'InventoryMovement', id, { lineId });
-    return { message: 'Line removed successfully' };
+      const line = await tx.inventoryMovementLine.findUnique({ where: { id: lineId } });
+      if (!line || line.movementId !== id) throw this.notFound('Movement line not found');
+
+      await tx.inventoryMovementLine.delete({ where: { id: lineId } });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'REMOVE_LINE',
+        entity: 'InventoryMovement',
+        entityId: id,
+        details: { companyId: ctx.companyId, branchId: ctx.branchId, lineId },
+      });
+      return { message: 'Line removed successfully' };
+    });
   }
 
   async summary(id: string, ctx: ActiveOperationalContext) {

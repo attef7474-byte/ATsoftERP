@@ -64,6 +64,8 @@ const messages: Record<string, { ar: string; en: string }> = {
   'inventory.productNotFound': { ar: 'المنتج غير موجود', en: 'Product not found' },
   'inventory.movementRequestConflict': { ar: 'تم استخدام معرّف الطلب هذا مع بيانات مختلفة. أعد المحاولة بمعرّف طلب جديد', en: 'This requestId was already used with different data. Retry with a new requestId' },
   'inventory.movementOnlyDraftCanPost': { ar: 'يمكن ترحيل حركات المخزون في حالة المسودة فقط', en: 'Only DRAFT movements can be posted' },
+  'inventory.movementOnlyDraftCanUpdate': { ar: 'يمكن تعديل حركات المخزون في حالة المسودة فقط', en: 'Only DRAFT movements can be updated' },
+  'inventory.movementOnlyDraftCanModify': { ar: 'يمكن تعديل بنود حركات المخزون في حالة المسودة فقط', en: 'Only DRAFT movement lines can be modified' },
   'inventory.movementOnlyDraftCanCancel': { ar: 'يمكن إلغاء حركات المخزون في حالة المسودة فقط', en: 'Only DRAFT movements can be cancelled' },
   'inventory.movementOnlyPostedCanReverse': { ar: 'يمكن عكس حركات المخزون المرحّلة فقط', en: 'Only POSTED movements can be reversed' },
   'inventory.movementReversalCannotReverse': { ar: 'لا يمكن عكس حركة عكسية', en: 'A reversal movement cannot be reversed' },
