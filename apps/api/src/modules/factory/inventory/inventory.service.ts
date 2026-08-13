@@ -5,6 +5,8 @@ import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 import { CreateWarehouseLocationDto } from './dto/create-warehouse-location.dto';
 import { UpdateWarehouseLocationDto } from './dto/update-warehouse-location.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { assertRowInContext, assertWarehouseInContext } from '../../../common/operational-context/tenant-guards';
 
 @Injectable()
 export class InventoryService {
@@ -13,13 +15,13 @@ export class InventoryService {
     private numberingService: NumberingService,
   ) {}
 
-  async createWarehouse(dto: CreateWarehouseDto) {
+  async createWarehouse(dto: CreateWarehouseDto, ctx: ActiveOperationalContext) {
     const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('WAREHOUSE');
     const existing = await this.prisma.warehouse.findFirst({
-      where: { companyId: dto.companyId, code },
+      where: { companyId: ctx.companyId, code },
     });
     if (existing) throw new ConflictException('Warehouse code already exists in this company');
-    return this.prisma.warehouse.create({ data: { ...dto, code } });
+    return this.prisma.warehouse.create({ data: { ...dto, code, companyId: ctx.companyId, branchId: ctx.branchId } });
   }
 
   async findAllWarehouses(query: { page?: number; limit?: number; search?: string; companyId?: string; warehouseType?: string }) {
@@ -43,7 +45,7 @@ export class InventoryService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOneWarehouse(id: string) {
+  async findOneWarehouse(id: string, ctx: ActiveOperationalContext) {
     const warehouse = await this.prisma.warehouse.findUnique({
       where: { id },
       include: {
@@ -53,23 +55,26 @@ export class InventoryService {
       },
     });
     if (!warehouse) throw new NotFoundException('Warehouse not found');
+    assertRowInContext(warehouse, ctx, 'warehouse');
     return warehouse;
   }
 
-  async updateWarehouse(id: string, dto: UpdateWarehouseDto) {
-    await this.findOneWarehouse(id);
-    return this.prisma.warehouse.update({ where: { id }, data: dto });
+  async updateWarehouse(id: string, dto: UpdateWarehouseDto, ctx: ActiveOperationalContext) {
+    await this.findOneWarehouse(id, ctx);
+    const { companyId: _companyId, branchId: _branchId, ...data } = dto;
+    return this.prisma.warehouse.update({ where: { id }, data });
   }
 
-  async removeWarehouse(id: string) {
-    await this.findOneWarehouse(id);
+  async removeWarehouse(id: string, ctx: ActiveOperationalContext) {
+    await this.findOneWarehouse(id, ctx);
     await this.prisma.warehouse.update({ where: { id }, data: { deletedAt: new Date() } });
     return { message: 'Warehouse deleted successfully' };
   }
 
-  async createLocation(dto: CreateWarehouseLocationDto) {
+  async createLocation(dto: CreateWarehouseLocationDto, ctx: ActiveOperationalContext) {
     const warehouse = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
     if (!warehouse) throw new NotFoundException('Warehouse not found');
+    assertRowInContext(warehouse, ctx, 'warehouse');
     const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('WAREHOUSE_LOCATION');
     const existing = await this.prisma.warehouseLocation.findFirst({
       where: { warehouseId: dto.warehouseId, code },
@@ -107,16 +112,22 @@ export class InventoryService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOneLocation(id: string) {
+  async findOneLocation(id: string, ctx: ActiveOperationalContext) {
     const location = await this.prisma.warehouseLocation.findUnique({
       where: { id },
       include: { warehouse: { select: { id: true, name: true, code: true } } },
     });
     if (!location) throw new NotFoundException('Location not found');
+    const warehouse = await this.prisma.warehouse.findUnique({ where: { id: location.warehouseId } });
+    if (!warehouse) throw new NotFoundException('Warehouse not found');
+    assertRowInContext(warehouse, ctx, 'warehouse');
     return location;
   }
 
-  async findLocations(warehouseId: string) {
+  async findLocations(warehouseId: string, ctx: ActiveOperationalContext) {
+    const warehouse = await this.prisma.warehouse.findUnique({ where: { id: warehouseId } });
+    if (!warehouse) throw new NotFoundException('Warehouse not found');
+    assertRowInContext(warehouse, ctx, 'warehouse');
     return this.prisma.warehouseLocation.findMany({
       where: { warehouseId, status: 'ACTIVE' },
       orderBy: { code: 'asc' },
@@ -124,9 +135,11 @@ export class InventoryService {
     });
   }
 
-  async updateLocation(id: string, dto: UpdateWarehouseLocationDto) {
-    const location = await this.prisma.warehouseLocation.findUnique({ where: { id } });
-    if (!location) throw new NotFoundException('Location not found');
+  async updateLocation(id: string, dto: UpdateWarehouseLocationDto, ctx: ActiveOperationalContext) {
+    const location = await this.findOneLocation(id, ctx);
+    if (dto.warehouseId) {
+      await assertWarehouseInContext(this.prisma, dto.warehouseId, ctx);
+    }
     return this.prisma.warehouseLocation.update({
       where: { id },
       data: dto,
@@ -134,36 +147,34 @@ export class InventoryService {
     });
   }
 
-  async removeLocation(id: string) {
-    const location = await this.prisma.warehouseLocation.findUnique({ where: { id } });
-    if (!location) throw new NotFoundException('Location not found');
+  async removeLocation(id: string, ctx: ActiveOperationalContext) {
+    const location = await this.findOneLocation(id, ctx);
     return this.prisma.warehouseLocation.update({
       where: { id },
       data: { status: 'INACTIVE' },
     });
   }
 
-  async activateLocation(id: string) {
-    const location = await this.prisma.warehouseLocation.findUnique({ where: { id } });
-    if (!location) throw new NotFoundException('Location not found');
+  async activateLocation(id: string, ctx: ActiveOperationalContext) {
+    const location = await this.findOneLocation(id, ctx);
     return this.prisma.warehouseLocation.update({
       where: { id },
       data: { status: 'ACTIVE' },
     });
   }
 
-  async activateWarehouse(id: string) {
-    const wh = await this.findOneWarehouse(id);
+  async activateWarehouse(id: string, ctx: ActiveOperationalContext) {
+    const wh = await this.findOneWarehouse(id, ctx);
     return this.prisma.warehouse.update({ where: { id }, data: { status: 'ACTIVE' } });
   }
 
-  async deactivateWarehouse(id: string) {
-    const wh = await this.findOneWarehouse(id);
+  async deactivateWarehouse(id: string, ctx: ActiveOperationalContext) {
+    const wh = await this.findOneWarehouse(id, ctx);
     return this.prisma.warehouse.update({ where: { id }, data: { status: 'INACTIVE' } });
   }
 
-  async warehouseSummary(id: string) {
-    const wh = await this.findOneWarehouse(id);
+  async warehouseSummary(id: string, ctx: ActiveOperationalContext) {
+    const wh = await this.findOneWarehouse(id, ctx);
     const [locationCount, balanceCount, balanceAgg] = await Promise.all([
       this.prisma.warehouseLocation.count({ where: { warehouseId: id, status: 'ACTIVE' } }),
       this.prisma.inventoryBalance.count({ where: { warehouseId: id } }),
@@ -172,8 +183,8 @@ export class InventoryService {
     return { warehouse: wh, locationCount, balanceCount, totalQuantity: balanceAgg._sum.quantity || 0 };
   }
 
-  async locationBalances(id: string) {
-    const loc = await this.findOneLocation(id);
+  async locationBalances(id: string, ctx: ActiveOperationalContext) {
+    const loc = await this.findOneLocation(id, ctx);
     const balances = await this.prisma.inventoryBalance.findMany({
       where: { locationId: id },
       include: { product: { select: { id: true, code: true, name: true, unit: true } } },

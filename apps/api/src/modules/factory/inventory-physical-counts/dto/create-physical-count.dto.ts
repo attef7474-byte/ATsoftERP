@@ -14,9 +14,10 @@ export class CreatePhysicalCountLineDto {
 }
 
 export class CreatePhysicalCountDto {
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  companyId: string;
+  companyId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

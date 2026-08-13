@@ -5,6 +5,8 @@ import { NumberingService } from '../../../modules/numbering/numbering.service';
 import { CreateStockTransferDto, CreateStockTransferLineDto } from './dto/create-stock-transfer.dto';
 import { UpdateStockTransferDto } from './dto/update-stock-transfer.dto';
 import { StockTransferQueryDto } from './dto/stock-transfer-query.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { assertRowInContext, assertWarehouseInContext } from '../../../common/operational-context/tenant-guards';
 
 @Injectable()
 export class InventoryStockTransfersService {
@@ -14,20 +16,14 @@ export class InventoryStockTransfersService {
     private numberingService: NumberingService,
   ) {}
 
-  async create(dto: CreateStockTransferDto, userId: string) {
-    const company = await this.prisma.company.findUnique({ where: { id: dto.companyId } });
-    if (!company) throw new NotFoundException('Company not found');
-
+  async create(dto: CreateStockTransferDto, userId: string, ctx: ActiveOperationalContext) {
     if (dto.sourceWarehouseId === dto.destinationWarehouseId &&
         (dto.sourceLocationId || null) === (dto.destinationLocationId || null)) {
       throw new BadRequestException('Source and destination warehouse/location cannot be the same');
     }
 
-    const srcWh = await this.prisma.warehouse.findUnique({ where: { id: dto.sourceWarehouseId } });
-    if (!srcWh) throw new NotFoundException('Source warehouse not found');
-
-    const dstWh = await this.prisma.warehouse.findUnique({ where: { id: dto.destinationWarehouseId } });
-    if (!dstWh) throw new NotFoundException('Destination warehouse not found');
+    await assertWarehouseInContext(this.prisma, dto.sourceWarehouseId, ctx);
+    await assertWarehouseInContext(this.prisma, dto.destinationWarehouseId, ctx);
 
     if (dto.sourceLocationId) {
       const loc = await this.prisma.warehouseLocation.findUnique({ where: { id: dto.sourceLocationId } });
@@ -37,10 +33,6 @@ export class InventoryStockTransfersService {
       const loc = await this.prisma.warehouseLocation.findUnique({ where: { id: dto.destinationLocationId } });
       if (!loc || loc.warehouseId !== dto.destinationWarehouseId) throw new NotFoundException('Destination location not found');
     }
-    if (dto.branchId) {
-      const branch = await this.prisma.branch.findUnique({ where: { id: dto.branchId } });
-      if (!branch) throw new NotFoundException('Branch not found');
-    }
 
     for (const line of dto.lines) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
@@ -49,12 +41,24 @@ export class InventoryStockTransfersService {
     }
 
     const doc = await this.prisma.$transaction(async (tx) => {
-      const code = await this.numberingService.generateNumberAtomic('STOCK_TRANSFER');
+      await assertWarehouseInContext(tx, dto.sourceWarehouseId, ctx);
+      await assertWarehouseInContext(tx, dto.destinationWarehouseId, ctx);
+      if (dto.sourceLocationId) {
+        const loc = await tx.warehouseLocation.findUnique({ where: { id: dto.sourceLocationId } });
+        if (!loc || loc.warehouseId !== dto.sourceWarehouseId) throw new NotFoundException('Source location not found');
+      }
+      if (dto.destinationLocationId) {
+        const loc = await tx.warehouseLocation.findUnique({ where: { id: dto.destinationLocationId } });
+        if (!loc || loc.warehouseId !== dto.destinationWarehouseId) throw new NotFoundException('Destination location not found');
+      }
+      const code = await this.numberingService.generateNumberAtomicWithClient('STOCK_TRANSFER', tx);
 
       const { lines, ...rest } = dto;
       return tx.inventoryStockTransfer.create({
         data: {
           ...rest,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
           code,
           status: 'DRAFT',
           createdById: userId,
@@ -74,12 +78,13 @@ export class InventoryStockTransfersService {
     return doc;
   }
 
-  async findAll(query: StockTransferQueryDto) {
+  async findAll(query: StockTransferQueryDto, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null };
+    const where: any = { deletedAt: null, companyId: ctx.companyId };
+    if (ctx.branchId) where.branchId = ctx.branchId;
     if (query.search) {
       where.OR = [
         { code: { contains: query.search } },
@@ -87,8 +92,6 @@ export class InventoryStockTransfersService {
         { notes: { contains: query.search } },
       ];
     }
-    if (query.companyId) where.companyId = query.companyId;
-    if (query.branchId) where.branchId = query.branchId;
     if (query.sourceWarehouseId) where.sourceWarehouseId = query.sourceWarehouseId;
     if (query.destinationWarehouseId) where.destinationWarehouseId = query.destinationWarehouseId;
     if (query.status) where.status = query.status;
@@ -114,7 +117,7 @@ export class InventoryStockTransfersService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, ctx: ActiveOperationalContext) {
     const doc = await this.prisma.inventoryStockTransfer.findUnique({
       where: { id },
       include: {
@@ -132,23 +135,60 @@ export class InventoryStockTransfersService {
       },
     });
     if (!doc || doc.deletedAt) throw new NotFoundException('Stock transfer not found');
+    assertRowInContext(doc, ctx, 'stock transfer');
     return doc;
   }
 
-  async update(id: string, dto: UpdateStockTransferDto, userId: string) {
-    const doc = await this.findOne(id);
+  async update(id: string, dto: UpdateStockTransferDto, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be updated');
-    const { lines, ...rest } = dto;
+    const {
+      lines, companyId: _companyId, branchId: _branchId,
+      sourceWarehouseId, destinationWarehouseId,
+      sourceLocationId, destinationLocationId, ...rest
+    } = dto;
+
+    const effectiveSourceWarehouseId = sourceWarehouseId ?? doc.sourceWarehouseId;
+    const effectiveDestinationWarehouseId = destinationWarehouseId ?? doc.destinationWarehouseId;
+    if (sourceWarehouseId) {
+      await assertWarehouseInContext(this.prisma, sourceWarehouseId, ctx);
+    }
+    if (destinationWarehouseId) {
+      await assertWarehouseInContext(this.prisma, destinationWarehouseId, ctx);
+    }
+    if (sourceLocationId) {
+      const loc = await this.prisma.warehouseLocation.findUnique({ where: { id: sourceLocationId } });
+      if (!loc || loc.warehouseId !== effectiveSourceWarehouseId) {
+        throw new BadRequestException('warehouseLocationId does not belong to the source warehouse');
+      }
+    }
+    if (destinationLocationId) {
+      const loc = await this.prisma.warehouseLocation.findUnique({ where: { id: destinationLocationId } });
+      if (!loc || loc.warehouseId !== effectiveDestinationWarehouseId) {
+        throw new BadRequestException('warehouseLocationId does not belong to the destination warehouse');
+      }
+    }
+    if (effectiveSourceWarehouseId === effectiveDestinationWarehouseId &&
+        (sourceLocationId ?? doc.sourceLocationId ?? null) === (destinationLocationId ?? doc.destinationLocationId ?? null)) {
+      throw new BadRequestException('Source and destination warehouse/location cannot be the same');
+    }
+
+    const data: any = { ...rest };
+    if (sourceWarehouseId) data.sourceWarehouseId = sourceWarehouseId;
+    if (destinationWarehouseId) data.destinationWarehouseId = destinationWarehouseId;
+    if (sourceLocationId) data.sourceLocationId = sourceLocationId;
+    if (destinationLocationId) data.destinationLocationId = destinationLocationId;
+
     const updated = await this.prisma.inventoryStockTransfer.update({
       where: { id },
-      data: rest,
+      data,
     });
     await this.audit.log(userId, 'UPDATE', 'InventoryStockTransfer', id, { dto });
     return updated;
   }
 
-  async submit(id: string, userId: string) {
-    const doc = await this.findOne(id);
+  async submit(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be submitted');
     const updated = await this.prisma.inventoryStockTransfer.update({
       where: { id },
@@ -158,8 +198,8 @@ export class InventoryStockTransfersService {
     return updated;
   }
 
-  async approve(id: string, userId: string) {
-    const doc = await this.findOne(id);
+  async approve(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'SUBMITTED') throw new BadRequestException('Only SUBMITTED documents can be approved');
     const updated = await this.prisma.inventoryStockTransfer.update({
       where: { id },
@@ -169,8 +209,8 @@ export class InventoryStockTransfersService {
     return updated;
   }
 
-  async reject(id: string, userId: string) {
-    const doc = await this.findOne(id);
+  async reject(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'SUBMITTED') throw new BadRequestException('Only SUBMITTED documents can be rejected');
     const updated = await this.prisma.inventoryStockTransfer.update({
       where: { id },
@@ -180,12 +220,13 @@ export class InventoryStockTransfersService {
     return updated;
   }
 
-  async post(id: string, userId: string) {
+  async post(id: string, userId: string, ctx: ActiveOperationalContext) {
     const doc = await this.prisma.inventoryStockTransfer.findUnique({
       where: { id },
       include: { lines: true },
     });
     if (!doc || doc.deletedAt) throw new NotFoundException('Stock transfer not found');
+    assertRowInContext(doc, ctx, 'stock transfer');
     if (doc.status !== 'APPROVED') throw new BadRequestException('Only APPROVED documents can be posted');
 
     for (const line of doc.lines) {
@@ -206,7 +247,21 @@ export class InventoryStockTransfersService {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const outMovementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
+      await assertWarehouseInContext(tx, doc.sourceWarehouseId, ctx);
+      await assertWarehouseInContext(tx, doc.destinationWarehouseId, ctx);
+      if (doc.sourceLocationId) {
+        const loc = await tx.warehouseLocation.findUnique({ where: { id: doc.sourceLocationId } });
+        if (!loc || loc.warehouseId !== doc.sourceWarehouseId) {
+          throw new BadRequestException('warehouseLocationId does not belong to the source warehouse');
+        }
+      }
+      if (doc.destinationLocationId) {
+        const loc = await tx.warehouseLocation.findUnique({ where: { id: doc.destinationLocationId } });
+        if (!loc || loc.warehouseId !== doc.destinationWarehouseId) {
+          throw new BadRequestException('warehouseLocationId does not belong to the destination warehouse');
+        }
+      }
+      const outMovementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
       const outMovement = await tx.inventoryMovement.create({
         data: {
@@ -247,7 +302,7 @@ export class InventoryStockTransfersService {
         });
       }
 
-      const inMovementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
+      const inMovementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
       const inMovement = await tx.inventoryMovement.create({
         data: {
@@ -305,8 +360,8 @@ export class InventoryStockTransfersService {
     return result;
   }
 
-  async cancel(id: string, userId: string) {
-    const doc = await this.findOne(id);
+  async cancel(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT' && doc.status !== 'SUBMITTED') {
       throw new BadRequestException('Only DRAFT or SUBMITTED documents can be cancelled');
     }
@@ -318,8 +373,8 @@ export class InventoryStockTransfersService {
     return updated;
   }
 
-  async remove(id: string, userId: string) {
-    const doc = await this.findOne(id);
+  async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be deleted');
     await this.prisma.inventoryStockTransferLine.deleteMany({ where: { transferId: id } });
     await this.prisma.inventoryStockTransfer.delete({ where: { id } });
@@ -327,8 +382,8 @@ export class InventoryStockTransfersService {
     return { message: 'Stock transfer deleted successfully' };
   }
 
-  async addLine(id: string, dto: CreateStockTransferLineDto, userId: string) {
-    const doc = await this.findOne(id);
+  async addLine(id: string, dto: CreateStockTransferLineDto, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be modified');
     const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
     if (!product) throw new NotFoundException('Product not found');
@@ -347,8 +402,8 @@ export class InventoryStockTransfersService {
     return line;
   }
 
-  async updateLine(id: string, lineId: string, dto: Partial<CreateStockTransferLineDto>, userId: string) {
-    const doc = await this.findOne(id);
+  async updateLine(id: string, lineId: string, dto: Partial<CreateStockTransferLineDto>, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be modified');
     const line = await this.prisma.inventoryStockTransferLine.findUnique({ where: { id: lineId } });
     if (!line || line.transferId !== id) throw new NotFoundException('Line not found');
@@ -362,8 +417,8 @@ export class InventoryStockTransfersService {
     return updated;
   }
 
-  async removeLine(id: string, lineId: string, userId: string) {
-    const doc = await this.findOne(id);
+  async removeLine(id: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be modified');
     const line = await this.prisma.inventoryStockTransferLine.findUnique({ where: { id: lineId } });
     if (!line || line.transferId !== id) throw new NotFoundException('Line not found');
@@ -373,8 +428,8 @@ export class InventoryStockTransfersService {
     return { message: 'Line removed successfully' };
   }
 
-  async summary(id: string) {
-    const doc = await this.findOne(id);
+  async summary(id: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     const lines = await this.prisma.inventoryStockTransferLine.findMany({
       where: { transferId: id },
       select: { quantity: true, transferOutMovementId: true, transferInMovementId: true },
@@ -389,19 +444,19 @@ export class InventoryStockTransfersService {
     };
   }
 
-  async getAvailability(productId: string, warehouseId: string) {
+  async getAvailability(productId: string, warehouseId: string, ctx: ActiveOperationalContext) {
     const product = await this.prisma.product.findUnique({ where: { id: productId } });
     if (!product) throw new NotFoundException('Product not found');
-    const warehouse = await this.prisma.warehouse.findUnique({ where: { id: warehouseId } });
-    if (!warehouse) throw new NotFoundException('Warehouse not found');
+    await assertWarehouseInContext(this.prisma, warehouseId, ctx);
 
     const balance = await this.prisma.inventoryBalance.findFirst({
       where: { warehouseId, productId },
     });
+    const warehouse = await this.prisma.warehouse.findUnique({ where: { id: warehouseId } });
     return {
       productId,
       warehouseId,
-      warehouseName: warehouse.name,
+      warehouseName: warehouse?.name,
       availableQuantity: balance?.quantity || 0,
     };
   }

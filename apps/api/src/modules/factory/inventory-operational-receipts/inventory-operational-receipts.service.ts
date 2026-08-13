@@ -5,6 +5,8 @@ import { NumberingService } from '../../../modules/numbering/numbering.service';
 import { CreateOperationalReceiptDto } from './dto/create-operational-receipt.dto';
 import { UpdateOperationalReceiptDto } from './dto/update-operational-receipt.dto';
 import { OperationalReceiptQueryDto } from './dto/operational-receipt-query.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { assertRowInContext, assertWarehouseInContext } from '../../../common/operational-context/tenant-guards';
 
 @Injectable()
 export class InventoryOperationalReceiptsService {
@@ -14,20 +16,12 @@ export class InventoryOperationalReceiptsService {
     private numberingService: NumberingService,
   ) {}
 
-  async create(dto: CreateOperationalReceiptDto, userId: string) {
-    const company = await this.prisma.company.findUnique({ where: { id: dto.companyId } });
-    if (!company) throw new NotFoundException('Company not found');
-
-    const wh = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
-    if (!wh) throw new NotFoundException('Warehouse not found');
+  async create(dto: CreateOperationalReceiptDto, userId: string, ctx: ActiveOperationalContext) {
+    await assertWarehouseInContext(this.prisma, dto.warehouseId, ctx);
 
     if (dto.locationId) {
       const loc = await this.prisma.warehouseLocation.findUnique({ where: { id: dto.locationId } });
       if (!loc || loc.warehouseId !== dto.warehouseId) throw new NotFoundException('Location not found for this warehouse');
-    }
-    if (dto.branchId) {
-      const branch = await this.prisma.branch.findUnique({ where: { id: dto.branchId } });
-      if (!branch) throw new NotFoundException('Branch not found');
     }
 
     for (const line of dto.lines) {
@@ -37,12 +31,15 @@ export class InventoryOperationalReceiptsService {
     }
 
     const doc = await this.prisma.$transaction(async (tx) => {
-      const code = await this.numberingService.generateNumberAtomic('OPERATIONAL_RECEIPT');
+      await assertWarehouseInContext(tx, dto.warehouseId, ctx);
+      const code = await this.numberingService.generateNumberAtomicWithClient('OPERATIONAL_RECEIPT', tx);
 
       const { lines, ...rest } = dto;
       return tx.inventoryOperationalReceipt.create({
         data: {
           ...rest,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
           code,
           status: 'DRAFT',
           createdById: userId,
@@ -62,12 +59,13 @@ export class InventoryOperationalReceiptsService {
     return doc;
   }
 
-  async findAll(query: OperationalReceiptQueryDto) {
+  async findAll(query: OperationalReceiptQueryDto, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null };
+    const where: any = { deletedAt: null, companyId: ctx.companyId };
+    if (ctx.branchId) where.branchId = ctx.branchId;
     if (query.search) {
       where.OR = [
         { code: { contains: query.search } },
@@ -75,8 +73,6 @@ export class InventoryOperationalReceiptsService {
         { notes: { contains: query.search } },
       ];
     }
-    if (query.companyId) where.companyId = query.companyId;
-    if (query.branchId) where.branchId = query.branchId;
     if (query.warehouseId) where.warehouseId = query.warehouseId;
     if (query.status) where.status = query.status;
     if (query.dateFrom || query.dateTo) {
@@ -100,7 +96,7 @@ export class InventoryOperationalReceiptsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, ctx: ActiveOperationalContext) {
     const doc = await this.prisma.inventoryOperationalReceipt.findUnique({
       where: { id },
       include: {
@@ -116,23 +112,40 @@ export class InventoryOperationalReceiptsService {
       },
     });
     if (!doc || doc.deletedAt) throw new NotFoundException('Operational receipt not found');
+    assertRowInContext(doc, ctx, 'operational receipt');
     return doc;
   }
 
-  async update(id: string, dto: UpdateOperationalReceiptDto, userId: string) {
-    const doc = await this.findOne(id);
+  async update(id: string, dto: UpdateOperationalReceiptDto, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be updated');
-    const { lines, ...rest } = dto;
+    const { lines, companyId: _companyId, branchId: _branchId, warehouseId, locationId, ...rest } = dto;
+
+    const effectiveWarehouseId = warehouseId ?? doc.warehouseId;
+    if (warehouseId) {
+      await assertWarehouseInContext(this.prisma, warehouseId, ctx);
+    }
+    if (locationId) {
+      const loc = await this.prisma.warehouseLocation.findUnique({ where: { id: locationId } });
+      if (!loc || loc.warehouseId !== effectiveWarehouseId) {
+        throw new BadRequestException('warehouseLocationId does not belong to the selected warehouse');
+      }
+    }
+
+    const data: any = { ...rest };
+    if (warehouseId) data.warehouseId = warehouseId;
+    if (locationId) data.locationId = locationId;
+
     const updated = await this.prisma.inventoryOperationalReceipt.update({
       where: { id },
-      data: rest,
+      data,
     });
     await this.audit.log(userId, 'UPDATE', 'InventoryOperationalReceipt', id, { dto });
     return updated;
   }
 
-  async submit(id: string, userId: string) {
-    const doc = await this.findOne(id);
+  async submit(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be submitted');
     const updated = await this.prisma.inventoryOperationalReceipt.update({
       where: { id },
@@ -142,8 +155,8 @@ export class InventoryOperationalReceiptsService {
     return updated;
   }
 
-  async approve(id: string, userId: string) {
-    const doc = await this.findOne(id);
+  async approve(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'SUBMITTED') throw new BadRequestException('Only SUBMITTED documents can be approved');
     const updated = await this.prisma.inventoryOperationalReceipt.update({
       where: { id },
@@ -153,8 +166,8 @@ export class InventoryOperationalReceiptsService {
     return updated;
   }
 
-  async reject(id: string, userId: string) {
-    const doc = await this.findOne(id);
+  async reject(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'SUBMITTED') throw new BadRequestException('Only SUBMITTED documents can be rejected');
     const updated = await this.prisma.inventoryOperationalReceipt.update({
       where: { id },
@@ -164,16 +177,24 @@ export class InventoryOperationalReceiptsService {
     return updated;
   }
 
-  async post(id: string, userId: string) {
+  async post(id: string, userId: string, ctx: ActiveOperationalContext) {
     const doc = await this.prisma.inventoryOperationalReceipt.findUnique({
       where: { id },
       include: { lines: true },
     });
     if (!doc || doc.deletedAt) throw new NotFoundException('Operational receipt not found');
+    assertRowInContext(doc, ctx, 'operational receipt');
     if (doc.status !== 'APPROVED') throw new BadRequestException('Only APPROVED documents can be posted');
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
+      await assertWarehouseInContext(tx, doc.warehouseId, ctx);
+      if (doc.locationId) {
+        const loc = await tx.warehouseLocation.findUnique({ where: { id: doc.locationId } });
+        if (!loc || loc.warehouseId !== doc.warehouseId) {
+          throw new BadRequestException('warehouseLocationId does not belong to the document warehouse');
+        }
+      }
+      const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
       const movement = await tx.inventoryMovement.create({
         data: {
@@ -227,8 +248,8 @@ export class InventoryOperationalReceiptsService {
     return result;
   }
 
-  async cancel(id: string, userId: string) {
-    const doc = await this.findOne(id);
+  async cancel(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT' && doc.status !== 'SUBMITTED') {
       throw new BadRequestException('Only DRAFT or SUBMITTED documents can be cancelled');
     }
@@ -240,8 +261,8 @@ export class InventoryOperationalReceiptsService {
     return updated;
   }
 
-  async remove(id: string, userId: string) {
-    const doc = await this.findOne(id);
+  async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be deleted');
     await this.prisma.inventoryOperationalReceiptLine.deleteMany({ where: { receiptId: id } });
     await this.prisma.inventoryOperationalReceipt.delete({ where: { id } });
@@ -249,8 +270,8 @@ export class InventoryOperationalReceiptsService {
     return { message: 'Operational receipt deleted successfully' };
   }
 
-  async addLine(id: string, dto: { productId: string; quantity: number; notes?: string }, userId: string) {
-    const doc = await this.findOne(id);
+  async addLine(id: string, dto: { productId: string; quantity: number; notes?: string }, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be modified');
     const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
     if (!product) throw new NotFoundException('Product not found');
@@ -269,8 +290,8 @@ export class InventoryOperationalReceiptsService {
     return line;
   }
 
-  async updateLine(id: string, lineId: string, dto: { productId?: string; quantity?: number; notes?: string }, userId: string) {
-    const doc = await this.findOne(id);
+  async updateLine(id: string, lineId: string, dto: { productId?: string; quantity?: number; notes?: string }, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be modified');
     const line = await this.prisma.inventoryOperationalReceiptLine.findUnique({ where: { id: lineId } });
     if (!line || line.receiptId !== id) throw new NotFoundException('Line not found');
@@ -284,8 +305,8 @@ export class InventoryOperationalReceiptsService {
     return updated;
   }
 
-  async removeLine(id: string, lineId: string, userId: string) {
-    const doc = await this.findOne(id);
+  async removeLine(id: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be modified');
     const line = await this.prisma.inventoryOperationalReceiptLine.findUnique({ where: { id: lineId } });
     if (!line || line.receiptId !== id) throw new NotFoundException('Line not found');
@@ -295,8 +316,8 @@ export class InventoryOperationalReceiptsService {
     return { message: 'Line removed successfully' };
   }
 
-  async summary(id: string) {
-    const doc = await this.findOne(id);
+  async summary(id: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findOne(id, ctx);
     const lines = await this.prisma.inventoryOperationalReceiptLine.findMany({
       where: { receiptId: id },
       select: { quantity: true },

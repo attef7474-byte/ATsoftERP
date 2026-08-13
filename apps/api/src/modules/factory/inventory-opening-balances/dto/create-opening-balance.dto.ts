@@ -10,7 +10,7 @@ export class CreateOpeningBalanceLineDto {
 }
 
 export class CreateOpeningBalanceDto {
-  @ApiProperty() @IsString() companyId: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() companyId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() branchId?: string;
   @ApiProperty() @IsString() warehouseId: string;
   @ApiPropertyOptional() @IsOptional() @IsString() locationId?: string;

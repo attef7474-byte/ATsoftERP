@@ -27,9 +27,10 @@ export class CreateInventoryAdjustmentLineDto {
 }
 
 export class CreateInventoryAdjustmentDto {
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  companyId: string;
+  companyId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

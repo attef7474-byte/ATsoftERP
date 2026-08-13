@@ -9,7 +9,7 @@ export class CreateStockTransferLineDto {
 }
 
 export class CreateStockTransferDto {
-  @ApiProperty() @IsString() companyId: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() companyId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() branchId?: string;
   @ApiProperty() @IsString() sourceWarehouseId: string;
   @ApiPropertyOptional() @IsOptional() @IsString() sourceLocationId?: string;

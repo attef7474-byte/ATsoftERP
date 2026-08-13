@@ -6,6 +6,8 @@ import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../auth/guards/permissions.guard';
 import { Permissions } from '../../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @ApiTags('Maintenance Stock Issue')
 @ApiBearerAuth()
@@ -22,8 +24,9 @@ export class MaintenanceStockIssueController {
     @Param('lineId') lineId: string,
     @Body() dto: IssueStockDto,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.issue(requestId, lineId, dto, userId);
+    return this.service.issue(requestId, lineId, dto, userId, ctx);
   }
 
   @Post('return')
@@ -34,8 +37,9 @@ export class MaintenanceStockIssueController {
     @Param('lineId') lineId: string,
     @Body() dto: ReturnStockDto,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.returnStock(requestId, lineId, dto, userId);
+    return this.service.returnStock(requestId, lineId, dto, userId, ctx);
   }
 
   @Get()
@@ -44,7 +48,8 @@ export class MaintenanceStockIssueController {
   getIssues(
     @Param('requestId') requestId: string,
     @Param('lineId') lineId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.getIssues(lineId, requestId);
+    return this.service.getIssues(lineId, requestId, ctx);
   }
 }

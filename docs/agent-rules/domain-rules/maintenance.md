@@ -81,3 +81,16 @@ For every spare-part issue, installation, and replacement:
 ## 10. No Direct Balance Manipulation
 
 Never directly edit an inventory balance from maintenance code. All quantity changes flow through authorized inventory source transactions with atomic updates.
+
+## 11. Tenant-Write Hardening for Stock Issue and Preventive Spare Part Plans
+
+Tenant scope is enforced in the backend on every write for `maintenance-stock-issue` and `preventive-spare-part-plan`:
+
+* **Revalidation inside the transaction**: the same guard that validated the warehouse/machine before the write must revalidate on the transaction client (TOCTOU protection). Use `assertWarehouseInContext(tx, ...)` / `assertMachineInContext(tx, ...)` inside `$transaction`.
+* **Update never trusts client tenant fields**: `update` strips `companyId`/`branchId` from the DTO; re-pointing references (warehouse, machine, schedule, source/destination warehouse, locations) is validated against the active context before the write.
+* **Machine/schedule consistency**: a plan update that changes `machineId` or `scheduleId` must re-run `validateScheduleAndMachine` with the effective values; a machine-only update still validates the machine is in-context and matches the plan's schedule.
+* **Location membership**: any warehouse-location supplied on create/update/line operations must belong to the effective document warehouse; otherwise reject with a localized error.
+* **In-transaction numbering**: document numbers and movement numbers are generated with `generateNumberAtomicWithClient(<KEY>, tx)` inside the transaction.
+* **Referenced records**: spare parts, machines, warehouses, schedules, and requests referenced by a write must belong to the active company/branch context; never fetch tenant-owned rows by `id` alone.
+
+Cover these guarantees with mocked-Prisma unit tests asserting cross-company denial for both the direct write and the re-pointing paths.

@@ -9,6 +9,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { InventoryLockGuard } from '../../../common/guards/inventory-lock.guard';
 
 @ApiTags('Inventory Adjustments')
@@ -21,64 +23,64 @@ export class InventoryAdjustmentsController {
   @Post()
   @Permissions('inventory-adjustment:create')
   @ApiOperation({ summary: 'Create inventory adjustment' })
-  create(@Body() dto: CreateInventoryAdjustmentDto, @CurrentUser('id') userId: string) {
-    return this.service.create(dto, userId);
+  create(@Body() dto: CreateInventoryAdjustmentDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.create(dto, userId, ctx);
   }
 
   @Get()
   @Permissions('inventory-adjustment:read')
   @ApiOperation({ summary: 'List inventory adjustments' })
-  findAll(@Query() query: InventoryAdjustmentQueryDto) {
-    return this.service.findAll(query);
+  findAll(@Query() query: InventoryAdjustmentQueryDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findAll(query, ctx);
   }
 
   @Get(':id')
   @Permissions('inventory-adjustment:read')
   @ApiOperation({ summary: 'Get inventory adjustment by ID' })
-  findOne(@Param('id') id: string) { return this.service.findOne(id); }
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOne(id, ctx); }
 
   @Patch(':id')
   @Permissions('inventory-adjustment:update')
   @ApiOperation({ summary: 'Update inventory adjustment' })
-  update(@Param('id') id: string, @Body() dto: UpdateInventoryAdjustmentDto, @CurrentUser('id') userId: string) {
-    return this.service.update(id, dto, userId);
+  update(@Param('id') id: string, @Body() dto: UpdateInventoryAdjustmentDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.update(id, dto, userId, ctx);
   }
 
   @Patch(':id/post')
   @Permissions('inventory-adjustment:post')
   @ApiOperation({ summary: 'Post inventory adjustment' })
-  post(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.post(id, userId); }
+  post(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.post(id, userId, ctx); }
 
   @Patch(':id/cancel')
   @Permissions('inventory-adjustment:cancel')
   @ApiOperation({ summary: 'Cancel inventory adjustment' })
-  cancel(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.cancel(id, userId); }
+  cancel(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.cancel(id, userId, ctx); }
 
   @Post(':id/lines')
   @Permissions('inventory-adjustment:update')
   @ApiOperation({ summary: 'Add line to adjustment' })
-  addLine(@Param('id') id: string, @Body() dto: CreateInventoryAdjustmentLineDto, @CurrentUser('id') userId: string) {
-    return this.service.addLine(id, dto, userId);
+  addLine(@Param('id') id: string, @Body() dto: CreateInventoryAdjustmentLineDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.addLine(id, dto, userId, ctx);
   }
 
   @Patch(':id/lines/:lineId')
   @Permissions('inventory-adjustment:update')
   @ApiOperation({ summary: 'Update adjustment line' })
-  updateLine(@Param('id') id: string, @Param('lineId') lineId: string, @Body() dto: Partial<CreateInventoryAdjustmentLineDto>, @CurrentUser('id') userId: string) {
-    return this.service.updateLine(id, lineId, dto, userId);
+  updateLine(@Param('id') id: string, @Param('lineId') lineId: string, @Body() dto: Partial<CreateInventoryAdjustmentLineDto>, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.updateLine(id, lineId, dto, userId, ctx);
   }
 
   @Delete(':id/lines/:lineId')
   @Permissions('inventory-adjustment:update')
   @ApiOperation({ summary: 'Delete adjustment line' })
-  removeLine(@Param('id') id: string, @Param('lineId') lineId: string, @CurrentUser('id') userId: string) {
-    return this.service.removeLine(id, lineId, userId);
+  removeLine(@Param('id') id: string, @Param('lineId') lineId: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.removeLine(id, lineId, userId, ctx);
   }
 
   @Get(':id/summary')
   @Permissions('inventory-adjustment:read')
   @ApiOperation({ summary: 'Get adjustment summary' })
-  summary(@Param('id') id: string) { return this.service.summary(id); }
+  summary(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.summary(id, ctx); }
 }
 
 @ApiTags('Inventory Counts')
@@ -91,7 +93,7 @@ export class InventoryAdjustmentCountsController {
   @Post(':countId/generate-adjustment')
   @Permissions('inventory-count:generateAdjustment')
   @ApiOperation({ summary: 'Generate inventory adjustment from count' })
-  generateFromCount(@Param('countId') countId: string, @CurrentUser('id') userId: string) {
-    return this.service.generateFromCount(countId, userId);
+  generateFromCount(@Param('countId') countId: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.generateFromCount(countId, userId, ctx);
   }
 }

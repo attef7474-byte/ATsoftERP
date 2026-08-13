@@ -8,6 +8,8 @@ import { UpdateWarehouseLocationDto } from './dto/update-warehouse-location.dto'
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
+import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @ApiTags('Inventory')
 @ApiBearerAuth()
@@ -19,7 +21,7 @@ export class InventoryController {
   @Post('warehouses')
   @Permissions('inventory:create')
   @ApiOperation({ summary: 'Create warehouse' })
-  createWarehouse(@Body() dto: CreateWarehouseDto) { return this.service.createWarehouse(dto); }
+  createWarehouse(@Body() dto: CreateWarehouseDto, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.createWarehouse(dto, ctx); }
 
   @Get('warehouses')
   @Permissions('inventory:read')
@@ -37,42 +39,42 @@ export class InventoryController {
   @Get('warehouses/:id')
   @Permissions('inventory:read')
   @ApiOperation({ summary: 'Get warehouse by ID' })
-  findOneWarehouse(@Param('id') id: string) { return this.service.findOneWarehouse(id); }
+  findOneWarehouse(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOneWarehouse(id, ctx); }
 
   @Patch('warehouses/:id')
   @Permissions('inventory:update')
   @ApiOperation({ summary: 'Update warehouse' })
-  updateWarehouse(@Param('id') id: string, @Body() dto: UpdateWarehouseDto) { return this.service.updateWarehouse(id, dto); }
+  updateWarehouse(@Param('id') id: string, @Body() dto: UpdateWarehouseDto, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.updateWarehouse(id, dto, ctx); }
 
   @Delete('warehouses/:id')
   @Permissions('inventory:delete')
   @ApiOperation({ summary: 'Soft delete warehouse' })
-  removeWarehouse(@Param('id') id: string) { return this.service.removeWarehouse(id); }
+  removeWarehouse(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.removeWarehouse(id, ctx); }
 
   @Patch('warehouses/:id/activate')
   @Permissions('inventory:update')
   @ApiOperation({ summary: 'Activate warehouse' })
-  activateWarehouse(@Param('id') id: string) { return this.service.activateWarehouse(id); }
+  activateWarehouse(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.activateWarehouse(id, ctx); }
 
   @Patch('warehouses/:id/deactivate')
   @Permissions('inventory:update')
   @ApiOperation({ summary: 'Deactivate warehouse' })
-  deactivateWarehouse(@Param('id') id: string) { return this.service.deactivateWarehouse(id); }
+  deactivateWarehouse(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.deactivateWarehouse(id, ctx); }
 
   @Get('warehouses/:id/summary')
   @Permissions('inventory:read')
   @ApiOperation({ summary: 'Get warehouse summary' })
-  warehouseSummary(@Param('id') id: string) { return this.service.warehouseSummary(id); }
+  warehouseSummary(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.warehouseSummary(id, ctx); }
 
   @Get('locations/:id/balances')
   @Permissions('inventory:read')
   @ApiOperation({ summary: 'Get balances for a location' })
-  locationBalances(@Param('id') id: string) { return this.service.locationBalances(id); }
+  locationBalances(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.locationBalances(id, ctx); }
 
   @Post('locations')
   @Permissions('inventory:create')
   @ApiOperation({ summary: 'Create warehouse location' })
-  createLocation(@Body() dto: CreateWarehouseLocationDto) { return this.service.createLocation(dto); }
+  createLocation(@Body() dto: CreateWarehouseLocationDto, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.createLocation(dto, ctx); }
 
   @Get('locations')
   @Permissions('inventory:read')
@@ -90,25 +92,25 @@ export class InventoryController {
   @Get('locations/:id')
   @Permissions('inventory:read')
   @ApiOperation({ summary: 'Get warehouse location by ID' })
-  findOneLocation(@Param('id') id: string) { return this.service.findOneLocation(id); }
+  findOneLocation(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOneLocation(id, ctx); }
 
   @Get('warehouses/:warehouseId/locations')
   @Permissions('inventory:read')
   @ApiOperation({ summary: 'Get warehouse locations by warehouse' })
-  findLocations(@Param('warehouseId') warehouseId: string) { return this.service.findLocations(warehouseId); }
+  findLocations(@Param('warehouseId') warehouseId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findLocations(warehouseId, ctx); }
 
   @Patch('locations/:id')
   @Permissions('inventory:update')
   @ApiOperation({ summary: 'Update warehouse location' })
-  updateLocation(@Param('id') id: string, @Body() dto: UpdateWarehouseLocationDto) { return this.service.updateLocation(id, dto); }
+  updateLocation(@Param('id') id: string, @Body() dto: UpdateWarehouseLocationDto, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.updateLocation(id, dto, ctx); }
 
   @Delete('locations/:id')
   @Permissions('inventory:delete')
   @ApiOperation({ summary: 'Deactivate location' })
-  removeLocation(@Param('id') id: string) { return this.service.removeLocation(id); }
+  removeLocation(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.removeLocation(id, ctx); }
 
   @Patch('locations/:id/activate')
   @Permissions('inventory:update')
   @ApiOperation({ summary: 'Activate warehouse location' })
-  activateLocation(@Param('id') id: string) { return this.service.activateLocation(id); }
+  activateLocation(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.activateLocation(id, ctx); }
 }

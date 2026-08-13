@@ -7,6 +7,12 @@ import {
   QueryConditionBalanceDto,
   QueryConditionMovementDto,
 } from './dto/condition-movement.dto';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import {
+  assertRowInContext,
+  assertWarehouseInContext,
+  assertMaintenanceRequestInContext,
+} from '../../../../common/operational-context/tenant-guards';
 
 const VALID_CONDITIONS = ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'];
 const VALID_DIRECTIONS = ['IN', 'OUT'];
@@ -25,10 +31,19 @@ export class SparePartConditionService {
     private numberingService: NumberingService,
   ) {}
 
+  private warehouseWhere(ctx: ActiveOperationalContext): any {
+    return {
+      warehouse: {
+        companyId: ctx.companyId,
+        ...(ctx.branchId ? { branchId: ctx.branchId } : {}),
+      },
+    };
+  }
+
   // ── Balance Queries ──────────────────────────────────────────────
 
-  async getBalances(query: QueryConditionBalanceDto) {
-    const where: any = {};
+  async getBalances(query: QueryConditionBalanceDto, ctx: ActiveOperationalContext) {
+    const where: any = this.warehouseWhere(ctx);
     if (query.sparePartId) where.sparePartId = query.sparePartId;
     if (query.warehouseId) where.warehouseId = query.warehouseId;
     if (query.condition) where.condition = query.condition;
@@ -45,15 +60,16 @@ export class SparePartConditionService {
     });
   }
 
-  async getBalanceById(id: string) {
+  async getBalanceById(id: string, ctx: ActiveOperationalContext) {
     const balance = await this.prisma.sparePartConditionBalance.findUnique({
       where: { id },
       include: {
         sparePart: { select: { id: true, code: true, name: true, productId: true } },
-        warehouse: { select: { id: true, code: true, name: true, warehouseType: true } },
+        warehouse: { select: { id: true, code: true, name: true, warehouseType: true, companyId: true, branchId: true } },
       },
     });
     if (!balance) throw new NotFoundException('Condition balance not found');
+    assertRowInContext(balance.warehouse, ctx, 'condition balance');
     return balance;
   }
 
@@ -65,9 +81,9 @@ export class SparePartConditionService {
     return balance;
   }
 
-  async getBalancesBySparePart(sparePartId: string) {
+  async getBalancesBySparePart(sparePartId: string, ctx: ActiveOperationalContext) {
     return this.prisma.sparePartConditionBalance.findMany({
-      where: { sparePartId },
+      where: { sparePartId, ...this.warehouseWhere(ctx) },
       include: {
         warehouse: { select: { id: true, code: true, name: true, warehouseType: true } },
       },
@@ -75,7 +91,8 @@ export class SparePartConditionService {
     });
   }
 
-  async getBalancesByWarehouse(warehouseId: string) {
+  async getBalancesByWarehouse(warehouseId: string, ctx: ActiveOperationalContext) {
+    await assertWarehouseInContext(this.prisma, warehouseId, ctx);
     return this.prisma.sparePartConditionBalance.findMany({
       where: { warehouseId },
       include: {
@@ -87,7 +104,7 @@ export class SparePartConditionService {
 
   // ── Movement Recording ───────────────────────────────────────────
 
-  async recordMovement(dto: RecordConditionMovementDto, userId: string) {
+  async recordMovement(dto: RecordConditionMovementDto, userId: string, ctx: ActiveOperationalContext) {
     if (!VALID_CONDITIONS.includes(dto.condition)) {
       throw new BadRequestException(`Invalid condition '${dto.condition}'`);
     }
@@ -101,6 +118,17 @@ export class SparePartConditionService {
     const movementNumber = await this.numberingService.generateNumberAtomic('SPARE_PART_CONDITION_MOVEMENT');
 
     return this.prisma.$transaction(async (tx) => {
+      await assertWarehouseInContext(tx, dto.warehouseId, ctx);
+      if (dto.maintenanceRequestId) {
+        await assertMaintenanceRequestInContext(tx, dto.maintenanceRequestId, ctx);
+      }
+      if (dto.inventoryMovementId) {
+        const movement = await tx.inventoryMovement.findUnique({ where: { id: dto.inventoryMovementId } });
+        if (!movement || movement.companyId !== ctx.companyId) {
+          throw new BadRequestException('Invalid inventory movement reference');
+        }
+      }
+
       const balance = await this.getOrCreateBalance(tx, {
         sparePartId: dto.sparePartId,
         warehouseId: dto.warehouseId,
@@ -154,8 +182,8 @@ export class SparePartConditionService {
 
   // ── Movement Queries ─────────────────────────────────────────────
 
-  async getMovements(query: QueryConditionMovementDto) {
-    const where: any = {};
+  async getMovements(query: QueryConditionMovementDto, ctx: ActiveOperationalContext) {
+    const where: any = this.warehouseWhere(ctx);
     if (query.sparePartId) where.sparePartId = query.sparePartId;
     if (query.warehouseId) where.warehouseId = query.warehouseId;
     if (query.condition) where.condition = query.condition;
@@ -182,24 +210,25 @@ export class SparePartConditionService {
     });
   }
 
-  async getMovementById(id: string) {
+  async getMovementById(id: string, ctx: ActiveOperationalContext) {
     const movement = await this.prisma.sparePartConditionMovement.findUnique({
       where: { id },
       include: {
         sparePart: { select: { id: true, code: true, name: true, productId: true } },
-        warehouse: { select: { id: true, code: true, name: true, warehouseType: true } },
+        warehouse: { select: { id: true, code: true, name: true, warehouseType: true, companyId: true, branchId: true } },
         maintenanceRequest: { select: { id: true, requestNumber: true, title: true } },
         requiredPart: { select: { id: true, quantity: true, requestedQuantity: true } },
         createdBy: { select: { id: true, name: true } },
       },
     });
     if (!movement) throw new NotFoundException('Condition movement not found');
+    assertRowInContext(movement.warehouse, ctx, 'condition movement');
     return movement;
   }
 
-  async getMovementsByRequiredPart(requiredPartId: string) {
+  async getMovementsByRequiredPart(requiredPartId: string, ctx: ActiveOperationalContext) {
     return this.prisma.sparePartConditionMovement.findMany({
-      where: { requiredPartId },
+      where: { requiredPartId, ...this.warehouseWhere(ctx) },
       include: {
         sparePart: { select: { id: true, code: true, name: true, productId: true } },
         warehouse: { select: { id: true, code: true, name: true, warehouseType: true } },

@@ -1,10 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../../modules/numbering/numbering.service';
 import { IssueStockDto, ReturnStockDto } from './dto/issue-stock.dto';
 import { SparePartConditionService } from '../spare-part-conditions/spare-part-conditions.service';
 import { InstalledPartsReplacementService } from '../installed-parts-replacement/installed-parts-replacement.service';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { assertWarehouseInContext } from '../../../../common/operational-context/tenant-guards';
 
 const VALID_STOCK_CONDITIONS = ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'];
 const VALID_REPLACEMENT_ACTIONS = ['RETURNED_REMOVED_PART', 'NO_REMOVED_PART', 'NEW_INSTALLATION'];
@@ -20,7 +22,7 @@ export class MaintenanceStockIssueService {
     private installedPartsService: InstalledPartsReplacementService,
   ) {}
 
-  private async findPartLineOrFail(lineId: string, requestId: string) {
+  private async findPartLineOrFail(lineId: string, requestId: string, ctx: ActiveOperationalContext) {
     const part = await this.prisma.maintenanceRequestRequiredPart.findUnique({
       where: { id: lineId },
       include: {
@@ -50,7 +52,20 @@ export class MaintenanceStockIssueService {
     if (part.maintenanceRequestId !== requestId) {
       throw new BadRequestException('Part line does not belong to this request');
     }
+    this.assertMachineInContext(part.maintenanceRequest.machine, ctx);
     return part as any;
+  }
+
+  private assertMachineInContext(
+    machine: { id: string; companyId: string | null; branchId: string | null },
+    ctx: ActiveOperationalContext,
+  ): void {
+    if (!machine || machine.companyId !== ctx.companyId) {
+      throw new ForbiddenException('forbidden: part line machine does not belong to active company');
+    }
+    if (machine.branchId && machine.branchId !== ctx.branchId) {
+      throw new ForbiddenException('forbidden: part line machine does not belong to active branch');
+    }
   }
 
   private computeIssueStatus(issued: number, returned: number, approved: number): string {
@@ -86,8 +101,8 @@ export class MaintenanceStockIssueService {
     }
   }
 
-  async issue(requestId: string, lineId: string, dto: IssueStockDto, userId: string) {
-    const part: any = await this.findPartLineOrFail(lineId, requestId);
+  async issue(requestId: string, lineId: string, dto: IssueStockDto, userId: string, ctx: ActiveOperationalContext) {
+    const part: any = await this.findPartLineOrFail(lineId, requestId, ctx);
     if (!['APPROVED', 'RESERVED'].includes(part.status)) {
       throw new BadRequestException(`Cannot issue stock for part in status '${part.status}'. Must be APPROVED or RESERVED`);
     }
@@ -112,6 +127,17 @@ export class MaintenanceStockIssueService {
       throw new BadRequestException('Spare part has no linked product. Cannot issue stock.');
     }
 
+    await assertWarehouseInContext(this.prisma, dto.warehouseId, ctx);
+    if (dto.warehouseLocationId) {
+      const location = await this.prisma.warehouseLocation.findUnique({ where: { id: dto.warehouseLocationId } });
+      if (!location || location.warehouseId !== dto.warehouseId) {
+        throw new BadRequestException('warehouseLocationId does not belong to the selected warehouse');
+      }
+    }
+    if (dto.removedPartWarehouseId) {
+      await assertWarehouseInContext(this.prisma, dto.removedPartWarehouseId, ctx);
+    }
+
     const warehouse = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
     if (!warehouse) throw new NotFoundException('Warehouse not found');
     const wt = warehouse.warehouseType || '';
@@ -134,11 +160,22 @@ export class MaintenanceStockIssueService {
     derivedCostData.issuedStockCondition = dto.issuedStockCondition || 'NEW';
     derivedCostData.replacementAction = dto.replacementAction;
 
-    const companyId = machine.companyId;
-    const branchId = machine.branchId;
+    const companyId = ctx.companyId;
+    const branchId = ctx.branchId;
 
     const movement = await this.prisma.$transaction(async (tx) => {
-      const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
+      const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
+
+      await assertWarehouseInContext(tx, dto.warehouseId, ctx);
+      if (dto.warehouseLocationId) {
+        const location = await tx.warehouseLocation.findUnique({ where: { id: dto.warehouseLocationId } });
+        if (!location || location.warehouseId !== dto.warehouseId) {
+          throw new BadRequestException('warehouseLocationId does not belong to the selected warehouse');
+        }
+      }
+      if (dto.removedPartWarehouseId) {
+        await assertWarehouseInContext(tx, dto.removedPartWarehouseId, ctx);
+      }
 
       const balance = await this.getOrCreateBalance(tx, dto.warehouseId, productId, dto.warehouseLocationId);
       const delta = -dto.issuedQuantity;
@@ -234,7 +271,7 @@ export class MaintenanceStockIssueService {
         inventoryMovementId: movement.id,
         replacementAction: dto.replacementAction,
         notes: `Issued ${dto.issuedQuantity} of spare part ${part.sparePart.code} (condition: ${issuedCondition})`,
-      }, userId);
+      }, userId, ctx);
       const conditionOutMovementId = outMovement?.id;
 
       // If removed part returned, record condition IN
@@ -254,7 +291,7 @@ export class MaintenanceStockIssueService {
           inventoryMovementId: movement.id,
           replacementAction: dto.replacementAction,
           notes: `Returned removed part ${part.sparePart.code} (condition: ${dto.removedPartCondition}, qty: ${dto.removedPartQuantity})`,
-        }, userId);
+        }, userId, ctx);
         if (inMovement) conditionInMovementId = inMovement.id;
       }
 
@@ -324,8 +361,8 @@ export class MaintenanceStockIssueService {
     });
   }
 
-  async returnStock(requestId: string, lineId: string, dto: ReturnStockDto, userId: string) {
-    const part: any = await this.findPartLineOrFail(lineId, requestId);
+  async returnStock(requestId: string, lineId: string, dto: ReturnStockDto, userId: string, ctx: ActiveOperationalContext) {
+    const part: any = await this.findPartLineOrFail(lineId, requestId, ctx);
     const currentIssued = part.issuedQuantity || 0;
     const currentReturned = part.returnedQuantity || 0;
     const netIssued = currentIssued - currentReturned;
@@ -348,12 +385,15 @@ export class MaintenanceStockIssueService {
       throw new BadRequestException('Part line has no warehouse assigned. Issue stock first.');
     }
 
-    const companyId = part.maintenanceRequest.machine.companyId;
-    const branchId = part.maintenanceRequest.machine.branchId;
+    await assertWarehouseInContext(this.prisma, warehouseId, ctx);
+
+    const companyId = ctx.companyId;
+    const branchId = ctx.branchId;
 
     const movement = await this.prisma.$transaction(async (tx) => {
-      const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
+      const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
+      await assertWarehouseInContext(tx, warehouseId, ctx);
       const balance = await this.getOrCreateBalance(tx, warehouseId, productId, null);
       await tx.inventoryBalance.update({
         where: { id: balance.id },
@@ -420,12 +460,14 @@ export class MaintenanceStockIssueService {
     });
   }
 
-  async getIssues(lineId: string, requestId: string) {
-    await this.findPartLineOrFail(lineId, requestId);
+  async getIssues(lineId: string, requestId: string, ctx: ActiveOperationalContext) {
+    await this.findPartLineOrFail(lineId, requestId, ctx);
     return this.prisma.inventoryMovement.findMany({
       where: {
         sourceType: 'MAINTENANCE_PART_LINE',
         sourceId: lineId,
+        companyId: ctx.companyId,
+        OR: [{ branchId: ctx.branchId }, { branchId: null }],
         deletedAt: null,
       },
       include: {
@@ -464,7 +506,8 @@ export class MaintenanceStockIssueService {
     inventoryMovementId: string;
     replacementAction?: string;
     notes: string;
-  }, userId: string) {
+  }, userId: string, ctx: ActiveOperationalContext) {
+    await assertWarehouseInContext(tx, data.warehouseId, ctx);
     const balanceKey = { sparePartId: data.sparePartId, warehouseId: data.warehouseId, condition: data.condition };
     let balance = await tx.sparePartConditionBalance.findFirst({
       where: { sparePartId: balanceKey.sparePartId, warehouseId: balanceKey.warehouseId, condition: balanceKey.condition },
@@ -503,7 +546,7 @@ export class MaintenanceStockIssueService {
       },
     });
 
-    const movementNumber = await this.numberingService.generateNumberAtomic('SPARE_PART_CONDITION_MOVEMENT');
+    const movementNumber = await this.numberingService.generateNumberAtomicWithClient('SPARE_PART_CONDITION_MOVEMENT', tx);
 
     return tx.sparePartConditionMovement.create({
       data: {

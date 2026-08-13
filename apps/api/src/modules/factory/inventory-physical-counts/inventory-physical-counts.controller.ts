@@ -10,6 +10,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { InventoryLockGuard } from '../../../common/guards/inventory-lock.guard';
 
 @ApiTags('Physical Counts')
@@ -22,14 +24,14 @@ export class InventoryPhysicalCountsController {
   @Post()
   @Permissions('inventory:physical-count:create')
   @ApiOperation({ summary: 'Create physical count' })
-  create(@Body() dto: CreatePhysicalCountDto, @CurrentUser('id') userId: string) {
-    return this.service.create(dto, userId);
+  create(@Body() dto: CreatePhysicalCountDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.create(dto, userId, ctx);
   }
 
   @Get()
   @Permissions('inventory:physical-count:read')
   @ApiOperation({ summary: 'List physical counts' })
-  findAll(@Query() query: PhysicalCountQueryDto) {
+  findAll(@Query() query: PhysicalCountQueryDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
@@ -40,26 +42,26 @@ export class InventoryPhysicalCountsController {
       status: query.status,
       dateFrom: query.dateFrom,
       dateTo: query.dateTo,
-    });
+    }, ctx);
   }
 
   @Get(':id')
   @Permissions('inventory:physical-count:read')
   @ApiOperation({ summary: 'Get physical count by ID' })
-  findOne(@Param('id') id: string) { return this.service.findOne(id); }
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOne(id, ctx); }
 
   @Patch(':id')
   @Permissions('inventory:physical-count:update')
   @ApiOperation({ summary: 'Update physical count' })
-  update(@Param('id') id: string, @Body() dto: UpdatePhysicalCountDto, @CurrentUser('id') userId: string) {
-    return this.service.update(id, dto, userId);
+  update(@Param('id') id: string, @Body() dto: UpdatePhysicalCountDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.update(id, dto, userId, ctx);
   }
 
   @Delete(':id')
   @Permissions('inventory:physical-count:delete')
   @ApiOperation({ summary: 'Soft delete physical count' })
-  remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.service.remove(id, userId);
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.remove(id, userId, ctx);
   }
 
   @Post(':id/lines')
@@ -70,8 +72,9 @@ export class InventoryPhysicalCountsController {
     @Body('productId') productId: string,
     @Body('warehouseLocationId') warehouseLocationId: string | null,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.addLine(id, productId, warehouseLocationId, userId);
+    return this.service.addLine(id, productId, warehouseLocationId, userId, ctx);
   }
 
   @Patch(':id/lines/:lineId/enter')
@@ -82,52 +85,53 @@ export class InventoryPhysicalCountsController {
     @Param('lineId') lineId: string,
     @Body() dto: EnterCountLineDto,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.enterCount(id, lineId, dto, userId);
+    return this.service.enterCount(id, lineId, dto, userId, ctx);
   }
 
   @Patch(':id/submit')
   @Permissions('inventory:physical-count:submit')
   @ApiOperation({ summary: 'Submit physical count' })
-  submit(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.service.submit(id, userId);
+  submit(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.submit(id, userId, ctx);
   }
 
   @Patch(':id/approve')
   @Permissions('inventory:physical-count:approve')
   @ApiOperation({ summary: 'Approve physical count' })
-  approve(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.service.approve(id, userId);
+  approve(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.approve(id, userId, ctx);
   }
 
   @Patch(':id/reject')
   @Permissions('inventory:physical-count:reject')
   @ApiOperation({ summary: 'Reject physical count (back to DRAFT)' })
-  reject(@Param('id') id: string, @Body() dto: RejectPhysicalCountDto, @CurrentUser('id') userId: string) {
-    return this.service.reject(id, dto, userId);
+  reject(@Param('id') id: string, @Body() dto: RejectPhysicalCountDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.reject(id, dto, userId, ctx);
   }
 
   @Patch(':id/post')
   @Permissions('inventory:physical-count:post')
   @ApiOperation({ summary: 'Post physical count (create variance movements and update stock)' })
-  post(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.service.post(id, userId);
+  post(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.post(id, userId, ctx);
   }
 
   @Patch(':id/cancel')
   @Permissions('inventory:physical-count:cancel')
   @ApiOperation({ summary: 'Cancel physical count' })
-  cancel(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.service.cancel(id, userId);
+  cancel(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.cancel(id, userId, ctx);
   }
 
   @Get(':id/results')
   @Permissions('inventory:physical-count:read')
   @ApiOperation({ summary: 'Get physical count results with variance summary' })
-  results(@Param('id') id: string) { return this.service.results(id); }
+  results(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.results(id, ctx); }
 
   @Get(':id/history')
   @Permissions('inventory:physical-count:read')
   @ApiOperation({ summary: 'Get physical count audit history' })
-  history(@Param('id') id: string) { return this.service.history(id); }
+  history(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.history(id, ctx); }
 }

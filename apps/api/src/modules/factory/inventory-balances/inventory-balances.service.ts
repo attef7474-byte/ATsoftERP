@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { InventoryBalanceQueryDto } from './dto/inventory-balance-query.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { assertRowInContext } from '../../../common/operational-context/tenant-guards';
 
 @Injectable()
 export class InventoryBalancesService {
@@ -10,12 +12,21 @@ export class InventoryBalancesService {
     private audit: AuditService,
   ) {}
 
-  async findAll(query: InventoryBalanceQueryDto) {
+  private balanceWhere(ctx: ActiveOperationalContext): any {
+    return {
+      warehouse: {
+        companyId: ctx.companyId,
+        ...(ctx.branchId ? { branchId: ctx.branchId } : {}),
+      },
+    };
+  }
+
+  async findAll(query: InventoryBalanceQueryDto, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = this.balanceWhere(ctx);
     if (query.search) {
       where.OR = [
         { product: { name: { contains: query.search } } },
@@ -41,22 +52,23 @@ export class InventoryBalancesService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, ctx: ActiveOperationalContext) {
     const balance = await this.prisma.inventoryBalance.findUnique({
       where: { id },
       include: {
-        warehouse: { select: { id: true, code: true, name: true } },
+        warehouse: { select: { id: true, code: true, name: true, companyId: true, branchId: true } },
         location: { select: { id: true, code: true, name: true } },
         product: { select: { id: true, code: true, name: true, unit: true } },
       },
     });
     if (!balance) throw new NotFoundException('Balance not found');
+    assertRowInContext(balance.warehouse, ctx, 'inventory balance');
     return balance;
   }
 
-  async findByProduct(productId: string) {
+  async findByProduct(productId: string, ctx: ActiveOperationalContext) {
     return this.prisma.inventoryBalance.findMany({
-      where: { productId },
+      where: { productId, ...this.balanceWhere(ctx) },
       include: {
         warehouse: { select: { id: true, code: true, name: true } },
         location: { select: { id: true, code: true, name: true } },
@@ -64,9 +76,9 @@ export class InventoryBalancesService {
     });
   }
 
-  async findByLocation(locationId: string) {
+  async findByLocation(locationId: string, ctx: ActiveOperationalContext) {
     return this.prisma.inventoryBalance.findMany({
-      where: { locationId },
+      where: { locationId, ...this.balanceWhere(ctx) },
       include: {
         product: { select: { id: true, code: true, name: true, unit: true } },
         warehouse: { select: { id: true, code: true, name: true } },
@@ -74,12 +86,16 @@ export class InventoryBalancesService {
     });
   }
 
-  async recalculate(userId: string) {
+  async recalculate(userId: string, ctx: ActiveOperationalContext) {
+    const branchFilter = ctx.branchId ? { branchId: ctx.branchId } : {};
     await this.prisma.$transaction(async (tx) => {
-      await tx.inventoryBalance.deleteMany({});
+      await tx.inventoryBalance.deleteMany({ where: this.balanceWhere(ctx) });
 
       const movements = await tx.inventoryMovement.findMany({
-        where: { status: 'POSTED', deletedAt: null },
+        where: {
+          status: 'POSTED', deletedAt: null, companyId: ctx.companyId, ...branchFilter,
+          warehouse: { companyId: ctx.companyId, ...(ctx.branchId ? { branchId: ctx.branchId } : {}) },
+        },
         include: { lines: true },
       });
 
@@ -116,7 +132,10 @@ export class InventoryBalancesService {
       }
 
       const adjustments = await tx.inventoryAdjustment.findMany({
-        where: { status: 'POSTED', deletedAt: null },
+        where: {
+          status: 'POSTED', deletedAt: null, companyId: ctx.companyId, ...branchFilter,
+          warehouse: { companyId: ctx.companyId, ...(ctx.branchId ? { branchId: ctx.branchId } : {}) },
+        },
         include: { lines: true },
       });
 
@@ -152,16 +171,16 @@ export class InventoryBalancesService {
       }
     });
 
-    await this.audit.log(userId, 'RECALCULATE', 'InventoryBalance', undefined);
+    await this.audit.log(userId, 'RECALCULATE', 'InventoryBalance', undefined, { companyId: ctx.companyId, branchId: ctx.branchId });
     return { message: 'Inventory balances recalculated successfully' };
   }
 
-  async getBalanceSummary() {
+  async getBalanceSummary(ctx: ActiveOperationalContext) {
     const [total, totalProducts, totalQty, warehouseDistinct] = await Promise.all([
-      this.prisma.inventoryBalance.count(),
-      this.prisma.inventoryBalance.groupBy({ by: ['productId'], _count: true }),
-      this.prisma.inventoryBalance.aggregate({ _sum: { quantity: true } }),
-      this.prisma.inventoryBalance.groupBy({ by: ['warehouseId'], _count: true }),
+      this.prisma.inventoryBalance.count({ where: this.balanceWhere(ctx) }),
+      this.prisma.inventoryBalance.groupBy({ by: ['productId'], where: this.balanceWhere(ctx), _count: true }),
+      this.prisma.inventoryBalance.aggregate({ where: this.balanceWhere(ctx), _sum: { quantity: true } }),
+      this.prisma.inventoryBalance.groupBy({ by: ['warehouseId'], where: this.balanceWhere(ctx), _count: true }),
     ]);
 
     return {
@@ -173,29 +192,31 @@ export class InventoryBalancesService {
     };
   }
 
-  async getCountSummary() {
+  async getCountSummary(ctx: ActiveOperationalContext) {
+    const branchFilter = ctx.branchId ? { branchId: ctx.branchId } : {};
     const [total, draft, inProgress, completed, cancelled] = await Promise.all([
-      this.prisma.inventoryCount.count({ where: { deletedAt: null } }),
-      this.prisma.inventoryCount.count({ where: { status: 'DRAFT', deletedAt: null } }),
-      this.prisma.inventoryCount.count({ where: { status: 'IN_PROGRESS', deletedAt: null } }),
-      this.prisma.inventoryCount.count({ where: { status: 'COMPLETED', deletedAt: null } }),
-      this.prisma.inventoryCount.count({ where: { status: 'CANCELLED', deletedAt: null } }),
+      this.prisma.inventoryCount.count({ where: { deletedAt: null, companyId: ctx.companyId, ...branchFilter } }),
+      this.prisma.inventoryCount.count({ where: { status: 'DRAFT', deletedAt: null, companyId: ctx.companyId, ...branchFilter } }),
+      this.prisma.inventoryCount.count({ where: { status: 'IN_PROGRESS', deletedAt: null, companyId: ctx.companyId, ...branchFilter } }),
+      this.prisma.inventoryCount.count({ where: { status: 'COMPLETED', deletedAt: null, companyId: ctx.companyId, ...branchFilter } }),
+      this.prisma.inventoryCount.count({ where: { status: 'CANCELLED', deletedAt: null, companyId: ctx.companyId, ...branchFilter } }),
     ]);
     return { total, draft, inProgress, completed, cancelled };
   }
 
-  async getMovementSummary() {
+  async getMovementSummary(ctx: ActiveOperationalContext) {
+    const branchFilter = ctx.branchId ? { branchId: ctx.branchId } : {};
     const [total, draft, posted, cancelled, inQty, outQty] = await Promise.all([
-      this.prisma.inventoryMovement.count({ where: { deletedAt: null } }),
-      this.prisma.inventoryMovement.count({ where: { status: 'DRAFT', deletedAt: null } }),
-      this.prisma.inventoryMovement.count({ where: { status: 'POSTED', deletedAt: null } }),
-      this.prisma.inventoryMovement.count({ where: { status: 'CANCELLED', deletedAt: null } }),
+      this.prisma.inventoryMovement.count({ where: { deletedAt: null, companyId: ctx.companyId, ...branchFilter } }),
+      this.prisma.inventoryMovement.count({ where: { status: 'DRAFT', deletedAt: null, companyId: ctx.companyId, ...branchFilter } }),
+      this.prisma.inventoryMovement.count({ where: { status: 'POSTED', deletedAt: null, companyId: ctx.companyId, ...branchFilter } }),
+      this.prisma.inventoryMovement.count({ where: { status: 'CANCELLED', deletedAt: null, companyId: ctx.companyId, ...branchFilter } }),
       this.prisma.inventoryMovementLine.aggregate({
-        where: { movement: { status: 'POSTED', deletedAt: null }, direction: 'IN' },
+        where: { movement: { status: 'POSTED', deletedAt: null, companyId: ctx.companyId, ...branchFilter }, direction: 'IN' },
         _sum: { quantity: true },
       }),
       this.prisma.inventoryMovementLine.aggregate({
-        where: { movement: { status: 'POSTED', deletedAt: null }, direction: 'OUT' },
+        where: { movement: { status: 'POSTED', deletedAt: null, companyId: ctx.companyId, ...branchFilter }, direction: 'OUT' },
         _sum: { quantity: true },
       }),
     ]);
@@ -206,18 +227,19 @@ export class InventoryBalancesService {
     };
   }
 
-  async getAdjustmentSummary() {
+  async getAdjustmentSummary(ctx: ActiveOperationalContext) {
+    const branchFilter = ctx.branchId ? { branchId: ctx.branchId } : {};
     const [total, draft, posted, cancelled, totalPos, totalNeg] = await Promise.all([
-      this.prisma.inventoryAdjustment.count({ where: { deletedAt: null } }),
-      this.prisma.inventoryAdjustment.count({ where: { status: 'DRAFT', deletedAt: null } }),
-      this.prisma.inventoryAdjustment.count({ where: { status: 'POSTED', deletedAt: null } }),
-      this.prisma.inventoryAdjustment.count({ where: { status: 'CANCELLED', deletedAt: null } }),
+      this.prisma.inventoryAdjustment.count({ where: { deletedAt: null, companyId: ctx.companyId, ...branchFilter } }),
+      this.prisma.inventoryAdjustment.count({ where: { status: 'DRAFT', deletedAt: null, companyId: ctx.companyId, ...branchFilter } }),
+      this.prisma.inventoryAdjustment.count({ where: { status: 'POSTED', deletedAt: null, companyId: ctx.companyId, ...branchFilter } }),
+      this.prisma.inventoryAdjustment.count({ where: { status: 'CANCELLED', deletedAt: null, companyId: ctx.companyId, ...branchFilter } }),
       this.prisma.inventoryAdjustmentLine.aggregate({
-        where: { adjustment: { status: 'POSTED', deletedAt: null }, differenceQty: { gt: 0 } },
+        where: { adjustment: { status: 'POSTED', deletedAt: null, companyId: ctx.companyId, ...branchFilter }, differenceQty: { gt: 0 } },
         _sum: { differenceQty: true },
       }),
       this.prisma.inventoryAdjustmentLine.aggregate({
-        where: { adjustment: { status: 'POSTED', deletedAt: null }, differenceQty: { lt: 0 } },
+        where: { adjustment: { status: 'POSTED', deletedAt: null, companyId: ctx.companyId, ...branchFilter }, differenceQty: { lt: 0 } },
         _sum: { differenceQty: true },
       }),
     ]);

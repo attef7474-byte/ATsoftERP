@@ -73,3 +73,19 @@ Preserve and harden the established flows:
 
 * Duplicate-submission tests must cover every posting flow.
 * A posted document cannot be posted twice; the system returns a stable localized error or an idempotent success with no new movement.
+
+## 13. Tenant-Write Hardening for Inventory Documents
+
+The inventory document services (opening balances, operational receipts, stock transfers, physical counts, adjustments, balances, warehouses/locations) enforce tenant scope on every write:
+
+* **Revalidation inside the transaction**: the same guard that validated the warehouse before the write must revalidate on the transaction client (TOCTOU protection). Use `assertWarehouseInContext(tx, ...)` inside `$transaction` for `create` and `post`.
+* **Update never trusts client tenant fields**: `update` strips `companyId`/`branchId` from the DTO; re-pointing `warehouseId`, `sourceWarehouseId`, `destinationWarehouseId`, `inventoryCountId`, and location ids is validated against the active context before the write.
+* **Same-warehouse transfer guard**: a stock transfer must reject a resulting state where source and destination warehouse/location become identical.
+* **Location membership**: any warehouse-location supplied on create/update/line operations must belong to the effective document warehouse; otherwise reject with a localized error.
+* **Adjustment count reference**: `inventoryCountId` on an adjustment must belong to the active company/branch context both before and inside the transaction; `generateFromCount` validates the count warehouse and its line locations.
+* **In-transaction numbering**: document numbers and movement numbers are generated with `generateNumberAtomicWithClient(<KEY>, tx)` inside the transaction.
+* **Balance recalculation**: `recalculate` deletes and rebuilds balances strictly within the active company/branch warehouse scope; movement and adjustment source queries are filtered by the warehouse relation of the same tenant.
+* **Warehouse/location re-pointing**: `updateLocation` validates the target warehouse is in-context before re-pointing a location.
+* **Referenced records**: warehouses, locations, products, and inventory counts referenced by a write must belong to the active company/branch context; never fetch tenant-owned rows by `id` alone.
+
+Cover these guarantees with mocked-Prisma unit tests asserting cross-company denial for the direct write, the posting path, and the re-pointing paths.

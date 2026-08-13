@@ -6,6 +6,8 @@ import { CreatePhysicalCountDto } from './dto/create-physical-count.dto';
 import { UpdatePhysicalCountDto } from './dto/update-physical-count.dto';
 import { EnterCountLineDto } from './dto/enter-count-line.dto';
 import { RejectPhysicalCountDto } from './dto/reject-physical-count.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { assertRowInContext, assertWarehouseInContext } from '../../../common/operational-context/tenant-guards';
 
 @Injectable()
 export class InventoryPhysicalCountsService {
@@ -15,21 +17,18 @@ export class InventoryPhysicalCountsService {
     private numberingService: NumberingService,
   ) {}
 
-  async create(dto: CreatePhysicalCountDto, userId: string) {
-    const company = await this.prisma.company.findUnique({ where: { id: dto.companyId } });
-    if (!company) throw new NotFoundException('Company not found');
-
-    const warehouse = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
-    if (!warehouse) throw new NotFoundException('Warehouse not found');
+  async create(dto: CreatePhysicalCountDto, userId: string, ctx: ActiveOperationalContext) {
+    await assertWarehouseInContext(this.prisma, dto.warehouseId, ctx);
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const countNumber = await this.numberingService.generateNumberAtomic('PHYSICAL_COUNT');
+      await assertWarehouseInContext(tx, dto.warehouseId, ctx);
+      const countNumber = await this.numberingService.generateNumberAtomicWithClient('PHYSICAL_COUNT', tx);
 
       const count = await tx.inventoryPhysicalCount.create({
         data: {
           countNumber,
-          companyId: dto.companyId,
-          branchId: dto.branchId,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
           warehouseId: dto.warehouseId,
           notes: dto.notes,
           status: 'DRAFT',
@@ -64,20 +63,19 @@ export class InventoryPhysicalCountsService {
     page?: number; limit?: number; search?: string;
     companyId?: string; branchId?: string; warehouseId?: string;
     status?: string; dateFrom?: string; dateTo?: string;
-  }) {
+  }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null };
+    const where: any = { deletedAt: null, companyId: ctx.companyId };
+    if (ctx.branchId) where.branchId = ctx.branchId;
     if (query.search) {
       where.OR = [
         { countNumber: { contains: query.search } },
         { notes: { contains: query.search } },
       ];
     }
-    if (query.companyId) where.companyId = query.companyId;
-    if (query.branchId) where.branchId = query.branchId;
     if (query.warehouseId) where.warehouseId = query.warehouseId;
     if (query.status) where.status = query.status;
     if (query.dateFrom || query.dateTo) {
@@ -102,7 +100,7 @@ export class InventoryPhysicalCountsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, ctx: ActiveOperationalContext) {
     const count = await this.prisma.inventoryPhysicalCount.findUnique({
       where: { id },
       include: {
@@ -118,13 +116,18 @@ export class InventoryPhysicalCountsService {
       },
     });
     if (!count || count.deletedAt) throw new NotFoundException('Physical count not found');
+    assertRowInContext(count, ctx, 'physical count');
     return count;
   }
 
-  async update(id: string, dto: UpdatePhysicalCountDto, userId: string) {
-    const count = await this.findOne(id);
+  async update(id: string, dto: UpdatePhysicalCountDto, userId: string, ctx: ActiveOperationalContext) {
+    const count = await this.findOne(id, ctx);
     if (count.status !== 'DRAFT') {
       throw new BadRequestException('Only DRAFT physical counts can be updated');
+    }
+
+    if (dto.warehouseId) {
+      await assertWarehouseInContext(this.prisma, dto.warehouseId, ctx);
     }
 
     const updated = await this.prisma.inventoryPhysicalCount.update({ where: { id }, data: { ...dto } });
@@ -132,8 +135,8 @@ export class InventoryPhysicalCountsService {
     return updated;
   }
 
-  async remove(id: string, userId: string) {
-    const count = await this.findOne(id);
+  async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const count = await this.findOne(id, ctx);
     if (count.status !== 'DRAFT') {
       throw new BadRequestException('Only DRAFT physical counts can be deleted');
     }
@@ -147,6 +150,13 @@ export class InventoryPhysicalCountsService {
   }
 
   private async createLineWithBalance(tx: any, count: any, productId: string, warehouseLocationId?: string) {
+    if (warehouseLocationId) {
+      const loc = await tx.warehouseLocation.findUnique({ where: { id: warehouseLocationId } });
+      if (!loc) throw new NotFoundException('Warehouse location not found');
+      if (loc.warehouseId !== count.warehouseId) {
+        throw new BadRequestException('warehouseLocationId does not belong to the physical count warehouse');
+      }
+    }
     const balance = await tx.inventoryBalance.findFirst({
       where: { warehouseId: count.warehouseId, productId, locationId: warehouseLocationId ?? null },
       orderBy: { updatedAt: 'desc' },
@@ -158,9 +168,8 @@ export class InventoryPhysicalCountsService {
     });
   }
 
-  async addLine(physicalCountId: string, productId: string, warehouseLocationId: string | null, userId: string) {
-    const count = await this.prisma.inventoryPhysicalCount.findUnique({ where: { id: physicalCountId } });
-    if (!count || count.deletedAt) throw new NotFoundException('Physical count not found');
+  async addLine(physicalCountId: string, productId: string, warehouseLocationId: string | null, userId: string, ctx: ActiveOperationalContext) {
+    const count = await this.findOne(physicalCountId, ctx);
     if (count.status !== 'DRAFT') {
       throw new BadRequestException('Can only add lines to DRAFT physical counts');
     }
@@ -171,6 +180,9 @@ export class InventoryPhysicalCountsService {
     if (warehouseLocationId) {
       const loc = await this.prisma.warehouseLocation.findUnique({ where: { id: warehouseLocationId } });
       if (!loc) throw new NotFoundException('Warehouse location not found');
+      if (loc.warehouseId !== count.warehouseId) {
+        throw new BadRequestException('warehouseLocationId does not belong to the physical count warehouse');
+      }
     }
 
     const existing = await this.prisma.inventoryPhysicalCountLine.findFirst({
@@ -201,9 +213,8 @@ export class InventoryPhysicalCountsService {
     return line;
   }
 
-  async enterCount(physicalCountId: string, lineId: string, dto: EnterCountLineDto, userId: string) {
-    const count = await this.prisma.inventoryPhysicalCount.findUnique({ where: { id: physicalCountId } });
-    if (!count || count.deletedAt) throw new NotFoundException('Physical count not found');
+  async enterCount(physicalCountId: string, lineId: string, dto: EnterCountLineDto, userId: string, ctx: ActiveOperationalContext) {
+    const count = await this.findOne(physicalCountId, ctx);
     if (count.status !== 'DRAFT' && count.status !== 'SUBMITTED' && count.status !== 'REJECTED') {
       throw new BadRequestException('Can only enter counts for DRAFT/SUBMITTED/REJECTED physical counts');
     }
@@ -229,8 +240,8 @@ export class InventoryPhysicalCountsService {
     return updated;
   }
 
-  async submit(id: string, userId: string) {
-    const count = await this.findOne(id);
+  async submit(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const count = await this.findOne(id, ctx);
     if (count.status !== 'DRAFT') throw new BadRequestException('Only DRAFT physical counts can be submitted');
 
     const lines = await this.prisma.inventoryPhysicalCountLine.findMany({ where: { physicalCountId: id } });
@@ -244,8 +255,8 @@ export class InventoryPhysicalCountsService {
     return updated;
   }
 
-  async approve(id: string, userId: string) {
-    const count = await this.findOne(id);
+  async approve(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const count = await this.findOne(id, ctx);
     if (count.status !== 'SUBMITTED') throw new BadRequestException('Only SUBMITTED physical counts can be approved');
 
     const updated = await this.prisma.inventoryPhysicalCount.update({
@@ -256,8 +267,8 @@ export class InventoryPhysicalCountsService {
     return updated;
   }
 
-  async reject(id: string, dto: RejectPhysicalCountDto, userId: string) {
-    const count = await this.findOne(id);
+  async reject(id: string, dto: RejectPhysicalCountDto, userId: string, ctx: ActiveOperationalContext) {
+    const count = await this.findOne(id, ctx);
     if (count.status !== 'SUBMITTED') throw new BadRequestException('Only SUBMITTED physical counts can be rejected');
 
     const updated = await this.prisma.inventoryPhysicalCount.update({
@@ -268,8 +279,8 @@ export class InventoryPhysicalCountsService {
     return updated;
   }
 
-  async post(id: string, userId: string) {
-    const count = await this.findOne(id);
+  async post(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const count = await this.findOne(id, ctx);
     if (count.status !== 'APPROVED') throw new BadRequestException('Only APPROVED physical counts can be posted');
 
     const lines = await this.prisma.inventoryPhysicalCountLine.findMany({
@@ -290,8 +301,9 @@ export class InventoryPhysicalCountsService {
 
     try {
     await this.prisma.$transaction(async (tx) => {
+      await assertWarehouseInContext(tx, count.warehouseId, ctx);
       if (inLines.length > 0) {
-        const movNum = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
+        const movNum = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
         const movement = await tx.inventoryMovement.create({
           data: {
@@ -342,7 +354,7 @@ export class InventoryPhysicalCountsService {
       }
 
       if (outLines.length > 0) {
-        const outMovNum = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
+        const outMovNum = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
         const movement = await tx.inventoryMovement.create({
           data: {
             movementNumber: outMovNum,
@@ -392,11 +404,11 @@ export class InventoryPhysicalCountsService {
       throw error;
     }
 
-    return this.findOne(id);
+    return this.findOne(id, ctx);
   }
 
-  async cancel(id: string, userId: string) {
-    const count = await this.findOne(id);
+  async cancel(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const count = await this.findOne(id, ctx);
     if (count.status !== 'DRAFT' && count.status !== 'APPROVED') {
       throw new BadRequestException('Only DRAFT or APPROVED physical counts can be cancelled');
     }
@@ -409,8 +421,8 @@ export class InventoryPhysicalCountsService {
     return updated;
   }
 
-  async results(id: string) {
-    const count = await this.findOne(id);
+  async results(id: string, ctx: ActiveOperationalContext) {
+    const count = await this.findOne(id, ctx);
     const lines = count.lines;
     const totalLines = lines.length;
     const countedLines = lines.filter(l => l.countedQty !== null && l.countedQty !== undefined).length;
@@ -420,8 +432,8 @@ export class InventoryPhysicalCountsService {
     return { count, results: { totalLines, countedLines, totalVariance, totalIn, totalOut }, lines };
   }
 
-  async history(id: string) {
-    const count = await this.findOne(id);
+  async history(id: string, ctx: ActiveOperationalContext) {
+    const count = await this.findOne(id, ctx);
     const auditLogs = await this.prisma.auditLog.findMany({
       where: { entity: 'InventoryPhysicalCount', entityId: id },
       orderBy: { createdAt: 'desc' },

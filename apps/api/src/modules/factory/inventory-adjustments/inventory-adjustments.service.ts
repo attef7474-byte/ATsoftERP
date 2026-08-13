@@ -5,6 +5,12 @@ import { NumberingService } from '../../../modules/numbering/numbering.service';
 import { CreateInventoryAdjustmentDto, CreateInventoryAdjustmentLineDto } from './dto/create-inventory-adjustment.dto';
 import { UpdateInventoryAdjustmentDto } from './dto/update-inventory-adjustment.dto';
 import { InventoryAdjustmentQueryDto } from './dto/inventory-adjustment-query.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import {
+  assertRowInContext,
+  assertWarehouseInContext,
+  assertInventoryCountInContext,
+} from '../../../common/operational-context/tenant-guards';
 
 @Injectable()
 export class InventoryAdjustmentsService {
@@ -18,31 +24,37 @@ export class InventoryAdjustmentsService {
     return val ?? undefined;
   }
 
-  async create(dto: CreateInventoryAdjustmentDto, userId: string) {
-    const company = await this.prisma.company.findUnique({ where: { id: dto.companyId } });
-    if (!company) throw new NotFoundException('Company not found');
-
-    const warehouse = await this.prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
-    if (!warehouse) throw new NotFoundException('Warehouse not found');
-
-    if (dto.branchId) {
-      const branch = await this.prisma.branch.findUnique({ where: { id: dto.branchId } });
-      if (!branch) throw new NotFoundException('Branch not found');
+  async create(dto: CreateInventoryAdjustmentDto, userId: string, ctx: ActiveOperationalContext) {
+    await assertWarehouseInContext(this.prisma, dto.warehouseId, ctx);
+    if (dto.inventoryCountId) {
+      await assertInventoryCountInContext(this.prisma, dto.inventoryCountId, ctx);
     }
 
     for (const line of dto.lines) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
       if (!product) throw new NotFoundException(`Product ${line.productId} not found`);
+      if (line.warehouseLocationId) {
+        const loc = await this.prisma.warehouseLocation.findUnique({ where: { id: line.warehouseLocationId } });
+        if (!loc || loc.warehouseId !== dto.warehouseId) {
+          throw new BadRequestException('warehouseLocationId does not belong to the selected warehouse');
+        }
+      }
     }
 
     const adjustment = await this.prisma.$transaction(async (tx) => {
-      const adjustmentNumber = await this.numberingService.generateNumberAtomic('INVENTORY_ADJUSTMENT');
+      await assertWarehouseInContext(tx, dto.warehouseId, ctx);
+      if (dto.inventoryCountId) {
+        await assertInventoryCountInContext(tx, dto.inventoryCountId, ctx);
+      }
+      const adjustmentNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_ADJUSTMENT', tx);
 
       const { lines, ...rest } = dto;
 
       return tx.inventoryAdjustment.create({
         data: {
           ...rest,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
           adjustmentNumber,
           status: 'DRAFT',
           createdById: userId,
@@ -65,12 +77,13 @@ export class InventoryAdjustmentsService {
     return adjustment;
   }
 
-  async findAll(query: InventoryAdjustmentQueryDto) {
+  async findAll(query: InventoryAdjustmentQueryDto, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null };
+    const where: any = { deletedAt: null, companyId: ctx.companyId };
+    if (ctx.branchId) where.branchId = ctx.branchId;
     if (query.search) {
       where.OR = [
         { adjustmentNumber: { contains: query.search } },
@@ -78,8 +91,6 @@ export class InventoryAdjustmentsService {
         { reason: { contains: query.search } },
       ];
     }
-    if (query.companyId) where.companyId = query.companyId;
-    if (query.branchId) where.branchId = query.branchId;
     if (query.warehouseId) where.warehouseId = query.warehouseId;
     if (query.inventoryCountId) where.inventoryCountId = query.inventoryCountId;
     if (query.status) where.status = query.status;
@@ -104,7 +115,7 @@ export class InventoryAdjustmentsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, ctx: ActiveOperationalContext) {
     const adjustment = await this.prisma.inventoryAdjustment.findUnique({
       where: { id },
       include: {
@@ -121,11 +132,12 @@ export class InventoryAdjustmentsService {
       },
     });
     if (!adjustment || adjustment.deletedAt) throw new NotFoundException('Inventory adjustment not found');
+    assertRowInContext(adjustment, ctx, 'inventory adjustment');
     return adjustment;
   }
 
-  async update(id: string, dto: UpdateInventoryAdjustmentDto, userId: string) {
-    const adjustment = await this.findOne(id);
+  async update(id: string, dto: UpdateInventoryAdjustmentDto, userId: string, ctx: ActiveOperationalContext) {
+    const adjustment = await this.findOne(id, ctx);
     if (adjustment.status !== 'DRAFT') throw new BadRequestException('Only DRAFT adjustments can be updated');
 
     const updated = await this.prisma.inventoryAdjustment.update({
@@ -136,7 +148,9 @@ export class InventoryAdjustmentsService {
     return updated;
   }
 
-  async generateFromCount(countId: string, userId: string) {
+  async generateFromCount(countId: string, userId: string, ctx: ActiveOperationalContext) {
+    await assertInventoryCountInContext(this.prisma, countId, ctx);
+
     const count = await this.prisma.inventoryCount.findUnique({
       where: { id: countId },
       include: {
@@ -147,6 +161,7 @@ export class InventoryAdjustmentsService {
     });
     if (!count) throw new NotFoundException('Inventory count not found');
     if (count.status !== 'COMPLETED') throw new BadRequestException('Only COMPLETED counts can generate adjustments');
+    await assertWarehouseInContext(this.prisma, count.warehouseId, ctx);
 
     const existing = await this.prisma.inventoryAdjustment.findFirst({
       where: { inventoryCountId: countId, deletedAt: null },
@@ -166,8 +181,17 @@ export class InventoryAdjustmentsService {
 
     if (lines.length === 0) throw new BadRequestException('No lines with non-zero difference to adjust');
 
+    for (const l of lines) {
+      if (l.warehouseLocationId) {
+        const loc = await this.prisma.warehouseLocation.findUnique({ where: { id: l.warehouseLocationId } });
+        if (!loc || loc.warehouseId !== count.warehouseId) {
+          throw new BadRequestException('warehouseLocationId does not belong to the count warehouse');
+        }
+      }
+    }
+
     const adjustment = await this.prisma.$transaction(async (tx) => {
-      const adjustmentNumber = await this.numberingService.generateNumberAtomic('INVENTORY_ADJUSTMENT');
+      const adjustmentNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_ADJUSTMENT', tx);
 
       return tx.inventoryAdjustment.create({
         data: {
@@ -191,15 +215,17 @@ export class InventoryAdjustmentsService {
     return adjustment;
   }
 
-  async post(id: string, userId: string) {
+  async post(id: string, userId: string, ctx: ActiveOperationalContext) {
     const adjustment = await this.prisma.inventoryAdjustment.findUnique({
       where: { id },
       include: { lines: true },
     });
     if (!adjustment || adjustment.deletedAt) throw new NotFoundException('Inventory adjustment not found');
+    assertRowInContext(adjustment, ctx, 'inventory adjustment');
     if (adjustment.status !== 'DRAFT') throw new BadRequestException('Only DRAFT adjustments can be posted');
 
     const posted = await this.prisma.$transaction(async (tx) => {
+      await assertWarehouseInContext(tx, adjustment.warehouseId, ctx);
       for (const line of adjustment.lines) {
         const balance = await this.getOrCreateBalance(tx, adjustment.warehouseId, line.productId, line.warehouseLocationId);
 
@@ -234,9 +260,10 @@ export class InventoryAdjustmentsService {
     return posted;
   }
 
-  async cancel(id: string, userId: string) {
+  async cancel(id: string, userId: string, ctx: ActiveOperationalContext) {
     const adjustment = await this.prisma.inventoryAdjustment.findUnique({ where: { id } });
     if (!adjustment || adjustment.deletedAt) throw new NotFoundException('Inventory adjustment not found');
+    assertRowInContext(adjustment, ctx, 'inventory adjustment');
     if (adjustment.status !== 'DRAFT') throw new BadRequestException('Only DRAFT adjustments can be cancelled');
 
     const updated = await this.prisma.inventoryAdjustment.update({
@@ -248,11 +275,17 @@ export class InventoryAdjustmentsService {
     return updated;
   }
 
-  async addLine(id: string, dto: CreateInventoryAdjustmentLineDto, userId: string) {
-    const adj = await this.findOne(id);
+  async addLine(id: string, dto: CreateInventoryAdjustmentLineDto, userId: string, ctx: ActiveOperationalContext) {
+    const adj = await this.findOne(id, ctx);
     if (adj.status !== 'DRAFT') throw new BadRequestException('Only DRAFT adjustments can be modified');
     const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
     if (!product) throw new NotFoundException('Product not found');
+    if (dto.warehouseLocationId) {
+      const loc = await this.prisma.warehouseLocation.findUnique({ where: { id: dto.warehouseLocationId } });
+      if (!loc || loc.warehouseId !== adj.warehouseId) {
+        throw new BadRequestException('warehouseLocationId does not belong to the adjustment warehouse');
+      }
+    }
 
     const line = await this.prisma.inventoryAdjustmentLine.create({
       data: {
@@ -265,11 +298,18 @@ export class InventoryAdjustmentsService {
     return line;
   }
 
-  async updateLine(id: string, lineId: string, dto: Partial<CreateInventoryAdjustmentLineDto>, userId: string) {
-    const adj = await this.findOne(id);
+  async updateLine(id: string, lineId: string, dto: Partial<CreateInventoryAdjustmentLineDto>, userId: string, ctx: ActiveOperationalContext) {
+    const adj = await this.findOne(id, ctx);
     if (adj.status !== 'DRAFT') throw new BadRequestException('Only DRAFT adjustments can be modified');
     const line = await this.prisma.inventoryAdjustmentLine.findUnique({ where: { id: lineId } });
     if (!line || line.adjustmentId !== id) throw new NotFoundException('Adjustment line not found');
+
+    if (dto.warehouseLocationId) {
+      const loc = await this.prisma.warehouseLocation.findUnique({ where: { id: dto.warehouseLocationId } });
+      if (!loc || loc.warehouseId !== adj.warehouseId) {
+        throw new BadRequestException('warehouseLocationId does not belong to the adjustment warehouse');
+      }
+    }
 
     const updateData: any = { ...dto };
     if (dto.countedQty !== undefined || dto.systemQty !== undefined) {
@@ -286,8 +326,8 @@ export class InventoryAdjustmentsService {
     return updated;
   }
 
-  async removeLine(id: string, lineId: string, userId: string) {
-    const adj = await this.findOne(id);
+  async removeLine(id: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
+    const adj = await this.findOne(id, ctx);
     if (adj.status !== 'DRAFT') throw new BadRequestException('Only DRAFT adjustments can be modified');
     const line = await this.prisma.inventoryAdjustmentLine.findUnique({ where: { id: lineId } });
     if (!line || line.adjustmentId !== id) throw new NotFoundException('Adjustment line not found');
@@ -297,8 +337,8 @@ export class InventoryAdjustmentsService {
     return { message: 'Line removed successfully' };
   }
 
-  async summary(id: string) {
-    const adj = await this.findOne(id);
+  async summary(id: string, ctx: ActiveOperationalContext) {
+    const adj = await this.findOne(id, ctx);
     const lines = await this.prisma.inventoryAdjustmentLine.findMany({
       where: { adjustmentId: id },
       select: { systemQty: true, countedQty: true, differenceQty: true },
