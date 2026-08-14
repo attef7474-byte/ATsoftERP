@@ -278,6 +278,7 @@ model Company {
   costCalculations OperationalCostCalculation[]
   sourceChanges OperationalSourceChange[]
   operationalCostCenterAssignments OperationalCostCenterAssignment[]
+  inventoryLocks InventoryLock[]
 
   @@index([status])
   @@index([code])
@@ -361,6 +362,7 @@ model Branch {
   costCalculations OperationalCostCalculation[]
   sourceChanges OperationalSourceChange[]
   operationalCostCenterAssignments OperationalCostCenterAssignment[]
+  inventoryLocks InventoryLock[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -1302,6 +1304,10 @@ model AuditLog {
 
 model InventoryLock {
   id              String   @id @default(cuid())
+  companyId       String?
+  company         Company? @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId        String?
+  branch          Branch?  @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   code            String
   lockType        String
   status          String   @default("ACTIVE")
@@ -1331,6 +1337,12 @@ model InventoryLock {
   @@index([productId])
   @@index([sparePartId])
   @@index([status, lockType])
+  @@index([companyId, branchId, code])
+  @@index([companyId, branchId, status, lockType, dateFrom, dateTo])
+  @@index([companyId, branchId, warehouseId])
+  @@index([companyId, branchId, locationId])
+  @@index([companyId, branchId, productId])
+  @@index([companyId, branchId, sparePartId])
   @@map("inventory_locks")
 }
 
@@ -1376,6 +1388,11 @@ model NotificationRule {
 
 model Attachment {
   id           String   @id @default(cuid())
+  // Nullable for backward compatibility. Runtime access is fail-closed: rows
+  // without deterministically established ownership are not exposed by the
+  // generic attachment API.
+  companyId    String?
+  branchId     String?
   entityName   String
   entityId     String
   originalName String
@@ -1390,6 +1407,8 @@ model Attachment {
 
   @@index([entityName])
   @@index([entityId])
+  @@index([companyId, branchId, createdAt])
+  @@index([companyId, branchId, entityName, entityId])
   @@map("attachments")
 }
 
@@ -3141,6 +3160,10 @@ model MaintenanceChecklistExecutionItem {
 
 model BarcodeLabel {
   id                 String   @id @default(cuid())
+  // Nullable for backward compatibility. Runtime access is fail-closed: only
+  // rows matching the exact active company and branch are exposed.
+  companyId          String?
+  branchId           String?
   code               String   @unique
   value              String   @unique
   symbology          String   @default("QR_CODE")
@@ -3175,11 +3198,18 @@ model BarcodeLabel {
   @@index([status, entityType])
   @@index([entityType, entityId, status])
   @@index([status, createdAt])
+  @@index([companyId, branchId, createdAt])
+  @@index([companyId, branchId, entityType, entityId])
+  @@index([companyId, branchId, status])
   @@map("barcode_labels")
 }
 
 model BarcodeScanEvent {
   id           String   @id @default(cuid())
+  // Scan attempts are operational facts owned by the active context even when
+  // no label resolves. Legacy NULL ownership is intentionally not visible.
+  companyId    String?
+  branchId     String?
   labelId      String?
   label        BarcodeLabel? @relation(fields: [labelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   scannedValue String
@@ -3209,6 +3239,9 @@ model BarcodeScanEvent {
   @@index([scannedAt])
   @@index([labelId, result])
   @@index([scannedById, scannedAt])
+  @@index([companyId, branchId, scannedAt])
+  @@index([companyId, branchId, entityType, entityId])
+  @@index([companyId, branchId, result, scannedAt])
   @@map("barcode_scan_events")
 }
 
@@ -3237,6 +3270,10 @@ model BarcodeLabelTemplate {
 
 model BarcodePrintJob {
   id            String   @id @default(cuid())
+  // Print jobs are tenant operations. Nullable columns preserve legacy rows,
+  // which remain hidden unless ownership was deterministically established.
+  companyId     String?
+  branchId      String?
   labelId       String?
   label         BarcodeLabel? @relation(fields: [labelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   templateId    String?
@@ -3261,6 +3298,9 @@ model BarcodePrintJob {
   @@index([status])
   @@index([printedById])
   @@index([requestedAt])
+  @@index([companyId, branchId, requestedAt])
+  @@index([companyId, branchId, entityType, entityId])
+  @@index([companyId, branchId, status])
   @@map("barcode_print_jobs")
 }
 
@@ -4068,7 +4108,7 @@ model ProductionOutputEvent {
   createdById        String
   createdAt          DateTime                     @default(now())
 
-  @@unique([companyId, requestId])
+  @@unique([companyId, branchId, requestId], map: "production_output_events_tenant_branch_request_key")
   @@index([companyId, branchId, productionRunId, occurredAt])
   @@index([companyId, branchId, productionRunId, classification, occurredAt])
   @@index([companyId, branchId, measurementPointId, occurredAt])
