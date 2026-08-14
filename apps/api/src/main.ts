@@ -1,5 +1,23 @@
 import { config } from 'dotenv';
-config({ path: '.env' });
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
+function loadRootEnv(): void {
+  let dir = __dirname;
+  for (let depth = 0; depth < 10; depth += 1) {
+    const candidate = join(dir, '.env');
+    if (existsSync(candidate)) {
+      config({ path: candidate });
+      return;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  config({ path: '.env' });
+}
+
+loadRootEnv();
 
 import { NestFactory } from '@nestjs/core';
 import { BadRequestException, ValidationPipe, VersioningType } from '@nestjs/common';

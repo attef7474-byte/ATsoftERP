@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, getApiBaseUrl } from './api';
 import {
   clearStoredOperationalContext,
   normalizeOperationalContext,
@@ -106,7 +106,7 @@ export function registerAutoLogout(): () => void {
   const handler = () => {
     const token = getToken();
     if (!token) return;
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+    const baseUrl = getApiBaseUrl();
     navigator.sendBeacon(`${baseUrl}/auth/logout`, JSON.stringify({}));
     localStorage.removeItem('accessToken');
     clearStoredOperationalContext();

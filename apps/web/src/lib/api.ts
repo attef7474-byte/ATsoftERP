@@ -2,7 +2,16 @@ import { getOperationalContextHeaders } from './operational-context';
 import { getClientLocale } from './i18n/locale-shared';
 
 export const getApiBaseUrl = (): string => {
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname) {
+      return `${window.location.protocol}//${hostname}:4000/api/v1`;
+    }
+  }
+  return 'http://localhost:4000/api/v1';
 };
 
 export interface ApiHeaderOptions {
