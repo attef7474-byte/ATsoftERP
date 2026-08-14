@@ -13,6 +13,10 @@ import { MobileMenuOverlay, MobileMenuPanel } from './mobile-menu';
 import { Sidebar, getActiveGroupId } from './sidebar';
 import { TopBar } from './top-bar';
 
+// Single JS breakpoint. Matches globals.css `@media (max-width: 1023px)` (which hides
+// the desktop sidebar for widths strictly below 1024px) and Tailwind `lg:` (>=1024px).
+const MOBILE_BREAKPOINT = 1024;
+
 function AdminShellInner({ children }: { children: React.ReactNode }) {
   const { t, locale, setLocale } = useTranslation();
   const { user: profile, logout } = useAuth();
@@ -94,12 +98,24 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
   const toggleLanguage = () => { setLocale(locale === 'ar' ? 'en' : 'ar'); };
 
   const toggleSidebar = () => {
-    if (window.innerWidth < 1024) {
+    if (window.innerWidth < MOBILE_BREAKPOINT) {
       setSidebarOpen(true);
     } else {
       setSidebarCollapsed((previous) => !previous);
     }
   };
+
+  // When the window grows back to desktop width, dismiss the mobile drawer so no
+  // stale overlay/drawer remains on top of the desktop sidebar.
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= MOBILE_BREAKPOINT) {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Combine sidebar theme data-attrs
   const sidebarDataAttrs = {
@@ -150,6 +166,7 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
         <MobileMenuPanel
           isRtl={isRtl}
           pathname={pathname}
+          activeGroupId={activeGroupId}
           profile={profile}
           onClose={() => setSidebarOpen(false)}
         />

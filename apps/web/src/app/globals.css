@@ -624,6 +624,62 @@ body {
   }
 }
 
+/* ======= Mobile Drawer Navigation ======= */
+/* Reuses the sidebar design tokens/classes so the drawer looks like the desktop
+   sidebar adapted to a small width (same gradient, contrast, active styles). */
+.admin-mobile-drawer {
+  background: var(--ats-sidebar-gradient, var(--sidebar-bg-main));
+  color: var(--sidebar-primary-text);
+  border-inline-start: 1px solid var(--sidebar-border);
+  box-shadow: 0 12px 40px rgba(4, 46, 93, 0.25);
+}
+
+.admin-mobile-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 54px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--sidebar-border);
+  font-size: var(--sidebar-logo-size);
+  font-weight: var(--sidebar-logo-weight);
+  color: var(--sidebar-primary-text);
+  white-space: nowrap;
+}
+
+.admin-mobile-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--sidebar-border);
+  background: transparent;
+  color: var(--sidebar-primary-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-mobile-drawer-close:hover {
+  background: var(--sidebar-surface-hover);
+  color: #fff;
+}
+
+.admin-mobile-drawer-footer {
+  border-top: 1px solid var(--sidebar-border);
+  padding: 12px 14px;
+}
+
+.admin-mobile-drawer-footer p {
+  color: var(--sidebar-primary-text);
+}
+
+.admin-mobile-drawer-footer p + p {
+  color: var(--sidebar-secondary-text);
+}
+
 /* ======= Required field indicator ======= */
 .required-field label::after {
   content: ' *';
@@ -772,7 +828,7 @@ html{font-size:calc(16px * var(--ats-font-scale))}
 .admin-main{background:linear-gradient(180deg,#f3fbff 0%,#f8fbfd 42%,#fff 100%)!important}
 [data-form-header],.ats-form-header{background:var(--ats-form-header-gradient)!important;border-bottom:1px solid var(--ats-form-header-border)!important}
 [data-form-header] h1,[data-form-header] h2,[data-form-header] h3,[data-form-header]:is(h1,h2,h3),.ats-form-header h1,.ats-form-header h2,.ats-form-header h3,.ats-form-header:is(h1,h2,h3){color:var(--ats-form-header-text)!important;font-weight:800!important}
-.admin-sidebar a[aria-current=true],.admin-sidebar a.active,.admin-sidebar [data-active=true]{background:linear-gradient(135deg,var(--ats-active-nav),var(--ats-accent))!important;color:#fff!important;box-shadow:0 7px 18px rgba(20,184,166,.22)!important}
+.admin-sidebar a[aria-current=true],.admin-sidebar a.active,.admin-sidebar [data-active=true],.admin-mobile-drawer a[aria-current=true],.admin-mobile-drawer a.active,.admin-mobile-drawer [data-active=true]{background:linear-gradient(135deg,var(--ats-active-nav),var(--ats-accent))!important;color:#fff!important;box-shadow:0 7px 18px rgba(20,184,166,.22)!important}
 .admin-main table thead,.admin-main table thead th,.admin-main [role=columnheader]{background:var(--ats-form-gradient)!important;color:#073d7d!important}
 .admin-main table{border-radius:var(--ats-radius);box-shadow:var(--ats-shadow);overflow:hidden}
 .admin-main input,.admin-main select,.admin-main textarea{border-radius:var(--ats-radius)!important;outline-color:var(--ats-primary)!important}
