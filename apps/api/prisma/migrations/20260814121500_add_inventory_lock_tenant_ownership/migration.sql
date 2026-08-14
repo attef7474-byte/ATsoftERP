@@ -17,6 +17,14 @@
 -- application immediately after this migration so new rows receive exact scope.
 -- The six tenant-first indexes add bounded write/storage overhead to the small
 -- lock-control table and match code lookup plus active lock checks by reference.
+--
+-- SQL Server batch note: statements that reference the columns added above are
+-- executed through EXEC sys.sp_executesql. SQL Server compiles an entire batch
+-- before executing it, so a statement referencing a column added by ALTER TABLE
+-- in the same batch fails with "Invalid column name" at compile time. Dynamic
+-- SQL compiles at runtime, after the ALTER has executed. This mirrors the
+-- approved pattern in
+-- 20260807100000_add_2a_cost_center_hierarchy_and_assignments.
 
 SET XACT_ABORT ON;
 
@@ -26,6 +34,7 @@ BEGIN TRY
   ALTER TABLE [dbo].[inventory_locks] ADD [companyId] NVARCHAR(1000) NULL;
   ALTER TABLE [dbo].[inventory_locks] ADD [branchId] NVARCHAR(1000) NULL;
 
+  EXEC sys.sp_executesql N'
   -- A location is authoritative only when the row has no warehouse reference
   -- or both references identify the same warehouse.
   UPDATE [lock]
@@ -81,6 +90,7 @@ BEGIN TRY
 
   CREATE INDEX [inventory_locks_companyId_branchId_sparePartId_idx]
     ON [dbo].[inventory_locks]([companyId], [branchId], [sparePartId]);
+  ';
 
   COMMIT TRANSACTION;
 END TRY

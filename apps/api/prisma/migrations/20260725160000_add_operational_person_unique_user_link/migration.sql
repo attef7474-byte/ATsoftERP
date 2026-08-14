@@ -33,7 +33,7 @@ CREATE UNIQUE NONCLUSTERED INDEX [UX_operational_people_userId_not_null] ON [dbo
 ALTER TABLE [dbo].[maintenance_personnel] ADD [operationalPersonId] NVARCHAR(1000);
 
 -- Backfill operationalPersonId with same IDs (operational_people was copied with same PKs)
-UPDATE [dbo].[maintenance_personnel] SET [operationalPersonId] = [id];
+EXEC sys.sp_executesql N'UPDATE [dbo].[maintenance_personnel] SET [operationalPersonId] = [id];';
 
 -- Make operationalPersonId required
 ALTER TABLE [dbo].[maintenance_personnel] ALTER COLUMN [operationalPersonId] NVARCHAR(1000) NOT NULL;
