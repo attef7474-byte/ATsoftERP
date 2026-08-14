@@ -8,7 +8,12 @@ Worktree: `C:\Users\attef\PycharmProjects\ATsoftERP-Worktrees\42-final-autonomou
 ## 1. Identity
 
 - Initial SHA (base): `d60ca52a0a3a8c0ef4511219fea06b4dc3d20359` (== `origin/main` at audit start).
-- Final feature SHA: set after commit (see commit record).
+- Final feature SHA: `26ba1b00dabb32ea250114866fb7d485c2ca19e6` (5 commits, all gates green before commit):
+  - `fbc6655` fix(security): tenant-scope schema contract and migrations (S)
+  - `4ea0d78` fix(security): barcode module tenant scoping, seed keys, dead-stub removal (BARCODE/R2)
+  - `0bf4955` fix(security): R2 tenant isolation hardening across modules (R2/D1)
+  - `c891230` fix(security): production branch-scope idempotency and global-catalog functional fixes (B/F)
+  - `26ba1b0` chore: C1 route-contract tooling, D2 api smoke test, remediation docs (C1/D2/DOC)
 - Changed paths audited: 186 (130 modified, 27 deleted, 29 untracked). All classified into an
   authorized track; `UNRELATED_CHANGED_PATHS=0`.
 
