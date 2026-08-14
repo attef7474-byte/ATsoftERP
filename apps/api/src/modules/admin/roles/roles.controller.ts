@@ -8,6 +8,8 @@ import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../modules/auth/decorators/current-user.decorator';
+import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @ApiTags('Roles')
 @ApiBearerAuth()
@@ -26,20 +28,20 @@ export class RolesController {
   @Get()
   @Permissions('roles:read')
   @ApiOperation({ summary: 'List all roles' })
-  findAll(@Query() query: { page?: string; limit?: string; search?: string; status?: string }) {
+  findAll(@Query() query: { page?: string; limit?: string; search?: string; status?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.rolesService.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,
       status: query.status,
-    });
+    }, ctx);
   }
 
   @Get(':id')
   @Permissions('roles:read')
   @ApiOperation({ summary: 'Get role by ID' })
-  findOne(@Param('id') id: string) {
-    return this.rolesService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.rolesService.findOne(id, ctx);
   }
 
   @Patch(':id')
@@ -59,17 +61,17 @@ export class RolesController {
   @Get(':id/users')
   @Permissions('roles:read')
   @ApiOperation({ summary: 'Get users assigned to role' })
-  getUsers(@Param('id') id: string, @Query() query: { page?: string; limit?: string }) {
+  getUsers(@Param('id') id: string, @Query() query: { page?: string; limit?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.rolesService.getUsers(id, {
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
-    });
+    }, ctx);
   }
 
   @Post(':id/permissions')
   @Permissions('roles:update')
   @ApiOperation({ summary: 'Assign permissions to role' })
-  assignPermissions(@Param('id') id: string, @Body() dto: AssignRolePermissionsDto, @CurrentUser('id') userId: string) {
-    return this.rolesService.assignPermissions(id, dto.permissionIds, userId);
+  assignPermissions(@Param('id') id: string, @Body() dto: AssignRolePermissionsDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.rolesService.assignPermissions(id, dto.permissionIds, userId, ctx);
   }
 }

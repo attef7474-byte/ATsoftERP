@@ -6,6 +6,8 @@ import { UpdateBusinessPartnerGroupDto } from './dto/update-group.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @ApiTags('Business Partner Groups')
 @ApiBearerAuth()
@@ -24,20 +26,20 @@ export class BusinessPartnerGroupsController {
   @Get()
   @Permissions('business-partner-group:read')
   @ApiOperation({ summary: 'List business partner groups' })
-  findAll(@Query() query: { page?: string; limit?: string; search?: string; status?: string }) {
+  findAll(@Query() query: { page?: string; limit?: string; search?: string; status?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,
       status: query.status,
-    });
+    }, ctx);
   }
 
   @Get(':id')
   @Permissions('business-partner-group:read')
   @ApiOperation({ summary: 'Get group by ID' })
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findOne(id, ctx);
   }
 
   @Patch(':id')

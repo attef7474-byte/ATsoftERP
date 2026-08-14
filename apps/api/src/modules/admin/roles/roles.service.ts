@@ -3,6 +3,7 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class RolesService {
@@ -41,7 +42,7 @@ export class RolesService {
     return role;
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string; status?: string }) {
+  async findAll(query: { page?: number; limit?: number; search?: string; status?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -61,7 +62,14 @@ export class RolesService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: { permissions: { include: { permission: true } }, _count: { select: { users: true } } },
+        include: {
+          permissions: { include: { permission: true } },
+          _count: {
+            select: {
+              users: { where: { user: { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } } },
+            },
+          },
+        },
       }),
       this.prisma.role.count({ where }),
     ]);
@@ -72,10 +80,19 @@ export class RolesService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, ctx?: ActiveOperationalContext) {
     const role = await this.prisma.role.findUnique({
       where: { id },
-      include: { permissions: { include: { permission: true } }, _count: { select: { users: true } } },
+      include: {
+        permissions: { include: { permission: true } },
+        _count: {
+          select: {
+            users: ctx
+              ? { where: { user: { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } } }
+              : true,
+          },
+        },
+      },
     });
     if (!role) {
       throw new NotFoundException({ messageKey: 'organization.roleNotFound', message: 'Role not found' });
@@ -148,7 +165,7 @@ export class RolesService {
     return { message: 'Role deleted successfully' };
   }
 
-  async getUsers(id: string, query: { page?: number; limit?: number }) {
+  async getUsers(id: string, query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const role = await this.prisma.role.findUnique({ where: { id } });
     if (!role) {
       throw new NotFoundException({ messageKey: 'organization.roleNotFound', message: 'Role not found' });
@@ -160,7 +177,7 @@ export class RolesService {
 
     const [data, total] = await Promise.all([
       this.prisma.userRole.findMany({
-        where: { roleId: id },
+        where: { roleId: id, user: { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } },
         skip,
         take: limit,
         include: {
@@ -172,7 +189,7 @@ export class RolesService {
           },
         },
       }),
-      this.prisma.userRole.count({ where: { roleId: id } }),
+      this.prisma.userRole.count({ where: { roleId: id, user: { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } } }),
     ]);
 
     return {
@@ -181,7 +198,7 @@ export class RolesService {
     };
   }
 
-  async assignPermissions(id: string, permissionIds: string[], userId?: string) {
+  async assignPermissions(id: string, permissionIds: string[], userId?: string, ctx?: ActiveOperationalContext) {
     const role = await this.prisma.role.findUnique({ where: { id } });
     if (!role) {
       throw new NotFoundException({ messageKey: 'organization.roleNotFound', message: 'Role not found' });
@@ -201,7 +218,7 @@ export class RolesService {
       });
     }
 
-    return this.findOne(id);
+    return this.findOne(id, ctx);
   }
 
   private async assertPermissionsExist(permissionIds: string[]): Promise<void> {

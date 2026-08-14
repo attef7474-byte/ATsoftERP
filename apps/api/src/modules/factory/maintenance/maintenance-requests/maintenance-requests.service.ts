@@ -115,7 +115,7 @@ export class MaintenanceRequestsService {
     const { machineId, assignedToId, requiredParts, ...rest } = dto;
 
     const request = await this.prisma.$transaction(async (tx) => {
-      const requestNumber = await this.numberingService.generateNumberAtomic('MAINTENANCE_REQUEST');
+      const requestNumber = await this.numberingService.generateNumberAtomicWithClient('MAINTENANCE_REQUEST', tx);
 
       return tx.maintenanceRequest.create({
         data: {
@@ -148,7 +148,7 @@ export class MaintenanceRequestsService {
       if (request.assignedToId) {
         await this.notificationService.notifyRequestCreated(request);
       }
-      await this.slaService.createSlaState(request.id);
+      await this.slaService.createSlaState(request.id, ctx);
     } catch { }
     return request;
   }
@@ -434,7 +434,7 @@ export class MaintenanceRequestsService {
     try {
       const startedRequest = await this.findOne(id, ctx);
       await this.notificationService.notifyRequestStarted(startedRequest);
-      await this.slaService.recalculateSla(id);
+      await this.slaService.recalculateSla(id, ctx);
     } catch { }
     return updated;
   }

@@ -124,7 +124,10 @@ describe('InstalledPartsReplacementService (expected life lifecycle)', () => {
       machineInstalledPartReading: { create: jest.fn() },
       $transaction: jest.fn((fn) => fn(prisma)),
     };
-    numbering = { generateNumberAtomic: jest.fn() };
+    numbering = {
+      generateNumberAtomic: jest.fn(),
+      generateNumberAtomicWithClient: jest.fn().mockResolvedValue('REP-0001'),
+    };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
     service = new InstalledPartsReplacementService(prisma as PrismaService, numbering as NumberingService, audit as AuditService);
   });
@@ -258,5 +261,32 @@ describe('InstalledPartsReplacementService (expected life lifecycle)', () => {
     const result = await service.evaluateAll(ctx);
     expect(result.evaluated).toBe(1);
     expect(result.results[0].id).toBe('p1');
+  });
+
+  it('generates the replacement number on the transaction client, never the root client', async () => {
+    prisma.sparePartReplacementHistory = { create: jest.fn().mockResolvedValue({ id: 'rep1' }) };
+    const tx = prisma;
+
+    const result = await service.recordReplacementInTx(tx, {
+      machineId: 'm1',
+      maintenanceRequestId: 'req1',
+      requiredPartId: 'line1',
+      newInstalledPartId: 'ip1',
+      newSparePartId: 'sp1',
+      issuedCondition: 'NEW',
+      issuedQuantity: 2,
+      replacementAction: 'RETURNED_REMOVED_PART',
+      inventoryOutMovementId: 'im1',
+      replacedByUserId: 'u1',
+    });
+
+    expect(result).toEqual({ id: 'rep1' });
+    expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledWith('SPARE_PART_REPLACEMENT', tx);
+    expect(numbering.generateNumberAtomic).not.toHaveBeenCalled();
+    expect(prisma.sparePartReplacementHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ machineId: 'm1', newSparePartId: 'sp1', inventoryOutMovementId: 'im1' }),
+      }),
+    );
   });
 });

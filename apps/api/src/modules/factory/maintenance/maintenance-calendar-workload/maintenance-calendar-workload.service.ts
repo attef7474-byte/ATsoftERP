@@ -1,9 +1,36 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class MaintenanceCalendarWorkloadService {
   constructor(private prisma: PrismaService) {}
+
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
+  }
+
+  private isMachineInScope(
+    machine: { companyId?: string | null; branchId?: string | null },
+    ctx: ActiveOperationalContext,
+  ): boolean {
+    return machine.companyId === ctx.companyId
+      && (machine.branchId === null || machine.branchId === ctx.branchId);
+  }
+
+  private async findRequestOrFail(id: string, ctx: ActiveOperationalContext) {
+    const request = await this.prisma.maintenanceRequest.findUnique({
+      where: { id },
+      select: { id: true, notes: true, status: true, machine: { select: { id: true, companyId: true, branchId: true } } },
+    });
+    if (!request || !request.machine || !this.isMachineInScope(request.machine, ctx)) {
+      throw new NotFoundException('Request not found');
+    }
+    return request;
+  }
 
   async getCalendarEvents(params: {
     startDate?: string;
@@ -15,7 +42,7 @@ export class MaintenanceCalendarWorkloadService {
     status?: string;
     priority?: string;
     slaStatus?: string;
-  }) {
+  }, ctx: ActiveOperationalContext) {
     if (!params.startDate || !params.endDate) {
       throw new BadRequestException('startDate and endDate are required');
     }
@@ -25,7 +52,7 @@ export class MaintenanceCalendarWorkloadService {
       throw new BadRequestException('Invalid date format');
     }
 
-    const where: any = { deletedAt: null };
+    const where: any = { deletedAt: null, machine: this.machineScope(ctx) };
     if (params.machineId) where.machineId = params.machineId;
     if (params.productionLineId) where.productionLineId = params.productionLineId;
     if (params.type) where.type = params.type;
@@ -65,6 +92,7 @@ export class MaintenanceCalendarWorkloadService {
             { endDate: null },
             { endDate: { gte: start } },
           ],
+          machine: this.machineScope(ctx),
           ...(params.machineId ? { machineId: params.machineId } : {}),
         },
         include: {
@@ -132,19 +160,19 @@ export class MaintenanceCalendarWorkloadService {
     return [...events, ...scheduleEvents];
   }
 
-  async getCalendarFilters() {
+  async getCalendarFilters(ctx: ActiveOperationalContext) {
     const [personnel, machines, productionLines] = await Promise.all([
       this.prisma.maintenancePersonnel.findMany({
         where: { isActive: true },
         select: { id: true, role: true, operationalPerson: { select: { id: true, code: true, name: true } } },
       }),
       this.prisma.machine.findMany({
-        where: { deletedAt: null },
+        where: { deletedAt: null, ...this.machineScope(ctx) },
         select: { id: true, code: true, name: true },
         orderBy: { name: 'asc' },
       }),
       this.prisma.productionLine.findMany({
-        where: { deletedAt: null },
+        where: { deletedAt: null, companyId: ctx.companyId, branchId: ctx.branchId },
         select: { id: true, code: true, name: true },
         orderBy: { name: 'asc' },
       }),
@@ -166,13 +194,14 @@ export class MaintenanceCalendarWorkloadService {
     };
   }
 
-  async getWorkloadSummary(date?: string) {
+  async getWorkloadSummary(date: string | undefined, ctx: ActiveOperationalContext) {
     const targetDate = date ? new Date(date) : new Date();
     if (isNaN(targetDate.getTime())) throw new BadRequestException('Invalid date');
 
     const now = new Date();
     const activeStatuses = ['OPEN', 'IN_PROGRESS'];
     const nonCompletedStatuses = ['ASSIGNED', 'ACCEPTED', 'IN_PROGRESS'];
+    const scope = this.machineScope(ctx);
 
     const [
       personnel,
@@ -191,21 +220,21 @@ export class MaintenanceCalendarWorkloadService {
         },
       }),
       this.prisma.maintenanceRequest.findMany({
-        where: { status: { in: activeStatuses }, deletedAt: null },
+        where: { status: { in: activeStatuses }, deletedAt: null, machine: scope },
         select: { id: true, estimatedDurationMinutes: true, machineId: true, productionLineId: true, type: true, priority: true, startDate: true, endDate: true, assignedToId: true },
       }),
       this.prisma.maintenanceRequestAssignment.findMany({
-        where: { status: { in: nonCompletedStatuses } },
+        where: { status: { in: nonCompletedStatuses }, maintenanceRequest: { machine: scope } },
         select: { id: true, maintenancePersonnelId: true, maintenanceRequestId: true },
       }),
       this.prisma.maintenanceRequest.count({
-        where: { status: { in: activeStatuses }, endDate: { lt: now }, deletedAt: null },
+        where: { status: { in: activeStatuses }, endDate: { lt: now }, deletedAt: null, machine: scope },
       }),
       this.prisma.maintenanceRequest.count({
-        where: { status: { in: activeStatuses }, completeDueAt: { lte: now }, deletedAt: null },
+        where: { status: { in: activeStatuses }, completeDueAt: { lte: now }, deletedAt: null, machine: scope },
       }),
-      this.prisma.machine.findMany({ where: { deletedAt: null }, select: { id: true, code: true, name: true, productionLineId: true } }),
-      this.prisma.productionLine.findMany({ where: { deletedAt: null }, select: { id: true, code: true, name: true } }),
+      this.prisma.machine.findMany({ where: { deletedAt: null, ...scope }, select: { id: true, code: true, name: true, productionLineId: true } }),
+      this.prisma.productionLine.findMany({ where: { deletedAt: null, companyId: ctx.companyId, branchId: ctx.branchId }, select: { id: true, code: true, name: true } }),
     ]);
 
     const duration = (r: typeof allActiveRequests[0]) => r.estimatedDurationMinutes || 120;
@@ -269,29 +298,29 @@ export class MaintenanceCalendarWorkloadService {
     };
   }
 
-  async getWorkloadByPersonnel(date?: string) {
-    const summary = await this.getWorkloadSummary(date);
+  async getWorkloadByPersonnel(date: string | undefined, ctx: ActiveOperationalContext) {
+    const summary = await this.getWorkloadSummary(date, ctx);
     return summary.workloadByPersonnel;
   }
 
-  async getWorkloadByMachine(date?: string) {
-    const summary = await this.getWorkloadSummary(date);
+  async getWorkloadByMachine(date: string | undefined, ctx: ActiveOperationalContext) {
+    const summary = await this.getWorkloadSummary(date, ctx);
     return summary.workloadByMachine;
   }
 
-  async getWorkloadByProductionLine(date?: string) {
-    const summary = await this.getWorkloadSummary(date);
+  async getWorkloadByProductionLine(date: string | undefined, ctx: ActiveOperationalContext) {
+    const summary = await this.getWorkloadSummary(date, ctx);
     return summary.workloadByProductionLine;
   }
 
-  async getWorkloadByDate(startDate: string, endDate: string) {
+  async getWorkloadByDate(startDate: string, endDate: string, ctx: ActiveOperationalContext) {
     if (!startDate || !endDate) throw new BadRequestException('startDate and endDate are required');
     const start = new Date(startDate);
     const end = new Date(endDate);
     if (isNaN(start.getTime()) || isNaN(end.getTime())) throw new BadRequestException('Invalid date');
 
     const requests = await this.prisma.maintenanceRequest.findMany({
-      where: { deletedAt: null, status: { in: ['OPEN', 'IN_PROGRESS'] }, OR: [{ startDate: { gte: start, lte: end } }, { endDate: { gte: start, lte: end } }] },
+      where: { deletedAt: null, status: { in: ['OPEN', 'IN_PROGRESS'] }, machine: this.machineScope(ctx), OR: [{ startDate: { gte: start, lte: end } }, { endDate: { gte: start, lte: end } }] },
       select: { id: true, startDate: true, endDate: true, estimatedDurationMinutes: true, machineId: true, productionLineId: true, type: true, assignedToId: true },
     });
 
@@ -311,25 +340,26 @@ export class MaintenanceCalendarWorkloadService {
     return { startDate, endDate, daily };
   }
 
-  async getOverloadedPersonnel(date?: string) {
-    const summary = await this.getWorkloadSummary(date);
+  async getOverloadedPersonnel(date: string | undefined, ctx: ActiveOperationalContext) {
+    const summary = await this.getWorkloadSummary(date, ctx);
     return summary.workloadByPersonnel.filter(w => w.status === 'OVERLOADED');
   }
 
-  async getConflicts(startDate?: string, endDate?: string) {
+  async getConflicts(startDate: string | undefined, endDate: string | undefined, ctx: ActiveOperationalContext) {
     const activeStatuses = ['OPEN', 'IN_PROGRESS'];
     const nonCompletedStatuses = ['ASSIGNED', 'ACCEPTED', 'IN_PROGRESS'];
+    const scope = this.machineScope(ctx);
 
     const [assignments, requests] = await Promise.all([
       this.prisma.maintenanceRequestAssignment.findMany({
-        where: { status: { in: nonCompletedStatuses } },
+        where: { status: { in: nonCompletedStatuses }, maintenanceRequest: { machine: scope } },
         include: {
           maintenancePersonnel: { select: { id: true, role: true, operationalPerson: { select: { id: true, code: true, name: true } } } },
           maintenanceRequest: { select: { id: true, requestNumber: true, title: true, startDate: true, endDate: true, machineId: true } },
         },
       }),
       this.prisma.maintenanceRequest.findMany({
-        where: { status: { in: activeStatuses }, deletedAt: null },
+        where: { status: { in: activeStatuses }, deletedAt: null, machine: scope },
         select: { id: true, requestNumber: true, title: true, startDate: true, endDate: true, machineId: true },
       }),
     ]);
@@ -375,14 +405,15 @@ export class MaintenanceCalendarWorkloadService {
     return conflicts;
   }
 
-  async getUnassignedWork(page = 1, limit = 10) {
+  async getUnassignedWork(page = 1, limit = 10, ctx: ActiveOperationalContext) {
     const activeStatuses = ['OPEN', 'IN_PROGRESS'];
+    const scope = this.machineScope(ctx);
     const assignedIds = await this.prisma.maintenanceRequestAssignment.findMany({
-      where: { status: { in: ['ASSIGNED', 'ACCEPTED', 'IN_PROGRESS'] } },
+      where: { status: { in: ['ASSIGNED', 'ACCEPTED', 'IN_PROGRESS'] }, maintenanceRequest: { machine: scope } },
       select: { maintenanceRequestId: true },
     });
     const assignedRequestIds = [...new Set(assignedIds.map(a => a.maintenanceRequestId))];
-    const where = { status: { in: activeStatuses }, deletedAt: null, assignedToId: null, id: { notIn: assignedRequestIds } };
+    const where = { status: { in: activeStatuses }, deletedAt: null, assignedToId: null, id: { notIn: assignedRequestIds }, machine: scope };
     const [data, total] = await Promise.all([
       this.prisma.maintenanceRequest.findMany({
         where, skip: (page - 1) * limit, take: limit, orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
@@ -393,9 +424,9 @@ export class MaintenanceCalendarWorkloadService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getOverduePlannedWork(page = 1, limit = 10) {
+  async getOverduePlannedWork(page = 1, limit = 10, ctx: ActiveOperationalContext) {
     const now = new Date();
-    const where = { status: { in: ['OPEN', 'IN_PROGRESS'] }, endDate: { lt: now }, deletedAt: null };
+    const where = { status: { in: ['OPEN', 'IN_PROGRESS'] }, endDate: { lt: now }, deletedAt: null, machine: this.machineScope(ctx) };
     const [data, total] = await Promise.all([
       this.prisma.maintenanceRequest.findMany({
         where, skip: (page - 1) * limit, take: limit, orderBy: { endDate: 'asc' },
@@ -406,9 +437,9 @@ export class MaintenanceCalendarWorkloadService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getSlaDueWork(page = 1, limit = 10) {
+  async getSlaDueWork(page = 1, limit = 10, ctx: ActiveOperationalContext) {
     const now = new Date();
-    const where = { status: { in: ['OPEN', 'IN_PROGRESS'] }, completeDueAt: { not: null, lte: now }, deletedAt: null };
+    const where = { status: { in: ['OPEN', 'IN_PROGRESS'] }, completeDueAt: { not: null, lte: now }, deletedAt: null, machine: this.machineScope(ctx) };
     const [data, total] = await Promise.all([
       this.prisma.maintenanceRequest.findMany({
         where, skip: (page - 1) * limit, take: limit, orderBy: { completeDueAt: 'asc' },
@@ -419,9 +450,8 @@ export class MaintenanceCalendarWorkloadService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async updatePlanning(requestId: string, body: { plannedStartAt?: string; plannedEndAt?: string; estimatedDurationMinutes?: number }) {
-    const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: requestId }, select: { id: true, status: true } });
-    if (!request) throw new BadRequestException('Request not found');
+  async updatePlanning(requestId: string, body: { plannedStartAt?: string; plannedEndAt?: string; estimatedDurationMinutes?: number }, ctx: ActiveOperationalContext) {
+    await this.findRequestOrFail(requestId, ctx);
 
     const data: any = {};
     if (body.plannedStartAt !== undefined) data.startDate = new Date(body.plannedStartAt);
@@ -431,10 +461,9 @@ export class MaintenanceCalendarWorkloadService {
     return this.prisma.maintenanceRequest.update({ where: { id: requestId }, data, select: { id: true, requestNumber: true, startDate: true, endDate: true, estimatedDurationMinutes: true } });
   }
 
-  async reschedule(requestId: string, body: { plannedStartAt: string; plannedEndAt: string; reason?: string }) {
+  async reschedule(requestId: string, body: { plannedStartAt: string; plannedEndAt: string; reason?: string }, ctx: ActiveOperationalContext) {
     if (!body.plannedStartAt || !body.plannedEndAt) throw new BadRequestException('plannedStartAt and plannedEndAt are required');
-    const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: requestId }, select: { id: true, status: true, notes: true } });
-    if (!request) throw new BadRequestException('Request not found');
+    const request = await this.findRequestOrFail(requestId, ctx);
 
     const start = new Date(body.plannedStartAt);
     const end = new Date(body.plannedEndAt);
@@ -448,9 +477,8 @@ export class MaintenanceCalendarWorkloadService {
     });
   }
 
-  async assignPlannedWork(requestId: string, personnelId: string) {
-    const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: requestId }, select: { id: true } });
-    if (!request) throw new BadRequestException('Request not found');
+  async assignPlannedWork(requestId: string, personnelId: string, ctx: ActiveOperationalContext) {
+    await this.findRequestOrFail(requestId, ctx);
 
     const personnel = await this.prisma.maintenancePersonnel.findUnique({ where: { id: personnelId }, select: { id: true, isActive: true } });
     if (!personnel) throw new BadRequestException('Personnel not found');
@@ -467,7 +495,7 @@ export class MaintenanceCalendarWorkloadService {
     });
   }
 
-  async getCapacityInfo() {
+  async getCapacityInfo(ctx: ActiveOperationalContext) {
     const personnel = await this.prisma.maintenancePersonnel.findMany({
       where: { isActive: true },
       select: { id: true, dailyCapacityMinutes: true, role: true, operationalPerson: { select: { id: true, code: true, name: true } } },

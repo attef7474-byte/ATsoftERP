@@ -26,14 +26,14 @@ export class InventoryController {
   @Get('warehouses')
   @Permissions('inventory:read')
   @ApiOperation({ summary: 'List warehouses' })
-  findAllWarehouses(@Query() query: { page?: string; limit?: string; search?: string; companyId?: string; warehouseType?: string }) {
+  findAllWarehouses(@Query() query: { page?: string; limit?: string; search?: string; companyId?: string; warehouseType?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAllWarehouses({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,
       companyId: query.companyId,
       warehouseType: query.warehouseType,
-    });
+    }, ctx);
   }
 
   @Get('warehouses/:id')
@@ -79,14 +79,14 @@ export class InventoryController {
   @Get('locations')
   @Permissions('inventory:read')
   @ApiOperation({ summary: 'List all warehouse locations' })
-  findAllLocations(@Query() query: { page?: string; limit?: string; search?: string; warehouseId?: string; status?: string }) {
+  findAllLocations(@Query() query: { page?: string; limit?: string; search?: string; warehouseId?: string; status?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAllLocations({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,
       warehouseId: query.warehouseId,
       status: query.status,
-    });
+    }, ctx);
   }
 
   @Get('locations/:id')

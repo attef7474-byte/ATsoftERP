@@ -3,6 +3,7 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class DepartmentsService {
@@ -19,22 +20,23 @@ export class DepartmentsService {
     });
   }
 
-  async create(dto: CreateDepartmentDto) {
+  async create(dto: CreateDepartmentDto, ctx: ActiveOperationalContext) {
     await this.validateReferences({
-      companyId: dto.companyId,
-      branchId: dto.branchId,
+      companyId: ctx.companyId,
+      branchId: ctx.branchId,
       administrationId: dto.administrationId,
       parentId: dto.parentId,
-    });
+    }, ctx);
 
     const code = dto.code?.trim() || (await this.numberingService.generateNumberAtomic('DEPARTMENT'));
 
     const existing = await this.prisma.department.findFirst({
-      where: { companyId: dto.companyId, code, deletedAt: null },
+      where: { companyId: ctx.companyId, code, deletedAt: null },
     });
     if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Department code already exists');
 
-    return this.prisma.department.create({ data: { ...dto, code } });
+    const { companyId: _companyId, branchId: _branchId, ...rest } = dto;
+    return this.prisma.department.create({ data: { ...rest, companyId: ctx.companyId, branchId: ctx.branchId, code } });
   }
 
   private async validateReferences(refs: {
@@ -42,14 +44,14 @@ export class DepartmentsService {
     branchId?: string;
     administrationId?: string;
     parentId?: string;
-  }) {
+  }, ctx: ActiveOperationalContext) {
     if (refs.companyId) {
-      const company = await this.prisma.company.findUnique({ where: { id: refs.companyId } });
+      const company = await this.prisma.company.findFirst({ where: { id: ctx.companyId, deletedAt: null } });
       if (!company) throw this.validationError('companyId', 'validation.invalidReference', 'Company not found');
     }
 
     if (refs.branchId) {
-      const branch = await this.prisma.branch.findUnique({ where: { id: refs.branchId } });
+      const branch = await this.prisma.branch.findFirst({ where: { id: refs.branchId, companyId: ctx.companyId, deletedAt: null } });
       if (!branch) throw this.validationError('branchId', 'validation.invalidReference', 'Branch not found');
       if (refs.companyId && branch.companyId !== refs.companyId) {
         throw this.validationError('branchId', 'validation.invalidReference', 'Branch does not belong to the selected company');
@@ -57,7 +59,7 @@ export class DepartmentsService {
     }
 
     if (refs.administrationId) {
-      const admin = await this.prisma.administration.findUnique({ where: { id: refs.administrationId } });
+      const admin = await this.prisma.administration.findFirst({ where: { id: refs.administrationId, branchId: ctx.branchId, deletedAt: null } });
       if (!admin) throw this.validationError('administrationId', 'validation.invalidReference', 'Administration not found');
       if (refs.branchId && admin.branchId !== refs.branchId) {
         throw this.validationError('administrationId', 'validation.invalidReference', 'Administration does not belong to the selected branch');
@@ -65,7 +67,7 @@ export class DepartmentsService {
     }
 
     if (refs.parentId) {
-      const parent = await this.prisma.department.findUnique({ where: { id: refs.parentId } });
+      const parent = await this.prisma.department.findFirst({ where: { id: refs.parentId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } });
       if (!parent) throw this.validationError('parentId', 'validation.invalidReference', 'Parent department not found');
       if (refs.companyId && parent.companyId !== refs.companyId) {
         throw this.validationError('parentId', 'validation.invalidReference', 'Parent department does not belong to the selected company');
@@ -73,15 +75,13 @@ export class DepartmentsService {
     }
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string; companyId?: string; branchId?: string; administrationId?: string }) {
+  async findAll(query: { page?: number; limit?: number; search?: string; administrationId?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null };
+    const where: any = { deletedAt: null, companyId: ctx.companyId, branchId: ctx.branchId };
     if (query.search) where.name = { contains: query.search };
-    if (query.companyId) where.companyId = query.companyId;
-    if (query.branchId) where.branchId = query.branchId;
     if (query.administrationId) where.administrationId = query.administrationId;
 
     const [data, total] = await Promise.all([
@@ -101,9 +101,9 @@ export class DepartmentsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
-    const department = await this.prisma.department.findUnique({
-      where: { id },
+  async findOne(id: string, ctx: ActiveOperationalContext) {
+    const department = await this.prisma.department.findFirst({
+      where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
       include: {
         company: { select: { id: true, name: true } },
         branch: { select: { id: true, name: true } },
@@ -119,29 +119,29 @@ export class DepartmentsService {
     return department;
   }
 
-  async update(id: string, dto: UpdateDepartmentDto) {
-    const department = await this.findOne(id);
+  async update(id: string, dto: UpdateDepartmentDto, ctx: ActiveOperationalContext) {
+    const department = await this.findOne(id, ctx);
 
     await this.validateReferences({
-      companyId: dto.companyId ?? department.companyId,
-      branchId: dto.branchId ?? department.branchId ?? undefined,
+      companyId: ctx.companyId,
+      branchId: ctx.branchId,
       administrationId: dto.administrationId ?? department.administrationId ?? undefined,
       parentId: dto.parentId ?? department.parentId ?? undefined,
-    });
+    }, ctx);
 
     const code = dto.code?.trim();
     if (code) {
-      const companyId = dto.companyId ?? department.companyId;
       const existing = await this.prisma.department.findFirst({
-        where: { companyId, code, deletedAt: null, NOT: { id } },
+        where: { companyId: ctx.companyId, branchId: ctx.branchId, code, deletedAt: null, NOT: { id } },
       });
       if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Department code already exists');
       dto = { ...dto, code };
     }
 
+    const { companyId: _companyId, branchId: _branchId, ...data } = dto;
     return this.prisma.department.update({
       where: { id },
-      data: dto,
+      data,
       include: {
         company: { select: { id: true, name: true } },
         branch: { select: { id: true, name: true } },
@@ -151,15 +151,15 @@ export class DepartmentsService {
     });
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, ctx: ActiveOperationalContext) {
+    await this.findOne(id, ctx);
     await this.prisma.department.update({ where: { id }, data: { deletedAt: new Date() } });
     return { message: 'Department deleted successfully' };
   }
 
-  async getTree(companyId: string) {
+  async getTree(ctx: ActiveOperationalContext) {
     const departments = await this.prisma.department.findMany({
-      where: { companyId, deletedAt: null },
+      where: { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
       include: { children: { where: { deletedAt: null }, select: { id: true, name: true, code: true } } },
     });
     return departments.filter((d) => !d.parentId);

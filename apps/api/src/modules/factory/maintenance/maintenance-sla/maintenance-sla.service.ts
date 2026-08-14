@@ -1,9 +1,36 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class MaintenanceSlaService {
   constructor(private prisma: PrismaService) {}
+
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
+  }
+
+  private isMachineInScope(
+    machine: { companyId?: string | null; branchId?: string | null },
+    ctx: ActiveOperationalContext,
+  ): boolean {
+    return machine.companyId === ctx.companyId
+      && (machine.branchId === null || machine.branchId === ctx.branchId);
+  }
+
+  private async assertRequestOwned(requestId: string, ctx: ActiveOperationalContext) {
+    const request = await this.prisma.maintenanceRequest.findUnique({
+      where: { id: requestId },
+      include: { machine: { select: { companyId: true, branchId: true } } },
+    });
+    if (!request || !this.isMachineInScope(request.machine, ctx)) {
+      throw new NotFoundException('Maintenance request not found');
+    }
+    return request;
+  }
 
   async calculateDeadlines(request: any): Promise<{
     responseDueAt: Date | null;
@@ -36,11 +63,8 @@ export class MaintenanceSlaService {
     return { responseDueAt, startDueAt, completeDueAt };
   }
 
-  async createSlaState(requestId: string) {
-    const request = await this.prisma.maintenanceRequest.findUnique({
-      where: { id: requestId },
-    });
-    if (!request) return;
+  async createSlaState(requestId: string, ctx: ActiveOperationalContext) {
+    const request = await this.assertRequestOwned(requestId, ctx);
 
     const deadlines = await this.calculateDeadlines(request);
 
@@ -67,12 +91,8 @@ export class MaintenanceSlaService {
     });
   }
 
-  async recalculateSla(requestId: string) {
-    const request = await this.prisma.maintenanceRequest.findUnique({
-      where: { id: requestId },
-      include: { assignedTo: true, requestedBy: true },
-    });
-    if (!request) return;
+  async recalculateSla(requestId: string, ctx: ActiveOperationalContext) {
+    const request = await this.assertRequestOwned(requestId, ctx);
 
     const now = new Date();
     const state = await this.prisma.maintenanceSlaState.findUnique({
@@ -138,18 +158,20 @@ export class MaintenanceSlaService {
     return { slaStatus, escalationLevel, responseOverdueMin, startOverdueMin, completeOverdueMin };
   }
 
-  async getSlaSummary(requestId: string) {
+  async getSlaSummary(requestId: string, ctx: ActiveOperationalContext) {
+    await this.assertRequestOwned(requestId, ctx);
     const state = await this.prisma.maintenanceSlaState.findUnique({
       where: { maintenanceRequestId: requestId },
     });
     return state;
   }
 
-  async getOverdueRequests() {
+  async getOverdueRequests(ctx: ActiveOperationalContext) {
     const now = new Date();
     return this.prisma.maintenanceRequest.findMany({
       where: {
         deletedAt: null,
+        machine: this.machineScope(ctx),
         status: { notIn: ['CLOSED', 'CANCELLED', 'COMPLETED'] },
         OR: [
           { responseDueAt: { not: null, lte: now } },
@@ -166,20 +188,17 @@ export class MaintenanceSlaService {
     });
   }
 
-  async getSlaStats() {
-    const now = new Date();
+  async getSlaStats(ctx: ActiveOperationalContext) {
+    const machine = this.machineScope(ctx);
     const [totalOnTrack, totalOverdue, totalEscalated] = await Promise.all([
       this.prisma.maintenanceRequest.count({
-        where: { deletedAt: null, slaStatus: 'ON_TRACK' },
+        where: { deletedAt: null, slaStatus: 'ON_TRACK', machine },
       }),
       this.prisma.maintenanceRequest.count({
-        where: { deletedAt: null, slaStatus: 'OVERDUE' },
+        where: { deletedAt: null, slaStatus: 'OVERDUE', machine },
       }),
       this.prisma.maintenanceRequest.count({
-        where: {
-          deletedAt: null,
-          escalationLevel: { not: 'NONE' },
-        },
+        where: { deletedAt: null, escalationLevel: { not: 'NONE' }, machine },
       }),
     ]);
 

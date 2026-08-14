@@ -6,6 +6,8 @@ import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../auth/guards/permissions.guard';
 import { Permissions } from '../../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @ApiTags('Maintenance Spare Part Request Lines')
 @ApiBearerAuth()
@@ -21,22 +23,23 @@ export class MaintenanceSparePartRequestLinesController {
     @Param('requestId') requestId: string,
     @Body() dto: CreateSparePartRequestLineDto,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.create(requestId, dto, userId);
+    return this.service.create(requestId, dto, userId, ctx);
   }
 
   @Get()
   @Permissions('maintenance-request-parts:read')
   @ApiOperation({ summary: 'List request part lines' })
-  findAll(@Param('requestId') requestId: string) {
-    return this.service.findAll(requestId);
+  findAll(@Param('requestId') requestId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findAll(requestId, ctx);
   }
 
   @Get(':lineId')
   @Permissions('maintenance-request-parts:read')
   @ApiOperation({ summary: 'Get request part line detail' })
-  findOne(@Param('requestId') requestId: string, @Param('lineId') lineId: string) {
-    return this.service.findOne(requestId, lineId);
+  findOne(@Param('requestId') requestId: string, @Param('lineId') lineId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findOne(requestId, lineId, ctx);
   }
 
   @Patch(':lineId')
@@ -47,8 +50,9 @@ export class MaintenanceSparePartRequestLinesController {
     @Param('lineId') lineId: string,
     @Body() dto: UpdateSparePartRequestLineDto,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.update(requestId, lineId, dto, userId);
+    return this.service.update(requestId, lineId, dto, userId, ctx);
   }
 
   @Patch(':lineId/request')
@@ -58,8 +62,9 @@ export class MaintenanceSparePartRequestLinesController {
     @Param('requestId') requestId: string,
     @Param('lineId') lineId: string,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.submit(requestId, lineId, userId);
+    return this.service.submit(requestId, lineId, userId, ctx);
   }
 
   @Patch(':lineId/approve')
@@ -69,8 +74,9 @@ export class MaintenanceSparePartRequestLinesController {
     @Param('requestId') requestId: string,
     @Param('lineId') lineId: string,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.approve(requestId, lineId, userId);
+    return this.service.approve(requestId, lineId, userId, ctx);
   }
 
   @Patch(':lineId/reject')
@@ -80,8 +86,9 @@ export class MaintenanceSparePartRequestLinesController {
     @Param('requestId') requestId: string,
     @Param('lineId') lineId: string,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.reject(requestId, lineId, userId);
+    return this.service.reject(requestId, lineId, userId, ctx);
   }
 
   @Patch(':lineId/reserve')
@@ -91,8 +98,9 @@ export class MaintenanceSparePartRequestLinesController {
     @Param('requestId') requestId: string,
     @Param('lineId') lineId: string,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.reserve(requestId, lineId, userId);
+    return this.service.reserve(requestId, lineId, userId, ctx);
   }
 
   @Patch(':lineId/use')
@@ -102,8 +110,9 @@ export class MaintenanceSparePartRequestLinesController {
     @Param('requestId') requestId: string,
     @Param('lineId') lineId: string,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.markUsed(requestId, lineId, userId);
+    return this.service.markUsed(requestId, lineId, userId, ctx);
   }
 
   @Patch(':lineId/cancel')
@@ -113,7 +122,8 @@ export class MaintenanceSparePartRequestLinesController {
     @Param('requestId') requestId: string,
     @Param('lineId') lineId: string,
     @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    return this.service.cancel(requestId, lineId, userId);
+    return this.service.cancel(requestId, lineId, userId, ctx);
   }
 }

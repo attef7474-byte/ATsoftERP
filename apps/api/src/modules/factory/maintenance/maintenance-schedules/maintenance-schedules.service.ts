@@ -242,7 +242,7 @@ export class MaintenanceSchedulesService {
     if (existingRequest) throw new ConflictException('An active request already exists for this schedule. Complete or cancel the existing request before generating a new one.');
 
     const request = await this.prisma.$transaction(async (tx) => {
-      const requestNumber = await this.numberingService.generateNumberAtomic('MAINTENANCE_REQUEST');
+      const requestNumber = await this.numberingService.generateNumberAtomicWithClient('MAINTENANCE_REQUEST', tx);
 
       const nextDue = this.calculateNextDueDate(schedule, new Date());
 

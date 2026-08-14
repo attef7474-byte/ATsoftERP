@@ -5,6 +5,7 @@ import { AuditService } from '../../../modules/audit/audit.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersQueryDto } from './dto/users-query.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class UsersService {
@@ -18,20 +19,25 @@ export class UsersService {
     });
   }
 
-  async create(dto: CreateUserDto) {
+  async create(dto: CreateUserDto, ctx: ActiveOperationalContext) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) throw this.validationError('email', 'validation.duplicateValue', 'Email already in use');
 
     if (dto.roleIds?.length) {
       await this.assertRolesExist(dto.roleIds);
     }
+    if (dto.departmentId) {
+      await this.assertDepartmentInContext(dto.departmentId, ctx);
+    }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const { password, roleIds, ...rest } = dto;
+    const { password, roleIds, companyId: _companyId, branchId: _branchId, ...rest } = dto;
 
     const user = await this.prisma.user.create({
       data: {
         ...rest,
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
         passwordHash,
         roles: roleIds?.length
           ? { create: roleIds.map((roleId) => ({ roleId })) }
@@ -44,11 +50,11 @@ export class UsersService {
     return result;
   }
 
-  async findAll(query: UsersQueryDto) {
-    const { page = 1, limit = 10, search, status, companyId, roleId, sortBy = 'createdAt', sortOrder = 'desc' } = query;
+  async findAll(query: UsersQueryDto, ctx: ActiveOperationalContext) {
+    const { page = 1, limit = 10, search, status, roleId, sortBy = 'createdAt', sortOrder = 'desc' } = query;
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null };
+    const where: any = { deletedAt: null, companyId: ctx.companyId, branchId: ctx.branchId };
     if (search) {
       where.OR = [
         { name: { contains: search } },
@@ -56,7 +62,6 @@ export class UsersService {
       ];
     }
     if (status) where.status = status;
-    if (companyId) where.companyId = companyId;
     if (roleId) {
       where.roles = { some: { roleId } };
     }
@@ -83,9 +88,9 @@ export class UsersService {
     };
   }
 
-  async findOne(id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
+  async findOne(id: string, ctx: ActiveOperationalContext) {
+    const user = await this.prisma.user.findFirst({
+      where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
       select: {
         id: true, email: true, name: true, phone: true, avatar: true, status: true,
         companyId: true, branchId: true, departmentId: true,
@@ -99,8 +104,8 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDto) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+  async update(id: string, dto: UpdateUserDto, ctx: ActiveOperationalContext) {
+    const user = await this.prisma.user.findFirst({ where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } });
     if (!user) {
       throw new NotFoundException({ messageKey: 'organization.userNotFound', message: 'User not found' });
     }
@@ -113,8 +118,11 @@ export class UsersService {
     if (dto.roleIds?.length) {
       await this.assertRolesExist(dto.roleIds);
     }
+    if (dto.departmentId) {
+      await this.assertDepartmentInContext(dto.departmentId, ctx);
+    }
 
-    const { roleIds, ...rest } = dto as any;
+    const { roleIds, companyId: _companyId, branchId: _branchId, ...rest } = dto as any;
     const data: any = { ...rest };
 
     if (roleIds) {
@@ -132,8 +140,8 @@ export class UsersService {
     return result;
   }
 
-  async remove(id: string) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+  async remove(id: string, ctx: ActiveOperationalContext) {
+    const user = await this.prisma.user.findFirst({ where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } });
     if (!user) {
       throw new NotFoundException({ messageKey: 'organization.userNotFound', message: 'User not found' });
     }
@@ -141,8 +149,8 @@ export class UsersService {
     return { message: 'User deleted successfully' };
   }
 
-  async assignRoles(id: string, roleIds: string[], actorId?: string) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+  async assignRoles(id: string, roleIds: string[], actorId: string | undefined, ctx: ActiveOperationalContext) {
+    const user = await this.prisma.user.findFirst({ where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } });
     if (!user) {
       throw new NotFoundException({ messageKey: 'organization.userNotFound', message: 'User not found' });
     }
@@ -185,7 +193,7 @@ export class UsersService {
       });
     }
 
-    return this.findOne(id);
+    return this.findOne(id, ctx);
   }
 
   private async assertRolesExist(roleIds: string[]): Promise<void> {
@@ -197,6 +205,21 @@ export class UsersService {
     const invalidIds = roleIds.filter((rid) => !existingIds.has(rid));
     if (invalidIds.length > 0) {
       throw this.validationError('roleIds', 'validation.invalidReference', `Roles not found: ${invalidIds.join(', ')}`);
+    }
+  }
+
+  private async assertDepartmentInContext(departmentId: string, ctx: ActiveOperationalContext): Promise<void> {
+    const department = await this.prisma.department.findFirst({
+      where: {
+        id: departmentId,
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    if (!department) {
+      throw this.validationError('departmentId', 'validation.invalidReference', 'Department not found in active context');
     }
   }
 }

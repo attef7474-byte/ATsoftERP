@@ -302,41 +302,42 @@ describe('Machine assets canonical error contracts', () => {
 
     beforeEach(() => {
       prisma = {
-        machine: { findUnique: jest.fn() },
+        $transaction: jest.fn(async (cb: any) => cb(prisma)),
+        machine: { findFirst: jest.fn() },
         machineDocument: {
-          findUnique: jest.fn(),
+          findFirst: jest.fn(),
           create: jest.fn(),
           update: jest.fn(),
           delete: jest.fn(),
           findMany: jest.fn(),
         },
       };
-      audit = { log: jest.fn().mockResolvedValue(undefined) };
+      audit = { log: jest.fn().mockResolvedValue(undefined), logWithClient: jest.fn().mockResolvedValue(undefined) };
       service = new MachineDocumentsService(prisma as PrismaService, audit as AuditService);
     });
 
     it('rejects an unknown machine with a canonical field error', async () => {
-      prisma.machine.findUnique.mockResolvedValue(null);
-      await expectValidationError(service.create({ machineId: 'ghost', title: 'Manual', type: 'PDF', fileUrl: 'http://x' } as any, 'u1'), 'machineId', 'validation.invalidReference');
+      prisma.machine.findFirst.mockResolvedValue(null);
+      await expectValidationError(service.create({ machineId: 'ghost', title: 'Manual', type: 'PDF', fileUrl: 'http://x' } as any, 'u1', ctx), 'machineId', 'validation.invalidReference');
     });
 
     it('throws a messageKey not-found when the document does not exist', async () => {
-      prisma.machineDocument.findUnique.mockResolvedValue(null);
-      await expectMessageKeyNotFound(service.findOne('ghost'), 'maintenance.machineDocumentNotFound');
+      prisma.machineDocument.findFirst.mockResolvedValue(null);
+      await expectMessageKeyNotFound(service.findOne('ghost', ctx), 'maintenance.machineDocumentNotFound');
     });
 
     it('throws a messageKey not-found when the machine does not exist in getDocumentsByMachine', async () => {
-      prisma.machine.findUnique.mockResolvedValue(null);
-      await expectMessageKeyNotFound(service.getDocumentsByMachine('ghost'), 'maintenance.machineNotFound');
+      prisma.machine.findFirst.mockResolvedValue(null);
+      await expectMessageKeyNotFound(service.getDocumentsByMachine('ghost', ctx), 'maintenance.machineNotFound');
     });
 
     it('deletes the document and audits DELETE with the userId', async () => {
-      prisma.machineDocument.findUnique.mockResolvedValue({ id: 'd1', title: 'Manual', machineId: 'm1' });
+      prisma.machineDocument.findFirst.mockResolvedValue({ id: 'd1', title: 'Manual', machineId: 'm1' });
       prisma.machineDocument.delete.mockResolvedValue({ id: 'd1' });
 
-      const result = await service.remove('d1', 'u1');
+      const result = await service.remove('d1', 'u1', ctx);
       expect(prisma.machineDocument.delete).toHaveBeenCalledWith({ where: { id: 'd1' } });
-      expect(audit.log).toHaveBeenCalledWith('u1', 'DELETE', 'MachineDocument', 'd1', expect.anything());
+      expect(audit.logWithClient).toHaveBeenCalledWith(prisma, expect.objectContaining({ userId: 'u1', action: 'DELETE', entity: 'MachineDocument', entityId: 'd1' }));
       expect(result.message).toBe('Machine document deleted successfully');
     });
   });

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { CreateBusinessPartnerGroupDto } from './dto/create-group.dto';
 import { UpdateBusinessPartnerGroupDto } from './dto/update-group.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class BusinessPartnerGroupsService {
@@ -13,7 +14,7 @@ export class BusinessPartnerGroupsService {
     return this.prisma.businessPartnerGroup.create({ data: dto });
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string; status?: string }) {
+  async findAll(query: { page?: number; limit?: number; search?: string; status?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -30,7 +31,7 @@ export class BusinessPartnerGroupsService {
     const [data, total] = await Promise.all([
       this.prisma.businessPartnerGroup.findMany({
         where, skip, take: limit, orderBy: { createdAt: 'desc' },
-        include: { _count: { select: { partners: true } } },
+        include: { _count: { select: { partners: { where: { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } } } } },
       }),
       this.prisma.businessPartnerGroup.count({ where }),
     ]);
@@ -38,10 +39,10 @@ export class BusinessPartnerGroupsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, ctx?: ActiveOperationalContext) {
     const group = await this.prisma.businessPartnerGroup.findUnique({
       where: { id },
-      include: { _count: { select: { partners: true } } },
+      include: { _count: { select: { partners: ctx ? { where: { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } } : true } } },
     });
     if (!group) throw new NotFoundException('Business partner group not found');
     return group;

@@ -4,6 +4,7 @@ import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../numbering/numbering.service';
 import { CreateProductionLineDto } from './dto/create-production-line.dto';
 import { UpdateProductionLineDto } from './dto/update-production-line.dto';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class ProductionLinesService {
@@ -13,15 +14,52 @@ export class ProductionLinesService {
     private numberingService: NumberingService,
   ) {}
 
-  async create(dto: CreateProductionLineDto, userId: string) {
+  /**
+   * Production Lines are branch-owned organizational records: the active
+   * context is always branch-scoped (the interceptor requires both headers),
+   * and every create stores ctx.companyId / ctx.branchId. A row is in-context
+   * only when it exactly matches the active company and branch.
+   */
+  private isInContext(
+    item: { companyId: string; branchId: string },
+    ctx: ActiveOperationalContext,
+  ): boolean {
+    return item.companyId === ctx.companyId && item.branchId === ctx.branchId;
+  }
+
+  private async findOwned(id: string, ctx: ActiveOperationalContext) {
+    const item = await this.prisma.productionLine.findUnique({
+      where: { id },
+      include: {
+        company: { select: { id: true, name: true, code: true } },
+        branch: { select: { id: true, name: true, code: true } },
+        administration: { select: { id: true, name: true, code: true } },
+        department: { select: { id: true, name: true, code: true } },
+        operationType: { select: { id: true, name: true, code: true } },
+        costCenter: { select: { id: true, name: true, code: true } },
+      },
+    });
+    if (!item || item.deletedAt || !this.isInContext(item, ctx)) {
+      throw new NotFoundException('Production line not found');
+    }
+    return item;
+  }
+
+  async create(dto: CreateProductionLineDto, userId: string, ctx: ActiveOperationalContext) {
     const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('PRODUCTION_LINE');
     const existing = await this.prisma.productionLine.findUnique({ where: { code } });
     if (existing) throw new ConflictException('Production line code already exists');
 
-    await this.validateHierarchy(dto);
+    // Client-supplied tenant fields are never trusted: companyId/branchId are
+    // always written from the active operational context.
+    const { companyId: _ignoredCompanyId, branchId: _ignoredBranchId, ...rest } = dto;
+    await this.validateHierarchy(rest, ctx);
 
-    const item = await this.prisma.productionLine.create({ data: { ...dto, code } });
-    await this.auditService.log(userId, 'CREATE', 'ProductionLine', item.id, { message: `Created production line: ${item.code}` });
+    const item = await this.prisma.productionLine.create({
+      data: { ...rest, code, companyId: ctx.companyId, branchId: ctx.branchId },
+    });
+    await this.auditService.log(userId, 'CREATE', 'ProductionLine', item.id,
+      { message: `Created production line: ${item.code}`, companyId: ctx.companyId, branchId: ctx.branchId });
     return item;
   }
 
@@ -30,20 +68,20 @@ export class ProductionLinesService {
     companyId?: string; branchId?: string; administrationId?: string;
     departmentId?: string; operationTypeId?: string; costCenterId?: string;
     status?: string;
-  }) {
+  }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null };
+    // Client-supplied query.companyId / query.branchId are deliberately ignored:
+    // the authoritative scope is always the active operational context.
+    const where: any = { deletedAt: null, companyId: ctx.companyId, branchId: ctx.branchId };
     if (query.search) {
       where.OR = [
         { name: { contains: query.search } },
         { code: { contains: query.search } },
       ];
     }
-    if (query.companyId) where.companyId = query.companyId;
-    if (query.branchId) where.branchId = query.branchId;
     if (query.administrationId) where.administrationId = query.administrationId;
     if (query.departmentId) where.departmentId = query.departmentId;
     if (query.operationTypeId) where.operationTypeId = query.operationTypeId;
@@ -68,31 +106,20 @@ export class ProductionLinesService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
-    const item = await this.prisma.productionLine.findUnique({
-      where: { id },
-      include: {
-        company: { select: { id: true, name: true, code: true } },
-        branch: { select: { id: true, name: true, code: true } },
-        administration: { select: { id: true, name: true, code: true } },
-        department: { select: { id: true, name: true, code: true } },
-        operationType: { select: { id: true, name: true, code: true } },
-        costCenter: { select: { id: true, name: true, code: true } },
-      },
-    });
-    if (!item) throw new NotFoundException('Production line not found');
-    return item;
+  async findOne(id: string, ctx: ActiveOperationalContext) {
+    return this.findOwned(id, ctx);
   }
 
-  async update(id: string, dto: UpdateProductionLineDto, userId: string) {
-    const existing = await this.findOne(id);
+  async update(id: string, dto: UpdateProductionLineDto, userId: string, ctx: ActiveOperationalContext) {
+    const existing = await this.findOwned(id, ctx);
     if (dto.code && dto.code !== existing.code) {
       throw new BadRequestException('Code cannot be changed after creation');
     }
-    const { code, ...updateDto } = dto;
-    await this.validateHierarchy(updateDto);
+    // Re-pointing tenant fields is impossible: companyId/branchId are stripped.
+    const { code, companyId: _ignoredCompanyId, branchId: _ignoredBranchId, ...rest } = dto;
+    await this.validateHierarchy(rest, ctx);
     const item = await this.prisma.productionLine.update({
-      where: { id }, data: updateDto,
+      where: { id }, data: rest,
       include: {
         company: { select: { id: true, name: true, code: true } },
         branch: { select: { id: true, name: true, code: true } },
@@ -102,82 +129,75 @@ export class ProductionLinesService {
         costCenter: { select: { id: true, name: true, code: true } },
       },
     });
-    await this.auditService.log(userId, 'UPDATE', 'ProductionLine', id, { message: `Updated production line: ${item.code}` });
+    await this.auditService.log(userId, 'UPDATE', 'ProductionLine', id,
+      { message: `Updated production line: ${item.code}`, companyId: ctx.companyId, branchId: ctx.branchId });
     return item;
   }
 
-  async remove(id: string, userId: string) {
-    await this.findOne(id);
+  async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
+    await this.findOwned(id, ctx);
     const machineCount = await this.prisma.machine.count({ where: { productionLineId: id, deletedAt: null } });
     if (machineCount > 0) throw new ConflictException('Cannot delete production line with linked machines');
     const requestCount = await this.prisma.maintenanceRequest.count({ where: { productionLineId: id, deletedAt: null } });
     if (requestCount > 0) throw new ConflictException('Cannot delete production line with linked maintenance requests');
     await this.prisma.productionLine.update({ where: { id }, data: { deletedAt: new Date() } });
-    await this.auditService.log(userId, 'DELETE', 'ProductionLine', id, { message: `Deleted production line: ${id}` });
+    await this.auditService.log(userId, 'DELETE', 'ProductionLine', id,
+      { message: `Deleted production line: ${id}`, companyId: ctx.companyId, branchId: ctx.branchId });
     return { message: 'Production line deleted successfully' };
   }
 
-  async activate(id: string, userId: string) {
-    await this.findOne(id);
+  async activate(id: string, userId: string, ctx: ActiveOperationalContext) {
+    await this.findOwned(id, ctx);
     const item = await this.prisma.productionLine.update({ where: { id }, data: { status: 'ACTIVE' } });
-    await this.auditService.log(userId, 'ACTIVATE', 'ProductionLine', id);
+    await this.auditService.log(userId, 'ACTIVATE', 'ProductionLine', id, { companyId: ctx.companyId, branchId: ctx.branchId });
     return item;
   }
 
-  async deactivate(id: string, userId: string) {
-    await this.findOne(id);
+  async deactivate(id: string, userId: string, ctx: ActiveOperationalContext) {
+    await this.findOwned(id, ctx);
     const item = await this.prisma.productionLine.update({ where: { id }, data: { status: 'INACTIVE' } });
-    await this.auditService.log(userId, 'DEACTIVATE', 'ProductionLine', id);
+    await this.auditService.log(userId, 'DEACTIVATE', 'ProductionLine', id, { companyId: ctx.companyId, branchId: ctx.branchId });
     return item;
   }
 
   private async validateHierarchy(dto: {
-    companyId?: string; branchId?: string; administrationId?: string;
-    departmentId?: string; operationTypeId?: string; costCenterId?: string;
-  }) {
+    administrationId?: string | null; departmentId?: string | null;
+    operationTypeId?: string | null; costCenterId?: string | null;
+  }, ctx: ActiveOperationalContext) {
+    // Management-chart references must belong to the same company/branch as the
+    // production line itself, which is always the active operational context.
     if (dto.operationTypeId) {
-      const ot = await this.prisma.operationType.findUnique({ where: { id: dto.operationTypeId } });
+      const ot = await this.prisma.operationType.findFirst({
+        where: { id: dto.operationTypeId, deletedAt: null },
+      });
       if (!ot) throw new BadRequestException('Operation type not found');
     }
 
     if (dto.costCenterId) {
-      const cc = await this.prisma.costCenter.findUnique({ where: { id: dto.costCenterId } });
-      if (!cc) throw new BadRequestException('Cost center not found');
+      const cc = await this.prisma.costCenter.findFirst({
+        where: { id: dto.costCenterId, companyId: ctx.companyId, deletedAt: null },
+      });
+      if (!cc) throw new BadRequestException('Cost center must belong to the active company');
     }
 
     if (dto.departmentId) {
-      const dept = await this.prisma.department.findUnique({ where: { id: dto.departmentId } });
-      if (!dept) throw new BadRequestException('Department not found');
-      if (dto.administrationId && dept.administrationId !== dto.administrationId) {
+      const dept = await this.prisma.department.findFirst({
+        where: { id: dto.departmentId, companyId: ctx.companyId, deletedAt: null },
+      });
+      if (!dept) throw new BadRequestException('Department must belong to the active company');
+      if (dto.administrationId && dept.administrationId && dept.administrationId !== dto.administrationId) {
         throw new BadRequestException('Department does not belong to the selected administration');
       }
-      if (!dto.administrationId && dto.branchId && dept.branchId !== dto.branchId) {
-        throw new BadRequestException('Department does not belong to the selected branch');
-      }
-      if (!dto.administrationId && !dto.branchId && dto.companyId && dept.companyId !== dto.companyId) {
-        throw new BadRequestException('Department does not belong to the selected company');
+      if (dept.branchId && dept.branchId !== ctx.branchId) {
+        throw new BadRequestException('Department must belong to the active branch');
       }
     }
 
     if (dto.administrationId) {
-      const admin = await this.prisma.administration.findUnique({ where: { id: dto.administrationId } });
-      if (!admin) throw new BadRequestException('Administration not found');
-      if (dto.branchId && admin.branchId !== dto.branchId) {
-        throw new BadRequestException('Administration does not belong to the selected branch');
-      }
-    }
-
-    if (dto.branchId) {
-      const branch = await this.prisma.branch.findUnique({ where: { id: dto.branchId } });
-      if (!branch) throw new BadRequestException('Branch not found');
-      if (dto.companyId && branch.companyId !== dto.companyId) {
-        throw new BadRequestException('Branch does not belong to the selected company');
-      }
-    }
-
-    if (dto.companyId) {
-      const company = await this.prisma.company.findUnique({ where: { id: dto.companyId } });
-      if (!company) throw new BadRequestException('Company not found');
+      const admin = await this.prisma.administration.findFirst({
+        where: { id: dto.administrationId, branchId: ctx.branchId, deletedAt: null },
+      });
+      if (!admin) throw new BadRequestException('Administration must belong to the active branch');
     }
   }
 }

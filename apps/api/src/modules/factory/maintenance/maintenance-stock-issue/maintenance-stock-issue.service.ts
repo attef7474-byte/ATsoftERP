@@ -6,7 +6,7 @@ import { IssueStockDto, ReturnStockDto } from './dto/issue-stock.dto';
 import { SparePartConditionService } from '../spare-part-conditions/spare-part-conditions.service';
 import { InstalledPartsReplacementService } from '../installed-parts-replacement/installed-parts-replacement.service';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
-import { assertWarehouseInContext } from '../../../../common/operational-context/tenant-guards';
+import { assertWarehouseInContext, assertMachineInContext as assertMachineTenantInContext } from '../../../../common/operational-context/tenant-guards';
 
 const VALID_STOCK_CONDITIONS = ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'];
 const VALID_REPLACEMENT_ACTIONS = ['RETURNED_REMOVED_PART', 'NO_REMOVED_PART', 'NEW_INSTALLATION'];
@@ -166,6 +166,7 @@ export class MaintenanceStockIssueService {
     const movement = await this.prisma.$transaction(async (tx) => {
       const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
+      await assertMachineTenantInContext(tx, part.maintenanceRequest.machine.id, ctx);
       await assertWarehouseInContext(tx, dto.warehouseId, ctx);
       if (dto.warehouseLocationId) {
         const location = await tx.warehouseLocation.findUnique({ where: { id: dto.warehouseLocationId } });
@@ -393,6 +394,7 @@ export class MaintenanceStockIssueService {
     const movement = await this.prisma.$transaction(async (tx) => {
       const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
+      await assertMachineTenantInContext(tx, part.maintenanceRequest.machine.id, ctx);
       await assertWarehouseInContext(tx, warehouseId, ctx);
       const balance = await this.getOrCreateBalance(tx, warehouseId, productId, null);
       await tx.inventoryBalance.update({

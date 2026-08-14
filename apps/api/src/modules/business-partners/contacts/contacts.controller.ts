@@ -6,6 +6,8 @@ import { UpdateBusinessPartnerContactDto } from './dto/update-contact.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @ApiTags('Business Partner Contacts')
 @ApiBearerAuth()
@@ -17,40 +19,40 @@ export class BusinessPartnerContactsController {
   @Post()
   @Permissions('business-partner-contact:create')
   @ApiOperation({ summary: 'Create a contact' })
-  create(@Body() dto: CreateBusinessPartnerContactDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateBusinessPartnerContactDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.create(dto, ctx);
   }
 
   @Get()
   @Permissions('business-partner-contact:read')
   @ApiOperation({ summary: 'List contacts' })
-  findAll(@Query() query: { page?: string; limit?: string; partnerId?: string; search?: string }) {
+  findAll(@Query() query: { page?: string; limit?: string; partnerId?: string; search?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       partnerId: query.partnerId,
       search: query.search,
-    });
+    }, ctx);
   }
 
   @Get(':id')
   @Permissions('business-partner-contact:read')
   @ApiOperation({ summary: 'Get contact by ID' })
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findOne(id, ctx);
   }
 
   @Patch(':id')
   @Permissions('business-partner-contact:update')
   @ApiOperation({ summary: 'Update contact' })
-  update(@Param('id') id: string, @Body() dto: UpdateBusinessPartnerContactDto) {
-    return this.service.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateBusinessPartnerContactDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.update(id, dto, ctx);
   }
 
   @Delete(':id')
   @Permissions('business-partner-contact:delete')
   @ApiOperation({ summary: 'Soft delete contact' })
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
+  remove(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.remove(id, ctx);
   }
 }

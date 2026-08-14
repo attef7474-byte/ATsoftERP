@@ -1,13 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { buildDateFilter, paginate } from './report-query-utils';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class AuditReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getAuditTrailReport(filters: any) {
-    const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo) };
+  async getAuditTrailReport(filters: any, ctx: ActiveOperationalContext) {
+    const userScope = { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null };
+    const where: any = { user: { is: userScope }, ...buildDateFilter(filters.dateFrom, filters.dateTo) };
     if (filters.entity) where.entity = filters.entity;
     if (filters.action) where.action = filters.action;
     if (filters.userId) where.userId = filters.userId;
@@ -39,8 +41,9 @@ export class AuditReportsService {
     };
   }
 
-  async getUserActivityReport(filters: any) {
-    const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'lastLoginAt') };
+  async getUserActivityReport(filters: any, ctx: ActiveOperationalContext) {
+    const tenant = { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null };
+    const where: any = { ...tenant, ...buildDateFilter(filters.dateFrom, filters.dateTo, 'lastLoginAt') };
     if (filters.search) where.OR = [{ name: { contains: filters.search } }, { email: { contains: filters.search } }];
     if (filters.status) where.status = filters.status;
 
@@ -51,8 +54,8 @@ export class AuditReportsService {
         orderBy: { lastLoginAt: 'desc' },
         select: { id: true, name: true, email: true, status: true, lastLoginAt: true, createdAt: true },
       }),
-      this.prisma.user.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.user.count({ where: { status: 'INACTIVE' } }),
+      this.prisma.user.count({ where: { ...tenant, status: 'ACTIVE' } }),
+      this.prisma.user.count({ where: { ...tenant, status: 'INACTIVE' } }),
     ]);
 
     const totalPages = Math.ceil(total / (filters.pageSize || 20));
@@ -66,8 +69,9 @@ export class AuditReportsService {
     };
   }
 
-  async getNotificationsReport(filters: any) {
-    const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo) };
+  async getNotificationsReport(filters: any, ctx: ActiveOperationalContext) {
+    const userScope = { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null };
+    const where: any = { user: { is: userScope }, ...buildDateFilter(filters.dateFrom, filters.dateTo) };
     if (filters.search) where.title = { contains: filters.search };
 
     const [total, rows, byType, unreadCount] = await Promise.all([
@@ -77,7 +81,7 @@ export class AuditReportsService {
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.notification.groupBy({ by: ['type'], where, _count: true }),
-      this.prisma.notification.count({ where: { read: false } }),
+      this.prisma.notification.count({ where: { user: { is: userScope }, read: false } }),
     ]);
 
     const totalPages = Math.ceil(total / (filters.pageSize || 20));

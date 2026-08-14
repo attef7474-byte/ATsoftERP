@@ -58,7 +58,10 @@ describe('MaintenanceSchedulesService', () => {
       $transaction: jest.fn((fn) => fn(prisma)),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
-    numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('REQ-0001') };
+    numbering = {
+      generateNumberAtomic: jest.fn().mockResolvedValue('REQ-0001'),
+      generateNumberAtomicWithClient: jest.fn().mockResolvedValue('REQ-0001'),
+    };
     service = new MaintenanceSchedulesService(prisma as PrismaService, audit as AuditService, numbering as NumberingService);
   });
 
@@ -133,7 +136,8 @@ describe('MaintenanceSchedulesService', () => {
 
       const result = await service.generateRequest('s1', 'u1', ctx);
 
-      expect(numbering.generateNumberAtomic).toHaveBeenCalledWith('MAINTENANCE_REQUEST');
+      expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledWith('MAINTENANCE_REQUEST', prisma);
+      expect(numbering.generateNumberAtomic).not.toHaveBeenCalled();
       expect(prisma.maintenanceSchedule.update).toHaveBeenCalledWith({
         where: { id: 's1' },
         data: expect.objectContaining({

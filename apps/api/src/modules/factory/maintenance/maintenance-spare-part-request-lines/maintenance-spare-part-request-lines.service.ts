@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { MaintenanceNotificationService } from '../maintenance-notification/maintenance-notification.service';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 import { CreateSparePartRequestLineDto, UpdateSparePartRequestLineDto } from './dto/create-spare-part-request-line.dto';
 
 @Injectable()
@@ -12,9 +13,29 @@ export class MaintenanceSparePartRequestLinesService {
     private notificationService: MaintenanceNotificationService,
   ) {}
 
-  private async findRequestOrFail(id: string) {
-    const req = await this.prisma.maintenanceRequest.findUnique({ where: { id } });
-    if (!req) throw new NotFoundException('Maintenance request not found');
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
+  }
+
+  private isMachineInScope(
+    machine: { companyId?: string | null; branchId?: string | null },
+    ctx: ActiveOperationalContext,
+  ): boolean {
+    return machine.companyId === ctx.companyId
+      && (machine.branchId === null || machine.branchId === ctx.branchId);
+  }
+
+  private async findRequestOrFail(id: string, ctx: ActiveOperationalContext) {
+    const req = await this.prisma.maintenanceRequest.findUnique({
+      where: { id },
+      include: { machine: { select: { companyId: true, branchId: true } } },
+    });
+    if (!req || !this.isMachineInScope(req.machine, ctx)) {
+      throw new NotFoundException('Maintenance request not found');
+    }
     return req;
   }
 
@@ -30,12 +51,20 @@ export class MaintenanceSparePartRequestLinesService {
     return part;
   }
 
+  private async assertMachineInContext(machineId: string, ctx: ActiveOperationalContext) {
+    const machine = await this.prisma.machine.findFirst({
+      where: { id: machineId, ...this.machineScope(ctx) },
+    });
+    if (!machine) throw new BadRequestException('Machine not found or not in the active company/branch');
+    return machine;
+  }
+
   private isTerminalStatus(status: string) {
     return ['CANCELLED', 'USED', 'REJECTED'].includes(status);
   }
 
-  async create(requestId: string, dto: CreateSparePartRequestLineDto, userId: string) {
-    const req = await this.findRequestOrFail(requestId);
+  async create(requestId: string, dto: CreateSparePartRequestLineDto, userId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findRequestOrFail(requestId, ctx);
     if (['COMPLETED', 'CANCELLED', 'CLOSED'].includes(req.status)) {
       throw new BadRequestException('Cannot add parts to completed, cancelled, or closed requests');
     }
@@ -53,13 +82,26 @@ export class MaintenanceSparePartRequestLinesService {
       throw new BadRequestException('This spare part is already added to the request. Cancel existing line first.');
     }
 
+    if (dto.machineId) {
+      await this.assertMachineInContext(dto.machineId, ctx);
+    }
     if (dto.machineComponentId) {
-      const comp = await this.prisma.machineComponent.findUnique({ where: { id: dto.machineComponentId } });
-      if (!comp) throw new NotFoundException('Machine component not found');
+      const comp = await this.prisma.machineComponent.findUnique({
+        where: { id: dto.machineComponentId },
+        include: { machine: { select: { companyId: true, branchId: true } } },
+      });
+      if (!comp || !this.isMachineInScope(comp.machine, ctx)) {
+        throw new NotFoundException('Machine component not found or not in the active company/branch');
+      }
     }
     if (dto.failureCauseId) {
-      const log = await this.prisma.downtimeLog.findUnique({ where: { id: dto.failureCauseId } });
-      if (!log) throw new NotFoundException('Downtime log not found');
+      const log = await this.prisma.downtimeLog.findUnique({
+        where: { id: dto.failureCauseId },
+        include: { machine: { select: { companyId: true, branchId: true } } },
+      });
+      if (!log || !this.isMachineInScope(log.machine, ctx)) {
+        throw new NotFoundException('Downtime log not found or not in the active company/branch');
+      }
     }
 
     const part = await this.prisma.maintenanceRequestRequiredPart.create({
@@ -79,12 +121,12 @@ export class MaintenanceSparePartRequestLinesService {
     });
 
     await this.audit.log(userId, 'CREATE', 'MaintenanceRequestRequiredPart', part.id,
-      { requestId, sparePartId: dto.sparePartId, status: 'DRAFT' });
+      { requestId, sparePartId: dto.sparePartId, status: 'DRAFT', companyId: ctx.companyId, branchId: ctx.branchId });
     return part;
   }
 
-  async findAll(requestId: string) {
-    await this.findRequestOrFail(requestId);
+  async findAll(requestId: string, ctx: ActiveOperationalContext) {
+    await this.findRequestOrFail(requestId, ctx);
     return this.prisma.maintenanceRequestRequiredPart.findMany({
       where: { maintenanceRequestId: requestId },
       include: {
@@ -103,8 +145,8 @@ export class MaintenanceSparePartRequestLinesService {
     });
   }
 
-  async findOne(requestId: string, lineId: string) {
-    await this.findRequestOrFail(requestId);
+  async findOne(requestId: string, lineId: string, ctx: ActiveOperationalContext) {
+    await this.findRequestOrFail(requestId, ctx);
     const part = await this.findPartOrFail(lineId, requestId);
     return this.prisma.maintenanceRequestRequiredPart.findUnique({
       where: { id: lineId },
@@ -123,8 +165,8 @@ export class MaintenanceSparePartRequestLinesService {
     });
   }
 
-  async update(requestId: string, lineId: string, dto: UpdateSparePartRequestLineDto, userId: string) {
-    const req = await this.findRequestOrFail(requestId);
+  async update(requestId: string, lineId: string, dto: UpdateSparePartRequestLineDto, userId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findRequestOrFail(requestId, ctx);
     if (['COMPLETED', 'CANCELLED', 'CLOSED'].includes(req.status)) {
       throw new BadRequestException('Cannot update parts on completed or cancelled requests');
     }
@@ -132,6 +174,19 @@ export class MaintenanceSparePartRequestLinesService {
     const part = await this.findPartOrFail(lineId, requestId);
     if (this.isTerminalStatus(part.status) || part.status === 'REQUESTED' || part.status === 'APPROVED' || part.status === 'RESERVED' || part.status === 'USED') {
       throw new BadRequestException(`Cannot update part in status '${part.status}'`);
+    }
+
+    if (dto.machineId !== undefined && dto.machineId !== req.machineId) {
+      await this.assertMachineInContext(dto.machineId, ctx);
+    }
+    if (dto.machineComponentId !== undefined) {
+      const comp = await this.prisma.machineComponent.findUnique({
+        where: { id: dto.machineComponentId },
+        include: { machine: { select: { companyId: true, branchId: true } } },
+      });
+      if (!comp || !this.isMachineInScope(comp.machine, ctx)) {
+        throw new NotFoundException('Machine component not found or not in the active company/branch');
+      }
     }
 
     const data: any = {};
@@ -149,11 +204,12 @@ export class MaintenanceSparePartRequestLinesService {
       include: { sparePart: true },
     });
 
-    await this.audit.log(userId, 'UPDATE', 'MaintenanceRequestRequiredPart', lineId, dto);
+    await this.audit.log(userId, 'UPDATE', 'MaintenanceRequestRequiredPart', lineId, { dto, companyId: ctx.companyId, branchId: ctx.branchId });
     return updated;
   }
 
-  async submit(requestId: string, lineId: string, userId: string) {
+  async submit(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
+    await this.findRequestOrFail(requestId, ctx);
     const part = await this.findPartOrFail(lineId, requestId);
     if (part.status !== 'DRAFT') throw new BadRequestException(`Cannot request part in status '${part.status}'`);
 
@@ -178,7 +234,8 @@ export class MaintenanceSparePartRequestLinesService {
     return updated;
   }
 
-  async approve(requestId: string, lineId: string, userId: string) {
+  async approve(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
+    await this.findRequestOrFail(requestId, ctx);
     const part = await this.findPartOrFail(lineId, requestId);
     if (part.status !== 'REQUESTED') throw new BadRequestException(`Cannot approve part in status '${part.status}'`);
 
@@ -203,7 +260,8 @@ export class MaintenanceSparePartRequestLinesService {
     return updated;
   }
 
-  async reject(requestId: string, lineId: string, userId: string) {
+  async reject(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
+    await this.findRequestOrFail(requestId, ctx);
     const part = await this.findPartOrFail(lineId, requestId);
     if (part.status !== 'REQUESTED') throw new BadRequestException(`Cannot reject part in status '${part.status}'`);
 
@@ -227,7 +285,8 @@ export class MaintenanceSparePartRequestLinesService {
     return updated;
   }
 
-  async reserve(requestId: string, lineId: string, userId: string) {
+  async reserve(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
+    await this.findRequestOrFail(requestId, ctx);
     const part = await this.findPartOrFail(lineId, requestId);
     if (part.status !== 'APPROVED') throw new BadRequestException(`Cannot reserve part in status '${part.status}'`);
 
@@ -252,7 +311,8 @@ export class MaintenanceSparePartRequestLinesService {
     return updated;
   }
 
-  async markUsed(requestId: string, lineId: string, userId: string) {
+  async markUsed(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
+    await this.findRequestOrFail(requestId, ctx);
     const part = await this.findPartOrFail(lineId, requestId);
     if (part.status !== 'RESERVED' && part.status !== 'APPROVED') {
       throw new BadRequestException(`Cannot mark as used part in status '${part.status}'`);
@@ -279,7 +339,8 @@ export class MaintenanceSparePartRequestLinesService {
     return updated;
   }
 
-  async cancel(requestId: string, lineId: string, userId: string) {
+  async cancel(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
+    await this.findRequestOrFail(requestId, ctx);
     const part = await this.findPartOrFail(lineId, requestId);
     if (this.isTerminalStatus(part.status)) {
       throw new BadRequestException(`Cannot cancel part in terminal status '${part.status}'`);

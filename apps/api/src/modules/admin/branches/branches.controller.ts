@@ -6,6 +6,8 @@ import { UpdateBranchDto } from './dto/update-branch.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
+import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @ApiTags('Branches')
 @ApiBearerAuth()
@@ -17,40 +19,39 @@ export class BranchesController {
   @Post()
   @Permissions('branches:create')
   @ApiOperation({ summary: 'Create a branch' })
-  create(@Body() dto: CreateBranchDto) {
-    return this.branchesService.create(dto);
+  create(@Body() dto: CreateBranchDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.branchesService.create(dto, ctx);
   }
 
   @Get()
   @Permissions('branches:read')
   @ApiOperation({ summary: 'List branches' })
-  findAll(@Query() query: { page?: string; limit?: string; search?: string; companyId?: string }) {
+  findAll(@Query() query: { page?: string; limit?: string; search?: string; companyId?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.branchesService.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,
-      companyId: query.companyId,
-    });
+    }, ctx);
   }
 
   @Get(':id')
   @Permissions('branches:read')
   @ApiOperation({ summary: 'Get branch by ID' })
-  findOne(@Param('id') id: string) {
-    return this.branchesService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.branchesService.findOne(id, ctx);
   }
 
   @Patch(':id')
   @Permissions('branches:update')
   @ApiOperation({ summary: 'Update branch' })
-  update(@Param('id') id: string, @Body() dto: UpdateBranchDto) {
-    return this.branchesService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateBranchDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.branchesService.update(id, dto, ctx);
   }
 
   @Delete(':id')
   @Permissions('branches:delete')
   @ApiOperation({ summary: 'Soft delete branch' })
-  remove(@Param('id') id: string) {
-    return this.branchesService.remove(id);
+  remove(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.branchesService.remove(id, ctx);
   }
 }

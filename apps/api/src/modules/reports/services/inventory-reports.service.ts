@@ -2,13 +2,26 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { InventoryReportFilterDto } from '../dto/report-filter.dto';
 import { buildDateFilter, paginate } from './report-query-utils';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class InventoryReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getInventoryBalanceReport(filters: InventoryReportFilterDto) {
-    const where: any = {};
+  private operationalScope(ctx: ActiveOperationalContext) {
+    return { companyId: ctx.companyId, deletedAt: null, OR: [{ branchId: ctx.branchId }, { branchId: null }] };
+  }
+
+  private warehouseScope(ctx: ActiveOperationalContext) {
+    return { companyId: ctx.companyId, deletedAt: null, OR: [{ branchId: ctx.branchId }, { branchId: null }] };
+  }
+
+  private balanceScope(ctx: ActiveOperationalContext) {
+    return { warehouse: this.warehouseScope(ctx) };
+  }
+
+  async getInventoryBalanceReport(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    const where: any = this.balanceScope(ctx);
     if (filters.warehouseId) where.warehouseId = filters.warehouseId;
     if (filters.locationId) where.locationId = filters.locationId;
     if (filters.productId) where.productId = filters.productId;
@@ -21,15 +34,16 @@ export class InventoryReportsService {
       this.prisma.inventoryBalance.count({ where: { ...where, quantity: { gt: 0 } } }),
       this.prisma.inventoryBalance.count({ where: { ...where, quantity: 0 } }),
       this.prisma.inventoryBalance.count({ where: { ...where, quantity: { lt: 0 } } }),
-      this.prisma.warehouse.count(),
+      this.prisma.warehouse.count({ where: this.warehouseScope(ctx) }),
     ]);
     const totalPages = Math.ceil(total / (filters.pageSize || 20));
     return { cards: [{ label: 'totalBalanceRows', value: total }, { label: 'totalQuantity', value: totalQty._sum.quantity || 0 }, { label: 'positiveBalance', value: positiveCount }, { label: 'zeroBalance', value: zeroCount }, { label: 'negativeBalance', value: negativeCount }, { label: 'totalWarehouses', value: warehouseCount }], rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages };
   }
 
-  async getInventoryCountVarianceReport(filters: InventoryReportFilterDto) {
-    const where: any = {};
-    if (filters.countStatus) where.count = { status: filters.countStatus };
+  async getInventoryCountVarianceReport(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    const countScope: any = this.operationalScope(ctx);
+    const where: any = { count: countScope };
+    if (filters.countStatus) where.count = { ...countScope, status: filters.countStatus };
     if (filters.warehouseId) where.count = { ...where.count, warehouseId: filters.warehouseId };
     if (filters.productId) where.productId = filters.productId;
     if (filters.locationId) where.warehouseLocationId = filters.locationId;
@@ -37,14 +51,14 @@ export class InventoryReportsService {
     const [total, rows, totalLines, varianceLines, posVar, negVar, zeroVar, completedCountsCount] = await Promise.all([
       this.prisma.inventoryCountLine.count({ where }),
       this.prisma.inventoryCountLine.findMany({ where, ...paginate(filters.page, filters.pageSize), orderBy: { id: 'desc' }, include: { product: { select: { id: true, code: true, name: true } }, warehouseLocation: { select: { id: true, code: true, name: true } }, count: { select: { id: true, countNumber: true, status: true } } } }),
-      this.prisma.inventoryCountLine.count(), this.prisma.inventoryCountLine.count({ where: { differenceQty: { not: 0 } } }), this.prisma.inventoryCountLine.count({ where: { differenceQty: { gt: 0 } } }), this.prisma.inventoryCountLine.count({ where: { differenceQty: { lt: 0 } } }), this.prisma.inventoryCountLine.count({ where: { differenceQty: 0 } }), this.prisma.inventoryCount.count({ where: { status: 'COMPLETED' } }),
+      this.prisma.inventoryCountLine.count({ where: { count: countScope } }), this.prisma.inventoryCountLine.count({ where: { count: countScope, differenceQty: { not: 0 } } }), this.prisma.inventoryCountLine.count({ where: { count: countScope, differenceQty: { gt: 0 } } }), this.prisma.inventoryCountLine.count({ where: { count: countScope, differenceQty: { lt: 0 } } }), this.prisma.inventoryCountLine.count({ where: { count: countScope, differenceQty: 0 } }), this.prisma.inventoryCount.count({ where: { ...countScope, status: 'COMPLETED' } }),
     ]);
     const totalPages = Math.ceil(total / (filters.pageSize || 20));
     return { cards: [{ label: 'totalCountLines', value: totalLines }, { label: 'varianceLines', value: varianceLines }, { label: 'positiveVariance', value: posVar }, { label: 'negativeVariance', value: negVar }, { label: 'zeroVariance', value: zeroVar }, { label: 'completedCounts', value: completedCountsCount }], rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages };
   }
 
-  async getInventoryMovementsReport(filters: InventoryReportFilterDto) {
-    const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate') };
+  async getInventoryMovementsReport(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    const where: any = { ...this.operationalScope(ctx), ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate') };
     if (filters.warehouseId) where.warehouseId = filters.warehouseId;
     if (filters.productId) where.lines = { some: { productId: filters.productId } };
     if (filters.movementType) where.movementType = filters.movementType;
@@ -62,8 +76,8 @@ export class InventoryReportsService {
     return { cards: [{ label: 'totalMovements', value: total }, { label: 'postedMovements', value: postedCount }, { label: 'draftMovements', value: draftCount }, { label: 'cancelledMovements', value: cancelledCount }, { label: 'totalMovedQty', value: totalQtyAgg._sum.quantity || 0 }], rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages };
   }
 
-  async getInventoryAdjustmentsReport(filters: InventoryReportFilterDto) {
-    const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'adjustmentDate') };
+  async getInventoryAdjustmentsReport(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    const where: any = { ...this.operationalScope(ctx), ...buildDateFilter(filters.dateFrom, filters.dateTo, 'adjustmentDate') };
     if (filters.warehouseId) where.warehouseId = filters.warehouseId;
     if (filters.productId) where.lines = { some: { productId: filters.productId } };
     if (filters.status) where.status = filters.status;
@@ -79,9 +93,9 @@ export class InventoryReportsService {
     return { cards: [{ label: 'totalAdjustments', value: total }, { label: 'postedAdjustments', value: postedCount }, { label: 'draftAdjustments', value: draftCount }, { label: 'cancelledAdjustments', value: cancelledCount }, { label: 'positiveAdjustments', value: posAdjustAgg._sum.differenceQty || 0 }, { label: 'negativeAdjustments', value: Math.abs(negAdjustAgg._sum.differenceQty || 0) }], rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages };
   }
 
-  async getStockCard(filters: InventoryReportFilterDto & { direction?: string; sourceType?: string }) {
+  async getStockCard(filters: InventoryReportFilterDto & { direction?: string; sourceType?: string }, ctx: ActiveOperationalContext) {
     if (!filters.productId) throw new BadRequestException('productId is required for stock card');
-    const where: any = { lines: { some: { productId: filters.productId } }, status: 'POSTED' };
+    const where: any = { ...this.operationalScope(ctx), lines: { some: { productId: filters.productId } }, status: 'POSTED' };
     if (filters.warehouseId) where.warehouseId = filters.warehouseId;
     if (filters.locationId) where.lines = { some: { ...where.lines.some, warehouseLocationId: filters.locationId } };
     const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate');
@@ -93,7 +107,7 @@ export class InventoryReportsService {
     });
     let openingQty = 0;
     if (beforeDate) {
-      const openingWhere: any = { lines: { some: { productId: filters.productId } }, status: 'POSTED', movementDate: { lt: beforeDate } };
+      const openingWhere: any = { ...this.operationalScope(ctx), lines: { some: { productId: filters.productId } }, status: 'POSTED', movementDate: { lt: beforeDate } };
       if (filters.warehouseId) openingWhere.warehouseId = filters.warehouseId;
       const openingInAgg = await this.prisma.inventoryMovementLine.aggregate({
         where: { movement: openingWhere, direction: 'IN', productId: filters.productId },
@@ -128,14 +142,14 @@ export class InventoryReportsService {
       }
     }
     const currentBal = await this.prisma.inventoryBalance.findFirst({
-      where: { productId: filters.productId, ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}) },
+      where: { ...this.balanceScope(ctx), productId: filters.productId, ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}) },
       select: { quantity: true },
     });
     return { openingBalance: openingQty, closingBalance: currentBal?.quantity || runningBalance, rows, total: rows.length, productId: filters.productId };
   }
 
-  async getMovementTypes(filters: InventoryReportFilterDto) {
-    const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate') };
+  async getMovementTypes(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    const where: any = { ...this.operationalScope(ctx), ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate') };
     if (filters.warehouseId) where.warehouseId = filters.warehouseId;
     const movements = await this.prisma.inventoryMovement.groupBy({
       by: ['movementType'], where, _count: true,
@@ -158,8 +172,8 @@ export class InventoryReportsService {
     return { cards: [{ label: 'totalMovementTypes', value: types.length }, { label: 'totalMovements', value: totalCount }, { label: 'totalInQty', value: totalIn }, { label: 'totalOutQty', value: totalOut }], types };
   }
 
-  async getByWarehouseSummary(filters: InventoryReportFilterDto) {
-    const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate'), status: 'POSTED' };
+  async getByWarehouseSummary(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    const where: any = { ...this.operationalScope(ctx), ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate'), status: 'POSTED' };
     if (filters.warehouseId) where.warehouseId = filters.warehouseId;
     const warehouses = await this.prisma.inventoryMovement.groupBy({
       by: ['warehouseId'], where, _count: true,
@@ -169,34 +183,37 @@ export class InventoryReportsService {
       const wWhere = { ...where, warehouseId: w.warehouseId };
       const inAgg = await this.prisma.inventoryMovementLine.aggregate({ where: { movement: wWhere, direction: 'IN' }, _sum: { quantity: true } });
       const outAgg = await this.prisma.inventoryMovementLine.aggregate({ where: { movement: wWhere, direction: 'OUT' }, _sum: { quantity: true } });
-      const wh = await this.prisma.warehouse.findUnique({ where: { id: w.warehouseId }, select: { id: true, code: true, name: true } });
+      const wh = await this.prisma.warehouse.findFirst({ where: { id: w.warehouseId, ...this.warehouseScope(ctx) }, select: { id: true, code: true, name: true } });
       rows.push({ warehouseId: w.warehouseId, warehouse: wh, movementCount: w._count, totalIn: inAgg._sum.quantity || 0, totalOut: outAgg._sum.quantity || 0, net: (inAgg._sum.quantity || 0) - (outAgg._sum.quantity || 0) });
     }
     return { rows, total: rows.length };
   }
 
-  async getByLocationSummary(filters: InventoryReportFilterDto) {
+  async getByLocationSummary(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    const movementScope: any = { ...this.operationalScope(ctx), status: 'POSTED', ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate') };
+    if (filters.warehouseId) movementScope.warehouseId = filters.warehouseId;
     const movements = await this.prisma.inventoryMovementLine.groupBy({
-      by: ['warehouseLocationId'], where: { movement: { status: 'POSTED', ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate') }, ...(filters.warehouseId ? { movement: { warehouseId: filters.warehouseId } } : {}) },
+      by: ['warehouseLocationId'], where: { movement: movementScope },
       _count: true, _sum: { quantity: true },
     });
     const rows = [];
     for (const m of movements) {
       if (!m.warehouseLocationId) continue;
-      const loc = await this.prisma.warehouseLocation.findUnique({ where: { id: m.warehouseLocationId }, select: { id: true, code: true, name: true, warehouseId: true } });
+      const loc = await this.prisma.warehouseLocation.findFirst({ where: { id: m.warehouseLocationId, warehouse: this.warehouseScope(ctx) }, select: { id: true, code: true, name: true, warehouseId: true } });
+      if (!loc) continue;
       rows.push({ warehouseLocationId: m.warehouseLocationId, location: loc, movementCount: m._count, totalQuantity: m._sum.quantity || 0 });
     }
     return { rows, total: rows.length };
   }
 
-  async getByProduct(productId: string, filters: InventoryReportFilterDto) {
+  async getByProduct(productId: string, filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
     const product = await this.prisma.product.findUnique({ where: { id: productId }, select: { id: true, code: true, name: true, unit: true } });
     if (!product) throw new NotFoundException('Product not found');
-    const where: any = { lines: { some: { productId } }, status: 'POSTED', ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate') };
+    const where: any = { ...this.operationalScope(ctx), lines: { some: { productId } }, status: 'POSTED', ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate') };
     if (filters.warehouseId) where.warehouseId = filters.warehouseId;
     const [movements, balance] = await Promise.all([
       this.prisma.inventoryMovement.findMany({ where, orderBy: { movementDate: 'desc' }, ...paginate(filters.page, filters.pageSize), include: { warehouse: { select: { id: true, code: true, name: true } } } }),
-      this.prisma.inventoryBalance.findFirst({ where: { productId, ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}) }, select: { quantity: true } }),
+      this.prisma.inventoryBalance.findFirst({ where: { ...this.balanceScope(ctx), productId, ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}) }, select: { quantity: true } }),
     ]);
     const total = await this.prisma.inventoryMovement.count({ where });
     const inAgg = await this.prisma.inventoryMovementLine.aggregate({ where: { movement: where, direction: 'IN', productId }, _sum: { quantity: true } });
@@ -205,42 +222,42 @@ export class InventoryReportsService {
     return { product, currentBalance: balance?.quantity || 0, totalIn: inAgg._sum.quantity || 0, totalOut: outAgg._sum.quantity || 0, rows: movements, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages };
   }
 
-  async getBySource(sourceType: string, sourceId: string) {
+  async getBySource(sourceType: string, sourceId: string, ctx: ActiveOperationalContext) {
     const movements = await this.prisma.inventoryMovement.findMany({
-      where: { sourceType, sourceId },
+      where: { ...this.operationalScope(ctx), sourceType, sourceId },
       orderBy: { movementDate: 'desc' },
       include: { lines: { include: { product: { select: { id: true, code: true, name: true } } } }, warehouse: { select: { id: true, code: true, name: true } } },
     });
-    const sourceDoc = await this.resolveSourceDocument(sourceType, sourceId);
+    const sourceDoc = await this.resolveSourceDocument(sourceType, sourceId, ctx);
     return { sourceType, sourceId, sourceDocument: sourceDoc, movements, total: movements.length };
   }
 
-  async getMovementTraceability(id: string) {
-    const movement = await this.prisma.inventoryMovement.findUnique({
-      where: { id }, include: { lines: { include: { product: { select: { id: true, code: true, name: true } } } }, warehouse: { select: { id: true, code: true, name: true } } },
+  async getMovementTraceability(id: string, ctx: ActiveOperationalContext) {
+    const movement = await this.prisma.inventoryMovement.findFirst({
+      where: { id, ...this.operationalScope(ctx) }, include: { lines: { include: { product: { select: { id: true, code: true, name: true } } } }, warehouse: { select: { id: true, code: true, name: true } } },
     });
     if (!movement) throw new NotFoundException('Movement not found');
     let sourceDocument = null;
     if (movement.sourceType && movement.sourceId) {
-      sourceDocument = await this.resolveSourceDocument(movement.sourceType, movement.sourceId);
+      sourceDocument = await this.resolveSourceDocument(movement.sourceType, movement.sourceId, ctx);
     }
     return { ...movement, sourceDocument, traceResolved: !!sourceDocument || !movement.sourceType };
   }
 
-  async getExceptions(filters: InventoryReportFilterDto) {
-    const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate') };
+  async getExceptions(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    const where: any = { ...this.operationalScope(ctx), ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate') };
     if (filters.warehouseId) where.warehouseId = filters.warehouseId;
     const [noSourceMovements, negativeBalances, orphanMovements, reconciliationDiffCount] = await Promise.all([
       this.prisma.inventoryMovement.findMany({ where: { ...where, sourceType: null, sourceId: null }, orderBy: { movementDate: 'desc' }, include: { warehouse: { select: { id: true, code: true, name: true } } }, take: 100 }),
-      this.prisma.inventoryBalance.count({ where: { quantity: { lt: 0 } } }),
+      this.prisma.inventoryBalance.count({ where: { ...this.balanceScope(ctx), quantity: { lt: 0 } } }),
       this.prisma.inventoryMovement.findMany({ where: { ...where, OR: [{ sourceType: null }, { sourceId: null }] }, select: { id: true, movementNumber: true, sourceType: true, sourceId: true }, take: 100 }),
-      this.getReconciliationDifferenceCount(),
+      this.getReconciliationDifferenceCount(ctx),
     ]);
     return { exceptions: { noSourceMovements: noSourceMovements.length, negativeBalances, orphanMovements: orphanMovements.length, reconciliationDifferences: reconciliationDiffCount }, noSourceMovements, orphanMovements, negativeBalanceCount: negativeBalances, reconciliationDifferenceCount: reconciliationDiffCount };
   }
 
-  async getTopMovingItems(filters: InventoryReportFilterDto) {
-    const where: any = { movement: { status: 'POSTED', ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate') } };
+  async getTopMovingItems(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    const where: any = { movement: { ...this.operationalScope(ctx), status: 'POSTED', ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate') } };
     if (filters.warehouseId) where.movement.warehouseId = filters.warehouseId;
     const top = await this.prisma.inventoryMovementLine.groupBy({
       by: ['productId'], where, _sum: { quantity: true }, _count: true, orderBy: { _sum: { quantity: 'desc' } }, take: 20,
@@ -253,23 +270,25 @@ export class InventoryReportsService {
     return { rows, total: rows.length };
   }
 
-  async getDashboardCards() {
+  async getDashboardCards(ctx: ActiveOperationalContext) {
+    const movementScope = { ...this.operationalScope(ctx), status: 'POSTED' };
+    const balanceScope = this.balanceScope(ctx);
     const [totalProducts, totalWarehouses, totalBalanceQty, postedMovements, totalInQty, totalOutQty, negativeBalanceCount, movementTypeCount] = await Promise.all([
       this.prisma.product.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.warehouse.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.inventoryBalance.aggregate({ _sum: { quantity: true } }),
-      this.prisma.inventoryMovement.count({ where: { status: 'POSTED' } }),
-      this.prisma.inventoryMovementLine.aggregate({ where: { direction: 'IN', movement: { status: 'POSTED' } }, _sum: { quantity: true } }),
-      this.prisma.inventoryMovementLine.aggregate({ where: { direction: 'OUT', movement: { status: 'POSTED' } }, _sum: { quantity: true } }),
-      this.prisma.inventoryBalance.count({ where: { quantity: { lt: 0 } } }),
-      (await this.prisma.inventoryMovement.groupBy({ by: ['movementType'], where: { status: 'POSTED' }, _count: true })).length,
+      this.prisma.warehouse.count({ where: { ...this.warehouseScope(ctx), status: 'ACTIVE' } }),
+      this.prisma.inventoryBalance.aggregate({ where: balanceScope, _sum: { quantity: true } }),
+      this.prisma.inventoryMovement.count({ where: movementScope }),
+      this.prisma.inventoryMovementLine.aggregate({ where: { direction: 'IN', movement: movementScope }, _sum: { quantity: true } }),
+      this.prisma.inventoryMovementLine.aggregate({ where: { direction: 'OUT', movement: movementScope }, _sum: { quantity: true } }),
+      this.prisma.inventoryBalance.count({ where: { ...balanceScope, quantity: { lt: 0 } } }),
+      (await this.prisma.inventoryMovement.groupBy({ by: ['movementType'], where: movementScope, _count: true })).length,
     ]);
-    const reconciliationDiffCount = await this.getReconciliationDifferenceCount();
-    return { cards: [{ label: 'totalProducts', value: totalProducts }, { label: 'totalWarehouses', value: totalWarehouses }, { label: 'totalStockQty', value: totalBalanceQty._sum.quantity || 0 }, { label: 'postedMovements', value: postedMovements }, { label: 'totalInQty', value: totalInQty._sum.quantity || 0 }, { label: 'totalOutQty', value: totalOutQty._sum.quantity || 0 }, { label: 'negativeBalances', value: negativeBalanceCount }, { label: 'movementTypes', value: movementTypeCount }, { label: 'reconciliationDifferences', value: reconciliationDiffCount }] };
+    const reconciliationDiffCount = await this.getReconciliationDifferenceCount(ctx);
+    return { cards: [{ label: 'totalProducts', value: totalProducts }, { label: 'totalWarehouses', value: totalWarehouses }, { label: 'totalStockQty', value: totalBalanceQty._sum.quantity || 0 }, { label: 'postedMovements', value: postedMovements }, { label: 'totalInQty', value: totalInQty._sum?.quantity || 0 }, { label: 'totalOutQty', value: totalOutQty._sum?.quantity || 0 }, { label: 'negativeBalances', value: negativeBalanceCount }, { label: 'movementTypes', value: movementTypeCount }, { label: 'reconciliationDifferences', value: reconciliationDiffCount }] };
   }
 
-  async getNegativeBalances(filters: InventoryReportFilterDto) {
-    const where: any = { quantity: { lt: 0 } };
+  async getNegativeBalances(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    const where: any = { ...this.balanceScope(ctx), quantity: { lt: 0 } };
     if (filters.warehouseId) where.warehouseId = filters.warehouseId;
     if (filters.productId) where.productId = filters.productId;
     const [total, rows] = await Promise.all([
@@ -280,63 +299,63 @@ export class InventoryReportsService {
     return { rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages };
   }
 
-  async getReconciliationDifferences(filters: InventoryReportFilterDto) {
+  async getReconciliationDifferences(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
     const differences = await this.prisma.inventoryBalance.findMany({
-      where: { ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}), ...(filters.productId ? { productId: filters.productId } : {}) },
+      where: { ...this.balanceScope(ctx), ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}), ...(filters.productId ? { productId: filters.productId } : {}) },
       select: { id: true, productId: true, warehouseId: true, quantity: true, product: { select: { id: true, code: true, name: true } }, warehouse: { select: { id: true, code: true, name: true } } },
     });
     const rows = [];
     for (const bal of differences) {
-      const expectedIn = await this.prisma.inventoryMovementLine.aggregate({ where: { movement: { status: 'POSTED', warehouseId: bal.warehouseId }, direction: 'IN', productId: bal.productId }, _sum: { quantity: true } });
-      const expectedOut = await this.prisma.inventoryMovementLine.aggregate({ where: { movement: { status: 'POSTED', warehouseId: bal.warehouseId }, direction: 'OUT', productId: bal.productId }, _sum: { quantity: true } });
-      const expected = (expectedIn._sum.quantity || 0) - (expectedOut._sum.quantity || 0);
+      const expectedIn = await this.prisma.inventoryMovementLine.aggregate({ where: { movement: { ...this.operationalScope(ctx), status: 'POSTED', warehouseId: bal.warehouseId }, direction: 'IN', productId: bal.productId }, _sum: { quantity: true } });
+      const expectedOut = await this.prisma.inventoryMovementLine.aggregate({ where: { movement: { ...this.operationalScope(ctx), status: 'POSTED', warehouseId: bal.warehouseId }, direction: 'OUT', productId: bal.productId }, _sum: { quantity: true } });
+      const expected = (expectedIn._sum?.quantity || 0) - (expectedOut._sum?.quantity || 0);
       const diff = bal.quantity - expected;
       if (diff !== 0) rows.push({ productId: bal.productId, product: bal.product, warehouseId: bal.warehouseId, warehouse: bal.warehouse, currentBalance: bal.quantity, expectedBalance: expected, difference: diff });
     }
     return { rows, total: rows.length };
   }
 
-  private async getReconciliationDifferenceCount(): Promise<number> {
-    const balances = await this.prisma.inventoryBalance.findMany({ select: { id: true, productId: true, warehouseId: true, quantity: true } });
+  private async getReconciliationDifferenceCount(ctx: ActiveOperationalContext): Promise<number> {
+    const balances = await this.prisma.inventoryBalance.findMany({ where: this.balanceScope(ctx), select: { id: true, productId: true, warehouseId: true, quantity: true } });
     let diffCount = 0;
     for (const bal of balances) {
-      const inAgg = await this.prisma.inventoryMovementLine.aggregate({ where: { movement: { status: 'POSTED', warehouseId: bal.warehouseId }, direction: 'IN', productId: bal.productId }, _sum: { quantity: true } });
-      const outAgg = await this.prisma.inventoryMovementLine.aggregate({ where: { movement: { status: 'POSTED', warehouseId: bal.warehouseId }, direction: 'OUT', productId: bal.productId }, _sum: { quantity: true } });
-      const expected = (inAgg._sum.quantity || 0) - (outAgg._sum.quantity || 0);
+      const inAgg = await this.prisma.inventoryMovementLine.aggregate({ where: { movement: { ...this.operationalScope(ctx), status: 'POSTED', warehouseId: bal.warehouseId }, direction: 'IN', productId: bal.productId }, _sum: { quantity: true } });
+      const outAgg = await this.prisma.inventoryMovementLine.aggregate({ where: { movement: { ...this.operationalScope(ctx), status: 'POSTED', warehouseId: bal.warehouseId }, direction: 'OUT', productId: bal.productId }, _sum: { quantity: true } });
+      const expected = (inAgg._sum?.quantity || 0) - (outAgg._sum?.quantity || 0);
       if (bal.quantity !== expected) diffCount++;
     }
     return diffCount;
   }
 
-  private async resolveSourceDocument(sourceType: string, sourceId: string): Promise<any> {
+  private async resolveSourceDocument(sourceType: string, sourceId: string, ctx: ActiveOperationalContext): Promise<any> {
     try {
       switch (sourceType) {
         case 'OPENING_BALANCE': {
-          const doc = await this.prisma.inventoryOpeningBalance.findUnique({ where: { id: sourceId }, select: { id: true, code: true, status: true, createdAt: true } });
+          const doc = await this.prisma.inventoryOpeningBalance.findFirst({ where: { id: sourceId, ...this.operationalScope(ctx) }, select: { id: true, code: true, status: true, createdAt: true } });
           return doc ? { ...doc, documentType: 'OPENING_BALANCE', route: '/admin/inventory/opening-balances' } : null;
         }
         case 'STOCK_ADJUSTMENT_IN':
         case 'STOCK_ADJUSTMENT_OUT': {
-          const doc = await this.prisma.inventoryStockAdjustment.findUnique({ where: { id: sourceId }, select: { id: true, code: true, status: true, createdAt: true } });
+          const doc = await this.prisma.inventoryStockAdjustment.findFirst({ where: { id: sourceId, ...this.operationalScope(ctx) }, select: { id: true, code: true, status: true, createdAt: true } });
           return doc ? { ...doc, documentType: sourceType, route: '/admin/inventory/stock-adjustments' } : null;
         }
         case 'STOCK_TRANSFER_IN':
         case 'STOCK_TRANSFER_OUT': {
-          const doc = await this.prisma.inventoryStockTransfer.findUnique({ where: { id: sourceId }, select: { id: true, code: true, status: true, createdAt: true } });
+          const doc = await this.prisma.inventoryStockTransfer.findFirst({ where: { id: sourceId, ...this.operationalScope(ctx) }, select: { id: true, code: true, status: true, createdAt: true } });
           return doc ? { ...doc, documentType: sourceType, route: '/admin/inventory/transfers' } : null;
         }
         case 'STOCK_RECEIVING': {
-          const doc = await this.prisma.inventoryOperationalReceipt.findUnique({ where: { id: sourceId }, select: { id: true, code: true, status: true, createdAt: true } });
+          const doc = await this.prisma.inventoryOperationalReceipt.findFirst({ where: { id: sourceId, ...this.operationalScope(ctx) }, select: { id: true, code: true, status: true, createdAt: true } });
           return doc ? { ...doc, documentType: 'STOCK_RECEIVING', route: '/admin/inventory/operational-receipts' } : null;
         }
         case 'COUNT_VARIANCE_IN':
         case 'COUNT_VARIANCE_OUT': {
-          const doc = await this.prisma.inventoryPhysicalCount.findUnique({ where: { id: sourceId }, select: { id: true, countNumber: true, status: true, createdAt: true } });
+          const doc = await this.prisma.inventoryPhysicalCount.findFirst({ where: { id: sourceId, ...this.operationalScope(ctx) }, select: { id: true, countNumber: true, status: true, createdAt: true } });
           return doc ? { ...doc, documentType: sourceType, route: '/admin/inventory/physical-counts', code: doc.countNumber } : null;
         }
         case 'MAINTENANCE_ISSUE':
         case 'MAINTENANCE_RETURN': {
-          const doc = await this.prisma.maintenanceRequest.findUnique({ where: { id: sourceId }, select: { id: true, requestNumber: true, status: true, createdAt: true } });
+          const doc = await this.prisma.maintenanceRequest.findFirst({ where: { id: sourceId, machine: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] } }, select: { id: true, requestNumber: true, status: true, createdAt: true } });
           return doc ? { ...doc, documentType: sourceType, route: '/admin/maintenance/requests', code: doc.requestNumber } : null;
         }
         default:

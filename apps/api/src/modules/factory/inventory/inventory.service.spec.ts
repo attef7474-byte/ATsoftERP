@@ -80,4 +80,44 @@ describe('InventoryService updateLocation tenant isolation', () => {
     const result = await service.updateLocation('loc1', { warehouseId: 'w2' } as any, ctx);
     expect(result.warehouseId).toBe('w2');
   });
+
+  it('scopes the warehouse list to the active company and branch, ignoring client companyId', async () => {
+    prisma.warehouse.findMany = jest.fn().mockResolvedValue([]);
+    prisma.warehouse.count = jest.fn().mockResolvedValue(0);
+
+    await service.findAllWarehouses({ companyId: 'c2', search: 'saw', warehouseType: 'SPARE_PARTS' } as any, ctx);
+
+    expect(prisma.warehouse.findMany).toHaveBeenCalledTimes(1);
+    const where = prisma.warehouse.findMany.mock.calls[0][0].where;
+    expect(where).toEqual({
+      deletedAt: null,
+      companyId: 'c1',
+      OR: [{ branchId: 'b1' }, { branchId: null }],
+      name: { contains: 'saw' },
+      warehouseType: 'SPARE_PARTS',
+    });
+    expect(where.companyId).not.toBe('c2');
+  });
+
+  it('scopes the location list to active-company warehouses', async () => {
+    prisma.warehouseLocation.findMany = jest.fn().mockResolvedValue([]);
+    prisma.warehouseLocation.count = jest.fn().mockResolvedValue(0);
+
+    await service.findAllLocations({} as any, ctx);
+
+    expect(prisma.warehouseLocation.findMany).toHaveBeenCalledTimes(1);
+    const where = prisma.warehouseLocation.findMany.mock.calls[0][0].where;
+    expect(where).toEqual({
+      warehouse: { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] },
+    });
+  });
+
+  it('rejects a location list scoped to a foreign-company warehouse', async () => {
+    prisma.warehouse.findUnique.mockResolvedValue({ id: 'w-foreign', companyId: 'c2', branchId: 'b9' });
+
+    await expect(
+      service.findAllLocations({ warehouseId: 'w-foreign' } as any, ctx),
+    ).rejects.toThrow(ForbiddenException);
+    expect(prisma.warehouseLocation.findMany).not.toHaveBeenCalled();
+  });
 });

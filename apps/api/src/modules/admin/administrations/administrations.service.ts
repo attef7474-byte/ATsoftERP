@@ -3,6 +3,7 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import { CreateAdministrationDto } from './dto/create-administration.dto';
 import { UpdateAdministrationDto } from './dto/update-administration.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class AdministrationsService {
@@ -19,32 +20,29 @@ export class AdministrationsService {
     });
   }
 
-  async create(dto: CreateAdministrationDto) {
-    const branch = await this.prisma.branch.findUnique({ where: { id: dto.branchId } });
+  async create(dto: CreateAdministrationDto, ctx: ActiveOperationalContext) {
+    const branch = await this.prisma.branch.findFirst({ where: { id: ctx.branchId, companyId: ctx.companyId, deletedAt: null } });
     if (!branch) throw this.validationError('branchId', 'validation.invalidReference', 'Branch not found');
 
     const code = dto.code?.trim() || (await this.numberingService.generateNumberAtomic('ADMINISTRATION'));
 
     const existing = await this.prisma.administration.findFirst({
-      where: { branchId: dto.branchId, code, deletedAt: null },
+      where: { branchId: ctx.branchId, code, deletedAt: null },
     });
     if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Administration code already exists');
 
-    return this.prisma.administration.create({ data: { ...dto, code } });
+    const { branchId: _branchId, ...rest } = dto;
+    return this.prisma.administration.create({ data: { ...rest, branchId: ctx.branchId, code } });
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string; companyId?: string; branchId?: string; status?: string }) {
+  async findAll(query: { page?: number; limit?: number; search?: string; status?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null };
+    const where: any = { deletedAt: null, branchId: ctx.branchId, branch: { companyId: ctx.companyId } };
     if (query.search) where.name = { contains: query.search };
-    if (query.branchId) where.branchId = query.branchId;
     if (query.status) where.status = query.status;
-    if (query.companyId) {
-      where.branch = { companyId: query.companyId };
-    }
 
     const [data, total] = await Promise.all([
       this.prisma.administration.findMany({
@@ -62,9 +60,9 @@ export class AdministrationsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
-    const administration = await this.prisma.administration.findUnique({
-      where: { id },
+  async findOne(id: string, ctx: ActiveOperationalContext) {
+    const administration = await this.prisma.administration.findFirst({
+      where: { id, branchId: ctx.branchId, branch: { companyId: ctx.companyId }, deletedAt: null },
       include: {
         branch: {
           include: { company: { select: { id: true, name: true, code: true } } },
@@ -78,27 +76,22 @@ export class AdministrationsService {
     return administration;
   }
 
-  async update(id: string, dto: UpdateAdministrationDto) {
-    const administration = await this.findOne(id);
-
-    if (dto.branchId) {
-      const branch = await this.prisma.branch.findUnique({ where: { id: dto.branchId } });
-      if (!branch) throw this.validationError('branchId', 'validation.invalidReference', 'Branch not found');
-    }
+  async update(id: string, dto: UpdateAdministrationDto, ctx: ActiveOperationalContext) {
+    const administration = await this.findOne(id, ctx);
 
     const code = dto.code?.trim();
     if (code) {
-      const branchId = dto.branchId ?? administration.branchId;
       const existing = await this.prisma.administration.findFirst({
-        where: { branchId, code, deletedAt: null, NOT: { id } },
+        where: { branchId: ctx.branchId, code, deletedAt: null, NOT: { id } },
       });
       if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Administration code already exists');
       dto = { ...dto, code };
     }
 
+    const { branchId: _branchId, ...data } = dto;
     return this.prisma.administration.update({
       where: { id },
-      data: dto,
+      data,
       include: {
         branch: {
           include: { company: { select: { id: true, name: true, code: true } } },
@@ -107,8 +100,8 @@ export class AdministrationsService {
     });
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, ctx: ActiveOperationalContext) {
+    await this.findOne(id, ctx);
 
     const deptCount = await this.prisma.department.count({ where: { administrationId: id, deletedAt: null } });
     if (deptCount > 0) {

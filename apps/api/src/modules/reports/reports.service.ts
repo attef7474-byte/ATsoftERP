@@ -25,8 +25,8 @@ export class ReportsService {
     return this.dashboardReportsService.getMaintenanceOverview(filters, ctx);
   }
 
-  getInventoryOverview(filters: InventoryReportFilterDto) {
-    return this.dashboardReportsService.getInventoryOverview(filters);
+  getInventoryOverview(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.dashboardReportsService.getInventoryOverview(filters, ctx);
   }
 
   getMaintenanceRequestsReport(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
@@ -61,104 +61,104 @@ export class ReportsService {
     return this.maintenanceReportsService.getOverduePreventiveReport(filters, ctx);
   }
 
-  getInventoryBalanceReport(filters: InventoryReportFilterDto) {
-    return this.inventoryReportsService.getInventoryBalanceReport(filters);
+  getInventoryBalanceReport(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getInventoryBalanceReport(filters, ctx);
   }
 
-  getInventoryCountVarianceReport(filters: InventoryReportFilterDto) {
-    return this.inventoryReportsService.getInventoryCountVarianceReport(filters);
+  getInventoryCountVarianceReport(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getInventoryCountVarianceReport(filters, ctx);
   }
 
-  getInventoryMovementsReport(filters: InventoryReportFilterDto) {
-    return this.inventoryReportsService.getInventoryMovementsReport(filters);
+  getInventoryMovementsReport(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getInventoryMovementsReport(filters, ctx);
   }
 
-  getInventoryAdjustmentsReport(filters: InventoryReportFilterDto) {
-    return this.inventoryReportsService.getInventoryAdjustmentsReport(filters);
+  getInventoryAdjustmentsReport(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getInventoryAdjustmentsReport(filters, ctx);
   }
 
-  getBarcodeScansReport(filters: BarcodeReportFilterDto) {
-    return this.barcodeReportsService.getBarcodeScansReport(filters);
+  getBarcodeScansReport(filters: BarcodeReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.barcodeReportsService.getBarcodeScansReport(filters, ctx);
   }
 
-  getAssetsRegisterReport(filters: any) {
-    return this.systemReportsService.getAssetsRegisterReport(filters);
+  getAssetsRegisterReport(filters: any, ctx: ActiveOperationalContext) {
+    return this.systemReportsService.getAssetsRegisterReport(filters, ctx);
   }
 
-  getPartsReport(filters: any) {
-    return this.systemReportsService.getPartsReport(filters);
+  getPartsReport(filters: any, ctx: ActiveOperationalContext) {
+    return this.systemReportsService.getPartsReport(filters, ctx);
   }
 
-  getPartnersReport(filters: any) {
-    return this.systemReportsService.getPartnersReport(filters);
+  getPartnersReport(filters: any, ctx: ActiveOperationalContext) {
+    return this.systemReportsService.getPartnersReport(filters, ctx);
   }
 
-  getAttachmentsReport(filters: any) {
-    return this.systemReportsService.getAttachmentsReport(filters);
+  getAttachmentsReport(filters: any, ctx: ActiveOperationalContext) {
+    return this.systemReportsService.getAttachmentsReport(filters, ctx);
   }
 
-  getLowStockReport(filters: any) {
-    return this.systemReportsService.getLowStockReport(filters);
+  getLowStockReport(filters: any, ctx: ActiveOperationalContext) {
+    return this.systemReportsService.getLowStockReport(filters, ctx);
   }
 
-  getStockCard(filters: any) {
-    return this.inventoryReportsService.getStockCard(filters);
+  getStockCard(filters: any, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getStockCard(filters, ctx);
   }
 
-  getMovementTypes(filters: any) {
-    return this.inventoryReportsService.getMovementTypes(filters);
+  getMovementTypes(filters: any, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getMovementTypes(filters, ctx);
   }
 
-  getByWarehouseSummary(filters: any) {
-    return this.inventoryReportsService.getByWarehouseSummary(filters);
+  getByWarehouseSummary(filters: any, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getByWarehouseSummary(filters, ctx);
   }
 
-  getByLocationSummary(filters: any) {
-    return this.inventoryReportsService.getByLocationSummary(filters);
+  getByLocationSummary(filters: any, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getByLocationSummary(filters, ctx);
   }
 
-  getByProduct(productId: string, filters: any) {
-    return this.inventoryReportsService.getByProduct(productId, filters);
+  getByProduct(productId: string, filters: any, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getByProduct(productId, filters, ctx);
   }
 
-  getBySource(sourceType: string, sourceId: string) {
-    return this.inventoryReportsService.getBySource(sourceType, sourceId);
+  getBySource(sourceType: string, sourceId: string, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getBySource(sourceType, sourceId, ctx);
   }
 
-  getMovementTraceability(id: string) {
-    return this.inventoryReportsService.getMovementTraceability(id);
+  getMovementTraceability(id: string, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getMovementTraceability(id, ctx);
   }
 
-  getExceptions(filters: any) {
-    return this.inventoryReportsService.getExceptions(filters);
+  getExceptions(filters: any, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getExceptions(filters, ctx);
   }
 
-  getTopMovingItems(filters: any) {
-    return this.inventoryReportsService.getTopMovingItems(filters);
+  getTopMovingItems(filters: any, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getTopMovingItems(filters, ctx);
   }
 
-  getDashboardCards() {
-    return this.inventoryReportsService.getDashboardCards();
+  getDashboardCards(ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getDashboardCards(ctx);
   }
 
-  getNegativeBalances(filters: any) {
-    return this.inventoryReportsService.getNegativeBalances(filters);
+  getNegativeBalances(filters: any, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getNegativeBalances(filters, ctx);
   }
 
-  getReconciliationDifferences(filters: any) {
-    return this.inventoryReportsService.getReconciliationDifferences(filters);
+  getReconciliationDifferences(filters: any, ctx: ActiveOperationalContext) {
+    return this.inventoryReportsService.getReconciliationDifferences(filters, ctx);
   }
 
-  getAuditTrailReport(filters: any) {
-    return this.auditReportsService.getAuditTrailReport(filters);
+  getAuditTrailReport(filters: any, ctx: ActiveOperationalContext) {
+    return this.auditReportsService.getAuditTrailReport(filters, ctx);
   }
 
-  getUserActivityReport(filters: any) {
-    return this.auditReportsService.getUserActivityReport(filters);
+  getUserActivityReport(filters: any, ctx: ActiveOperationalContext) {
+    return this.auditReportsService.getUserActivityReport(filters, ctx);
   }
 
-  getNotificationsReport(filters: any) {
-    return this.auditReportsService.getNotificationsReport(filters);
+  getNotificationsReport(filters: any, ctx: ActiveOperationalContext) {
+    return this.auditReportsService.getNotificationsReport(filters, ctx);
   }
 
   // ─────────────── AF-AG: Enhanced Cost Analysis ───────────────

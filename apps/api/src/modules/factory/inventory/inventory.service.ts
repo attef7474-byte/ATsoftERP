@@ -24,14 +24,17 @@ export class InventoryService {
     return this.prisma.warehouse.create({ data: { ...dto, code, companyId: ctx.companyId, branchId: ctx.branchId } });
   }
 
-  async findAllWarehouses(query: { page?: number; limit?: number; search?: string; companyId?: string; warehouseType?: string }) {
+  async findAllWarehouses(query: { page?: number; limit?: number; search?: string; companyId?: string; warehouseType?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null };
+    const where: any = {
+      deletedAt: null,
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
     if (query.search) where.name = { contains: query.search };
-    if (query.companyId) where.companyId = query.companyId;
     if (query.warehouseType) where.warehouseType = query.warehouseType;
 
     const [data, total] = await Promise.all([
@@ -86,19 +89,27 @@ export class InventoryService {
     });
   }
 
-  async findAllLocations(query: { page?: number; limit?: number; search?: string; warehouseId?: string; status?: string }) {
+  async findAllLocations(query: { page?: number; limit?: number; search?: string; warehouseId?: string; status?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = {
+      warehouse: {
+        companyId: ctx.companyId,
+        OR: [{ branchId: ctx.branchId }, { branchId: null }],
+      },
+    };
+    if (query.warehouseId) {
+      await assertWarehouseInContext(this.prisma, query.warehouseId, ctx);
+      where.warehouseId = query.warehouseId;
+    }
     if (query.search) {
       where.OR = [
         { code: { contains: query.search } },
         { name: { contains: query.search } },
       ];
     }
-    if (query.warehouseId) where.warehouseId = query.warehouseId;
     if (query.status) where.status = query.status;
 
     const [data, total] = await Promise.all([

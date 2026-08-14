@@ -7,6 +7,8 @@ import { JwtAuthGuard } from '../../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @ApiTags('Production Lines')
 @ApiBearerAuth()
@@ -18,8 +20,8 @@ export class ProductionLinesController {
   @Post()
   @Permissions('productionLines:create')
   @ApiOperation({ summary: 'Create production line' })
-  create(@Body() dto: CreateProductionLineDto, @CurrentUser('sub') userId: string) {
-    return this.service.create(dto, userId);
+  create(@Body() dto: CreateProductionLineDto, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.create(dto, userId, ctx);
   }
 
   @Get()
@@ -30,7 +32,7 @@ export class ProductionLinesController {
     companyId?: string; branchId?: string; administrationId?: string;
     departmentId?: string; operationTypeId?: string; costCenterId?: string;
     status?: string;
-  }) {
+  }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
@@ -42,39 +44,39 @@ export class ProductionLinesController {
       operationTypeId: query.operationTypeId,
       costCenterId: query.costCenterId,
       status: query.status,
-    });
+    }, ctx);
   }
 
   @Get(':id')
   @Permissions('productionLines:read')
   @ApiOperation({ summary: 'Get production line by ID' })
-  findOne(@Param('id') id: string) { return this.service.findOne(id); }
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOne(id, ctx); }
 
   @Patch(':id')
   @Permissions('productionLines:update')
   @ApiOperation({ summary: 'Update production line' })
-  update(@Param('id') id: string, @Body() dto: UpdateProductionLineDto, @CurrentUser('sub') userId: string) {
-    return this.service.update(id, dto, userId);
+  update(@Param('id') id: string, @Body() dto: UpdateProductionLineDto, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.update(id, dto, userId, ctx);
   }
 
   @Delete(':id')
   @Permissions('productionLines:delete')
   @ApiOperation({ summary: 'Soft delete production line' })
-  remove(@Param('id') id: string, @CurrentUser('sub') userId: string) {
-    return this.service.remove(id, userId);
+  remove(@Param('id') id: string, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.remove(id, userId, ctx);
   }
 
   @Patch(':id/activate')
   @Permissions('productionLines:activate')
   @ApiOperation({ summary: 'Activate production line' })
-  activate(@Param('id') id: string, @CurrentUser('sub') userId: string) {
-    return this.service.activate(id, userId);
+  activate(@Param('id') id: string, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.activate(id, userId, ctx);
   }
 
   @Patch(':id/deactivate')
   @Permissions('productionLines:deactivate')
   @ApiOperation({ summary: 'Deactivate production line' })
-  deactivate(@Param('id') id: string, @CurrentUser('sub') userId: string) {
-    return this.service.deactivate(id, userId);
+  deactivate(@Param('id') id: string, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.deactivate(id, userId, ctx);
   }
 }

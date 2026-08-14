@@ -3,6 +3,7 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class BranchesService {
@@ -19,28 +20,28 @@ export class BranchesService {
     });
   }
 
-  async create(dto: CreateBranchDto) {
-    const company = await this.prisma.company.findUnique({ where: { id: dto.companyId } });
+  async create(dto: CreateBranchDto, ctx: ActiveOperationalContext) {
+    const company = await this.prisma.company.findUnique({ where: { id: ctx.companyId } });
     if (!company) throw this.validationError('companyId', 'validation.invalidReference', 'Company not found');
 
     const code = dto.code?.trim() || (await this.numberingService.generateNumberAtomic('BRANCH'));
 
     const existing = await this.prisma.branch.findFirst({
-      where: { companyId: dto.companyId, code, deletedAt: null },
+      where: { companyId: ctx.companyId, code, deletedAt: null },
     });
     if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Branch code already exists');
 
-    return this.prisma.branch.create({ data: { ...dto, code } });
+    const { companyId: _companyId, ...rest } = dto;
+    return this.prisma.branch.create({ data: { ...rest, companyId: ctx.companyId, code } });
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string; companyId?: string }) {
+  async findAll(query: { page?: number; limit?: number; search?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null };
+    const where: any = { deletedAt: null, companyId: ctx.companyId };
     if (query.search) where.name = { contains: query.search };
-    if (query.companyId) where.companyId = query.companyId;
 
     const [data, total] = await Promise.all([
       this.prisma.branch.findMany({
@@ -53,9 +54,9 @@ export class BranchesService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
-    const branch = await this.prisma.branch.findUnique({
-      where: { id },
+  async findOne(id: string, ctx: ActiveOperationalContext) {
+    const branch = await this.prisma.branch.findFirst({
+      where: { id, companyId: ctx.companyId, deletedAt: null },
       include: { company: { select: { id: true, name: true, code: true } } },
     });
     if (!branch) {
@@ -64,29 +65,23 @@ export class BranchesService {
     return branch;
   }
 
-  async update(id: string, dto: UpdateBranchDto) {
-    const branch = await this.findOne(id);
-
-    if (dto.companyId) {
-      const company = await this.prisma.company.findUnique({ where: { id: dto.companyId } });
-      if (!company) throw this.validationError('companyId', 'validation.invalidReference', 'Company not found');
-    }
+  async update(id: string, dto: UpdateBranchDto, ctx: ActiveOperationalContext) {
+    const branch = await this.findOne(id, ctx);
 
     const code = dto.code?.trim();
     if (code) {
-      const companyId = dto.companyId ?? branch.companyId;
       const existing = await this.prisma.branch.findFirst({
-        where: { companyId, code, deletedAt: null, NOT: { id } },
+        where: { companyId: ctx.companyId, code, deletedAt: null, NOT: { id } },
       });
       if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Branch code already exists');
       dto = { ...dto, code };
     }
-
-    return this.prisma.branch.update({ where: { id }, data: dto });
+    const { companyId: _companyId, ...data } = dto;
+    return this.prisma.branch.update({ where: { id: branch.id }, data });
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, ctx: ActiveOperationalContext) {
+    await this.findOne(id, ctx);
     await this.prisma.branch.update({ where: { id }, data: { deletedAt: new Date() } });
     return { message: 'Branch deleted successfully' };
   }

@@ -8,6 +8,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../auth/guards/permissions.guard'
 import { Permissions } from '../../auth/decorators/permissions.decorator'
 import { CurrentUser } from '../../../common/decorators/current-user.decorator'
+import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator'
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types'
 
 @ApiTags('Inventory Locks')
 @ApiBearerAuth()
@@ -19,56 +21,56 @@ export class InventoryLocksController {
   @Post()
   @Permissions('inventory:lock:create')
   @ApiOperation({ summary: 'Create inventory lock' })
-  create(@Body() dto: CreateInventoryLockDto, @CurrentUser('id') userId: string) {
-    return this.service.create(dto, userId)
+  create(@Body() dto: CreateInventoryLockDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.create(dto, userId, ctx)
   }
 
   @Get()
   @Permissions('inventory:lock:read')
   @ApiOperation({ summary: 'List inventory locks' })
-  findAll(@Query() query: LockQueryDto) {
-    return this.service.findAll(query)
+  findAll(@Query() query: LockQueryDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findAll(query, ctx)
   }
 
   @Get(':id')
   @Permissions('inventory:lock:read')
   @ApiOperation({ summary: 'Get inventory lock by id' })
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id)
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findOne(id, ctx)
   }
 
   @Patch(':id')
   @Permissions('inventory:lock:update')
   @ApiOperation({ summary: 'Update inventory lock' })
-  update(@Param('id') id: string, @Body() dto: UpdateInventoryLockDto, @CurrentUser('id') userId: string) {
-    return this.service.update(id, dto, userId)
+  update(@Param('id') id: string, @Body() dto: UpdateInventoryLockDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.update(id, dto, userId, ctx)
   }
 
   @Post(':id/activate')
   @Permissions('inventory:lock:activate')
   @ApiOperation({ summary: 'Activate inventory lock' })
-  activate(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.service.activate(id, userId)
+  activate(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.activate(id, userId, ctx)
   }
 
   @Post(':id/deactivate')
   @Permissions('inventory:lock:deactivate')
   @ApiOperation({ summary: 'Deactivate inventory lock' })
-  deactivate(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.service.deactivate(id, userId)
+  deactivate(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.deactivate(id, userId, ctx)
   }
 
   @Delete(':id')
   @Permissions('inventory:lock:delete')
   @ApiOperation({ summary: 'Delete inventory lock' })
-  remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.service.remove(id, userId)
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.remove(id, userId, ctx)
   }
 
   @Post('check')
   @Permissions('inventory:lock:read')
   @ApiOperation({ summary: 'Check if a lock applies for given date/warehouse/location/product' })
-  check(@Body() dto: LockCheckDto) {
-    return this.service.checkLock(dto)
+  check(@Body() dto: LockCheckDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.checkLock(dto, ctx)
   }
 }

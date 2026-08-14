@@ -4,6 +4,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../auth/guards/permissions.guard'
 import { Permissions } from '../../auth/decorators/permissions.decorator'
 import { AuditService } from '../../../modules/audit/audit.service'
+import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator'
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types'
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -17,14 +19,14 @@ export class UserActivityController {
   @ApiOperation({ summary: 'Get user activity log' })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
-  async findUserActivity(@Param('id') id: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.auditService.findUserActivity(id, { page: page ? parseInt(page, 10) : undefined, limit: limit ? parseInt(limit, 10) : undefined })
+  async findUserActivity(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext, @Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.auditService.findUserActivity(id, { page: page ? parseInt(page, 10) : undefined, limit: limit ? parseInt(limit, 10) : undefined }, ctx)
   }
 
   @Get(':id/login-history')
   @Permissions('users.loginHistory.view')
   @ApiOperation({ summary: 'Get user login history' })
-  async findLoginHistory(@Param('id') id: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.auditService.findLoginHistory(id, page ? parseInt(page, 10) : 1, limit ? parseInt(limit, 10) : 20)
+  async findLoginHistory(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext, @Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.auditService.findLoginHistory(id, page ? parseInt(page, 10) : 1, limit ? parseInt(limit, 10) : 20, ctx)
   }
 }

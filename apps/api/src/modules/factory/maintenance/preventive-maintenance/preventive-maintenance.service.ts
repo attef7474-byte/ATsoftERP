@@ -153,7 +153,7 @@ export class PreventiveMaintenanceService {
       if (existingRequest) continue;
 
       const request = await this.prisma.$transaction(async (tx) => {
-        const requestNumber = await this.numberingService.generateNumberAtomic('MAINTENANCE_REQUEST');
+        const requestNumber = await this.numberingService.generateNumberAtomicWithClient('MAINTENANCE_REQUEST', tx);
 
         const nextDue = this.calculateNextDueDate(schedule, now);
 

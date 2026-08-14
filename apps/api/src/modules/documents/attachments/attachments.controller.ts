@@ -8,6 +8,8 @@ import { PermissionsGuard } from '../../../common/guards/permissions.guard'
 import { Permissions } from '../../../common/decorators/permissions.decorator'
 import { CurrentUser } from '../../../common/decorators/current-user.decorator'
 import * as path from 'path'
+import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator'
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types'
 
 @ApiTags('Attachments')
 @ApiBearerAuth()
@@ -23,15 +25,15 @@ export class AttachmentsController {
   @ApiQuery({ name: 'pageSize', required: false })
   @ApiQuery({ name: 'entityType', required: false })
   @ApiQuery({ name: 'mimeType', required: false })
-  async findAll(@Query('page') page?: string, @Query('pageSize') pageSize?: string, @Query('entityType') entityType?: string, @Query('mimeType') mimeType?: string) {
-    return this.service.findAll(Number(page) || 1, Number(pageSize) || 20, entityType, mimeType)
+  async findAll(@CurrentActiveContext() ctx: ActiveOperationalContext, @Query('page') page?: string, @Query('pageSize') pageSize?: string, @Query('entityType') entityType?: string, @Query('mimeType') mimeType?: string) {
+    return this.service.findAll(ctx, Number(page) || 1, Number(pageSize) || 20, entityType, mimeType)
   }
 
   @Get(':id')
   @Permissions('attachments.view')
   @ApiOperation({ summary: 'Get attachment metadata' })
-  async findOne(@Param('id') id: string) {
-    const attachment = await this.service.findOne(id)
+  async findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    const attachment = await this.service.findOne(id, ctx)
     this.assertGenericAccess(attachment)
     return attachment
   }
@@ -39,8 +41,8 @@ export class AttachmentsController {
   @Get(':id/download')
   @Permissions('attachments.download')
   @ApiOperation({ summary: 'Download attachment file' })
-  async download(@Param('id') id: string, @Res() res: Response) {
-    const attachment = await this.service.findOne(id)
+  async download(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext, @Res() res: Response) {
+    const attachment = await this.service.findOne(id, ctx)
     this.assertGenericAccess(attachment)
     const filePath = this.service.getFilePath(attachment)
     const safePath = path.resolve(filePath)
@@ -56,33 +58,33 @@ export class AttachmentsController {
   @ApiOperation({ summary: 'Upload attachment' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
-  async create(@UploadedFile() file: Express.Multer.File, @Body('entityName') entityName: string, @Body('entityId') entityId: string, @Body('description') description: string, @CurrentUser('id') userId: string) {
+  async create(@UploadedFile() file: Express.Multer.File, @Body('entityName') entityName: string, @Body('entityId') entityId: string, @Body('description') description: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     if (entityName === 'ProductionOrder') throw new BadRequestException({ messageKey: 'productionOrder.useScopedAttachmentEndpoint' })
-    return this.service.create(file, entityName, entityId, description, userId)
+    return this.service.create(file, entityName, entityId, description, userId, ctx)
   }
 
   @Patch(':id')
   @Permissions('attachments.update')
   @ApiOperation({ summary: 'Update attachment metadata' })
-  async update(@Param('id') id: string, @Body() dto: { entityName?: string; entityId?: string; description?: string }) {
-    this.assertGenericAccess(await this.service.findOne(id))
+  async update(@Param('id') id: string, @Body() dto: { entityName?: string; entityId?: string; description?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    this.assertGenericAccess(await this.service.findOne(id, ctx))
     if (dto.entityName === 'ProductionOrder') throw new BadRequestException({ messageKey: 'productionOrder.useScopedAttachmentEndpoint' })
-    return this.service.update(id, dto)
+    return this.service.update(id, dto, ctx)
   }
 
   @Delete(':id')
   @Permissions('attachments.delete')
   @ApiOperation({ summary: 'Delete attachment' })
-  async remove(@Param('id') id: string) {
-    this.assertGenericAccess(await this.service.findOne(id))
-    return this.service.remove(id)
+  async remove(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    this.assertGenericAccess(await this.service.findOne(id, ctx))
+    return this.service.remove(id, ctx)
   }
 
   @Get('entities/:entityType/:entityId')
   @Permissions('attachments.view')
   @ApiOperation({ summary: 'Get attachments by entity' })
-  async findByEntity(@Param('entityType') entityType: string, @Param('entityId') entityId: string) {
-    return this.service.findByEntity(entityType, entityId)
+  async findByEntity(@Param('entityType') entityType: string, @Param('entityId') entityId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findByEntity(entityType, entityId, ctx)
   }
 
   private assertGenericAccess(attachment: { entityName: string }) {

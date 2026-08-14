@@ -1,13 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { buildDateFilter, paginate } from './report-query-utils';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class SystemReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getAssetsRegisterReport(filters: any) {
-    const where: any = {};
+  async getAssetsRegisterReport(filters: any, ctx: ActiveOperationalContext) {
+    const tenant = { companyId: ctx.companyId, branchId: { in: [ctx.branchId, null] } };
+    const where: any = { ...tenant };
     if (filters.search) where.OR = [{ code: { contains: filters.search } }, { name: { contains: filters.search } }];
     if (filters.machineCategoryId) where.categoryId = filters.machineCategoryId;
     if (filters.status) where.status = filters.status;
@@ -20,10 +22,10 @@ export class SystemReportsService {
         orderBy: { createdAt: 'desc' },
         include: { category: { select: { id: true, name: true } } },
       }),
-      this.prisma.machine.groupBy({ by: ['status'], _count: true }),
-      this.prisma.machine.groupBy({ by: ['categoryId'], _count: true }),
-      this.prisma.machine.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.machine.count({ where: { status: 'INACTIVE' } }),
+      this.prisma.machine.groupBy({ by: ['status'], where, _count: true }),
+      this.prisma.machine.groupBy({ by: ['categoryId'], where, _count: true }),
+      this.prisma.machine.count({ where: { ...where, status: 'ACTIVE' } }),
+      this.prisma.machine.count({ where: { ...where, status: 'INACTIVE' } }),
     ]);
 
     const totalPages = Math.ceil(total / (filters.pageSize || 20));
@@ -40,8 +42,9 @@ export class SystemReportsService {
     };
   }
 
-  async getPartsReport(filters: any) {
-    const where: any = {};
+  async getPartsReport(filters: any, ctx: ActiveOperationalContext) {
+    const machineScope = { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] };
+    const where: any = { machine: { is: machineScope } };
     if (filters.search) where.OR = [{ code: { contains: filters.search } }, { name: { contains: filters.search } }];
 
     const [total, rows, highStock, lowStock] = await Promise.all([
@@ -50,8 +53,8 @@ export class SystemReportsService {
         where, ...paginate(filters.page, filters.pageSize),
         orderBy: { id: 'desc' },
       }),
-      this.prisma.machinePart.count({ where: { quantity: { gte: 10 } } }),
-      this.prisma.machinePart.count({ where: { quantity: { lt: 10 } } }),
+      this.prisma.machinePart.count({ where: { machine: { is: machineScope }, quantity: { gte: 10 } } }),
+      this.prisma.machinePart.count({ where: { machine: { is: machineScope }, quantity: { lt: 10 } } }),
     ]);
 
     const totalPages = Math.ceil(total / (filters.pageSize || 20));
@@ -65,8 +68,9 @@ export class SystemReportsService {
     };
   }
 
-  async getPartnersReport(filters: any) {
-    const where: any = {};
+  async getPartnersReport(filters: any, ctx: ActiveOperationalContext) {
+    const tenant = { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null };
+    const where: any = { ...tenant };
     if (filters.search) where.OR = [{ code: { contains: filters.search } }, { name: { contains: filters.search } }, { email: { contains: filters.search } }];
     if (filters.type) where.type = filters.type;
 
@@ -76,10 +80,10 @@ export class SystemReportsService {
         where, ...paginate(filters.page, filters.pageSize),
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.businessPartner.groupBy({ by: ['type'], _count: true }),
-      this.prisma.businessPartner.count({ where: { isBlocked: true } }),
-      this.prisma.businessPartner.count({ where: { isSupplier: true, isBlocked: false } }),
-      this.prisma.businessPartner.count({ where: { isCustomer: true, isBlocked: false } }),
+      this.prisma.businessPartner.groupBy({ by: ['type'], where, _count: true }),
+      this.prisma.businessPartner.count({ where: { ...tenant, isBlocked: true } }),
+      this.prisma.businessPartner.count({ where: { ...tenant, isSupplier: true, isBlocked: false } }),
+      this.prisma.businessPartner.count({ where: { ...tenant, isCustomer: true, isBlocked: false } }),
     ]);
 
     const totalPages = Math.ceil(total / (filters.pageSize || 20));
@@ -95,8 +99,9 @@ export class SystemReportsService {
     };
   }
 
-  async getAttachmentsReport(filters: any) {
-    const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo) };
+  async getAttachmentsReport(filters: any, ctx: ActiveOperationalContext) {
+    const tenant = { companyId: ctx.companyId, branchId: ctx.branchId };
+    const where: any = { ...tenant, ...buildDateFilter(filters.dateFrom, filters.dateTo) };
     if (filters.entityName) where.entityName = filters.entityName;
     if (filters.search) where.originalName = { contains: filters.search };
 
@@ -107,7 +112,7 @@ export class SystemReportsService {
         orderBy: { createdAt: 'desc' },
         include: { uploadedBy: { select: { id: true, name: true } } },
       }),
-      this.prisma.attachment.groupBy({ by: ['entityName'], _count: true }),
+      this.prisma.attachment.groupBy({ by: ['entityName'], where, _count: true }),
       this.prisma.attachment.aggregate({ where, _sum: { size: true } }),
     ]);
 
@@ -123,8 +128,9 @@ export class SystemReportsService {
     };
   }
 
-  async getLowStockReport(filters: any) {
-    const where: any = { quantity: { lt: 10 } };
+  async getLowStockReport(filters: any, ctx: ActiveOperationalContext) {
+    const machineScope = { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] };
+    const where: any = { machine: { is: machineScope }, quantity: { lt: 10 } };
     if (filters.search) where.OR = [{ code: { contains: filters.search } }, { name: { contains: filters.search } }];
 
     const [total, rows, totalProducts, totalLowQty] = await Promise.all([
@@ -133,7 +139,7 @@ export class SystemReportsService {
         where, ...paginate(filters.page, filters.pageSize),
         orderBy: { quantity: 'asc' },
       }),
-      this.prisma.machinePart.count(),
+      this.prisma.machinePart.count({ where: { machine: { is: machineScope } } }),
       this.prisma.machinePart.aggregate({ where, _sum: { quantity: true } }),
     ]);
 

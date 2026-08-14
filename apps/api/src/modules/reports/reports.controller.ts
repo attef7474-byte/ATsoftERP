@@ -54,43 +54,43 @@ export class ReportsController {
   @Get('inventory/overview')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Inventory overview report' })
-  getInventoryOverview(@Query() filters: InventoryReportFilterDto) {
-    return this.service.getInventoryOverview(filters);
+  getInventoryOverview(@Query() filters: InventoryReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getInventoryOverview(filters, ctx);
   }
 
   @Get('inventory/balances')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Inventory balance report' })
-  getInventoryBalances(@Query() filters: InventoryReportFilterDto) {
-    return this.service.getInventoryBalanceReport(filters);
+  getInventoryBalances(@Query() filters: InventoryReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getInventoryBalanceReport(filters, ctx);
   }
 
   @Get('inventory/count-variance')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Inventory count variance report' })
-  getInventoryCountVariance(@Query() filters: InventoryReportFilterDto) {
-    return this.service.getInventoryCountVarianceReport(filters);
+  getInventoryCountVariance(@Query() filters: InventoryReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getInventoryCountVarianceReport(filters, ctx);
   }
 
   @Get('inventory/movements')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Inventory movements report' })
-  getInventoryMovements(@Query() filters: InventoryReportFilterDto) {
-    return this.service.getInventoryMovementsReport(filters);
+  getInventoryMovements(@Query() filters: InventoryReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getInventoryMovementsReport(filters, ctx);
   }
 
   @Get('inventory/adjustments')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Inventory adjustments report' })
-  getInventoryAdjustments(@Query() filters: InventoryReportFilterDto) {
-    return this.service.getInventoryAdjustmentsReport(filters);
+  getInventoryAdjustments(@Query() filters: InventoryReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getInventoryAdjustmentsReport(filters, ctx);
   }
 
   @Get('barcodes/scans')
   @Permissions('reports.barcodes:read')
   @ApiOperation({ summary: 'Barcode scan activity report' })
-  getBarcodeScans(@Query() filters: BarcodeReportFilterDto) {
-    return this.service.getBarcodeScansReport(filters);
+  getBarcodeScans(@Query() filters: BarcodeReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getBarcodeScansReport(filters, ctx);
   }
 
   // ─────────────── NEW BATCH 33 REPORTS ───────────────
@@ -98,50 +98,50 @@ export class ReportsController {
   @Get('assets')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Assets register report' })
-  getAssetsRegister(@Query() filters: any) {
-    return this.service.getAssetsRegisterReport(filters);
+  getAssetsRegister(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getAssetsRegisterReport(filters, ctx);
   }
 
   @Get('parts')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Machine parts inventory report' })
-  getParts(@Query() filters: any) {
-    return this.service.getPartsReport(filters);
+  getParts(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getPartsReport(filters, ctx);
   }
 
   @Get('partners')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Business partners report' })
-  getPartners(@Query() filters: any) {
-    return this.service.getPartnersReport(filters);
+  getPartners(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getPartnersReport(filters, ctx);
   }
 
   @Get('attachments')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Attachments / documents report' })
-  getAttachments(@Query() filters: any) {
-    return this.service.getAttachmentsReport(filters);
+  getAttachments(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getAttachmentsReport(filters, ctx);
   }
 
   @Get('audit')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Audit trail report' })
-  getAuditTrail(@Query() filters: any) {
-    return this.service.getAuditTrailReport(filters);
+  getAuditTrail(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getAuditTrailReport(filters, ctx);
   }
 
   @Get('user-activity')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'User activity report' })
-  getUserActivity(@Query() filters: any) {
-    return this.service.getUserActivityReport(filters);
+  getUserActivity(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getUserActivityReport(filters, ctx);
   }
 
   @Get('notifications')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Notifications report' })
-  getNotifications(@Query() filters: any) {
-    return this.service.getNotificationsReport(filters);
+  getNotifications(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getNotificationsReport(filters, ctx);
   }
 
   // ─────────────── BATCH 33 CORRECTIVE REPORTS ───────────────
@@ -177,8 +177,8 @@ export class ReportsController {
   @Get('low-stock')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Low stock products report' })
-  getLowStock(@Query() filters: any) {
-    return this.service.getLowStockReport(filters);
+  getLowStock(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getLowStockReport(filters, ctx);
   }
 
   // ─────────────── BATCH U — INVENTORY REPORTS + TRACEABILITY ───────────────
@@ -187,85 +187,85 @@ export class ReportsController {
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Stock card / item ledger with running balance' })
   @ApiQuery({ name: 'productId', required: true, type: String })
-  getStockCard(@Query() filters: any) {
-    return this.service.getStockCard(filters);
+  getStockCard(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getStockCard(filters, ctx);
   }
 
   @Get('inventory/movement-types')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Movement type summary' })
-  getMovementTypes(@Query() filters: any) {
-    return this.service.getMovementTypes(filters);
+  getMovementTypes(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getMovementTypes(filters, ctx);
   }
 
   @Get('inventory/by-warehouse')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Warehouse movement summary' })
-  getByWarehouseSummary(@Query() filters: any) {
-    return this.service.getByWarehouseSummary(filters);
+  getByWarehouseSummary(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getByWarehouseSummary(filters, ctx);
   }
 
   @Get('inventory/by-location')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Location movement summary' })
-  getByLocationSummary(@Query() filters: any) {
-    return this.service.getByLocationSummary(filters);
+  getByLocationSummary(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getByLocationSummary(filters, ctx);
   }
 
   @Get('inventory/by-product/:productId')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Product movement history' })
-  getByProduct(@Param('productId') productId: string, @Query() filters: any) {
-    return this.service.getByProduct(productId, filters);
+  getByProduct(@Param('productId') productId: string, @Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getByProduct(productId, filters, ctx);
   }
 
   @Get('inventory/by-source/:sourceType/:sourceId')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Source traceability' })
-  getBySource(@Param('sourceType') sourceType: string, @Param('sourceId') sourceId: string) {
-    return this.service.getBySource(sourceType, sourceId);
+  getBySource(@Param('sourceType') sourceType: string, @Param('sourceId') sourceId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getBySource(sourceType, sourceId, ctx);
   }
 
   @Get('inventory/traceability/:movementId')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Movement traceability with source document' })
-  getMovementTraceability(@Param('movementId') movementId: string) {
-    return this.service.getMovementTraceability(movementId);
+  getMovementTraceability(@Param('movementId') movementId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getMovementTraceability(movementId, ctx);
   }
 
   @Get('inventory/exceptions')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Exception / integrity report' })
-  getExceptions(@Query() filters: any) {
-    return this.service.getExceptions(filters);
+  getExceptions(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getExceptions(filters, ctx);
   }
 
   @Get('inventory/top-moving-items')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Top moving products' })
-  getTopMovingItems(@Query() filters: any) {
-    return this.service.getTopMovingItems(filters);
+  getTopMovingItems(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getTopMovingItems(filters, ctx);
   }
 
   @Get('inventory/dashboard-cards')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Dashboard cards with real aggregates' })
-  getDashboardCards() {
-    return this.service.getDashboardCards();
+  getDashboardCards(@CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getDashboardCards(ctx);
   }
 
   @Get('inventory/negative-balances')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Negative balance report' })
-  getNegativeBalances(@Query() filters: any) {
-    return this.service.getNegativeBalances(filters);
+  getNegativeBalances(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getNegativeBalances(filters, ctx);
   }
 
   @Get('inventory/reconciliation-differences')
   @Permissions('reports.inventory:read')
   @ApiOperation({ summary: 'Reconciliation difference report' })
-  getReconciliationDifferences(@Query() filters: any) {
-    return this.service.getReconciliationDifferences(filters);
+  getReconciliationDifferences(@Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getReconciliationDifferences(filters, ctx);
   }
 
   // ─────────────── AF-AG: Enhanced Cost Analysis ───────────────

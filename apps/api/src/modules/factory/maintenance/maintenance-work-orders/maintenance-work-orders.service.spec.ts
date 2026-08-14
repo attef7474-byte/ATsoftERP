@@ -124,6 +124,7 @@ describe('MaintenanceWorkOrdersService', () => {
     };
     numbering = {
       generateNumberAtomic: jest.fn().mockResolvedValue('WO-0001'),
+      generateNumberAtomicWithClient: jest.fn().mockResolvedValue('IM-0001'),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
     service = new MaintenanceWorkOrdersService(
@@ -523,6 +524,7 @@ describe('MaintenanceWorkOrdersService', () => {
 
       const result = await service.issueParts('wo1', {}, user, ctx);
       expect(prisma.$transaction).toHaveBeenCalled();
+      expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledWith('INVENTORY_MOVEMENT', expect.anything());
       expect(audit.log).toHaveBeenCalledWith('u1', 'ISSUE_STOCK', 'MaintenanceWorkOrder', 'wo1', expect.any(Object));
       expect(result.id).toBe('wo1');
     });

@@ -2,30 +2,26 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException }
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { CreateMachineSparePartDto, UpdateMachineSparePartDto } from './dto/create-machine-spare-part.dto';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class MachineSparePartsService {
   constructor(private prisma: PrismaService, private auditService: AuditService) {}
 
-  async create(dto: CreateMachineSparePartDto, userId: string) {
-    const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
-    if (!machine) throw new BadRequestException('Machine not found');
-    const sparePart = await this.prisma.sparePart.findUnique({ where: { id: dto.sparePartId } });
-    if (!sparePart) throw new BadRequestException('Spare part not found');
-
-    const existing = await this.prisma.machineSparePart.findUnique({
-      where: { machineId_sparePartId: { machineId: dto.machineId, sparePartId: dto.sparePartId } },
+  async create(dto: CreateMachineSparePartDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.prisma.$transaction(async (tx) => {
+      await this.assertReferences(tx, dto.machineId, dto.sparePartId, ctx);
+      const existing = await tx.machineSparePart.findUnique({ where: { machineId_sparePartId: { machineId: dto.machineId, sparePartId: dto.sparePartId } } });
+      if (existing) throw new ConflictException('This spare part is already linked to this machine');
+      const link = await tx.machineSparePart.create({ data: dto });
+      await this.auditService.logWithClient(tx, { userId, action: 'CREATE', entity: 'MachineSparePart', entityId: link.id, details: { companyId: ctx.companyId, branchId: ctx.branchId } });
+      return link;
     });
-    if (existing) throw new ConflictException('This spare part is already linked to this machine');
-
-    const link = await this.prisma.machineSparePart.create({ data: dto });
-    await this.auditService.log(userId, 'CREATE', 'MachineSparePart', link.id, { message: `Linked spare part to machine` });
-    return link;
   }
 
-  async findAll(query: { page?: number; limit?: number; machineId?: string; sparePartId?: string; isPrimary?: string; status?: string }) {
+  async findAll(query: { page?: number; limit?: number; machineId?: string; sparePartId?: string; isPrimary?: string; status?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1; const limit = query.limit || 10; const skip = (page - 1) * limit;
-    const where: any = {};
+    const where: any = { machine: this.machineScope(ctx) };
     if (query.machineId) where.machineId = query.machineId;
     if (query.sparePartId) where.sparePartId = query.sparePartId;
     if (query.isPrimary) where.isPrimary = query.isPrimary === 'true';
@@ -40,34 +36,44 @@ export class MachineSparePartsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
-    const link = await this.prisma.machineSparePart.findUnique({
-      where: { id },
+  async findOne(id: string, ctx: ActiveOperationalContext) {
+    const link = await this.prisma.machineSparePart.findFirst({
+      where: { id, machine: this.machineScope(ctx) },
       include: { machine: { select: { id: true, name: true, code: true } }, sparePart: { select: { id: true, name: true, code: true, partNumber: true, unit: true } } },
     });
     if (!link) throw new NotFoundException('Machine spare part link not found');
     return link;
   }
 
-  async update(id: string, dto: UpdateMachineSparePartDto, userId: string) {
-    await this.findOne(id);
-    if (dto.machineId) {
-      const m = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
-      if (!m) throw new BadRequestException('Machine not found');
-    }
-    if (dto.sparePartId) {
-      const s = await this.prisma.sparePart.findUnique({ where: { id: dto.sparePartId } });
-      if (!s) throw new BadRequestException('Spare part not found');
-    }
-    const link = await this.prisma.machineSparePart.update({ where: { id }, data: dto });
-    await this.auditService.log(userId, 'UPDATE', 'MachineSparePart', id, { message: `Updated machine spare part link` });
-    return link;
+  async update(id: string, dto: UpdateMachineSparePartDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.machineSparePart.findFirst({ where: { id, machine: this.machineScope(ctx) } });
+      if (!current) throw new NotFoundException('Machine spare part link not found');
+      await this.assertReferences(tx, dto.machineId ?? current.machineId, dto.sparePartId ?? current.sparePartId, ctx);
+      const link = await tx.machineSparePart.update({ where: { id }, data: dto });
+      await this.auditService.logWithClient(tx, { userId, action: 'UPDATE', entity: 'MachineSparePart', entityId: id, details: { companyId: ctx.companyId, branchId: ctx.branchId } });
+      return link;
+    });
   }
 
-  async deactivate(id: string, userId: string) {
-    await this.findOne(id);
-    const link = await this.prisma.machineSparePart.update({ where: { id }, data: { status: 'INACTIVE' } });
-    await this.auditService.log(userId, 'DEACTIVATE', 'MachineSparePart', id);
-    return link;
+  async deactivate(id: string, userId: string, ctx: ActiveOperationalContext) {
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.machineSparePart.findFirst({ where: { id, machine: this.machineScope(ctx) } });
+      if (!current) throw new NotFoundException('Machine spare part link not found');
+      const link = await tx.machineSparePart.update({ where: { id }, data: { status: 'INACTIVE' } });
+      await this.auditService.logWithClient(tx, { userId, action: 'DEACTIVATE', entity: 'MachineSparePart', entityId: id, details: { companyId: ctx.companyId, branchId: ctx.branchId } });
+      return link;
+    });
+  }
+
+  private machineScope(ctx: ActiveOperationalContext) { return { companyId: ctx.companyId, deletedAt: null, OR: [{ branchId: ctx.branchId }, { branchId: null }] }; }
+
+  private async assertReferences(tx: any, machineId: string, sparePartId: string, ctx: ActiveOperationalContext) {
+    const [machine, sparePart] = await Promise.all([
+      tx.machine.findFirst({ where: { id: machineId, ...this.machineScope(ctx) }, select: { id: true } }),
+      tx.sparePart.findFirst({ where: { id: sparePartId, deletedAt: null }, select: { id: true } }),
+    ]);
+    if (!machine) throw new BadRequestException('Machine not found');
+    if (!sparePart) throw new BadRequestException('Spare part not found');
   }
 }

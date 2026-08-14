@@ -71,7 +71,10 @@ describe('SparePartConditionService tenant isolation', () => {
       sparePart: { findUnique: jest.fn() },
       $transaction: jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(prisma)),
     };
-    numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('SCM-0001') };
+    numbering = {
+      generateNumberAtomic: jest.fn().mockResolvedValue('SCM-0001'),
+      generateNumberAtomicWithClient: jest.fn().mockResolvedValue('SCM-0001'),
+    };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
     service = new SparePartConditionService(
       prisma as unknown as PrismaService,
@@ -201,6 +204,8 @@ describe('SparePartConditionService tenant isolation', () => {
       );
 
       expect(result).toEqual({ id: 'scm1' });
+      expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledWith('SPARE_PART_CONDITION_MOVEMENT', prisma);
+      expect(numbering.generateNumberAtomic).not.toHaveBeenCalled();
       expect(prisma.sparePartConditionBalance.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ quantity: 5, availableQuantity: 5 }) }),
       );

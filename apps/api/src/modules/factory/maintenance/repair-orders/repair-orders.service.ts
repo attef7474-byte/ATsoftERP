@@ -785,7 +785,7 @@ export class RepairOrdersService {
       },
     });
 
-    const movementNumber = await this.numberingService.generateNumberAtomic('SPARE_PART_CONDITION_MOVEMENT');
+    const movementNumber = await this.numberingService.generateNumberAtomicWithClient('SPARE_PART_CONDITION_MOVEMENT', tx);
 
     return tx.sparePartConditionMovement.create({
       data: {

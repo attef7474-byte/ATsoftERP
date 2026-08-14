@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma/prisma.service'
+import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types'
 
 @Injectable()
 export class AuditService {
@@ -29,11 +30,11 @@ export class AuditService {
     return this.prisma.auditLog.create({ data: { userId: params.userId, action: params.action, entity: params.entity, entityId: params.entityId, details: params.details, ip: params.ip, userAgent: params.userAgent } })
   }
 
-  async findAll(query: { page?: number; limit?: number; userId?: string; entity?: string; action?: string; startDate?: string; endDate?: string; search?: string }) {
+  async findAll(query: { page?: number; limit?: number; userId?: string; entity?: string; action?: string; startDate?: string; endDate?: string; search?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1
     const limit = query.limit || 20
     const skip = (page - 1) * limit
-    const where: any = {}
+    const where: any = this.tenantWhere(ctx)
     if (query.userId) where.userId = query.userId
     if (query.entity) where.entity = query.entity
     if (query.action) where.action = query.action
@@ -52,29 +53,30 @@ export class AuditService {
     return { data: data.map(log => ({ ...log, details: this.sanitizeDetails(log.details) })), meta: { page, limit, total, totalPages: Math.ceil(total / limit) } }
   }
 
-  async findOne(id: string) {
-    const log = await this.prisma.auditLog.findUnique({ where: { id }, include: { user: { select: { id: true, email: true, name: true } } } })
+  async findOne(id: string, ctx: ActiveOperationalContext) {
+    const log = await this.prisma.auditLog.findFirst({ where: { id, ...this.tenantWhere(ctx) }, include: { user: { select: { id: true, email: true, name: true } } } })
     if (!log) throw new NotFoundException('Audit log not found')
     return { ...log, details: this.sanitizeDetails(log.details) }
   }
 
-  async getSummary() {
+  async getSummary(ctx: ActiveOperationalContext) {
+    const where = this.tenantWhere(ctx)
     const [total, actions, entities, today] = await Promise.all([
-      this.prisma.auditLog.count(),
-      this.prisma.auditLog.groupBy({ by: ['action'], _count: true, orderBy: { _count: { id: 'desc' } } }),
-      this.prisma.auditLog.groupBy({ by: ['entity'], _count: true, orderBy: { _count: { id: 'desc' } } }),
-      this.prisma.auditLog.count({ where: { createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } } }),
+      this.prisma.auditLog.count({ where }),
+      this.prisma.auditLog.groupBy({ by: ['action'], where, _count: true, orderBy: { _count: { id: 'desc' } } }),
+      this.prisma.auditLog.groupBy({ by: ['entity'], where, _count: true, orderBy: { _count: { id: 'desc' } } }),
+      this.prisma.auditLog.count({ where: { ...where, createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } } }),
     ])
     return { total, today, actions, entities }
   }
 
-  async findUserActivity(userId: string, query: { page?: number; limit?: number }) {
-    return this.findAll({ ...query, userId })
+  async findUserActivity(userId: string, query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
+    return this.findAll({ ...query, userId }, ctx)
   }
 
-  async findLoginHistory(userId: string, page = 1, limit = 20) {
+  async findLoginHistory(userId: string, page = 1, limit = 20, ctx: ActiveOperationalContext) {
     const skip = (page - 1) * limit
-    const where = { userId, action: { in: ['LOGIN', 'LOGIN_FAILED', 'LOGOUT'] } }
+    const where = { ...this.tenantWhere(ctx), userId, action: { in: ['LOGIN', 'LOGIN_FAILED', 'LOGOUT'] } }
     const [data, total] = await Promise.all([
       this.prisma.auditLog.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { user: { select: { id: true, email: true, name: true } } } }),
       this.prisma.auditLog.count({ where }),
@@ -82,8 +84,8 @@ export class AuditService {
     return { data: data.map(log => ({ ...log, details: this.sanitizeDetails(log.details) })), meta: { page, limit, total, totalPages: Math.ceil(total / limit) } }
   }
 
-  async exportCsv(query: { userId?: string; entity?: string; action?: string; startDate?: string; endDate?: string }) {
-    const where: any = {}
+  async exportCsv(query: { userId?: string; entity?: string; action?: string; startDate?: string; endDate?: string }, ctx: ActiveOperationalContext) {
+    const where: any = this.tenantWhere(ctx)
     if (query.userId) where.userId = query.userId
     if (query.entity) where.entity = query.entity
     if (query.action) where.action = query.action
@@ -110,5 +112,20 @@ export class AuditService {
       return val
     }
     return redact(obj)
+  }
+
+  private tenantWhere(ctx: ActiveOperationalContext) {
+    // AuditLog has no direct tenant columns. Ownership is deterministically
+    // derived from the actor user. Rows without an actor remain hidden rather
+    // than being exposed globally or guessed into a tenant.
+    return {
+      user: {
+        is: {
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          deletedAt: null,
+        },
+      },
+    }
   }
 }

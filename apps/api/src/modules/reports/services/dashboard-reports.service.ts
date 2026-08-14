@@ -92,7 +92,14 @@ export class DashboardReportsService {
     };
   }
 
-  async getInventoryOverview(filters: InventoryReportFilterDto) {
+  async getInventoryOverview(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    const tenantRows = { companyId: ctx.companyId, deletedAt: null, OR: [{ branchId: ctx.branchId }, { branchId: null }] };
+    const warehouses = {
+      companyId: ctx.companyId,
+      deletedAt: null,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+    };
+    const balances = { warehouse: warehouses };
     const [
       totalProducts, activeProducts, totalWarehouses, totalLocations,
       positiveBal, zeroBal, negativeBal,
@@ -103,19 +110,19 @@ export class DashboardReportsService {
     ] = await Promise.all([
       this.prisma.product.count(),
       this.prisma.product.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.warehouse.count(),
-      this.prisma.warehouseLocation.count(),
-      this.prisma.inventoryBalance.count({ where: { quantity: { gt: 0 } } }),
-      this.prisma.inventoryBalance.count({ where: { quantity: 0 } }),
-      this.prisma.inventoryBalance.count({ where: { quantity: { lt: 0 } } }),
-      this.prisma.inventoryCount.count({ where: { status: { in: ['DRAFT', 'IN_PROGRESS'] } } }),
-      this.prisma.inventoryCount.count({ where: { status: 'COMPLETED' } }),
-      this.prisma.inventoryMovement.count({ where: { status: 'POSTED' } }),
-      this.prisma.inventoryAdjustment.count({ where: { status: 'POSTED' } }),
-      this.prisma.inventoryBalance.groupBy({ by: ['warehouseId'], _sum: { quantity: true }, _count: true }),
-      this.prisma.inventoryCount.findMany({ take: 10, orderBy: { createdAt: 'desc' }, include: { warehouse: { select: { id: true, code: true, name: true } } } }),
-      this.prisma.inventoryMovement.findMany({ take: 10, orderBy: { createdAt: 'desc' }, include: { warehouse: { select: { id: true, code: true, name: true } } } }),
-      this.prisma.inventoryAdjustment.findMany({ take: 10, orderBy: { createdAt: 'desc' }, include: { warehouse: { select: { id: true, code: true, name: true } } } }),
+      this.prisma.warehouse.count({ where: warehouses }),
+      this.prisma.warehouseLocation.count({ where: { warehouse: warehouses } }),
+      this.prisma.inventoryBalance.count({ where: { ...balances, quantity: { gt: 0 } } }),
+      this.prisma.inventoryBalance.count({ where: { ...balances, quantity: 0 } }),
+      this.prisma.inventoryBalance.count({ where: { ...balances, quantity: { lt: 0 } } }),
+      this.prisma.inventoryCount.count({ where: { ...tenantRows, status: { in: ['DRAFT', 'IN_PROGRESS'] } } }),
+      this.prisma.inventoryCount.count({ where: { ...tenantRows, status: 'COMPLETED' } }),
+      this.prisma.inventoryMovement.count({ where: { ...tenantRows, status: 'POSTED' } }),
+      this.prisma.inventoryAdjustment.count({ where: { ...tenantRows, status: 'POSTED' } }),
+      this.prisma.inventoryBalance.groupBy({ by: ['warehouseId'], where: balances, _sum: { quantity: true }, _count: true }),
+      this.prisma.inventoryCount.findMany({ where: tenantRows, take: 10, orderBy: { createdAt: 'desc' }, include: { warehouse: { select: { id: true, code: true, name: true } } } }),
+      this.prisma.inventoryMovement.findMany({ where: tenantRows, take: 10, orderBy: { createdAt: 'desc' }, include: { warehouse: { select: { id: true, code: true, name: true } } } }),
+      this.prisma.inventoryAdjustment.findMany({ where: tenantRows, take: 10, orderBy: { createdAt: 'desc' }, include: { warehouse: { select: { id: true, code: true, name: true } } } }),
     ]);
 
     return {

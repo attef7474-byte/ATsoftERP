@@ -540,9 +540,10 @@ export class MaintenanceWorkOrdersService {
     }
 
     const movements: any[] = [];
-    const movementNumber = await this.numberingService.generateNumberAtomic('INVENTORY_MOVEMENT');
+    let movementNumber: string | null = null;
 
     await this.prisma.$transaction(async (tx) => {
+      movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
       for (const { part, productId } of targetProducts) {
         const remaining = part.quantity - (part.issuedQuantity || 0);
         const issueQty = Math.min(remaining, part.quantity - (part.issuedQuantity || 0));

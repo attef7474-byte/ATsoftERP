@@ -60,7 +60,10 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
       auditLog: { findMany: jest.fn(), count: jest.fn() },
     };
     audit = { log: jest.fn().mockResolvedValue({}) };
-    numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('MR-0001') };
+    numbering = {
+      generateNumberAtomic: jest.fn().mockResolvedValue('MR-0001'),
+      generateNumberAtomicWithClient: jest.fn().mockResolvedValue('MR-0001'),
+    };
     notification = {
       notifyRequestCreated: jest.fn().mockResolvedValue(undefined),
       notifyRequestStarted: jest.fn().mockResolvedValue(undefined),

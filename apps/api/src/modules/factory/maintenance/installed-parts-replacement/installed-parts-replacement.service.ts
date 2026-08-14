@@ -191,7 +191,7 @@ export class InstalledPartsReplacementService {
       notes?: string | null;
     },
   ) {
-    const replacementNumber = await this.numberingService.generateNumberAtomic('SPARE_PART_REPLACEMENT');
+    const replacementNumber = await this.numberingService.generateNumberAtomicWithClient('SPARE_PART_REPLACEMENT', tx);
 
     return tx.sparePartReplacementHistory.create({
       data: {

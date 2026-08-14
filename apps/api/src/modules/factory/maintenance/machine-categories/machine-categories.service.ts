@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException }
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../numbering/numbering.service';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 import { CreateMachineCategoryDto } from './dto/create-machine-category.dto';
 import { UpdateMachineCategoryDto } from './dto/update-machine-category.dto';
 
@@ -19,6 +20,10 @@ export class MachineCategoriesService {
       message: 'Validation failed',
       errors: [{ field, code, message }],
     });
+  }
+
+  private machineScope(ctx: ActiveOperationalContext) {
+    return { companyId: ctx.companyId, deletedAt: null, OR: [{ branchId: ctx.branchId }, { branchId: null }] };
   }
 
   async create(dto: CreateMachineCategoryDto, userId: string) {
@@ -128,16 +133,16 @@ export class MachineCategoriesService {
     return category;
   }
 
-  async categorySummary(id: string) {
+  async categorySummary(id: string, ctx: ActiveOperationalContext) {
     const category = await this.findOne(id);
-    const machines = await this.prisma.machine.count({ where: { categoryId: id, deletedAt: null } });
+    const machines = await this.prisma.machine.count({ where: { categoryId: id, ...this.machineScope(ctx) } });
     return { ...category, totalMachines: machines };
   }
 
-  async categoryMachines(id: string) {
+  async categoryMachines(id: string, ctx: ActiveOperationalContext) {
     await this.findOne(id);
     return this.prisma.machine.findMany({
-      where: { categoryId: id, deletedAt: null },
+      where: { categoryId: id, ...this.machineScope(ctx) },
       select: { id: true, code: true, name: true, status: true, model: true, manufacturer: true, location: true, createdAt: true },
       orderBy: { name: 'asc' },
     });

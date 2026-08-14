@@ -7,6 +7,8 @@ import { JwtAuthGuard } from '../../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @ApiTags('Maintenance Request Costs')
 @ApiBearerAuth()
@@ -18,33 +20,33 @@ export class MaintenanceRequestCostsController {
   @Post()
   @Permissions('maintenance-request-cost:create')
   @ApiOperation({ summary: 'Create cost entry for maintenance request' })
-  create(@Body() dto: CreateMaintenanceRequestCostDto, @CurrentUser('id') userId: string) {
-    return this.service.create(dto, userId);
+  create(@Body() dto: CreateMaintenanceRequestCostDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.create(dto, userId, ctx);
   }
 
   @Get()
   @Permissions('maintenance-request-cost:read')
   @ApiOperation({ summary: 'List cost entries' })
-  findAll(@Query() query: { requestId?: string; type?: string }) {
-    return this.service.findAll(query);
+  findAll(@Query() query: { requestId?: string; type?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findAll(query, ctx);
   }
 
   @Get(':id')
   @Permissions('maintenance-request-cost:read')
   @ApiOperation({ summary: 'Get cost entry by ID' })
-  findOne(@Param('id') id: string) { return this.service.findOne(id); }
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOne(id, ctx); }
 
   @Patch(':id')
   @Permissions('maintenance-request-cost:update')
   @ApiOperation({ summary: 'Update cost entry' })
-  update(@Param('id') id: string, @Body() dto: UpdateMaintenanceRequestCostDto, @CurrentUser('id') userId: string) {
-    return this.service.update(id, dto, userId);
+  update(@Param('id') id: string, @Body() dto: UpdateMaintenanceRequestCostDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.update(id, dto, userId, ctx);
   }
 
   @Delete(':id')
   @Permissions('maintenance-request-cost:delete')
   @ApiOperation({ summary: 'Delete cost entry' })
-  remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.service.remove(id, userId);
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.remove(id, userId, ctx);
   }
 }

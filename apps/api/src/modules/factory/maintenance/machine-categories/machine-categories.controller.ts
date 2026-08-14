@@ -7,6 +7,8 @@ import { JwtAuthGuard } from '../../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @ApiTags('Machine Categories')
 @ApiBearerAuth()
@@ -75,10 +77,10 @@ export class MachineCategoriesController {
   @Get(':id/summary')
   @Permissions('machine-category:read')
   @ApiOperation({ summary: 'Get machine category summary' })
-  categorySummary(@Param('id') id: string) { return this.service.categorySummary(id); }
+  categorySummary(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.categorySummary(id, ctx); }
 
   @Get(':id/machines')
   @Permissions('machine-category:read')
   @ApiOperation({ summary: 'Get machines in this category' })
-  categoryMachines(@Param('id') id: string) { return this.service.categoryMachines(id); }
+  categoryMachines(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.categoryMachines(id, ctx); }
 }

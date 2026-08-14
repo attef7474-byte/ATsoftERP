@@ -38,7 +38,10 @@ describe('PreventiveMaintenanceService', () => {
       $transaction: jest.fn((fn) => fn(prisma)),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
-    numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('MR-0001') };
+    numbering = {
+      generateNumberAtomic: jest.fn().mockResolvedValue('MR-0001'),
+      generateNumberAtomicWithClient: jest.fn().mockResolvedValue('MR-0001'),
+    };
     service = new PreventiveMaintenanceService(prisma as PrismaService, audit as AuditService, numbering as NumberingService);
   });
 

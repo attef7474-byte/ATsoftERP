@@ -115,9 +115,8 @@ export class SparePartConditionService {
       throw new BadRequestException('Quantity must be positive');
     }
 
-    const movementNumber = await this.numberingService.generateNumberAtomic('SPARE_PART_CONDITION_MOVEMENT');
-
     return this.prisma.$transaction(async (tx) => {
+      const movementNumber = await this.numberingService.generateNumberAtomicWithClient('SPARE_PART_CONDITION_MOVEMENT', tx);
       await assertWarehouseInContext(tx, dto.warehouseId, ctx);
       if (dto.maintenanceRequestId) {
         await assertMaintenanceRequestInContext(tx, dto.maintenanceRequestId, ctx);

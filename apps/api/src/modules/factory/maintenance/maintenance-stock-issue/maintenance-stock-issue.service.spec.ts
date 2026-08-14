@@ -88,6 +88,7 @@ describe('MaintenanceStockIssueService tenant isolation', () => {
         update: jest.fn(),
       },
       warehouse: { findUnique: jest.fn() },
+      machine: { findUnique: jest.fn() },
       warehouseLocation: { findUnique: jest.fn() },
       inventoryBalance: {
         findFirst: jest.fn(),
@@ -298,6 +299,83 @@ describe('MaintenanceStockIssueService tenant isolation', () => {
 
       expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('issue - in-transaction machine revalidation', () => {
+    it('re-rejects a machine that becomes foreign between pre-validation and the transaction', async () => {
+      prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(partLine());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.machine.findUnique.mockResolvedValue(machine({ id: 'm1', companyId: 'c2' }));
+
+      await expect(
+        service.issue('req1', 'line1', baseIssueDto as any, 'u1', ctx),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.machine.findUnique).toHaveBeenCalledWith({ where: { id: 'm1' } });
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.maintenanceRequestRequiredPart.update).not.toHaveBeenCalled();
+    });
+
+    it('revalidates the machine inside the transaction on a successful issue', async () => {
+      prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(partLine());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.machine.findUnique.mockResolvedValue(machine());
+      prisma.inventoryBalance.findFirst.mockResolvedValue({
+        id: 'bal1',
+        sparePartId: 'sp1',
+        productId: 'prod1',
+        warehouseId: 'wh1',
+        condition: 'NEW',
+        quantity: 10,
+        availableQuantity: 10,
+      });
+      prisma.inventoryBalance.update.mockResolvedValue({ id: 'bal1' });
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'im1', movementNumber: 'IM-0001', lines: [] });
+      prisma.maintenanceRequestRequiredPart.update.mockResolvedValue({ id: 'line1' });
+      prisma.sparePartConditionBalance.findFirst.mockResolvedValue({
+        id: 'cb1',
+        sparePartId: 'sp1',
+        productId: 'prod1',
+        warehouseId: 'wh1',
+        condition: 'NEW',
+        quantity: 10,
+        availableQuantity: 10,
+      });
+      prisma.sparePartConditionBalance.update.mockResolvedValue({ id: 'cb1' });
+      prisma.sparePartConditionMovement.create.mockResolvedValue({ id: 'scm1' });
+
+      const result = await service.issue('req1', 'line1', baseIssueDto as any, 'u1', ctx);
+
+      expect(result).toEqual(partLine());
+      expect(prisma.machine.findUnique).toHaveBeenCalledWith({ where: { id: 'm1' } });
+      expect(prisma.inventoryMovement.create).toHaveBeenCalled();
+      expect(prisma.maintenanceRequestRequiredPart.update).toHaveBeenCalled();
+      expect(audit.log).toHaveBeenCalledWith('u1', 'ISSUE_STOCK', 'MaintenanceRequestRequiredPart', 'line1', expect.any(Object));
+    });
+  });
+
+  describe('returnStock - in-transaction machine revalidation', () => {
+    const issuedLine = (overrides: Record<string, any> = {}) =>
+      partLine({ issuedQuantity: 5, returnedQuantity: 0, ...overrides });
+
+    it('re-rejects a machine that becomes foreign during the return transaction', async () => {
+      prisma.maintenanceRequestRequiredPart.findUnique
+        .mockResolvedValueOnce(issuedLine())
+        .mockResolvedValueOnce(issuedLine({ warehouseId: 'wh1' }));
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.machine.findUnique.mockResolvedValue(machine({ id: 'm1', companyId: 'c2' }));
+
+      await expect(
+        service.returnStock('req1', 'line1', { returnQuantity: 2 } as any, 'u1', ctx),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.machine.findUnique).toHaveBeenCalledWith({ where: { id: 'm1' } });
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
     });
   });
 

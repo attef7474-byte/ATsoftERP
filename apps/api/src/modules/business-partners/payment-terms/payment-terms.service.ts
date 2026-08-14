@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { CreatePaymentTermDto } from './dto/create-payment-term.dto';
 import { UpdatePaymentTermDto } from './dto/update-payment-term.dto';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class PaymentTermsService {
@@ -13,7 +14,7 @@ export class PaymentTermsService {
     return this.prisma.paymentTerm.create({ data: dto });
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string; status?: string }) {
+  async findAll(query: { page?: number; limit?: number; search?: string; status?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -30,7 +31,7 @@ export class PaymentTermsService {
     const [data, total] = await Promise.all([
       this.prisma.paymentTerm.findMany({
         where, skip, take: limit, orderBy: { createdAt: 'desc' },
-        include: { _count: { select: { partners: true } } },
+        include: { _count: { select: { partners: { where: { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } } } } },
       }),
       this.prisma.paymentTerm.count({ where }),
     ]);
@@ -38,10 +39,10 @@ export class PaymentTermsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, ctx?: ActiveOperationalContext) {
     const term = await this.prisma.paymentTerm.findUnique({
       where: { id },
-      include: { _count: { select: { partners: true } } },
+      include: { _count: { select: { partners: ctx ? { where: { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } } : true } } },
     });
     if (!term) throw new NotFoundException('Payment term not found');
     return term;
