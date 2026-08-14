@@ -4,6 +4,7 @@ import { ProductionRunsService } from './production-runs.service';
 import { PRODUCTION_OUTPUT_EVENT_INCLUDE, PRODUCTION_RUN_INCLUDE } from './production-runs.constants';
 
 const ctxA: any = { companyId: 'c1', branchId: 'b1' };
+const ctxASecondBranch: any = { companyId: 'c1', branchId: 'b2' };
 const ctxB: any = { companyId: 'c2', branchId: 'b2' };
 
 const run = (overrides: Record<string, any> = {}) => ({
@@ -392,6 +393,27 @@ describe('ProductionRunsService', () => {
       expect(model.updateMany).not.toHaveBeenCalled();
     });
 
+    it('replays a run transition idempotently when a concurrent writer wins the unique key', async () => {
+      prisma.productionRunTransition.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 't1', action: 'PAUSE' });
+      model.findFirst
+        .mockResolvedValueOnce(run({ status: 'RUNNING' }))
+        .mockResolvedValueOnce(run({ status: 'PAUSED', lockVersion: 1, pausedAt: new Date() }))
+        .mockResolvedValueOnce(run({ status: 'PAUSED', lockVersion: 1 }));
+      model.updateMany.mockResolvedValue({ count: 1 });
+      prisma.productionRunSession.updateMany.mockResolvedValue({ count: 1 });
+      prisma.productionRunTransition.create.mockRejectedValue({ code: 'P2002' });
+
+      const result = await service.pause('run1', { requestId: 'req-p', lockVersion: 0 }, 'u2', ctxA);
+
+      expect(result.id).toBe('run1');
+      expect(result.status).toBe('PAUSED');
+      expect(prisma.productionRunTransition.create).toHaveBeenCalledTimes(1);
+      expect(prisma.productionRunTransition.findFirst).toHaveBeenCalledTimes(2);
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
     it('rejects an action replay with a different action', async () => {
       prisma.productionRunTransition.findFirst.mockResolvedValue({ id: 't1', action: 'COMPLETE' });
       model.findFirst.mockResolvedValue(run());
@@ -428,6 +450,48 @@ describe('ProductionRunsService', () => {
       prisma.productionOutputEvent.findFirst.mockResolvedValue(event());
       const result = await service.recordOutput('run1', outputDto, 'u2', ctxA);
       expect(result.id).toBe('ev1');
+      expect(prisma.productionOutputEvent.findFirst).toHaveBeenCalledWith({
+        where: { companyId: 'c1', branchId: 'b1', requestId: 'req-o1' },
+        include: PRODUCTION_OUTPUT_EVENT_INCLUDE,
+      });
+      expect(prisma.productionOutputEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('does not replay an output request from another branch of the same company', async () => {
+      model.findFirst.mockResolvedValue(run({ id: 'run-b2', branchId: 'b2' }));
+      prisma.productionMeasurementPoint.findFirst.mockResolvedValue(point({ branchId: 'b2' }));
+      prisma.productionOutputEvent.findFirst.mockImplementation(({ where }: any) => {
+        if (where.requestId && where.branchId === 'b1') return Promise.resolve(event());
+        return Promise.resolve(null);
+      });
+      prisma.productionOutputEvent.create.mockImplementation(({ data }: any) =>
+        Promise.resolve(event({ ...data, id: 'ev-b2', branchId: 'b2', productionRunId: 'run-b2' })),
+      );
+
+      const result = await service.recordOutput('run-b2', outputDto, 'u2', ctxASecondBranch);
+
+      expect(result.id).toBe('ev-b2');
+      expect(prisma.productionOutputEvent.findFirst).toHaveBeenCalledWith({
+        where: { companyId: 'c1', branchId: 'b2', requestId: 'req-o1' },
+        include: PRODUCTION_OUTPUT_EVENT_INCLUDE,
+      });
+      expect(prisma.productionOutputEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ companyId: 'c1', branchId: 'b2', requestId: 'req-o1' }) }),
+      );
+    });
+
+    it('rejects reuse of an output request id with a different payload', async () => {
+      prisma.productionOutputEvent.findFirst.mockResolvedValue(event());
+
+      const error: any = await service.recordOutput(
+        'run1',
+        { ...outputDto, quantity: '101' },
+        'u2',
+        ctxA,
+      ).catch((value) => value);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect(error.getResponse()).toEqual(expect.objectContaining({ messageKey: 'productionRun.idempotencyConflict' }));
       expect(prisma.productionOutputEvent.create).not.toHaveBeenCalled();
     });
 
@@ -566,9 +630,42 @@ describe('ProductionRunsService', () => {
       prisma.productionOutputEvent.findFirst.mockReset();
       prisma.productionOutputEvent.findFirst
         .mockResolvedValueOnce(originalEvent)
-        .mockResolvedValueOnce(event({ id: 'corr1', eventType: 'CORRECTION' }));
+        .mockResolvedValueOnce(event({
+          id: 'corr1',
+          eventType: 'CORRECTION',
+          correctsEventId: 'ev1',
+          quantity: '10.0000',
+          goodQuantity: '9.0000',
+          rejectQuantity: '1.0000',
+          reason: 'measured again',
+        }));
       const result = await service.correctOutput('ev1', correctionDto, 'u2', ctxA);
       expect(result.id).toBe('corr1');
+      expect(prisma.productionOutputEvent.findFirst).toHaveBeenNthCalledWith(2, {
+        where: { companyId: 'c1', branchId: 'b1', requestId: 'req-c1' },
+        include: PRODUCTION_OUTPUT_EVENT_INCLUDE,
+      });
+      expect(prisma.productionOutputEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects reuse of a correction request id for another source event', async () => {
+      prisma.productionOutputEvent.findFirst.mockReset();
+      prisma.productionOutputEvent.findFirst
+        .mockResolvedValueOnce(originalEvent)
+        .mockResolvedValueOnce(event({
+          id: 'corr-other',
+          eventType: 'CORRECTION',
+          correctsEventId: 'ev-other',
+          quantity: '10.0000',
+          goodQuantity: '9.0000',
+          rejectQuantity: '1.0000',
+          reason: 'measured again',
+        }));
+
+      const error: any = await service.correctOutput('ev1', correctionDto, 'u2', ctxA).catch((value) => value);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect(error.getResponse()).toEqual(expect.objectContaining({ messageKey: 'productionRun.idempotencyConflict' }));
       expect(prisma.productionOutputEvent.create).not.toHaveBeenCalled();
     });
 

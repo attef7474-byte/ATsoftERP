@@ -416,7 +416,7 @@ describe('ProductionOrdersService', () => {
     model.findFirst.mockResolvedValue(record());
     prisma.productionOrderAttachment.create.mockResolvedValue({ id: 'link1', attachment: { id: 'att1' } });
     const link = await service.addAttachment('po1', { originalname: 'x.pdf', size: 10 } as any, 'spec', 'u2', ctxA);
-    expect(attachments.create).toHaveBeenCalledWith(expect.objectContaining({}), 'ProductionOrder', 'po1', 'spec', 'u2');
+    expect(attachments.create).toHaveBeenCalledWith(expect.objectContaining({}), 'ProductionOrder', 'po1', 'spec', 'u2', ctxA);
     expect(prisma.productionOrderAttachment.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ productionOrderId: 'po1', companyId: 'c1', branchId: 'b1', attachmentId: 'att1' }) }));
     expect(audit.logWithClient).toHaveBeenCalledWith(prisma, expect.objectContaining({ action: 'ATTACH' }));
     expect(link.attachment.id).toBe('att1');

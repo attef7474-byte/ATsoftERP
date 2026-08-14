@@ -237,19 +237,19 @@ export class ProductionRunsService {
     }
   }
   async pause(id: string, dto: RunActionDto, userId: string, ctx: ActiveOperationalContext) {
-    return this.transition(id, 'PAUSE', dto, userId, ctx);
+    return this.transitionWithIdempotentReplay(id, 'PAUSE', dto, userId, ctx);
   }
 
   async resume(id: string, dto: RunActionDto, userId: string, ctx: ActiveOperationalContext) {
-    return this.transition(id, 'RESUME', dto, userId, ctx);
+    return this.transitionWithIdempotentReplay(id, 'RESUME', dto, userId, ctx);
   }
 
   async complete(id: string, dto: RunActionDto, userId: string, ctx: ActiveOperationalContext) {
-    return this.transition(id, 'COMPLETE', dto, userId, ctx);
+    return this.transitionWithIdempotentReplay(id, 'COMPLETE', dto, userId, ctx);
   }
 
   async abort(id: string, dto: RunActionDto, userId: string, ctx: ActiveOperationalContext) {
-    return this.transition(id, 'ABORT', dto, userId, ctx);
+    return this.transitionWithIdempotentReplay(id, 'ABORT', dto, userId, ctx);
   }
 
   async recordOutput(id: string, dto: RecordOutputDto, userId: string, ctx: ActiveOperationalContext) {
@@ -258,7 +258,7 @@ export class ProductionRunsService {
         const run = await this.findOwnedRun(id, ctx, tx);
         if (run.status !== 'RUNNING') throw new ConflictException({ messageKey: 'productionRun.outputRequiresRunning' });
         const existing = await this.findEventByRequestId(dto.requestId, ctx, tx);
-        if (existing) return existing;
+        if (existing) return this.resolveIdempotentOutput(existing, run, dto);
 
         const point = await tx.productionMeasurementPoint.findFirst({
           where: { id: dto.measurementPointId, companyId: ctx.companyId, branchId: ctx.branchId, status: 'ACTIVE', deletedAt: null },
@@ -296,7 +296,10 @@ export class ProductionRunsService {
     } catch (error: any) {
       if (error?.code === 'P2002') {
         const raced = await this.findEventByRequestId(dto.requestId, ctx);
-        if (raced) return raced;
+        if (raced) {
+          const run = await this.findOwnedRun(id, ctx);
+          return this.resolveIdempotentOutput(raced, run, dto);
+        }
         throw error;
       }
       throw error;
@@ -312,7 +315,7 @@ export class ProductionRunsService {
         const run = await this.findOwnedRun(original.productionRunId, ctx, tx);
         if (run.status !== 'RUNNING') throw new ConflictException({ messageKey: 'productionRun.outputRequiresRunning' });
         const existing = await this.findEventByRequestId(dto.requestId, ctx, tx);
-        if (existing) return existing;
+        if (existing) return this.resolveIdempotentCorrection(existing, original, dto);
 
         const now = new Date();
         const occurredAt = this.resolveOccurredAt(dto.occurredAt, run, dto.reason, now);
@@ -379,7 +382,13 @@ export class ProductionRunsService {
     } catch (error: any) {
       if (error?.code === 'P2002') {
         const raced = await this.findEventByRequestId(dto.requestId, ctx);
-        if (raced) return raced;
+        if (raced) {
+          const original = await (this.prisma as any).productionOutputEvent.findFirst({
+            where: { id: eventId, companyId: ctx.companyId, branchId: ctx.branchId },
+          });
+          if (!original) throw new NotFoundException({ messageKey: 'productionRun.eventNotFound' });
+          return this.resolveIdempotentCorrection(raced, original, dto);
+        }
         throw error;
       }
       throw error;
@@ -535,6 +544,18 @@ export class ProductionRunsService {
       return updated;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
+
+  private async transitionWithIdempotentReplay(id: string, action: 'PAUSE' | 'RESUME' | 'COMPLETE' | 'ABORT', dto: RunActionDto, userId: string, ctx: ActiveOperationalContext) {
+    try {
+      return await this.transition(id, action, dto, userId, ctx);
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        const raced = await this.findDuplicateRunAction(this.prisma, id, dto.requestId, action, ctx);
+        if (raced) return raced;
+      }
+      throw error;
+    }
+  }
   private async resolveAssignments(dto: CreateProductionRunDto, order: any, client: any, ctx: ActiveOperationalContext): Promise<ResolvedRunAssignments> {
     const now = new Date();
     if (dto.operationalAssignmentId) {
@@ -664,7 +685,66 @@ export class ProductionRunsService {
   }
 
   private async findEventByRequestId(requestId: string, ctx: ActiveOperationalContext, client: any = this.prisma) {
-    return client.productionOutputEvent.findFirst({ where: { companyId: ctx.companyId, requestId }, include: PRODUCTION_OUTPUT_EVENT_INCLUDE });
+    return client.productionOutputEvent.findFirst({
+      where: { companyId: ctx.companyId, branchId: ctx.branchId, requestId },
+      include: PRODUCTION_OUTPUT_EVENT_INCLUDE,
+    });
+  }
+
+  private resolveIdempotentOutput(existing: any, run: any, dto: RecordOutputDto) {
+    const expectedGood = existing.classification === 'FINAL_OUTPUT'
+      ? (dto.goodQuantity ?? dto.quantity ?? existing.quantity)
+      : 0;
+    const expectedReject = existing.classification === 'FINAL_OUTPUT'
+      ? (dto.rejectQuantity ?? 0)
+      : 0;
+    const conflicts =
+      existing.productionRunId !== run.id ||
+      existing.measurementPointId !== dto.measurementPointId ||
+      existing.eventType !== dto.eventType ||
+      !this.optionalDecimalMatches(existing.quantity, dto.quantity) ||
+      !this.optionalDecimalMatches(existing.goodQuantity, expectedGood) ||
+      !this.optionalDecimalMatches(existing.rejectQuantity, expectedReject) ||
+      !this.optionalDecimalMatches(existing.rawCount, dto.rawCount) ||
+      !this.optionalDecimalMatches(existing.resetValue, dto.resetValue) ||
+      !this.optionalDateMatches(existing.occurredAt, dto.occurredAt) ||
+      !this.optionalTextMatches(existing.reason, dto.reason) ||
+      !this.optionalTextMatches(existing.notes, dto.notes);
+    if (conflicts) throw new ConflictException({ messageKey: 'productionRun.idempotencyConflict' });
+    return existing;
+  }
+
+  private resolveIdempotentCorrection(existing: any, original: any, dto: CorrectOutputDto) {
+    const expectedGood = original.classification === 'FINAL_OUTPUT' ? (dto.goodQuantity ?? dto.quantity) : 0;
+    const expectedReject = original.classification === 'FINAL_OUTPUT' ? (dto.rejectQuantity ?? 0) : 0;
+    const conflicts =
+      existing.eventType !== 'CORRECTION' ||
+      existing.productionRunId !== original.productionRunId ||
+      existing.correctsEventId !== original.id ||
+      !this.optionalDecimalMatches(existing.quantity, dto.quantity) ||
+      !this.optionalDecimalMatches(existing.goodQuantity, expectedGood) ||
+      !this.optionalDecimalMatches(existing.rejectQuantity, expectedReject) ||
+      !this.optionalDateMatches(existing.occurredAt, dto.occurredAt) ||
+      !this.optionalTextMatches(existing.reason, dto.reason) ||
+      !this.optionalTextMatches(existing.notes, dto.notes);
+    if (conflicts) throw new ConflictException({ messageKey: 'productionRun.idempotencyConflict' });
+    return existing;
+  }
+
+  private optionalDecimalMatches(stored: Prisma.Decimal.Value | null | undefined, requested: Prisma.Decimal.Value | null | undefined): boolean {
+    if (requested === undefined || requested === null) return true;
+    if (stored === undefined || stored === null) return false;
+    return new Prisma.Decimal(stored).equals(new Prisma.Decimal(requested));
+  }
+
+  private optionalDateMatches(stored: Date | string | null | undefined, requested: string | null | undefined): boolean {
+    if (requested === undefined || requested === null) return true;
+    if (stored === undefined || stored === null) return false;
+    return new Date(stored).getTime() === new Date(requested).getTime();
+  }
+
+  private optionalTextMatches(stored: string | null | undefined, requested: string | null | undefined): boolean {
+    return (stored ?? null) === (requested ?? null);
   }
 
   private async findDuplicateRunAction(client: any, runId: string, requestId: string, action: string, ctx: ActiveOperationalContext) {

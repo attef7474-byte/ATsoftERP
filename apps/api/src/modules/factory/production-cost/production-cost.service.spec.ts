@@ -199,6 +199,54 @@ describe('ProductionCostService', () => {
       await expect(service.createSnapshot({ ...snapshotDto, effectiveTo: '2025-12-31T00:00:00Z' }, 'maker', ctxA)).rejects.toBeInstanceOf(BadRequestException);
     });
 
+    it('accepts version and packaging references through their tenant-owned product-definition parent', async () => {
+      prisma.productionVersion.findUnique.mockResolvedValue({ id: 'v1', productionProductId: 'pd1', versionNumber: 1 });
+      prisma.productionPackaging.findUnique.mockResolvedValue({ id: 'pk1', productionProductId: 'pd1', packagingType: 'BOX' });
+      prisma.productionProductDefinition.findFirst.mockResolvedValue({ id: 'pd1', companyId: 'c1', branchId: 'b1' });
+      prisma.operationalStandardCostSnapshot.aggregate.mockResolvedValue({ _max: { revision: 0 } });
+      prisma.operationalStandardCostSnapshot.create.mockImplementation(({ data }: any) => Promise.resolve(snapshot({ id: 'created', ...data })));
+
+      const result = await service.createSnapshot(
+        { ...snapshotDto, productionVersionId: 'v1', productionPackagingId: 'pk1' },
+        'maker',
+        ctxA,
+      );
+
+      expect(result.productionVersionId).toBe('v1');
+      expect(result.productionPackagingId).toBe('pk1');
+      expect(prisma.operationalStandardCostSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ productionVersionId: 'v1', productionPackagingId: 'pk1' }),
+      }));
+    });
+
+    it('rejects a derived catalog reference from another tenant', async () => {
+      prisma.productionVersion.findUnique.mockResolvedValue({ id: 'v-foreign', productionProductId: 'pd-foreign' });
+      prisma.productionProductDefinition.findFirst
+        .mockResolvedValueOnce({ id: 'pd1', companyId: 'c1', branchId: 'b1' })
+        .mockResolvedValueOnce(null);
+
+      await expect(service.createSnapshot(
+        { ...snapshotDto, productionVersionId: 'v-foreign' },
+        'maker',
+        ctxA,
+      )).rejects.toMatchObject({ response: { messageKey: 'productionCostSnapshot.versionNotFound' } });
+      expect(prisma.operationalStandardCostSnapshot.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a version linked to a different product definition', async () => {
+      prisma.productionVersion.findUnique.mockResolvedValue({ id: 'v-other', productionProductId: 'pd2' });
+      prisma.productionProductDefinition.findFirst
+        .mockResolvedValueOnce({ id: 'pd1', companyId: 'c1', branchId: 'b1' })
+        .mockResolvedValueOnce({ id: 'pd2', companyId: 'c1', branchId: 'b1' });
+
+      await expect(service.createSnapshot(
+        { ...snapshotDto, productionVersionId: 'v-other' },
+        'maker',
+        ctxA,
+      )).rejects.toMatchObject({ response: { messageKey: 'productionCostSnapshot.versionNotFound' } });
+      expect(prisma.operationalStandardCostSnapshot.create).not.toHaveBeenCalled();
+    });
+
     it('scopes reads and only updates DRAFT snapshots', async () => {
       prisma.operationalStandardCostSnapshot.findFirst.mockResolvedValue(null);
       await expect(service.findOneSnapshot('snap1', ctxB)).rejects.toBeInstanceOf(NotFoundException);
@@ -296,7 +344,8 @@ describe('ProductionCostService', () => {
 
     it('selects the best standard snapshot for the order definition and fills product snapshots', async () => {
       prisma.productionOrder.findUnique.mockResolvedValue({ id: 'po1', companyId: 'c1', branchId: 'b1', productionProductDefinitionId: 'pd1' });
-      prisma.product.findUnique.mockResolvedValue({ id: 'pr1', companyId: 'c1', branchId: 'b1', code: 'PROD-1', name: 'Product 1' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'pr1', code: 'PROD-1', name: 'Product 1', deletedAt: null });
+      prisma.productionProductDefinition.findFirst.mockResolvedValue({ id: 'pd1', productId: 'pr1', companyId: 'c1', branchId: 'b1' });
       prisma.operationalStandardCostSnapshot.findMany.mockResolvedValue([snapshot({ status: 'FROZEN', revision: 2, rate: new Prisma.Decimal('4') })]);
       prisma.operationalCostTransaction.create.mockImplementation(({ data }: any) => Promise.resolve(tx({ id: 'created', ...data })));
       await service.postTransaction({ ...txDto, productionOrderId: 'po1', productId: 'pr1' }, 'maker', ctxA);
@@ -306,6 +355,56 @@ describe('ProductionCostService', () => {
       const createdData = prisma.operationalCostTransaction.create.mock.calls[0][0].data;
       expect(createdData.productCodeSnapshot).toBe('PROD-1');
       expect(createdData.varianceAmount.toString()).toBe('100');
+    });
+
+    it('accepts a valid global product catalog reference without tenant columns', async () => {
+      prisma.product.findUnique.mockResolvedValue({ id: 'pr1', code: 'PROD-1', name: 'Shared Product', deletedAt: null });
+      prisma.operationalCostTransaction.create.mockImplementation(({ data }: any) => Promise.resolve(tx({ id: 'created', ...data })));
+
+      const result = await service.postTransaction({ ...txDto, productId: 'pr1' }, 'maker', ctxA);
+
+      expect(result.productId).toBe('pr1');
+      expect(prisma.operationalCostTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ companyId: 'c1', branchId: 'b1', productId: 'pr1', productNameSnapshot: 'Shared Product' }),
+      }));
+    });
+
+    it('rejects a missing or deleted global product catalog reference', async () => {
+      prisma.product.findUnique.mockResolvedValueOnce(null);
+      await expect(service.postTransaction({ ...txDto, productId: 'missing' }, 'maker', ctxA)).rejects.toMatchObject({
+        response: { messageKey: 'productionCostTransaction.productNotFound' },
+      });
+
+      prisma.product.findUnique.mockResolvedValueOnce({ id: 'pr1', deletedAt: new Date() });
+      await expect(service.postTransaction({ ...txDto, productId: 'pr1' }, 'maker', ctxA)).rejects.toMatchObject({
+        response: { messageKey: 'productionCostTransaction.productNotFound' },
+      });
+      expect(prisma.operationalCostTransaction.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a derived version reference outside the active tenant', async () => {
+      prisma.productionVersion.findUnique.mockResolvedValue({ id: 'v-foreign', productionProductId: 'pd-foreign' });
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(null);
+
+      await expect(service.postTransaction(
+        { ...txDto, productionVersionId: 'v-foreign' },
+        'maker',
+        ctxA,
+      )).rejects.toMatchObject({ response: { messageKey: 'productionCostTransaction.versionNotFound' } });
+      expect(prisma.operationalCostTransaction.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects incompatible version and product catalog references', async () => {
+      prisma.product.findUnique.mockResolvedValue({ id: 'pr1', code: 'P1', name: 'Product 1', deletedAt: null });
+      prisma.productionVersion.findUnique.mockResolvedValue({ id: 'v2', productionProductId: 'pd2' });
+      prisma.productionProductDefinition.findFirst.mockResolvedValue({ id: 'pd2', productId: 'pr2', companyId: 'c1', branchId: 'b1' });
+
+      await expect(service.postTransaction(
+        { ...txDto, productId: 'pr1', productionVersionId: 'v2' },
+        'maker',
+        ctxA,
+      )).rejects.toMatchObject({ response: { messageKey: 'productionCostTransaction.productNotFound' } });
+      expect(prisma.operationalCostTransaction.create).not.toHaveBeenCalled();
     });
 
     it('is idempotent by clientRequestId within the tenant', async () => {

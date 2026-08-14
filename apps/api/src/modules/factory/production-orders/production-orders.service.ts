@@ -355,7 +355,7 @@ export class ProductionOrdersService {
   async addAttachment(id: string, file: Express.Multer.File, description: string | undefined, userId: string, ctx: ActiveOperationalContext) {
     const order = await this.findOwned(id, ctx);
     if (order.status === 'ARCHIVED') throw new ConflictException({ messageKey: 'productionOrder.archivedReadOnly' });
-    const attachment = await this.attachments.create(file, PRODUCTION_ORDER_ATTACHMENT_ENTITY, id, description, userId);
+    const attachment = await this.attachments.create(file, PRODUCTION_ORDER_ATTACHMENT_ENTITY, id, description, userId, ctx);
     try {
       return await this.prisma.$transaction(async (tx) => {
         const link = await (tx as any).productionOrderAttachment.create({
@@ -366,7 +366,7 @@ export class ProductionOrdersService {
         return link;
       });
     } catch (error) {
-      await this.attachments.remove(attachment.id);
+      await this.attachments.remove(attachment.id, ctx);
       throw error;
     }
   }
@@ -397,7 +397,7 @@ export class ProductionOrdersService {
       await (tx as any).productionOrderAttachment.delete({ where: { id: link.id } });
       await this.writeAudit(tx, userId, 'DETACH', order, ctx, { attachmentId });
     });
-    await this.attachments.remove(attachmentId);
+    await this.attachments.remove(attachmentId, ctx);
     return { removed: true };
   }
 

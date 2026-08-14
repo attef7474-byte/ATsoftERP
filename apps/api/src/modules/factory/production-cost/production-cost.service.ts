@@ -107,6 +107,40 @@ export class ProductionCostService {
     return record;
   }
 
+  /** Product is a global catalog model. Cost transactions remain tenant-owned,
+   * while the selected catalog row is validated for existence and soft deletion. */
+  private async assertGlobalProduct(client: any, id: string, errorKey: string) {
+    const product = await client.product.findUnique({ where: { id } });
+    if (!product || product.deletedAt) throw this.notFound(errorKey);
+    return product;
+  }
+
+  /** Versions and packagings derive ownership from ProductionProductDefinition;
+   * they intentionally do not duplicate companyId/branchId on the child row. */
+  private async assertDerivedProductReference(
+    client: any,
+    model: 'productionVersion' | 'productionPackaging',
+    id: string,
+    ctx: ActiveOperationalContext,
+    errorKey: string,
+    expectedDefinitionId?: string,
+  ) {
+    const record = await client[model].findUnique({ where: { id } });
+    if (!record) throw this.notFound(errorKey);
+    const definition = await client.productionProductDefinition.findFirst({
+      where: {
+        id: record.productionProductId,
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+        deletedAt: null,
+      },
+    });
+    if (!definition || (expectedDefinitionId && definition.id !== expectedDefinitionId)) {
+      throw this.notFound(errorKey);
+    }
+    return { record, definition };
+  }
+
   private async resolveCostLinks(
     client: any,
     ctx: ActiveOperationalContext,
@@ -694,10 +728,28 @@ export class ProductionCostService {
       if (dto.effectiveTo && new Date(dto.effectiveTo) < new Date(dto.effectiveFrom)) {
         throw this.badRequest('productionCostSnapshot.invalidEffectiveRange');
       }
-      const version = dto.productionVersionId ? await this.assertTenantScoped(tx, 'productionVersion', dto.productionVersionId, ctx, 'productionCostSnapshot.versionNotFound') : null;
-      const packaging = dto.productionPackagingId ? await this.assertTenantScoped(tx, 'productionPackaging', dto.productionPackagingId, ctx, 'productionCostSnapshot.packagingNotFound') : null;
-      if (version) links.productionVersionId = version.id;
-      if (packaging) links.productionPackagingId = packaging.id;
+      const version = dto.productionVersionId
+        ? await this.assertDerivedProductReference(
+          tx,
+          'productionVersion',
+          dto.productionVersionId,
+          ctx,
+          'productionCostSnapshot.versionNotFound',
+          definition.id,
+        )
+        : null;
+      const packaging = dto.productionPackagingId
+        ? await this.assertDerivedProductReference(
+          tx,
+          'productionPackaging',
+          dto.productionPackagingId,
+          ctx,
+          'productionCostSnapshot.packagingNotFound',
+          definition.id,
+        )
+        : null;
+      if (version) links.productionVersionId = version.record.id;
+      if (packaging) links.productionPackagingId = packaging.record.id;
 
       const max = await tx.operationalStandardCostSnapshot.aggregate({
         _max: { revision: true },
@@ -895,21 +947,59 @@ export class ProductionCostService {
     ctx: ActiveOperationalContext,
   ): Promise<{ refs: Record<string, any>; snapshots: Record<string, any> }> {
     const refs: Record<string, any> = {};
-    if (dto.productionOrderId) refs.productionOrderId = (await this.assertTenantScoped(tx, 'productionOrder', dto.productionOrderId, ctx, 'productionCostTransaction.orderNotFound')).id;
-    if (dto.productionRunId) refs.productionRunId = (await this.assertTenantScoped(tx, 'productionRun', dto.productionRunId, ctx, 'productionCostTransaction.runNotFound')).id;
-    if (dto.productId) refs.productId = (await this.assertTenantScoped(tx, 'product', dto.productId, ctx, 'productionCostTransaction.productNotFound')).id;
-    if (dto.productionVersionId) refs.productionVersionId = (await this.assertTenantScoped(tx, 'productionVersion', dto.productionVersionId, ctx, 'productionCostTransaction.versionNotFound')).id;
-    if (dto.productionPackagingId) refs.productionPackagingId = (await this.assertTenantScoped(tx, 'productionPackaging', dto.productionPackagingId, ctx, 'productionCostTransaction.packagingNotFound')).id;
+    const order = dto.productionOrderId
+      ? await this.assertTenantScoped(tx, 'productionOrder', dto.productionOrderId, ctx, 'productionCostTransaction.orderNotFound')
+      : null;
+    const run = dto.productionRunId
+      ? await this.assertTenantScoped(tx, 'productionRun', dto.productionRunId, ctx, 'productionCostTransaction.runNotFound')
+      : null;
+    const product = dto.productId
+      ? await this.assertGlobalProduct(tx, dto.productId, 'productionCostTransaction.productNotFound')
+      : null;
+    const version = dto.productionVersionId
+      ? await this.assertDerivedProductReference(tx, 'productionVersion', dto.productionVersionId, ctx, 'productionCostTransaction.versionNotFound')
+      : null;
+    const packaging = dto.productionPackagingId
+      ? await this.assertDerivedProductReference(tx, 'productionPackaging', dto.productionPackagingId, ctx, 'productionCostTransaction.packagingNotFound')
+      : null;
+
+    if (order) refs.productionOrderId = order.id;
+    if (run) refs.productionRunId = run.id;
+    if (product) refs.productId = product.id;
+    if (version) refs.productionVersionId = version.record.id;
+    if (packaging) refs.productionPackagingId = packaging.record.id;
     if (dto.productionLineId) refs.productionLineId = (await this.assertTenantScoped(tx, 'productionLine', dto.productionLineId, ctx, 'productionCostTransaction.lineNotFound')).id;
     if (dto.machineId) refs.machineId = (await this.assertTenantScoped(tx, 'machine', dto.machineId, ctx, 'productionCostTransaction.machineNotFound')).id;
     if (dto.shiftId) refs.shiftId = (await this.assertTenantScoped(tx, 'productionShift', dto.shiftId, ctx, 'productionCostTransaction.shiftNotFound')).id;
     if (dto.costCenterId) refs.costCenterId = (await this.assertTenantScoped(tx, 'costCenter', dto.costCenterId, ctx, 'productionCostTransaction.costCenterNotFound')).id;
     if (dto.outputEventId) refs.outputEventId = (await this.assertTenantScoped(tx, 'productionOutputEvent', dto.outputEventId, ctx, 'productionCostTransaction.outputEventNotFound')).id;
 
-    if (refs.productionOrderId && refs.productionRunId) {
-      const run = await tx.productionRun.findUnique({ where: { id: refs.productionRunId }, select: { productionOrderId: true } });
-      if (run && run.productionOrderId !== refs.productionOrderId) {
-        throw this.badRequest('productionCostTransaction.orderContextMismatch');
+    if (order && run && run.productionOrderId !== order.id) {
+      throw this.badRequest('productionCostTransaction.orderContextMismatch');
+    }
+
+    const derivedDefinition = version?.definition ?? packaging?.definition ?? null;
+    if (version && packaging && version.definition.id !== packaging.definition.id) {
+      throw this.notFound('productionCostTransaction.packagingNotFound');
+    }
+    if (product && derivedDefinition?.productId && derivedDefinition.productId !== product.id) {
+      throw this.notFound('productionCostTransaction.productNotFound');
+    }
+    if (order?.productionProductDefinitionId) {
+      const orderDefinition = await tx.productionProductDefinition.findFirst({
+        where: {
+          id: order.productionProductDefinitionId,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          deletedAt: null,
+        },
+      });
+      if (!orderDefinition) throw this.notFound('productionCostTransaction.orderNotFound');
+      if (derivedDefinition && derivedDefinition.id !== orderDefinition.id) {
+        throw this.notFound('productionCostTransaction.versionNotFound');
+      }
+      if (product && orderDefinition.productId && orderDefinition.productId !== product.id) {
+        throw this.notFound('productionCostTransaction.productNotFound');
       }
     }
 

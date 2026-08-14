@@ -94,6 +94,42 @@ export class ProductionQualityService {
     return record;
   }
 
+  /** Product is an approved global catalog. Operational ownership is enforced by
+   * the tenant-owned plan/inspection around it, so requiring Product.companyId
+   * would deny every valid product because the model intentionally has no tenant
+   * columns. Deleted catalog entries are never accepted for new operations. */
+  private async assertGlobalProduct(client: any, id: string, errorKey: string) {
+    const product = await client.product.findUnique({ where: { id } });
+    if (!product || product.deletedAt) throw this.notFound(errorKey);
+    return product;
+  }
+
+  /** ProductionVersion and ProductionPackaging derive tenant ownership from their
+   * ProductionProductDefinition parent. Neither child has direct tenant columns. */
+  private async assertDerivedProductReference(
+    client: any,
+    model: 'productionVersion' | 'productionPackaging',
+    id: string,
+    ctx: ActiveOperationalContext,
+    errorKey: string,
+    expectedDefinitionId?: string,
+  ) {
+    const record = await client[model].findUnique({ where: { id } });
+    if (!record) throw this.notFound(errorKey);
+    const definition = await client.productionProductDefinition.findFirst({
+      where: {
+        id: record.productionProductId,
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+        deletedAt: null,
+      },
+    });
+    if (!definition || (expectedDefinitionId && definition.id !== expectedDefinitionId)) {
+      throw this.notFound(errorKey);
+    }
+    return record;
+  }
+
   private async resolvePlanLinks(dto: CreateQualityPlanDto, ctx: ActiveOperationalContext, client: any) {
     const definition = await client.productionProductDefinition.findFirst({
       where: { id: dto.productionProductDefinitionId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
@@ -101,8 +137,26 @@ export class ProductionQualityService {
     if (!definition) throw this.notFound('productionQualityPlan.productDefinitionNotFound');
 
     const links: Record<string, string | null> = {};
-    if (dto.productionVersionId) links.productionVersionId = (await this.assertTenantScoped(client, 'productionVersion', dto.productionVersionId, ctx, 'productionQualityPlan.versionNotFound')).id;
-    if (dto.productionPackagingId) links.productionPackagingId = (await this.assertTenantScoped(client, 'productionPackaging', dto.productionPackagingId, ctx, 'productionQualityPlan.packagingNotFound')).id;
+    if (dto.productionVersionId) {
+      links.productionVersionId = (await this.assertDerivedProductReference(
+        client,
+        'productionVersion',
+        dto.productionVersionId,
+        ctx,
+        'productionQualityPlan.versionNotFound',
+        definition.id,
+      )).id;
+    }
+    if (dto.productionPackagingId) {
+      links.productionPackagingId = (await this.assertDerivedProductReference(
+        client,
+        'productionPackaging',
+        dto.productionPackagingId,
+        ctx,
+        'productionQualityPlan.packagingNotFound',
+        definition.id,
+      )).id;
+    }
     if (dto.productionLineId) links.productionLineId = (await this.assertTenantScoped(client, 'productionLine', dto.productionLineId, ctx, 'productionQualityPlan.lineNotFound')).id;
     if (dto.machineId) links.machineId = (await this.assertTenantScoped(client, 'machine', dto.machineId, ctx, 'productionQualityPlan.machineNotFound')).id;
     if (dto.costCenterId) links.costCenterId = (await this.assertTenantScoped(client, 'costCenter', dto.costCenterId, ctx, 'productionQualityPlan.costCenterNotFound')).id;
@@ -572,10 +626,22 @@ export class ProductionQualityService {
           });
           productId = definition?.productId ?? null;
         }
-        if (productId) {
-          await this.assertTenantScoped(tx, 'product', productId, ctx, 'productionInspection.productNotFound');
-        }
+        const product = productId
+          ? await this.assertGlobalProduct(tx, productId, 'productionInspection.productNotFound')
+          : null;
         if (!productId) throw this.badRequest('productionInspection.productRequired');
+        const planDefinition = await tx.productionProductDefinition.findFirst({
+          where: {
+            id: plan.productionProductDefinitionId,
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+            deletedAt: null,
+          },
+          select: { productId: true },
+        });
+        if (!planDefinition || planDefinition.productId !== product.id) {
+          throw this.notFound('productionInspection.productNotFound');
+        }
 
         let samplingPointId: string | null = null;
         if (dto.samplingPointId) {
@@ -607,7 +673,6 @@ export class ProductionQualityService {
           await this.assertTenantScoped(tx, 'costCenter', dto.costCenterId, ctx, 'productionInspection.costCenterNotFound');
         }
 
-        const product = await tx.product.findUnique({ where: { id: productId } });
         const inspectionNumber = await this.numberingService.generateNumberAtomicWithClient(INSPECTION_NUMBER_SEQUENCE, tx);
 
         const inspection = await tx.productionInspection.create({

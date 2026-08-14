@@ -69,7 +69,7 @@ describe('ProductionQualityService', () => {
       productionNonconformance: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn(), update: jest.fn() },
       productionNonconformanceTransition: { findUnique: jest.fn(), create: jest.fn() },
       productionNonconformanceAttachment: { findFirst: jest.fn(), create: jest.fn(), delete: jest.fn() },
-      productionProductDefinition: { findFirst: jest.fn().mockResolvedValue({ id: 'pd1' }) },
+      productionProductDefinition: { findFirst: jest.fn().mockResolvedValue({ id: 'pd1', productId: 'pr1' }) },
       productionVersion: { findUnique: jest.fn() }, productionPackaging: { findUnique: jest.fn() },
       productionLine: { findUnique: jest.fn() }, machine: { findUnique: jest.fn() }, costCenter: { findUnique: jest.fn() },
       productionUnit: { findUnique: jest.fn() }, productionMeasurementPoint: { findUnique: jest.fn() },
@@ -114,6 +114,53 @@ describe('ProductionQualityService', () => {
       await expect(service.createPlan({ ...planDto, productionLineId: 'line-other' }, 'maker', ctxA)).rejects.toBeInstanceOf(NotFoundException);
       prisma.productionLine.findUnique.mockResolvedValue({ id: 'line1', companyId: 'c2', branchId: 'b2' });
       await expect(service.createPlan({ ...planDto, productionLineId: 'line1' }, 'maker', ctxA)).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('accepts version and packaging references through their tenant-owned product-definition parent', async () => {
+      prisma.productionVersion.findUnique.mockResolvedValue({ id: 'v1', productionProductId: 'pd1', versionNumber: 1 });
+      prisma.productionPackaging.findUnique.mockResolvedValue({ id: 'pk1', productionProductId: 'pd1', packagingType: 'BOX' });
+      prisma.productionProductDefinition.findFirst.mockResolvedValue({ id: 'pd1', companyId: 'c1', branchId: 'b1' });
+      prisma.productionQualityPlan.create.mockImplementation(({ data }: any) => Promise.resolve(plan({ id: 'created', ...data })));
+
+      const result = await service.createPlan(
+        { ...planDto, productionVersionId: 'v1', productionPackagingId: 'pk1' },
+        'maker',
+        ctxA,
+      );
+
+      expect(result.productionVersionId).toBe('v1');
+      expect(result.productionPackagingId).toBe('pk1');
+      expect(prisma.productionProductDefinition.findFirst).toHaveBeenCalledWith({
+        where: expect.objectContaining({ id: 'pd1', companyId: 'c1', branchId: 'b1', deletedAt: null }),
+      });
+    });
+
+    it('rejects a derived catalog reference owned by another tenant', async () => {
+      prisma.productionVersion.findUnique.mockResolvedValue({ id: 'v-foreign', productionProductId: 'pd-foreign' });
+      prisma.productionProductDefinition.findFirst
+        .mockResolvedValueOnce({ id: 'pd1', companyId: 'c1', branchId: 'b1' })
+        .mockResolvedValueOnce(null);
+
+      await expect(service.createPlan(
+        { ...planDto, productionVersionId: 'v-foreign' },
+        'maker',
+        ctxA,
+      )).rejects.toMatchObject({ response: { messageKey: 'productionQualityPlan.versionNotFound' } });
+      expect(prisma.productionQualityPlan.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a version that belongs to a different product definition in the same tenant', async () => {
+      prisma.productionVersion.findUnique.mockResolvedValue({ id: 'v-other', productionProductId: 'pd2' });
+      prisma.productionProductDefinition.findFirst
+        .mockResolvedValueOnce({ id: 'pd1', companyId: 'c1', branchId: 'b1' })
+        .mockResolvedValueOnce({ id: 'pd2', companyId: 'c1', branchId: 'b1' });
+
+      await expect(service.createPlan(
+        { ...planDto, productionVersionId: 'v-other' },
+        'maker',
+        ctxA,
+      )).rejects.toMatchObject({ response: { messageKey: 'productionQualityPlan.versionNotFound' } });
+      expect(prisma.productionQualityPlan.create).not.toHaveBeenCalled();
     });
 
     it('scopes direct reads by company and branch and returns not found across tenants', async () => {
@@ -262,7 +309,7 @@ describe('ProductionQualityService', () => {
 
     it('creates a tenant-owned inspection against an APPROVED plan with a generated number', async () => {
       prisma.productionQualityPlan.findFirst.mockResolvedValue(plan({ status: 'APPROVED' }));
-      prisma.product.findUnique.mockResolvedValue({ id: 'pr1', code: 'PROD-1', name: 'Product 1', companyId: 'c1', branchId: 'b1' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'pr1', code: 'PROD-1', name: 'Product 1', deletedAt: null });
       numbering.generateNumberAtomicWithClient.mockResolvedValue('PIN-000001');
       prisma.productionInspection.create.mockImplementation(({ data }: any) => Promise.resolve(inspection({ id: 'created', ...data })));
       const result = await service.createInspection(inspectionDto, 'maker', ctxA);
@@ -272,6 +319,43 @@ describe('ProductionQualityService', () => {
       }));
       expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledWith('PRODUCTION_INSPECTION', expect.anything());
       expect(audit.logWithClient).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'INSPECTION_CREATE' }));
+    });
+
+    it('accepts a valid global product catalog reference without tenant columns', async () => {
+      prisma.productionQualityPlan.findFirst.mockResolvedValue(plan({ status: 'APPROVED' }));
+      prisma.product.findUnique.mockResolvedValue({ id: 'pr1', code: 'PROD-1', name: 'Shared Product', deletedAt: null });
+      prisma.productionInspection.create.mockImplementation(({ data }: any) => Promise.resolve(inspection({ id: 'created', ...data })));
+
+      const result = await service.createInspection(inspectionDto, 'maker', ctxA);
+
+      expect(result.productId).toBe('pr1');
+      expect(result.productNameSnapshot).toBe('Shared Product');
+      expect(prisma.productionInspection.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ companyId: 'c1', branchId: 'b1', productId: 'pr1' }),
+      }));
+    });
+
+    it('rejects a deleted global product catalog reference', async () => {
+      prisma.productionQualityPlan.findFirst.mockResolvedValue(plan({ status: 'APPROVED' }));
+      prisma.product.findUnique.mockResolvedValue({ id: 'pr1', code: 'PROD-1', name: 'Deleted', deletedAt: new Date() });
+
+      await expect(service.createInspection(inspectionDto, 'maker', ctxA)).rejects.toMatchObject({
+        response: { messageKey: 'productionInspection.productNotFound' },
+      });
+      expect(prisma.productionInspection.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a global product that does not belong to the inspection plan definition', async () => {
+      prisma.productionQualityPlan.findFirst.mockResolvedValue(plan({ status: 'APPROVED' }));
+      prisma.product.findUnique.mockResolvedValue({ id: 'pr-other', code: 'OTHER', name: 'Other Product', deletedAt: null });
+      prisma.productionProductDefinition.findFirst.mockResolvedValue({ id: 'pd1', productId: 'pr1' });
+
+      await expect(service.createInspection(
+        { ...inspectionDto, productId: 'pr-other' },
+        'maker',
+        ctxA,
+      )).rejects.toMatchObject({ response: { messageKey: 'productionInspection.productNotFound' } });
+      expect(prisma.productionInspection.create).not.toHaveBeenCalled();
     });
 
     it('requires an APPROVED plan and a resolvable product', async () => {
@@ -294,7 +378,7 @@ describe('ProductionQualityService', () => {
       prisma.productionRun.findFirst.mockResolvedValue({ id: 'run1', productionOrderId: 'po1' });
       prisma.productionOrder.findFirst.mockResolvedValue({ id: 'po1', productionProductDefinitionId: 'pd1' });
       prisma.productionProductDefinition.findFirst.mockResolvedValue({ id: 'pd1', productId: 'pr1' });
-      prisma.product.findUnique.mockResolvedValue({ id: 'pr1', code: 'PROD-1', name: 'Product 1', companyId: 'c1', branchId: 'b1' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'pr1', code: 'PROD-1', name: 'Product 1', deletedAt: null });
       prisma.productionInspection.create.mockImplementation(({ data }: any) => Promise.resolve(inspection({ id: 'created', ...data })));
       const result = await service.createInspection({ ...inspectionDto, productId: undefined, productionRunId: 'run1' }, 'maker', ctxA);
       expect(result.productCodeSnapshot).toBe('PROD-1');
