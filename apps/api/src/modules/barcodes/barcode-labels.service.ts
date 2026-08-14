@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { NumberingService } from '../../modules/numbering/numbering.service';
@@ -7,6 +7,7 @@ import { UpdateBarcodeLabelDto } from './dto/update-barcode-label.dto';
 import { BarcodeLabelQueryDto } from './dto/barcode-label-query.dto';
 import { GenerateBarcodeLabelDto } from './dto/generate-barcode-label.dto';
 import { GenerateQRDto } from './dto/generate-qr.dto';
+import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types';
 
 const ENTITY_PREFIXES: Record<string, string> = {
   MACHINE: 'MCH',
@@ -33,29 +34,128 @@ export class BarcodeLabelsService {
     private numberingService: NumberingService,
   ) {}
 
-  private async validateEntity(entityType: string, entityId: string): Promise<void> {
-    const modelMap: Record<string, any> = {
-      MACHINE: this.prisma.machine,
-      MACHINE_PART: this.prisma.machinePart,
-      PRODUCT: this.prisma.product,
-      WAREHOUSE: this.prisma.warehouse,
-      WAREHOUSE_LOCATION: this.prisma.warehouseLocation,
-      INVENTORY_COUNT: this.prisma.inventoryCount,
-      INVENTORY_COUNT_LINE: this.prisma.inventoryCountLine,
-      INVENTORY_MOVEMENT: this.prisma.inventoryMovement,
-      INVENTORY_ADJUSTMENT: this.prisma.inventoryAdjustment,
-      MAINTENANCE_REQUEST: this.prisma.maintenanceRequest,
-      MAINTENANCE_TASK: this.prisma.maintenanceTask,
-      MAINTENANCE_SCHEDULE: this.prisma.maintenanceSchedule,
-      MAINTENANCE_CHECKLIST_ITEM: this.prisma.maintenanceChecklistItem,
-      DOWNTIME_LOG: this.prisma.downtimeLog,
+  private tenantWhere(ctx: ActiveOperationalContext) {
+    return { companyId: ctx.companyId, branchId: ctx.branchId };
+  }
+
+  private invalidReference(entityType: string): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'barcodes.invalidEntityReference',
+      message: `Invalid or inaccessible ${entityType} reference`,
+    });
+  }
+
+  /**
+   * Verifies the actual referenced aggregate, not merely the polymorphic id.
+   * Product is approved global reference data. Machine-owned aggregates accept
+   * a company-wide machine (branchId NULL) or the current branch; barcode facts
+   * themselves are always persisted to the exact active branch.
+   */
+  async assertEntityInContext(entityType: string, entityId: string, ctx: ActiveOperationalContext): Promise<any> {
+    const machineScope = {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+      deletedAt: null,
     };
+    const warehouseScope = {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+      deletedAt: null,
+    };
+    let entity: any = null;
 
-    const model = modelMap[entityType];
-    if (!model) throw new BadRequestException(`Unknown entity type: ${entityType}`);
+    switch (entityType) {
+      case 'MACHINE':
+        entity = await this.prisma.machine.findFirst({ where: { id: entityId, ...machineScope }, include: { category: true } });
+        break;
+      case 'MACHINE_PART':
+        entity = await this.prisma.machinePart.findFirst({
+          where: { id: entityId, machine: machineScope },
+          include: { machine: true, product: true },
+        });
+        break;
+      case 'PRODUCT':
+        // Product is intentionally global reference data; the label remains
+        // tenant-owned by the active context that creates it.
+        entity = await this.prisma.product.findFirst({ where: { id: entityId, deletedAt: null }, include: { category: true } });
+        break;
+      case 'WAREHOUSE':
+        entity = await this.prisma.warehouse.findFirst({ where: { id: entityId, ...warehouseScope } });
+        break;
+      case 'WAREHOUSE_LOCATION':
+        entity = await this.prisma.warehouseLocation.findFirst({
+          where: { id: entityId, warehouse: warehouseScope },
+          include: { warehouse: true },
+        });
+        break;
+      case 'INVENTORY_COUNT':
+        entity = await this.prisma.inventoryCount.findFirst({
+          where: { id: entityId, ...this.tenantWhere(ctx), deletedAt: null },
+        });
+        break;
+      case 'INVENTORY_COUNT_LINE':
+        entity = await this.prisma.inventoryCountLine.findFirst({
+          where: { id: entityId, deletedAt: null, count: { ...this.tenantWhere(ctx), deletedAt: null } },
+          include: { product: true, count: true },
+        });
+        break;
+      case 'INVENTORY_MOVEMENT':
+        entity = await this.prisma.inventoryMovement.findFirst({
+          where: { id: entityId, ...this.tenantWhere(ctx), deletedAt: null },
+        });
+        break;
+      case 'INVENTORY_ADJUSTMENT':
+        entity = await this.prisma.inventoryAdjustment.findFirst({
+          where: { id: entityId, ...this.tenantWhere(ctx), deletedAt: null },
+        });
+        break;
+      case 'MAINTENANCE_REQUEST':
+        entity = await this.prisma.maintenanceRequest.findFirst({
+          where: { id: entityId, deletedAt: null, machine: machineScope },
+          include: { machine: true },
+        });
+        break;
+      case 'MAINTENANCE_TASK':
+        entity = await this.prisma.maintenanceTask.findFirst({
+          where: { id: entityId, request: { deletedAt: null, machine: machineScope } },
+          include: { request: { include: { machine: true } } },
+        });
+        break;
+      case 'MAINTENANCE_SCHEDULE':
+        entity = await this.prisma.maintenanceSchedule.findFirst({
+          where: { id: entityId, machine: machineScope },
+          include: { machine: true },
+        });
+        break;
+      case 'MAINTENANCE_CHECKLIST_ITEM':
+        entity = await this.prisma.maintenanceChecklistItem.findFirst({
+          where: { id: entityId, schedule: { machine: machineScope } },
+          include: { schedule: { include: { machine: true } } },
+        });
+        break;
+      case 'DOWNTIME_LOG':
+        entity = await this.prisma.downtimeLog.findFirst({
+          where: { id: entityId, machine: machineScope },
+          include: { machine: true },
+        });
+        break;
+      default:
+        throw new BadRequestException({ messageKey: 'barcodes.unsupportedEntityType', message: `Unsupported entity type: ${entityType}` });
+    }
 
-    const entity = await model.findUnique({ where: { id: entityId } });
-    if (!entity) throw new NotFoundException(`${entityType} with id ${entityId} not found`);
+    if (!entity) throw this.invalidReference(entityType);
+    return entity;
+  }
+
+  private async assertGlobalTemplateCode(labelTemplateCode?: string): Promise<void> {
+    if (!labelTemplateCode) return;
+    const template = await this.prisma.barcodeLabelTemplate.findFirst({
+      where: { code: labelTemplateCode, status: 'ACTIVE', deletedAt: null },
+      select: { id: true },
+    });
+    if (!template) {
+      throw new BadRequestException({ messageKey: 'barcodes.invalidTemplateReference', message: 'Invalid barcode template' });
+    }
   }
 
   private generateValue(entityType: string, code: string): string {
@@ -74,12 +174,9 @@ export class BarcodeLabelsService {
     });
   }
 
-  async create(dto: CreateBarcodeLabelDto, userId: string) {
-    await this.validateEntity(dto.entityType, dto.entityId);
-
-    const existingActive = await this.prisma.barcodeLabel.findFirst({
-      where: { entityType: dto.entityType, entityId: dto.entityId, status: 'ACTIVE', deletedAt: null },
-    });
+  async create(dto: CreateBarcodeLabelDto, userId: string, ctx: ActiveOperationalContext) {
+    await this.assertEntityInContext(dto.entityType, dto.entityId, ctx);
+    await this.assertGlobalTemplateCode(dto.labelTemplateCode);
 
     const label = await this.prisma.$transaction(async (tx) => {
       const code = await this.numberingService.generateNumberAtomic('BARCODE_LABEL');
@@ -88,6 +185,8 @@ export class BarcodeLabelsService {
 
       return tx.barcodeLabel.create({
         data: {
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
           code,
           value,
           symbology,
@@ -97,7 +196,7 @@ export class BarcodeLabelsService {
           description: dto.description,
           labelTemplateCode: dto.labelTemplateCode,
           createdById: userId,
-        },
+        } as any,
       });
     });
 
@@ -109,13 +208,14 @@ export class BarcodeLabelsService {
     label.qrPayload = payload;
 
     await this.audit.log(userId, 'CREATE', 'BarcodeLabel', label.id, {
+      companyId: ctx.companyId, branchId: ctx.branchId,
       entityType: label.entityType, entityId: label.entityId, code: label.code, value: label.value, symbology: label.symbology,
     });
 
     return label;
   }
 
-  async generate(dto: GenerateBarcodeLabelDto, userId: string) {
+  async generate(dto: GenerateBarcodeLabelDto, userId: string, ctx: ActiveOperationalContext) {
     return this.create(
       {
         entityType: dto.entityType,
@@ -124,14 +224,15 @@ export class BarcodeLabelsService {
         title: dto.title,
       },
       userId,
+      ctx,
     );
   }
 
-  async findAll(query: BarcodeLabelQueryDto) {
+  async findAll(query: BarcodeLabelQueryDto, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
-    const where: any = { deletedAt: null };
+    const where: any = { ...this.tenantWhere(ctx), deletedAt: null };
 
     if (query.search) {
       where.OR = [
@@ -154,63 +255,85 @@ export class BarcodeLabelsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
-    const label = await this.prisma.barcodeLabel.findUnique({ where: { id }, include: { scanEvents: { take: 10, orderBy: { scannedAt: 'desc' } } } });
-    if (!label || label.deletedAt) throw new NotFoundException('Barcode label not found');
+  async findOne(id: string, ctx: ActiveOperationalContext) {
+    const label = await this.prisma.barcodeLabel.findFirst({
+      where: { id, ...this.tenantWhere(ctx), deletedAt: null },
+      include: {
+        scanEvents: {
+          where: this.tenantWhere(ctx),
+          take: 10,
+          orderBy: { scannedAt: 'desc' },
+        },
+      },
+    });
+    if (!label) throw new NotFoundException('Barcode label not found');
+    try {
+      await this.assertEntityInContext(label.entityType, label.entityId, ctx);
+    } catch (error) {
+      if (error instanceof BadRequestException) throw new NotFoundException('Barcode label not found');
+      throw error;
+    }
     return label;
   }
 
-  async update(id: string, dto: UpdateBarcodeLabelDto, userId: string) {
-    const label = await this.findOne(id);
+  async update(id: string, dto: UpdateBarcodeLabelDto, userId: string, ctx: ActiveOperationalContext) {
+    await this.findOne(id, ctx);
     const updated = await this.prisma.barcodeLabel.update({ where: { id }, data: { ...dto, updatedById: userId } });
-    await this.audit.log(userId, 'UPDATE', 'BarcodeLabel', id, { dto });
+    await this.audit.log(userId, 'UPDATE', 'BarcodeLabel', id, { companyId: ctx.companyId, branchId: ctx.branchId, dto });
     return updated;
   }
 
-  private async transitionStatus(id: string, status: string, action: string, userId: string) {
-    const label = await this.findOne(id);
+  private async transitionStatus(id: string, status: string, action: string, userId: string, ctx: ActiveOperationalContext) {
+    const label = await this.findOne(id, ctx);
     const updated = await this.prisma.barcodeLabel.update({ where: { id }, data: { status, updatedById: userId } });
-    await this.audit.log(userId, action, 'BarcodeLabel', id, { oldStatus: label.status, newStatus: status });
+    await this.audit.log(userId, action, 'BarcodeLabel', id, {
+      companyId: ctx.companyId, branchId: ctx.branchId, oldStatus: label.status, newStatus: status,
+    });
     return updated;
   }
 
-  async activate(id: string, userId: string) {
-    return this.transitionStatus(id, 'ACTIVE', 'ACTIVATE', userId);
+  async activate(id: string, userId: string, ctx: ActiveOperationalContext) {
+    return this.transitionStatus(id, 'ACTIVE', 'ACTIVATE', userId, ctx);
   }
 
-  async deactivate(id: string, userId: string) {
-    return this.transitionStatus(id, 'INACTIVE', 'DEACTIVATE', userId);
+  async deactivate(id: string, userId: string, ctx: ActiveOperationalContext) {
+    return this.transitionStatus(id, 'INACTIVE', 'DEACTIVATE', userId, ctx);
   }
 
-  async retire(id: string, userId: string) {
-    return this.transitionStatus(id, 'RETIRED', 'RETIRE', userId);
+  async retire(id: string, userId: string, ctx: ActiveOperationalContext) {
+    return this.transitionStatus(id, 'RETIRED', 'RETIRE', userId, ctx);
   }
 
-  async void(id: string, userId: string) {
-    return this.transitionStatus(id, 'VOID', 'VOID', userId);
+  async void(id: string, userId: string, ctx: ActiveOperationalContext) {
+    return this.transitionStatus(id, 'VOID', 'VOID', userId, ctx);
   }
 
-  async markPrinted(id: string, userId: string) {
-    const label = await this.findOne(id);
+  async markPrinted(id: string, userId: string, ctx: ActiveOperationalContext) {
+    await this.findOne(id, ctx);
     const updated = await this.prisma.barcodeLabel.update({
       where: { id },
       data: { printCount: { increment: 1 }, lastPrintedAt: new Date(), updatedById: userId },
     });
-    await this.audit.log(userId, 'PRINT', 'BarcodeLabel', id, { printCount: updated.printCount });
+    await this.audit.log(userId, 'PRINT', 'BarcodeLabel', id, {
+      companyId: ctx.companyId, branchId: ctx.branchId, printCount: updated.printCount,
+    });
     return updated;
   }
 
-  async findByEntity(entityType: string, entityId: string) {
+  async findByEntity(entityType: string, entityId: string, ctx: ActiveOperationalContext) {
+    await this.assertEntityInContext(entityType, entityId, ctx);
     const labels = await this.prisma.barcodeLabel.findMany({
-      where: { entityType, entityId, deletedAt: null },
+      where: { ...this.tenantWhere(ctx), entityType, entityId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
     });
     return { data: labels };
   }
 
-  async resolve(value: string) {
-    const label = await this.prisma.barcodeLabel.findUnique({ where: { value } });
-    if (!label || label.deletedAt) {
+  async resolve(value: string, ctx: ActiveOperationalContext) {
+    const label = await this.prisma.barcodeLabel.findFirst({
+      where: { value, ...this.tenantWhere(ctx), deletedAt: null },
+    });
+    if (!label) {
       return { found: false, result: 'NOT_FOUND', label: null, entity: null };
     }
     if (label.status === 'INACTIVE') {
@@ -223,23 +346,33 @@ export class BarcodeLabelsService {
       return { found: true, result: 'VOID_LABEL', label, entity: null };
     }
 
-    const entity = await this.resolveEntity(label.entityType, label.entityId);
+    let entity: any;
+    try {
+      entity = await this.resolveEntity(label.entityType, label.entityId, ctx);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        return { found: false, result: 'NOT_FOUND', label: null, entity: null };
+      }
+      throw error;
+    }
     return { found: true, result: 'SUCCESS', label, entity };
   }
 
-  async softDelete(id: string, userId: string) {
-    const label = await this.findOne(id);
+  async softDelete(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const label = await this.findOne(id, ctx);
     const updated = await this.prisma.barcodeLabel.update({
       where: { id },
       data: { deletedAt: new Date(), updatedById: userId },
     });
-    await this.audit.log(userId, 'DELETE', 'BarcodeLabel', id, { code: label.code, value: label.value });
+    await this.audit.log(userId, 'DELETE', 'BarcodeLabel', id, {
+      companyId: ctx.companyId, branchId: ctx.branchId, code: label.code, value: label.value,
+    });
     return updated;
   }
 
-  async preview(id: string) {
-    const label = await this.findOne(id);
-    const entity = await this.resolveEntity(label.entityType, label.entityId);
+  async preview(id: string, ctx: ActiveOperationalContext) {
+    const label = await this.findOne(id, ctx);
+    const entity = await this.resolveEntity(label.entityType, label.entityId, ctx);
     return {
       ...label,
       preview: {
@@ -251,9 +384,9 @@ export class BarcodeLabelsService {
     };
   }
 
-  async download(id: string) {
-    const label = await this.findOne(id);
-    const entity = await this.resolveEntity(label.entityType, label.entityId);
+  async download(id: string, ctx: ActiveOperationalContext) {
+    const label = await this.findOne(id, ctx);
+    const entity = await this.resolveEntity(label.entityType, label.entityId, ctx);
     return {
       filename: `${label.code}.json`,
       contentType: 'application/json',
@@ -278,7 +411,7 @@ export class BarcodeLabelsService {
     };
   }
 
-  async generateQR(dto: GenerateQRDto, userId: string) {
+  async generateQR(dto: GenerateQRDto, userId: string, ctx: ActiveOperationalContext) {
     return this.generate(
       {
         entityType: dto.entityType,
@@ -287,72 +420,65 @@ export class BarcodeLabelsService {
         title: dto.title,
       },
       userId,
+      ctx,
     );
   }
 
-  private async resolveEntity(entityType: string, entityId: string): Promise<any> {
-    try {
-      switch (entityType) {
+  private async resolveEntity(entityType: string, entityId: string, ctx: ActiveOperationalContext): Promise<any> {
+    const entity = await this.assertEntityInContext(entityType, entityId, ctx);
+    switch (entityType) {
         case 'MACHINE': {
-          const m = await this.prisma.machine.findUnique({ where: { id: entityId }, include: { category: true } });
-          if (!m) return null;
+          const m = entity;
           return { type: 'MACHINE', id: m.id, code: m.code, name: m.name, status: m.status, category: m.category ? { id: m.category.id, name: m.category.name } : null };
         }
         case 'MACHINE_PART': {
-          const p = await this.prisma.machinePart.findUnique({ where: { id: entityId }, include: { machine: true, product: true } });
-          if (!p) return null;
+          const p = entity;
           return { type: 'MACHINE_PART', id: p.id, code: p.code, name: p.name, partNumber: p.partNumber, quantity: p.quantity, unit: p.unit, machine: p.machine ? { id: p.machine.id, code: p.machine.code, name: p.machine.name } : null };
         }
         case 'PRODUCT': {
-          const pr = await this.prisma.product.findUnique({ where: { id: entityId }, include: { category: true } });
-          if (!pr) return null;
+          const pr = entity;
           return { type: 'PRODUCT', id: pr.id, code: pr.code, name: pr.name, unit: pr.unit, status: pr.status, category: pr.category ? { id: pr.category.id, name: pr.category.name } : null };
         }
         case 'WAREHOUSE': {
-          const w = await this.prisma.warehouse.findUnique({ where: { id: entityId } });
-          if (!w) return null;
+          const w = entity;
           return { type: 'WAREHOUSE', id: w.id, code: w.code, name: w.name, status: w.status };
         }
         case 'WAREHOUSE_LOCATION': {
-          const wl = await this.prisma.warehouseLocation.findUnique({ where: { id: entityId }, include: { warehouse: true } });
-          if (!wl) return null;
+          const wl = entity;
           return { type: 'WAREHOUSE_LOCATION', id: wl.id, code: wl.code, name: wl.name, warehouse: wl.warehouse ? { id: wl.warehouse.id, code: wl.warehouse.code, name: wl.warehouse.name } : null };
         }
         case 'INVENTORY_COUNT': {
-          const ic = await this.prisma.inventoryCount.findUnique({ where: { id: entityId } });
-          if (!ic) return null;
+          const ic = entity;
           return { type: 'INVENTORY_COUNT', id: ic.id, countNumber: ic.countNumber, status: ic.status, countDate: ic.countDate };
         }
         case 'INVENTORY_COUNT_LINE': {
-          const icl = await this.prisma.inventoryCountLine.findUnique({ where: { id: entityId }, include: { product: true, count: true } });
-          if (!icl) return null;
+          const icl = entity;
           return { type: 'INVENTORY_COUNT_LINE', id: icl.id, countId: icl.countId, countNumber: icl.count?.countNumber, product: icl.product ? { id: icl.product.id, code: icl.product.code, name: icl.product.name } : null, systemQty: icl.systemQty, countedQty: icl.countedQty, differenceQty: icl.differenceQty, status: icl.status };
         }
+        case 'INVENTORY_MOVEMENT':
+          return { type: entityType, id: entity.id, movementNumber: entity.movementNumber, status: entity.status, movementDate: entity.movementDate };
+        case 'INVENTORY_ADJUSTMENT':
+          return { type: entityType, id: entity.id, adjustmentNumber: entity.adjustmentNumber, status: entity.status, adjustmentDate: entity.adjustmentDate };
         case 'MAINTENANCE_REQUEST': {
-          const mr = await this.prisma.maintenanceRequest.findUnique({ where: { id: entityId }, include: { machine: true } });
-          if (!mr) return null;
+          const mr = entity;
           return { type: 'MAINTENANCE_REQUEST', id: mr.id, requestNumber: mr.requestNumber, title: mr.title, status: mr.status, priority: mr.priority, machine: mr.machine ? { id: mr.machine.id, code: mr.machine.code, name: mr.machine.name } : null };
         }
         case 'MAINTENANCE_TASK': {
-          const mt = await this.prisma.maintenanceTask.findUnique({ where: { id: entityId }, include: { request: { include: { machine: true } } } });
-          if (!mt) return null;
+          const mt = entity;
           return { type: 'MAINTENANCE_TASK', id: mt.id, title: mt.title, status: mt.status, startedAt: mt.startedAt, completedAt: mt.completedAt, cancelledAt: mt.cancelledAt, request: mt.request ? { id: mt.request.id, requestNumber: mt.request.requestNumber, title: mt.request.title, machine: mt.request.machine ? { id: mt.request.machine.id, code: mt.request.machine.code, name: mt.request.machine.name } : null } : null };
         }
         case 'DOWNTIME_LOG': {
-          const dl = await this.prisma.downtimeLog.findUnique({ where: { id: entityId }, include: { machine: true } });
-          if (!dl) return null;
+          const dl = entity;
           return { type: 'DOWNTIME_LOG', id: dl.id, startTime: dl.startTime, endTime: dl.endTime, durationMinutes: dl.durationMinutes, reason: dl.reason, machine: dl.machine ? { id: dl.machine.id, code: dl.machine.code, name: dl.machine.name } : null };
         }
         case 'MAINTENANCE_SCHEDULE': {
-          const ms = await this.prisma.maintenanceSchedule.findUnique({ where: { id: entityId }, include: { machine: true } });
-          if (!ms) return null;
+          const ms = entity;
           return { type: 'MAINTENANCE_SCHEDULE', id: ms.id, title: ms.title, status: ms.status, frequency: ms.frequency, intervalDays: ms.intervalDays, startDate: ms.startDate, endDate: ms.endDate, machine: ms.machine ? { id: ms.machine.id, code: ms.machine.code, name: ms.machine.name } : null };
         }
+        case 'MAINTENANCE_CHECKLIST_ITEM':
+          return { type: entityType, id: entity.id, title: entity.title, scheduleId: entity.scheduleId };
         default:
-          return null;
-      }
-    } catch {
-      return null;
+          throw new BadRequestException({ messageKey: 'barcodes.unsupportedEntityType' });
     }
   }
 }

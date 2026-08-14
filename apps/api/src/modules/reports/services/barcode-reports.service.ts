@@ -2,13 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { BarcodeReportFilterDto } from '../dto/report-filter.dto';
 import { buildDateFilter, paginate } from './report-query-utils';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class BarcodeReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getBarcodeScansReport(filters: BarcodeReportFilterDto) {
-    const where: any = { ...buildDateFilter(filters.dateFrom, filters.dateTo, 'scannedAt') };
+  async getBarcodeScansReport(filters: BarcodeReportFilterDto, ctx: ActiveOperationalContext) {
+    const where: any = { companyId: ctx.companyId, branchId: ctx.branchId, ...buildDateFilter(filters.dateFrom, filters.dateTo, 'scannedAt') };
     if (filters.entityType) where.entityType = filters.entityType;
     if (filters.scanPurpose) where.purpose = filters.scanPurpose;
     if (filters.result) where.result = filters.result;

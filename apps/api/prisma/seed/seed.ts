@@ -210,6 +210,25 @@ async function main() {
     { key: "maintenance-work-order-cost:read", module: "maintenance-work-order-cost", action: "read" },
     { key: "maintenance-work-order-cost:update", module: "maintenance-work-order-cost", action: "update" },
     { key: "maintenance-work-order-cost:delete", module: "maintenance-work-order-cost", action: "delete" },
+    // Barcode permissions (non-CRUD actions; CRUD keys come from MODULES and
+    // reports.barcodes:read comes from the "reports.barcodes" module above).
+    { key: "barcode-label:activate", module: "barcode-label", action: "activate" },
+    { key: "barcode-label:deactivate", module: "barcode-label", action: "deactivate" },
+    { key: "barcode-label:retire", module: "barcode-label", action: "retire" },
+    { key: "barcode-label:void", module: "barcode-label", action: "void" },
+    { key: "barcode-label:print", module: "barcode-label", action: "print" },
+    { key: "barcode-label:resolve", module: "barcode-label", action: "resolve" },
+    { key: "barcode-scan:resolve", module: "barcode-scan", action: "resolve" },
+    { key: "barcode-scan:inventory-count", module: "barcode-scan", action: "inventory-count" },
+    { key: "barcode-scan:maintenance", module: "barcode-scan", action: "maintenance" },
+    { key: "barcode-scan:machine-check", module: "barcode-scan", action: "machine-check" },
+    { key: "barcode-scan:part-lookup", module: "barcode-scan", action: "part-lookup" },
+    { key: "barcode-template:activate", module: "barcode-template", action: "activate" },
+    { key: "barcode-template:deactivate", module: "barcode-template", action: "deactivate" },
+    { key: "barcode-printJobs:create", module: "barcode-printJobs", action: "create" },
+    { key: "barcode-printJobs:read", module: "barcode-printJobs", action: "read" },
+    { key: "barcode-printJobs:update", module: "barcode-printJobs", action: "update" },
+    { key: "barcode-printJobs:summary", module: "barcode-printJobs", action: "summary" },
   ];
 
   for (const p of extraPermissions) {

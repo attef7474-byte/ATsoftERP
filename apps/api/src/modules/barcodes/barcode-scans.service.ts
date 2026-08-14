@@ -9,6 +9,7 @@ import { InventoryCountScanDto } from './dto/inventory-count-scan.dto';
 import { MaintenanceScanDto } from './dto/maintenance-scan.dto';
 import { MachineCheckScanDto } from './dto/machine-check-scan.dto';
 import { PartLookupScanDto } from './dto/part-lookup-scan.dto';
+import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types';
 
 @Injectable()
 export class BarcodeScansService {
@@ -18,7 +19,28 @@ export class BarcodeScansService {
     private labelsService: BarcodeLabelsService,
   ) {}
 
+  private tenantWhere(ctx: ActiveOperationalContext) {
+    return { companyId: ctx.companyId, branchId: ctx.branchId };
+  }
+
+  private machineScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+      deletedAt: null,
+    };
+  }
+
+  private warehouseScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }],
+      deletedAt: null,
+    };
+  }
+
   private async createScanEvent(params: {
+    companyId: string; branchId: string;
     labelId?: string; scannedValue: string; symbology?: string; purpose: string;
     result: string; source: string; entityType?: string; entityId?: string;
     contextType?: string; contextId?: string; message?: string;
@@ -36,8 +58,10 @@ export class BarcodeScansService {
 
   private async recordScan(labelId: string | undefined, dto: { value: string; source?: string }, label: any, resultCode: string, purpose: string, message: string, extra: {
     contextType?: string; contextId?: string; entityType?: string; entityId?: string;
-  }, userId?: string, ipAddress?: string, userAgent?: string) {
+  }, ctx: ActiveOperationalContext, userId?: string, ipAddress?: string, userAgent?: string) {
     const event = await this.createScanEvent({
+      companyId: ctx.companyId,
+      branchId: ctx.branchId,
       labelId,
       scannedValue: dto.value,
       symbology: label?.symbology,
@@ -72,18 +96,18 @@ export class BarcodeScansService {
     }
   }
 
-  async scan(dto: ScanBarcodeDto, userId?: string, ipAddress?: string, userAgent?: string) {
-    const resolution = await this.labelsService.resolve(dto.value);
+  async scan(dto: ScanBarcodeDto, ctx: ActiveOperationalContext, userId?: string, ipAddress?: string, userAgent?: string) {
+    const resolution = await this.labelsService.resolve(dto.value, ctx);
 
     if (!resolution.found || !resolution.label) {
-      const event = await this.recordScan(undefined, dto, null, 'NOT_FOUND', dto.purpose || 'GENERAL_LOOKUP', 'No matching barcode label found', {}, userId, ipAddress, userAgent);
+      const event = await this.recordScan(undefined, dto, null, 'NOT_FOUND', dto.purpose || 'GENERAL_LOOKUP', 'No matching barcode label found', {}, ctx, userId, ipAddress, userAgent);
       await this.audit.log(userId, 'SCAN', 'BarcodeScanEvent', event.id, { scannedValue: dto.value, result: 'NOT_FOUND' });
       return { result: 'NOT_FOUND', message: 'Label not found', event: { id: event.id, scannedAt: event.scannedAt } };
     }
 
     const label = resolution.label;
     if (resolution.result !== 'SUCCESS') {
-      const event = await this.recordScan(label.id, dto, label, resolution.result, dto.purpose || 'GENERAL_LOOKUP', `Label is ${label.status.toLowerCase()}`, {}, userId, ipAddress, userAgent);
+      const event = await this.recordScan(label.id, dto, label, resolution.result, dto.purpose || 'GENERAL_LOOKUP', `Label is ${label.status.toLowerCase()}`, {}, ctx, userId, ipAddress, userAgent);
       await this.audit.log(userId, 'SCAN', 'BarcodeScanEvent', event.id, { result: resolution.result });
       return { result: resolution.result, message: `Label is ${label.status.toLowerCase()}`, label: { id: label.id, code: label.code, value: label.value, status: label.status }, event: { id: event.id, scannedAt: event.scannedAt } };
     }
@@ -92,17 +116,17 @@ export class BarcodeScansService {
     const entity = resolution.entity;
     const suggestedActions = entity ? this.buildSuggestedActions(entity.type) : [];
 
-    const event = await this.recordScan(label.id, dto, label, 'SUCCESS', dto.purpose || 'GENERAL_LOOKUP', 'Scan successful', { contextType: dto.contextType, contextId: dto.contextId }, userId, ipAddress, userAgent);
+    const event = await this.recordScan(label.id, dto, label, 'SUCCESS', dto.purpose || 'GENERAL_LOOKUP', 'Scan successful', { contextType: dto.contextType, contextId: dto.contextId }, ctx, userId, ipAddress, userAgent);
     await this.audit.log(userId, 'SCAN', 'BarcodeScanEvent', event.id, { entityType: label.entityType, entityId: label.entityId, result: 'SUCCESS' });
 
     return { result: 'SUCCESS', message: 'Scan successful', label: { id: label.id, code: label.code, value: label.value, status: label.status, title: label.title }, entity, suggestedActions, event: { id: event.id, scannedAt: event.scannedAt } };
   }
 
-  async findAllScans(query: BarcodeScanQueryDto) {
+  async findAllScans(query: BarcodeScanQueryDto, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
-    const where: any = {};
+    const where: any = { ...this.tenantWhere(ctx) };
     if (query.purpose) where.purpose = query.purpose;
     if (query.result) where.result = query.result;
     if (query.scannedValue) where.scannedValue = { contains: query.scannedValue };
@@ -115,39 +139,41 @@ export class BarcodeScansService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findScanById(id: string) {
-    const scan = await this.prisma.barcodeScanEvent.findUnique({ where: { id } });
+  async findScanById(id: string, ctx: ActiveOperationalContext) {
+    const scan = await this.prisma.barcodeScanEvent.findFirst({ where: { id, ...this.tenantWhere(ctx) } });
     if (!scan) throw new NotFoundException('Scan event not found');
     return scan;
   }
 
-  async scanInventoryCount(dto: InventoryCountScanDto, userId?: string, ipAddress?: string, userAgent?: string) {
-    const resolution = await this.labelsService.resolve(dto.value);
+  async scanInventoryCount(dto: InventoryCountScanDto, ctx: ActiveOperationalContext, userId?: string, ipAddress?: string, userAgent?: string) {
+    const resolution = await this.labelsService.resolve(dto.value, ctx);
 
     if (!resolution.found || !resolution.label) {
-      const event = await this.recordScan(undefined, dto, null, 'NOT_FOUND', 'INVENTORY_COUNTING', 'Product/location label not found', { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId }, userId, ipAddress, userAgent);
+      const event = await this.recordScan(undefined, dto, null, 'NOT_FOUND', 'INVENTORY_COUNTING', 'Product/location label not found', { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId }, ctx, userId, ipAddress, userAgent);
       await this.audit.log(userId, 'SCAN_INVENTORY_COUNT', 'BarcodeScanEvent', event.id, { result: 'NOT_FOUND', inventoryCountId: dto.inventoryCountId });
       return { result: 'NOT_FOUND', message: 'Product/location label not found', event: { id: event.id, scannedAt: event.scannedAt } };
     }
 
     const label = resolution.label;
     if (resolution.result !== 'SUCCESS') {
-      const event = await this.recordScan(label.id, dto, label, resolution.result, 'INVENTORY_COUNTING', `Label is ${label.status.toLowerCase()}`, { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId }, userId, ipAddress, userAgent);
+      const event = await this.recordScan(label.id, dto, label, resolution.result, 'INVENTORY_COUNTING', `Label is ${label.status.toLowerCase()}`, { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId }, ctx, userId, ipAddress, userAgent);
       await this.audit.log(userId, 'SCAN_INVENTORY_COUNT', 'BarcodeScanEvent', event.id, { result: resolution.result, inventoryCountId: dto.inventoryCountId });
       return { result: resolution.result, message: `Label is ${label.status.toLowerCase()}`, event: { id: event.id, scannedAt: event.scannedAt } };
     }
 
     const { entityType, entityId } = label;
     if (!['PRODUCT', 'WAREHOUSE_LOCATION', 'WAREHOUSE', 'INVENTORY_COUNT', 'INVENTORY_COUNT_LINE'].includes(entityType)) {
-      const event = await this.recordScan(label.id, dto, label, 'WRONG_CONTEXT', 'INVENTORY_COUNTING', `Cannot use ${entityType} label in inventory count context`, { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId, entityType, entityId }, userId, ipAddress, userAgent);
+      const event = await this.recordScan(label.id, dto, label, 'WRONG_CONTEXT', 'INVENTORY_COUNTING', `Cannot use ${entityType} label in inventory count context`, { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId, entityType, entityId }, ctx, userId, ipAddress, userAgent);
       await this.audit.log(userId, 'SCAN_INVENTORY_COUNT', 'BarcodeScanEvent', event.id, { result: 'WRONG_CONTEXT', inventoryCountId: dto.inventoryCountId });
       return { result: 'WRONG_CONTEXT', message: `Cannot use ${entityType} label in inventory count context`, event: { id: event.id, scannedAt: event.scannedAt } };
     }
 
-    const count = await this.prisma.inventoryCount.findUnique({ where: { id: dto.inventoryCountId } });
+    const count = await this.prisma.inventoryCount.findFirst({
+      where: { id: dto.inventoryCountId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
+    });
     if (!count) throw new NotFoundException('Inventory count not found');
     if (count.status === 'COMPLETED' || count.status === 'CANCELLED') {
-      const event = await this.recordScan(label.id, dto, label, 'VALIDATION_ERROR', 'INVENTORY_COUNTING', `Count is ${count.status.toLowerCase()}`, { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId, entityType, entityId }, userId, ipAddress, userAgent);
+      const event = await this.recordScan(label.id, dto, label, 'VALIDATION_ERROR', 'INVENTORY_COUNTING', `Count is ${count.status.toLowerCase()}`, { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId, entityType, entityId }, ctx, userId, ipAddress, userAgent);
       await this.audit.log(userId, 'SCAN_INVENTORY_COUNT', 'BarcodeScanEvent', event.id, { result: 'VALIDATION_ERROR', inventoryCountId: dto.inventoryCountId });
       return { result: 'VALIDATION_ERROR', message: `Cannot scan into a ${count.status.toLowerCase()} count`, event: { id: event.id, scannedAt: event.scannedAt } };
     }
@@ -156,9 +182,9 @@ export class BarcodeScansService {
     let productInfo: any = null;
 
     if (entityType === 'PRODUCT') {
-      const product = await this.prisma.product.findUnique({ where: { id: entityId } });
+      const product = await this.prisma.product.findFirst({ where: { id: entityId, deletedAt: null } });
       if (!product) {
-        const event = await this.recordScan(label.id, dto, label, 'NOT_FOUND', 'INVENTORY_COUNTING', 'Product not found', { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId, entityType, entityId }, userId, ipAddress, userAgent);
+        const event = await this.recordScan(label.id, dto, label, 'NOT_FOUND', 'INVENTORY_COUNTING', 'Product not found', { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId, entityType, entityId }, ctx, userId, ipAddress, userAgent);
         return { result: 'NOT_FOUND', message: 'Product not found', event: { id: event.id, scannedAt: event.scannedAt } };
       }
 
@@ -171,7 +197,7 @@ export class BarcodeScansService {
 
       if (dto.countedQty !== undefined) {
         if (existingLine?.status === 'VERIFIED') {
-          const event = await this.recordScan(label.id, dto, label, 'VALIDATION_ERROR', 'INVENTORY_COUNTING', 'Count line is already verified', { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId, entityType, entityId }, userId, ipAddress, userAgent);
+          const event = await this.recordScan(label.id, dto, label, 'VALIDATION_ERROR', 'INVENTORY_COUNTING', 'Count line is already verified', { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId, entityType, entityId }, ctx, userId, ipAddress, userAgent);
           return { result: 'VALIDATION_ERROR', message: 'Count line is already verified, cannot update', event: { id: event.id, scannedAt: event.scannedAt } };
         }
         const data: any = {
@@ -198,14 +224,17 @@ export class BarcodeScansService {
     }
 
     if (entityType === 'INVENTORY_COUNT_LINE') {
-      countLine = await this.prisma.inventoryCountLine.findUnique({ where: { id: entityId }, include: { product: true } });
+      countLine = await this.prisma.inventoryCountLine.findFirst({
+        where: { id: entityId, deletedAt: null, count: { ...this.tenantWhere(ctx), deletedAt: null } },
+        include: { product: true },
+      });
       if (countLine) {
         productInfo = countLine.product ? { id: countLine.product.id, code: countLine.product.code, name: countLine.product.name, unit: countLine.product.unit } : null;
       }
     }
 
     await this.updateLabelScanStats(label.id);
-    const event = await this.recordScan(label.id, dto, label, 'SUCCESS', 'INVENTORY_COUNTING', 'Inventory count scan processed', { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId, entityType, entityId }, userId, ipAddress, userAgent);
+    const event = await this.recordScan(label.id, dto, label, 'SUCCESS', 'INVENTORY_COUNTING', 'Inventory count scan processed', { contextType: 'INVENTORY_COUNT', contextId: dto.inventoryCountId, entityType, entityId }, ctx, userId, ipAddress, userAgent);
     await this.audit.log(userId, 'SCAN_INVENTORY_COUNT', 'BarcodeScanEvent', event.id, { result: 'SUCCESS', inventoryCountId: dto.inventoryCountId });
 
     return {
@@ -217,23 +246,23 @@ export class BarcodeScansService {
     };
   }
 
-  async scanMaintenance(dto: MaintenanceScanDto, userId?: string, ipAddress?: string, userAgent?: string) {
-    const resolution = await this.labelsService.resolve(dto.value);
+  async scanMaintenance(dto: MaintenanceScanDto, ctx: ActiveOperationalContext, userId?: string, ipAddress?: string, userAgent?: string) {
+    const resolution = await this.labelsService.resolve(dto.value, ctx);
 
     if (!resolution.found || !resolution.label) {
-      const event = await this.recordScan(undefined, dto, null, 'NOT_FOUND', dto.purpose || 'MAINTENANCE_LOOKUP', 'Label not found', { contextType: 'MAINTENANCE', contextId: dto.maintenanceRequestId || dto.maintenanceTaskId }, userId, ipAddress, userAgent);
+      const event = await this.recordScan(undefined, dto, null, 'NOT_FOUND', dto.purpose || 'MAINTENANCE_LOOKUP', 'Label not found', { contextType: 'MAINTENANCE', contextId: dto.maintenanceRequestId || dto.maintenanceTaskId }, ctx, userId, ipAddress, userAgent);
       return { result: 'NOT_FOUND', message: 'Label not found', event: { id: event.id, scannedAt: event.scannedAt } };
     }
 
     const label = resolution.label;
     if (resolution.result !== 'SUCCESS') {
-      const event = await this.recordScan(label.id, dto, label, resolution.result, dto.purpose || 'MAINTENANCE_LOOKUP', `Label is ${label.status.toLowerCase()}`, { contextType: 'MAINTENANCE', contextId: dto.maintenanceRequestId || dto.maintenanceTaskId }, userId, ipAddress, userAgent);
+      const event = await this.recordScan(label.id, dto, label, resolution.result, dto.purpose || 'MAINTENANCE_LOOKUP', `Label is ${label.status.toLowerCase()}`, { contextType: 'MAINTENANCE', contextId: dto.maintenanceRequestId || dto.maintenanceTaskId }, ctx, userId, ipAddress, userAgent);
       return { result: resolution.result, message: `Label is ${label.status.toLowerCase()}`, event: { id: event.id, scannedAt: event.scannedAt } };
     }
 
     const { entityType } = label;
     if (!['MACHINE', 'MACHINE_PART', 'MAINTENANCE_REQUEST', 'MAINTENANCE_TASK', 'DOWNTIME_LOG'].includes(entityType)) {
-      const event = await this.recordScan(label.id, dto, label, 'WRONG_CONTEXT', dto.purpose || 'MAINTENANCE_LOOKUP', `Cannot use ${entityType} label in maintenance context`, { contextType: 'MAINTENANCE', contextId: dto.maintenanceRequestId || dto.maintenanceTaskId, entityType, entityId: label.entityId }, userId, ipAddress, userAgent);
+      const event = await this.recordScan(label.id, dto, label, 'WRONG_CONTEXT', dto.purpose || 'MAINTENANCE_LOOKUP', `Cannot use ${entityType} label in maintenance context`, { contextType: 'MAINTENANCE', contextId: dto.maintenanceRequestId || dto.maintenanceTaskId, entityType, entityId: label.entityId }, ctx, userId, ipAddress, userAgent);
       return { result: 'WRONG_CONTEXT', message: `Cannot use ${entityType} label in maintenance context`, event: { id: event.id, scannedAt: event.scannedAt } };
     }
 
@@ -241,28 +270,28 @@ export class BarcodeScansService {
     const entity = resolution.entity;
     const suggestedActions = entity ? this.buildSuggestedActions(entityType) : [];
 
-    const event = await this.recordScan(label.id, dto, label, 'SUCCESS', dto.purpose || 'MAINTENANCE_LOOKUP', 'Maintenance scan processed', { contextType: 'MAINTENANCE', contextId: dto.maintenanceRequestId || dto.maintenanceTaskId, entityType, entityId: label.entityId }, userId, ipAddress, userAgent);
+    const event = await this.recordScan(label.id, dto, label, 'SUCCESS', dto.purpose || 'MAINTENANCE_LOOKUP', 'Maintenance scan processed', { contextType: 'MAINTENANCE', contextId: dto.maintenanceRequestId || dto.maintenanceTaskId, entityType, entityId: label.entityId }, ctx, userId, ipAddress, userAgent);
     await this.audit.log(userId, 'SCAN_MAINTENANCE', 'BarcodeScanEvent', event.id, { result: 'SUCCESS' });
 
     return { result: 'SUCCESS', message: 'Maintenance scan processed', entityType, entity, suggestedActions, event: { id: event.id, scannedAt: event.scannedAt } };
   }
 
-  async scanMachineCheck(dto: MachineCheckScanDto, userId?: string, ipAddress?: string, userAgent?: string) {
-    const resolution = await this.labelsService.resolve(dto.value);
+  async scanMachineCheck(dto: MachineCheckScanDto, ctx: ActiveOperationalContext, userId?: string, ipAddress?: string, userAgent?: string) {
+    const resolution = await this.labelsService.resolve(dto.value, ctx);
 
     if (!resolution.found || !resolution.label) {
-      const event = await this.recordScan(undefined, dto, null, 'NOT_FOUND', 'MACHINE_CHECK', 'Machine label not found', {}, userId, ipAddress, userAgent);
+      const event = await this.recordScan(undefined, dto, null, 'NOT_FOUND', 'MACHINE_CHECK', 'Machine label not found', {}, ctx, userId, ipAddress, userAgent);
       return { result: 'NOT_FOUND', message: 'Machine label not found', event: { id: event.id, scannedAt: event.scannedAt } };
     }
 
     const label = resolution.label;
     if (resolution.result !== 'SUCCESS') {
-      const event = await this.recordScan(label.id, dto, label, resolution.result, 'MACHINE_CHECK', `Label is ${label.status.toLowerCase()}`, {}, userId, ipAddress, userAgent);
+      const event = await this.recordScan(label.id, dto, label, resolution.result, 'MACHINE_CHECK', `Label is ${label.status.toLowerCase()}`, {}, ctx, userId, ipAddress, userAgent);
       return { result: resolution.result, message: `Label is ${label.status.toLowerCase()}`, event: { id: event.id, scannedAt: event.scannedAt } };
     }
 
     if (label.entityType !== 'MACHINE') {
-      const event = await this.recordScan(label.id, dto, label, 'WRONG_CONTEXT', 'MACHINE_CHECK', 'Label is not a machine', { entityType: label.entityType, entityId: label.entityId }, userId, ipAddress, userAgent);
+      const event = await this.recordScan(label.id, dto, label, 'WRONG_CONTEXT', 'MACHINE_CHECK', 'Label is not a machine', { entityType: label.entityType, entityId: label.entityId }, ctx, userId, ipAddress, userAgent);
       return { result: 'WRONG_CONTEXT', message: 'Label is not a machine', event: { id: event.id, scannedAt: event.scannedAt } };
     }
 
@@ -277,14 +306,19 @@ export class BarcodeScansService {
     try {
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      activeRequests = await this.prisma.maintenanceRequest.count({ where: { machineId, status: { in: ['OPEN', 'IN_PROGRESS'] }, deletedAt: null } });
-      openTasks = await this.prisma.maintenanceTask.count({ where: { request: { machineId }, status: { in: ['PENDING', 'IN_PROGRESS'] } } });
-      activeDowntime = await this.prisma.downtimeLog.count({ where: { machineId, endTime: null, cancelledAt: null } });
-      const monthDowntime = await this.prisma.downtimeLog.aggregate({ where: { machineId, startTime: { gte: startOfMonth }, cancelledAt: null }, _sum: { durationMinutes: true } });
+      // Defense in depth: even though machineId was already validated in-context
+      // through label/entity resolution, every aggregate path below also expresses
+      // tenant ownership directly using the accepted machine ownership contract
+      // (company + current branch, or a company-wide machine with a null branch).
+      const machineFilter = { machineId, machine: this.machineScope(ctx) };
+      activeRequests = await this.prisma.maintenanceRequest.count({ where: { ...machineFilter, status: { in: ['OPEN', 'IN_PROGRESS'] }, deletedAt: null } });
+      openTasks = await this.prisma.maintenanceTask.count({ where: { status: { in: ['PENDING', 'IN_PROGRESS'] }, request: { machineId, machine: this.machineScope(ctx) } } });
+      activeDowntime = await this.prisma.downtimeLog.count({ where: { ...machineFilter, endTime: null, cancelledAt: null } });
+      const monthDowntime = await this.prisma.downtimeLog.aggregate({ where: { ...machineFilter, startTime: { gte: startOfMonth }, cancelledAt: null }, _sum: { durationMinutes: true } });
       totalDowntimeThisMonth = (monthDowntime._sum.durationMinutes || 0) / 60;
     } catch { }
 
-    const event = await this.recordScan(label.id, dto, label, 'SUCCESS', 'MACHINE_CHECK', 'Machine check completed', { entityType: 'MACHINE', entityId: machineId }, userId, ipAddress, userAgent);
+    const event = await this.recordScan(label.id, dto, label, 'SUCCESS', 'MACHINE_CHECK', 'Machine check completed', { entityType: 'MACHINE', entityId: machineId }, ctx, userId, ipAddress, userAgent);
     await this.audit.log(userId, 'SCAN_MACHINE_CHECK', 'BarcodeScanEvent', event.id, { result: 'SUCCESS' });
 
     return {
@@ -296,23 +330,23 @@ export class BarcodeScansService {
     };
   }
 
-  async scanPartLookup(dto: PartLookupScanDto, userId?: string, ipAddress?: string, userAgent?: string) {
-    const resolution = await this.labelsService.resolve(dto.value);
+  async scanPartLookup(dto: PartLookupScanDto, ctx: ActiveOperationalContext, userId?: string, ipAddress?: string, userAgent?: string) {
+    const resolution = await this.labelsService.resolve(dto.value, ctx);
 
     if (!resolution.found || !resolution.label) {
-      const event = await this.recordScan(undefined, dto, null, 'NOT_FOUND', 'PART_LOOKUP', 'Part/product label not found', {}, userId, ipAddress, userAgent);
+      const event = await this.recordScan(undefined, dto, null, 'NOT_FOUND', 'PART_LOOKUP', 'Part/product label not found', {}, ctx, userId, ipAddress, userAgent);
       return { result: 'NOT_FOUND', message: 'Part/product label not found', event: { id: event.id, scannedAt: event.scannedAt } };
     }
 
     const label = resolution.label;
     if (resolution.result !== 'SUCCESS') {
-      const event = await this.recordScan(label.id, dto, label, resolution.result, 'PART_LOOKUP', `Label is ${label.status.toLowerCase()}`, {}, userId, ipAddress, userAgent);
+      const event = await this.recordScan(label.id, dto, label, resolution.result, 'PART_LOOKUP', `Label is ${label.status.toLowerCase()}`, {}, ctx, userId, ipAddress, userAgent);
       return { result: resolution.result, message: `Label is ${label.status.toLowerCase()}`, event: { id: event.id, scannedAt: event.scannedAt } };
     }
 
     const { entityType, entityId } = label;
     if (!['MACHINE_PART', 'PRODUCT'].includes(entityType)) {
-      const event = await this.recordScan(label.id, dto, label, 'WRONG_CONTEXT', 'PART_LOOKUP', `Cannot use ${entityType} label in part lookup`, { entityType, entityId }, userId, ipAddress, userAgent);
+      const event = await this.recordScan(label.id, dto, label, 'WRONG_CONTEXT', 'PART_LOOKUP', `Cannot use ${entityType} label in part lookup`, { entityType, entityId }, ctx, userId, ipAddress, userAgent);
       return { result: 'WRONG_CONTEXT', message: `Cannot use ${entityType} label in part lookup`, event: { id: event.id, scannedAt: event.scannedAt } };
     }
 
@@ -320,15 +354,17 @@ export class BarcodeScansService {
     let balances: any[] = [];
 
     if (entityType === 'PRODUCT') {
-      balances = await this.prisma.inventoryBalance.findMany({ where: { productId: entityId }, include: { warehouse: true, location: true }, take: 20 });
+      balances = await this.prisma.inventoryBalance.findMany({ where: { productId: entityId, warehouse: this.warehouseScope(ctx) }, include: { warehouse: true, location: true }, take: 20 });
     } else if (entityType === 'MACHINE_PART') {
-      const part = await this.prisma.machinePart.findUnique({ where: { id: entityId } });
+      const part = await this.prisma.machinePart.findFirst({
+        where: { id: entityId, machine: this.machineScope(ctx) },
+      });
       if (part?.productId) {
-        balances = await this.prisma.inventoryBalance.findMany({ where: { productId: part.productId }, include: { warehouse: true, location: true }, take: 20 });
+        balances = await this.prisma.inventoryBalance.findMany({ where: { productId: part.productId, warehouse: this.warehouseScope(ctx) }, include: { warehouse: true, location: true }, take: 20 });
       }
     }
 
-    const event = await this.recordScan(label.id, dto, label, 'SUCCESS', 'PART_LOOKUP', 'Part lookup completed', { entityType, entityId }, userId, ipAddress, userAgent);
+    const event = await this.recordScan(label.id, dto, label, 'SUCCESS', 'PART_LOOKUP', 'Part lookup completed', { entityType, entityId }, ctx, userId, ipAddress, userAgent);
     await this.audit.log(userId, 'SCAN_PART_LOOKUP', 'BarcodeScanEvent', event.id, { result: 'SUCCESS' });
 
     return {
@@ -344,7 +380,7 @@ export class BarcodeScansService {
     };
   }
 
-  async getScanSummary() {
+  async getScanSummary(ctx: ActiveOperationalContext) {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfWeek = new Date(startOfDay);
@@ -352,12 +388,13 @@ export class BarcodeScansService {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const [totalScans, todayScans, weekScans, monthScans, resultCounts] = await Promise.all([
-      this.prisma.barcodeScanEvent.count(),
-      this.prisma.barcodeScanEvent.count({ where: { scannedAt: { gte: startOfDay } } }),
-      this.prisma.barcodeScanEvent.count({ where: { scannedAt: { gte: startOfWeek } } }),
-      this.prisma.barcodeScanEvent.count({ where: { scannedAt: { gte: startOfMonth } } }),
+      this.prisma.barcodeScanEvent.count({ where: this.tenantWhere(ctx) }),
+      this.prisma.barcodeScanEvent.count({ where: { ...this.tenantWhere(ctx), scannedAt: { gte: startOfDay } } }),
+      this.prisma.barcodeScanEvent.count({ where: { ...this.tenantWhere(ctx), scannedAt: { gte: startOfWeek } } }),
+      this.prisma.barcodeScanEvent.count({ where: { ...this.tenantWhere(ctx), scannedAt: { gte: startOfMonth } } }),
       this.prisma.barcodeScanEvent.groupBy({
         by: ['result'],
+        where: this.tenantWhere(ctx),
         _count: true,
       }),
     ]);
@@ -371,11 +408,11 @@ export class BarcodeScansService {
     };
   }
 
-  async findScansByEntity(entityType: string, entityId: string, query: BarcodeScanQueryDto) {
+  async findScansByEntity(entityType: string, entityId: string, query: BarcodeScanQueryDto, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
-    const where: any = { entityType, entityId };
+    const where: any = { ...this.tenantWhere(ctx), entityType, entityId };
 
     if (query.purpose) where.purpose = query.purpose;
     if (query.result) where.result = query.result;
@@ -388,10 +425,10 @@ export class BarcodeScansService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async resolveAndScan(dto: ResolveScanDto, userId?: string, ipAddress?: string, userAgent?: string) {
+  async resolveAndScan(dto: ResolveScanDto, ctx: ActiveOperationalContext, userId?: string, ipAddress?: string, userAgent?: string) {
     const scanDto = new ScanBarcodeDto();
     scanDto.value = dto.value;
     scanDto.purpose = dto.purpose || 'GENERAL_LOOKUP';
-    return this.scan(scanDto, userId, ipAddress, userAgent);
+    return this.scan(scanDto, ctx, userId, ipAddress, userAgent);
   }
 }

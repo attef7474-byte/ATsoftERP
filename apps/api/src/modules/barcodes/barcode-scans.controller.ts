@@ -11,6 +11,8 @@ import { InventoryCountScanDto } from './dto/inventory-count-scan.dto';
 import { MaintenanceScanDto } from './dto/maintenance-scan.dto';
 import { MachineCheckScanDto } from './dto/machine-check-scan.dto';
 import { PartLookupScanDto } from './dto/part-lookup-scan.dto';
+import { CurrentActiveContext } from '../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types';
 
 @ApiTags('Barcode Scans')
 @ApiBearerAuth()
@@ -22,70 +24,70 @@ export class BarcodeScansController {
   @Post('scan')
   @Permissions('barcode-scan:create')
   @ApiOperation({ summary: 'Scan a barcode value (general lookup)' })
-  scan(@Body() dto: ScanBarcodeDto, @Req() req: any) {
-    return this.service.scan(dto, req.user?.id, req.ip, req.headers?.['user-agent']);
+  scan(@Body() dto: ScanBarcodeDto, @Req() req: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.scan(dto, ctx, req.user?.id, req.ip, req.headers?.['user-agent']);
   }
 
   @Get('scans')
   @Permissions('barcode-scan:read')
   @ApiOperation({ summary: 'List scan events' })
-  findAllScans(@Query() query: BarcodeScanQueryDto) {
-    return this.service.findAllScans(query);
+  findAllScans(@Query() query: BarcodeScanQueryDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findAllScans(query, ctx);
   }
 
   @Get('scans/summary')
   @Permissions('barcode-scan:read')
   @ApiOperation({ summary: 'Get barcode scan summary statistics' })
-  getScanSummary() {
-    return this.service.getScanSummary();
+  getScanSummary(@CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getScanSummary(ctx);
   }
 
   @Get('scans/:id')
   @Permissions('barcode-scan:read')
   @ApiOperation({ summary: 'Get a scan event by ID' })
-  findScanById(@Param('id') id: string) {
-    return this.service.findScanById(id);
+  findScanById(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findScanById(id, ctx);
   }
 
   @Post('scan/inventory-count')
   @Permissions('barcode-scan:inventory-count')
   @ApiOperation({ summary: 'Scan for inventory counting context' })
-  scanInventoryCount(@Body() dto: InventoryCountScanDto, @Req() req: any) {
-    return this.service.scanInventoryCount(dto, req.user?.id, req.ip, req.headers?.['user-agent']);
+  scanInventoryCount(@Body() dto: InventoryCountScanDto, @Req() req: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.scanInventoryCount(dto, ctx, req.user?.id, req.ip, req.headers?.['user-agent']);
   }
 
   @Post('scan/maintenance')
   @Permissions('barcode-scan:maintenance')
   @ApiOperation({ summary: 'Scan for maintenance context' })
-  scanMaintenance(@Body() dto: MaintenanceScanDto, @Req() req: any) {
-    return this.service.scanMaintenance(dto, req.user?.id, req.ip, req.headers?.['user-agent']);
+  scanMaintenance(@Body() dto: MaintenanceScanDto, @Req() req: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.scanMaintenance(dto, ctx, req.user?.id, req.ip, req.headers?.['user-agent']);
   }
 
   @Post('scan/machine-check')
   @Permissions('barcode-scan:machine-check')
   @ApiOperation({ summary: 'Scan machine QR for quick operational status' })
-  scanMachineCheck(@Body() dto: MachineCheckScanDto, @Req() req: any) {
-    return this.service.scanMachineCheck(dto, req.user?.id, req.ip, req.headers?.['user-agent']);
+  scanMachineCheck(@Body() dto: MachineCheckScanDto, @Req() req: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.scanMachineCheck(dto, ctx, req.user?.id, req.ip, req.headers?.['user-agent']);
   }
 
   @Post('scan/part-lookup')
   @Permissions('barcode-scan:part-lookup')
   @ApiOperation({ summary: 'Scan part/product label for details and balances' })
-  scanPartLookup(@Body() dto: PartLookupScanDto, @Req() req: any) {
-    return this.service.scanPartLookup(dto, req.user?.id, req.ip, req.headers?.['user-agent']);
+  scanPartLookup(@Body() dto: PartLookupScanDto, @Req() req: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.scanPartLookup(dto, ctx, req.user?.id, req.ip, req.headers?.['user-agent']);
   }
 
   @Get('scans/by-entity/:entityType/:entityId')
   @Permissions('barcode-scan:read')
   @ApiOperation({ summary: 'Get scans for a specific entity' })
-  findScansByEntity(@Param('entityType') entityType: string, @Param('entityId') entityId: string, @Query() query: BarcodeScanQueryDto) {
-    return this.service.findScansByEntity(entityType, entityId, query);
+  findScansByEntity(@Param('entityType') entityType: string, @Param('entityId') entityId: string, @Query() query: BarcodeScanQueryDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findScansByEntity(entityType, entityId, query, ctx);
   }
 
   @Post('scans/resolve')
   @Permissions('barcode-scan:resolve')
   @ApiOperation({ summary: 'Resolve and scan a barcode value in one call' })
-  resolveAndScan(@Body() dto: ResolveScanDto, @Req() req: any) {
-    return this.service.resolveAndScan(dto, req.user?.id, req.ip, req.headers?.['user-agent']);
+  resolveAndScan(@Body() dto: ResolveScanDto, @Req() req: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.resolveAndScan(dto, ctx, req.user?.id, req.ip, req.headers?.['user-agent']);
   }
 }
