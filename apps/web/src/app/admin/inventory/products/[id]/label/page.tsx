@@ -27,7 +27,7 @@ export default function ProductLabelPage() {
     setLoading(true); setError('');
     try {
       const [productRes, labelsRes] = await Promise.all([
-        api.get<Product>(`/inventory/products/${id}`),
+        api.get<Product>(`/products/${id}`),
         api.get<{ data: BarcodeLabel[] }>(`/barcodes/entities/PRODUCT/${id}/labels`).catch(() => ({ data: [] })),
       ]);
       setProduct(productRes);

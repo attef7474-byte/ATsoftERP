@@ -243,7 +243,7 @@ export const systemSettingAdapter: LookupAdapter<SystemSetting> = {
 };
 
 export const numberSequenceAdapter: LookupAdapter<NumberSequence> = {
-  endpoint: '/settings/number-sequences',
+  endpoint: '/numbering',
   displayLabel: (n) => `[${n.code}] ${n.name}`,
   searchFields: ['code', 'name'],
   columns: [
@@ -256,7 +256,7 @@ export const numberSequenceAdapter: LookupAdapter<NumberSequence> = {
 };
 
 export const notificationAdapter: LookupAdapter<Notification> = {
-  endpoint: '/notifications',
+  endpoint: '/notifications/inbox',
   displayLabel: (n) => n.title,
   searchFields: ['title', 'type'],
   columns: [
@@ -562,6 +562,7 @@ export const operationalPersonAdapter: LookupAdapter<OperationalPerson> = {
 
 export const productionLossReasonAdapter: LookupAdapter<OperationalLossReason> = {
   endpoint: '/production/loss-reasons/active',
+  detailEndpoint: '/production/loss-reasons',
   displayLabel: (r) => `[${r.code}] ${r.nameEn}`,
   searchFields: ['code', 'nameEn', 'nameAr', 'lossCategory'],
   columns: [

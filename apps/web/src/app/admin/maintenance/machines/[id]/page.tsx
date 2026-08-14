@@ -128,7 +128,7 @@ export default function MachineDetailPage() {
   const handleDeleteMachineLink = async () => {
     if (!deleteLinkId) return;
     try {
-      await api.delete(`/maintenance/machine-spare-parts/${deleteLinkId}`);
+      await api.patch(`/maintenance/machine-spare-parts/${deleteLinkId}/deactivate`);
       showToast(t('maintenance.machineSparePartDeactivated'), 'success');
       setDeleteLinkId(null);
       fetchMachineSpareLinks();

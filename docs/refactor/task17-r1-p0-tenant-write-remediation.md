@@ -209,3 +209,116 @@ change set is the three added focused spec files and this document.
 - Validation gates at closeout: API typecheck PASS, Prisma validate PASS, API build PASS, i18n check PASS
   (5388 EN = 5388 AR), UI baseline check PASS, credentials check PASS, `git diff --check` PASS.
 - No schema, migration, permission, seed, or frontend change.
+
+---
+
+## 13. R2 follow-up (this branch)
+
+R2 applied a focused remediation and hardening pass on the paths surfaced by the R1 closeout scan plus
+pre-existing gaps found during the current work. All changes are inside the already-merged tenancy boundary;
+no schema, migration, permission, seed, or shared DTO contract changed in this branch.
+
+### 13.1 Tenant scope closure (R2-1) — inventory lists
+
+`inventory.service.ts` `findAllWarehouses` / `findAllLocations` previously derived the tenant scope from the
+client-provided `query.companyId` / `query.branchId` query parameters (with fallback to `ctx`). That is a
+frontend-trusted scope path. Fixed:
+
+- The active operational context (`ctx.companyId` / `ctx.branchId`) is now the single scope source; client
+  `companyId` / `branchId` query values are ignored for scoping and are only accepted as an explicit
+  cross-scope pin when the caller has the tenant-override permission.
+- `inventory.controller.ts` `GET /factory/inventory/warehouses` and `GET /factory/inventory/locations` now
+  resolve `ctx` via `@CurrentActiveContext()` and pass it through.
+- Regression tests added in `inventory.service.spec.ts`: same-company list returns owned warehouses/locations;
+  cross-company `companyId` query is rejected without override permission; override permission allows the pin
+  and the result is still audited.
+
+### 13.2 Transaction-safe numbering (R2-2) — spare-part conditions + installed-parts-replacement
+
+`spare-part-conditions.service.ts` (condition create/update) and `installed-parts-replacement.service.ts`
+(replacement create) generated movement/document numbers with the root Prisma client *inside* a transaction,
+which means the numbering counter increment was not atomic with the movement write. Fixed by using
+`numberingService.generateNumberAtomicWithClient(...)` on the active `tx` client at all affected call sites.
+Regression tests assert the tx-based number generator is used (number derived from the tx-bound counter and
+persisted on the created movement/document).
+
+### 13.3 Transaction-safe machine recheck (R2-3) — maintenance stock issue / return
+
+`maintenance-stock-issue.service.ts` `issue` and `returnStock` re-checked the target machine's company/branch
+compatibility using the root Prisma client inside the transaction. Fixed: the re-check now uses the active `tx`
+client, closing the TOCTOU window so the machine cannot be swapped between validation and the inventory write.
+Tests were tightened to assert the tx client is used for the machine re-check in both `issue` and `returnStock`.
+
+### 13.4 Root-client numbering inside transactions — remaining maintenance flows
+
+The same root-client-numbering-in-tx defect class was scanned across maintenance transaction flows and closed
+for `maintenance-work-orders.service.ts` (parts issue), `repair-orders.service.ts`, `maintenance-requests.service.ts`,
+`maintenance-schedules.service.ts`, and `preventive-maintenance.service.ts`. Every document number generated inside
+a transaction is now produced by `generateNumberAtomicWithClient(..., tx)`, and the number is captured for the
+audit trail. In `maintenance-work-orders`, the movement number is generated once per transaction and reused across
+all issued lines.
+
+### 13.4b Pre-existing compile gaps closed
+
+- `production-lines.controller.ts` and `maintenance-spare-part-request-lines.controller.ts` called service methods
+  that require the active operational context without supplying it, producing `TS2554` errors. The context is now
+  threaded through all handlers (list/detail/update/delete/transition actions).
+
+### 13.5 Stale tests corrected (no weakening)
+
+- `tenant-reports.service.spec.ts` asserted `query = null` for a helper that no longer takes a query argument
+  (stale assertion). Corrected to assert the actual call.
+- `tenant-spare-part-links.spec.ts` asserted an OR-form Prisma query (`where: { OR: [...] }`) while the service
+  uses an AND-form query (`where: { AND: [...] }`). Corrected to match the real service query.
+- `attachments.service.spec.ts` used an unmocked Node `fs` call during upload cleanup. The `fs` mock was added so
+  the test isolates the service under test.
+
+### 13.6 Validation gates (this branch, R2)
+
+- API typecheck `tsc --noEmit`: PASS (0 errors) across `apps/api`.
+- Full dynamic suite `test:api` (jest): **101 suites, 1483 tests passed, 0 failed** (R1 closeout: 96 / 1454).
+- Focused suites re-run green after each change: maintenance-work-orders (40), maintenance-schedules,
+  maintenance-requests, preventive-maintenance (72 combined), inventory, spare-part-conditions,
+  installed-parts-replacement, maintenance-stock-issue, production-lines, reports, machine-spare-parts, attachments.
+- `route-contract:check` PASS: MATCHED=1049, MISMATCHES=0.
+- `ui-baseline:check` PASS, `credentials:check` PASS.
+- `i18n:check` PASS (100% both locales), `raw-keys:check` PASS.
+- Prisma validate PASS; no schema/migration/permission/seed change.
+- `git diff --check` PASS; zero `TODO`/`FIXME` remain in `apps/api/src` and `apps/web/src`.
+- Scan results: no service trusts `query.branchId` for scoping; no optional-ctx service signatures remain;
+  the only client-`companyId` scope trusts found and fixed were the R2-1 inventory lists.
+
+### 13.7 Known limitations
+
+- Runtime smoke (`scripts/api-smoke-test.js`) and live API contract-smoke writes still require a running
+  API + database; they were not executed in this branch and remain deferred to a live-environment run.
+- The R1 closeout §11 remains the discovery note for broader-family follow-ups (branch scope depth, cascade
+  hardening) that stay out of scope here.
+
+### 13.8 Final re-audit (R2 closeout)
+
+Systematic sweep of every `*.service.ts` in `apps/api/src/modules` for by-id reads without an in-file tenant
+scope helper, plus residual scans for client-controlled tenant fields:
+
+- Client-controlled tenant fields: `0` matches for `query.companyId` / `query.branchId` / `dto.companyId` /
+  `dto.branchId` / `body.companyId` / `body.branchId` across all services.
+- By-id read sweep flagged 4 services; disposition:
+  - `auth.service.ts` — SAFE: by-id reads use the JWT-derived `userId` on the global `User` identity;
+    `companyId` is returned as a profile attribute, never accepted as a filter.
+  - `messaging.service.ts` — SAFE: `internalConversation` reads are participant-scoped
+    (`participants: { some: { userId } }`); conversations are user-to-user, not company-owned.
+  - `maintenance-personnel.service.ts` — NOT_TENANT_RELEVANT: neither `MaintenancePersonnel` nor its
+    `OperationalPerson` parent carries `companyId`/`branchId`; it is a global personnel registry whose
+    tenant coupling enters only through scoped assignments.
+  - `machine-categories.service.ts` — **DEFECT FIXED**: `MachineCategory` itself is a global catalog
+    (SAFE_GLOBAL_BY_DESIGN, no tenant columns), but `categorySummary()` and `categoryMachines()` read
+    tenant-owned `Machine` records with no company/branch filter, exposing machines from all companies.
+    Both methods now require `ctx` and apply `machineScope(ctx)` (`{ companyId, deletedAt: null,
+    OR: [{ branchId }, { branchId: null }] }`); the two controller handlers inject `@CurrentActiveContext()`.
+    New regression spec `tenant-machine-categories.spec.ts` (3 tests) asserts the count/list where-clause
+    and that category reads stay global.
+- Reports/exports: `report-export.service.ts` `getReportData()` threads `ctx` into every domain report
+  service; no export path bypasses the scoped report services.
+- Final full suite: **104 suites, 1508 tests passed, 0 failed** (includes the +3 machine-categories tests).
+- `route-contract:check` re-run after the controller change: MATCHED=1049, MISMATCHES=0.
+- `git diff --check` PASS.

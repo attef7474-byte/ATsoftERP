@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { api } from '../../lib/api';
+import { unwrapApiData } from '../../lib/form-utils';
 import { useOperationalContext } from '../../lib/auth-context';
 import { useTranslation } from '../../lib/i18n/use-translation';
 import { F9LookupModal } from './F9LookupModal';
@@ -85,8 +86,9 @@ export function F9Lookup<T extends Record<string, any>>({
       return;
     }
     try {
-      const res = await api.get<{ data: T }>(`${adapter.endpoint}/${id}`);
-      const item = res.data;
+      const detailEndpoint = adapter.detailEndpoint ?? adapter.endpoint;
+      const res = await api.get<unknown>(`${detailEndpoint}/${id}`);
+      const item = unwrapApiData<T>(res);
       if (item) {
         setDataCache((prev) => new Map(prev).set(id, item));
         setDisplayText(adapter.displayLabel(item));

@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
-import { Button, Card, CardContent, CardHeader, PageHeader, LoadingState, ErrorState, EmptyState, StatusBadge, ConfirmDialog } from '../../../../../components/admin/ui';
+import { Button, Card, CardContent, CardHeader, PageHeader, LoadingState, ErrorState, EmptyState, StatusBadge } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions } from '../../../../../components/admin/admin-action-bar';
 import { BarcodeLabelTemplate } from '../../../../../lib/admin-types';
 
@@ -18,8 +18,6 @@ export default function BarcodeTemplateDetailPage() {
   const [template, setTemplate] = useState<BarcodeLabelTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [toggling, setToggling] = useState(false);
 
   const fetchTemplate = useCallback(async () => {
@@ -52,20 +50,6 @@ export default function BarcodeTemplateDetailPage() {
     }
   };
 
-  const handleDelete = async () => {
-    setDeleting(true);
-    try {
-      await api.delete(`/barcodes/templates/${id}`);
-      showToast(t('common.successDeleted'), 'success');
-      router.push('/admin/barcodes/templates');
-    } catch (err: any) {
-      showToast(err?.message || t('errors.deleteFailed'), 'error');
-    } finally {
-      setDeleting(false);
-      setShowDeleteConfirm(false);
-    }
-  };
-
   useRegisterAdminActions([
     {
       id: 'edit', labelKey: 'common.edit',
@@ -76,11 +60,6 @@ export default function BarcodeTemplateDetailPage() {
       id: 'preview', labelKey: 'barcodes.templates.preview',
       icon: <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>,
       onClick: () => router.push(`/admin/barcodes/templates/${id}/preview`), enabled: !!template,
-    },
-    {
-      id: 'delete', labelKey: 'common.delete',
-      icon: <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
-      onClick: () => setShowDeleteConfirm(true), enabled: !!template,
     },
     {
       id: 'back', labelKey: 'common.back',
@@ -140,17 +119,7 @@ export default function BarcodeTemplateDetailPage() {
         <Button onClick={handleToggleStatus} variant="secondary" loading={toggling}>
           {template.status === 'ACTIVE' ? t('barcodes.deactivate') : t('barcodes.activate')}
         </Button>
-        <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>{t('common.delete')}</Button>
       </div>
-
-      <ConfirmDialog
-        open={showDeleteConfirm}
-        onClose={() => setShowDeleteConfirm(false)}
-        onConfirm={handleDelete}
-        title={t('barcodes.templates.deleteConfirmTitle')}
-        message={t('barcodes.templates.deleteConfirmMessage')}
-        loading={deleting}
-      />
     </div>
   );
 }

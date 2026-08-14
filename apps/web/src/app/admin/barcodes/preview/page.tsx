@@ -53,9 +53,10 @@ export default function BarcodePreviewPage() {
   const handlePrint = async () => {
     if (!selectedId) return;
     try {
-      await api.post(`/barcodes/labels/${selectedId}/print`);
-    } catch {
-      // proceed with browser print regardless
+      await api.post(`/barcodes/labels/${selectedId}/mark-printed`);
+    } catch (err: any) {
+      showToast(err?.message || t('common.error'), 'error');
+      return;
     }
     const label = selectedLabel;
     if (!label) return;
