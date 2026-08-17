@@ -627,11 +627,17 @@ body {
 /* ======= Mobile Drawer Navigation ======= */
 /* Reuses the sidebar design tokens/classes so the drawer looks like the desktop
    sidebar adapted to a small width (same gradient, contrast, active styles). */
-.admin-mobile-drawer {
-  background: var(--ats-sidebar-gradient, var(--sidebar-bg-main));
-  color: var(--sidebar-primary-text);
-  border-inline-start: 1px solid var(--sidebar-border);
-  box-shadow: 0 12px 40px rgba(4, 46, 93, 0.25);
+/* Must use !important + higher specificity to override the global [role="dialog"]
+   design-system rule (globals.css line 822) which sets a white background with
+   !important. The mobile drawer uses role="dialog" for accessibility but must
+   retain the dark sidebar theme. aside.admin-mobile-drawer (0,1,1) beats
+   [role="dialog"] (0,1,0) even when both carry !important. */
+aside.admin-mobile-drawer {
+  background: var(--ats-sidebar-gradient, var(--sidebar-bg-main)) !important;
+  color: var(--sidebar-primary-text) !important;
+  border-inline-start: 1px solid var(--sidebar-border) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 12px 40px rgba(4, 46, 93, 0.25) !important;
 }
 
 .admin-mobile-drawer-header {
