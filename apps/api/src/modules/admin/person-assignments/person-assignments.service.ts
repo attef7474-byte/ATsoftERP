@@ -69,7 +69,7 @@ export class PersonAssignmentsService {
     return assignment;
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string; personnelId?: string; departmentId?: string; assignmentType?: string; isActive?: string }, ctx: ActiveOperationalContext) {
+  async findAll(query: { page?: number; limit?: number; search?: string; personnelId?: string; departmentId?: string; branchId?: string; assignmentType?: string; isActive?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -77,6 +77,7 @@ export class PersonAssignmentsService {
     const where: any = { deletedAt: null, companyId: ctx.companyId };
     if (query.personnelId) where.personnelId = query.personnelId;
     if (query.departmentId) where.departmentId = query.departmentId;
+    if (query.branchId) where.branchId = query.branchId;
     if (query.assignmentType) where.assignmentType = query.assignmentType;
     if (query.search) {
       where.OR = [

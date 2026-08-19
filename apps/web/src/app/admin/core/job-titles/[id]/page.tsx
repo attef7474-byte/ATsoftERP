@@ -31,8 +31,8 @@ export default function JobTitleDetailPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/v1/job-titles/${id}`) as any;
-      setData(res.data);
+      const res = await api.get(`/job-titles/${id}`) as any;
+      setData(res);
     } catch {
       setError(t('errors.loadFailed'));
     } finally {
@@ -58,7 +58,7 @@ export default function JobTitleDetailPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.patch(`/v1/job-titles/${id}`, form);
+      await api.patch(`/job-titles/${id}`, form);
       showToast(t('common.successUpdated'), 'success');
       setEditModal(false);
       fetchData();
@@ -71,7 +71,7 @@ export default function JobTitleDetailPage() {
 
   const handleDelete = async () => {
     try {
-      await api.delete(`/v1/job-titles/${id}`);
+      await api.delete(`/job-titles/${id}`);
       showToast(t('common.successDeleted'), 'success');
       router.push('/admin/core/job-titles');
     } catch (err: any) {

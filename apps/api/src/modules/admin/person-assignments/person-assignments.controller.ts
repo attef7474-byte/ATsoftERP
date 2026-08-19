@@ -33,7 +33,7 @@ export class PersonAssignmentsController {
   @Permissions('person-assignment:read')
   @ApiOperation({ summary: 'List person assignments' })
   findAll(
-    @Query() query: { page?: string; limit?: string; search?: string; personnelId?: string; departmentId?: string; assignmentType?: string; isActive?: string },
+    @Query() query: { page?: string; limit?: string; search?: string; personnelId?: string; departmentId?: string; branchId?: string; assignmentType?: string; isActive?: string },
     @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
     return this.personAssignmentsService.findAll({
@@ -42,6 +42,7 @@ export class PersonAssignmentsController {
       search: query.search,
       personnelId: query.personnelId,
       departmentId: query.departmentId,
+      branchId: query.branchId,
       assignmentType: query.assignmentType,
       isActive: query.isActive,
     }, ctx);

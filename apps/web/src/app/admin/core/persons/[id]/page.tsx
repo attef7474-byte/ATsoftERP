@@ -35,7 +35,7 @@ export default function PersonDetailPage() {
     setError(null);
     try {
       const res = await api.get(`/production/operational-people/${id}`) as any;
-      setPerson(res.data);
+      setPerson(res);
     } catch {
       setError(t('errors.loadFailed'));
     } finally {
@@ -47,8 +47,8 @@ export default function PersonDetailPage() {
     if (!id) return;
     setAssignmentsLoading(true);
     try {
-      const res = await api.get('/v1/person-assignments', { params: { personnelId: id, limit: 50 } }) as any;
-      setAssignments(res.data.data || []);
+      const res = await api.get('/person-assignments', { params: { personnelId: id, limit: 50 } }) as any;
+      setAssignments(res.data || []);
     } catch {
       setAssignments([]);
     } finally {
@@ -60,12 +60,12 @@ export default function PersonDetailPage() {
     if (!id) return;
     setSupervisorLoading(true);
     try {
-      const assignmentsRes = await api.get('/v1/person-assignments', { params: { personnelId: id, limit: 50 } }) as any;
-      const personAssignments: OperationalPersonAssignment[] = assignmentsRes.data.data || [];
+      const assignmentsRes = await api.get('/person-assignments', { params: { personnelId: id, limit: 50 } }) as any;
+      const personAssignments: OperationalPersonAssignment[] = assignmentsRes.data || [];
       const assignmentIds = new Set(personAssignments.map((a) => a.id));
 
-      const res = await api.get('/v1/supervisor-assignments', { params: { limit: 100 } }) as any;
-      const allSupervisor: SupervisorAssignment[] = res.data.data || [];
+      const res = await api.get('/supervisor-assignments', { params: { limit: 100 } }) as any;
+      const allSupervisor: SupervisorAssignment[] = res.data || [];
       const filtered = allSupervisor.filter(
         (sa) => assignmentIds.has(sa.assignmentId) || (sa.supervisorAssignmentId && assignmentIds.has(sa.supervisorAssignmentId))
       );

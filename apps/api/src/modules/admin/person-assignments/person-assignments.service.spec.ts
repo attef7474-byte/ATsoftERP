@@ -188,6 +188,19 @@ describe('PersonAssignmentsService', () => {
         }),
       );
     });
+
+    it('filters by branchId', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(0);
+
+      await service.findAll({ branchId: 'branch-x' }, ctx);
+
+      expect(prisma.operationalPersonAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ branchId: 'branch-x' }),
+        }),
+      );
+    });
   });
 
   describe('findOne', () => {

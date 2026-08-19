@@ -232,7 +232,7 @@ export default function AdministrationDetailPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{t('core.administration.title')}: {administration.name}</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('details.administration.title')}: {administration.name}</h1>
       </div>
 
       <div className="border-b border-gray-200 mb-6">

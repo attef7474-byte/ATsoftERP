@@ -57,9 +57,9 @@ export default function JobTitlesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/v1/job-titles', { params: { page, limit: 10, search: searchQuery || undefined } }) as any;
-      setData(res.data.data);
-      setMeta(res.data.meta);
+      const res = await api.get('/job-titles', { params: { page, limit: 10, search: searchQuery || undefined } }) as any;
+      setData(res.data);
+      setMeta(res.meta);
     } catch {
       setError(t('errors.loadFailed'));
     } finally {
@@ -108,10 +108,10 @@ export default function JobTitlesPage() {
     setSaving(true);
     try {
       if (editingId) {
-        await api.patch(`/v1/job-titles/${editingId}`, form);
+        await api.patch(`/job-titles/${editingId}`, form);
         showToast(t('common.successUpdated'), 'success');
       } else {
-        await api.post('/v1/job-titles', form);
+        await api.post('/job-titles', form);
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false);
@@ -133,7 +133,7 @@ export default function JobTitlesPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await api.delete(`/v1/job-titles/${deleteTarget}`);
+      await api.delete(`/job-titles/${deleteTarget}`);
       showToast(t('common.successDeleted'), 'success');
       setConfirmDelete(false);
       setDeleteTarget(null);

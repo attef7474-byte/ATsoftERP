@@ -27,8 +27,8 @@ export default function PersonsPage() {
     setError(null);
     try {
       const res = await api.get('/production/operational-people', { params: { page, limit: 10, search: searchQuery || undefined } }) as any;
-      setData(res.data.data);
-      setMeta(res.data.meta);
+      setData(res.data || []);
+      setMeta(res.meta || INITIAL_META);
     } catch {
       setError(t('errors.loadFailed'));
     } finally {

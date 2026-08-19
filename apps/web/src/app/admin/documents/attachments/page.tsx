@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { api } from '../../../../lib/api';
+import { api, getApiBaseUrl } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Button, Select, Card, DataTable, Pagination, PageHeader, Toolbar, LoadingState, EmptyState, ErrorState, ConfirmDialog } from '../../../../components/admin/ui';
@@ -61,8 +61,8 @@ export default function AttachmentsPage() {
   const handleDownload = async () => {
     if (!selectedId) return;
     try {
-      const res = await api.get<any>(`/attachments/${selectedId}/download`);
-      window.open(`/api/v1/attachments/${selectedId}/download`, '_blank');
+      await api.get<any>(`/attachments/${selectedId}/download`);
+      window.open(`${getApiBaseUrl()}/attachments/${selectedId}/download`, '_blank');
     } catch { /* handled by response */ }
   };
 

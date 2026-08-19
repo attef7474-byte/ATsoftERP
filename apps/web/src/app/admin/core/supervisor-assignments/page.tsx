@@ -45,9 +45,9 @@ export default function SupervisorAssignmentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/v1/supervisor-assignments', { params: { page, limit: 10, search: searchQuery || undefined } }) as any;
-      setData(res.data.data);
-      setMeta(res.data.meta);
+      const res = await api.get('/supervisor-assignments', { params: { page, limit: 10, search: searchQuery || undefined } }) as any;
+      setData(res.data);
+      setMeta(res.meta);
     } catch {
       setError(t('errors.loadFailed'));
     } finally {
@@ -82,7 +82,7 @@ export default function SupervisorAssignmentsPage() {
         effectiveFrom: form.effectiveFrom,
         effectiveTo: form.effectiveTo || null,
       };
-      await api.post('/v1/supervisor-assignments', payload);
+      await api.post('/supervisor-assignments', payload);
       showToast(t('common.successCreated'), 'success');
       setModalOpen(false);
       fetchData(meta.page, search);
@@ -96,7 +96,7 @@ export default function SupervisorAssignmentsPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await api.delete(`/v1/supervisor-assignments/${deleteTarget}`);
+      await api.delete(`/supervisor-assignments/${deleteTarget}`);
       showToast(t('common.successDeleted'), 'success');
       setConfirmDelete(false);
       setDeleteTarget(null);

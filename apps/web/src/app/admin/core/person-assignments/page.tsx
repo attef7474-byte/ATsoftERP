@@ -63,9 +63,9 @@ export default function PersonAssignmentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/v1/person-assignments', { params: { page, limit: 10, search: searchQuery || undefined } }) as any;
-      setData(res.data.data);
-      setMeta(res.data.meta);
+      const res = await api.get('/person-assignments', { params: { page, limit: 10, search: searchQuery || undefined } }) as any;
+      setData(res.data);
+      setMeta(res.meta);
     } catch {
       setError(t('errors.loadFailed'));
     } finally {
@@ -112,10 +112,10 @@ export default function PersonAssignmentsPage() {
     try {
       const payload: any = { ...form, effectiveTo: form.effectiveTo || null, jobTitleId: form.jobTitleId || null };
       if (editingId) {
-        await api.patch(`/v1/person-assignments/${editingId}`, payload);
+        await api.patch(`/person-assignments/${editingId}`, payload);
         showToast(t('common.successUpdated'), 'success');
       } else {
-        await api.post('/v1/person-assignments', payload);
+        await api.post('/person-assignments', payload);
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false);
@@ -145,7 +145,7 @@ export default function PersonAssignmentsPage() {
     if (!transferId || !transferForm.departmentId || !transferForm.effectiveFrom) return;
     setSaving(true);
     try {
-      await api.post(`/v1/person-assignments/${transferId}/transfer`, transferForm);
+      await api.post(`/person-assignments/${transferId}/transfer`, transferForm);
       showToast(t('common.successUpdated'), 'success');
       setTransferModal(false);
       fetchData(meta.page, search);
@@ -159,7 +159,7 @@ export default function PersonAssignmentsPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await api.delete(`/v1/person-assignments/${deleteTarget}`);
+      await api.delete(`/person-assignments/${deleteTarget}`);
       showToast(t('common.successDeleted'), 'success');
       setConfirmDelete(false);
       setDeleteTarget(null);

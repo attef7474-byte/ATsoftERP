@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
-import { Branch, Department, Warehouse, Machine, User } from '../../../../../lib/admin-types';
+import { Branch, Department, Warehouse, Machine, OperationalPersonAssignment } from '../../../../../lib/admin-types';
 import { Button, Card, DataTable, LoadingState, EmptyState, ErrorState, StatusBadge, Modal, ConfirmDialog, Input, CardContent } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../../components/admin/admin-action-bar';
 import { useParams, useRouter } from 'next/navigation';
@@ -36,7 +36,7 @@ export default function BranchDetailPage() {
   const [warehousesLoading, setWarehousesLoading] = useState(false);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [machinesLoading, setMachinesLoading] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<OperationalPersonAssignment[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -96,7 +96,7 @@ export default function BranchDetailPage() {
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     try {
-      const res = await api.get<{ data: User[] }>('/users', { params: { branchId: id, limit: 50 } });
+      const res = await api.get<{ data: OperationalPersonAssignment[] }>('/person-assignments', { params: { branchId: id, limit: 50 } });
       setUsers(res.data || []);
     } catch { /* ignore */ }
     finally { setUsersLoading(false); }
@@ -221,10 +221,11 @@ export default function BranchDetailPage() {
   ];
 
   const userColumns = [
-    { key: 'name', header: t('common.name') },
-    { key: 'email', header: t('common.email') },
-    { key: 'phone', header: t('common.phone'), render: (u: User) => u.phone || '-' },
-    { key: 'status', header: t('common.status'), render: (u: User) => <StatusBadge status={u.status} /> },
+    { key: 'person', header: t('common.name'), render: (a: OperationalPersonAssignment) => a.person?.name || '-' },
+    { key: 'department', header: t('core.department'), render: (a: OperationalPersonAssignment) => a.department?.name || '-' },
+    { key: 'jobTitle', header: t('core.jobTitle'), render: (a: OperationalPersonAssignment) => a.jobTitle?.name || '-' },
+    { key: 'assignmentType', header: t('core.assignmentType'), render: (a: OperationalPersonAssignment) => a.assignmentType },
+    { key: 'status', header: t('common.status'), render: (a: OperationalPersonAssignment) => <StatusBadge status={a.status} /> },
   ];
 
   const renderTabContent = () => {
@@ -306,7 +307,7 @@ export default function BranchDetailPage() {
         return (
           <Card>
             {usersLoading ? <LoadingState /> : users.length === 0 ? <EmptyState message={t('common.noData')} /> : (
-              <DataTable columns={userColumns} data={users} keyExtractor={(u: User) => u.id} />
+              <DataTable columns={userColumns} data={users} keyExtractor={(a: OperationalPersonAssignment) => a.id} />
             )}
           </Card>
         );

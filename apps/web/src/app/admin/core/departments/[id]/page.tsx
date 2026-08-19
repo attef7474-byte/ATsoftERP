@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
-import { Department, User, Machine } from '../../../../../lib/admin-types';
+import { Department, OperationalPersonAssignment, Machine } from '../../../../../lib/admin-types';
 import { Button, Card, CardHeader, CardContent, DataTable, LoadingState, EmptyState, ErrorState, StatusBadge, Modal, Input, ConfirmDialog } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../../components/admin/admin-action-bar';
 import { useParams, useRouter } from 'next/navigation';
@@ -27,7 +27,7 @@ export default function DepartmentDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<OperationalPersonAssignment[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [machinesLoading, setMachinesLoading] = useState(false);
@@ -63,7 +63,7 @@ export default function DepartmentDetailPage() {
     if (!id) return;
     setUsersLoading(true);
     try {
-      const res = await api.get<{ data: User[] }>('/users', { params: { departmentId: id, limit: 100 } });
+      const res = await api.get<{ data: OperationalPersonAssignment[] }>('/person-assignments', { params: { departmentId: id, limit: 100 } });
       setUsers(res.data || []);
     } catch {
       setUsers([]);
@@ -167,9 +167,11 @@ export default function DepartmentDetailPage() {
   ];
 
   const userColumns = [
-    { key: 'name', header: t('common.name') },
-    { key: 'email', header: t('common.email') },
-    { key: 'status', header: t('common.status'), render: (u: User) => <StatusBadge status={u.status} /> },
+    { key: 'person', header: t('common.name'), render: (a: OperationalPersonAssignment) => a.person?.name || '-' },
+    { key: 'department', header: t('core.department'), render: (a: OperationalPersonAssignment) => a.department?.name || '-' },
+    { key: 'jobTitle', header: t('core.jobTitle'), render: (a: OperationalPersonAssignment) => a.jobTitle?.name || '-' },
+    { key: 'assignmentType', header: t('core.assignmentType'), render: (a: OperationalPersonAssignment) => a.assignmentType },
+    { key: 'status', header: t('common.status'), render: (a: OperationalPersonAssignment) => <StatusBadge status={a.status} /> },
   ];
 
   const machineColumns = [
@@ -296,7 +298,7 @@ export default function DepartmentDetailPage() {
             ) : users.length === 0 ? (
               <EmptyState message={t('common.noData')} />
             ) : (
-              <DataTable columns={userColumns} data={users} keyExtractor={(u: User) => u.id} />
+              <DataTable columns={userColumns} data={users} keyExtractor={(a: OperationalPersonAssignment) => a.id} />
             )}
           </CardContent>
         </Card>

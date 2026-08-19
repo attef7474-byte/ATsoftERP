@@ -48,8 +48,8 @@ export default function MaintenancePersonnelDetailPage() {
     if (!personId) return;
     setAssignmentsLoading(true);
     try {
-      const res = await api.get('/v1/person-assignments', { params: { personnelId: personId, limit: 50 } }) as any;
-      setAssignments(res.data.data || []);
+      const res = await api.get('/person-assignments', { params: { personnelId: personId, limit: 50 } }) as any;
+      setAssignments(res.data || []);
     } catch {
       setAssignments([]);
     } finally {
@@ -62,12 +62,12 @@ export default function MaintenancePersonnelDetailPage() {
     if (!personId) return;
     setSupervisorLoading(true);
     try {
-      const assignmentsRes = await api.get('/v1/person-assignments', { params: { personnelId: personId, limit: 50 } }) as any;
-      const personAssignments: OperationalPersonAssignment[] = assignmentsRes.data.data || [];
+      const assignmentsRes = await api.get('/person-assignments', { params: { personnelId: personId, limit: 50 } }) as any;
+      const personAssignments: OperationalPersonAssignment[] = assignmentsRes.data || [];
       const assignmentIds = new Set(personAssignments.map((a) => a.id));
 
-      const res = await api.get('/v1/supervisor-assignments', { params: { limit: 100 } }) as any;
-      const allSupervisor: SupervisorAssignment[] = res.data.data || [];
+      const res = await api.get('/supervisor-assignments', { params: { limit: 100 } }) as any;
+      const allSupervisor: SupervisorAssignment[] = res.data || [];
       const filtered = allSupervisor.filter(
         (sa) => assignmentIds.has(sa.assignmentId) || (sa.supervisorAssignmentId && assignmentIds.has(sa.supervisorAssignmentId))
       );

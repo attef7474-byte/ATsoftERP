@@ -680,7 +680,7 @@ export const productionCostSnapshotAdapter: LookupAdapter<ProductionCostSnapshot
 };
 
 export const jobTitleAdapter: LookupAdapter<JobTitle> = {
-  endpoint: '/v1/job-titles',
+  endpoint: '/job-titles',
   displayLabel: (jt) => `[${jt.code}] ${jt.name}`,
   searchFields: ['code', 'name', 'nameAr', 'nameEn', 'category'],
   columns: [
@@ -692,7 +692,7 @@ export const jobTitleAdapter: LookupAdapter<JobTitle> = {
 };
 
 export const personAssignmentAdapter: LookupAdapter<OperationalPersonAssignment> = {
-  endpoint: '/v1/person-assignments',
+  endpoint: '/person-assignments',
   displayLabel: (a) => `${a.person?.name || a.personnelId} — ${a.department?.name || ''} (${a.assignmentType})`,
   searchFields: ['personnelId', 'departmentId'],
   columns: [
