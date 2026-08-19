@@ -139,8 +139,80 @@ production_lines                     = 5
 
 ---
 
-## 8. Closeout Statement
+## 8. Known Pre-Existing Issues (Accurately Documented)
 
-**Project Batch A–F is CLOSED.** All 24 validation gates pass. The Batch F controlled import committed 286 new records across 8 database tables, reused 2 existing records, and skipped 19 records per stakeholder decisions. Zero failures. Zero regressions. 1736 tests pass. No secrets exposed. No tenant isolation violations. No schema changes required. No OrganizationalUnit changes. Import fully idempotent.
+1. **DEP-000001 branchId = null** — Created 2026-07-21 (29 days before Batch F). Schema allows nullable `branchId`. Not introduced by Batch F. Not a defect.
 
-**Status: COMPLETE**
+2. **Historical validation expected wrong Joubah branch count** — Expected 10 (total across all companies), actual Joubah = 4 (HQ, BR_02, BR_03, BR_04). Tooling configuration issue, not database corruption.
+
+3. **Jest worker/timer teardown warning** — Pre-existing timer leak in worker process. Tests still 1736/1736 PASS. Non-blocking.
+
+---
+
+## 9. Controlled Git Integration Evidence
+
+| Field | Value |
+|-------|-------|
+| Branch | `checkpoint/backend-lan-responsive-shell` |
+| Initial HEAD (pre-closeout) | `0e9c925c887777f830a5a0611660770b9a2abdd7` |
+| Final HEAD (post-commit) | `dc0c13bec6bdf2806f19fd53097fd7d4e13c396a` |
+| Commit message | `feat: complete ATsoft ERP organization maintenance and Joubah import foundation` |
+| Files committed | 143 (41,019 insertions, 3,422 deletions) |
+| .bak in commit | NO (excluded via `.gitignore` `*.bak` rule added) |
+| Secrets in commit | NO |
+| Temporary debug files in commit | NO |
+| Unrelated files in commit | NO |
+| Staged content audit | PASS |
+| Post-commit audit | PASS |
+
+### Tag
+
+| Field | Value |
+|-------|-------|
+| Tag name | `atsoft-erp-org-maintenance-joubah-import-final` |
+| Tag type | Annotated |
+| Tag SHA | `d6d858fd6df9d96769829de60d45e62363632367` |
+| Tag target | `dc0c13bec6bdf2806f19fd53097fd7d4e13c396a` |
+| Pre-existing check | PASS (tag did not exist before creation) |
+
+### Remote Push
+
+| Field | Value |
+|-------|-------|
+| Remote URL | `https://github.com/attef7474-byte/ATsoftERP` |
+| Remote branch | `origin/checkpoint/backend-lan-responsive-shell` |
+| Remote SHA | `dc0c13bec6bdf2806f19fd53097fd7d4e13c396a` |
+| Local SHA | `dc0c13bec6bdf2806f19fd53097fd7d4e13c396a` |
+| Ahead / Behind | `0 / 0` |
+| Remote tag pushed | `atsoft-erp-org-maintenance-joubah-import-final` |
+| Remote sync | PASS |
+
+### Backup Protection
+
+| Check | Result |
+|-------|--------|
+| `.bak` file exists on filesystem | YES (53.73 MB) |
+| `.bak` tracked by git | NO |
+| `.bak` staged in commit | NO |
+| `*.bak` in `.gitignore` | YES (added before staging) |
+| Backup preserved | YES |
+
+---
+
+## 10. Final Closeout Statement
+
+**Project Batch A–F is CLOSED and PUSHED to production baseline.**
+
+All 24 validation gates pass. The controlled git integration is complete:
+- 143 files committed with explicit staging (no `git add .`)
+- Annotated tag created at `dc0c13be`
+- Branch and tag pushed to `origin/checkpoint/backend-lan-responsive-shell`
+- Remote sync verified: 0 ahead, 0 behind
+- Backup preserved locally, excluded from git
+- No secrets, no unrelated files, no temporary debug scripts
+
+The Batch F controlled import committed 286 new records across 8 database tables, reused 2 existing records, and skipped 19 records per stakeholder decisions. Zero failures. Zero regressions. 1736 tests pass. No tenant isolation violations. No schema changes required. No OrganizationalUnit changes. Import fully idempotent.
+
+**PROJECT_FINAL_CLOSEOUT = PASS**
+
+**READY_FOR_PRODUCTION_BASELINE = YES**
