@@ -26,7 +26,8 @@
     "prisma:validate": "prisma validate",
     "test": "jest",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "smoke:db": "node scripts/runtime-auth-probe.js"
   },
   "prisma": {
     "seed": "ts-node prisma/seed/seed.ts"
