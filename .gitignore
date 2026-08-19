@@ -27,3 +27,5 @@ proof-token.txt
 apps/api/package-lock.json
 # SQL Server backups (tools/backup/backup-sqlserver.ps1 output)
 tools/backup/backups/
+# SQL Server backup files anywhere in the repo
+*.bak

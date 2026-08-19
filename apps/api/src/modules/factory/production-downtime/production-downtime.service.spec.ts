@@ -414,4 +414,222 @@ describe('ProductionDowntimeService', () => {
       expect(DOWNTIME_SEGMENT_INCLUDE).not.toHaveProperty('cancelledById');
     });
   });
+
+  describe('DURATION CONSERVATION — recomputeLogHeader', () => {
+    it('sums closed segment durations into the log header', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(segment());
+      prisma.downtimeSegment.update.mockResolvedValue(segment({ status: 'CLOSED', endedAt: new Date('2026-03-01T09:00:00Z') }));
+      prisma.downtimeSegment.findMany.mockResolvedValue([
+        { startedAt: new Date('2026-03-01T08:00:00Z'), endedAt: new Date('2026-03-01T08:30:00Z'), durationMinutes: new Prisma.Decimal('30'), status: 'CLOSED' },
+        { startedAt: new Date('2026-03-01T08:30:00Z'), endedAt: new Date('2026-03-01T09:00:00Z'), durationMinutes: new Prisma.Decimal('30'), status: 'CLOSED' },
+      ]);
+      prisma.downtimeLog.update.mockResolvedValue({});
+
+      await service.close('seg1', { endedAt: '2026-03-01T09:00:00Z' }, 'u1', ctxA);
+
+      const logUpdate = prisma.downtimeLog.update.mock.calls[0][0];
+      expect(logUpdate.data.status).toBe('CLOSED');
+      expect(logUpdate.data.durationMinutes).toBe(60);
+      expect(logUpdate.data.cancelledAt).toBeNull();
+    });
+
+    it('cancels log when all segments are cancelled', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(segment());
+      prisma.downtimeSegment.update.mockResolvedValue(segment({ status: 'CANCELLED' }));
+      prisma.downtimeSegment.findMany.mockResolvedValue([
+        { startedAt: new Date('2026-03-01T08:00:00Z'), endedAt: null, durationMinutes: new Prisma.Decimal('0'), status: 'CANCELLED' },
+      ]);
+      prisma.downtimeLog.update.mockResolvedValue({});
+
+      await service.cancel('seg1', { reason: 'Wrong entry' }, 'u1', ctxA);
+
+      const logUpdate = prisma.downtimeLog.update.mock.calls[0][0];
+      expect(logUpdate.data.status).toBe('CANCELLED');
+      expect(logUpdate.data.cancelledAt).toBeInstanceOf(Date);
+    });
+
+    it('sets log OPEN when active segments remain after close', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(segment());
+      prisma.downtimeSegment.update.mockResolvedValue(segment({ status: 'CLOSED', endedAt: new Date('2026-03-01T09:00:00Z') }));
+      prisma.downtimeSegment.findMany.mockResolvedValue([
+        { startedAt: new Date('2026-03-01T08:00:00Z'), endedAt: new Date('2026-03-01T09:00:00Z'), durationMinutes: new Prisma.Decimal('60'), status: 'CLOSED' },
+        { startedAt: new Date('2026-03-01T09:00:00Z'), endedAt: null, durationMinutes: new Prisma.Decimal('0'), status: 'OPEN' },
+      ]);
+      prisma.downtimeLog.update.mockResolvedValue({});
+
+      await service.close('seg1', { endedAt: '2026-03-01T09:00:00Z' }, 'u1', ctxA);
+
+      const logUpdate = prisma.downtimeLog.update.mock.calls[0][0];
+      expect(logUpdate.data.status).toBe('OPEN');
+      expect(logUpdate.data.durationMinutes).toBe(60);
+    });
+  });
+
+  describe('MULTI-OWNER SPLIT — ownerDomain', () => {
+    it('creates segments with different ownerDomain values for the same downtime log', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(null);
+      prisma.machine.findFirst.mockResolvedValue(machine());
+      prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
+      prisma.productionShift.findFirst.mockResolvedValue(null);
+      prisma.operationalLossReason.findFirst.mockResolvedValue(null);
+      prisma.downtimeSegment.findMany.mockResolvedValue([]);
+
+      const logResult = { id: 'log1' };
+      const segMaintenance = segment({ id: 'seg-maint', ownerDomain: 'MAINTENANCE', downtimeLogId: 'log1' });
+      const segProduction = segment({ id: 'seg-prod', ownerDomain: 'PRODUCTION', downtimeLogId: 'log1' });
+
+      prisma.downtimeLog.create.mockResolvedValue(logResult);
+      prisma.downtimeSegment.create
+        .mockResolvedValueOnce(segMaintenance)
+        .mockResolvedValueOnce(segProduction);
+
+      const result1 = await service.open(
+        { requestId: 'req-maint', machineId: 'm1', ownerDomain: 'MAINTENANCE' } as any, 'u1', ctxA,
+      );
+      expect(result1.ownerDomain).toBe('MAINTENANCE');
+
+      prisma.downtimeSegment.findFirst.mockResolvedValue(null);
+      const result2 = await service.open(
+        { requestId: 'req-prod', machineId: 'm1', ownerDomain: 'PRODUCTION' } as any, 'u1', ctxA,
+      );
+      expect(result2.ownerDomain).toBe('PRODUCTION');
+    });
+
+    it('defaults ownerDomain to PRODUCTION when not specified', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(null);
+      prisma.machine.findFirst.mockResolvedValue(machine());
+      prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
+      prisma.productionShift.findFirst.mockResolvedValue(null);
+      prisma.operationalLossReason.findFirst.mockResolvedValue(null);
+      prisma.downtimeSegment.findMany.mockResolvedValue([]);
+      prisma.downtimeLog.create.mockResolvedValue({ id: 'log1' });
+      prisma.downtimeSegment.create.mockResolvedValue(segment());
+
+      await service.open({ requestId: 'req-default', machineId: 'm1' } as any, 'u1', ctxA);
+
+      const segData = prisma.downtimeSegment.create.mock.calls[0][0].data;
+      expect(segData.ownerDomain).toBe('PRODUCTION');
+    });
+
+    it('filters segments by ownerDomain in findAll', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findMany.mockResolvedValue([]);
+      prisma.downtimeSegment.count.mockResolvedValue(0);
+
+      await service.findAll({ ownerDomain: 'MAINTENANCE' } as any, ctxA);
+
+      const where = prisma.downtimeSegment.findMany.mock.calls[0][0].where;
+      expect(where.ownerDomain).toBe('MAINTENANCE');
+    });
+  });
+
+  describe('SEGMENT DURATION VALIDATION', () => {
+    it('rejects end time before start time via isValidInterval', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(null);
+      prisma.machine.findFirst.mockResolvedValue(machine());
+      prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
+      prisma.productionShift.findFirst.mockResolvedValue(null);
+      prisma.operationalLossReason.findFirst.mockResolvedValue(null);
+      prisma.downtimeSegment.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.open({ requestId: 'req-bad', machineId: 'm1', startedAt: '2026-03-01T10:00:00Z', endedAt: '2026-03-01T09:00:00Z' } as any, 'u1', ctxA),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects zero-duration interval', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(null);
+      prisma.machine.findFirst.mockResolvedValue(machine());
+      prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
+      prisma.productionShift.findFirst.mockResolvedValue(null);
+      prisma.operationalLossReason.findFirst.mockResolvedValue(null);
+      prisma.downtimeSegment.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.open({ requestId: 'req-zero', machineId: 'm1', startedAt: '2026-03-01T09:00:00Z', endedAt: '2026-03-01T09:00:00Z' } as any, 'u1', ctxA),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('TENANT ISOLATION — segment cross-company rejection', () => {
+    it('findSegment rejects when segment belongs to different company', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(null);
+      await expect(service.findOne('seg-foreign', ctxB)).rejects.toThrow(NotFoundException);
+    });
+
+    it('findAll always scopes by companyId and branchId', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findMany.mockResolvedValue([]);
+      prisma.downtimeSegment.count.mockResolvedValue(0);
+
+      await service.findAll({}, ctxB);
+
+      const where = prisma.downtimeSegment.findMany.mock.calls[0][0].where;
+      expect(where.companyId).toBe('c2');
+      expect(where.branchId).toBe('b2');
+    });
+  });
+
+  describe('OVERLAP DETECTION', () => {
+    it('rejects opening a segment that overlaps an existing open segment', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(null);
+      prisma.machine.findFirst.mockResolvedValue(machine());
+      prisma.productionLine.findFirst.mockResolvedValue({ id: 'l1', companyId: 'c1', branchId: 'b1' });
+      prisma.productionShift.findFirst.mockResolvedValue(null);
+      prisma.operationalLossReason.findFirst.mockResolvedValue(null);
+      prisma.downtimeSegment.findMany.mockResolvedValue([
+        { id: 'seg-existing', startedAt: new Date('2026-03-01T08:00:00Z'), endedAt: null },
+      ]);
+
+      await expect(
+        service.open({ requestId: 'req-overlap', machineId: 'm1', startedAt: '2026-03-01T09:00:00Z' } as any, 'u1', ctxA),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('IDEMPOTENCY', () => {
+    it('returns existing segment when requestId already produced one (idempotent open)', async () => {
+      const { prisma, service } = makeService();
+      const existing = segment({ requestId: 'req-idem-1' });
+      prisma.downtimeSegment.findFirst.mockResolvedValue(existing);
+
+      const result = await service.open({ requestId: 'req-idem-1', machineId: 'm1' } as any, 'u1', ctxA);
+      expect(result.id).toBe('seg1');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('STATUS TRANSITIONS', () => {
+    it('rejects closing a SUPERSEDED segment', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(segment({ status: 'SUPERSEDED' }));
+      await expect(service.close('seg1', {}, 'u1', ctxA)).rejects.toThrow(ConflictException);
+    });
+
+    it('rejects cancelling a CLOSED segment', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(segment({ status: 'CLOSED' }));
+      await expect(service.cancel('seg1', { reason: 'x' }, 'u1', ctxA)).rejects.toThrow(ConflictException);
+    });
+
+    it('rejects correcting a SUPERSEDED segment', async () => {
+      const { prisma, service } = makeService();
+      prisma.downtimeSegment.findFirst.mockResolvedValue(segment({ status: 'SUPERSEDED' }));
+      await expect(service.correct('seg1', { reason: 'x' }, 'u1', ctxA)).rejects.toThrow(ConflictException);
+    });
+  });
 });

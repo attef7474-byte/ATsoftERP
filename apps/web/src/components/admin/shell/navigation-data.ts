@@ -79,8 +79,12 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'org-companies', labelKey: 'navigation.companies', route: '/admin/core/companies' },
           { id: 'org-branches', labelKey: 'navigation.branches', route: '/admin/core/branches' },
           { id: 'org-administrations', labelKey: 'navigation.administrations', route: '/admin/core/administrations' },
-          { id: 'org-departments', labelKey: 'navigation.departments', route: '/admin/core/departments' },
+          { id: 'org-departments', labelKey: 'navigation.departments', route: '/admin/core/departments', permission: 'department:read' },
           { id: 'org-organizational-units', labelKey: 'navigation.organizationalUnits', route: '/admin/core/organizational-units' },
+          { id: 'org-persons', labelKey: 'navigation.persons', route: '/admin/core/persons' },
+          { id: 'org-job-titles', labelKey: 'navigation.jobTitles', route: '/admin/core/job-titles', permission: 'job-title:read' },
+          { id: 'org-person-assignments', labelKey: 'navigation.personAssignments', route: '/admin/core/person-assignments', permission: 'person-assignment:read' },
+          { id: 'org-supervisor-assignments', labelKey: 'navigation.supervisorAssignments', route: '/admin/core/supervisor-assignments', permission: 'supervisor:read' },
         ],
       },
       {
@@ -214,6 +218,7 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'prd-shift-calendars', labelKey: 'navigation.productionShiftCalendars', route: '/admin/production/shift-calendars' },
           { id: 'prd-shift-assignments', labelKey: 'navigation.productionShiftAssignments', route: '/admin/production/shift-assignments' },
           { id: 'prd-operational-assignments', labelKey: 'navigation.productionOperationalAssignments', route: '/admin/production/operational-assignments' },
+          { id: 'prd-shift-handovers', labelKey: 'navigation.productionShiftHandovers', route: '/admin/production/shift-handovers', permission: 'shift-handover:read' },
         ],
       },
       {

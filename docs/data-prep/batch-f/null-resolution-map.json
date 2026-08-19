@@ -1,0 +1,94 @@
+{
+  "departmentResolution": {
+    "EMP-0001": "DEP_BR01_001",
+    "EMP-0002": "DEP_BR01_034",
+    "EMP-0006": "DEP_BR03_026",
+    "EMP-0007": "DEP_BR04_026",
+    "EMP-0008": "DEP_BR01_034",
+    "EMP-0009": "DEP_BR01_034",
+    "EMP-0011": "DEP_BR01_001",
+    "EMP-0012": "DEP_BR01_008",
+    "EMP-0013": "DEP_BR01_017",
+    "EMP-0014": "DEP_BR01_012",
+    "EMP-0201": "DEP_BR02_026",
+    "EMP-0202": "DEP_BR02_034",
+    "EMP-0301": "DEP_BR03_026",
+    "EMP-0401": "DEP_BR04_026"
+  },
+  "scopeResolution": {
+    "RSP_BR_01_MNT_MANAGER": {
+      "scopeType": "DEPARTMENT",
+      "departmentCode": "DEP_BR01_034"
+    },
+    "RSP_BR_01_STORE": {
+      "scopeType": "DEPARTMENT",
+      "departmentCode": "DEP_BR01_020"
+    },
+    "RSP_BR_02_MNT_MANAGER": {
+      "scopeType": "DEPARTMENT",
+      "departmentCode": "DEP_BR02_034"
+    },
+    "RSP_BR_02_STORE": {
+      "scopeType": "DEPARTMENT",
+      "departmentCode": "DEP_BR02_020"
+    },
+    "RSP_BR_03_MNT_MANAGER": {
+      "scopeType": "DEPARTMENT",
+      "departmentCode": "DEP_BR03_034"
+    },
+    "RSP_BR_03_STORE": {
+      "scopeType": "DEPARTMENT",
+      "departmentCode": "DEP_BR03_020"
+    },
+    "RSP_BR_04_MNT_MANAGER": {
+      "scopeType": "DEPARTMENT",
+      "departmentCode": "DEP_BR04_034"
+    },
+    "RSP_BR_04_STORE": {
+      "scopeType": "DEPARTMENT",
+      "departmentCode": "DEP_BR04_020"
+    }
+  },
+  "adminFirstDept": {
+    "ADM_BR01_01": "DEP_BR01_001",
+    "ADM_BR01_02": "DEP_BR01_004",
+    "ADM_BR01_03": "DEP_BR01_008",
+    "ADM_BR01_04": "DEP_BR01_012",
+    "ADM_BR01_05": "DEP_BR01_017",
+    "ADM_BR01_06": "DEP_BR01_020",
+    "ADM_BR01_07": "DEP_BR01_024",
+    "ADM_BR01_08": "DEP_BR01_026",
+    "ADM_BR01_09": "DEP_BR01_030",
+    "ADM_BR01_10": "DEP_BR01_034",
+    "ADM_BR02_01": "DEP_BR02_001",
+    "ADM_BR02_02": "DEP_BR02_004",
+    "ADM_BR02_03": "DEP_BR02_008",
+    "ADM_BR02_04": "DEP_BR02_012",
+    "ADM_BR02_05": "DEP_BR02_017",
+    "ADM_BR02_06": "DEP_BR02_020",
+    "ADM_BR02_07": "DEP_BR02_024",
+    "ADM_BR02_08": "DEP_BR02_026",
+    "ADM_BR02_09": "DEP_BR02_030",
+    "ADM_BR02_10": "DEP_BR02_034",
+    "ADM_BR03_01": "DEP_BR03_001",
+    "ADM_BR03_02": "DEP_BR03_004",
+    "ADM_BR03_03": "DEP_BR03_008",
+    "ADM_BR03_04": "DEP_BR03_012",
+    "ADM_BR03_05": "DEP_BR03_017",
+    "ADM_BR03_06": "DEP_BR03_020",
+    "ADM_BR03_07": "DEP_BR03_024",
+    "ADM_BR03_08": "DEP_BR03_026",
+    "ADM_BR03_09": "DEP_BR03_030",
+    "ADM_BR03_10": "DEP_BR03_034",
+    "ADM_BR04_01": "DEP_BR04_001",
+    "ADM_BR04_02": "DEP_BR04_004",
+    "ADM_BR04_03": "DEP_BR04_008",
+    "ADM_BR04_04": "DEP_BR04_012",
+    "ADM_BR04_05": "DEP_BR04_017",
+    "ADM_BR04_06": "DEP_BR04_020",
+    "ADM_BR04_07": "DEP_BR04_024",
+    "ADM_BR04_08": "DEP_BR04_026",
+    "ADM_BR04_09": "DEP_BR04_030",
+    "ADM_BR04_10": "DEP_BR04_034"
+  }
+}

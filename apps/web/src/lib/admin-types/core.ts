@@ -47,6 +47,7 @@ export interface Department {
   parentId?: string | null;
   code: string;
   name: string;
+  classification?: string;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -55,7 +56,65 @@ export interface Department {
   administration?: { id: string; name: string };
   parent?: { id: string; name: string };
   children?: { id: string; name: string; code: string }[];
-  _count?: { children: number; users: number; machines: number };
+  _count?: { children: number; users: number; machines: number; personAssignments?: number };
+}
+
+export interface JobTitle {
+  id: string;
+  companyId: string;
+  code: string;
+  name: string;
+  nameAr?: string | null;
+  nameEn?: string | null;
+  category?: string;
+  description?: string | null;
+  isActive: boolean;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  company?: { id: string; name: string; code: string };
+  _count?: { assignments: number };
+}
+
+export interface OperationalPersonAssignment {
+  id: string;
+  companyId: string;
+  branchId?: string | null;
+  administrationId?: string | null;
+  departmentId: string;
+  jobTitleId?: string | null;
+  personnelId: string;
+  assignmentType: string;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  status: string;
+  notes?: string | null;
+  createdByUserId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  company?: { id: string; name: string };
+  branch?: { id: string; name: string };
+  administration?: { id: string; name: string };
+  department?: { id: string; name: string; code: string };
+  jobTitle?: { id: string; name: string; code: string };
+  person?: { id: string; name: string; code: string };
+}
+
+export interface SupervisorAssignment {
+  id: string;
+  companyId: string;
+  assignmentId: string;
+  supervisorAssignmentId?: string | null;
+  relationshipType: string;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  isActive: boolean;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  company?: { id: string; name: string };
+  assignment?: OperationalPersonAssignment;
+  supervisorAssignment?: OperationalPersonAssignment;
 }
 
 export interface OrganizationalUnit {

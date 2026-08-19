@@ -1,5 +1,5 @@
 import { LookupAdapter } from './types';
-import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionRun, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionMeasurementPoint, ProductionMaterialDocument, ProductionFinishedGoodsReceipt, ProductionInspection, ProductionQualityPlan, ProductionCostRate, ProductionCostSnapshot } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionRun, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionMeasurementPoint, ProductionMaterialDocument, ProductionFinishedGoodsReceipt, ProductionInspection, ProductionQualityPlan, ProductionCostRate, ProductionCostSnapshot, JobTitle, OperationalPersonAssignment } from '../../lib/admin-types';
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -676,5 +676,29 @@ export const productionCostSnapshotAdapter: LookupAdapter<ProductionCostSnapshot
     { key: 'costType', header: 'Cost Type' },
     { key: 'amount', header: 'Amount', render: (s) => `${s.amount} ${s.currencyCode}` },
     { key: 'status', header: 'Status', render: (s) => s.status },
+  ],
+};
+
+export const jobTitleAdapter: LookupAdapter<JobTitle> = {
+  endpoint: '/v1/job-titles',
+  displayLabel: (jt) => `[${jt.code}] ${jt.name}`,
+  searchFields: ['code', 'name', 'nameAr', 'nameEn', 'category'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'category', header: 'Category' },
+    { key: 'isActive', header: 'Active', render: (jt) => jt.isActive ? 'Yes' : 'No' },
+  ],
+};
+
+export const personAssignmentAdapter: LookupAdapter<OperationalPersonAssignment> = {
+  endpoint: '/v1/person-assignments',
+  displayLabel: (a) => `${a.person?.name || a.personnelId} — ${a.department?.name || ''} (${a.assignmentType})`,
+  searchFields: ['personnelId', 'departmentId'],
+  columns: [
+    { key: 'person', header: 'Person', render: (a) => a.person?.name || a.personnelId },
+    { key: 'department', header: 'Department', render: (a) => a.department?.name || '-' },
+    { key: 'jobTitle', header: 'Job Title', render: (a) => a.jobTitle?.name || '-' },
+    { key: 'assignmentType', header: 'Type' },
   ],
 };

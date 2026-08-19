@@ -5,6 +5,7 @@ import { CreateMachineResponsibilityAssignmentDto, UpdateMachineResponsibilityAs
 import { JwtAuthGuard } from '../../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
+import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
@@ -18,14 +19,21 @@ export class MachineResponsibilityAssignmentsController {
   @Post()
   @Permissions('machine-responsibility:create')
   @ApiOperation({ summary: 'Create machine responsibility assignment' })
-  create(@Body() dto: CreateMachineResponsibilityAssignmentDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.service.create(dto, ctx);
+  create(
+    @Body() dto: CreateMachineResponsibilityAssignmentDto,
+    @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.service.create(dto, userId, ctx);
   }
 
   @Get()
   @Permissions('machine-responsibility:read')
   @ApiOperation({ summary: 'List machine responsibility assignments' })
-  findAll(@Query() query: { page?: string; limit?: string; machineId?: string; maintenancePersonnelId?: string; responsibilityRole?: string; status?: string; isPrimary?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+  findAll(
+    @Query() query: { page?: string; limit?: string; machineId?: string; maintenancePersonnelId?: string; responsibilityRole?: string; status?: string; isPrimary?: string; scopeType?: string; departmentId?: string; productionLineId?: string },
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
@@ -34,6 +42,9 @@ export class MachineResponsibilityAssignmentsController {
       responsibilityRole: query.responsibilityRole,
       status: query.status,
       isPrimary: query.isPrimary,
+      scopeType: query.scopeType,
+      departmentId: query.departmentId,
+      productionLineId: query.productionLineId,
     }, ctx);
   }
 
@@ -47,14 +58,23 @@ export class MachineResponsibilityAssignmentsController {
   @Patch(':id')
   @Permissions('machine-responsibility:update')
   @ApiOperation({ summary: 'Update machine responsibility assignment' })
-  update(@Param('id') id: string, @Body() dto: UpdateMachineResponsibilityAssignmentDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.service.update(id, dto, ctx);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateMachineResponsibilityAssignmentDto,
+    @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.service.update(id, dto, userId, ctx);
   }
 
   @Delete(':id')
   @Permissions('machine-responsibility:delete')
   @ApiOperation({ summary: 'End/remove machine responsibility assignment' })
-  remove(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.service.remove(id, ctx);
+  remove(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.service.remove(id, userId, ctx);
   }
 }

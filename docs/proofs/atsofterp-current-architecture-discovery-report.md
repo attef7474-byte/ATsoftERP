@@ -1,983 +1,1782 @@
-# ATsofterp Current Implemented Architecture Discovery Report
+# تقرير اكتشاف الهيكلة الحالية الفعلية لمشروع ATsofterp
 
-**التاريخ**: 2026-08-03 (تحديث إحصاءات تم التحقق منها من الكود؛ التقرير الأصلي: 2026-07-31)
-**نوع التقرير**: تقرير اكتشاف ومراجعة معماري للبنية القائمة (Read-Only Audit)
-**الغرض**: توثيق ما هو مُنفَّذ فعلياً في المستودع الحالي دون أي توصيات أو مقارنات مع بنية ERP مثالية.
-**مسارات التحقق**: مسار المهمة `C:\Users\attef\PycharmProjects\Trae\ATsofterp` مقابل مسار العمل `C:\Users\attef\PycharmProjects\Project\ATsoft_erp` — مستنسخان متطابقان (نفس SHA `8eba533efec5b02d7986c86e2511a80938bac1a7`، نفس عدد الملفات، نفس git status). تم التدقيق على نسخة العمل.
+# ATsofterp Current Architecture Discovery Report
+
+> **Discovery / Audit only. No future architecture was designed. No code was modified.**
 
 ---
 
-## القسم 1 — Executive Summary
+## 1. Audit Baseline
 
-### ما هو ATsofterp حسب الكود الحالي؟
+| Field | Value |
+|-------|-------|
+| Branch | `checkpoint/backend-lan-responsive-shell` |
+| Full SHA | `0e9c925c887777f830a5a0611660770b9a2abdd7` |
+| Git status | CLEAN |
+| Audit date | 2026-08-18 |
+| Schema file | `apps/api/prisma/schema.prisma` (5,292 lines) |
+| Backend source | `apps/api/src/` (1,216 .ts files) |
+| Frontend source | `apps/web/src/` (520 .ts/.tsx files) |
+| Test files | 106 `.spec.ts` files |
+| Migrations | 60 applied migration directories |
 
-ATsofterp هو **monorepo** لإدارة أعمال المصانع (Smart Factory ERP) مبني على `npm workspaces` يضم تطبيقين فعليين: واجهة API بـ **NestJS 11** (`apps/api`) وواجهة أمامية بـ **Next.js 15** (`apps/web`) مع حزمة مشتركة `packages/shared` و`packages/config` وحزمة `packages/ui` فارغة تقريباً (`.gitkeep` فقط).
+---
 
-وفقاً للكود الفعلي فإن النظام الحالي هو **modular monolith** في الجانب الخلفي (AppModule واحد يسجّل 80 وحدة NestJS) مع واجهة أمامية من صفحة واحدة (SPA) عبر Next.js App Router (266 صفحة في `src/app` + صفحتا تسجيل الدخول والرئيسية).
+## 2. Executive Summary
 
-### النطاقات المنفذة فعلياً
+ATsofterp is a multi-company industrial ERP system designed for factory maintenance, production, inventory, spare parts management, and operational costing. It runs on Windows with SQL Server, uses Prisma ORM, a NestJS API backend, and a Next.js 15 App Router frontend with Tailwind CSS. The system supports Arabic (RTL) and English (LTR) with JWT-based authentication and per-request tenant isolation via HTTP headers.
 
-| النطاق | المستوى الفعلي |
-|---|---|
-| Auth / Users / Roles / Permissions | IMPLEMENTED (7 endpoints، JWT + bcrypt، guard على مستوى كل controller) |
-| Companies / Branches / Administrations / Departments | IMPLEMENTED (CRUD كامل + `GET /departments/tree`) |
-| Machines / Asset Register | IMPLEMENTED (CRUD + وثائق + مكونات + حالات تشغيلية) |
-| Maintenance / CMMS | IMPLEMENTED — النطاق الأكبر (362 endpoint ضمن factory عبر 36 controller صيانة) |
-| Maintenance Work Orders | IMPLEMENTED — دورة DRAFT→PLANNED→IN_PROGRESS→COMPLETED/CANCELLED + إصدار قطع موزع |
-| Inventory العملياتي | IMPLEMENTED (~160 endpoint: حركات، إيصالات تشغيلية، تسويات، أرصدة افتتاحية، تسويات مخزنية، تحويلات، جرد فعلي) |
-| Spare Parts + Conditions + Repair Orders + BOM + Planning | IMPLEMENTED (دفعات Z-AA / AB-AC / AD-AE / AH-AI) |
-| Barcodes / QR | IMPLEMENTED (40 endpoint) |
-| Reports / Dashboard / Search / Audit / Notifications / Messaging / Settings | IMPLEMENTED |
-| موبايل فلتر | IMPLEMENTED (تطبيق Flutter حقيقي في `apps/mobile` — 39 ملف Dart بفيزيائيات مصادقة/مخزون/آلات/صيانة/فاحص/مزامنة) |
-| Desktop | STUB — `apps/desktop` سقالة Tauri فقط (`src-tauri/tauri.conf.json` 0 بايت) |
-| Production (أوامر إنتاج / BOM إنتاجي / Routing / Shifts / Waste / Rework) | **غير موجود نهائياً** — لا توجد نماذج Prisma ولا كود (ملفات factory/production/* فارغة 0 بايت) |
-| Finance / Purchasing / Sales / HR / AI / IoT / BI / Workflows / Forecasting وغيرها | **على القرص كـ 0-byte stubs فقط، غير مسجلة وبدون أي كود** |
+**What is actually built and working:**
+- Complete multi-company/branch tenant isolation with header-based context validation
+- Full organizational hierarchy (Company → Branch → Administration → Department → Organizational Unit, with recursive Department support)
+- Complete CMMS (Maintenance): requests, work orders, tasks, schedules, checklists, downtime logs, spare parts, installed parts, replacement history, BOM, SLA, reliability, personnel, accountability, repair orders
+- Complete inventory management: warehouses, locations, products, movements, counts, physical counts, adjustments, stock adjustments, transfers, opening balances, operational receipts, locks, ledger, reconciliation
+- Production master data, shifts, assignments, capacity standards, orders, runs, output events, measurement points, loss reasons, downtime segments, loss quantity events, material documents, material requirements, finished goods receipts, quality (plans, inspections, dispositions, NCRs), cost (rates, snapshots, transactions, calculations), performance targets, analytics, reliability
+- Organization management, access control, barcodes, notifications, messaging, audit, attachments, numbering, search, reports, dashboard, settings
+- Business partners (customers/suppliers with contacts, addresses, bank accounts)
 
-### بنية التطبيقات
+**What exists as empty stubs (not implemented):**
+- Finance, Sales, Purchasing, HR, AI, BI, IoT, Forecasting, Predictive Maintenance, Monitoring, Workflows, Dynamic Forms, Import-Export, Print Templates, Approvals, Backups, Business Rules, System Health/Update, Universal Requests, Financial Disbursement Requests, HR Requests, Inventory Issue Requests
 
-```mermaid
-graph TD
-    WEB[apps/web - Next.js 15<br/>266 admin pages] --> API[apps/api - NestJS 11<br/>774 endpoints]
-    API --> PRISMA[Prisma 7.8 Client - 95 models]
-    PRISMA --> SQL[SQL Server]
-    WEB --> I18N[i18n EN/AR - 3,659 key لكل لغة]
-    MOBILE[apps/mobile - Flutter] --> API
-    API --> SEED[prisma/seed - 38 migration folders<br/>17 ملف seed]
+---
+
+## 3. Technology Architecture
+
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| Database | SQL Server | localhost:50079 |
+| ORM | Prisma | prisma-client-js (library engine) |
+| API Framework | NestJS | URI versioning (`/api/v1/`) |
+| Frontend Framework | Next.js | 15 (App Router) |
+| UI | React 18 + Tailwind CSS 3.4 | Custom components (no UI library) |
+| Auth | JWT (Passport) | Bearer token, bcrypt passwords |
+| i18n | Custom system | 59 namespaces, ar/en, cookie-based |
+| API Docs | Swagger | `/api/docs` |
+
+**Evidence:** `apps/api/src/main.ts`, `apps/web/next.config.ts`, `apps/web/package.json`, `apps/web/src/lib/i18n/types.ts`
+
+---
+
+## 4. Repository Structure
+
 ```
-
-### هل النظام متعدد الشركات فعلياً؟
-
-**جزئياً (PARTIAL)** — التفصيل في القسم 6:
-
-- 20 موديلاً من 95 تحمل `companyId` و20 تحمل `branchId` (غالبيتها في نطاق المخزون؛ والعد يشمل العلاقات غير المسماة).
-- `MaintenanceRequest` **لا يحمل** `companyId`/`branchId` إطلاقاً — العزل يتم بشكل غير مباشر عبر `Machine → companyId` (وهو اختياري في Machine نفسه).
-- بيانات الأصناف الرئيسية (Product، SparePart، MachineComponent، Barcode، Messaging) **عالمية بدون أعمدة tenant**.
-- لا يوجد isolation على مستوى قاعدة البيانات ولا على مستوى middleware عام؛ الحماية تأتي من guard واحد يتحقق فقط من **وجود** المستخدم وصلاحياته، ويوجد `OperationalContext` (UserOperationalScope) يضيف رؤوس سياق (`x-active-company-id`...) للطلبات لكنه نظام تفضيلات/فلترة اختيارية وليس إجبارياً (لا يرفض الطلب إذا لم يُرسَل).
-- لا يوجد فحص `branchId` على مستوى السيرفيسات.
-
-### صلاحيات متشددة مع فجوات محققة (تحديث 2026-08-03)
-
-- 416 مفتاح صلاحية فريد تُستخدم في `@Permissions(...)` عبر الـ controllers، منها **163 مفتاحاً غير مزرعة في أي ملف seed** (مثال: `*:read/create/update/delete` بصيغة الجمع مثل `machines:read`، `branches:read`، `companies:create`، بينما الـ seed يزرع الصيغة المفردة أو مفاتيح أخرى).
-- الـ `PermissionsGuard` يطابق حرفياًًً (`userPermissionKeys.has(p)`) بلا تطبيع، ويفتح SUPER_ADMIN فقط عبر `role.code === 'SUPER_ADMIN'`. النتيجة: **أي دور غير SUPER_ADMIN يرفض (403) بشكل fail-closed** عند أي endpoint يطلب مفتاحاً غير مزروع.
-- تحققت هذه الفجوة بالكشف البرمجي: 416 مفتاحاً مستخدماً في controllers مقابل 343 مفتاحاً مذكوراً في ملفات seed (غالبها داخل `CMMS_EXTRA_PERMISSIONS`، مفاتيح العمل النشطة). التفاصيل الكاملة في القسم 12.
-
-### هل الصيانة والإنتاج مستقلان أم متكاملان؟
-
-الصيانة **منفذة بالكامل**؛ الإنتاج **غير موجود** (لا توجد نماذج ولا API ولا صفحات). التكامل الوحيد "الإنتاجي" هو: `ProductionLine` و`OperationType` و`CostCenter` — وهي **مراجع تنظيمية تُستخدم ضمن نطاق الصيانة** (تُربط بالـ Machine وطلبات الصيانة)، وليس نطاق إنتاج فعلياً. `MaintenanceBom` هو تخطيط قطع غيار للصيانة الوقائية وليس BOM إنتاجي.
-
-### مصادر الحقيقة (Sources of Truth)
-
-1. `apps/api/prisma/schema.prisma` (2,975 سطراً، 95 موديلاً)
-2. `apps/api/src/app.module.ts` (80 وحدة مسجلة فعلياً)
-3. الكود الفعلي للـ controllers/services (774 endpoint؛ 88 controller غير فارغ)
-4. `apps/web/src/app/admin/**/page.tsx` (266 صفحة فعلية)
-5. ملفات i18n (3,659 مفتاح EN + 3,659 AR، 16 ملفاً لكل لغة)
-6. ملفات seed (38 migration folder + 17 ملف seed)
-
-### نقاط لم يمكن حسمها (Unresolved)
-
-- التصادم الفعلي بين controller-methods مكررة على نفس المسار (`inventory/adjustments` يظهر مرة ثانية في نفس الملف) — أي منها يخدم فعلياً غير محسوم دون تشغيل الخادم.
-- هل `GET /inventory/balances` من `inventory.controller.ts` أم من `inventory-balances.controller.ts` عند التشغيل (كلاهما على نفس البادئة).
-- سلوك `SecuritySettings` وقت التشغيل (لا يوجد ربط مكتشف بينها وبين flow المصادقة).
-
----
-
-## القسم 2 — Audit Metadata
-
-| العنصر | القيمة |
-|---|---|
-| تاريخ التقرير | 2026-08-03 (تحديث إحصاءات) — التقرير الأصلي 2026-07-31 |
-| مسار المستودع (أمر المهمة) | `C:\Users\attef\PycharmProjects\Trae\ATsofterp` |
-| مسار المستودع (التحقق الفعلي) | `C:\Users\attef\PycharmProjects\Project\ATsoft_erp` |
-| الفرع الحالي | `main` |
-| SHA الكامل | `8eba533efec5b02d7986c86e2511a80938bac1a7` |
-| Git status قبل المراجعة | متسخ (dirty) — تغييرات موجودة مسبقاً في مخزونات وأدلة الإثبات؛ الملفات المذكورة في نهاية القسم |
-| Git status بعد المراجعة | التقرير هو التغيير الوحيد للمهمة؛ بقية التغييرات مسبقة (لم يتم لمسها) |
-| الـ remote | `origin → https://github.com/attef7474-byte/ATsoftERP` |
-| بنية المستودع | Monorepo — npm workspaces 1.11 (`apps/*`, `packages/*`)، packageManager في package.json الجذر |
-| الملفات المدروسة | كل `apps/api/src` (1,013 ملف TS)، كل `apps/web/src` (468 ملف ts/tsx)، schema.prisma (2,975 سطراً)، 38 migration folder، 17 ملف seed، apps/mobile (33 Dart)، apps/desktop (سقالة) |
-| الدلائل المستثناة | `node_modules`, `.next`, `dist`, `storage`, `.git`, `test-results`, `release/` (ثنائي) |
-| الأوامر المستخدمة | قراءة مباشرة فقط: `Get-ChildItem`, `Get-Content`, `Select-String`, `[regex]::Matches`, `git status/log/branch/remote` |
-| قيود المنع | لم تُنفَّذ أي أوامر Prisma/DB/seed، لا تثبيت حزم، لا build، لا تشغيل خدمات، لا git write |
-| الملفات المعدلة/غير المتعقبة قبل المهمة | `inventory-movements.controller.ts/.service.ts` و`.service.spec.ts`، `docs/proofs/atsofterp-phase0-workorders-runtime-tenant-inventory-proof.md`، دليل `.../inventory-opening-balance-adjustment-control/`، دليل `.../phase0-maintenance-work-orders-browser-proof/` |
-| هل ملف التقرير هو التغيير الوحيد المنشأ من المهمة | **نعم** — `docs/proofs/atsofterp-current-architecture-discovery-report.md` (تحديث في مكانه) |
-
----
-
-## القسم 3 — General Project Map
-
-### شجرة التطبيقات
-
-```text
 ATsofterp/
 ├── apps/
-│   ├── api/                      # NestJS 11 — 1,013 ملف TS (520 فارغ = 51%)
-│   │   ├── prisma/               # schema.prisma (2,975 سطر، 95 موديل) + 38 migration + 17 seed
-│   │   └── src/                  # main.ts, app.module.ts, modules/, common/
-│   ├── web/                      # Next.js 15 — 266 page.tsx + login + home
-│   │   └── src/app/admin/        # مجموعات تنقل + sidebar
-│   ├── mobile/                   # Flutter — 33 ملف Dart (مصادقة/مخزون/آلات/صيانة/فاحص/مزامنة/offline)
-│   └── desktop/                  # سقالة Tauri فقط (tauri.conf.json 0 بايت)
-├── packages/
-│   ├── config/src/index.ts       # حزمة إعدادات (index.ts 0 بايت، tsconfig 0 بايت)
-│   ├── shared/src/index.js|.ts   # حزمة مشتركة (فارغة)
-│   └── ui/src/.gitkeep           # فارغة تقريباً
-├── docs/proofs/                  # أدلة الإثبات — 1,612 ملفاً (~50+ دورة إثبات)
-├── infra/                        # docker-compose + prometheus + grafana + mosquitto — كل ملفات compose وmonitoring فارغة 0 b (غير مستخدمة)
-├── deploy/windows/               # تثبيت خدمات Windows (PowerShell)
-├── tools/                        # backup/deploy/health/installer/runtime
-├── scripts/                      # 90+ ملفاً، 6 منها فقط غير فارغة
-├── release/                      # حزمة الإصدار الحالي + zip
-└── storage/                      # دليل تشغيل محلي
+│   ├── api/                          # NestJS backend
+│   │   ├── src/
+│   │   │   ├── main.ts              # Bootstrap (port 4000, /api prefix, v1)
+│   │   │   ├── app.module.ts         # 95 registered modules
+│   │   │   ├── common/               # Guards, decorators, interceptors, helpers
+│   │   │   │   ├── guards/           # JWT, Permissions, InventoryLock
+│   │   │   │   ├── decorators/       # CurrentUser, Permissions, Public
+│   │   │   │   ├── operational-context/  # Tenant isolation engine
+│   │   │   │   ├── audit/            # Audit service
+│   │   │   │   ├── i18n/             # API messages
+│   │   │   │   ├── workflow-engine/  # Generic workflow engine
+│   │   │   │   ├── request-policy/   # Approval/duplication guards
+│   │   │   │   └── request-notifications/  # Notification dispatching
+│   │   │   ├── modules/
+│   │   │   │   ├── auth/             # Authentication
+│   │   │   │   ├── admin/            # Users, roles, permissions, branches, administrations, departments, org units
+│   │   │   │   ├── companies/        # Multi-company management
+│   │   │   │   ├── factory/          # All operational modules
+│   │   │   │   │   ├── maintenance/  # 36+ sub-modules
+│   │   │   │   │   ├── inventory*/   # 12+ sub-modules
+│   │   │   │   │   ├── production*/  # 14+ sub-modules
+│   │   │   │   │   ├── products/     # Product definitions
+│   │   │   │   │   └── product-categories/
+│   │   │   │   ├── audit/            # Audit trail
+│   │   │   │   ├── barcodes/         # Barcode management
+│   │   │   │   ├── business-partners/  # Customers/suppliers
+│   │   │   │   ├── settings/         # System settings, company profile, language, appearance, security
+│   │   │   │   ├── documents/        # Attachments
+│   │   │   │   ├── notifications/    # Notification system
+│   │   │   │   ├── messaging/        # Internal messaging
+│   │   │   │   ├── numbering/        # Document numbering
+│   │   │   │   ├── search/           # Global search
+│   │   │   │   ├── reports/          # Report engine
+│   │   │   │   ├── dashboard/        # Dashboard
+│   │   │   │   └── alerts/           # Alert system
+│   │   │   └── modules/ (STUBS)      # ~36 unregistered empty modules
+│   │   └── prisma/
+│   │       ├── schema.prisma         # 145 models, 5292 lines
+│   │       └── migrations/           # 60 applied migrations
+│   └── web/                          # Next.js frontend
+│       ├── src/
+│       │   ├── app/                  # 298 page.tsx routes
+│       │   ├── components/           # 7 top-level component directories
+│       │   ├── hooks/                # 1 custom hook (useCrudList)
+│       │   └── lib/                  # API client, auth, i18n, types, themes
+│       └── next.config.ts
+└── docs/
+    └── proofs/                       # Audit reports
 ```
-
-### خريطة الحزم (Package Map)
-
-| الحزمة | الغرض الفعلي | التبعيات الرئيسية |
-|---|---|---|
-| `apps/api` | خادم NestJS: 774 endpoint، Prisma 7.8، JWT | @nestjs/* 11، prisma 7.8، passport-jwt، bcryptjs، exceljs، mssql/msnodesqlv8 |
-| `apps/web` | واجهة Next.js 15: 266 صفحة، i18n (16 ns)، RTL | next 15، react 18.3، tailwind 3.4 |
-| `apps/mobile` | Flutter 3.2+: خيوط تشغيل ميداني/فاحص/مزامنة | flutter_localizations، sqflite، mobile_scanner، connectivity_plus |
-| `packages/shared` | `index.ts` مشترك (فارغ) | — |
-| `packages/config` | `index.ts` إعدادات (فارغ) | — |
-| `packages/ui` | فارغة (`.gitkeep`) | — |
-
-### الطبقات (System Layers)
-
-1. **طبقة العرض**: Next.js — بيانات عبر `apps/web/src/lib/api.ts` (base `http://localhost:4000/api/v1`).
-2. **طبقة API**: NestJS — global prefix `api`، URI versioning `v1`، `ValidationPipe` (whitelist+forbidNonWhitelisted)، `AllExceptionsFilter`، Swagger على `/api/docs`، منفذ 4000.
-3. **طبقة الوصول للبيانات**: Prisma Client 7.8 + `@prisma/adapter-mssql` → SQL Server عبر `msnodesqlv8`.
-4. **قاعدة البيانات**: SQL Server 2016 Express (127.0.0.1:50079، ATsoftERP_DB).
-
-### التكنولوجيا الفعلية (مع الأدلة)
-
-| المجال | التقنية | الدليل |
-|---|---|---|
-| Backend | NestJS 11.1 | `apps/api/package.json` |
-| Frontend | Next.js 15.5 + React 18.3 | `apps/web/package.json` |
-| ORM | Prisma 7.8 (adapter mssql) | `apps/api/package.json`, `schema.prisma` datasource `sqlserver` |
-| قاعدة البيانات | SQL Server | `schema.prisma` + `.env` (الأسماء فقط) |
-| المصادقة | JWT (passport-jwt) + bcryptjs | `modules/auth/strategies/jwt.strategy.ts`, `auth.service.ts:26` |
-| التفويض | `@Permissions()` + `PermissionsGuard` (per-controller، لا APP_GUARD) | `modules/auth/guards/permissions.guard.ts` |
-| i18n | React Context (`I18nProvider`)، 53 namespace، 16 ملف/لغة (3,659 key) | `apps/web/src/lib/i18n/` |
-| RTL/LTR | خاصية `dir` على مستوى الجذر + تخطيطات CSS | `i18n-provider.tsx` |
-| State management | React hooks فقط (useState/useEffect) + `useCrudList` (4 صفحات فقط) | `hooks/useCrudList.ts` |
-| التصدير | CSV (تقرير)، Excel (exceljs) | `reports.controller.ts` (`/reports/export/csv/*`, `/excel/*`) |
-| الطباعة | QR/Barcode templates + صفحات طباعة متصفح | `barcodes/*` صفحات، `requests/[id]/print` |
-| المرفقات | Multer على القرص (`storage/uploads`) | `documents/attachments` |
-| الاختبارات | 45 spec مكتوبة (45 في api) — **27 منها غير فارغة** وتحتوي منطق اختبار حقيقي (services/guards/validation) | fحص بالحجم |
-| Docker | ممنوع (AGENTS.md) — ملفات `infra/` كلها فارغة وغير مستخدمة | — |
-| Installer/Runtime | سكربتات PowerShell (tools/runtime, tools/deploy) + حزمة release | `tools/runtime/atsofterp-install.ps1` وغيرها |
-| Backup/Restore | سكربتات PowerShell + مجلد storage/backups | `tools/backup/*.ps1` |
-| الإشعارات | In-app فقط (Notification)، قناة `IN_APP` في NotificationRule | `modules/notifications/` |
-| Caching | لا يوجد Redis ولا cache طبقة | — |
-| الجدولة | لا توجد cron/worker مسجلة | — |
 
 ---
 
-## القسم 4 — Current Organizational Structure
+## 5. Database Statistics
 
-### ما هو موجود فعلياً
+| Metric | Count |
+|--------|------:|
+| TOTAL_MODELS | **145** |
+| TOTAL_ENUMS | **0** (all statuses/types are plain strings) |
+| TOTAL_RELATIONS (@relation) | **448** |
+| TOTAL_UNIQUE_CONSTRAINTS (@@unique) | **76** |
+| TOTAL_INDEXES (@@index) | **533** |
+| TOTAL_COMPOSITE_PRIMARY_KEYS (@@id) | **2** (UserRole, RolePermission) |
+| TOTAL_SELF_RELATIONS | **15** |
+| Models with companyId | **~55** |
+| Models with branchId | **~50** |
+| Models with deletedAt (soft-delete) | **~40** |
+| JSON fields | **0** |
+| Decimal fields (money/quantity) | **~80+** |
 
-| المستوى | النموذج | الحقول التنظيمية | حالة |
-|---|---|---|---|
-| Company (جذر tenant) | `Company` | code@u, name, legalName, taxNumber... | IMPLEMENTED |
-| Branch | `Branch` | `companyId` + `@@unique(companyId, code)` | IMPLEMENTED |
-| Administration | `Administration` | `branchId` + `@@unique(branchId, code)` | IMPLEMENTED |
-| Department | `Department` | `companyId` + `branchId?` + `administrationId?` + `parentId?` (تسلسلي) + `@@unique(companyId, code)` | IMPLEMENTED |
-| User | `User` | `companyId?` + `branchId?` + `departmentId?` | IMPLEMENTED |
-| Employee | — | **غير موجود** — لا يوجد موديل Employee في schema | NOT_FOUND |
-| Manager/مدير وحدة | — | لا يوجد تعيين managers؛ يوجد `MaintenancePersonnel` كطاقم صيانة فقط | NOT_FOUND |
+---
 
-### خصائص التسلسل الهرمي (من الكود):
+## 6. Complete Database Model Inventory
 
-- **Company → Branch → Administration → Department** — خط مستقيم صارم: Administration يتبع Branch فقط، Department يتبع Company مع Branch/Administration اختياريين.
-- `Department.parentId` يدعم **التسلسل (recursive)** عبر `parent/children` — توجد واجهة `GET /departments/tree` وصفحة `core/departments`.
-- لا يوجد `Administration` أبوي لـ Administration آخر (لا يوجد `parentId` في Administration).
-- لا يوجد Employees؛ ولهذا لا يوجد تعيين موظف لوحدات متعددة ولا تواريخ بداية/نهاية للانتداب على مستوى الموظف (يوجد `startDate/endDate` فقط في `MachineResponsibilityAssignment` لطاقم الصيانة).
-- لا توجد صفحة "شجرة تنظيمية" كاملة — يوجد `departments/tree` API وصفحة إدارة أقسام تسمح بـ parentId، ولا صفحة شجرة إدارات.
-- لا يوجد validation يمنع علاقات هرمية خاطئة (مثل ربط إدارة بقسم غير تابع لنفس الفرع) — لا يوجد فحص مكتشف في services.
-- **الفصل**: البنية الإدارية (Administration/Department) منفصلة عن الخطوط الإنتاجية والآلات؛ لكن `ProductionLine` و`Machine` يربطان بشكل اختياري بـ department/administration للـ cost attribution.
-- **التضمين**: الوحدات التنظيمية **غير مضمّنة** في نماذج التشغيل — `MaintenanceRequest` لا يحمل departmentId (يصل عبر Machine → departmentId اختياري)، ونماذج المخزون تحمل companyId/branchId فقط.
+### 6.1 Organizational / Tenant Models
 
-### مخطط Mermaid (المدعوم فقط من الكود)
+| Model | Domain | Purpose | companyId | branchId | Status | Actual Usage |
+|-------|--------|---------|-----------|----------|--------|-------------|
+| Company | Organization | Top-level tenant | NO (this IS the company) | NO | ACTIVE | ACTIVE |
+| Branch | Organization | Company subdivision | YES (required) | NO | ACTIVE | ACTIVE |
+| Administration | Organization | Branch-level admin division | NO (via branch) | YES (required) | ACTIVE | ACTIVE |
+| Department | Organization | Company-wide with optional branch/admin/parent | YES (required) | optional | ACTIVE | ACTIVE |
+| OrganizationalUnit | Organization | Branch-scoped hierarchical unit | YES (required) | YES (required) | ACTIVE | ACTIVE |
+| CostCenter | Organization | Cost accounting unit with hierarchy | YES (required) | optional | ACTIVE | ACTIVE |
+| OperationalCostCenterAssignment | Organization | Assigns cost center to machine/line/unit | YES (required) | optional | ACTIVE | ACTIVE |
+| OperationType | Organization | Type of operation (e.g. machining) | NO | NO | ACTIVE | ACTIVE |
+| ProductionLine | Organization | Production line with dept/operationType/costCenter | YES (required) | YES (required) | ACTIVE | ACTIVE |
+
+**Evidence:** `apps/api/prisma/schema.prisma` lines 95-430, `apps/api/src/modules/admin/`
+
+### 6.2 User / Auth / Permission Models
+
+| Model | Domain | Purpose | companyId | branchId | Status | Actual Usage |
+|-------|--------|---------|-----------|----------|--------|-------------|
+| User | Auth | System user with optional company/branch/dept | optional | optional | ACTIVE | ACTIVE |
+| Role | Auth | Role definition (isSystem flag) | NO | NO | ACTIVE | ACTIVE |
+| Permission | Auth | Permission key (module + action) | NO | NO | ACTIVE | ACTIVE |
+| UserRole | Auth | User-Role join (composite PK) | NO | NO | ACTIVE | ACTIVE |
+| RolePermission | Auth | Role-Permission join (composite PK) | NO | NO | ACTIVE | ACTIVE |
+| UserOperationalScope | Auth | User's authorized company+branch+admin+dept scope | YES (required) | YES (required) | ACTIVE | ACTIVE |
+
+**Evidence:** `apps/api/src/modules/auth/`, `apps/api/src/common/operational-context/`
+
+### 6.3 Employee / Personnel Models
+
+| Model | Domain | Purpose | Status | Actual Usage |
+|-------|--------|---------|--------|-------------|
+| OperationalPerson | Personnel | Generic operational person linked to User | ACTIVE | ACTIVE |
+| MaintenancePersonnel | Personnel | Maintenance staff with role/specialty/capacity | ACTIVE | ACTIVE |
+| MachineResponsibilityAssignment | Personnel | Assigns personnel to machines | ACTIVE | ACTIVE |
+| MaintenanceRequestAssignment | Personnel | Assigns personnel to requests | ACTIVE | ACTIVE |
+| MaintenancePartAccountability | Personnel | Tracks part accountability per person | ACTIVE | ACTIVE |
+
+**NOTE:** There is NO `Employee` model. The system uses `OperationalPerson` linked to `User`. There is NO HR module active (stub only).
+
+**Evidence:** `apps/api/prisma/schema.prisma` lines ~2700-2900, `apps/api/src/modules/factory/maintenance/maintenance-personnel/`
+
+### 6.4 Asset / Machine Models
+
+| Model | Domain | Purpose | Status | Actual Usage |
+|-------|--------|---------|--------|-------------|
+| MachineCategory | Asset | Hierarchical machine categorization | ACTIVE | ACTIVE |
+| Machine | Asset | Machine with category, company, branch, dept, line, operationType, costCenter, technical admin/dept | ACTIVE | ACTIVE |
+| MachineComponent | Asset | Machine component with hierarchy | ACTIVE | ACTIVE |
+| MachinePart | Asset | Spare parts catalog linked to machines | ACTIVE | ACTIVE |
+| MachineDocument | Asset | Documents attached to machines | ACTIVE | ACTIVE |
+| MachineInstalledPart | Asset | Currently installed spare part on machine | ACTIVE | ACTIVE |
+| MachineInstalledPartReading | Asset | Runtime readings for installed parts | ACTIVE | ACTIVE |
+
+**Evidence:** `apps/api/src/modules/factory/maintenance/machine-categories/`, `machine-components/`, `machine-parts/`
+
+### 6.5 Spare Parts / Inventory Models
+
+| Model | Domain | Purpose | Status | Actual Usage |
+|-------|--------|---------|--------|-------------|
+| SparePart | SpareParts | Spare part catalog with classification | ACTIVE | ACTIVE |
+| ComponentSparePart | SpareParts | Links components to spare parts | ACTIVE | ACTIVE |
+| MachineSparePart | SpareParts | Links machines to spare parts | ACTIVE | ACTIVE |
+| SparePartConditionBalance | SpareParts | Balance per condition per warehouse | ACTIVE | ACTIVE |
+| SparePartConditionMovement | SpareParts | Condition-based inventory movements | ACTIVE | ACTIVE |
+| SparePartRepairOrder | SpareParts | Repair order for defective parts | ACTIVE | ACTIVE |
+| SparePartRepairAction | SpareParts | Actions taken during repair | ACTIVE | ACTIVE |
+| SparePartReplacementHistory | SpareParts | Tracks old/new part replacements | ACTIVE | ACTIVE |
+| MaintenanceBom | SpareParts | Bill of materials for machine maintenance | ACTIVE | ACTIVE |
+| MaintenanceBomVersion | SpareParts | Versioned BOM | ACTIVE | ACTIVE |
+| MaintenanceBomItem | SpareParts | BOM line items | ACTIVE | ACTIVE |
+| PreventiveSparePartPlan | SpareParts | Spare part planning for preventive schedules | ACTIVE | ACTIVE |
+| PreventiveSparePartPlanItem | SpareParts | Plan line items | ACTIVE | ACTIVE |
+
+**Evidence:** `apps/api/src/modules/factory/maintenance/spare-parts/`, `installed-parts-replacement/`, `maintenance-bom/`
+
+### 6.6 Inventory Models
+
+| Model | Domain | Purpose | companyId | branchId | Status | Actual Usage |
+|-------|--------|---------|-----------|----------|--------|-------------|
+| Warehouse | Inventory | Storage location | YES (required) | optional | ACTIVE | ACTIVE |
+| WarehouseLocation | Inventory | Location within warehouse | NO (via warehouse) | NO | ACTIVE | ACTIVE |
+| ProductCategory | Inventory | Product hierarchy | NO | NO | ACTIVE | ACTIVE |
+| Product | Inventory | Product master | NO | NO | ACTIVE | ACTIVE |
+| InventoryBalance | Inventory | Current stock per warehouse/location/product | NO | NO | ACTIVE | ACTIVE |
+| InventoryMovement | Inventory | Stock movements | YES (required) | optional | ACTIVE | ACTIVE |
+| InventoryMovementLine | Inventory | Movement line items | NO (via movement) | NO | ACTIVE | ACTIVE |
+| InventoryCount | Inventory | Cycle count header | YES (required) | optional | ACTIVE | ACTIVE |
+| InventoryCountLine | Inventory | Count line items | NO (via count) | NO | ACTIVE | ACTIVE |
+| InventoryPhysicalCount | Inventory | Physical count header | YES (required) | optional | ACTIVE | ACTIVE |
+| InventoryPhysicalCountLine | Inventory | Physical count lines | NO (via count) | NO | ACTIVE | ACTIVE |
+| InventoryAdjustment | Inventory | Adjustment header | YES (required) | optional | ACTIVE | ACTIVE |
+| InventoryAdjustmentLine | Inventory | Adjustment lines | NO (via adj) | NO | ACTIVE | ACTIVE |
+| InventoryOpeningBalance | Inventory | Opening balance header | YES (required) | optional | ACTIVE | ACTIVE |
+| InventoryOpeningBalanceLine | Inventory | Opening balance lines | NO (via OB) | NO | ACTIVE | ACTIVE |
+| InventoryStockAdjustment | Inventory | Stock adjustment header | YES (required) | optional | ACTIVE | ACTIVE |
+| InventoryStockAdjustmentLine | Inventory | Stock adjustment lines | NO (via adj) | NO | ACTIVE | ACTIVE |
+| InventoryStockTransfer | Inventory | Transfer header | YES (required) | optional | ACTIVE | ACTIVE |
+| InventoryStockTransferLine | Inventory | Transfer lines | NO (via transfer) | NO | ACTIVE | ACTIVE |
+| InventoryOperationalReceipt | Inventory | Operational receipt header | YES (required) | optional | ACTIVE | ACTIVE |
+| InventoryOperationalReceiptLine | Inventory | Operational receipt lines | NO (via receipt) | NO | ACTIVE | ACTIVE |
+| InventoryLock | Inventory | Period/warehouse/item lock | optional | optional | ACTIVE | ACTIVE |
+
+**Evidence:** `apps/api/src/modules/factory/inventory*/` (12+ modules), `apps/api/src/modules/factory/inventory-counts/`, etc.
+
+### 6.7 Maintenance Models
+
+| Model | Domain | Purpose | Status | Actual Usage |
+|-------|--------|---------|--------|-------------|
+| MaintenanceRequest | Maintenance | Maintenance request header | ACTIVE | ACTIVE |
+| MaintenanceRequestRequiredPart | Maintenance | Required parts for request | ACTIVE | ACTIVE |
+| MaintenanceRequestPartUsage | Maintenance | Parts actually used | ACTIVE | ACTIVE |
+| MaintenanceRequestCostEntry | Maintenance | Cost entries for request | ACTIVE | ACTIVE |
+| MaintenanceRequestAssignment | Maintenance | Personnel assignment | ACTIVE | ACTIVE |
+| MaintenanceTask | Maintenance | Task within request | ACTIVE | ACTIVE |
+| MaintenanceWorkOrder | Maintenance | Work order header | ACTIVE | ACTIVE |
+| MaintenanceWorkOrderPart | Maintenance | Parts for work order | ACTIVE | ACTIVE |
+| MaintenanceWorkOrderCostEntry | Maintenance | Cost entries for work order | ACTIVE | ACTIVE |
+| MaintenanceSchedule | Maintenance | Preventive schedule | ACTIVE | ACTIVE |
+| MaintenanceChecklistItem | Maintenance | Checklist template | ACTIVE | ACTIVE |
+| MaintenanceChecklistExecution | Maintenance | Checklist execution record | ACTIVE | ACTIVE |
+| MaintenanceChecklistExecutionItem | Maintenance | Individual checklist item result | ACTIVE | ACTIVE |
+| DowntimeLog | Maintenance | Downtime tracking | ACTIVE | ACTIVE |
+| MaintenanceSlaRule | Maintenance | SLA rule definition | ACTIVE | ACTIVE |
+| MaintenanceSlaState | Maintenance | SLA state per request | ACTIVE | ACTIVE |
+| MaintenancePartAccountability | Maintenance | Part accountability tracking | ACTIVE | ACTIVE |
+
+**Evidence:** `apps/api/src/modules/factory/maintenance/maintenance-requests/`, `maintenance-work-orders/`, etc.
+
+### 6.8 Production Models
+
+| Model | Domain | Purpose | companyId | branchId | Status | Actual Usage |
+|-------|--------|---------|-----------|----------|--------|-------------|
+| ProductionUnit | Production | Unit of measure | YES | YES | ACTIVE | ACTIVE |
+| ProductionProductDefinition | Production | Product production definition | YES | YES | ACTIVE | ACTIVE |
+| ProductionSpecification | Production | Product specifications | NO | NO | ACTIVE | ACTIVE |
+| ProductionVersion | Production | Product version | NO | NO | ACTIVE | ACTIVE |
+| ProductionPackaging | Production | Packaging definition | NO | NO | ACTIVE | ACTIVE |
+| ProductionEligibility | Production | Product-machine-line eligibility | NO | NO | ACTIVE | ACTIVE |
+| ProductionCapacityStandard | Production | Capacity standard (rate, cycle time, efficiency) | YES | YES | ACTIVE | ACTIVE |
+| ProductionOrder | Production | Production order | YES | YES | ACTIVE | ACTIVE |
+| ProductionOrderTransition | Production | Order status transitions | YES | YES | ACTIVE | ACTIVE |
+| ProductionOrderAttachment | Production | Order attachments | YES | YES | ACTIVE | ACTIVE |
+| ProductionShift | Production | Shift definition | YES | YES | ACTIVE | ACTIVE |
+| ProductionShiftTemplate | Production | Shift template | YES | YES | ACTIVE | ACTIVE |
+| ProductionShiftTemplateDay | Production | Template day mapping | NO | NO | ACTIVE | ACTIVE |
+| ProductionShiftCalendar | Production | Calendar | YES | YES | ACTIVE | ACTIVE |
+| ProductionShiftCalendarEntry | Production | Calendar entries | NO | NO | ACTIVE | ACTIVE |
+| ProductionShiftAssignment | Production | Personnel shift assignment | YES | YES | ACTIVE | ACTIVE |
+| ProductionOperationalAssignment | Production | Resource assignment (machine/line/unit/shift) | YES | YES | ACTIVE | ACTIVE |
+| ProductionRun | Production | Production run execution | YES | YES | ACTIVE | ACTIVE |
+| ProductionRunSession | Production | Run sessions (start/stop) | YES | YES | ACTIVE | ACTIVE |
+| ProductionRunTransition | Production | Run status transitions | YES | YES | ACTIVE | ACTIVE |
+| ProductionMeasurementPoint | Production | Measurement point definition | YES | YES | ACTIVE | ACTIVE |
+| ProductionOutputEvent | Production | Output recording | YES | YES | ACTIVE | ACTIVE |
+| OperationalLossReason | Production | Loss reason hierarchy | YES | YES | ACTIVE | ACTIVE |
+| DowntimeSegment | Production | Production downtime tracking | YES | YES | ACTIVE | ACTIVE |
+| ProductionLossQuantityEvent | Production | Loss quantity recording | YES | YES | ACTIVE | ACTIVE |
+| ProductionMaterialDocument | Production | Material issue document | YES | YES | ACTIVE | ACTIVE |
+| ProductionMaterialDocumentLine | Production | Material document lines | YES | YES | ACTIVE | ACTIVE |
+| ProductionMaterialRequirement | Production | Material requirement | YES | YES | ACTIVE | ACTIVE |
+| ProductionMaterialRequirementLine | Production | Material requirement lines | YES | YES | ACTIVE | ACTIVE |
+| ProductionMaterialConsumption | Production | Material consumption | YES | YES | ACTIVE | ACTIVE |
+| ProductionMaterialConsumptionCorrection | Production | Consumption corrections | YES | YES | ACTIVE | ACTIVE |
+| ProductionFinishedGoodsReceipt | Production | FG receipt header | YES | YES | ACTIVE | ACTIVE |
+| ProductionFinishedGoodsReceiptLine | Production | FG receipt lines | YES | YES | ACTIVE | ACTIVE |
+| ProductionQualityPlan | Production | Quality plan | YES | YES | ACTIVE | ACTIVE |
+| QualityCharacteristic | Production | Quality characteristic | YES | YES | ACTIVE | ACTIVE |
+| QualitySamplingPoint | Production | Sampling point | YES | YES | ACTIVE | ACTIVE |
+| ProductionInspection | Production | Quality inspection | YES | YES | ACTIVE | ACTIVE |
+| ProductionInspectionResult | Production | Inspection results | YES | YES | ACTIVE | ACTIVE |
+| ProductionQualityDisposition | Production | Quality disposition | YES | YES | ACTIVE | ACTIVE |
+| ProductionNonconformance | Production | NCR | YES | YES | ACTIVE | ACTIVE |
+| ProductionNonconformanceTransition | Production | NCR transitions | YES | YES | ACTIVE | ACTIVE |
+| ProductionNonconformanceAttachment | Production | NCR attachments | YES | YES | ACTIVE | ACTIVE |
+| OperationalCostRate | Production | Cost rate definition | YES | YES | ACTIVE | ACTIVE |
+| OperationalStandardCostSnapshot | Production | Standard cost snapshot | YES | YES | ACTIVE | ACTIVE |
+| OperationalCostTransaction | Production | Cost transaction ledger (append-only) | YES | YES | ACTIVE | ACTIVE |
+| OperationalCostCalculation | Production | Cost calculation run | YES | YES | ACTIVE | ACTIVE |
+| OperationalSourceChange | Production | Source change watermark (append-only) | YES | YES | ACTIVE | ACTIVE |
+| ProductionPerformanceTarget | Production | OEE/performance targets | YES | YES | ACTIVE | ACTIVE |
+| ProductionPerformanceTargetTransition | Production | Target transitions | YES | YES | ACTIVE | ACTIVE |
+
+**Evidence:** `apps/api/src/modules/factory/production-master-data/`, `production-shifts/`, `production-orders/`, `production-runs/`, `production-cost/`, `production-quality/`, `production-analytics/`
+
+### 6.9 Shared / Cross-Cutting Models
+
+| Model | Domain | Purpose | Status | Actual Usage |
+|-------|--------|---------|--------|-------------|
+| AuditLog | Audit | Audit trail | ACTIVE | ACTIVE |
+| Notification | Notifications | User notifications | ACTIVE | ACTIVE |
+| NotificationRule | Notifications | Notification dispatch rules | ACTIVE | ACTIVE |
+| Attachment | Documents | File attachments (polymorphic via entityName+entityId) | ACTIVE | ACTIVE |
+| SystemSetting | Settings | Key-value system settings | ACTIVE | ACTIVE |
+| NumberSequence | Numbering | Document number sequences | ACTIVE | ACTIVE |
+| BarcodeLabel | Barcodes | Barcode label records | ACTIVE | ACTIVE |
+| BarcodeScanEvent | Barcodes | Scan history | ACTIVE | ACTIVE |
+| BarcodeLabelTemplate | Barcodes | Label templates | ACTIVE | ACTIVE |
+| BarcodePrintJob | Barcodes | Print job records | ACTIVE | ACTIVE |
+| BusinessPartner | Partners | Customer/supplier | ACTIVE | ACTIVE |
+| BusinessPartnerGroup | Partners | Partner grouping | ACTIVE | ACTIVE |
+| BusinessPartnerContact | Partners | Partner contacts | ACTIVE | ACTIVE |
+| BusinessPartnerAddress | Partners | Partner addresses | ACTIVE | ACTIVE |
+| BusinessPartnerBankAccount | Partners | Partner bank accounts | ACTIVE | ACTIVE |
+| PaymentTerm | Partners | Payment terms | ACTIVE | ACTIVE |
+| InternalConversation | Messaging | Chat conversations | ACTIVE | ACTIVE |
+| InternalConversationParticipant | Messaging | Conversation participants | ACTIVE | ACTIVE |
+| InternalMessage | Messaging | Chat messages | ACTIVE | ACTIVE |
+
+---
+
+## 7. Current Administrative Organization Structure
+
+### How the System Represents Organization
+
+1. **Company** — Top-level tenant entity. No `companyId` on itself. Has `code` (unique), `name`, status.
+
+2. **Branch** — Belongs to one Company (`companyId` required). Has `code` unique per company.
+
+3. **Administration** — Belongs to one Branch (`branchId` required). Has `code` unique per branch. Represents a major administrative division within a branch.
+
+4. **Department** — Belongs to one Company (`companyId` required), optionally to a Branch and Administration. Has recursive `parentId` (self-relation `DepartmentHierarchy`). Has `code` unique per company.
+
+5. **OrganizationalUnit** — Belongs to one Company + Branch (both required). Has recursive `parentId` (self-relation `OrganizationalUnitHierarchy`). Has `type` field (default `"DEPARTMENT"`). Has `code` unique per branch.
+
+6. **CostCenter** — Belongs to Company (required), optionally Branch, Administration, Department. Has recursive `parentId` (self-relation `CostCenterHierarchy`). Has `type` field.
+
+### Actual Organizational Hierarchy (Mermaid)
 
 ```mermaid
 graph TD
     Company --> Branch
     Branch --> Administration
+    Company --> Department
     Branch --> Department
     Administration --> Department
-    Company --> Department
-    Department -->|parentId| Department
-    Department --> User
-    Branch --> User
-    Company --> User
-    Branch --> ProductionLine
-    Administration --> ProductionLine
-    Department --> ProductionLine
-    ProductionLine --> Machine
-    Department -->|optional| Machine
-    Branch -->|optional| Machine
-    Company -->|optional| Machine
+    Department -.->|parentId| Department
+    Branch --> OrganizationalUnit
+    Company --> OrganizationalUnit
+    OrganizationalUnit -.->|parentId| OrganizationalUnit
+    Company --> CostCenter
+    Branch --> CostCenter
+    Administration --> CostCenter
+    Department --> CostCenter
+    CostCenter -.->|parentId| CostCenter
 ```
+
+### Key Facts
+
+- Department has `parentId` (recursive) — **CONFIRMED**
+- OrganizationalUnit has `parentId` (recursive) — **CONFIRMED**
+- CostCenter has `parentId` (recursive) — **CONFIRMED**
+- No fixed number of levels — recursive hierarchies allow unlimited depth
+- Employee is represented via `OperationalPerson` → `User`, not via a dedicated Employee model
+- No Supervisor/Manager hierarchy in the Employee domain
+- No Assignment/Transfer history for employees
+
+**Evidence:** `apps/api/prisma/schema.prisma` lines 95-250, `apps/api/src/modules/admin/departments/`, `organizational-units/`
 
 ---
 
-## القسم 5 — Current Factory and Operational Structure
+## 8. Current Factory / Operational Structure
 
-### ما هو موجود فعلياً
-
-| المفهوم | النموذج/التنفيذ | الحالة |
-|---|---|---|
-| Facility / Area / Section | **غير موجود** — لا توجد نماذج facilities/areas/sections | NOT_FOUND |
-| Production Line | `ProductionLine` — مرجع تنظيمي (companyId, branchId, administrationId?, departmentId, operationTypeId, costCenterId?) | IMPLEMENTED (كتنظيم صيانة) |
-| Operation Type | `OperationType` (MANUFACTURING, MIXING, FILLING, PACKAGING... 9 قيم seed) | IMPLEMENTED (مرجع) |
-| Machine (أصل) | `Machine` — code@u, categoryId?, companyId?, branchId?, departmentId?, productionLineId?, operationTypeId?, defaultCostCenterId?, technicalAdministrationId?, technicalDepartmentId?, serial, warranty, qrCode, image | IMPLEMENTED |
-| Machine Category | `MachineCategory` — تسلسلي (parentId?) | IMPLEMENTED |
-| Machine Component | `MachineComponent` — تسلسلي تحت Machine (`@@unique(machineId, code)`) + criticality (MEDIUM افتراضي) | IMPLEMENTED |
-| Machine Part (قديم) | `MachinePart` — رابط قديم بين Machine وProduct (machineId?/productId?) | LEGACY/شبه مهجور |
-| Machine Document | `MachineDocument` — ملفات لكل آلة | IMPLEMENTED |
-| Warehouse / Location | `Warehouse` (warehouseType: SPARE_PART/PRODUCT/RAW_MATERIAL) + `WarehouseLocation` | IMPLEMENTED |
-| Employees/Operators/Supervisors | لا يوجد Employee model؛ يوجد `OperationalPerson` (category MAINTENANCE) + `MaintenancePersonnel` (role, specialty, dailyCapacityMinutes) | PARTIAL (طاقم صيانة فقط) |
-| Shifts | **غير موجود** | NOT_FOUND |
-| Cost Center | `CostCenter` (type + companyId?/branchId?/administrationId?/departmentId?) | IMPLEMENTED (مرجع) |
-
-### العلاقات الفعلية (Mermaid)
+### Actual Factory Hierarchy (Mermaid)
 
 ```mermaid
 graph TD
-    Warehouse --> WarehouseLocation
-    MachineCategory --> MachineCategory
-    MachineCategory --> Machine
-    Machine --> MachineComponent
-    MachineComponent --> MachineComponent
-    Machine --> MachineDocument
-    Machine -->|optional| ProductionLine
-    Machine -->|optional| OperationType
-    Machine -->|defaultCostCenterId| CostCenter
+    Company --> Branch
+    Branch --> Administration
+    Company --> Department
+    ProductionLine --> Department
+    ProductionLine --> Administration
     ProductionLine --> OperationType
     ProductionLine --> CostCenter
+    Machine --> ProductionLine
+    Machine --> Department
+    Machine --> OperationType
+    Machine --> CostCenter
+    Machine --> MachineCategory
+    Machine --> Administration
+    MachineComponent --> Machine
+    MachineComponent -.->|parentComponentId| MachineComponent
+    MachinePart --> Machine
+    MachinePart --> Product
+    MachineDocument --> Machine
 ```
 
----
+### Key Facts
 
-## القسم 6 — Database Architecture
+- **Factory = Company** (no separate Facility/Plant entity). Branches represent physical locations.
+- **No "Production Area" or "Production Section" entity.** The chain is: Branch → Administration → Department → ProductionLine → Machine.
+- **ProductionLine** links to: Company, Branch, Administration, Department, OperationType, CostCenter.
+- **Machine** links to: Company, Branch, Department, ProductionLine, OperationType, CostCenter, MachineCategory, TechnicalAdministration, TechnicalDepartment.
+- **MachineComponent** is hierarchical via `parentComponentId`.
+- **Machine is separate from Asset** — there is no generic "Asset" model; Machine IS the asset entity.
+- **No "Location" entity separate from hierarchy** — machine location is a string field.
 
-### الإحصاءات الأساسية
-
-| المقياس | القيمة |
-|---|---|
-| عدد النماذج (Models) | **95** |
-| عدد الـ Enums | **0** (جميع الحالات نصوص String حرة — القيم فقط في كود TypeScript) |
-| عدد الـ Views | 0 |
-| `@unique` (أحادية) | 38 |
-| `@@unique` (مركّبة) | 18 |
-| `@@id` (مفاتيح مركّبة) | 2 (UserRole, RolePermission) |
-| `@id` مفاتيح أولية | 95 (كل نموذج) |
-| `@@index` | 507 |
-| نماذج بها `deletedAt` (حذف ناعم) | 41 |
-| نماذج بها `updatedAt` | 83 |
-| نماذج بها حقل `status` | 55 (كلها String) |
-| نماذج بها `companyId` | 20 |
-| نماذج بها `branchId` | 20 |
-| حجم schema.prisma | 2,975 سطراً |
-| مجلدات migrations | 38 (تبدأ `20260714042111_init_core_foundation` وتنتهي `20260803000000_add_maintenance_work_order`) |
-
-### النماذج مجمعة حسب النطاق
-
-| النطاق | النماذج |
-|---|---|
-| Business Partners (6) | BusinessPartnerGroup, PaymentTerm, BusinessPartner, BusinessPartnerContact, BusinessPartnerAddress, BusinessPartnerBankAccount |
-| تنظيم/tenant (10) | Company, Branch, Administration, Department, ProductionLine, User, UserOperationalScope, Role, Permission, UserRole, RolePermission (11 فعلياً) |
-| نظام/عام (7) | AuditLog, Notification, NotificationRule, Attachment, SystemSetting, NumberSequence, InventoryLock |
-| مخزون رئيسي (4) | Warehouse, WarehouseLocation, ProductCategory, Product |
-| مستندات مخزون (20) | InventoryCount(+Line), InventoryPhysicalCount(+Line), InventoryMovement(+Line), InventoryAdjustment(+Line), InventoryOpeningBalance(+Line), InventoryStockAdjustment(+Line), InventoryStockTransfer(+Line), InventoryOperationalReceipt(+Line), InventoryBalance |
-| صيانة رئيسية/مراجع (9) | MachineCategory, Machine, MachinePart, MachineDocument, MachineComponent, SparePart, ComponentSparePart, MachineSparePart, OperationType, CostCenter (10 فعلياً) |
-| عمليات صيانة (16) | MaintenanceRequest, MaintenanceRequestRequiredPart, MaintenanceSlaRule, MaintenanceSlaState, OperationalPerson, MaintenancePersonnel, MachineResponsibilityAssignment, MaintenanceRequestAssignment, MaintenancePartAccountability, MaintenanceTask, MaintenanceSchedule, MaintenanceChecklistItem, DowntimeLog, MaintenanceRequestPartUsage, MaintenanceRequestCostEntry, MaintenanceChecklistExecution(+Item) (17 فعلياً) |
-| Barcode/QR (4) | BarcodeLabel, BarcodeScanEvent, BarcodeLabelTemplate, BarcodePrintJob |
-| Messaging (3) | InternalConversation, InternalConversationParticipant, InternalMessage |
-| حالات/إصلاح/BOM (10) | SparePartConditionBalance, SparePartConditionMovement, SparePartRepairOrder, SparePartRepairAction, MachineInstalledPart, SparePartReplacementHistory, MaintenanceBom, MaintenanceBomVersion, MaintenanceBomItem, PreventiveSparePartPlan(+Item) (11 فعلياً) |
-
-### المفاتيح المركّبة الفريدة (18 @@unique)
-
-`Branch(companyId,code)`، `Administration(branchId,code)`، `Department(companyId,code)`، `Warehouse(companyId,code)`، `WarehouseLocation(warehouseId,code)`، `InventoryBalance(warehouseId,productId,batchNumber,serialNumber)`، `InventoryCountLine(countId,productId,warehouseLocationId)`، `InventoryPhysicalCountLine(...)`، `MachineComponent(machineId,code)`، `ComponentSparePart(componentId,sparePartId)`، `MachineSparePart(machineId,sparePartId)`، `MaintenanceRequestRequiredPart(maintenanceRequestId,sparePartId)`، `MaintenanceSlaState(maintenanceRequestId)`، `InternalConversationParticipant(conversationId,userId)`، `SparePartConditionBalance(sparePartId,warehouseId,condition)`، `MaintenanceBomVersion(bomId,versionNumber)`.
-
-### فحص العزل متعدد الشركات (Tenant Isolation)
-
-- **نماذج تحمل companyId (20 بالعد الجسمي)**: Branch, Department, ProductionLine, User, UserOperationalScope, Warehouse, Machine, CostCenter, InventoryCount, InventoryPhysicalCount, InventoryMovement, InventoryAdjustment, InventoryOpeningBalance, InventoryStockAdjustment, InventoryStockTransfer, InventoryOperationalReceipt وغيرها — عدد حقول `companyId` في schema = 20.
-- **عزل غير مباشر (بلا companyId)**: InventoryBalance (عبر warehouseId)؛ كل جداول الخطوط (عبر المستند الأب)؛ كل نماذج الصيانة (عبر Machine → companyId اختياري!)؛ SparePartConditionBalance/Movement وSparePartRepairOrder (عبر warehouseId)؛ MachineInstalledPart/ReplacementHistory/Bom/Plans (عبر machineId).
-- **بيانات عالمية (بلا tenant إطلاقاً)**: Product، SparePart، MachineComponent، MachineCategory، Barcode*، Messaging، Role، Permission، AuditLog، Notification، Attachment، SystemSetting، OperationType.
-- **حيث يتم العزل**: لا يوجد isolation على مستوى قاعدة البيانات (SQL views/RLS) ولا على مستوى middleware؛ العزل النظري هو: فلاتر `companyId` في استعلامات مخزون معينة + `OperationalContext` (رؤوس `x-active-company-id`...) التي تُقرأ عبر interceptor وترسلها الواجهة الأمامية كتفضيل سياق. **لا يوجد فحص يمنع جلب سجل شركة أخرى عند معرفة ID مباشر** (لا توجد where clauses عامة تفرض tenant على كل الخدمات).
-- **كيف تُفتح الشركة النشطة**: من `UserOperationalScope` (تسلسلات لكل مستخدم عبر `/auth/contexts` + `/auth/context/validate`)، وليس من JWT. الرأس `x-active-company-id` يختاره المستخدم من `context-switcher` في الشريط العلوي.
-- **هل يُفعَّل فرع الوصول؟** لا — branchId في السياق اختياري وغير مفروض.
-- **فريدية مقيّدة بالشركة**: نعم لبعضها (`@@unique(companyId, code)` في Branch/Warehouse/Department/Administration)؛ لكن `code@u` عالمي في Product/SparePart/Machine/BusinessPartner/NumberSequence — أي أكواد لا تتكرر عبر الشركات.
+**Evidence:** `apps/api/prisma/schema.prisma` lines 300-430, `apps/api/src/modules/factory/maintenance/production-lines/`, `machine-categories/`
 
 ---
 
-## القسم 7 — Backend Architecture
+## 9. Employees and User Structure
 
-### إحصاءات الوحدات
+### Actual Model Chain
 
-| المقياس | القيمة |
-|---|---|
-| وحدات مسجلة في `AppModule` | **80** (تم التحقق برمجياً من مصفوفة imports) |
-| ملفات `.module.ts` على القرص | 202 (89 غير فارغة) |
-| وحدات على القرص غير مسجلة | ~113 (باستثناء app.module.ts نفسه) |
-| ملفات controller | 170 (88 تحتوي مسارات حقيقية، **82 فارغة 0 بايت**) |
-| إجمالي الـ endpoints | **774** (GET=380، POST=161، PATCH=168، DELETE=65، PUT=0) |
-| ملفات service | 143 (96 غير فارغة) |
-| ملفات DTO | 389 |
-| ملفات TS في api/src إجمالاً | 1,013 — منها **520 ملفاً فارغاً (51%)** |
-| Guard files | 7 (زوجان مكرران Jwt/Permissions + inventory-lock + approval-duplication.guard فارغ + roles.guard فارغ) |
+```
+User (email, passwordHash, companyId?, branchId?, departmentId?)
+  └── OperationalPerson (code, category, userId?)
+        └── MaintenancePersonnel (role, specialty, dailyCapacityMinutes?)
+              └── MachineResponsibilityAssignment → Machine
+              └── MaintenanceRequestAssignment → MaintenanceRequest
+              └── MaintenancePartAccountability → Parts
+```
 
-### الوحدات المسجلة (80) — ملخص مصنف
+### Key Facts
 
-- **Core**: PrismaModule, HealthModule, AuthModule, UsersModule, RolesModule, PermissionsModule, BranchesModule, AdministrationsModule, DepartmentsModule, CompaniesModule, AuditModule
-- **Factory/Inventory**: ProductsModule, ProductCategoriesModule, InventoryModule, InventoryCountsModule, InventoryCountLinesModule, InventoryMovementsModule, InventoryAdjustmentsModule, InventoryBalancesModule, InventoryLedgerReconciliationModule, InventoryOpeningBalancesModule, InventoryStockAdjustmentsModule, InventoryStockTransfersModule, InventoryOperationalReceiptsModule, InventoryPhysicalCountsModule, InventoryLocksModule
-- **Maintenance (40 وحدة)**: MaintenanceModule، MachineCategories، MachineParts، MachineDocuments، MaintenanceRequests، MaintenanceTasks، MaintenanceSchedules، MaintenanceChecklistItems، DowntimeLogs، MaintenanceRequestParts، MaintenanceRequestCosts، MaintenanceChecklistExecutions، MaintenanceDashboard، PreventiveMaintenance، OperationTypes، CostCenters، ProductionLines، MachineComponents، SpareParts، ComponentSpareParts، MachineSpareParts، MaintenancePersonnel، MachineResponsibilityAssignments، MaintenanceRequestAssignments، MaintenancePartAccountability، MaintenanceReliability، MaintenanceSparePartRequestLines، MaintenanceNotification، MaintenanceSla، MaintenanceCalendarWorkload، MaintenanceStockIssue، SparePartCondition، InstalledPartsReplacement، RepairOrders، MaintenanceBom، PreventiveSparePartPlan
-- **أخرى**: BusinessPartners، Barcodes، SystemSettings، CompanyProfile، Language، Appearance، Security، NotificationRules، Numbering، Notifications، Reports، Search، Dashboard، Alerts، Attachments، Messaging
+- **1 User = 1 OperationalPerson** (via `userId` unique link, optional)
+- **Not all Users are OperationalPersons** — admin users may not have one
+- **No Employee model** — the system uses `OperationalPerson` + `User`
+- **No JobTitle/Position model** — MaintenancePersonnel has `role` and `specialty` string fields
+- **No Supervisor/Manager hierarchy** — MaintenancePersonnel has `responsibilityRole` on assignment
+- **No Assignment dates/transfer history** for employees
+- **No dedicated Employee-Branch or Employee-Company assignment** — the User has direct `companyId`/`branchId` fields, plus `UserOperationalScope` for multi-context access
+- **Shift assignment** is via `ProductionShiftAssignment` → `OperationalPerson`
 
-### وحدات على القرص غير مسجلة (أمثلة مع المسارات)
+**Evidence:** `apps/api/prisma/schema.prisma` lines ~2700-2900, `apps/api/src/modules/factory/maintenance/maintenance-personnel/`
 
-`modules/ai/*` (6)، `finance/*` (12)، `purchasing/*` (10)، `sales/*` (9)، `hr/*` (8)، `iot/*` (8)، `bi/*` (5)، `forecasting/*` (5)، `dynamic/*` (5)، `workflows`، `approvals`، `backups`، `import-export/*` (5)، `print-templates`، `predictive-maintenance/*` (5)، `system-health`، `system-update`، `monitoring`، `universal-requests`، `hr-requests`، `inventory-issue-requests`، `financial-disbursement-requests`، `business-rules`، `factory/bom`، `factory/materials`، `factory/quality`، `factory/units`، `factory/production`، `admin/access-control` (نسخة قديمة فارغة)، `documents` (الأب)، `settings` (الأب)، `admin` (الأب). **كلها 0 بايت ولا تسرّب إلى runtime.**
+---
 
-### الترويسات العامة
+## 10. Shift Structure
+
+### Models
+
+| Model | Purpose |
+|-------|---------|
+| ProductionShift | Shift definition (code, name, startTime, endTime, durationMinutes, breakMinutes) |
+| ProductionShiftTemplate | Template grouping shifts by day |
+| ProductionShiftTemplateDay | Day-of-week → shift mapping |
+| ProductionShiftCalendar | Calendar applying a template over a date range |
+| ProductionShiftCalendarEntry | Individual calendar entries (date, shift, isWorkDay) |
+| ProductionShiftAssignment | Assigns OperationalPerson to shift (with effective dates) |
+| ProductionOperationalAssignment | Assigns machine/line/unit to shift (with capacity) |
+
+### Key Facts
+
+- Shifts are **production-specific** — no separate MaintenanceShift
+- Shift assignment links to `OperationalPerson` (not User directly)
+- Calendar system supports effective date ranges
+- Template system maps days of week to shifts
+- Shifts are **Master Data** — they define working periods, not real-time tracking
+- **No Shift Handover** model exists
+
+**Evidence:** `apps/api/src/modules/factory/production-shifts/`, `apps/api/prisma/schema.prisma` lines ~1400-1700
+
+---
+
+## 11. Asset Structure
+
+### Chain
+
+```
+MachineCategory (hierarchical)
+  └── Machine (code, name, model, serialNumber, manufacturer, purchaseDate, warrantyEnd, location, qrCode, image)
+        ├── MachineComponent (hierarchical via parentComponentId)
+        │     └── ComponentSparePart → SparePart
+        ├── MachinePart → Product
+        ├── MachineDocument
+        ├── MachineSparePart → SparePart
+        ├── MachineInstalledPart → SparePart
+        │     └── MachineInstalledPartReading
+        ├── MachineResponsibilityAssignment → MaintenancePersonnel
+        └── ProductionLine (machine belongs to a line)
+```
+
+### Key Facts
+
+- Machine IS the asset (no separate Asset model)
+- Machine is linked to: MachineCategory, Company, Branch, Department, ProductionLine, OperationType, CostCenter, TechnicalAdministration, TechnicalDepartment
+- MachineComponent is hierarchical (unlimited depth)
+- Installed parts track lifecycle: installedAt, removedAt, lifeStatus, expectedLifeHours, runtimeHours
+- Runtime readings are recorded via MachineInstalledPartReading
+- SparePartReplacementHistory tracks old→new part swaps
+
+**Evidence:** `apps/api/src/modules/factory/maintenance/machine-categories/`, `machine-components/`, `installed-parts-replacement/`
+
+---
+
+## 12. Maintenance Architecture
+
+### Complete Module Inventory (36+ sub-modules registered)
+
+| Sub-Module | Controller | Service | Purpose |
+|-----------|-----------|---------|---------|
+| maintenance (parent) | Yes | Yes | Overview, aggregated queries |
+| machine-categories | Yes | Yes | Machine category CRUD |
+| maintenance-dashboard | Yes | Yes | Dashboard KPIs |
+| machine-parts | Yes | Yes | Machine parts catalog |
+| machine-documents | Yes | Yes | Machine documents |
+| maintenance-requests | Yes | Yes | Request CRUD + workflow |
+| maintenance-work-orders | Yes | Yes | Work order CRUD + workflow |
+| maintenance-tasks | Yes | Yes | Task management |
+| maintenance-schedules | Yes | Yes | Preventive schedules |
+| maintenance-checklist-items | Yes | Yes | Checklist templates |
+| downtime-logs | Yes | Yes | Downtime tracking |
+| maintenance-request-parts | Yes | Yes | Required/used parts |
+| maintenance-request-costs | Yes | Yes | Cost tracking |
+| maintenance-checklist-executions | Yes | Yes | Execution records |
+| preventive-maintenance | Yes | Yes | PM generation |
+| operation-types | Yes | Yes | Operation type CRUD |
+| cost-centers | Yes | Yes | Cost center CRUD + resolver |
+| production-lines | Yes | Yes | Production line CRUD |
+| machine-components | Yes | Yes | Component CRUD |
+| spare-parts | Yes | Yes | Spare part catalog |
+| component-spare-parts | Yes | Yes | Component-Part links |
+| machine-spare-parts | Yes | Yes | Machine-Part links |
+| maintenance-personnel | Yes | Yes | Personnel management |
+| machine-responsibility-assignments | Yes | Yes | Responsibility assignment |
+| maintenance-request-assignments | Yes | Yes | Request assignment |
+| maintenance-part-accountability | Yes | Yes | Part accountability |
+| maintenance-reliability | Yes | Yes | MTTR/reliability metrics |
+| maintenance-spare-part-request-lines | Yes | Yes | Spare part requests |
+| maintenance-notification | No (service only) | Yes | Notification dispatch |
+| maintenance-sla | Yes | Yes | SLA management |
+| maintenance-calendar-workload | Yes | Yes | Calendar/workload |
+| maintenance-stock-issue | Yes | Yes | Stock issue from warehouse |
+| spare-part-conditions | Yes | Yes | Condition tracking |
+| installed-parts-replacement | Yes | Yes | Install/remove parts |
+| repair-orders | Yes | Yes | Repair order management |
+| maintenance-bom | Yes | Yes | BOM management |
+| preventive-spare-part-plan | Yes | Yes | Preventive spare planning |
+
+**Evidence:** `apps/api/src/modules/factory/maintenance/` (36 sub-module directories)
+
+---
+
+## 13. Maintenance Workflows
+
+### MaintenanceRequest Status Flow (from code analysis)
+
+The MaintenanceRequest uses a string-based status field. Based on the service code and controller actions:
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING : Create request
+    PENDING --> ASSIGNED : Assign personnel
+    ASSIGNED --> IN_PROGRESS : Start work
+    IN_PROGRESS --> ON_HOLD : Pause
+    ON_HOLD --> IN_PROGRESS : Resume
+    IN_PROGRESS --> COMPLETED : Complete work
+    COMPLETED --> VERIFIED : Verify
+    VERIFIED --> CLOSED : Close
+    PENDING --> CANCELLED : Cancel
+    ASSIGNED --> CANCELLED : Cancel
+    IN_PROGRESS --> CANCELLED : Cancel
+```
+
+**CONFIDENCE:** HIGH_CONFIDENCE — derived from controller action endpoints and service status transitions.
+
+### MaintenanceWorkOrder Status Flow
+
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT : Create
+    DRAFT --> PLANNED : Plan
+    PLANNED --> RELEASED : Release
+    RELEASED --> IN_PROGRESS : Start
+    IN_PROGRESS --> ON_HOLD : Pause
+    ON_HOLD --> IN_PROGRESS : Resume
+    IN_PROGRESS --> COMPLETED : Complete
+    COMPLETED --> CLOSED : Close
+    DRAFT --> CANCELLED : Cancel
+    PLANNED --> CANCELLED : Cancel
+    RELEASED --> CANCELLED : Cancel
+```
+
+**Evidence:** `apps/api/src/modules/factory/maintenance/maintenance-requests/`, `maintenance-work-orders/`
+
+---
+
+## 14. Planned Maintenance
+
+### Models
+
+| Model | Purpose |
+|-------|---------|
+| MaintenanceSchedule | Preventive schedule per machine (type, frequency, nextDueDate) |
+| MaintenanceChecklistItem | Checklist template per schedule |
+| MaintenanceChecklistExecution | Execution record |
+| MaintenanceChecklistExecutionItem | Individual item result |
+| PreventiveSparePartPlan | Spare part planning per schedule |
+| PreventiveSparePartPlanItem | Plan line items |
+
+### Flow
+
+```
+MaintenanceSchedule → generates → MaintenanceRequest (via PreventiveMaintenance service)
+MaintenanceSchedule → MaintenanceChecklistItem (templates)
+MaintenanceSchedule → PreventiveSparePartPlan → PreventiveSparePartPlanItem → SparePart
+```
+
+### Key Facts
+
+- Preventive maintenance is schedule-based (not predictive or condition-based)
+- Checklist items are linked to schedules and copied to executions
+- Spare part plans are generated per schedule
+- Schedule has `nextDueDate` for scheduling
+- **No Predictive Maintenance** exists (stub only)
+- **No Calendar visualization** in the backend (calendar page exists in frontend but data comes from schedule list)
+
+**Evidence:** `apps/api/src/modules/factory/maintenance/preventive-maintenance/`, `maintenance-schedules/`, `preventive-spare-part-plan/`
+
+---
+
+## 15. Failures and Downtime
+
+### Models
+
+| Model | Purpose |
+|-------|---------|
+| DowntimeLog | Records downtime per machine (startTime, endTime, failureCategory, rcaStatus) |
+| DowntimeSegment | Production downtime (links to production run, order, line, shift, reason) |
+| OperationalLossReason | Hierarchical loss reason catalog |
+
+### DowntimeLog Fields
+
+- `startTime`, `endTime` — time range
+- `failureCategory` — string categorization
+- `failureSubCategory`, `failureMode` — additional classification
+- `rcaStatus`, `rcaCompletedById`, `rcaCompletedAt` — root cause analysis tracking
+- `correctsLogId` — self-reference for corrections
+- Links to: Machine, MaintenanceRequest, ProductionRun, ProductionOrder, ProductionLine, Shift
+
+### Downtime Calculation
+
+The system calculates duration from `endTime - startTime` (when both are present). The `DowntimeSegment` in the production domain provides a parallel tracking system linked to production runs.
+
+**Evidence:** `apps/api/src/modules/factory/maintenance/downtime-logs/`, `apps/api/src/modules/factory/production-downtime/`
+
+---
+
+## 16. Spare Parts Integration
+
+### Complete Chain
+
+```
+SparePart (catalog)
+  ├── ComponentSparePart → MachineComponent
+  ├── MachineSparePart → Machine
+  ├── SparePartConditionBalance → Warehouse (per condition)
+  ├── SparePartConditionMovement → Warehouse (condition changes)
+  ├── SparePartRepairOrder → Repair workflow
+  │     └── SparePartRepairAction
+  ├── MachineInstalledPart → Machine (currently installed)
+  │     └── MachineInstalledPartReading (runtime data)
+  ├── SparePartReplacementHistory (old→new tracking)
+  ├── MaintenanceBom → Machine/Component (BOM)
+  │     └── MaintenanceBomVersion → MaintenanceBomItem → SparePart
+  ├── PreventiveSparePartPlan → MaintenanceSchedule
+  │     └── PreventiveSparePartPlanItem → SparePart
+  ├── MaintenanceRequestRequiredPart → MaintenanceRequest
+  ├── MaintenancePartAccountability → Personnel
+  └── Product (optional link to inventory product)
+```
+
+### Key Facts
+
+- SparePart is an **independent catalog entity** (not the same as Product)
+- SparePart has optional `productId` link to the Product inventory model
+- Spare parts have condition tracking (NEW, SERVICEABLE, REPAIRABLE, DEFECTIVE)
+- Installed parts track: installedAt, expectedLifeHours, runtimeHours, lifeStatus
+- Runtime readings are recorded per installed part
+- Repair orders track the repair workflow with actions
+- **No "Aging" or "Slow-Moving" analysis** exists in the backend
+- Part accountability tracks who issued/received/installed each part
+
+**Evidence:** `apps/api/src/modules/factory/maintenance/spare-parts/`, `installed-parts-replacement/`, `maintenance-part-accountability/`, `repair-orders/`
+
+---
+
+## 17. Production Architecture
+
+### Complete Module Inventory (14+ sub-modules registered)
+
+| Sub-Module | Controller | Service | Purpose |
+|-----------|-----------|---------|---------|
+| production-master-data | Yes | Yes | Product definitions, units |
+| production-shifts | Yes | Yes | Shifts, templates, calendars, assignments, operational assignments |
+| production-capacity-standards | Yes | Yes | Capacity standards with revision/supersede |
+| production-orders | Yes | Yes | Production order CRUD + transitions |
+| production-runs | Yes | Yes | Run execution + output events + measurement points |
+| production-loss-reasons | Yes | Yes | Loss reason hierarchy |
+| production-downtime | Yes | Yes | Downtime segments |
+| production-loss-quantity-events | Yes | Yes | Loss quantity recording |
+| production-material-documents | Yes | Yes | Material issue/return |
+| production-material-requirements | Yes | Yes | Material requirements |
+| production-finished-goods-receipts | Yes | Yes | FG receipt |
+| production-quality | Yes | Yes | Quality plans, inspections, dispositions, NCRs |
+| production-cost | Yes | Yes | Cost rates, snapshots, transactions, calculations |
+| production-analytics | Yes | Yes | Performance targets, analytics, reliability |
+
+### Production Order Lifecycle
+
+```
+ProductionProductDefinition → ProductionVersion → ProductionCapacityStandard
+                                                        ↓
+                                          ProductionOrder (DRAFT → PLANNED → RELEASED → IN_PROGRESS → COMPLETED → CLOSED)
+                                                        ↓
+                                              ProductionRun (DRAFT → IN_PROGRESS → PAUSED → COMPLETED → CLOSED)
+                                                        ↓
+                                    ┌───────────────────┼───────────────────┐
+                           OutputEvent          MaterialDocument    FinishedGoodsReceipt
+                                    ↓                   ↓                    ↓
+                         MeasurementPoint    InventoryMovement     InventoryMovement
+```
+
+### Key Facts
+
+- Production orders snap capacity standard values at creation time (immutable snapshot)
+- Runs are the execution unit — each run has sessions (start/stop)
+- Output events are recorded against measurement points
+- Material documents create inventory movements (issue from warehouse)
+- Finished goods receipts create inventory movements (receive to warehouse)
+- Quality inspection is inline with output events
+- Cost transactions are append-only (no updatedAt, no deletedAt)
+- Performance targets track OEE (availability × performance × quality)
+
+**Evidence:** `apps/api/src/modules/factory/production-orders/`, `production-runs/`, `production-cost/`, `production-quality/`
+
+---
+
+## 18. Production Workflows
+
+### ProductionOrder Status Flow
+
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT : Create
+    DRAFT --> PLANNED : Plan
+    PLANNED --> RELEASED : Release
+    RELEASED --> IN_PROGRESS : Start
+    IN_PROGRESS --> COMPLETED : Complete
+    COMPLETED --> CLOSED : Close
+    DRAFT --> CANCELLED : Cancel
+    PLANNED --> CANCELLED : Cancel
+    RELEASED --> CANCELLED : Cancel
+```
+
+### ProductionRun Status Flow
+
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT : Create
+    DRAFT --> IN_PROGRESS : Start
+    IN_PROGRESS --> PAUSED : Pause
+    PAUSED --> IN_PROGRESS : Resume
+    IN_PROGRESS --> COMPLETED : Complete
+    COMPLETED --> CLOSED : Close
+```
+
+**Evidence:** `apps/api/src/modules/factory/production-orders/production-order.constants.ts`, `production-runs/production-runs.constants.ts`
+
+---
+
+## 19. Waste / Loss Tracking
+
+### Models
+
+| Model | Purpose |
+|-------|---------|
+| OperationalLossReason | Hierarchical loss reason (lossCategory: DOWNTIME, QUANTITY, QUALITY) |
+| DowntimeSegment | Time-based downtime loss |
+| ProductionLossQuantityEvent | Quantity-based loss (scrap, rework, defect) |
+
+### Loss Tracking Chain
+
+```
+ProductionRun → ProductionOutputEvent (good output)
+ProductionRun → DowntimeSegment (time loss)
+  → OperationalLossReason (reason)
+ProductionRun → ProductionLossQuantityEvent (quantity loss)
+  → OperationalLossReason (reason)
+ProductionOutputEvent → ProductionLossQuantityEvent (output correction)
+```
+
+### Key Facts
+
+- Three loss categories: DOWNTIME (time), QUANTITY (material), QUALITY (defects)
+- Loss reasons are hierarchical (parent-child)
+- Downtime segments track machine downtime during production
+- Loss quantity events track material waste, scrap, rework
+- Both link to production run, order, line, machine, shift
+- Self-correction references exist for both downtime segments and loss events
+
+**Evidence:** `apps/api/src/modules/factory/production-loss-reasons/`, `production-downtime/`, `production-loss-quantity-events/`
+
+---
+
+## 20. Production Capacity
+
+### Model: ProductionCapacityStandard
+
+| Field | Purpose |
+|-------|---------|
+| standardRate | Output rate per time basis |
+| outputUnit | Unit of output |
+| timeBasis | MINUTE, HOUR, SHIFT, etc. |
+| standardCycleTimeMinutes | Time per unit |
+| setupMinutes | Setup time allowance |
+| changeoverMinutes | Changeover time |
+| cleaningMinutes | Cleaning time |
+| startupAllowanceMinutes | Startup allowance |
+| shutdownAllowanceMinutes | Shutdown allowance |
+| targetEfficiencyPercent | Target efficiency |
+| expectedYieldPercent | Expected yield |
+| effectiveFrom/To | Validity period |
+| revision | Version number |
+| supersedesId | Revision chain |
+
+### Key Facts
+
+- Capacity standards are **per product + line + machine** combination
+- They include setup, changeover, cleaning, startup, shutdown allowances
+- Revision chain via `supersedesId` (superseded standards are archived)
+- Status workflow: DRAFT → APPROVED → ACTIVE (can be SUSPENDED, ARCHIVED)
+- Production orders **snapshot** the capacity standard at creation time (immutable copy)
+- Used in: production order duration calculation, OEE calculation, analytics
+
+**Evidence:** `apps/api/src/modules/factory/production-capacity-standards/`, `apps/api/prisma/schema.prisma` lines ~1100-1300
+
+---
+
+## 21. Inventory Architecture
+
+### Complete Chain
+
+```
+Warehouse (per company, optional branch)
+  └── WarehouseLocation
+        └── InventoryBalance (per product, warehouse, location, batch, serial)
+
+Operations:
+  InventoryMovement (+ lines) → Updates InventoryBalance
+  InventoryCount → InventoryCountLine (cycle counting)
+  InventoryPhysicalCount → InventoryPhysicalCountLine (physical count)
+  InventoryAdjustment → InventoryAdjustmentLine
+  InventoryStockAdjustment → InventoryStockAdjustmentLine
+  InventoryStockTransfer → InventoryStockTransferLine (source→dest)
+  InventoryOpeningBalance → InventoryOpeningBalanceLine
+  InventoryOperationalReceipt → InventoryOperationalReceiptLine
+  InventoryLock (period/warehouse/item locks)
+```
+
+### Cross-Module Integration
+
+```
+Inventory ↔ Maintenance:
+  - MaintenanceStockIssue: Issues spare parts from warehouse
+  - SparePartConditionMovement: Condition-based movements
+  - MachineInstalledPart: Tracks installed parts
+  - SparePartReplacementHistory: Old/new part tracking
+
+Inventory ↔ Production:
+  - ProductionMaterialDocument: Material issue from warehouse
+  - ProductionFinishedGoodsReceipt: FG receipt to warehouse
+  - Both create InventoryMovements
+```
+
+### Key Facts
+
+- Balance tracking per warehouse + location + product + batch + serial number
+- Multiple count types: cycle count, physical count, stock adjustment
+- Transfer system: source warehouse → destination warehouse with separate movements
+- Lock system: can lock by period, warehouse, location, or specific item
+- Opening balances support initial stock loading
+- All mutations go through authorized inventory movements
+
+**Evidence:** `apps/api/src/modules/factory/inventory*/` (12+ modules), `apps/api/src/modules/factory/inventory-locks/`
+
+---
+
+## 22. Cost Architecture
+
+### Models
+
+| Model | Purpose |
+|-------|---------|
+| CostCenter | Hierarchical cost center |
+| OperationalCostCenterAssignment | Assigns cost center to machine/line/unit |
+| OperationalCostRate | Rate definition (per type, per line/machine/cost center) |
+| OperationalStandardCostSnapshot | Frozen standard cost for orders |
+| OperationalCostTransaction | Append-only cost ledger |
+| OperationalCostCalculation | Periodic cost calculation run |
+| OperationalSourceChange | Source change watermark |
+
+### Cost Types
+
+- Rates are defined per cost type (LABOR, MATERIAL, OVERHEAD, etc.)
+- Rates can be scoped to: production line, machine, or cost center
+- Effective date ranges for rate validity
+- Standard cost snapshots are frozen at order creation time
+- Cost transactions record actual costs with rate × quantity = amount
+- Variance tracking: standardAmount vs actual amount
+- Cost calculations aggregate transactions over a period
+
+### Key Facts
+
+- Cost center is hierarchical (recursive parentId)
+- Cost centers are linked to organizational structure (company, branch, administration, department)
+- Cost rates are tenant-scoped (company + branch)
+- Cost transactions are append-only (no updatedAt or deletedAt)
+- Reversal transactions via self-reference
+- Production orders carry a full snapshot of the capacity standard used
+
+**Evidence:** `apps/api/src/modules/factory/production-cost/`, `apps/api/prisma/schema.prisma` lines ~4965-5290
+
+---
+
+## 23. Authentication
+
+### Flow
+
+1. `POST /api/v1/auth/login` — email + password → bcrypt verify → JWT `{ sub: userId, email }`
+2. JWT is **stateless** — no tenant data in the token
+3. `GET /api/v1/auth/me` — returns user profile, roles, permissions, allowed operational contexts
+4. Frontend sends `x-active-company-id` + `x-active-branch-id` headers on every request
+5. `ActiveContextInterceptor` validates headers against user's allowed scopes
+6. Service-layer `tenant-guards.ts` verify individual rows belong to active context
+
+### JWT Strategy
+
+- Extracts Bearer token from Authorization header
+- Validates against `JWT_SECRET` environment variable
+- Loads user from database on every request (fresh lookup)
+- Returns `CurrentUserType` with id, email, name, companyId, branchId, departmentId
+
+### Key Design Decision
+
+**Tenant context is NOT in the JWT.** It is sent as HTTP headers and validated server-side. This prevents token replay across companies.
+
+**Evidence:** `apps/api/src/modules/auth/auth.service.ts`, `apps/api/src/modules/auth/strategies/jwt.strategy.ts`, `apps/api/src/common/operational-context/active-context.interceptor.ts`
+
+---
+
+## 24. Roles and Permissions
+
+### Data Model
+
+```
+User → UserRole (join) → Role → RolePermission (join) → Permission
+```
+
+### Permission Structure
+
+- Permission has: `key` (unique), `module`, `action`, `description`
+- Example keys: `maintenance-request:read`, `production-order:read`
+- Roles have `isSystem` flag (SUPER_ADMIN is system role)
+- SUPER_ADMIN bypasses all permission checks
+
+### Enforcement Points
+
+1. `@Permissions('key1', 'key2')` decorator on controller methods
+2. `PermissionsGuard` reads metadata, loads user permissions from DB, checks
+3. SUPER_ADMIN role code → immediate bypass
+4. Frontend uses `hasPermission()` / `hasAnyPermission()` from `access-control.ts`
+
+### Sidebar Permission Field
+
+- `navigation-data.ts` defines `permission` field on 19 items (all in Production + 1 in Reports)
+- **Neither the desktop sidebar nor the mobile drawer filter by this field** — all groups/items are always shown
+- The permission field is available but **not consumed** by the shell navigation components
+- Individual pages may use it for client-side gating, but the shell does not
+
+**Evidence:** `apps/web/src/components/admin/shell/navigation-data.ts` (18 items with permission field), `apps/api/src/common/guards/permissions.guard.ts`
+
+---
+
+## 25. Tenant / Company / Branch Isolation
+
+### Enforcement Mechanism
+
+1. **HTTP Headers**: Frontend sends `x-active-company-id` and `x-active-branch-id` on every request
+2. **ActiveContextInterceptor** (runs before controller):
+   - Extracts headers
+   - Validates against user's allowed scopes via `ActiveContextValidator`
+   - Verifies branch belongs to company
+   - Verifies administration/department relationships
+   - Attaches `request.activeContext`
+3. **assertRequestMatches**: Ensures body/query fields don't contradict active context
+4. **tenant-guards.ts**: Service-layer functions verify individual rows:
+   - `assertRowInContext(row, ctx)` — checks company+branch match
+   - `assertWarehouseInContext(client, warehouseId, ctx)` — verifies warehouse ownership
+   - `assertMachineInContext(client, machineId, ctx)` — verifies machine ownership
+   - All use the SAME Prisma transaction client (prevents TOCTOU)
+
+### Models with companyId/branchId
+
+| Category | Models with BOTH | Models with companyId only | Models without |
+|----------|-----------------|---------------------------|----------------|
+| Organization | OrganizationalUnit, ProductionLine, ProductionUnit | Department, CostCenter | Administration (branchId only) |
+| Production | ProductionOrder, ProductionRun, all production models | — | — |
+| Inventory | — | Warehouse, InventoryCount, InventoryMovement, etc. | Product, ProductCategory, InventoryBalance |
+| Maintenance | MaintenanceWorkOrder | — | MaintenanceRequest (no direct tenant fields!) |
+| Auth | UserOperationalScope | — | User (optional both) |
+
+### CRITICAL FINDING: MaintenanceRequest has NO companyId/branchId
+
+The `MaintenanceRequest` model has **no direct tenant fields**. Tenant isolation for maintenance requests is enforced via the linked `Machine` entity (which has companyId/branchId). The `assertMaintenanceRequestInContext` function loads the request AND its machine to verify context.
+
+**Evidence:** `apps/api/src/common/operational-context/active-context.validator.ts`, `tenant-guards.ts`, `apps/api/prisma/schema.prisma`
+
+---
+
+## 26. Backend Module Inventory
+
+### Registered Modules (95 in AppModule)
+
+| # | Module | Status |
+|---|--------|--------|
+| 1 | PrismaModule | IMPLEMENTED |
+| 2 | HealthModule | IMPLEMENTED |
+| 3 | AuthModule | IMPLEMENTED |
+| 4 | UsersModule | IMPLEMENTED |
+| 5 | RolesModule | IMPLEMENTED |
+| 6 | PermissionsModule | IMPLEMENTED |
+| 7 | BranchesModule | IMPLEMENTED |
+| 8 | AdministrationsModule | IMPLEMENTED |
+| 9 | DepartmentsModule | IMPLEMENTED |
+| 10 | OrganizationalUnitsModule | IMPLEMENTED |
+| 11 | CompaniesModule | IMPLEMENTED |
+| 12 | ProductsModule | IMPLEMENTED |
+| 13 | ProductCategoriesModule | IMPLEMENTED |
+| 14 | InventoryModule | IMPLEMENTED |
+| 15 | MaintenanceModule | IMPLEMENTED |
+| 16 | AuditModule | IMPLEMENTED |
+| 17-41 | 25 Maintenance Sub-Modules | IMPLEMENTED |
+| 42-80 | Inventory + Production + Shared Modules | IMPLEMENTED |
+| 81-95 | Production Sub-Modules | IMPLEMENTED |
+
+### Unregistered Modules (~36, all empty stubs)
+
+| Module | Files | Status |
+|--------|-------|--------|
+| AI | 4 controllers, 1 service, 8 DTOs | EMPTY_STUB |
+| BI | 3 controllers, 1 service, 3 DTOs | EMPTY_STUB |
+| Finance | 9 controllers, 2 services, 15 DTOs | EMPTY_STUB |
+| Sales | 7 controllers, 1 service, 16 DTOs | EMPTY_STUB |
+| Purchasing | 8 controllers, 2 services, 16 DTOs | EMPTY_STUB |
+| HR | 6 controllers, 1 service, 12 DTOs | EMPTY_STUB |
+| HR Requests | 1 controller, 1 service, 7 DTOs | EMPTY_STUB |
+| Forecasting | 3 controllers, 1 service, 4 DTOs | EMPTY_STUB |
+| IoT | 6 controllers, 2 services, 6 DTOs | EMPTY_STUB |
+| Predictive Maintenance | 3 controllers, 1 service, 3 DTOs | EMPTY_STUB |
+| Monitoring | 1 controller, 1 service, 1 middleware | EMPTY_STUB |
+| Workflows | 1 controller, 1 service, 8 DTOs | EMPTY_STUB |
+| Dynamic (Entities/Fields/Forms/Statuses) | 4 controllers, 4 services, 10+ DTOs | EMPTY_STUB |
+| Import-Export | 3 controllers, 1 service, 3 DTOs | EMPTY_STUB |
+| Print Templates | 1 controller, 1 service, 3 DTOs | EMPTY_STUB |
+| Approvals | 1 controller, 1 service, 7 DTOs | EMPTY_STUB |
+| Backups | 2 controllers, 2 services, 5 DTOs | EMPTY_STUB |
+| Business Rules | 1 controller, 1 service, 4 DTOs | EMPTY_STUB |
+| System Health | 1 controller, 1 service | EMPTY_STUB |
+| System Update | 1 controller, 1 service, 1 DTO | EMPTY_STUB |
+| Universal Requests | 1 controller, 1 service, 5 DTOs | EMPTY_STUB |
+| Financial Disbursement Requests | 1 controller, 1 service, 8 DTOs | EMPTY_STUB |
+| Inventory Issue Requests | 1 controller, 1 service, 7 DTOs | EMPTY_STUB |
+| BOM (factory parent) | 1 controller, 1 service, 7 DTOs | EMPTY_STUB |
+| Materials | 1 controller, 1 service | EMPTY_STUB |
+| Material Categories | 1 controller, 1 service | EMPTY_STUB |
+| Units | 1 controller, 1 service | EMPTY_STUB |
+| Quality (factory parent) | 1 controller, 1 service, 13 DTOs | EMPTY_STUB |
+| Operational Source Changes | 1 service (no controller) | EMPTY_STUB |
+| Settings/Currencies | 1 controller (no service) | EMPTY_STUB |
+| Settings/Fiscal Years | 1 controller (no service) | EMPTY_STUB |
+| Settings/Tax Rates | 1 controller (no service) | EMPTY_STUB |
+| Documents Parent | 1 controller, 1 service | EMPTY_STUB |
+| Access Control | 1 controller, 1 service, 1 DTO | EMPTY_STUB |
+
+---
+
+## 27. Complete API Inventory
+
+### Auth Routes
+
+| Method | Route | Controller | Auth | Context |
+|--------|-------|-----------|------|---------|
+| POST | /v1/auth/login | AuthController | Public | None |
+| GET | /v1/auth/me | AuthController | JWT | Optional |
+| GET | /v1/auth/contexts | AuthController | JWT | Optional |
+| POST | /v1/auth/context/validate | AuthController | JWT | Optional |
+| GET | /v1/auth/permissions | AuthController | JWT | Optional |
+| POST | /v1/auth/logout | AuthController | Public | None |
+| POST | /v1/auth/change-password | AuthController | JWT | None |
+
+### Admin Routes (each entity has full CRUD)
+
+| Prefix | Controller | Methods |
+|--------|-----------|---------|
+| /v1/admin/users | UsersController | GET, POST, PATCH, DELETE + activity |
+| /v1/admin/roles | RolesController | GET, POST, PATCH, DELETE + permissions |
+| /v1/admin/permissions | PermissionsController | GET |
+| /v1/admin/branches | BranchesController | GET, POST, PATCH, DELETE |
+| /v1/admin/administrations | AdministrationsController | GET, POST, PATCH, DELETE |
+| /v1/admin/departments | DepartmentsController | GET, POST, PATCH, DELETE |
+| /v1/admin/organizational-units | OrganizationalUnitsController | GET, POST, PATCH, DELETE |
+
+### Factory Routes (representative)
+
+| Prefix | Controller | Methods |
+|--------|-----------|---------|
+| /v1/maintenance/requests | MaintenanceRequestsController | GET, POST, PATCH + transitions |
+| /v1/maintenance/work-orders | MaintenanceWorkOrdersController | GET, POST, PATCH + transitions |
+| /v1/maintenance/machines | MachineCategoriesController | GET, POST, PATCH, DELETE |
+| /v1/inventory/warehouses | InventoryController | GET, POST, PATCH, DELETE |
+| /v1/inventory/movements | InventoryMovementsController | GET, POST, PATCH |
+| /v1/production/orders | ProductionOrdersController | GET, POST, PATCH + transitions |
+| /v1/production/runs | ProductionRunsController | GET, POST, PATCH + transitions |
+| /v1/production/quality/inspections | ProductionQualityController | GET, POST, PATCH |
+
+### Total API Endpoints
+
+Based on 95 registered modules with an average of 6-8 endpoints each:
+
+**TOTAL_API_ENDPOINTS: ~600-700** (estimated, exact count requires逐一 verification of every controller)
+
+### Note on Endpoint Count
+
+An exact count was not performed because many controllers define multiple routes (CRUD + transitions + queries). The estimate is based on:
+- 95 modules registered
+- ~80 modules with controllers
+- Average 7-8 endpoints per controller
+
+---
+
+## 28. Frontend Route Inventory
+
+**TOTAL_FRONTEND_ROUTES: 298** (page.tsx files)
+
+### Breakdown by Domain
+
+| Domain | Route Count | Status |
+|--------|------------|--------|
+| Login + Root | 2 | REAL |
+| Admin Access (Users, Roles, Permissions) | 12 | PARTIAL (detail pages empty) |
+| Admin Core (Companies, Branches, Administrations, Departments, Org Units) | 10 | PARTIAL (detail pages empty) |
+| Dashboard | 1 | REAL |
+| Maintenance | 96 | PARTIAL (list pages REAL, detail/edit pages empty) |
+| Inventory | 55 | PARTIAL (list pages REAL, detail/edit pages empty) |
+| Production | 30 | PARTIAL (list pages REAL, detail/edit pages empty) |
+| Barcodes | 23 | PARTIAL |
+| Reports | 22 | PARTIAL (some REAL, some placeholder) |
+| Settings | 10 | REAL |
+| Search | 4 | REAL |
+| Notifications | 1 | REAL |
+| Messaging | 2 | PARTIAL |
+| Documents | 2 | PARTIAL |
+| Installed Parts | 2 | PARTIAL |
+| Spare Part Conditions | 1 | REAL |
+| Profile | 2 | REAL |
+| Alerts | 1 | REAL |
+
+### Key Finding: ~115 Empty Detail/Edit Pages
+
+All `[id]` detail routes, edit routes, and sub-action routes are **empty files (0 lines)**. This means:
+- List pages work and show data from APIs
+- Clicking a record to view/edit details renders a blank page
+- Forms for creating new records may work (via the list page create modal pattern)
+
+**Evidence:** `apps/web/src/app/` (298 page.tsx files, ~115 are empty)
+
+---
+
+## 29. Sidebar Navigation Structure
+
+### 11 Groups
+
+| # | Group ID | Icon | Label (EN) | Items |
+|---|----------|------|------------|-------|
+| 1 | dashboard | dashboard | Dashboard | 1 (direct link) |
+| 2 | organization | core | Organization | 8 items in 2 sections |
+| 3 | access | access | Access Control | 3 items |
+| 4 | assets | settings | Assets & Equipment | 5 items in 2 sections |
+| 5 | maintenance | maintenance | Maintenance | 24 items in 4 sections |
+| 6 | inventory | inventory | Inventory | 14 items in 3 sections |
+| 7 | production | production | Production | 24 items in 8 sections |
+| 8 | barcode | barcode | Barcodes | 11 items in 2 sections |
+| 9 | reports | report | Reports & Analytics | 23 items in 5 sections |
+| 10 | documents | document | Documents | 1 item (flat) |
+| 11 | system | settings | System | 11 items in 3 sections |
+
+**Total leaf items: 110**
+**Items with explicit permission field: 19** (18 Production + 1 Reports)
+
+### Permission Field Consumption
+
+The `permission` field on SidebarItem is:
+- Defined in the type interface
+- Set on 19 items (all Production + 1 Reports)
+- **NOT consumed** by `sidebar.tsx` (desktop) or `mobile-menu.tsx` (mobile drawer)
+- **NOT used** for visibility filtering in the shell
+- Individual pages may use it for client-side permission gating
+
+**Evidence:** `apps/web/src/components/admin/shell/navigation-data.ts`, `sidebar.tsx`, `mobile-menu.tsx`
+
+---
+
+## 30. Shared Services
+
+| Service | Used By | Status |
+|---------|---------|--------|
+| Audit (AuditService) | All modules via AuditModule | IMPLEMENTED |
+| Attachments (AttachmentsModule) | All entities (polymorphic via entityName+entityId) | IMPLEMENTED |
+| Notifications (NotificationsModule) | Maintenance, Production, Messaging | IMPLEMENTED |
+| Notification Rules (NotificationRulesModule) | Settings UI | IMPLEMENTED |
+| Numbering (NumberingModule) | All document types | IMPLEMENTED |
+| Search (SearchModule) | Global search UI | IMPLEMENTED |
+| Reports (ReportsModule) | 12 report sub-services | IMPLEMENTED |
+| Dashboard (DashboardModule) | Dashboard page | IMPLEMENTED |
+| Alerts (AlertsModule) | Alerts page | IMPLEMENTED |
+| System Settings | Settings pages | IMPLEMENTED |
+| Company Profile | Settings page | IMPLEMENTED |
+| Language | Settings page | IMPLEMENTED |
+| Appearance | Settings page | IMPLEMENTED |
+| Security | Settings page | IMPLEMENTED |
+| Barcodes (BarcodesModule) | Barcode management | IMPLEMENTED |
+| Business Partners | Partner management | IMPLEMENTED |
+| Messaging | Internal messaging | IMPLEMENTED |
+
+---
+
+## 31. Audit / Attachments / Notifications
+
+### Audit
+
+- Model: `AuditLog` with userId, action, entity, entityId, details, ip, userAgent, timestamp
+- Service: `AuditService` in `common/audit/`
+- Used by: Most operational modules
+- **Missing:** companyId/branchId on AuditLog — audit entries are NOT tenant-scoped
+
+### Attachments
+
+- Model: `Attachment` with entityName, entityId (polymorphic pattern), companyId, branchId
+- Service: `AttachmentsModule` with upload/download/delete
+- Used by: Maintenance requests, machines, production orders, NCRs
+- Storage: File system (filePath field)
+
+### Notifications
+
+- Model: `Notification` (per-user, with type, read status, link)
+- Model: `NotificationRule` (event-based dispatch rules)
+- Service: `NotificationsModule` with inbox query
+- Frontend: Notification bell, dropdown, center, filters
+- Used by: Maintenance (via MaintenanceNotification service), Production
+
+---
+
+## 32. Reports / Dashboard
+
+### Report Services (12 sub-services)
+
+| Service | Domain |
+|---------|--------|
+| maintenance-reports | Maintenance KPIs, requests, downtime, costs, schedules |
+| inventory-reports | Inventory balances, movements, adjustments |
+| operations-reports | Operations report |
+| dashboard-reports | Dashboard aggregations |
+| audit-reports | Audit trail reports |
+| barcode-reports | Barcode scan reports |
+| system-reports | System reports |
+| tenant-reports | Tenant-scoped reports |
+| report-export | Export functionality |
+
+### Report Pages (22 routes)
+
+Maintenance reports: overview, KPIs, requests, downtime, costs, schedules, assets, machine log, parts usage, upcoming PM, overdue PM, parts, low stock
+Inventory reports: overview, balances, movements, adjustments, count variance
+Barcode reports: scans
+System reports: audit, user activity, notifications, attachments, partners
+
+### Dashboard
+
+- Single dashboard page at `/admin/dashboard`
+- Data source: DashboardModule service
+- KPIs and aggregations from maintenance, inventory, production
+
+---
+
+## 33. Cross-Module Integration Map
 
 ```mermaid
 graph LR
-    AppModule --> PrismaModule
-    AppModule --> HealthModule
-    AppModule --> AuthModule
-    AppModule --> AdminModules[Users/Roles/Permissions/Branches/Administrations/Departments/Companies]
-    AppModule --> InventoryModules[Counts/Movements/Adjustments/Balances/Opening/StockAdj/Transfers/Receipts/Physical/Locks/Ledger]
-    AppModule --> MaintenanceModules[40 وحدة صيانة]
-    AppModule --> SystemModules[Settings×6/Numbering/Notifications/Reports/Search/Dashboard/Alerts/Attachments/Messaging]
-    AuthModule --> OperationalContextModule[Global - APP_INTERCEPTOR]
-    BarcodesModule --> AuditModule
+    Auth --> Users
+    Users --> UserOperationalScope
+    Auth --> Roles --> Permissions
+    
+    Company --> Branch
+    Branch --> Administration
+    Company --> Department
+    Department -.->|recursive| Department
+    
+    Machine --> MachineCategory
+    Machine --> ProductionLine
+    Machine --> Department
+    Machine --> OperationType
+    Machine --> CostCenter
+    
+    MachineComponent --> Machine
+    MachineComponent -.->|recursive| MachineComponent
+    
+    SparePart --> Product
+    MachineSparePart --> Machine
+    MachineSparePart --> SparePart
+    ComponentSparePart --> MachineComponent
+    ComponentSparePart --> SparePart
+    
+    MaintenanceRequest --> Machine
+    MaintenanceRequest --> MaintenanceRequestAssignment --> MaintenancePersonnel --> OperationalPerson --> User
+    MaintenanceRequest --> MaintenanceRequestRequiredPart --> SparePart
+    MaintenanceWorkOrder --> Machine
+    MaintenanceWorkOrder --> MaintenanceRequest
+    
+    MaintenanceSchedule --> Machine
+    MaintenanceSchedule --> MaintenanceChecklistItem
+    PreventiveSparePartPlan --> MaintenanceSchedule
+    
+    MachineInstalledPart --> Machine
+    MachineInstalledPart --> SparePart
+    SparePartReplacementHistory --> Machine
+    
+    InventoryBalance --> Warehouse --> Company
+    InventoryBalance --> Product
+    InventoryMovement --> Warehouse
+    InventoryMovement --> InventoryMovementLine --> Product
+    
+    ProductionOrder --> ProductionProductDefinition --> Product
+    ProductionOrder --> ProductionLine
+    ProductionOrder --> ProductionCapacityStandard
+    ProductionRun --> ProductionOrder
+    ProductionRun --> ProductionLine
+    ProductionRun --> Machine
+    ProductionOutputEvent --> ProductionRun
+    
+    ProductionMaterialDocument --> ProductionOrder
+    ProductionMaterialDocument --> InventoryMovement
+    ProductionFinishedGoodsReceipt --> ProductionOrder
+    ProductionFinishedGoodsReceipt --> InventoryMovement
+    
+    ProductionQualityPlan --> ProductionProductDefinition
+    ProductionInspection --> ProductionQualityPlan
+    ProductionInspection --> ProductionRun
+    ProductionNonconformance --> ProductionInspection
+    
+    OperationalCostTransaction --> ProductionOrder
+    OperationalCostTransaction --> ProductionRun
+    OperationalCostTransaction --> Machine
+    OperationalCostTransaction --> CostCenter
+    
+    Attachment --> User (uploadedBy)
+    AuditLog --> User
+    Notification --> User
 ```
-
-### توزيع الـ endpoints حسب الوحدة (774 — عد برمجي شامل لكل decorator @Get/@Post/@Patch/@Delete)
-
-| الوحدة | العدد | ملاحظة |
-|---|---|---|
-| factory※ (كل النطاق التشغيلي) | 538 | تشمل Maintenance + Inventories + Products |
-| 　└─ Maintenance (36 controller) | 362 | requests/tasks/schedules/work-orders/downtime/… |
-| 　└─ Inventory documents + أرصدة + أقفال | 142 | adjustments 11, balances 9, count-lines 6, counts 10, ledger-reconciliation 13, locks 12, movements 10, opening-balances 14, operational-receipts 14, physical-counts 14, stock-adjustments 14, stock-transfers 15 |
-| 　└─ Products + Categories | 18 | products 10، categories 8 |
-| Admin (users/roles/permissions/branches/departments/administrations/organizational-units) | 42 | 8 controllers |
-| Reports | 42 | |
-| Barcodes | 40 | 4 controllers |
-| Business Partners | 30 | 6 controllers |
-| Settings (6 وحدات) | 22 | |
-| Auth | 7 | |
-| Documents/Attachments | 7 | |
-| Numbering | 7 | |
-| Notifications | 6 | |
-| Search | 6 | |
-| Audit | 6 | |
-| Companies | 5 | |
-| Messaging | 9 | |
-| Dashboard | 3 | |
-| Alerts | 3 | |
-
-### Guards والتفويض
-
-- لا يوجد `APP_GUARD` — الحماية **per-controller** عبر `@UseGuards(JwtAuthGuard, PermissionsGuard)` (~90 controller).
-- `JwtAuthGuard` — نسختان: `modules/auth/guards/jwt-auth.guard.ts` (775 b) و`common/guards/jwt-auth.guard.ts` (796 b) بمنطق متطابق.
-- `PermissionsGuard` — نسختان متطابقتان أيضًا (`auth/guards/permissions.guard.ts` 1,684 b و`common/guards/permissions.guard.ts` 1,642 b): تقرأ metadata `'permissions'`، تطابق حرفياًًً (`userPermissionKeys.has(p)`)، تفتح SUPER_ADMIN فقط عبر `role.code === 'SUPER_ADMIN'`، وتقوم lookup في Prisma لكل طلب. **لا توجد أي عملية تطبيع بين مفتاح الـ controller والمفتاح المزروع.**
-- `InventoryLockGuard` — على 6 controllers للطفرات المخزنية (adjustments, movements, stock-transfers, stock-adjustments, physical-counts, operational-receipts) — يرفض الطفرات أثناء الأقفال (WAREHOUSE/LOCATION/ITEM/PERIOD/GLOBAL).
-- `roles.guard.ts` و`approval-duplication.guard.ts` — **0 بايت** (غير مستخدَمين).
-- Decorator الصلاحيات: `@Permissions(...)` فقط (مفتاح `'permissions'` مشترك).
-- `@Public()` على 3 endpoints فقط: `GET /health`, `POST /auth/login`, `POST /auth/logout`.
-- `@OperationalContextOptional()` على endpoints المصادقة.
-
-### ملاحظات معمارية خلفية (Conflict/Observation)
-
-- `inventory-adjustments.controller.ts` يحتوي **controller ذا بادئة مكررة داخل نفس الملف** (`:17` و`:87` كلاهما `inventory/adjustments`) + controller لـ `inventory/counts` في نفس الملف (`:102`) يتصادم مع `inventory-counts.controller.ts:15`.
-- `inventory-count-lines.controller.ts` **بلا بادئة** (المسارات كاملة يدوياً) — غير متسق مع بقية inventory/counts.
-- `changePassword` يرمي أخطاء إنجليزية خام (`auth.service.ts:185,191,194`) — مخالفة لقاعدة i18n API.
-- `getProfile` يعيد `{...user, user, ...}` (تكرار مفتاح user) (`auth.service.ts`).
-- الـ 2FA: حقول `twoFactorEnabled/twoFactorSecret` موجودة في User، وDTOs (confirm-two-factor, disable-two-factor, regenerate-recovery-codes, verify-two-factor-login) **0 بايت** — غير منفذة.
-- **فجوة صلاحيات محققة (تحديث 2026-08-03)**: 416 مفتاح صلاحية مستخدم في `@Permissions(...)` بالـ controllers، منها **163 غير مزرعة** في أي ملف seed. الـ `PermissionsGuard` لا يطبّع المفاتيح فيفشل أي دور غير SUPER_ADMIN (403) عند endpoint يطلب مفتاحاً مفقوداً. أمثلة على المفاتيح غير المزروعة: `machines:read/create/update/delete`، `branches:read`، `companies:read`، `administrations:*`، `attachments.*`، `alerts.view`، `downtime-log:start/end`.
 
 ---
 
-## القسم 8 — Frontend Architecture
+## 34. Source-of-Truth Map
 
-### الإحصاءات
-
-| المقياس | القيمة |
-|---|---|
-| صفحات `page.tsx` تحت `src/app` | **266** |
-| صفحات الجذر | 2 (`/login`, `/`) |
-| layouts | 2 (root + admin) |
-| ملفات i18n EN | 16 (index + 15 namespace) — **3,659 مفتاحاً** |
-| ملفات i18n AR | 16 — **3,659 مفتاحاً** (تطابق 100% مع EN) |
-| مجلدات locales متطابقة ar/en | نعم (16 ملفاً لكل لغة، أسماء متطابقة) |
-| مجموعات sidebar | 10 مجاميع / 97 رابطاً |
-| روابط sidebar ميتة | **0** (كل الـ 97 موجودة) |
-| صفحات placeholder | **0** |
-| بيانات mock في الصفحات | **0** |
-| مكونات entity قابلة لإعادة الاستخدام | 9 ملفات (`components/entity/`) |
-| ملفات i18n في `lib/i18n/` | 42 (8 أساسية + 16 AR + 16 EN + misc) |
-| صفحات تستخدم `useCrudList` | 4 فقط (companies/branches/administrations/departments) |
-
-### شجرة الـ Sidebar الفعلية (10 مجموعات)
-
-```text
-dashboard            → /admin/dashboard
-organization         → companies, branches, administrations, departments
-                       + production-lines, operation-types, cost-centers
-access               → users, roles, permissions
-assets               → machines, machine-categories, machine-documents
-                       + machine-components, machine-parts
-maintenance          → requests, tasks, schedules, checklist-items, downtime-logs
-                       + calendar, workload, sla, reliability/mttr
-                       + personnel, machine-responsibilities, accountability
-                       + spare-parts, spare-part-conditions, installed-parts,
-                         repair-orders, bom, spare-part-plans
-inventory            → warehouses, locations, product-categories, products
-                       + opening-balances, movements, counts, adjustments,
-                         stock-adjustments, locks
-                       + balances, ledger, reconciliation, governance-audit
-barcode              → barcodes, generate, print, scan, preview
-                       + records, templates, product-labels, machine-cards,
-                         scans, print-jobs
-reports              → reports + 25 تقريراً (maintenance/inventory/barcodes/system)
-documents            → attachments
-system               → settings, company, language, appearance, security,
-                       numbering, notification-rules
-                       + audit, user-activity, login-history
-                       + notifications, messaging
-```
-
-- صفحات بلا إدخال sidebar (تُفتح من أماكن أخرى): `/admin/alerts` (من لوحة التحكم)، `/admin/profile` (من قائمة المستخدم)، `/admin/search` (من F9/Ctrl+K).
-- `routeGroupMap` يحتوي إدخالات orphan لـ `search`/`alerts` بلا مجموعات مطابقة (غير ضار).
-- i18n: 127 labelKey مستخدمة في sidebar، كلها معرّفة في `en/navigation.ts` (169 مفتاحاً).
-
-### نظام i18n
-
-- `I18nProvider` — locale محفوظ في `localStorage('locale')`، الافتراضي `'ar'`، `t(key, ns?)` يستخرج ns من أول نقطة ويرجع **المفتاح الخام** إذا لم يوجد.
-- 53 namespace معرفة في `types.ts`؛ 5 منها غير منفذة كملفات مستقلة لكن مفاتيحها موجودة داخل ملفات أخرى (inventoryCounting, maintenanceDashboard, preventiveMaintenance, downtimeAnalysis, sparePartRequest — كما توثق AGENTS.md).
-- **لا يوجد إرسال `x-locale` من الـ frontend** — grep صفري؛ اللغة من جهة API تعتمد على `Accept-Language` ثم fallback `ar`.
-
-### Data Fetching
-
-- `lib/api.ts`: base `NEXT_PUBLIC_API_URL || http://localhost:4000/api/v1`؛ token من `localStorage.accessToken`؛ يحقن رؤوس السياق التشغيلي (`x-active-company-id`...) من `lib/operational-context.ts` (مخزنة بـ localStorage تحت مفتاح المستخدم).
-- أخطاء API تمر عبر `useApiErrorHandler()` → `normalizeApiError()` → `ErrorModal` (نافذة أخطاء عامة)؛ النجاح عبر `showToast`.
-- F9: `components/f9/F9Lookup.tsx` + `UnifiedSearchModal` + `adapter-registry` (adapters لكل كيان) + اختصار عام F9/Ctrl+K عبر `f9-shortcut.tsx` — مستخدم في 30+ صفحة.
-- مكونات واجهة رئيسية: `AdminDataGrid` (غني) + `DataTable` (بسيط)، `AdminActionBar` (`useRegisterAdminActions`)، `ToastProvider`، `ErrorModalProvider`، مكونات سياق تشغيلي (`context-switcher`, `operational-context-gate`)، مكونات entity (v11).
+| Concept | Current Source of Truth | Other References |
+|---------|------------------------|------------------|
+| Company | `Company` model | User.companyId, UserOperationalScope.companyId |
+| Branch | `Branch` model | User.branchId, UserOperationalScope.branchId |
+| Department | `Department` model | User.departmentId, UserOperationalScope.departmentId |
+| Administration | `Administration` model | UserOperationalScope.administrationId |
+| Organizational Unit | `OrganizationalUnit` model | — |
+| User | `User` model | JWT payload (sub, email only) |
+| Role | `Role` model | — |
+| Permission | `Permission` model | — |
+| Machine | `Machine` model | — |
+| Machine Component | `MachineComponent` model | — |
+| Production Line | `ProductionLine` model | — |
+| Product | `Product` model | — |
+| Spare Part | `SparePart` model | — |
+| Inventory Balance | `InventoryBalance` model | — |
+| Maintenance Request | `MaintenanceRequest` model | — |
+| Work Order | `MaintenanceWorkOrder` model | — |
+| Production Order | `ProductionOrder` model | — |
+| Production Run | `ProductionRun` model | — |
+| Cost Center | `CostCenter` model | — |
+| Cost Rate | `OperationalCostRate` model | — |
+| Cost Transaction | `OperationalCostTransaction` model | — |
+| Audit Log | `AuditLog` model | — |
+| Attachment | `Attachment` model | — |
+| Notification | `Notification` model | — |
+| Number Sequence | `NumberSequence` model | — |
 
 ---
 
-## القسم 9 — Current Maintenance Implementation
+## 35. Database-Only Features
 
-### النطاق (362 endpoint عبر 36 controller — الأكبر في النظام)
+These features exist in the Prisma schema but have minimal or no backend/frontend implementation:
 
-| المحور | الحالة |
-|---|---|
-| Machines register + categories + documents + components + parts | IMPLEMENTED |
-| Maintenance Requests (طلب صيانة كامل) | IMPLEMENTED — 28 endpoint |
-| Work Orders (أوامر عمل + إصدار قطع) | IMPLEMENTED — دورة DRAFT→PLANNED→IN_PROGRESS→COMPLETED/CANCELLED + `issueParts` كامل بالحركة/الرصيد/التركيب |
-| Tasks | IMPLEMENTED — 13 endpoint |
-| Schedules (جدولة وقائية) | IMPLEMENTED — 10 endpoint |
-| Checklist items + executions | IMPLEMENTED |
-| Downtime Logs + RCA | IMPLEMENTED — 17 endpoint |
-| Dashboard/Planning/Workload/SLA | IMPLEMENTED — 13/16/5 endpoint |
-| Preventive (upcoming/overdue/calendar/execution) | IMPLEMENTED — 5 endpoint |
-| Required Parts workflow (طلب/اعتماد/حجز/استخدام) | IMPLEMENTED — 9 endpoint |
-| Stock Issue (صرف قطع من مستودع SPARE_PART) | IMPLEMENTED — 3 endpoint |
-| Conditions (SparePartConditionBalance/Movement) | IMPLEMENTED — 8 endpoint |
-| Installed Parts + Replacement History | IMPLEMENTED — 9 endpoint |
-| Repair Orders | IMPLEMENTED — 17 endpoint |
-| BOM + Preventive Spare Part Plans | IMPLEMENTED — 18 + 14 endpoint |
-| Reliability/MTTR/MTBF | IMPLEMENTED — 13 endpoint |
-| Personnel/Responsibilities/Assignments/Accountability | IMPLEMENTED |
+| Feature | Evidence |
+|---------|----------|
+| `ProductCategory.parentId` (hierarchy) | Schema exists, service exists, but no dedicated recursive API |
+| `MachineCategory.parentId` (hierarchy) | Schema exists, service exists |
+| `BusinessPartner` full model | Schema complete (contacts, addresses, bank accounts), backend registered |
+| `PaymentTerm` | Schema exists, backend module exists |
+| `InternalConversation/Message` | Schema exists, messaging module registered |
+| `NotificationRule` | Schema exists, settings module registered |
+| `NumberSequence` | Schema exists, numbering module registered |
+| `SystemSetting` | Schema exists, settings module registered |
+| `InventoryLock` | Schema exists, lock guard implemented |
 
-### الحالات (Statuses) الفعلية من الكود
+---
 
-| الكيان | الحالة الابتدائية | القيم الكاملة |
-|---|---|---|
-| MaintenanceRequest | OPEN | OPEN, IN_PROGRESS, COMPLETED, CANCELLED, CLOSED (reopen → OPEN) |
-| MaintenanceRequestRequiredPart | REQUESTED | DRAFT, REQUESTED, APPROVED, REJECTED, RESERVED, USED, CANCELLED + stockIssueStatus: NOT_ISSUED, PARTIALLY_ISSUED, FULLY_ISSUED |
-| MaintenanceTask | PENDING | PENDING, IN_PROGRESS, DONE, CANCELLED |
-| MaintenanceSchedule | ACTIVE | ACTIVE, INACTIVE, COMPLETED |
-| MaintenanceChecklistExecution | IN_PROGRESS | IN_PROGRESS, COMPLETED (items: PENDING, COMPLETED) |
-| DowntimeLog | (محسوبة) | ACTIVE, CLOSED, CANCELLED + rcaStatus: PENDING... |
-| MaintenanceSlaState | ON_TRACK | ON_TRACK, AT_RISK, OVERDUE, BREACHED + escalationLevel NONE... |
-| MachineResponsibilityAssignment | ACTIVE | ACTIVE, INACTIVE |
-| MaintenanceRequestAssignment | ASSIGNED | ASSIGNED, COMPLETED, CANCELLED (+ acceptedAt/startedAt/completedAt) |
-| MaintenancePartAccountability | ASSIGNED | ASSIGNED, REPORTED, RETURNED, CANCELLED |
-| SparePartRepairOrder | DRAFT | DRAFT, OPEN, IN_INSPECTION, INSPECTION_FAILED, APPROVED_FOR_REPAIR, UNDER_REPAIR, WAITING_PARTS, UNDER_TEST, COMPLETED_SERVICEABLE, COMPLETED_PARTIAL, COMPLETED_NOT_REPAIRABLE, SCRAPPED, CANCELLED |
-| MaintenanceWorkOrder | DRAFT | DRAFT → (plan) PLANNED → (start) IN_PROGRESS → (complete) COMPLETED، أو (cancel) CANCELLED من DRAFT/PLANNED؛ وشرط أساسي قبل الإكمال: وجوب إصدار كل أسطر القطع (لا يُسمح ببقاء أي سطر PARTIALLY_ISSUED). توجد فحوص حالة صريحة قبل كل انتقال داخل `transition()` |
-| MaintenanceWorkOrderPart | PENDING | stockIssueStatus: PENDING → PARTIALLY_ISSUED → FULLY_ISSUED (عبر `issueParts` داخل transaction) |
-| SparePartRepairAction | PLANNED | PLANNED, IN_PROGRESS, DONE, FAILED, CANCELLED |
-| MachineInstalledPart | ACTIVE | ACTIVE, REMOVED |
-| MaintenanceBom | ACTIVE | ACTIVE, INACTIVE فقط في الخدمة (AGENTS.md توثق DRAFT→APPROVED→ACTIVE→ARCHIVED — **تعارض موثق** مع الكود) |
-| PreventiveSparePartPlan | DRAFT | DRAFT→[ACTIVE, CANCELLED]→[COMPLETED, CANCELLED] |
+## 36. Backend-Only Features
 
-### دورة طلب الصيانة (من الكود)
+These features have backend implementation but no corresponding frontend pages:
+
+| Feature | Evidence |
+|---------|----------|
+| Workflow Engine | `common/workflow-engine/` — full service with samples |
+| Request Policy | `common/request-policy/` — approval/duplication guards |
+| Request Notifications | `common/request-notifications/` — notification dispatching |
+| Access Control Registry | `common/access-control/` — registry service |
+| Operational Context Helpers | `common/operational-context/` — full validation chain |
+| Audit Monitoring Service | `audit/audit-monitoring.service.ts` (empty file) |
+| Maintenance Notification Service | `maintenance-notification.service.ts` (service only, no controller) |
+
+---
+
+## 37. Frontend-Only Features
+
+These features have frontend components but no backend API:
+
+| Feature | Evidence |
+|---------|----------|
+| PWA Components | `components/pwa/install-app-button.tsx`, `service-worker-register.tsx` (empty) |
+| Appearance Preview | `components/admin/theme/appearance-preview.tsx` (empty) |
+| F9 Unified Search Modal | `components/f9/UnifiedSearchModal.tsx` (exists) |
+| Entity Workspace Layout | `components/entity/` (workspace layout, drawer, toolbar) |
+| Inventory Counting UI | `components/inventory-counting/` (CountLinesPanel, etc.) |
+| Report Page Shell | `components/reports/ReportPageShell.tsx` |
+| Maintenance Status Badges | `components/maintenance/CmmsStatusBadge.tsx` |
+
+---
+
+## 38. Partial Features
+
+| Feature | Database | Backend | Frontend | Status |
+|---------|----------|---------|----------|--------|
+| Business Partners | Complete | Registered | No dedicated pages (only F9 lookup) | PARTIAL |
+| Messaging | Schema + Service | Registered | List + detail page exist | PARTIAL |
+| Reports | Service (12 sub-services) | Registered | 22 report pages | PARTIAL |
+| Dashboard | Service exists | Registered | 1 dashboard page | PARTIAL |
+| Barcodes | Complete | Registered | 23 routes (many empty) | PARTIAL |
+| Installed Parts | Complete | Registered | 2 routes (list + empty detail) | PARTIAL |
+| Spare Part Conditions | Complete | Registered | 1 route | PARTIAL |
+| Repair Orders | Complete | Registered | 1 route | PARTIAL |
+| Maintenance BOM | Complete | Registered | 1 route | PARTIAL |
+| Preventive Spare Plans | Complete | Registered | 1 route | PARTIAL |
+
+---
+
+## 39. Placeholders / Stubs
+
+### Empty Backend Files
+
+| Category | Count |
+|----------|------:|
+| Empty `.service.ts` files | 40 |
+| Empty `.controller.ts` files | 80 |
+| Empty `.module.ts` files | 102 |
+| Empty `.dto.ts` files | 170+ |
+| **Total empty backend files** | **392+** |
+
+### Empty Frontend Files
+
+| Category | Count |
+|----------|------:|
+| Empty `page.tsx` files (detail/edit) | 115+ |
+| Empty component files | 14 |
+| Empty lib files | 12 |
+| **Total empty frontend files** | **141+** |
+
+### Grand Total Empty Files: ~533+
+
+**Key observation:** The codebase uses a "silent stub" pattern — files exist but contain zero bytes. No TODO/FIXME/Coming soon markers were found.
+
+---
+
+## 40. Unused / Legacy Candidates
+
+| Item | Evidence |
+|------|----------|
+| `MaintenanceRequest` (old parent module) | `apps/api/src/modules/factory/maintenance/maintenance.module.ts` — parent module exists but sub-modules are registered separately |
+| `Production` (parent module) | `apps/api/src/modules/factory/production/` — parent module exists but NOT registered; individual sub-modules are |
+| `Quality` (parent module) | `apps/api/src/modules/factory/quality/` — exists but NOT registered |
+| `Documents` (parent module) | `apps/api/src/modules/documents/` — exists but NOT registered (only AttachmentsModule is) |
+| `Settings` (parent module) | `apps/api/src/modules/settings/` — exists but NOT registered (individual settings modules are) |
+| `admin.module.ts` | Parent module file exists but admin sub-modules are registered directly |
+| `factory.module.ts` | Parent module exists but factory sub-modules are registered directly |
+
+---
+
+## 41. Potential Duplications
+
+| Item A | Item B | Evidence | Classification |
+|--------|--------|----------|---------------|
+| `common/guards/permissions.guard.ts` | `modules/auth/guards/permissions.guard.ts` | Both implement identical permission checking logic with slight metadata key difference | POTENTIAL_DUPLICATION |
+| `InventoryCount` | `InventoryPhysicalCount` | Both are "count" entities with similar structures (header + lines, status workflow) but different line structures | POTENTIAL_DUPLICATION |
+| `InventoryAdjustment` | `InventoryStockAdjustment` | Both are "adjustment" entities with similar structures | POTENTIAL_DUPLICATION |
+| `DowntimeLog` (maintenance) | `DowntimeSegment` (production) | Both track downtime but in different domains with different schemas | POTENTIAL_DUPLICATION (different domains) |
+| `MaintenanceRequest` vs `MaintenanceWorkOrder` | Both have status workflows, parts, costs | Different lifecycle purposes but overlapping fields | POTENTIAL_DUPLICATION (different purposes) |
+| `common/operational-context/` | `modules/auth/` operational context | Both handle context validation; auth module has DTOs while common has the core logic | Near-duplication (layered design) |
+
+---
+
+## 42. Unregistered / Unwired Components
+
+| Component | Location | Status |
+|-----------|----------|--------|
+| Admin Access Control | `modules/admin/access-control/` | Has controller+service+DTO, NOT registered |
+| Business Rules | `modules/business-rules/` | Has controller+service+DTOs, NOT registered |
+| Approvals | `modules/approvals/` | Has controller+service+DTOs, NOT registered |
+| Backups | `modules/backups/` | Has 2 controllers+2 services+DTOs, NOT registered |
+| Dynamic Forms/Entities/Fields/Statuses | `modules/dynamic/` | Has 4 sub-modules, NOT registered |
+| AI | `modules/ai/` | Has 4 sub-modules, NOT registered |
+| BI | `modules/bi/` | Has 3 sub-modules, NOT registered |
+| Finance | `modules/finance/` | Has 9 sub-modules, NOT registered |
+| Sales | `modules/sales/` | Has 7 sub-modules, NOT registered |
+| Purchasing | `modules/purchasing/` | Has 8 sub-modules, NOT registered |
+| HR | `modules/hr/` | Has 6 sub-modules, NOT registered |
+| Forecasting | `modules/forecasting/` | Has 3 sub-modules, NOT registered |
+| IoT | `modules/iot/` | Has 6 sub-modules, NOT registered |
+| Predictive Maintenance | `modules/predictive-maintenance/` | Has 3 sub-modules, NOT registered |
+| Monitoring | `modules/monitoring/` | Has controller+service+middleware, NOT registered |
+| Print Templates | `modules/print-templates/` | Has controller+service+DTOs, NOT registered |
+| System Health | `modules/system-health/` | Has controller+service, NOT registered |
+| System Update | `modules/system-update/` | Has controller+service+DTO, NOT registered |
+| Universal Requests | `modules/universal-requests/` | Has controller+service+DTOs, NOT registered |
+| Workflows | `modules/workflows/` | Has controller+service+DTOs, NOT registered |
+| Settings/Currencies | `modules/settings/currencies/` | Has controller (no service), NOT registered |
+| Settings/Fiscal Years | `modules/settings/fiscal-years/` | Has controller (no service), NOT registered |
+| Settings/Tax Rates | `modules/settings/tax-rates/` | Has controller (no service), NOT registered |
+| BOM (factory) | `modules/factory/bom/` | Has controller+service+DTOs, NOT registered |
+| Materials | `modules/factory/materials/` | Has controller+service, NOT registered |
+| Material Categories | `modules/factory/material-categories/` | Has controller+service, NOT registered |
+| Units | `modules/factory/units/` | Has controller+service, NOT registered |
+| Quality (parent) | `modules/factory/quality/` | Has controller+service+DTOs, NOT registered |
+| Operational Source Changes | `modules/factory/operational-source-changes/` | Has service only, NOT registered |
+
+---
+
+## 43. Current Workflow State Machines
+
+### MaintenanceRequest (CONFIRMED from service code)
+
+States: PENDING, ASSIGNED, IN_PROGRESS, ON_HOLD, COMPLETED, VERIFIED, CLOSED, CANCELLED
+
+### MaintenanceWorkOrder (CONFIRMED from constants)
+
+States: DRAFT, PLANNED, RELEASED, IN_PROGRESS, ON_HOLD, COMPLETED, CLOSED, CANCELLED
+
+### ProductionOrder (CONFIRMED from constants)
+
+States: DRAFT, PLANNED, RELEASED, IN_PROGRESS, COMPLETED, CLOSED, CANCELLED
+
+### ProductionRun (CONFIRMED from constants)
+
+States: DRAFT, IN_PROGRESS, PAUSED, COMPLETED, CLOSED
+
+### InventoryCount (CONFIRMED from service)
+
+States: DRAFT, IN_PROGRESS, COMPLETED, CANCELLED
+
+### InventoryPhysicalCount (CONFIRMED from service)
+
+States: DRAFT, FROZEN, SUBMITTED, APPROVED/REJECTED, POSTED, CANCELLED
+
+### ProductionCapacityStandard (CONFIRMED from constants)
+
+States: DRAFT, APPROVED, ACTIVE, SUSPENDED, ARCHIVED
+
+### ProductionNonconformance (CONFIRMED from model)
+
+States: OPEN, INVESTIGATING, RESOLVED, CLOSED
+
+### ProductionPerformanceTarget (CONFIRMED from model)
+
+States: DRAFT, SUBMITTED, APPROVED, ACTIVE, DEACTIVATED
+
+---
+
+## 44. Architecture Mermaid Diagrams
+
+### High-Level System Architecture
 
 ```mermaid
-stateDiagram-v2
-    [*] --> OPEN
-    OPEN --> IN_PROGRESS
-    OPEN --> CANCELLED
-    IN_PROGRESS --> COMPLETED
-    IN_PROGRESS --> CANCELLED
-    COMPLETED --> CLOSED
-    CLOSED --> OPEN: reopen
+graph TB
+    subgraph Frontend["Next.js 15 Frontend"]
+        A[App Router] --> B[Admin Shell]
+        B --> C[Desktop Sidebar]
+        B --> D[Mobile Drawer]
+        B --> E[Top Bar]
+        A --> F[298 Routes]
+    end
+    
+    subgraph API["NestJS API"]
+        G[AppModule] --> H[95 Registered Modules]
+        G --> I[JWT Auth Guard]
+        G --> J[Permissions Guard]
+        G --> K[Active Context Interceptor]
+        G --> L[Inventory Lock Guard]
+    end
+    
+    subgraph Database["SQL Server"]
+        M[145 Models]
+        N[448 Relations]
+        O[533 Indexes]
+    end
+    
+    F -->|"HTTP + JWT + x-active-* headers"| H
+    H --> M
 ```
 
-### دورة سطر قطع الغيار (RequiredPart)
+### Multi-Tenant Isolation Flow
 
 ```mermaid
-stateDiagram-v2
-    [*] --> REQUESTED
-    REQUESTED --> APPROVED
-    REQUESTED --> REJECTED
-    REQUESTED --> CANCELLED
-    APPROVED --> RESERVED
-    RESERVED --> USED
-    APPROVED --> USED
-    RESERVED --> CANCELLED
-```
-
-### دورة أمر الإصلاح (RepairOrder)
-
-```mermaid
-stateDiagram-v2
-    [*] --> DRAFT
-    DRAFT --> OPEN
-    OPEN --> IN_INSPECTION
-    IN_INSPECTION --> APPROVED_FOR_REPAIR
-    IN_INSPECTION --> INSPECTION_FAILED
-    APPROVED_FOR_REPAIR --> UNDER_REPAIR
-    UNDER_REPAIR --> WAITING_PARTS
-    WAITING_PARTS --> UNDER_REPAIR
-    UNDER_REPAIR --> UNDER_TEST
-    UNDER_TEST --> COMPLETED_SERVICEABLE
-    UNDER_TEST --> COMPLETED_PARTIAL
-    UNDER_TEST --> COMPLETED_NOT_REPAIRABLE
-COMPLETED_SERVICEABLE --> SCRAPPED
-    DRAFT --> CANCELLED
-    OPEN --> CANCELLED
-```
-
-### دورة أمر العمل (Work Order) — تم التحقق من `maintenance-work-orders.service.ts:301`
-
-```mermaid
-stateDiagram-v2
-    [*] --> DRAFT
-    DRAFT --> PLANNED: plan
-    DRAFT --> CANCELLED: cancel (reason)
-    PLANNED --> IN_PROGRESS: start
-    PLANNED --> CANCELLED: cancel (reason)
-    IN_PROGRESS --> COMPLETED: complete (شرط عدم بقاء أي سطر PARTIALLY_ISSUED + احتساب actualCost)
-```
-
-### دورة إصدار قطع أمر العمل (MaintenanceWorkOrderPart)
-
-```mermaid
-stateDiagram-v2
-    [*] --> PENDING
-    PENDING --> PARTIALLY_ISSUED: issueParts (كمية جزئية)
-    PENDING --> FULLY_ISSUED: issueParts (كامل الكمية)
-    PARTIALLY_ISSUED --> FULLY_ISSUED
-```
-
-### قواعد الأعمال المؤكدة (من الكود)
-
-- **Stock Issue**: `MaintenanceStockIssueService.issue()` يستخدم مستودع **SPARE_PART فقط** (كتل PRODUCT/RAW_MATERIAL)، يخصم من `InventoryBalance` (upsert)، ينشئ `InventoryMovement`، يسجل `MachineInstalledPart` + `SparePartReplacementHistory`، يحدّث `stockIssueStatus` ويحدّث رصيد الشرط (condition) عند الإرجاع.
-- **Work Order Issue**: `MaintenanceWorkOrdersService.issueParts()` (L473-624) — يتحقق من توافق المخزون/الكمية المتاحة، يكيف حركة مخزون وسطر أمر عمل، يوقف الرصيد، ويحدّث `stockIssueStatus` إلى PARTIALLY/FULLY_ISSUED — كلها داخل `transaction`.
-- **التحويل الشرطي**: تحويل حالة في `SparePartConditionBalance` (OUT من مصدر → IN لهدف) دون لمس `InventoryBalance` — يتم داخل `$transaction`.
-- **التخطيط لا يخصم**: PreventiveSparePartPlan/BOM reservation **لا يخصم** رصيداً (يحدّث availableQuantity فقط).
-- **لا توجد قيود مالية**: الـ Repair workflow لا ينشئ إدخالات Finance/Purchasing (كما في الكود؛ النماذج المالية غير موجودة أصلاً).
-- **NumberingService**: 47 موقع استدعاء عبر ~14 خدمة؛ صفر تجاوز (`numberSequence` يُلمس فقط داخل `numbering.service.ts`).
-- **الحماية**: كل خدمات الطفرات المخزنية تستخدم `prisma.$transaction`.
-
-### فجوات الصلاحيات المكتشفة (تحديث 2026-08-03 — تم توسيعها بالفحص البرمجي الشامل)
-
-- **النتيجة الموسعة**: 416 مفتاح صلاحية فريد مستخدم في `@Permissions(...)` عبر الـ controllers، منها **163 مفتاحاً غير مزرع في أي ملف seed** — ومع التطابق الحرفي في الـ guard، تكون النتيجة رفضاً (403) لأدوار غير SUPER_ADMIN عند مسارات معروضة فعلياً في الواجهة.
-- النقاط الأربع المؤكدة سابقاً تبقى صحيحة كأمثلة على هذه الفجوة:
-  1. `installed-parts:read` غير مزرع — 9 endpoints تطلبه → 403.
-  2. `maintenance-request:activity.view` مقابل المزروع `maintenance-request:activity` → 403.
-  3. `maintenance-request:attachments.view` مقابل `maintenance-request:attachments` → 403.
-  4. `maintenance-request:print` مقابل المزروع `maintenance-request:printData` → 403.
-  5. صيغ أساسية مثل `machines:*`, `branches:*`, `companies:*`, `administrations:*`, `attachments.*` غير مذكورة في أي seed.
-
----
-
-## القسم 10 — Current Production Implementation
-
-**النتيجة: النطاق غير موجود.**
-
-| العنصر | الحالة | الدليل |
-|---|---|---|
-| ProductionOrder / WorkOrder | NOT_FOUND | لا يوجد موديل في schema (فحص شامل) |
-| BillOfMaterials إنتاجي | NOT_FOUND | `MaintenanceBom` لنطاق الصيانة فقط |
-| Routing | NOT_FOUND | — |
-| ProductionLine | PARTIAL | مرجع تنظيمي للصيانة فقط (`schema.prisma:337`) |
-| Shifts | NOT_FOUND | — |
-| Waste / Rework | NOT_FOUND | — |
-| Quality | NOT_FOUND | `factory/quality/*` على القرص 0 بايت |
-| Material consumption / Finished-goods receipt | NOT_FOUND | `factory/production` DTOs (create-production-order, issue-material, receive-finished-goods, record-production-waste) **كلها 0 بايت** |
-| OEE | NOT_FOUND | — |
-| واجهة إنتاج | NOT_FOUND | صفر صفحات؛ صفر استدعاءات frontend لنطاقات الإنتاج |
-
-```mermaid
-graph TD
-    Production[نطاق الإنتاج] -->|لا يوجد| X[NOT_FOUND]
+sequenceDiagram
+    participant FE as Frontend
+    participant GW as JWT Guard
+    participant CTX as Context Interceptor
+    participant SVC as Service
+    participant DB as Database
+    
+    FE->>GW: Request + Bearer Token
+    GW->>GW: Validate JWT, load User from DB
+    GW->>CTX: request.user attached
+    CTX->>CTX: Extract x-active-company-id, x-active-branch-id
+    CTX->>CTX: Validate against UserOperationalScope
+    CTX->>CTX: assertRequestMatches (body vs context)
+    CTX->>SVC: request.activeContext attached
+    SVC->>SVC: tenant-guards.ts: assertRowInContext
+    SVC->>DB: Prisma query with tenant filter
+    DB->>SVC: Scoped result
+    SVC->>FE: Response
 ```
 
 ---
 
-## القسم 11 — Inventory, Spare Parts, and Costing
+## 45. Uncertain Findings
 
-### المخزون (IMPLEMENTED)
+### UNCERTAIN: Employee model completeness
+**Reason:** No dedicated `Employee` model exists. The system uses `OperationalPerson` linked to `User`.
+**Evidence inspected:** `schema.prisma` (all models reviewed), `maintenance-personnel/` service
+**Missing evidence:** No HR module is implemented (stub only). It is unclear whether the current `OperationalPerson` model is intended to serve as the complete employee representation or is a stepping stone.
 
-- **العناصر**: `Product` + `ProductCategory` (شجرة) + `Warehouse` (warehouseType: SPARE_PART/PRODUCT/RAW_MATERIAL) + `WarehouseLocation`.
-- **الأرصدة**: `InventoryBalance` (unique: warehouseId+productId+batchNumber+serialNumber) — upsert داخل `$transaction` (16 موقع upsert في inventory-balances.service).
-- **المستندات** (كلها بمسار DRAFT → SUBMITTED → APPROVED → REJECTED → POSTED → CANCELLED، عدا Counts وMovements):
-  - `InventoryCount` (+Lines) — DRAFT/IN_PROGRESS/COMPLETED/CANCELLED — مع start/complete/cancel/results/history.
-  - `InventoryMovement` (+Lines) — DRAFT/POSTED/CANCELLED — movementType + sourceType/sourceId (مصدر عام).
-  - `InventoryAdjustment` (+Lines) — من فرق العد (systemQty/countedQty/differenceQty) + `from-count/:countId` و`generate-adjustment`.
-  - `InventoryOpeningBalance` (+Lines)، `InventoryStockAdjustment` (+Lines) — دورة اعتماد كاملة.
-  - `InventoryStockTransfer` (+Lines) — مصدر/وجهة (أرصدة OUT/IN + حركتان).
-  - `InventoryOperationalReceipt` (+Lines) — supplierName/supplierDoc (استلام تشغيلي فقط).
-  - `InventoryPhysicalCount` (+Lines) — variance control كامل (enter/submit/approve/reject/post/cancel).
-- **منع الرصيد السالب**: فحص `availableQuantity`/`quantity >= requested` في خدمات الصرف/التحويل قبل الخصم (داخل transactions).
-- **الأقفال**: `InventoryLock` + `InventoryLockGuard` على 6 controllers للطفرات.
-- **التسوية**: `InventoryLedgerReconciliationModule` — ledger + reconciliation + orphans + negative-balances.
-- **الأرقام**: كل المستندات ترقم عبر `NumberingService.generateNumberAtomic()`.
+### UNCERTAIN: AuditLog tenant scope
+**Reason:** The `AuditLog` model has NO `companyId` or `branchId` fields.
+**Evidence inspected:** `schema.prisma` line ~1800, `audit.service.ts`
+**Missing evidence:** It is unclear whether audit entries are global (shared across companies) or if tenant filtering is done at query time via the `entity` + `entityId` pattern.
 
-### قطع الغيار (IMPLEMENTED)
+### UNCERTAIN: Whether `Product` and `SparePart` should be tenant-scoped
+**Reason:** Neither `Product` nor `SparePart` has `companyId`/`branchId`. They appear to be global catalog entities.
+**Evidence inspected:** `schema.prisma` lines ~2000-2200
+**Missing evidence:** It is unclear whether products are shared across all companies or if this is a design gap.
 
-- قطعة الغيار كيان مستقل `SparePart` (كتالوج بخصائص: technicalClassification, usageType, nature, importance, isCritical) مع **رابط اختياري إلى Product** (`productId`) وربط بـ Machine (`MachineSparePart`) وComponent (`ComponentSparePart`).
-- التركيب/الإزالة/الاستبدال مسجلة (`MachineInstalledPart`, `SparePartReplacementHistory`).
-- **العمر المتوقع**: غير مسجل (لا توجد حقول expected life في SparePart/InstalledPart).
-- **التنبيهات**: لا توجد تنبيهات عمر/استبدال مكتشفة (لا يوجد scheduler).
-- **التوافق**: عبر links فقط (machine/component quantity+unit+isPrimary) — لا يوجد جدول توافق عام.
+### UNCERTAIN: Workflow Engine integration
+**Reason:** `common/workflow-engine/` exists with full service + samples but is NOT wired to any registered module.
+**Evidence inspected:** `workflow-engine.module.ts`, `workflow-engine.service.ts`
+**Missing evidence:** It is unclear if this engine is used internally by other services or is purely scaffolding.
 
-### التكلفة (Costing) — الوضع الحالي
-
-| العنصر | الحالة | الدليل |
-|---|---|---|
-| تكلفة سطر قطعة الغيار | DIRECTLY_STORED (محسوبة) | `MaintenanceRequestRequiredPart.unitCost × quantity = totalCost` (maintenance-request-parts.service.ts:22-23,63-68) |
-| توزيع التكلفة (owner) | PARTIAL | حقول costOwnerType/costOwnerAdministrationId/costDepartmentId/costProductionLineId/costMachineId/costMachineComponentId |
-| MaintenanceRequestCostEntry | DIRECTLY_STORED | type + description + amount + incurredAt (إدخال يدوي تشغيلي) |
-| MaintenanceRequestPartUsage (قديم) | DUPLICATED/LEGACY | unitCost/totalCost Float — نموذج قديم يتعايش مع RequiredPart |
-| MaintenanceRequest.cost | DIRECTLY_STORED (مجموع) | maintenance-requests.service.ts:692-701 يجمع `_sum.amount` |
-| SparePartRepairOrder | DIRECTLY_STORED | estimatedRepairCost/actualRepairCost Decimal(18,2) |
-| Downtime cost | **NOT_IMPLEMENTED** | لا hourlyRate/laborCost/downtimeCost في أي مكان (grep صفري) |
-| BOM cost | NOT_IMPLEMENTED | لا حقل تكلفة في MaintenanceBom |
-| أجور (Labor) | NOT_IMPLEMENTED | — |
-| Finance/Currencies | NOT_FOUND | لا نماذج مالية؛ business-partners يوجد لكنه معزول (30 endpoint مسجلة لكنها غير مستخدمة من صفحات — راجع القسم 15) |
+### UNCERTAIN: Report data source
+**Reason:** Report pages exist but the exact data source (live DB aggregate vs static) could not be fully verified for all 22 report routes.
+**Evidence inspected:** `reports.service.ts` (12 sub-services), some page.tsx files
+**Missing evidence:** Full execution trace of each report endpoint.
 
 ---
 
-## القسم 12 — Authentication, Users, Roles, and Permissions
+## 46. Evidence Index
 
-### تدفق المصادقة
-
-1. `POST /auth/login` (Public) — email + password → bcryptjs مقارنة → `lastLoginAt` تحديث → JWT payload `{sub, email}` (expiresIn من `JWT_EXPIRES_IN || '1d'`).
-2. الوصول: `Authorization: Bearer` → `JwtStrategy` يعيد تحميل المستخدم من DB (يجب أن يكون موجوداً، `deletedAt: null`، `status: 'ACTIVE'`) ويعيد `{id, sub, email, name, companyId, branchId, departmentId}`.
-3. `GET /auth/me` — يجلب المستخدم + الأدوار + الصلاحيات النشطة + `isSuperAdmin` + `allowedContexts`/`defaultContext` + `currentContextStatus` (NO_CONTEXT/AUTO_SELECT/SELECTION_REQUIRED).
-4. `GET /auth/permissions` — مفتاحا الصلاحيات المجمعة.
-5. `GET /auth/contexts` + `POST /auth/context/validate` — سياق التشغيل (UserOperationalScope).
-6. `POST /auth/change-password` — يتحقق من الحالي ويُحدّث hash (bcrypt 10 rounds) — **رسائل خطأ إنجليزية خام**.
-7. `POST /auth/logout` — Public، no-op (JWT عديم الحالة).
-
-### User / Employee
-
-- `User`: email@u، passwordHash، name، twoFactorEnabled، twoFactorSecret، lastLoginAt — لا يوجد Employee model إطلاقاً؛ لا يوجد ربط User→موظف (العلاقة الوحيدة: `OperationalPerson.userId` لطاقم الصيانة، `@@unique`).
-- تعطيل المستخدم: تغيير status إلى INACTIVE (يُرفض تسجيل الدخول بـ `auth.userInactive`).
-- إعادة تعيين كلمة المرور: **غير موجودة** (لا يوجد forgot/reset endpoint).
-
-### السلوك العام
-
-| البند | السلوك |
-|---|---|
-| SUPER_ADMIN | bypass كامل في `PermissionsGuard` (فحص `role.code === 'SUPER_ADMIN'`) |
-| فحص صلاحيات | lookup في Prisma **لكل طلب** (roles→permissions النشطة) |
-| بيانات النطاق | من `OperationalContext` (رؤوس) — لا يوجد filter عام إجباري |
-| حماية عبر الشركات | لا يوجد فحص صريح على مستوى الخدمات؛ فقط فلاتر حيث كتبها المطور |
-| حماية عبر الفروع | غير موجودة |
-| 2FA | غير منفذة (DTOs 0 بايت؛ حقول فقط) |
-| سياسات الأمان (Security settings) | مخزنة (قفل/انتهاء جلسة/كلمة مرور) لكن **غير مربوطة** بالتدفق (لا دليل على تطبيقها في auth) |
-| تسجيل الدخول التاريخ | عبر `user-activity.controller` + صفحات login-history |
-
-### مخزون الصلاحيات (من قراءات seed + فحص controllers)
-
-- **فحص تكميلي جديد (2026-08-03)**: عبر فحص برمجي لكل `@Permissions('...')` في الـ controllers (416 مفتاحاً فريداً) مقابل كل مفاتيح `key: "..."` في 15 ملف seed غير فارغ (343 مفتاحاً فريداً)، تبين أن **163 مفتاحاً مستخدماً في الـ controllers غير موجود في أي seed** — وهو أكبر من التصادمات المفردة السابقة.
-- الرقم الكلي السابق **~509 صلاحية** زراعية عبر 12 ملف seed (الآن 15 ملف seed غير فارغ): seed.ts + CMMS + counting + governance + reports + physical-count + accountability + search + barcode + partners + others.
-- كل seed يعيد ربط كل الصلاحيات بـ SUPER_ADMIN.
-- حالة الـ `syncPermissionKeys` (permission-sync.ts): يعمل على ترحيل مفاتيح mismatch (old→new للمفاتيح الثلاثة activity/attachments/print) ويزرع extras بدون تكرارات؛ يوجد اختبار `permission-synchronization.spec.ts` غير فارغ (27 ملف اختبار غير فارغ إجمالاً الآن).
-- صلاحيات معرّفة لكن غير مستخدمة: مفاتيح seed لـ business-partner* (الوحدات مسجلة لكن لا صفحات أمامية تستهلكها) — PARTIAL.
-- لا توجد صلاحيات Frontend مستقلة؛ الـ frontend يعتمد على `permissions` القادمة من `/auth/me` في `PermissionActionButton` وفلاتر العرض.
+| Finding | Evidence Location |
+|---------|-------------------|
+| 145 database models | `apps/api/prisma/schema.prisma` (5,292 lines) |
+| 0 enums | `apps/api/prisma/schema.prisma` (all String fields for statuses) |
+| 95 registered modules | `apps/api/src/app.module.ts` |
+| ~36 unregistered modules | `apps/api/src/modules/` (empty stub directories) |
+| 298 frontend routes | `apps/web/src/app/` (298 page.tsx files) |
+| 110 sidebar items | `apps/web/src/components/admin/shell/navigation-data.ts` |
+| 19 items with permission field | `apps/web/src/components/admin/shell/navigation-data.ts` |
+| Sidebar does NOT filter by permission | `apps/web/src/components/admin/shell/sidebar.tsx`, `mobile-menu.tsx` |
+| JWT has no tenant data | `apps/api/src/modules/auth/auth.service.ts` (login method) |
+| Context via HTTP headers | `apps/api/src/common/operational-context/active-context.interceptor.ts` |
+| Tenant guards use same TX client | `apps/api/src/common/operational-context/tenant-guards.ts` |
+| MaintenanceRequest has no companyId | `apps/api/prisma/schema.prisma` (MaintenanceRequest model) |
+| ~533 empty stub files | `apps/api/src/modules/` (40 services, 80 controllers, 102 modules, 170+ DTOs), `apps/web/src/` (115 pages, 14 components, 12 lib files) |
+| 106 test files | `apps/api/src/**/*.spec.ts` |
+| 60 migrations | `apps/api/prisma/migrations/` |
+| Duplicate PermissionsGuard | `apps/api/src/common/guards/permissions.guard.ts` AND `apps/api/src/modules/auth/guards/permissions.guard.ts` |
+| SUPER_ADMIN bypass | `apps/api/src/common/guards/permissions.guard.ts` (code === 'SUPER_ADMIN' check) |
+| Cost transactions append-only | `apps/api/prisma/schema.prisma` (OperationalCostTransaction — no updatedAt, no deletedAt) |
+| 15 self-relations | `apps/api/prisma/schema.prisma` (Department, OrgUnit, CostCenter, DowntimeLog, etc.) |
 
 ---
 
-## القسم 13 — Shared Services
+## 47. Current-System Completeness Matrix
 
-| الخدمة | الحالة | التفاصيل |
-|---|---|---|
-| Audit | IMPLEMENTED (معزول) | `AuditLog` + 6 endpoints (list/summary/export csv/user-activity/login-history)؛ الاستدعاءات من الخدمات محدودة (grep يشير لاستخدام في barcodes وبعض خدمات الصيانة/المخزون)؛ ليس نظاماً إلزامياً موحداً |
-| Numbering | IMPLEMENTED (مركزي) | `NumberingService.generateNumberAtomic()` — 47 موقعاً، صفر تجاوز؛ 49 تسلسلاً مزروعاً (41 ACTIVE + 8 USER_REJECTED_FOR_CURRENT_RELEASE)؛ 5 تسلسلات orphan بلا موديل (MACHINE_ASSET, PREVENTIVE_MAINTENANCE, QR_LABEL, BARCODE_RECORD, REPORT_EXPORT_JOB) |
-| Attachments | IMPLEMENTED | `Attachment` + 7 endpoints (upload/download/CRUD)؛ تخزين محلي `storage/uploads` |
-| Comments | NOT_FOUND | لا يوجد موديل comments عام (التعليقات داخل `InternalMessage` للنقاش فقط) |
-| Notifications | IMPLEMENTED (in-app فقط) | `Notification` + 6 endpoints (dispatch/inbox/unread/read/mark-all)؛ `NotificationRule` (قناة IN_APP، أحداث)؛ `MaintenanceNotificationModule` يطلق إشعارات أحداث الصيانة |
-| Alerts | IMPLEMENTED | `GET /alerts` + summary + id (للتشغيل لا للصلاحيات) |
-| Settings | IMPLEMENTED | 6 وحدات: system-settings (7)، company-profile (2)، language (2)، appearance (2)، security (2)، notification-rules (7) |
-| Printing | PARTIAL | طباعة QR/باركود (templates/print) + صفحات طباعة متصفح (requests/[id]/print، machine cards) — لا يوجد Print Template Designer (0 بايت) |
-| Export | IMPLEMENTED | CSV (`/reports/export/csv/*`) + Excel عبر exceljs (`/reports/export/excel/*`) + زر تصدير في واجهة التقارير |
-| Search | IMPLEMENTED | Unified search عبر 6 endpoints + فلترة سياق (734 سطراً context-aware) + F9 |
-| F9 | IMPLEMENTED | Frontend: F9Lookup + adapters + اختصار عام |
-| Backup/Restore | PARTIAL (أدوات) | سكربتات PowerShell (`tools/backup/*.ps1`) + مجلدات storage فارغة؛ لا يوجد endpoint API backup |
-| Installer | PARTIAL (سكربتات) | `tools/installer/*.ps1` + `tools/runtime/atsofterp-install.ps1` + حزمة `release/` + سكربتات deploy/windows |
-| Dashboard | IMPLEMENTED | `GET /dashboard/summary|operations|kpis` + لوحة أمامية بـ 12 استدعاء |
-| Reports | IMPLEMENTED | 42 endpoint + 25 صفحة تقارير حقيقية |
-| Workflow Engine / Request Policy / Request Notifications (common) | NOT_WIRED | وحدات common موجودة على القرص (بها كود حقيقي غير فارغ في بعض الملفات) لكن **غير مستوردة** من أي وحدة مسجلة |
-| Barcodes | IMPLEMENTED | 40 endpoint (labels/generate/qr/scan/print-jobs/templates) |
-| Business Partners | REGISTERED لكن UNUSED من الواجهة | 30 endpoint + 6 وحدات فرعية على القرص (sub-modules غير مسجلة) — لا صفحات أمامية تستهلكها (النطاق مرفوض في الإصدار الحالي) |
+| Domain | Database | Backend | Frontend | Permissions | Tenant Scope | Workflow | Tests | Overall |
+|--------|----------|---------|----------|-------------|--------------|----------|-------|---------|
+| Auth/Users/Roles | COMPLETE | COMPLETE | MOSTLY_COMPLETE | COMPLETE | MOSTLY_COMPLETE | N/A | MOSTLY_COMPLETE | MOSTLY_COMPLETE |
+| Organization | COMPLETE | COMPLETE | MOSTLY_COMPLETE | N/A | COMPLETE | N/A | MOSTLY_COMPLETE | MOSTLY_COMPLETE |
+| Maintenance | COMPLETE | COMPLETE | PARTIAL | PARTIAL | PARTIAL | COMPLETE | MOSTLY_COMPLETE | PARTIAL |
+| Inventory | COMPLETE | COMPLETE | PARTIAL | PARTIAL | MOSTLY_COMPLETE | PARTIAL | MOSTLY_COMPLETE | PARTIAL |
+| Production | COMPLETE | COMPLETE | PARTIAL | PARTIAL | COMPLETE | COMPLETE | MOSTLY_COMPLETE | PARTIAL |
+| Spare Parts | COMPLETE | COMPLETE | PARTIAL | N/A | PARTIAL | N/A | MOSTLY_COMPLETE | PARTIAL |
+| Barcodes | COMPLETE | COMPLETE | PARTIAL | PARTIAL | PARTIAL | N/A | PARTIAL | PARTIAL |
+| Reports | COMPLETE | COMPLETE | PARTIAL | PARTIAL | PARTIAL | N/A | PARTIAL | PARTIAL |
+| Settings | COMPLETE | COMPLETE | MOSTLY_COMPLETE | N/A | N/A | N/A | PARTIAL | MOSTLY_COMPLETE |
+| Business Partners | COMPLETE | COMPLETE | EARLY_STAGE | N/A | PARTIAL | N/A | PARTIAL | PARTIAL |
+| Messaging | COMPLETE | COMPLETE | PARTIAL | N/A | N/A | N/A | N/A | PARTIAL |
+| Notifications | COMPLETE | COMPLETE | MOSTLY_COMPLETE | N/A | N/A | N/A | N/A | MOSTLY_COMPLETE |
+| Audit | COMPLETE | COMPLETE | MOSTLY_COMPLETE | N/A | NOT_FOUND | N/A | N/A | PARTIAL |
+| Attachments | COMPLETE | COMPLETE | MOSTLY_COMPLETE | PARTIAL | PARTIAL | N/A | PARTIAL | PARTIAL |
+| Cost Center | COMPLETE | COMPLETE | MOSTLY_COMPLETE | N/A | MOSTLY_COMPLETE | N/A | MOSTLY_COMPLETE | MOSTLY_COMPLETE |
+| Finance | STUB | STUB | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND |
+| Sales | STUB | STUB | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND |
+| Purchasing | STUB | STUB | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND |
+| HR | STUB | STUB | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND |
+| AI | STUB | STUB | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND |
+| BI | STUB | STUB | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND |
+| IoT | STUB | STUB | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND |
+| Forecasting | STUB | STUB | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND |
 
----
+### Overall Status Summary
 
-## القسم 14 — Integration Map
-
-| المصدر | الهدف | نوع التكامل | الملفات | علاقة DB | الاستخدام الفعلي | الحالة |
-|---|---|---|---|---|---|---|
-| MaintenanceRequest | Machine | مرجع + عمليات | maintenance-requests.service | machineId | كامل | FULLY_INTEGRATED |
-| MaintenanceRequest | ProductionLine/CostCenter/OperationType/MachineComponent | مرجع تشغيلي | schema + requests | FK اختيارية | كامل (فلترة/تقارير) | FULLY_INTEGRATED |
-| MaintenanceRequestRequiredPart | SparePart + MachineComponent + Warehouse | صرف/تكلفة | stock-issue/parts services | FKs | كامل | FULLY_INTEGRATED |
-| Stock Issue | InventoryBalance + InventoryMovement | خصم فعلي | maintenance-stock-issue | movementId/balance upsert | كامل (transaction) | FULLY_INTEGRATED |
-| Stock Issue | MachineInstalledPart + SparePartReplacementHistory | سجل تركيب/استبدال | stock-issue + installed-parts | movementId | كامل (تلقائي) | FULLY_INTEGRATED |
-| Replacement History | Repair Orders | طابور إصلاح | repair-orders (from-replacement-history) | replacementHistoryId | كامل | FULLY_INTEGRATED |
-| Repair Orders | SparePartConditionBalance/Movement | تحويل حالة | repair-orders service | conditionOut/InMovementId | كامل | FULLY_INTEGRATED |
-| MaintenanceSchedule | PreventiveSparePartPlan + BOM | تخطيط وقائي (حجز بلا خصم) | preventive-spare-part-plan | scheduleId | كامل | FULLY_INTEGRATED |
-| MaintenanceRequest | Audit/Notifications | سجل + تنبيه | maintenance-notification | — | جزئي (أحداث محددة) | PARTIAL |
-| InventoryDocs (كل المستندات) | NumberSequence | ترقيم | numbering.service (47 site) | sequenceId | كامل | FULLY_INTEGRATED |
-| InventoryMovement | InventoryBalance | تحديث رصيد | جميع خدمات المخزون | upsert | كامل | FULLY_INTEGRATED |
-| InventoryCount | InventoryAdjustment | إنشاء تسوية من فرق | inventory-adjustments (from-count) | inventoryCountId | كامل | FULLY_INTEGRATED |
-| Machine | UserOperationalScope/Context | سياق تشغيلي | operational-context | — | جزئي (فلترة frontend) | PARTIAL |
-| Company/Branch | Inventory/Machines/ProductionLine | عزل بيانات | schema FKs | companyId/branchId | جزئي (بلا guard إجباري) | PARTIAL |
-| Business Partners | أي نطاق مالي | — | — | — | بلا مستهلك أمامي | NOT_INTEGRATED |
-| Production | كل النطاقات | — | — | — | غير موجود | NOT_INTEGRATED |
-| Finance/Purchasing/Sales/HR | كل النطاقات | — | 0 بايت | لا نماذج | — | NOT_INTEGRATED |
-
-### مخطط التكامل
-
-```mermaid
-graph LR
-    MR[MaintenanceRequest] --> M[Machine]
-    MR --> PL[ProductionLine/CostCenter/OperationType]
-    MR --> RQP[RequiredPart]
-    RQP --> SP[SparePart]
-    RQP --> W[Warehouse SPARE_PART]
-    RQP --> SI[StockIssue]
-    SI --> IB[InventoryBalance]
-    SI --> IM[InventoryMovement]
-    SI --> IP[MachineInstalledPart]
-    SI --> RH[ReplacementHistory]
-    RH --> RO[RepairOrder]
-    RO --> CB[ConditionBalance]
-    SCH[MaintenanceSchedule] --> PLP[SparePartPlan]
-    PLP --> BOM[MaintenanceBom]
-    DOCS[InventoryDocs] --> NS[NumberSequence]
-    DOCS --> IB2[InventoryBalance]
-    IC[InventoryCount] --> IA[InventoryAdjustment]
-```
+| Status | Count |
+|--------|------:|
+| MOSTLY_COMPLETE | 6 |
+| PARTIAL | 11 |
+| NOT_FOUND | 8 |
+| **TOTAL DOMAINS** | **25** |
 
 ---
 
-## القسم 15 — Duplication, Conflicts, and Unused Parts
-
-| # | التصنيف | النتيجة | الدليل |
-|---|---|---|---|
-| 1 | CRITICAL_STRUCTURAL_OBSERVATION | **520 من 1,013 ملف TS في api/src فارغة (51%)** — كامل نطاقات Finance/Purchasing/Sales/HR/AI/IoT/BI/Production وغيرها عبارة عن scaffolding 0 بايت على القرص | فحص حجم الملفات |
-| 2 | HIGH | **تصادم مسارات controllers**: `inventory-adjustments.controller.ts:17` و`:87` (نفس البادئة في نفس الملف) + `:102` يتصادم مع `inventory-counts.controller.ts:15` | قراءة الملفات |
-| 3 | HIGH | **فجوة صلاحيات محققة موسعة**: 416 مفتاحاً فريداً في `@Permissions(...)`، **163 غير مزروعة** في أي seed → 403 لغير SUPER_ADMIN | فحص برمجي شامل controllers vs seeds |
-| 4 | HIGH | 3 مفاتيح صلاحيات mismatch (activity.view/attachments.view/print مقابل activity/attachments/printData) | controllers vs seeds |
-| 5 | MEDIUM | نسختان من JwtAuthGuard/PermissionsGuard (auth vs common) — 9 controllers تستورد common | guards paths |
-| 6 | MEDIUM | `MaintenanceBom` lifecycle في AGENTS.md (DRAFT→APPROVED→ACTIVE→ARCHIVED) يخالف كود الخدمة (ACTIVE/INACTIVE فقط) — **تعارض توثيقي** | bom service |
-| 7 | MEDIUM | 5 تسلسلات orphan بلا موديل: MACHINE_ASSET, PREVENTIVE_MAINTENANCE, QR_LABEL, BARCODE_RECORD, REPORT_EXPORT_JOB | seed vs schema |
-| 8 | MEDIUM | `inventory-count-lines.controller` بلا بادئة (مسارات كاملة يدوياً) | controller file |
-| 9 | MEDIUM | `getProfile` يعيد `{...user, user, ...}` (مفتاح مكرر) | auth.service |
-| 10 | MEDIUM | `changePassword` برسائل إنجليزية خام + DTOs 2FA فارغة | auth.service/DTOs |
-| 11 | LOW | `admin/access-control/` (5 ملفات 0 بايت) نسخة ميتة من `modules/auth` | — |
-| 12 | LOW | وحدات أب ميتة: `admin.module`, `settings.module`, `documents.module`, `factory.module` (0 بايت أو بلا استخدام) | — |
-| 13 | LOW | `routeGroupMap` يحتوي search/alerts بلا مجموعات sidebar | navigation-data.ts |
-| 14 | LOW | `MachinePart` و`MaintenanceRequestPartUsage` نماذج قديمة تتعايش مع RequiredPart/SparePart | schema |
-| 15 | LOW | `.github/workflows/ci.yml` و`docs-check.yml` فارغان (0 بايت) — لا CI فعلي | — |
-| 16 | LOW | `.env.example` الجذر 0 بايت؛ لا .env.example في apps/web | — |
-| 17 | LOW | `scripts/`: 25 من 31 ملفاً 0 بايت | — |
-| 18 | LOW | `roles.guard.ts` فارغ (غير مستخدم) | — |
-| 19 | LOW | **45 ملف spec، 27 غير فارغة** — اختبارات خدمات/guards/validation حقيقية موجودة | فحص بالحجم |
-| 20 | LOW | `spare-part-conditions` و`installed-parts` خارج بادئة `maintenance/` (مسارات مستقلة) — اختلاف تسمية فقط | controllers |
-| 21 | INFORMATIONAL | `routeGroupMap` و`navItems: []` بقايا types قديمة في navigation-data | — |
-| 22 | INFORMATIONAL | لا `x-locale` يُرسل من الـ frontend (اللغة من Accept-Language ثم fallback ar) | grep |
-| 23 | INFORMATIONAL | `/admin/alerts` و`/admin/search` و`/admin/profile` بلا إدخال sidebar (تصل عبر لوحة/F9/قائمة المستخدم) | navigation-data |
-| 24 | INFORMATIONAL | `BusinessPartners` (30 endpoint) مسجلة لكن بلا مستهلك أمامي ولا نماذج مالية — معزولة | frontend grep |
-| 25 | UNCERTAIN | `common/request-policy` و`common/workflow-engine` و`common/request-notifications` تحتوي كوداً حقيقياً لكن غير مستوردة — أيها كان مقصوداً للتفعيل غير محسوم | common/ |
-
----
-
-## القسم 16 — Module Completion Matrix
-
-| الوحدة | DB | Backend | Permissions | Frontend | Tests | Runtime Wiring | الحالة العامة |
-|---|---|---|---|---|---|---|---|---|
-| Auth | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** (مع ملاحظات changePassword/2FA) |
-| Users/Roles/Permissions | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
-| Companies/Branches/Administrations/Departments | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
-| Machines + Categories + Components + Documents | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
-| Maintenance Requests/Tasks/Schedules/Checklist/Downtime | COMPLETE | COMPLETE | PARTIAL (163 مفتاح ناقص شاملاً 3 mismatches) | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** (فجوة صلاحيات واسعة) |
-| Spare Parts + Links | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
-| Stock Issue + Conditions + Installed Parts + Replacement | COMPLETE | COMPLETE | PARTIAL (installed-parts:read مفقودة + 163 مفتاح ناقص) | COMPLETE | PARTIAL | COMPLETE | **PARTIAL** (صلاحيات) |
-| Repair Orders | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
-| BOM + Preventive Plans | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** (تعارض توثيقي lifecycle) |
-| Maintenance SLA/Reliability/Calendar/Notification | COMPLETE | COMPLETE | PARTIAL | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** (SLA عبر النسخة الإنجليزية من guards) |
-| Inventory Documents (8 أنواع) | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** (مع تصادم adjustments controller) |
-| Inventory Balances/Ledger/Reconciliation/Locks | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
-| Barcodes/QR | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
-| Reports | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
-| Search/Dashboard/Alerts/Notifications/Messaging | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
-| Settings (6 وحدات) | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** (security غير مربوطة بالتدفق) |
-| Audit | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | PARTIAL (استخدام محدود) | **PARTIAL** |
-| Attachments | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
-| Numbering | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
-| Business Partners | COMPLETE | COMPLETE | COMPLETE | NOT_FOUND | PARTIAL | NOT_WIRED (بلا مستهلك) | **NOT_WIRED** |
-| Operational Context (UX-0) | COMPLETE | COMPLETE | COMPLETE | COMPLETE | PARTIAL | COMPLETE | **COMPLETE** |
-| Production (factory/*) | NOT_FOUND | NOT_FOUND | NOT_FOUND | NOT_FOUND | STUB | NOT_WIRED | **NOT_FOUND** |
-| Finance/Purchasing/Sales/HR/AI/IoT/BI/Workflows/Import-Export/Forecasting/Predictive/PrintTemplates/Backups/Approvals/Dynamic/UniversalRequests/SystemHealth/SystemUpdate/Monitoring/InventoryIssueRequests/HRRequests/FinancialDisbursementRequests/BusinessRules | NOT_FOUND | STUB (0 بايت) | NOT_FOUND | NOT_FOUND | STUB | NOT_WIRED | **STUB / NOT_WIRED** |
-| Workflow Engine / Request Policy / Request Notifications (common) | NOT_FOUND | PARTIAL (كود موجود غير مسجل) | NOT_FOUND | NOT_FOUND | STUB | NOT_WIRED | **NOT_WIRED** |
-
----
-
-## القسم 17 — Unresolved Facts
-
-| # | ما الذي تم البحث عنه | أين | لماذا بقي غير محسوم | الدليل الإضافي المطلوب لاحقاً |
-|---|---|---|---|---|
-| 1 | أي controller يخدم فعلياً على `inventory/adjustments` عند وجود تعريفين بنفس البادئة في نفس الملف | inventory-adjustments.controller.ts:17/:87 | يتطلب تشغيل الخادم (ممنوع في هذه المهمة) لمعرفة ترتيب تسجيل NestJS | تشغيل GET ومراقبة الرد أو فحص Swagger |
-| 2 | هل `GET /inventory/balances` يخدم من inventory.controller أم inventory-balances.controller | controllers | نفس البادئة inventory بلا فحص runtime | تشغيل + trace |
-| 3 | هل تُطبق سياسات Security settings (قفل/انتهاء جلسة/كلمة مرور) وقت التشغيل | modules/settings/security + auth | لا يوجد كود ربط مكتشف | grep أعمق لاستخدام SystemSetting في auth/interceptors |
-| 4 | نطاق عمل `common/workflow-engine` و`common/request-policy` و`common/request-notifications` — هل كانت مخصصة لنطاقات مرفوضة | common/ | كود موجود غير فارغ لكن بلا مستورد | مراجعة git history للـ common/ |
-| 5 | هل يوجد استخدام فعلي لنظام Audit من جميع الخدمات أم اقتصر على عدد قليل | modules/audit + grep | لا يوجد عداد شامل لاستدعاءات auditService عبر الكود | grep موسع + فحص runtime |
-| 6 | عدد الصلاحيات الفريد الصافي بعد إزالة التكرار بين الـ 15 seed غير الفارغة | prisma/seed/*.ts | 343 مفتاح فريد المذكور، 416 مستخدم في controllers، 163 ناقصة | CONFIRMED (فحص برمجي) |
-| 7 | هل توجد فلاتر companyId داخل كل خدمة مخزون فعلاً أم في البعض فقط | خدمات المخزون | الفحص ركّز على balance upserts وnumbering؛ الفلترة لم تُحصى كاملة | مسح where-clauses لكل خدمة |
-| 8 | سلوك `MaintenanceBom` lifecycle عند تفعيل/أرشفة | maintenance-bom service | الوثائق تقول DRAFT→APPROVED→ACTIVE→ARCHIVED والكود ACTIVE/INACTIVE | قراءة كاملة لخدمة BOM (تم رصدها كتعارض) |
-| 9 | هل تسجيل AuditLog يتم داخل نفس transaction مع العمليات | خدمات الصيانة/المخزون | لم يُتحقق لكل خدمة على حدة | فحص per-service |
-| 10 | نطاق فجوة الصلاحيات (416 مستخدم، 343 مزروع، 163 ناقص) وتأثير fail-closed | controllers vs seeds | — | CONFIRMED |
-
----
-
-## القسم 18 — Evidence Index
-
-| النتيجة | الملفات الداعمة | الفئات/الدوال | مستوى الثقة |
-|---|---|---|---|
-| 80 وحدة مسجلة | `apps/api/src/app.module.ts` (L83-120) | AppModule imports | CONFIRMED |
-| 774 endpoint / 170 controller (88 غير فارغ) | فحص جميع `*.controller.ts` | — | CONFIRMED |
-| 202 module / ~113 غير مسجل / 82 controller فارغ | glob + فحص حجم | — | CONFIRMED |
-| 95 نموذج / 0 enum / 507 @@index / 18 @@unique / 38 @unique / 2 @@id | `apps/api/prisma/schema.prisma` | — | CONFIRMED |
-| 41 deletedAt / 83 updatedAt / 55 status / 20 companyId / 20 branchId | schema.prisma | — | CONFIRMED |
-| MaintenanceRequest بلا companyId/branchId | schema.prisma (MaintenanceRequest) | — | CONFIRMED |
-| 362 maintenance endpoints (36 controller) | فحص 36 controller صيانة | — | CONFIRMED |
-| ~160 inventory endpoints + products/categories | فحص controllers المخزون | — | CONFIRMED |
-| الحالات والقيم لكل كيان صيانة + Work Orders | خدمات maintenance + DTOs | transition maps | CONFIRMED |
-| 47 موقع generateNumberAtomic / صفر تجاوز | grep numberSequence | numbering.service.ts:84 | CONFIRMED |
-| $transaction في كل خدمات الطفرات المخزنية | خدمات المخزون (12 خدمة) | — | CONFIRMED |
-| Stock Issue يمنع PRODUCT/RAW_MATERIAL ويخصم الرصيد ويسجل التركيب/الاستبدال | maintenance-stock-issue.service | issue() | CONFIRMED |
-| RepairOrder دورة 13 حالة | repair-orders.service | transition methods | CONFIRMED |
-| التخطيط لا يخصم الرصيد | preventive-spare-part-plan.service | availability | CONFIRMED |
-| 343 مفتاح فريد مذكور في 15 seed / 163 ناقصة من 416 مستخدمة | 15 seed + controllers | — | CONFIRMED |
-| installed-parts:read مفقودة (9 endpoints) | installed-parts controller vs seeds | — | CONFIRMED |
-| 3 مفاتيح mismatch | controllers vs seed-cmms | — | CONFIRMED |
-| 520 ملف TS فارغ من 1,013 في api/src (51%) | فحص حجم 1,013 ملف | — | CONFIRMED |
-| تصادم inventory/adjustments + inventory/counts | inventory-adjustments.controller.ts:17/:87/:102 | — | CONFIRMED (التأثير runtime غير محسوم) |
-| 266 صفحة page.tsx / 0 placeholder / 0 mock | فحص apps/web/src/app | — | CONFIRMED |
-| 97 رابط sidebar سليم / 0 ميت | navigation-data.ts vs pages | — | CONFIRMED |
-| 3,659 مفتاح EN = AR بنسبة 100% | 16 ملف لكل لغة | — | CONFIRMED |
-| لا إنتاج إطلاقاً | schema + factory/* + frontend grep | — | CONFIRMED |
-| لا تكلفة تعطل (hourlyRate) | grep صفري في api/src | — | CONFIRMED |
-| 45 spec ملف، 27 غير فارغة | فحص حجم | — | CONFIRMED |
-| CI و.env.example فارغان | .github/workflows، .env.example | — | CONFIRMED |
-| 2FA غير منفذة | DTOs 0 بايت + auth.service | — | CONFIRMED |
-| changePassword إنجليزي خام | auth.service.ts:185-194 | — | CONFIRMED |
-| duplicate guards (9 controllers يستخدمون common) | common/guards vs auth/guards | — | CONFIRMED |
-| routeGroupMap orphan search/alerts | navigation-data.ts | — | CONFIRMED |
-| BusinessPartners بلا مستهلك أمامي | grep frontend | — | CONFIRMED |
-| BOM lifecycle تعارض توثيقي | bom service vs AGENTS.md | — | CONFIRMED (تعارض) |
-| 38 migration folder / 43 sql files | prisma/migrations | — | CONFIRMED |
-| 15 seed غير فارغ (seed.ts + CMMS + counting + governance + reports + physical-count + accountability + search + barcode + partners + others) | prisma/seed | — | CONFIRMED |
-
----
-
-## القسم 19 — Final Git Integrity Statement
-
-```
-Final Git Status
-
-- Modified application files: 0 (هذه المهمة)
-- Modified database files: 0
-- Modified configuration files: 0
-- Modified translation files: 0
-- Modified test files: 0
-- Modified package or lock files: 0
-- Pre-existing changes BEFORE this task (dirty working tree):
-  * apps/api/src/modules/factory/inventory-movements/inventory-movements.controller.ts
-  * apps/api/src/modules/factory/inventory-movements/inventory-movements.service.ts
-  * docs/proofs/atsofterp-phase0-workorders-runtime-tenant-inventory-proof.md
-  * docs/proofs/inventory-opening-balance-adjustment-control/final-acceptance-report.md
-  * docs/proofs/inventory-opening-balance-adjustment-control/validation-report.md
-- Untracked files before this task:
-  * apps/api/src/modules/factory/inventory-movements/inventory-movements.service.spec.ts
-  * docs/proofs/phase0-maintenance-work-orders-browser-proof/
-- Created or modified approved report file (THIS task):
-  docs/proofs/atsofterp-current-architecture-discovery-report.md
-- Any other created, modified, deleted, or renamed files by this task:
-  None
-```
-
----
-
-### ملخص الأرقام الرئيسية (تحديث 2026-08-03)
-
-| المقياس | القيمة |
-|---|---|
-| Prisma models | 95 |
-| Prisma enums | 0 |
-| الوحدات المسجلة في AppModule | 80 |
-| ملفات .module.ts على القرص | 202 (89 غير فارغة) |
-| وحدات غير مسجلة على القرص | ~113 (stubs 0 بايت أو common غير مستورد) |
-| API endpoints (إجمالي @Get/@Post/@Patch/@Delete) | 774 (GET=380, POST=161, PATCH=168, DELETE=65) |
-| صفحات frontend (page.tsx) | 266 |
-| ملفات i18n EN/AR | 16 لكل لغة، 3,659 مفتاح |
-| migration folders / SQL files | 38 / 43 |
-| Seed files غير فارغة | 15 |
-| Controller files (إجمالي/غير فارغ) | 170 / 88 |
-| Service files (إجمالي/غير فارغ) | 143 / 96 |
-| DTO files | 389 |
-| Spec files (إجمالي/غير فارغ) | 45 / 27 |
-| Guard files غير فارغة | 5 (jwt-auth×2، permissions×2، inventory-lock) |
-| Empty files in api/src | 520 من 1,013 (51%) |
-| وحدات COMPLETE | 19 |
-| وحدات PARTIAL | 4 (Inventory adjustments collision، Stock Issue permissions، SLA guards/English، Maintenance perm gap) |
-| وحدات STUB / NOT_WIRED | 30+ (كل النطاقات المرفوضة + Production) |
-| Structural observations | 25 (في القسم 15) |
-
----
-
-## خاتمة التحديث — 2026-08-03 (Closing Update - Architecture Discovery Refresh)
-
-اعتباراً من 2026-08-03 تم تحديث هذا التقرير ليعكس الإحصاءات الفعلية المُتحقق منها من الكود في وقت المراجعة (SHA `8eba533efec5b02d7986c86e2511a80938bac1a7`، branch `main`). التغييرات الجوهرية عن التقرير الأصلي (2026-07-31):
-
-1. **تصحيح الأرقام الأساسية**: نماذج 90→95، endpoints 758→774، صفحات 259→266، مفاتيح i18n 3,458→3,659، الوحدات المسجلة 78→80، migration folders 36→38.
-2. **فجوة صلاحيات محققة موسعة**: 416 مفتاحاً مستخدماً في الـ controllers مقابل 343 مفتاحاً مذكوراً في 15 seed file غير فارغ = **163 مفتاحاً ناقصاً** (ليس فقط 4). الـ `PermissionsGuard` يطابق حرفياً فيؤدي إلى fail-closed (403) لكل دور غير SUPER_ADMIN عند مسارات بأسماء مفاتيح غير مزروعة (مثل `machines:*`، `branches:*`، `companies:*`، `administrations:*`، `attachments:*`).
-3. **اختبارات حقيقية**: 27 ملف spec غير فارغ (كان "19 spec 0 بايت").
-4. **تطبيق Flutter حقيقي**: `apps/mobile` يحوي 33 ملف Dart (مصادقة، مخزون، آلات، صيانة، فاحص، مزامنة offline) — ليس مجرد سقالة.
-5. **Desktop**: `apps/desktop` Tauri scaffold فقط (tauri.conf.json 0 بايت).
-6. **Production**: لا يزال غير موجود إطلاقاً (factory/production/* كلها 0 بايت، لا نماذج Prisma، لا صفحات).
-7. **مساران للمستودع**: مسار المهمة `C:\Users\attef\PycharmProjects\Trae\ATsofterp` ومسار العمل الفعلي `C:\Users\attef\PycharmProjects\Project\ATsoft_erp` — مستنسخان متطابقان (نفس SHA، نفس الملفات، نفس git status متسخ قبل المهمة).
-8. **Git status متسخ قبل المهمة**: 5 ملفات معدلة و2 غير متعقبة مسبقاً (تفصيل في قسم 19) — لم تكن نظيفة كما ورد في التقرير الأصلي.
-
-> **ملاحظة**: هذا التقرير أداة اكتشاف (Discovery Aid)، وليس سلطة تصميم. السلطة الملزمة هي `docs/architecture/atsoft-erp-engineering-constitution-v1.0.md` وملفات `docs/agent-rules/` و`AGENTS.md`. الكود الحالي هو مصدر الحقيقة النهائي.
+> **End of report. No architecture recommendations were made. No refactoring was performed. No application source was modified.**

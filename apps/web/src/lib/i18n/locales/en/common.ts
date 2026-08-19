@@ -135,6 +135,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         required: 'Required',
         backToList: 'Back to list',
         confirmDelete: 'Are you sure you want to delete this item?',
+        title: 'Title',
     },
     auth: {
         login: 'Login',

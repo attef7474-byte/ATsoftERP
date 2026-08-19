@@ -8,6 +8,9 @@ import { PermissionsModule } from './modules/admin/permissions/permissions.modul
 import { BranchesModule } from './modules/admin/branches/branches.module'
 import { AdministrationsModule } from './modules/admin/administrations/administrations.module'
 import { DepartmentsModule } from './modules/admin/departments/departments.module'
+import { JobTitlesModule } from './modules/admin/job-titles/job-titles.module'
+import { PersonAssignmentsModule } from './modules/admin/person-assignments/person-assignments.module'
+import { SupervisorAssignmentsModule } from './modules/admin/supervisor-assignments/supervisor-assignments.module'
 import { OrganizationalUnitsModule } from './modules/admin/organizational-units/organizational-units.module'
 import { CompaniesModule } from './modules/companies/companies.module'
 import { ProductsModule } from './modules/factory/products/products.module'
@@ -94,11 +97,12 @@ import { ProductionQualityModule } from './modules/factory/production-quality/pr
 import { ProductionCostModule } from './modules/factory/production-cost/production-cost.module';
 import { ProductionAnalyticsModule } from './modules/factory/production-analytics/production-analytics.module';
 import { OperationalReliabilityModule } from './modules/factory/operational-analytics/reliability/operational-reliability.module';
+import { ShiftHandoversModule } from './modules/factory/production/shift-handovers/shift-handovers.module';
 
 @Module({
   imports: [
     PrismaModule, HealthModule, AuthModule,
-    UsersModule, RolesModule, PermissionsModule, BranchesModule, AdministrationsModule, DepartmentsModule, OrganizationalUnitsModule, CompaniesModule,
+    UsersModule, RolesModule, PermissionsModule, BranchesModule, AdministrationsModule, DepartmentsModule, JobTitlesModule, PersonAssignmentsModule, SupervisorAssignmentsModule, OrganizationalUnitsModule, CompaniesModule,
     ProductsModule, ProductCategoriesModule, InventoryModule, MaintenanceModule,
     AuditModule,
     MachineCategoriesModule, MachinePartsModule, MachineDocumentsModule,
@@ -151,6 +155,7 @@ import { OperationalReliabilityModule } from './modules/factory/operational-anal
     ProductionCostModule,
     ProductionAnalyticsModule,
     OperationalReliabilityModule,
+    ShiftHandoversModule,
   ],
 })
 export class AppModule {}

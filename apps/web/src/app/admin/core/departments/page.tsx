@@ -22,6 +22,7 @@ interface DepartmentForm {
   parentId: string;
   code: string;
   name: string;
+  classification: string;
 }
 
 interface DepartmentPayload {
@@ -31,9 +32,10 @@ interface DepartmentPayload {
   branchId?: string;
   administrationId?: string;
   parentId?: string;
+  classification?: string;
 }
 
-const EMPTY_DEPARTMENT_FORM: DepartmentForm = { companyId: '', branchId: '', administrationId: '', parentId: '', code: '', name: '' };
+const EMPTY_DEPARTMENT_FORM: DepartmentForm = { companyId: '', branchId: '', administrationId: '', parentId: '', code: '', name: '', classification: 'OPERATIONAL' };
 const INITIAL_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
 
 const overviewIcon = (
@@ -135,6 +137,7 @@ export default function DepartmentsPage() {
       parentId: safeString(detail.parentId),
       code: safeString(detail.code),
       name: safeString(detail.name),
+      classification: safeString(detail.classification || 'OPERATIONAL'),
     }),
     mapFormToPayload: (currentForm) => ({
       companyId: currentForm.companyId,
@@ -143,6 +146,7 @@ export default function DepartmentsPage() {
       ...(currentForm.branchId ? { branchId: currentForm.branchId } : {}),
       ...(currentForm.administrationId ? { administrationId: currentForm.administrationId } : {}),
       ...(currentForm.parentId ? { parentId: currentForm.parentId } : {}),
+      ...(currentForm.classification ? { classification: currentForm.classification } : {}),
     }),
     validate: (currentForm) => {
       const fieldErrors: Record<string, string> = {};
@@ -213,6 +217,15 @@ export default function DepartmentsPage() {
   const baseColumns: GridColumn<Department>[] = [
     { key: 'code', header: t('common.code'), sortable: true, filterable: true },
     { key: 'name', header: t('common.name'), sortable: true, filterable: true },
+    { key: 'classification', header: t('core.classification'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
+      { value: 'OPERATIONAL', label: t('core.classifications.OPERATIONAL') },
+      { value: 'MANAGEMENT', label: t('core.classifications.MANAGEMENT') },
+      { value: 'AREA', label: t('core.classifications.AREA') },
+      { value: 'PROCESS', label: t('core.classifications.PROCESS') },
+      { value: 'SECTION', label: t('core.classifications.SECTION') },
+      { value: 'UNIT', label: t('core.classifications.UNIT') },
+      { value: 'WORKSHOP', label: t('core.classifications.WORKSHOP') },
+    ], render: (d) => <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{t(`core.classifications.${d.classification || 'OPERATIONAL'}`)}</span> },
     { key: 'company', header: t('core.company'), sortable: true, render: (d) => d.company?.name || '-' },
     { key: 'branch', header: t('core.branch'), sortable: true, render: (d) => d.branch?.name || '-' },
     { key: 'administration', header: t('core.administration'), sortable: true, render: (d) => d.administration?.name || '-' },
@@ -308,6 +321,10 @@ export default function DepartmentsPage() {
               <span className="text-sm text-gray-500">{t('common.status')}</span>
               <StatusBadge status={selectedDepartment.status} />
             </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-500">{t('core.classification')}</span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{t(`core.classifications.${selectedDepartment.classification || 'OPERATIONAL'}`)}</span>
+            </div>
           </div>
           <div className="bg-[var(--ws-soft)] border border-[var(--ws-border)] rounded-lg p-3 text-center">
             <div className="text-lg font-bold text-[var(--ws-primary)]">{drawerUsers.loading ? '—' : drawerUsers.data.length}</div>
@@ -400,6 +417,13 @@ export default function DepartmentsPage() {
           <F9Lookup label={t('core.parentDepartment')} name="parentId" value={form.parentId} onChange={(v) => { setForm({ ...form, parentId: v }); setValidationErrors(prev => ({ ...prev, parentId: '' })); }} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} error={validationErrors.parentId} />
           <Input label={t('common.code')} name="code" value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} error={validationErrors.code} />
           <Input label={t('common.name')} name="name" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} error={validationErrors.name} required />
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('core.classification')}</label>
+            <select value={form.classification} onChange={(e) => { setForm({ ...form, classification: e.target.value }); setValidationErrors(prev => ({ ...prev, classification: '' })); }} className="w-full border rounded px-3 py-2 text-sm" style={{ borderColor: validationErrors.classification ? '#fca5a5' : undefined }}>
+              {['OPERATIONAL', 'MANAGEMENT', 'AREA', 'PROCESS', 'SECTION', 'UNIT', 'WORKSHOP'].map((type) => <option key={type} value={type}>{t(`core.classifications.${type}`)}</option>)}
+            </select>
+            {validationErrors.classification && <p className="text-sm text-red-500 mt-1">{validationErrors.classification}</p>}
+          </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => { closeFormModal(); setValidationErrors({}); }}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>

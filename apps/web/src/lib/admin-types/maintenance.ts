@@ -40,7 +40,7 @@ export interface Machine {
   category?: { id: string; name: string; code: string };
   company?: { id: string; name: string };
   branch?: { id: string; name: string };
-  department?: { id: string; name: string };
+  department?: { id: string; name: string; classification?: string };
   productionLine?: { id: string; name: string; code: string };
   operationType?: { id: string; name: string; code: string };
   defaultCostCenter?: { id: string; name: string; code: string };
@@ -337,7 +337,7 @@ export interface ProductionLine {
   company?: { id: string; name: string; code: string };
   branch?: { id: string; name: string; code: string };
   administration?: { id: string; name: string; code: string };
-  department?: { id: string; name: string; code: string };
+  department?: { id: string; name: string; code: string; classification?: string };
   operationType?: { id: string; name: string; code: string };
   costCenter?: { id: string; name: string; code: string };
 }
@@ -438,7 +438,10 @@ export interface MaintenancePersonnel {
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
+  operationalPersonId?: string;
   user?: { id: string; name: string; email: string };
+  machineResponsibilities?: { id: string; machine?: { id: string; code: string; name: string } | null }[];
+  requestAssignments?: { id: string; maintenanceRequest?: { id: string; requestNumber: string; title: string } | null }[];
 }
 
 export interface SparePart {

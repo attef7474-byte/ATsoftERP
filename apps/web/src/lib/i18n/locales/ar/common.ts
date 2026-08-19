@@ -121,7 +121,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         viewAll: 'عرض الكل',
         download: 'تنزيل',
         error: 'خطأ',
-        warnings: '??????',
+        warnings: 'تحذيرات',
         system: 'النظام',
         clear: 'مسح',
         preview: 'معاينة',
@@ -135,6 +135,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         required: 'مطلوب',
         backToList: 'العودة إلى القائمة',
         confirmDelete: 'هل أنت متأكد من حذف هذا العنصر؟',
+        title: 'العنوان',
     },
     auth: {
         login: 'تسجيل الدخول',

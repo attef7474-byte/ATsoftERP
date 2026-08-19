@@ -188,7 +188,7 @@ export default function MachineDetailPage() {
             <div><dt className="text-sm font-medium text-gray-500">{t('details.machine.location')}</dt><dd className="mt-1 text-sm text-gray-900">{data.location || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('core.company')}</dt><dd className="mt-1 text-sm text-gray-900">{data.company?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('core.branch')}</dt><dd className="mt-1 text-sm text-gray-900">{data.branch?.name || '-'}</dd></div>
-            <div><dt className="text-sm font-medium text-gray-500">{t('core.department')}</dt><dd className="mt-1 text-sm text-gray-900">{data.department?.name || '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('core.department')}</dt><dd className="mt-1 text-sm text-gray-900 flex items-center gap-2">{data.department?.name || '-'}{data.department?.classification && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{t(`core.classifications.${data.department.classification}`)}</span>}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.productionLine')}</dt><dd className="mt-1 text-sm text-gray-900">{data.productionLine?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.operationType')}</dt><dd className="mt-1 text-sm text-gray-900">{data.operationType?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.technicalAdministration')}</dt><dd className="mt-1 text-sm text-gray-900">{data.technicalAdministration?.name || '-'}</dd></div>

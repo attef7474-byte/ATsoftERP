@@ -1,0 +1,98 @@
+[
+  {
+    "company_code": "CO_01",
+    "branch_code": "BR_01",
+    "administration_code": "ADM_BR01_08",
+    "parent_code": null,
+    "code": "DEP_BR01_PROD_CH",
+    "name": "إنتاج الشيبس",
+    "classification": "PROCESS",
+    "status": "ACTIVE",
+    "source": "مستنتج بشكل حتمي من 07_الوحدات_تنظيمية وبنية الإنتاج المعتمدة",
+    "mapping_status": "READY_DERIVED"
+  },
+  {
+    "company_code": "CO_01",
+    "branch_code": "BR_01",
+    "administration_code": "ADM_BR01_08",
+    "parent_code": null,
+    "code": "DEP_BR01_PROD_PF",
+    "name": "إنتاج البفك",
+    "classification": "PROCESS",
+    "status": "ACTIVE",
+    "source": "مستنتج بشكل حتمي من 07_الوحدات_تنظيمية وبنية الإنتاج المعتمدة",
+    "mapping_status": "READY_DERIVED"
+  },
+  {
+    "company_code": "CO_01",
+    "branch_code": "BR_02",
+    "administration_code": "ADM_BR02_08",
+    "parent_code": null,
+    "code": "DEP_BR02_PROD_CH",
+    "name": "إنتاج الشيبس",
+    "classification": "PROCESS",
+    "status": "ACTIVE",
+    "source": "مستنتج بشكل حتمي من 07_الوحدات_تنظيمية وبنية الإنتاج المعتمدة",
+    "mapping_status": "READY_DERIVED"
+  },
+  {
+    "company_code": "CO_01",
+    "branch_code": "BR_02",
+    "administration_code": "ADM_BR02_08",
+    "parent_code": null,
+    "code": "DEP_BR02_PROD_PF",
+    "name": "إنتاج البفك",
+    "classification": "PROCESS",
+    "status": "ACTIVE",
+    "source": "مستنتج بشكل حتمي من 07_الوحدات_تنظيمية وبنية الإنتاج المعتمدة",
+    "mapping_status": "READY_DERIVED"
+  },
+  {
+    "company_code": "CO_01",
+    "branch_code": "BR_03",
+    "administration_code": "ADM_BR03_08",
+    "parent_code": null,
+    "code": "DEP_BR03_PROD_CH",
+    "name": "إنتاج الشيبس",
+    "classification": "PROCESS",
+    "status": "ACTIVE",
+    "source": "مستنتج بشكل حتمي من 07_الوحدات_تنظيمية وبنية الإنتاج المعتمدة",
+    "mapping_status": "READY_DERIVED"
+  },
+  {
+    "company_code": "CO_01",
+    "branch_code": "BR_03",
+    "administration_code": "ADM_BR03_08",
+    "parent_code": null,
+    "code": "DEP_BR03_PROD_PF",
+    "name": "إنتاج البفك",
+    "classification": "PROCESS",
+    "status": "ACTIVE",
+    "source": "مستنتج بشكل حتمي من 07_الوحدات_تنظيمية وبنية الإنتاج المعتمدة",
+    "mapping_status": "READY_DERIVED"
+  },
+  {
+    "company_code": "CO_01",
+    "branch_code": "BR_04",
+    "administration_code": "ADM_BR04_08",
+    "parent_code": null,
+    "code": "DEP_BR04_PROD_CH",
+    "name": "إنتاج الشيبس",
+    "classification": "PROCESS",
+    "status": "ACTIVE",
+    "source": "مستنتج بشكل حتمي من 07_الوحدات_تنظيمية وبنية الإنتاج المعتمدة",
+    "mapping_status": "READY_DERIVED"
+  },
+  {
+    "company_code": "CO_01",
+    "branch_code": "BR_04",
+    "administration_code": "ADM_BR04_08",
+    "parent_code": null,
+    "code": "DEP_BR04_PROD_PF",
+    "name": "إنتاج البفك",
+    "classification": "PROCESS",
+    "status": "ACTIVE",
+    "source": "مستنتج بشكل حتمي من 07_الوحدات_تنظيمية وبنية الإنتاج المعتمدة",
+    "mapping_status": "READY_DERIVED"
+  }
+]

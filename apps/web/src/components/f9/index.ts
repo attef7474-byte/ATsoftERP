@@ -59,4 +59,6 @@ export {
   productionInspectionAdapter,
   productionCostRateAdapter,
   productionCostSnapshotAdapter,
+  jobTitleAdapter,
+  personAssignmentAdapter,
 } from './lookup-adapters';

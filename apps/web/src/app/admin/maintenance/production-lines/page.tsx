@@ -207,7 +207,7 @@ export default function ProductionLinesPage() {
     { key: 'company', header: t('core.company'), render: (p: ProductionLine) => p.company?.name || '-' },
     { key: 'branch', header: t('core.branch'), render: (p: ProductionLine) => p.branch?.name || '-' },
     { key: 'administration', header: t('core.administration'), render: (p: ProductionLine) => p.administration?.name || '-' },
-    { key: 'department', header: t('core.department'), render: (p: ProductionLine) => p.department?.name || '-' },
+    { key: 'department', header: t('core.department'), render: (p: ProductionLine) => <span className="flex items-center gap-1">{p.department?.name || '-'}{p.department?.classification && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{t(`core.classifications.${p.department.classification}`)}</span>}</span> },
     { key: 'operationType', header: t('maintenance.operationType'), render: (p: ProductionLine) => p.operationType?.name || '-' },
     { key: 'costCenter', header: t('maintenance.costCenter'), render: (p: ProductionLine) => p.costCenter?.name || '-' },
     { key: 'location', header: t('maintenance.location'), render: (p: ProductionLine) => p.location || '-' },

@@ -298,6 +298,142 @@ describe('ProductionAnalyticsService bulk target resolution', () => {
     });
   });
 
+  describe('capacityVariance()', () => {
+    it('computes variance = actualOutput - idealOutput and utilizationPercent = actual / planned', async () => {
+      prisma.productionPerformanceTarget.findMany.mockResolvedValue([companyTarget()]);
+      const report = await service.capacityVariance({ dateFrom: '2026-08-05', dateTo: '2026-08-05' } as any, ctx);
+      expect(report.rows).toHaveLength(1);
+      const row = report.rows[0];
+      expect(row.plannedQuantity).toBe('100');
+      expect(row.actualOutput).toBe('80');
+      expect(row.variance).toBeDefined();
+      expect(row.utilizationPercent).toBeDefined();
+      expect(Number(row.utilizationPercent)).toBeCloseTo(80, 1);
+    });
+
+    it('aggregates multi-run variance across all runs', async () => {
+      prisma.productionPerformanceTarget.findMany.mockResolvedValue([companyTarget()]);
+      prisma.productionRun.findMany.mockResolvedValue([
+        runRecord({ id: 'run-1', plannedQuantitySnapshot: '100', outputEvents: [
+          { id: 'e1', eventType: 'PRODUCTION', classification: 'FINAL_OUTPUT', quantity: '80', goodQuantity: '76', rejectQuantity: '4', correctsEventId: null, measurementPointId: 'mp-1', measurementPoint: { isAuthoritativeFinal: true } },
+        ] }),
+        runRecord({ id: 'run-2', plannedQuantitySnapshot: '200', outputEvents: [
+          { id: 'e2', eventType: 'PRODUCTION', classification: 'FINAL_OUTPUT', quantity: '180', goodQuantity: '170', rejectQuantity: '10', correctsEventId: null, measurementPointId: 'mp-1', measurementPoint: { isAuthoritativeFinal: true } },
+        ] }),
+      ]);
+      const report = await service.capacityVariance({ dateFrom: '2026-08-05', dateTo: '2026-08-05' } as any, ctx);
+      expect(report.rows).toHaveLength(2);
+      expect(report.aggregates.totalPlannedQuantity).toBe('300');
+      expect(report.aggregates.totalActualOutput).toBe('260');
+    });
+
+    it('returns zero utilization when planned quantity is zero', async () => {
+      prisma.productionPerformanceTarget.findMany.mockResolvedValue([companyTarget()]);
+      prisma.productionRun.findMany.mockResolvedValue([
+        runRecord({ plannedQuantitySnapshot: '0' }),
+      ]);
+      const report = await service.capacityVariance({ dateFrom: '2026-08-05', dateTo: '2026-08-05' } as any, ctx);
+      expect(report.aggregates.utilizationPercent).toBe('0');
+    });
+
+    it('excludes cancelled and superseded downtime segments from idealOutput', async () => {
+      prisma.productionPerformanceTarget.findMany.mockResolvedValue([companyTarget()]);
+      prisma.productionRun.findMany.mockResolvedValue([
+        runRecord({
+          sessions: [{ id: 's-1', startedAt: new Date('2026-08-05T12:00:00.000Z'), closedAt: new Date('2026-08-05T20:00:00.000Z') }],
+          downtimeSegments: [
+            { id: 'd1', startedAt: new Date('2026-08-05T13:00:00.000Z'), endedAt: new Date('2026-08-05T14:00:00.000Z'), planned: false, status: 'CLOSED', correctsSegmentId: null },
+            { id: 'd2', startedAt: new Date('2026-08-05T14:00:00.000Z'), endedAt: new Date('2026-08-05T15:00:00.000Z'), planned: false, status: 'CANCELLED', correctsSegmentId: null },
+          ],
+          outputEvents: [
+            { id: 'e1', eventType: 'PRODUCTION', classification: 'FINAL_OUTPUT', quantity: '80', goodQuantity: '76', rejectQuantity: '4', correctsEventId: null, measurementPointId: 'mp-1', measurementPoint: { isAuthoritativeFinal: true } },
+          ],
+        }),
+      ]);
+      const report = await service.capacityVariance({ dateFrom: '2026-08-05', dateTo: '2026-08-05' } as any, ctx);
+      const row = report.rows[0];
+      expect(row.actualOutput).toBe('80');
+      expect(Number(row.idealOutput)).toBeGreaterThan(0);
+    });
+
+    it('includes sourceChanges metadata in the response', async () => {
+      prisma.productionPerformanceTarget.findMany.mockResolvedValue([companyTarget()]);
+      sourceChanges.findByWindow.mockResolvedValue([]);
+      const report = await service.capacityVariance({ dateFrom: '2026-08-05', dateTo: '2026-08-05' } as any, ctx);
+      expect(report.sourceChanges).toBeDefined();
+      expect(report.sourceChanges.changeCount).toBe(0);
+    });
+
+    it('returns zero variance when actualOutput equals idealOutput', async () => {
+      prisma.productionPerformanceTarget.findMany.mockResolvedValue([companyTarget()]);
+      const report = await service.capacityVariance({ dateFrom: '2026-08-05', dateTo: '2026-08-05' } as any, ctx);
+      const row = report.rows[0];
+      const ideal = Number(row.idealOutput);
+      const actual = Number(row.actualOutput);
+      expect(Number(row.variance)).toBeCloseTo(actual - ideal, 4);
+    });
+
+    it('returns positive variance and >100% utilization when actual exceeds planned', async () => {
+      prisma.productionPerformanceTarget.findMany.mockResolvedValue([companyTarget()]);
+      prisma.productionRun.findMany.mockResolvedValue([
+        runRecord({ plannedQuantitySnapshot: '100', outputEvents: [
+          { id: 'e1', eventType: 'PRODUCTION', classification: 'FINAL_OUTPUT', quantity: '120', goodQuantity: '115', rejectQuantity: '5', correctsEventId: null, measurementPointId: 'mp-1', measurementPoint: { isAuthoritativeFinal: true } },
+        ] }),
+      ]);
+      const report = await service.capacityVariance({ dateFrom: '2026-08-05', dateTo: '2026-08-05' } as any, ctx);
+      const row = report.rows[0];
+      expect(Number(row.actualOutput)).toBe(120);
+      expect(Number(row.variance)).toBeGreaterThan(0);
+      expect(Number(row.utilizationPercent)).toBeGreaterThan(100);
+    });
+
+    it('returns zero actualOutput and zero utilization when no output events exist', async () => {
+      prisma.productionPerformanceTarget.findMany.mockResolvedValue([companyTarget()]);
+      prisma.productionRun.findMany.mockResolvedValue([
+        runRecord({ outputEvents: [] }),
+      ]);
+      const report = await service.capacityVariance({ dateFrom: '2026-08-05', dateTo: '2026-08-05' } as any, ctx);
+      const row = report.rows[0];
+      expect(row.actualOutput).toBe('0');
+      expect(row.utilizationPercent).toBe('0');
+      expect(Number(row.variance)).toBeLessThan(0);
+    });
+
+    it('handles an active run with open session by clamping to window boundary', async () => {
+      prisma.productionPerformanceTarget.findMany.mockResolvedValue([companyTarget()]);
+      prisma.productionRun.findMany.mockResolvedValue([
+        runRecord({
+          endedAt: null,
+          sessions: [{ id: 's-1', startedAt: new Date('2026-08-05T12:00:00.000Z'), closedAt: null }],
+          outputEvents: [
+            { id: 'e1', eventType: 'PRODUCTION', classification: 'FINAL_OUTPUT', quantity: '50', goodQuantity: '48', rejectQuantity: '2', correctsEventId: null, measurementPointId: 'mp-1', measurementPoint: { isAuthoritativeFinal: true } },
+          ],
+        }),
+      ]);
+      const report = await service.capacityVariance({ dateFrom: '2026-08-05', dateTo: '2026-08-05' } as any, ctx);
+      expect(report.rows).toHaveLength(1);
+      expect(Number(report.rows[0].idealOutput)).toBeGreaterThan(0);
+      expect(report.rows[0].actualOutput).toBe('50');
+    });
+
+    it('excludes WASTE and REWORK events from actualOutput in capacity variance', async () => {
+      prisma.productionPerformanceTarget.findMany.mockResolvedValue([companyTarget()]);
+      prisma.productionRun.findMany.mockResolvedValue([
+        runRecord({
+          outputEvents: [
+            { id: 'e1', eventType: 'PRODUCTION', classification: 'FINAL_OUTPUT', quantity: '80', goodQuantity: '76', rejectQuantity: '4', correctsEventId: null, measurementPointId: 'mp-1', measurementPoint: { isAuthoritativeFinal: true } },
+            { id: 'e2', eventType: 'PRODUCTION', classification: 'WASTE', quantity: '10', goodQuantity: '0', rejectQuantity: '10', correctsEventId: null, measurementPointId: 'mp-2', measurementPoint: { isAuthoritativeFinal: false } },
+            { id: 'e3', eventType: 'PRODUCTION', classification: 'REWORK', quantity: '5', goodQuantity: '5', rejectQuantity: '0', correctsEventId: null, measurementPointId: 'mp-3', measurementPoint: { isAuthoritativeFinal: false } },
+          ],
+        }),
+      ]);
+      const report = await service.capacityVariance({ dateFrom: '2026-08-05', dateTo: '2026-08-05' } as any, ctx);
+      const row = report.rows[0];
+      expect(row.actualOutput).toBe('80');
+      expect(Number(row.actualOutput)).not.toBe(95);
+    });
+  });
+
   describe('invalidate()', () => {
     it('records an audited SOURCE_UPDATE change inside a Serializable transaction', async () => {
       const result = await service.invalidate(

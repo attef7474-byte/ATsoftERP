@@ -75,7 +75,7 @@ export class DepartmentsService {
     }
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string; administrationId?: string }, ctx: ActiveOperationalContext) {
+  async findAll(query: { page?: number; limit?: number; search?: string; administrationId?: string; classification?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -83,6 +83,7 @@ export class DepartmentsService {
     const where: any = { deletedAt: null, companyId: ctx.companyId, branchId: ctx.branchId };
     if (query.search) where.name = { contains: query.search };
     if (query.administrationId) where.administrationId = query.administrationId;
+    if (query.classification) where.classification = query.classification;
 
     const [data, total] = await Promise.all([
       this.prisma.department.findMany({
@@ -163,5 +164,23 @@ export class DepartmentsService {
       include: { children: { where: { deletedAt: null }, select: { id: true, name: true, code: true } } },
     });
     return departments.filter((d) => !d.parentId);
+  }
+
+  async classify(id: string, classification: string, ctx: ActiveOperationalContext) {
+    const allowed = ['OPERATIONAL', 'MANAGEMENT', 'AREA', 'PROCESS', 'SECTION', 'UNIT', 'WORKSHOP'];
+    if (!allowed.includes(classification)) {
+      throw this.validationError('classification', 'validation.invalidValue', `Classification must be one of: ${allowed.join(', ')}`);
+    }
+
+    await this.findOne(id, ctx);
+
+    return this.prisma.department.update({
+      where: { id },
+      data: { classification },
+      include: {
+        company: { select: { id: true, name: true } },
+        branch: { select: { id: true, name: true } },
+      },
+    });
   }
 }

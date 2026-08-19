@@ -326,9 +326,9 @@ export class MaintenanceDashboardService {
     );
 
     const machinesWithResponsibility = await Promise.all(
-      machinesWithResponsibilityCount.map(async (a) => {
+      machinesWithResponsibilityCount.filter(a => a.machineId !== null).map(async (a) => {
         const m = await this.prisma.machine.findUnique({
-          where: { id: a.machineId },
+          where: { id: a.machineId! },
           select: { id: true, code: true, name: true },
         });
         return { machine: m, responsibilityCount: a._count };

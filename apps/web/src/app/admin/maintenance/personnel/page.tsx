@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
@@ -11,6 +12,7 @@ import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/ad
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionRefreshIcon, ActionDeleteIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MaintenancePersonnelPage() {
+  const router = useRouter();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
@@ -152,8 +154,8 @@ export default function MaintenancePersonnelPage() {
   ], [exec, selectedId]));
 
   const handleRowClick = useCallback((item: MaintenancePersonnel) => {
-    setSelectedId(prev => prev === item.id ? null : item.id);
-  }, []);
+    router.push(`/admin/maintenance/personnel/${item.id}`);
+  }, [router]);
 
   const columns: GridColumn<MaintenancePersonnel>[] = [
     { key: 'code', header: t('maintenance.personnelCode'), sortable: true },

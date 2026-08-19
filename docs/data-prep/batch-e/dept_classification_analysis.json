@@ -1,0 +1,2336 @@
+{
+  "total_departments": 152,
+  "classification_summary": {
+    "OPERATIONAL": 128,
+    "SECTION": 16,
+    "PROCESS": 8
+  },
+  "by_branch": {
+    "BR_01": {
+      "count": 38,
+      "administrations": {
+        "ADM_BR01_01": 3,
+        "ADM_BR01_02": 4,
+        "ADM_BR01_03": 4,
+        "ADM_BR01_04": 5,
+        "ADM_BR01_05": 3,
+        "ADM_BR01_06": 4,
+        "ADM_BR01_07": 2,
+        "ADM_BR01_08": 6,
+        "ADM_BR01_09": 4,
+        "ADM_BR01_10": 3
+      }
+    },
+    "BR_02": {
+      "count": 38,
+      "administrations": {
+        "ADM_BR02_01": 3,
+        "ADM_BR02_02": 4,
+        "ADM_BR02_03": 4,
+        "ADM_BR02_04": 5,
+        "ADM_BR02_05": 3,
+        "ADM_BR02_06": 4,
+        "ADM_BR02_07": 2,
+        "ADM_BR02_08": 6,
+        "ADM_BR02_09": 4,
+        "ADM_BR02_10": 3
+      }
+    },
+    "BR_03": {
+      "count": 38,
+      "administrations": {
+        "ADM_BR03_01": 3,
+        "ADM_BR03_02": 4,
+        "ADM_BR03_03": 4,
+        "ADM_BR03_04": 5,
+        "ADM_BR03_05": 3,
+        "ADM_BR03_06": 4,
+        "ADM_BR03_07": 2,
+        "ADM_BR03_08": 6,
+        "ADM_BR03_09": 4,
+        "ADM_BR03_10": 3
+      }
+    },
+    "BR_04": {
+      "count": 38,
+      "administrations": {
+        "ADM_BR04_01": 3,
+        "ADM_BR04_02": 4,
+        "ADM_BR04_03": 4,
+        "ADM_BR04_04": 5,
+        "ADM_BR04_05": 3,
+        "ADM_BR04_06": 4,
+        "ADM_BR04_07": 2,
+        "ADM_BR04_08": 6,
+        "ADM_BR04_09": 4,
+        "ADM_BR04_10": 3
+      }
+    }
+  },
+  "by_administration": {
+    "ADM_BR01_01": {
+      "branch_code": "BR_01",
+      "admin_name": "الإدارة العامة",
+      "count": 3,
+      "classifications": {
+        "OPERATIONAL": 3
+      },
+      "departments": [
+        "DEP_BR01_001",
+        "DEP_BR01_002",
+        "DEP_BR01_003"
+      ]
+    },
+    "ADM_BR01_02": {
+      "branch_code": "BR_01",
+      "admin_name": "إدارة المالية",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR01_004",
+        "DEP_BR01_005",
+        "DEP_BR01_006",
+        "DEP_BR01_007"
+      ]
+    },
+    "ADM_BR01_03": {
+      "branch_code": "BR_01",
+      "admin_name": "إدارة الحسابات",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR01_008",
+        "DEP_BR01_009",
+        "DEP_BR01_010",
+        "DEP_BR01_011"
+      ]
+    },
+    "ADM_BR01_04": {
+      "branch_code": "BR_01",
+      "admin_name": "إدارة الموارد البشرية",
+      "count": 5,
+      "classifications": {
+        "OPERATIONAL": 5
+      },
+      "departments": [
+        "DEP_BR01_012",
+        "DEP_BR01_013",
+        "DEP_BR01_014",
+        "DEP_BR01_015",
+        "DEP_BR01_016"
+      ]
+    },
+    "ADM_BR01_05": {
+      "branch_code": "BR_01",
+      "admin_name": "إدارة المشتريات",
+      "count": 3,
+      "classifications": {
+        "OPERATIONAL": 3
+      },
+      "departments": [
+        "DEP_BR01_017",
+        "DEP_BR01_018",
+        "DEP_BR01_019"
+      ]
+    },
+    "ADM_BR01_06": {
+      "branch_code": "BR_01",
+      "admin_name": "إدارة المخازن",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR01_020",
+        "DEP_BR01_021",
+        "DEP_BR01_022",
+        "DEP_BR01_023"
+      ]
+    },
+    "ADM_BR01_07": {
+      "branch_code": "BR_01",
+      "admin_name": "إدارة المبيعات",
+      "count": 2,
+      "classifications": {
+        "OPERATIONAL": 2
+      },
+      "departments": [
+        "DEP_BR01_024",
+        "DEP_BR01_025"
+      ]
+    },
+    "ADM_BR01_08": {
+      "branch_code": "BR_01",
+      "admin_name": "إدارة الإنتاج",
+      "count": 6,
+      "classifications": {
+        "SECTION": 4,
+        "PROCESS": 2
+      },
+      "departments": [
+        "DEP_BR01_026",
+        "DEP_BR01_027",
+        "DEP_BR01_028",
+        "DEP_BR01_029",
+        "DEP_BR01_PROD_CH",
+        "DEP_BR01_PROD_PF"
+      ]
+    },
+    "ADM_BR01_09": {
+      "branch_code": "BR_01",
+      "admin_name": "إدارة الخدمات",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR01_030",
+        "DEP_BR01_031",
+        "DEP_BR01_032",
+        "DEP_BR01_033"
+      ]
+    },
+    "ADM_BR01_10": {
+      "branch_code": "BR_01",
+      "admin_name": "إدارة الصيانة",
+      "count": 3,
+      "classifications": {
+        "OPERATIONAL": 3
+      },
+      "departments": [
+        "DEP_BR01_034",
+        "DEP_BR01_035",
+        "DEP_BR01_036"
+      ]
+    },
+    "ADM_BR02_01": {
+      "branch_code": "BR_02",
+      "admin_name": "الإدارة العامة",
+      "count": 3,
+      "classifications": {
+        "OPERATIONAL": 3
+      },
+      "departments": [
+        "DEP_BR02_001",
+        "DEP_BR02_002",
+        "DEP_BR02_003"
+      ]
+    },
+    "ADM_BR02_02": {
+      "branch_code": "BR_02",
+      "admin_name": "إدارة المالية",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR02_004",
+        "DEP_BR02_005",
+        "DEP_BR02_006",
+        "DEP_BR02_007"
+      ]
+    },
+    "ADM_BR02_03": {
+      "branch_code": "BR_02",
+      "admin_name": "إدارة الحسابات",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR02_008",
+        "DEP_BR02_009",
+        "DEP_BR02_010",
+        "DEP_BR02_011"
+      ]
+    },
+    "ADM_BR02_04": {
+      "branch_code": "BR_02",
+      "admin_name": "إدارة الموارد البشرية",
+      "count": 5,
+      "classifications": {
+        "OPERATIONAL": 5
+      },
+      "departments": [
+        "DEP_BR02_012",
+        "DEP_BR02_013",
+        "DEP_BR02_014",
+        "DEP_BR02_015",
+        "DEP_BR02_016"
+      ]
+    },
+    "ADM_BR02_05": {
+      "branch_code": "BR_02",
+      "admin_name": "إدارة المشتريات",
+      "count": 3,
+      "classifications": {
+        "OPERATIONAL": 3
+      },
+      "departments": [
+        "DEP_BR02_017",
+        "DEP_BR02_018",
+        "DEP_BR02_019"
+      ]
+    },
+    "ADM_BR02_06": {
+      "branch_code": "BR_02",
+      "admin_name": "إدارة المخازن",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR02_020",
+        "DEP_BR02_021",
+        "DEP_BR02_022",
+        "DEP_BR02_023"
+      ]
+    },
+    "ADM_BR02_07": {
+      "branch_code": "BR_02",
+      "admin_name": "إدارة المبيعات",
+      "count": 2,
+      "classifications": {
+        "OPERATIONAL": 2
+      },
+      "departments": [
+        "DEP_BR02_024",
+        "DEP_BR02_025"
+      ]
+    },
+    "ADM_BR02_08": {
+      "branch_code": "BR_02",
+      "admin_name": "إدارة الإنتاج",
+      "count": 6,
+      "classifications": {
+        "SECTION": 4,
+        "PROCESS": 2
+      },
+      "departments": [
+        "DEP_BR02_026",
+        "DEP_BR02_027",
+        "DEP_BR02_028",
+        "DEP_BR02_029",
+        "DEP_BR02_PROD_CH",
+        "DEP_BR02_PROD_PF"
+      ]
+    },
+    "ADM_BR02_09": {
+      "branch_code": "BR_02",
+      "admin_name": "إدارة الخدمات",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR02_030",
+        "DEP_BR02_031",
+        "DEP_BR02_032",
+        "DEP_BR02_033"
+      ]
+    },
+    "ADM_BR02_10": {
+      "branch_code": "BR_02",
+      "admin_name": "إدارة الصيانة",
+      "count": 3,
+      "classifications": {
+        "OPERATIONAL": 3
+      },
+      "departments": [
+        "DEP_BR02_034",
+        "DEP_BR02_035",
+        "DEP_BR02_036"
+      ]
+    },
+    "ADM_BR03_01": {
+      "branch_code": "BR_03",
+      "admin_name": "الإدارة العامة",
+      "count": 3,
+      "classifications": {
+        "OPERATIONAL": 3
+      },
+      "departments": [
+        "DEP_BR03_001",
+        "DEP_BR03_002",
+        "DEP_BR03_003"
+      ]
+    },
+    "ADM_BR03_02": {
+      "branch_code": "BR_03",
+      "admin_name": "إدارة المالية",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR03_004",
+        "DEP_BR03_005",
+        "DEP_BR03_006",
+        "DEP_BR03_007"
+      ]
+    },
+    "ADM_BR03_03": {
+      "branch_code": "BR_03",
+      "admin_name": "إدارة الحسابات",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR03_008",
+        "DEP_BR03_009",
+        "DEP_BR03_010",
+        "DEP_BR03_011"
+      ]
+    },
+    "ADM_BR03_04": {
+      "branch_code": "BR_03",
+      "admin_name": "إدارة الموارد البشرية",
+      "count": 5,
+      "classifications": {
+        "OPERATIONAL": 5
+      },
+      "departments": [
+        "DEP_BR03_012",
+        "DEP_BR03_013",
+        "DEP_BR03_014",
+        "DEP_BR03_015",
+        "DEP_BR03_016"
+      ]
+    },
+    "ADM_BR03_05": {
+      "branch_code": "BR_03",
+      "admin_name": "إدارة المشتريات",
+      "count": 3,
+      "classifications": {
+        "OPERATIONAL": 3
+      },
+      "departments": [
+        "DEP_BR03_017",
+        "DEP_BR03_018",
+        "DEP_BR03_019"
+      ]
+    },
+    "ADM_BR03_06": {
+      "branch_code": "BR_03",
+      "admin_name": "إدارة المخازن",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR03_020",
+        "DEP_BR03_021",
+        "DEP_BR03_022",
+        "DEP_BR03_023"
+      ]
+    },
+    "ADM_BR03_07": {
+      "branch_code": "BR_03",
+      "admin_name": "إدارة المبيعات",
+      "count": 2,
+      "classifications": {
+        "OPERATIONAL": 2
+      },
+      "departments": [
+        "DEP_BR03_024",
+        "DEP_BR03_025"
+      ]
+    },
+    "ADM_BR03_08": {
+      "branch_code": "BR_03",
+      "admin_name": "إدارة الإنتاج",
+      "count": 6,
+      "classifications": {
+        "SECTION": 4,
+        "PROCESS": 2
+      },
+      "departments": [
+        "DEP_BR03_026",
+        "DEP_BR03_027",
+        "DEP_BR03_028",
+        "DEP_BR03_029",
+        "DEP_BR03_PROD_CH",
+        "DEP_BR03_PROD_PF"
+      ]
+    },
+    "ADM_BR03_09": {
+      "branch_code": "BR_03",
+      "admin_name": "إدارة الخدمات",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR03_030",
+        "DEP_BR03_031",
+        "DEP_BR03_032",
+        "DEP_BR03_033"
+      ]
+    },
+    "ADM_BR03_10": {
+      "branch_code": "BR_03",
+      "admin_name": "إدارة الصيانة",
+      "count": 3,
+      "classifications": {
+        "OPERATIONAL": 3
+      },
+      "departments": [
+        "DEP_BR03_034",
+        "DEP_BR03_035",
+        "DEP_BR03_036"
+      ]
+    },
+    "ADM_BR04_01": {
+      "branch_code": "BR_04",
+      "admin_name": "الإدارة العامة",
+      "count": 3,
+      "classifications": {
+        "OPERATIONAL": 3
+      },
+      "departments": [
+        "DEP_BR04_001",
+        "DEP_BR04_002",
+        "DEP_BR04_003"
+      ]
+    },
+    "ADM_BR04_02": {
+      "branch_code": "BR_04",
+      "admin_name": "إدارة المالية",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR04_004",
+        "DEP_BR04_005",
+        "DEP_BR04_006",
+        "DEP_BR04_007"
+      ]
+    },
+    "ADM_BR04_03": {
+      "branch_code": "BR_04",
+      "admin_name": "إدارة الحسابات",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR04_008",
+        "DEP_BR04_009",
+        "DEP_BR04_010",
+        "DEP_BR04_011"
+      ]
+    },
+    "ADM_BR04_04": {
+      "branch_code": "BR_04",
+      "admin_name": "إدارة الموارد البشرية",
+      "count": 5,
+      "classifications": {
+        "OPERATIONAL": 5
+      },
+      "departments": [
+        "DEP_BR04_012",
+        "DEP_BR04_013",
+        "DEP_BR04_014",
+        "DEP_BR04_015",
+        "DEP_BR04_016"
+      ]
+    },
+    "ADM_BR04_05": {
+      "branch_code": "BR_04",
+      "admin_name": "إدارة المشتريات",
+      "count": 3,
+      "classifications": {
+        "OPERATIONAL": 3
+      },
+      "departments": [
+        "DEP_BR04_017",
+        "DEP_BR04_018",
+        "DEP_BR04_019"
+      ]
+    },
+    "ADM_BR04_06": {
+      "branch_code": "BR_04",
+      "admin_name": "إدارة المخازن",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR04_020",
+        "DEP_BR04_021",
+        "DEP_BR04_022",
+        "DEP_BR04_023"
+      ]
+    },
+    "ADM_BR04_07": {
+      "branch_code": "BR_04",
+      "admin_name": "إدارة المبيعات",
+      "count": 2,
+      "classifications": {
+        "OPERATIONAL": 2
+      },
+      "departments": [
+        "DEP_BR04_024",
+        "DEP_BR04_025"
+      ]
+    },
+    "ADM_BR04_08": {
+      "branch_code": "BR_04",
+      "admin_name": "إدارة الإنتاج",
+      "count": 6,
+      "classifications": {
+        "SECTION": 4,
+        "PROCESS": 2
+      },
+      "departments": [
+        "DEP_BR04_026",
+        "DEP_BR04_027",
+        "DEP_BR04_028",
+        "DEP_BR04_029",
+        "DEP_BR04_PROD_CH",
+        "DEP_BR04_PROD_PF"
+      ]
+    },
+    "ADM_BR04_09": {
+      "branch_code": "BR_04",
+      "admin_name": "إدارة الخدمات",
+      "count": 4,
+      "classifications": {
+        "OPERATIONAL": 4
+      },
+      "departments": [
+        "DEP_BR04_030",
+        "DEP_BR04_031",
+        "DEP_BR04_032",
+        "DEP_BR04_033"
+      ]
+    },
+    "ADM_BR04_10": {
+      "branch_code": "BR_04",
+      "admin_name": "إدارة الصيانة",
+      "count": 3,
+      "classifications": {
+        "OPERATIONAL": 3
+      },
+      "departments": [
+        "DEP_BR04_034",
+        "DEP_BR04_035",
+        "DEP_BR04_036"
+      ]
+    }
+  },
+  "parent_child_map": {
+    "DEP_BR01_PROD_CH": [
+      "DEP_BR01_026",
+      "DEP_BR01_027"
+    ],
+    "DEP_BR01_PROD_PF": [
+      "DEP_BR01_028",
+      "DEP_BR01_029"
+    ],
+    "DEP_BR02_PROD_CH": [
+      "DEP_BR02_026",
+      "DEP_BR02_027"
+    ],
+    "DEP_BR02_PROD_PF": [
+      "DEP_BR02_028",
+      "DEP_BR02_029"
+    ],
+    "DEP_BR03_PROD_CH": [
+      "DEP_BR03_026",
+      "DEP_BR03_027"
+    ],
+    "DEP_BR03_PROD_PF": [
+      "DEP_BR03_028",
+      "DEP_BR03_029"
+    ],
+    "DEP_BR04_PROD_CH": [
+      "DEP_BR04_026",
+      "DEP_BR04_027"
+    ],
+    "DEP_BR04_PROD_PF": [
+      "DEP_BR04_028",
+      "DEP_BR04_029"
+    ]
+  },
+  "records": [
+    {
+      "code": "DEP_BR01_001",
+      "name": "مكتب المدير العام",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_01",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_002",
+      "name": "مكتب نائب المدير العام",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_01",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_003",
+      "name": "السكرتارية",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_01",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_004",
+      "name": "المراقبة المالية",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_005",
+      "name": "متابعة التكاليف التشغيلية",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_006",
+      "name": "حساب الأرباح والخسائر",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_007",
+      "name": "تحليل كميات الإنتاج والمبيعات",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_008",
+      "name": "المصروفات والعهد",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_009",
+      "name": "مراجعة صرف المخازن",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_010",
+      "name": "الرواتب",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_011",
+      "name": "المراجعة الداخلية",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_012",
+      "name": "الدوام والتحضير",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_013",
+      "name": "الجزاءات والمكافآت",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_014",
+      "name": "تقييم الموظفين",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_015",
+      "name": "التوظيف والرواتب",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_016",
+      "name": "إدارة الورديات",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_017",
+      "name": "طلبات الشراء",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_05",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_018",
+      "name": "متابعة الموردين",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_05",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_019",
+      "name": "المراسلون والمتابعون",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_05",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_020",
+      "name": "مخازن قطع الغيار",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_021",
+      "name": "مخازن قطع الغيار التالفة",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_022",
+      "name": "مخازن المواد الخام",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_023",
+      "name": "مخازن المنتجات التامة",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_024",
+      "name": "إدارة التوزيع",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_07",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_025",
+      "name": "مندوبو المبيعات",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_07",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_026",
+      "name": "إنتاج الشيبس - تصنيع",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_08",
+      "parent_code": "DEP_BR01_PROD_CH",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_027",
+      "name": "إنتاج الشيبس - تغليف",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_08",
+      "parent_code": "DEP_BR01_PROD_CH",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_028",
+      "name": "إنتاج البفك - تصنيع",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_08",
+      "parent_code": "DEP_BR01_PROD_PF",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_029",
+      "name": "إنتاج البفك - تغليف",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_08",
+      "parent_code": "DEP_BR01_PROD_PF",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_030",
+      "name": "قسم الحراسة",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_031",
+      "name": "قسم التغذية",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_032",
+      "name": "قسم النظافة",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_033",
+      "name": "قسم المواصلات والنقل",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_034",
+      "name": "صيانة الشيبس",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_10",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_035",
+      "name": "صيانة البفك",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_10",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_036",
+      "name": "قسم الخراطة والتفريز",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_10",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_001",
+      "name": "مكتب المدير العام",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_01",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_002",
+      "name": "مكتب نائب المدير العام",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_01",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_003",
+      "name": "السكرتارية",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_01",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_004",
+      "name": "المراقبة المالية",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_005",
+      "name": "متابعة التكاليف التشغيلية",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_006",
+      "name": "حساب الأرباح والخسائر",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_007",
+      "name": "تحليل كميات الإنتاج والمبيعات",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_008",
+      "name": "المصروفات والعهد",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_009",
+      "name": "مراجعة صرف المخازن",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_010",
+      "name": "الرواتب",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_011",
+      "name": "المراجعة الداخلية",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_012",
+      "name": "الدوام والتحضير",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_013",
+      "name": "الجزاءات والمكافآت",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_014",
+      "name": "تقييم الموظفين",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_015",
+      "name": "التوظيف والرواتب",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_016",
+      "name": "إدارة الورديات",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_017",
+      "name": "طلبات الشراء",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_05",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_018",
+      "name": "متابعة الموردين",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_05",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_019",
+      "name": "المراسلون والمتابعون",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_05",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_020",
+      "name": "مخازن قطع الغيار",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_021",
+      "name": "مخازن قطع الغيار التالفة",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_022",
+      "name": "مخازن المواد الخام",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_023",
+      "name": "مخازن المنتجات التامة",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_024",
+      "name": "إدارة التوزيع",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_07",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_025",
+      "name": "مندوبو المبيعات",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_07",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_026",
+      "name": "إنتاج الشيبس - تصنيع",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_08",
+      "parent_code": "DEP_BR02_PROD_CH",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_027",
+      "name": "إنتاج الشيبس - تغليف",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_08",
+      "parent_code": "DEP_BR02_PROD_CH",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_028",
+      "name": "إنتاج البفك - تصنيع",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_08",
+      "parent_code": "DEP_BR02_PROD_PF",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_029",
+      "name": "إنتاج البفك - تغليف",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_08",
+      "parent_code": "DEP_BR02_PROD_PF",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_030",
+      "name": "قسم الحراسة",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_031",
+      "name": "قسم التغذية",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_032",
+      "name": "قسم النظافة",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_033",
+      "name": "قسم المواصلات والنقل",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_034",
+      "name": "صيانة الشيبس",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_10",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_035",
+      "name": "صيانة البفك",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_10",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_036",
+      "name": "قسم الخراطة والتفريز",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_10",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_001",
+      "name": "مكتب المدير العام",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_01",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_002",
+      "name": "مكتب نائب المدير العام",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_01",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_003",
+      "name": "السكرتارية",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_01",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_004",
+      "name": "المراقبة المالية",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_005",
+      "name": "متابعة التكاليف التشغيلية",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_006",
+      "name": "حساب الأرباح والخسائر",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_007",
+      "name": "تحليل كميات الإنتاج والمبيعات",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_008",
+      "name": "المصروفات والعهد",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_009",
+      "name": "مراجعة صرف المخازن",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_010",
+      "name": "الرواتب",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_011",
+      "name": "المراجعة الداخلية",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_012",
+      "name": "الدوام والتحضير",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_013",
+      "name": "الجزاءات والمكافآت",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_014",
+      "name": "تقييم الموظفين",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_015",
+      "name": "التوظيف والرواتب",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_016",
+      "name": "إدارة الورديات",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_017",
+      "name": "طلبات الشراء",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_05",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_018",
+      "name": "متابعة الموردين",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_05",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_019",
+      "name": "المراسلون والمتابعون",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_05",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_020",
+      "name": "مخازن قطع الغيار",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_021",
+      "name": "مخازن قطع الغيار التالفة",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_022",
+      "name": "مخازن المواد الخام",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_023",
+      "name": "مخازن المنتجات التامة",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_024",
+      "name": "إدارة التوزيع",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_07",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_025",
+      "name": "مندوبو المبيعات",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_07",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_026",
+      "name": "إنتاج الشيبس - تصنيع",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_08",
+      "parent_code": "DEP_BR03_PROD_CH",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_027",
+      "name": "إنتاج الشيبس - تغليف",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_08",
+      "parent_code": "DEP_BR03_PROD_CH",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_028",
+      "name": "إنتاج البفك - تصنيع",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_08",
+      "parent_code": "DEP_BR03_PROD_PF",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_029",
+      "name": "إنتاج البفك - تغليف",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_08",
+      "parent_code": "DEP_BR03_PROD_PF",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_030",
+      "name": "قسم الحراسة",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_031",
+      "name": "قسم التغذية",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_032",
+      "name": "قسم النظافة",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_033",
+      "name": "قسم المواصلات والنقل",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_034",
+      "name": "صيانة الشيبس",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_10",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_035",
+      "name": "صيانة البفك",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_10",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_036",
+      "name": "قسم الخراطة والتفريز",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_10",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_001",
+      "name": "مكتب المدير العام",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_01",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_002",
+      "name": "مكتب نائب المدير العام",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_01",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_003",
+      "name": "السكرتارية",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_01",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_004",
+      "name": "المراقبة المالية",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_005",
+      "name": "متابعة التكاليف التشغيلية",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_006",
+      "name": "حساب الأرباح والخسائر",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_007",
+      "name": "تحليل كميات الإنتاج والمبيعات",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_02",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_008",
+      "name": "المصروفات والعهد",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_009",
+      "name": "مراجعة صرف المخازن",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_010",
+      "name": "الرواتب",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_011",
+      "name": "المراجعة الداخلية",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_03",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_012",
+      "name": "الدوام والتحضير",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_013",
+      "name": "الجزاءات والمكافآت",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_014",
+      "name": "تقييم الموظفين",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_015",
+      "name": "التوظيف والرواتب",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_016",
+      "name": "إدارة الورديات",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_04",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_017",
+      "name": "طلبات الشراء",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_05",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_018",
+      "name": "متابعة الموردين",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_05",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_019",
+      "name": "المراسلون والمتابعون",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_05",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_020",
+      "name": "مخازن قطع الغيار",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_021",
+      "name": "مخازن قطع الغيار التالفة",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_022",
+      "name": "مخازن المواد الخام",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_023",
+      "name": "مخازن المنتجات التامة",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_06",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_024",
+      "name": "إدارة التوزيع",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_07",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_025",
+      "name": "مندوبو المبيعات",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_07",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_026",
+      "name": "إنتاج الشيبس - تصنيع",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_08",
+      "parent_code": "DEP_BR04_PROD_CH",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_027",
+      "name": "إنتاج الشيبس - تغليف",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_08",
+      "parent_code": "DEP_BR04_PROD_CH",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_028",
+      "name": "إنتاج البفك - تصنيع",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_08",
+      "parent_code": "DEP_BR04_PROD_PF",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_029",
+      "name": "إنتاج البفك - تغليف",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_08",
+      "parent_code": "DEP_BR04_PROD_PF",
+      "classification": "SECTION",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_030",
+      "name": "قسم الحراسة",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_031",
+      "name": "قسم التغذية",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_032",
+      "name": "قسم النظافة",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_033",
+      "name": "قسم المواصلات والنقل",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_09",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_034",
+      "name": "صيانة الشيبس",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_10",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_035",
+      "name": "صيانة البفك",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_10",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_036",
+      "name": "قسم الخراطة والتفريز",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_10",
+      "parent_code": null,
+      "classification": "OPERATIONAL",
+      "src_classification": "OPERATIONAL",
+      "mapping_status": "READY",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_PROD_CH",
+      "name": "إنتاج الشيبس",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_08",
+      "parent_code": null,
+      "classification": "PROCESS",
+      "src_classification": "PROCESS",
+      "mapping_status": "READY_DERIVED",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR01_PROD_PF",
+      "name": "إنتاج البفك",
+      "branch_code": "BR_01",
+      "administration_code": "ADM_BR01_08",
+      "parent_code": null,
+      "classification": "PROCESS",
+      "src_classification": "PROCESS",
+      "mapping_status": "READY_DERIVED",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_PROD_CH",
+      "name": "إنتاج الشيبس",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_08",
+      "parent_code": null,
+      "classification": "PROCESS",
+      "src_classification": "PROCESS",
+      "mapping_status": "READY_DERIVED",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR02_PROD_PF",
+      "name": "إنتاج البفك",
+      "branch_code": "BR_02",
+      "administration_code": "ADM_BR02_08",
+      "parent_code": null,
+      "classification": "PROCESS",
+      "src_classification": "PROCESS",
+      "mapping_status": "READY_DERIVED",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_PROD_CH",
+      "name": "إنتاج الشيبس",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_08",
+      "parent_code": null,
+      "classification": "PROCESS",
+      "src_classification": "PROCESS",
+      "mapping_status": "READY_DERIVED",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR03_PROD_PF",
+      "name": "إنتاج البفك",
+      "branch_code": "BR_03",
+      "administration_code": "ADM_BR03_08",
+      "parent_code": null,
+      "classification": "PROCESS",
+      "src_classification": "PROCESS",
+      "mapping_status": "READY_DERIVED",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_PROD_CH",
+      "name": "إنتاج الشيبس",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_08",
+      "parent_code": null,
+      "classification": "PROCESS",
+      "src_classification": "PROCESS",
+      "mapping_status": "READY_DERIVED",
+      "status": "ACTIVE"
+    },
+    {
+      "code": "DEP_BR04_PROD_PF",
+      "name": "إنتاج البفك",
+      "branch_code": "BR_04",
+      "administration_code": "ADM_BR04_08",
+      "parent_code": null,
+      "classification": "PROCESS",
+      "src_classification": "PROCESS",
+      "mapping_status": "READY_DERIVED",
+      "status": "ACTIVE"
+    }
+  ]
+}

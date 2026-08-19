@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsIn } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateDepartmentDto {
@@ -32,4 +32,10 @@ export class CreateDepartmentDto {
   @ApiProperty({ example: 'Information Technology' })
   @IsString()
   name: string;
+
+  @ApiPropertyOptional({ example: 'OPERATIONAL', enum: ['OPERATIONAL', 'MANAGEMENT', 'AREA', 'PROCESS', 'SECTION', 'UNIT', 'WORKSHOP'] })
+  @IsOptional()
+  @IsString()
+  @IsIn(['OPERATIONAL', 'MANAGEMENT', 'AREA', 'PROCESS', 'SECTION', 'UNIT', 'WORKSHOP'])
+  classification?: string;
 }

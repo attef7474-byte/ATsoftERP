@@ -1,0 +1,693 @@
+{
+  "total_sheets": 44,
+  "sheets": [
+    {
+      "name": "00_تقرير_التدقيق",
+      "rows": 28,
+      "cols": 2,
+      "headers": [
+        "البند",
+        "النتيجة"
+      ]
+    },
+    {
+      "name": "01_مطابقة_GitHub",
+      "rows": 42,
+      "cols": 5,
+      "headers": [
+        "ورقة Excel",
+        "النموذج/المجال في النظام",
+        "صفحة/مسار النظام",
+        "وضع المطابقة",
+        "الملاحظة"
+      ]
+    },
+    {
+      "name": "02_قوائم_اختيار",
+      "rows": 27,
+      "cols": 2,
+      "headers": [
+        "القائمة",
+        "القيمة"
+      ]
+    },
+    {
+      "name": "03_الشركات",
+      "rows": 2,
+      "cols": 9,
+      "headers": [
+        "code",
+        "name",
+        "legalName",
+        "taxNumber",
+        "phone",
+        "email",
+        "address",
+        "status",
+        "source"
+      ]
+    },
+    {
+      "name": "04_الفروع",
+      "rows": 5,
+      "cols": 10,
+      "headers": [
+        "company_code",
+        "company_name",
+        "code",
+        "name",
+        "governorate",
+        "district",
+        "address",
+        "phone",
+        "status",
+        "source"
+      ]
+    },
+    {
+      "name": "05_الإدارات",
+      "rows": 41,
+      "cols": 6,
+      "headers": [
+        "branch_code",
+        "code",
+        "name",
+        "description",
+        "status",
+        "source"
+      ]
+    },
+    {
+      "name": "06_الأقسام",
+      "rows": 153,
+      "cols": 10,
+      "headers": [
+        "company_code",
+        "branch_code",
+        "administration_code",
+        "parent_code",
+        "code",
+        "name",
+        "classification",
+        "status",
+        "source",
+        "mapping_status"
+      ]
+    },
+    {
+      "name": "07_الوحدات_تنظيمية",
+      "rows": 109,
+      "cols": 12,
+      "headers": [
+        "company_code",
+        "branch_code",
+        "parent_code",
+        "code",
+        "name",
+        "type",
+        "status",
+        "source",
+        "target_model",
+        "target_code"
+      ]
+    },
+    {
+      "name": "08_المستخدمون_والأدوار",
+      "rows": 24,
+      "cols": 15,
+      "headers": [
+        "employee_code",
+        "full_name",
+        "company_code",
+        "branch_code",
+        "administration_code",
+        "department_code",
+        "job_title_code",
+        "job_title_reference",
+        "system_role_code",
+        "has_login_reference"
+      ]
+    },
+    {
+      "name": "09_أنواع_العمليات",
+      "rows": 13,
+      "cols": 6,
+      "headers": [
+        "code",
+        "name",
+        "description",
+        "status",
+        "group_reference",
+        "mapping_status"
+      ]
+    },
+    {
+      "name": "10_مراكز_التكلفة",
+      "rows": 48,
+      "cols": 16,
+      "headers": [
+        "company_code",
+        "branch_code",
+        "administration_code",
+        "department_code",
+        "parent_code",
+        "code",
+        "name",
+        "description",
+        "type",
+        "effective_from"
+      ]
+    },
+    {
+      "name": "11_المستودعات",
+      "rows": 17,
+      "cols": 9,
+      "headers": [
+        "company_code",
+        "branch_code",
+        "code",
+        "name",
+        "location",
+        "warehouse_type",
+        "status",
+        "source",
+        "mapping_status"
+      ]
+    },
+    {
+      "name": "12_مواقع_المستودعات",
+      "rows": 17,
+      "cols": 7,
+      "headers": [
+        "warehouse_code",
+        "code",
+        "name",
+        "barcode",
+        "status",
+        "source",
+        "mapping_status"
+      ]
+    },
+    {
+      "name": "13_تصنيفات_الأصناف",
+      "rows": 10,
+      "cols": 9,
+      "headers": [
+        "code",
+        "name",
+        "description",
+        "parent_code",
+        "status",
+        "code_pattern_reference",
+        "entity_type_reference",
+        "default_charge_reference",
+        "mapping_status"
+      ]
+    },
+    {
+      "name": "14_الأصناف_والمواد",
+      "rows": 530,
+      "cols": 20,
+      "headers": [
+        "code",
+        "name",
+        "description",
+        "category_code",
+        "unit",
+        "barcode",
+        "qr_code",
+        "image",
+        "min_stock",
+        "max_stock"
+      ]
+    },
+    {
+      "name": "15_المنتجات_التامة",
+      "rows": 107,
+      "cols": 18,
+      "headers": [
+        "production_definition_code",
+        "product_code",
+        "legacy_item_code",
+        "name",
+        "unit_reference",
+        "pack_size_reference",
+        "wrapper_product_no_reference",
+        "company_code",
+        "branch_code",
+        "default_line_code"
+      ]
+    },
+    {
+      "name": "16_قطع_الغيار",
+      "rows": 402,
+      "cols": 26,
+      "headers": [
+        "code",
+        "name",
+        "description",
+        "category",
+        "specification",
+        "unit",
+        "manufacturer",
+        "model",
+        "part_number",
+        "barcode"
+      ]
+    },
+    {
+      "name": "17_حالات_قطع_الغيار",
+      "rows": 5,
+      "cols": 7,
+      "headers": [
+        "condition",
+        "description",
+        "usable_status",
+        "default_policy",
+        "status",
+        "import_action",
+        "mapping_status"
+      ]
+    },
+    {
+      "name": "18_الأرصدة_الافتتاحية",
+      "rows": 33,
+      "cols": 17,
+      "headers": [
+        "opening_balance_code",
+        "company_code",
+        "branch_code",
+        "warehouse_code",
+        "location_code",
+        "product_code",
+        "item_name_reference",
+        "unit_reference",
+        "condition_reference",
+        "quantity"
+      ]
+    },
+    {
+      "name": "19_خطوط_الإنتاج",
+      "rows": 37,
+      "cols": 16,
+      "headers": [
+        "company_code",
+        "branch_code",
+        "code",
+        "name",
+        "description",
+        "location",
+        "administration_code",
+        "department_code",
+        "operation_type_code",
+        "cost_center_code"
+      ]
+    },
+    {
+      "name": "20_الماكينات",
+      "rows": 302,
+      "cols": 27,
+      "headers": [
+        "company_code",
+        "branch_code",
+        "code",
+        "name",
+        "category_code",
+        "department_code",
+        "production_line_code",
+        "operation_type_code",
+        "default_cost_center_code",
+        "technical_administration_code"
+      ]
+    },
+    {
+      "name": "21_مكونات_الماكينات",
+      "rows": 1859,
+      "cols": 15,
+      "headers": [
+        "machine_code",
+        "parent_component_code",
+        "code",
+        "name",
+        "component_type",
+        "description",
+        "location_in_machine",
+        "manufacturer",
+        "model",
+        "serial_number"
+      ]
+    },
+    {
+      "name": "22_قطع_الماكينات",
+      "rows": 390,
+      "cols": 13,
+      "headers": [
+        "staging_code",
+        "machine_code",
+        "machine_name_reference",
+        "spare_part_code",
+        "part_name_reference",
+        "remaining_life_days_reference",
+        "priority_reference",
+        "status",
+        "source",
+        "target_model"
+      ]
+    },
+    {
+      "name": "23_الغلافات_والموازين",
+      "rows": 68,
+      "cols": 14,
+      "headers": [
+        "wrapper_machine_code",
+        "company_code",
+        "branch_code",
+        "production_line_code",
+        "section_reference",
+        "packaging_line_reference",
+        "wrapper_name",
+        "internal_serial_reference",
+        "weighers_count",
+        "wrapper_model_reference"
+      ]
+    },
+    {
+      "name": "24_كادر_الصيانة",
+      "rows": 16,
+      "cols": 13,
+      "headers": [
+        "maintenance_person_code",
+        "operational_person_code",
+        "job_title_code",
+        "job_title_reference",
+        "employee_name_reference",
+        "branch_code_reference",
+        "branch_name_reference",
+        "administration_reference",
+        "scope_reference",
+        "shift_reference"
+      ]
+    },
+    {
+      "name": "25_مسؤوليات_الماكينات",
+      "rows": 21,
+      "cols": 11,
+      "headers": [
+        "code",
+        "branch_code",
+        "scope_reference",
+        "proposed_scope_type",
+        "proposed_target_code",
+        "job_title_code",
+        "job_title_reference",
+        "responsibility_role_reference",
+        "employee_name_reference",
+        "status"
+      ]
+    },
+    {
+      "name": "26_قوائم_الفحص",
+      "rows": 16,
+      "cols": 11,
+      "headers": [
+        "code",
+        "asset_type",
+        "check_item",
+        "frequency",
+        "responsible",
+        "requires_stop",
+        "method",
+        "status",
+        "target_model",
+        "import_action"
+      ]
+    },
+    {
+      "name": "27_جداول_الصيانة",
+      "rows": 9,
+      "cols": 15,
+      "headers": [
+        "code",
+        "asset_type",
+        "name",
+        "type",
+        "frequency",
+        "interval_days",
+        "start_date",
+        "machine_code",
+        "checklist_codes",
+        "responsible"
+      ]
+    },
+    {
+      "name": "28_معايير_الجودة",
+      "rows": 16,
+      "cols": 15,
+      "headers": [
+        "template_code",
+        "name_ar",
+        "name_en",
+        "characteristic_type",
+        "lower_limit",
+        "target_value",
+        "upper_limit",
+        "source_min_reference",
+        "source_max_reference",
+        "text_value_reference"
+      ]
+    },
+    {
+      "name": "29_أسباب_التوقف",
+      "rows": 15,
+      "cols": 17,
+      "headers": [
+        "company_code",
+        "branch_code",
+        "code",
+        "name_ar",
+        "name_en",
+        "description",
+        "parent_code",
+        "loss_category_reference",
+        "planned_default",
+        "severity_default"
+      ]
+    },
+    {
+      "name": "30_الورديات",
+      "rows": 13,
+      "cols": 12,
+      "headers": [
+        "company_code",
+        "branch_code",
+        "code",
+        "name",
+        "description",
+        "start_time",
+        "end_time",
+        "duration_minutes",
+        "break_minutes",
+        "status"
+      ]
+    },
+    {
+      "name": "31_أوامر_إنتاج_قالب",
+      "rows": 4,
+      "cols": 8,
+      "headers": [
+        "template_code",
+        "section",
+        "name",
+        "required_fields",
+        "status",
+        "target_model",
+        "import_action",
+        "mapping_status"
+      ]
+    },
+    {
+      "name": "32_الباركود_قالب",
+      "rows": 4,
+      "cols": 11,
+      "headers": [
+        "code",
+        "name",
+        "description",
+        "symbology",
+        "entity_type",
+        "width_mm",
+        "height_mm",
+        "template_data",
+        "status",
+        "encoded_fields_reference"
+      ]
+    },
+    {
+      "name": "33_سجل_تغيير_القطع",
+      "rows": 71,
+      "cols": 16,
+      "headers": [
+        "staging_history_code",
+        "machine_code",
+        "machine_name_reference",
+        "new_spare_part_code",
+        "part_name_reference",
+        "description_reference",
+        "replaced_at_reference",
+        "replaced_by_employee_code",
+        "user_name_reference",
+        "branch_reference"
+      ]
+    },
+    {
+      "name": "34_ملاحظات_التدقيق",
+      "rows": 11,
+      "cols": 3,
+      "headers": [
+        "النطاق",
+        "الإجراء/الملاحظة",
+        "الحالة"
+      ]
+    },
+    {
+      "name": "35_تصنيفات_الماكينات",
+      "rows": 4,
+      "cols": 7,
+      "headers": [
+        "code",
+        "name",
+        "description",
+        "parent_code",
+        "status",
+        "source",
+        "mapping_status"
+      ]
+    },
+    {
+      "name": "36_المسميات_الوظيفية",
+      "rows": 30,
+      "cols": 11,
+      "headers": [
+        "company_code",
+        "code",
+        "name",
+        "name_ar",
+        "name_en",
+        "category",
+        "description",
+        "is_active",
+        "status",
+        "source"
+      ]
+    },
+    {
+      "name": "37_الأشخاص_التشغيليون",
+      "rows": 24,
+      "cols": 10,
+      "headers": [
+        "code",
+        "name",
+        "category",
+        "user_email",
+        "is_active",
+        "phone",
+        "email",
+        "notes",
+        "source",
+        "identity_review_status"
+      ]
+    },
+    {
+      "name": "38_تعيينات_الأشخاص",
+      "rows": 24,
+      "cols": 13,
+      "headers": [
+        "company_code",
+        "branch_code",
+        "administration_code",
+        "department_code",
+        "job_title_code",
+        "personnel_code",
+        "assignment_type",
+        "effective_from",
+        "effective_to",
+        "status"
+      ]
+    },
+    {
+      "name": "39_التسلسل_الإداري",
+      "rows": 1,
+      "cols": 10,
+      "headers": [
+        "company_code",
+        "assignment_personnel_code",
+        "supervisor_personnel_code",
+        "relationship_type",
+        "effective_from",
+        "effective_to",
+        "is_active",
+        "status",
+        "source",
+        "mapping_status"
+      ]
+    },
+    {
+      "name": "40_مسؤوليات_الصيانة_v2",
+      "rows": 21,
+      "cols": 16,
+      "headers": [
+        "code",
+        "company_code",
+        "branch_code",
+        "scope_type",
+        "machine_code",
+        "production_line_code",
+        "department_code",
+        "maintenance_personnel_code",
+        "responsibility_role",
+        "is_primary"
+      ]
+    },
+    {
+      "name": "41_خريطة_الأعمدة_v2",
+      "rows": 511,
+      "cols": 8,
+      "headers": [
+        "sheet",
+        "column",
+        "target_model_or_domain",
+        "system_page_or_route",
+        "sheet_import_mode",
+        "target_field_or_resolution",
+        "column_action",
+        "notes"
+      ]
+    },
+    {
+      "name": "42_سجل_التصحيحات_v2",
+      "rows": 18,
+      "cols": 7,
+      "headers": [
+        "sheet",
+        "action",
+        "affected_rows",
+        "before",
+        "after",
+        "status",
+        "note"
+      ]
+    },
+    {
+      "name": "43_جاهزية_الاستيراد",
+      "rows": 33,
+      "cols": 5,
+      "headers": [
+        "domain",
+        "sheet",
+        "readiness",
+        "rows",
+        "notes"
+      ]
+    }
+  ]
+}

@@ -128,6 +128,53 @@ describe('deriveRunTotals', () => {
     expect(totals.totalEvents).toBe(0);
     expect(totals.finalOutputTotal).toBe('0');
   });
+
+  it('classifies INPUT events as traceability only, never into headline output', () => {
+    const totals = deriveRunTotals([
+      baseEvent({ id: 'in1', classification: 'INPUT', quantity: '50.0000', goodQuantity: '50.0000', rejectQuantity: '0', measurementPoint: { isAuthoritativeFinal: false } }),
+    ]);
+    expect(totals.finalOutputTotal).toBe('0');
+    expect(totals.finalOutputEventCount).toBe(0);
+    expect(totals.byClassification.INPUT.quantity).toBe('50');
+  });
+
+  it('classifies INTERMEDIATE events as traceability only, never into headline output', () => {
+    const totals = deriveRunTotals([
+      baseEvent({ id: 'int1', classification: 'INTERMEDIATE', quantity: '30.0000', goodQuantity: '30.0000', rejectQuantity: '0', measurementPoint: { isAuthoritativeFinal: false } }),
+    ]);
+    expect(totals.finalOutputTotal).toBe('0');
+    expect(totals.finalOutputEventCount).toBe(0);
+    expect(totals.byClassification.INTERMEDIATE.quantity).toBe('30');
+  });
+
+  it('aggregates multiple authoritative FINAL_OUTPUT events into headline totals', () => {
+    const totals = deriveRunTotals([
+      baseEvent({ id: 'f1', quantity: '100.0000', goodQuantity: '95.0000', rejectQuantity: '5.0000', measurementPoint: { isAuthoritativeFinal: true } }),
+      baseEvent({ id: 'f2', quantity: '200.0000', goodQuantity: '190.0000', rejectQuantity: '10.0000', measurementPoint: { isAuthoritativeFinal: true } }),
+      baseEvent({ id: 'f3', quantity: '50.0000', goodQuantity: '48.0000', rejectQuantity: '2.0000', measurementPoint: { isAuthoritativeFinal: true } }),
+    ]);
+    expect(totals.finalOutputTotal).toBe('350');
+    expect(totals.finalOutputGood).toBe('333');
+    expect(totals.finalOutputReject).toBe('17');
+    expect(totals.finalOutputEventCount).toBe(3);
+  });
+
+  it('mixes INPUT, INTERMEDIATE, WASTE, REWORK, and FINAL_OUTPUT without cross-contamination', () => {
+    const totals = deriveRunTotals([
+      baseEvent({ id: 'in1', classification: 'INPUT', quantity: '50.0000', goodQuantity: '50.0000', rejectQuantity: '0', measurementPoint: { isAuthoritativeFinal: false } }),
+      baseEvent({ id: 'int1', classification: 'INTERMEDIATE', quantity: '30.0000', goodQuantity: '30.0000', rejectQuantity: '0', measurementPoint: { isAuthoritativeFinal: false } }),
+      baseEvent({ id: 'fo1', classification: 'FINAL_OUTPUT', quantity: '80.0000', goodQuantity: '76.0000', rejectQuantity: '4.0000', measurementPoint: { isAuthoritativeFinal: true } }),
+      baseEvent({ id: 'w1', classification: 'WASTE', quantity: '5.0000', goodQuantity: '0', rejectQuantity: '5.0000', measurementPoint: { isAuthoritativeFinal: false } }),
+      baseEvent({ id: 'rw1', classification: 'REWORK', quantity: '3.0000', goodQuantity: '3.0000', rejectQuantity: '0', measurementPoint: { isAuthoritativeFinal: false } }),
+    ]);
+    expect(totals.finalOutputTotal).toBe('80');
+    expect(totals.finalOutputGood).toBe('76');
+    expect(totals.finalOutputReject).toBe('4');
+    expect(totals.wasteTotal).toBe('5');
+    expect(totals.reworkTotal).toBe('3');
+    expect(totals.byClassification.INPUT.quantity).toBe('50');
+    expect(totals.byClassification.INTERMEDIATE.quantity).toBe('30');
+  });
 });
 
 describe('progressPercent', () => {

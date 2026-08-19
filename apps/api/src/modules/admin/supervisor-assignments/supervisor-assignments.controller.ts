@@ -1,0 +1,90 @@
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { SupervisorAssignmentsService } from './supervisor-assignments.service';
+import { CreateSupervisorAssignmentDto } from './dto/create-supervisor-assignment.dto';
+import { UpdateSupervisorAssignmentDto } from './dto/update-supervisor-assignment.dto';
+import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
+import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+
+@ApiTags('Supervisor Assignments')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@Controller({ path: 'supervisor-assignments', version: '1' })
+export class SupervisorAssignmentsController {
+  constructor(private supervisorAssignmentsService: SupervisorAssignmentsService) {}
+
+  @Post()
+  @Permissions('supervisor:assign')
+  @ApiOperation({ summary: 'Create a supervisor assignment' })
+  create(
+    @Body() dto: CreateSupervisorAssignmentDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.supervisorAssignmentsService.create(dto, ctx, userId);
+  }
+
+  @Get()
+  @Permissions('supervisor:read')
+  @ApiOperation({ summary: 'List supervisor assignments' })
+  findAll(
+    @Query() query: { page?: string; limit?: string; search?: string; assignmentId?: string; isActive?: string },
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.supervisorAssignmentsService.findAll({
+      page: query.page ? parseInt(query.page, 10) : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : undefined,
+      search: query.search,
+      assignmentId: query.assignmentId,
+      isActive: query.isActive,
+    }, ctx);
+  }
+
+  @Get('reporting-line/:assignmentId')
+  @Permissions('supervisor:read')
+  @ApiOperation({ summary: 'Get reporting line for an assignment' })
+  getReportingLine(@Param('assignmentId') assignmentId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.supervisorAssignmentsService.getReportingLine(assignmentId, ctx);
+  }
+
+  @Get('subordinates/:assignmentId')
+  @Permissions('supervisor:read')
+  @ApiOperation({ summary: 'Get subordinates for an assignment' })
+  getSubordinates(@Param('assignmentId') assignmentId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.supervisorAssignmentsService.getSubordinates(assignmentId, ctx);
+  }
+
+  @Get(':id')
+  @Permissions('supervisor:read')
+  @ApiOperation({ summary: 'Get supervisor assignment by ID' })
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.supervisorAssignmentsService.findOne(id, ctx);
+  }
+
+  @Patch(':id')
+  @Permissions('supervisor:assign')
+  @ApiOperation({ summary: 'Update supervisor assignment' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateSupervisorAssignmentDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.supervisorAssignmentsService.update(id, dto, ctx, userId);
+  }
+
+  @Delete(':id')
+  @Permissions('supervisor:remove')
+  @ApiOperation({ summary: 'Remove supervisor assignment' })
+  remove(
+    @Param('id') id: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.supervisorAssignmentsService.remove(id, ctx, userId);
+  }
+}

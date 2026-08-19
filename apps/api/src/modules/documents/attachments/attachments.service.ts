@@ -99,6 +99,9 @@ export class AttachmentsService {
       case 'PRODUCTION_NONCONFORMANCE':
         owned = await this.prisma.productionNonconformance.findFirst({ where: { id: entityId, companyId: ctx.companyId, branchId: ctx.branchId }, select: { id: true } })
         break
+      case 'SHIFT_HANDOVER':
+        owned = await this.prisma.shiftHandover.findFirst({ where: { id: entityId, companyId: ctx.companyId, deletedAt: null }, select: { id: true } })
+        break
       default:
         throw new BadRequestException({ messageKey: 'attachments.unsupportedEntityType' })
     }
