@@ -155,9 +155,9 @@ production_lines                     = 5
 |-------|-------|
 | Branch | `checkpoint/backend-lan-responsive-shell` |
 | Initial HEAD (pre-closeout) | `0e9c925c887777f830a5a0611660770b9a2abdd7` |
-| Final HEAD (post-commit) | `dc0c13bec6bdf2806f19fd53097fd7d4e13c396a` |
-| Commit message | `feat: complete ATsoft ERP organization maintenance and Joubah import foundation` |
-| Files committed | 143 (41,019 insertions, 3,422 deletions) |
+| Final HEAD (post-commit) | `31ebd6c792e9604eef44fd6c957a108ab4defe09` |
+| Commits | 2: (1) `dc0c13be` feat commit, (2) `31ebd6c` proof update |
+| Total files committed | 144 (41,094 insertions, 3,425 deletions) |
 | .bak in commit | NO (excluded via `.gitignore` `*.bak` rule added) |
 | Secrets in commit | NO |
 | Temporary debug files in commit | NO |
@@ -172,7 +172,7 @@ production_lines                     = 5
 | Tag name | `atsoft-erp-org-maintenance-joubah-import-final` |
 | Tag type | Annotated |
 | Tag SHA | `d6d858fd6df9d96769829de60d45e62363632367` |
-| Tag target | `dc0c13bec6bdf2806f19fd53097fd7d4e13c396a` |
+| Tag target | `dc0c13bec6bdf2806f19fd53097fd7d4e13c396a` (feat commit) |
 | Pre-existing check | PASS (tag did not exist before creation) |
 
 ### Remote Push
@@ -181,8 +181,8 @@ production_lines                     = 5
 |-------|-------|
 | Remote URL | `https://github.com/attef7474-byte/ATsoftERP` |
 | Remote branch | `origin/checkpoint/backend-lan-responsive-shell` |
-| Remote SHA | `dc0c13bec6bdf2806f19fd53097fd7d4e13c396a` |
-| Local SHA | `dc0c13bec6bdf2806f19fd53097fd7d4e13c396a` |
+| Remote SHA | `31ebd6c792e9604eef44fd6c957a108ab4defe09` |
+| Local SHA | `31ebd6c792e9604eef44fd6c957a108ab4defe09` |
 | Ahead / Behind | `0 / 0` |
 | Remote tag pushed | `atsoft-erp-org-maintenance-joubah-import-final` |
 | Remote sync | PASS |
