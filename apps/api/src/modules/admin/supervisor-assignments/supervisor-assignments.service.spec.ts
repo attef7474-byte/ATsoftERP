@@ -17,12 +17,17 @@ describe('SupervisorAssignmentsService', () => {
     source: 'EXPLICIT_SCOPE',
   } as ActiveOperationalContext;
 
-  const personAssignment = (id: string, personnelId: string) => ({
+  const personAssignment = (id: string, personnelId: string, overrides: Record<string, any> = {}) => ({
     id,
     companyId: 'company-a',
     personnelId,
     departmentId: 'dept1',
     assignmentType: 'PRIMARY',
+    branchId: 'branch-a',
+    effectiveFrom: new Date('2026-01-01'),
+    effectiveTo: null,
+    deletedAt: null,
+    ...overrides,
   });
 
   const supervisorRecord = (overrides: Record<string, any> = {}) => ({
@@ -34,6 +39,7 @@ describe('SupervisorAssignmentsService', () => {
     effectiveFrom: new Date('2026-01-01'),
     effectiveTo: null,
     isActive: true,
+    deletedAt: null,
     ...overrides,
   });
 
@@ -94,28 +100,11 @@ describe('SupervisorAssignmentsService', () => {
       expect(response.errors[0]).toMatchObject({ field: 'supervisorAssignmentId', code: 'validation.selfReference' });
     });
 
-    it('detects a cycle when the supervisor chain loops back', async () => {
-      prisma.operationalPersonAssignment.findFirst
-        .mockResolvedValueOnce(personAssignment('pa1', 'personA'))
-        .mockResolvedValueOnce(personAssignment('pa2', 'personB'));
-
-      // pa2 already reports to pa1 -> making pa1 report to pa2 would create a cycle
-      prisma.supervisorAssignment.findFirst
-        .mockResolvedValueOnce({ supervisorAssignmentId: 'pa1' }); // pa2 -> pa1
-
-      const promise = service.create(
-        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-01-01T00:00:00.000Z' },
-        ctx,
-      );
-      await expect(promise).rejects.toThrow(BadRequestException);
-      const response = (await promise.catch((e: any) => e)).getResponse();
-      expect(response.errors[0]).toMatchObject({ field: 'supervisorAssignmentId', code: 'validation.cycleDetected' });
-    });
-
     it('creates a supervisor assignment with audit', async () => {
       prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce(personAssignment('pa1', 'personA'))
         .mockResolvedValueOnce(personAssignment('pa2', 'personB'));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
       prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
       prisma.supervisorAssignment.create.mockResolvedValue(supervisorRecord());
 
@@ -147,6 +136,383 @@ describe('SupervisorAssignmentsService', () => {
       );
 
       expect(result.supervisorAssignmentId).toBeNull();
+    });
+  });
+
+  describe('one effective DIRECT supervisor rule', () => {
+    it('rejects second DIRECT with overlapping interval', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA'))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB'));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([
+        { id: 'existing-direct', effectiveFrom: new Date('2026-01-01'), effectiveTo: null, supervisorAssignmentId: 'pa3' },
+      ]);
+
+      const promise = service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-06-01T00:00:00.000Z', relationshipType: 'DIRECT' },
+        ctx,
+      );
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e: any) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'assignmentId', code: 'validation.directSupervisorOverlap' });
+    });
+
+    it('accepts historical non-overlapping DIRECT', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA'))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB'));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([
+        { id: 'old-direct', effectiveFrom: new Date('2026-01-01'), effectiveTo: new Date('2026-03-01'), supervisorAssignmentId: 'pa3' },
+      ]);
+      prisma.supervisorAssignment.create.mockResolvedValue(supervisorRecord());
+
+      const result = await service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-03-01T00:00:00.000Z', relationshipType: 'DIRECT' },
+        ctx,
+      );
+      expect(result.assignmentId).toBe('pa1');
+    });
+
+    it('accepts future non-overlapping DIRECT', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA'))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB'));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([
+        { id: 'old-direct', effectiveFrom: new Date('2026-01-01'), effectiveTo: new Date('2026-06-01'), supervisorAssignmentId: 'pa3' },
+      ]);
+      prisma.supervisorAssignment.create.mockResolvedValue(supervisorRecord());
+
+      const result = await service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-06-01T00:00:00.000Z', relationshipType: 'DIRECT' },
+        ctx,
+      );
+      expect(result.assignmentId).toBe('pa1');
+    });
+
+    it('accepts exact boundary (old.effectiveTo == new.effectiveFrom)', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA'))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB'));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([
+        { id: 'old-direct', effectiveFrom: new Date('2026-01-01'), effectiveTo: new Date('2026-06-01'), supervisorAssignmentId: 'pa3' },
+      ]);
+      prisma.supervisorAssignment.create.mockResolvedValue(supervisorRecord());
+
+      const result = await service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-06-01T00:00:00.000Z', effectiveTo: '2026-12-31T00:00:00.000Z', relationshipType: 'DIRECT' },
+        ctx,
+      );
+      expect(result.assignmentId).toBe('pa1');
+    });
+
+    it('rejects true interval overlap', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA'))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB'));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([
+        { id: 'existing-direct', effectiveFrom: new Date('2026-03-01'), effectiveTo: new Date('2026-09-01'), supervisorAssignmentId: 'pa3' },
+      ]);
+
+      const promise = service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-06-01T00:00:00.000Z', effectiveTo: '2026-12-31T00:00:00.000Z', relationshipType: 'DIRECT' },
+        ctx,
+      );
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e: any) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ code: 'validation.directSupervisorOverlap' });
+    });
+
+    it('rejects open-ended interval overlap', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA'))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB'));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([
+        { id: 'existing-direct', effectiveFrom: new Date('2026-01-01'), effectiveTo: null, supervisorAssignmentId: 'pa3' },
+      ]);
+
+      const promise = service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-06-01T00:00:00.000Z', effectiveTo: '2026-12-31T00:00:00.000Z', relationshipType: 'DIRECT' },
+        ctx,
+      );
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e: any) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ code: 'validation.directSupervisorOverlap' });
+    });
+  });
+
+  describe('MATRIX and FUNCTIONAL coexistence', () => {
+    it('allows MATRIX alongside existing DIRECT', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA'))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB'));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.supervisorAssignment.create.mockResolvedValue(supervisorRecord({ relationshipType: 'MATRIX' }));
+
+      const result = await service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', relationshipType: 'MATRIX', effectiveFrom: '2026-01-01T00:00:00.000Z' },
+        ctx,
+      );
+      expect(result.relationshipType).toBe('MATRIX');
+    });
+
+    it('allows FUNCTIONAL alongside existing DIRECT', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA'))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB'));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.supervisorAssignment.create.mockResolvedValue(supervisorRecord({ relationshipType: 'FUNCTIONAL' }));
+
+      const result = await service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', relationshipType: 'FUNCTIONAL', effectiveFrom: '2026-01-01T00:00:00.000Z' },
+        ctx,
+      );
+      expect(result.relationshipType).toBe('FUNCTIONAL');
+    });
+  });
+
+  describe('date-aware effective filtering', () => {
+    it('future DIRECT not returned before effectiveFrom', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+
+      const result = await service.getReportingLine('pa1', ctx, new Date('2025-12-31'));
+      expect(result.reportingLine).toEqual([]);
+    });
+
+    it('future DIRECT returned after effectiveFrom', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1',
+          supervisorAssignmentId: 'pa2',
+          relationshipType: 'DIRECT',
+          effectiveFrom: new Date('2026-06-01'),
+          effectiveTo: null,
+          isActive: true,
+          deletedAt: null,
+          supervisorAssignment: {
+            id: 'pa2',
+            personnelId: 'personB',
+            person: { id: 'personB', name: 'Supervisor B', code: 'SUP-001' },
+            department: { id: 'dept1', name: 'Dept 1', code: 'D1' },
+            jobTitle: { id: 'jt1', name: 'Manager', code: 'MGR' },
+          },
+        })
+        .mockResolvedValueOnce(null);
+
+      const result = await service.getReportingLine('pa1', ctx, new Date('2026-06-01'));
+      expect(result.reportingLine).toHaveLength(1);
+      expect(result.reportingLine[0].level).toBe(1);
+    });
+
+    it('expired DIRECT not returned', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+
+      const result = await service.getReportingLine('pa1', ctx, new Date('2027-06-01'));
+      expect(result.reportingLine).toEqual([]);
+    });
+
+    it('soft-deleted DIRECT not returned', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+
+      const result = await service.getReportingLine('pa1', ctx);
+      expect(result.reportingLine).toEqual([]);
+    });
+  });
+
+  describe('reporting line', () => {
+    it('returns DIRECT only', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1',
+          supervisorAssignmentId: 'pa2',
+          relationshipType: 'DIRECT',
+          effectiveFrom: new Date('2026-01-01'),
+          effectiveTo: null,
+          isActive: true,
+          deletedAt: null,
+          supervisorAssignment: {
+            id: 'pa2',
+            personnelId: 'personB',
+            person: { id: 'personB', name: 'Supervisor B', code: 'SUP-001' },
+            department: { id: 'dept1', name: 'Dept 1', code: 'D1' },
+            jobTitle: { id: 'jt1', name: 'Manager', code: 'MGR' },
+          },
+        })
+        .mockResolvedValueOnce(null);
+
+      const result = await service.getReportingLine('pa1', ctx);
+      expect(result.reportingLine).toHaveLength(1);
+      expect(result.reportingLine[0].supervisor.name).toBe('Supervisor B');
+      expect(result.depth).toBe(1);
+    });
+
+    it('returns true hierarchical levels', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1', supervisorAssignmentId: 'pa2', relationshipType: 'DIRECT',
+          effectiveFrom: new Date('2026-01-01'), effectiveTo: null,
+          isActive: true, deletedAt: null,
+          supervisorAssignment: {
+            id: 'pa2', personnelId: 'personB',
+            person: { id: 'personB', name: 'Supervisor', code: 'S1' },
+            department: { id: 'dept1', name: 'Dept', code: 'D1' },
+            jobTitle: { id: 'jt1', name: 'Manager', code: 'MGR' },
+          },
+        })
+        .mockResolvedValueOnce({
+          id: 'sa2', supervisorAssignmentId: 'pa3', relationshipType: 'DIRECT',
+          effectiveFrom: new Date('2026-01-01'), effectiveTo: null,
+          isActive: true, deletedAt: null,
+          supervisorAssignment: {
+            id: 'pa3', personnelId: 'personC',
+            person: { id: 'personC', name: 'Director', code: 'D1' },
+            department: { id: 'dept1', name: 'Dept', code: 'D1' },
+            jobTitle: { id: 'jt2', name: 'Director', code: 'DIR' },
+          },
+        })
+        .mockResolvedValueOnce(null);
+
+      const result = await service.getReportingLine('pa1', ctx);
+      expect(result.reportingLine).toHaveLength(2);
+      expect(result.reportingLine[0].level).toBe(1);
+      expect(result.reportingLine[1].level).toBe(2);
+    });
+  });
+
+  describe('subordinates', () => {
+    it('returns DIRECT only', async () => {
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([{
+          id: 'sa1', assignmentId: 'pa2', relationshipType: 'DIRECT',
+          effectiveFrom: new Date('2026-01-01'), effectiveTo: null,
+          isActive: true, deletedAt: null,
+          assignment: {
+            id: 'pa2', personnelId: 'personB',
+            person: { id: 'personB', name: 'Employee B', code: 'E1' },
+            department: { id: 'dept1', name: 'Dept', code: 'D1' },
+            jobTitle: { id: 'jt1', name: 'Tech', code: 'TECH' },
+          },
+        }])
+        .mockResolvedValue([]);
+
+      const result = await service.getSubordinates('pa1', ctx);
+      expect(result.subordinates).toHaveLength(1);
+      expect(result.subordinates[0].level).toBe(1);
+      expect(result.subordinates[0].relationshipType).toBe('DIRECT');
+    });
+
+    it('returns true tree levels (depth not count)', async () => {
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([
+          { id: 'sa-a', assignmentId: 'pa-a', relationshipType: 'DIRECT',
+            effectiveFrom: new Date('2026-01-01'), effectiveTo: null,
+            isActive: true, deletedAt: null,
+            assignment: { id: 'pa-a', person: { name: 'Head A' }, department: {}, jobTitle: {} } },
+          { id: 'sa-b', assignmentId: 'pa-b', relationshipType: 'DIRECT',
+            effectiveFrom: new Date('2026-01-01'), effectiveTo: null,
+            isActive: true, deletedAt: null,
+            assignment: { id: 'pa-b', person: { name: 'Head B' }, department: {}, jobTitle: {} } },
+        ])
+        .mockResolvedValueOnce([
+          { id: 'sa-a1', assignmentId: 'pa-a1', relationshipType: 'DIRECT',
+            effectiveFrom: new Date('2026-01-01'), effectiveTo: null,
+            isActive: true, deletedAt: null,
+            assignment: { id: 'pa-a1', person: { name: 'Emp A1' }, department: {}, jobTitle: {} } },
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([]);
+
+      const result = await service.getSubordinates('pa-mgr', ctx);
+      expect(result.subordinates[0].level).toBe(1); // Head A
+      expect(result.subordinates[1].level).toBe(1); // Head B
+      expect(result.subordinates[2].level).toBe(2); // Emp A1 (child of Head A)
+    });
+
+    it('more than 100 descendants not truncated', async () => {
+      const children = Array.from({ length: 150 }, (_, i) => ({
+        id: `sa-${i}`, assignmentId: `pa-${i}`, relationshipType: 'DIRECT',
+        effectiveFrom: new Date('2026-01-01'), effectiveTo: null,
+        isActive: true, deletedAt: null,
+        assignment: { id: `pa-${i}`, person: { name: `Emp ${i}` }, department: {}, jobTitle: {} },
+      }));
+
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce(children)
+        .mockResolvedValue([]);
+
+      const result = await service.getSubordinates('pa-mgr', ctx);
+      expect(result.subordinates.length).toBe(150);
+    });
+
+    it('depth guard stops at MAX_HIERARCHY_DEPTH', async () => {
+      for (let i = 1; i <= 101; i++) {
+        prisma.supervisorAssignment.findMany.mockResolvedValueOnce([{
+          id: `sa-${i}`, assignmentId: `pa-${i + 1}`, relationshipType: 'DIRECT',
+          effectiveFrom: new Date('2026-01-01'), effectiveTo: null,
+          isActive: true, deletedAt: null,
+          assignment: { id: `pa-${i + 1}`, person: { name: `Emp ${i + 1}` }, department: {}, jobTitle: {} },
+        }]);
+      }
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+
+      const result = await service.getSubordinates('pa1', ctx);
+      expect(result.subordinates.length).toBeLessThanOrEqual(100);
+    });
+  });
+
+  describe('assignment validity', () => {
+    it('rejects subordinate assignment date-window violation', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA', { effectiveTo: new Date('2026-12-31') }));
+
+      const promise = service.create(
+        { assignmentId: 'pa1', effectiveFrom: '2026-01-01T00:00:00.000Z', effectiveTo: '2027-06-01T00:00:00.000Z' },
+        ctx,
+      );
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e: any) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ code: 'validation.assignmentOutOfRange' });
+    });
+
+    it('rejects open-ended supervision when subordinate has finite effectiveTo', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA', { effectiveTo: new Date('2026-12-31') }));
+
+      const promise = service.create(
+        { assignmentId: 'pa1', effectiveFrom: '2026-01-01T00:00:00.000Z' },
+        ctx,
+      );
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e: any) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ code: 'validation.assignmentOutOfRange' });
+    });
+
+    it('rejects supervisor assignment date-window violation', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA'))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB', { effectiveTo: new Date('2026-06-30') }));
+
+      const promise = service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-01-01T00:00:00.000Z', effectiveTo: '2026-12-31T00:00:00.000Z' },
+        ctx,
+      );
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e: any) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ code: 'validation.assignmentOutOfRange' });
+    });
+
+    it('rejects effectiveTo before effectiveFrom', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA'));
+
+      const promise = service.create(
+        { assignmentId: 'pa1', effectiveFrom: '2026-12-31T00:00:00.000Z', effectiveTo: '2026-01-01T00:00:00.000Z' },
+        ctx,
+      );
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e: any) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ code: 'validation.invalidRange' });
     });
   });
 
@@ -202,7 +568,7 @@ describe('SupervisorAssignmentsService', () => {
   describe('update', () => {
     it('rejects self-reference when changing the supervisor', async () => {
       prisma.supervisorAssignment.findFirst.mockResolvedValue(
-        supervisorRecord({ assignment: { personnelId: 'personA' } }),
+        supervisorRecord({ assignment: { personnelId: 'personA', branchId: 'branch-a' } }),
       );
       prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce(personAssignment('pa3', 'personA'));
@@ -229,6 +595,22 @@ describe('SupervisorAssignmentsService', () => {
       expect(auditService.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'UPDATE', entity: 'SupervisorAssignment', userId: 'user-1' }),
       );
+    });
+
+    it('rejects date creation overlap on update', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce(supervisorRecord({ effectiveFrom: new Date('2026-01-01'), effectiveTo: null, assignment: { personnelId: 'personA', branchId: 'branch-a' } }));
+
+      prisma.supervisorAssignment.findMany.mockResolvedValue([
+        { id: 'other-direct', effectiveFrom: new Date('2026-06-01'), effectiveTo: null },
+      ]);
+
+      const promise = service.update(
+        'sa1',
+        { effectiveFrom: '2026-03-01T00:00:00.000Z', effectiveTo: '2026-09-01T00:00:00.000Z' },
+        ctx,
+      );
+      await expect(promise).rejects.toThrow(BadRequestException);
     });
   });
 

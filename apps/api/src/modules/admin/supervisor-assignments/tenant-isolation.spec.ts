@@ -122,6 +122,7 @@ describe('SupervisorAssignments Tenant Isolation', () => {
         .mockResolvedValueOnce(personAssignment('pa1', 'company-a', 'personA'))
         .mockResolvedValueOnce(personAssignment('pa2', 'company-a', 'personB'));
       prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
       prisma.supervisorAssignment.create.mockResolvedValue(supervisorRecord());
 
       const result = await service.create(

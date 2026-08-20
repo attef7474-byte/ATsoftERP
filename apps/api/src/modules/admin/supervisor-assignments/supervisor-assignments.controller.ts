@@ -47,15 +47,25 @@ export class SupervisorAssignmentsController {
   @Get('reporting-line/:assignmentId')
   @Permissions('supervisor:read')
   @ApiOperation({ summary: 'Get reporting line for an assignment' })
-  getReportingLine(@Param('assignmentId') assignmentId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.supervisorAssignmentsService.getReportingLine(assignmentId, ctx);
+  getReportingLine(
+    @Param('assignmentId') assignmentId: string,
+    @Query('asOf') asOfQuery: string | undefined,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    const asOf = asOfQuery ? new Date(asOfQuery) : undefined;
+    return this.supervisorAssignmentsService.getReportingLine(assignmentId, ctx, asOf);
   }
 
   @Get('subordinates/:assignmentId')
   @Permissions('supervisor:read')
   @ApiOperation({ summary: 'Get subordinates for an assignment' })
-  getSubordinates(@Param('assignmentId') assignmentId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.supervisorAssignmentsService.getSubordinates(assignmentId, ctx);
+  getSubordinates(
+    @Param('assignmentId') assignmentId: string,
+    @Query('asOf') asOfQuery: string | undefined,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    const asOf = asOfQuery ? new Date(asOfQuery) : undefined;
+    return this.supervisorAssignmentsService.getSubordinates(assignmentId, ctx, asOf);
   }
 
   @Get(':id')
