@@ -52,6 +52,7 @@ describe('SupervisorAssignments Tenant Isolation', () => {
       $transaction: jest.fn((fn: any) => fn(prisma)),
       operationalPersonAssignment: {
         findFirst: jest.fn(),
+        findMany: jest.fn(),
       },
       supervisorAssignment: {
         findFirst: jest.fn(),
@@ -290,6 +291,72 @@ describe('SupervisorAssignments Tenant Isolation', () => {
           where: expect.objectContaining({ companyId: 'company-a' }),
         }),
       );
+    });
+  });
+
+  describe('getCurrentTeam tenant isolation', () => {
+    it('queries only within company scope', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+
+      await expect(service.getCurrentTeam('sa-b', ctxA)).rejects.toThrow(NotFoundException);
+      expect(prisma.supervisorAssignment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'company-a' }),
+        }),
+      );
+    });
+  });
+
+  describe('getCandidates tenant isolation', () => {
+    it('queries only within company scope', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+
+      await expect(service.getCandidates('sa-b', { page: '1', limit: '10' }, ctxA)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('bulkPreview tenant isolation', () => {
+    it('validates supervisor within company scope', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+
+      await expect(service.bulkPreview({
+        supervisorAssignmentId: 'pa-b',
+        effectiveFrom: '2026-01-01T00:00:00.000Z',
+        assignmentIds: ['pa-x'],
+      }, ctxA)).rejects.toThrow(BadRequestException);
+    });
+
+    it('loads subordinate assignments within company scope', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', assignmentId: 'pa1',
+        assignment: { personnelId: 'personA', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
+      });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
+
+      const result = await service.bulkPreview({
+        supervisorAssignmentId: 'pa1',
+        effectiveFrom: '2026-01-01T00:00:00.000Z',
+        assignmentIds: ['pa-b'],
+      }, ctxA);
+
+      expect(prisma.operationalPersonAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'company-a' }),
+        }),
+      );
+      expect(result.summary.invalid).toBe(1);
+    });
+  });
+
+  describe('bulkApply tenant isolation', () => {
+    it('validates supervisor within company scope', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+
+      await expect(service.bulkApply({
+        supervisorAssignmentId: 'pa-b',
+        effectiveFrom: '2026-01-01T00:00:00.000Z',
+        assignmentIds: ['pa-x'],
+      }, ctxA, 'user-1')).rejects.toThrow(BadRequestException);
     });
   });
 });

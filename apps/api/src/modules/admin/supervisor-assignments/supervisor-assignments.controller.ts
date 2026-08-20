@@ -4,6 +4,9 @@ import { SupervisorAssignmentsService } from './supervisor-assignments.service';
 import { CreateSupervisorAssignmentDto } from './dto/create-supervisor-assignment.dto';
 import { UpdateSupervisorAssignmentDto } from './dto/update-supervisor-assignment.dto';
 import { ReportingLineQueryDto } from './dto/reporting-line-query.dto';
+import { BulkSupervisorAssignmentDto } from './dto/bulk-supervisor-assignment.dto';
+import { CandidateQueryDto } from './dto/candidate-query.dto';
+import { TeamQueryDto } from './dto/team-query.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
@@ -67,6 +70,50 @@ export class SupervisorAssignmentsController {
   ) {
     const asOf = query.asOf ? new Date(query.asOf) : undefined;
     return this.supervisorAssignmentsService.getSubordinates(assignmentId, ctx, asOf);
+  }
+
+  @Get('team/:supervisorAssignmentId')
+  @Permissions('supervisor:read')
+  @ApiOperation({ summary: 'Get current DIRECT team for a supervisor' })
+  getCurrentTeam(
+    @Param('supervisorAssignmentId') supervisorAssignmentId: string,
+    @Query() query: TeamQueryDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    const asOf = query.asOf ? new Date(query.asOf) : undefined;
+    return this.supervisorAssignmentsService.getCurrentTeam(supervisorAssignmentId, ctx, asOf);
+  }
+
+  @Get('candidates')
+  @Permissions('supervisor:read')
+  @ApiOperation({ summary: 'Discover potential team members with eligibility status' })
+  getCandidates(
+    @Query('supervisorAssignmentId') supervisorAssignmentId: string,
+    @Query() query: CandidateQueryDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.supervisorAssignmentsService.getCandidates(supervisorAssignmentId, query, ctx);
+  }
+
+  @Post('bulk/preview')
+  @Permissions('supervisor:assign')
+  @ApiOperation({ summary: 'Preview bulk assignment validation without writing' })
+  bulkPreview(
+    @Body() dto: BulkSupervisorAssignmentDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.supervisorAssignmentsService.bulkPreview(dto, ctx);
+  }
+
+  @Post('bulk')
+  @Permissions('supervisor:assign')
+  @ApiOperation({ summary: 'Atomically create bulk DIRECT supervisor assignments' })
+  bulkApply(
+    @Body() dto: BulkSupervisorAssignmentDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.supervisorAssignmentsService.bulkApply(dto, ctx, userId);
   }
 
   @Get(':id')

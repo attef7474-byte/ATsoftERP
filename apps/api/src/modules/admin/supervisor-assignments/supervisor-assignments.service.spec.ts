@@ -48,6 +48,8 @@ describe('SupervisorAssignmentsService', () => {
       $transaction: jest.fn((fn: any) => fn(prisma)),
       operationalPersonAssignment: {
         findFirst: jest.fn(),
+        findMany: jest.fn(),
+        count: jest.fn(),
       },
       supervisorAssignment: {
         findFirst: jest.fn(),
@@ -780,6 +782,467 @@ describe('SupervisorAssignmentsService', () => {
         expect.objectContaining({ isolationLevel: 'Serializable' }),
       );
       expect(auditService.logWithClient).toHaveBeenCalled();
+    });
+  });
+
+  describe('getCurrentTeam', () => {
+    it('returns DIRECT team members for a supervisor', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1',
+          assignment: {
+            person: { id: 'personA', name: 'Manager A', code: 'MGR-001' },
+            department: { id: 'dept1', name: 'Dept', code: 'D1' },
+            jobTitle: { id: 'jt1', name: 'Manager', code: 'MGR' },
+            branch: { id: 'branch-a', name: 'Branch A', code: 'BA' },
+          },
+        });
+      prisma.supervisorAssignment.findMany.mockResolvedValue([
+        {
+          assignmentId: 'pa3',
+          isActive: true,
+          deletedAt: null,
+          effectiveFrom: new Date('2026-01-01'),
+          effectiveTo: null,
+          assignment: {
+            person: { id: 'personC', name: 'Employee C', code: 'E003' },
+            department: { id: 'dept1', name: 'Dept', code: 'D1' },
+            jobTitle: { id: 'jt2', name: 'Tech', code: 'TECH' },
+            branch: { id: 'branch-a', name: 'Branch A', code: 'BA' },
+            administration: null,
+            assignmentType: 'PRIMARY',
+          },
+        },
+      ]);
+
+      const result = await service.getCurrentTeam('sa1', ctx);
+      expect(result.teamCount).toBe(1);
+      expect(result.team[0].person.name).toBe('Employee C');
+      expect(result.supervisor.name).toBe('Manager A');
+    });
+
+    it('excludes MATRIX and FUNCTIONAL from formal team', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1',
+          assignment: { person: { id: 'pA', name: 'M', code: 'M' }, department: {}, jobTitle: {}, branch: {} },
+        });
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([
+          { assignmentId: 'pa3', isActive: true, deletedAt: null, effectiveFrom: new Date('2026-01-01'), effectiveTo: null,
+            assignment: { person: { name: 'E1' }, department: {}, jobTitle: {}, branch: {}, administration: {}, assignmentType: 'PRIMARY' } },
+        ]);
+
+      const result = await service.getCurrentTeam('sa1', ctx);
+      expect(result.teamCount).toBe(1);
+    });
+
+    it('excludes expired DIRECT', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1',
+          assignment: { person: { id: 'pA', name: 'M', code: 'M' }, department: {}, jobTitle: {}, branch: {} },
+        });
+      prisma.supervisorAssignment.findMany.mockResolvedValue([
+        { assignmentId: 'pa3', isActive: true, deletedAt: null, effectiveFrom: new Date('2026-01-01'), effectiveTo: new Date('2026-06-30'),
+          assignment: { person: { name: 'E1' }, department: {}, jobTitle: {}, branch: {}, administration: {}, assignmentType: 'PRIMARY' } },
+      ]);
+
+      const result = await service.getCurrentTeam('sa1', ctx, new Date('2026-12-31'));
+      expect(result.teamCount).toBe(0);
+    });
+
+    it('throws NotFoundException for missing supervisor', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      await expect(service.getCurrentTeam('nope', ctx)).rejects.toThrow(NotFoundException);
+    });
+
+    it('uses asOf date for temporal filtering', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1',
+          assignment: { person: { id: 'pA', name: 'M', code: 'M' }, department: {}, jobTitle: {}, branch: {} },
+        });
+      prisma.supervisorAssignment.findMany.mockResolvedValue([
+        { assignmentId: 'pa3', isActive: true, deletedAt: null, effectiveFrom: new Date('2026-06-01'), effectiveTo: null,
+          assignment: { person: { name: 'E1' }, department: {}, jobTitle: {}, branch: {}, administration: {}, assignmentType: 'PRIMARY' } },
+      ]);
+
+      const result = await service.getCurrentTeam('sa1', ctx, new Date('2026-03-01'));
+      expect(result.teamCount).toBe(0);
+    });
+  });
+
+  describe('getCandidates', () => {
+    const candidateQuery = (overrides: Record<string, any> = {}) => ({
+      page: '1', limit: '10', ...overrides,
+    });
+
+    it('returns paginated candidates with eligibility', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+        id: 'sa1',
+        assignment: {
+          personnelId: 'personA',
+          person: { id: 'personA', name: 'Manager A', code: 'MGR-001' },
+          branch: { id: 'branch-a', name: 'Branch A', code: 'BA' },
+        },
+      });
+      prisma.operationalPersonAssignment.findMany
+        .mockResolvedValueOnce([
+          personAssignment('pa3', 'personC', { person: { id: 'personC', name: 'Emp C', code: 'E003' }, department: { id: 'd1', name: 'Dept', code: 'D1' }, jobTitle: { id: 'jt1', name: 'Tech', code: 'TECH' }, branch: { id: 'branch-a', name: 'BA', code: 'BA' }, administration: null }),
+        ]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(1);
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.getCandidates('sa1', candidateQuery(), ctx);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].status).toBe('ELIGIBLE');
+      expect(result.meta.total).toBe(1);
+    });
+
+    it('identifies SELF candidates', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+        id: 'sa1',
+        assignment: {
+          personnelId: 'personA',
+          person: { id: 'personA', name: 'Manager A', code: 'M' },
+          branch: { id: 'branch-a' },
+        },
+      });
+      prisma.operationalPersonAssignment.findMany
+        .mockResolvedValueOnce([personAssignment('pa1', 'personA', { person: { id: 'personA', name: 'Manager A', code: 'M' }, department: {}, jobTitle: {}, branch: {}, administration: {} })]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(1);
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]).mockResolvedValue([]);
+
+      const result = await service.getCandidates('sa1', candidateQuery(), ctx);
+      expect(result.data[0].status).toBe('SELF');
+    });
+
+    it('identifies ALREADY_ON_THIS_TEAM', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+        id: 'sa1',
+        assignment: {
+          personnelId: 'personA',
+          person: { id: 'personA', name: 'M', code: 'M' },
+          branch: { id: 'branch-a' },
+        },
+      });
+      prisma.operationalPersonAssignment.findMany
+        .mockResolvedValueOnce([personAssignment('pa3', 'personC', { person: { name: 'E', code: 'E' }, department: {}, jobTitle: {}, branch: {}, administration: {} })]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(1);
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: 'on-team', assignmentId: 'pa3' }]);
+
+      const result = await service.getCandidates('sa1', candidateQuery(), ctx);
+      expect(result.data[0].status).toBe('ALREADY_ON_THIS_TEAM');
+    });
+
+    it('identifies HAS_OTHER_DIRECT_SUPERVISOR', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+        id: 'sa1',
+        assignment: {
+          personnelId: 'personA',
+          person: { id: 'personA', name: 'M', code: 'M' },
+          branch: { id: 'branch-a' },
+        },
+      });
+      prisma.operationalPersonAssignment.findMany
+        .mockResolvedValueOnce([personAssignment('pa3', 'personC', { person: { name: 'E', code: 'E' }, department: {}, jobTitle: {}, branch: {}, administration: {} })]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(1);
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([{ id: 'other', assignmentId: 'pa3', effectiveFrom: new Date('2026-01-01'), effectiveTo: null, isActive: true, deletedAt: null }])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.getCandidates('sa1', candidateQuery(), ctx);
+      expect(result.data[0].status).toBe('HAS_OTHER_DIRECT_SUPERVISOR');
+    });
+
+    it('filters withoutCurrentDirectSupervisor', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+        id: 'sa1',
+        assignment: {
+          personnelId: 'personA',
+          person: { id: 'personA', name: 'M', code: 'M' },
+          branch: { id: 'branch-a' },
+        },
+      });
+      prisma.operationalPersonAssignment.findMany
+        .mockResolvedValueOnce([
+          personAssignment('pa3', 'personC', { person: { name: 'E1', code: 'E1' }, department: {}, jobTitle: {}, branch: {}, administration: {} }),
+          personAssignment('pa4', 'personD', { person: { name: 'E2', code: 'E2' }, department: {}, jobTitle: {}, branch: {}, administration: {} }),
+        ]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(2);
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([
+          { id: 'r1', assignmentId: 'pa3', effectiveFrom: new Date('2026-01-01'), effectiveTo: null, isActive: true, deletedAt: null },
+          { id: 'r2', assignmentId: 'pa4', effectiveFrom: new Date('2026-01-01'), effectiveTo: null, isActive: true, deletedAt: null },
+        ])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.getCandidates('sa1', candidateQuery({ withoutCurrentDirectSupervisor: 'true' }), ctx);
+      expect(result.data).toHaveLength(0);
+    });
+
+    it('throws NotFoundException for missing supervisor', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      await expect(service.getCandidates('nope', candidateQuery(), ctx)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('bulkPreview', () => {
+    const bulkDto = (overrides: Record<string, any> = {}) => ({
+      supervisorAssignmentId: 'pa2',
+      effectiveFrom: '2026-01-01T00:00:00.000Z',
+      assignmentIds: ['pa3', 'pa4'],
+      ...overrides,
+    });
+
+    it('returns eligible status for valid candidates', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1', assignmentId: 'pa2',
+          assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
+        });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([
+        personAssignment('pa3', 'personC'),
+        personAssignment('pa4', 'personD'),
+      ]);
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+
+      const result = await service.bulkPreview(bulkDto(), ctx);
+      expect(result.summary.requested).toBe(2);
+      expect(result.summary.eligible).toBe(2);
+      expect(result.rows[0].status).toBe('ELIGIBLE');
+    });
+
+    it('rejects duplicate assignment IDs', async () => {
+      await expect(service.bulkPreview(bulkDto({ assignmentIds: ['pa3', 'pa3'] }), ctx)).rejects.toThrow(BadRequestException);
+    });
+
+    it('identifies missing assignments', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', assignmentId: 'pa2',
+        assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
+      });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([personAssignment('pa3', 'personC')]);
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+
+      const result = await service.bulkPreview(bulkDto({ assignmentIds: ['pa3', 'nonexistent'] }), ctx);
+      expect(result.summary.invalid).toBe(1);
+      expect(result.rows[1].status).toBe('MISSING');
+    });
+
+    it('identifies self-supervision', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', assignmentId: 'pa2',
+        assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
+      });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([
+        personAssignment('pa2', 'personB'),
+      ]);
+
+      const result = await service.bulkPreview(bulkDto({ assignmentIds: ['pa2'] }), ctx);
+      expect(result.rows[0].status).toBe('SELF');
+    });
+
+    it('identifies HAS_OTHER_DIRECT_SUPERVISOR', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', assignmentId: 'pa2',
+        assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
+      });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([
+        personAssignment('pa3', 'personC'),
+      ]);
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+
+      const result = await service.bulkPreview(bulkDto({ assignmentIds: ['pa3'] }), ctx);
+      expect(result.rows[0].status).toBe('ELIGIBLE');
+    });
+
+    it('identifies branch incompatibility', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', assignmentId: 'pa2',
+        assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' }, branchId: 'branch-a' },
+      });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([
+        personAssignment('pa3', 'personC', { branchId: 'branch-b' }),
+      ]);
+
+      const result = await service.bulkPreview(bulkDto({ assignmentIds: ['pa3'] }), ctx);
+      expect(result.rows[0].status).toBe('OUTSIDE_ALLOWED_BRANCH_SCOPE');
+    });
+
+    it('does NOT write to database', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', assignmentId: 'pa2',
+        assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
+      });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([
+        personAssignment('pa3', 'personC'),
+      ]);
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+
+      await service.bulkPreview(bulkDto(), ctx);
+      expect(prisma.supervisorAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('identifies DATE_WINDOW_CONFLICT', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', assignmentId: 'pa2',
+        assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
+      });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([
+        personAssignment('pa3', 'personC', { effectiveTo: new Date('2026-06-30') }),
+      ]);
+
+      const result = await service.bulkPreview(bulkDto({ effectiveTo: '2026-12-31T00:00:00.000Z', assignmentIds: ['pa3'] }), ctx);
+      expect(result.rows[0].status).toBe('DATE_WINDOW_CONFLICT');
+    });
+
+    it('throws NotFoundException for missing supervisor', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      await expect(service.bulkPreview(bulkDto(), ctx)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('bulkApply', () => {
+    const bulkDto = (overrides: Record<string, any> = {}) => ({
+      supervisorAssignmentId: 'pa2',
+      effectiveFrom: '2026-01-01T00:00:00.000Z',
+      assignmentIds: ['pa3', 'pa4'],
+      ...overrides,
+    });
+
+    it('creates multiple assignments atomically', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1', assignmentId: 'pa2',
+          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {} },
+        });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([
+        personAssignment('pa3', 'personC'),
+        personAssignment('pa4', 'personD'),
+      ]);
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.create
+        .mockResolvedValueOnce(supervisorRecord({ id: 'new1', assignmentId: 'pa3' }))
+        .mockResolvedValueOnce(supervisorRecord({ id: 'new2', assignmentId: 'pa4' }));
+
+      const result = await service.bulkApply(bulkDto(), ctx, 'user-1');
+      expect(result.count).toBe(2);
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ isolationLevel: 'Serializable' }));
+      expect(auditService.logWithClient).toHaveBeenCalled();
+    });
+
+    it('creates one assignment', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1', assignmentId: 'pa2',
+          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {} },
+        });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([personAssignment('pa3', 'personC')]);
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.create.mockResolvedValueOnce(supervisorRecord({ id: 'new1', assignmentId: 'pa3' }));
+
+      const result = await service.bulkApply(bulkDto({ assignmentIds: ['pa3'] }), ctx, 'user-1');
+      expect(result.count).toBe(1);
+    });
+
+    it('rejects entire group when one candidate has OTHER_DIRECT_SUPERVISOR', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1', assignmentId: 'pa2',
+          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {} },
+        });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([
+        personAssignment('pa3', 'personC'),
+        personAssignment('pa4', 'personD'),
+      ]);
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: 'other', assignmentId: 'pa4', effectiveFrom: new Date('2026-01-01'), effectiveTo: null, isActive: true, deletedAt: null, supervisorAssignmentId: 'paX' }]);
+
+      await expect(service.bulkApply(bulkDto(), ctx, 'user-1')).rejects.toThrow(BadRequestException);
+      expect(prisma.supervisorAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects when one candidate has self-reference', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1', assignmentId: 'pa2',
+          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {} },
+        });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([
+        personAssignment('pa2', 'personB'),
+      ]);
+
+      await expect(service.bulkApply(bulkDto({ assignmentIds: ['pa2'] }), ctx, 'user-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects when one candidate has branch incompatibility', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1', assignmentId: 'pa2',
+          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {}, branchId: 'branch-a' },
+        });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([
+        personAssignment('pa3', 'personC', { branchId: 'branch-b' }),
+      ]);
+
+      await expect(service.bulkApply(bulkDto({ assignmentIds: ['pa3'] }), ctx, 'user-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects duplicate input IDs', async () => {
+      await expect(service.bulkApply(bulkDto({ assignmentIds: ['pa3', 'pa3'] }), ctx, 'user-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects effectiveTo before effectiveFrom', async () => {
+      await expect(service.bulkApply(bulkDto({ effectiveFrom: '2026-12-31T00:00:00.000Z', effectiveTo: '2026-01-01T00:00:00.000Z' }), ctx, 'user-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('rolls back all when one candidate fails', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1', assignmentId: 'pa2',
+          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {} },
+        });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([
+        personAssignment('pa3', 'personC'),
+        personAssignment('pa4', 'personD'),
+      ]);
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: 'other', assignmentId: 'pa4', effectiveFrom: new Date('2026-01-01'), effectiveTo: null, isActive: true, deletedAt: null, supervisorAssignmentId: 'paX' }]);
+
+      try { await service.bulkApply(bulkDto(), ctx, 'user-1'); } catch {}
+      expect(prisma.supervisorAssignment.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('bulkApply concurrency', () => {
+    it('uses Serializable isolation for bulk DIRECT apply', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce({
+          id: 'sa1', assignmentId: 'pa2',
+          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {} },
+        });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([personAssignment('pa3', 'personC')]);
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.create.mockResolvedValueOnce(supervisorRecord({ id: 'new1', assignmentId: 'pa3' }));
+
+      await service.bulkApply({
+        supervisorAssignmentId: 'pa2',
+        effectiveFrom: '2026-01-01T00:00:00.000Z',
+        assignmentIds: ['pa3'],
+      }, ctx, 'user-1');
+
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ isolationLevel: 'Serializable' }),
+      );
     });
   });
 });
