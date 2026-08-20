@@ -1390,11 +1390,11 @@ export class SearchService {
       [EntityType.MACHINE_COMPONENT]: 'maintenance.machineComponents',
       [EntityType.COMPONENT]: 'maintenance.machineComponents',
       [EntityType.SPARE_PART]: 'maintenance.spareParts',
-      [EntityType.PRODUCTION_QUALITY_PLAN]: 'production.quality.plans.title',
-      [EntityType.PRODUCTION_INSPECTION]: 'production.quality.inspections.title',
-      [EntityType.PRODUCTION_NCR]: 'production.quality.ncrs.title',
-      [EntityType.OPERATIONAL_COST_RATE]: 'production.cost.rates.title',
-      [EntityType.OPERATIONAL_COST_SNAPSHOT]: 'production.cost.snapshots.title',
+      [EntityType.PRODUCTION_QUALITY_PLAN]: 'production.qualityPlans.title',
+      [EntityType.PRODUCTION_INSPECTION]: 'production.inspections.title',
+      [EntityType.PRODUCTION_NCR]: 'production.ncrs.title',
+      [EntityType.OPERATIONAL_COST_RATE]: 'production.costRates.title',
+      [EntityType.OPERATIONAL_COST_SNAPSHOT]: 'production.costSnapshots.title',
     };
     return map[entityType] || entityType;
   }

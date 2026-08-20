@@ -223,9 +223,9 @@ export default function ProductionLossReasonsPage() {
           onChange={(e) => setStatusFilter(e.target.value)}
           placeholder={t('production.lossReasons.allStatuses')}
           options={[
-            { value: 'DRAFT', label: t('common.status.DRAFT') },
-            { value: 'ACTIVE', label: t('common.status.ACTIVE') },
-            { value: 'INACTIVE', label: t('common.status.INACTIVE') },
+            { value: 'DRAFT', label: t('status.DRAFT') },
+            { value: 'ACTIVE', label: t('status.ACTIVE') },
+            { value: 'INACTIVE', label: t('status.INACTIVE') },
           ]}
         />
         <Select

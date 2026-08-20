@@ -45,10 +45,10 @@ export default function MttrPage() {
           onChange={(e) => setPeriod(e.target.value)}
           className="w-32"
           options={[
-            { value: '7', label: t('common.last7Days') },
-            { value: '30', label: t('common.last30Days') },
-            { value: '90', label: t('common.last90Days') },
-            { value: '365', label: t('common.lastYear') },
+            { value: '7', label: t('status.last7Days') },
+            { value: '30', label: t('status.last30Days') },
+            { value: '90', label: t('status.last90Days') },
+            { value: '365', label: t('status.lastYear') },
           ]}
         />
       </div>

@@ -98,11 +98,11 @@ export default function MaintenanceWorkOrderDetailPage() {
   const [actionTargetId, setActionTargetId] = useState('');
 
   const typeOptions = useMemo(
-    () => WORK_ORDER_TYPES.map((type) => ({ value: type, label: t(`common.status.${type}`) })),
+    () => WORK_ORDER_TYPES.map((type) => ({ value: type, label: t(`status.${type}`) })),
     [t],
   );
   const priorityOptions = useMemo(
-    () => WORK_ORDER_PRIORITIES.map((priority) => ({ value: priority, label: t(`common.status.${priority}`) })),
+    () => WORK_ORDER_PRIORITIES.map((priority) => ({ value: priority, label: t(`status.${priority}`) })),
     [t],
   );
   const costTypeOptions = useMemo(
@@ -532,7 +532,7 @@ export default function MaintenanceWorkOrderDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <span className="text-xs text-gray-500 uppercase tracking-wider">{t('maintenance.workOrderType')}</span>
-              <p className="text-sm font-medium text-gray-900 mt-1">{t(`common.status.${data.type}`)}</p>
+              <p className="text-sm font-medium text-gray-900 mt-1">{t(`status.${data.type}`)}</p>
             </div>
             <div>
               <span className="text-xs text-gray-500 uppercase tracking-wider">{t('maintenance.workOrderMachine')}</span>

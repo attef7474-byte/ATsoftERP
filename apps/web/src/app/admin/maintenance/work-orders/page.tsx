@@ -112,11 +112,11 @@ export default function MaintenanceWorkOrdersPage() {
   const [activeSection, setActiveSection] = useState('overview');
 
   const typeOptions = useMemo(
-    () => WORK_ORDER_TYPES.map((type) => ({ value: type, label: t(`common.status.${type}`) })),
+    () => WORK_ORDER_TYPES.map((type) => ({ value: type, label: t(`status.${type}`) })),
     [t],
   );
   const priorityOptions = useMemo(
-    () => WORK_ORDER_PRIORITIES.map((priority) => ({ value: priority, label: t(`common.status.${priority}`) })),
+    () => WORK_ORDER_PRIORITIES.map((priority) => ({ value: priority, label: t(`status.${priority}`) })),
     [t],
   );
 
@@ -285,7 +285,7 @@ export default function MaintenanceWorkOrdersPage() {
   const baseColumns: GridColumn<MaintenanceWorkOrder>[] = [
     { key: 'workOrderNumber', header: t('maintenance.workOrderNumber'), sortable: true, filterable: true },
     { key: 'title', header: t('maintenance.workOrderTitle'), sortable: true, filterable: true },
-    { key: 'type', header: t('maintenance.workOrderType'), sortable: true, filterable: true, filterType: 'select', filterOptions: typeOptions, render: (d) => t(`common.status.${d.type}`) },
+    { key: 'type', header: t('maintenance.workOrderType'), sortable: true, filterable: true, filterType: 'select', filterOptions: typeOptions, render: (d) => t(`status.${d.type}`) },
     { key: 'priority', header: t('maintenance.workOrderPriority'), sortable: true, filterable: true, filterType: 'select', filterOptions: priorityOptions, render: (d) => <CmmsPriorityBadge priority={d.priority} /> },
     { key: 'status', header: t('maintenance.workOrderStatus'), sortable: true, filterable: true, filterType: 'select', filterOptions: [
       { value: 'DRAFT', label: t('maintenance.workOrderDraft') },
@@ -371,7 +371,7 @@ export default function MaintenanceWorkOrdersPage() {
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-500">{t('maintenance.workOrderType')}</span>
-              <span className="text-sm font-medium text-gray-900">{t(`common.status.${selectedWO.type}`)}</span>
+              <span className="text-sm font-medium text-gray-900">{t(`status.${selectedWO.type}`)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-500">{t('maintenance.workOrderPriority')}</span>

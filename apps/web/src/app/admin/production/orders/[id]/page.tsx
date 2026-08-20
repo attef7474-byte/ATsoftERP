@@ -284,7 +284,7 @@ export default function ProductionOrderDetailPage() {
         {infoCell(t('production.orders.plannedEndAt'), new Date(order.plannedEndAt).toLocaleString())}
         {infoCell(t('production.sourceReference'), order.sourceReference || '-')}
         {infoCell(t('common.notes'), order.notes || '-')}
-        {infoCell(t('common.status'), statusLabelKey(order.status).replace('common.status.', ''))}
+        {infoCell(t('common.status'), t(statusLabelKey(order.status)))}
       </div>
 
       <div className="mb-4 flex gap-2 border-b border-gray-200">
