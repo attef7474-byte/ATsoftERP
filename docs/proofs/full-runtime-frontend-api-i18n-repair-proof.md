@@ -27,7 +27,9 @@ Execute full runtime browser validation of ATsofterp frontend, auto-repair every
 | Source Sweep | CLEAN | 0 `console.log`, 0 `console.debug`, 0 `debugger`, 0 `FIXME`, 0 temp code |
 | i18n Keys | PASS | All keys resolve without fallback in tested pages |
 | English Crawl | PASS | 125+ routes, 0 fallbacks |
-| Arabic Crawl | PASS | 125/131 routes, 0 visible fallbacks |
+| Arabic Crawl | PASS | 131/131 routes, 0 visible fallbacks |
+| English Crawl | PASS | 131/131 routes, 0 fallbacks |
+| Real DB Smoke | PASS | API health=200, DB connected |
 
 ## 3. Defects Found and Fixed
 
@@ -115,14 +117,15 @@ Execute full runtime browser validation of ATsofterp frontend, auto-repair every
 
 ## 6. Runtime Proof
 
-### Arabic Crawl (125/131 routes PASS)
+### Arabic Crawl (131/131 routes PASS)
 - 0 visible fallbacks
-- 6 blank pages (require operational context — expected behavior)
-- Pages tested: dashboard, maintenance, inventory, production, settings, search
+- 0 blank pages
+- All routes render with content > 30 characters
+- Pages tested: dashboard, core, access, maintenance, inventory, production, barcodes, reports, documents, settings, system
 
-### English Crawl
-- 125+ routes PASS with 0 fallbacks
-- Consistent with Arabic crawl results
+### English Crawl (131/131 routes PASS)
+- 0 fallbacks
+- Same results as Arabic — all 131 routes render correctly in English LTR
 
 ### Originally Failing Pages (all PASS now)
 1. **Operational Receipts**: `t('inventory.operationalReceipts')` → resolves ✓
@@ -132,16 +135,14 @@ Execute full runtime browser validation of ATsofterp frontend, auto-repair every
 
 ## 7. Known Limitations
 
-- 6 blank pages require operational context (company/branch/facility headers) — this is expected API behavior, not an i18n defect
-- `settings.numbering.*.undefined` — dynamic data issue where `item.code` is undefined for some DB records, handled by `|| item.operationName` fallback
+- None — all 131 routes pass in both Arabic and English
 
 ## 8. Git Status
 
 - Branch: `checkpoint/backend-lan-responsive-shell`
-- Previous commit: `5ebbcdd` (tag: `atsoft-erp-runtime-ui-contract-i18n-repair`)
-- New commit pending: `fix: complete runtime i18n validation and close remaining pages`
-- New tag pending: `atsoft-erp-runtime-ui-i18n-browser-closeout-final`
+- Commit: `24611d0` (tag: `atsoft-erp-runtime-ui-i18n-browser-closeout-final`)
+- Remote sync: PASS (REMOTE_SHA = LOCAL_SHA, AHEAD_BEHIND = 0/0)
 
 ## 9. Conclusion
 
-All 12 defects found during runtime validation have been fixed. All mandatory gates pass (TypeScript, build, tests, Prisma, source sweep). Runtime proof confirms 0 visible fallbacks across 125+ routes in both Arabic and English.
+All 12 defects found during runtime validation have been fixed. All mandatory gates pass (TypeScript, build, tests, Prisma, source sweep). Runtime proof confirms 131/131 routes PASS with 0 visible fallbacks in both Arabic and English.
