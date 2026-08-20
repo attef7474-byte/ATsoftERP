@@ -1,0 +1,1059 @@
+{
+  "timestamp": "2026-08-20T05:15:32.299Z",
+  "total": 131,
+  "pass": 131,
+  "nonDirect": 0,
+  "fail": 0,
+  "results": [
+    {
+      "index": 1,
+      "route": "/admin/dashboard",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3412,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 2,
+      "route": "/admin/core/companies",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3645,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Delete Refresh Activat"
+    },
+    {
+      "index": 3,
+      "route": "/admin/core/branches",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3237,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 4,
+      "route": "/admin/core/administrations",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3208,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 5,
+      "route": "/admin/core/departments",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3288,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 6,
+      "route": "/admin/core/organizational-units",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3238,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 7,
+      "route": "/admin/core/persons",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3673,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 8,
+      "route": "/admin/core/job-titles",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3076,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 9,
+      "route": "/admin/core/person-assignments",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3092,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 10,
+      "route": "/admin/core/supervisor-assignments",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3100,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 11,
+      "route": "/admin/maintenance/production-lines",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3117,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 12,
+      "route": "/admin/maintenance/operation-types",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3352,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 13,
+      "route": "/admin/maintenance/cost-centers",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3160,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Operational As"
+    },
+    {
+      "index": 14,
+      "route": "/admin/access/users",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3239,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 15,
+      "route": "/admin/access/roles",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3363,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Deactivate Man"
+    },
+    {
+      "index": 16,
+      "route": "/admin/access/permissions",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 11645,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 17,
+      "route": "/admin/maintenance/machines",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3345,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 18,
+      "route": "/admin/maintenance/machine-categories",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3399,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 19,
+      "route": "/admin/maintenance/machine-documents",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3106,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Delete Refresh ATsoft "
+    },
+    {
+      "index": 20,
+      "route": "/admin/maintenance/machine-components",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3119,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 21,
+      "route": "/admin/maintenance/machine-parts",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3098,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Delete ATsoft "
+    },
+    {
+      "index": 22,
+      "route": "/admin/maintenance/requests",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3396,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Start Complete"
+    },
+    {
+      "index": 23,
+      "route": "/admin/maintenance/work-orders",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3512,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Delete ATsoft "
+    },
+    {
+      "index": 24,
+      "route": "/admin/maintenance/tasks",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3128,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Delete Refresh Start C"
+    },
+    {
+      "index": 25,
+      "route": "/admin/maintenance/schedules",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3134,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Delete Refresh Activat"
+    },
+    {
+      "index": 26,
+      "route": "/admin/maintenance/checklist-items",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3102,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Delete ATsoft "
+    },
+    {
+      "index": 27,
+      "route": "/admin/maintenance/downtime-logs",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3104,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Close Delete A"
+    },
+    {
+      "index": 28,
+      "route": "/admin/maintenance/calendar",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3553,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh ATsoft ERP Dashboard "
+    },
+    {
+      "index": 29,
+      "route": "/admin/maintenance/workload",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3356,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh ATsoft ERP Dashboard "
+    },
+    {
+      "index": 30,
+      "route": "/admin/maintenance/sla",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3107,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 31,
+      "route": "/admin/maintenance/reliability/mttr",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3144,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 32,
+      "route": "/admin/maintenance/personnel",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3785,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Add Refresh Delete ATsoft ERP Dash"
+    },
+    {
+      "index": 33,
+      "route": "/admin/maintenance/machine-responsibilities",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3095,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Add Edit Refresh Delete ATsoft ERP"
+    },
+    {
+      "index": 34,
+      "route": "/admin/maintenance/accountability",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3385,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 35,
+      "route": "/admin/maintenance/spare-parts",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3392,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Add Refresh Delete ATsoft ERP Dash"
+    },
+    {
+      "index": 36,
+      "route": "/admin/spare-part-conditions",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3083,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 37,
+      "route": "/admin/installed-parts",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3096,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh Evaluate All Parts ATsoft "
+    },
+    {
+      "index": 38,
+      "route": "/admin/maintenance/repair-orders",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3075,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 39,
+      "route": "/admin/maintenance/bom",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3086,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh Delete ATsoft ERP Dashboar"
+    },
+    {
+      "index": 40,
+      "route": "/admin/maintenance/spare-part-plans",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3078,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 41,
+      "route": "/admin/inventory/warehouses",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3439,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 42,
+      "route": "/admin/inventory/locations",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3375,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 43,
+      "route": "/admin/inventory/product-categories",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3121,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 44,
+      "route": "/admin/inventory/products",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3399,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 45,
+      "route": "/admin/inventory/opening-balances",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3290,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Submit Approve"
+    },
+    {
+      "index": 46,
+      "route": "/admin/inventory/movements",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3400,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Post Cancel AT"
+    },
+    {
+      "index": 47,
+      "route": "/admin/inventory/counts",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3283,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Start Complete"
+    },
+    {
+      "index": 48,
+      "route": "/admin/inventory/adjustments",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3255,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Post Cancel AT"
+    },
+    {
+      "index": 49,
+      "route": "/admin/inventory/stock-adjustments",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3231,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 50,
+      "route": "/admin/inventory/locks",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3288,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 51,
+      "route": "/admin/inventory/balances",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3458,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh Recalculate ATsoft ERP Das"
+    },
+    {
+      "index": 52,
+      "route": "/admin/inventory/ledger",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3366,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 53,
+      "route": "/admin/inventory/reconciliation",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3630,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 54,
+      "route": "/admin/inventory/governance-audit",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 5071,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 55,
+      "route": "/admin/production/units",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3117,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 56,
+      "route": "/admin/production/product-definitions",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3136,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit View Refresh Activate "
+    },
+    {
+      "index": 57,
+      "route": "/admin/production/shifts",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3793,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 58,
+      "route": "/admin/production/shift-templates",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3226,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 59,
+      "route": "/admin/production/shift-calendars",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3302,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Resolve Date Refresh A"
+    },
+    {
+      "index": 60,
+      "route": "/admin/production/shift-assignments",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3357,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 61,
+      "route": "/admin/production/operational-assignments",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3334,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 62,
+      "route": "/admin/production/shift-handovers",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3136,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Refresh ATsoft ERP Dashboar"
+    },
+    {
+      "index": 63,
+      "route": "/admin/production/capacity-standards",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3151,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 64,
+      "route": "/admin/production/orders",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3200,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 65,
+      "route": "/admin/production/runs",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3121,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 66,
+      "route": "/admin/production/measurement-points",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3209,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 67,
+      "route": "/admin/production/loss-reasons",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3899,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Activate Deact"
+    },
+    {
+      "index": 68,
+      "route": "/admin/production/downtime",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3193,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Record Downtime Refresh ATsoft ERP"
+    },
+    {
+      "index": 69,
+      "route": "/admin/production/losses",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3205,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Record Loss Refresh ATsoft ERP Das"
+    },
+    {
+      "index": 70,
+      "route": "/admin/production/material-documents",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3353,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout New Material Document Refresh ATso"
+    },
+    {
+      "index": 71,
+      "route": "/admin/production/material-requirements",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3207,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 72,
+      "route": "/admin/production/finished-goods-receipts",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3279,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout New Finished-Goods Receipt Refresh"
+    },
+    {
+      "index": 73,
+      "route": "/admin/production/quality/plans",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3198,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Submit for App"
+    },
+    {
+      "index": 74,
+      "route": "/admin/production/quality/inspections",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3145,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Refresh ATsoft ERP Dashboar"
+    },
+    {
+      "index": 75,
+      "route": "/admin/production/quality/ncrs",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3198,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Refresh ATsoft ERP Dashboar"
+    },
+    {
+      "index": 76,
+      "route": "/admin/production/cost/rates",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3190,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Delete ATsoft "
+    },
+    {
+      "index": 77,
+      "route": "/admin/production/cost/snapshots",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3217,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Edit Refresh Freeze Superse"
+    },
+    {
+      "index": 78,
+      "route": "/admin/production/cost/transactions",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3171,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Create Refresh ATsoft ERP Dashboar"
+    },
+    {
+      "index": 79,
+      "route": "/admin/production/performance-targets",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3177,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 80,
+      "route": "/admin/production/analytics",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3749,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 81,
+      "route": "/admin/production/reliability",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3533,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 82,
+      "route": "/admin/barcodes",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3398,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 83,
+      "route": "/admin/barcodes/generate",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3369,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh Generate Clear Form ATsoft"
+    },
+    {
+      "index": 84,
+      "route": "/admin/barcodes/print",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3239,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh Print Mark as Printed ATso"
+    },
+    {
+      "index": 85,
+      "route": "/admin/barcodes/scan",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3189,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh Scan Clear ATsoft ERP Dash"
+    },
+    {
+      "index": 86,
+      "route": "/admin/barcodes/preview",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3095,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh Print Download ATsoft ERP "
+    },
+    {
+      "index": 87,
+      "route": "/admin/barcodes/records",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3270,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 88,
+      "route": "/admin/barcodes/templates",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3098,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh New ATsoft ERP Dashboard O"
+    },
+    {
+      "index": 89,
+      "route": "/admin/barcodes/product-labels",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3162,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 90,
+      "route": "/admin/barcodes/machine-cards",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3157,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 91,
+      "route": "/admin/barcodes/scans",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3314,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 92,
+      "route": "/admin/barcodes/print-jobs",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3189,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Refresh ATsoft ERP Dashboard Organ"
+    },
+    {
+      "index": 93,
+      "route": "/admin/reports",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3573,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 94,
+      "route": "/admin/reports/operations",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3295,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 95,
+      "route": "/admin/reports/maintenance",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3614,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 96,
+      "route": "/admin/reports/maintenance/kpis",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3750,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh ATsoft ERP Dashboard "
+    },
+    {
+      "index": 97,
+      "route": "/admin/reports/maintenance/requests",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3429,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 98,
+      "route": "/admin/reports/maintenance/downtime",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3271,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 99,
+      "route": "/admin/reports/maintenance/costs",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3259,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 100,
+      "route": "/admin/reports/maintenance/schedules",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3302,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 101,
+      "route": "/admin/reports/assets",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3146,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 102,
+      "route": "/admin/reports/machine-log",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3115,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 103,
+      "route": "/admin/reports/parts-usage",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3176,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 104,
+      "route": "/admin/reports/upcoming-preventive",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3188,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 105,
+      "route": "/admin/reports/overdue-preventive",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3207,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 106,
+      "route": "/admin/reports/parts",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3192,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 107,
+      "route": "/admin/reports/low-stock",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3168,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 108,
+      "route": "/admin/reports/inventory",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3825,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 109,
+      "route": "/admin/reports/inventory/balances",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3745,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 110,
+      "route": "/admin/reports/inventory/movements",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3725,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 111,
+      "route": "/admin/reports/inventory/adjustments",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3310,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 112,
+      "route": "/admin/reports/inventory/count-variance",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3274,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 113,
+      "route": "/admin/reports/barcodes/scans",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3227,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 114,
+      "route": "/admin/reports/audit",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 6308,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 115,
+      "route": "/admin/reports/user-activity",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3301,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 116,
+      "route": "/admin/reports/notifications",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 4524,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 117,
+      "route": "/admin/reports/attachments",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3178,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 118,
+      "route": "/admin/reports/partners",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3221,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh Print ATsoft ERP Dash"
+    },
+    {
+      "index": 119,
+      "route": "/admin/documents/attachments",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3099,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Upload Refresh ATsoft ERP Das"
+    },
+    {
+      "index": 120,
+      "route": "/admin/settings",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 4651,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Edit Activate Deactivate Refr"
+    },
+    {
+      "index": 121,
+      "route": "/admin/settings/company",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3220,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Save ATsoft ERP Dashboard Org"
+    },
+    {
+      "index": 122,
+      "route": "/admin/settings/language",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3106,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Save ATsoft ERP Dashboard Org"
+    },
+    {
+      "index": 123,
+      "route": "/admin/settings/appearance",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3540,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout ATsoft ERP Dashboard Organization "
+    },
+    {
+      "index": 124,
+      "route": "/admin/settings/security",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3350,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Save ATsoft ERP Dashboard Org"
+    },
+    {
+      "index": 125,
+      "route": "/admin/settings/numbering",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 5233,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Edit Refresh ATsoft ERP Dashb"
+    },
+    {
+      "index": 126,
+      "route": "/admin/settings/notification-rules",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3258,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back New Edit Activate Deactivate "
+    },
+    {
+      "index": 127,
+      "route": "/admin/settings/audit",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 5155,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Export Refresh ATsoft ERP Das"
+    },
+    {
+      "index": 128,
+      "route": "/admin/settings/audit/user-activity",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 4887,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh ATsoft ERP Dashboard "
+    },
+    {
+      "index": 129,
+      "route": "/admin/settings/audit/login-history",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3085,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back Refresh ATsoft ERP Dashboard "
+    },
+    {
+      "index": 130,
+      "route": "/admin/notifications",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 5223,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back View Details Mark as Read Mar"
+    },
+    {
+      "index": 131,
+      "route": "/admin/messaging",
+      "status": "PASS",
+      "reason": "",
+      "bodyLength": 3328,
+      "sample": "ATsoft ERP Test Headquarters 52 العربية A  Administrator  admin@atsofterp.com  Logout Back New View Refresh ATsoft ERP D"
+    }
+  ],
+  "consoleErrors": [],
+  "networkFails": []
+}

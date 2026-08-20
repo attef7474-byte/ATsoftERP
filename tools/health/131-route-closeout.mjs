@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB = 'http://localhost:3000';
 const API = 'http://localhost:4000';
+const LOCALE = process.argv[2] === 'en' ? 'en' : 'ar';
 const OUTPUT_DIR = path.join(__dirname, '..', '..', 'docs', 'proofs', 'final-131-route-closeout');
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
@@ -87,9 +88,9 @@ try {
 // Navigate to app first, then set token and operational context
 await p.goto(WEB + '/admin/dashboard', { waitUntil: 'domcontentloaded', timeout: 15000 });
 await p.waitForTimeout(1500);
-await p.evaluate(({ t, uid, cid, brid }) => {
+await p.evaluate(({ t, uid, cid, brid, locale }) => {
   localStorage.setItem('accessToken', t);
-  localStorage.setItem('locale', 'ar');
+  localStorage.setItem('locale', locale);
   if (uid && cid) {
     localStorage.setItem('atsoft.erp.operational-context.current-user', uid);
     localStorage.setItem('atsoft.erp.operational-context.user.' + encodeURIComponent(uid), JSON.stringify({
@@ -97,7 +98,7 @@ await p.evaluate(({ t, uid, cid, brid }) => {
       context: { companyId: cid, branchId: brid || null, administrationId: null, departmentId: null }
     }));
   }
-}, { t: token, uid: userId, cid: defaultCtx?.companyId, brid: defaultCtx?.branchId });
+}, { t: token, uid: userId, cid: defaultCtx?.companyId, brid: defaultCtx?.branchId, locale: LOCALE });
 // Reload so the app picks up the token
 await p.goto(WEB + '/admin/dashboard', { waitUntil: 'domcontentloaded', timeout: 15000 });
 await p.waitForTimeout(2000);
@@ -129,6 +130,7 @@ for (let i = 0; i < ROUTES.length; i++) {
   const info = await p.evaluate(() => {
     const body = document.body.innerText;
     const url = window.location.href;
+    const rawKeyPattern = /\b(common|core|auth|details|status|maintenance|inventory|production|barcodes?|reports?|settings?|documents?)\.[a-z]/i;
     return {
       len: body.length,
       sample: body.substring(0, 120).replace(/\n/g, ' '),
@@ -136,6 +138,8 @@ for (let i = 0; i < ROUTES.length; i++) {
       hasObject: body.includes('[object Object]'),
       hasArFallback: body.includes('\u062a\u0639\u0630\u0631 \u0639\u0631\u0636 \u0627\u0644\u0646\u0635 \u0627\u0644\u0645\u0637\u0644\u0648\u0628'),
       hasEnFallback: body.includes('The requested text could not be displayed'),
+      hasRawKey: rawKeyPattern.test(body),
+      hasUndefined: body.includes('undefined'),
       currentUrl: url,
     };
   });
@@ -160,6 +164,18 @@ for (let i = 0; i < ROUTES.length; i++) {
   } else if (info.hasArFallback || info.hasEnFallback) {
     status = 'FAIL';
     reason = 'visible translation fallback text on page';
+    fail++;
+  } else if (info.hasRawKey) {
+    status = 'FAIL';
+    reason = 'visible raw i18n key on page';
+    fail++;
+  } else if (info.hasUndefined) {
+    status = 'FAIL';
+    reason = 'visible undefined text on page';
+    fail++;
+  } else if (!noV1Bug) {
+    status = 'FAIL';
+    reason = 'double /v1/v1/ in network request';
     fail++;
   } else if (hasFatalError) {
     status = 'FAIL';
@@ -188,7 +204,7 @@ if (fail > 0) {
   RESULTS.filter(r => r.status === 'FAIL').forEach(r => console.log(`  ${r.route}: ${r.reason}`));
 }
 
-fs.writeFileSync(path.join(OUTPUT_DIR, '131-route-results.json'), JSON.stringify({
+fs.writeFileSync(path.join(OUTPUT_DIR, `131-route-results-${LOCALE}.json`), JSON.stringify({
   timestamp: new Date().toISOString(), total: ROUTES.length, pass, nonDirect, fail,
   results: RESULTS, consoleErrors: allConsoleErrors.slice(0, 50), networkFails: allNetworkFails.slice(0, 50),
 }, null, 2));
