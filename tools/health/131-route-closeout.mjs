@@ -65,22 +65,44 @@ const p = await ctx.newPage();
 const allConsoleErrors = [];
 const allNetworkFails = [];
 p.on('pageerror', e => allConsoleErrors.push(`[pageerror] ${e.message.substring(0, 200)}`));
+p.on('requestfailed', req => allNetworkFails.push(`[network] ${req.url()} ${req.failure()?.errorText || 'failed'}`));
 
-let token;
+let token, userId, defaultCtx;
 try {
-  const lr = await p.evaluate(async ({ a, e, pw }) => {
-    const r = await fetch(a + '/api/v1/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: e, password: pw }) });
-    return await r.json();
-  }, { a: API, e: 'admin@atsofterp.com', pw: 'Admin@123456' });
-  if (!lr.accessToken) throw new Error('Login failed');
-  token = lr.accessToken;
-  console.log('LOGIN OK');
+  const lr = await p.request.post(API + '/api/v1/auth/login', {
+    data: { email: 'admin@atsofterp.com', password: 'Admin@123456' },
+  });
+  const lrJson = await lr.json();
+  if (!lrJson.accessToken) throw new Error('Login failed');
+  token = lrJson.accessToken;
+  userId = lrJson.user?.id;
+  console.log('LOGIN OK, userId:', userId);
+
+  const ctxRes = await p.request.get(API + '/api/v1/auth/contexts', { headers: { Authorization: 'Bearer ' + token } });
+  const ctxJson = await ctxRes.json();
+  defaultCtx = ctxJson?.contexts?.find(c => c.isDefault) || ctxJson?.contexts?.[0];
+  console.log('Context:', defaultCtx?.companyName, defaultCtx?.branchName);
 } catch (e) { console.error('FATAL:', e.message); await browser.close(); process.exit(1); }
 
-// Navigate to app first, then set token
-await p.goto(WEB + '/admin/dashboard', { waitUntil: 'domcontentloaded', timeout: 10000 });
-await p.waitForTimeout(1000);
-await p.evaluate(t => localStorage.setItem('accessToken', t), token);
+// Navigate to app first, then set token and operational context
+await p.goto(WEB + '/admin/dashboard', { waitUntil: 'domcontentloaded', timeout: 15000 });
+await p.waitForTimeout(1500);
+await p.evaluate(({ t, uid, cid, brid }) => {
+  localStorage.setItem('accessToken', t);
+  localStorage.setItem('locale', 'ar');
+  if (uid && cid) {
+    localStorage.setItem('atsoft.erp.operational-context.current-user', uid);
+    localStorage.setItem('atsoft.erp.operational-context.user.' + encodeURIComponent(uid), JSON.stringify({
+      version: 1, userId: uid,
+      context: { companyId: cid, branchId: brid || null, administrationId: null, departmentId: null }
+    }));
+  }
+}, { t: token, uid: userId, cid: defaultCtx?.companyId, brid: defaultCtx?.branchId });
+// Reload so the app picks up the token
+await p.goto(WEB + '/admin/dashboard', { waitUntil: 'domcontentloaded', timeout: 15000 });
+await p.waitForTimeout(2000);
+const pageReady = await p.evaluate(() => document.body.innerText.trim().length);
+console.log('Dashboard body length after reload:', pageReady);
 
 const RESULTS = [];
 let pass = 0, fail = 0, nonDirect = 0;
@@ -93,14 +115,14 @@ for (let i = 0; i < ROUTES.length; i++) {
 
   try {
     await p.goto(WEB + route, { waitUntil: 'domcontentloaded', timeout: 10000 });
-    await p.waitForTimeout(1500);
-    try { await p.waitForLoadState('networkidle', { timeout: 3000 }); } catch {}
-    await p.waitForTimeout(800);
+    await p.waitForTimeout(1200);
+    try { await p.waitForLoadState('networkidle', { timeout: 2000 }); } catch {}
+    await p.waitForTimeout(600);
     // retry if blank
     const blank = await p.evaluate(() => document.body.innerText.trim().length < 30);
     if (blank) {
       await p.goto(WEB + route, { waitUntil: 'domcontentloaded', timeout: 10000 });
-      await p.waitForTimeout(2000);
+      await p.waitForTimeout(1500);
     }
   } catch {}
 
@@ -112,6 +134,8 @@ for (let i = 0; i < ROUTES.length; i++) {
       sample: body.substring(0, 120).replace(/\n/g, ' '),
       blank: body.trim().length < 30,
       hasObject: body.includes('[object Object]'),
+      hasArFallback: body.includes('\u062a\u0639\u0630\u0631 \u0639\u0631\u0636 \u0627\u0644\u0646\u0635 \u0627\u0644\u0645\u0637\u0644\u0648\u0628'),
+      hasEnFallback: body.includes('The requested text could not be displayed'),
       currentUrl: url,
     };
   });
@@ -132,6 +156,10 @@ for (let i = 0; i < ROUTES.length; i++) {
   } else if (info.hasObject) {
     status = 'FAIL';
     reason = 'visible [object Object]';
+    fail++;
+  } else if (info.hasArFallback || info.hasEnFallback) {
+    status = 'FAIL';
+    reason = 'visible translation fallback text on page';
     fail++;
   } else if (hasFatalError) {
     status = 'FAIL';

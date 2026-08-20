@@ -8,6 +8,8 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         saved: 'تم الحفظ',
         noData: 'لا توجد بيانات',
         noRecords: 'لا توجد سجلات',
+        model: 'الموديل',
+        location: 'الموقع',
         search: 'بحث',
         clearSearch: 'مسح البحث',
         refresh: 'تحديث',

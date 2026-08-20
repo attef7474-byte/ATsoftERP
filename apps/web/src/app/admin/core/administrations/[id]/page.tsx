@@ -153,7 +153,7 @@ export default function AdministrationDetailPage() {
   if (!administration) return <ErrorState message={t('common.notFound')} />;
 
   const tabs: { id: TabId; labelKey: string }[] = [
-    { id: 'overview', labelKey: 'core.administration.title' },
+    { id: 'overview', labelKey: 'details.administration.title' },
     { id: 'departments', labelKey: 'core.departments' },
   ];
 

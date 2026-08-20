@@ -8,6 +8,8 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         saved: 'Saved',
         noData: 'No data available',
         noRecords: 'No records',
+        model: 'Model',
+        location: 'Location',
         search: 'Search',
         clearSearch: 'Clear search',
         refresh: 'Refresh',
