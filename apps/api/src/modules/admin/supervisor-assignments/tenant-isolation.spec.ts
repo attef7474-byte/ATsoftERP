@@ -49,6 +49,7 @@ describe('SupervisorAssignments Tenant Isolation', () => {
 
   beforeEach(() => {
     prisma = {
+      $transaction: jest.fn((fn: any) => fn(prisma)),
       operationalPersonAssignment: {
         findFirst: jest.fn(),
       },
@@ -60,7 +61,7 @@ describe('SupervisorAssignments Tenant Isolation', () => {
         count: jest.fn(),
       },
     };
-    auditService = { log: jest.fn() };
+    auditService = { log: jest.fn(), logWithClient: jest.fn() };
     service = new SupervisorAssignmentsService(prisma as PrismaService, auditService as AuditService);
   });
 
@@ -131,6 +132,7 @@ describe('SupervisorAssignments Tenant Isolation', () => {
         'user-1',
       );
 
+      expect(prisma.$transaction).toHaveBeenCalled();
       expect(prisma.supervisorAssignment.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ companyId: 'company-a' }),

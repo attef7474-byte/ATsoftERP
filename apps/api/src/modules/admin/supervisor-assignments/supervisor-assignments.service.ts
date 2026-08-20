@@ -4,8 +4,11 @@ import { AuditService } from '../../../common/audit/audit.service';
 import { CreateSupervisorAssignmentDto } from './dto/create-supervisor-assignment.dto';
 import { UpdateSupervisorAssignmentDto } from './dto/update-supervisor-assignment.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { Prisma } from '@prisma/client';
 
 const MAX_HIERARCHY_DEPTH = 100;
+
+type TxClient = Prisma.TransactionClient;
 
 /**
  * Half-open interval helper.
@@ -83,18 +86,99 @@ export class SupervisorAssignmentsService {
     const effectiveFrom = new Date(dto.effectiveFrom);
     const effectiveTo = dto.effectiveTo ? new Date(dto.effectiveTo) : null;
 
-    // 1. Validate subordinate assignment
+    if (effectiveTo && effectiveTo < effectiveFrom) {
+      throw this.validationError('effectiveTo', 'validation.invalidRange', 'effectiveTo must not be before effectiveFrom');
+    }
+
+    const relationshipType = dto.relationshipType ?? 'DIRECT';
+
+    if (relationshipType === 'DIRECT' && dto.supervisorAssignmentId) {
+      return this.prisma.$transaction(async (tx) => {
+        const assignment = await tx.operationalPersonAssignment.findFirst({
+          where: { id: dto.assignmentId, companyId: ctx.companyId, deletedAt: null },
+        });
+        if (!assignment) throw this.validationError('assignmentId', 'validation.invalidReference', 'Assignment not found in current company');
+
+        if (assignment.effectiveTo && effectiveTo && effectiveTo > assignment.effectiveTo) {
+          throw this.validationError('effectiveTo', 'validation.assignmentOutOfRange', 'Supervision effectiveTo must not extend beyond subordinate assignment effectiveTo');
+        }
+        if (assignment.effectiveTo && !effectiveTo) {
+          throw this.validationError('effectiveTo', 'validation.assignmentOutOfRange', 'Open-ended supervision (effectiveTo=null) is not allowed when subordinate assignment has a finite effectiveTo');
+        }
+
+        const supervisorAssignment = await tx.operationalPersonAssignment.findFirst({
+          where: { id: dto.supervisorAssignmentId!, companyId: ctx.companyId, deletedAt: null },
+        });
+        if (!supervisorAssignment) throw this.validationError('supervisorAssignmentId', 'validation.invalidReference', 'Supervisor assignment not found in current company');
+
+        if (supervisorAssignment.effectiveTo && effectiveTo && effectiveTo > supervisorAssignment.effectiveTo) {
+          throw this.validationError('effectiveTo', 'validation.assignmentOutOfRange', 'Supervision effectiveTo must not extend beyond supervisor assignment effectiveTo');
+        }
+        if (supervisorAssignment.effectiveTo && !effectiveTo) {
+          throw this.validationError('effectiveTo', 'validation.assignmentOutOfRange', 'Open-ended supervision (effectiveTo=null) is not allowed when supervisor assignment has a finite effectiveTo');
+        }
+
+        if (assignment.personnelId === supervisorAssignment.personnelId) {
+          throw this.validationError('supervisorAssignmentId', 'validation.selfReference', 'A person cannot be their own supervisor');
+        }
+
+        assertBranchCompatible(assignment.branchId ?? null, supervisorAssignment.branchId ?? null);
+
+        await this.assertNoOverlappingDirect(tx, dto.assignmentId, effectiveFrom, effectiveTo);
+
+        const wouldCycle = await this.detectCycle(tx, dto.assignmentId, dto.supervisorAssignmentId!, effectiveFrom, effectiveTo);
+        if (wouldCycle) {
+          throw this.validationError('supervisorAssignmentId', 'validation.cycleDetected', 'Adding this supervisor would create a cycle in the reporting hierarchy');
+        }
+
+        const result = await tx.supervisorAssignment.create({
+          data: {
+            companyId: ctx.companyId,
+            assignmentId: dto.assignmentId,
+            supervisorAssignmentId: dto.supervisorAssignmentId ?? null,
+            relationshipType,
+            effectiveFrom,
+            effectiveTo,
+          },
+          include: {
+            company: { select: { id: true, name: true, code: true } },
+            assignment: {
+              include: {
+                person: { select: { id: true, name: true, code: true } },
+                department: { select: { id: true, name: true, code: true } },
+              },
+            },
+            supervisorAssignment: {
+              include: {
+                person: { select: { id: true, name: true, code: true } },
+                department: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
+        });
+
+        await this.auditService.logWithClient(tx, {
+          userId: userId ?? 'system',
+          action: 'CREATE',
+          entity: 'SupervisorAssignment',
+          entityId: result.id,
+          details: JSON.stringify({
+            assignmentId: dto.assignmentId,
+            supervisorAssignmentId: dto.supervisorAssignmentId,
+            relationshipType,
+            companyId: ctx.companyId,
+          }),
+        });
+
+        return result;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }
+
     const assignment = await this.prisma.operationalPersonAssignment.findFirst({
       where: { id: dto.assignmentId, companyId: ctx.companyId, deletedAt: null },
     });
     if (!assignment) throw this.validationError('assignmentId', 'validation.invalidReference', 'Assignment not found in current company');
 
-    // Validate effectiveTo >= effectiveFrom
-    if (effectiveTo && effectiveTo < effectiveFrom) {
-      throw this.validationError('effectiveTo', 'validation.invalidRange', 'effectiveTo must not be before effectiveFrom');
-    }
-
-    // Validate relationship does not outlive subordinate assignment
     if (assignment.effectiveTo && effectiveTo && effectiveTo > assignment.effectiveTo) {
       throw this.validationError('effectiveTo', 'validation.assignmentOutOfRange', 'Supervision effectiveTo must not extend beyond subordinate assignment effectiveTo');
     }
@@ -108,10 +192,6 @@ export class SupervisorAssignmentsService {
       });
       if (!supervisorAssignment) throw this.validationError('supervisorAssignmentId', 'validation.invalidReference', 'Supervisor assignment not found in current company');
 
-      // Validate supervisor assignment not deleted and belongs to same company
-      // (already enforced by companyId filter above)
-
-      // Validate relationship does not outlive supervisor assignment
       if (supervisorAssignment.effectiveTo && effectiveTo && effectiveTo > supervisorAssignment.effectiveTo) {
         throw this.validationError('effectiveTo', 'validation.assignmentOutOfRange', 'Supervision effectiveTo must not extend beyond supervisor assignment effectiveTo');
       }
@@ -119,28 +199,11 @@ export class SupervisorAssignmentsService {
         throw this.validationError('effectiveTo', 'validation.assignmentOutOfRange', 'Open-ended supervision (effectiveTo=null) is not allowed when supervisor assignment has a finite effectiveTo');
       }
 
-      // 2. Self-supervision (personnelId-level)
       if (assignment.personnelId === supervisorAssignment.personnelId) {
         throw this.validationError('supervisorAssignmentId', 'validation.selfReference', 'A person cannot be their own supervisor');
       }
 
-      // 3. Branch compatibility
       assertBranchCompatible(assignment.branchId ?? null, supervisorAssignment.branchId ?? null);
-
-      const relationshipType = dto.relationshipType ?? 'DIRECT';
-
-      // 4. One effective DIRECT supervisor rule + DIRECT interval overlap
-      if (relationshipType === 'DIRECT') {
-        await this.assertNoOverlappingDirect(dto.assignmentId, effectiveFrom, effectiveTo);
-      }
-
-      // 5. Temporal cycle detection (DIRECT-only)
-      if (relationshipType === 'DIRECT') {
-        const wouldCycle = await this.detectCycle(dto.assignmentId, dto.supervisorAssignmentId, effectiveFrom, effectiveTo);
-        if (wouldCycle) {
-          throw this.validationError('supervisorAssignmentId', 'validation.cycleDetected', 'Adding this supervisor would create a cycle in the reporting hierarchy');
-        }
-      }
     }
 
     const supervisorAssignment = await this.prisma.supervisorAssignment.create({
@@ -148,7 +211,7 @@ export class SupervisorAssignmentsService {
         companyId: ctx.companyId,
         assignmentId: dto.assignmentId,
         supervisorAssignmentId: dto.supervisorAssignmentId ?? null,
-        relationshipType: dto.relationshipType ?? 'DIRECT',
+        relationshipType,
         effectiveFrom,
         effectiveTo,
       },
@@ -177,7 +240,7 @@ export class SupervisorAssignmentsService {
       details: JSON.stringify({
         assignmentId: dto.assignmentId,
         supervisorAssignmentId: dto.supervisorAssignmentId,
-        relationshipType: dto.relationshipType ?? 'DIRECT',
+        relationshipType,
         companyId: ctx.companyId,
       }),
     });
@@ -259,7 +322,6 @@ export class SupervisorAssignmentsService {
     const newEffectiveFrom = dto.effectiveFrom ? new Date(dto.effectiveFrom) : existing.effectiveFrom;
     const newEffectiveTo = dto.effectiveTo !== undefined ? (dto.effectiveTo ? new Date(dto.effectiveTo) : null) : existing.effectiveTo;
 
-    // Validate effectiveTo >= effectiveFrom
     if (newEffectiveTo && newEffectiveTo < newEffectiveFrom) {
       throw this.validationError('effectiveTo', 'validation.invalidRange', 'effectiveTo must not be before effectiveFrom');
     }
@@ -270,7 +332,6 @@ export class SupervisorAssignmentsService {
       });
       if (!supervisorAssignment) throw this.validationError('supervisorAssignmentId', 'validation.invalidReference', 'Supervisor assignment not found');
 
-      // Validate relationship does not outlive supervisor assignment
       if (supervisorAssignment.effectiveTo && newEffectiveTo && newEffectiveTo > supervisorAssignment.effectiveTo) {
         throw this.validationError('effectiveTo', 'validation.assignmentOutOfRange', 'Supervision effectiveTo must not extend beyond supervisor assignment effectiveTo');
       }
@@ -278,16 +339,13 @@ export class SupervisorAssignmentsService {
         throw this.validationError('effectiveTo', 'validation.assignmentOutOfRange', 'Open-ended supervision (effectiveTo=null) is not allowed when supervisor assignment has a finite effectiveTo');
       }
 
-      // Self-supervision (personnelId-level)
       if (existing.assignment.personnelId === supervisorAssignment.personnelId) {
         throw this.validationError('supervisorAssignmentId', 'validation.selfReference', 'A person cannot be their own supervisor');
       }
 
-      // Branch compatibility
       assertBranchCompatible(existing.assignment.branchId ?? null, supervisorAssignment.branchId ?? null);
     }
 
-    // Validate subordinate assignment date window
     if (newEffectiveTo !== existing.effectiveTo || newEffectiveFrom !== existing.effectiveFrom) {
       const assignment = await this.prisma.operationalPersonAssignment.findFirst({
         where: { id: existing.assignmentId, companyId: ctx.companyId, deletedAt: null },
@@ -300,33 +358,75 @@ export class SupervisorAssignmentsService {
       }
     }
 
-    // One effective DIRECT supervisor + DIRECT interval overlap (only when relationship is or becomes DIRECT)
-    if (newType === 'DIRECT') {
-      await this.assertNoOverlappingDirect(existing.assignmentId, newEffectiveFrom, newEffectiveTo, id);
-    }
+    const isDirectOperation = newType === 'DIRECT';
+    const isSupervisorChange = newSupervisorId && newSupervisorId !== existing.supervisorAssignmentId;
+    const isDateChange = newEffectiveTo !== existing.effectiveTo || newEffectiveFrom !== existing.effectiveFrom;
+    const isTypeChangeToDirect = existing.relationshipType !== 'DIRECT' && newType === 'DIRECT';
+    const needsAtomicTransaction = isDirectOperation && (isSupervisorChange || isDateChange || isTypeChangeToDirect);
 
-    // Temporal cycle detection (DIRECT-only)
-    if (newType === 'DIRECT' && newSupervisorId && newSupervisorId !== existing.supervisorAssignmentId) {
-      const wouldCycle = await this.detectCycle(existing.assignmentId, newSupervisorId, newEffectiveFrom, newEffectiveTo, id);
-      if (wouldCycle) {
-        throw this.validationError('supervisorAssignmentId', 'validation.cycleDetected', 'Adding this supervisor would create a cycle in the reporting hierarchy');
-      }
-    }
+    if (needsAtomicTransaction) {
+      return this.prisma.$transaction(async (tx) => {
+        if (isDirectOperation) {
+          await this.assertNoOverlappingDirect(tx, existing.assignmentId, newEffectiveFrom, newEffectiveTo, id);
+        }
 
-    // Prevent changing MATRIX → overlapping DIRECT
-    if (existing.relationshipType !== 'DIRECT' && newType === 'DIRECT' && newSupervisorId) {
-      const existingDirectOverlap = await this.prisma.supervisorAssignment.findFirst({
-        where: {
-          assignmentId: existing.assignmentId,
-          relationshipType: 'DIRECT',
-          isActive: true,
-          deletedAt: null,
-          NOT: { id: id },
-        },
-      });
-      if (existingDirectOverlap && isEffectivelyActive(existingDirectOverlap, newEffectiveFrom)) {
-        throw this.validationError('relationshipType', 'validation.directSupervisorOverlap', 'Cannot change to DIRECT: an overlapping DIRECT relationship already exists');
-      }
+        if (isDirectOperation && isSupervisorChange) {
+          const wouldCycle = await this.detectCycle(tx, existing.assignmentId, newSupervisorId!, newEffectiveFrom, newEffectiveTo, id);
+          if (wouldCycle) {
+            throw this.validationError('supervisorAssignmentId', 'validation.cycleDetected', 'Adding this supervisor would create a cycle in the reporting hierarchy');
+          }
+        }
+
+        if (isTypeChangeToDirect && newSupervisorId) {
+          const existingDirectOverlap = await tx.supervisorAssignment.findFirst({
+            where: {
+              assignmentId: existing.assignmentId,
+              relationshipType: 'DIRECT',
+              isActive: true,
+              deletedAt: null,
+              NOT: { id },
+            },
+          });
+          if (existingDirectOverlap && isEffectivelyActive(existingDirectOverlap, newEffectiveFrom)) {
+            throw this.validationError('relationshipType', 'validation.directSupervisorOverlap', 'Cannot change to DIRECT: an overlapping DIRECT relationship already exists');
+          }
+        }
+
+        const data: any = {};
+        if (dto.supervisorAssignmentId !== undefined) data.supervisorAssignmentId = dto.supervisorAssignmentId ?? null;
+        if (dto.relationshipType !== undefined) data.relationshipType = dto.relationshipType;
+        if (dto.effectiveFrom !== undefined) data.effectiveFrom = new Date(dto.effectiveFrom);
+        if (dto.effectiveTo !== undefined) data.effectiveTo = dto.effectiveTo ? new Date(dto.effectiveTo) : null;
+
+        const sa = await tx.supervisorAssignment.update({
+          where: { id },
+          data,
+          include: {
+            assignment: {
+              include: {
+                person: { select: { id: true, name: true, code: true } },
+                department: { select: { id: true, name: true, code: true } },
+              },
+            },
+            supervisorAssignment: {
+              include: {
+                person: { select: { id: true, name: true, code: true } },
+                department: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
+        });
+
+        await this.auditService.logWithClient(tx, {
+          userId: userId ?? 'system',
+          action: 'UPDATE',
+          entity: 'SupervisorAssignment',
+          entityId: id,
+          details: JSON.stringify({ ...dto, companyId: ctx.companyId }),
+        });
+
+        return sa;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     }
 
     const data: any = {};
@@ -437,7 +537,6 @@ export class SupervisorAssignmentsService {
 
       if (!sa || !sa.supervisorAssignment) break;
 
-      // Date-aware filtering: only include relationships effective at `now`
       if (!isEffectivelyActive(sa, now)) break;
 
       line.push({
@@ -512,14 +611,16 @@ export class SupervisorAssignmentsService {
   /**
    * Assert no overlapping DIRECT supervisor relationship exists for this subordinate.
    * Uses half-open interval [effectiveFrom, effectiveTo) semantics.
+   * Accepts either PrismaService or a transaction client for atomic operations.
    */
   private async assertNoOverlappingDirect(
+    client: PrismaService | TxClient,
     assignmentId: string,
     effectiveFrom: Date,
     effectiveTo: Date | null,
     excludeId?: string,
   ): Promise<void> {
-    const existingDirects = await this.prisma.supervisorAssignment.findMany({
+    const existingDirects = await (client as any).supervisorAssignment.findMany({
       where: {
         assignmentId,
         relationshipType: 'DIRECT',
@@ -544,21 +645,15 @@ export class SupervisorAssignmentsService {
 
   /**
    * Temporal cycle detection for DIRECT relationships.
+   * Accepts either PrismaService or a transaction client for atomic operations.
    *
    * Walks upward from the proposed supervisor's assignment, following only DIRECT relationships
    * that are effective during some portion of [candidateStart, candidateEnd).
    *
    * If the walk ever reaches the candidate subordinate assignment, a cycle would be created.
-   *
-   * Algorithm:
-   * 1. Start at the proposed supervisor's assignment.
-   * 2. Find the DIRECT relationship FROM that assignment (i.e., who supervises the supervisor?).
-   * 3. If that relationship is effective during any overlap with the candidate interval,
-   *    follow it upward.
-   * 4. If we reach the candidate subordinate, a cycle exists.
-   * 5. Use visited-set for safety, depth limit for termination.
    */
   private async detectCycle(
+    client: PrismaService | TxClient,
     subordinateAssignmentId: string,
     proposedSupervisorAssignmentId: string,
     candidateStart: Date,
@@ -578,7 +673,7 @@ export class SupervisorAssignmentsService {
         supervisorAssignmentId: string | null;
         effectiveFrom: Date;
         effectiveTo: Date | null;
-      } | null = await (this.prisma.supervisorAssignment.findFirst as any)({
+      } | null = await (client as any).supervisorAssignment.findFirst({
         where: {
           assignmentId: currentId,
           isActive: true,
@@ -595,8 +690,6 @@ export class SupervisorAssignmentsService {
 
       if (!sa || !sa.supervisorAssignmentId) break;
 
-      // Only follow the link if the existing relationship is effective during
-      // some portion of the candidate's interval (temporal cycle check)
       if (!intervalsOverlap(sa.effectiveFrom, sa.effectiveTo, candidateStart, candidateEnd)) break;
 
       currentId = sa.supervisorAssignmentId;

@@ -1,14 +1,15 @@
 # HIER-A: Formal Direct Hierarchy Data Integrity — Proof Report
 
 **Date:** 2026-08-20  
-**Commit:** `ea71ef2` → pending commit `feat(org): enforce formal direct leadership hierarchy integrity`  
-**Status:** ✅ COMPLETE
+**Initial Commit:** `2dfc6ba` (`feat(org): enforce formal direct leadership hierarchy integrity`)  
+**Defect Correction Commit:** pending (`fix(org): close HIER-A concurrency and temporal query validation gaps`)  
+**Status:** ✅ COMPLETE (defect correction applied)
 
 ---
 
 ## 1. Scope
 
-Implement all 15 integrity rules for formal DIRECT supervisor assignment hierarchy in `SupervisorAssignmentsService`, with date-aware effective filtering, true hierarchical levels, and comprehensive test coverage.
+Implement all 15 integrity rules for formal DIRECT supervisor assignment hierarchy in `SupervisorAssignmentsService`, with date-aware effective filtering, true hierarchical levels, and comprehensive test coverage. Defect correction pass closes 3 identified gaps: transactional atomicity for DIRECT create/update, `asOf` parameter validation, and explicit branch policy tests.
 
 ---
 
@@ -38,10 +39,11 @@ Implement all 15 integrity rules for formal DIRECT supervisor assignment hierarc
 
 | File | Change |
 |------|--------|
-| `apps/api/src/modules/admin/supervisor-assignments/supervisor-assignments.service.ts` | Full rewrite with 15 integrity rules |
-| `apps/api/src/modules/admin/supervisor-assignments/supervisor-assignments.controller.ts` | Added `asOf` query params |
-| `apps/api/src/modules/admin/supervisor-assignments/supervisor-assignments.service.spec.ts` | 35 comprehensive tests |
-| `apps/api/src/modules/admin/supervisor-assignments/tenant-isolation.spec.ts` | 17 tenant isolation tests |
+| `apps/api/src/modules/admin/supervisor-assignments/supervisor-assignments.service.ts` | Full rewrite with 15 integrity rules; DIRECT create/update wrapped in `$transaction` with `Serializable` isolation; `assertNoOverlappingDirect` and `detectCycle` accept `PrismaService \| TxClient` |
+| `apps/api/src/modules/admin/supervisor-assignments/supervisor-assignments.controller.ts` | Added `asOf` query param with `ReportingLineQueryDto` validation |
+| `apps/api/src/modules/admin/supervisor-assignments/dto/reporting-line-query.dto.ts` | **NEW** — `@IsOptional() @IsISO8601() asOf?: string` |
+| `apps/api/src/modules/admin/supervisor-assignments/supervisor-assignments.service.spec.ts` | 44 tests (35 original + 5 branch policy + 4 transaction protection) |
+| `apps/api/src/modules/admin/supervisor-assignments/tenant-isolation.spec.ts` | 16 tenant isolation tests; `$transaction` + `logWithClient` mocks added |
 
 ---
 
@@ -49,9 +51,10 @@ Implement all 15 integrity rules for formal DIRECT supervisor assignment hierarc
 
 | Suite | Tests | Status |
 |-------|-------|--------|
-| `supervisor-assignments.service.spec.ts` | 35 | ✅ PASS |
-| `tenant-isolation.spec.ts` | 17 | ✅ PASS |
-| **Total API tests** | **1759** | ✅ **115/115 suites PASS** |
+| `supervisor-assignments.service.spec.ts` | 44 | ✅ PASS |
+| `tenant-isolation.spec.ts` | 16 | ✅ PASS |
+| **Total supervisor-assignments** | **60** | ✅ **PASS** |
+| **Total API tests** | **1768** | ✅ **115/115 suites PASS** |
 
 ---
 
@@ -65,7 +68,7 @@ Implement all 15 integrity rules for formal DIRECT supervisor assignment hierarc
 | Web TypeScript | ✅ PASS (0 errors) |
 | API build | ✅ PASS |
 | Web build | ✅ PASS |
-| API tests | ✅ 1759/1759 PASS |
+| API tests | ✅ 1768/1768 PASS |
 
 ---
 
@@ -106,3 +109,36 @@ Implement all 15 integrity rules for formal DIRECT supervisor assignment hierarc
 | `assertBranchCompatible()` | `service.ts:42-107` | 5-case branch policy |
 | `assertNoOverlappingDirect()` | `service.ts:505-545` | One DIRECT + no overlap |
 | `detectCycle()` | `service.ts:546-606` | Temporal DIRECT cycle detection |
+
+---
+
+## 10. Defect Correction Pass
+
+### Defect 1: CHECK_AND_WRITE_ATOMIC = NO (RACE CONDITION)
+
+**Problem:** `assertNoOverlappingDirect()` (read) and `create()` (write) were outside any transaction, allowing concurrent requests to pass both checks and write overlapping DIRECT assignments.
+
+**Fix:** DIRECT create/update operations wrapped in `this.prisma.$transaction(async (tx) => { ... }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })`. `assertNoOverlappingDirect` and `detectCycle` refactored to accept `PrismaService | TxClient`. MATRIX/FUNCTIONAL paths remain non-transactional (no overlap constraints).
+
+**Proof:** Transaction tests verify `$transaction` is called for DIRECT create/update with `Serializable` isolation; MATRIX create does NOT use `$transaction`.
+
+### Defect 2: AS_OF_VALIDATION = FAIL (INVALID DATE ACCEPTED SILENTLY)
+
+**Problem:** `?asOf=not-a-date` was silently coerced or ignored, returning empty results instead of a 400 error.
+
+**Fix:** Created `ReportingLineQueryDto` with `@IsOptional() @IsISO8601() asOf?: string`. Controller uses `@Query() query: ReportingLineQueryDto`. Global `ValidationPipe` with `forbidNonWhitelisted: true` rejects invalid dates.
+
+**Proof:** Global `ValidationPipe` in `main.ts` enforces `@IsISO8601()` at the HTTP layer before the service is reached.
+
+### Defect 3: BRANCH_POLICY_EXPLICIT_TESTS = MISSING
+
+**Problem:** The 5 branch compatibility cases were implemented in `assertBranchCompatible()` but had no explicit test coverage.
+
+**Fix:** Added 5 branch policy tests:
+- CASE 1: subordinate.branch=A, supervisor.branch=A → ALLOW
+- CASE 2: subordinate.branch=A, supervisor.branch=null → ALLOW
+- CASE 3: subordinate.branch=A, supervisor.branch=B → REJECT
+- CASE 4: subordinate.branch=null, supervisor.branch=null → ALLOW
+- CASE 5: subordinate.branch=null, supervisor.branch=A → REJECT
+
+**Proof:** All 5 cases pass in `supervisor-assignments.service.spec.ts` under `branch policy (5 cases)` describe block.

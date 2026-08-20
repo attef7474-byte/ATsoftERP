@@ -45,6 +45,7 @@ describe('SupervisorAssignmentsService', () => {
 
   beforeEach(() => {
     prisma = {
+      $transaction: jest.fn((fn: any) => fn(prisma)),
       operationalPersonAssignment: {
         findFirst: jest.fn(),
       },
@@ -56,7 +57,7 @@ describe('SupervisorAssignmentsService', () => {
         count: jest.fn(),
       },
     };
-    auditService = { log: jest.fn() };
+    auditService = { log: jest.fn(), logWithClient: jest.fn() };
     service = new SupervisorAssignmentsService(prisma as PrismaService, auditService as AuditService);
   });
 
@@ -114,12 +115,14 @@ describe('SupervisorAssignmentsService', () => {
         'user-1',
       );
 
+      expect(prisma.$transaction).toHaveBeenCalled();
       expect(prisma.supervisorAssignment.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ companyId: 'company-a', assignmentId: 'pa1', supervisorAssignmentId: 'pa2' }),
         }),
       );
-      expect(auditService.log).toHaveBeenCalledWith(
+      expect(auditService.logWithClient).toHaveBeenCalledWith(
+        prisma,
         expect.objectContaining({ action: 'CREATE', entity: 'SupervisorAssignment', userId: 'user-1' }),
       );
       expect(result.assignmentId).toBe('pa1');
@@ -631,6 +634,152 @@ describe('SupervisorAssignmentsService', () => {
         expect.objectContaining({ action: 'REMOVE', entity: 'SupervisorAssignment', userId: 'user-1' }),
       );
       expect(result.message).toContain('removed');
+    });
+  });
+
+  describe('branch policy (5 cases)', () => {
+    it('CASE 1: subordinate.branch=A, supervisor.branch=A → ALLOW', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA', { branchId: 'branch-a' }))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB', { branchId: 'branch-a' }));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.create.mockResolvedValue(supervisorRecord());
+
+      const result = await service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-01-01T00:00:00.000Z' },
+        ctx,
+      );
+      expect(result.assignmentId).toBe('pa1');
+    });
+
+    it('CASE 2: subordinate.branch=A, supervisor.branch=null → ALLOW', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA', { branchId: 'branch-a' }))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB', { branchId: null }));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.create.mockResolvedValue(supervisorRecord());
+
+      const result = await service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-01-01T00:00:00.000Z' },
+        ctx,
+      );
+      expect(result.assignmentId).toBe('pa1');
+    });
+
+    it('CASE 3: subordinate.branch=A, supervisor.branch=B → REJECT', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA', { branchId: 'branch-a' }))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB', { branchId: 'branch-b' }));
+
+      const promise = service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-01-01T00:00:00.000Z' },
+        ctx,
+      );
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e: any) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ code: 'validation.invalidBranchHierarchy' });
+    });
+
+    it('CASE 4: subordinate.branch=null, supervisor.branch=null → ALLOW', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA', { branchId: null }))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB', { branchId: null }));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.create.mockResolvedValue(supervisorRecord());
+
+      const result = await service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-01-01T00:00:00.000Z' },
+        ctx,
+      );
+      expect(result.assignmentId).toBe('pa1');
+    });
+
+    it('CASE 5: subordinate.branch=null, supervisor.branch=A → REJECT', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA', { branchId: null }))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB', { branchId: 'branch-a' }));
+
+      const promise = service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-01-01T00:00:00.000Z' },
+        ctx,
+      );
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e: any) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ code: 'validation.invalidBranchHierarchy' });
+    });
+  });
+
+  describe('atomic transaction protection', () => {
+    it('DIRECT create executes within $transaction', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA'))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB'));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.create.mockResolvedValue(supervisorRecord());
+
+      await service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', effectiveFrom: '2026-01-01T00:00:00.000Z' },
+        ctx,
+      );
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ isolationLevel: 'Serializable' }),
+      );
+    });
+
+    it('MATRIX create does NOT use $transaction', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa1', 'personA'))
+        .mockResolvedValueOnce(personAssignment('pa2', 'personB'));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.supervisorAssignment.create.mockResolvedValue(supervisorRecord({ relationshipType: 'MATRIX' }));
+
+      await service.create(
+        { assignmentId: 'pa1', supervisorAssignmentId: 'pa2', relationshipType: 'MATRIX', effectiveFrom: '2026-01-01T00:00:00.000Z' },
+        ctx,
+      );
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('DIRECT update with date change executes within $transaction', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce(supervisorRecord({ effectiveFrom: new Date('2026-01-01'), effectiveTo: null, assignment: { personnelId: 'personA', branchId: 'branch-a' } }));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([
+        { id: 'other-direct', effectiveFrom: new Date('2026-06-01'), effectiveTo: null },
+      ]);
+
+      await expect(
+        service.update('sa1', { effectiveFrom: '2026-03-01T00:00:00.000Z', effectiveTo: '2026-09-01T00:00:00.000Z' }, ctx),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+    });
+
+    it('MATRIX → DIRECT change executes within $transaction', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce(supervisorRecord({ relationshipType: 'MATRIX', assignment: { personnelId: 'personA', branchId: 'branch-a' } }));
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(personAssignment('pa3', 'personC'));
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.update.mockResolvedValue(supervisorRecord({ relationshipType: 'DIRECT' }));
+
+      await service.update(
+        'sa1',
+        { relationshipType: 'DIRECT', supervisorAssignmentId: 'pa3' },
+        ctx,
+        'user-1',
+      );
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ isolationLevel: 'Serializable' }),
+      );
+      expect(auditService.logWithClient).toHaveBeenCalled();
     });
   });
 });

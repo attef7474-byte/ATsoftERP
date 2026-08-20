@@ -3,6 +3,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { SupervisorAssignmentsService } from './supervisor-assignments.service';
 import { CreateSupervisorAssignmentDto } from './dto/create-supervisor-assignment.dto';
 import { UpdateSupervisorAssignmentDto } from './dto/update-supervisor-assignment.dto';
+import { ReportingLineQueryDto } from './dto/reporting-line-query.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
@@ -49,10 +50,10 @@ export class SupervisorAssignmentsController {
   @ApiOperation({ summary: 'Get reporting line for an assignment' })
   getReportingLine(
     @Param('assignmentId') assignmentId: string,
-    @Query('asOf') asOfQuery: string | undefined,
+    @Query() query: ReportingLineQueryDto,
     @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    const asOf = asOfQuery ? new Date(asOfQuery) : undefined;
+    const asOf = query.asOf ? new Date(query.asOf) : undefined;
     return this.supervisorAssignmentsService.getReportingLine(assignmentId, ctx, asOf);
   }
 
@@ -61,10 +62,10 @@ export class SupervisorAssignmentsController {
   @ApiOperation({ summary: 'Get subordinates for an assignment' })
   getSubordinates(
     @Param('assignmentId') assignmentId: string,
-    @Query('asOf') asOfQuery: string | undefined,
+    @Query() query: ReportingLineQueryDto,
     @CurrentActiveContext() ctx: ActiveOperationalContext,
   ) {
-    const asOf = asOfQuery ? new Date(asOfQuery) : undefined;
+    const asOf = query.asOf ? new Date(query.asOf) : undefined;
     return this.supervisorAssignmentsService.getSubordinates(assignmentId, ctx, asOf);
   }
 
