@@ -1285,6 +1285,15 @@ describe('SupervisorAssignmentsService', () => {
       await expect(service.getHierarchyTree('missing', ctx)).rejects.toThrow(NotFoundException);
     });
 
+    it('throws NotFoundException when root is not effective at asOf', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce(saWithAssignment('pa1', null, {
+          effectiveFrom: new Date('2026-06-01'),
+        }));
+
+      await expect(service.getHierarchyTree('pa1', ctx, new Date('2026-01-01'))).rejects.toThrow(NotFoundException);
+    });
+
     it('returns root with zero descendants for a leaf node', async () => {
       prisma.supervisorAssignment.findFirst
         .mockResolvedValueOnce(saWithAssignment('pa1', null))

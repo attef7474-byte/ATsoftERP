@@ -650,6 +650,10 @@ export class SupervisorAssignmentsService {
       throw new NotFoundException({ messageKey: 'organization.supervisorAssignmentNotFound', message: 'Supervisor assignment not found' });
     }
 
+    if (!isEffectivelyActive(rootSa, now)) {
+      throw new NotFoundException({ messageKey: 'organization.supervisorAssignmentNotFound', message: 'Supervisor assignment not effective at the requested date' });
+    }
+
     const reportingLineResult = await this.getReportingLine(assignmentId, ctx, asOf);
 
     type TreeNode = HierarchyTreeNode;
