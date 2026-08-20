@@ -15,6 +15,7 @@ interface AssignmentForm {
   departmentId: string;
   jobTitleId: string;
   assignmentType: string;
+  leadershipLevel: string;
   effectiveFrom: string;
   effectiveTo: string;
   notes: string;
@@ -25,14 +26,16 @@ interface TransferForm {
   administrationId: string;
   departmentId: string;
   jobTitleId: string;
+  leadershipLevel: string;
   effectiveFrom: string;
   notes: string;
 }
 
-const EMPTY_FORM: AssignmentForm = { personnelId: '', departmentId: '', jobTitleId: '', assignmentType: 'PRIMARY', effectiveFrom: '', effectiveTo: '', notes: '' };
-const EMPTY_TRANSFER_FORM: TransferForm = { branchId: '', administrationId: '', departmentId: '', jobTitleId: '', effectiveFrom: '', notes: '' };
+const EMPTY_FORM: AssignmentForm = { personnelId: '', departmentId: '', jobTitleId: '', assignmentType: 'PRIMARY', leadershipLevel: 'NONE', effectiveFrom: '', effectiveTo: '', notes: '' };
+const EMPTY_TRANSFER_FORM: TransferForm = { branchId: '', administrationId: '', departmentId: '', jobTitleId: '', leadershipLevel: 'NONE', effectiveFrom: '', notes: '' };
 const INITIAL_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
 const ASSIGNMENT_TYPES = ['PRIMARY', 'SECONDARY', 'TEMPORARY', 'ACTING'];
+const LEADERSHIP_LEVELS = ['NONE', 'TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD', 'ADMINISTRATION_MANAGER'];
 
 export default function PersonAssignmentsPage() {
   const router = useRouter();
@@ -91,6 +94,7 @@ export default function PersonAssignmentsPage() {
       departmentId: record.departmentId,
       jobTitleId: record.jobTitleId || '',
       assignmentType: record.assignmentType,
+      leadershipLevel: record.leadershipLevel || 'NONE',
       effectiveFrom: record.effectiveFrom.split('T')[0],
       effectiveTo: record.effectiveTo ? record.effectiveTo.split('T')[0] : '',
       notes: record.notes || '',
@@ -135,6 +139,7 @@ export default function PersonAssignmentsPage() {
       administrationId: '',
       departmentId: '',
       jobTitleId: '',
+      leadershipLevel: 'NONE',
       effectiveFrom: new Date().toISOString().split('T')[0],
       notes: '',
     });
@@ -202,6 +207,7 @@ export default function PersonAssignmentsPage() {
                   <th className="text-left py-3 px-2 font-medium">{t('core.department')}</th>
                   <th className="text-left py-3 px-2 font-medium">{t('core.jobTitle')}</th>
                   <th className="text-left py-3 px-2 font-medium">{t('core.assignmentType')}</th>
+                  <th className="text-left py-3 px-2 font-medium">{t('core.leadershipLevel')}</th>
                   <th className="text-left py-3 px-2 font-medium">{t('core.effectiveFrom')}</th>
                   <th className="text-left py-3 px-2 font-medium">{t('core.effectiveTo')}</th>
                   <th className="text-left py-3 px-2 font-medium">{t('common.actions')}</th>
@@ -217,6 +223,15 @@ export default function PersonAssignmentsPage() {
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${record.assignmentType === 'PRIMARY' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                         {t(`core.assignmentTypes.${record.assignmentType}`)}
                       </span>
+                    </td>
+                    <td className="py-3 px-2">
+                      {record.leadershipLevel && record.leadershipLevel !== 'NONE' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          {t(`core.leadershipLevels.${record.leadershipLevel}`)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
                     </td>
                     <td className="py-3 px-2 text-xs">{new Date(record.effectiveFrom).toLocaleDateString()}</td>
                     <td className="py-3 px-2 text-xs">{record.effectiveTo ? new Date(record.effectiveTo).toLocaleDateString() : '-'}</td>
@@ -268,6 +283,15 @@ export default function PersonAssignmentsPage() {
             <select value={form.assignmentType} onChange={(e) => setForm({ ...form, assignmentType: e.target.value })} className="w-full border rounded px-3 py-2 text-sm">
               {ASSIGNMENT_TYPES.map((type) => <option key={type} value={type}>{t(`core.assignmentTypes.${type}`)}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('core.leadershipLevel')}</label>
+            <select value={form.leadershipLevel} onChange={(e) => setForm({ ...form, leadershipLevel: e.target.value })} className="w-full border rounded px-3 py-2 text-sm">
+              {LEADERSHIP_LEVELS.map((level) => <option key={level} value={level}>{t(`core.leadershipLevels.${level}`)}</option>)}
+            </select>
+            {['TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD'].includes(form.leadershipLevel) && (
+              <p className="text-xs text-amber-600 mt-1">{t('core.leadershipDepartmentRequired')}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -349,6 +373,13 @@ export default function PersonAssignmentsPage() {
                 onChange={(v) => { setTransferForm({ ...transferForm, jobTitleId: v }); }}
                 adapter={jobTitleAdapter}
               />
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('core.leadershipLevel')}</label>
+                <select value={transferForm.leadershipLevel} onChange={(e) => setTransferForm({ ...transferForm, leadershipLevel: e.target.value })} className="w-full border rounded px-3 py-2 text-sm">
+                  {LEADERSHIP_LEVELS.map((level) => <option key={level} value={level}>{t(`core.leadershipLevels.${level}`)}</option>)}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">{t('core.leadershipLevels.NONE')} — {t('core.noLeaderSelected')}</p>
+              </div>
               <div>
                 <label className="block text-sm font-medium mb-1">{t('core.effectiveFrom')} *</label>
                 <Input type="date" value={transferForm.effectiveFrom} onChange={(e) => setTransferForm({ ...transferForm, effectiveFrom: e.target.value })} />

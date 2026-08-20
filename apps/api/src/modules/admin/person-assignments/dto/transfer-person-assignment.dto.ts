@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsIn, IsDateString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class TransferPersonAssignmentDto {
@@ -25,6 +25,12 @@ export class TransferPersonAssignmentDto {
   @IsOptional()
   @IsString()
   assignmentType?: string;
+
+  @ApiPropertyOptional({ enum: ['NONE', 'TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD', 'ADMINISTRATION_MANAGER'], description: 'Leadership level for the new assignment (defaults to NONE — leadership does NOT transfer automatically)' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['NONE', 'TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD', 'ADMINISTRATION_MANAGER'])
+  leadershipLevel?: string;
 
   @ApiProperty({ description: 'Transfer effective date' })
   @IsDateString()

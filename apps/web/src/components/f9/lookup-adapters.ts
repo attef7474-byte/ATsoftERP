@@ -693,11 +693,16 @@ export const jobTitleAdapter: LookupAdapter<JobTitle> = {
 
 export const personAssignmentAdapter: LookupAdapter<OperationalPersonAssignment> = {
   endpoint: '/person-assignments',
-  displayLabel: (a) => `${a.person?.name || a.personnelId} — ${a.department?.name || ''} (${a.assignmentType})`,
+  displayLabel: (a) => {
+    const parts = [a.person?.name || a.personnelId, a.department?.name || ''];
+    if (a.leadershipLevel && a.leadershipLevel !== 'NONE') parts.push(a.leadershipLevel);
+    return parts.join(' — ') + ` (${a.assignmentType})`;
+  },
   searchFields: ['personnelId', 'departmentId'],
   columns: [
     { key: 'person', header: 'Person', render: (a) => a.person?.name || a.personnelId },
     { key: 'department', header: 'Department', render: (a) => a.department?.name || '-' },
+    { key: 'leadershipLevel', header: 'Leadership', render: (a) => a.leadershipLevel && a.leadershipLevel !== 'NONE' ? a.leadershipLevel : '-' },
     { key: 'jobTitle', header: 'Job Title', render: (a) => a.jobTitle?.name || '-' },
     { key: 'assignmentType', header: 'Type' },
   ],

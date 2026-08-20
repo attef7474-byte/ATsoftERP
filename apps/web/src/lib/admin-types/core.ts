@@ -85,6 +85,7 @@ export interface OperationalPersonAssignment {
   jobTitleId?: string | null;
   personnelId: string;
   assignmentType: string;
+  leadershipLevel: string;
   effectiveFrom: string;
   effectiveTo?: string | null;
   status: string;

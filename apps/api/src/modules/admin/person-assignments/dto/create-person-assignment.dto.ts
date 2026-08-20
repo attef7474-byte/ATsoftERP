@@ -38,6 +38,12 @@ export class CreatePersonAssignmentDto {
   @IsIn(['PRIMARY', 'SECONDARY', 'TEMPORARY', 'ACTING'])
   assignmentType?: string;
 
+  @ApiPropertyOptional({ example: 'NONE', enum: ['NONE', 'TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD', 'ADMINISTRATION_MANAGER'], description: 'Structured leadership classification for this assignment' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['NONE', 'TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD', 'ADMINISTRATION_MANAGER'])
+  leadershipLevel?: string;
+
   @ApiProperty({ example: '2026-01-01T00:00:00.000Z' })
   @IsDateString()
   effectiveFrom: string;

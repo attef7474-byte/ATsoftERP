@@ -5425,6 +5425,7 @@ model OperationalPersonAssignment {
   personnelId      String
   person           OperationalPerson @relation(fields: [personnelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   assignmentType   String            @default("PRIMARY")
+  leadershipLevel  String            @default("NONE")
   effectiveFrom    DateTime
   effectiveTo      DateTime?
   status           String            @default("ACTIVE")
@@ -5443,6 +5444,7 @@ model OperationalPersonAssignment {
   @@index([departmentId])
   @@index([personnelId])
   @@index([status])
+  @@index([leadershipLevel])
   @@map("operational_person_assignments")
 }
 

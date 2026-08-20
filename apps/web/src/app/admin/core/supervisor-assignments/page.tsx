@@ -37,6 +37,7 @@ interface LeaderInfo {
   administration: { id: string; name: string; code: string } | null;
   department: { id: string; name: string; code: string } | null;
   assignmentType: string;
+  leadershipLevel: string;
   effectiveFrom: string;
   effectiveTo: string | null;
 }
@@ -150,6 +151,7 @@ export default function SupervisorAssignmentsPage() {
       administration: item.administration || null,
       department: item.department || null,
       assignmentType: item.assignmentType,
+      leadershipLevel: item.leadershipLevel || 'NONE',
       effectiveFrom: item.effectiveFrom,
       effectiveTo: item.effectiveTo || null,
     };
@@ -425,6 +427,14 @@ export default function SupervisorAssignmentsPage() {
                     <p className="text-xs text-gray-500">{t('core.assignmentType')}</p>
                     <p className="text-sm font-medium">{t(`core.assignmentTypes.${leaderInfo.assignmentType}` as any)}</p>
                   </div>
+                  {leaderInfo.leadershipLevel && leaderInfo.leadershipLevel !== 'NONE' ? (
+                    <div>
+                      <p className="text-xs text-gray-500">{t('core.leadershipLevel')}</p>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                        {t(`core.leadershipLevels.${leaderInfo.leadershipLevel}` as any)}
+                      </span>
+                    </div>
+                  ) : null}
                   <div>
                     <p className="text-xs text-gray-500">{t('core.effectiveFrom')}</p>
                     <p className="text-sm font-medium">{formatDate(leaderInfo.effectiveFrom)}</p>

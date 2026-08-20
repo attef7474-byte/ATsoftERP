@@ -6,6 +6,9 @@ import { UpdatePersonAssignmentDto } from './dto/update-person-assignment.dto';
 import { TransferPersonAssignmentDto } from './dto/transfer-person-assignment.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
+const LEADERSHIP_LEVELS = ['NONE', 'TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD', 'ADMINISTRATION_MANAGER'] as const;
+const LEADERSHIP_REQUIRES_DEPARTMENT = ['TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD'] as const;
+
 @Injectable()
 export class PersonAssignmentsService {
   constructor(
@@ -21,6 +24,75 @@ export class PersonAssignmentsService {
     });
   }
 
+  private validateLeadershipLevel(level: string | undefined): string {
+    const resolved = level ?? 'NONE';
+    if (!LEADERSHIP_LEVELS.includes(resolved as any)) {
+      throw this.validationError('leadershipLevel', 'validation.invalidValue', `Invalid leadershipLevel. Allowed: ${LEADERSHIP_LEVELS.join(', ')}`);
+    }
+    return resolved;
+  }
+
+  private validateLeadershipStructure(level: string, dto: any) {
+    if ((LEADERSHIP_REQUIRES_DEPARTMENT as readonly string[]).includes(level)) {
+      if (!dto.departmentId) {
+        throw this.validationError('leadershipLevel', 'validation.leadershipDepartmentRequired', `${level} requires a departmentId`);
+      }
+    }
+    if (level === 'ADMINISTRATION_MANAGER') {
+      if (!dto.administrationId) {
+        throw this.validationError('leadershipLevel', 'validation.leadershipAdministrationRequired', 'ADMINISTRATION_MANAGER requires an administrationId');
+      }
+    }
+  }
+
+  private async enforceLeadershipUniqueness(level: string, assignmentType: string, departmentId: string | undefined, administrationId: string | undefined, effectiveFrom: string, effectiveTo?: string | null, excludeId?: string) {
+    if (level === 'NONE' || level === 'TEAM_LEAD' || level === 'SUPERVISOR') return;
+
+    if (level === 'DEPARTMENT_HEAD' && assignmentType === 'PRIMARY' && departmentId) {
+      await this.checkPrimaryLeadershipHolder('DEPARTMENT_HEAD', 'departmentId', departmentId, effectiveFrom, effectiveTo, excludeId);
+    }
+
+    if (level === 'ADMINISTRATION_MANAGER' && assignmentType === 'PRIMARY' && administrationId) {
+      await this.checkPrimaryLeadershipHolder('ADMINISTRATION_MANAGER', 'administrationId', administrationId, effectiveFrom, effectiveTo, excludeId);
+    }
+  }
+
+  private async checkPrimaryLeadershipHolder(level: string, scopeField: string, scopeId: string, effectiveFrom: string, effectiveTo?: string | null, excludeId?: string) {
+    const effectiveFromDate = new Date(effectiveFrom);
+    const effectiveToDate = effectiveTo ? new Date(effectiveTo) : null;
+
+    const where: any = {
+      leadershipLevel: level,
+      assignmentType: 'PRIMARY',
+      deletedAt: null,
+      [scopeField]: scopeId,
+    };
+    if (excludeId) where.NOT = { id: excludeId };
+
+    const existing = await this.prisma.operationalPersonAssignment.findFirst({ where });
+
+    if (existing) {
+      const existingEnd = existing.effectiveTo;
+      const newStart = effectiveFromDate;
+      const newEnd = effectiveToDate;
+
+      const overlaps = !newEnd
+        ? (!existingEnd || existingEnd > newStart)
+        : (!existingEnd
+            ? newEnd > existing.effectiveFrom
+            : newEnd > existing.effectiveFrom && newStart < existingEnd);
+
+      if (overlaps) {
+        const scopeLabel = scopeField === 'departmentId' ? 'Department' : 'Administration';
+        throw this.validationError(
+          'leadershipLevel',
+          level === 'ADMINISTRATION_MANAGER' ? 'validation.primaryAdministrationManagerOverlap' : 'validation.primaryDepartmentHeadOverlap',
+          `Only one current effective PRIMARY ${level} is allowed per ${scopeLabel}`,
+        );
+      }
+    }
+  }
+
   async create(dto: CreatePersonAssignmentDto, ctx: ActiveOperationalContext, userId?: string) {
     await this.validateReferences(dto, ctx);
 
@@ -29,10 +101,15 @@ export class PersonAssignmentsService {
     }
 
     const assignmentType = dto.assignmentType ?? 'PRIMARY';
+    const leadershipLevel = this.validateLeadershipLevel(dto.leadershipLevel);
+
+    this.validateLeadershipStructure(leadershipLevel, dto);
 
     if (assignmentType === 'PRIMARY') {
       await this.enforceSinglePrimary(dto.personnelId, dto.effectiveFrom, dto.effectiveTo);
     }
+
+    await this.enforceLeadershipUniqueness(leadershipLevel, assignmentType, dto.departmentId, dto.administrationId, dto.effectiveFrom, dto.effectiveTo);
 
     const assignment = await this.prisma.operationalPersonAssignment.create({
       data: {
@@ -43,6 +120,7 @@ export class PersonAssignmentsService {
         jobTitleId: dto.jobTitleId ?? null,
         personnelId: dto.personnelId,
         assignmentType,
+        leadershipLevel,
         effectiveFrom: new Date(dto.effectiveFrom),
         effectiveTo: dto.effectiveTo ? new Date(dto.effectiveTo) : null,
         notes: dto.notes ?? null,
@@ -63,13 +141,13 @@ export class PersonAssignmentsService {
       action: 'CREATE',
       entity: 'OperationalPersonAssignment',
       entityId: assignment.id,
-      details: JSON.stringify({ personnelId: dto.personnelId, departmentId: dto.departmentId, assignmentType, companyId: ctx.companyId }),
+      details: JSON.stringify({ personnelId: dto.personnelId, departmentId: dto.departmentId, assignmentType, leadershipLevel, companyId: ctx.companyId }),
     });
 
     return assignment;
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string; personnelId?: string; departmentId?: string; branchId?: string; assignmentType?: string; isActive?: string }, ctx: ActiveOperationalContext) {
+  async findAll(query: { page?: number; limit?: number; search?: string; personnelId?: string; departmentId?: string; branchId?: string; assignmentType?: string; leadershipLevel?: string; isActive?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -79,6 +157,7 @@ export class PersonAssignmentsService {
     if (query.departmentId) where.departmentId = query.departmentId;
     if (query.branchId) where.branchId = query.branchId;
     if (query.assignmentType) where.assignmentType = query.assignmentType;
+    if (query.leadershipLevel) where.leadershipLevel = query.leadershipLevel;
     if (query.search) {
       where.OR = [
         { person: { name: { contains: query.search } } },
@@ -139,6 +218,10 @@ export class PersonAssignmentsService {
     if (dto.effectiveTo !== undefined) data.effectiveTo = dto.effectiveTo ? new Date(dto.effectiveTo) : null;
     if (dto.notes !== undefined) data.notes = dto.notes ?? null;
 
+    if (dto.leadershipLevel !== undefined) {
+      data.leadershipLevel = this.validateLeadershipLevel(dto.leadershipLevel);
+    }
+
     if (data.departmentId || data.jobTitleId) {
       await this.validateReferences({ ...existing, ...dto } as any, ctx);
     }
@@ -147,6 +230,18 @@ export class PersonAssignmentsService {
       const effectiveFrom = data.effectiveFrom ?? existing.effectiveFrom;
       const effectiveTo = data.effectiveTo ?? existing.effectiveTo;
       await this.enforceSinglePrimary(existing.personnelId, effectiveFrom.toISOString(), effectiveTo?.toISOString(), id);
+    }
+
+    const finalLevel = data.leadershipLevel ?? existing.leadershipLevel ?? 'NONE';
+    const finalType = data.assignmentType ?? existing.assignmentType;
+    const finalDept = data.departmentId ?? existing.departmentId;
+    const finalAdmin = data.administrationId ?? existing.administrationId;
+    const finalFrom = data.effectiveFrom ?? existing.effectiveFrom;
+    const finalTo = data.effectiveTo !== undefined ? data.effectiveTo : existing.effectiveTo;
+
+    if (finalLevel !== 'NONE') {
+      this.validateLeadershipStructure(finalLevel, { departmentId: finalDept, administrationId: finalAdmin });
+      await this.enforceLeadershipUniqueness(finalLevel, finalType, finalDept, finalAdmin, finalFrom.toISOString(), finalTo?.toISOString(), id);
     }
 
     const assignment = await this.prisma.operationalPersonAssignment.update({
@@ -213,6 +308,12 @@ export class PersonAssignmentsService {
     await this.validateReferences({ ...current, ...dto } as any, ctx);
 
     const transferType = dto.assignmentType ?? 'PRIMARY';
+    const transferLeadership = dto.leadershipLevel ?? 'NONE';
+
+    if (transferLeadership !== 'NONE') {
+      this.validateLeadershipStructure(transferLeadership, dto);
+      await this.enforceLeadershipUniqueness(transferLeadership, transferType, dto.departmentId, dto.administrationId, dto.effectiveFrom, dto.effectiveTo);
+    }
 
     return this.prisma.$transaction(async (tx) => {
       await tx.operationalPersonAssignment.update({
@@ -233,6 +334,7 @@ export class PersonAssignmentsService {
           jobTitleId: dto.jobTitleId ?? current.jobTitleId ?? null,
           personnelId: current.personnelId,
           assignmentType: transferType,
+          leadershipLevel: transferLeadership,
           effectiveFrom: new Date(dto.effectiveFrom),
           effectiveTo: dto.effectiveTo ? new Date(dto.effectiveTo) : null,
           notes: dto.notes ?? null,
