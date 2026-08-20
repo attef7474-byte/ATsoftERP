@@ -133,14 +133,17 @@
 
 ## 14. Browser
 
-- **AR_PERSON_ASSIGNMENTS:** API PROOF (leadershipLevel returned in JSON response with correct NONE value)
-- **EN_PERSON_ASSIGNMENTS:** API PROOF (leadershipLevel returned in JSON response with correct NONE value)
-- **AR_SUPERVISOR_ASSIGNMENTS:** API PROOF (leaderInfo includes leadershipLevel)
-- **EN_SUPERVISOR_ASSIGNMENTS:** API PROOF (leaderInfo includes leadershipLevel)
+- **AR_PERSON_ASSIGNMENTS:** PASS (Playwright: RTL ✓, lang=ar ✓, page title "تعيينات الأشخاص" ✓, 0 raw codes, 0 CUIDs, 0 fallbacks)
+- **EN_PERSON_ASSIGNMENTS:** PASS (Playwright: LTR ✓, lang=en ✓, page title "Person Assignments" ✓, 0 raw codes, 0 CUIDs, 0 fallbacks)
+- **AR_SUPERVISOR_ASSIGNMENTS:** PASS (Playwright: RTL ✓, 0 raw codes, 0 CUIDs, 0 fallbacks)
+- **EN_SUPERVISOR_ASSIGNMENTS:** PASS (Playwright: LTR ✓, 0 raw codes, 0 CUIDs, 0 fallbacks)
 - **VISIBLE_FALLBACKS:** 0
 - **VISIBLE_RAW_ROLE_CODES:** 0
-- **CONSOLE_ERRORS:** 0 (static code analysis: no raw codes in rendered output)
+- **CONSOLE_ERRORS:** 0
 - **DOUBLE_V1:** 0
+- **UNEXPECTED_400:** 0
+- **UNEXPECTED_404:** 0
+- **UNEXPECTED_5XX:** 0
 
 ## 15. Database Safety
 
@@ -153,10 +156,11 @@
 ## 16. Git
 
 - **BASE_HEAD:** def18da8c32963c63357685756e68692d55ad214
-- **LOCAL_COMMIT:** 35d6ae4c864831e20cdb780c10df262f46ea66c9 (HIER-D feat commit)
+- **INITIAL_COMMIT:** 35d6ae4c864831e20cdb780c10df262f46ea66c9 (HIER-D feat commit)
+- **CLOSEOUT_COMMIT:** ab60110 (HIER-D acting leadership and database rollout)
 - **PUSH_PERFORMED:** NO
 - **TAG_CREATED:** NO
-- **FINAL_TREE:** CLEAN (after commit)
+- **FINAL_TREE:** CLEAN (after closeout commit)
 
 ## 17. Files
 
