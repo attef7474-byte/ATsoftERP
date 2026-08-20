@@ -1245,4 +1245,190 @@ describe('SupervisorAssignmentsService', () => {
       );
     });
   });
+
+  describe('getHierarchyTree', () => {
+    const fullAssignment = (id: string, overrides: Record<string, any> = {}) => ({
+      id,
+      companyId: 'company-a',
+      personnelId: id.replace('pa', 'person'),
+      departmentId: 'dept1',
+      assignmentType: 'PRIMARY',
+      branchId: 'branch-a',
+      leadershipLevel: 'NONE',
+      effectiveFrom: new Date('2026-01-01'),
+      effectiveTo: null,
+      deletedAt: null,
+      person: { id: id.replace('pa', 'person'), name: `Person ${id}`, code: id.toUpperCase() },
+      department: { id: 'dept1', name: 'Dept 1', code: 'D1' },
+      jobTitle: { id: 'jt1', name: 'Engineer', code: 'ENG' },
+      branch: { id: 'branch-a', name: 'Branch A', code: 'BA' },
+      administration: null,
+      ...overrides,
+    });
+
+    const saWithAssignment = (assignmentId: string, supervisorAssignmentId: string | null, overrides: Record<string, any> = {}) => ({
+      id: `sa-${assignmentId}`,
+      companyId: 'company-a',
+      assignmentId,
+      supervisorAssignmentId,
+      relationshipType: 'DIRECT',
+      effectiveFrom: new Date('2026-01-01'),
+      effectiveTo: null,
+      isActive: true,
+      deletedAt: null,
+      assignment: fullAssignment(assignmentId),
+      ...overrides,
+    });
+
+    it('throws NotFoundException when root assignment not found', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      await expect(service.getHierarchyTree('missing', ctx)).rejects.toThrow(NotFoundException);
+    });
+
+    it('returns root with zero descendants for a leaf node', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce(saWithAssignment('pa1', null))
+        .mockResolvedValueOnce(null);
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+
+      const result = await service.getHierarchyTree('pa1', ctx);
+      expect(result.root.assignmentId).toBe('pa1');
+      expect(result.totalDescendants).toBe(0);
+      expect(result.maxDepth).toBe(0);
+      expect(result.truncated).toBe(false);
+      expect(result.root.children).toEqual([]);
+    });
+
+    it('builds a two-level tree (root -> 2 children)', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce(saWithAssignment('pa1', null))
+        .mockResolvedValueOnce(null);
+
+      const child1 = saWithAssignment('pa2', 'pa1');
+      const child2 = saWithAssignment('pa3', 'pa1');
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([child1, child2])
+        .mockResolvedValue([]);
+
+      const result = await service.getHierarchyTree('pa1', ctx);
+      expect(result.totalDescendants).toBe(2);
+      expect(result.root.children).toHaveLength(2);
+      expect(result.root.childCount).toBe(2);
+      expect(result.root.children[0].assignmentId).toBe('pa2');
+      expect(result.root.children[1].assignmentId).toBe('pa3');
+    });
+
+    it('builds a three-level tree (root -> child -> grandchild)', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce(saWithAssignment('pa1', null))
+        .mockResolvedValueOnce(null);
+
+      const child1 = saWithAssignment('pa2', 'pa1');
+      const grandchild1 = saWithAssignment('pa3', 'pa2');
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([child1])
+        .mockResolvedValueOnce([grandchild1])
+        .mockResolvedValue([]);
+
+      const result = await service.getHierarchyTree('pa1', ctx);
+      expect(result.totalDescendants).toBe(2);
+      expect(result.maxDepth).toBe(2);
+      expect(result.root.children).toHaveLength(1);
+      expect(result.root.children[0].children).toHaveLength(1);
+      expect(result.root.children[0].children[0].assignmentId).toBe('pa3');
+    });
+
+    it('includes leadershipLevel from assignment', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce(saWithAssignment('pa1', null, {
+          assignment: fullAssignment('pa1', { leadershipLevel: 'DEPARTMENT_HEAD' }),
+        }))
+        .mockResolvedValueOnce(null);
+
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+
+      const result = await service.getHierarchyTree('pa1', ctx);
+      expect(result.root.leadershipLevel).toBe('DEPARTMENT_HEAD');
+    });
+
+    it('excludes inactive children from tree', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce(saWithAssignment('pa1', null))
+        .mockResolvedValueOnce(null);
+
+      const activeChild = saWithAssignment('pa2', 'pa1');
+      const inactiveChild = saWithAssignment('pa3', 'pa1', { isActive: false });
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([activeChild, inactiveChild])
+        .mockResolvedValue([]);
+
+      const result = await service.getHierarchyTree('pa1', ctx);
+      expect(result.totalDescendants).toBe(1);
+      expect(result.root.children).toHaveLength(1);
+      expect(result.root.children[0].assignmentId).toBe('pa2');
+    });
+
+    it('excludes expired children from tree (temporal filter)', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce(saWithAssignment('pa1', null))
+        .mockResolvedValueOnce(null);
+
+      const expiredChild = saWithAssignment('pa2', 'pa1', {
+        effectiveTo: new Date('2025-12-31'),
+      });
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([expiredChild])
+        .mockResolvedValue([]);
+
+      const result = await service.getHierarchyTree('pa1', ctx, new Date('2026-06-01'));
+      expect(result.totalDescendants).toBe(0);
+    });
+
+    it('returns reportingLine from getReportingLine', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce(saWithAssignment('pa1', 'pa0'))
+        .mockResolvedValueOnce({
+          id: 'sa0',
+          supervisorAssignmentId: null,
+          relationshipType: 'DIRECT',
+          effectiveFrom: new Date('2026-01-01'),
+          effectiveTo: null,
+          isActive: true,
+          deletedAt: null,
+          supervisorAssignment: fullAssignment('pa0'),
+        });
+
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+
+      const result = await service.getHierarchyTree('pa1', ctx);
+      expect(result.reportingLine).toHaveLength(1);
+      expect(result.reportingLine[0].supervisor.name).toBe('Person pa0');
+    });
+
+    it('truncates at MAX_TOTAL_NODES (10000)', async () => {
+      prisma.supervisorAssignment.findFirst
+        .mockResolvedValueOnce(saWithAssignment('pa1', null))
+        .mockResolvedValueOnce(null);
+
+      const manyChildren = Array.from({ length: 10001 }, (_, i) =>
+        saWithAssignment(`pa${i + 2}`, 'pa1'),
+      );
+      prisma.supervisorAssignment.findMany.mockResolvedValue(manyChildren);
+
+      const result = await service.getHierarchyTree('pa1', ctx);
+      expect(result.truncated).toBe(true);
+      expect(result.totalDescendants).toBe(10001);
+    });
+
+    it('respects tenant/company scope', async () => {
+      const otherCtx = {
+        ...ctx,
+        companyId: 'other-company',
+        contextKey: 'other-company:branch-a',
+      } as ActiveOperationalContext;
+
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      await expect(service.getHierarchyTree('pa1', otherCtx)).rejects.toThrow(NotFoundException);
+    });
+  });
 });

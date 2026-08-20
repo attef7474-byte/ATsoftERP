@@ -9,8 +9,26 @@ import { ActiveOperationalContext } from '../../../common/operational-context/op
 import { Prisma } from '@prisma/client';
 
 const MAX_HIERARCHY_DEPTH = 100;
+const MAX_TOTAL_NODES = 10000;
 
 type TxClient = Prisma.TransactionClient;
+
+export type HierarchyTreeNode = {
+  assignmentId: string;
+  level: number;
+  person: { id: string; name: string; code: string } | null;
+  jobTitle: { id: string; name: string; code: string } | null;
+  department: { id: string; name: string; code: string } | null;
+  branch: { id: string; name: string; code: string } | null;
+  administration: { id: string; name: string; code: string } | null;
+  leadershipLevel: string;
+  assignmentType: string;
+  effectiveFrom: Date;
+  effectiveTo: Date | null;
+  isActive: boolean;
+  childCount: number;
+  children: HierarchyTreeNode[];
+};
 
 /**
  * Half-open interval helper.
@@ -608,6 +626,141 @@ export class SupervisorAssignmentsService {
     }
 
     return { assignmentId, subordinates, count: subordinates.length };
+  }
+
+  async getHierarchyTree(assignmentId: string, ctx: ActiveOperationalContext, asOf?: Date) {
+    const now = asOf ?? new Date();
+
+    const rootSa = await (this.prisma.supervisorAssignment.findFirst as any)({
+      where: { assignmentId, companyId: ctx.companyId, deletedAt: null },
+      include: {
+        assignment: {
+          include: {
+            person: { select: { id: true, name: true, code: true } },
+            department: { select: { id: true, name: true, code: true } },
+            jobTitle: { select: { id: true, name: true, code: true } },
+            branch: { select: { id: true, name: true, code: true } },
+            administration: { select: { id: true, name: true, code: true } },
+          },
+        },
+      },
+    });
+
+    if (!rootSa) {
+      throw new NotFoundException({ messageKey: 'organization.supervisorAssignmentNotFound', message: 'Supervisor assignment not found' });
+    }
+
+    const reportingLineResult = await this.getReportingLine(assignmentId, ctx, asOf);
+
+    type TreeNode = HierarchyTreeNode;
+
+    const nodeMap = new Map<string, TreeNode>();
+    const childrenMap = new Map<string, string[]>();
+
+    const rootNode: TreeNode = {
+      assignmentId,
+      level: 0,
+      person: rootSa.assignment.person,
+      jobTitle: rootSa.assignment.jobTitle,
+      department: rootSa.assignment.department,
+      branch: rootSa.assignment.branch,
+      administration: rootSa.assignment.administration,
+      leadershipLevel: rootSa.assignment.leadershipLevel ?? 'NONE',
+      assignmentType: rootSa.assignment.assignmentType,
+      effectiveFrom: rootSa.effectiveFrom,
+      effectiveTo: rootSa.effectiveTo,
+      isActive: rootSa.isActive,
+      childCount: 0,
+      children: [],
+    };
+    nodeMap.set(assignmentId, rootNode);
+
+    const queue: { id: string; depth: number }[] = [{ id: assignmentId, depth: 0 }];
+    const visited = new Set<string>();
+    let totalNodes = 0;
+    let maxDepth = 0;
+
+    while (queue.length > 0) {
+      const { id: currentId, depth: currentDepth } = queue.shift()!;
+      if (visited.has(currentId)) continue;
+      visited.add(currentId);
+
+      if (currentDepth >= MAX_HIERARCHY_DEPTH) continue;
+
+      const children = await (this.prisma.supervisorAssignment.findMany as any)({
+        where: {
+          supervisorAssignmentId: currentId,
+          companyId: ctx.companyId,
+          isActive: true,
+          deletedAt: null,
+          relationshipType: 'DIRECT',
+        },
+        include: {
+          assignment: {
+            include: {
+              person: { select: { id: true, name: true, code: true } },
+              department: { select: { id: true, name: true, code: true } },
+              jobTitle: { select: { id: true, name: true, code: true } },
+              branch: { select: { id: true, name: true, code: true } },
+              administration: { select: { id: true, name: true, code: true } },
+            },
+          },
+        },
+      });
+
+      const childIds: string[] = [];
+      for (const child of children) {
+        if (!isEffectivelyActive(child, now)) continue;
+        totalNodes++;
+        if (totalNodes > 10000) break;
+
+        const childDepth = currentDepth + 1;
+        if (childDepth > maxDepth) maxDepth = childDepth;
+
+        const childNode: TreeNode = {
+          assignmentId: child.assignmentId,
+          level: childDepth,
+          person: child.assignment.person,
+          jobTitle: child.assignment.jobTitle,
+          department: child.assignment.department,
+          branch: child.assignment.branch,
+          administration: child.assignment.administration,
+          leadershipLevel: child.assignment.leadershipLevel ?? 'NONE',
+          assignmentType: child.assignment.assignmentType,
+          effectiveFrom: child.effectiveFrom,
+          effectiveTo: child.effectiveTo,
+          isActive: child.isActive,
+          childCount: 0,
+          children: [],
+        };
+        nodeMap.set(child.assignmentId, childNode);
+        childIds.push(child.assignmentId);
+        queue.push({ id: child.assignmentId, depth: childDepth });
+      }
+
+      if (childIds.length > 0) {
+        childrenMap.set(currentId, childIds);
+        const parentNode = nodeMap.get(currentId);
+        if (parentNode) parentNode.childCount = childIds.length;
+      }
+
+      if (totalNodes > 10000) break;
+    }
+
+    for (const [parentId, childIds] of childrenMap) {
+      const parentNode = nodeMap.get(parentId);
+      if (!parentNode) continue;
+      parentNode.children = childIds.map(cid => nodeMap.get(cid)!).filter(Boolean);
+    }
+
+    return {
+      root: rootNode,
+      reportingLine: reportingLineResult.reportingLine,
+      totalDescendants: totalNodes,
+      maxDepth,
+      truncated: totalNodes > 10000,
+      asOf: now,
+    };
   }
 
   /**

@@ -72,6 +72,18 @@ export class SupervisorAssignmentsController {
     return this.supervisorAssignmentsService.getSubordinates(assignmentId, ctx, asOf);
   }
 
+  @Get('hierarchy/:assignmentId')
+  @Permissions('supervisor:read')
+  @ApiOperation({ summary: 'Get formal hierarchy tree with reporting line for an assignment' })
+  getHierarchyTree(
+    @Param('assignmentId') assignmentId: string,
+    @Query() query: ReportingLineQueryDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    const asOf = query.asOf ? new Date(query.asOf) : undefined;
+    return this.supervisorAssignmentsService.getHierarchyTree(assignmentId, ctx, asOf);
+  }
+
   @Get('team/:supervisorAssignmentId')
   @Permissions('supervisor:read')
   @ApiOperation({ summary: 'Get current DIRECT team for a supervisor' })

@@ -239,3 +239,35 @@ export interface OrganizationalUnit {
   children?: { id: string; name: string; code: string }[];
   _count?: { children: number };
 }
+
+export interface HierarchyTreeNode {
+  assignmentId: string;
+  level: number;
+  person: { id: string; name: string; code: string } | null;
+  jobTitle: { id: string; name: string; code: string } | null;
+  department: { id: string; name: string; code: string } | null;
+  branch: { id: string; name: string; code: string } | null;
+  administration: { id: string; name: string; code: string } | null;
+  leadershipLevel: string;
+  assignmentType: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  isActive: boolean;
+  childCount: number;
+  children: HierarchyTreeNode[];
+}
+
+export interface HierarchyTreeResponse {
+  root: HierarchyTreeNode;
+  reportingLine: Array<{
+    level: number;
+    supervisor: { id: string; name: string; code: string } | null;
+    department: { id: string; name: string; code: string } | null;
+    jobTitle: { id: string; name: string; code: string } | null;
+    relationshipType: string;
+  }>;
+  totalDescendants: number;
+  maxDepth: number;
+  truncated: boolean;
+  asOf: string;
+}
