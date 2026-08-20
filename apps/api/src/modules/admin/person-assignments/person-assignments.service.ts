@@ -48,22 +48,22 @@ export class PersonAssignmentsService {
   private async enforceLeadershipUniqueness(level: string, assignmentType: string, departmentId: string | undefined, administrationId: string | undefined, effectiveFrom: string, effectiveTo?: string | null, excludeId?: string) {
     if (level === 'NONE' || level === 'TEAM_LEAD' || level === 'SUPERVISOR') return;
 
-    if (level === 'DEPARTMENT_HEAD' && assignmentType === 'PRIMARY' && departmentId) {
-      await this.checkPrimaryLeadershipHolder('DEPARTMENT_HEAD', 'departmentId', departmentId, effectiveFrom, effectiveTo, excludeId);
+    if (level === 'DEPARTMENT_HEAD' && (assignmentType === 'PRIMARY' || assignmentType === 'ACTING') && departmentId) {
+      await this.checkExistingLeadershipHolder(level, assignmentType, 'departmentId', departmentId, effectiveFrom, effectiveTo, excludeId);
     }
 
-    if (level === 'ADMINISTRATION_MANAGER' && assignmentType === 'PRIMARY' && administrationId) {
-      await this.checkPrimaryLeadershipHolder('ADMINISTRATION_MANAGER', 'administrationId', administrationId, effectiveFrom, effectiveTo, excludeId);
+    if (level === 'ADMINISTRATION_MANAGER' && (assignmentType === 'PRIMARY' || assignmentType === 'ACTING') && administrationId) {
+      await this.checkExistingLeadershipHolder(level, assignmentType, 'administrationId', administrationId, effectiveFrom, effectiveTo, excludeId);
     }
   }
 
-  private async checkPrimaryLeadershipHolder(level: string, scopeField: string, scopeId: string, effectiveFrom: string, effectiveTo?: string | null, excludeId?: string) {
+  private async checkExistingLeadershipHolder(level: string, assignmentType: string, scopeField: string, scopeId: string, effectiveFrom: string, effectiveTo?: string | null, excludeId?: string) {
     const effectiveFromDate = new Date(effectiveFrom);
     const effectiveToDate = effectiveTo ? new Date(effectiveTo) : null;
 
     const where: any = {
       leadershipLevel: level,
-      assignmentType: 'PRIMARY',
+      assignmentType,
       deletedAt: null,
       [scopeField]: scopeId,
     };
@@ -84,10 +84,11 @@ export class PersonAssignmentsService {
 
       if (overlaps) {
         const scopeLabel = scopeField === 'departmentId' ? 'Department' : 'Administration';
+        const typeLabel = assignmentType === 'ACTING' ? 'ACTING' : 'PRIMARY';
         throw this.validationError(
           'leadershipLevel',
           level === 'ADMINISTRATION_MANAGER' ? 'validation.primaryAdministrationManagerOverlap' : 'validation.primaryDepartmentHeadOverlap',
-          `Only one current effective PRIMARY ${level} is allowed per ${scopeLabel}`,
+          `Only one current effective ${typeLabel} ${level} is allowed per ${scopeLabel}`,
         );
       }
     }

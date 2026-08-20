@@ -523,6 +523,183 @@ describe('PersonAssignmentsService', () => {
     });
   });
 
+  describe('ACTING leadership uniqueness', () => {
+    it('allows PRIMARY + ACTING admin manager overlap', async () => {
+      prisma.department.findFirst.mockResolvedValue({ id: 'dept1' });
+      prisma.administration.findFirst.mockResolvedValue({ id: 'admin1' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person2' });
+      // enforceSinglePrimary finds no existing primary for person2
+      // checkExistingLeadershipHolder: findFirst for ACTING admin manager in same admin returns null (no ACTING overlap)
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.create.mockResolvedValue(assignment({ leadershipLevel: 'ADMINISTRATION_MANAGER', assignmentType: 'ACTING', personnelId: 'person2' }));
+
+      const result = await service.create(
+        {
+          departmentId: 'dept1', personnelId: 'person2', leadershipLevel: 'ADMINISTRATION_MANAGER',
+          assignmentType: 'ACTING', administrationId: 'admin1', effectiveFrom: '2026-06-01T00:00:00.000Z',
+        } as any,
+        ctx,
+        'user-1',
+      );
+      expect(result.leadershipLevel).toBe('ADMINISTRATION_MANAGER');
+      expect(result.assignmentType).toBe('ACTING');
+    });
+
+    it('rejects overlapping ACTING admin managers in same administration', async () => {
+      prisma.department.findFirst.mockResolvedValue({ id: 'dept1' });
+      prisma.administration.findFirst.mockResolvedValue({ id: 'admin1' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person2' });
+      // ACTING skips enforceSinglePrimary, so only the leadership check findFirst matters
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce({ id: 'existing-acting', effectiveFrom: new Date('2026-01-01'), effectiveTo: null }); // checkExistingLeadershipHolder: ACTING overlap
+
+      const promise = service.create(
+        {
+          departmentId: 'dept1', personnelId: 'person2', leadershipLevel: 'ADMINISTRATION_MANAGER',
+          assignmentType: 'ACTING', administrationId: 'admin1', effectiveFrom: '2026-06-01T00:00:00.000Z',
+        } as any,
+        ctx,
+      );
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e: any) => e)).getResponse();
+      expect(response.errors[0].code).toBe('validation.primaryAdministrationManagerOverlap');
+    });
+
+    it('allows non-overlapping ACTING admin managers', async () => {
+      prisma.department.findFirst.mockResolvedValue({ id: 'dept1' });
+      prisma.administration.findFirst.mockResolvedValue({ id: 'admin1' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person2' });
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(null) // enforceSinglePrimary
+        .mockResolvedValueOnce(null); // checkExistingLeadershipHolder: no overlap
+      prisma.operationalPersonAssignment.create.mockResolvedValue(assignment({ leadershipLevel: 'ADMINISTRATION_MANAGER', assignmentType: 'ACTING', personnelId: 'person2' }));
+
+      const result = await service.create(
+        {
+          departmentId: 'dept1', personnelId: 'person2', leadershipLevel: 'ADMINISTRATION_MANAGER',
+          assignmentType: 'ACTING', administrationId: 'admin1', effectiveFrom: '2026-06-01T00:00:00.000Z',
+          effectiveTo: '2026-12-31T23:59:59.999Z',
+        } as any,
+        ctx,
+        'user-1',
+      );
+      expect(result.leadershipLevel).toBe('ADMINISTRATION_MANAGER');
+    });
+
+    it('allows exact boundary ACTING admin managers (half-open interval)', async () => {
+      prisma.department.findFirst.mockResolvedValue({ id: 'dept1' });
+      prisma.administration.findFirst.mockResolvedValue({ id: 'admin1' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person2' });
+      // Existing ACTING ends exactly when new starts → no overlap
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(null) // enforceSinglePrimary
+        .mockResolvedValueOnce(null); // checkExistingLeadershipHolder: half-open boundary = no overlap
+      prisma.operationalPersonAssignment.create.mockResolvedValue(assignment({ leadershipLevel: 'ADMINISTRATION_MANAGER', assignmentType: 'ACTING', personnelId: 'person2' }));
+
+      const result = await service.create(
+        {
+          departmentId: 'dept1', personnelId: 'person2', leadershipLevel: 'ADMINISTRATION_MANAGER',
+          assignmentType: 'ACTING', administrationId: 'admin1', effectiveFrom: '2026-07-01T00:00:00.000Z',
+        } as any,
+        ctx,
+        'user-1',
+      );
+      expect(result.leadershipLevel).toBe('ADMINISTRATION_MANAGER');
+    });
+
+    it('allows ACTING admin managers in different administrations', async () => {
+      prisma.department.findFirst.mockResolvedValue({ id: 'dept1' });
+      prisma.administration.findFirst.mockResolvedValue({ id: 'admin2' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person2' });
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.create.mockResolvedValue(assignment({ leadershipLevel: 'ADMINISTRATION_MANAGER', assignmentType: 'ACTING', personnelId: 'person2' }));
+
+      const result = await service.create(
+        {
+          departmentId: 'dept1', personnelId: 'person2', leadershipLevel: 'ADMINISTRATION_MANAGER',
+          assignmentType: 'ACTING', administrationId: 'admin2', effectiveFrom: '2026-06-01T00:00:00.000Z',
+        } as any,
+        ctx,
+        'user-1',
+      );
+      expect(result.leadershipLevel).toBe('ADMINISTRATION_MANAGER');
+    });
+
+    it('allows PRIMARY + ACTING department head overlap', async () => {
+      prisma.department.findFirst.mockResolvedValue({ id: 'dept1' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person2' });
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.create.mockResolvedValue(assignment({ leadershipLevel: 'DEPARTMENT_HEAD', assignmentType: 'ACTING', personnelId: 'person2' }));
+
+      const result = await service.create(
+        {
+          departmentId: 'dept1', personnelId: 'person2', leadershipLevel: 'DEPARTMENT_HEAD',
+          assignmentType: 'ACTING', effectiveFrom: '2026-06-01T00:00:00.000Z',
+        } as any,
+        ctx,
+        'user-1',
+      );
+      expect(result.leadershipLevel).toBe('DEPARTMENT_HEAD');
+      expect(result.assignmentType).toBe('ACTING');
+    });
+
+    it('rejects overlapping ACTING department heads in same department', async () => {
+      prisma.department.findFirst.mockResolvedValue({ id: 'dept1' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person2' });
+      // ACTING skips enforceSinglePrimary, so only the leadership check findFirst matters
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce({ id: 'existing-acting-dh', effectiveFrom: new Date('2026-01-01'), effectiveTo: null }); // ACTING overlap
+
+      const promise = service.create(
+        {
+          departmentId: 'dept1', personnelId: 'person2', leadershipLevel: 'DEPARTMENT_HEAD',
+          assignmentType: 'ACTING', effectiveFrom: '2026-06-01T00:00:00.000Z',
+        } as any,
+        ctx,
+      );
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e: any) => e)).getResponse();
+      expect(response.errors[0].code).toBe('validation.primaryDepartmentHeadOverlap');
+    });
+
+    it('allows non-overlapping ACTING department heads', async () => {
+      prisma.department.findFirst.mockResolvedValue({ id: 'dept1' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person2' });
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(null) // enforceSinglePrimary
+        .mockResolvedValueOnce(null); // no overlap
+      prisma.operationalPersonAssignment.create.mockResolvedValue(assignment({ leadershipLevel: 'DEPARTMENT_HEAD', assignmentType: 'ACTING', personnelId: 'person2' }));
+
+      const result = await service.create(
+        {
+          departmentId: 'dept1', personnelId: 'person2', leadershipLevel: 'DEPARTMENT_HEAD',
+          assignmentType: 'ACTING', effectiveFrom: '2026-06-01T00:00:00.000Z',
+          effectiveTo: '2026-12-31T23:59:59.999Z',
+        } as any,
+        ctx,
+        'user-1',
+      );
+      expect(result.leadershipLevel).toBe('DEPARTMENT_HEAD');
+    });
+
+    it('allows ACTING department heads in different departments', async () => {
+      prisma.department.findFirst.mockResolvedValue({ id: 'dept2' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person2' });
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.create.mockResolvedValue(assignment({ leadershipLevel: 'DEPARTMENT_HEAD', assignmentType: 'ACTING', personnelId: 'person2', departmentId: 'dept2' }));
+
+      const result = await service.create(
+        {
+          departmentId: 'dept2', personnelId: 'person2', leadershipLevel: 'DEPARTMENT_HEAD',
+          assignmentType: 'ACTING', effectiveFrom: '2026-06-01T00:00:00.000Z',
+        } as any,
+        ctx,
+        'user-1',
+      );
+      expect(result.leadershipLevel).toBe('DEPARTMENT_HEAD');
+    });
+  });
+
   describe('transfer leadership', () => {
     it('defaults leadershipLevel to NONE on transfer when not provided', async () => {
       const current = assignment({ leadershipLevel: 'DEPARTMENT_HEAD' });
