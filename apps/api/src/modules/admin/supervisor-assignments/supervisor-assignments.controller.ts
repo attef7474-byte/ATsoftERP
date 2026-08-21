@@ -7,6 +7,7 @@ import { ReportingLineQueryDto } from './dto/reporting-line-query.dto';
 import { BulkSupervisorAssignmentDto } from './dto/bulk-supervisor-assignment.dto';
 import { CandidateQueryDto } from './dto/candidate-query.dto';
 import { TeamQueryDto } from './dto/team-query.dto';
+import { HistoryQueryDto } from './dto/history-query.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
@@ -82,6 +83,26 @@ export class SupervisorAssignmentsController {
   ) {
     const asOf = query.asOf ? new Date(query.asOf) : undefined;
     return this.supervisorAssignmentsService.getHierarchyTree(assignmentId, ctx, asOf);
+  }
+
+  @Get('history/leadership')
+  @Permissions('supervisor:read')
+  @ApiOperation({ summary: 'Get leadership assignment history with temporal filters' })
+  getLeadershipHistory(
+    @Query() query: HistoryQueryDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.supervisorAssignmentsService.getLeadershipHistory(query, ctx);
+  }
+
+  @Get('history')
+  @Permissions('supervisor:read')
+  @ApiOperation({ summary: 'Get supervision relationship history with temporal filters' })
+  getSupervisionHistory(
+    @Query() query: HistoryQueryDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.supervisorAssignmentsService.getSupervisionHistory(query, ctx);
   }
 
   @Get('team/:supervisorAssignmentId')

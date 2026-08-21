@@ -16,9 +16,10 @@ import {
 import { F9Lookup, personAssignmentAdapter } from '@/components/f9';
 import {
   Search, Trash2, RefreshCw, UserCheck, Users,
-  Eye, ChevronDown, ChevronUp, Check, TreePine,
+  Eye, ChevronDown, ChevronUp, Check, TreePine, Clock,
 } from 'lucide-react';
 import HierarchyTree from './hierarchy-tree';
+import HistoryTimeline from './history-timeline';
 
 function useAssignmentTypeOptions() {
   const { t } = useTranslation();
@@ -55,7 +56,7 @@ export default function SupervisorAssignmentsPage() {
   const canRemove = isSuperAdmin || Boolean(permissions?.permissions.includes('supervisor:remove'));
   const assignmentTypeOptions = useAssignmentTypeOptions();
 
-  const [activeTab, setActiveTab] = useState<'team' | 'relations' | 'hierarchy'>('team');
+  const [activeTab, setActiveTab] = useState<'team' | 'relations' | 'hierarchy' | 'history'>('team');
 
   const [leaderInfo, setLeaderInfo] = useState<LeaderInfo | null>(null);
   const [teamData, setTeamData] = useState<TeamResponse | null>(null);
@@ -386,6 +387,19 @@ export default function SupervisorAssignmentsPage() {
           <span className="flex items-center gap-2">
             <TreePine className="h-4 w-4" />
             {t('core.hierarchyTree')}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'history'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            {t('core.timelineHistory')}
           </span>
         </button>
       </div>
@@ -858,7 +872,13 @@ export default function SupervisorAssignmentsPage() {
           </Card>
 
           {leaderInfo ? (
-            <HierarchyTree assignmentId={leaderInfo.assignmentId} />
+            <HierarchyTree
+              assignmentId={leaderInfo.assignmentId}
+              onViewHistory={(personId, assignmentId) => {
+                setLeaderInfo(prev => prev ? { ...prev, person: { ...prev.person, id: personId }, assignmentId } : null);
+                setActiveTab('history');
+              }}
+            />
           ) : (
             <Card>
               <CardContent>
@@ -867,6 +887,13 @@ export default function SupervisorAssignmentsPage() {
             </Card>
           )}
         </div>
+      )}
+
+      {activeTab === 'history' && (
+        <HistoryTimeline
+          personId={leaderInfo?.person?.id}
+          assignmentId={leaderInfo?.assignmentId}
+        />
       )}
 
       <ConfirmDialog

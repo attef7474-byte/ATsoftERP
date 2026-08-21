@@ -1358,4 +1358,333 @@ export class SupervisorAssignmentsService {
       return { created, count: created.length };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
+
+  private deriveTemporalStatus(
+    effectiveFrom: Date,
+    effectiveTo: Date | null,
+    isActive: boolean,
+  ): string {
+    const now = new Date();
+    if (effectiveFrom > now) return 'FUTURE';
+    if (!isActive) return 'PAST';
+    if (effectiveTo !== null && effectiveTo <= now) return 'PAST';
+    return 'CURRENT';
+  }
+
+  async getSupervisionHistory(
+    query: {
+      personId?: string;
+      assignmentId?: string;
+      supervisorAssignmentId?: string;
+      relationshipType?: string;
+      branchId?: string;
+      administrationId?: string;
+      departmentId?: string;
+      from?: string;
+      to?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+      sort?: string;
+    },
+    ctx: ActiveOperationalContext,
+  ) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      companyId: ctx.companyId,
+      deletedAt: null,
+    };
+
+    if (query.relationshipType) {
+      where.relationshipType = query.relationshipType;
+    }
+
+    if (query.assignmentId) {
+      where.assignmentId = query.assignmentId;
+    }
+
+    if (query.supervisorAssignmentId) {
+      where.supervisorAssignmentId = query.supervisorAssignmentId;
+    }
+
+    // Person filter: must match either subordinate or supervisor personnelId
+    if (query.personId) {
+      where.OR = [
+        { assignment: { personnelId: query.personId } },
+        { supervisorAssignment: { personnelId: query.personId } },
+      ];
+    }
+
+    // Branch/admin/department filters on subordinate side
+    if (query.branchId) {
+      where.assignment = { ...where.assignment, branchId: query.branchId };
+    }
+    if (query.administrationId) {
+      where.assignment = { ...where.assignment, administrationId: query.administrationId };
+    }
+    if (query.departmentId) {
+      where.assignment = { ...where.assignment, departmentId: query.departmentId };
+    }
+
+    // Temporal status filter
+    const now = new Date();
+    if (query.status === 'CURRENT') {
+      where.isActive = true;
+      where.effectiveFrom = { lte: now };
+      where.OR = [
+        { effectiveTo: null },
+        { effectiveTo: { gt: now } },
+      ];
+    } else if (query.status === 'PAST') {
+      where.OR = [
+        { effectiveTo: { lte: now } },
+        { isActive: false },
+      ];
+    } else if (query.status === 'FUTURE') {
+      where.effectiveFrom = { gt: now };
+    }
+
+    // Date range overlap filter: record overlaps [from, to)
+    if (query.from || query.to) {
+      const rangeStart = query.from ? new Date(query.from) : new Date('1900-01-01');
+      const rangeEnd = query.to ? new Date(query.to) : new Date('9999-12-31T23:59:59.999Z');
+      // Overlap: recordStart < rangeEnd AND rangeStart < recordEnd
+      // recordEnd = effectiveTo ?? infinity
+      const temporalConditions = [
+        { effectiveFrom: { lt: rangeEnd } },
+        { OR: [{ effectiveTo: null }, { effectiveTo: { gt: rangeStart } }] },
+      ];
+      if (where.AND) {
+        where.AND.push(...temporalConditions);
+      } else {
+        where.AND = temporalConditions;
+      }
+    }
+
+    const orderBy = query.sort === 'effectiveFrom_asc'
+      ? { effectiveFrom: 'asc' as const }
+      : { effectiveFrom: 'desc' as const };
+
+    const include = {
+      assignment: {
+        include: {
+          person: { select: { id: true, name: true, code: true } },
+          department: { select: { id: true, name: true, code: true } },
+          jobTitle: { select: { id: true, name: true, code: true } },
+          branch: { select: { id: true, name: true, code: true } },
+          administration: { select: { id: true, name: true, code: true } },
+        },
+      },
+      supervisorAssignment: {
+        include: {
+          person: { select: { id: true, name: true, code: true } },
+          department: { select: { id: true, name: true, code: true } },
+          jobTitle: { select: { id: true, name: true, code: true } },
+          branch: { select: { id: true, name: true, code: true } },
+          administration: { select: { id: true, name: true, code: true } },
+        },
+      },
+    };
+
+    const [rows, total] = await Promise.all([
+      (this.prisma.supervisorAssignment.findMany as any)({
+        where,
+        include,
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      (this.prisma.supervisorAssignment.count as any)({ where }),
+    ]);
+
+    const data = rows.map((row: any) => {
+      const temporalStatus = this.deriveTemporalStatus(row.effectiveFrom, row.effectiveTo, row.isActive);
+      return {
+        id: row.id,
+        relationshipType: row.relationshipType,
+        subordinate: {
+          assignmentId: row.assignmentId,
+          person: row.assignment?.person,
+          jobTitle: row.assignment?.jobTitle,
+          department: row.assignment?.department,
+          branch: row.assignment?.branch,
+          administration: row.assignment?.administration,
+          assignmentType: row.assignment?.assignmentType,
+        },
+        supervisor: row.supervisorAssignment ? {
+          assignmentId: row.supervisorAssignmentId,
+          person: row.supervisorAssignment?.person,
+          jobTitle: row.supervisorAssignment?.jobTitle,
+          department: row.supervisorAssignment?.department,
+          branch: row.supervisorAssignment?.branch,
+          administration: row.supervisorAssignment?.administration,
+          assignmentType: row.supervisorAssignment?.assignmentType,
+        } : null,
+        effectiveFrom: row.effectiveFrom,
+        effectiveTo: row.effectiveTo,
+        isActive: row.isActive,
+        status: row.status,
+        temporalStatus,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      };
+    });
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getLeadershipHistory(
+    query: {
+      personId?: string;
+      assignmentId?: string;
+      leadershipLevel?: string;
+      assignmentType?: string;
+      branchId?: string;
+      administrationId?: string;
+      departmentId?: string;
+      from?: string;
+      to?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+      sort?: string;
+    },
+    ctx: ActiveOperationalContext,
+  ) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      companyId: ctx.companyId,
+      deletedAt: null,
+      leadershipLevel: { not: 'NONE' },
+    };
+
+    if (query.personId) {
+      where.personnelId = query.personId;
+    }
+
+    if (query.assignmentId) {
+      where.id = query.assignmentId;
+    }
+
+    if (query.leadershipLevel) {
+      where.leadershipLevel = query.leadershipLevel;
+    }
+
+    if (query.assignmentType) {
+      where.assignmentType = query.assignmentType;
+    }
+
+    if (query.branchId) {
+      where.branchId = query.branchId;
+    }
+
+    if (query.administrationId) {
+      where.administrationId = query.administrationId;
+    }
+
+    if (query.departmentId) {
+      where.departmentId = query.departmentId;
+    }
+
+    // Temporal status filter
+    const now = new Date();
+    if (query.status === 'CURRENT') {
+      where.effectiveFrom = { lte: now };
+      where.OR = [
+        { effectiveTo: null },
+        { effectiveTo: { gt: now } },
+      ];
+    } else if (query.status === 'PAST') {
+      where.OR = [
+        { effectiveTo: { lte: now } },
+        { status: 'INACTIVE' },
+      ];
+    } else if (query.status === 'FUTURE') {
+      where.effectiveFrom = { gt: now };
+    }
+
+    // Date range overlap filter
+    if (query.from || query.to) {
+      const rangeStart = query.from ? new Date(query.from) : new Date('1900-01-01');
+      const rangeEnd = query.to ? new Date(query.to) : new Date('9999-12-31T23:59:59.999Z');
+      const temporalConditions = [
+        { effectiveFrom: { lt: rangeEnd } },
+        { OR: [{ effectiveTo: null }, { effectiveTo: { gt: rangeStart } }] },
+      ];
+      if (where.AND) {
+        where.AND.push(...temporalConditions);
+      } else {
+        where.AND = temporalConditions;
+      }
+    }
+
+    const orderBy = query.sort === 'effectiveFrom_asc'
+      ? { effectiveFrom: 'asc' as const }
+      : { effectiveFrom: 'desc' as const };
+
+    const include = {
+      person: { select: { id: true, name: true, code: true } },
+      department: { select: { id: true, name: true, code: true } },
+      jobTitle: { select: { id: true, name: true, code: true } },
+      branch: { select: { id: true, name: true, code: true } },
+      administration: { select: { id: true, name: true, code: true } },
+    };
+
+    const [rows, total] = await Promise.all([
+      (this.prisma.operationalPersonAssignment.findMany as any)({
+        where,
+        include,
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      (this.prisma.operationalPersonAssignment.count as any)({ where }),
+    ]);
+
+    const data = rows.map((row: any) => {
+      const temporalStatus = this.deriveTemporalStatus(row.effectiveFrom, row.effectiveTo, row.status === 'ACTIVE');
+      return {
+        id: row.id,
+        person: row.person,
+        personCode: row.person?.code,
+        leadershipLevel: row.leadershipLevel,
+        assignmentType: row.assignmentType,
+        jobTitle: row.jobTitle,
+        department: row.department,
+        branch: row.branch,
+        administration: row.administration,
+        effectiveFrom: row.effectiveFrom,
+        effectiveTo: row.effectiveTo,
+        isActive: row.status === 'ACTIVE',
+        status: row.status,
+        temporalStatus,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      };
+    });
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
 }

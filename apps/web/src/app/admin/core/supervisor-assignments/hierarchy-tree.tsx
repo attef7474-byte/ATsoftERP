@@ -11,6 +11,7 @@ import type { TranslationNamespace } from '@/lib/i18n';
 
 interface HierarchyTreeProps {
   assignmentId: string;
+  onViewHistory?: (personId: string, assignmentId: string) => void;
 }
 
 const LEADERSHIP_COLORS: Record<string, string> = {
@@ -127,7 +128,7 @@ function TreeNodeItem({
   );
 }
 
-export default function HierarchyTree({ assignmentId }: HierarchyTreeProps) {
+export default function HierarchyTree({ assignmentId, onViewHistory }: HierarchyTreeProps) {
   const { t } = useTranslation();
   const [data, setData] = useState<HierarchyTreeResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -369,6 +370,16 @@ export default function HierarchyTree({ assignmentId }: HierarchyTreeProps) {
                 <p className="font-medium">{selectedNode.childCount}</p>
               </div>
             </div>
+            {onViewHistory && selectedNode.person?.id && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <button
+                  onClick={() => onViewHistory(selectedNode.person!.id, selectedNode.assignmentId)}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  {t('core.viewHistory')}
+                </button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

@@ -271,3 +271,80 @@ export interface HierarchyTreeResponse {
   truncated: boolean;
   asOf: string;
 }
+
+export interface HistorySupervisionRow {
+  id: string;
+  relationshipType: string;
+  subordinate: {
+    assignmentId: string;
+    person: { id: string; name: string; code: string } | null;
+    jobTitle: { id: string; name: string; code: string } | null;
+    department: { id: string; name: string; code: string } | null;
+    branch: { id: string; name: string; code: string } | null;
+    administration: { id: string; name: string; code: string } | null;
+    assignmentType: string;
+  } | null;
+  supervisor: {
+    assignmentId: string;
+    person: { id: string; name: string; code: string } | null;
+    jobTitle: { id: string; name: string; code: string } | null;
+    department: { id: string; name: string; code: string } | null;
+    branch: { id: string; name: string; code: string } | null;
+    administration: { id: string; name: string; code: string } | null;
+    assignmentType: string;
+  } | null;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  isActive: boolean;
+  status: string;
+  temporalStatus: 'PAST' | 'CURRENT' | 'FUTURE';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HistoryLeadershipRow {
+  id: string;
+  person: { id: string; name: string; code: string } | null;
+  personCode: string | null;
+  leadershipLevel: string;
+  assignmentType: string;
+  jobTitle: { id: string; name: string; code: string } | null;
+  department: { id: string; name: string; code: string } | null;
+  branch: { id: string; name: string; code: string } | null;
+  administration: { id: string; name: string; code: string } | null;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  isActive: boolean;
+  status: string;
+  temporalStatus: 'PAST' | 'CURRENT' | 'FUTURE';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HistoryResponse<T> {
+  data: T[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface HistoryFilters {
+  personId?: string;
+  assignmentId?: string;
+  supervisorAssignmentId?: string;
+  leadershipLevel?: string;
+  assignmentType?: string;
+  relationshipType?: string;
+  branchId?: string;
+  administrationId?: string;
+  departmentId?: string;
+  from?: string;
+  to?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+}

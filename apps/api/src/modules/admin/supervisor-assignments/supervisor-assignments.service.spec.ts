@@ -1440,4 +1440,270 @@ describe('SupervisorAssignmentsService', () => {
       await expect(service.getHierarchyTree('pa1', otherCtx)).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('getSupervisionHistory', () => {
+    const historyRecord = (overrides: Record<string, any> = {}) => ({
+      id: 'sa-h1',
+      companyId: 'company-a',
+      assignmentId: 'pa-sub',
+      supervisorAssignmentId: 'pa-sup',
+      relationshipType: 'DIRECT',
+      effectiveFrom: new Date('2026-01-01'),
+      effectiveTo: null,
+      isActive: true,
+      status: 'ACTIVE',
+      deletedAt: null,
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-01'),
+      assignment: {
+        person: { id: 'person-sub', name: 'Employee A', code: 'E001' },
+        department: { id: 'd1', name: 'Dept 1', code: 'D1' },
+        jobTitle: { id: 'jt1', name: 'Engineer', code: 'ENG' },
+        branch: { id: 'branch-a', name: 'Branch A', code: 'BA' },
+        administration: null,
+        assignmentType: 'PRIMARY',
+      },
+      supervisorAssignment: {
+        person: { id: 'person-sup', name: 'Manager B', code: 'M001' },
+        department: { id: 'd1', name: 'Dept 1', code: 'D1' },
+        jobTitle: { id: 'jt2', name: 'Manager', code: 'MGR' },
+        branch: { id: 'branch-a', name: 'Branch A', code: 'BA' },
+        administration: null,
+        assignmentType: 'PRIMARY',
+      },
+      ...overrides,
+    });
+
+    it('returns paginated supervision history', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([historyRecord()]);
+      prisma.supervisorAssignment.count.mockResolvedValue(1);
+      const result = await service.getSupervisionHistory({}, ctx);
+      expect(result.data).toHaveLength(1);
+      expect(result.meta.total).toBe(1);
+      expect(result.meta.page).toBe(1);
+    });
+
+    it('returns CURRENT temporal status for active open-ended record', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([historyRecord()]);
+      prisma.supervisorAssignment.count.mockResolvedValue(1);
+      const result = await service.getSupervisionHistory({}, ctx);
+      expect(result.data[0].temporalStatus).toBe('CURRENT');
+    });
+
+    it('returns PAST temporal status for expired record', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([historyRecord({
+        effectiveTo: new Date('2025-12-31'),
+        isActive: true,
+      })]);
+      prisma.supervisorAssignment.count.mockResolvedValue(1);
+      const result = await service.getSupervisionHistory({}, ctx);
+      expect(result.data[0].temporalStatus).toBe('PAST');
+    });
+
+    it('returns FUTURE temporal status for future record', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([historyRecord({
+        effectiveFrom: new Date('2027-01-01'),
+      })]);
+      prisma.supervisorAssignment.count.mockResolvedValue(1);
+      const result = await service.getSupervisionHistory({}, ctx);
+      expect(result.data[0].temporalStatus).toBe('FUTURE');
+    });
+
+    it('filters by relationshipType', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.count.mockResolvedValue(0);
+      await service.getSupervisionHistory({ relationshipType: 'MATRIX' }, ctx);
+      expect(prisma.supervisorAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ relationshipType: 'MATRIX' }) }),
+      );
+    });
+
+    it('filters by personId on subordinate side', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.count.mockResolvedValue(0);
+      await service.getSupervisionHistory({ personId: 'person-sub' }, ctx);
+      expect(prisma.supervisorAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ OR: expect.arrayContaining([expect.objectContaining({ assignment: { personnelId: 'person-sub' } })]) }) }),
+      );
+    });
+
+    it('applies date range overlap filter', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.count.mockResolvedValue(0);
+      await service.getSupervisionHistory({ from: '2026-06-01T00:00:00.000Z', to: '2026-06-30T23:59:59.999Z' }, ctx);
+      expect(prisma.supervisorAssignment.findMany).toHaveBeenCalled();
+    });
+
+    it('filters CURRENT status correctly', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.count.mockResolvedValue(0);
+      await service.getSupervisionHistory({ status: 'CURRENT' }, ctx);
+      expect(prisma.supervisorAssignment.findMany).toHaveBeenCalled();
+    });
+
+    it('includes subordinate and supervisor human context', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([historyRecord()]);
+      prisma.supervisorAssignment.count.mockResolvedValue(1);
+      const result = await service.getSupervisionHistory({}, ctx);
+      expect(result.data[0].subordinate.person.name).toBe('Employee A');
+      expect(result.data[0].supervisor.person.name).toBe('Manager B');
+    });
+
+    it('returns null supervisor for root records', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([historyRecord({ supervisorAssignmentId: null, supervisorAssignment: null })]);
+      prisma.supervisorAssignment.count.mockResolvedValue(1);
+      const result = await service.getSupervisionHistory({}, ctx);
+      expect(result.data[0].supervisor).toBeNull();
+    });
+
+    it('respects tenant company scope', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.count.mockResolvedValue(0);
+      await service.getSupervisionHistory({}, ctx);
+      expect(prisma.supervisorAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ companyId: 'company-a' }) }),
+      );
+    });
+
+    it('applies pagination correctly', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.count.mockResolvedValue(0);
+      await service.getSupervisionHistory({ page: 2, limit: 10 }, ctx);
+      expect(prisma.supervisorAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 10 }),
+      );
+    });
+  });
+
+  describe('getLeadershipHistory', () => {
+    const leadershipRecord = (overrides: Record<string, any> = {}) => ({
+      id: 'pa-lead1',
+      companyId: 'company-a',
+      personnelId: 'person-a',
+      departmentId: 'd1',
+      jobTitleId: 'jt1',
+      branchId: 'branch-a',
+      administrationId: null,
+      assignmentType: 'PRIMARY',
+      leadershipLevel: 'DEPARTMENT_HEAD',
+      effectiveFrom: new Date('2026-01-01'),
+      effectiveTo: null,
+      status: 'ACTIVE',
+      deletedAt: null,
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-01'),
+      person: { id: 'person-a', name: 'Ahmed Ali', code: 'A001' },
+      department: { id: 'd1', name: 'Dept 1', code: 'D1' },
+      jobTitle: { id: 'jt1', name: 'Head', code: 'HEAD' },
+      branch: { id: 'branch-a', name: 'Branch A', code: 'BA' },
+      administration: null,
+      ...overrides,
+    });
+
+    it('returns paginated leadership history', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([leadershipRecord()]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(1);
+      const result = await service.getLeadershipHistory({}, ctx);
+      expect(result.data).toHaveLength(1);
+      expect(result.meta.total).toBe(1);
+    });
+
+    it('excludes NONE leadership level by default', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(0);
+      await service.getLeadershipHistory({}, ctx);
+      expect(prisma.operationalPersonAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ leadershipLevel: { not: 'NONE' } }) }),
+      );
+    });
+
+    it('returns CURRENT temporal status for active record', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([leadershipRecord()]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(1);
+      const result = await service.getLeadershipHistory({}, ctx);
+      expect(result.data[0].temporalStatus).toBe('CURRENT');
+    });
+
+    it('returns PAST temporal status for expired record', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([leadershipRecord({
+        effectiveTo: new Date('2025-06-01'),
+      })]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(1);
+      const result = await service.getLeadershipHistory({}, ctx);
+      expect(result.data[0].temporalStatus).toBe('PAST');
+    });
+
+    it('returns FUTURE temporal status for future record', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([leadershipRecord({
+        effectiveFrom: new Date('2027-01-01'),
+      })]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(1);
+      const result = await service.getLeadershipHistory({}, ctx);
+      expect(result.data[0].temporalStatus).toBe('FUTURE');
+    });
+
+    it('filters by leadershipLevel', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(0);
+      await service.getLeadershipHistory({ leadershipLevel: 'ADMINISTRATION_MANAGER' }, ctx);
+      expect(prisma.operationalPersonAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ leadershipLevel: 'ADMINISTRATION_MANAGER' }) }),
+      );
+    });
+
+    it('filters by assignmentType', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(0);
+      await service.getLeadershipHistory({ assignmentType: 'ACTING' }, ctx);
+      expect(prisma.operationalPersonAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ assignmentType: 'ACTING' }) }),
+      );
+    });
+
+    it('filters by personId', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(0);
+      await service.getLeadershipHistory({ personId: 'person-a' }, ctx);
+      expect(prisma.operationalPersonAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ personnelId: 'person-a' }) }),
+      );
+    });
+
+    it('returns human person context without raw IDs', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([leadershipRecord()]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(1);
+      const result = await service.getLeadershipHistory({}, ctx);
+      expect(result.data[0].person.name).toBe('Ahmed Ali');
+      expect(result.data[0].leadershipLevel).toBe('DEPARTMENT_HEAD');
+    });
+
+    it('includes PRIMARY and ACTING records together', async () => {
+      const primary = leadershipRecord({ id: 'pa-p1', assignmentType: 'PRIMARY' });
+      const acting = leadershipRecord({ id: 'pa-a1', assignmentType: 'ACTING', effectiveFrom: new Date('2026-06-01'), effectiveTo: new Date('2026-06-15') });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([primary, acting]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(2);
+      const result = await service.getLeadershipHistory({}, ctx);
+      expect(result.data).toHaveLength(2);
+      expect(result.data.map((r: any) => r.assignmentType)).toContain('PRIMARY');
+      expect(result.data.map((r: any) => r.assignmentType)).toContain('ACTING');
+    });
+
+    it('respects tenant company scope', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(0);
+      await service.getLeadershipHistory({}, ctx);
+      expect(prisma.operationalPersonAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ companyId: 'company-a' }) }),
+      );
+    });
+
+    it('applies pagination correctly', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(0);
+      await service.getLeadershipHistory({ page: 2, limit: 10 }, ctx);
+      expect(prisma.operationalPersonAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 10 }),
+      );
+    });
+  });
 });
