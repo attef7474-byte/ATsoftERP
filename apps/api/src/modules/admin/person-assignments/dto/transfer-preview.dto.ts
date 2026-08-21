@@ -24,6 +24,7 @@ export class TransferPreviewDto {
   @ApiPropertyOptional({ description: 'New assignment type (default: PRIMARY)' })
   @IsOptional()
   @IsString()
+  @IsIn(['PRIMARY', 'SECONDARY', 'TEMPORARY', 'ACTING'])
   assignmentType?: string;
 
   @ApiPropertyOptional({ enum: ['NONE', 'TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD', 'ADMINISTRATION_MANAGER'], description: 'Leadership level for the new assignment' })

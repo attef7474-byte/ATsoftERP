@@ -3,6 +3,7 @@ import { PersonAssignmentsService } from './person-assignments.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { SupervisorAssignmentsService } from '../supervisor-assignments/supervisor-assignments.service';
 
 describe('PersonAssignments Tenant Isolation', () => {
   let prisma: any;
@@ -33,6 +34,7 @@ describe('PersonAssignments Tenant Isolation', () => {
         findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findMany: jest.fn(),
         count: jest.fn(),
       },
@@ -41,11 +43,23 @@ describe('PersonAssignments Tenant Isolation', () => {
       branch: { findFirst: jest.fn() },
       administration: { findFirst: jest.fn() },
       operationalPerson: { findFirst: jest.fn() },
-      supervisorAssignment: { count: jest.fn() },
+      supervisorAssignment: {
+        count: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      userRole: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn(),
     };
-    auditService = { log: jest.fn() };
-    service = new PersonAssignmentsService(prisma as PrismaService, auditService as AuditService);
+    prisma.$transaction.mockImplementation(async (fn: any) => fn(prisma));
+    auditService = { log: jest.fn(), logWithClient: jest.fn() };
+    service = new PersonAssignmentsService(
+      prisma as PrismaService,
+      auditService as AuditService,
+      new SupervisorAssignmentsService(prisma as PrismaService, auditService as AuditService),
+    );
   });
 
   describe('create - cross-company reference rejection', () => {
@@ -168,6 +182,125 @@ describe('PersonAssignments Tenant Isolation', () => {
           data: expect.objectContaining({ companyId: 'company-a' }),
         }),
       );
+    });
+  });
+
+  describe('HIER-G transfer tenant isolation', () => {
+    const currentA = {
+      id: 'pa-a',
+      companyId: 'company-a',
+      branchId: 'branch-a',
+      administrationId: null,
+      departmentId: 'dept-a',
+      jobTitleId: 'jt-a',
+      personnelId: 'person-a',
+      assignmentType: 'PRIMARY',
+      leadershipLevel: 'NONE',
+      effectiveFrom: new Date('2026-01-01'),
+      effectiveTo: null,
+      deletedAt: null,
+    };
+
+    function setupValidTransferReferences() {
+      prisma.department.findFirst.mockResolvedValue({ id: 'dept-new-a', companyId: 'company-a' });
+      prisma.jobTitle.findFirst.mockResolvedValue({ id: 'jt-a', companyId: 'company-a' });
+      prisma.branch.findFirst.mockResolvedValue({ id: 'branch-a', companyId: 'company-a' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person-a', isActive: true });
+    }
+
+    function expectZeroTransferWrites() {
+      expect(prisma.operationalPersonAssignment.updateMany).not.toHaveBeenCalled();
+      expect(prisma.operationalPersonAssignment.create).not.toHaveBeenCalled();
+      expect(prisma.supervisorAssignment.updateMany).not.toHaveBeenCalled();
+      expect(prisma.supervisorAssignment.create).not.toHaveBeenCalled();
+      expect(auditService.logWithClient).not.toHaveBeenCalled();
+    }
+
+    it('Company A cannot transfer a Company B root assignment', async () => {
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
+
+      await expect(service.transfer(
+        'pa-b',
+        { departmentId: 'dept-new-a', effectiveFrom: '2026-06-01T00:00:00.000Z' },
+        ctxA,
+        'user-a',
+      )).rejects.toThrow(NotFoundException);
+
+      expect(prisma.operationalPersonAssignment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'pa-b', companyId: 'company-a', deletedAt: null },
+      }));
+      expectZeroTransferWrites();
+    });
+
+    it('Company A cannot continue a relationship to a Company B supervisor', async () => {
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValueOnce(currentA);
+      setupValidTransferReferences();
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([{
+          id: 'sa-foreign-supervisor',
+          companyId: 'company-a',
+          assignmentId: 'pa-a',
+          supervisorAssignmentId: 'pa-supervisor-b',
+          relationshipType: 'DIRECT',
+          effectiveFrom: new Date('2026-01-01'),
+          effectiveTo: null,
+          isActive: true,
+          deletedAt: null,
+          supervisorAssignment: { id: 'pa-supervisor-b', companyId: 'company-b' },
+        }])
+        .mockResolvedValueOnce([]);
+
+      await expect(service.transfer('pa-a', {
+        departmentId: 'dept-new-a',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+        relationshipResolutions: [{
+          relationshipId: 'sa-foreign-supervisor',
+          action: 'CONTINUE_ON_NEW_ASSIGNMENT',
+        }],
+      }, ctxA, 'user-a')).rejects.toThrow(BadRequestException);
+      expectZeroTransferWrites();
+    });
+
+    it('Company A cannot continue a relationship for a Company B subordinate', async () => {
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValueOnce(currentA);
+      setupValidTransferReferences();
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{
+          id: 'sa-foreign-subordinate',
+          companyId: 'company-a',
+          assignmentId: 'pa-subordinate-b',
+          supervisorAssignmentId: 'pa-a',
+          relationshipType: 'DIRECT',
+          effectiveFrom: new Date('2026-01-01'),
+          effectiveTo: null,
+          isActive: true,
+          deletedAt: null,
+          assignment: { id: 'pa-subordinate-b', companyId: 'company-b' },
+        }]);
+
+      await expect(service.transfer('pa-a', {
+        departmentId: 'dept-new-a',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+        relationshipResolutions: [{
+          relationshipId: 'sa-foreign-subordinate',
+          action: 'CONTINUE_ON_NEW_ASSIGNMENT',
+        }],
+      }, ctxA, 'user-a')).rejects.toThrow(BadRequestException);
+      expectZeroTransferWrites();
+    });
+
+    it('Company A cannot submit a Company B relationship resolution when none is affected', async () => {
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValueOnce(currentA);
+      setupValidTransferReferences();
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+
+      await expect(service.transfer('pa-a', {
+        departmentId: 'dept-new-a',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+        relationshipResolutions: [{ relationshipId: 'sa-company-b', action: 'END_AT_TRANSFER' }],
+      }, ctxA, 'user-a')).rejects.toThrow(BadRequestException);
+      expectZeroTransferWrites();
     });
   });
 

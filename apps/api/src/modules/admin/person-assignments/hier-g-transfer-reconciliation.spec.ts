@@ -1,13 +1,15 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PersonAssignmentsService } from './person-assignments.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { SupervisorAssignmentsService } from '../supervisor-assignments/supervisor-assignments.service';
 
 describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
   let prisma: any;
   let auditService: any;
   let service: PersonAssignmentsService;
+  let supervisorAssignmentsService: SupervisorAssignmentsService;
   const ctx = {
     contextKey: 'company-a:branch-a',
     scopeId: 'branch-a',
@@ -36,11 +38,12 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
     effectiveFrom: new Date('2026-01-01'), effectiveTo: null,
     isActive: true, deletedAt: null,
     supervisorAssignment: {
+      companyId: 'company-a',
       person: { id: 'super1', name: 'Supervisor', code: 'S001' },
       department: { id: 'dept-s', name: 'SuperDept', code: 'SD' },
       jobTitle: { id: 'jt-s', name: 'Manager', code: 'M1' },
       branch: { id: 'branch-a', name: 'Branch A' },
-      administration: null, leadershipLevel: 'DEPARTMENT_HEAD',
+      administration: null, assignmentType: 'PRIMARY', leadershipLevel: 'DEPARTMENT_HEAD',
     }, ...overrides,
   });
 
@@ -50,11 +53,12 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
     effectiveFrom: new Date('2026-01-01'), effectiveTo: null,
     isActive: true, deletedAt: null,
     assignment: {
+      companyId: 'company-a',
       person: { id: 'sub1', name: 'Subordinate', code: 'SUB01' },
       department: { id: 'dept-sub', name: 'SubDept', code: 'SD' },
       jobTitle: { id: 'jt-sub', name: 'Worker', code: 'W1' },
       branch: { id: 'branch-a', name: 'Branch A' },
-      administration: null, assignmentType: 'PRIMARY',
+      administration: null, assignmentType: 'PRIMARY', leadershipLevel: 'NONE',
     }, ...overrides,
   });
 
@@ -64,7 +68,7 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
   beforeEach(() => {
     prisma = {
       operationalPersonAssignment: {
-        findFirst: jest.fn(), create: jest.fn(), update: jest.fn(),
+        findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), updateMany: jest.fn(),
         findMany: jest.fn(), count: jest.fn(),
       },
       department: { findFirst: jest.fn() },
@@ -74,12 +78,47 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
       operationalPerson: { findFirst: jest.fn() },
       supervisorAssignment: {
         count: jest.fn(), findMany: jest.fn().mockResolvedValue([]),
-        findFirst: jest.fn(), create: jest.fn(), update: jest.fn(),
+        findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), updateMany: jest.fn(),
+      },
+      userRole: {
+        findMany: jest.fn().mockResolvedValue([{
+          role: {
+            code: 'HIERARCHY_ADMIN',
+            status: 'ACTIVE',
+            permissions: ['supervisor:read', 'supervisor:remove', 'supervisor:assign'].map((key) => ({
+              permission: { key, status: 'ACTIVE' },
+            })),
+          },
+        }]),
       },
       $transaction: jest.fn(),
     };
+    prisma.operationalPersonAssignment.findFirst.mockImplementation((args: any) => {
+      const id = args?.where?.id;
+      if (id === 'pa1') return Promise.resolve(baseAssignment());
+      if (id === 'pa2') return Promise.resolve(baseAssignment({ id: 'pa2' }));
+      if (id) {
+        return Promise.resolve(baseAssignment({
+          id,
+          personnelId: id === 'pa-sub1' ? 'sub1' : id === 'pa-super' ? 'super1' : `person-${id}`,
+          assignmentType: id.startsWith('pa-sub') ? 'PRIMARY' : 'SECONDARY',
+          effectiveFrom: new Date('2025-01-01'),
+        }));
+      }
+      return Promise.resolve(null);
+    });
+    prisma.operationalPersonAssignment.updateMany.mockResolvedValue({ count: 1 });
+    prisma.operationalPersonAssignment.create.mockResolvedValue(baseAssignment({ id: 'pa2', departmentId: 'dept2' }));
+    prisma.supervisorAssignment.updateMany.mockResolvedValue({ count: 1 });
+    prisma.supervisorAssignment.create.mockImplementation((args: any) => Promise.resolve({ id: 'new-sa', ...args.data }));
+    prisma.$transaction.mockImplementation(async (fn: any) => fn(prisma));
     auditService = { log: jest.fn(), logWithClient: jest.fn() };
-    service = new PersonAssignmentsService(prisma, auditService);
+    supervisorAssignmentsService = new SupervisorAssignmentsService(prisma, auditService);
+    service = new PersonAssignmentsService(
+      prisma,
+      auditService,
+      supervisorAssignmentsService,
+    );
   });
 
   function setupNoRelations() {
@@ -118,28 +157,18 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
   }
 
   function mockTx(extra: Record<string, any> = {}) {
-    const subordinateForOutbound = baseAssignment({ id: 'pa-sub1', personnelId: 'sub1' });
-    const supervisorForInbound = baseAssignment({ id: 'pa-super', personnelId: 'super1', branchId: 'branch-a' });
     const tx = {
+      ...prisma,
       operationalPersonAssignment: {
-        update: jest.fn().mockResolvedValue({}),
+        ...prisma.operationalPersonAssignment,
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         create: jest.fn().mockResolvedValue(baseAssignment({ id: 'pa2', departmentId: 'dept2' })),
-        findFirst: jest.fn().mockImplementation((args: any) => {
-          if (args?.where?.id === 'pa-sub1') return Promise.resolve(subordinateForOutbound);
-          if (args?.where?.id === 'pa-super') return Promise.resolve(supervisorForInbound);
-          if (args?.where?.id === 'pa2') return Promise.resolve(baseAssignment({ id: 'pa2', personnelId: 'person1' }));
-          if (args?.where?.id && args?.where?.id !== 'pa1') return Promise.resolve(baseAssignment({ id: args.where.id, personnelId: 'other' }));
-          if (args?.where?.personnelId === 'sub1' && !args?.where?.assignmentType) return Promise.resolve(subordinateForOutbound);
-          if (args?.where?.personnelId === 'super1' && !args?.where?.assignmentType) return Promise.resolve(supervisorForInbound);
-          return Promise.resolve(null);
-        }),
         findMany: jest.fn().mockResolvedValue([]),
       },
       supervisorAssignment: {
-        update: jest.fn().mockResolvedValue({}),
-        create: jest.fn().mockResolvedValue({ id: 'new-sa', relationshipType: 'DIRECT' }),
-        findFirst: jest.fn().mockResolvedValue(null),
-        findMany: jest.fn().mockResolvedValue([]),
+        ...prisma.supervisorAssignment,
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        create: jest.fn().mockImplementation((args: any) => Promise.resolve({ id: 'new-sa', ...args.data })),
       },
       ...extra,
     };
@@ -147,10 +176,20 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
     return tx;
   }
 
+  function grantPermissions(...keys: string[]) {
+    prisma.userRole.findMany.mockResolvedValue([{
+      role: {
+        code: 'TRANSFER_OPERATOR',
+        status: 'ACTIVE',
+        permissions: keys.map((key) => ({ permission: { key, status: 'ACTIVE' } })),
+      },
+    }]);
+  }
+
   describe('transferPreview', () => {
     it('returns empty when no relationships exist', async () => {
       setupNoRelations();
-      const result = await service.transferPreview('pa1', { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' }, ctx);
+      const result = await service.transferPreview('pa1', { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' }, ctx, 'user-1');
       expect(result.summary.totalAffected).toBe(0);
       expect(result.affectedRelationships).toHaveLength(0);
       expect(result.oldAssignment.id).toBe('pa1');
@@ -158,26 +197,28 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
 
     it('discovers inbound relationships with human context', async () => {
       const rel = setupWithInbound();
-      const result = await service.transferPreview('pa1', { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' }, ctx);
+      const result = await service.transferPreview('pa1', { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' }, ctx, 'user-1');
       expect(result.summary.currentInbound).toBe(1);
       const r = result.affectedRelationships[0];
       expect(r.direction).toBe('INBOUND');
       expect(r.otherParty.person.name).toBe('Supervisor');
+      expect(r.otherParty.assignmentType).toBe('PRIMARY');
       expect(r.otherParty.leadershipLevel).toBe('DEPARTMENT_HEAD');
     });
 
     it('discovers outbound relationships with human context', async () => {
       setupWithOutbound();
-      const result = await service.transferPreview('pa1', { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' }, ctx);
+      const result = await service.transferPreview('pa1', { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' }, ctx, 'user-1');
       expect(result.summary.currentOutbound).toBe(1);
       const r = result.affectedRelationships[0];
       expect(r.direction).toBe('OUTBOUND');
       expect(r.otherParty.person.name).toBe('Subordinate');
+      expect(r.otherParty.leadershipLevel).toBe('NONE');
     });
 
     it('classifies historical relationships as HISTORICAL', async () => {
       setupWithInbound({ effectiveTo: new Date('2026-03-01'), isActive: false });
-      const result = await service.transferPreview('pa1', { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' }, ctx);
+      const result = await service.transferPreview('pa1', { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' }, ctx, 'user-1');
       expect(result.summary.historicalUnaffected).toBe(1);
       expect(result.affectedRelationships[0].temporalCategory).toBe('HISTORICAL');
       expect(result.affectedRelationships[0].allowedResolutions).toHaveLength(0);
@@ -185,9 +226,175 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
 
     it('classifies future relationships as FUTURE', async () => {
       setupWithInbound({ effectiveFrom: new Date('2027-01-01') });
-      const result = await service.transferPreview('pa1', { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' }, ctx);
+      const result = await service.transferPreview('pa1', { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' }, ctx, 'user-1');
       expect(result.summary.futureInbound).toBe(1);
       expect(result.affectedRelationships[0].temporalCategory).toBe('FUTURE');
+    });
+
+    it('is read-only and uses a Serializable snapshot', async () => {
+      setupNoRelations();
+
+      await service.transferPreview(
+        'pa1',
+        { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' },
+        ctx,
+        'user-1',
+      );
+
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'Serializable' });
+      expect(prisma.operationalPersonAssignment.updateMany).not.toHaveBeenCalled();
+      expect(prisma.operationalPersonAssignment.create).not.toHaveBeenCalled();
+      expect(prisma.supervisorAssignment.updateMany).not.toHaveBeenCalled();
+      expect(prisma.supervisorAssignment.create).not.toHaveBeenCalled();
+      expect(auditService.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('requires supervisor:read before disclosing affected relationships', async () => {
+      setupWithInbound();
+      grantPermissions('person-assignment:transfer');
+
+      await expect(service.transferPreview(
+        'pa1',
+        { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' },
+        ctx,
+        'user-1',
+      )).rejects.toThrow(ForbiddenException);
+    });
+
+    it('G20 suppresses CONTINUE when the proposed branch is incompatible', async () => {
+      setupWithInbound();
+      prisma.branch.findFirst.mockResolvedValue({ id: 'branch-b' });
+
+      const result = await service.transferPreview(
+        'pa1',
+        { departmentId: 'dept2', branchId: 'branch-b', effectiveFrom: '2026-06-01T00:00:00.000Z' },
+        ctx,
+        'user-1',
+      );
+
+      expect(result.affectedRelationships[0].allowedResolutions).toEqual(['END_AT_TRANSFER']);
+      expect(result.affectedRelationships[0].continuationBlockedReason).toBe('validation.invalidBranchHierarchy');
+    });
+
+    it('G20 suppresses CONTINUE when the proposed assignment window ends before a future relationship', async () => {
+      setupWithInbound({ effectiveFrom: new Date('2027-01-01') });
+
+      const result = await service.transferPreview(
+        'pa1',
+        {
+          departmentId: 'dept2',
+          effectiveFrom: '2026-06-01T00:00:00.000Z',
+          effectiveTo: '2026-12-31T00:00:00.000Z',
+        },
+        ctx,
+        'user-1',
+      );
+
+      expect(result.affectedRelationships[0].allowedResolutions).toEqual(['END_AT_TRANSFER']);
+      expect(result.affectedRelationships[0].continuationBlockedReason).toBe('validation.assignmentOutOfRange');
+    });
+
+    it('evaluates preview continuations independently without order-dependent over-blocking', async () => {
+      const inbound = baseInbound({ id: 'sa-cycle-in' });
+      const outbound = baseOutbound({ id: 'sa-cycle-out' });
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValueOnce(baseAssignment());
+      prisma.department.findFirst.mockResolvedValue(newDept2);
+      prisma.jobTitle.findFirst.mockResolvedValue({ id: 'jt1' });
+      prisma.branch.findFirst.mockResolvedValue({ id: 'branch-a' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person1' });
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([inbound])
+        .mockResolvedValueOnce([outbound])
+        .mockImplementation((args: any) => {
+          if (args?.where?.assignmentId === 'pa-super') {
+            return Promise.resolve([{
+              id: 'sa-a-b',
+              assignmentId: 'pa-super',
+              supervisorAssignmentId: 'pa-sub1',
+              effectiveFrom: new Date('2025-01-01'),
+              effectiveTo: null,
+            }]);
+          }
+          return Promise.resolve([]);
+        });
+
+      const result = await service.transferPreview(
+        'pa1',
+        { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' },
+        ctx,
+        'user-1',
+      );
+
+      expect(result.affectedRelationships[0].allowedResolutions).toContain('CONTINUE_ON_NEW_ASSIGNMENT');
+      expect(result.affectedRelationships[1].allowedResolutions).toContain('CONTINUE_ON_NEW_ASSIGNMENT');
+      expect(result.affectedRelationships[1].continuationBlockedReason).toBeNull();
+    });
+
+    it('suppresses CONTINUE when canonical HIER-A detects an upstream temporal cycle', async () => {
+      const inbound = baseInbound({ id: 'sa-cycle-in' });
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValueOnce(baseAssignment());
+      prisma.department.findFirst.mockResolvedValue(newDept2);
+      prisma.jobTitle.findFirst.mockResolvedValue({ id: 'jt1' });
+      prisma.branch.findFirst.mockResolvedValue({ id: 'branch-a' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person1' });
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([inbound])
+        .mockResolvedValueOnce([])
+        .mockImplementation((args: any) => {
+          if (args?.where?.assignmentId === 'pa-super') {
+            return Promise.resolve([{
+              id: 'sa-cycle-a',
+              assignmentId: 'pa-super',
+              supervisorAssignmentId: 'pa-cycle',
+              effectiveFrom: new Date('2025-01-01'),
+              effectiveTo: null,
+            }]);
+          }
+          if (args?.where?.assignmentId === 'pa-cycle') {
+            return Promise.resolve([{
+              id: 'sa-cycle-b',
+              assignmentId: 'pa-cycle',
+              supervisorAssignmentId: 'pa-super',
+              effectiveFrom: new Date('2025-01-01'),
+              effectiveTo: null,
+            }]);
+          }
+          return Promise.resolve([]);
+        });
+
+      const result = await service.transferPreview(
+        'pa1',
+        { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' },
+        ctx,
+        'user-1',
+      );
+
+      expect(result.affectedRelationships[0].allowedResolutions).toEqual(['END_AT_TRANSFER']);
+      expect(result.affectedRelationships[0].continuationBlockedReason).toBe('validation.cycleDetected');
+    });
+
+    it('fails closed before exposing inbound context from a corrupt cross-company relationship', async () => {
+      const relationship = setupWithInbound();
+      relationship.supervisorAssignment.companyId = 'company-b';
+
+      await expect(service.transferPreview(
+        'pa1',
+        { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' },
+        ctx,
+        'user-1',
+      )).rejects.toThrow(BadRequestException);
+    });
+
+    it('fails closed before exposing outbound context from a corrupt cross-company relationship', async () => {
+      const relationship = setupWithOutbound();
+      relationship.assignment.companyId = 'company-b';
+
+      await expect(service.transferPreview(
+        'pa1',
+        { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' },
+        ctx,
+        'user-1',
+      )).rejects.toThrow(BadRequestException);
     });
 
     it('rejects preview for non-PRIMARY assignment', async () => {
@@ -210,6 +417,117 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
       expect(result.relationshipsContinued).toBe(0);
     });
 
+    it('allows transfer-only users when no relationship mutation is needed', async () => {
+      setupNoRelations();
+      grantPermissions('person-assignment:transfer');
+      mockTx();
+
+      await expect(service.transfer(
+        'pa1',
+        { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' },
+        ctx,
+        'user-1',
+      )).resolves.toBeDefined();
+      expect(prisma.userRole.findMany).not.toHaveBeenCalled();
+    });
+
+    it('always rejects a foreign resolution even when zero relationships are affected', async () => {
+      setupNoRelations();
+
+      await expect(service.transfer('pa1', {
+        departmentId: 'dept2',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+        relationshipResolutions: [{ relationshipId: 'foreign-id', action: 'END_AT_TRANSFER' }],
+      }, ctx, 'user-1')).rejects.toThrow(BadRequestException);
+      expect(prisma.operationalPersonAssignment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects attempts to rewrite a historical relationship', async () => {
+      const relationship = setupWithInbound({ effectiveTo: new Date('2026-03-01'), isActive: false });
+
+      await expect(service.transfer('pa1', {
+        departmentId: 'dept2',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+        relationshipResolutions: [{ relationshipId: relationship.id, action: 'END_AT_TRANSFER' }],
+      }, ctx, 'user-1')).rejects.toThrow(BadRequestException);
+      expect(prisma.supervisorAssignment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects duplicate relationship resolutions at the service boundary', async () => {
+      const relationship = setupWithInbound();
+
+      await expect(service.transfer('pa1', {
+        departmentId: 'dept2',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+        relationshipResolutions: [
+          { relationshipId: relationship.id, action: 'END_AT_TRANSFER' },
+          { relationshipId: relationship.id, action: 'CONTINUE_ON_NEW_ASSIGNMENT' },
+        ],
+      }, ctx, 'user-1')).rejects.toThrow(BadRequestException);
+      expect(prisma.operationalPersonAssignment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('requires supervisor:remove for reconciliation', async () => {
+      const relationship = setupWithInbound();
+      grantPermissions('person-assignment:transfer');
+
+      await expect(service.transfer('pa1', {
+        departmentId: 'dept2',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+        relationshipResolutions: [{ relationshipId: relationship.id, action: 'END_AT_TRANSFER' }],
+      }, ctx, 'user-1')).rejects.toThrow(ForbiddenException);
+      expect(prisma.operationalPersonAssignment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('also requires supervisor:assign for continuation', async () => {
+      const relationship = setupWithInbound();
+      grantPermissions('supervisor:remove');
+
+      await expect(service.transfer('pa1', {
+        departmentId: 'dept2',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+        relationshipResolutions: [{ relationshipId: relationship.id, action: 'CONTINUE_ON_NEW_ASSIGNMENT' }],
+      }, ctx, 'user-1')).rejects.toThrow(ForbiddenException);
+      expect(prisma.operationalPersonAssignment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects a cyclic multi-continuation final graph before any mutation', async () => {
+      const inbound = baseInbound({ id: 'sa-cycle-in' });
+      const outbound = baseOutbound({ id: 'sa-cycle-out' });
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValueOnce(baseAssignment());
+      prisma.department.findFirst.mockResolvedValue(newDept2);
+      prisma.jobTitle.findFirst.mockResolvedValue({ id: 'jt1' });
+      prisma.branch.findFirst.mockResolvedValue({ id: 'branch-a' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person1' });
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([inbound])
+        .mockResolvedValueOnce([outbound])
+        .mockImplementation((args: any) => {
+          if (args?.where?.assignmentId === 'pa-super') {
+            return Promise.resolve([{
+              id: 'sa-a-b',
+              assignmentId: 'pa-super',
+              supervisorAssignmentId: 'pa-sub1',
+              effectiveFrom: new Date('2025-01-01'),
+              effectiveTo: null,
+            }]);
+          }
+          return Promise.resolve([]);
+        });
+      const tx = mockTx();
+
+      await expect(service.transfer('pa1', {
+        departmentId: 'dept2',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+        relationshipResolutions: [
+          { relationshipId: inbound.id, action: 'CONTINUE_ON_NEW_ASSIGNMENT' },
+          { relationshipId: outbound.id, action: 'CONTINUE_ON_NEW_ASSIGNMENT' },
+        ],
+      }, ctx, 'user-1')).rejects.toThrow(BadRequestException);
+      expect(tx.operationalPersonAssignment.updateMany).not.toHaveBeenCalled();
+      expect(tx.supervisorAssignment.updateMany).not.toHaveBeenCalled();
+    });
+
     it('rejects when affected relationships exist but no resolutions', async () => {
       setupWithInbound();
       await expect(service.transfer('pa1', { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' }, ctx, 'user-1')).rejects.toThrow(BadRequestException);
@@ -224,8 +542,11 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
       }, ctx, 'user-1');
       expect(result.relationshipsEnded).toBe(1);
       expect(result.relationshipsContinued).toBe(0);
-      expect(tx.supervisorAssignment.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: rel.id }, data: expect.objectContaining({ isActive: false }) }),
+      expect(tx.supervisorAssignment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: rel.id, companyId: 'company-a' }),
+          data: { effectiveTo: new Date('2026-06-01T00:00:00.000Z') },
+        }),
       );
     });
 
@@ -233,12 +554,23 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
       const rel = setupWithInbound();
       const tx = mockTx();
       tx.supervisorAssignment.findFirst.mockResolvedValue(null);
+      const integritySpy = jest.spyOn(supervisorAssignmentsService, 'assertDirectIntegrityWithClient');
       const result = await service.transfer('pa1', {
         departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z',
         relationshipResolutions: [{ relationshipId: rel.id, action: 'CONTINUE_ON_NEW_ASSIGNMENT' }],
       }, ctx, 'user-1');
       expect(result.relationshipsContinued).toBe(1);
       expect(tx.supervisorAssignment.create).toHaveBeenCalled();
+      expect(integritySpy).toHaveBeenCalledWith(tx, expect.objectContaining({
+        companyId: 'company-a',
+        assignmentId: 'pa2',
+        supervisorAssignmentId: 'pa-super',
+      }));
+      expect(tx.supervisorAssignment.updateMany.mock.calls[0][0].data).toEqual({
+        effectiveTo: new Date('2026-06-01T00:00:00.000Z'),
+      });
+      expect(tx.supervisorAssignment.updateMany.mock.invocationCallOrder[0])
+        .toBeLessThan(integritySpy.mock.invocationCallOrder.at(-1)!);
     });
 
     it('END_AT_TRANSFER closes outbound team relationships', async () => {
@@ -267,12 +599,19 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
       const rel = setupWithOutbound();
       const tx = mockTx();
       tx.supervisorAssignment.findFirst.mockResolvedValue(null);
+      const integritySpy = jest.spyOn(supervisorAssignmentsService, 'assertDirectIntegrityWithClient');
       const result = await service.transfer('pa1', {
         departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z',
         relationshipResolutions: [{ relationshipId: rel.id, action: 'CONTINUE_ON_NEW_ASSIGNMENT' }],
       }, ctx, 'user-1');
       expect(result.relationshipsContinued).toBe(1);
-      expect(tx.supervisorAssignment.create).toHaveBeenCalled();
+      expect(tx.supervisorAssignment.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ assignmentId: 'pa-sub1', supervisorAssignmentId: 'pa2' }),
+      }));
+      expect(integritySpy).toHaveBeenCalledWith(tx, expect.objectContaining({
+        assignmentId: 'pa-sub1',
+        supervisorAssignmentId: 'pa2',
+      }));
     });
 
     it('mixed resolution: E1 continue, E2 end, E3 continue', async () => {
@@ -345,8 +684,8 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
       prisma.supervisorAssignment.findMany.mockResolvedValue([]);
       const tx = mockTx();
       await service.transfer('pa1', { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' }, ctx, 'user-1');
-      expect(tx.operationalPersonAssignment.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'pa1' }, data: { effectiveTo: expect.any(Date) } }),
+      expect(tx.operationalPersonAssignment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id: 'pa1', companyId: 'company-a' }), data: { effectiveTo: expect.any(Date) } }),
       );
       expect(tx.operationalPersonAssignment.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ leadershipLevel: 'NONE' }) }),
@@ -364,6 +703,265 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
         tx,
         expect.objectContaining({ action: 'TRANSFER', entity: 'OperationalPersonAssignment' }),
       );
+      const actions = auditService.logWithClient.mock.calls.map((call: any[]) => call[1].action);
+      expect(actions).toEqual(expect.arrayContaining([
+        'TRANSFER_ASSIGNMENT_CLOSE',
+        'TRANSFER_ASSIGNMENT_CREATE',
+        'TRANSFER_RELATIONSHIP_END',
+        'TRANSFER',
+      ]));
+    });
+
+    it('validates Administration ownership through the selected company and branch', async () => {
+      setupNoRelations();
+      prisma.administration.findFirst.mockResolvedValue({ id: 'admin1', branchId: 'branch-a' });
+      mockTx();
+
+      await service.transfer('pa1', {
+        departmentId: 'dept2',
+        administrationId: 'admin1',
+        branchId: 'branch-a',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+      }, ctx, 'user-1');
+
+      expect(prisma.administration.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 'admin1',
+          deletedAt: null,
+          branch: { companyId: 'company-a', deletedAt: null },
+        },
+      });
+    });
+
+    it('rejects a stale assignment close before creating the replacement', async () => {
+      setupNoRelations();
+      const tx = mockTx();
+      tx.operationalPersonAssignment.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.transfer(
+        'pa1',
+        { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' },
+        ctx,
+        'user-1',
+      )).rejects.toThrow(BadRequestException);
+      expect(tx.operationalPersonAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a stale relationship mutation before creating its continuation', async () => {
+      const relationship = setupWithInbound();
+      const tx = mockTx();
+      tx.supervisorAssignment.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.transfer('pa1', {
+        departmentId: 'dept2',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+        relationshipResolutions: [{ relationshipId: relationship.id, action: 'CONTINUE_ON_NEW_ASSIGNMENT' }],
+      }, ctx, 'user-1')).rejects.toThrow(BadRequestException);
+      expect(tx.supervisorAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('propagates a late audit failure through the Serializable transaction boundary', async () => {
+      setupNoRelations();
+      const tx = mockTx();
+      auditService.logWithClient.mockRejectedValueOnce(new Error('audit unavailable'));
+
+      await expect(service.transfer(
+        'pa1',
+        { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' },
+        ctx,
+        'user-1',
+      )).rejects.toThrow('audit unavailable');
+      expect(tx.operationalPersonAssignment.create).toHaveBeenCalled();
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'Serializable' });
+      expect(auditService.logWithClient).toHaveBeenCalledWith(tx, expect.any(Object));
+    });
+
+    it('rolls back old/new assignments and relationship reconciliation after a forced late failure', async () => {
+      const durableState = {
+        oldAssignmentEffectiveTo: null as Date | null,
+        newAssignmentIds: [] as string[],
+        oldRelationshipEffectiveTo: null as Date | null,
+        continuationIds: [] as string[],
+      };
+      const relationship = baseInbound({ id: 'sa-rollback' });
+      prisma.$transaction.mockImplementation(async (callback: any) => {
+        const draft = {
+          oldAssignmentEffectiveTo: durableState.oldAssignmentEffectiveTo,
+          newAssignmentIds: [...durableState.newAssignmentIds],
+          oldRelationshipEffectiveTo: durableState.oldRelationshipEffectiveTo,
+          continuationIds: [...durableState.continuationIds],
+        };
+        const tx: any = {
+          operationalPersonAssignment: {
+            findFirst: jest.fn((args: any) => {
+              if (args?.where?.id === 'pa1') {
+                return Promise.resolve(baseAssignment({ effectiveTo: draft.oldAssignmentEffectiveTo }));
+              }
+              if (args?.where?.id === 'pa-super') {
+                return Promise.resolve(baseAssignment({
+                  id: 'pa-super',
+                  personnelId: 'super1',
+                  assignmentType: 'SECONDARY',
+                  effectiveFrom: new Date('2025-01-01'),
+                }));
+              }
+              if (args?.where?.id === 'pa2' && draft.newAssignmentIds.includes('pa2')) {
+                return Promise.resolve(baseAssignment({ id: 'pa2' }));
+              }
+              return Promise.resolve(null);
+            }),
+            findMany: jest.fn().mockResolvedValue([]),
+            updateMany: jest.fn((args: any) => {
+              if (args.where.id === 'pa1' && draft.oldAssignmentEffectiveTo === null) {
+                draft.oldAssignmentEffectiveTo = args.data.effectiveTo;
+                return Promise.resolve({ count: 1 });
+              }
+              return Promise.resolve({ count: 0 });
+            }),
+            create: jest.fn(() => {
+              draft.newAssignmentIds.push('pa2');
+              return Promise.resolve(baseAssignment({ id: 'pa2', departmentId: 'dept2' }));
+            }),
+          },
+          department: { findFirst: jest.fn().mockResolvedValue(newDept2) },
+          jobTitle: { findFirst: jest.fn().mockResolvedValue({ id: 'jt1' }) },
+          branch: { findFirst: jest.fn().mockResolvedValue({ id: 'branch-a' }) },
+          administration: { findFirst: jest.fn() },
+          operationalPerson: { findFirst: jest.fn().mockResolvedValue({ id: 'person1' }) },
+          userRole: prisma.userRole,
+          supervisorAssignment: {
+            findMany: jest.fn((args: any) => {
+              if (args?.include?.supervisorAssignment && args?.where?.assignmentId === 'pa1') {
+                return Promise.resolve([relationship]);
+              }
+              return Promise.resolve([]);
+            }),
+            updateMany: jest.fn((args: any) => {
+              if (args.where.id === relationship.id && draft.oldRelationshipEffectiveTo === null) {
+                draft.oldRelationshipEffectiveTo = args.data.effectiveTo;
+                return Promise.resolve({ count: 1 });
+              }
+              return Promise.resolve({ count: 0 });
+            }),
+            create: jest.fn((args: any) => {
+              draft.continuationIds.push('sa-continuation');
+              return Promise.resolve({ id: 'sa-continuation', ...args.data });
+            }),
+          },
+        };
+
+        const result = await callback(tx);
+        durableState.oldAssignmentEffectiveTo = draft.oldAssignmentEffectiveTo;
+        durableState.newAssignmentIds = draft.newAssignmentIds;
+        durableState.oldRelationshipEffectiveTo = draft.oldRelationshipEffectiveTo;
+        durableState.continuationIds = draft.continuationIds;
+        return result;
+      });
+      auditService.logWithClient.mockImplementation(async (_tx: any, entry: any) => {
+        if (entry.action === 'TRANSFER') throw new Error('forced late audit failure');
+      });
+
+      await expect(service.transfer('pa1', {
+        departmentId: 'dept2',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+        relationshipResolutions: [{
+          relationshipId: relationship.id,
+          action: 'CONTINUE_ON_NEW_ASSIGNMENT',
+        }],
+      }, ctx, 'user-1')).rejects.toThrow('forced late audit failure');
+
+      expect(durableState.oldAssignmentEffectiveTo).toBeNull();
+      expect(durableState.newAssignmentIds).toEqual([]);
+      expect(durableState.oldRelationshipEffectiveTo).toBeNull();
+      expect(durableState.continuationIds).toEqual([]);
+    });
+  });
+
+  describe('canonical HIER-A integrity reuse', () => {
+    const snapshot = (id: string, personnelId: string) => ({
+      id,
+      personnelId,
+      branchId: 'branch-a',
+      effectiveFrom: new Date('2025-01-01'),
+      effectiveTo: null,
+    });
+
+    it('scopes both overlap and cycle graph reads to the active company', async () => {
+      prisma.supervisorAssignment.findMany.mockImplementation((args: any) => {
+        if (args?.where?.companyId !== 'company-a') {
+          return Promise.resolve([{
+            id: 'poison-company-b',
+            assignmentId: args?.where?.assignmentId,
+            supervisorAssignmentId: 'pa-subordinate',
+            effectiveFrom: new Date('2025-01-01'),
+            effectiveTo: null,
+          }]);
+        }
+        return Promise.resolve([]);
+      });
+
+      await expect(supervisorAssignmentsService.assertDirectIntegrityWithClient(prisma, {
+        companyId: 'company-a',
+        assignmentId: 'pa-subordinate',
+        supervisorAssignmentId: 'pa-supervisor',
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+        assignmentSnapshot: snapshot('pa-subordinate', 'person-subordinate'),
+        supervisorAssignmentSnapshot: snapshot('pa-supervisor', 'person-supervisor'),
+      })).resolves.toBeUndefined();
+
+      expect(prisma.supervisorAssignment.findMany).toHaveBeenCalledTimes(2);
+      for (const [args] of prisma.supervisorAssignment.findMany.mock.calls) {
+        expect(args.where.companyId).toBe('company-a');
+      }
+    });
+
+    it('explores every temporally overlapping DIRECT edge and catches a non-first cycle path', async () => {
+      prisma.supervisorAssignment.findMany.mockImplementation((args: any) => {
+        switch (args?.where?.assignmentId) {
+          case 'pa-subordinate':
+            return Promise.resolve([]);
+          case 'pa-supervisor':
+            return Promise.resolve([
+              {
+                id: 'sa-first-safe-window',
+                assignmentId: 'pa-supervisor',
+                supervisorAssignmentId: 'pa-safe',
+                effectiveFrom: new Date('2026-01-01'),
+                effectiveTo: new Date('2026-06-01'),
+              },
+              {
+                id: 'sa-second-cycle-window',
+                assignmentId: 'pa-supervisor',
+                supervisorAssignmentId: 'pa-cycle',
+                effectiveFrom: new Date('2026-06-01'),
+                effectiveTo: new Date('2027-01-01'),
+              },
+            ]);
+          case 'pa-safe':
+            return Promise.resolve([]);
+          case 'pa-cycle':
+            return Promise.resolve([{
+              id: 'sa-cycle-back',
+              assignmentId: 'pa-cycle',
+              supervisorAssignmentId: 'pa-subordinate',
+              effectiveFrom: new Date('2026-07-01'),
+              effectiveTo: new Date('2026-12-01'),
+            }]);
+          default:
+            return Promise.resolve([]);
+        }
+      });
+
+      await expect(supervisorAssignmentsService.assertDirectIntegrityWithClient(prisma, {
+        companyId: 'company-a',
+        assignmentId: 'pa-subordinate',
+        supervisorAssignmentId: 'pa-supervisor',
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: new Date('2027-01-01'),
+        assignmentSnapshot: snapshot('pa-subordinate', 'person-subordinate'),
+        supervisorAssignmentSnapshot: snapshot('pa-supervisor', 'person-supervisor'),
+      })).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -393,7 +991,31 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
         .mockResolvedValueOnce([]);
       const tx = mockTx();
       await service.transfer('pa1', { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' }, ctx, 'user-1');
-      expect(tx.supervisorAssignment.update).not.toHaveBeenCalled();
+      expect(tx.supervisorAssignment.updateMany).not.toHaveBeenCalled();
+      expect(tx.supervisorAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('cancels a future relationship without writing an inverted effective interval', async () => {
+      const rel = baseInbound({ id: 'sa-future-end', effectiveFrom: new Date('2027-01-01') });
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValueOnce(baseAssignment());
+      prisma.department.findFirst.mockResolvedValue(newDept2);
+      prisma.jobTitle.findFirst.mockResolvedValue({ id: 'jt1' });
+      prisma.branch.findFirst.mockResolvedValue({ id: 'branch-a' });
+      prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person1' });
+      prisma.supervisorAssignment.findMany
+        .mockResolvedValueOnce([rel])
+        .mockResolvedValueOnce([]);
+      const tx = mockTx();
+
+      await service.transfer('pa1', {
+        departmentId: 'dept2',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+        relationshipResolutions: [{ relationshipId: rel.id, action: 'END_AT_TRANSFER' }],
+      }, ctx, 'user-1');
+
+      const retirement = tx.supervisorAssignment.updateMany.mock.calls[0][0];
+      expect(retirement.data).toEqual({ isActive: false, status: 'CANCELLED' });
+      expect(retirement.data).not.toHaveProperty('effectiveTo');
       expect(tx.supervisorAssignment.create).not.toHaveBeenCalled();
     });
 
@@ -415,6 +1037,10 @@ describe('PersonAssignmentsService — HIER-G Transfer Reconciliation', () => {
       }, ctx, 'user-1');
       const createCall = tx.supervisorAssignment.create.mock.calls[0][0];
       expect(createCall.data.effectiveFrom.toISOString()).toBe('2027-01-01T00:00:00.000Z');
+      expect(tx.supervisorAssignment.updateMany.mock.calls[0][0].data).toEqual({
+        isActive: false,
+        status: 'CANCELLED',
+      });
     });
   });
 });

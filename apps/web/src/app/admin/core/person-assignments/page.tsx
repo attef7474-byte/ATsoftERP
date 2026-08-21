@@ -1,11 +1,29 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { api } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n/use-translation';
 import { useToast } from '@/components/admin/toast-provider';
-import type { OperationalPersonAssignment, PaginationMeta, TransferPreviewResponse, TransferApplyResponse, AffectedRelationship, RelationshipResolutionAction } from '@/lib/admin-types';
+import { useApiErrorHandler } from '@/components/admin/error-handler';
+import { useAuth } from '@/lib/auth-context';
+import {
+  HIER_G_TRANSFER_STEPS,
+  TRANSFER_RESOLUTION_ACTIONS,
+  buildTransferPreviewFingerprint,
+  isTransferConfirmationReady,
+  isTransferResolutionAuthorized,
+  requiredTransferRelationships,
+  unresolvedTransferRelationshipIds,
+} from '@/lib/admin-types';
+import type {
+  OperationalPersonAssignment,
+  PaginationMeta,
+  TransferPreviewResponse,
+  TransferApplyResponse,
+  AffectedRelationship,
+  RelationshipResolutionAction,
+  TransferWorkflowStep,
+} from '@/lib/admin-types';
 import { Button, Input, Card, LoadingState, Modal, StatusBadge, Pagination, ConfirmDialog } from '@/components/admin/ui';
 import { F9Lookup, operationalPersonAdapter, branchAdapter, administrationAdapter, departmentAdapter, jobTitleAdapter } from '@/components/f9';
 import { Search, Plus, Edit, Trash2, RefreshCw, Users, ArrowRightLeft } from 'lucide-react';
@@ -31,16 +49,41 @@ interface TransferForm {
   notes: string;
 }
 
+interface TransferPlacementLabels {
+  branch: string;
+  administration: string;
+  department: string;
+  jobTitle: string;
+}
+
 const EMPTY_FORM: AssignmentForm = { personnelId: '', departmentId: '', jobTitleId: '', assignmentType: 'PRIMARY', leadershipLevel: 'NONE', effectiveFrom: '', effectiveTo: '', notes: '' };
 const EMPTY_TRANSFER_FORM: TransferForm = { branchId: '', administrationId: '', departmentId: '', jobTitleId: '', leadershipLevel: 'NONE', effectiveFrom: '', notes: '' };
+const EMPTY_TRANSFER_LABELS: TransferPlacementLabels = { branch: '', administration: '', department: '', jobTitle: '' };
 const INITIAL_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
 const ASSIGNMENT_TYPES = ['PRIMARY', 'SECONDARY', 'TEMPORARY', 'ACTING'];
 const LEADERSHIP_LEVELS = ['NONE', 'TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD', 'ADMINISTRATION_MANAGER'];
+const CONTINUATION_BLOCKED_REASON_KEYS = {
+  'validation.invalidReference': 'core.continuationBlockedInvalidReference',
+  'validation.invalidRange': 'core.continuationBlockedInvalidRange',
+  'validation.assignmentOutOfRange': 'core.continuationBlockedAssignmentOutOfRange',
+  'validation.selfReference': 'core.continuationBlockedSelfReference',
+  'validation.invalidBranchHierarchy': 'core.continuationBlockedBranchHierarchy',
+  'validation.directSupervisorOverlap': 'core.continuationBlockedDirectOverlap',
+  'validation.cycleDetected': 'core.continuationBlockedCycle',
+} as const;
 
 export default function PersonAssignmentsPage() {
-  const router = useRouter();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
+  const { permissions, isSuperAdmin } = useAuth();
+
+  const permissionKeys = permissions?.permissions ?? [];
+  const canTransferAssignment = isSuperAdmin || permissionKeys.includes('person-assignment:transfer');
+  const canReadSupervision = isSuperAdmin || permissionKeys.includes('supervisor:read');
+  const canAssignSupervision = isSuperAdmin || permissionKeys.includes('supervisor:assign');
+  const canRemoveSupervision = isSuperAdmin || permissionKeys.includes('supervisor:remove');
+  const canOpenTransfer = canTransferAssignment;
 
   const [data, setData] = useState<OperationalPersonAssignment[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>(INITIAL_META);
@@ -58,11 +101,18 @@ export default function PersonAssignmentsPage() {
   const [transferId, setTransferId] = useState<string | null>(null);
   const [transferRecord, setTransferRecord] = useState<OperationalPersonAssignment | null>(null);
   const [transferForm, setTransferForm] = useState<TransferForm>(EMPTY_TRANSFER_FORM);
-  const [transferStep, setTransferStep] = useState(1);
+  const [transferLabels, setTransferLabels] = useState<TransferPlacementLabels>(EMPTY_TRANSFER_LABELS);
+  const [transferStep, setTransferStep] = useState<TransferWorkflowStep>(1);
   const [transferPreview, setTransferPreview] = useState<TransferPreviewResponse | null>(null);
+  const [transferPreviewFingerprint, setTransferPreviewFingerprint] = useState<string | null>(null);
   const [transferResolutions, setTransferResolutions] = useState<Record<string, RelationshipResolutionAction>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
   const [transferResult, setTransferResult] = useState<TransferApplyResponse | null>(null);
+  const transferFormRef = useRef<TransferForm>(EMPTY_TRANSFER_FORM);
+  const transferIdRef = useRef<string | null>(null);
+  const previewAbortRef = useRef<AbortController | null>(null);
+  const previewRequestVersionRef = useRef(0);
+  const applyInFlightRef = useRef(false);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -84,6 +134,97 @@ export default function PersonAssignmentsPage() {
   useEffect(() => { fetchData(1, search); }, []);
 
   const handleSearch = () => fetchData(1, search);
+
+  useEffect(() => () => {
+    previewRequestVersionRef.current += 1;
+    previewAbortRef.current?.abort();
+  }, []);
+
+  const resolutionCapabilities = useMemo(() => ({
+    canAssign: canAssignSupervision,
+    canRemove: canRemoveSupervision,
+  }), [canAssignSupervision, canRemoveSupervision]);
+
+  const currentTransferFingerprint = buildTransferPreviewFingerprint(transferId, {
+    ...transferForm,
+    assignmentType: 'PRIMARY',
+  });
+  const previewIsFresh = Boolean(
+    transferPreview &&
+    transferPreviewFingerprint &&
+    transferPreviewFingerprint === currentTransferFingerprint,
+  );
+  const requiredRelationships = requiredTransferRelationships(transferPreview);
+  const unresolvedRelationshipIds = unresolvedTransferRelationshipIds(
+    transferPreview,
+    transferResolutions,
+    resolutionCapabilities,
+  );
+  const confirmationReady = isTransferConfirmationReady(
+    transferPreview,
+    previewIsFresh,
+    transferResolutions,
+    resolutionCapabilities,
+  );
+  const lacksRequiredMutationPermission = requiredRelationships.some(
+    (relationship) => !relationship.allowedResolutions.some(
+      (action) => isTransferResolutionAuthorized(relationship, action, resolutionCapabilities),
+    ),
+  );
+
+  const invalidateTransferPreview = useCallback(() => {
+    previewRequestVersionRef.current += 1;
+    previewAbortRef.current?.abort();
+    previewAbortRef.current = null;
+    setPreviewLoading(false);
+    setTransferPreview(null);
+    setTransferPreviewFingerprint(null);
+    setTransferResolutions({});
+    setTransferResult(null);
+  }, []);
+
+  const updateTransferForm = useCallback((patch: Partial<TransferForm>) => {
+    invalidateTransferPreview();
+    setTransferForm((previous) => {
+      const next = { ...previous, ...patch };
+      transferFormRef.current = next;
+      return next;
+    });
+  }, [invalidateTransferPreview]);
+
+  const lookupLabel = (item: unknown) => {
+    if (!item || typeof item !== 'object') return '';
+    const candidate = item as { name?: unknown; label?: unknown; code?: unknown };
+    const name = typeof candidate.name === 'string' ? candidate.name : typeof candidate.label === 'string' ? candidate.label : '';
+    const code = typeof candidate.code === 'string' ? candidate.code : '';
+    return name && code ? `${name} (${code})` : name || code;
+  };
+
+  const formatTransferDate = (value: string | null | undefined) => {
+    if (!value) return t('core.notSpecified');
+    return new Date(value).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US');
+  };
+
+  const closeTransferWorkflow = (refresh = false) => {
+    if (saving || applyInFlightRef.current) return;
+    previewRequestVersionRef.current += 1;
+    previewAbortRef.current?.abort();
+    previewAbortRef.current = null;
+    transferIdRef.current = null;
+    transferFormRef.current = EMPTY_TRANSFER_FORM;
+    setTransferModal(false);
+    setTransferId(null);
+    setTransferRecord(null);
+    setTransferForm(EMPTY_TRANSFER_FORM);
+    setTransferLabels(EMPTY_TRANSFER_LABELS);
+    setTransferStep(1);
+    setTransferPreview(null);
+    setTransferPreviewFingerprint(null);
+    setTransferResolutions({});
+    setTransferResult(null);
+    setPreviewLoading(false);
+    if (refresh) fetchData(meta.page, search);
+  };
 
   const openCreateModal = () => {
     setEditingId(null);
@@ -137,29 +278,60 @@ export default function PersonAssignmentsPage() {
   };
 
   const openTransferModal = (record: OperationalPersonAssignment) => {
-    setTransferId(record.id);
-    setTransferRecord(record);
-    setTransferForm({
+    if (!canOpenTransfer || record.assignmentType !== 'PRIMARY' || Boolean(record.effectiveTo)) return;
+    previewRequestVersionRef.current += 1;
+    previewAbortRef.current?.abort();
+    const today = new Date();
+    const localDate = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0'),
+    ].join('-');
+    const nextForm: TransferForm = {
       branchId: '',
       administrationId: '',
       departmentId: '',
       jobTitleId: '',
       leadershipLevel: 'NONE',
-      effectiveFrom: new Date().toISOString().split('T')[0],
+      effectiveFrom: localDate,
       notes: '',
-    });
+    };
+    setTransferId(record.id);
+    transferIdRef.current = record.id;
+    setTransferRecord(record);
+    setTransferForm(nextForm);
+    transferFormRef.current = nextForm;
+    setTransferLabels(EMPTY_TRANSFER_LABELS);
     setTransferStep(1);
     setTransferPreview(null);
+    setTransferPreviewFingerprint(null);
     setTransferResolutions({});
     setTransferResult(null);
     setTransferModal(true);
   };
 
   const handlePreviewTransfer = async () => {
-    if (!transferId || !transferForm.departmentId || !transferForm.effectiveFrom) return;
+    if (
+      previewLoading ||
+      !canOpenTransfer ||
+      !transferId ||
+      !transferForm.departmentId ||
+      !transferForm.effectiveFrom
+    ) return;
+    previewAbortRef.current?.abort();
+    const controller = new AbortController();
+    previewAbortRef.current = controller;
+    const requestVersion = ++previewRequestVersionRef.current;
+    const requestFingerprint = buildTransferPreviewFingerprint(transferId, {
+      ...transferForm,
+      assignmentType: 'PRIMARY',
+    });
     setPreviewLoading(true);
+    setTransferPreview(null);
+    setTransferPreviewFingerprint(null);
+    setTransferResolutions({});
     try {
-      const res = await api.post(`/person-assignments/${transferId}/transfer/preview`, {
+      const res = await api.post<TransferPreviewResponse>(`/person-assignments/${transferId}/transfer/preview`, {
         departmentId: transferForm.departmentId,
         branchId: transferForm.branchId || undefined,
         administrationId: transferForm.administrationId || undefined,
@@ -168,32 +340,50 @@ export default function PersonAssignmentsPage() {
         effectiveFrom: transferForm.effectiveFrom,
         effectiveTo: undefined,
         notes: transferForm.notes || undefined,
-      }) as any;
+      }, { signal: controller.signal });
+      const latestFingerprint = buildTransferPreviewFingerprint(transferIdRef.current, {
+        ...transferFormRef.current,
+        assignmentType: 'PRIMARY',
+      });
+      if (
+        controller.signal.aborted ||
+        requestVersion !== previewRequestVersionRef.current ||
+        requestFingerprint !== latestFingerprint
+      ) return;
       setTransferPreview(res);
-      const autoResolutions: Record<string, RelationshipResolutionAction> = {};
-      for (const rel of res.affectedRelationships || []) {
-        if (rel.allowedResolutions.length === 1) {
-          autoResolutions[rel.id] = rel.allowedResolutions[0];
-        }
-      }
-      setTransferResolutions(autoResolutions);
+      setTransferPreviewFingerprint(requestFingerprint);
+      setTransferResolutions({});
       setTransferStep(2);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || t('errors.loadFailed'), 'error');
+      if (err?.name !== 'AbortError') handleApiError(err);
     } finally {
-      setPreviewLoading(false);
+      if (requestVersion === previewRequestVersionRef.current) {
+        setPreviewLoading(false);
+        previewAbortRef.current = null;
+      }
     }
   };
 
   const handleApplyTransfer = async () => {
-    if (!transferId || !transferForm.departmentId || !transferForm.effectiveFrom) return;
+    if (saving || applyInFlightRef.current) return;
+    if (
+      !canOpenTransfer ||
+      !transferId ||
+      !transferForm.departmentId ||
+      !transferForm.effectiveFrom ||
+      !confirmationReady
+    ) {
+      showToast(previewIsFresh ? t('core.resolveAllRelationships') : t('core.transferPreviewStale'), 'error');
+      return;
+    }
+    applyInFlightRef.current = true;
     setSaving(true);
     try {
-      const resolutions = (transferPreview?.affectedRelationships || [])
-        .filter(r => r.temporalCategory !== 'HISTORICAL' && r.allowedResolutions.length > 0)
-        .map(r => ({ relationshipId: r.id, action: transferResolutions[r.id] }))
-        .filter(r => r.action);
-      const res = await api.post(`/person-assignments/${transferId}/transfer`, {
+      const resolutions = requiredRelationships.map((relationship) => ({
+        relationshipId: relationship.id,
+        action: transferResolutions[relationship.id],
+      }));
+      const res = await api.post<TransferApplyResponse>(`/person-assignments/${transferId}/transfer`, {
         departmentId: transferForm.departmentId,
         branchId: transferForm.branchId || undefined,
         administrationId: transferForm.administrationId || undefined,
@@ -203,13 +393,14 @@ export default function PersonAssignmentsPage() {
         effectiveTo: undefined,
         notes: transferForm.notes || undefined,
         relationshipResolutions: resolutions.length > 0 ? resolutions : undefined,
-      }) as any;
+      });
       setTransferResult(res);
-      setTransferStep(4);
+      setTransferStep(5);
       showToast(t('core.transferSuccess'), 'success');
-    } catch (err: any) {
-      showToast(err?.response?.data?.message || t('core.transferFailed'), 'error');
+    } catch (err: unknown) {
+      handleApiError(err);
     } finally {
+      applyInFlightRef.current = false;
       setSaving(false);
     }
   };
@@ -225,6 +416,95 @@ export default function PersonAssignmentsPage() {
     } catch (err: any) {
       showToast(err?.response?.data?.message || t('errors.deleteFailed'), 'error');
     }
+  };
+
+  const renderRelationshipContext = (relationship: AffectedRelationship, allowResolution: boolean) => {
+    const otherParty = relationship.otherParty;
+    const continuationBlockedMessageKey = relationship.continuationBlockedReason
+      ? CONTINUATION_BLOCKED_REASON_KEYS[
+          relationship.continuationBlockedReason as keyof typeof CONTINUATION_BLOCKED_REASON_KEYS
+        ]
+      : undefined;
+    const continuationBlockedMessage = continuationBlockedMessageKey
+      ? t(continuationBlockedMessageKey)
+      : t('core.resolutionNotAllowed');
+    return (
+      <div key={relationship.id} className="border rounded-lg p-3 space-y-3" data-relationship-row>
+        <div className="flex flex-wrap justify-between items-start gap-2">
+          <div>
+            <p className="text-sm font-medium">{otherParty.person?.name || t('core.notSpecified')}</p>
+            {otherParty.person?.code && <p className="text-xs text-gray-500">{otherParty.person.code}</p>}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            <span className={`text-xs px-1.5 py-0.5 rounded ${relationship.direction === 'INBOUND' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>
+              {t(`core.directions.${relationship.direction}`)}
+            </span>
+            <span className={`text-xs px-1.5 py-0.5 rounded ${relationship.temporalCategory === 'CURRENT' ? 'bg-blue-100 text-blue-700' : relationship.temporalCategory === 'FUTURE' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}`}>
+              {t(`core.temporalCategories.${relationship.temporalCategory}`)}
+            </span>
+            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+              {t(`core.relationshipTypes.${relationship.relationshipType}`)}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600">
+          <p><span className="font-medium">{t('core.jobTitle')}:</span> {otherParty.jobTitle?.name || t('core.notSpecified')}</p>
+          <p><span className="font-medium">{t('core.department')}:</span> {otherParty.department?.name || t('core.notSpecified')}</p>
+          <p><span className="font-medium">{t('core.administration')}:</span> {otherParty.administration?.name || t('core.notSpecified')}</p>
+          <p><span className="font-medium">{t('core.branch')}:</span> {otherParty.branch?.name || t('core.notSpecified')}</p>
+          <p><span className="font-medium">{t('core.assignmentType')}:</span> {otherParty.assignmentType ? t(`core.assignmentTypes.${otherParty.assignmentType}`) : t('core.notSpecified')}</p>
+          <p><span className="font-medium">{t('core.leadershipLevel')}:</span> {otherParty.leadershipLevel ? t(`core.leadershipLevels.${otherParty.leadershipLevel}`) : t('core.notSpecified')}</p>
+          <p className="sm:col-span-2">
+            <span className="font-medium">{t('core.relationshipEffectiveRange')}:</span>{' '}
+            {t('core.relationshipEffectiveRangeValue', 'core', {
+              from: formatTransferDate(relationship.effectiveFrom),
+              to: relationship.effectiveTo ? formatTransferDate(relationship.effectiveTo) : t('core.current'),
+            })}
+          </p>
+        </div>
+
+        {allowResolution && relationship.temporalCategory !== 'HISTORICAL' && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {TRANSFER_RESOLUTION_ACTIONS.map((action) => {
+              const allowedByRelationship = relationship.allowedResolutions.includes(action);
+              const authorized = isTransferResolutionAuthorized(relationship, action, resolutionCapabilities);
+              const disabledReason = !allowedByRelationship
+                ? action === 'CONTINUE_ON_NEW_ASSIGNMENT' && relationship.continuationBlockedReason
+                  ? continuationBlockedMessage
+                  : t('core.resolutionNotAllowed')
+                : !authorized
+                  ? t('core.resolutionPermissionRequired')
+                  : undefined;
+              return (
+                <button
+                  type="button"
+                  key={action}
+                  onClick={() => {
+                    if (!authorized) return;
+                    setTransferResolutions((previous) => ({ ...previous, [relationship.id]: action }));
+                  }}
+                  disabled={!authorized}
+                  title={disabledReason}
+                  aria-label={t(`core.resolutionActions.${action}`)}
+                  aria-pressed={transferResolutions[relationship.id] === action}
+                  className={`text-xs px-2 py-1 rounded border disabled:opacity-50 disabled:cursor-not-allowed ${transferResolutions[relationship.id] === action ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                >
+                  {t(`core.resolutionActions.${action}`)}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {allowResolution &&
+          relationship.continuationBlockedReason &&
+          !relationship.allowedResolutions.includes('CONTINUE_ON_NEW_ASSIGNMENT') && (
+            <p className="text-xs text-amber-700" data-continuation-blocked-reason>
+              {continuationBlockedMessage}
+            </p>
+          )}
+      </div>
+    );
   };
 
   return (
@@ -269,8 +549,8 @@ export default function PersonAssignmentsPage() {
               <tbody>
                 {data.map((record) => (
                   <tr key={record.id} className="border-b hover:bg-gray-50">
-                    <td className="py-3 px-2">{record.person?.name || record.personnelId}</td>
-                    <td className="py-3 px-2">{record.department?.name || record.departmentId}</td>
+                    <td className="py-3 px-2">{record.person?.name || t('core.notSpecified')}</td>
+                    <td className="py-3 px-2">{record.department?.name || t('core.notSpecified')}</td>
                     <td className="py-3 px-2">{record.jobTitle?.name || '-'}</td>
                     <td className="py-3 px-2">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${record.assignmentType === 'PRIMARY' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
@@ -290,7 +570,17 @@ export default function PersonAssignmentsPage() {
                     <td className="py-3 px-2 text-xs">{record.effectiveTo ? new Date(record.effectiveTo).toLocaleDateString() : '-'}</td>
                     <td className="py-3 px-2">
                       <div className="flex gap-1">
-                        <Button onClick={() => openTransferModal(record)} variant="ghost" size="sm" title="Transfer"><ArrowRightLeft className="h-4 w-4" /></Button>
+                        {canOpenTransfer && record.assignmentType === 'PRIMARY' && !record.effectiveTo && (
+                          <Button
+                            onClick={() => openTransferModal(record)}
+                            variant="ghost"
+                            size="sm"
+                            title={t('core.transferPerson')}
+                            aria-label={t('core.transferPerson')}
+                          >
+                            <ArrowRightLeft className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button onClick={() => openEditModal(record)} variant="ghost" size="sm"><Edit className="h-4 w-4" /></Button>
                         <Button onClick={() => { setDeleteTarget(record.id); setConfirmDelete(true); }} variant="ghost" size="sm" className="text-red-600"><Trash2 className="h-4 w-4" /></Button>
                       </div>
@@ -367,176 +657,271 @@ export default function PersonAssignmentsPage() {
         </div>
       </Modal>
 
-      <Modal open={transferModal} title={t('core.transferPerson')} onClose={() => { setTransferModal(false); setTransferStep(1); setTransferPreview(null); setTransferResult(null); }}>
-        <div className="space-y-4">
+      <Modal
+        open={transferModal}
+        title={t('core.transferPerson')}
+        size="xl"
+        onClose={() => closeTransferWorkflow(Boolean(transferResult))}
+      >
+        <div className="space-y-4" aria-busy={previewLoading || saving}>
           {transferRecord && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">{t('core.currentPlacement')}</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">{t('core.personnel')}</span>
-                  <span className="text-sm font-medium">{transferRecord.person?.name || transferRecord.personnelId}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">{t('core.department')}</span>
-                  <span className="text-sm font-medium">{transferRecord.department?.name || '-'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">{t('core.jobTitle')}</span>
-                  <span className="text-sm font-medium">{transferRecord.jobTitle?.name || '-'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">{t('core.assignmentType')}</span>
-                  <span className="text-sm font-medium">{t(`core.assignmentTypes.${transferRecord.assignmentType}`)}</span>
-                </div>
-              </div>
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                 <p><span className="text-gray-500">{t('core.personnel')}:</span> <span className="font-medium">{transferRecord.person?.name || t('core.notSpecified')}</span></p>
+                 <p><span className="text-gray-500">{t('core.department')}:</span> <span className="font-medium">{transferRecord.department?.name || t('core.notSpecified')}</span></p>
+                 <p><span className="text-gray-500">{t('core.jobTitle')}:</span> <span className="font-medium">{transferRecord.jobTitle?.name || t('core.notSpecified')}</span></p>
+                 <p><span className="text-gray-500">{t('core.branch')}:</span> <span className="font-medium">{transferRecord.branch?.name || t('core.notSpecified')}</span></p>
+                 <p><span className="text-gray-500">{t('core.administration')}:</span> <span className="font-medium">{transferRecord.administration?.name || t('core.notSpecified')}</span></p>
+                 <p><span className="text-gray-500">{t('core.assignmentType')}:</span> <span className="font-medium">{t(`core.assignmentTypes.${transferRecord.assignmentType}`)}</span></p>
+                 <p><span className="text-gray-500">{t('core.leadershipLevel')}:</span> <span className="font-medium">{t(`core.leadershipLevels.${transferRecord.leadershipLevel || 'NONE'}`)}</span></p>
+               </div>
             </div>
           )}
 
-          <div className="flex gap-1 justify-center text-xs">
-            {[1, 2, 3, 4].map((step) => (
-              <div key={step} className={`flex items-center gap-1 px-2 py-1 rounded ${transferStep >= step ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-400'}`}>
+          <ol className="flex flex-wrap gap-1 justify-center text-xs" aria-label={t('core.transferWorkflow')}>
+            {HIER_G_TRANSFER_STEPS.map((step) => (
+              <li
+                key={step}
+                aria-current={transferStep === step ? 'step' : undefined}
+                className={`flex items-center gap-1 px-2 py-1 rounded ${transferStep >= step ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-400'}`}
+              >
                 <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${transferStep >= step ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>{step}</span>
                 <span>{t(`core.transferStep${step}`)}</span>
-              </div>
+              </li>
             ))}
-          </div>
+          </ol>
 
           {transferStep === 1 && (
-            <div className="border-t pt-4">
+            <section className="border-t pt-4" data-transfer-step="placement">
               <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">{t('core.transferNewPlacement')}</h3>
               <div className="space-y-4">
-                <F9Lookup label={t('core.branch')} name="branchId" value={transferForm.branchId} onChange={(v) => setTransferForm({ ...transferForm, branchId: v, administrationId: '', departmentId: '' })} adapter={branchAdapter} />
-                <F9Lookup label={t('core.administration')} name="administrationId" value={transferForm.administrationId} onChange={(v) => setTransferForm({ ...transferForm, administrationId: v, departmentId: '' })} adapter={administrationAdapter} filters={transferForm.branchId ? { branchId: transferForm.branchId } : undefined} />
-                <F9Lookup label={t('core.department')} name="departmentId" value={transferForm.departmentId} onChange={(v) => setTransferForm({ ...transferForm, departmentId: v })} adapter={departmentAdapter} filters={{ ...(transferForm.branchId ? { branchId: transferForm.branchId } : {}), ...(transferForm.administrationId ? { administrationId: transferForm.administrationId } : {}) }} />
-                <F9Lookup label={t('core.jobTitle')} name="jobTitleId" value={transferForm.jobTitleId} onChange={(v) => setTransferForm({ ...transferForm, jobTitleId: v })} adapter={jobTitleAdapter} />
+                {!canReadSupervision && (
+                  <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800">
+                    {t('core.supervisionReadPermissionRequired')}
+                  </div>
+                )}
+                <F9Lookup
+                  label={t('core.branch')}
+                  name="branchId"
+                  value={transferForm.branchId}
+                  onChange={(value) => {
+                    updateTransferForm({ branchId: value, administrationId: '', departmentId: '' });
+                    setTransferLabels((previous) => ({ ...previous, branch: value ? previous.branch : '', administration: '', department: '' }));
+                  }}
+                  onItemSelect={(item) => setTransferLabels((previous) => ({ ...previous, branch: lookupLabel(item) }))}
+                  adapter={branchAdapter}
+                  disabled={previewLoading}
+                />
+                <F9Lookup
+                  label={t('core.administration')}
+                  name="administrationId"
+                  value={transferForm.administrationId}
+                  onChange={(value) => {
+                    updateTransferForm({ administrationId: value, departmentId: '' });
+                    setTransferLabels((previous) => ({ ...previous, administration: value ? previous.administration : '', department: '' }));
+                  }}
+                  onItemSelect={(item) => setTransferLabels((previous) => ({ ...previous, administration: lookupLabel(item) }))}
+                  adapter={administrationAdapter}
+                  filters={transferForm.branchId ? { branchId: transferForm.branchId } : undefined}
+                  disabled={previewLoading}
+                />
+                <F9Lookup
+                  label={t('core.department')}
+                  name="departmentId"
+                  value={transferForm.departmentId}
+                  onChange={(value) => {
+                    updateTransferForm({ departmentId: value });
+                    if (!value) setTransferLabels((previous) => ({ ...previous, department: '' }));
+                  }}
+                  onItemSelect={(item) => setTransferLabels((previous) => ({ ...previous, department: lookupLabel(item) }))}
+                  adapter={departmentAdapter}
+                  filters={{ ...(transferForm.branchId ? { branchId: transferForm.branchId } : {}), ...(transferForm.administrationId ? { administrationId: transferForm.administrationId } : {}) }}
+                  disabled={previewLoading}
+                />
+                <F9Lookup
+                  label={t('core.jobTitle')}
+                  name="jobTitleId"
+                  value={transferForm.jobTitleId}
+                  onChange={(value) => {
+                    updateTransferForm({ jobTitleId: value });
+                    if (!value) setTransferLabels((previous) => ({ ...previous, jobTitle: '' }));
+                  }}
+                  onItemSelect={(item) => setTransferLabels((previous) => ({ ...previous, jobTitle: lookupLabel(item) }))}
+                  adapter={jobTitleAdapter}
+                  disabled={previewLoading}
+                />
                 <div>
                   <label className="block text-sm font-medium mb-1">{t('core.leadershipLevel')}</label>
-                  <select value={transferForm.leadershipLevel} onChange={(e) => setTransferForm({ ...transferForm, leadershipLevel: e.target.value })} className="w-full border rounded px-3 py-2 text-sm">
+                  <select value={transferForm.leadershipLevel} onChange={(event) => updateTransferForm({ leadershipLevel: event.target.value })} disabled={previewLoading} className="w-full border rounded px-3 py-2 text-sm disabled:opacity-50">
                     {LEADERSHIP_LEVELS.map((level) => <option key={level} value={level}>{t(`core.leadershipLevels.${level}`)}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">{t('core.effectiveFrom')} *</label>
-                  <Input type="date" value={transferForm.effectiveFrom} onChange={(e) => setTransferForm({ ...transferForm, effectiveFrom: e.target.value })} />
+                  <Input type="date" value={transferForm.effectiveFrom} onChange={(event) => updateTransferForm({ effectiveFrom: event.target.value })} disabled={previewLoading} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">{t('common.notes')}</label>
-                  <Input value={transferForm.notes} onChange={(e) => setTransferForm({ ...transferForm, notes: e.target.value })} />
+                  <Input value={transferForm.notes} onChange={(event) => updateTransferForm({ notes: event.target.value })} disabled={previewLoading} />
                 </div>
               </div>
-            </div>
+            </section>
           )}
 
           {transferStep === 2 && transferPreview && (
-            <div className="border-t pt-4 space-y-4">
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{t('core.transferPreviewTitle')}</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-blue-50 border border-blue-200 rounded p-3">
-                  <p className="text-xs text-blue-600 font-medium">{t('core.oldPlacement')}</p>
-                  <p className="text-sm font-semibold">{transferPreview.oldAssignment.department?.name || '-'}</p>
-                  <p className="text-xs text-gray-500">{transferPreview.oldAssignment.jobTitle?.name || '-'}</p>
-                </div>
-                <div className="bg-green-50 border border-green-200 rounded p-3">
-                  <p className="text-xs text-green-600 font-medium">{t('core.transferNewPlacement')}</p>
-                  <p className="text-sm font-semibold">{transferPreview.proposedNewAssignment.departmentId}</p>
-                  <p className="text-xs text-gray-500">{t('core.leadershipLevels.' + (transferPreview.proposedNewAssignment.leadershipLevel || 'NONE'))}</p>
+            <section className="border-t pt-4 space-y-4" data-transfer-step="preview">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{t('core.transferPreviewTitle')}</h3>
+                <p className="text-sm text-gray-500 mt-1">{t('core.transferPreviewDescription')}</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                 <div className="bg-blue-50 border border-blue-200 rounded p-3 space-y-1">
+                   <p className="text-xs text-blue-600 font-medium">{t('core.oldPlacement')}</p>
+                   <p className="text-sm font-semibold">{transferPreview.oldAssignment.department?.name || t('core.notSpecified')}</p>
+                   <p className="text-xs text-gray-500">{transferPreview.oldAssignment.jobTitle?.name || t('core.notSpecified')}</p>
+                   <p className="text-xs text-gray-500">{transferPreview.oldAssignment.branch?.name || t('core.notSpecified')}</p>
+                   <p className="text-xs text-gray-500">{transferPreview.oldAssignment.administration?.name || t('core.notSpecified')}</p>
+                   <p className="text-xs text-gray-500">{t(`core.assignmentTypes.${transferPreview.oldAssignment.assignmentType}`)} · {t(`core.leadershipLevels.${transferPreview.oldAssignment.leadershipLevel || 'NONE'}`)}</p>
+                 </div>
+                 <div className="bg-green-50 border border-green-200 rounded p-3 space-y-1">
+                   <p className="text-xs text-green-600 font-medium">{t('core.transferNewPlacement')}</p>
+                   <p className="text-sm font-semibold">{transferPreview.proposedNewAssignment.department?.name || transferLabels.department || t('core.notSpecified')}</p>
+                   <p className="text-xs text-gray-500">{transferPreview.proposedNewAssignment.jobTitle?.name || transferLabels.jobTitle || transferPreview.oldAssignment.jobTitle?.name || t('core.notSpecified')}</p>
+                   <p className="text-xs text-gray-500">{transferPreview.proposedNewAssignment.branch?.name || transferLabels.branch || transferPreview.oldAssignment.branch?.name || t('core.notSpecified')}</p>
+                   <p className="text-xs text-gray-500">{transferPreview.proposedNewAssignment.administration?.name || transferLabels.administration || transferPreview.oldAssignment.administration?.name || t('core.notSpecified')}</p>
+                   <p className="text-xs text-gray-500">{t(`core.assignmentTypes.${transferPreview.proposedNewAssignment.assignmentType}`)} · {t(`core.leadershipLevels.${transferPreview.proposedNewAssignment.leadershipLevel || 'NONE'}`)}</p>
+                   <p className="text-xs text-gray-500">{formatTransferDate(transferPreview.transferDate)}</p>
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <div className="bg-gray-50 rounded p-2"><span>{t('core.currentInbound')}</span><strong className="block text-base">{transferPreview.summary.currentInbound}</strong></div>
+                <div className="bg-gray-50 rounded p-2"><span>{t('core.currentOutbound')}</span><strong className="block text-base">{transferPreview.summary.currentOutbound}</strong></div>
+                <div className="bg-gray-50 rounded p-2"><span>{t('core.futureInbound')}</span><strong className="block text-base">{transferPreview.summary.futureInbound}</strong></div>
+                <div className="bg-gray-50 rounded p-2"><span>{t('core.futureOutbound')}</span><strong className="block text-base">{transferPreview.summary.futureOutbound}</strong></div>
+                <div className="bg-gray-50 rounded p-2"><span>{t('core.historicalUnaffected')}</span><strong className="block text-base">{transferPreview.summary.historicalUnaffected}</strong></div>
+                <div className="bg-gray-50 rounded p-2"><span>{t('core.directRelationship')}</span><strong className="block text-base">{transferPreview.summary.directCount}</strong></div>
+                <div className="bg-gray-50 rounded p-2"><span>{t('core.matrixRelationship')}</span><strong className="block text-base">{transferPreview.summary.matrixCount}</strong></div>
+                <div className="bg-gray-50 rounded p-2"><span>{t('core.functionalRelationship')}</span><strong className="block text-base">{transferPreview.summary.functionalCount}</strong></div>
+              </div>
+
               {transferPreview.summary.totalAffected > 0 ? (
-                <>
-                  <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm">
-                    <p className="font-medium text-amber-800">{t('core.resolutionRequiredNotice', 'core', { count: transferPreview.summary.totalAffected })}</p>
-                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-                      <span>{t('core.currentInbound')}: {transferPreview.summary.currentInbound}</span>
-                      <span>{t('core.currentOutbound')}: {transferPreview.summary.currentOutbound}</span>
-                      <span>{t('core.futureInbound')}: {transferPreview.summary.futureInbound + transferPreview.summary.futureOutbound}</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {transferPreview.affectedRelationships.filter(r => r.temporalCategory !== 'HISTORICAL').map((rel) => (
-                      <div key={rel.id} className="border rounded p-3">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <p className="text-sm font-medium">{rel.otherParty.person?.name || rel.otherParty.assignmentId}</p>
-                            <p className="text-xs text-gray-500">{rel.otherParty.department?.name || '-'}</p>
-                          </div>
-                          <div className="flex gap-1">
-                            <span className={`text-xs px-1.5 py-0.5 rounded ${rel.direction === 'INBOUND' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>{t(`core.directions.${rel.direction}`)}</span>
-                            <span className={`text-xs px-1.5 py-0.5 rounded ${rel.temporalCategory === 'CURRENT' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>{t(`core.temporalCategories.${rel.temporalCategory}`)}</span>
-                          </div>
-                        </div>
-                        {rel.allowedResolutions.length > 0 && (
-                          <div className="flex gap-2 mt-2">
-                            {rel.allowedResolutions.map((action) => (
-                              <button key={action} onClick={() => setTransferResolutions(prev => ({ ...prev, [rel.id]: action }))}
-                                className={`text-xs px-2 py-1 rounded border ${transferResolutions[rel.id] === action ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>
-                                {t(`core.resolutionActions.${action}`)}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
+                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800">
+                  {t('core.resolutionRequiredNotice', 'core', { count: transferPreview.summary.totalAffected })}
+                </div>
               ) : (
                 <div className="bg-green-50 border border-green-200 rounded p-3 text-sm text-green-700">{t('core.noAffectedRelationships')}</div>
               )}
-            </div>
+
+              {transferPreview.affectedRelationships.length > 0 && (
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {transferPreview.affectedRelationships.map((relationship) => renderRelationshipContext(relationship, false))}
+                </div>
+              )}
+            </section>
           )}
 
           {transferStep === 3 && transferPreview && (
-            <div className="border-t pt-4 space-y-4">
+            <section className="border-t pt-4 space-y-4" data-transfer-step="resolution">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{t('core.transferStep3')}</h3>
+                <p className="text-sm text-gray-500 mt-1">{t('core.resolveAllRelationships')}</p>
+              </div>
+              {requiredRelationships.length === 0 ? (
+                <div className="bg-green-50 border border-green-200 rounded p-3 text-sm text-green-700">{t('core.noResolutionRequired')}</div>
+              ) : (
+                <>
+                  <div className={`border rounded p-3 text-sm ${unresolvedRelationshipIds.length === 0 ? 'bg-green-50 border-green-200 text-green-700' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                    {t('core.unresolvedRelationships', 'core', { count: unresolvedRelationshipIds.length })}
+                  </div>
+                  {lacksRequiredMutationPermission && (
+                    <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">{t('core.supervisionMutationPermissionRequired')}</div>
+                  )}
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {requiredRelationships.map((relationship) => renderRelationshipContext(relationship, true))}
+                  </div>
+                </>
+              )}
+              {transferPreview.summary.historicalUnaffected > 0 && (
+                <p className="text-xs text-gray-500">{t('core.historicalUnaffectedNote')}</p>
+              )}
+            </section>
+          )}
+
+          {transferStep === 4 && transferPreview && (
+            <section className="border-t pt-4 space-y-4" data-transfer-step="confirmation">
               <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{t('core.confirmTransferTitle')}</h3>
               <p className="text-sm text-gray-600">{t('core.confirmTransferDescription')}</p>
               <ul className="text-sm space-y-1 text-gray-700">
                 <li className="flex items-center gap-2"><span className="w-2 h-2 bg-blue-500 rounded-full" />{t('core.confirmTransferCloseOld')}</li>
                 <li className="flex items-center gap-2"><span className="w-2 h-2 bg-green-500 rounded-full" />{t('core.confirmTransferCreateNew')}</li>
-                {transferPreview.summary.totalAffected > 0 && (
-                  <li className="flex items-center gap-2"><span className="w-2 h-2 bg-amber-500 rounded-full" />{t('core.confirmTransferReconcile', 'core', { count: transferPreview.summary.totalAffected })}</li>
+                {requiredRelationships.length > 0 && (
+                  <li className="flex items-center gap-2"><span className="w-2 h-2 bg-amber-500 rounded-full" />{t('core.confirmTransferReconcile', 'core', { count: requiredRelationships.length })}</li>
                 )}
               </ul>
-              <div className="bg-gray-50 rounded p-3 text-xs text-gray-600 space-y-1">
-                <p><span className="font-medium">{t('core.transferDateLabel')}:</span> {transferForm.effectiveFrom}</p>
-                <p><span className="font-medium">{t('core.leadershipLevel')}:</span> {t(`core.leadershipLevels.${transferForm.leadershipLevel}`)}</p>
-                <p><span className="font-medium">{t('core.resolutionSummary')}:</span> {Object.values(transferResolutions).filter(a => a === 'END_AT_TRANSFER').length} {t('core.ended')}, {Object.values(transferResolutions).filter(a => a === 'CONTINUE_ON_NEW_ASSIGNMENT').length} {t('core.continued')}</p>
+               <div className="bg-gray-50 rounded p-3 text-xs text-gray-600 space-y-1">
+                 <p><span className="font-medium">{t('core.department')}:</span> {transferPreview.proposedNewAssignment.department?.name || transferLabels.department || t('core.notSpecified')}</p>
+                 <p><span className="font-medium">{t('core.jobTitle')}:</span> {transferPreview.proposedNewAssignment.jobTitle?.name || transferLabels.jobTitle || transferPreview.oldAssignment.jobTitle?.name || t('core.notSpecified')}</p>
+                 <p><span className="font-medium">{t('core.branch')}:</span> {transferPreview.proposedNewAssignment.branch?.name || transferLabels.branch || transferPreview.oldAssignment.branch?.name || t('core.notSpecified')}</p>
+                 <p><span className="font-medium">{t('core.administration')}:</span> {transferPreview.proposedNewAssignment.administration?.name || transferLabels.administration || transferPreview.oldAssignment.administration?.name || t('core.notSpecified')}</p>
+                 <p><span className="font-medium">{t('core.transferDateLabel')}:</span> {formatTransferDate(transferForm.effectiveFrom)}</p>
+                 <p><span className="font-medium">{t('core.assignmentType')}:</span> {t(`core.assignmentTypes.${transferPreview.proposedNewAssignment.assignmentType}`)}</p>
+                 <p><span className="font-medium">{t('core.leadershipLevel')}:</span> {t(`core.leadershipLevels.${transferForm.leadershipLevel}`)}</p>
+                <p><span className="font-medium">{t('core.resolutionSummary')}:</span> {Object.values(transferResolutions).filter((action) => action === 'END_AT_TRANSFER').length} {t('core.ended')}, {Object.values(transferResolutions).filter((action) => action === 'CONTINUE_ON_NEW_ASSIGNMENT').length} {t('core.continued')}</p>
               </div>
-            </div>
+              {!previewIsFresh && <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">{t('core.transferPreviewStale')}</div>}
+              {saving && <p className="text-sm text-blue-700">{t('core.transferInProgress')}</p>}
+            </section>
           )}
 
-          {transferStep === 4 && transferResult && (
-            <div className="border-t pt-4 space-y-4">
+          {transferStep === 5 && transferResult && (
+            <section className="border-t pt-4 space-y-4" data-transfer-step="result">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
                 <p className="text-green-700 font-medium text-lg">{t('core.transferSuccess')}</p>
                 <p className="text-sm text-green-600 mt-2">{t('core.transferSuccessSummary', 'core', { ended: transferResult.relationshipsEnded, continued: transferResult.relationshipsContinued })}</p>
-                <p className="text-xs text-gray-500 mt-2">ID: {transferResult.newAssignment?.id}</p>
+                {transferResult.newAssignment?.person?.name && <p className="text-sm text-gray-600 mt-2">{transferResult.newAssignment.person.name}</p>}
               </div>
-            </div>
+            </section>
           )}
 
-          <div className="flex justify-between pt-4 border-t">
-            {transferStep > 1 && transferStep < 4 ? (
-              <Button variant="secondary" onClick={() => setTransferStep(transferStep === 3 ? 2 : 1)}>{t('core.transferBackToPreview')}</Button>
-            ) : (
-              <div />
-            )}
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => { setTransferModal(false); setTransferStep(1); setTransferPreview(null); setTransferResult(null); }}>
-                {transferStep === 4 ? t('actions.close') : t('actions.cancel')}
+          <div className="flex flex-wrap justify-between gap-3 pt-4 border-t">
+            {transferStep > 1 && transferStep < 5 ? (
+              <Button
+                variant="secondary"
+                disabled={saving}
+                onClick={() => {
+                  if (transferStep === 2) {
+                    setTransferStep(1);
+                    invalidateTransferPreview();
+                  } else if (transferStep === 3) {
+                    setTransferStep(2);
+                  } else {
+                    setTransferStep(3);
+                  }
+                }}
+              >
+                {t('actions.back')}
               </Button>
+            ) : <div />}
+            <div className="flex flex-wrap gap-3">
+              {transferStep < 5 && (
+                <Button variant="secondary" disabled={saving} onClick={() => closeTransferWorkflow(false)}>{t('actions.cancel')}</Button>
+              )}
               {transferStep === 1 && (
-                <Button onClick={handlePreviewTransfer} loading={previewLoading} disabled={!transferForm.departmentId || !transferForm.effectiveFrom}>{t('core.transferStep2')}</Button>
+                <Button onClick={handlePreviewTransfer} loading={previewLoading} disabled={!transferForm.departmentId || !transferForm.effectiveFrom || !canOpenTransfer}>{t('core.transferStep2')}</Button>
               )}
               {transferStep === 2 && (
-                <Button onClick={() => setTransferStep(3)}>{t('core.transferStep3')}</Button>
+                <Button onClick={() => setTransferStep(3)} disabled={!previewIsFresh}>{t('core.transferStep3')}</Button>
               )}
               {transferStep === 3 && (
-                <Button onClick={handleApplyTransfer} loading={saving}>{t('core.applyTransfer')}</Button>
+                <Button onClick={() => setTransferStep(4)} disabled={!confirmationReady}>{t('core.transferStep4')}</Button>
               )}
               {transferStep === 4 && (
-                <Button onClick={() => { setTransferModal(false); setTransferStep(1); setTransferPreview(null); setTransferResult(null); fetchData(meta.page, search); }}>{t('actions.close')}</Button>
+                <Button onClick={handleApplyTransfer} loading={saving} disabled={!confirmationReady || !previewIsFresh}>{t('core.applyTransfer')}</Button>
+              )}
+              {transferStep === 5 && (
+                <Button onClick={() => closeTransferWorkflow(true)}>{t('actions.close')}</Button>
               )}
             </div>
           </div>

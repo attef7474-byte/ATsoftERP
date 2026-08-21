@@ -1161,9 +1161,11 @@ describe('SupervisorAssignmentsService', () => {
         personAssignment('pa3', 'personC'),
         personAssignment('pa4', 'personD'),
       ]);
-      prisma.supervisorAssignment.findMany
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ id: 'other', assignmentId: 'pa4', effectiveFrom: new Date('2026-01-01'), effectiveTo: null, isActive: true, deletedAt: null, supervisorAssignmentId: 'paX' }]);
+      prisma.supervisorAssignment.findMany.mockImplementation((args: any) =>
+        args?.where?.assignmentId === 'pa4'
+          ? Promise.resolve([{ id: 'other', assignmentId: 'pa4', effectiveFrom: new Date('2026-01-01'), effectiveTo: null, isActive: true, deletedAt: null, supervisorAssignmentId: 'paX' }])
+          : Promise.resolve([]),
+      );
 
       await expect(service.bulkApply(bulkDto(), ctx, 'user-1')).rejects.toThrow(BadRequestException);
       expect(prisma.supervisorAssignment.create).not.toHaveBeenCalled();
@@ -1213,9 +1215,11 @@ describe('SupervisorAssignmentsService', () => {
         personAssignment('pa3', 'personC'),
         personAssignment('pa4', 'personD'),
       ]);
-      prisma.supervisorAssignment.findMany
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ id: 'other', assignmentId: 'pa4', effectiveFrom: new Date('2026-01-01'), effectiveTo: null, isActive: true, deletedAt: null, supervisorAssignmentId: 'paX' }]);
+      prisma.supervisorAssignment.findMany.mockImplementation((args: any) =>
+        args?.where?.assignmentId === 'pa4'
+          ? Promise.resolve([{ id: 'other', assignmentId: 'pa4', effectiveFrom: new Date('2026-01-01'), effectiveTo: null, isActive: true, deletedAt: null, supervisorAssignmentId: 'paX' }])
+          : Promise.resolve([]),
+      );
 
       try { await service.bulkApply(bulkDto(), ctx, 'user-1'); } catch {}
       expect(prisma.supervisorAssignment.create).not.toHaveBeenCalled();

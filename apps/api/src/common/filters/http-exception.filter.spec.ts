@@ -1,6 +1,30 @@
-import { BadRequestException, HttpException, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, HttpStatus, UnauthorizedException } from '@nestjs/common';
 import { AllExceptionsFilter } from './http-exception.filter';
 import { ApiFieldError } from '../validation/validation-error-transformer';
+import { getApiMessage } from '../i18n/api-messages';
+
+const HIER_G_API_MESSAGE_KEYS = [
+  'auth.insufficientPermissions',
+  'validation.assignmentOutOfRange',
+  'validation.cycleDetected',
+  'validation.directSupervisorOverlap',
+  'validation.duplicatePrimary',
+  'validation.duplicateResolution',
+  'validation.foreignResolution',
+  'validation.invalidBranchHierarchy',
+  'validation.invalidOperation',
+  'validation.invalidRange',
+  'validation.invalidReference',
+  'validation.invalidResolution',
+  'validation.leadershipAdministrationRequired',
+  'validation.leadershipDepartmentRequired',
+  'validation.missingResolution',
+  'validation.primaryAdministrationManagerOverlap',
+  'validation.primaryDepartmentHeadOverlap',
+  'validation.selfReference',
+  'validation.staleTransfer',
+  'organization.assignmentNotFound',
+] as const;
 
 function createHostFor(exception: unknown, locale: string) {
   const json = jest.fn();
@@ -49,6 +73,27 @@ describe('AllExceptionsFilter canonical error contract', () => {
     const body = json.mock.calls[0][0];
     expect(body.messageKey).toBe('common.validationFailed');
     expect(body.message[0]).toBe('فشل التحقق من صحة البيانات');
+  });
+
+  it('localizes every HIER-G transfer and supervision error key in Arabic and English', () => {
+    for (const key of HIER_G_API_MESSAGE_KEYS) {
+      const ar = getApiMessage(key, 'ar');
+      const en = getApiMessage(key, 'en');
+      expect(ar).toBeTruthy();
+      expect(en).toBeTruthy();
+      expect(ar).not.toBe(key);
+      expect(en).not.toBe(key);
+    }
+  });
+
+  it('localizes the HIER-G graph-permission denial without exposing a raw key', () => {
+    const { json } = createHostFor(
+      new ForbiddenException({ messageKey: 'auth.insufficientPermissions', message: 'Insufficient permissions' }),
+      'ar',
+    );
+    const body = json.mock.calls[0][0];
+    expect(body.messageKey).toBe('auth.insufficientPermissions');
+    expect(body.message[0]).toBe('صلاحيات غير كافية');
   });
 
   it('passes through and localizes canonical field errors', () => {

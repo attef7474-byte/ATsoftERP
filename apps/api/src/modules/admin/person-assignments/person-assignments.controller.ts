@@ -84,8 +84,9 @@ export class PersonAssignmentsController {
     @Param('id') id: string,
     @Body() dto: TransferPreviewDto,
     @CurrentActiveContext() ctx: ActiveOperationalContext,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.personAssignmentsService.transferPreview(id, dto, ctx);
+    return this.personAssignmentsService.transferPreview(id, dto, ctx, userId);
   }
 
   @Post(':id/transfer')

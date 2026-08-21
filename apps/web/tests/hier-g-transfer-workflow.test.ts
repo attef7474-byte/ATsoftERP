@@ -1,6 +1,17 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import en from '../src/lib/i18n/locales/en';
 import ar from '../src/lib/i18n/locales/ar';
 import { resolveTranslation } from '../src/lib/i18n/translation-core';
+import {
+  HIER_G_TRANSFER_STEPS,
+  TRANSFER_RESOLUTION_ACTIONS,
+  buildTransferPreviewFingerprint,
+  isTransferConfirmationReady,
+  isTransferResolutionAuthorized,
+  requiredTransferRelationships,
+  unresolvedTransferRelationshipIds,
+} from '../src/lib/admin-types/core';
 import type {
   TransferPreviewResponse,
   TransferApplyRequest,
@@ -31,6 +42,11 @@ const HIER_G_KEYS = [
   'noAffectedRelationships',
   'affectedRelationshipsCount',
   'affectedRelationshipsRequireAction',
+  'currentInbound',
+  'currentOutbound',
+  'futureInbound',
+  'futureOutbound',
+  'historicalUnaffected',
   'temporalCategory',
   'direction',
   'resolutionAction',
@@ -49,8 +65,25 @@ const HIER_G_KEYS = [
   'transferBackToPreview',
   'applyTransfer',
   'resolutionRequiredNotice',
+  'unresolvedRelationships',
+  'resolveAllRelationships',
   'noResolutionRequired',
   'historicalUnaffectedNote',
+  'supervisionMutationPermissionRequired',
+  'supervisionReadPermissionRequired',
+  'resolutionPermissionRequired',
+  'resolutionNotAllowed',
+  'continuationBlockedInvalidReference',
+  'continuationBlockedInvalidRange',
+  'continuationBlockedAssignmentOutOfRange',
+  'continuationBlockedSelfReference',
+  'continuationBlockedBranchHierarchy',
+  'continuationBlockedDirectOverlap',
+  'continuationBlockedCycle',
+  'relationshipEffectiveRange',
+  'relationshipEffectiveRangeValue',
+  'transferPreviewStale',
+  'transferInProgress',
   'directRelationship',
   'matrixRelationship',
   'functionalRelationship',
@@ -162,7 +195,7 @@ describe('HIER-G transfer workflow i18n keys', () => {
 
 describe('HIER-G type existence', () => {
   it('AffectedRelationship has required fields', () => {
-    const rel = {
+    const rel: AffectedRelationship = {
       id: 'sa-1',
       direction: 'INBOUND' as RelationshipDirection,
       relationshipType: 'DIRECT',
@@ -224,7 +257,7 @@ describe('HIER-G type existence', () => {
   });
 
   it('TransferPreviewResponse has required structure', () => {
-    const preview = {
+    const preview: TransferPreviewResponse = {
       oldAssignment: {
         id: 'pa-1',
         person: { id: 'p1', name: 'Test', code: 'T' },
@@ -267,7 +300,7 @@ describe('HIER-G type existence', () => {
   });
 
   it('TransferApplyRequest has required fields', () => {
-    const req = {
+    const req: TransferApplyRequest = {
       departmentId: 'd1',
       effectiveFrom: '2026-06-01T00:00:00.000Z',
       relationshipResolutions: [
@@ -276,12 +309,24 @@ describe('HIER-G type existence', () => {
     };
     expect(req.departmentId).toBe('d1');
     expect(req.relationshipResolutions).toHaveLength(1);
-    expect(req.relationshipResolutions[0].action).toBe('END_AT_TRANSFER');
+    expect(req.relationshipResolutions![0].action).toBe('END_AT_TRANSFER');
   });
 
   it('TransferApplyResponse has required fields', () => {
-    const res = {
-      newAssignment: { id: 'pa-2' },
+    const res: TransferApplyResponse = {
+      newAssignment: {
+        id: 'pa-2',
+        companyId: 'company-a',
+        departmentId: 'department-new',
+        personnelId: 'person-1',
+        assignmentType: 'PRIMARY',
+        leadershipLevel: 'NONE',
+        effectiveFrom: '2026-06-01T00:00:00.000Z',
+        effectiveTo: null,
+        status: 'ACTIVE',
+        createdAt: '2026-06-01T00:00:00.000Z',
+        updatedAt: '2026-06-01T00:00:00.000Z',
+      },
       relationshipsEnded: 1,
       relationshipsContinued: 0,
     };
@@ -311,12 +356,12 @@ describe('HIER-G transfer logic', () => {
     expect(effectiveFrom < transferDate && isActive).toBe(true);
   });
 
-  it('half-open interval: old ends at T, new starts at T, no overlap', () => {
+  it('half-open interval: old ends exactly at T and new starts exactly at T', () => {
     const T = new Date('2026-06-01T00:00:00.000Z');
-    const oldEffectiveTo = new Date(T.getTime() - 1);
+    const oldEffectiveTo = T;
     const newEffectiveFrom = T;
-    expect(oldEffectiveTo < newEffectiveFrom).toBe(true);
-    expect(oldEffectiveTo.getTime() + 1 === newEffectiveFrom.getTime()).toBe(true);
+    expect(oldEffectiveTo.getTime()).toBe(newEffectiveFrom.getTime());
+    expect(newEffectiveFrom < oldEffectiveTo).toBe(false);
   });
 
   it('resolution validation: foreign relationship rejected', () => {
@@ -356,11 +401,19 @@ describe('HIER-G transfer logic', () => {
     expect(effective).toBe('NONE');
   });
 
-  it('CONTINUE_ON_NEW_ASSIGNMENT uses transfer date as effectiveFrom', () => {
+  it('CURRENT continuation starts at the transfer date', () => {
     const transferDate = '2026-06-01T00:00:00.000Z';
     const newRel = { effectiveFrom: transferDate, effectiveTo: null };
     expect(newRel.effectiveFrom).toBe(transferDate);
     expect(newRel.effectiveTo).toBeNull();
+  });
+
+  it('FUTURE continuation preserves its original scheduled effectiveFrom', () => {
+    const transferDate = '2026-06-01T00:00:00.000Z';
+    const originalFutureStart = '2026-09-15T00:00:00.000Z';
+    const newRel = { effectiveFrom: originalFutureStart, effectiveTo: null };
+    expect(newRel.effectiveFrom).toBe(originalFutureStart);
+    expect(newRel.effectiveFrom).not.toBe(transferDate);
   });
 
   it('END_AT_TRANSFER closes at transfer date', () => {
@@ -370,10 +423,10 @@ describe('HIER-G transfer logic', () => {
     expect(closed.effectiveTo.getTime()).toBe(transferDate.getTime());
   });
 
-  it('step progression: 1 -> 2 -> 3 -> 4', () => {
-    const steps = [1, 2, 3, 4];
-    expect(steps).toHaveLength(4);
-    expect(steps[steps.length - 1]).toBe(4);
+  it('step progression is placement -> preview -> resolution -> confirm -> result', () => {
+    expect(HIER_G_TRANSFER_STEPS).toEqual([1, 2, 3, 4, 5]);
+    expect(HIER_G_TRANSFER_STEPS).toHaveLength(5);
+    expect(HIER_G_TRANSFER_STEPS[HIER_G_TRANSFER_STEPS.length - 1]).toBe(5);
   });
 
   it('summary totalAffected = currentInbound + currentOutbound + futureInbound + futureOutbound', () => {
@@ -383,5 +436,252 @@ describe('HIER-G transfer logic', () => {
     const futureOutbound = 0;
     const totalAffected = currentInbound + currentOutbound + futureInbound + futureOutbound;
     expect(totalAffected).toBe(4);
+  });
+});
+
+function makeRelationship(
+  id: string,
+  temporalCategory: TemporalCategory = 'CURRENT',
+  allowedResolutions: RelationshipResolutionAction[] = [...TRANSFER_RESOLUTION_ACTIONS],
+): AffectedRelationship {
+  return {
+    id,
+    direction: 'INBOUND',
+    relationshipType: 'DIRECT',
+    effectiveFrom: temporalCategory === 'FUTURE' ? '2026-09-15T00:00:00.000Z' : '2026-01-01T00:00:00.000Z',
+    effectiveTo: null,
+    isActive: true,
+    temporalCategory,
+    otherParty: {
+      assignmentId: `assignment-${id}`,
+      person: { id: `person-${id}`, name: `Person ${id}`, code: `P-${id}` },
+      jobTitle: { id: `job-${id}`, name: 'Supervisor', code: 'SUP' },
+      department: { id: `department-${id}`, name: 'Operations', code: 'OPS' },
+      branch: { id: `branch-${id}`, name: 'Main branch' },
+      administration: { id: `administration-${id}`, name: 'Operations administration' },
+      leadershipLevel: 'SUPERVISOR',
+      assignmentType: 'PRIMARY',
+    },
+    allowedResolutions,
+  };
+}
+
+function makePreview(relationships: AffectedRelationship[]): TransferPreviewResponse {
+  const currentInbound = relationships.filter((row) => row.temporalCategory === 'CURRENT' && row.direction === 'INBOUND').length;
+  const currentOutbound = relationships.filter((row) => row.temporalCategory === 'CURRENT' && row.direction === 'OUTBOUND').length;
+  const futureInbound = relationships.filter((row) => row.temporalCategory === 'FUTURE' && row.direction === 'INBOUND').length;
+  const futureOutbound = relationships.filter((row) => row.temporalCategory === 'FUTURE' && row.direction === 'OUTBOUND').length;
+  return {
+    oldAssignment: {
+      id: 'assignment-old',
+      person: { id: 'person-1', name: 'Person One', code: 'P001' },
+      department: { id: 'department-old', name: 'Old department', code: 'OLD' },
+      jobTitle: null,
+      branch: null,
+      administration: null,
+      assignmentType: 'PRIMARY',
+      leadershipLevel: 'DEPARTMENT_HEAD',
+      effectiveFrom: '2026-01-01T00:00:00.000Z',
+      effectiveTo: null,
+    },
+    proposedNewAssignment: {
+      departmentId: 'department-new',
+      branchId: null,
+      administrationId: null,
+      jobTitleId: null,
+      assignmentType: 'PRIMARY',
+      leadershipLevel: 'NONE',
+      effectiveFrom: '2026-06-01T00:00:00.000Z',
+      effectiveTo: null,
+    },
+    transferDate: '2026-06-01T00:00:00.000Z',
+    summary: {
+      historicalUnaffected: relationships.filter((row) => row.temporalCategory === 'HISTORICAL').length,
+      currentInbound,
+      currentOutbound,
+      futureInbound,
+      futureOutbound,
+      directCount: relationships.filter((row) => row.relationshipType === 'DIRECT').length,
+      matrixCount: relationships.filter((row) => row.relationshipType === 'MATRIX').length,
+      functionalCount: relationships.filter((row) => row.relationshipType === 'FUNCTIONAL').length,
+      totalAffected: currentInbound + currentOutbound + futureInbound + futureOutbound,
+    },
+    affectedRelationships: relationships,
+  };
+}
+
+describe('HIER-G transfer workflow guards', () => {
+  const fullCapabilities = { canAssign: true, canRemove: true };
+
+  it('fingerprint changes whenever the proposed placement changes', () => {
+    const base = {
+      branchId: 'branch-a',
+      administrationId: 'administration-a',
+      departmentId: 'department-a',
+      jobTitleId: 'job-a',
+      assignmentType: 'PRIMARY',
+      leadershipLevel: 'NONE',
+      effectiveFrom: '2026-06-01',
+      notes: 'planned transfer',
+    };
+    const first = buildTransferPreviewFingerprint('assignment-a', base);
+    expect(buildTransferPreviewFingerprint('assignment-a', { ...base, departmentId: 'department-b' })).not.toBe(first);
+    expect(buildTransferPreviewFingerprint('assignment-a', { ...base, effectiveFrom: '2026-06-02' })).not.toBe(first);
+    expect(buildTransferPreviewFingerprint('assignment-b', base)).not.toBe(first);
+    expect(buildTransferPreviewFingerprint('assignment-a', { ...base })).toBe(first);
+  });
+
+  it('requires explicit resolutions for current and future rows but never historical rows', () => {
+    const current = makeRelationship('current');
+    const future = makeRelationship('future', 'FUTURE');
+    const historical = makeRelationship('historical', 'HISTORICAL', []);
+    const preview = makePreview([current, future, historical]);
+    expect(requiredTransferRelationships(preview).map((row) => row.id)).toEqual(['current', 'future']);
+    expect(unresolvedTransferRelationshipIds(preview, {}, fullCapabilities)).toEqual(['current', 'future']);
+  });
+
+  it('END requires remove permission and CONTINUE requires assign plus remove permissions', () => {
+    const relationship = makeRelationship('relationship');
+    expect(isTransferResolutionAuthorized(relationship, 'END_AT_TRANSFER', { canAssign: false, canRemove: true })).toBe(true);
+    expect(isTransferResolutionAuthorized(relationship, 'END_AT_TRANSFER', { canAssign: true, canRemove: false })).toBe(false);
+    expect(isTransferResolutionAuthorized(relationship, 'CONTINUE_ON_NEW_ASSIGNMENT', { canAssign: true, canRemove: true })).toBe(true);
+    expect(isTransferResolutionAuthorized(relationship, 'CONTINUE_ON_NEW_ASSIGNMENT', { canAssign: true, canRemove: false })).toBe(false);
+    expect(isTransferResolutionAuthorized(relationship, 'CONTINUE_ON_NEW_ASSIGNMENT', { canAssign: false, canRemove: true })).toBe(false);
+  });
+
+  it('rejects an action omitted from allowedResolutions even with full permissions', () => {
+    const relationship = makeRelationship('end-only', 'CURRENT', ['END_AT_TRANSFER']);
+    relationship.continuationBlockedReason = 'validation.directSupervisorOverlap';
+    expect(isTransferResolutionAuthorized(relationship, 'END_AT_TRANSFER', fullCapabilities)).toBe(true);
+    expect(isTransferResolutionAuthorized(relationship, 'CONTINUE_ON_NEW_ASSIGNMENT', fullCapabilities)).toBe(false);
+    expect(relationship.continuationBlockedReason).toBe('validation.directSupervisorOverlap');
+  });
+
+  it('maps a cycle-blocked continuation to a localized user-facing reason', () => {
+    const pageSource = readFileSync(
+      join(__dirname, '../src/app/admin/core/person-assignments/page.tsx'),
+      'utf8',
+    );
+    expect(pageSource).toContain("'validation.cycleDetected': 'core.continuationBlockedCycle'");
+    expect(resolve('core.continuationBlockedCycle', 'en')).not.toBe('core.continuationBlockedCycle');
+    expect(resolve('core.continuationBlockedCycle', 'ar')).not.toBe('core.continuationBlockedCycle');
+  });
+
+  it('does not enable confirmation for a stale preview, unresolved rows, or unauthorized choices', () => {
+    const relationship = makeRelationship('relationship');
+    const preview = makePreview([relationship]);
+    expect(isTransferConfirmationReady(preview, false, { relationship: 'END_AT_TRANSFER' }, fullCapabilities)).toBe(false);
+    expect(isTransferConfirmationReady(preview, true, {}, fullCapabilities)).toBe(false);
+    expect(isTransferConfirmationReady(preview, true, { relationship: 'CONTINUE_ON_NEW_ASSIGNMENT' }, { canAssign: false, canRemove: true })).toBe(false);
+    expect(isTransferConfirmationReady(preview, true, { relationship: 'END_AT_TRANSFER' }, fullCapabilities)).toBe(true);
+  });
+
+  it('allows a fresh no-relationships transfer without synthetic resolutions', () => {
+    expect(isTransferConfirmationReady(makePreview([]), true, {}, fullCapabilities)).toBe(true);
+  });
+});
+
+describe('HIER-G person-assignment page contract', () => {
+  const pageSource = readFileSync(
+    join(__dirname, '../src/app/admin/core/person-assignments/page.tsx'),
+    'utf8',
+  );
+
+  it('renders five distinct workflow sections and uses the shared five-step contract', () => {
+    for (const section of ['placement', 'preview', 'resolution', 'confirmation', 'result']) {
+      expect(pageSource).toContain(`data-transfer-step="${section}"`);
+    }
+    expect(pageSource).toContain('HIER_G_TRANSFER_STEPS.map');
+    expect(pageSource).toContain('setTransferStep(5)');
+  });
+
+  it('uses preview fingerprints, request versions, and AbortController against stale responses', () => {
+    expect(pageSource).toContain('buildTransferPreviewFingerprint');
+    expect(pageSource).toContain('previewRequestVersionRef');
+    expect(pageSource).toContain('AbortController');
+    expect(pageSource).toContain('requestFingerprint !== latestFingerprint');
+    expect(pageSource).toContain('invalidateTransferPreview');
+  });
+
+  it('gates confirmation and apply on a fresh fully resolved preview', () => {
+    expect(pageSource).toContain('confirmationReady');
+    expect(pageSource).toContain('disabled={!confirmationReady}');
+    expect(pageSource).toContain('disabled={!confirmationReady || !previewIsFresh}');
+    expect(pageSource).toContain('unresolvedTransferRelationshipIds');
+  });
+
+  it('renders every resolution action disabled unless allowed and authorized', () => {
+    expect(pageSource).toContain('TRANSFER_RESOLUTION_ACTIONS.map');
+    expect(pageSource).toContain('relationship.allowedResolutions.includes(action)');
+    expect(pageSource).toContain('disabled={!authorized}');
+    expect(pageSource).toContain('resolutionPermissionRequired');
+  });
+
+  it('uses transfer and supervision permissions without rendering raw permission keys', () => {
+    expect(pageSource).toContain("permissionKeys.includes('person-assignment:transfer')");
+    expect(pageSource).toContain("permissionKeys.includes('supervisor:read')");
+    expect(pageSource).toContain("permissionKeys.includes('supervisor:assign')");
+    expect(pageSource).toContain("permissionKeys.includes('supervisor:remove')");
+    expect(pageSource).toContain('const canOpenTransfer = canTransferAssignment;');
+    expect(pageSource).toContain('supervisionReadPermissionRequired');
+    expect(pageSource).not.toContain('const canOpenTransfer = canTransferAssignment && canReadSupervision;');
+    expect(pageSource).toContain("record.assignmentType === 'PRIMARY' && !record.effectiveTo");
+    expect(pageSource).not.toMatch(/>\s*(?:person-assignment:transfer|supervisor:(?:read|assign|remove))\s*</);
+  });
+
+  it('never renders internal assignment identifiers or hardcoded transfer labels', () => {
+    const forbiddenVisiblePatterns = [
+      /transferRecord\.person\?\.name\s*\|\|\s*transferRecord\.personnelId/,
+      /proposedNewAssignment\.departmentId\s*\}/,
+      /otherParty\.assignmentId\s*\}/,
+      /newAssignment\?*\.id\s*\}/,
+      /ID:\s*\{/,
+      /title=["']Transfer["']/,
+    ];
+    for (const pattern of forbiddenVisiblePatterns) expect(pageSource).not.toMatch(pattern);
+  });
+
+  it('renders human relationship context and uses the structured API error handler', () => {
+    for (const field of ['otherParty.jobTitle', 'otherParty.department', 'otherParty.administration', 'otherParty.branch', 'relationship.relationshipType', 'relationship.effectiveFrom']) {
+      expect(pageSource).toContain(field);
+    }
+    expect(pageSource).toContain('useApiErrorHandler');
+    expect(pageSource).toContain('handleApiError(err)');
+    expect(pageSource).toContain('continuationBlockedReason');
+    expect(pageSource).toContain('data-continuation-blocked-reason');
+    expect(pageSource).toContain('CONTINUATION_BLOCKED_REASON_KEYS');
+  });
+
+  it('renders the complete proposed placement in preview and confirmation without identifiers', () => {
+    const confirmationStart = pageSource.indexOf('data-transfer-step="confirmation"');
+    const confirmationEnd = pageSource.indexOf('data-transfer-step="result"');
+    const confirmationSource = pageSource.slice(confirmationStart, confirmationEnd);
+    expect(confirmationStart).toBeGreaterThan(-1);
+    for (const value of [
+      'transferLabels.department',
+      'transferLabels.jobTitle',
+      'transferLabels.branch',
+      'transferLabels.administration',
+      "core.assignmentType",
+      "core.leadershipLevel",
+      "core.transferDateLabel",
+    ]) {
+      expect(confirmationSource).toContain(value);
+    }
+    expect(confirmationSource).not.toContain('proposedNewAssignment.departmentId');
+    expect(confirmationSource).not.toContain('proposedNewAssignment.branchId');
+    expect(confirmationSource).not.toContain('proposedNewAssignment.administrationId');
+    expect(confirmationSource).not.toContain('proposedNewAssignment.jobTitleId');
+  });
+
+  it('prevents closing the mutation workflow while apply is running', () => {
+    const closeStart = pageSource.indexOf('const closeTransferWorkflow');
+    const closeEnd = pageSource.indexOf('const openCreateModal');
+    const closeSource = pageSource.slice(closeStart, closeEnd);
+    expect(closeStart).toBeGreaterThan(-1);
+    expect(closeSource).toContain('if (saving || applyInFlightRef.current) return;');
+    expect(pageSource).toContain('applyInFlightRef.current');
+    expect(pageSource).toContain('disabled={saving}');
+    expect(pageSource).toContain('transferInProgress');
   });
 });

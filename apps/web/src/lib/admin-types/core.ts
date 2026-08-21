@@ -354,6 +354,30 @@ export interface HistoryFilters {
 export type RelationshipResolutionAction = 'END_AT_TRANSFER' | 'CONTINUE_ON_NEW_ASSIGNMENT';
 export type TemporalCategory = 'HISTORICAL' | 'CURRENT' | 'FUTURE';
 export type RelationshipDirection = 'INBOUND' | 'OUTBOUND';
+export type TransferWorkflowStep = 1 | 2 | 3 | 4 | 5;
+
+export const HIER_G_TRANSFER_STEPS: readonly TransferWorkflowStep[] = [1, 2, 3, 4, 5];
+export const TRANSFER_RESOLUTION_ACTIONS: readonly RelationshipResolutionAction[] = [
+  'END_AT_TRANSFER',
+  'CONTINUE_ON_NEW_ASSIGNMENT',
+];
+
+export interface TransferPlacementInput {
+  branchId?: string | null;
+  administrationId?: string | null;
+  departmentId: string;
+  jobTitleId?: string | null;
+  assignmentType?: string | null;
+  leadershipLevel?: string | null;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  notes?: string | null;
+}
+
+export interface TransferResolutionCapabilities {
+  canAssign: boolean;
+  canRemove: boolean;
+}
 
 export interface AffectedRelationshipOtherParty {
   person?: { id: string; name: string; code: string } | null;
@@ -376,6 +400,7 @@ export interface AffectedRelationship {
   temporalCategory: TemporalCategory;
   otherParty: AffectedRelationshipOtherParty;
   allowedResolutions: RelationshipResolutionAction[];
+  continuationBlockedReason?: string | null;
 }
 
 export interface TransferPreviewResponse {
@@ -396,6 +421,10 @@ export interface TransferPreviewResponse {
     branchId: string | null;
     administrationId: string | null;
     jobTitleId: string | null;
+    department?: { id: string; name: string; code?: string | null } | null;
+    branch?: { id: string; name: string; code?: string | null } | null;
+    administration?: { id: string; name: string; code?: string | null } | null;
+    jobTitle?: { id: string; name: string; code?: string | null } | null;
     assignmentType: string;
     leadershipLevel: string;
     effectiveFrom: string;
@@ -436,4 +465,66 @@ export interface TransferApplyResponse {
   newAssignment: OperationalPersonAssignment;
   relationshipsEnded: number;
   relationshipsContinued: number;
+}
+
+export function buildTransferPreviewFingerprint(
+  assignmentId: string | null | undefined,
+  placement: TransferPlacementInput,
+): string {
+  return JSON.stringify([
+    assignmentId ?? '',
+    placement.branchId ?? '',
+    placement.administrationId ?? '',
+    placement.departmentId,
+    placement.jobTitleId ?? '',
+    placement.assignmentType ?? 'PRIMARY',
+    placement.leadershipLevel ?? 'NONE',
+    placement.effectiveFrom,
+    placement.effectiveTo ?? '',
+    placement.notes?.trim() ?? '',
+  ]);
+}
+
+export function requiredTransferRelationships(
+  preview: TransferPreviewResponse | null | undefined,
+): AffectedRelationship[] {
+  return (preview?.affectedRelationships ?? []).filter(
+    (relationship) => relationship.temporalCategory !== 'HISTORICAL',
+  );
+}
+
+export function isTransferResolutionAuthorized(
+  relationship: AffectedRelationship,
+  action: RelationshipResolutionAction,
+  capabilities: TransferResolutionCapabilities,
+): boolean {
+  if (!relationship.allowedResolutions.includes(action)) return false;
+  if (action === 'END_AT_TRANSFER') return capabilities.canRemove;
+  return capabilities.canAssign && capabilities.canRemove;
+}
+
+export function unresolvedTransferRelationshipIds(
+  preview: TransferPreviewResponse | null | undefined,
+  resolutions: Partial<Record<string, RelationshipResolutionAction>>,
+  capabilities: TransferResolutionCapabilities,
+): string[] {
+  return requiredTransferRelationships(preview)
+    .filter((relationship) => {
+      const action = resolutions[relationship.id];
+      return !action || !isTransferResolutionAuthorized(relationship, action, capabilities);
+    })
+    .map((relationship) => relationship.id);
+}
+
+export function isTransferConfirmationReady(
+  preview: TransferPreviewResponse | null | undefined,
+  previewIsFresh: boolean,
+  resolutions: Partial<Record<string, RelationshipResolutionAction>>,
+  capabilities: TransferResolutionCapabilities,
+): boolean {
+  return Boolean(
+    preview &&
+    previewIsFresh &&
+    unresolvedTransferRelationshipIds(preview, resolutions, capabilities).length === 0,
+  );
 }

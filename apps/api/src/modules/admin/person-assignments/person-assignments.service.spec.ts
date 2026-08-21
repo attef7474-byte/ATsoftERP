@@ -3,6 +3,7 @@ import { PersonAssignmentsService } from './person-assignments.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { SupervisorAssignmentsService } from '../supervisor-assignments/supervisor-assignments.service';
 
 describe('PersonAssignmentsService', () => {
   let prisma: any;
@@ -38,6 +39,7 @@ describe('PersonAssignmentsService', () => {
         findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findMany: jest.fn(),
         count: jest.fn(),
       },
@@ -46,11 +48,23 @@ describe('PersonAssignmentsService', () => {
       branch: { findFirst: jest.fn() },
       administration: { findFirst: jest.fn() },
       operationalPerson: { findFirst: jest.fn() },
-      supervisorAssignment: { count: jest.fn(), findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn() },
+      supervisorAssignment: {
+        count: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      userRole: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn(),
     };
+    prisma.$transaction.mockImplementation(async (fn: any) => fn(prisma));
     auditService = { log: jest.fn(), logWithClient: jest.fn() };
-    service = new PersonAssignmentsService(prisma as PrismaService, auditService as AuditService);
+    service = new PersonAssignmentsService(
+      prisma as PrismaService,
+      auditService as AuditService,
+      new SupervisorAssignmentsService(prisma as PrismaService, auditService as AuditService),
+    );
   });
 
   describe('reference validation', () => {
@@ -319,14 +333,8 @@ describe('PersonAssignmentsService', () => {
       prisma.branch.findFirst.mockResolvedValue({ id: 'branch-a' });
       prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person1' });
 
-      const mockTx = {
-        operationalPersonAssignment: {
-          update: jest.fn().mockResolvedValue({}),
-          create: jest.fn().mockResolvedValue(assignment({ id: 'pa2', departmentId: 'dept2' })),
-          findFirst: jest.fn().mockResolvedValue(null),
-        },
-      };
-      prisma.$transaction.mockImplementation(async (fn: any) => fn(mockTx));
+      prisma.operationalPersonAssignment.create.mockResolvedValue(assignment({ id: 'pa2', departmentId: 'dept2' }));
+      const mockTx = prisma;
 
       const result = await service.transfer(
         'pa1',
@@ -335,8 +343,8 @@ describe('PersonAssignmentsService', () => {
         'user-1',
       );
 
-      expect(mockTx.operationalPersonAssignment.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'pa1' }, data: { effectiveTo: expect.any(Date) } }),
+      expect(mockTx.operationalPersonAssignment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id: 'pa1', companyId: 'company-a' }), data: { effectiveTo: expect.any(Date) } }),
       );
       expect(mockTx.operationalPersonAssignment.create).toHaveBeenCalled();
       expect(auditService.logWithClient).toHaveBeenCalledWith(
@@ -712,14 +720,8 @@ describe('PersonAssignmentsService', () => {
       prisma.branch.findFirst.mockResolvedValue({ id: 'branch-a' });
       prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person1' });
 
-      const mockTx = {
-        operationalPersonAssignment: {
-          update: jest.fn().mockResolvedValue({}),
-          create: jest.fn().mockResolvedValue(assignment({ id: 'pa2', departmentId: 'dept2', leadershipLevel: 'NONE' })),
-          findFirst: jest.fn().mockResolvedValue(null),
-        },
-      };
-      prisma.$transaction.mockImplementation(async (fn: any) => fn(mockTx));
+      prisma.operationalPersonAssignment.create.mockResolvedValue(assignment({ id: 'pa2', departmentId: 'dept2', leadershipLevel: 'NONE' }));
+      const mockTx = prisma;
 
       const result = await service.transfer(
         'pa1',
@@ -743,14 +745,8 @@ describe('PersonAssignmentsService', () => {
       prisma.branch.findFirst.mockResolvedValue({ id: 'branch-a' });
       prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person1' });
 
-      const mockTx = {
-        operationalPersonAssignment: {
-          update: jest.fn().mockResolvedValue({}),
-          create: jest.fn().mockResolvedValue(assignment({ id: 'pa2', departmentId: 'dept2' })),
-          findFirst: jest.fn().mockResolvedValue(null),
-        },
-      };
-      prisma.$transaction.mockImplementation(async (fn: any) => fn(mockTx));
+      prisma.operationalPersonAssignment.create.mockResolvedValue(assignment({ id: 'pa2', departmentId: 'dept2' }));
+      const mockTx = prisma;
 
       await service.transfer(
         'pa1',
@@ -760,8 +756,8 @@ describe('PersonAssignmentsService', () => {
       );
 
       // Old assignment is closed, not rewritten
-      expect(mockTx.operationalPersonAssignment.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'pa1' }, data: { effectiveTo: expect.any(Date) } }),
+      expect(mockTx.operationalPersonAssignment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id: 'pa1', companyId: 'company-a' }), data: { effectiveTo: expect.any(Date) } }),
       );
     });
 
@@ -775,14 +771,8 @@ describe('PersonAssignmentsService', () => {
       prisma.branch.findFirst.mockResolvedValue({ id: 'branch-a' });
       prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person1' });
 
-      const mockTx = {
-        operationalPersonAssignment: {
-          update: jest.fn().mockResolvedValue({}),
-          create: jest.fn().mockResolvedValue(assignment({ id: 'pa2', departmentId: 'dept2', leadershipLevel: 'SUPERVISOR' })),
-          findFirst: jest.fn().mockResolvedValue(null),
-        },
-      };
-      prisma.$transaction.mockImplementation(async (fn: any) => fn(mockTx));
+      prisma.operationalPersonAssignment.create.mockResolvedValue(assignment({ id: 'pa2', departmentId: 'dept2', leadershipLevel: 'SUPERVISOR' }));
+      const mockTx = prisma;
 
       const result = await service.transfer(
         'pa1',

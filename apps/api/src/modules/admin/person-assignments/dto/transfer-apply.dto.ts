@@ -1,4 +1,4 @@
-import { IsString, IsIn, IsOptional, IsDateString, ValidateNested, ArrayUnique } from 'class-validator';
+import { IsString, IsIn, IsOptional, IsDateString, ValidateNested, ArrayUnique, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -36,6 +36,7 @@ export class TransferApplyDto {
   @ApiPropertyOptional({ description: 'New assignment type (default: PRIMARY)' })
   @IsOptional()
   @IsString()
+  @IsIn(['PRIMARY', 'SECONDARY', 'TEMPORARY', 'ACTING'])
   assignmentType?: string;
 
   @ApiPropertyOptional({ enum: ['NONE', 'TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD', 'ADMINISTRATION_MANAGER'], description: 'Leadership level for the new assignment (defaults to NONE)' })
@@ -50,7 +51,7 @@ export class TransferApplyDto {
 
   @ApiPropertyOptional({ description: 'End date for the new assignment' })
   @IsOptional()
-  @IsString()
+  @IsDateString()
   effectiveTo?: string;
 
   @ApiPropertyOptional()
@@ -60,6 +61,7 @@ export class TransferApplyDto {
 
   @ApiPropertyOptional({ type: [RelationshipResolutionDto], description: 'Required resolutions for affected relationships. Optional when no supervision relationships are affected.' })
   @IsOptional()
+  @IsArray()
   @ValidateNested({ each: true })
   @ArrayUnique((r: RelationshipResolutionDto) => r.relationshipId)
   @Type(() => RelationshipResolutionDto)
