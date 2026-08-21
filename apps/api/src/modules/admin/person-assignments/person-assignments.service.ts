@@ -4,7 +4,11 @@ import { AuditService } from '../../../common/audit/audit.service';
 import { CreatePersonAssignmentDto } from './dto/create-person-assignment.dto';
 import { UpdatePersonAssignmentDto } from './dto/update-person-assignment.dto';
 import { TransferPersonAssignmentDto } from './dto/transfer-person-assignment.dto';
+import { TransferPreviewDto } from './dto/transfer-preview.dto';
+import { TransferApplyDto, RelationshipResolutionDto } from './dto/transfer-apply.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { intervalsOverlap, isEffectivelyActive, assertBranchCompatible } from '../supervisor-assignments/supervisor-assignments.service';
+import { Prisma } from '@prisma/client';
 
 const LEADERSHIP_LEVELS = ['NONE', 'TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD', 'ADMINISTRATION_MANAGER'] as const;
 const LEADERSHIP_REQUIRES_DEPARTMENT = ['TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD'] as const;
@@ -291,7 +295,7 @@ export class PersonAssignmentsService {
     return { message: 'Person assignment deleted successfully' };
   }
 
-  async transfer(id: string, dto: TransferPersonAssignmentDto, ctx: ActiveOperationalContext, userId?: string) {
+  async transfer(id: string, dto: TransferApplyDto, ctx: ActiveOperationalContext, userId?: string) {
     const current = await this.findOne(id, ctx);
 
     if (current.assignmentType !== 'PRIMARY') {
@@ -316,10 +320,28 @@ export class PersonAssignmentsService {
       await this.enforceLeadershipUniqueness(transferLeadership, transferType, dto.departmentId, dto.administrationId, dto.effectiveFrom, dto.effectiveTo);
     }
 
+    const transferDate = new Date(dto.effectiveFrom);
+    const affectedRelationships = await this.discoverAffectedRelationships(id, transferDate, ctx);
+
+    const currentInbound = affectedRelationships.filter(r => r.direction === 'INBOUND' && r.temporalCategory === 'CURRENT');
+    const currentOutbound = affectedRelationships.filter(r => r.direction === 'OUTBOUND' && r.temporalCategory === 'CURRENT');
+    const futureRelationships = affectedRelationships.filter(r => r.temporalCategory === 'FUTURE');
+    const totalAffected = currentInbound.length + currentOutbound.length + futureRelationships.length;
+
+    if (totalAffected > 0) {
+      if (!dto.relationshipResolutions || dto.relationshipResolutions.length === 0) {
+        throw this.validationError('relationshipResolutions', 'validation.reconciliationRequired', `Transfer affects ${totalAffected} supervision relationship(s). Reconciliation required.`);
+      }
+
+      this.validateResolutions(dto.relationshipResolutions, affectedRelationships);
+    }
+
+    const resolutions = dto.relationshipResolutions ?? [];
+
     return this.prisma.$transaction(async (tx) => {
       await tx.operationalPersonAssignment.update({
         where: { id },
-        data: { effectiveTo: new Date(dto.effectiveFrom) },
+        data: { effectiveTo: transferDate },
       });
 
       if (transferType === 'PRIMARY') {
@@ -336,7 +358,7 @@ export class PersonAssignmentsService {
           personnelId: current.personnelId,
           assignmentType: transferType,
           leadershipLevel: transferLeadership,
-          effectiveFrom: new Date(dto.effectiveFrom),
+          effectiveFrom: transferDate,
           effectiveTo: dto.effectiveTo ? new Date(dto.effectiveTo) : null,
           notes: dto.notes ?? null,
           createdByUserId: userId ?? null,
@@ -350,16 +372,518 @@ export class PersonAssignmentsService {
         },
       });
 
-      await this.auditService.log({
+      let endedCount = 0;
+      let continuedCount = 0;
+
+      for (const resolution of resolutions) {
+        const relationship = affectedRelationships.find(r => r.id === resolution.relationshipId);
+        if (!relationship) continue;
+
+        if (resolution.action === 'END_AT_TRANSFER') {
+          await this.closeRelationshipInTx(tx, resolution.relationshipId, transferDate);
+          await this.auditService.logWithClient(tx, {
+            userId: userId ?? 'system',
+            action: 'TRANSFER_RELATIONSHIP_END',
+            entity: 'SupervisorAssignment',
+            entityId: resolution.relationshipId,
+            details: JSON.stringify({
+              transferAssignmentId: id,
+              newAssignmentId: newAssignment.id,
+              relationshipType: relationship.relationshipType,
+              direction: relationship.direction,
+              companyId: ctx.companyId,
+            }),
+          });
+          endedCount++;
+        } else if (resolution.action === 'CONTINUE_ON_NEW_ASSIGNMENT') {
+          const newRel = await this.createContinuationInTx(
+            tx, relationship, newAssignment.id, transferDate, ctx,
+          );
+          await this.auditService.logWithClient(tx, {
+            userId: userId ?? 'system',
+            action: 'TRANSFER_RELATIONSHIP_CONTINUE',
+            entity: 'SupervisorAssignment',
+            entityId: newRel.id,
+            details: JSON.stringify({
+              transferAssignmentId: id,
+              newAssignmentId: newAssignment.id,
+              oldRelationshipId: resolution.relationshipId,
+              relationshipType: relationship.relationshipType,
+              direction: relationship.direction,
+              companyId: ctx.companyId,
+            }),
+          });
+          continuedCount++;
+        }
+      }
+
+      await this.auditService.logWithClient(tx, {
         userId: userId ?? 'system',
         action: 'TRANSFER',
         entity: 'OperationalPersonAssignment',
         entityId: id,
-        details: JSON.stringify({ fromDepartmentId: current.departmentId, toDepartmentId: dto.departmentId, personnelId: current.personnelId, companyId: ctx.companyId }),
+        details: JSON.stringify({
+          oldAssignmentId: id,
+          newAssignmentId: newAssignment.id,
+          fromDepartmentId: current.departmentId,
+          toDepartmentId: dto.departmentId,
+          personnelId: current.personnelId,
+          companyId: ctx.companyId,
+          relationshipsEnded: endedCount,
+          relationshipsContinued: continuedCount,
+        }),
       });
 
-      return newAssignment;
+      return {
+        newAssignment,
+        relationshipsEnded: endedCount,
+        relationshipsContinued: continuedCount,
+      };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }
+
+  async transferPreview(id: string, dto: TransferPreviewDto, ctx: ActiveOperationalContext) {
+    const current = await this.findOne(id, ctx);
+
+    if (current.assignmentType !== 'PRIMARY') {
+      throw this.validationError('assignmentId', 'validation.invalidOperation', 'Transfer is only available for PRIMARY assignments');
+    }
+
+    if (current.effectiveTo) {
+      throw this.validationError('assignmentId', 'validation.invalidOperation', 'Cannot transfer an already closed assignment');
+    }
+
+    if (dto.effectiveFrom <= current.effectiveFrom.toISOString()) {
+      throw this.validationError('effectiveFrom', 'validation.invalidRange', 'Transfer date must be after the original assignment start date');
+    }
+
+    await this.validateReferences({ ...current, ...dto } as any, ctx);
+
+    const transferDate = new Date(dto.effectiveFrom);
+    const affectedRelationships = await this.discoverAffectedRelationships(id, transferDate, ctx);
+
+    const historicalUnaffected = affectedRelationships.filter(r => r.temporalCategory === 'HISTORICAL').length;
+    const currentInbound = affectedRelationships.filter(r => r.direction === 'INBOUND' && r.temporalCategory === 'CURRENT').length;
+    const currentOutbound = affectedRelationships.filter(r => r.direction === 'OUTBOUND' && r.temporalCategory === 'CURRENT').length;
+    const futureInbound = affectedRelationships.filter(r => r.direction === 'INBOUND' && r.temporalCategory === 'FUTURE').length;
+    const futureOutbound = affectedRelationships.filter(r => r.direction === 'OUTBOUND' && r.temporalCategory === 'FUTURE').length;
+    const directCount = affectedRelationships.filter(r => r.relationshipType === 'DIRECT').length;
+    const matrixCount = affectedRelationships.filter(r => r.relationshipType === 'MATRIX').length;
+    const functionalCount = affectedRelationships.filter(r => r.relationshipType === 'FUNCTIONAL').length;
+
+    return {
+      oldAssignment: {
+        id: current.id,
+        person: current.person,
+        department: current.department,
+        jobTitle: current.jobTitle,
+        branch: current.branch,
+        administration: current.administration,
+        assignmentType: current.assignmentType,
+        leadershipLevel: current.leadershipLevel,
+        effectiveFrom: current.effectiveFrom,
+        effectiveTo: current.effectiveTo,
+      },
+      proposedNewAssignment: {
+        departmentId: dto.departmentId,
+        branchId: dto.branchId ?? current.branchId ?? ctx.branchId ?? null,
+        administrationId: dto.administrationId ?? current.administrationId ?? null,
+        jobTitleId: dto.jobTitleId ?? current.jobTitleId ?? null,
+        assignmentType: dto.assignmentType ?? 'PRIMARY',
+        leadershipLevel: dto.leadershipLevel ?? 'NONE',
+        effectiveFrom: dto.effectiveFrom,
+        effectiveTo: dto.effectiveTo ?? null,
+      },
+      transferDate: dto.effectiveFrom,
+      summary: {
+        historicalUnaffected,
+        currentInbound,
+        currentOutbound,
+        futureInbound,
+        futureOutbound,
+        directCount,
+        matrixCount,
+        functionalCount,
+        totalAffected: currentInbound + currentOutbound + futureInbound + futureOutbound,
+      },
+      affectedRelationships,
+    };
+  }
+
+  private async discoverAffectedRelationships(
+    assignmentId: string,
+    transferDate: Date,
+    ctx: ActiveOperationalContext,
+  ) {
+    const inbound = await this.prisma.supervisorAssignment.findMany({
+      where: {
+        assignmentId,
+        companyId: ctx.companyId,
+        deletedAt: null,
+      },
+      include: {
+        supervisorAssignment: {
+          include: {
+            person: { select: { id: true, name: true, code: true } },
+            department: { select: { id: true, name: true, code: true } },
+            jobTitle: { select: { id: true, name: true, code: true } },
+            branch: { select: { id: true, name: true } },
+            administration: { select: { id: true, name: true } },
+          },
+        },
+      },
     });
+
+    const outbound = await this.prisma.supervisorAssignment.findMany({
+      where: {
+        supervisorAssignmentId: assignmentId,
+        companyId: ctx.companyId,
+        deletedAt: null,
+      },
+      include: {
+        assignment: {
+          include: {
+            person: { select: { id: true, name: true, code: true } },
+            department: { select: { id: true, name: true, code: true } },
+            jobTitle: { select: { id: true, name: true, code: true } },
+            branch: { select: { id: true, name: true } },
+            administration: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    const allRelationships: any[] = [];
+
+    for (const rel of inbound) {
+      const temporalCategory = this.classifyTemporalCategory(rel, transferDate);
+      allRelationships.push({
+        id: rel.id,
+        direction: 'INBOUND' as const,
+        relationshipType: rel.relationshipType,
+        effectiveFrom: rel.effectiveFrom,
+        effectiveTo: rel.effectiveTo,
+        isActive: rel.isActive,
+        temporalCategory,
+        otherParty: {
+          person: rel.supervisorAssignment?.person,
+          jobTitle: rel.supervisorAssignment?.jobTitle,
+          department: rel.supervisorAssignment?.department,
+          branch: rel.supervisorAssignment?.branch,
+          administration: rel.supervisorAssignment?.administration,
+          leadershipLevel: rel.supervisorAssignment?.leadershipLevel,
+          assignmentId: rel.supervisorAssignmentId,
+        },
+        allowedResolutions: this.getAllowedResolutions(temporalCategory),
+      });
+    }
+
+    for (const rel of outbound) {
+      const temporalCategory = this.classifyTemporalCategory(rel, transferDate);
+      allRelationships.push({
+        id: rel.id,
+        direction: 'OUTBOUND' as const,
+        relationshipType: rel.relationshipType,
+        effectiveFrom: rel.effectiveFrom,
+        effectiveTo: rel.effectiveTo,
+        isActive: rel.isActive,
+        temporalCategory,
+        otherParty: {
+          person: rel.assignment?.person,
+          jobTitle: rel.assignment?.jobTitle,
+          department: rel.assignment?.department,
+          branch: rel.assignment?.branch,
+          administration: rel.assignment?.administration,
+          assignmentType: rel.assignment?.assignmentType,
+          assignmentId: rel.assignmentId,
+        },
+        allowedResolutions: this.getAllowedResolutions(temporalCategory),
+      });
+    }
+
+    return allRelationships;
+  }
+
+  private classifyTemporalCategory(
+    rel: { effectiveFrom: Date; effectiveTo: Date | null; isActive: boolean; deletedAt: Date | null },
+    transferDate: Date,
+  ): string {
+    if (!rel.isActive || (rel.effectiveTo && rel.effectiveTo <= transferDate)) {
+      return 'HISTORICAL';
+    }
+    if (rel.effectiveFrom >= transferDate) {
+      return 'FUTURE';
+    }
+    return 'CURRENT';
+  }
+
+  private getAllowedResolutions(temporalCategory: string): string[] {
+    switch (temporalCategory) {
+      case 'CURRENT':
+        return ['END_AT_TRANSFER', 'CONTINUE_ON_NEW_ASSIGNMENT'];
+      case 'FUTURE':
+        return ['END_AT_TRANSFER', 'CONTINUE_ON_NEW_ASSIGNMENT'];
+      case 'HISTORICAL':
+        return [];
+      default:
+        return [];
+    }
+  }
+
+  private validateResolutions(
+    resolutions: RelationshipResolutionDto[],
+    affectedRelationships: any[],
+  ) {
+    const resolutionIds = new Set(resolutions.map(r => r.relationshipId));
+    const affectedNonHistorical = affectedRelationships.filter(r => r.temporalCategory !== 'HISTORICAL');
+    const affectedIds = new Set(affectedNonHistorical.map((r: any) => r.id));
+
+    for (const resolution of resolutions) {
+      if (!affectedIds.has(resolution.relationshipId)) {
+        throw this.validationError(
+          'relationshipResolutions',
+          'validation.foreignResolution',
+          `Resolution references relationship ${resolution.relationshipId} which is not affected by this transfer`,
+        );
+      }
+
+      const relationship = affectedNonHistorical.find((r: any) => r.id === resolution.relationshipId);
+      if (relationship && !relationship.allowedResolutions.includes(resolution.action)) {
+        throw this.validationError(
+          'relationshipResolutions',
+          'validation.invalidResolution',
+          `Action ${resolution.action} is not allowed for relationship ${resolution.relationshipId} with temporal category ${relationship.temporalCategory}`,
+        );
+      }
+    }
+
+    for (const affected of affectedNonHistorical) {
+      if (!resolutionIds.has(affected.id)) {
+        throw this.validationError(
+          'relationshipResolutions',
+          'validation.missingResolution',
+          `Relationship ${affected.id} (${affected.direction}, ${affected.relationshipType}) requires a resolution`,
+        );
+      }
+    }
+  }
+
+  private async closeRelationshipInTx(tx: any, relationshipId: string, effectiveTo: Date) {
+    await tx.supervisorAssignment.update({
+      where: { id: relationshipId },
+      data: {
+        effectiveTo,
+        isActive: false,
+      },
+    });
+  }
+
+  private async createContinuationInTx(
+    tx: any,
+    relationship: any,
+    newAssignmentId: string,
+    transferDate: Date,
+    ctx: ActiveOperationalContext,
+  ) {
+    const newEffectiveFrom = relationship.temporalCategory === 'FUTURE'
+      ? relationship.effectiveFrom
+      : transferDate;
+    const newEffectiveTo = relationship.effectiveTo;
+
+    if (relationship.direction === 'INBOUND') {
+      const supervisorAssignment = await tx.operationalPersonAssignment.findFirst({
+        where: { id: relationship.otherParty.assignmentId, companyId: ctx.companyId, deletedAt: null },
+      });
+      if (!supervisorAssignment) {
+        throw this.validationError(
+          'relationshipResolutions',
+          'validation.invalidReference',
+          `Supervisor assignment ${relationship.otherParty.assignmentId} not found`,
+        );
+      }
+
+      if (relationship.relationshipType === 'DIRECT') {
+        const existingDirect = await tx.supervisorAssignment.findFirst({
+          where: {
+            assignmentId: newAssignmentId,
+            relationshipType: 'DIRECT',
+            isActive: true,
+            deletedAt: null,
+          },
+          select: { id: true, effectiveFrom: true, effectiveTo: true },
+        });
+        if (existingDirect && intervalsOverlap(existingDirect.effectiveFrom, existingDirect.effectiveTo, newEffectiveFrom, newEffectiveTo)) {
+          throw this.validationError(
+            'relationshipResolutions',
+            'validation.directSupervisorOverlap',
+            'New assignment already has an overlapping DIRECT supervisor relationship',
+          );
+        }
+      }
+
+      const subordinateAssignment = await tx.operationalPersonAssignment.findFirst({
+        where: { id: newAssignmentId, companyId: ctx.companyId, deletedAt: null },
+      });
+      if (!subordinateAssignment) {
+        throw this.validationError(
+          'relationshipResolutions',
+          'validation.invalidReference',
+          `New assignment ${newAssignmentId} not found`,
+        );
+      }
+
+      if (subordinateAssignment.personnelId === supervisorAssignment.personnelId) {
+        throw this.validationError(
+          'relationshipResolutions',
+          'validation.selfReference',
+          'A person cannot be their own supervisor',
+        );
+      }
+
+      assertBranchCompatible(subordinateAssignment.branchId ?? null, supervisorAssignment.branchId ?? null);
+
+      if (relationship.relationshipType === 'DIRECT') {
+        const wouldCycle = await this.detectCycleInTx(tx, newAssignmentId, relationship.otherParty.assignmentId, newEffectiveFrom, newEffectiveTo);
+        if (wouldCycle) {
+          throw this.validationError(
+            'relationshipResolutions',
+            'validation.cycleDetected',
+            'Continuation would create a cycle in the reporting hierarchy',
+          );
+        }
+      }
+    } else {
+      const subordinateAssignment = await tx.operationalPersonAssignment.findFirst({
+        where: { id: relationship.otherParty.assignmentId, companyId: ctx.companyId, deletedAt: null },
+      });
+      if (!subordinateAssignment) {
+        throw this.validationError(
+          'relationshipResolutions',
+          'validation.invalidReference',
+          `Subordinate assignment ${relationship.otherParty.assignmentId} not found`,
+        );
+      }
+
+      if (relationship.relationshipType === 'DIRECT') {
+        const existingDirect = await tx.supervisorAssignment.findFirst({
+          where: {
+            assignmentId: relationship.otherParty.assignmentId,
+            relationshipType: 'DIRECT',
+            isActive: true,
+            deletedAt: null,
+          },
+          select: { id: true, effectiveFrom: true, effectiveTo: true },
+        });
+        if (existingDirect && intervalsOverlap(existingDirect.effectiveFrom, existingDirect.effectiveTo, newEffectiveFrom, newEffectiveTo)) {
+          throw this.validationError(
+            'relationshipResolutions',
+            'validation.directSupervisorOverlap',
+            'Subordinate already has an overlapping DIRECT supervisor relationship',
+          );
+        }
+      }
+
+      const newSupervisorAssignment = await tx.operationalPersonAssignment.findFirst({
+        where: { id: newAssignmentId, companyId: ctx.companyId, deletedAt: null },
+      });
+      if (!newSupervisorAssignment) {
+        throw this.validationError(
+          'relationshipResolutions',
+          'validation.invalidReference',
+          `New assignment ${newAssignmentId} not found`,
+        );
+      }
+
+      if (subordinateAssignment.personnelId === newSupervisorAssignment.personnelId) {
+        throw this.validationError(
+          'relationshipResolutions',
+          'validation.selfReference',
+          'A person cannot be their own supervisor',
+        );
+      }
+
+      assertBranchCompatible(subordinateAssignment.branchId ?? null, newSupervisorAssignment.branchId ?? null);
+
+      if (relationship.relationshipType === 'DIRECT') {
+        const wouldCycle = await this.detectCycleInTx(tx, relationship.otherParty.assignmentId, newAssignmentId, newEffectiveFrom, newEffectiveTo);
+        if (wouldCycle) {
+          throw this.validationError(
+            'relationshipResolutions',
+            'validation.cycleDetected',
+            'Continuation would create a cycle in the reporting hierarchy',
+          );
+        }
+      }
+    }
+
+    return tx.supervisorAssignment.create({
+      data: {
+        companyId: ctx.companyId,
+        assignmentId: relationship.direction === 'INBOUND' ? newAssignmentId : relationship.otherParty.assignmentId,
+        supervisorAssignmentId: relationship.direction === 'INBOUND' ? relationship.otherParty.assignmentId : newAssignmentId,
+        relationshipType: relationship.relationshipType,
+        effectiveFrom: newEffectiveFrom,
+        effectiveTo: newEffectiveTo,
+      },
+      include: {
+        assignment: {
+          include: {
+            person: { select: { id: true, name: true, code: true } },
+            department: { select: { id: true, name: true, code: true } },
+          },
+        },
+        supervisorAssignment: {
+          include: {
+            person: { select: { id: true, name: true, code: true } },
+            department: { select: { id: true, name: true, code: true } },
+          },
+        },
+      },
+    });
+  }
+
+  private async detectCycleInTx(
+    tx: any,
+    subordinateAssignmentId: string,
+    proposedSupervisorAssignmentId: string,
+    candidateStart: Date,
+    candidateEnd: Date | null,
+  ): Promise<boolean> {
+    const visited = new Set<string>();
+    let currentId: string | null = proposedSupervisorAssignmentId;
+    let depth = 0;
+
+    while (currentId && depth < 100) {
+      if (currentId === subordinateAssignmentId) return true;
+      if (visited.has(currentId)) return true;
+      visited.add(currentId);
+
+      const sa: {
+        supervisorAssignmentId: string | null;
+        effectiveFrom: Date;
+        effectiveTo: Date | null;
+      } | null = await tx.supervisorAssignment.findFirst({
+        where: {
+          assignmentId: currentId,
+          isActive: true,
+          deletedAt: null,
+          relationshipType: 'DIRECT',
+        },
+        select: {
+          supervisorAssignmentId: true,
+          effectiveFrom: true,
+          effectiveTo: true,
+        },
+      });
+
+      if (!sa || !sa.supervisorAssignmentId) break;
+      if (!intervalsOverlap(sa.effectiveFrom, sa.effectiveTo, candidateStart, candidateEnd)) break;
+
+      currentId = sa.supervisorAssignmentId;
+      depth++;
+    }
+
+    return false;
   }
 
   async findByPerson(personnelId: string, ctx: ActiveOperationalContext) {

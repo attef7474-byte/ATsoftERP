@@ -46,10 +46,10 @@ describe('PersonAssignmentsService', () => {
       branch: { findFirst: jest.fn() },
       administration: { findFirst: jest.fn() },
       operationalPerson: { findFirst: jest.fn() },
-      supervisorAssignment: { count: jest.fn() },
+      supervisorAssignment: { count: jest.fn(), findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn() },
       $transaction: jest.fn(),
     };
-    auditService = { log: jest.fn() };
+    auditService = { log: jest.fn(), logWithClient: jest.fn() };
     service = new PersonAssignmentsService(prisma as PrismaService, auditService as AuditService);
   });
 
@@ -339,10 +339,11 @@ describe('PersonAssignmentsService', () => {
         expect.objectContaining({ where: { id: 'pa1' }, data: { effectiveTo: expect.any(Date) } }),
       );
       expect(mockTx.operationalPersonAssignment.create).toHaveBeenCalled();
-      expect(auditService.log).toHaveBeenCalledWith(
+      expect(auditService.logWithClient).toHaveBeenCalledWith(
+        mockTx,
         expect.objectContaining({ action: 'TRANSFER', entity: 'OperationalPersonAssignment' }),
       );
-      expect(result.departmentId).toBe('dept2');
+      expect(result.newAssignment.departmentId).toBe('dept2');
     });
   });
 

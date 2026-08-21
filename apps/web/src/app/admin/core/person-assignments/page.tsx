@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n/use-translation';
 import { useToast } from '@/components/admin/toast-provider';
-import type { OperationalPersonAssignment, PaginationMeta } from '@/lib/admin-types';
+import type { OperationalPersonAssignment, PaginationMeta, TransferPreviewResponse, TransferApplyResponse, AffectedRelationship, RelationshipResolutionAction } from '@/lib/admin-types';
 import { Button, Input, Card, LoadingState, Modal, StatusBadge, Pagination, ConfirmDialog } from '@/components/admin/ui';
 import { F9Lookup, operationalPersonAdapter, branchAdapter, administrationAdapter, departmentAdapter, jobTitleAdapter } from '@/components/f9';
 import { Search, Plus, Edit, Trash2, RefreshCw, Users, ArrowRightLeft } from 'lucide-react';
@@ -58,6 +58,11 @@ export default function PersonAssignmentsPage() {
   const [transferId, setTransferId] = useState<string | null>(null);
   const [transferRecord, setTransferRecord] = useState<OperationalPersonAssignment | null>(null);
   const [transferForm, setTransferForm] = useState<TransferForm>(EMPTY_TRANSFER_FORM);
+  const [transferStep, setTransferStep] = useState(1);
+  const [transferPreview, setTransferPreview] = useState<TransferPreviewResponse | null>(null);
+  const [transferResolutions, setTransferResolutions] = useState<Record<string, RelationshipResolutionAction>>({});
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [transferResult, setTransferResult] = useState<TransferApplyResponse | null>(null);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -143,19 +148,67 @@ export default function PersonAssignmentsPage() {
       effectiveFrom: new Date().toISOString().split('T')[0],
       notes: '',
     });
+    setTransferStep(1);
+    setTransferPreview(null);
+    setTransferResolutions({});
+    setTransferResult(null);
     setTransferModal(true);
   };
 
-  const handleTransfer = async () => {
+  const handlePreviewTransfer = async () => {
+    if (!transferId || !transferForm.departmentId || !transferForm.effectiveFrom) return;
+    setPreviewLoading(true);
+    try {
+      const res = await api.post(`/person-assignments/${transferId}/transfer/preview`, {
+        departmentId: transferForm.departmentId,
+        branchId: transferForm.branchId || undefined,
+        administrationId: transferForm.administrationId || undefined,
+        jobTitleId: transferForm.jobTitleId || undefined,
+        leadershipLevel: transferForm.leadershipLevel || 'NONE',
+        effectiveFrom: transferForm.effectiveFrom,
+        effectiveTo: undefined,
+        notes: transferForm.notes || undefined,
+      }) as any;
+      setTransferPreview(res);
+      const autoResolutions: Record<string, RelationshipResolutionAction> = {};
+      for (const rel of res.affectedRelationships || []) {
+        if (rel.allowedResolutions.length === 1) {
+          autoResolutions[rel.id] = rel.allowedResolutions[0];
+        }
+      }
+      setTransferResolutions(autoResolutions);
+      setTransferStep(2);
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || t('errors.loadFailed'), 'error');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleApplyTransfer = async () => {
     if (!transferId || !transferForm.departmentId || !transferForm.effectiveFrom) return;
     setSaving(true);
     try {
-      await api.post(`/person-assignments/${transferId}/transfer`, transferForm);
-      showToast(t('common.successUpdated'), 'success');
-      setTransferModal(false);
-      fetchData(meta.page, search);
+      const resolutions = (transferPreview?.affectedRelationships || [])
+        .filter(r => r.temporalCategory !== 'HISTORICAL' && r.allowedResolutions.length > 0)
+        .map(r => ({ relationshipId: r.id, action: transferResolutions[r.id] }))
+        .filter(r => r.action);
+      const res = await api.post(`/person-assignments/${transferId}/transfer`, {
+        departmentId: transferForm.departmentId,
+        branchId: transferForm.branchId || undefined,
+        administrationId: transferForm.administrationId || undefined,
+        jobTitleId: transferForm.jobTitleId || undefined,
+        leadershipLevel: transferForm.leadershipLevel || 'NONE',
+        effectiveFrom: transferForm.effectiveFrom,
+        effectiveTo: undefined,
+        notes: transferForm.notes || undefined,
+        relationshipResolutions: resolutions.length > 0 ? resolutions : undefined,
+      }) as any;
+      setTransferResult(res);
+      setTransferStep(4);
+      showToast(t('core.transferSuccess'), 'success');
     } catch (err: any) {
-      showToast(err?.response?.data?.message || t('errors.saveFailed'), 'error');
+      showToast(err?.response?.data?.message || t('core.transferFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -314,7 +367,7 @@ export default function PersonAssignmentsPage() {
         </div>
       </Modal>
 
-      <Modal open={transferModal} title={t('core.transferPerson')} onClose={() => setTransferModal(false)}>
+      <Modal open={transferModal} title={t('core.transferPerson')} onClose={() => { setTransferModal(false); setTransferStep(1); setTransferPreview(null); setTransferResult(null); }}>
         <div className="space-y-4">
           {transferRecord && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -340,60 +393,152 @@ export default function PersonAssignmentsPage() {
             </div>
           )}
 
-          <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">{t('core.newPlacement')}</h3>
-            <div className="space-y-4">
-              <F9Lookup
-                label={t('core.branch')}
-                name="branchId"
-                value={transferForm.branchId}
-                onChange={(v) => { setTransferForm({ ...transferForm, branchId: v, administrationId: '', departmentId: '' }); }}
-                adapter={branchAdapter}
-              />
-              <F9Lookup
-                label={t('core.administration')}
-                name="administrationId"
-                value={transferForm.administrationId}
-                onChange={(v) => { setTransferForm({ ...transferForm, administrationId: v, departmentId: '' }); }}
-                adapter={administrationAdapter}
-                filters={transferForm.branchId ? { branchId: transferForm.branchId } : undefined}
-              />
-              <F9Lookup
-                label={t('core.department')}
-                name="departmentId"
-                value={transferForm.departmentId}
-                onChange={(v) => { setTransferForm({ ...transferForm, departmentId: v }); }}
-                adapter={departmentAdapter}
-                filters={{ ...(transferForm.branchId ? { branchId: transferForm.branchId } : {}), ...(transferForm.administrationId ? { administrationId: transferForm.administrationId } : {}) }}
-              />
-              <F9Lookup
-                label={t('core.jobTitle')}
-                name="jobTitleId"
-                value={transferForm.jobTitleId}
-                onChange={(v) => { setTransferForm({ ...transferForm, jobTitleId: v }); }}
-                adapter={jobTitleAdapter}
-              />
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('core.leadershipLevel')}</label>
-                <select value={transferForm.leadershipLevel} onChange={(e) => setTransferForm({ ...transferForm, leadershipLevel: e.target.value })} className="w-full border rounded px-3 py-2 text-sm">
-                  {LEADERSHIP_LEVELS.map((level) => <option key={level} value={level}>{t(`core.leadershipLevels.${level}`)}</option>)}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">{t('core.leadershipLevels.NONE')} — {t('core.noLeaderSelected')}</p>
+          <div className="flex gap-1 justify-center text-xs">
+            {[1, 2, 3, 4].map((step) => (
+              <div key={step} className={`flex items-center gap-1 px-2 py-1 rounded ${transferStep >= step ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-400'}`}>
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${transferStep >= step ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>{step}</span>
+                <span>{t(`core.transferStep${step}`)}</span>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('core.effectiveFrom')} *</label>
-                <Input type="date" value={transferForm.effectiveFrom} onChange={(e) => setTransferForm({ ...transferForm, effectiveFrom: e.target.value })} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('common.notes')}</label>
-                <Input value={transferForm.notes} onChange={(e) => setTransferForm({ ...transferForm, notes: e.target.value })} />
-              </div>
-            </div>
+            ))}
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="secondary" onClick={() => setTransferModal(false)}>{t('actions.cancel')}</Button>
-            <Button onClick={handleTransfer} loading={saving}>{t('actions.save')}</Button>
+          {transferStep === 1 && (
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">{t('core.transferNewPlacement')}</h3>
+              <div className="space-y-4">
+                <F9Lookup label={t('core.branch')} name="branchId" value={transferForm.branchId} onChange={(v) => setTransferForm({ ...transferForm, branchId: v, administrationId: '', departmentId: '' })} adapter={branchAdapter} />
+                <F9Lookup label={t('core.administration')} name="administrationId" value={transferForm.administrationId} onChange={(v) => setTransferForm({ ...transferForm, administrationId: v, departmentId: '' })} adapter={administrationAdapter} filters={transferForm.branchId ? { branchId: transferForm.branchId } : undefined} />
+                <F9Lookup label={t('core.department')} name="departmentId" value={transferForm.departmentId} onChange={(v) => setTransferForm({ ...transferForm, departmentId: v })} adapter={departmentAdapter} filters={{ ...(transferForm.branchId ? { branchId: transferForm.branchId } : {}), ...(transferForm.administrationId ? { administrationId: transferForm.administrationId } : {}) }} />
+                <F9Lookup label={t('core.jobTitle')} name="jobTitleId" value={transferForm.jobTitleId} onChange={(v) => setTransferForm({ ...transferForm, jobTitleId: v })} adapter={jobTitleAdapter} />
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('core.leadershipLevel')}</label>
+                  <select value={transferForm.leadershipLevel} onChange={(e) => setTransferForm({ ...transferForm, leadershipLevel: e.target.value })} className="w-full border rounded px-3 py-2 text-sm">
+                    {LEADERSHIP_LEVELS.map((level) => <option key={level} value={level}>{t(`core.leadershipLevels.${level}`)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('core.effectiveFrom')} *</label>
+                  <Input type="date" value={transferForm.effectiveFrom} onChange={(e) => setTransferForm({ ...transferForm, effectiveFrom: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('common.notes')}</label>
+                  <Input value={transferForm.notes} onChange={(e) => setTransferForm({ ...transferForm, notes: e.target.value })} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {transferStep === 2 && transferPreview && (
+            <div className="border-t pt-4 space-y-4">
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{t('core.transferPreviewTitle')}</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                  <p className="text-xs text-blue-600 font-medium">{t('core.oldPlacement')}</p>
+                  <p className="text-sm font-semibold">{transferPreview.oldAssignment.department?.name || '-'}</p>
+                  <p className="text-xs text-gray-500">{transferPreview.oldAssignment.jobTitle?.name || '-'}</p>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded p-3">
+                  <p className="text-xs text-green-600 font-medium">{t('core.transferNewPlacement')}</p>
+                  <p className="text-sm font-semibold">{transferPreview.proposedNewAssignment.departmentId}</p>
+                  <p className="text-xs text-gray-500">{t('core.leadershipLevels.' + (transferPreview.proposedNewAssignment.leadershipLevel || 'NONE'))}</p>
+                </div>
+              </div>
+
+              {transferPreview.summary.totalAffected > 0 ? (
+                <>
+                  <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+                    <p className="font-medium text-amber-800">{t('core.resolutionRequiredNotice', 'core', { count: transferPreview.summary.totalAffected })}</p>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                      <span>{t('core.currentInbound')}: {transferPreview.summary.currentInbound}</span>
+                      <span>{t('core.currentOutbound')}: {transferPreview.summary.currentOutbound}</span>
+                      <span>{t('core.futureInbound')}: {transferPreview.summary.futureInbound + transferPreview.summary.futureOutbound}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {transferPreview.affectedRelationships.filter(r => r.temporalCategory !== 'HISTORICAL').map((rel) => (
+                      <div key={rel.id} className="border rounded p-3">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="text-sm font-medium">{rel.otherParty.person?.name || rel.otherParty.assignmentId}</p>
+                            <p className="text-xs text-gray-500">{rel.otherParty.department?.name || '-'}</p>
+                          </div>
+                          <div className="flex gap-1">
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${rel.direction === 'INBOUND' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>{t(`core.directions.${rel.direction}`)}</span>
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${rel.temporalCategory === 'CURRENT' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>{t(`core.temporalCategories.${rel.temporalCategory}`)}</span>
+                          </div>
+                        </div>
+                        {rel.allowedResolutions.length > 0 && (
+                          <div className="flex gap-2 mt-2">
+                            {rel.allowedResolutions.map((action) => (
+                              <button key={action} onClick={() => setTransferResolutions(prev => ({ ...prev, [rel.id]: action }))}
+                                className={`text-xs px-2 py-1 rounded border ${transferResolutions[rel.id] === action ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>
+                                {t(`core.resolutionActions.${action}`)}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="bg-green-50 border border-green-200 rounded p-3 text-sm text-green-700">{t('core.noAffectedRelationships')}</div>
+              )}
+            </div>
+          )}
+
+          {transferStep === 3 && transferPreview && (
+            <div className="border-t pt-4 space-y-4">
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{t('core.confirmTransferTitle')}</h3>
+              <p className="text-sm text-gray-600">{t('core.confirmTransferDescription')}</p>
+              <ul className="text-sm space-y-1 text-gray-700">
+                <li className="flex items-center gap-2"><span className="w-2 h-2 bg-blue-500 rounded-full" />{t('core.confirmTransferCloseOld')}</li>
+                <li className="flex items-center gap-2"><span className="w-2 h-2 bg-green-500 rounded-full" />{t('core.confirmTransferCreateNew')}</li>
+                {transferPreview.summary.totalAffected > 0 && (
+                  <li className="flex items-center gap-2"><span className="w-2 h-2 bg-amber-500 rounded-full" />{t('core.confirmTransferReconcile', 'core', { count: transferPreview.summary.totalAffected })}</li>
+                )}
+              </ul>
+              <div className="bg-gray-50 rounded p-3 text-xs text-gray-600 space-y-1">
+                <p><span className="font-medium">{t('core.transferDateLabel')}:</span> {transferForm.effectiveFrom}</p>
+                <p><span className="font-medium">{t('core.leadershipLevel')}:</span> {t(`core.leadershipLevels.${transferForm.leadershipLevel}`)}</p>
+                <p><span className="font-medium">{t('core.resolutionSummary')}:</span> {Object.values(transferResolutions).filter(a => a === 'END_AT_TRANSFER').length} {t('core.ended')}, {Object.values(transferResolutions).filter(a => a === 'CONTINUE_ON_NEW_ASSIGNMENT').length} {t('core.continued')}</p>
+              </div>
+            </div>
+          )}
+
+          {transferStep === 4 && transferResult && (
+            <div className="border-t pt-4 space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                <p className="text-green-700 font-medium text-lg">{t('core.transferSuccess')}</p>
+                <p className="text-sm text-green-600 mt-2">{t('core.transferSuccessSummary', 'core', { ended: transferResult.relationshipsEnded, continued: transferResult.relationshipsContinued })}</p>
+                <p className="text-xs text-gray-500 mt-2">ID: {transferResult.newAssignment?.id}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-between pt-4 border-t">
+            {transferStep > 1 && transferStep < 4 ? (
+              <Button variant="secondary" onClick={() => setTransferStep(transferStep === 3 ? 2 : 1)}>{t('core.transferBackToPreview')}</Button>
+            ) : (
+              <div />
+            )}
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={() => { setTransferModal(false); setTransferStep(1); setTransferPreview(null); setTransferResult(null); }}>
+                {transferStep === 4 ? t('actions.close') : t('actions.cancel')}
+              </Button>
+              {transferStep === 1 && (
+                <Button onClick={handlePreviewTransfer} loading={previewLoading} disabled={!transferForm.departmentId || !transferForm.effectiveFrom}>{t('core.transferStep2')}</Button>
+              )}
+              {transferStep === 2 && (
+                <Button onClick={() => setTransferStep(3)}>{t('core.transferStep3')}</Button>
+              )}
+              {transferStep === 3 && (
+                <Button onClick={handleApplyTransfer} loading={saving}>{t('core.applyTransfer')}</Button>
+              )}
+              {transferStep === 4 && (
+                <Button onClick={() => { setTransferModal(false); setTransferStep(1); setTransferPreview(null); setTransferResult(null); fetchData(meta.page, search); }}>{t('actions.close')}</Button>
+              )}
+            </div>
           </div>
         </div>
       </Modal>

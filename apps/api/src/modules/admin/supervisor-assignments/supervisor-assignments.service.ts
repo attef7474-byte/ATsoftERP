@@ -35,7 +35,7 @@ export type HierarchyTreeNode = {
  * An effective interval is [effectiveFrom, effectiveTo).
  * NULL effectiveTo means unbounded (positive infinity).
  */
-function intervalsOverlap(
+export function intervalsOverlap(
   startA: Date, endA: Date | null,
   startB: Date, endB: Date | null,
 ): boolean {
@@ -47,7 +47,7 @@ function intervalsOverlap(
  * Returns true if the supervisor assignment record is effective at the given timestamp.
  * Requires: deletedAt IS NULL, isActive = true, effectiveFrom <= asOf, effectiveTo IS NULL OR effectiveTo > asOf.
  */
-function isEffectivelyActive(
+export function isEffectivelyActive(
   record: { deletedAt: Date | null; isActive: boolean; effectiveFrom: Date; effectiveTo: Date | null },
   asOf: Date,
 ): boolean {
@@ -67,7 +67,7 @@ function isEffectivelyActive(
  * CASE 4: subordinate.branchId == null, supervisor.branchId == null          → ALLOW
  * CASE 5: subordinate.branchId == null, supervisor.branchId != null          → REJECT
  */
-function assertBranchCompatible(
+export function assertBranchCompatible(
   subordinateBranchId: string | null,
   supervisorBranchId: string | null,
 ): void {

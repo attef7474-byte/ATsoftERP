@@ -4,6 +4,8 @@ import { PersonAssignmentsService } from './person-assignments.service';
 import { CreatePersonAssignmentDto } from './dto/create-person-assignment.dto';
 import { UpdatePersonAssignmentDto } from './dto/update-person-assignment.dto';
 import { TransferPersonAssignmentDto } from './dto/transfer-person-assignment.dto';
+import { TransferPreviewDto } from './dto/transfer-preview.dto';
+import { TransferApplyDto } from './dto/transfer-apply.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
@@ -75,12 +77,23 @@ export class PersonAssignmentsController {
     return this.personAssignmentsService.update(id, dto, ctx, userId);
   }
 
+  @Post(':id/transfer/preview')
+  @Permissions('person-assignment:transfer')
+  @ApiOperation({ summary: 'Preview transfer impact on supervision relationships (read-only)' })
+  transferPreview(
+    @Param('id') id: string,
+    @Body() dto: TransferPreviewDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.personAssignmentsService.transferPreview(id, dto, ctx);
+  }
+
   @Post(':id/transfer')
   @Permissions('person-assignment:transfer')
-  @ApiOperation({ summary: 'Transfer person to new assignment (atomic)' })
+  @ApiOperation({ summary: 'Transfer person to new assignment with relationship reconciliation (atomic)' })
   transfer(
     @Param('id') id: string,
-    @Body() dto: TransferPersonAssignmentDto,
+    @Body() dto: TransferApplyDto,
     @CurrentActiveContext() ctx: ActiveOperationalContext,
     @CurrentUser('id') userId: string,
   ) {

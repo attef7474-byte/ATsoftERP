@@ -348,3 +348,92 @@ export interface HistoryFilters {
   limit?: number;
   sort?: string;
 }
+
+// HIER-G: Transfer Preview & Reconciliation Types
+
+export type RelationshipResolutionAction = 'END_AT_TRANSFER' | 'CONTINUE_ON_NEW_ASSIGNMENT';
+export type TemporalCategory = 'HISTORICAL' | 'CURRENT' | 'FUTURE';
+export type RelationshipDirection = 'INBOUND' | 'OUTBOUND';
+
+export interface AffectedRelationshipOtherParty {
+  person?: { id: string; name: string; code: string } | null;
+  jobTitle?: { id: string; name: string; code: string } | null;
+  department?: { id: string; name: string; code: string } | null;
+  branch?: { id: string; name: string } | null;
+  administration?: { id: string; name: string } | null;
+  leadershipLevel?: string;
+  assignmentType?: string;
+  assignmentId: string;
+}
+
+export interface AffectedRelationship {
+  id: string;
+  direction: RelationshipDirection;
+  relationshipType: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  isActive: boolean;
+  temporalCategory: TemporalCategory;
+  otherParty: AffectedRelationshipOtherParty;
+  allowedResolutions: RelationshipResolutionAction[];
+}
+
+export interface TransferPreviewResponse {
+  oldAssignment: {
+    id: string;
+    person?: { id: string; name: string; code: string } | null;
+    department?: { id: string; name: string; code: string } | null;
+    jobTitle?: { id: string; name: string; code: string } | null;
+    branch?: { id: string; name: string } | null;
+    administration?: { id: string; name: string } | null;
+    assignmentType: string;
+    leadershipLevel: string;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+  };
+  proposedNewAssignment: {
+    departmentId: string;
+    branchId: string | null;
+    administrationId: string | null;
+    jobTitleId: string | null;
+    assignmentType: string;
+    leadershipLevel: string;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+  };
+  transferDate: string;
+  summary: {
+    historicalUnaffected: number;
+    currentInbound: number;
+    currentOutbound: number;
+    futureInbound: number;
+    futureOutbound: number;
+    directCount: number;
+    matrixCount: number;
+    functionalCount: number;
+    totalAffected: number;
+  };
+  affectedRelationships: AffectedRelationship[];
+}
+
+export interface TransferApplyRequest {
+  departmentId: string;
+  branchId?: string;
+  administrationId?: string;
+  jobTitleId?: string;
+  assignmentType?: string;
+  leadershipLevel?: string;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  notes?: string;
+  relationshipResolutions?: Array<{
+    relationshipId: string;
+    action: RelationshipResolutionAction;
+  }>;
+}
+
+export interface TransferApplyResponse {
+  newAssignment: OperationalPersonAssignment;
+  relationshipsEnded: number;
+  relationshipsContinued: number;
+}

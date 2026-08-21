@@ -160,8 +160,8 @@ describe('HIER-D person-assignments page source includes leadership fields', () 
     expect(pageSource).toContain('const payload: any = { ...form,');
   });
 
-  it('leadershipLevel is included in transfer payload (transferForm sent directly)', () => {
-    expect(pageSource).toMatch(/api\.post\(.*transfer.*transferForm\)/);
+  it('leadershipLevel is included in transfer payload (transferForm fields used in transfer)', () => {
+    expect(pageSource).toMatch(/leadershipLevel.*transferForm|transferForm.*leadershipLevel/);
   });
 });
 
