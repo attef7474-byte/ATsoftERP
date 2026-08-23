@@ -140,6 +140,10 @@ export class SupervisorAssignmentsService {
     }
 
     const relationshipType = dto.relationshipType ?? 'DIRECT';
+    const validRelationshipTypes = ['DIRECT', 'MATRIX', 'FUNCTIONAL'];
+    if (!validRelationshipTypes.includes(relationshipType)) {
+      throw this.validationError('relationshipType', 'validation.invalidValue', `Invalid relationship type: ${relationshipType}`);
+    }
 
     if (relationshipType === 'DIRECT') {
       return this.prisma.$transaction(async (tx) => {
@@ -344,6 +348,11 @@ export class SupervisorAssignmentsService {
 
     if (newEffectiveTo && newEffectiveTo < newEffectiveFrom) {
       throw this.validationError('effectiveTo', 'validation.invalidRange', 'effectiveTo must not be before effectiveFrom');
+    }
+
+    const validRelationshipTypes = ['DIRECT', 'MATRIX', 'FUNCTIONAL'];
+    if (!validRelationshipTypes.includes(newType)) {
+      throw this.validationError('relationshipType', 'validation.invalidValue', `Invalid relationship type: ${newType}`);
     }
 
     if (newSupervisorId && newSupervisorId !== existing.supervisorAssignmentId) {
