@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { SupervisorAssignmentsService } from './supervisor-assignments.service';
+import { PersonAssignmentsService } from '../person-assignments/person-assignments.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
@@ -256,8 +257,107 @@ describe('HIER-H Audit Security — Supervisor Assignments', () => {
       expect(auditService.logWithClient).toHaveBeenCalled();
     });
 
-    it('LEADERSHIP_AUDIT_INSIDE_TRANSACTION: not applicable to supervisor-assignments service (leadership is in person-assignments)', () => {
-      expect(true).toBe(true);
+    it('LEADERSHIP_AUDIT_INSIDE_TRANSACTION: person-assignment create leadershipLevel is audited post-commit via auditService.log (no transaction)', async () => {
+      const personPrisma = {
+        operationalPersonAssignment: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({
+            id: 'pa-new',
+            companyId: 'company-a',
+            leadershipLevel: 'DEPARTMENT_HEAD',
+            assignmentType: 'PRIMARY',
+          }),
+        },
+        department: { findFirst: jest.fn().mockResolvedValue({ id: 'dept1', branchId: 'branch-a', companyId: 'company-a', branch: { id: 'branch-a', companyId: 'company-a', deletedAt: null } }) },
+        jobTitle: { findFirst: jest.fn().mockResolvedValue({ id: 'jt1', companyId: 'company-a', deletedAt: null }) },
+        branch: { findFirst: jest.fn().mockResolvedValue({ id: 'branch-a', companyId: 'company-a', deletedAt: null }) },
+        operationalPerson: { findFirst: jest.fn().mockResolvedValue({ id: 'person1' }) },
+        $transaction: jest.fn(),
+      };
+      personPrisma.$transaction.mockImplementation(async (fn: any) => fn(personPrisma));
+      const personAudit = { log: jest.fn(), logWithClient: jest.fn() };
+      const personService = new PersonAssignmentsService(personPrisma as any, personAudit as any, {} as any);
+
+      await personService.create(
+        {
+          departmentId: 'dept1',
+          branchId: 'branch-a',
+          personnelId: 'person1',
+          leadershipLevel: 'DEPARTMENT_HEAD',
+          effectiveFrom: '2026-01-01T00:00:00.000Z',
+        } as any,
+        ctx,
+        'user-1',
+      );
+
+      expect(personAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-1',
+          action: 'CREATE',
+          entity: 'OperationalPersonAssignment',
+        }),
+      );
+      const auditDetails = JSON.parse(personAudit.log.mock.calls[0][0].details);
+      expect(auditDetails.leadershipLevel).toBe('DEPARTMENT_HEAD');
+      expect(personAudit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('LEADERSHIP_AUDIT_INSIDE_TRANSACTION: person-assignment update leadershipLevel is audited post-commit via auditService.log (no transaction)', async () => {
+      const existingRecord = {
+        id: 'pa1',
+        companyId: 'company-a',
+        personnelId: 'person1',
+        departmentId: 'dept1',
+        jobTitleId: 'jt1',
+        assignmentType: 'PRIMARY',
+        leadershipLevel: 'NONE',
+        effectiveFrom: new Date('2026-01-01'),
+        effectiveTo: null,
+        deletedAt: null,
+        company: { id: 'company-a', name: 'CoA', code: 'CA' },
+        branch: { id: 'branch-a', name: 'BrA' },
+        administration: null,
+        department: { id: 'dept1', name: 'D1', code: 'D1', branchId: 'branch-a', companyId: 'company-a', branch: { id: 'branch-a', companyId: 'company-a', deletedAt: null } },
+        jobTitle: { id: 'jt1', name: 'JT1', code: 'JT1' },
+        person: { id: 'person1', name: 'P1', code: 'P1' },
+      };
+      const personPrisma = {
+        operationalPersonAssignment: {
+          findFirst: jest.fn()
+            .mockResolvedValueOnce(existingRecord)
+            .mockResolvedValueOnce(null),
+          update: jest.fn().mockImplementation(({ where, data }) =>
+            Promise.resolve({ id: where.id, ...data, companyId: 'company-a' }),
+          ),
+        },
+        department: { findFirst: jest.fn().mockResolvedValue({ id: 'dept1', branchId: 'branch-a', companyId: 'company-a', branch: { id: 'branch-a', companyId: 'company-a', deletedAt: null } }) },
+        jobTitle: { findFirst: jest.fn().mockResolvedValue({ id: 'jt1', companyId: 'company-a', deletedAt: null }) },
+        branch: { findFirst: jest.fn().mockResolvedValue({ id: 'branch-a', companyId: 'company-a', deletedAt: null }) },
+        operationalPerson: { findFirst: jest.fn().mockResolvedValue({ id: 'person1' }) },
+        $transaction: jest.fn(),
+      };
+      personPrisma.$transaction.mockImplementation(async (fn: any) => fn(personPrisma));
+      const personAudit = { log: jest.fn(), logWithClient: jest.fn() };
+      const personService = new PersonAssignmentsService(personPrisma as any, personAudit as any, {} as any);
+
+      await personService.update(
+        'pa1',
+        { leadershipLevel: 'DEPARTMENT_HEAD' } as any,
+        ctx,
+        'user-1',
+      );
+
+      expect(personAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-1',
+          action: 'UPDATE',
+          entity: 'OperationalPersonAssignment',
+          entityId: 'pa1',
+        }),
+      );
+      const auditDetails = JSON.parse(personAudit.log.mock.calls[0][0].details);
+      expect(auditDetails.leadershipLevel).toBe('DEPARTMENT_HEAD');
+      expect(personAudit.logWithClient).not.toHaveBeenCalled();
     });
   });
 
