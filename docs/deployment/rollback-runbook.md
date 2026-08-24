@@ -78,20 +78,36 @@ Releases:
 
 If the deployment included a database migration that needs reversal:
 
-1. **Check current migration state:**
+> **CRITICAL: `prisma migrate reset` must NEVER be used on a production database.**
+> It destroys all data. Prisma migrations are forward-only.
+
+1. **Stop the application** to prevent further writes:
+   ```pwsh
+   .\tools\runtime\atsofterp-stop.ps1
+   ```
+
+2. **Check current migration state:**
    ```pwsh
    npx prisma migrate status
    ```
 
-2. **Roll back the migration:**
+3. **Restore the pre-migration backup** (created automatically by `atsofterp-run-migrations.ps1` before every migration):
    ```pwsh
-   npx prisma migrate reset --force
-   ```
-   or manually revert with a down migration script.
+   # Find the latest pre-migration backup
+   Get-ChildItem "C:\ATsoftERP\Backups" -Filter "*pre-migration*" | Sort-Object LastWriteTime -Descending | Select-Object -First 3
 
-3. **Re-run the previous deploy:**
+   # Restore using the verified backup restore procedure
+   .\tools\backup\restore-test-sqlserver.ps1 -BackupFile "path\to\pre-migration-backup.bak" -TargetDatabase "ATsoftERP_DB"
+   ```
+
+4. **Re-run the previous deploy** (code-only rollback):
    ```pwsh
-   .\tools\deploy\deploy-local-windows.ps1 -ReleaseZip "C:\ATsoftERP\App\_previous\*.zip"
+   .\tools\deploy\rollback-local-windows.ps1 -DeployRoot "C:\ATsoftERP\App"
+   ```
+
+5. **Verify:**
+   ```pwsh
+   .\tools\health\smoke-check.ps1
    ```
 
 ## Emergency Rollback
