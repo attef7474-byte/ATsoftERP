@@ -57,7 +57,7 @@ export class AttachmentsController {
   @Permissions('attachments.create')
   @ApiOperation({ summary: 'Upload attachment' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: AttachmentsService.getMaxUploadSize() } }))
   async create(@UploadedFile() file: Express.Multer.File, @Body('entityName') entityName: string, @Body('entityId') entityId: string, @Body('description') description: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     if (entityName === 'ProductionOrder') throw new BadRequestException({ messageKey: 'productionOrder.useScopedAttachmentEndpoint' })
     return this.service.create(file, entityName, entityId, description, userId, ctx)

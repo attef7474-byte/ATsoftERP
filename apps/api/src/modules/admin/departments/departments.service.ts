@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
@@ -30,13 +30,19 @@ export class DepartmentsService {
 
     const code = dto.code?.trim() || (await this.numberingService.generateNumberAtomic('DEPARTMENT'));
 
-    const existing = await this.prisma.department.findFirst({
-      where: { companyId: ctx.companyId, code, deletedAt: null },
-    });
-    if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Department code already exists');
-
     const { companyId: _companyId, branchId: _branchId, ...rest } = dto;
-    return this.prisma.department.create({ data: { ...rest, companyId: ctx.companyId, branchId: ctx.branchId, code } });
+    try {
+      return await this.prisma.department.create({ data: { ...rest, companyId: ctx.companyId, branchId: ctx.branchId, code } });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        throw new ConflictException({
+          messageKey: 'validation.duplicateValue',
+          message: 'Department code already exists',
+          errors: [{ field: 'code', code: 'validation.duplicateValue', message: 'Department code already exists' }],
+        });
+      }
+      throw error;
+    }
   }
 
   private async validateReferences(refs: {

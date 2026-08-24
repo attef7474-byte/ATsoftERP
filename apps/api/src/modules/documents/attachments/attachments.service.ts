@@ -4,6 +4,32 @@ import * as path from 'path'
 import * as fs from 'fs'
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types'
 
+const ALLOWED_MIME_PREFIXES = [
+  'image/',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument',
+  'application/vnd.ms-excel',
+  'application/vnd.ms-powerpoint',
+  'text/plain',
+  'text/csv',
+]
+
+const BLOCKED_EXTENSIONS = new Set([
+  '.exe', '.bat', '.cmd', '.com', '.msi', '.scr', '.pif',
+  '.js', '.vbs', '.vbe', '.wsf', '.wsh', '.ps1', '.psm1',
+  '.sh', '.bash', '.csh', '.ksh',
+  '.jar', '.class', '.py', '.rb', '.pl',
+  '.dll', '.so', '.dylib',
+  '.php', '.asp', '.aspx', '.jsp', '.cgi',
+  '.hta', '.cpl', '.inf', '.reg', '.scr',
+])
+
+const MAX_UPLOAD_SIZE_BYTES = (() => {
+  const mb = parseInt(process.env.MAX_UPLOAD_SIZE_MB || '10', 10)
+  return (isNaN(mb) || mb < 1 ? 10 : mb) * 1024 * 1024
+})()
+
 @Injectable()
 export class AttachmentsService {
   private uploadRoot = process.env.UPLOAD_ROOT || path.join(process.cwd(), '../../storage/uploads')
@@ -11,6 +37,39 @@ export class AttachmentsService {
   constructor(private readonly prisma: PrismaService) {
     if (!fs.existsSync(this.uploadRoot)) {
       fs.mkdirSync(this.uploadRoot, { recursive: true })
+    }
+  }
+
+  static getMaxUploadSize(): number {
+    return MAX_UPLOAD_SIZE_BYTES
+  }
+
+  private validateFile(file: Express.Multer.File): void {
+    if (!file) throw new BadRequestException('File is required')
+
+    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+      throw new BadRequestException({
+        messageKey: 'attachments.fileTooLarge',
+        message: `File size exceeds maximum allowed size of ${Math.round(MAX_UPLOAD_SIZE_BYTES / 1024 / 1024)}MB`,
+      })
+    }
+
+    const ext = path.extname(file.originalname).toLowerCase()
+    if (BLOCKED_EXTENSIONS.has(ext)) {
+      throw new BadRequestException({
+        messageKey: 'attachments.fileTypeBlocked',
+        message: `File type '${ext}' is not allowed`,
+      })
+    }
+
+    const mimeAllowed = ALLOWED_MIME_PREFIXES.some((prefix) =>
+      file.mimetype === prefix || file.mimetype.startsWith(prefix + ';'),
+    )
+    if (!mimeAllowed) {
+      throw new BadRequestException({
+        messageKey: 'attachments.invalidMimeType',
+        message: `MIME type '${file.mimetype}' is not allowed`,
+      })
     }
   }
 
@@ -35,7 +94,7 @@ export class AttachmentsService {
   }
 
   async create(file: Express.Multer.File, entityName: string, entityId: string, description: string | undefined, userId: string | undefined, ctx: ActiveOperationalContext) {
-    if (!file) throw new BadRequestException('File is required')
+    this.validateFile(file)
     await this.assertEntityOwned(entityName, entityId, ctx)
     const safeName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`
     const filePath = path.join(this.uploadRoot, safeName)

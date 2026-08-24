@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { DepartmentsService } from './departments.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { NumberingService } from '../../numbering/numbering.service';
@@ -101,13 +101,14 @@ describe('DepartmentsService', () => {
   });
 
   describe('create', () => {
-    it('throws a duplicate field error on the code', async () => {
+    it('throws a ConflictException on duplicate code (P2002)', async () => {
       prisma.company.findFirst.mockResolvedValue({ id: 'company-a' });
       prisma.branch.findFirst.mockResolvedValue({ id: 'branch-a', companyId: 'company-a' });
-      prisma.department.findFirst.mockResolvedValue({ id: 'd9' });
+      const p2002Error = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
+      prisma.department.create.mockRejectedValue(p2002Error);
 
       const promise = service.create({ code: 'DEP-1', name: 'Quality' }, ctx);
-      await expect(promise).rejects.toThrow(BadRequestException);
+      await expect(promise).rejects.toThrow(ConflictException);
       const response = (await promise.catch((e) => e)).getResponse();
       expect(response.errors[0]).toMatchObject({ field: 'code', code: 'validation.duplicateValue' });
     });
