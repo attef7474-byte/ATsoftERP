@@ -1,11 +1,12 @@
 import { test as base, expect, Page, BrowserContext } from '@playwright/test';
+import { QA_EMAIL, QA_PASSWORD, QA_COMPANY_ID, QA_BRANCH_ID } from './qa-credentials';
 
 const BASE = 'http://localhost:3000';
 const API_BASE = 'http://localhost:4000/api/v1';
 const SCREENSHOT_DIR = 'docs/proofs/full-system-browser-qa/screenshots';
 
-const COMPANY_ID = 'cmrl31uuy0000ok959hdjnca6';
-const BRANCH_ID = 'cmrx06a560000ng95g7d65vzh';
+const COMPANY_ID = QA_COMPANY_ID;
+const BRANCH_ID = QA_BRANCH_ID;
 
 type QAFixtures = {
   arabicPage: Page;
@@ -183,8 +184,8 @@ async function loginWithLocale(page: Page, locale: 'ar' | 'en') {
   ]);
   await page.goto(`${BASE}/login`);
   await page.waitForLoadState('networkidle');
-  await page.fill('input[type="email"], input[name="email"], input[placeholder*="email" i]', 'admin@atsofterp.com');
-  await page.fill('input[type="password"], input[name="password"]', 'Admin@123456');
+  await page.fill('input[type="email"], input[name="email"], input[placeholder*="email" i]', QA_EMAIL);
+  await page.fill('input[type="password"], input[name="password"]', QA_PASSWORD);
   await page.click('button[type="submit"]');
   await page.waitForURL('**/admin/**', { timeout: 20000 });
   await page.waitForLoadState('networkidle');
@@ -217,8 +218,8 @@ const test = base.extend<QAFixtures>({
     const page = await context.newPage();
     await page.goto(`${BASE}/login`);
     await page.waitForLoadState('networkidle');
-    await page.fill('input[type="email"], input[name="email"], input[placeholder*="email" i]', 'admin@atsofterp.com');
-    await page.fill('input[type="password"], input[name="password"]', 'Admin@123456');
+    await page.fill('input[type="email"], input[name="email"], input[placeholder*="email" i]', QA_EMAIL);
+    await page.fill('input[type="password"], input[name="password"]', QA_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForURL('**/admin/**', { timeout: 20000 });
     await page.waitForLoadState('networkidle');
@@ -238,8 +239,8 @@ const test = base.extend<QAFixtures>({
     const page = await context.newPage();
     await page.goto(`${BASE}/login`);
     await page.waitForLoadState('networkidle');
-    await page.fill('input[type="email"], input[name="email"], input[placeholder*="email" i]', 'admin@atsofterp.com');
-    await page.fill('input[type="password"], input[name="password"]', 'Admin@123456');
+    await page.fill('input[type="email"], input[name="email"], input[placeholder*="email" i]', QA_EMAIL);
+    await page.fill('input[type="password"], input[name="password"]', QA_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForURL('**/admin/**', { timeout: 20000 });
     await page.waitForLoadState('networkidle');
@@ -366,8 +367,8 @@ test.describe('Phase 3: Responsive Arabic (375x812)', () => {
 
       await page.goto(`${BASE}/login`);
       await page.waitForLoadState('networkidle');
-      await page.fill('input[type="email"], input[name="email"], input[placeholder*="email" i]', 'admin@atsofterp.com');
-      await page.fill('input[type="password"], input[name="password"]', 'Admin@123456');
+      await page.fill('input[type="email"], input[name="email"], input[placeholder*="email" i]', QA_EMAIL);
+      await page.fill('input[type="password"], input[name="password"]', QA_PASSWORD);
       await page.click('button[type="submit"]');
       await page.waitForURL('**/admin/**', { timeout: 20000 });
       await page.waitForLoadState('networkidle');

@@ -1,4 +1,5 @@
 import { test as base, expect, Page } from '@playwright/test';
+import { QA_EMAIL, QA_PASSWORD } from './qa-credentials';
 
 const BASE = 'http://localhost:3000';
 const SCREENSHOT_DIR = 'docs/proofs/full-system-browser-qa/screenshots';
@@ -11,8 +12,8 @@ const test = base.extend<QAFixtures>({
   authedPage: async ({ page }, use) => {
     await page.goto(`${BASE}/login`);
     await page.waitForLoadState('networkidle');
-    await page.fill('input[type="email"], input[name="email"], input[placeholder*="email" i]', 'admin@atsofterp.com');
-    await page.fill('input[type="password"], input[name="password"]', 'Admin@123456');
+    await page.fill('input[type="email"], input[name="email"], input[placeholder*="email" i]', QA_EMAIL);
+    await page.fill('input[type="password"], input[name="password"]', QA_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForURL('**/admin/**', { timeout: 15000 });
     await page.waitForLoadState('networkidle');

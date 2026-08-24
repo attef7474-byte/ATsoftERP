@@ -1,4 +1,5 @@
 import { test, Page } from '@playwright/test';
+import { QA_EMAIL, QA_PASSWORD } from './qa-credentials';
 
 const WEB = 'http://localhost:3000';
 
@@ -89,8 +90,8 @@ test.describe('Console + Network Sweep', () => {
     listen(page);
     await page.goto(`${WEB}/login`);
     await page.waitForLoadState('networkidle');
-    await page.fill('#email', 'admin@atsofterp.com');
-    await page.fill('#password', 'Admin@123456');
+    await page.fill('#email', QA_EMAIL);
+    await page.fill('#password', QA_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForURL('**/admin/**', { timeout: 15000 });
     await page.waitForLoadState('networkidle');
@@ -112,8 +113,8 @@ test.describe('Console + Network Sweep', () => {
     ]);
     await page.goto(`${WEB}/login`);
     await page.waitForLoadState('networkidle');
-    await page.fill('#email', 'admin@atsofterp.com');
-    await page.fill('#password', 'Admin@123456');
+    await page.fill('#email', QA_EMAIL);
+    await page.fill('#password', QA_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForURL('**/admin/**', { timeout: 15000 });
     await page.waitForLoadState('networkidle');

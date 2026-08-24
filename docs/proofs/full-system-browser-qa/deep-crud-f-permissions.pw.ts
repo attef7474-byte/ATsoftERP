@@ -1,4 +1,5 @@
 import { test as base, expect, Page } from '@playwright/test';
+import { QA_EMAIL, QA_PASSWORD, QA_COMPANY_ID, QA_BRANCH_ID } from './qa-credentials';
 
 const BASE = 'http://localhost:3000';
 const API_BASE = 'http://localhost:4000/api/v1';
@@ -13,21 +14,21 @@ const test = base.extend<QAFixtures>({
     const loginResp = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'admin@atsofterp.com', password: 'Admin@123456' }),
+      body: JSON.stringify({ email: QA_EMAIL, password: QA_PASSWORD }),
     });
     const { accessToken } = await loginResp.json();
     await use({
       Authorization: `Bearer ${accessToken}`,
-      'x-active-company-id': 'cmrl31uuy0000ok959hdjnca6',
-      'x-active-branch-id': 'cmrx06a560000ng95g7d65vzh',
+      'x-active-company-id': QA_COMPANY_ID,
+      'x-active-branch-id': QA_BRANCH_ID,
       'Content-Type': 'application/json',
     });
   },
   authedPage: async ({ page }, use) => {
     await page.goto(`${BASE}/login`);
     await page.waitForLoadState('networkidle');
-    await page.fill('input[type="email"], input[name="email"], input[placeholder*="email" i]', 'admin@atsofterp.com');
-    await page.fill('input[type="password"], input[name="password"]', 'Admin@123456');
+    await page.fill('input[type="email"], input[name="email"], input[placeholder*="email" i]', QA_EMAIL);
+    await page.fill('input[type="password"], input[name="password"]', QA_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForURL('**/admin/**', { timeout: 15000 });
     await page.waitForLoadState('networkidle');
@@ -59,7 +60,7 @@ test.describe('Module F: Permission & Security API Tests', () => {
     const loginResp = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'admin@atsofterp.com', password: 'Admin@123456' }),
+      body: JSON.stringify({ email: QA_EMAIL, password: QA_PASSWORD }),
     });
     const { accessToken } = await loginResp.json();
 

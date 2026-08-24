@@ -3,6 +3,13 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+const QA_EMAIL = process.env.QA_ADMIN_EMAIL;
+const QA_PASSWORD = process.env.QA_ADMIN_PASSWORD;
+if (!QA_EMAIL || !QA_PASSWORD) {
+  console.error('FATAL: QA runtime credential not configured: QA_ADMIN_EMAIL and QA_ADMIN_PASSWORD environment variables are required.');
+  process.exit(1);
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB = 'http://localhost:3000';
 const API = 'http://localhost:4000';
@@ -71,7 +78,7 @@ p.on('requestfailed', req => allNetworkFails.push(`[network] ${req.url()} ${req.
 let token, userId, defaultCtx;
 try {
   const lr = await p.request.post(API + '/api/v1/auth/login', {
-    data: { email: 'admin@atsofterp.com', password: 'Admin@123456' },
+    data: { email: QA_EMAIL, password: QA_PASSWORD },
   });
   const lrJson = await lr.json();
   if (!lrJson.accessToken) throw new Error('Login failed');
