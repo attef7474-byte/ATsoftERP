@@ -66,7 +66,7 @@
 | apps/web/tests/error-utils.test.ts | M | A | Report §4; field-error localization tests | STAGED | Web test |
 | apps/web/tests/translation-organization.test.ts | ?? | A | Report §3; namespace sync tests | STAGED | Web test |
 | docs/proofs/atsofterp-ux1b1-core-access-migration-report.md | ?? | A | The accepted proof report itself | STAGED | Required proof record |
-| docs/screenshots/ux1b1-core-access-migration/ (17 files) | ?? | A | Report §3, §11; repo tracks 617 proof screenshots incl. per-task dirs; seed-demo UI only | STAGED | Accepted proof record |
+| docs/screenshots/ux1b1-core-access-migration/ (removed post-release) | -- | -- | Screenshots removed post-release; proof results in ux1b1-results.json | -- | Removed |
 | tools/health/ux1b1-proof.mjs | ?? | A | Report §3, §11; matches tracked proof-script convention (final-proof.mjs pattern, seed test credentials) | STAGED | Reusable proof tooling |
 | tools/health/probe-buttons.mjs | ?? | C/D | Temporary one-off DOM diagnostic from proof development; undocumented, not referenced by report | NOT STAGED | Temporary tooling |
 | proof-token.txt | ?? | D | Pre-existing; untouched by task | NOT STAGED | Token file, never touch |

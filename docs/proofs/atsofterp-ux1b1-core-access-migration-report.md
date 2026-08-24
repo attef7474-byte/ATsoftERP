@@ -40,7 +40,7 @@ Tooling / proof:
 
 - `tools/health/ux1b1-proof.mjs` (browser proof, 38 checks)
 - `tools/health/probe-buttons.mjs` (DOM diagnostic probe used during proof development)
-- `docs/screenshots/ux1b1-core-access-migration/` — 16 PNG screenshots + `ux1b1-results.json`
+- `ux1b1-results.json` — browser proof results (screenshots removed post-release)
 
 ## 4. Files Modified
 
@@ -121,7 +121,7 @@ All green:
 
 ## 11. Runtime Proof Results
 
-`tools/health/ux1b1-proof.mjs` against live API (port 4000) + production web build (port 3000), Chromium headless 1366×768: **38 PASS / 0 FAIL**, 16 screenshots in `docs/screenshots/ux1b1-core-access-migration/`, results in `ux1b1-results.json`.
+`tools/health/ux1b1-proof.mjs` against live API (port 4000) + production web build (port 3000), Chromium headless 1366×768: **38 PASS / 0 FAIL**, results in `ux1b1-results.json` (screenshots removed post-release).
 
 Proven path: `Frontend → API → Permission/context guard → Service → DB → localized error/message → UI (AR+EN, RTL+LTR)`.
 

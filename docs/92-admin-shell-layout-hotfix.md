@@ -47,14 +47,7 @@
 
 ## لقطات الشاشة
 
-متوفرة في `docs/screenshots/hotfix/`:
-- `dashboard.png`
-- `machines.png`
-- `inventory-counts.png`
-- `companies.png`
-- `users.png`
-- `products.png`
-- `maintenance-requests.png`
+Screenshots removed post-release. Hotfix verification: PASS (7 pages verified).
 
 ---
 

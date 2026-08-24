@@ -72,10 +72,7 @@ The following modules exist as source stubs but are NOT imported, mounted, or fu
 
 ## Included Proof
 
-- `docs/screenshots/batch37-production-runtime-health-smoke-browser-proof-completion/`
-- `docs/screenshots/batch38-full-qa-regression-permissions-security-closure/`
-- `docs/screenshots/batch39-documentation-user-manual-training-package/`
-- `docs/screenshots/batch40-final-release-package-acceptance-handover/`
+- QA screenshot evidence removed post-release (see release tag `atsoft-erp-production-ready-v1` for commit history)
 
 ## Included Scripts
 

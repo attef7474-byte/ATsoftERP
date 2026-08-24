@@ -44,7 +44,7 @@
 
 - `apps/api/src/modules/factory/maintenance/machine-assets-canonical-errors.spec.ts` (35 tests)
 - `tools/health/ux1b2a-proof.mjs` (browser proof runner)
-- `docs/screenshots/ux1b2a-maintenance-assets-migration/` — 12 screenshots + `ux1b2a-results.json`
+- `ux1b2a-results.json` (screenshots removed post-release)
 
 ## 4. Files Modified
 

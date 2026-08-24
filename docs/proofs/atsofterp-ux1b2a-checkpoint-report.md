@@ -47,7 +47,7 @@ Untracked UX-1B-2A:
 - `apps/api/src/modules/factory/maintenance/machine-assets-canonical-errors.spec.ts` (35 tests).
 - `docs/proofs/atsofterp-ux1b2a-maintenance-assets-migration-report.md`.
 - `tools/health/ux1b2a-proof.mjs` — committed per repo convention: the already-tracked `tools/health/ux1b1-proof.mjs` (committed in UX-1B-1 checkpoint) uses the identical local demo-fixture login (`admin@atsofterp.com` demo account, same as the seed used by `final-proof.mjs`); no production secrets, no tokens, no private data; safe temporary fixtures with automatic cleanup.
-- `docs/screenshots/ux1b2a-maintenance-assets-migration/` — 12 PNG screenshots (57–107 KB each) + `ux1b2a-results.json` (115 bytes; contains only timestamp/pass/fail/consoleErrors/result). Committed per evidence rule 1: the repository already tracks 634 browser-proof screenshots under `docs/screenshots/`. No credentials/cookies/headers/private data in the JSON; screenshots are application UI captures.
+- `ux1b2a-results.json` (115 bytes; contains only timestamp/pass/fail/consoleErrors/result). Screenshots removed post-release.
 
 ### Category B — Required Shared Dependency
 

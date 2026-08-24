@@ -81,9 +81,7 @@
 
 ## الصور (Screenshots)
 
-`docs/screenshots/workspace-layout/` — 8 صور:
-- dashboard, companies, branches, departments
-- inventory-counts, inventory-balances, machines, requests
+Screenshots removed post-release. Workspace layout verification: PASS (8 pages verified).
 
 ## تأكيد الأمان
 
