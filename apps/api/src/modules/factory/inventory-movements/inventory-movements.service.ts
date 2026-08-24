@@ -165,7 +165,7 @@ export class InventoryMovementsService {
     client: any = this.prisma,
   ) {
     return client.inventoryMovement.findFirst({
-      where: { companyId: ctx.companyId, branchId: { in: [ctx.branchId, null] }, requestId, deletedAt: null },
+      where: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }], requestId, deletedAt: null },
       include: { lines: true },
     });
   }
@@ -321,12 +321,12 @@ export class InventoryMovementsService {
     const skip = (page - 1) * limit;
 
     const where: any = { deletedAt: null, companyId: ctx.companyId };
-    where.branchId = { in: [ctx.branchId, null] };
+    where.AND = [{ OR: [{ branchId: ctx.branchId }, { branchId: null }] }];
     if (query.search) {
-      where.OR = [
+      where.AND.push({ OR: [
         { movementNumber: { contains: query.search } },
         { notes: { contains: query.search } },
-      ];
+      ] });
     }
     if (query.warehouseId) where.warehouseId = query.warehouseId;
     if (query.movementType) where.movementType = query.movementType;

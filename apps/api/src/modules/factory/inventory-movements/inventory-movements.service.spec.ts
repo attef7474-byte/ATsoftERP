@@ -364,7 +364,7 @@ describe('InventoryMovementsService', () => {
       await service.findAll({ page: 1, limit: 10 }, ctx);
       expect(prisma.inventoryMovement.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ companyId: 'c1', branchId: { in: ['b1', null] }, deletedAt: null }),
+          where: expect.objectContaining({ companyId: 'c1', AND: [{ OR: [{ branchId: 'b1' }, { branchId: null }] }], deletedAt: null }),
         }),
       );
       expect(prisma.inventoryMovement.count).toHaveBeenCalledWith(
@@ -379,7 +379,7 @@ describe('InventoryMovementsService', () => {
       await service.findAll({ companyId: 'c2', branchId: 'b2', page: 1, limit: 10 } as any, ctx);
       expect(prisma.inventoryMovement.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ companyId: 'c1', branchId: { in: ['b1', null] } }),
+          where: expect.objectContaining({ companyId: 'c1', AND: [{ OR: [{ branchId: 'b1' }, { branchId: null }] }] }),
         }),
       );
     });
@@ -390,7 +390,7 @@ describe('InventoryMovementsService', () => {
 
       await service.findAll({ status: 'POSTED', search: 'IM-00' }, ctx);
       expect(prisma.inventoryMovement.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ status: 'POSTED', OR: expect.any(Array) }) }),
+        expect.objectContaining({ where: expect.objectContaining({ status: 'POSTED', AND: expect.any(Array) }) }),
       );
     });
   });

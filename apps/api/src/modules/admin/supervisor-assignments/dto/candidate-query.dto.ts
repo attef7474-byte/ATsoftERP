@@ -5,6 +5,11 @@ export class CandidateQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  supervisorAssignmentId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   search?: string;
 
   @ApiPropertyOptional()

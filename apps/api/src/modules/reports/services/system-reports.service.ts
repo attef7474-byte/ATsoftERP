@@ -8,9 +8,13 @@ export class SystemReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getAssetsRegisterReport(filters: any, ctx: ActiveOperationalContext) {
-    const tenant = { companyId: ctx.companyId, branchId: { in: [ctx.branchId, null] } };
+    const tenant = { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] };
     const where: any = { ...tenant };
-    if (filters.search) where.OR = [{ code: { contains: filters.search } }, { name: { contains: filters.search } }];
+    if (filters.search) {
+      where.AND = [
+        { OR: [{ code: { contains: filters.search } }, { name: { contains: filters.search } }] },
+      ];
+    }
     if (filters.machineCategoryId) where.categoryId = filters.machineCategoryId;
     if (filters.status) where.status = filters.status;
     if (filters.location) where.location = { contains: filters.location };
