@@ -349,6 +349,7 @@ The `ERR [en] / +1` warning from earlier sessions was traced to `full-crawl.pw.t
 | API build (`tsc`) | **PASS** |
 | Web build (`next build`) | **PASS** |
 | API unit tests | **PASS** (120 suites, 1973 tests, 0 failures) |
+| Web unit tests | **PASS** (14 suites, 616 tests, 0 failures) |
 | UI baseline check | **PASS** (99/99 checks) |
 | i18n namespace sync | **PASS** (14 namespaces, all in ar + en) |
 | ESLint | N/A (not installed — pre-existing) |
@@ -409,6 +410,7 @@ No QA-SYS-* or TEST-* records found in any table (warehouses, machines, spare pa
 | — API unit tests (Jest) | 1973 tests / 120 suites | **ALL PASS** |
 | — API TypeScript | 0 errors | **PASS** |
 | — Web TypeScript | 0 errors | **PASS** |
+| — Web unit tests (Jest) | 616 tests / 14 suites | **ALL PASS** |
 | — API build (tsc) | clean | **PASS** |
 | — Web build (next build) | clean | **PASS** |
 | — Prisma validate | valid | **PASS** |
@@ -419,6 +421,7 @@ No QA-SYS-* or TEST-* records found in any table (warehouses, machines, spare pa
 
 **Playwright QA:** 346 browser tests across 5 phases — ALL PASS
 **API unit tests:** 1973 tests across 120 suites — ALL PASS
+**Web unit tests:** 616 tests across 14 suites — ALL PASS
 
 ---
 
@@ -430,6 +433,7 @@ No QA-SYS-* or TEST-* records found in any table (warehouses, machines, spare pa
 - **1 regression test file updated** to match corrected production behavior
 - **346 Playwright browser tests pass** across 5 phases
 - **1973 API unit tests pass** across 120 suites
+- **616 Web unit tests pass** across 14 suites
 - **131 frontend pages load successfully** (0 FAIL)
 - **All 19 entity types** have verified CRUD cycles
 - **RTL/LTR verified** on all pages in both languages
