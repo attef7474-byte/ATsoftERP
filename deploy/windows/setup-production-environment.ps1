@@ -98,9 +98,13 @@ if ($webOk) {
 
 if (-not $apiOk -or -not $webOk) {
   Write-Host ""
-  $answer = Read-Host "Builds are missing. Continue anyway? (services may fail to start) [y/N]"
-  if ($answer -ne "y" -and $answer -ne "Y") {
-    exit 1
+  if ($DryRun) {
+    Write-Host "  [DRY-RUN] Builds missing — would normally prompt to continue" -ForegroundColor Gray
+  } else {
+    $answer = Read-Host "Builds are missing. Continue anyway? (services may fail to start) [y/N]"
+    if ($answer -ne "y" -and $answer -ne "Y") {
+      exit 1
+    }
   }
 }
 

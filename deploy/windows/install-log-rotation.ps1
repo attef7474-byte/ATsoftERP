@@ -32,7 +32,9 @@ Write-Host "=== ATsoftERP Log Rotation Scheduler ===" -ForegroundColor Cyan
 # --- Step 1: Create the log rotation script ---
 $logRotationScript = "C:\ATsoftERP\Config\rotate-logs.ps1"
 $configDir = "C:\ATsoftERP\Config"
-if (-not (Test-Path $configDir)) { New-Item -ItemType Directory -Path $configDir -Force | Out-Null }
+if (-not (Test-Path $configDir)) {
+  if (-not $DryRun) { New-Item -ItemType Directory -Path $configDir -Force | Out-Null }
+}
 
 $rotateScript = @'
 <#

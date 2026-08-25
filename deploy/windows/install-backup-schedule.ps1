@@ -46,7 +46,9 @@ if (-not (Test-Path $BackupDir)) {
 
 # --- Step 2: Create a wrapper script that handles password securely ---
 $configDir = "C:\ATsoftERP\Config"
-if (-not (Test-Path $configDir)) { New-Item -ItemType Directory -Path $configDir -Force | Out-Null }
+if (-not (Test-Path $configDir)) {
+  if (-not $DryRun) { New-Item -ItemType Directory -Path $configDir -Force | Out-Null }
+}
 
 $wrapperScript = Join-Path $configDir "scheduled-backup.ps1"
 $backupScript = (Resolve-Path "$PSScriptRoot\..\..\tools\backup\backup-sqlserver.ps1").Path

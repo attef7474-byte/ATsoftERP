@@ -141,7 +141,9 @@ foreach ($svc in $services) {
 
     # Set logging to C:\ATsoftERP\Logs
     $logDir = "C:\ATsoftERP\Logs"
-    if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+    if (-not (Test-Path $logDir)) {
+      if (-not $DryRun) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+    }
     & $NssmPath set $name AppStdout "$logDir\$name.stdout.log"
     & $NssmPath set $name AppStderr "$logDir\$name.stderr.log"
 
@@ -151,7 +153,9 @@ foreach ($svc in $services) {
     & $NssmPath set $name AppRotateOnline 1
 
     # Set failure recovery: restart after 30s, 60s, 120s; reset counter after 1 day
-    & sc.exe failure $name reset= 86400 actions= restart/30000/restart/60000/restart/120000 | Out-Null
+    if (-not $DryRun) {
+      & sc.exe failure $name reset= 86400 actions= restart/30000/restart/60000/restart/120000 | Out-Null
+    }
 
     Write-Host "  Service '$name' installed successfully." -ForegroundColor Green
   }
@@ -165,30 +169,36 @@ Write-Host "Start Web:  Start-Service ATsoftERP_Web"
 Write-Host "Start Both: Start-Service ATsoftERP_API; Start-Service ATsoftERP_Web"
 Write-Host "Status:     Get-Service ATsoftERP_*"
 Write-Host "Logs:       C:\ATsoftERP\Logs\"
-Write-Host ""
-Write-Host "Start services now? (They will auto-start on next boot regardless.)" -ForegroundColor Yellow
-$answer = Read-Host "Start now? [Y/n]"
-if ($answer -ne "n" -and $answer -ne "N") {
-  Write-Host "Starting ATsoftERP_API..." -ForegroundColor Cyan
-  Start-Service ATsoftERP_API
-  Start-Sleep -Seconds 3
-  Write-Host "Starting ATsoftERP_Web..." -ForegroundColor Cyan
-  Start-Service ATsoftERP_Web
-  Start-Sleep -Seconds 5
 
+if ($DryRun) {
   Write-Host ""
-  Write-Host "=== Health Check ===" -ForegroundColor Cyan
-  try {
-    $apiHealth = Invoke-WebRequest -Uri "http://localhost:4000/api/v1/health" -TimeoutSec 10 -UseBasicParsing
-    Write-Host "API: $($apiHealth.StatusCode) - $($apiHealth.Content.Substring(0, [Math]::Min(80, $apiHealth.Content.Length)))" -ForegroundColor Green
-  } catch {
-    Write-Host "API: FAILED - $($_.Exception.Message)" -ForegroundColor Red
-  }
-  try {
-    $webHealth = Invoke-WebRequest -Uri "http://localhost:3000" -TimeoutSec 10 -UseBasicParsing
-    Write-Host "Web: $($webHealth.StatusCode)" -ForegroundColor Green
-  } catch {
-    Write-Host "Web: FAILED - $($_.Exception.Message)" -ForegroundColor Red
+  Write-Host "[DRY-RUN] Would optionally start ATsoftERP_API and ATsoftERP_Web" -ForegroundColor Gray
+} else {
+  Write-Host ""
+  Write-Host "Start services now? (They will auto-start on next boot regardless.)" -ForegroundColor Yellow
+  $answer = Read-Host "Start now? [Y/n]"
+  if ($answer -ne "n" -and $answer -ne "N") {
+    Write-Host "Starting ATsoftERP_API..." -ForegroundColor Cyan
+    Start-Service ATsoftERP_API
+    Start-Sleep -Seconds 3
+    Write-Host "Starting ATsoftERP_Web..." -ForegroundColor Cyan
+    Start-Service ATsoftERP_Web
+    Start-Sleep -Seconds 5
+
+    Write-Host ""
+    Write-Host "=== Health Check ===" -ForegroundColor Cyan
+    try {
+      $apiHealth = Invoke-WebRequest -Uri "http://localhost:4000/api/v1/health" -TimeoutSec 10 -UseBasicParsing
+      Write-Host "API: $($apiHealth.StatusCode) - $($apiHealth.Content.Substring(0, [Math]::Min(80, $apiHealth.Content.Length)))" -ForegroundColor Green
+    } catch {
+      Write-Host "API: FAILED - $($_.Exception.Message)" -ForegroundColor Red
+    }
+    try {
+      $webHealth = Invoke-WebRequest -Uri "http://localhost:3000" -TimeoutSec 10 -UseBasicParsing
+      Write-Host "Web: $($webHealth.StatusCode)" -ForegroundColor Green
+    } catch {
+      Write-Host "Web: FAILED - $($_.Exception.Message)" -ForegroundColor Red
+    }
   }
 }
 

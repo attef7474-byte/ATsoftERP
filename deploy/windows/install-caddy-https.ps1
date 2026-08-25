@@ -86,7 +86,9 @@ if (-not $caddyPath) {
 
 # --- Step 2: Create Caddyfile ---
 $caddyDir = "C:\ATsoftERP\Config"
-if (-not (Test-Path $caddyDir)) { New-Item -ItemType Directory -Path $caddyDir -Force | Out-Null }
+if (-not (Test-Path $caddyDir)) {
+  if (-not $DryRun) { New-Item -ItemType Directory -Path $caddyDir -Force | Out-Null }
+}
 
 $caddyfilePath = Join-Path $caddyDir "Caddyfile"
 
