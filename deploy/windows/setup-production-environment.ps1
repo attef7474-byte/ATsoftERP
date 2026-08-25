@@ -143,31 +143,57 @@ $installBackup = Join-Path $scriptDir "install-backup-schedule.ps1"
 
 # --- Final Summary ---
 Write-Host ""
-Write-Host "==========================================" -ForegroundColor Green
-Write-Host "  Setup Complete!" -ForegroundColor Green
-Write-Host "==========================================" -ForegroundColor Green
-Write-Host ""
-Write-Host "Services:" -ForegroundColor Cyan
-Write-Host "  ATsoftERP_API   - NestJS API (port 4000) - Auto-start"
-Write-Host "  ATsoftERP_Web   - Next.js Web (port 3000) - Auto-start"
-if (-not $SkipHttps) {
-  Write-Host "  ATsoftERP_Caddy - HTTPS Proxy (port 443) - Auto-start"
+if ($DryRun) {
+  Write-Host "==========================================" -ForegroundColor Yellow
+  Write-Host "  DRY-RUN COMPLETE" -ForegroundColor Yellow
+  Write-Host "  No changes were applied" -ForegroundColor Yellow
+  Write-Host "==========================================" -ForegroundColor Yellow
+  Write-Host ""
+  Write-Host "Planned Services:" -ForegroundColor Gray
+  Write-Host "  ATsoftERP_API   - NestJS API (port 4000) - Auto-start"
+  Write-Host "  ATsoftERP_Web   - Next.js Web (port 3000) - Auto-start"
+  if (-not $SkipHttps) {
+    Write-Host "  ATsoftERP_Caddy - HTTPS Proxy (port 443) - Auto-start"
+  }
+  Write-Host ""
+  Write-Host "Planned Scheduled Tasks:" -ForegroundColor Gray
+  Write-Host "  ATsoftERP-LogRotation  - Daily at 03:00"
+  Write-Host "  ATsoftERP-DailyBackup  - Daily at 02:00"
+  Write-Host ""
+  Write-Host "Planned Directories:" -ForegroundColor Gray
+  Write-Host "  Config   : C:\ATsoftERP\Config"
+  Write-Host "  Logs     : C:\ATsoftERP\Logs"
+  Write-Host "  Backups  : C:\ATsoftERP\Backups"
+  Write-Host ""
+  Write-Host "No Windows services, scheduled tasks, firewall rules," -ForegroundColor Gray
+  Write-Host "certificates, credentials or production config were created." -ForegroundColor Gray
+} else {
+  Write-Host "==========================================" -ForegroundColor Green
+  Write-Host "  Setup Complete!" -ForegroundColor Green
+  Write-Host "==========================================" -ForegroundColor Green
+  Write-Host ""
+  Write-Host "Services:" -ForegroundColor Cyan
+  Write-Host "  ATsoftERP_API   - NestJS API (port 4000) - Auto-start"
+  Write-Host "  ATsoftERP_Web   - Next.js Web (port 3000) - Auto-start"
+  if (-not $SkipHttps) {
+    Write-Host "  ATsoftERP_Caddy - HTTPS Proxy (port 443) - Auto-start"
+  }
+  Write-Host ""
+  Write-Host "Scheduled Tasks:" -ForegroundColor Cyan
+  Write-Host "  ATsoftERP-LogRotation  - Daily at 03:00"
+  Write-Host "  ATsoftERP-DailyBackup  - Daily at 02:00"
+  Write-Host ""
+  Write-Host "Directories:" -ForegroundColor Cyan
+  Write-Host "  Config   : C:\ATsoftERP\Config"
+  Write-Host "  Logs     : C:\ATsoftERP\Logs"
+  Write-Host "  Backups  : C:\ATsoftERP\Backups"
+  Write-Host ""
+  Write-Host "Management Commands:" -ForegroundColor Cyan
+  Write-Host "  Get-Service ATsoftERP_*"
+  Write-Host "  Start-Service ATsoftERP_API"
+  Write-Host "  Stop-Service ATsoftERP_API"
+  Write-Host "  Get-ScheduledTask ATsoftERP*"
+  Write-Host ""
+  Write-Host "Uninstall:" -ForegroundColor Yellow
+  Write-Host "  .\uninstall-all-services.ps1"
 }
-Write-Host ""
-Write-Host "Scheduled Tasks:" -ForegroundColor Cyan
-Write-Host "  ATsoftERP-LogRotation  - Daily at 03:00"
-Write-Host "  ATsoftERP-DailyBackup  - Daily at 02:00"
-Write-Host ""
-Write-Host "Directories:" -ForegroundColor Cyan
-Write-Host "  Config   : C:\ATsoftERP\Config"
-Write-Host "  Logs     : C:\ATsoftERP\Logs"
-Write-Host "  Backups  : C:\ATsoftERP\Backups"
-Write-Host ""
-Write-Host "Management Commands:" -ForegroundColor Cyan
-Write-Host "  Get-Service ATsoftERP_*"
-Write-Host "  Start-Service ATsoftERP_API"
-Write-Host "  Stop-Service ATsoftERP_API"
-Write-Host "  Get-ScheduledTask ATsoftERP*"
-Write-Host ""
-Write-Host "Uninstall:" -ForegroundColor Yellow
-Write-Host "  .\uninstall-all-services.ps1"

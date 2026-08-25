@@ -162,13 +162,21 @@ foreach ($svc in $services) {
 }
 
 Write-Host ""
-Write-Host "=== Summary ===" -ForegroundColor Cyan
-Write-Host "Services installed: ATsoftERP_API, ATsoftERP_Web"
-Write-Host "Start API:  Start-Service ATsoftERP_API"
-Write-Host "Start Web:  Start-Service ATsoftERP_Web"
-Write-Host "Start Both: Start-Service ATsoftERP_API; Start-Service ATsoftERP_Web"
-Write-Host "Status:     Get-Service ATsoftERP_*"
-Write-Host "Logs:       C:\ATsoftERP\Logs\"
+if ($DryRun) {
+  Write-Host "=== [DRY-RUN] NSSM Service Plan ===" -ForegroundColor Gray
+  Write-Host "Services planned: ATsoftERP_API, ATsoftERP_Web"
+  Write-Host "  Would install via NSSM with auto-start and failure recovery"
+  Write-Host "  Logs would be written to C:\ATsoftERP\Logs\"
+  Write-Host "  No services were created or started."
+} else {
+  Write-Host "=== Summary ===" -ForegroundColor Cyan
+  Write-Host "Services installed: ATsoftERP_API, ATsoftERP_Web"
+  Write-Host "Start API:  Start-Service ATsoftERP_API"
+  Write-Host "Start Web:  Start-Service ATsoftERP_Web"
+  Write-Host "Start Both: Start-Service ATsoftERP_API; Start-Service ATsoftERP_Web"
+  Write-Host "Status:     Get-Service ATsoftERP_*"
+  Write-Host "Logs:       C:\ATsoftERP\Logs\"
+}
 
 if ($DryRun) {
   Write-Host ""

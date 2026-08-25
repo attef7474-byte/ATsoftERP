@@ -51,7 +51,8 @@ if (-not $caddyPath) {
   $winget = Get-Command winget -ErrorAction SilentlyContinue
 
   if ($DryRun) {
-    Write-Host "  [DRY-RUN] Would install Caddy via Chocolatey or winget" -ForegroundColor Gray
+    $method = if ($choco) { "Chocolatey" } elseif ($winget) { "winget" } else { "manual download" }
+    Write-Host "  [DRY-RUN] Would install Caddy via $method" -ForegroundColor Gray
   } elseif ($choco) {
     Write-Host "  Installing via Chocolatey..." -ForegroundColor Cyan
     & choco install caddy -y
@@ -74,12 +75,14 @@ if (-not $caddyPath) {
     exit 1
   }
 
-  if (-not $caddyPath) {
-    Write-Host "  ERROR: Caddy installed but not found in PATH after install." -ForegroundColor Red
-    Write-Host "  Try restarting your terminal or adding Caddy to PATH manually." -ForegroundColor Yellow
-    exit 1
+  if (-not $DryRun) {
+    if (-not $caddyPath) {
+      Write-Host "  ERROR: Caddy installed but not found in PATH after install." -ForegroundColor Red
+      Write-Host "  Try restarting your terminal or adding Caddy to PATH manually." -ForegroundColor Yellow
+      exit 1
+    }
+    Write-Host "  Caddy installed: $($caddyPath.Source)" -ForegroundColor Green
   }
-  Write-Host "  Caddy installed: $($caddyPath.Source)" -ForegroundColor Green
 } else {
   Write-Host "Caddy already installed: $($caddyPath.Source)" -ForegroundColor Green
 }
@@ -287,15 +290,26 @@ if ($DryRun) {
 
 # --- Summary ---
 Write-Host ""
-Write-Host "=== Summary ===" -ForegroundColor Cyan
+if ($DryRun) {
+  Write-Host "=== [DRY-RUN] Caddy Plan ===" -ForegroundColor Gray
+} else {
+  Write-Host "=== Summary ===" -ForegroundColor Cyan
+}
 Write-Host "Caddyfile   : $caddyfilePath"
 Write-Host "HTTPS URL   : https://$Hostname"
 Write-Host "API (direct): http://localhost:4000"
 Write-Host "Web (direct): http://localhost:3000"
 Write-Host ""
 Write-Host "Logs        : C:\ATsoftERP\Logs\caddy-access.log"
-Write-Host "Service     : ATsoftERP_Caddy (auto-start)"
-Write-Host ""
-Write-Host "To edit: edit $caddyfilePath and restart the service."
-Write-Host "  Restart-Service ATsoftERP_Caddy"
+if ($DryRun) {
+  Write-Host "Service     : ATsoftERP_Caddy (planned auto-start)"
+  Write-Host ""
+  Write-Host "[DRY-RUN] Would configure Caddy as HTTPS reverse proxy" -ForegroundColor Gray
+  Write-Host "  No services, firewall rules, or certificates were created." -ForegroundColor Gray
+} else {
+  Write-Host "Service     : ATsoftERP_Caddy (auto-start)"
+  Write-Host ""
+  Write-Host "To edit: edit $caddyfilePath and restart the service."
+  Write-Host "  Restart-Service ATsoftERP_Caddy"
+}
 Write-Host "Done." -ForegroundColor Green
