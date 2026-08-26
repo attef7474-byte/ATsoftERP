@@ -63,12 +63,23 @@ export class AuthController {
     return this.authService.getUserPermissions(user.id);
   }
 
-  @Public()
   @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @OperationalContextOptional()
+  @ApiBearerAuth()
   @HttpCode(200)
-  @ApiOperation({ summary: 'Logout (no-op for stateless JWT auth)' })
-  async logout() {
-    return { message: 'Logged out successfully' };
+  @ApiOperation({ summary: 'Logout and revoke the current user session version' })
+  async logout(@CurrentUser() user: CurrentUserType) {
+    return this.authService.logout(user.id);
+  }
+
+  @Get('password-policy')
+  @UseGuards(JwtAuthGuard)
+  @OperationalContextOptional()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get the password policy enforced by credential operations' })
+  async getPasswordPolicy() {
+    return this.authService.getPasswordPolicy();
   }
 
   @Post('change-password')

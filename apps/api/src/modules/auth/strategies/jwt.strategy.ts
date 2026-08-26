@@ -23,10 +23,32 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
-      select: { id: true, email: true, name: true, companyId: true, branchId: true, departmentId: true, status: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        companyId: true,
+        branchId: true,
+        departmentId: true,
+        status: true,
+        authVersion: true,
+      },
     });
     if (!user || user.status !== 'ACTIVE') {
       throw new UnauthorizedException({ messageKey: 'auth.userNotFound', message: 'User not found or inactive' });
+    }
+    const tokenAuthVersion = payload.authVersion === undefined
+      ? 0
+      : payload.authVersion;
+    if (
+      !Number.isInteger(tokenAuthVersion) ||
+      tokenAuthVersion < 0 ||
+      tokenAuthVersion !== user.authVersion
+    ) {
+      throw new UnauthorizedException({
+        messageKey: 'auth.sessionRevoked',
+        message: 'The session has been revoked',
+      });
     }
     return {
       id: user.id,

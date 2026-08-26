@@ -1,11 +1,17 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ActiveContextService } from '../../common/operational-context/active-context.service';
 import { ValidateOperationalContextDto } from './dto/validate-operational-context.dto';
+import { AuditService } from '../audit/audit.service';
+import { PasswordCredentialService } from '../settings/security/password-credential.service';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +19,8 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private activeContextService: ActiveContextService,
+    private auditService: AuditService,
+    private passwordCredentials: PasswordCredentialService,
   ) {}
 
   async login(loginDto: LoginDto) {
@@ -23,15 +31,34 @@ export class AuthService {
 
     if (user.status !== 'ACTIVE') throw new UnauthorizedException({ messageKey: 'auth.userInactive', message: 'Account is inactive' });
 
-    const valid = await bcrypt.compare(loginDto.password, user.passwordHash);
+    const valid = await this.passwordCredentials.verify(
+      loginDto.password,
+      user.passwordHash,
+    );
     if (!valid) throw new UnauthorizedException({ messageKey: 'auth.invalidCredentials', message: 'Invalid credentials' });
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+    const loginAt = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: loginAt },
+      });
+      await this.auditService.logWithClient(tx, {
+        userId: user.id,
+        action: 'LOGIN',
+        entity: 'authentication-session',
+        entityId: user.id,
+        details: {
+          source: 'PASSWORD',
+        },
+      });
     });
 
-    const payload = { sub: user.id, email: user.email };
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      authVersion: user.authVersion,
+    };
     const token = this.jwtService.sign(payload);
 
     return {
@@ -181,24 +208,100 @@ export class AuthService {
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
-    if (dto.newPassword !== dto.confirmNewPassword) {
-      throw new BadRequestException('Passwords do not match');
-    }
+    this.passwordCredentials.assertConfirmation(
+      dto.newPassword,
+      dto.confirmNewPassword,
+    );
 
     const user = await this.prisma.user.findFirst({
       where: { id: userId, status: 'ACTIVE', deletedAt: null },
     });
-    if (!user) throw new UnauthorizedException('User not found');
+    if (!user) {
+      throw new UnauthorizedException({
+        messageKey: 'auth.userNotFound',
+        message: 'User not found or inactive',
+      });
+    }
 
-    const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
-    if (!valid) throw new BadRequestException('Current password is incorrect');
+    const valid = await this.passwordCredentials.verify(
+      dto.currentPassword,
+      user.passwordHash,
+    );
+    if (!valid) {
+      throw new BadRequestException({
+        messageKey: 'auth.currentPasswordIncorrect',
+        message: 'Current password is incorrect',
+      });
+    }
 
-    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { passwordHash },
+    const { passwordHash } = await this.passwordCredentials.preparePassword(
+      dto.newPassword,
+      dto.confirmNewPassword,
+    );
+    const passwordChangedAt = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      const update = await tx.user.updateMany({
+        where: {
+          id: user.id,
+          passwordHash: user.passwordHash,
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
+        data: {
+          passwordHash,
+          passwordChangedAt,
+          authVersion: { increment: 1 },
+        },
+      });
+      if (update.count !== 1) {
+        throw new ConflictException({
+          messageKey: 'auth.credentialChangedRetry',
+          message: 'The credential changed while the request was in progress',
+        });
+      }
+      await this.auditService.logWithClient(tx, {
+        userId: user.id,
+        action: 'PASSWORD_CHANGE',
+        entity: 'user-credential',
+        entityId: user.id,
+        details: {
+          source: 'SELF_SERVICE',
+          sessionsRevoked: true,
+        },
+      });
     });
 
-    return { message: 'Password changed successfully' };
+    return {
+      messageKey: 'auth.passwordChanged',
+      message: 'Password changed successfully',
+      sessionsRevoked: true,
+    };
+  }
+
+  async logout(userId: string) {
+    await this.auditService.log({
+      userId,
+      action: 'LOGOUT',
+      entity: 'authentication-session',
+      entityId: userId,
+      details: JSON.stringify({ source: 'SELF_SERVICE' }),
+    });
+    return {
+      messageKey: 'auth.loggedOut',
+      message: 'Logged out successfully',
+    };
+  }
+
+  async getPasswordPolicy() {
+    const policy = await this.passwordCredentials.getPolicy();
+    return {
+      minLength: policy.minLength,
+      requireUppercase: policy.requireUppercase,
+      requireLowercase: policy.requireLowercase,
+      requireNumber: policy.requireNumber,
+      requireSymbol: policy.requireSymbol,
+      maxBytes: policy.maxBytes,
+    };
   }
 }

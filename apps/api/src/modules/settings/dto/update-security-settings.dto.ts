@@ -1,10 +1,12 @@
-import { IsString, IsBoolean, IsNumber, IsOptional } from 'class-validator'
+import { IsBoolean, IsInt, IsOptional, Max, Min } from 'class-validator'
 import { ApiPropertyOptional } from '@nestjs/swagger'
 
 export class UpdateSecuritySettingsDto {
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
+  @IsInt()
+  @Min(8)
+  @Max(64)
   passwordMinLength?: number
 
   @ApiPropertyOptional()
@@ -29,17 +31,23 @@ export class UpdateSecuritySettingsDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
+  @IsInt()
+  @Min(5)
+  @Max(1440)
   sessionTimeoutMinutes?: number
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
+  @IsInt()
+  @Min(3)
+  @Max(20)
   maxLoginAttempts?: number
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(1440)
   lockoutMinutes?: number
 
   @ApiPropertyOptional()

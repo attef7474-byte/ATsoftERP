@@ -1,15 +1,20 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../modules/audit/audit.service';
+import { PasswordCredentialService } from '../../settings/security/password-credential.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersQueryDto } from './dto/users-query.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { ResetUserPasswordDto } from './dto/reset-user-password.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService, private auditService: AuditService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditService: AuditService,
+    private passwordCredentials: PasswordCredentialService,
+  ) {}
 
   private validationError(field: string, code: string, message: string): BadRequestException {
     return new BadRequestException({
@@ -30,7 +35,14 @@ export class UsersService {
       await this.assertDepartmentInContext(dto.departmentId, ctx);
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const { passwordHash } = await this.passwordCredentials.preparePassword(
+      dto.password,
+      dto.password,
+      {
+        passwordField: 'password',
+        confirmationField: 'password',
+      },
+    );
     const { password, roleIds, companyId: _companyId, branchId: _branchId, ...rest } = dto;
 
     const user = await this.prisma.user.create({
@@ -194,6 +206,179 @@ export class UsersService {
     }
 
     return this.findOne(id, ctx);
+  }
+
+  async resetPassword(
+    id: string,
+    dto: ResetUserPasswordDto,
+    actorId: string,
+    ctx: ActiveOperationalContext,
+  ) {
+    if (id === actorId) {
+      throw new BadRequestException({
+        messageKey: 'auth.adminResetSelfDenied',
+        message: 'Use self-service password change for your own account',
+      });
+    }
+
+    this.passwordCredentials.assertConfirmation(
+      dto.newPassword,
+      dto.confirmNewPassword,
+    );
+
+    const target = await this.prisma.user.findFirst({
+      where: {
+        id,
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+        deletedAt: null,
+      },
+      include: {
+        roles: {
+          include: {
+            role: { select: { code: true, status: true, deletedAt: true } },
+          },
+        },
+      },
+    });
+    if (!target) {
+      throw new NotFoundException({
+        messageKey: 'organization.userNotFound',
+        message: 'User not found',
+      });
+    }
+    if (target.status !== 'ACTIVE') {
+      throw new BadRequestException({
+        messageKey: 'auth.adminResetTargetInactive',
+        message: 'An inactive account password cannot be reset',
+      });
+    }
+
+    const targetIsSuperAdmin = target.roles.some(
+      (assignment) =>
+        assignment.role.code === 'SUPER_ADMIN' &&
+        assignment.role.status === 'ACTIVE' &&
+        assignment.role.deletedAt === null,
+    );
+    if (targetIsSuperAdmin) {
+      const actorIsSuperAdmin = await this.prisma.userRole.findFirst({
+        where: {
+          userId: actorId,
+          role: {
+            code: 'SUPER_ADMIN',
+            status: 'ACTIVE',
+            deletedAt: null,
+          },
+        },
+        select: { userId: true },
+      });
+      if (!actorIsSuperAdmin) {
+        throw new ForbiddenException({
+          messageKey: 'auth.privilegedResetRequiresSuperAdmin',
+          message: 'Resetting a SUPER_ADMIN account requires a SUPER_ADMIN caller',
+        });
+      }
+    }
+
+    const { passwordHash } = await this.passwordCredentials.preparePassword(
+      dto.newPassword,
+      dto.confirmNewPassword,
+    );
+    const passwordChangedAt = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      const currentTarget = await tx.user.findFirst({
+        where: {
+          id: target.id,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
+        include: {
+          roles: {
+            include: {
+              role: { select: { code: true, status: true, deletedAt: true } },
+            },
+          },
+        },
+      });
+      if (!currentTarget) {
+        throw new NotFoundException({
+          messageKey: 'organization.userNotFound',
+          message: 'User not found',
+        });
+      }
+
+      const currentTargetIsSuperAdmin = currentTarget.roles.some(
+        (assignment) =>
+          assignment.role.code === 'SUPER_ADMIN' &&
+          assignment.role.status === 'ACTIVE' &&
+          assignment.role.deletedAt === null,
+      );
+      if (currentTargetIsSuperAdmin) {
+        const actorIsSuperAdmin = await tx.userRole.findFirst({
+          where: {
+            userId: actorId,
+            role: {
+              code: 'SUPER_ADMIN',
+              status: 'ACTIVE',
+              deletedAt: null,
+            },
+          },
+          select: { userId: true },
+        });
+        if (!actorIsSuperAdmin) {
+          throw new ForbiddenException({
+            messageKey: 'auth.privilegedResetRequiresSuperAdmin',
+            message: 'Resetting a SUPER_ADMIN account requires a SUPER_ADMIN caller',
+          });
+        }
+      }
+
+      const update = await tx.user.updateMany({
+        where: {
+          id: currentTarget.id,
+          passwordHash: currentTarget.passwordHash,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
+        data: {
+          passwordHash,
+          passwordChangedAt,
+          authVersion: { increment: 1 },
+        },
+      });
+      if (update.count !== 1) {
+        throw new BadRequestException({
+          messageKey: 'auth.credentialChangedRetry',
+          message: 'The credential changed while the request was in progress',
+        });
+      }
+
+      await this.auditService.logWithClient(tx, {
+        userId: actorId,
+        action: 'ADMIN_PASSWORD_RESET',
+        entity: 'user-credential',
+        entityId: currentTarget.id,
+        details: {
+          source: 'AUTHENTICATED_ADMIN',
+          targetUserId: currentTarget.id,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          sessionsRevoked: true,
+        },
+      });
+    });
+
+    return {
+      messageKey: 'auth.adminPasswordResetSuccess',
+      message: 'Password reset successfully',
+      targetUserId: target.id,
+      sessionsRevoked: true,
+    };
   }
 
   private async assertRolesExist(roleIds: string[]): Promise<void> {

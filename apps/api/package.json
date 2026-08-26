@@ -27,7 +27,8 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
-    "smoke:db": "node scripts/runtime-auth-probe.js"
+    "smoke:db": "node scripts/runtime-auth-probe.js",
+    "auth:break-glass": "ts-node src/cli/break-glass-admin-password.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed/seed.ts"

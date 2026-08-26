@@ -8,10 +8,14 @@ import { jwtConstants } from './constants/auth.constants';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 import { OperationalContextModule } from '../../common/operational-context/operational-context.module';
+import { AuditModule } from '../audit/audit.module';
+import { SecurityModule } from '../settings/security/security.module';
 
 @Module({
   imports: [
     OperationalContextModule,
+    AuditModule,
+    SecurityModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: jwtConstants.secret,

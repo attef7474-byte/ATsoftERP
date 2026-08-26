@@ -3,7 +3,11 @@ config({ path: ".env" });
 
 import { PrismaClient } from "@prisma/client";
 import { PrismaMssql } from "@prisma/adapter-mssql";
-import * as bcrypt from "bcryptjs";
+import {
+  hashPassword,
+  loadPasswordPolicy,
+  passwordPolicyViolations,
+} from "../../src/modules/settings/security/password-policy";
 import { seedProductionShiftsNumbering } from "./seed-production-shifts-numbering";
 import { seedProductionCapacityNumbering } from "./seed-production-capacity-numbering";
 import { PRODUCTION_CAPACITY_PERMISSIONS } from "./seed-production-capacity-permission-keys";
@@ -117,7 +121,20 @@ async function main() {
         "SEED_ADMIN_PASSWORD environment variable is required for fresh installation"
       );
     }
-    const passwordHash = await bcrypt.hash(rawPassword, 10);
+    const passwordPolicy = await loadPasswordPolicy(prisma);
+    const passwordErrors = passwordPolicyViolations(
+      rawPassword,
+      passwordPolicy,
+      "SEED_ADMIN_PASSWORD",
+    );
+    if (passwordErrors.length > 0) {
+      throw new Error(
+        `SEED_ADMIN_PASSWORD does not satisfy the configured password policy (${passwordErrors
+          .map((error) => error.code)
+          .join(", ")})`,
+      );
+    }
+    const passwordHash = await hashPassword(rawPassword);
     await prisma.user.create({
       data: {
         email,
@@ -170,6 +187,7 @@ async function main() {
     ...OPERATIONAL_RELIABILITY_PERMISSIONS,
     ...BATCH_A_PERMISSIONS,
     ...BATCH_B_PERMISSIONS,
+    { key: "user:reset-password", module: "user", action: "reset-password" },
     { key: "numbering:generate", module: "numbering", action: "generate" },
     { key: "messaging:send", module: "messaging", action: "send" },
     { key: "messaging:manage", module: "messaging", action: "manage" },

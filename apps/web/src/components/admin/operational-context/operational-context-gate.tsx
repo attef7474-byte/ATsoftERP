@@ -65,7 +65,7 @@ export function OperationalContextGate() {
             </button>
             <button
               type="button"
-              onClick={logout}
+              onClick={() => void logout()}
               className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               {t('auth.logout')}

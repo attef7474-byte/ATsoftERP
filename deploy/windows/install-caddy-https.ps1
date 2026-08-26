@@ -57,16 +57,24 @@ if (-not $caddyPath) {
     Write-Host "  Installing via Chocolatey..." -ForegroundColor Cyan
     & choco install caddy -y
     if ($LASTEXITCODE -ne 0) {
-      Write-Host "  ERROR: Chocolatey install failed." -ForegroundColor Red
-      Write-Host "  Try manual install: https://caddyserver.com/docs/install" -ForegroundColor Yellow
-      exit 1
+      Write-Host "  Chocolatey install failed. Falling back to winget..." -ForegroundColor Yellow
+      if ($winget) {
+        & winget install CaddyServer.Caddy --accept-package-agreements --accept-source-agreements
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+        $caddyPath = Get-Command caddy -ErrorAction SilentlyContinue
+      } else {
+        Write-Host "  ERROR: Neither Chocolatey nor winget available for fallback." -ForegroundColor Red
+        Write-Host "  Install Caddy manually: https://caddyserver.com/docs/install" -ForegroundColor Yellow
+        exit 1
+      }
+    } else {
+      # Refresh PATH
+      $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+      $caddyPath = Get-Command caddy -ErrorAction SilentlyContinue
     }
-    # Refresh PATH
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-    $caddyPath = Get-Command caddy -ErrorAction SilentlyContinue
   } elseif ($winget) {
     Write-Host "  Installing via winget..." -ForegroundColor Cyan
-    & winget install Caddy.Caddy --accept-package-agreements --accept-source-agreements
+    & winget install CaddyServer.Caddy --accept-package-agreements --accept-source-agreements
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
     $caddyPath = Get-Command caddy -ErrorAction SilentlyContinue
   } else {
@@ -123,7 +131,7 @@ https://{$Hostname} {
   tls internal
 
   # API endpoints -> port 4000
-  handle_path /api/* {
+  handle /api/* {
     reverse_proxy localhost:4000
   }
 

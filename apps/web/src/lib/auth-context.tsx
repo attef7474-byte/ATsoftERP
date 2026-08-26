@@ -11,6 +11,7 @@ import React, {
 } from 'react';
 import {
   getOperationalContexts,
+  clearLocalSession,
   getProfile,
   getToken,
   getUserPermissions,
@@ -40,7 +41,7 @@ export interface AuthContextValue {
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   refreshPermissions: () => Promise<void>;
   isSuperAdmin: boolean;
@@ -199,6 +200,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await loadContextsForUser(profile);
       } catch (bootstrapError) {
         if (cancelled) return;
+        if ((bootstrapError as { status?: number })?.status === 401) {
+          clearLocalSession();
+        }
         setUser(null);
         setPermissions(null);
         setError(
@@ -226,15 +230,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loadContextsForUser(profile);
   }, [loadContextsForUser]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     const userId = user?.id;
-    setUser(null);
-    setPermissions(null);
-    setAllowedContexts([]);
-    setDefaultContext(null);
-    setActiveContext(null);
-    setContextError(null);
-    apiLogout(userId);
+    try {
+      await apiLogout(userId);
+    } finally {
+      setUser(null);
+      setPermissions(null);
+      setAllowedContexts([]);
+      setDefaultContext(null);
+      setActiveContext(null);
+      setContextError(null);
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+    }
   }, [user?.id]);
 
   const selectContext = useCallback(async (

@@ -1,30 +1,25 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
 import { ActiveContextService } from '../../common/operational-context/active-context.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { PasswordCredentialService } from '../settings/security/password-credential.service';
 import { AuthService } from './auth.service';
 
-jest.mock('bcryptjs', () => ({
-  compare: jest.fn(),
-  hash: jest.fn(),
-}));
-
 describe('AuthService', () => {
-  let prisma: {
-    user: {
-      findFirst: jest.Mock;
-      update: jest.Mock;
-    };
-    userRole: {
-      findMany: jest.Mock;
-    };
-  };
+  let prisma: any;
   let jwtService: { sign: jest.Mock };
   let activeContextService: {
     getAuthorization: jest.Mock;
     getAllowedContexts: jest.Mock;
     validate: jest.Mock;
+  };
+  let auditService: { logWithClient: jest.Mock; log: jest.Mock };
+  let passwordCredentials: {
+    verify: jest.Mock;
+    assertConfirmation: jest.Mock;
+    preparePassword: jest.Mock;
+    getPolicy: jest.Mock;
   };
   let service: AuthService;
 
@@ -33,6 +28,7 @@ describe('AuthService', () => {
     email: 'operator@example.test',
     name: 'Operator',
     passwordHash: 'stored-password-hash',
+    authVersion: 0,
     status: 'ACTIVE',
     deletedAt: null,
     companyId: 'company-a',
@@ -70,21 +66,38 @@ describe('AuthService', () => {
       user: {
         findFirst: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
       userRole: {
         findMany: jest.fn(),
       },
+      $transaction: jest.fn(),
     };
+    prisma.$transaction.mockImplementation(async (callback: (tx: any) => Promise<any>) => callback(prisma));
     jwtService = { sign: jest.fn() };
     activeContextService = {
       getAuthorization: jest.fn(),
       getAllowedContexts: jest.fn(),
       validate: jest.fn(),
     };
+    auditService = { logWithClient: jest.fn().mockResolvedValue({ id: 'audit-1' }), log: jest.fn().mockResolvedValue({ id: 'audit-2' }) };
+    passwordCredentials = {
+      verify: jest.fn(),
+      assertConfirmation: jest.fn((password: string, confirmation: string) => {
+        if (password !== confirmation) throw new BadRequestException();
+      }),
+      preparePassword: jest.fn().mockResolvedValue({
+        passwordHash: 'new-password-hash',
+        policy: { minLength: 8 },
+      }),
+      getPolicy: jest.fn(),
+    };
     service = new AuthService(
       prisma as unknown as PrismaService,
       jwtService as unknown as JwtService,
       activeContextService as unknown as ActiveContextService,
+      auditService as unknown as AuditService,
+      passwordCredentials as unknown as PasswordCredentialService,
     );
     jest.clearAllMocks();
   });
@@ -98,7 +111,7 @@ describe('AuthService', () => {
       ).rejects.toMatchObject({
         response: { messageKey: 'auth.invalidCredentials' },
       });
-      expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(passwordCredentials.verify).not.toHaveBeenCalled();
       expect(prisma.user.update).not.toHaveBeenCalled();
       expect(jwtService.sign).not.toHaveBeenCalled();
     });
@@ -116,13 +129,13 @@ describe('AuthService', () => {
       ).rejects.toMatchObject({
         response: { messageKey: 'auth.userInactive' },
       });
-      expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(passwordCredentials.verify).not.toHaveBeenCalled();
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
     it('rejects an invalid password without updating last-login state', async () => {
       prisma.user.findFirst.mockResolvedValue(activeUser());
-      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      passwordCredentials.verify.mockResolvedValue(false);
 
       await expect(
         service.login({
@@ -137,7 +150,7 @@ describe('AuthService', () => {
     it('updates last-login state and returns a signed token without password data', async () => {
       prisma.user.findFirst.mockResolvedValue(activeUser());
       prisma.user.update.mockResolvedValue(activeUser());
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      passwordCredentials.verify.mockResolvedValue(true);
       jwtService.sign.mockReturnValue('signed-jwt');
 
       const result = await service.login({
@@ -151,7 +164,7 @@ describe('AuthService', () => {
           deletedAt: null,
         },
       });
-      expect(bcrypt.compare).toHaveBeenCalledWith(
+      expect(passwordCredentials.verify).toHaveBeenCalledWith(
         'Secret123!',
         'stored-password-hash',
       );
@@ -162,6 +175,7 @@ describe('AuthService', () => {
       expect(jwtService.sign).toHaveBeenCalledWith({
         sub: 'user-a',
         email: 'operator@example.test',
+        authVersion: 0,
       });
       expect(result).toEqual({
         accessToken: 'signed-jwt',
@@ -363,14 +377,13 @@ describe('AuthService', () => {
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.user.findFirst).not.toHaveBeenCalled();
-      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
     });
 
     it('hashes and stores a confirmed password only after verifying the current password', async () => {
       prisma.user.findFirst.mockResolvedValue(activeUser());
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      (bcrypt.hash as jest.Mock).mockResolvedValue('new-password-hash');
-      prisma.user.update.mockResolvedValue(activeUser());
+      passwordCredentials.verify.mockResolvedValue(true);
+      prisma.user.updateMany.mockResolvedValue({ count: 1 });
 
       await expect(
         service.changePassword('user-a', {
@@ -378,16 +391,78 @@ describe('AuthService', () => {
           newPassword: 'NextSecret123!',
           confirmNewPassword: 'NextSecret123!',
         }),
-      ).resolves.toEqual({ message: 'Password changed successfully' });
-      expect(bcrypt.compare).toHaveBeenCalledWith(
+      ).resolves.toEqual({
+        messageKey: 'auth.passwordChanged',
+        message: 'Password changed successfully',
+        sessionsRevoked: true,
+      });
+      expect(passwordCredentials.verify).toHaveBeenCalledWith(
         'Current123!',
         'stored-password-hash',
       );
-      expect(bcrypt.hash).toHaveBeenCalledWith('NextSecret123!', 10);
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'user-a' },
-        data: { passwordHash: 'new-password-hash' },
+      expect(passwordCredentials.preparePassword).toHaveBeenCalledWith(
+        'NextSecret123!',
+        'NextSecret123!',
+      );
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'user-a',
+          passwordHash: 'stored-password-hash',
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
+        data: {
+          passwordHash: 'new-password-hash',
+          passwordChangedAt: expect.any(Date),
+          authVersion: { increment: 1 },
+        },
       });
+      expect(auditService.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({
+          userId: 'user-a',
+          action: 'PASSWORD_CHANGE',
+          entityId: 'user-a',
+        }),
+      );
+    });
+
+    it('rolls back the password change when the required audit event fails', async () => {
+      prisma.user.findFirst.mockResolvedValue(activeUser());
+      passwordCredentials.verify.mockResolvedValue(true);
+      prisma.user.updateMany.mockResolvedValue({ count: 1 });
+      auditService.logWithClient.mockRejectedValue(new Error('audit unavailable'));
+
+      await expect(
+        service.changePassword('user-a', {
+          currentPassword: 'Current123!',
+          newPassword: 'NextSecret123!',
+          confirmNewPassword: 'NextSecret123!',
+        }),
+      ).rejects.toThrow('audit unavailable');
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('logout', () => {
+    it('does NOT increment authVersion (normal logout is client-side only)', async () => {
+      await expect(service.logout('user-a')).resolves.toEqual({
+        messageKey: 'auth.loggedOut',
+        message: 'Logged out successfully',
+      });
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('creates audit record for logout', async () => {
+      await service.logout('user-a');
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'LOGOUT', userId: 'user-a' }),
+      );
+    });
+
+    it('logout on device A does NOT invalidate device B token', async () => {
+      await service.logout('user-a');
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
   });
 });

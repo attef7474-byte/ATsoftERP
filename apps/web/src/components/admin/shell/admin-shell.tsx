@@ -94,7 +94,7 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timerId);
   }, [locale]);
 
-  const handleLogout = () => { logout(); };
+  const handleLogout = () => { void logout(); };
   const toggleLanguage = () => { setLocale(locale === 'ar' ? 'en' : 'ar'); };
 
   const toggleSidebar = () => {

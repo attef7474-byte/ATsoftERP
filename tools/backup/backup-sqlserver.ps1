@@ -64,7 +64,11 @@ WITH
 
 $verifySql = "RESTORE VERIFYONLY FROM DISK = N'$filepath' WITH CHECKSUM;"
 
-$sqlcmdArgs = @("-S", $server, "-U", $user, "-P", $pass, "-b")
+if ($user -and $pass) {
+  $sqlcmdArgs = @("-S", $server, "-U", $user, "-P", $pass, "-b")
+} else {
+  $sqlcmdArgs = @("-S", $server, "-E", "-b")
+}
 
 if ($DryRun) {
   Write-Host "[DRY-RUN]" -ForegroundColor Yellow

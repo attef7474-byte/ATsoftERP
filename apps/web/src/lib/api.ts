@@ -6,6 +6,9 @@ export const getApiBaseUrl = (): string => {
     return process.env.NEXT_PUBLIC_API_URL;
   }
   if (typeof window !== 'undefined') {
+    if (window.location.protocol === 'https:') {
+      return '/api/v1';
+    }
     const hostname = window.location.hostname;
     if (hostname) {
       return `${window.location.protocol}//${hostname}:4000/api/v1`;

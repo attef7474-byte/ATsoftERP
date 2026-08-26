@@ -1140,25 +1140,27 @@ model ProductionOperationalAssignment {
 }
 
 model User {
-  id               String      @id @default(cuid())
-  email            String      @unique
-  passwordHash     String
-  name             String
-  phone            String?
-  avatar           String?
-  status           String      @default("ACTIVE")
-  companyId        String?
-  company          Company?    @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  branchId         String?
-  branch           Branch?     @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  departmentId     String?
-  department       Department? @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  twoFactorEnabled Boolean     @default(false)
-  twoFactorSecret  String?
-  lastLoginAt      DateTime?
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-  deletedAt        DateTime?
+  id                String      @id @default(cuid())
+  email             String      @unique
+  passwordHash      String
+  name              String
+  phone             String?
+  avatar            String?
+  status            String      @default("ACTIVE")
+  companyId         String?
+  company           Company?    @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId          String?
+  branch            Branch?     @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId      String?
+  department        Department? @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  twoFactorEnabled  Boolean     @default(false)
+  twoFactorSecret   String?
+  authVersion       Int         @default(0)
+  passwordChangedAt DateTime?
+  lastLoginAt       DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  deletedAt         DateTime?
 
   roles                             UserRole[]
   notifications                     Notification[]

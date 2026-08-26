@@ -1,4 +1,4 @@
-import { api, getApiBaseUrl } from './api';
+import { api } from './api';
 import {
   clearStoredOperationalContext,
   normalizeOperationalContext,
@@ -45,6 +45,15 @@ export interface UserPermissions {
   isSuperAdmin: boolean;
 }
 
+export interface PasswordPolicy {
+  minLength: number;
+  requireUppercase: boolean;
+  requireLowercase: boolean;
+  requireNumber: boolean;
+  requireSymbol: boolean;
+  maxBytes: number;
+}
+
 export async function login(email: string, password: string): Promise<LoginResponse> {
   const result = await api.post<LoginResponse>('/auth/login', { email, password });
   if (result.accessToken) {
@@ -60,6 +69,12 @@ export async function getProfile(): Promise<UserProfile> {
 
 export async function getUserPermissions(): Promise<UserPermissions> {
   return api.get<UserPermissions>('/auth/permissions', { skipOperationalContext: true });
+}
+
+export async function getPasswordPolicy(): Promise<PasswordPolicy> {
+  return api.get<PasswordPolicy>('/auth/password-policy', {
+    skipOperationalContext: true,
+  });
 }
 
 export async function getOperationalContexts(): Promise<OperationalContextsResult> {
@@ -94,25 +109,19 @@ export async function validateOperationalContext(
   };
 }
 
-export function logout(userId?: string): void {
+export function clearLocalSession(userId?: string): void {
   localStorage.removeItem('accessToken');
   clearStoredOperationalContext(userId);
-  if (typeof window !== 'undefined') {
-    window.location.href = '/login';
-  }
 }
 
-export function registerAutoLogout(): () => void {
-  const handler = () => {
-    const token = getToken();
-    if (!token) return;
-    const baseUrl = getApiBaseUrl();
-    navigator.sendBeacon(`${baseUrl}/auth/logout`, JSON.stringify({}));
-    localStorage.removeItem('accessToken');
-    clearStoredOperationalContext();
-  };
-  window.addEventListener('beforeunload', handler);
-  return () => window.removeEventListener('beforeunload', handler);
+export async function logout(userId?: string): Promise<void> {
+  try {
+    if (getToken()) {
+      await api.post('/auth/logout', {}, { skipOperationalContext: true });
+    }
+  } finally {
+    clearLocalSession(userId);
+  }
 }
 
 export function getToken(): string | null {

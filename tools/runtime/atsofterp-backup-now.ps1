@@ -65,7 +65,11 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "`nVerifying backup..." -ForegroundColor Cyan
 $latestBak = Get-ChildItem $BackupDir -Filter "*.bak" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
 if ($latestBak -and -not $DryRun) {
-  & "$PSScriptRoot\..\backup\verify-backup.ps1" -BackupFile $latestBak -Server $Server -User $User -Password $Password -Quiet
+  $securePassword = ConvertTo-SecureString -String $Password -AsPlainText -Force
+  $credential = New-Object System.Management.Automation.PSCredential($User, $securePassword)
+  & "$PSScriptRoot\..\backup\verify-backup.ps1" -BackupFile $latestBak -Server $Server -Credential $credential -Quiet
+  $credential = $null
+  $securePassword.Dispose()
   if ($LASTEXITCODE -eq 0) {
     Write-Host "Backup verified: $latestBak" -ForegroundColor Green
   } else {

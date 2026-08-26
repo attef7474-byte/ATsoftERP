@@ -11,12 +11,15 @@ import { formatDateTime, translateRoleName } from '../../../../../lib/i18n/liter
 import { useErrorModal } from '../../../../../components/admin/error-modal';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../lib/form-validation';
+import { getPasswordPolicy, type PasswordPolicy } from '../../../../../lib/auth';
+import { useAuth } from '../../../../../lib/auth-context';
 
 export default function UserDetailPage() {
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
   const { showError } = useErrorModal();
   const handleApiError = useApiErrorHandler();
+  const { user: currentUser, permissions, isSuperAdmin } = useAuth();
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
@@ -38,6 +41,12 @@ export default function UserDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'activate' | 'deactivate'>('deactivate');
   const [confirmLoading, setConfirmLoading] = useState(false);
+
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetForm, setResetForm] = useState({ newPassword: '', confirmNewPassword: '' });
+  const [resetErrors, setResetErrors] = useState<Record<string, string>>({});
+  const [resetSaving, setResetSaving] = useState(false);
+  const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(null);
 
   const fetchUser = useCallback(async () => {
     setLoading(true);
@@ -130,6 +139,60 @@ export default function UserDetailPage() {
     }
   };
 
+  const canResetPassword = Boolean(
+    user &&
+    currentUser &&
+    user.id !== currentUser.id &&
+    (isSuperAdmin || permissions?.permissions.includes('user:reset-password')),
+  );
+
+  const openPasswordReset = async () => {
+    setResetForm({ newPassword: '', confirmNewPassword: '' });
+    setResetErrors({});
+    setResetOpen(true);
+    try {
+      setPasswordPolicy(await getPasswordPolicy());
+    } catch (resetPolicyError) {
+      handleApiError(resetPolicyError);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    const errors: Record<string, string> = {};
+    if (!resetForm.newPassword) errors.newPassword = t('validation.required');
+    if (!resetForm.confirmNewPassword) errors.confirmNewPassword = t('validation.required');
+    if (
+      resetForm.newPassword &&
+      resetForm.confirmNewPassword &&
+      resetForm.newPassword !== resetForm.confirmNewPassword
+    ) {
+      errors.confirmNewPassword = t('profile.passwordsDoNotMatch');
+    }
+    setResetErrors(errors);
+    focusFirstInvalidField(
+      Object.entries(errors).map(([field, message]) => ({ field, message })),
+    );
+    if (Object.keys(errors).length > 0) return;
+
+    setResetSaving(true);
+    try {
+      await api.post(`/users/${id}/reset-password`, resetForm);
+      showToast(t('users.passwordResetSuccess'), 'success');
+      setResetForm({ newPassword: '', confirmNewPassword: '' });
+      setResetOpen(false);
+    } catch (resetError) {
+      const config = handleApiError(resetError, { dialog: false });
+      if (config.errors?.length) {
+        setResetErrors(adaptFieldErrorsToMap(config.errors));
+        focusFirstInvalidField(config.errors);
+      } else {
+        showError(config);
+      }
+    } finally {
+      setResetSaving(false);
+    }
+  };
+
   const { exec } = useStableHandlers({
     back: () => router.back(),
     refresh: () => fetchUser(),
@@ -183,6 +246,13 @@ export default function UserDetailPage() {
             {field(t('common.createdAt'), formatDateTime(user.createdAt, locale))}
             {field(t('common.updatedAt'), formatDateTime(user.updatedAt, locale))}
           </dl>
+          {canResetPassword && (
+            <div className="mt-6 border-t border-gray-200 pt-4">
+              <Button variant="secondary" onClick={() => void openPasswordReset()}>
+                {t('users.resetPassword')}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -194,6 +264,57 @@ export default function UserDetailPage() {
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleSave} disabled={saving}>{saving ? t('common.saving') : t('common.save')}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={resetOpen}
+        onClose={() => { if (!resetSaving) setResetOpen(false); }}
+        title={t('users.resetPasswordTitle')}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            {t('users.resetPasswordConfirm')}
+          </p>
+          {passwordPolicy && (
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+              {t('profile.passwordPolicyMinLength')} {passwordPolicy.minLength}
+            </div>
+          )}
+          <Input
+            label={t('profile.newPassword')}
+            name="newPassword"
+            type="password"
+            autoComplete="new-password"
+            value={resetForm.newPassword}
+            onChange={(event) => {
+              setResetForm((previous) => ({ ...previous, newPassword: event.target.value }));
+              setResetErrors((previous) => ({ ...previous, newPassword: '' }));
+            }}
+            error={resetErrors.newPassword}
+            required
+          />
+          <Input
+            label={t('profile.confirmNewPassword')}
+            name="confirmNewPassword"
+            type="password"
+            autoComplete="new-password"
+            value={resetForm.confirmNewPassword}
+            onChange={(event) => {
+              setResetForm((previous) => ({ ...previous, confirmNewPassword: event.target.value }));
+              setResetErrors((previous) => ({ ...previous, confirmNewPassword: '' }));
+            }}
+            error={resetErrors.confirmNewPassword}
+            required
+          />
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="secondary" onClick={() => setResetOpen(false)} disabled={resetSaving}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handlePasswordReset} disabled={resetSaving}>
+              {resetSaving ? t('common.saving') : t('users.resetPassword')}
+            </Button>
           </div>
         </div>
       </Modal>
