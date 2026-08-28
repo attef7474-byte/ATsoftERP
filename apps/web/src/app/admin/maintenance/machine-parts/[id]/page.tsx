@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { notFound, useParams, useRouter } from 'next/navigation';
+import { isReservedDetailRouteId } from '../../../../../lib/route-guards';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { MachinePart } from '../../../../../lib/admin-types';
@@ -24,6 +25,9 @@ export default function MachinePartDetailPage() {
   const { t, locale } = useTranslation();
   const handleApiError = useApiErrorHandler();
   const id = params.id as string;
+  if (isReservedDetailRouteId(id)) {
+    notFound();
+  }
   const [data, setData] = useState<MachinePart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

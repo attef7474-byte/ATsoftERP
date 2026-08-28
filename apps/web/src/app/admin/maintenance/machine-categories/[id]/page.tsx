@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { notFound, useParams, useRouter } from 'next/navigation';
+import { isReservedDetailRouteId } from '../../../../../lib/route-guards';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
@@ -16,6 +17,9 @@ export default function MachineCategoryDetailPage() {
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
   const id = params.id as string;
+  if (isReservedDetailRouteId(id)) {
+    notFound();
+  }
   const [data, setData] = useState<MachineCategory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
