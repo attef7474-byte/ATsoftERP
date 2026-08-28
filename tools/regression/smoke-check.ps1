@@ -122,7 +122,6 @@ $routeChecks = @(
     "/admin/maintenance/schedules"
     "/admin/maintenance/checklist-items"
     "/admin/maintenance/downtime-logs"
-    "/admin/maintenance/downtime-logs/new"
     # Barcode
     "/admin/barcodes/generate"
     "/admin/barcodes/print"
