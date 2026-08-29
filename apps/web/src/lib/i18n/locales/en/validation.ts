@@ -18,6 +18,8 @@ const validation: Pick<LocaleTranslations, 'validation' | 'errors' | 'complexFor
         invalidId: 'Invalid ID.',
         invalidQuantity: 'Invalid quantity.',
         invalidStatusTransition: 'This operation is not allowed in the current status.',
+        leadershipAdministrationRequired: 'An administration is required for the selected leadership level.',
+        leadershipDepartmentRequired: 'A department is required for the selected leadership level.',
         insufficientStock: 'Insufficient stock for this item.',
         unknownField: 'This field is not allowed.',
         tooLong: 'Value is too long.',

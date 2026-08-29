@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { api } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n/use-translation';
+import { TRANSLATION_FALLBACKS } from '@/lib/i18n/translation-core';
 import { useToast } from '@/components/admin/toast-provider';
 import { useApiErrorHandler } from '@/components/admin/error-handler';
 import { useAuth } from '@/lib/auth-context';
@@ -252,7 +253,12 @@ export default function PersonAssignmentsPage() {
   const handleSave = async () => {
     const fieldErrors: Record<string, string> = {};
     if (!form.personnelId) fieldErrors.personnelId = t('validation.required');
-    if (!form.departmentId) fieldErrors.departmentId = t('validation.required');
+    if (!form.departmentId) {
+      fieldErrors.departmentId =
+        form.leadershipLevel && form.leadershipLevel !== 'NONE' && ['TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD'].includes(form.leadershipLevel)
+          ? t('core.leadershipDepartmentRequired')
+          : t('validation.required');
+    }
     if (!form.effectiveFrom) fieldErrors.effectiveFrom = t('validation.required');
     if (Object.keys(fieldErrors).length > 0) {
       setValidationErrors(fieldErrors);
@@ -271,7 +277,23 @@ export default function PersonAssignmentsPage() {
       setModalOpen(false);
       fetchData(meta.page, search);
     } catch (err: any) {
-      showToast(err?.response?.data?.message || t('errors.saveFailed'), 'error');
+      const fieldErrors = err?.response?.data?.errors;
+      if (Array.isArray(fieldErrors)) {
+        const first = fieldErrors.find((entry: any) => entry && typeof entry === 'object' && entry.code);
+        if (first?.code) {
+          const localized = t(first.code, 'validation');
+          const isRealTranslation =
+            Boolean(localized) &&
+            localized !== first.code &&
+            !(Object.values(TRANSLATION_FALLBACKS) as string[]).includes(localized);
+          if (isRealTranslation) {
+            showToast(localized, 'error');
+            setValidationErrors((prev) => ({ ...prev, [first.field || 'departmentId']: localized }));
+            return;
+          }
+        }
+      }
+      handleApiError(err);
     } finally {
       setSaving(false);
     }
