@@ -6,11 +6,6 @@ const webRoot = path.resolve(__dirname, '..');
 const read = (rel: string) => fs.readFileSync(path.join(repoRoot, rel), 'utf8');
 const exists = (rel: string) => fs.existsSync(path.join(repoRoot, rel));
 
-const STILL_HOLD_ROUTES: { url: string; page: string }[] = [
-  { url: '/admin/maintenance/requests/new', page: 'apps/web/src/app/admin/maintenance/requests/new/page.tsx' },
-  { url: '/admin/maintenance/tasks/new', page: 'apps/web/src/app/admin/maintenance/tasks/new/page.tsx' },
-];
-
 const DELETED_DETAIL_SLUGS: { url: string; page: string; reservedHelper: string }[] = [
   {
     url: '/admin/inventory/warehouses/new',
@@ -32,9 +27,19 @@ const DELETED_DETAIL_SLUGS: { url: string; page: string; reservedHelper: string 
     page: 'apps/web/src/app/admin/maintenance/machine-documents/new/page.tsx',
     reservedHelper: 'isReservedDetailRouteId',
   },
+  {
+    url: '/admin/maintenance/requests/new',
+    page: 'apps/web/src/app/admin/maintenance/requests/new/page.tsx',
+    reservedHelper: 'isReservedDetailRouteId',
+  },
+  {
+    url: '/admin/maintenance/tasks/new',
+    page: 'apps/web/src/app/admin/maintenance/tasks/new/page.tsx',
+    reservedHelper: 'isReservedDetailRouteId',
+  },
 ];
 
-const ALL_ROUTE_URLS = [...STILL_HOLD_ROUTES, ...DELETED_DETAIL_SLUGS].map((r) => r.url);
+const ALL_ROUTE_URLS = [...DELETED_DETAIL_SLUGS].map((r) => r.url);
 
 function walkDir(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
@@ -48,23 +53,14 @@ function walkDir(dir: string): string[] {
 }
 
 describe('hold-route remediation contract (DEAD-ROUTES-PHASE1)', () => {
-  it.each(STILL_HOLD_ROUTES)('STILL_HOLD route remains intentionally present: $url', ({ url, page }) => {
-    expect(exists(page)).toBe(true);
-    expect(url.startsWith('/admin/')).toBe(true);
-  });
-
   it.each(DELETED_DETAIL_SLUGS)('deleted route page no longer exists: $url', ({ url, page }) => {
     expect(exists(page)).toBe(false);
     expect(url.startsWith('/admin/')).toBe(true);
   });
 
-  it('no navigation in apps/web/src points to any hold-route or deleted-route URL', () => {
+  it('no navigation in apps/web/src points to any deleted-route URL', () => {
     const middlewareAbs = path.join(webRoot, 'src', 'middleware.ts');
-    const srcFiles = walkDir(path.join(webRoot, 'src')).filter(
-      (f) =>
-        f !== middlewareAbs &&
-        !STILL_HOLD_ROUTES.some((r) => path.join(repoRoot, r.page) === f),
-    );
+    const srcFiles = walkDir(path.join(webRoot, 'src')).filter((f) => f !== middlewareAbs);
     const offenders = srcFiles
       .filter((f) => ALL_ROUTE_URLS.some((url) => fs.readFileSync(f, 'utf8').includes(url)))
       .map((f) => path.relative(repoRoot, f));
@@ -77,6 +73,8 @@ describe('hold-route remediation contract (DEAD-ROUTES-PHASE1)', () => {
     expect(middleware).toContain("'/admin/inventory/counts/history'");
     expect(middleware).toContain("'/admin/maintenance/schedules/new'");
     expect(middleware).toContain("'/admin/maintenance/machine-documents/new'");
+    expect(middleware).toContain("'/admin/maintenance/requests/new'");
+    expect(middleware).toContain("'/admin/maintenance/tasks/new'");
     expect(middleware).toContain('status: 404');
   });
 
@@ -211,18 +209,19 @@ describe('active requests create modal reaches legacy /new parity (DEAD-ROUTES-P
     expect(requests).not.toContain("{ value: 'CALIBRATION'");
   });
 
-  it('matches the [id]/edit page and legacy /new request-type set exactly (full parity)', () => {
+  it('matches the [id]/edit page request-type set exactly (full parity)', () => {
     const edit = read('apps/web/src/app/admin/maintenance/requests/[id]/edit/page.tsx');
-    const legacyNew = read('apps/web/src/app/admin/maintenance/requests/new/page.tsx');
     expect(requests).toContain("{ value: 'CORRECTIVE', label: t('status.CORRECTIVE') }");
     expect(requests).toContain("{ value: 'PREVENTIVE', label: t('status.PREVENTIVE') }");
     expect(requests).toContain("{ value: 'PREDICTIVE', label: t('status.PREDICTIVE') }");
     expect(requests).toContain("{ value: 'EMERGENCY', label: t('status.EMERGENCY') }");
+    expect(edit).toContain("{ value: 'CORRECTIVE', label: 'Corrective' }");
+    expect(edit).toContain("{ value: 'PREVENTIVE', label: 'Preventive' }");
+    expect(edit).toContain("{ value: 'PREDICTIVE', label: 'Predictive' }");
     expect(edit).toContain("{ value: 'EMERGENCY', label: 'Emergency' }");
-    expect(legacyNew).toContain("{ value: 'EMERGENCY', label: 'Emergency' }");
     expect(edit).not.toContain("{ value: 'CALIBRATION'");
-    expect(legacyNew).not.toContain("{ value: 'CALIBRATION'");
     expect(requests).not.toContain("{ value: 'CALIBRATION'");
+    expect(exists('apps/web/src/app/admin/maintenance/requests/new/page.tsx')).toBe(false);
   });
 });
 

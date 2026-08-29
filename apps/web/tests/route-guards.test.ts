@@ -4,6 +4,11 @@ import {
   RESERVED_DETAIL_ROUTE_SLUGS,
   MODULE_RESERVED_ROUTE_SLUGS,
 } from '../src/lib/route-guards';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const webRoot = path.resolve(__dirname, '..');
+const read = (rel: string) => fs.readFileSync(path.join(webRoot, rel), 'utf8');
 
 describe('route-guards — reserved detail-route slugs', () => {
   it('rejects the reserved legacy create slug `new`', () => {
@@ -61,5 +66,27 @@ describe('route-guards — module-scoped reserved slugs (counts history)', () =>
   it('scopes the counts history reservation narrowly', () => {
     expect(Object.keys(MODULE_RESERVED_ROUTE_SLUGS)).toEqual(['inventory-counts']);
     expect(MODULE_RESERVED_ROUTE_SLUGS['inventory-counts']).toEqual(['history']);
+  });
+});
+
+describe('route-guards — final two legacy create routes (requests/new, tasks/new)', () => {
+  it('reserves the `new` slug for both the requests and tasks detail routes', () => {
+    expect(isReservedDetailRouteId('new')).toBe(true);
+  });
+
+  it('request and task detail pages reject the reserved `new` id before any data fetch', () => {
+    const requestDetail = read('src/app/admin/maintenance/requests/[id]/page.tsx');
+    const taskDetail = read('src/app/admin/maintenance/tasks/[id]/page.tsx');
+    for (const content of [requestDetail, taskDetail]) {
+      expect(content).toContain('isReservedDetailRouteId');
+      expect(content).toContain('notFound()');
+    }
+  });
+
+  it('normal request and task ids are not reserved', () => {
+    const normalIds = ['req-001', 'tsk-123', 'aef2e0059d45d99b96d211557bde97b1c682f614'];
+    for (const id of normalIds) {
+      expect(isReservedDetailRouteId(id)).toBe(false);
+    }
   });
 });

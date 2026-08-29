@@ -8,6 +8,8 @@ const LEGACY_CREATE_ROUTES = [
   /^\/admin\/maintenance\/(downtime-logs|machine-categories|machine-components|machine-parts)\/new\/?$/,
   /^\/admin\/maintenance\/schedules\/new\/?$/,
   /^\/admin\/maintenance\/machine-documents\/new\/?$/,
+  /^\/admin\/maintenance\/requests\/new\/?$/,
+  /^\/admin\/maintenance\/tasks\/new\/?$/,
 ];
 
 export function middleware(request: NextRequest) {
@@ -32,5 +34,7 @@ export const config = {
     '/admin/maintenance/machine-parts/new',
     '/admin/maintenance/schedules/new',
     '/admin/maintenance/machine-documents/new',
+    '/admin/maintenance/requests/new',
+    '/admin/maintenance/tasks/new',
   ],
 };
