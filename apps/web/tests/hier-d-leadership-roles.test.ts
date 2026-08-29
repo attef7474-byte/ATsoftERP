@@ -152,12 +152,12 @@ describe('HIER-D person-assignments page source includes leadership fields', () 
     expect(pageSource).toContain("leadershipLevel: record.leadershipLevel || 'NONE'");
   });
 
-  it('leadershipLevel is included in create payload (spread from form)', () => {
-    expect(pageSource).toContain('const payload: any = { ...form,');
+  it('leadershipLevel is included in create payload (built via buildAssignmentUpdatePayload from form)', () => {
+    expect(pageSource).toContain('const payload: any = buildAssignmentUpdatePayload(form);');
   });
 
-  it('leadershipLevel is included in edit payload (spread from form)', () => {
-    expect(pageSource).toContain('const payload: any = { ...form,');
+  it('leadershipLevel is included in edit payload (built via buildAssignmentUpdatePayload from form)', () => {
+    expect(pageSource).toContain('const payload: any = buildAssignmentUpdatePayload(form);');
   });
 
   it('leadershipLevel is included in transfer payload (transferForm fields used in transfer)', () => {

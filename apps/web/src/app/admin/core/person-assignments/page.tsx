@@ -28,6 +28,7 @@ import type {
 import { Button, Input, Card, LoadingState, Modal, StatusBadge, Pagination, ConfirmDialog } from '@/components/admin/ui';
 import { F9Lookup, operationalPersonAdapter, branchAdapter, administrationAdapter, departmentAdapter, jobTitleAdapter } from '@/components/f9';
 import { shouldShowLeadershipDepartmentHelper } from '@/lib/person-assignment-leadership';
+import { buildAssignmentUpdatePayload, getAssignmentBranchName, shouldShowBranchMismatchWarning } from '@/lib/person-assignment-branch-context';
 import { Search, Plus, Edit, Trash2, RefreshCw, Users, ArrowRightLeft } from 'lucide-react';
 
 interface AssignmentForm {
@@ -78,7 +79,7 @@ export default function PersonAssignmentsPage() {
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
-  const { permissions, isSuperAdmin } = useAuth();
+  const { permissions, isSuperAdmin, activeContext } = useAuth();
 
   const permissionKeys = permissions?.permissions ?? [];
   const canTransferAssignment = isSuperAdmin || permissionKeys.includes('person-assignment:transfer');
@@ -95,6 +96,7 @@ export default function PersonAssignmentsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editBranch, setEditBranch] = useState<{ id?: string | null; name?: string | null } | null>(null);
   const [form, setForm] = useState<AssignmentForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -230,6 +232,7 @@ export default function PersonAssignmentsPage() {
 
   const openCreateModal = () => {
     setEditingId(null);
+    setEditBranch(null);
     setForm(EMPTY_FORM);
     setValidationErrors({});
     setModalOpen(true);
@@ -237,6 +240,7 @@ export default function PersonAssignmentsPage() {
 
   const openEditModal = (record: OperationalPersonAssignment) => {
     setEditingId(record.id);
+    setEditBranch(record.branch || { id: record.branchId, name: undefined });
     setForm({
       personnelId: record.personnelId,
       departmentId: record.departmentId,
@@ -267,7 +271,7 @@ export default function PersonAssignmentsPage() {
     }
     setSaving(true);
     try {
-      const payload: any = { ...form, effectiveTo: form.effectiveTo || null, jobTitleId: form.jobTitleId || null };
+      const payload: any = buildAssignmentUpdatePayload(form);
       if (editingId) {
         await api.patch(`/person-assignments/${editingId}`, payload);
         showToast(t('common.successUpdated'), 'success');
@@ -560,6 +564,7 @@ export default function PersonAssignmentsPage() {
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-3 px-2 font-medium">{t('core.personnel')}</th>
+                  <th className="text-left py-3 px-2 font-medium">{t('core.branch')}</th>
                   <th className="text-left py-3 px-2 font-medium">{t('core.department')}</th>
                   <th className="text-left py-3 px-2 font-medium">{t('core.jobTitle')}</th>
                   <th className="text-left py-3 px-2 font-medium">{t('core.assignmentType')}</th>
@@ -573,6 +578,7 @@ export default function PersonAssignmentsPage() {
                 {data.map((record) => (
                   <tr key={record.id} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-2">{record.person?.name || t('core.notSpecified')}</td>
+                    <td className="py-3 px-2">{getAssignmentBranchName(record) || t('core.notSpecified')}</td>
                     <td className="py-3 px-2">{record.department?.name || t('core.notSpecified')}</td>
                     <td className="py-3 px-2">{record.jobTitle?.name || '-'}</td>
                     <td className="py-3 px-2">
@@ -620,6 +626,19 @@ export default function PersonAssignmentsPage() {
 
       <Modal open={modalOpen} title={editingId ? t('core.editPersonAssignment') : t('core.newPersonAssignment')} onClose={() => { setModalOpen(false); setValidationErrors({}); }}>
         <div className="space-y-4">
+          {editingId && (
+            <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <div>
+                <span className="block text-sm font-medium mb-1">{t('core.branch')}</span>
+                <div className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-700">
+                  {editBranch?.name || t('core.notSpecified')}
+                </div>
+              </div>
+              {shouldShowBranchMismatchWarning(activeContext?.branchId, editBranch?.id) && (
+                <p className="text-xs text-amber-700">{t('core.assignmentBranchMismatchWarning', undefined, { activeBranch: activeContext?.branchName || activeContext?.branchCode || t('core.notSpecified'), assignmentBranch: editBranch?.name || t('core.notSpecified') })}</p>
+              )}
+            </div>
+          )}
           <F9Lookup
             label={t('core.personnel')}
             name="personnelId"
