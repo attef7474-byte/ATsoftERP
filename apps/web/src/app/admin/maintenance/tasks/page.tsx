@@ -23,7 +23,7 @@ export default function MaintenanceTasksPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MaintenanceTask | null>(null);
-  const [form, setForm] = useState({ requestId: '', title: '', description: '', assignedToId: '', code: '' });
+  const [form, setForm] = useState({ requestId: '', title: '', description: '', assignedToId: '', code: '', notes: '' });
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -70,7 +70,7 @@ export default function MaintenanceTasksPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ requestId: '', title: '', description: '', assignedToId: '', code: '' });
+    setForm({ requestId: '', title: '', description: '', assignedToId: '', code: '', notes: '' });
     setValidationErrors({});
     setModalOpen(true);
   };
@@ -82,7 +82,7 @@ export default function MaintenanceTasksPage() {
       const res = await api.get<MaintenanceTask>(`/maintenance/tasks/${id}`);
       const item = res;
       setEditItem(item);
-      setForm({ requestId: item.requestId, title: item.title, description: item.description || '', assignedToId: item.assignedToId || '', code: (item as any).code || '' });
+      setForm({ requestId: item.requestId, title: item.title, description: item.description || '', assignedToId: item.assignedToId || '', code: (item as any).code || '', notes: item.notes || '' });
     } catch (err: any) {
       handleApiError(err);
       setModalOpen(false);
@@ -102,6 +102,7 @@ export default function MaintenanceTasksPage() {
       const payload: any = { requestId: form.requestId, title: form.title };
       if (form.description) payload.description = form.description;
       if (form.assignedToId) payload.assignedToId = form.assignedToId;
+      if (form.notes) payload.notes = form.notes;
       if (editItem) {
         await api.patch(`/maintenance/tasks/${editItem.id}`, payload);
         showToast(t('common.successUpdated'), 'success');
@@ -202,6 +203,7 @@ export default function MaintenanceTasksPage() {
             </div>
             <F9Lookup label={t('maintenance.assignedTo')} value={form.assignedToId} onChange={(v) => setForm({ ...form, assignedToId: v })} adapter={userAdapter} />
             <Textarea label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <Textarea label={t('maintenance.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
               <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>

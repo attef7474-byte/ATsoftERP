@@ -9,6 +9,7 @@ export function CmmsPriorityBadge({ priority }: { priority?: string | null }) {
     LOW: 'bg-gray-100 text-gray-800',
     MEDIUM: 'bg-blue-100 text-blue-800',
     HIGH: 'bg-orange-100 text-orange-800',
+    URGENT: 'bg-red-100 text-red-800',
     CRITICAL: 'bg-red-100 text-red-800',
   };
   const color = colors[p] || 'bg-gray-100 text-gray-800';

@@ -156,3 +156,137 @@ describe('i18n keys consumed by migrated active flows exist in both locales', ()
     expect(ar).toMatch(new RegExp(`\\b${key}\\s*:`));
   });
 });
+
+describe('active requests create modal reaches legacy /new parity (DEAD-ROUTES-PHASE1-FINAL2)', () => {
+  const requests = read('apps/web/src/app/admin/maintenance/requests/page.tsx');
+
+  it('exposes the operational-context selectors legacy /new supported (productionLine, machineComponent, operationType, costCenter)', () => {
+    expect(requests).toContain('adapter={productionLineAdapter}');
+    expect(requests).toContain('adapter={machineComponentAdapter}');
+    expect(requests).toContain('adapter={operationTypeAdapter}');
+    expect(requests).toContain('adapter={costCenterAdapter}');
+    expect(requests).toContain("filters={{ machineId: form.machineId }}");
+    expect(requests).toContain('filters={{ machineId: form.machineId, componentId: form.machineComponentId }}');
+  });
+
+  it('auto-fills operational context from the selected machine (productionLine, operationType, defaultCostCenter)', () => {
+    expect(requests).toContain('productionLineId: machine.productionLineId');
+    expect(requests).toContain('operationTypeId: machine.operationTypeId');
+    expect(requests).toContain('costCenterId: machine.defaultCostCenterId');
+    expect(requests).toContain('onItemSelect={handleMachineSelect}');
+  });
+
+  it('sends notes to the backend payload', () => {
+    expect(requests).toContain("if (form.notes) payload.notes = form.notes;");
+    expect(requests).toContain("t('maintenance.notes')");
+  });
+
+  it('exposes required-parts editing (add/remove/sparePart adapter/isPrimary/quantity) wired to the payload', () => {
+    expect(requests).toContain('const addRequiredPart = () => {');
+    expect(requests).toContain('adapter={sparePartAdapter}');
+    expect(requests).toContain('t(\'maintenance.requiredSpareParts\')');
+    expect(requests).toContain("t('maintenance.addRequiredPart')");
+    expect(requests).toContain('payload.requiredParts = filledParts.map(');
+    expect(requests).toContain('(sparePart: SparePart) => handleSparePartSelect(index, sparePart)');
+  });
+
+  it('uses backend-valid priority options (URGENT, never CRITICAL)', () => {
+    expect(requests).toContain("{ value: 'URGENT', label: t('status.URGENT') }");
+    expect(requests).not.toContain("{ value: 'CRITICAL'");
+  });
+
+  it('matches the [id]/edit page priority set exactly (full parity, no capability lost)', () => {
+    const edit = read('apps/web/src/app/admin/maintenance/requests/[id]/edit/page.tsx');
+    expect(requests).toContain("{ value: 'LOW', label: t('status.LOW') }");
+    expect(requests).toContain("{ value: 'MEDIUM', label: t('status.MEDIUM') }");
+    expect(requests).toContain("{ value: 'HIGH', label: t('status.HIGH') }");
+    expect(requests).toContain("{ value: 'URGENT', label: t('status.URGENT') }");
+    expect(edit).toContain("{ value: 'LOW', label: 'Low' }");
+    expect(edit).toContain("{ value: 'URGENT', label: 'Urgent' }");
+    expect(edit).not.toContain("{ value: 'CRITICAL'");
+  });
+
+  it('uses the legacy type convention (EMERGENCY, never CALIBRATION)', () => {
+    expect(requests).toContain("{ value: 'EMERGENCY', label: t('status.EMERGENCY') }");
+    expect(requests).not.toContain("{ value: 'CALIBRATION'");
+  });
+
+  it('matches the [id]/edit page and legacy /new request-type set exactly (full parity)', () => {
+    const edit = read('apps/web/src/app/admin/maintenance/requests/[id]/edit/page.tsx');
+    const legacyNew = read('apps/web/src/app/admin/maintenance/requests/new/page.tsx');
+    expect(requests).toContain("{ value: 'CORRECTIVE', label: t('status.CORRECTIVE') }");
+    expect(requests).toContain("{ value: 'PREVENTIVE', label: t('status.PREVENTIVE') }");
+    expect(requests).toContain("{ value: 'PREDICTIVE', label: t('status.PREDICTIVE') }");
+    expect(requests).toContain("{ value: 'EMERGENCY', label: t('status.EMERGENCY') }");
+    expect(edit).toContain("{ value: 'EMERGENCY', label: 'Emergency' }");
+    expect(legacyNew).toContain("{ value: 'EMERGENCY', label: 'Emergency' }");
+    expect(edit).not.toContain("{ value: 'CALIBRATION'");
+    expect(legacyNew).not.toContain("{ value: 'CALIBRATION'");
+    expect(requests).not.toContain("{ value: 'CALIBRATION'");
+  });
+});
+
+describe('CmmsPriorityBadge maps every emitted priority to a distinct color (DEAD-ROUTES-PHASE1-FINAL2)', () => {
+  const badge = read('apps/web/src/components/maintenance/CmmsPriorityBadge.tsx');
+
+  it('maps URGENT (backend-valid top request priority) so it is no longer default gray', () => {
+    expect(badge).toContain("URGENT: 'bg-red-100 text-red-800'");
+  });
+
+  it('keeps CRITICAL mapping because work-orders still emits CRITICAL', () => {
+    const workOrders = read('apps/web/src/app/admin/maintenance/work-orders/page.tsx');
+    expect(workOrders).toContain("'CRITICAL'");
+    expect(badge).toContain("CRITICAL: 'bg-red-100 text-red-800'");
+  });
+
+  it('keeps LOW/MEDIUM/HIGH mappings (full priority color coverage)', () => {
+    expect(badge).toContain("LOW: 'bg-gray-100 text-gray-800'");
+    expect(badge).toContain("MEDIUM: 'bg-blue-100 text-blue-800'");
+    expect(badge).toContain("HIGH: 'bg-orange-100 text-orange-800'");
+  });
+
+  it('translates URGENT via the shared status namespace (label, not raw key)', () => {
+    const literals = read('apps/web/src/lib/i18n/literals.ts');
+    const enCommon = read('apps/web/src/lib/i18n/locales/en/common.ts');
+    const arCommon = read('apps/web/src/lib/i18n/locales/ar/common.ts');
+    expect(literals).toContain('translatePriority');
+    expect(enCommon).toMatch(/\bURGENT\s*:\s*'Urgent'/);
+    expect(arCommon).toMatch(/\bURGENT\s*:\s*'عاجلة'/);
+  });
+});
+
+describe('requests create backend accepts the exposed request priorities/types (DEAD-ROUTES-PHASE1-FINAL2)', () => {
+  it('priority enum allows URGENT and excludes CRITICAL', () => {
+    const dto = read('apps/api/src/modules/factory/maintenance/maintenance-requests/dto/create-maintenance-request.dto.ts');
+    expect(dto).toContain("@IsIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])");
+    expect(dto).not.toContain('CRITICAL');
+  });
+
+  it('request DTO supports notes and requiredParts nested create', () => {
+    const dto = read('apps/api/src/modules/factory/maintenance/maintenance-requests/dto/create-maintenance-request.dto.ts');
+    expect(dto).toContain('notes?: string;');
+    expect(dto).toContain('requiredParts?: CreateRequiredPartDto[];');
+    expect(dto).toContain('productionLineId?: string;');
+    expect(dto).toContain('machineComponentId?: string;');
+    expect(dto).toContain('operationTypeId?: string;');
+    expect(dto).toContain('costCenterId?: string;');
+  });
+});
+
+describe('active tasks create modal reaches legacy /new parity (notes)', () => {
+  const tasks = read('apps/web/src/app/admin/maintenance/tasks/page.tsx');
+
+  it('exposes the notes field in create/edit and sends it to the API', () => {
+    expect(tasks).toContain("notes: ''");
+    expect(tasks).toContain("notes: item.notes || ''");
+    expect(tasks).toContain('if (form.notes) payload.notes = form.notes;');
+    expect(tasks).toContain("t('maintenance.notes')");
+  });
+});
+
+describe('tasks create backend accepts notes', () => {
+  it('CreateMaintenanceTaskDto supports notes', () => {
+    const dto = read('apps/api/src/modules/factory/maintenance/maintenance-tasks/dto/create-maintenance-task.dto.ts');
+    expect(dto).toContain('notes?: string;');
+  });
+});

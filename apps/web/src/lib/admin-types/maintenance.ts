@@ -80,6 +80,10 @@ export interface MaintenanceRequest {
   id: string;
   requestNumber: string;
   machineId: string;
+  productionLineId?: string | null;
+  machineComponentId?: string | null;
+  operationTypeId?: string | null;
+  costCenterId?: string | null;
   requestedById: string;
   assignedToId?: string | null;
   type: string;
@@ -109,6 +113,14 @@ export interface MaintenanceRequest {
   assignedTo?: { id: string; name: string; email: string };
   _count?: { tasks: number };
   summary?: { tasksCount: number; completedTasksCount: number; openTasksCount: number; totalDowntimeHours: number };
+  requiredParts?: Array<{
+    id: string;
+    sparePartId: string;
+    quantity: number;
+    unit?: string | null;
+    usageNote?: string | null;
+    isPrimary: boolean;
+  }>;
 }
 
 export interface MaintenanceTask {
