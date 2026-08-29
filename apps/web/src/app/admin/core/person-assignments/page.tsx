@@ -27,6 +27,7 @@ import type {
 } from '@/lib/admin-types';
 import { Button, Input, Card, LoadingState, Modal, StatusBadge, Pagination, ConfirmDialog } from '@/components/admin/ui';
 import { F9Lookup, operationalPersonAdapter, branchAdapter, administrationAdapter, departmentAdapter, jobTitleAdapter } from '@/components/f9';
+import { shouldShowLeadershipDepartmentHelper } from '@/lib/person-assignment-leadership';
 import { Search, Plus, Edit, Trash2, RefreshCw, Users, ArrowRightLeft } from 'lucide-react';
 
 interface AssignmentForm {
@@ -654,7 +655,7 @@ export default function PersonAssignmentsPage() {
             <select value={form.leadershipLevel} onChange={(e) => setForm({ ...form, leadershipLevel: e.target.value })} className="w-full border rounded px-3 py-2 text-sm">
               {LEADERSHIP_LEVELS.map((level) => <option key={level} value={level}>{t(`core.leadershipLevels.${level}`)}</option>)}
             </select>
-            {['TEAM_LEAD', 'SUPERVISOR', 'DEPARTMENT_HEAD'].includes(form.leadershipLevel) && (
+            {shouldShowLeadershipDepartmentHelper(form.leadershipLevel, form.departmentId) && (
               <p className="text-xs text-amber-600 mt-1">{t('core.leadershipDepartmentRequired')}</p>
             )}
           </div>
