@@ -24,7 +24,7 @@ export default function MaintenanceSchedulesPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MaintenanceSchedule | null>(null);
-  const [form, setForm] = useState({ machineId: '', title: '', description: '', type: 'PREVENTIVE', frequency: 'MONTHLY', intervalDays: 0, startDate: '', code: '' });
+  const [form, setForm] = useState({ machineId: '', title: '', description: '', type: 'PREVENTIVE', frequency: 'MONTHLY', intervalDays: 0, startDate: '', endDate: '', code: '' });
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -67,7 +67,7 @@ useRegisterAdminActions([
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ machineId: '', title: '', description: '', type: 'PREVENTIVE', frequency: 'MONTHLY', intervalDays: 0, startDate: '', code: '' });
+    setForm({ machineId: '', title: '', description: '', type: 'PREVENTIVE', frequency: 'MONTHLY', intervalDays: 0, startDate: '', endDate: '', code: '' });
     setModalOpen(true);
   };
   const openEdit = async (id: string) => {
@@ -77,7 +77,7 @@ useRegisterAdminActions([
       const res: any = await api.get(`/maintenance/schedules/${id}`);
       const item: MaintenanceSchedule = res.data || res;
       setEditItem(item);
-      setForm({ machineId: item.machineId, title: item.title, description: item.description || '', type: item.type, frequency: item.frequency, intervalDays: item.intervalDays ?? 0, startDate: item.startDate ? item.startDate.split('T')[0] : '', code: res.code || (item as any).code || '' });
+      setForm({ machineId: item.machineId, title: item.title, description: item.description || '', type: item.type, frequency: item.frequency, intervalDays: item.intervalDays ?? 0, startDate: item.startDate ? item.startDate.split('T')[0] : '', endDate: item.endDate ? item.endDate.split('T')[0] : '', code: res.code || (item as any).code || '' });
     } catch (err: any) {
       showToast(err?.message || t('errors.loadFailed'), 'error');
       setModalOpen(false);
@@ -96,6 +96,7 @@ useRegisterAdminActions([
     try {
       const payload: any = { machineId: form.machineId, title: form.title, type: form.type, frequency: form.frequency, startDate: form.startDate };
       if (form.description) payload.description = form.description;
+      if (form.endDate) payload.endDate = form.endDate;
       if (form.intervalDays > 0) payload.intervalDays = form.intervalDays;
       if (editItem) {
         await api.patch(`/maintenance/schedules/${editItem.id}`, payload);
@@ -221,7 +222,10 @@ useRegisterAdminActions([
               <Select label={t('maintenance.frequency')} value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })} options={freqOptions} />
             </div>
             <Input label={t('maintenance.intervalDays')} type="number" value={String(form.intervalDays || '')} onChange={(e) => setForm({ ...form, intervalDays: parseInt(e.target.value) || 0 })} />
-            <Input label={t('maintenance.startDate')} type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+            <div className="grid grid-cols-2 gap-4">
+              <Input label={t('maintenance.startDate')} type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+              <Input label={t('maintenance.endDate')} type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
+            </div>
             <Textarea label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>

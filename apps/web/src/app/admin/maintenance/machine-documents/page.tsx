@@ -24,7 +24,7 @@ export default function MachineDocumentsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MachineDocument | null>(null);
-  const [form, setForm] = useState({ machineId: '', title: '', type: '', notes: '' });
+  const [form, setForm] = useState({ machineId: '', title: '', type: '', fileUrl: '', notes: '' });
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -61,13 +61,13 @@ useRegisterAdminActions([
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ machineId: '', title: '', type: '', notes: '' });
+    setForm({ machineId: '', title: '', type: '', fileUrl: '', notes: '' });
     setValidationErrors({});
     setModalOpen(true);
   };
   const openEdit = (item: MachineDocument) => {
     setEditItem(item);
-    setForm({ machineId: item.machineId, title: item.title, type: item.type || '', notes: item.notes || '' });
+    setForm({ machineId: item.machineId, title: item.title, type: item.type || '', fileUrl: item.fileUrl || '', notes: item.notes || '' });
     setValidationErrors({});
     setModalOpen(true);
   };
@@ -77,6 +77,7 @@ useRegisterAdminActions([
     if (!form.title.trim()) errors.title = t('validation.required');
     if (!form.type.trim()) errors.type = t('validation.required');
     if (!form.machineId) errors.machineId = t('validation.required');
+    if (!form.fileUrl.trim()) errors.fileUrl = t('validation.required');
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) {
       focusFirstInvalidField(Object.entries(errors).map(([field, message]) => ({ field, code: 'validation.required', message })));
@@ -84,7 +85,7 @@ useRegisterAdminActions([
     }
     setSaving(true);
     try {
-      const payload: any = { machineId: form.machineId, title: form.title.trim(), type: form.type.trim() };
+      const payload: any = { machineId: form.machineId, title: form.title.trim(), type: form.type.trim(), fileUrl: form.fileUrl.trim() };
       if (form.notes.trim()) payload.notes = form.notes.trim();
       if (editItem) {
         await api.patch(`/maintenance/machine-documents/${editItem.id}`, payload);
@@ -168,6 +169,10 @@ useRegisterAdminActions([
           <div>
             <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setForm({ ...form, machineId: v })} adapter={machineAdapter} />
             {validationErrors.machineId && <p className="text-red-500 text-sm mt-1">{validationErrors.machineId}</p>}
+          </div>
+          <div>
+            <Input label={t('maintenance.fileUrl')} value={form.fileUrl} onChange={(e) => { setForm({ ...form, fileUrl: e.target.value }); setValidationErrors(prev => ({ ...prev, fileUrl: '' })); }} required placeholder="https://..." />
+            {validationErrors.fileUrl && <p className="text-red-500 text-sm mt-1">{validationErrors.fileUrl}</p>}
           </div>
           <Textarea label={t('maintenance.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="flex justify-end gap-3 pt-4">

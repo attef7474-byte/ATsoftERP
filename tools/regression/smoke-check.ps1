@@ -117,7 +117,6 @@ $routeChecks = @(
     "/admin/maintenance/machine-parts"
     "/admin/maintenance/machine-documents"
     "/admin/maintenance/requests"
-    "/admin/maintenance/requests/new"
     "/admin/maintenance/tasks"
     "/admin/maintenance/schedules"
     "/admin/maintenance/checklist-items"

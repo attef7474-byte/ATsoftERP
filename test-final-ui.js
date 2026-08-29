@@ -328,10 +328,10 @@ async function navigateAdmin(page, url) {
     const formConfigs = [
       { name: 'Branches', url: '/admin/core/branches', hasCreate: true },
       { name: 'Departments', url: '/admin/core/departments', hasCreate: true },
-      { name: 'Warehouses', url: '/admin/inventory/warehouses/new', hasCreate: false },
+      { name: 'Warehouses', url: '/admin/inventory/warehouses', hasCreate: true },
       { name: 'Products', url: '/admin/inventory/products/new', hasCreate: false },
-      { name: 'Maintenance requests', url: '/admin/maintenance/requests/new', hasCreate: false },
-      { name: 'Maintenance tasks', url: '/admin/maintenance/tasks/new', hasCreate: false },
+      { name: 'Maintenance requests', url: '/admin/maintenance/requests', hasCreate: true },
+      { name: 'Maintenance tasks', url: '/admin/maintenance/tasks', hasCreate: true },
     ];
 
     for (const cfg of formConfigs) {

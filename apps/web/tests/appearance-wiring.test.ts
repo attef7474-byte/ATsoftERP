@@ -72,7 +72,7 @@ describe('component hook wiring (data-form-header / data-theme-preview)', () => 
     entityPageHeader: read('src/components/entity/entity-page-header.tsx'),
     entityDetailDrawer: read('src/components/entity/entity-detail-drawer.tsx'),
     appearanceStudio: read('src/app/admin/settings/appearance/page.tsx'),
-    warehouseNew: read('src/app/admin/inventory/warehouses/new/page.tsx'),
+    warehouseList: read('src/app/admin/inventory/warehouses/page.tsx'),
     warehouseEdit: read('src/app/admin/inventory/warehouses/[id]/edit/page.tsx'),
   };
 
@@ -81,10 +81,20 @@ describe('component hook wiring (data-form-header / data-theme-preview)', () => 
     ['pageHeader', 'data-form-header'],
     ['entityPageHeader', 'data-form-header'],
     ['entityDetailDrawer', 'data-form-header'],
-    ['warehouseNew', 'data-form-header'],
     ['warehouseEdit', 'data-form-header'],
   ])('%s renders the form-header hook', (file, hook) => {
     expect(sources[file]).toContain(hook);
+  });
+
+  it('warehouse create/edit runs through the hook-carrying shared Modal on the active list page', () => {
+    expect(sources.warehouseList).toContain('<Modal open={modalOpen}');
+    expect(sources.warehouseList).toContain("title={editItem ? t('inventory.editWarehouse') : t('inventory.newWarehouse')}");
+    expect(sources.modal).toContain('data-form-header');
+  });
+
+  it('the active warehouse page does not link create to the legacy /new route', () => {
+    expect(sources.warehouseList).not.toContain('warehouses/new');
+    expect(sources.warehouseList).not.toMatch(/router\.(push|replace)\(['"]\/admin\/inventory\/warehouses\/new/);
   });
 
   it('wires the live preview hook to the real studio PreviewPanel container', () => {

@@ -131,6 +131,42 @@ async function testEdit(name, route) {
   return pf;
 }
 
+// Verify the ACTIVE create flow (modal on list page) renders a real form surface.
+// Covers create capabilities that were previously exercised via legacy /new pages.
+async function testCreate(name, route) {
+  console.log(`\n[${name} CREATE] ${route}`);
+  await go(route);
+  const cc = await p.evaluate(() => {
+    const bar = document.querySelector('section.admin-actionbar, [class*="actionbar"], [class*="action-bar"], [class*="toolbar"]');
+    if (!bar) { na(`${name}: action bar`, 'not found'); return null; }
+    const btns = bar.querySelectorAll('button');
+    for (const b of btns) {
+      const t = (b.getAttribute('title') || '') + ' ' + (b.textContent || '').trim();
+      if (/create|new\b|add\b|إضافة|جديد/i.test(t) && !b.hasAttribute('disabled')) { b.click(); return true; }
+    }
+    na(`${name}: Create button`, 'not found/disabled');
+    return null;
+  });
+  if (cc === null) return null;
+  ok(`${name}: Create opens`);
+  await p.waitForTimeout(1500);
+  const cf = await p.evaluate(() => {
+    const inputs = document.querySelectorAll('input:not([type="hidden"]):not([type="password"]), select, textarea');
+    let blankReq = 0;
+    for (const inp of inputs) {
+      if (inp.tagName !== 'SELECT' && !inp.value && inp.hasAttribute('required')) blankReq++;
+    }
+    return { total: inputs.length, blankReq, undef: document.body.innerText.includes('undefined') };
+  });
+  if (cf.total > 0) ok(`${name}: form fields render (${cf.total})`);
+  else nok(`${name}: no inputs`, '');
+  if (cf.blankReq > 0) ok(`${name}: ${cf.blankReq} required fields marked`);
+  if (!cf.undef) ok(`${name}: no undefined`);
+  else nok(`${name}: undefined in form`, '');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(500);
+  return cf;
+}
+
 try {
   // ===== LOGIN =====
   console.log('[LOGIN]');
@@ -192,7 +228,7 @@ try {
   // ===== INVENTORY =====
   await testPage('Warehouses List', '/admin/inventory/warehouses');
   await testEdit('Warehouses', '/admin/inventory/warehouses');
-  await testPage('Warehouses New', '/admin/inventory/warehouses/new');
+  await testCreate('Warehouses', '/admin/inventory/warehouses');
   await testPage('Locations List', '/admin/inventory/locations');
 
   await testPage('Products List', '/admin/inventory/products');
@@ -223,7 +259,9 @@ try {
   await testPage('Adjustments List', '/admin/inventory/adjustments');
   await testPage('Counts List', '/admin/inventory/counts');
   await testPage('Counts New', '/admin/inventory/counts/new');
-  await testPage('Counts History', '/admin/inventory/counts/history');
+  // Counts history visibility (startedAt / completedAt columns) is now covered by the
+  // active 'Counts List' audit above (columns added to the list page); legacy
+  // /admin/inventory/counts/history page is unlinked and scheduled for removal.
 
   // ===== MAINTENANCE =====
   await testPage('Maint Dashboard', '/admin/maintenance/dashboard');

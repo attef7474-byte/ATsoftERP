@@ -185,6 +185,8 @@ export default function InventoryCountsPage() {
     { key: 'warehouse', header: t('inventoryCounting.warehouse'), render: (r: InventoryCount) => r.warehouse?.name || '-' },
     { key: 'status', header: t('common.status'), render: (r: InventoryCount) => <InventoryStatusBadge status={r.status} /> },
     { key: 'countDate', header: t('inventoryCounting.countDate'), render: (r: InventoryCount) => r.countDate ? r.countDate.split('T')[0] : '-' },
+    { key: 'startedAt', header: t('inventoryCounting.startedAt'), render: (r: InventoryCount) => r.startedAt ? r.startedAt.split('T')[0] : '-' },
+    { key: 'completedAt', header: t('inventoryCounting.completedAt'), render: (r: InventoryCount) => r.completedAt ? r.completedAt.split('T')[0] : '-' },
     { key: 'linesCount', header: t('inventoryCounting.linesCount'), render: (r: InventoryCount) => r.summary?.linesCount ?? r._count?.lines ?? '-' },
     { key: 'countedLinesCount', header: t('inventoryCounting.countedLinesCount'), render: (r: InventoryCount) => r.summary?.countedLinesCount ?? '-' },
     { key: 'verifiedLinesCount', header: t('inventoryCounting.verifiedLinesCount'), render: (r: InventoryCount) => r.summary?.verifiedLinesCount ?? '-' },
