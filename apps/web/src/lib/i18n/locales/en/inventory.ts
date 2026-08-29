@@ -278,7 +278,6 @@ const inventory: Pick<LocaleTranslations, 'inventory' | 'inventoryCounting' | 'i
         confirmCancelMessage: 'Cancel counting?',
         confirmGenerateAdjustmentMessage: 'Generate adjustment from differences?',
         permissionDenied: 'You do not have permission to perform this action.',
-        noCounts: 'No inventory counts found',
         noMovements: 'No inventory movements found',
         noAdjustments: 'No inventory adjustments found',
         noBalances: 'No inventory balances found',

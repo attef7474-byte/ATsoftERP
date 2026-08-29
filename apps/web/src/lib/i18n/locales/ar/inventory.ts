@@ -278,7 +278,6 @@ const inventory: Pick<LocaleTranslations, 'inventory' | 'inventoryCounting' | 'i
         confirmCancelMessage: 'هل تريد إلغاء الجرد؟',
         confirmGenerateAdjustmentMessage: 'هل تريد إنشاء تسوية بناءً على الفروقات؟',
         permissionDenied: 'ليس لديك صلاحية لتنفيذ هذا الإجراء.',
-        noCounts: 'لا توجد جرد مخزون',
         noMovements: 'لا توجد حركات مخزون',
         noAdjustments: 'لا توجد تسويات مخزون',
         noBalances: 'لا توجد أرصدة مخزون',

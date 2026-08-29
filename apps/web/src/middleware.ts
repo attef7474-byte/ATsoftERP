@@ -3,7 +3,11 @@ import type { NextRequest } from 'next/server';
 
 const LEGACY_CREATE_ROUTES = [
   /^\/admin\/inventory\/(adjustments|locations|movements|product-categories)\/new\/?$/,
+  /^\/admin\/inventory\/warehouses\/new\/?$/,
+  /^\/admin\/inventory\/counts\/history\/?$/,
   /^\/admin\/maintenance\/(downtime-logs|machine-categories|machine-components|machine-parts)\/new\/?$/,
+  /^\/admin\/maintenance\/schedules\/new\/?$/,
+  /^\/admin\/maintenance\/machine-documents\/new\/?$/,
 ];
 
 export function middleware(request: NextRequest) {
@@ -20,9 +24,13 @@ export const config = {
     '/admin/inventory/locations/new',
     '/admin/inventory/movements/new',
     '/admin/inventory/product-categories/new',
+    '/admin/inventory/warehouses/new',
+    '/admin/inventory/counts/history',
     '/admin/maintenance/downtime-logs/new',
     '/admin/maintenance/machine-categories/new',
     '/admin/maintenance/machine-components/new',
     '/admin/maintenance/machine-parts/new',
+    '/admin/maintenance/schedules/new',
+    '/admin/maintenance/machine-documents/new',
   ],
 };

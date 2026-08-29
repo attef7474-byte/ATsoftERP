@@ -6,14 +6,35 @@ const webRoot = path.resolve(__dirname, '..');
 const read = (rel: string) => fs.readFileSync(path.join(repoRoot, rel), 'utf8');
 const exists = (rel: string) => fs.existsSync(path.join(repoRoot, rel));
 
-const HOLD_ROUTES: { url: string; page: string }[] = [
-  { url: '/admin/inventory/warehouses/new', page: 'apps/web/src/app/admin/inventory/warehouses/new/page.tsx' },
-  { url: '/admin/inventory/counts/history', page: 'apps/web/src/app/admin/inventory/counts/history/page.tsx' },
+const STILL_HOLD_ROUTES: { url: string; page: string }[] = [
   { url: '/admin/maintenance/requests/new', page: 'apps/web/src/app/admin/maintenance/requests/new/page.tsx' },
   { url: '/admin/maintenance/tasks/new', page: 'apps/web/src/app/admin/maintenance/tasks/new/page.tsx' },
-  { url: '/admin/maintenance/schedules/new', page: 'apps/web/src/app/admin/maintenance/schedules/new/page.tsx' },
-  { url: '/admin/maintenance/machine-documents/new', page: 'apps/web/src/app/admin/maintenance/machine-documents/new/page.tsx' },
 ];
+
+const DELETED_DETAIL_SLUGS: { url: string; page: string; reservedHelper: string }[] = [
+  {
+    url: '/admin/inventory/warehouses/new',
+    page: 'apps/web/src/app/admin/inventory/warehouses/new/page.tsx',
+    reservedHelper: 'isReservedDetailRouteId',
+  },
+  {
+    url: '/admin/inventory/counts/history',
+    page: 'apps/web/src/app/admin/inventory/counts/history/page.tsx',
+    reservedHelper: 'isReservedDetailRouteIdFor',
+  },
+  {
+    url: '/admin/maintenance/schedules/new',
+    page: 'apps/web/src/app/admin/maintenance/schedules/new/page.tsx',
+    reservedHelper: 'isReservedDetailRouteId',
+  },
+  {
+    url: '/admin/maintenance/machine-documents/new',
+    page: 'apps/web/src/app/admin/maintenance/machine-documents/new/page.tsx',
+    reservedHelper: 'isReservedDetailRouteId',
+  },
+];
+
+const ALL_ROUTE_URLS = [...STILL_HOLD_ROUTES, ...DELETED_DETAIL_SLUGS].map((r) => r.url);
 
 function walkDir(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
@@ -26,23 +47,40 @@ function walkDir(dir: string): string[] {
   return out;
 }
 
-const holdPageAbs = new Set(HOLD_ROUTES.map((r) => path.join(repoRoot, r.page)));
-const srcFiles = walkDir(path.join(webRoot, 'src')).filter((f) => !holdPageAbs.has(f));
-
 describe('hold-route remediation contract (DEAD-ROUTES-PHASE1)', () => {
-  it.each(HOLD_ROUTES)('hold page is still present: $url', ({ url, page }) => {
+  it.each(STILL_HOLD_ROUTES)('STILL_HOLD route remains intentionally present: $url', ({ url, page }) => {
     expect(exists(page)).toBe(true);
     expect(url.startsWith('/admin/')).toBe(true);
   });
 
-  it('no navigation in apps/web/src points to any hold-route URL', () => {
+  it.each(DELETED_DETAIL_SLUGS)('deleted route page no longer exists: $url', ({ url, page }) => {
+    expect(exists(page)).toBe(false);
+    expect(url.startsWith('/admin/')).toBe(true);
+  });
+
+  it('no navigation in apps/web/src points to any hold-route or deleted-route URL', () => {
+    const middlewareAbs = path.join(webRoot, 'src', 'middleware.ts');
+    const srcFiles = walkDir(path.join(webRoot, 'src')).filter(
+      (f) =>
+        f !== middlewareAbs &&
+        !STILL_HOLD_ROUTES.some((r) => path.join(repoRoot, r.page) === f),
+    );
     const offenders = srcFiles
-      .filter((f) => HOLD_ROUTES.some((r) => fs.readFileSync(f, 'utf8').includes(r.url)))
+      .filter((f) => ALL_ROUTE_URLS.some((url) => fs.readFileSync(f, 'utf8').includes(url)))
       .map((f) => path.relative(repoRoot, f));
     expect(offenders).toEqual([]);
   });
 
-  it('legacy /new tool references are fully migrated', () => {
+  it('middleware intentionally 404s each deleted route (guard, not navigation)', () => {
+    const middleware = read('apps/web/src/middleware.ts');
+    expect(middleware).toContain("'/admin/inventory/warehouses/new'");
+    expect(middleware).toContain("'/admin/inventory/counts/history'");
+    expect(middleware).toContain("'/admin/maintenance/schedules/new'");
+    expect(middleware).toContain("'/admin/maintenance/machine-documents/new'");
+    expect(middleware).toContain('status: 404');
+  });
+
+  it('legacy /new and /history tool references are fully migrated', () => {
     const testFinalUi = read('test-final-ui.js');
     expect(testFinalUi).not.toContain("url: '/admin/inventory/warehouses/new'");
     expect(testFinalUi).not.toContain("url: '/admin/maintenance/requests/new'");
@@ -57,10 +95,29 @@ describe('hold-route remediation contract (DEAD-ROUTES-PHASE1)', () => {
   });
 });
 
-describe('active flows carry migrated hold-route capabilities', () => {
+describe('deleted route detail pages reject reserved slugs before detail fetch', () => {
+  it.each(DELETED_DETAIL_SLUGS)('$url guarded in detail page via $reservedHelper', ({ page, reservedHelper }) => {
+    const detailPage = page.replace(/\/new\/page\.tsx$/, '/[id]/page.tsx').replace(/\/history\/page\.tsx$/, '/[id]/page.tsx');
+    expect(exists(detailPage)).toBe(true);
+    const content = read(detailPage);
+    expect(content).toContain(reservedHelper);
+    expect(content).toMatch(/notFound\(\)/);
+  });
+});
+
+describe('active flows retain the migrated capabilities of deleted routes', () => {
   const schedules = read('apps/web/src/app/admin/maintenance/schedules/page.tsx');
   const machineDocs = read('apps/web/src/app/admin/maintenance/machine-documents/page.tsx');
   const counts = read('apps/web/src/app/admin/inventory/counts/page.tsx');
+  const warehouses = read('apps/web/src/app/admin/inventory/warehouses/page.tsx');
+
+  it('warehouse active create flow retains required fields (companyId, name, branchId, location, warehouseType)', () => {
+    expect(warehouses).toContain("useState({ companyId: '', branchId: '', name: '', location: '', warehouseType: '' })");
+    expect(warehouses).toContain("if (!form.companyId) errs.companyId = t('validation.required');");
+    expect(warehouses).toContain("if (!form.name) errs.name = t('validation.required');");
+    expect(warehouses).toContain("adapter={companyAdapter}");
+    expect(warehouses).toContain("adapter={branchAdapter}");
+  });
 
   it('schedules create/edit form sends endDate and prefills it from the record', () => {
     expect(schedules).toContain("t('maintenance.endDate')");
@@ -78,6 +135,8 @@ describe('active flows carry migrated hold-route capabilities', () => {
   it('counts list exposes history columns startedAt/completedAt', () => {
     expect(counts).toContain("t('inventoryCounting.startedAt')");
     expect(counts).toContain("t('inventoryCounting.completedAt')");
+    expect(counts).toContain('r.startedAt ? r.startedAt.split');
+    expect(counts).toContain('r.completedAt ? r.completedAt.split');
   });
 });
 
