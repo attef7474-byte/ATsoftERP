@@ -373,19 +373,26 @@ describe('Machine assets canonical error contracts', () => {
       service = new MaintenanceService(prisma as PrismaService, numbering as NumberingService, audit as unknown as AuditService, costCenters as unknown as CostCentersService);
     });
 
-    it('creates a machine with an auto code and audits CREATE with the userId', async () => {
+    it('rejects creating a machine without a dedicated cost center (R6 mandatory rule)', async () => {
       prisma.machine.findUnique.mockResolvedValue(null);
       prisma.machine.create.mockResolvedValue(ownedMachine);
 
-      const result = await service.createMachine({ name: 'Lathe' } as any, 'u1', ctx);
-      expect(numbering.generateNumberAtomic).toHaveBeenCalledWith('MACHINE');
-      expect(audit.log).toHaveBeenCalledWith('u1', 'CREATE', 'Machine', 'm1', expect.anything());
-      expect(result.code).toBe('M-001');
+      await expectValidationError(service.createMachine({ name: 'Lathe' } as any, 'u1', ctx), 'dedicatedCostCenter', 'validation.required');
+      expect(costCenters.createDedicatedCostCenter).not.toHaveBeenCalled();
+      expect(prisma.machine.create).not.toHaveBeenCalled();
     });
 
-    it('rejects a duplicate machine code with a canonical field error', async () => {
-      prisma.machine.findUnique.mockResolvedValue({ id: 'm9', code: 'M-001' });
-      await expectValidationError(service.createMachine({ code: 'M-001', name: 'Lathe' } as any, 'u1', ctx), 'code', 'validation.duplicateValue');
+    it('rejects creating a machine with only an arbitrary existing defaultCostCenterId (no bypass)', async () => {
+      prisma.machine.findUnique.mockResolvedValue(null);
+      prisma.machine.create.mockResolvedValue(ownedMachine);
+
+      await expectValidationError(
+        service.createMachine({ name: 'Lathe', defaultCostCenterId: 'cc-new' } as any, 'u1', ctx),
+        'dedicatedCostCenter',
+        'validation.required',
+      );
+      expect(costCenters.createDedicatedCostCenter).not.toHaveBeenCalled();
+      expect(prisma.machine.create).not.toHaveBeenCalled();
     });
 
     it('throws a messageKey not-found when the machine does not exist', async () => {
@@ -500,6 +507,28 @@ describe('Machine assets canonical error contracts', () => {
           data: expect.objectContaining({ name: 'Lathe Updated', defaultCostCenterId: 'cc-new' }),
         }));
         expect(result.defaultCostCenterId).toBe('cc-new');
+      });
+
+      it('rejects supplying both an existing defaultCostCenterId and a dedicatedCostCenter (conflict)', async () => {
+        await expectValidationError(
+          service.createMachine({ name: 'Lathe', defaultCostCenterId: 'cc-new', dedicatedCostCenter: dedicatedDto } as any, 'u1', ctx),
+          'defaultCostCenterId',
+          'validation.invalidValue',
+        );
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+        expect(costCenters.createDedicatedCostCenter).not.toHaveBeenCalled();
+      });
+
+      it('rejects a duplicate machine code through the atomic path without leaving a cost center', async () => {
+        tx.machine.findUnique.mockResolvedValue({ id: 'm9', code: 'M-001' });
+
+        await expectValidationError(
+          service.createMachine({ code: 'M-001', name: 'Lathe', dedicatedCostCenter: dedicatedDto } as any, 'u1', ctx),
+          'code',
+          'validation.duplicateValue',
+        );
+        expect(costCenters.createDedicatedCostCenter).toHaveBeenCalled();
+        expect(tx.machine.create).not.toHaveBeenCalled();
       });
     });
   });

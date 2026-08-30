@@ -93,9 +93,20 @@ export class MaintenanceService {
 
   async createMachine(dto: CreateMachineDto, userId: string, ctx: ActiveOperationalContext) {
     const { dedicatedCostCenter, ...machinePayload } = dto as any;
+
+    // R5/R6 domain rule: every NEW machine must receive a new dedicated cost
+    // center created as part of the same transaction. A machine must NOT be
+    // creatable without dedicatedCostCenter, nor by supplying only an arbitrary
+    // existing defaultCostCenterId. Supplying both an arbitrary
+    // defaultCostCenterId and a dedicatedCostCenter is an ambiguous conflict and
+    // is rejected; the dedicated cost center is always authoritative.
     if (!dedicatedCostCenter) {
-      return this.createMachineStandalone(machinePayload, userId, ctx);
+      throw this.validationError('dedicatedCostCenter', 'validation.required', 'A dedicated cost center is required to create a machine');
     }
+    if (machinePayload.defaultCostCenterId) {
+      throw this.validationError('defaultCostCenterId', 'validation.invalidValue', 'A machine may not be created with an existing cost center; provide a dedicatedCostCenter');
+    }
+
     // Atomic: create the dedicated cost center + the machine in ONE transaction.
     // If either fails the other rolls back (no orphan cost center).
     return this.prisma.$transaction(async (tx) => {
@@ -104,28 +115,6 @@ export class MaintenanceService {
       await this.auditService.log(userId, 'CREATE', 'Machine', machine.id, { message: `Created machine: ${machine.code}` });
       return machine;
     });
-  }
-
-  private async createMachineStandalone(dto: any, userId: string, ctx: ActiveOperationalContext) {
-    const dataDto: any = { ...dto };
-    dataDto.companyId = ctx.companyId;
-    dataDto.branchId = ctx.branchId;
-    const code = dataDto.code?.trim() || await this.numberingService.generateNumberAtomic('MACHINE');
-    const existing = await this.prisma.machine.findUnique({ where: { code } });
-    if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Machine code already exists');
-    await this.validateMachineReferences(dataDto, undefined, ctx);
-    const { purchaseDate, warrantyEnd, ...rest } = dataDto;
-    const machine = await this.prisma.machine.create({
-      data: {
-        ...rest,
-        code,
-        purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
-        warrantyEnd: warrantyEnd ? new Date(warrantyEnd) : undefined,
-      },
-      include: this.machineInclude(),
-    });
-    await this.auditService.log(userId, 'CREATE', 'Machine', machine.id, { message: `Created machine: ${machine.code}` });
-    return machine;
   }
 
   private machineInclude() {

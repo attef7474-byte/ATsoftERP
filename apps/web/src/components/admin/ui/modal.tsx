@@ -10,12 +10,39 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
+// Reusable stacking support: the canonical Modal may nest (e.g. a "create cost
+// center" modal opened from inside a "machine" modal). Each open Modal is pushed
+// onto a module-level stack; only the TOPMOST modal owns the document-level
+// Escape and focus-trap handlers. Closing the topmost modal leaves the modal
+// below it open and restores its interactive state. A lone modal is always the
+// topmost, so existing single-modal behavior is unchanged.
+const openModals: number[] = [];
+let modalSeq = 0;
+
 export function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useRef<string>(`modal-title-${Math.random().toString(36).slice(2, 8)}`);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const modalIdRef = useRef<number | null>(null);
+
+  const isTopmost = () => {
+    const id = modalIdRef.current;
+    return id !== null && openModals.length > 0 && openModals[openModals.length - 1] === id;
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const id = ++modalSeq;
+    modalIdRef.current = id;
+    openModals.push(id);
+    return () => {
+      const idx = openModals.lastIndexOf(id);
+      if (idx !== -1) openModals.splice(idx, 1);
+      if (modalIdRef.current === id) modalIdRef.current = null;
+    };
+  }, [open]);
 
   useEffect(() => {
     const captureFocus = (event: FocusEvent) => {
@@ -44,6 +71,9 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
     focusFirst();
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Only the topmost open Modal may act on Escape/Tab; a nested modal below
+      // it must not close or steal the focus trap when the topmost one closes.
+      if (!isTopmost()) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         onCloseRef.current();
