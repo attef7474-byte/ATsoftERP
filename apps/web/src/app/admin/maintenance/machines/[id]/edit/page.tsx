@@ -4,12 +4,12 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../../components/admin/toast-provider';
-import { Button, Input, Textarea, Card, CardContent, LoadingState, ErrorState, StatusBadge } from '../../../../../../components/admin/ui';
-import { F9Lookup, machineCategoryAdapter, companyAdapter, branchAdapter, departmentAdapter, productionLineAdapter, operationTypeAdapter, costCenterAdapter, administrationAdapter } from '../../../../../../components/f9';
+import { Card, CardContent, LoadingState, ErrorState, StatusBadge } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon, ActionViewIcon } from '../../../../../../components/admin/admin-action-bar';
 import type { Machine } from '../../../../../../lib/admin-types';
 import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../../lib/form-validation';
+import { MachineForm, MachineFormState, mapMachineToForm, createMachineForm, isMachineReadOnly } from '../../machine-form';
 
 export default function EditMachinePage() {
   const { t } = useTranslation();
@@ -19,14 +19,14 @@ export default function EditMachinePage() {
   const handleApiError = useApiErrorHandler();
   const id = params?.id as string;
   const [data, setData] = useState<Machine | null>(null);
-  const [form, setForm] = useState({ code: '', name: '', categoryId: '', companyId: '', branchId: '', departmentId: '', productionLineId: '', operationTypeId: '', defaultCostCenterId: '', technicalAdministrationId: '', technicalDepartmentId: '', model: '', serialNumber: '', manufacturer: '', location: '', notes: '' });
+  const [form, setForm] = useState<MachineFormState>(createMachineForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
-  const isReadOnly = data?.status === 'INACTIVE' || data?.status === 'SCRAPPED' || data?.status === 'OUT_OF_SERVICE';
+  const isReadOnly = data ? isMachineReadOnly(data.status) : false;
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -34,7 +34,7 @@ export default function EditMachinePage() {
       const res = await api.get<any>(`/maintenance/machines/${id}`);
       const item = res;
       setData(item);
-      setForm({ code: item.code || '', name: item.name || '', categoryId: item.categoryId || '', companyId: item.companyId || '', branchId: item.branchId || '', departmentId: item.departmentId || '', productionLineId: item.productionLineId || '', operationTypeId: item.operationTypeId || '', defaultCostCenterId: item.defaultCostCenterId || '', technicalAdministrationId: item.technicalAdministrationId || '', technicalDepartmentId: item.technicalDepartmentId || '', model: item.model || '', serialNumber: item.serialNumber || '', manufacturer: item.manufacturer || '', location: item.location || '', notes: item.notes || '' });
+      setForm(mapMachineToForm(item));
     } catch (err: any) {
       handleApiError(err);
       setError(err?.message || t('complexForms.loadFailed'));
@@ -42,16 +42,6 @@ export default function EditMachinePage() {
   }, [id, t, handleApiError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
-  const setField = (field: string, value: any) => {
-    if (isReadOnly) return;
-    setForm(prev => ({ ...prev, [field]: value }));
-    if (field === 'companyId') { setForm(prev => ({ ...prev, branchId: '', departmentId: '', productionLineId: '' })); }
-    if (field === 'branchId') { setForm(prev => ({ ...prev, departmentId: '' })); }
-    if (field === 'technicalAdministrationId') { setForm(prev => ({ ...prev, technicalDepartmentId: '' })); }
-    setDirty(true);
-    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
-  };
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -115,11 +105,6 @@ export default function EditMachinePage() {
 
   return (
     <div className="space-y-6">
-      {isReadOnly && (
-        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-          {t('complexForms.readOnlyRecord')}
-        </div>
-      )}
       <Card>
         <CardContent>
           <div className="flex items-center justify-between mb-4">
@@ -129,59 +114,17 @@ export default function EditMachinePage() {
             </div>
             {data.status && <StatusBadge status={data.status} />}
           </div>
-
-          <div className="space-y-6">
-            <h2 className="text-lg font-semibold text-gray-900">{t('complexForms.basicInformation')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Input label={t('maintenance.code')} value={form.code} disabled />
-                <p className="text-xs text-gray-500 mt-1">{t('common.codeImmutableHint')}</p>
-              </div>
-              <Input label={t('maintenance.name')} value={form.name} onChange={(e) => setField('name', e.target.value)} error={errors.name} required disabled={isReadOnly} />
-            </div>
-
-            <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('complexForms.classification')}</h2>
-            <F9Lookup label={t('maintenance.machineCategory')} value={form.categoryId} onChange={(v) => setField('categoryId', v)} adapter={machineCategoryAdapter} />
-
-            <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('complexForms.organization')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <F9Lookup label={t('core.company')} value={form.companyId} onChange={(v) => setField('companyId', v)} adapter={companyAdapter} />
-              <F9Lookup label={t('core.branch')} value={form.branchId} onChange={(v) => setField('branchId', v)} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />
-              <F9Lookup label={t('core.department')} value={form.departmentId} onChange={(v) => setField('departmentId', v)} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
-            </div>
-
-            <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.productionLine')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <F9Lookup label={t('maintenance.productionLine')} value={form.productionLineId} onChange={(v) => setField('productionLineId', v)} adapter={productionLineAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
-              <F9Lookup label={t('maintenance.operationType')} value={form.operationTypeId} onChange={(v) => setField('operationTypeId', v)} adapter={operationTypeAdapter} />
-            </div>
-
-            <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.technicalAdministration')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <F9Lookup label={t('maintenance.technicalAdministration')} value={form.technicalAdministrationId} onChange={(v) => setField('technicalAdministrationId', v)} adapter={administrationAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} />
-              <F9Lookup label={t('maintenance.technicalDepartment')} value={form.technicalDepartmentId} onChange={(v) => setField('technicalDepartmentId', v)} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}), ...(form.technicalAdministrationId ? { administrationId: form.technicalAdministrationId } : {}) }} />
-            </div>
-            <F9Lookup label={t('maintenance.defaultCostCenter')} value={form.defaultCostCenterId} onChange={(v) => setField('defaultCostCenterId', v)} adapter={costCenterAdapter} filters={{ ...(form.technicalAdministrationId ? { administrationId: form.technicalAdministrationId } : {}) }} />
-
-            <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('complexForms.technicalInformation')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input label={t('maintenance.model')} value={form.model} onChange={(e) => setField('model', e.target.value)} disabled={isReadOnly} />
-              <Input label={t('maintenance.serialNumber')} value={form.serialNumber} onChange={(e) => setField('serialNumber', e.target.value)} disabled={isReadOnly} />
-              <Input label={t('maintenance.manufacturer')} value={form.manufacturer} onChange={(e) => setField('manufacturer', e.target.value)} disabled={isReadOnly} />
-            </div>
-            <Input label={t('maintenance.location')} value={form.location} onChange={(e) => setField('location', e.target.value)} disabled={isReadOnly} />
-            <Textarea label={t('maintenance.notes')} value={form.notes} onChange={(e) => setField('notes', e.target.value)} disabled={isReadOnly} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('complexForms.metadata')}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-            <div><span className="font-medium">{t('common.createdAt')}:</span> {new Date(data.createdAt).toLocaleString()}</div>
-            <div><span className="font-medium">{t('common.updatedAt')}:</span> {new Date(data.updatedAt).toLocaleString()}</div>
-          </div>
+          <MachineForm
+            form={form}
+            setForm={setForm}
+            errors={errors}
+            mode="edit"
+            isReadOnly={isReadOnly}
+            status={data.status}
+            createdAt={data.createdAt}
+            updatedAt={data.updatedAt}
+            onFieldChange={() => setDirty(true)}
+          />
         </CardContent>
       </Card>
     </div>

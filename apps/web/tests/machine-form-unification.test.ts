@@ -163,6 +163,65 @@ describe('Machine create/edit modal unification', () => {
     it('direct edit route file still exists (KEEP)', () => {
       expect(fs.existsSync(path.resolve(webRoot, EDIT_ROUTE))).toBe(true);
     });
+    it('direct create route reuses the shared MachineForm', () => {
+      const page = read(CREATE_ROUTE);
+      expect(page).toContain("from '../machine-form'");
+      expect(page).toContain('<MachineForm');
+    });
+    it('direct edit route reuses the shared MachineForm', () => {
+      const page = read(EDIT_ROUTE);
+      expect(page).toContain("from '../../machine-form'");
+      expect(page).toContain('<MachineForm');
+    });
+    it('direct create route no longer embeds duplicated field JSX', () => {
+      const page = read(CREATE_ROUTE);
+      expect(page).not.toContain('machineCategoryAdapter');
+      expect(page).not.toContain('<F9Lookup');
+    });
+    it('direct edit route no longer embeds duplicated field JSX', () => {
+      const page = read(EDIT_ROUTE);
+      expect(page).not.toContain('machineCategoryAdapter');
+      expect(page).not.toContain('<F9Lookup');
+    });
+  });
+
+  describe('O. direct-route behavior preserved', () => {
+    it('create route still POSTs /maintenance/machines and does not expose a manual code input', () => {
+      const page = read(CREATE_ROUTE);
+      expect(page).toMatch(/api\.post<.*>\(\'\/maintenance\/machines\'/);
+      expect(page).toContain('mode="create"');
+    });
+    it('edit route still PATCHes same id and preserves immutable code + metadata + read-only', () => {
+      const page = read(EDIT_ROUTE);
+      expect(page).toContain('api.patch(`/maintenance/machines/${id}`');
+      expect(page).toContain('mode="edit"');
+      expect(page).toContain('isMachineReadOnly');
+      expect(page).toContain('createdAt={data.createdAt}');
+      expect(page).toContain('updatedAt={data.updatedAt}');
+    });
+  });
+
+  describe('P. shared editable-field ownership', () => {
+    it('common editable fields are defined only in machine-form.tsx, not copied in the direct routes', () => {
+      const form = read(FORM);
+      const create = read(CREATE_ROUTE);
+      const edit = read(EDIT_ROUTE);
+      const fields = ['name', 'categoryId', 'companyId', 'branchId', 'departmentId', 'productionLineId', 'operationTypeId', 'defaultCostCenterId', 'technicalAdministrationId', 'technicalDepartmentId', 'model', 'serialNumber', 'manufacturer', 'location', 'notes'];
+      for (const f of fields) {
+        expect(form).toContain(f);
+        expect(create).not.toContain(`onChange={(e) => setField('${f}'`);
+        expect(edit).not.toContain(`onChange={(e) => setField('${f}'`);
+      }
+    });
+    it('mode-specific differences (code/metadata/read-only) stay in the shared form and direct routes', () => {
+      const form = read(FORM);
+      const edit = read(EDIT_ROUTE);
+      expect(form).toContain("mode === 'edit' && (");
+      expect(form).toContain('common.codeImmutableHint');
+      expect(form).toContain('complexForms.metadata');
+      expect(edit).toContain('isReadOnly={isReadOnly}');
+      expect(edit).toContain('status={data.status}');
+    });
   });
 
   describe('M. permissions/actions unaffected', () => {

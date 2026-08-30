@@ -81,9 +81,10 @@ interface MachineFormProps {
   status?: string;
   createdAt?: string;
   updatedAt?: string;
+  onFieldChange?: () => void;
 }
 
-export function MachineForm({ form, setForm, errors, mode = 'create', isReadOnly = false, status, createdAt, updatedAt }: MachineFormProps) {
+export function MachineForm({ form, setForm, errors, mode = 'create', isReadOnly = false, status, createdAt, updatedAt, onFieldChange }: MachineFormProps) {
   const { t } = useTranslation();
   const readOnly = Boolean(isReadOnly);
 
@@ -100,6 +101,7 @@ export function MachineForm({ form, setForm, errors, mode = 'create', isReadOnly
       if (field === 'technicalAdministrationId') next.technicalDepartmentId = '';
       return next;
     });
+    onFieldChange?.();
   };
 
   return (
