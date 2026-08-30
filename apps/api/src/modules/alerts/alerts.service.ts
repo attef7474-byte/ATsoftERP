@@ -105,7 +105,7 @@ export class AlertsService {
     return { data: filtered.slice(skip, skip + pageSize), total: filtered.length, page, pageSize }
   }
 
-  async getSummary(ctx?: ActiveOperationalContext) {
+  async getSummary(ctx?: ActiveOperationalContext, userId?: string) {
     const machineWhere = ctx ? this.machineScope(ctx) : undefined
     const [critical, downtime, lowStock, underMaintenance, expectedLife, unreadNotifications, slaOverdue, slaEscalated] = await Promise.all([
       this.prisma.maintenanceRequest.count({ where: { priority: 'CRITICAL', status: { in: ['OPEN', 'IN_PROGRESS'] }, ...(machineWhere ? { machine: machineWhere } : {}) } }),
@@ -113,7 +113,7 @@ export class AlertsService {
       this.prisma.inventoryBalance.count({ where: { quantity: { lte: 0 }, ...(ctx ? { warehouse: this.warehouseScope(ctx) } : {}) } }),
       this.prisma.machine.count({ where: { status: 'UNDER_MAINTENANCE', ...(machineWhere ? machineWhere : {}) } }),
       this.prisma.machineInstalledPart.count({ where: { status: 'ACTIVE', alertThresholdReached: { in: ['WARNING', 'DUE', 'EXPIRED'] }, ...(machineWhere ? { machine: machineWhere } : {}) } }),
-      this.prisma.notification.count({ where: { read: false } }),
+      this.prisma.notification.count({ where: { userId, read: false } }),
       this.prisma.maintenanceRequest.count({ where: { deletedAt: null, slaStatus: 'OVERDUE', ...(machineWhere ? { machine: machineWhere } : {}) } }),
       this.prisma.maintenanceRequest.count({ where: { deletedAt: null, escalationLevel: { not: 'NONE' }, ...(machineWhere ? { machine: machineWhere } : {}) } }),
     ])

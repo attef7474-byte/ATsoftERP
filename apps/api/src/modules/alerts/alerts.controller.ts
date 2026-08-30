@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common'
+import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger'
 import { AlertsService } from './alerts.service'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
@@ -28,8 +28,8 @@ export class AlertsController {
   @Get('summary')
   @Permissions('alerts.view')
   @ApiOperation({ summary: 'Get alert summary counts' })
-  async getSummary(@CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.service.getSummary(ctx)
+  async getSummary(@Req() req: any, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getSummary(ctx, req.user?.id)
   }
 
   @Get(':id')

@@ -94,6 +94,9 @@ export class ShiftHandoversService {
     await this.validateShift(dto.incomingShiftId, ctx);
 
     if (dto.branchId) {
+      if (dto.branchId !== ctx.branchId) {
+        throw new BadRequestException('Shift handover branch must match the active branch');
+      }
       const branch = await this.prisma.branch.findFirst({
         where: { id: dto.branchId, companyId: ctx.companyId, deletedAt: null },
       });
@@ -154,7 +157,7 @@ export class ShiftHandoversService {
   async findAll(query: { page?: number; limit?: number; status?: string; departmentId?: string; handoverDateFrom?: string; handoverDateTo?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
-    const where: any = { companyId: ctx.companyId, deletedAt: null };
+    const where: any = { companyId: ctx.companyId, deletedAt: null, branchId: { in: [ctx.branchId, null] } };
 
     if (query.status) where.status = query.status;
     if (query.departmentId) where.departmentId = query.departmentId;
@@ -187,7 +190,7 @@ export class ShiftHandoversService {
 
   async findOne(id: string, ctx: ActiveOperationalContext) {
     const handover = await this.prisma.shiftHandover.findFirst({
-      where: { id, companyId: ctx.companyId, deletedAt: null },
+      where: { id, companyId: ctx.companyId, deletedAt: null, branchId: { in: [ctx.branchId, null] as any } },
       include: {
         outgoingShift: { select: { id: true, code: true, name: true, startTime: true, endTime: true } },
         incomingShift: { select: { id: true, code: true, name: true, startTime: true, endTime: true } },
@@ -396,7 +399,7 @@ export class ShiftHandoversService {
     switch (entityType) {
       case 'MAINTENANCE_REQUEST': {
         const entity = await this.prisma.maintenanceRequest.findFirst({
-          where: { id: entityId, machine: { companyId: ctx.companyId }, deletedAt: null },
+          where: { id: entityId, machine: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] }, deletedAt: null },
           select: { id: true, requestNumber: true },
         });
         found = !!entity;
@@ -404,7 +407,7 @@ export class ShiftHandoversService {
       }
       case 'MACHINE': {
         const entity = await this.prisma.machine.findFirst({
-          where: { id: entityId, companyId: ctx.companyId, deletedAt: null },
+          where: { id: entityId, companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }], deletedAt: null },
           select: { id: true, code: true },
         });
         found = !!entity;

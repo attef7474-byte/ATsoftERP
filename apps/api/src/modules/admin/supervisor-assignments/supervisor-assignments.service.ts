@@ -277,7 +277,11 @@ export class SupervisorAssignmentsService {
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null, companyId: ctx.companyId };
+    const where: any = {
+      deletedAt: null,
+      companyId: ctx.companyId,
+      assignment: { is: { branchId: { in: [ctx.branchId, null] } } },
+    };
     if (query.assignmentId) where.assignmentId = query.assignmentId;
     if (query.isActive !== undefined) where.isActive = query.isActive === 'true';
     if (query.search) {
@@ -313,7 +317,12 @@ export class SupervisorAssignmentsService {
 
   async findOne(id: string, ctx: ActiveOperationalContext) {
     const sa = await this.prisma.supervisorAssignment.findFirst({
-      where: { id, companyId: ctx.companyId, deletedAt: null },
+      where: {
+        id,
+        companyId: ctx.companyId,
+        deletedAt: null,
+        assignment: { is: { branchId: { in: [ctx.branchId, null] as any } } },
+      },
       include: {
         company: { select: { id: true, name: true, code: true } },
         assignment: {
@@ -1109,9 +1118,8 @@ export class SupervisorAssignmentsService {
     const supervisorPersonId = supervisorSa.assignment.personnelId;
     const supervisorBranchId = supervisorSa.assignment.branchId;
 
-    const where: any = { companyId: ctx.companyId, deletedAt: null };
+    const where: any = { companyId: ctx.companyId, deletedAt: null, branchId: query.branchId ?? ctx.branchId };
 
-    if (query.branchId) where.branchId = query.branchId;
     if (query.administrationId) where.administrationId = query.administrationId;
     if (query.departmentId) where.departmentId = query.departmentId;
     if (query.jobTitleId) where.jobTitleId = query.jobTitleId;

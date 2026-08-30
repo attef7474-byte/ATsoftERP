@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceDashboardService } from './maintenance-dashboard.service';
 import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
@@ -17,7 +17,7 @@ export class MaintenanceDashboardController {
   @Get('summary')
   @Permissions('maintenance.dashboard.view')
   @ApiOperation({ summary: 'Get maintenance dashboard summary' })
-  getSummary(@CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.getSummary(ctx); }
+  getSummary(@Req() req: any, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.getSummary(ctx, req.user?.id); }
 
   @Get('open-requests')
   @Permissions('maintenance.dashboard.openRequests.view')

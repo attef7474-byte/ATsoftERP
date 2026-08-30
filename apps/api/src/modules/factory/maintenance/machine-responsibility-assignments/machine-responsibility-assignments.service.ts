@@ -28,17 +28,17 @@ export class MachineResponsibilityAssignmentsService {
 
   private async assertDepartmentOwned(departmentId: string, ctx: ActiveOperationalContext) {
     const dept = await this.prisma.department.findFirst({
-      where: { id: departmentId, companyId: ctx.companyId, deletedAt: null },
+      where: { id: departmentId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
     });
-    if (!dept) throw new BadRequestException('Department not found or not in the active company');
+    if (!dept) throw new BadRequestException('Department not found or not in the active company/branch');
     return dept;
   }
 
   private async assertProductionLineOwned(productionLineId: string, ctx: ActiveOperationalContext) {
     const line = await this.prisma.productionLine.findFirst({
-      where: { id: productionLineId, companyId: ctx.companyId, deletedAt: null },
+      where: { id: productionLineId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
     });
-    if (!line) throw new BadRequestException('Production line not found or not in the active company');
+    if (!line) throw new BadRequestException('Production line not found or not in the active company/branch');
     return line;
   }
 
@@ -135,8 +135,8 @@ export class MachineResponsibilityAssignmentsService {
       where: { id },
       include: {
         machine: { select: { id: true, code: true, name: true, location: true, companyId: true, branchId: true } },
-        department: { select: { id: true, code: true, name: true, companyId: true } },
-        productionLine: { select: { id: true, code: true, name: true, companyId: true } },
+        department: { select: { id: true, code: true, name: true, companyId: true, branchId: true } },
+        productionLine: { select: { id: true, code: true, name: true, companyId: true, branchId: true } },
         maintenancePersonnel: {
           select: {
             id: true,
@@ -152,9 +152,9 @@ export class MachineResponsibilityAssignmentsService {
     if (record.scopeType === 'MACHINE' && record.machine) {
       if (record.machine.companyId !== ctx.companyId) throw new NotFoundException('Machine responsibility assignment not found');
     } else if (record.scopeType === 'DEPARTMENT' && record.department) {
-      if (record.department.companyId !== ctx.companyId) throw new NotFoundException('Machine responsibility assignment not found');
+      if (record.department.companyId !== ctx.companyId || record.department.branchId !== ctx.branchId) throw new NotFoundException('Machine responsibility assignment not found');
     } else if (record.scopeType === 'PRODUCTION_LINE' && record.productionLine) {
-      if (record.productionLine.companyId !== ctx.companyId) throw new NotFoundException('Machine responsibility assignment not found');
+      if (record.productionLine.companyId !== ctx.companyId || record.productionLine.branchId !== ctx.branchId) throw new NotFoundException('Machine responsibility assignment not found');
     }
 
     return record;
@@ -227,14 +227,14 @@ export class MachineResponsibilityAssignmentsService {
     if (query.machineId) {
       where.machine = this.machineScope(ctx);
     } else if (query.departmentId) {
-      where.department = { companyId: ctx.companyId };
+      where.department = { companyId: ctx.companyId, branchId: ctx.branchId };
     } else if (query.productionLineId) {
-      where.productionLine = { companyId: ctx.companyId };
+      where.productionLine = { companyId: ctx.companyId, branchId: ctx.branchId };
     } else {
       where.OR = [
         { machine: this.machineScope(ctx) },
-        { department: { companyId: ctx.companyId } },
-        { productionLine: { companyId: ctx.companyId } },
+        { department: { companyId: ctx.companyId, branchId: ctx.branchId } },
+        { productionLine: { companyId: ctx.companyId, branchId: ctx.branchId } },
       ];
     }
 

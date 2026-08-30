@@ -35,7 +35,7 @@ export class MaintenanceDashboardService {
     ];
   }
 
-  async getSummary(ctx: ActiveOperationalContext) {
+  async getSummary(ctx: ActiveOperationalContext, userId?: string) {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
     const machine = this.machineScope(ctx);
@@ -63,7 +63,7 @@ export class MaintenanceDashboardService {
       this.prisma.maintenanceRequest.count({ where: { isEmergency: true, status: 'COMPLETED', deletedAt: null, machine } }),
       this.prisma.maintenanceRequest.count({ where: { deletedAt: null, slaStatus: 'OVERDUE', machine } }),
       this.prisma.maintenanceRequest.count({ where: { deletedAt: null, escalationLevel: { not: 'NONE' }, machine } }),
-      this.prisma.notification.count({ where: { read: false } }),
+      this.prisma.notification.count({ where: { userId, read: false } }),
     ]);
 
     const totalCostThisMonth = await this.prisma.maintenanceRequestCostEntry.aggregate({

@@ -174,10 +174,9 @@ export class PersonAssignmentsService {
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null, companyId: ctx.companyId };
+    const where: any = { deletedAt: null, companyId: ctx.companyId, branchId: query.branchId ?? ctx.branchId };
     if (query.personnelId) where.personnelId = query.personnelId;
     if (query.departmentId) where.departmentId = query.departmentId;
-    if (query.branchId) where.branchId = query.branchId;
     if (query.assignmentType) where.assignmentType = query.assignmentType;
     if (query.leadershipLevel) where.leadershipLevel = query.leadershipLevel;
     if (query.search) {
@@ -207,7 +206,7 @@ export class PersonAssignmentsService {
 
   async findOne(id: string, ctx: ActiveOperationalContext) {
     const assignment = await this.prisma.operationalPersonAssignment.findFirst({
-      where: { id, companyId: ctx.companyId, deletedAt: null },
+      where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
       include: {
         company: { select: { id: true, name: true, code: true } },
         branch: { select: { id: true, name: true } },
@@ -663,7 +662,7 @@ export class PersonAssignmentsService {
     ctx: ActiveOperationalContext,
   ) {
     const assignment = await (client as any).operationalPersonAssignment.findFirst({
-      where: { id, companyId: ctx.companyId, deletedAt: null },
+      where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
       include: {
         company: { select: { id: true, name: true, code: true } },
         branch: { select: { id: true, name: true } },
@@ -1145,7 +1144,7 @@ export class PersonAssignmentsService {
 
   async findByPerson(personnelId: string, ctx: ActiveOperationalContext) {
     return this.prisma.operationalPersonAssignment.findMany({
-      where: { personnelId, companyId: ctx.companyId, deletedAt: null },
+      where: { personnelId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
       include: {
         department: { select: { id: true, name: true, code: true } },
         jobTitle: { select: { id: true, name: true, code: true } },
