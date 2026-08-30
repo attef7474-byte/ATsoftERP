@@ -155,7 +155,7 @@ describe('SupervisorAssignments Tenant Isolation', () => {
             id: 'sa-b',
             companyId: 'company-a',
             deletedAt: null,
-            assignment: { is: { branchId: { in: ['branch-a', null] } } },
+            assignment: { is: { OR: [{ branchId: 'branch-a' }, { branchId: null }] } },
           },
         }),
       );
@@ -189,7 +189,7 @@ describe('SupervisorAssignments Tenant Isolation', () => {
       const call = prisma.supervisorAssignment.findFirst.mock.calls[0][0];
       expect(call.where).toMatchObject({
         companyId: 'company-a',
-        assignment: { is: { branchId: { in: ['branch-a', null] } } },
+        assignment: { is: { OR: [{ branchId: 'branch-a' }, { branchId: null }] } },
       });
     });
 
@@ -200,7 +200,10 @@ describe('SupervisorAssignments Tenant Isolation', () => {
       await service.findAll({ page: 1, limit: 10 }, ctxA);
 
       const call = prisma.supervisorAssignment.findMany.mock.calls[0][0];
-      expect(call.where.assignment.is.branchId.in).toEqual(['branch-a', null]);
+      expect(call.where.assignment.is.OR).toEqual([
+        { branchId: 'branch-a' },
+        { branchId: null },
+      ]);
     });
 
     it('getCandidates defaults to the active branch within the same company', async () => {

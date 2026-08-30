@@ -280,7 +280,7 @@ export class SupervisorAssignmentsService {
     const where: any = {
       deletedAt: null,
       companyId: ctx.companyId,
-      assignment: { is: { branchId: { in: [ctx.branchId, null] } } },
+      assignment: { is: { OR: [{ branchId: ctx.branchId }, { branchId: null }] } },
     };
     if (query.assignmentId) where.assignmentId = query.assignmentId;
     if (query.isActive !== undefined) where.isActive = query.isActive === 'true';
@@ -321,7 +321,7 @@ export class SupervisorAssignmentsService {
         id,
         companyId: ctx.companyId,
         deletedAt: null,
-        assignment: { is: { branchId: { in: [ctx.branchId, null] as any } } },
+        assignment: { is: { OR: [{ branchId: ctx.branchId }, { branchId: null }] } },
       },
       include: {
         company: { select: { id: true, name: true, code: true } },

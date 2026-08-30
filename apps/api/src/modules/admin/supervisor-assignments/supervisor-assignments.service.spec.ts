@@ -547,6 +547,44 @@ describe('SupervisorAssignmentsService', () => {
         }),
       );
     });
+
+    it('no-search uses a valid Prisma branch-or-null filter (does not put null inside `in`)', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.count.mockResolvedValue(0);
+
+      await service.findAll({ page: 1, limit: 10 }, ctx);
+
+      const call = prisma.supervisorAssignment.findMany.mock.calls[0][0];
+      // Regression: Prisma rejects `in: [branchId, null]` for a nullable field (PrismaClientValidationError).
+      expect(call.where.assignment.is).toEqual({
+        OR: [{ branchId: 'branch-a' }, { branchId: null }],
+      });
+      expect(call.where).toMatchObject({ companyId: 'company-a', deletedAt: null });
+    });
+
+    it('returns the { data, meta } shape for the current relationships grid', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([supervisorRecord()]);
+      prisma.supervisorAssignment.count.mockResolvedValue(1);
+
+      const result = await service.findAll({ page: 1, limit: 10 }, ctx);
+
+      expect(result).toHaveProperty('data');
+      expect(result).toHaveProperty('meta');
+      expect(Array.isArray(result.data)).toBe(true);
+      expect(result.meta).toMatchObject({ page: 1, limit: 10, total: 1, totalPages: 1 });
+    });
+
+    it('search still resolves to a valid branch-scoped query (search regression)', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.count.mockResolvedValue(0);
+
+      await service.findAll({ search: 'manager' }, ctx);
+
+      const call = prisma.supervisorAssignment.findMany.mock.calls[0][0];
+      expect(call.where.companyId).toBe('company-a');
+      expect(Array.isArray(call.where.OR)).toBe(true);
+      expect(call.where.OR).toHaveLength(2);
+    });
   });
 
   describe('findOne', () => {
