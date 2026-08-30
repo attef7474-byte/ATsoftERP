@@ -250,4 +250,21 @@ describe('Machine create/edit modal unification', () => {
       expect(src).toContain('this.machineScope(ctx)');
     });
   });
+
+  describe('R. initial machine list render does not throw (runtime crash regression)', () => {
+    it('useCrudList initializes data to an empty array so list render / useMemo never dereference undefined', () => {
+      const hook = fs.readFileSync(path.resolve(webRoot, 'src/hooks/useCrudList.ts'), 'utf8');
+      expect(hook).toMatch(/useState<TRecord\[\]>\(\[\]\)/);
+      const page = read(PAGE);
+      expect(page).toContain('data.length > 0');
+      expect(page).toContain('data.find(');
+    });
+    it('Modal returns null when closed so MachineForm is never mounted/evaluated with no record state', () => {
+      const modal = fs.readFileSync(path.resolve(webRoot, 'src/components/admin/ui/modal.tsx'), 'utf8');
+      expect(modal).toContain("if (!open) return null;");
+      const page = read(PAGE);
+      expect(page).toContain('<Modal open={modalOpen}');
+      expect(page).toContain('<MachineForm');
+    });
+  });
 });
