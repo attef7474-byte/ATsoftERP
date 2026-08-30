@@ -35,7 +35,7 @@ describe('MachineResponsibilityAssignmentsService — comprehensive Batch B test
   });
 
   const mkMachine = (overrides: any = {}) => ({ id: 'm-1', code: 'M1', name: 'Machine 1', companyId: 'company-a', branchId: 'branch-a', ...overrides });
-  const mkDept = (overrides: any = {}) => ({ id: 'd-1', code: 'D1', name: 'Dept 1', companyId: 'company-a', ...overrides });
+  const mkDept = (overrides: any = {}) => ({ id: 'd-1', code: 'D1', name: 'Dept 1', companyId: 'company-a', branchId: 'branch-a', ...overrides });
   const mkLine = (overrides: any = {}) => ({ id: 'l-1', code: 'L1', name: 'Line 1', companyId: 'company-a', ...overrides });
   const mkPersonnel = (overrides: any = {}) => ({ id: 'p-1', operationalPersonId: 'op-1', role: 'ENGINEER', specialty: null, ...overrides });
   const mkOpAssignment = (overrides: any = {}) => ({ id: 'opa-1', personnelId: 'op-1', companyId: 'company-a', branchId: 'branch-a', effectiveTo: null, deletedAt: null, ...overrides });

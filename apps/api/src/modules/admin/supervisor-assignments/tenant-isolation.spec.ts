@@ -53,6 +53,7 @@ describe('SupervisorAssignments Tenant Isolation', () => {
       operationalPersonAssignment: {
         findFirst: jest.fn(),
         findMany: jest.fn(),
+        count: jest.fn(),
       },
       supervisorAssignment: {
         findFirst: jest.fn(),
@@ -150,7 +151,12 @@ describe('SupervisorAssignments Tenant Isolation', () => {
       await expect(service.findOne('sa-b', ctxA)).rejects.toThrow(NotFoundException);
       expect(prisma.supervisorAssignment.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'sa-b', companyId: 'company-a', deletedAt: null },
+          where: {
+            id: 'sa-b',
+            companyId: 'company-a',
+            deletedAt: null,
+            assignment: { is: { branchId: { in: ['branch-a', null] } } },
+          },
         }),
       );
     });
@@ -162,6 +168,53 @@ describe('SupervisorAssignments Tenant Isolation', () => {
 
       const findCall = prisma.supervisorAssignment.findFirst.mock.calls[0][0];
       expect(findCall.where.companyId).toBe('company-a');
+    });
+  });
+
+  describe('same-company cross-branch isolation', () => {
+    const ctxA_otherBranch: ActiveOperationalContext = {
+      contextKey: 'company-a:branch-c',
+      scopeId: 'branch-c',
+      companyId: 'company-a',
+      branchId: 'branch-c',
+      isDefault: false,
+      source: 'EXPLICIT_SCOPE',
+    } as ActiveOperationalContext;
+
+    it('findOne filters through the subordinate assignment branch within the same company', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne('sa-other-branch', ctxA)).rejects.toThrow(NotFoundException);
+
+      const call = prisma.supervisorAssignment.findFirst.mock.calls[0][0];
+      expect(call.where).toMatchObject({
+        companyId: 'company-a',
+        assignment: { is: { branchId: { in: ['branch-a', null] } } },
+      });
+    });
+
+    it('findAll never spreads into another branch of the same company', async () => {
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+      prisma.supervisorAssignment.count.mockResolvedValue(0);
+
+      await service.findAll({ page: 1, limit: 10 }, ctxA);
+
+      const call = prisma.supervisorAssignment.findMany.mock.calls[0][0];
+      expect(call.where.assignment.is.branchId.in).toEqual(['branch-a', null]);
+    });
+
+    it('getCandidates defaults to the active branch within the same company', async () => {
+      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', companyId: 'company-a', assignment: { personnelId: 'p1', branchId: 'branch-c' },
+      });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(0);
+      prisma.supervisorAssignment.findMany.mockResolvedValue([]);
+
+      await service.getCandidates('sa1', { page: '1', limit: '10' }, ctxA_otherBranch);
+
+      const call = prisma.operationalPersonAssignment.findMany.mock.calls[0][0];
+      expect(call.where).toMatchObject({ companyId: 'company-a', branchId: 'branch-c' });
     });
   });
 

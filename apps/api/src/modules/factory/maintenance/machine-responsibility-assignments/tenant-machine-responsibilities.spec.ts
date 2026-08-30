@@ -116,4 +116,33 @@ describe('machine-responsibility-assignments tenant isolation', () => {
     await expect(service.remove('ra-1', userId, ctx)).rejects.toBeInstanceOf(NotFoundException)
     expect(db.machineResponsibilityAssignment.update).not.toHaveBeenCalled()
   })
+
+  it('rejects a DEPARTMENT responsibility whose department is in another branch of the same company', async () => {
+    const db = buildDb()
+    db.machineResponsibilityAssignment.findUnique.mockResolvedValue({
+      id: 'ra-1',
+      scopeType: 'DEPARTMENT',
+      machineId: null,
+      departmentId: 'd-1',
+      productionLineId: null,
+      machine: null,
+      department: { id: 'd-1', companyId: 'company-a', branchId: 'branch-c' },
+      productionLine: null,
+      maintenancePersonnel: { id: 'p-1', role: 'ENGINEER', specialty: null, operationalPerson: { id: 'op-1', code: 'OP1', name: 'Person', phone: null, email: null } },
+    })
+    const service = new MachineResponsibilityAssignmentsService(db, buildAudit() as any)
+
+    await expect(service.findOne('ra-1', ctx)).rejects.toBeInstanceOf(NotFoundException)
+  })
+
+  it('asserts department ownership within the active branch at create', async () => {
+    const db = buildDb()
+    db.department.findFirst.mockResolvedValue(null)
+    const service = new MachineResponsibilityAssignmentsService(db, buildAudit() as any)
+
+    await expect(service.create({ scopeType: 'DEPARTMENT', departmentId: 'd-x', maintenancePersonnelId: 'p-1', responsibilityRole: 'ENGINEER', startDate: '2026-01-01' } as any, userId, ctx)).rejects.toBeInstanceOf(BadRequestException)
+
+    const call = db.department.findFirst.mock.calls[0][0]
+    expect(call.where).toMatchObject({ id: 'd-x', companyId: 'company-a', branchId: 'branch-a' })
+  })
 })

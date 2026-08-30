@@ -100,6 +100,12 @@ describe('MaintenanceDashboardService', () => {
       expect(openWhere.machine.companyId).toBe('c1');
       expect(openWhere.machine.OR.some((b: any) => b.branchId === 'b1')).toBe(true);
     });
+
+    it('scopes the unread notification count to the authenticated user', async () => {
+      await service.getSummary(ctx, 'user-1');
+      const unreadCall = prisma.notification.count.mock.calls.at(-1);
+      expect(unreadCall[0].where).toEqual({ userId: 'user-1', read: false });
+    });
   });
 
   describe('getOpenRequests', () => {

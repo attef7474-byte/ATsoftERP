@@ -227,7 +227,7 @@ describe('PersonAssignments Tenant Isolation', () => {
       )).rejects.toThrow(NotFoundException);
 
       expect(prisma.operationalPersonAssignment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-        where: { id: 'pa-b', companyId: 'company-a', deletedAt: null },
+        where: { id: 'pa-b', companyId: 'company-a', branchId: 'branch-a', deletedAt: null },
       }));
       expectZeroTransferWrites();
     });
@@ -311,7 +311,7 @@ describe('PersonAssignments Tenant Isolation', () => {
       await expect(service.findOne('pa-b', ctxA)).rejects.toThrow(NotFoundException);
       expect(prisma.operationalPersonAssignment.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'pa-b', companyId: 'company-a', deletedAt: null },
+          where: { id: 'pa-b', companyId: 'company-a', branchId: 'branch-a', deletedAt: null },
         }),
       );
     });
@@ -324,6 +324,48 @@ describe('PersonAssignments Tenant Isolation', () => {
 
       const findCall = prisma.operationalPersonAssignment.findFirst.mock.calls[0][0];
       expect(findCall.where.companyId).toBe('company-a');
+    });
+  });
+
+  describe('same-company cross-branch isolation', () => {
+    const ctxA_otherBranch: ActiveOperationalContext = {
+      contextKey: 'company-a:branch-c',
+      scopeId: 'branch-c',
+      companyId: 'company-a',
+      branchId: 'branch-c',
+      isDefault: false,
+      source: 'EXPLICIT_SCOPE',
+    } as ActiveOperationalContext;
+
+    it('findOne scopes to the active branch within the same company', async () => {
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
+
+      const promise = service.findOne('pa-other-branch', ctxA);
+      await expect(promise).rejects.toThrow(NotFoundException);
+
+      const call = prisma.operationalPersonAssignment.findFirst.mock.calls[0][0];
+      expect(call.where).toMatchObject({ id: 'pa-other-branch', companyId: 'company-a', branchId: 'branch-a' });
+    });
+
+    it('findAll defaults to the active branch and never lists other-branch rows', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
+      prisma.operationalPersonAssignment.count.mockResolvedValue(0);
+
+      await service.findAll({ page: 1, limit: 10 }, ctxA_otherBranch);
+
+      const call = prisma.operationalPersonAssignment.findMany.mock.calls[0][0];
+      expect(call.where).toMatchObject({ companyId: 'company-a', branchId: 'branch-c' });
+    });
+
+    it('findByPerson cannot reach assignments in another branch of the same company', async () => {
+      prisma.operationalPersonAssignment.findMany.mockResolvedValue([
+        { id: 'pa-other-branch', companyId: 'company-a', branchId: 'branch-c' },
+      ]);
+
+      await service.findByPerson('person-x', ctxA);
+
+      const call = prisma.operationalPersonAssignment.findMany.mock.calls[0][0];
+      expect(call.where).toMatchObject({ personnelId: 'person-x', companyId: 'company-a', branchId: 'branch-a' });
     });
   });
 

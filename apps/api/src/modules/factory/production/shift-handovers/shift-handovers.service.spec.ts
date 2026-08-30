@@ -111,6 +111,28 @@ describe('ShiftHandoversService', () => {
     });
   });
 
+  describe('same-company cross-branch isolation', () => {
+    it('findAll restricts to the active branch plus shared null-branch records', async () => {
+      prisma.shiftHandover.findMany.mockResolvedValue([]);
+      prisma.shiftHandover.count.mockResolvedValue(0);
+
+      await service.findAll({ page: 1, limit: 10 }, ctx);
+
+      const call = prisma.shiftHandover.findMany.mock.calls[0][0];
+      expect(call.where).toMatchObject({ companyId: 'company-a', branchId: { in: ['branch-a', null] } });
+    });
+
+    it('findOne restricts to the active branch plus shared null-branch records', async () => {
+      prisma.shiftHandover.findFirst.mockResolvedValue(null);
+
+      const promise = service.findOne('ho-other-branch', ctx);
+      await expect(promise).rejects.toThrow(NotFoundException);
+
+      const call = prisma.shiftHandover.findFirst.mock.calls[0][0];
+      expect(call.where).toMatchObject({ branchId: { in: ['branch-a', null] } });
+    });
+  });
+
   describe('submit', () => {
     it('rejects submit when status is not DRAFT', async () => {
       prisma.shiftHandover.findFirst.mockResolvedValue({ id: 'ho1', status: 'SUBMITTED' });
