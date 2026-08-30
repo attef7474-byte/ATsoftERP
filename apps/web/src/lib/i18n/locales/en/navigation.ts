@@ -14,7 +14,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         departments: 'Departments',
         organizationalUnits: 'Organizational Units',
         jobTitles: 'Job Titles',
-        persons: 'Persons',
+        persons: 'Employees',
         personAssignments: 'Person Assignments',
         supervisorAssignments: 'Supervisor Assignments',
         accessControl: 'Access Control',

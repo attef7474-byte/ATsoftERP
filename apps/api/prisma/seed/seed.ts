@@ -218,6 +218,12 @@ async function main() {
     { key: "preventive-spare-part-plan:read", module: "preventive-spare-part-plan", action: "read" },
     { key: "preventive-spare-part-plan:update", module: "preventive-spare-part-plan", action: "update" },
     { key: "preventive-spare-part-plan:delete", module: "preventive-spare-part-plan", action: "delete" },
+    // Operational person / employee management permissions
+    { key: "operational-person:create", module: "operational-person", action: "create" },
+    { key: "operational-person:read", module: "operational-person", action: "read" },
+    { key: "operational-person:update", module: "operational-person", action: "update" },
+    { key: "operational-person:deactivate", module: "operational-person", action: "deactivate" },
+    { key: "operational-person:delete", module: "operational-person", action: "delete" },
     // Maintenance work order permissions (status transitions + part lines + costs)
     { key: "maintenance-work-order:plan", module: "maintenance-work-order", action: "plan" },
     { key: "maintenance-work-order:start", module: "maintenance-work-order", action: "start" },

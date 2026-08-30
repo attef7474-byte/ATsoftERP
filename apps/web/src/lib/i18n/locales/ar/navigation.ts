@@ -14,7 +14,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         departments: 'الأقسام',
         organizationalUnits: 'الوحدات التنظيمية',
         jobTitles: 'المسميات الوظيفية',
-        persons: 'الأشخاص',
+        persons: 'الموظفين',
         personAssignments: 'تعيينات الأشخاص',
         supervisorAssignments: 'تعيينات المشرفين',
         accessControl: 'التحكم بالوصول',

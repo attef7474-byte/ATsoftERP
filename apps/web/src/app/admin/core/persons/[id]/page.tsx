@@ -34,7 +34,7 @@ export default function PersonDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get(`/production/operational-people/${id}`) as any;
+      const res = await api.get(`/employees/${id}`) as any;
       setPerson(res);
     } catch {
       setError(t('errors.loadFailed'));
@@ -128,7 +128,7 @@ export default function PersonDetailPage() {
             <span className="text-xs text-gray-500 uppercase tracking-wider">{t('core.personCategory') || 'Category'}</span>
             <p className="font-medium text-gray-900 mt-1">
               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                {person.category || '-'}
+                {t(`core.employeeCategories.${person.category || 'MAINTENANCE'}`) || person.category || '-'}
               </span>
             </p>
           </div>

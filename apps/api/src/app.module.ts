@@ -10,6 +10,7 @@ import { AdministrationsModule } from './modules/admin/administrations/administr
 import { DepartmentsModule } from './modules/admin/departments/departments.module'
 import { JobTitlesModule } from './modules/admin/job-titles/job-titles.module'
 import { PersonAssignmentsModule } from './modules/admin/person-assignments/person-assignments.module'
+import { EmployeesModule } from './modules/admin/employees/employees.module'
 import { SupervisorAssignmentsModule } from './modules/admin/supervisor-assignments/supervisor-assignments.module'
 import { OrganizationalUnitsModule } from './modules/admin/organizational-units/organizational-units.module'
 import { CompaniesModule } from './modules/companies/companies.module'
@@ -102,7 +103,7 @@ import { ShiftHandoversModule } from './modules/factory/production/shift-handove
 @Module({
   imports: [
     PrismaModule, HealthModule, AuthModule,
-    UsersModule, RolesModule, PermissionsModule, BranchesModule, AdministrationsModule, DepartmentsModule, JobTitlesModule, PersonAssignmentsModule, SupervisorAssignmentsModule, OrganizationalUnitsModule, CompaniesModule,
+    UsersModule, RolesModule, PermissionsModule, BranchesModule, AdministrationsModule, DepartmentsModule, JobTitlesModule, PersonAssignmentsModule, SupervisorAssignmentsModule, OrganizationalUnitsModule, CompaniesModule, EmployeesModule,
     ProductsModule, ProductCategoriesModule, InventoryModule, MaintenanceModule,
     AuditModule,
     MachineCategoriesModule, MachinePartsModule, MachineDocumentsModule,

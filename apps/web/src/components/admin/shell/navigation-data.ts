@@ -81,7 +81,7 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'org-administrations', labelKey: 'navigation.administrations', route: '/admin/core/administrations' },
           { id: 'org-departments', labelKey: 'navigation.departments', route: '/admin/core/departments', permission: 'department:read' },
           { id: 'org-organizational-units', labelKey: 'navigation.organizationalUnits', route: '/admin/core/organizational-units' },
-          { id: 'org-persons', labelKey: 'navigation.persons', route: '/admin/core/persons' },
+          { id: 'org-persons', labelKey: 'navigation.persons', route: '/admin/core/persons', permission: 'operational-person:read' },
           { id: 'org-job-titles', labelKey: 'navigation.jobTitles', route: '/admin/core/job-titles', permission: 'job-title:read' },
           { id: 'org-person-assignments', labelKey: 'navigation.personAssignments', route: '/admin/core/person-assignments', permission: 'person-assignment:read' },
           { id: 'org-supervisor-assignments', labelKey: 'navigation.supervisorAssignments', route: '/admin/core/supervisor-assignments', permission: 'supervisor:read' },
