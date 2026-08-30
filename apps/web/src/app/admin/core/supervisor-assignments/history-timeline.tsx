@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n/use-translation';
 import { Card, CardContent, LoadingState, EmptyState, Input, Button, Select, Pagination, StatusBadge } from '@/components/admin/ui';
+import { F9Lookup, personAssignmentAdapter } from '@/components/f9';
 import { Clock, Users, UserCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import type { HistorySupervisionRow, HistoryLeadershipRow, HistoryResponse, HistoryFilters } from '@/lib/admin-types';
 import type { TranslationNamespace } from '@/lib/i18n';
@@ -152,7 +153,7 @@ export default function HistoryTimeline({ personId, assignmentId }: HistoryTimel
 
   const temporalBadge = (status: string) => (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${TEMPORAL_BADGES[status] || 'bg-gray-100 text-gray-600'}`}>
-      {t(`core.${status.toLowerCase()}`)}
+      {t(`core.temporalCategories.${status}`)}
     </span>
   );
 
@@ -174,7 +175,7 @@ export default function HistoryTimeline({ personId, assignmentId }: HistoryTimel
     </span>
   );
 
-  const temporalFilterOptions = TEMPORAL_OPTIONS.map(v => ({ value: v, label: v === 'ALL' ? t('core.allTemporalStatuses') : t(`core.${v.toLowerCase()}`) }));
+  const temporalFilterOptions = TEMPORAL_OPTIONS.map(v => ({ value: v, label: v === 'ALL' ? t('core.allTemporalStatuses') : t(`core.temporalCategories.${v}`) }));
   const relationshipFilterOptions = RELATIONSHIP_OPTIONS.map(v => ({ value: v, label: v === 'ALL' ? t('core.allRelationshipTypes') : t(`core.relationshipTypes.${v}`) }));
   const leadershipFilterOptions = LEADERSHIP_OPTIONS.map(v => ({ value: v, label: v === 'ALL' ? t('core.allLeadershipRoles') : t(`core.leadershipLevels.${v}`) }));
   const assignmentFilterOptions = ASSIGNMENT_OPTIONS.map(v => ({ value: v, label: v === 'ALL' ? t('core.allAssignmentTypes') : t(`core.assignmentTypes.${v}`) }));
@@ -216,11 +217,13 @@ export default function HistoryTimeline({ personId, assignmentId }: HistoryTimel
 
           {/* Filters */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4">
-            <Input
-              placeholder={t('grid.searchPlaceholder')}
+            <F9Lookup
+              label={t('core.personnel')}
+              name="personId"
               value={filters.personId || ''}
-              onChange={(e) => setFilters(prev => ({ ...prev, personId: e.target.value || undefined }))}
-              className="text-sm"
+              onChange={(id) => setFilters(prev => ({ ...prev, personId: id || undefined }))}
+              adapter={personAssignmentAdapter}
+              placeholder={t('grid.searchPlaceholder')}
             />
             <Select
               options={temporalFilterOptions}
