@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
+import { useOperationalContext } from '../../../../lib/auth-context';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { ProductionLine } from '../../../../lib/admin-types';
@@ -15,6 +16,7 @@ export default function ProductionLinesPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
+  const { activeContext } = useOperationalContext();
   const [data, setData] = useState<ProductionLine[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -35,8 +37,6 @@ export default function ProductionLinesPage() {
   const [confirmStatusOpen, setConfirmStatusOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
 
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
   const [administrations, setAdministrations] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [operationTypes, setOperationTypes] = useState<any[]>([]);
@@ -75,31 +75,23 @@ export default function ProductionLinesPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const fetchLookups = async () => {
+  const fetchOperationTypes = async () => {
     try {
-      const [coRes, otRes, ccRes] = await Promise.all([
-        api.get<any>('/companies'),
-        api.get<any>('/maintenance/operation-types', { params: { limit: 100 } }),
-        api.get<any>('/maintenance/cost-centers', { params: { limit: 100 } }),
-      ]);
-      setCompanies(coRes.data || []);
-      setOperationTypes(otRes.data || []);
-      setCostCenters(ccRes.data || []);
-    } catch { /* ignore */ }
+      const res = await api.get<any>('/maintenance/operation-types', { params: { limit: 100 } });
+      setOperationTypes(res.data || []);
+    } catch { setOperationTypes([]); }
   };
 
-  const fetchBranches = async (companyId: string) => {
-    if (!companyId) { setBranches([]); return; }
+  const fetchCostCenters = async () => {
     try {
-      const res = await api.get<any>('/branches', { params: { companyId } });
-      setBranches(res.data || []);
-    } catch { setBranches([]); }
+      const res = await api.get<any>('/maintenance/cost-centers', { params: { limit: 100 } });
+      setCostCenters(res.data || []);
+    } catch { setCostCenters([]); }
   };
 
-  const fetchAdministrations = async (branchId: string) => {
-    if (!branchId) { setAdministrations([]); return; }
+  const fetchAdministrations = async () => {
     try {
-      const res = await api.get<any>('/administrations', { params: { branchId } });
+      const res = await api.get<any>('/administrations', { params: { limit: 100 } });
       setAdministrations(res.data || []);
     } catch { setAdministrations([]); }
   };
@@ -107,16 +99,27 @@ export default function ProductionLinesPage() {
   const fetchDepartments = async (administrationId: string) => {
     if (!administrationId) { setDepartments([]); return; }
     try {
-      const res = await api.get<any>('/departments', { params: { administrationId } });
+      const res = await api.get<any>('/departments', { params: { administrationId, limit: 100 } });
       setDepartments(res.data || []);
     } catch { setDepartments([]); }
   };
 
+  // Production lines are branch-owned records: the company and branch always
+  // come from the active operational context (never a user-picked dropdown),
+  // and the dependent org-structure lookups are served within that same scope.
+  const loadContextLookups = async () => {
+    setAdministrations([]); setDepartments([]);
+    await Promise.all([fetchOperationTypes(), fetchCostCenters(), fetchAdministrations()]);
+  };
+
   const openCreate = () => {
     setEditItem(null);
-    setForm({ code: '', name: '', description: '', location: '', companyId: '', branchId: '', administrationId: '', departmentId: '', operationTypeId: '', costCenterId: '', status: 'ACTIVE' });
-    setBranches([]); setAdministrations([]); setDepartments([]);
-    fetchLookups();
+    setForm({
+      code: '', name: '', description: '', location: '',
+      companyId: activeContext?.companyId || '', branchId: activeContext?.branchId || '',
+      administrationId: '', departmentId: '', operationTypeId: '', costCenterId: '', status: 'ACTIVE',
+    });
+    loadContextLookups();
     setModalOpen(true);
   };
 
@@ -133,9 +136,7 @@ export default function ProductionLinesPage() {
         departmentId: item.departmentId, operationTypeId: item.operationTypeId,
         costCenterId: item.costCenterId || '', status: item.status,
       });
-      fetchLookups();
-      fetchBranches(item.companyId);
-      if (item.branchId) fetchAdministrations(item.branchId);
+      loadContextLookups();
       if (item.administrationId) fetchDepartments(item.administrationId);
     } catch (err: any) {
       showToast(err?.message || t('errors.loadFailed'), 'error');
@@ -272,26 +273,8 @@ export default function ProductionLinesPage() {
             <Input label={t('maintenance.location')} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Select label={t('core.company')} value={form.companyId} placeholder={t('common.select')} options={companies.map((c: any) => ({ value: c.id, label: c.name }))} onChange={(e) => {
-                const val = e.target.value;
-                setForm({ ...form, companyId: val, branchId: '', administrationId: '', departmentId: '' });
-                setValidationErrors(prev => ({ ...prev, companyId: '' }));
-                fetchBranches(val);
-                setAdministrations([]); setDepartments([]);
-              }} />
-              {validationErrors.companyId && <p className="text-red-500 text-sm mt-1">{validationErrors.companyId}</p>}
-            </div>
-            <div>
-              <Select label={t('core.branch')} value={form.branchId} placeholder={t('common.select')} options={branches.map((b: any) => ({ value: b.id, label: b.name }))} onChange={(e) => {
-                const val = e.target.value;
-                setForm({ ...form, branchId: val, administrationId: '', departmentId: '' });
-                setValidationErrors(prev => ({ ...prev, branchId: '' }));
-                fetchAdministrations(val);
-                setDepartments([]);
-              }} />
-              {validationErrors.branchId && <p className="text-red-500 text-sm mt-1">{validationErrors.branchId}</p>}
-            </div>
+            <Input label={t('core.company')} value={editItem?.company?.name || activeContext?.companyName || form.companyId || ''} disabled />
+            <Input label={t('core.branch')} value={editItem?.branch?.name || activeContext?.branchName || form.branchId || ''} disabled />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Select label={t('core.administration')} value={form.administrationId} placeholder={t('common.select')} options={administrations.map((a: any) => ({ value: a.id, label: a.name }))} onChange={(e) => {
