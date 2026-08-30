@@ -4,7 +4,6 @@ import {
   branchAdapter,
   administrationAdapter,
   departmentAdapter,
-  organizationalUnitAdapter,
   warehouseAdapter,
   productCategoryAdapter,
   productAdapter,
@@ -54,7 +53,7 @@ import {
   productionCostSnapshotAdapter,
 } from './lookup-adapters';
 import type {
-  Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product,
+  Company, Branch, Administration, Department, Warehouse, ProductCategory, Product,
   MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask,
   MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment,
   WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification,
@@ -105,13 +104,6 @@ const registry: UnifiedSearchEntity[] = [
     adapter: departmentAdapter as LookupAdapter<any>,
     detailRoute: (item: Department) => `/admin/core/departments/${item.id}`,
     subtitle: (item: Department) => item.company?.name || item.code,
-  },
-  {
-    entityType: 'organizationalUnit',
-    labelKey: 'core.organizationalUnits',
-    adapter: organizationalUnitAdapter as LookupAdapter<any>,
-    detailRoute: (item: OrganizationalUnit) => `/admin/core/organizational-units/${item.id}`,
-    subtitle: (item: OrganizationalUnit) => item.parent?.name || item.type || item.code,
   },
   {
     entityType: 'warehouse',
