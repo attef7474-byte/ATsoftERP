@@ -232,6 +232,7 @@ const core: Pick<LocaleTranslations, 'core' | 'details' | 'companyProfile' | 'at
             HISTORICAL: 'تاريخي (لا يحتاج إجراء)',
             CURRENT: 'حالي (يحتاج إجراء)',
             FUTURE: 'مستقبلي (يحتاج إجراء)',
+            PAST: 'ماضي (لا يحتاج إجراء)',
         },
         direction: 'الاتجاه',
         directions: {

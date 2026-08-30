@@ -286,7 +286,7 @@ export class SupervisorAssignmentsService {
     if (query.isActive !== undefined) where.isActive = query.isActive === 'true';
     if (query.search) {
       where.OR = [
-        { assignment: { person: { name: { contains: query.search } } } },
+        { assignment: { ...where.assignment, person: { name: { contains: query.search } } } },
         { supervisorAssignment: { person: { name: { contains: query.search } } } },
       ];
     }

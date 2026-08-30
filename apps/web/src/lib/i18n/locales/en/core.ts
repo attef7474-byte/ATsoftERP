@@ -232,6 +232,7 @@ const core: Pick<LocaleTranslations, 'core' | 'details' | 'companyProfile' | 'at
             HISTORICAL: 'Historical (no action needed)',
             CURRENT: 'Current (action required)',
             FUTURE: 'Future (action required)',
+            PAST: 'Past (no action needed)',
         },
         direction: 'Direction',
         directions: {
