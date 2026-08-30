@@ -8,6 +8,7 @@ import { F9Lookup, personAssignmentAdapter } from '@/components/f9';
 import { Clock, Users, UserCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import type { HistorySupervisionRow, HistoryLeadershipRow, HistoryResponse, HistoryFilters } from '@/lib/admin-types';
 import type { TranslationNamespace } from '@/lib/i18n';
+import { initHistoryPersonSelection, selectHistoryPerson, handleHistoryPersonChange } from '@/lib/supervisor-history-filter';
 
 interface HistoryTimelineProps {
   personId?: string;
@@ -66,6 +67,13 @@ export default function HistoryTimeline({ personId, assignmentId }: HistoryTimel
     to: '',
   });
 
+  // F9 displays and fetches by OperationalPersonAssignment.id (the leader assignment),
+  // but the history API personId filter must be the person/personnel id.
+  // Kept separate so an assignment id is never used as the person filter.
+  const [selectedPersonAssignmentId, setSelectedPersonAssignmentId] = useState<string>(
+    () => initHistoryPersonSelection(assignmentId, personId).opaLookupId,
+  );
+
   const [appliedFilters, setAppliedFilters] = useState<HistoryFilters>({});
 
   const loadData = useCallback(async () => {
@@ -114,6 +122,7 @@ export default function HistoryTimeline({ personId, assignmentId }: HistoryTimel
 
   useEffect(() => {
     if (assignmentId) {
+      setSelectedPersonAssignmentId(assignmentId);
       setFilters(prev => ({ ...prev, assignmentId }));
       setAppliedFilters(prev => ({ ...prev, assignmentId }));
       setPage(1);
@@ -126,6 +135,7 @@ export default function HistoryTimeline({ personId, assignmentId }: HistoryTimel
   };
 
   const handleClearFilters = () => {
+    setSelectedPersonAssignmentId(assignmentId || '');
     const cleared: HistoryFilters = {
       personId: personId || undefined,
       assignmentId: assignmentId || undefined,
@@ -220,8 +230,17 @@ export default function HistoryTimeline({ personId, assignmentId }: HistoryTimel
             <F9Lookup
               label={t('core.personnel')}
               name="personId"
-              value={filters.personId || ''}
-              onChange={(id) => setFilters(prev => ({ ...prev, personId: id || undefined }))}
+              value={selectedPersonAssignmentId}
+              onChange={(id) => {
+                const next = handleHistoryPersonChange({ opaLookupId: selectedPersonAssignmentId, personId: filters.personId }, id);
+                setSelectedPersonAssignmentId(next.opaLookupId);
+                setFilters(prev => ({ ...prev, personId: next.personId }));
+              }}
+              onItemSelect={(item) => {
+                const next = selectHistoryPerson(item);
+                setSelectedPersonAssignmentId(next.opaLookupId);
+                setFilters(prev => ({ ...prev, personId: next.personId }));
+              }}
               adapter={personAssignmentAdapter}
               placeholder={t('grid.searchPlaceholder')}
             />
