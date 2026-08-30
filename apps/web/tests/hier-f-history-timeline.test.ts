@@ -245,3 +245,54 @@ describe('HIER-F history logic', () => {
     expect(primary.leadershipLevel).toBe(acting.leadershipLevel);
   });
 });
+
+describe('HIER-F R6: no generic translation fallback on supervision history', () => {
+  const FALLBACK_EN = 'The requested text could not be displayed.';
+  const FALLBACK_AR = 'تعذر عرض النص المطلوب.';
+
+  it('actions.reset resolves to a non-fallback value in EN and AR (Reset button)', () => {
+    const enValue = resolve('actions.reset', 'en');
+    const arValue = resolve('actions.reset', 'ar');
+    expect(enValue).toBeTruthy();
+    expect(enValue.length).toBeGreaterThan(0);
+    expect(enValue).not.toBe(FALLBACK_EN);
+    // AR is a right-to-left locale; the resolved value must never be the fallback.
+    expect(arValue).not.toBe(FALLBACK_AR);
+    expect(arValue.length).toBeGreaterThan(0);
+  });
+
+  it('the Reset button does NOT rely on a missing common.reset key', () => {
+    const enValue = resolve('actions.reset', 'en');
+    const arValue = resolve('actions.reset', 'ar');
+    expect(enValue).not.toBe(FALLBACK_EN);
+    expect(arValue).not.toBe(FALLBACK_AR);
+  });
+
+  it('every supervision history UI key resolves without producing the EN/AR fallback', () => {
+    const keys = [
+      'core.noSupervisionHistory',
+      'core.noLeadershipHistory',
+      'core.timelineHistory',
+      'core.supervisionHistory',
+      'core.leadershipHistory',
+      'core.current',
+      'core.notSpecified',
+      'errors.loadFailed',
+      'core.temporalCategories.PAST',
+      'core.temporalCategories.CURRENT',
+      'core.temporalCategories.FUTURE',
+      'core.relationshipTypes.DIRECT',
+      'core.assignmentTypes.PRIMARY',
+      'actions.reset',
+      'common.search',
+    ];
+    for (const key of keys) {
+      const enValue = resolve(key, 'en');
+      const arValue = resolve(key, 'ar');
+      expect(enValue).not.toBe(FALLBACK_EN);
+      expect(arValue).not.toBe(FALLBACK_AR);
+      expect(enValue.length).toBeGreaterThan(0);
+      expect(arValue.length).toBeGreaterThan(0);
+    }
+  });
+});

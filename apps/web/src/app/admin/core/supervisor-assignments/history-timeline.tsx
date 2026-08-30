@@ -288,7 +288,7 @@ export default function HistoryTimeline({ personId, assignmentId }: HistoryTimel
               {t('common.search')}
             </Button>
             <Button onClick={handleClearFilters} variant="ghost" size="sm">
-              {t('common.reset')}
+              {t('actions.reset')}
             </Button>
           </div>
 
