@@ -162,6 +162,20 @@ describe('OrganizationalUnitsService', () => {
     });
   });
 
+  describe('getTree', () => {
+    it('always scopes the tree to the active company and branch (no client branch override)', async () => {
+      prisma.organizationalUnit.findMany.mockResolvedValue([]);
+
+      await service.getTree(ctx);
+
+      expect(prisma.organizationalUnit.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'c1', branchId: 'b1', deletedAt: null }),
+        }),
+      );
+    });
+  });
+
   describe('update', () => {
     it('blocks moving a unit under its own child (cycle prevention)', async () => {
       prisma.organizationalUnit.findUnique

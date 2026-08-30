@@ -212,6 +212,25 @@ describe('CostCentersService', () => {
       expect(result.meta.total).toBe(1);
     });
 
+    it('ignores a foreign branchId filter and stays scoped to the active branch', async () => {
+      prisma.costCenter.findMany.mockResolvedValue([costCenter()]);
+      prisma.costCenter.count.mockResolvedValue(1);
+
+      await service.findAll({ page: 1, limit: 10, branchId: 'b2' }, ctxA);
+
+      expect(prisma.costCenter.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            companyId: 'c1',
+            deletedAt: null,
+            OR: expect.arrayContaining([{ branchId: 'b1' }, { branchId: null }]),
+          }),
+        }),
+      );
+      const where = prisma.costCenter.findMany.mock.calls[0][0].where;
+      expect(where.branchId).toBeUndefined();
+    });
+
     it('does not leak a cost center owned by another company (404)', async () => {
       prisma.costCenter.findFirst.mockResolvedValue(null);
 
