@@ -1,6 +1,7 @@
-import { IsString, IsOptional, IsNumber, IsDateString, Min } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsDateString, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { CreateCostCenterDto } from '../cost-centers/dto/create-cost-center.dto';
 
 export class CreateMachineDto {
   @ApiPropertyOptional({ example: 'M-CNC-001' })
@@ -56,6 +57,12 @@ export class CreateMachineDto {
   @IsOptional()
   @IsString()
   technicalDepartmentId?: string;
+
+  @ApiPropertyOptional({ description: 'Create a dedicated cost center for this machine atomically (name = machine name). Its id becomes defaultCostCenterId.' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateCostCenterDto)
+  dedicatedCostCenter?: CreateCostCenterDto;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -148,6 +155,12 @@ export class UpdateMachineDto {
   @IsOptional()
   @IsString()
   technicalDepartmentId?: string;
+
+  @ApiPropertyOptional({ description: 'Create a dedicated cost center for this machine atomically (name = machine name). Its id becomes defaultCostCenterId.' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateCostCenterDto)
+  dedicatedCostCenter?: CreateCostCenterDto;
 
   @ApiPropertyOptional()
   @IsOptional()

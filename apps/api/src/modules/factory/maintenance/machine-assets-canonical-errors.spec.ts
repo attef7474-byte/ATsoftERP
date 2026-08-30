@@ -7,6 +7,7 @@ import { MachineCategoriesService } from './machine-categories/machine-categorie
 import { MachineComponentsService } from './machine-components/machine-components.service';
 import { MachineDocumentsService } from './machine-documents/machine-documents.service';
 import { MaintenanceService } from './maintenance.service';
+import { CostCentersService } from './cost-centers/cost-centers.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 const ctx: ActiveOperationalContext = {
@@ -346,6 +347,7 @@ describe('Machine assets canonical error contracts', () => {
     let prisma: any;
     let numbering: any;
     let audit: any;
+    let costCenters: any;
     let service: MaintenanceService;
 
     beforeEach(() => {
@@ -363,10 +365,12 @@ describe('Machine assets canonical error contracts', () => {
         downtimeLog: { count: jest.fn() },
         machinePart: { count: jest.fn() },
         machineDocument: { count: jest.fn() },
+        costCenter: { findUnique: jest.fn().mockResolvedValue({ id: 'cc-new' }) },
       };
-      numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('M-0001') };
-      audit = { log: jest.fn().mockResolvedValue(undefined) };
-      service = new MaintenanceService(prisma as PrismaService, numbering as NumberingService, audit as AuditService);
+      numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('M-0001'), generateNumberAtomicWithClient: jest.fn().mockResolvedValue('M-0001') };
+      audit = { log: jest.fn().mockResolvedValue(undefined), logWithClient: jest.fn().mockResolvedValue(undefined) };
+      costCenters = { createDedicatedCostCenter: jest.fn() };
+      service = new MaintenanceService(prisma as PrismaService, numbering as NumberingService, audit as unknown as AuditService, costCenters as unknown as CostCentersService);
     });
 
     it('creates a machine with an auto code and audits CREATE with the userId', async () => {
@@ -434,6 +438,69 @@ describe('Machine assets canonical error contracts', () => {
 
       await expect(service.removeMachine('m1', 'u1', ctx)).rejects.toThrow(ConflictException);
       expect(prisma.machine.update).not.toHaveBeenCalled();
+    });
+
+    describe('machine with dedicated cost center (atomic R5)', () => {
+      let tx: any;
+
+      const dedicatedDto = { name: 'Lathe', type: 'PRODUCTION' };
+
+      beforeEach(() => {
+        tx = {
+          costCenter: { create: jest.fn().mockResolvedValue({ id: 'cc-new', name: 'Lathe', code: 'CC-1' }) },
+          machine: {
+            findUnique: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockResolvedValue({ id: 'm1', code: 'M-0001', name: 'Lathe', defaultCostCenterId: 'cc-new' }),
+            update: jest.fn().mockResolvedValue({ id: 'm1', code: 'M-001', name: 'Lathe', defaultCostCenterId: 'cc-new' }),
+          },
+        };
+        prisma.$transaction = jest.fn((cb: any) => cb(tx));
+        prisma.machine.create = jest.fn();
+        prisma.machine.update = jest.fn();
+        costCenters.createDedicatedCostCenter = jest.fn().mockResolvedValue({ id: 'cc-new', name: 'Lathe', code: 'CC-1' });
+      });
+
+      it('creates the cost center and machine inside one transaction, linking defaultCostCenterId', async () => {
+        const result = await service.createMachine({ name: 'Lathe', dedicatedCostCenter: dedicatedDto } as any, 'u1', ctx);
+
+        expect(prisma.$transaction).toHaveBeenCalled();
+        expect(costCenters.createDedicatedCostCenter).toHaveBeenCalledWith(tx, dedicatedDto, ctx, 'u1');
+        expect(tx.machine.create).toHaveBeenCalledWith(expect.objectContaining({
+          data: expect.objectContaining({ name: 'Lathe', defaultCostCenterId: 'cc-new' }),
+        }));
+        expect(result.defaultCostCenterId).toBe('cc-new');
+        expect(audit.log).toHaveBeenCalledWith('u1', 'CREATE', 'Machine', 'm1', expect.anything());
+      });
+
+      it('does not create the machine when the cost center creation throws (rollback both)', async () => {
+        costCenters.createDedicatedCostCenter.mockRejectedValue(new ConflictException('costCenter already exists'));
+
+        await expect(service.createMachine({ name: 'Lathe', dedicatedCostCenter: dedicatedDto } as any, 'u1', ctx))
+          .rejects.toThrow(ConflictException);
+        expect(tx.machine.create).not.toHaveBeenCalled();
+      });
+
+      it('does not create the cost center when the machine creation throws (rollback both)', async () => {
+        tx.machine.create.mockRejectedValue(new ConflictException('Machine code exists'));
+
+        await expect(service.createMachine({ name: 'Lathe', dedicatedCostCenter: dedicatedDto } as any, 'u1', ctx))
+          .rejects.toThrow(ConflictException);
+        expect(costCenters.createDedicatedCostCenter).toHaveBeenCalled();
+      });
+
+      it('attaches a dedicated cost center to a legacy machine atomically on edit', async () => {
+        prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+
+        const result = await service.updateMachine('m1', { name: 'Lathe Updated', dedicatedCostCenter: dedicatedDto } as any, 'u1', ctx);
+
+        expect(prisma.$transaction).toHaveBeenCalled();
+        expect(costCenters.createDedicatedCostCenter).toHaveBeenCalledWith(tx, dedicatedDto, ctx, 'u1');
+        expect(tx.machine.update).toHaveBeenCalledWith(expect.objectContaining({
+          where: { id: 'm1' },
+          data: expect.objectContaining({ name: 'Lathe Updated', defaultCostCenterId: 'cc-new' }),
+        }));
+        expect(result.defaultCostCenterId).toBe('cc-new');
+      });
     });
   });
 });

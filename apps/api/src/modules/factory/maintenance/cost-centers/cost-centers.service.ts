@@ -146,12 +146,12 @@ export class CostCentersService {
    * company-level child rejected; cross-company parent rejected; cycles and
    * self-parent rejected; parent must be ACTIVE.
    */
-  private async validateParent(dto: { parentId?: string; branchId?: string | null }, ctx: ActiveOperationalContext, selfId?: string) {
+  private async validateParent(dto: { parentId?: string; branchId?: string | null }, ctx: ActiveOperationalContext, selfId?: string, client: any = this.prisma) {
     if (!dto.parentId) return;
     if (dto.parentId === selfId) {
       throw this.badRequest('costCenter.hierarchy.selfParent', 'A cost center cannot be its own parent');
     }
-    const parent = await this.prisma.costCenter.findFirst({
+    const parent = await client.costCenter.findFirst({
       where: { id: dto.parentId, companyId: ctx.companyId, deletedAt: null },
       select: { id: true, status: true, branchId: true, parentId: true, companyId: true },
     });
@@ -175,7 +175,7 @@ export class CostCentersService {
       if (cursor === selfId) {
         throw this.badRequest('costCenter.hierarchy.cycle', 'Cost center hierarchy cycle detected');
       }
-      const ancestor = await this.prisma.costCenter.findFirst({
+      const ancestor = await client.costCenter.findFirst({
         where: { id: cursor, companyId: ctx.companyId, deletedAt: null },
         select: { parentId: true },
       });
@@ -185,10 +185,10 @@ export class CostCentersService {
     }
   }
 
-  private async validateReferenceScope(dto: { administrationId?: string; departmentId?: string; branchId?: string | null }, ctx: ActiveOperationalContext) {
+  private async validateReferenceScope(dto: { administrationId?: string; departmentId?: string; branchId?: string | null }, ctx: ActiveOperationalContext, client: any = this.prisma) {
     const scope = { companyId: ctx.companyId, branchId: dto.branchId ?? ctx.branchId, administrationId: dto.administrationId, departmentId: dto.departmentId };
     if (scope.departmentId) {
-      const dept = await this.prisma.department.findUnique({ where: { id: scope.departmentId } });
+      const dept = await client.department.findUnique({ where: { id: scope.departmentId } });
       if (!dept) throw this.badRequest('validation.invalidReference', 'Department not found');
       if (dept.companyId !== ctx.companyId) throw this.badRequest('validation.invalidReference', 'Department belongs to another company');
       if (dept.branchId && scope.branchId && dept.branchId !== scope.branchId) {
@@ -199,7 +199,7 @@ export class CostCentersService {
       }
     }
     if (scope.administrationId) {
-      const admin = await this.prisma.administration.findUnique({ where: { id: scope.administrationId } });
+      const admin = await client.administration.findUnique({ where: { id: scope.administrationId } });
       if (!admin) throw this.badRequest('validation.invalidReference', 'Administration not found');
       if (admin.branchId !== ctx.branchId) throw this.badRequest('validation.invalidReference', 'Administration does not belong to the active branch');
     }
@@ -342,6 +342,57 @@ export class CostCentersService {
       include: this.costCenterIncludes(),
     });
     await this.auditService.log(userId, 'CREATE', COST_CENTER_AUDIT_ENTITY, item.id, { message: `Created cost center: ${item.code}`, companyId: ctx.companyId, branchId: item.branchId });
+    return item;
+  }
+
+  /**
+   * Creates a Cost Center using the canonical business rules against the given
+   * Prisma client (normally a transaction client). Single source of truth for
+   * the business rules, reused by the standalone create page and by the atomic
+   * "machine with dedicated cost center" workflow. The caller owns the outer
+   * transaction so a machine + its dedicated cost center commit or roll back
+   * together (no orphan cost centers).
+   */
+  async createDedicatedCostCenter(
+    client: any,
+    dto: CreateCostCenterDto,
+    ctx: ActiveOperationalContext,
+    userId: string,
+  ) {
+    const scope = this.deriveScope(dto, ctx);
+    const code = dto.code?.trim() || (await this.numberingService.generateNumberAtomicWithClient('COST_CENTER', client));
+    const existing = await client.costCenter.findFirst({ where: { companyId: ctx.companyId, code, deletedAt: null }, select: { id: true } });
+    if (existing) throw this.conflict('costCenter.codeExists', 'Cost center code already exists in this company');
+
+    await this.validateParent(dto, ctx, undefined, client);
+    await this.validateReferenceScope(dto, ctx, client);
+    const dates = this.parseDates(dto.effectiveFrom, dto.effectiveTo);
+
+    const item = await client.costCenter.create({
+      data: {
+        code,
+        name: dto.name,
+        description: dto.description ?? null,
+        type: dto.type,
+        parentId: dto.parentId ?? null,
+        effectiveFrom: dates.effectiveFrom ?? null,
+        effectiveTo: dates.effectiveTo ?? null,
+        isPrimary: dto.isPrimary ?? false,
+        companyId: scope.companyId,
+        branchId: scope.branchId,
+        administrationId: dto.administrationId ?? null,
+        departmentId: dto.departmentId ?? null,
+        status: 'ACTIVE',
+      },
+      include: this.costCenterIncludes(),
+    });
+    await this.auditService.logWithClient(client, {
+      userId,
+      action: 'CREATE',
+      entity: COST_CENTER_AUDIT_ENTITY,
+      entityId: item.id,
+      details: { message: `Created cost center: ${item.code}`, companyId: ctx.companyId, branchId: item.branchId },
+    });
     return item;
   }
 

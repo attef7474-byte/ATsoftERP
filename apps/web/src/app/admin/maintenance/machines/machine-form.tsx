@@ -1,9 +1,11 @@
 'use client';
-import React, { Dispatch, SetStateAction } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
-import { Input, Textarea, StatusBadge } from '../../../../components/admin/ui';
-import { F9Lookup, machineCategoryAdapter, companyAdapter, branchAdapter, departmentAdapter, productionLineAdapter, operationTypeAdapter, costCenterAdapter, administrationAdapter } from '../../../../components/f9';
+import { Input, Textarea, StatusBadge, Modal, Select, Button } from '../../../../components/admin/ui';
+import { F9Lookup, machineCategoryAdapter, companyAdapter, branchAdapter, departmentAdapter, productionLineAdapter, operationTypeAdapter } from '../../../../components/f9';
 import type { Machine } from '../../../../lib/admin-types';
+
+const MACHINE_CC_TYPES = ['PRODUCTION', 'MAINTENANCE', 'PROJECT', 'DEVELOPMENT', 'QUALITY', 'UTILITIES', 'ADMIN', 'OTHER'];
 
 export interface MachineFormState {
   code: string;
@@ -15,8 +17,9 @@ export interface MachineFormState {
   productionLineId: string;
   operationTypeId: string;
   defaultCostCenterId: string;
-  technicalAdministrationId: string;
-  technicalDepartmentId: string;
+  dedicatedCostCenterType: string;
+  dedicatedCostCenterDescription: string;
+  dedicatedCostCenterReady: boolean;
   model: string;
   serialNumber: string;
   manufacturer: string;
@@ -34,8 +37,9 @@ export const EMPTY_MACHINE_FORM: MachineFormState = {
   productionLineId: '',
   operationTypeId: '',
   defaultCostCenterId: '',
-  technicalAdministrationId: '',
-  technicalDepartmentId: '',
+  dedicatedCostCenterType: 'PRODUCTION',
+  dedicatedCostCenterDescription: '',
+  dedicatedCostCenterReady: false,
   model: '',
   serialNumber: '',
   manufacturer: '',
@@ -58,8 +62,9 @@ export function mapMachineToForm(machine: Machine): MachineFormState {
     productionLineId: machine.productionLineId || '',
     operationTypeId: machine.operationTypeId || '',
     defaultCostCenterId: machine.defaultCostCenterId || '',
-    technicalAdministrationId: machine.technicalAdministrationId || '',
-    technicalDepartmentId: machine.technicalDepartmentId || '',
+    dedicatedCostCenterType: 'PRODUCTION',
+    dedicatedCostCenterDescription: '',
+    dedicatedCostCenterReady: Boolean(machine.defaultCostCenterId),
     model: machine.model || '',
     serialNumber: machine.serialNumber || '',
     manufacturer: machine.manufacturer || '',
@@ -72,21 +77,59 @@ export function isMachineReadOnly(status?: string): boolean {
   return status === 'INACTIVE' || status === 'SCRAPPED' || status === 'OUT_OF_SERVICE';
 }
 
+// R5 save gate: a machine may be saved only when a dedicated cost center exists
+// (staged for a new/legacy machine, or already linked on an edited machine).
+export function machineCostCenterSatisfied(form: MachineFormState, existingCcId?: string | null): boolean {
+  if (form.defaultCostCenterId) return true;
+  if (existingCcId) return true;
+  return form.dedicatedCostCenterReady;
+}
+
+// Localized validation shared by the list modal + direct create/edit routes
+// (single source of the R5 machine-name + dedicated-cost-center business rules).
+export function machineFormFieldErrors(
+  form: MachineFormState,
+  t: (key: string) => string,
+  mode: 'create' | 'edit',
+  existingCcId?: string | null,
+): Record<string, string> {
+  const errs: Record<string, string> = {};
+  if (!form.name.trim()) errs.name = t('validation.required');
+  if (mode === 'create' ? !machineCostCenterSatisfied(form) : !machineCostCenterSatisfied(form, existingCcId)) {
+    errs.dedicatedCostCenter = t('maintenance.machineNeedCostCenter');
+  }
+  return errs;
+}
+
+// Builds the nested dedicatedCostCenter payload that the backend creates
+// atomically together with the machine (name always = machine name).
+export function machineDedicatedCcPayload(form: MachineFormState): { name: string; type: string; description?: string } | null {
+  if (!form.dedicatedCostCenterReady) return null;
+  const cc: { name: string; type: string; description?: string } = {
+    name: form.name.trim(),
+    type: form.dedicatedCostCenterType || 'PRODUCTION',
+  };
+  if (form.dedicatedCostCenterDescription.trim()) cc.description = form.dedicatedCostCenterDescription.trim();
+  return cc;
+}
+
 interface MachineFormProps {
   form: MachineFormState;
-  setForm: Dispatch<SetStateAction<MachineFormState>>;
+  setForm: React.Dispatch<React.SetStateAction<MachineFormState>>;
   errors: Record<string, string>;
   mode?: 'create' | 'edit';
   isReadOnly?: boolean;
   status?: string;
   createdAt?: string;
   updatedAt?: string;
+  existingCostCenterName?: string;
   onFieldChange?: () => void;
 }
 
-export function MachineForm({ form, setForm, errors, mode = 'create', isReadOnly = false, status, createdAt, updatedAt, onFieldChange }: MachineFormProps) {
-  const { t } = useTranslation();
+export function MachineForm({ form, setForm, errors, mode = 'create', isReadOnly = false, status, createdAt, updatedAt, existingCostCenterName, onFieldChange }: MachineFormProps) {
+  const { t, dir } = useTranslation();
   const readOnly = Boolean(isReadOnly);
+  const [ccModalOpen, setCcModalOpen] = useState(false);
 
   const setField = (field: keyof MachineFormState, value: any) => {
     if (readOnly) return;
@@ -98,9 +141,23 @@ export function MachineForm({ form, setForm, errors, mode = 'create', isReadOnly
         next.productionLineId = '';
       }
       if (field === 'branchId') next.departmentId = '';
-      if (field === 'technicalAdministrationId') next.technicalDepartmentId = '';
       return next;
     });
+    onFieldChange?.();
+  };
+
+  const ccTypeLabel = (type: string) => {
+    const key = `maintenance.costCenterTypes.${type}`;
+    const localized = t(key);
+    const fallback = dir === 'rtl' ? 'تعذر عرض النص المطلوب.' : 'The requested text could not be displayed.';
+    return localized && localized !== key && localized !== fallback ? localized : type;
+  };
+
+  const hasLinkedCostCenter = Boolean(form.defaultCostCenterId);
+
+  const confirmDedicatedCostCenter = () => {
+    setForm((prev) => ({ ...prev, dedicatedCostCenterReady: true }));
+    setCcModalOpen(false);
     onFieldChange?.();
   };
 
@@ -147,12 +204,31 @@ export function MachineForm({ form, setForm, errors, mode = 'create', isReadOnly
         <F9Lookup label={t('maintenance.operationType')} value={form.operationTypeId} onChange={(v) => setField('operationTypeId', v)} adapter={operationTypeAdapter} error={errors.operationTypeId} disabled={readOnly} />
       </div>
 
-      <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.technicalAdministration')}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <F9Lookup label={t('maintenance.technicalAdministration')} value={form.technicalAdministrationId} onChange={(v) => setField('technicalAdministrationId', v)} adapter={administrationAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} error={errors.technicalAdministrationId} disabled={readOnly} />
-        <F9Lookup label={t('maintenance.technicalDepartment')} value={form.technicalDepartmentId} onChange={(v) => setField('technicalDepartmentId', v)} adapter={departmentAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}), ...(form.technicalAdministrationId ? { administrationId: form.technicalAdministrationId } : {}) }} error={errors.technicalDepartmentId} disabled={readOnly} />
-      </div>
-      <F9Lookup label={t('maintenance.defaultCostCenter')} value={form.defaultCostCenterId} onChange={(v) => setField('defaultCostCenterId', v)} adapter={costCenterAdapter} filters={{ ...(form.technicalAdministrationId ? { administrationId: form.technicalAdministrationId } : {}) }} error={errors.defaultCostCenterId} disabled={readOnly} />
+      <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.costCenters')}</h2>
+      {hasLinkedCostCenter ? (
+        <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 text-sm">
+          <span className="font-medium">{t('maintenance.machineCostCenterLinked')}:</span>{' '}
+          <strong>{existingCostCenterName || form.defaultCostCenterId}</strong>
+        </div>
+      ) : !readOnly ? (
+        <div className="rounded-lg border border-dashed border-gray-300 p-4 space-y-3">
+          <p className="text-xs text-gray-500">{t('maintenance.machineCostCenterNameAuto')}</p>
+          {!form.name.trim() && <p className="text-sm text-amber-600">{t('maintenance.enterMachineNameFirst')}</p>}
+          {form.dedicatedCostCenterReady ? (
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm">
+                <span className="text-green-600 font-medium">{t('maintenance.machineCostCenterReady')}</span>
+                <span className="text-gray-500"> — {ccTypeLabel(form.dedicatedCostCenterType)}</span>
+              </div>
+              <Button variant="secondary" onClick={() => setCcModalOpen(true)}>{t('maintenance.editCostCenter')}</Button>
+              <Button variant="secondary" onClick={() => setForm((prev) => ({ ...prev, dedicatedCostCenterReady: false }))}>{t('maintenance.removeMachineCostCenter')}</Button>
+            </div>
+          ) : (
+            <Button disabled={!form.name.trim()} onClick={() => setCcModalOpen(true)}>{t('maintenance.createMachineCostCenter')}</Button>
+          )}
+          {errors.dedicatedCostCenter && <p className="text-red-500 text-sm">{errors.dedicatedCostCenter}</p>}
+        </div>
+      ) : null}
 
       <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('complexForms.technicalInformation')}</h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -172,6 +248,24 @@ export function MachineForm({ form, setForm, errors, mode = 'create', isReadOnly
           </div>
         </div>
       )}
+
+      <Modal open={ccModalOpen} onClose={() => setCcModalOpen(false)} title={t('maintenance.createMachineCostCenter')} size="sm">
+        <div className="space-y-4">
+          <p className="text-xs text-gray-500">{t('maintenance.machineCostCenterNameAuto')}</p>
+          <Input label={t('maintenance.name')} value={form.name} disabled />
+          <Select
+            label={t('maintenance.type')}
+            value={form.dedicatedCostCenterType}
+            onChange={(e) => setForm((prev) => ({ ...prev, dedicatedCostCenterType: e.target.value }))}
+            options={MACHINE_CC_TYPES.map((type) => ({ value: type, label: ccTypeLabel(type) }))}
+          />
+          <Input label={t('maintenance.description')} value={form.dedicatedCostCenterDescription} onChange={(e) => setForm((prev) => ({ ...prev, dedicatedCostCenterDescription: e.target.value }))} />
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="secondary" onClick={() => setCcModalOpen(false)}>{t('actions.cancel')}</Button>
+            <Button onClick={confirmDedicatedCostCenter}>{t('actions.confirm')}</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

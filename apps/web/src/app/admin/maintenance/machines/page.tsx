@@ -11,7 +11,7 @@ import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/ad
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
-import { MachineForm, MachineFormState, createMachineForm, mapMachineToForm, isMachineReadOnly } from './machine-form';
+import { MachineForm, MachineFormState, createMachineForm, mapMachineToForm, isMachineReadOnly, machineFormFieldErrors, machineDedicatedCcPayload } from './machine-form';
 
 interface MachinePayload {
   name?: string;
@@ -21,9 +21,7 @@ interface MachinePayload {
   departmentId?: string | null;
   productionLineId?: string | null;
   operationTypeId?: string | null;
-  defaultCostCenterId?: string | null;
-  technicalAdministrationId?: string | null;
-  technicalDepartmentId?: string | null;
+  dedicatedCostCenter?: { name: string; type: string; description?: string } | null;
   model?: string | null;
   serialNumber?: string | null;
   manufacturer?: string | null;
@@ -86,9 +84,8 @@ export default function MachinesPage() {
         if (currentForm.departmentId) payload.departmentId = currentForm.departmentId;
         if (currentForm.productionLineId) payload.productionLineId = currentForm.productionLineId;
         if (currentForm.operationTypeId) payload.operationTypeId = currentForm.operationTypeId;
-        if (currentForm.defaultCostCenterId) payload.defaultCostCenterId = currentForm.defaultCostCenterId;
-        if (currentForm.technicalAdministrationId) payload.technicalAdministrationId = currentForm.technicalAdministrationId;
-        if (currentForm.technicalDepartmentId) payload.technicalDepartmentId = currentForm.technicalDepartmentId;
+        const dedicatedCostCenter = machineDedicatedCcPayload(currentForm);
+        if (dedicatedCostCenter) payload.dedicatedCostCenter = dedicatedCostCenter;
         if (currentForm.model.trim()) payload.model = currentForm.model.trim();
         if (currentForm.serialNumber.trim()) payload.serialNumber = currentForm.serialNumber.trim();
         if (currentForm.manufacturer.trim()) payload.manufacturer = currentForm.manufacturer.trim();
@@ -105,9 +102,12 @@ export default function MachinesPage() {
       if (currentForm.departmentId !== detail?.departmentId) payload.departmentId = currentForm.departmentId || null;
       if (currentForm.productionLineId !== detail?.productionLineId) payload.productionLineId = currentForm.productionLineId || null;
       if (currentForm.operationTypeId !== detail?.operationTypeId) payload.operationTypeId = currentForm.operationTypeId || null;
-      if (currentForm.defaultCostCenterId !== detail?.defaultCostCenterId) payload.defaultCostCenterId = currentForm.defaultCostCenterId || null;
-      if (currentForm.technicalAdministrationId !== detail?.technicalAdministrationId) payload.technicalAdministrationId = currentForm.technicalAdministrationId || null;
-      if (currentForm.technicalDepartmentId !== detail?.technicalDepartmentId) payload.technicalDepartmentId = currentForm.technicalDepartmentId || null;
+      // Legacy machines without a cost center attach one on edit (atomic), but
+      // an existing cost center is preserved and never replaced.
+      if (!detail?.defaultCostCenterId) {
+        const dedicatedCostCenter = machineDedicatedCcPayload(currentForm);
+        if (dedicatedCostCenter) payload.dedicatedCostCenter = dedicatedCostCenter;
+      }
       if (currentForm.model !== detail?.model) payload.model = currentForm.model.trim() || null;
       if (currentForm.serialNumber !== detail?.serialNumber) payload.serialNumber = currentForm.serialNumber.trim() || null;
       if (currentForm.manufacturer !== detail?.manufacturer) payload.manufacturer = currentForm.manufacturer.trim() || null;
@@ -115,9 +115,11 @@ export default function MachinesPage() {
       if (currentForm.notes !== detail?.notes) payload.notes = currentForm.notes.trim() || null;
       return payload;
     },
-    validate: (currentForm) => {
-      if (!currentForm.name.trim()) return { message: t('validation.required'), fieldErrors: { name: t('validation.required') } };
-      return null;
+    validate: (currentForm, context) => {
+      const errs = machineFormFieldErrors(currentForm, t, context.mode, (context.record as Machine)?.defaultCostCenterId);
+      const keys = Object.keys(errs);
+      if (keys.length === 0) return null;
+      return { message: errs[keys[0]], fieldErrors: errs };
     },
     errorMessage: (operation: CrudOperation) => {
       if (operation === 'list' || operation === 'detail') return t('errors.loadFailed');
@@ -197,8 +199,7 @@ export default function MachinesPage() {
     { key: 'category', header: t('maintenance.machineCategory'), render: (m: Machine) => m.category?.name || '-' },
     { key: 'productionLine', header: t('maintenance.productionLine'), render: (m: Machine) => m.productionLine?.name || '-' },
     { key: 'operationType', header: t('maintenance.operationType'), render: (m: Machine) => m.operationType?.name || '-' },
-    { key: 'technicalDepartment', header: t('maintenance.technicalDepartment'), render: (m: Machine) => m.technicalDepartment?.name || '-' },
-    { key: 'costCenter', header: t('maintenance.defaultCostCenter'), render: (m: Machine) => m.defaultCostCenter?.name || '-' },
+    { key: 'costCenter', header: t('maintenance.costCenter'), render: (m: Machine) => m.defaultCostCenter?.name || '-' },
     { key: 'status', header: t('common.status'), render: (m: Machine) => <StatusBadge status={m.status} /> },
   ];
 
@@ -251,6 +252,7 @@ export default function MachinesPage() {
               status={editRecord?.status}
               createdAt={editRecord?.createdAt}
               updatedAt={editRecord?.updatedAt}
+              existingCostCenterName={editRecord?.defaultCostCenter?.name}
             />
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
               <Button variant="secondary" onClick={() => { closeFormModal(); setValidationErrors({}); }}>{t('actions.cancel')}</Button>

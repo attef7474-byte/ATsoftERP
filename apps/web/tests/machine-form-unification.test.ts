@@ -19,8 +19,11 @@ describe('Machine create/edit modal unification', () => {
 
     it('the shared form contains the full editable field set (no duplicated raw forms)', () => {
       const form = read(FORM);
-      const fields = ['name', 'categoryId', 'companyId', 'branchId', 'departmentId', 'productionLineId', 'operationTypeId', 'defaultCostCenterId', 'technicalAdministrationId', 'technicalDepartmentId', 'model', 'serialNumber', 'manufacturer', 'location', 'notes'];
+      const fields = ['name', 'categoryId', 'companyId', 'branchId', 'departmentId', 'productionLineId', 'operationTypeId', 'defaultCostCenterId', 'dedicatedCostCenterType', 'dedicatedCostCenterReady', 'model', 'serialNumber', 'manufacturer', 'location', 'notes'];
       for (const f of fields) expect(form).toContain(f);
+      // R5: technical administration / technical department are removed from the machine form.
+      expect(form).not.toContain('technicalAdministrationId');
+      expect(form).not.toContain('technicalDepartmentId');
     });
 
     it('the list page no longer inlines a duplicate create/edit form JSX', () => {
@@ -87,7 +90,7 @@ describe('Machine create/edit modal unification', () => {
       expect(form).toContain('mapMachineToForm');
       expect(form).toContain('machine.categoryId || ');
       expect(form).toContain('machine.productionLineId || ');
-      expect(form).toContain('machine.technicalDepartmentId || ');
+      expect(form).toContain('machine.defaultCostCenterId || ');
       expect(form).toContain("code: machine.code || ''");
     });
 
@@ -126,21 +129,22 @@ describe('Machine create/edit modal unification', () => {
   describe('I. lookups preserved and shared', () => {
     it('MachineForm uses every required adapter and dependent filters', () => {
       const form = read(FORM);
-      ['machineCategoryAdapter', 'companyAdapter', 'branchAdapter', 'departmentAdapter', 'productionLineAdapter', 'operationTypeAdapter', 'costCenterAdapter', 'administrationAdapter'].forEach((a) => expect(form).toContain(a));
-      expect(form).toContain('technicalAdministrationId');
-      expect(form).toContain('administrationId: form.technicalAdministrationId');
+      ['machineCategoryAdapter', 'companyAdapter', 'branchAdapter', 'departmentAdapter', 'productionLineAdapter', 'operationTypeAdapter'].forEach((a) => expect(form).toContain(a));
+      expect(form).toContain('operationTypeId');
+      expect(form).toContain('departmentId');
     });
   });
 
   describe('J. dependent field reset rules preserved', () => {
-    it('company resets branch/department/line; branch resets department; admin resets tech department', () => {
+    it('company resets branch/department/line; branch resets department; tech-admin cascade removed', () => {
       const form = read(FORM);
       expect(form).toContain("if (field === 'companyId')");
       expect(form).toContain('next.branchId = \'\'');
       expect(form).toContain('next.departmentId = \'\'');
       expect(form).toContain('next.productionLineId = \'\'');
       expect(form).toContain("if (field === 'branchId') next.departmentId = ''");
-      expect(form).toContain("if (field === 'technicalAdministrationId') next.technicalDepartmentId = ''");
+      expect(form).not.toContain('technicalAdministrationId');
+      expect(form).not.toContain('technicalDepartmentId');
     });
   });
 
@@ -206,7 +210,7 @@ describe('Machine create/edit modal unification', () => {
       const form = read(FORM);
       const create = read(CREATE_ROUTE);
       const edit = read(EDIT_ROUTE);
-      const fields = ['name', 'categoryId', 'companyId', 'branchId', 'departmentId', 'productionLineId', 'operationTypeId', 'defaultCostCenterId', 'technicalAdministrationId', 'technicalDepartmentId', 'model', 'serialNumber', 'manufacturer', 'location', 'notes'];
+      const fields = ['name', 'categoryId', 'companyId', 'branchId', 'departmentId', 'productionLineId', 'operationTypeId', 'defaultCostCenterId', 'model', 'serialNumber', 'manufacturer', 'location', 'notes'];
       for (const f of fields) {
         expect(form).toContain(f);
         expect(create).not.toContain(`onChange={(e) => setField('${f}'`);

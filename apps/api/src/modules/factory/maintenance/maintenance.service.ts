@@ -3,6 +3,7 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import { CreateMachineDto, UpdateMachineDto, CreateMachinePartDto, CreateMachineDocumentDto, UpdateMachineLocationDto, UpdateMachineManufacturerDto, UpdateMachineWarrantyDto, UpdateMachineImageDto } from './dto/maintenance.dto';
+import { CostCentersService } from './cost-centers/cost-centers.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class MaintenanceService {
     private prisma: PrismaService,
     private numberingService: NumberingService,
     private auditService: AuditService,
+    private costCenters: CostCentersService,
   ) {}
 
   private validationError(field: string, code: string, message: string): BadRequestException {
@@ -90,6 +92,21 @@ export class MaintenanceService {
   }
 
   async createMachine(dto: CreateMachineDto, userId: string, ctx: ActiveOperationalContext) {
+    const { dedicatedCostCenter, ...machinePayload } = dto as any;
+    if (!dedicatedCostCenter) {
+      return this.createMachineStandalone(machinePayload, userId, ctx);
+    }
+    // Atomic: create the dedicated cost center + the machine in ONE transaction.
+    // If either fails the other rolls back (no orphan cost center).
+    return this.prisma.$transaction(async (tx) => {
+      const cc = await this.costCenters.createDedicatedCostCenter(tx, dedicatedCostCenter, ctx, userId);
+      const machine = await this.createMachineRecord(tx, machinePayload, ctx, cc.id);
+      await this.auditService.log(userId, 'CREATE', 'Machine', machine.id, { message: `Created machine: ${machine.code}` });
+      return machine;
+    });
+  }
+
+  private async createMachineStandalone(dto: any, userId: string, ctx: ActiveOperationalContext) {
     const dataDto: any = { ...dto };
     dataDto.companyId = ctx.companyId;
     dataDto.branchId = ctx.branchId;
@@ -105,20 +122,45 @@ export class MaintenanceService {
         purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
         warrantyEnd: warrantyEnd ? new Date(warrantyEnd) : undefined,
       },
-      include: {
-        category: { select: { id: true, name: true, code: true } },
-        company: { select: { id: true, name: true } },
-        branch: { select: { id: true, name: true } },
-        department: { select: { id: true, name: true, classification: true } },
-        productionLine: { select: { id: true, name: true, code: true } },
-        operationType: { select: { id: true, name: true, code: true } },
-        defaultCostCenter: { select: { id: true, name: true, code: true } },
-        technicalAdministration: { select: { id: true, name: true } },
-        technicalDepartment: { select: { id: true, name: true } },
-      },
+      include: this.machineInclude(),
     });
     await this.auditService.log(userId, 'CREATE', 'Machine', machine.id, { message: `Created machine: ${machine.code}` });
     return machine;
+  }
+
+  private machineInclude() {
+    return {
+      category: { select: { id: true, name: true, code: true } },
+      company: { select: { id: true, name: true } },
+      branch: { select: { id: true, name: true } },
+      department: { select: { id: true, name: true, classification: true } },
+      productionLine: { select: { id: true, name: true, code: true } },
+      operationType: { select: { id: true, name: true, code: true } },
+      defaultCostCenter: { select: { id: true, name: true, code: true } },
+      technicalAdministration: { select: { id: true, name: true } },
+      technicalDepartment: { select: { id: true, name: true } },
+    };
+  }
+
+  private async createMachineRecord(client: any, dto: any, ctx: ActiveOperationalContext, costCenterId?: string) {
+    const dataDto: any = { ...dto };
+    dataDto.companyId = ctx.companyId;
+    dataDto.branchId = ctx.branchId;
+    if (costCenterId) dataDto.defaultCostCenterId = costCenterId;
+    const code = dataDto.code?.trim() || await this.numberingService.generateNumberAtomicWithClient('MACHINE', client);
+    const existing = await client.machine.findUnique({ where: { code } });
+    if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Machine code already exists');
+    await this.validateMachineReferences(dataDto, undefined, ctx);
+    const { purchaseDate, warrantyEnd, ...rest } = dataDto;
+    return client.machine.create({
+      data: {
+        ...rest,
+        code,
+        purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
+        warrantyEnd: warrantyEnd ? new Date(warrantyEnd) : undefined,
+      },
+      include: this.machineInclude(),
+    });
   }
 
   async findAllMachines(query: { page?: number; limit?: number; search?: string; categoryId?: string; companyId?: string; branchId?: string; administrationId?: string; departmentId?: string; productionLineId?: string; operationTypeId?: string; status?: string }, ctx: ActiveOperationalContext) {
@@ -185,29 +227,35 @@ export class MaintenanceService {
   }
 
   async updateMachine(id: string, dto: UpdateMachineDto, userId: string, ctx: ActiveOperationalContext) {
+    const { dedicatedCostCenter, ...machinePayload } = dto as any;
     const existing = await this.findOneMachine(id, ctx);
-    if (dto.code && dto.code !== existing.code) {
+    if (machinePayload.code && machinePayload.code !== existing.code) {
       throw this.validationError('code', 'validation.invalidValue', 'Code cannot be changed after creation');
     }
-    await this.validateMachineReferences(dto, existing, ctx);
+
+    // Legacy machines without a cost center can attach a dedicated cost center
+    // atomically on edit: cost center + machine update commit/roll back together.
+    if (dedicatedCostCenter) {
+      return this.prisma.$transaction(async (tx) => {
+        const cc = await this.costCenters.createDedicatedCostCenter(tx, dedicatedCostCenter, ctx, userId);
+        await this.validateMachineReferences({ ...machinePayload, defaultCostCenterId: cc.id }, existing, ctx);
+        return this.updateMachineRecord(tx, id, { ...machinePayload, defaultCostCenterId: cc.id }, userId, ctx);
+      });
+    }
+
+    await this.validateMachineReferences(machinePayload, existing, ctx);
+    return this.updateMachineRecord(this.prisma, id, machinePayload, userId, ctx);
+  }
+
+  private async updateMachineRecord(client: any, id: string, dto: any, userId: string, ctx: ActiveOperationalContext) {
     const { code, purchaseDate, warrantyEnd, ...rest } = dto as any;
     const data: any = { ...rest };
     if (purchaseDate) data.purchaseDate = new Date(purchaseDate);
     if (warrantyEnd) data.warrantyEnd = new Date(warrantyEnd);
-    const machine = await this.prisma.machine.update({
+    const machine = await client.machine.update({
       where: { id },
       data,
-      include: {
-        category: { select: { id: true, name: true, code: true } },
-        company: { select: { id: true, name: true } },
-        branch: { select: { id: true, name: true } },
-        department: { select: { id: true, name: true, classification: true } },
-        productionLine: { select: { id: true, name: true, code: true } },
-        operationType: { select: { id: true, name: true, code: true } },
-        defaultCostCenter: { select: { id: true, name: true, code: true } },
-        technicalAdministration: { select: { id: true, name: true } },
-        technicalDepartment: { select: { id: true, name: true } },
-      },
+      include: this.machineInclude(),
     });
     await this.auditService.log(userId, 'UPDATE', 'Machine', id, { message: `Updated machine: ${machine.code}` });
     return machine;

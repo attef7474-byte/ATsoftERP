@@ -9,7 +9,7 @@ import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefre
 import type { Machine } from '../../../../../../lib/admin-types';
 import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
 import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../../lib/form-validation';
-import { MachineForm, MachineFormState, mapMachineToForm, createMachineForm, isMachineReadOnly } from '../../machine-form';
+import { MachineForm, MachineFormState, mapMachineToForm, createMachineForm, isMachineReadOnly, machineFormFieldErrors, machineDedicatedCcPayload } from '../../machine-form';
 
 export default function EditMachinePage() {
   const { t } = useTranslation();
@@ -44,8 +44,7 @@ export default function EditMachinePage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const validate = () => {
-    const errs: Record<string, string> = {};
-    if (!form.name.trim()) errs.name = t('validation.required');
+    const errs = machineFormFieldErrors(form, t, 'edit', data?.defaultCostCenterId);
     setErrors(errs);
     focusFirstInvalidField(Object.entries(errs).map(([field, message]) => ({ field, code: 'validation.required', message })));
     return Object.keys(errs).length === 0;
@@ -63,9 +62,10 @@ export default function EditMachinePage() {
       if (form.departmentId !== data?.departmentId) payload.departmentId = form.departmentId || null;
       if (form.productionLineId !== data?.productionLineId) payload.productionLineId = form.productionLineId || null;
       if (form.operationTypeId !== data?.operationTypeId) payload.operationTypeId = form.operationTypeId || null;
-      if (form.defaultCostCenterId !== data?.defaultCostCenterId) payload.defaultCostCenterId = form.defaultCostCenterId || null;
-      if (form.technicalAdministrationId !== data?.technicalAdministrationId) payload.technicalAdministrationId = form.technicalAdministrationId || null;
-      if (form.technicalDepartmentId !== data?.technicalDepartmentId) payload.technicalDepartmentId = form.technicalDepartmentId || null;
+      if (!data?.defaultCostCenterId) {
+        const dedicatedCostCenter = machineDedicatedCcPayload(form);
+        if (dedicatedCostCenter) payload.dedicatedCostCenter = dedicatedCostCenter;
+      }
       if (form.model !== data?.model) payload.model = form.model.trim() || null;
       if (form.serialNumber !== data?.serialNumber) payload.serialNumber = form.serialNumber.trim() || null;
       if (form.manufacturer !== data?.manufacturer) payload.manufacturer = form.manufacturer.trim() || null;
@@ -123,6 +123,7 @@ export default function EditMachinePage() {
             status={data.status}
             createdAt={data.createdAt}
             updatedAt={data.updatedAt}
+            existingCostCenterName={data.defaultCostCenter?.name}
             onFieldChange={() => setDirty(true)}
           />
         </CardContent>

@@ -105,8 +105,8 @@ describe('CostCentersService', () => {
       department: { findUnique: jest.fn() },
       administration: { findUnique: jest.fn() },
     };
-    audit = { log: jest.fn().mockResolvedValue(undefined) };
-    numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('CC-000001') };
+    audit = { log: jest.fn().mockResolvedValue(undefined), logWithClient: jest.fn().mockResolvedValue(undefined) };
+    numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('CC-000001'), generateNumberAtomicWithClient: jest.fn().mockResolvedValue('CC-000001') };
     resolver = { resolve: jest.fn() };
     service = new CostCentersService(prisma, audit, numbering, resolver);
   });
@@ -864,6 +864,52 @@ describe('CostCentersService', () => {
 
       expect(resolver.resolve).toHaveBeenCalledWith({ resourceType: 'MACHINE', machineId: 'm1' }, ctxA);
       expect(result).toBe(resolved);
+    });
+  });
+
+  describe('createDedicatedCostCenter (shared atomic core)', () => {
+    const makeTx = () => ({
+      costCenter: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(({ data }: any) => Promise.resolve(costCenter({ ...data, id: 'cc-new' }))),
+      },
+      department: { findUnique: jest.fn().mockResolvedValue(null) },
+      administration: { findUnique: jest.fn().mockResolvedValue(null) },
+    });
+
+    it('creates a cost center via the provided transaction client with canonical rules', async () => {
+      const tx = makeTx();
+      const result = await service.createDedicatedCostCenter(tx, { name: 'Lathe', type: 'PRODUCTION' }, ctxA, 'u1');
+
+      expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledWith('COST_CENTER', tx);
+      expect(tx.costCenter.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ name: 'Lathe', type: 'PRODUCTION', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' }),
+      }));
+      expect(audit.logWithClient).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'CREATE', userId: 'u1', entity: 'CostCenter' }));
+      expect(result.id).toBe('cc-new');
+    });
+
+    it('rejects a cost center for a foreign company (tenant isolation), creating nothing', async () => {
+      const tx = makeTx();
+      await expect(service.createDedicatedCostCenter(tx, { name: 'X', type: 'PRODUCTION', companyId: 'c2' }, ctxA, 'u1'))
+        .rejects.toThrow(ForbiddenException);
+      expect(tx.costCenter.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a department that belongs to another company', async () => {
+      const tx = makeTx();
+      tx.department.findUnique.mockResolvedValue({ id: 'deptX', companyId: 'c2', branchId: 'b2', administrationId: null });
+      await expect(service.createDedicatedCostCenter(tx, { name: 'X', type: 'PRODUCTION', departmentId: 'deptX' }, ctxA, 'u1'))
+        .rejects.toThrow(BadRequestException);
+      expect(tx.costCenter.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a duplicate code within the tenant (atomic rule), creating nothing', async () => {
+      const tx = makeTx();
+      tx.costCenter.findFirst.mockResolvedValue({ id: 'cc-exists', code: 'CC-000001' });
+      await expect(service.createDedicatedCostCenter(tx, { name: 'Dup', type: 'PRODUCTION' }, ctxA, 'u1'))
+        .rejects.toThrow(ConflictException);
+      expect(tx.costCenter.create).not.toHaveBeenCalled();
     });
   });
 });

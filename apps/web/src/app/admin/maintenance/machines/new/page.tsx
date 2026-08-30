@@ -8,7 +8,7 @@ import { Card, CardContent } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionSaveIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../lib/form-validation';
-import { MachineForm, MachineFormState, createMachineForm } from '../machine-form';
+import { MachineForm, MachineFormState, createMachineForm, machineFormFieldErrors, machineDedicatedCcPayload } from '../machine-form';
 
 export default function CreateMachinePage() {
   const { t } = useTranslation();
@@ -21,8 +21,7 @@ export default function CreateMachinePage() {
   const [dirty, setDirty] = useState(false);
 
   const validate = () => {
-    const errs: Record<string, string> = {};
-    if (!form.name.trim()) errs.name = t('validation.required');
+    const errs = machineFormFieldErrors(form, t, 'create');
     setErrors(errs);
     focusFirstInvalidField(Object.entries(errs).map(([field, message]) => ({ field, code: 'validation.required', message })));
     return Object.keys(errs).length === 0;
@@ -39,9 +38,8 @@ export default function CreateMachinePage() {
       if (form.departmentId) payload.departmentId = form.departmentId;
       if (form.productionLineId) payload.productionLineId = form.productionLineId;
       if (form.operationTypeId) payload.operationTypeId = form.operationTypeId;
-      if (form.defaultCostCenterId) payload.defaultCostCenterId = form.defaultCostCenterId;
-      if (form.technicalAdministrationId) payload.technicalAdministrationId = form.technicalAdministrationId;
-      if (form.technicalDepartmentId) payload.technicalDepartmentId = form.technicalDepartmentId;
+      const dedicatedCostCenter = machineDedicatedCcPayload(form);
+      if (dedicatedCostCenter) payload.dedicatedCostCenter = dedicatedCostCenter;
       if (form.model.trim()) payload.model = form.model.trim();
       if (form.serialNumber.trim()) payload.serialNumber = form.serialNumber.trim();
       if (form.manufacturer.trim()) payload.manufacturer = form.manufacturer.trim();
