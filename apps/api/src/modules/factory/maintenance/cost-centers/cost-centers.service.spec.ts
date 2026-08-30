@@ -466,6 +466,117 @@ describe('CostCentersService', () => {
         expect(result).toBeTruthy();
       });
     });
+
+    describe('unchanged edit runtime matrix (task R2, live CC shapes)', () => {
+      const nullShape = () => costCenter({ effectiveFrom: null, effectiveTo: null, parentId: null, isPrimary: false });
+      const datedShape = () =>
+        costCenter({
+          effectiveFrom: new Date('2026-08-30T00:00:00.000Z'),
+          effectiveTo: null,
+          parentId: null,
+          isPrimary: true,
+        });
+
+      beforeEach(() => {
+        prisma.costCenter.update.mockImplementation(({ data }: any) =>
+          Promise.resolve(costCenter({ ...data })),
+        );
+      });
+
+      it('A. unchanged parent: stored null equals blank AND undefined representation', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(nullShape());
+
+        await service.update('cc1', { parentId: '' }, 'u1', ctxA); // frontend sends ''
+        expect(prisma.costCenter.update).toHaveBeenCalled();
+
+        prisma.costCenter.update.mockClear();
+        await service.update('cc1', { name: 'Main' }, 'u1', ctxA); // parentId not sent
+        expect(prisma.costCenter.update).toHaveBeenCalled();
+      });
+
+      it('B. unchanged effectiveFrom: date-only equals the stored midnight-UTC ISO', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(datedShape());
+
+        await service.update('cc1', { effectiveFrom: '2026-08-30' }, 'u1', ctxA);
+        expect(prisma.costCenter.update).toHaveBeenCalled();
+      });
+
+      it('C. unchanged effectiveTo: stored null equals blank representation', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(datedShape());
+
+        await service.update('cc1', { effectiveTo: '' }, 'u1', ctxA);
+        expect(prisma.costCenter.update).toHaveBeenCalled();
+      });
+
+      it('D. unchanged isPrimary: false stays false and is never confused with undefined', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(nullShape());
+
+        await service.update('cc1', { isPrimary: false }, 'u1', ctxA);
+        expect(prisma.costCenter.update).toHaveBeenCalled();
+
+        prisma.costCenter.update.mockClear();
+        await service.update('cc1', { name: 'Main' }, 'u1', ctxA); // isPrimary not sent
+        expect(prisma.costCenter.update).toHaveBeenCalled();
+      });
+
+      it('E. live CC-000009 shape: FULL unchanged edit is NOT sensitive and succeeds without reason', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(datedShape());
+
+        const result = await service.update(
+          'cc1',
+          {
+            name: 'Main',
+            type: 'PRODUCTION',
+            parentId: '',
+            effectiveFrom: '2026-08-30',
+            isPrimary: true,
+          },
+          'u1',
+          ctxA,
+        );
+
+        expect(result).toBeTruthy();
+        expect(prisma.costCenter.update).toHaveBeenCalled();
+      });
+
+      it('F. real parent change (null -> value, or value -> blank) still requires a reason', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(nullShape());
+        await expect(service.update('cc1', { parentId: 'p2' }, 'u1', ctxA)).rejects.toBeInstanceOf(BadRequestException);
+
+        prisma.costCenter.findFirst.mockResolvedValue(costCenter({ parentId: 'p1', isPrimary: false }));
+        await expect(service.update('cc1', { parentId: '' }, 'u1', ctxA)).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('G. real effectiveFrom change still requires a reason', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(datedShape());
+        await expect(service.update('cc1', { effectiveFrom: '2027-01-01' }, 'u1', ctxA)).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('H. real effectiveTo change still requires a reason', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(datedShape());
+        await expect(service.update('cc1', { effectiveTo: '2027-12-31' }, 'u1', ctxA)).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('I. real isPrimary change still requires a reason', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(nullShape());
+        await expect(service.update('cc1', { isPrimary: true }, 'u1', ctxA)).rejects.toBeInstanceOf(BadRequestException);
+        prisma.costCenter.findFirst.mockResolvedValue(costCenter({ isPrimary: true, effectiveFrom: null, effectiveTo: null }));
+        await expect(service.update('cc1', { isPrimary: false }, 'u1', ctxA)).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('K. live CC-000009 shape: a real effectiveFrom change WITH reason succeeds', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(datedShape());
+
+        const result = await service.update(
+          'cc1',
+          { effectiveFrom: '2027-01-01', reason: 'schedule shift' },
+          'u1',
+          ctxA,
+        );
+
+        expect(result).toBeTruthy();
+      });
+    });
   });
 
   describe('remove', () => {

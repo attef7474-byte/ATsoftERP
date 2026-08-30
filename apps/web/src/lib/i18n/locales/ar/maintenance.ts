@@ -495,6 +495,11 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         newAssignment: 'تخصيص جديد',
         editAssignment: 'تعديل التخصيص',
         resourceType: 'نوع المورد',
+        resourceTypeOptions: {
+            MACHINE: 'آلة',
+            LINE: 'خط إنتاج',
+            UNIT: 'وحدة',
+        },
         priorityHint: 'قيمة أقل = أولوية أعلى',
         selectLine: 'اختر خط إنتاج',
         selectUnit: 'اختر وحدة',

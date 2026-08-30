@@ -496,6 +496,11 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         newAssignment: 'New Assignment',
         editAssignment: 'Edit Assignment',
         resourceType: 'Resource Type',
+        resourceTypeOptions: {
+            MACHINE: 'Machine',
+            LINE: 'Production Line',
+            UNIT: 'Unit',
+        },
         priorityHint: 'Lower value = higher precedence',
         selectLine: 'Select Production Line',
         selectUnit: 'Select Production Unit',

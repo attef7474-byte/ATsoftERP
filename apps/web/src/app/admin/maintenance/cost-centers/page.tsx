@@ -63,6 +63,16 @@ export default function CostCentersPage() {
     [t, dir],
   );
 
+  const resourceTypeLabel = useCallback(
+    (type: string) => {
+      const key = `maintenance.resourceTypeOptions.${type}`;
+      const localized = t(key);
+      const fallback = dir === 'rtl' ? 'تعذر عرض النص المطلوب.' : 'The requested text could not be displayed.';
+      return localized && localized !== key && localized !== fallback ? localized : type;
+    },
+    [t, dir],
+  );
+
   const can = useCallback(
     (action: string) => isSuperAdmin || Boolean(permissions?.permissions.includes('operational-cost-center:' + action)),
     [isSuperAdmin, permissions],
@@ -588,7 +598,7 @@ export default function CostCentersPage() {
             label={t('maintenance.resourceType')}
             value={resolveForm.resourceType}
             onChange={(e) => setResolveForm({ ...resolveForm, resourceType: e.target.value, machineId: '', productionLineId: '', productionUnitId: '' })}
-            options={RESOURCE_TYPES.map((type) => ({ value: type, label: type }))}
+            options={RESOURCE_TYPES.map((type) => ({ value: type, label: resourceTypeLabel(type) }))}
           />
           {resolveForm.resourceType === 'MACHINE' && (
             <F9Lookup label={t('maintenance.selectMachine')} value={resolveForm.machineId} onChange={(v) => setResolveForm({ ...resolveForm, machineId: v })} adapter={machineAdapter} />
