@@ -787,15 +787,15 @@ describe('SupervisorAssignmentsService', () => {
 
   describe('getCurrentTeam', () => {
     it('returns DIRECT team members for a supervisor', async () => {
-      prisma.supervisorAssignment.findFirst
+      prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce({
           id: 'sa1',
-          assignment: {
-            person: { id: 'personA', name: 'Manager A', code: 'MGR-001' },
-            department: { id: 'dept1', name: 'Dept', code: 'D1' },
-            jobTitle: { id: 'jt1', name: 'Manager', code: 'MGR' },
-            branch: { id: 'branch-a', name: 'Branch A', code: 'BA' },
-          },
+          personnelId: 'personA',
+          branchId: 'branch-a',
+          person: { id: 'personA', name: 'Manager A', code: 'MGR-001' },
+          department: { id: 'dept1', name: 'Dept', code: 'D1' },
+          jobTitle: { id: 'jt1', name: 'Manager', code: 'MGR' },
+          branch: { id: 'branch-a', name: 'Branch A', code: 'BA' },
         });
       prisma.supervisorAssignment.findMany.mockResolvedValue([
         {
@@ -822,10 +822,15 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('excludes MATRIX and FUNCTIONAL from formal team', async () => {
-      prisma.supervisorAssignment.findFirst
+      prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce({
           id: 'sa1',
-          assignment: { person: { id: 'pA', name: 'M', code: 'M' }, department: {}, jobTitle: {}, branch: {} },
+          personnelId: 'pA',
+          branchId: 'branch-a',
+          person: { id: 'pA', name: 'M', code: 'M' },
+          department: {},
+          jobTitle: {},
+          branch: {},
         });
       prisma.supervisorAssignment.findMany
         .mockResolvedValueOnce([
@@ -838,10 +843,15 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('excludes expired DIRECT', async () => {
-      prisma.supervisorAssignment.findFirst
+      prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce({
           id: 'sa1',
-          assignment: { person: { id: 'pA', name: 'M', code: 'M' }, department: {}, jobTitle: {}, branch: {} },
+          personnelId: 'pA',
+          branchId: 'branch-a',
+          person: { id: 'pA', name: 'M', code: 'M' },
+          department: {},
+          jobTitle: {},
+          branch: {},
         });
       prisma.supervisorAssignment.findMany.mockResolvedValue([
         { assignmentId: 'pa3', isActive: true, deletedAt: null, effectiveFrom: new Date('2026-01-01'), effectiveTo: new Date('2026-06-30'),
@@ -853,15 +863,20 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('throws NotFoundException for missing supervisor', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
       await expect(service.getCurrentTeam('nope', ctx)).rejects.toThrow(NotFoundException);
     });
 
     it('uses asOf date for temporal filtering', async () => {
-      prisma.supervisorAssignment.findFirst
+      prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce({
           id: 'sa1',
-          assignment: { person: { id: 'pA', name: 'M', code: 'M' }, department: {}, jobTitle: {}, branch: {} },
+          personnelId: 'pA',
+          branchId: 'branch-a',
+          person: { id: 'pA', name: 'M', code: 'M' },
+          department: {},
+          jobTitle: {},
+          branch: {},
         });
       prisma.supervisorAssignment.findMany.mockResolvedValue([
         { assignmentId: 'pa3', isActive: true, deletedAt: null, effectiveFrom: new Date('2026-06-01'), effectiveTo: null,
@@ -879,13 +894,12 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('returns paginated candidates with eligibility', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue({
         id: 'sa1',
-        assignment: {
-          personnelId: 'personA',
-          person: { id: 'personA', name: 'Manager A', code: 'MGR-001' },
-          branch: { id: 'branch-a', name: 'Branch A', code: 'BA' },
-        },
+        personnelId: 'personA',
+        branchId: 'branch-a',
+        person: { id: 'personA', name: 'Manager A', code: 'MGR-001' },
+        branch: { id: 'branch-a', name: 'Branch A', code: 'BA' },
       });
       prisma.operationalPersonAssignment.findMany
         .mockResolvedValueOnce([
@@ -903,13 +917,12 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('identifies SELF candidates', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue({
         id: 'sa1',
-        assignment: {
-          personnelId: 'personA',
-          person: { id: 'personA', name: 'Manager A', code: 'M' },
-          branch: { id: 'branch-a' },
-        },
+        personnelId: 'personA',
+        branchId: 'branch-a',
+        person: { id: 'personA', name: 'Manager A', code: 'M' },
+        branch: { id: 'branch-a' },
       });
       prisma.operationalPersonAssignment.findMany
         .mockResolvedValueOnce([personAssignment('pa1', 'personA', { person: { id: 'personA', name: 'Manager A', code: 'M' }, department: {}, jobTitle: {}, branch: {}, administration: {} })]);
@@ -921,13 +934,12 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('identifies ALREADY_ON_THIS_TEAM', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue({
         id: 'sa1',
-        assignment: {
-          personnelId: 'personA',
-          person: { id: 'personA', name: 'M', code: 'M' },
-          branch: { id: 'branch-a' },
-        },
+        personnelId: 'personA',
+        branchId: 'branch-a',
+        person: { id: 'personA', name: 'M', code: 'M' },
+        branch: { id: 'branch-a' },
       });
       prisma.operationalPersonAssignment.findMany
         .mockResolvedValueOnce([personAssignment('pa3', 'personC', { person: { name: 'E', code: 'E' }, department: {}, jobTitle: {}, branch: {}, administration: {} })]);
@@ -941,13 +953,12 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('identifies HAS_OTHER_DIRECT_SUPERVISOR', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue({
         id: 'sa1',
-        assignment: {
-          personnelId: 'personA',
-          person: { id: 'personA', name: 'M', code: 'M' },
-          branch: { id: 'branch-a' },
-        },
+        personnelId: 'personA',
+        branchId: 'branch-a',
+        person: { id: 'personA', name: 'M', code: 'M' },
+        branch: { id: 'branch-a' },
       });
       prisma.operationalPersonAssignment.findMany
         .mockResolvedValueOnce([personAssignment('pa3', 'personC', { person: { name: 'E', code: 'E' }, department: {}, jobTitle: {}, branch: {}, administration: {} })]);
@@ -961,13 +972,12 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('filters withoutCurrentDirectSupervisor', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue({
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue({
         id: 'sa1',
-        assignment: {
-          personnelId: 'personA',
-          person: { id: 'personA', name: 'M', code: 'M' },
-          branch: { id: 'branch-a' },
-        },
+        personnelId: 'personA',
+        branchId: 'branch-a',
+        person: { id: 'personA', name: 'M', code: 'M' },
+        branch: { id: 'branch-a' },
       });
       prisma.operationalPersonAssignment.findMany
         .mockResolvedValueOnce([
@@ -987,7 +997,7 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('throws NotFoundException for missing supervisor', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
       await expect(service.getCandidates('nope', candidateQuery(), ctx)).rejects.toThrow(NotFoundException);
     });
   });
@@ -1001,10 +1011,10 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('returns eligible status for valid candidates', async () => {
-      prisma.supervisorAssignment.findFirst
+      prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce({
-          id: 'sa1', assignmentId: 'pa2',
-          assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
+          id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+          person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' },
         });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([
         personAssignment('pa3', 'personC'),
@@ -1023,9 +1033,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('identifies missing assignments', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue({
-        id: 'sa1', assignmentId: 'pa2',
-        assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+        person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' },
       });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([personAssignment('pa3', 'personC')]);
       prisma.supervisorAssignment.findMany.mockResolvedValue([]);
@@ -1036,9 +1046,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('identifies self-supervision', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue({
-        id: 'sa1', assignmentId: 'pa2',
-        assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+        person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' },
       });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([
         personAssignment('pa2', 'personB'),
@@ -1049,9 +1059,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('identifies HAS_OTHER_DIRECT_SUPERVISOR', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue({
-        id: 'sa1', assignmentId: 'pa2',
-        assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+        person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' },
       });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([
         personAssignment('pa3', 'personC'),
@@ -1063,9 +1073,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('identifies branch incompatibility', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue({
-        id: 'sa1', assignmentId: 'pa2',
-        assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' }, branchId: 'branch-a' },
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+        person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' },
       });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([
         personAssignment('pa3', 'personC', { branchId: 'branch-b' }),
@@ -1076,9 +1086,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('does NOT write to database', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue({
-        id: 'sa1', assignmentId: 'pa2',
-        assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+        person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' },
       });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([
         personAssignment('pa3', 'personC'),
@@ -1090,9 +1100,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('identifies DATE_WINDOW_CONFLICT', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue({
-        id: 'sa1', assignmentId: 'pa2',
-        assignment: { personnelId: 'personB', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+        person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' },
       });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([
         personAssignment('pa3', 'personC', { effectiveTo: new Date('2026-06-30') }),
@@ -1103,7 +1113,7 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('throws NotFoundException for missing supervisor', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
       await expect(service.bulkPreview(bulkDto(), ctx)).rejects.toThrow(BadRequestException);
     });
   });
@@ -1117,10 +1127,10 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('creates multiple assignments atomically', async () => {
-      prisma.supervisorAssignment.findFirst
+      prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce({
-          id: 'sa1', assignmentId: 'pa2',
-          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {} },
+          id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+          person: { id: 'personB', name: 'S', code: 'S' }, department: {},
         });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([
         personAssignment('pa3', 'personC'),
@@ -1138,10 +1148,10 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('creates one assignment', async () => {
-      prisma.supervisorAssignment.findFirst
+      prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce({
-          id: 'sa1', assignmentId: 'pa2',
-          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {} },
+          id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+          person: { id: 'personB', name: 'S', code: 'S' }, department: {},
         });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([personAssignment('pa3', 'personC')]);
       prisma.supervisorAssignment.findMany.mockResolvedValue([]);
@@ -1152,10 +1162,10 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('rejects entire group when one candidate has OTHER_DIRECT_SUPERVISOR', async () => {
-      prisma.supervisorAssignment.findFirst
+      prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce({
-          id: 'sa1', assignmentId: 'pa2',
-          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {} },
+          id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+          person: { id: 'personB', name: 'S', code: 'S' }, department: {},
         });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([
         personAssignment('pa3', 'personC'),
@@ -1172,10 +1182,10 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('rejects when one candidate has self-reference', async () => {
-      prisma.supervisorAssignment.findFirst
+      prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce({
-          id: 'sa1', assignmentId: 'pa2',
-          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {} },
+          id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+          person: { id: 'personB', name: 'S', code: 'S' }, department: {},
         });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([
         personAssignment('pa2', 'personB'),
@@ -1185,10 +1195,10 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('rejects when one candidate has branch incompatibility', async () => {
-      prisma.supervisorAssignment.findFirst
+      prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce({
-          id: 'sa1', assignmentId: 'pa2',
-          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {}, branchId: 'branch-a' },
+          id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+          person: { id: 'personB', name: 'S', code: 'S' }, department: {},
         });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([
         personAssignment('pa3', 'personC', { branchId: 'branch-b' }),
@@ -1206,10 +1216,10 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('rolls back all when one candidate fails', async () => {
-      prisma.supervisorAssignment.findFirst
+      prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce({
-          id: 'sa1', assignmentId: 'pa2',
-          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {} },
+          id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+          person: { id: 'personB', name: 'S', code: 'S' }, department: {},
         });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([
         personAssignment('pa3', 'personC'),
@@ -1228,10 +1238,10 @@ describe('SupervisorAssignmentsService', () => {
 
   describe('bulkApply concurrency', () => {
     it('uses Serializable isolation for bulk DIRECT apply', async () => {
-      prisma.supervisorAssignment.findFirst
+      prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce({
-          id: 'sa1', assignmentId: 'pa2',
-          assignment: { personnelId: 'personB', person: { id: 'personB', name: 'S', code: 'S' }, department: {} },
+          id: 'sa1', personnelId: 'personB', branchId: 'branch-a', effectiveTo: null,
+          person: { id: 'personB', name: 'S', code: 'S' }, department: {},
         });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([personAssignment('pa3', 'personC')]);
       prisma.supervisorAssignment.findMany.mockResolvedValue([]);
@@ -1285,13 +1295,13 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('throws NotFoundException when root assignment not found', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
       await expect(service.getHierarchyTree('missing', ctx)).rejects.toThrow(NotFoundException);
     });
 
     it('throws NotFoundException when root is not effective at asOf', async () => {
-      prisma.supervisorAssignment.findFirst
-        .mockResolvedValueOnce(saWithAssignment('pa1', null, {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(fullAssignment('pa1', {
           effectiveFrom: new Date('2026-06-01'),
         }));
 
@@ -1299,9 +1309,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('returns root with zero descendants for a leaf node', async () => {
-      prisma.supervisorAssignment.findFirst
-        .mockResolvedValueOnce(saWithAssignment('pa1', null))
-        .mockResolvedValueOnce(null);
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(fullAssignment('pa1'));
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
       prisma.supervisorAssignment.findMany.mockResolvedValue([]);
 
       const result = await service.getHierarchyTree('pa1', ctx);
@@ -1313,9 +1323,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('builds a two-level tree (root -> 2 children)', async () => {
-      prisma.supervisorAssignment.findFirst
-        .mockResolvedValueOnce(saWithAssignment('pa1', null))
-        .mockResolvedValueOnce(null);
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(fullAssignment('pa1'));
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
 
       const child1 = saWithAssignment('pa2', 'pa1');
       const child2 = saWithAssignment('pa3', 'pa1');
@@ -1332,9 +1342,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('builds a three-level tree (root -> child -> grandchild)', async () => {
-      prisma.supervisorAssignment.findFirst
-        .mockResolvedValueOnce(saWithAssignment('pa1', null))
-        .mockResolvedValueOnce(null);
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(fullAssignment('pa1'));
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
 
       const child1 = saWithAssignment('pa2', 'pa1');
       const grandchild1 = saWithAssignment('pa3', 'pa2');
@@ -1352,11 +1362,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('includes leadershipLevel from assignment', async () => {
-      prisma.supervisorAssignment.findFirst
-        .mockResolvedValueOnce(saWithAssignment('pa1', null, {
-          assignment: fullAssignment('pa1', { leadershipLevel: 'DEPARTMENT_HEAD' }),
-        }))
-        .mockResolvedValueOnce(null);
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(fullAssignment('pa1', { leadershipLevel: 'DEPARTMENT_HEAD' }));
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
 
       prisma.supervisorAssignment.findMany.mockResolvedValue([]);
 
@@ -1365,9 +1373,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('excludes inactive children from tree', async () => {
-      prisma.supervisorAssignment.findFirst
-        .mockResolvedValueOnce(saWithAssignment('pa1', null))
-        .mockResolvedValueOnce(null);
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(fullAssignment('pa1'));
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
 
       const activeChild = saWithAssignment('pa2', 'pa1');
       const inactiveChild = saWithAssignment('pa3', 'pa1', { isActive: false });
@@ -1382,9 +1390,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('excludes expired children from tree (temporal filter)', async () => {
-      prisma.supervisorAssignment.findFirst
-        .mockResolvedValueOnce(saWithAssignment('pa1', null))
-        .mockResolvedValueOnce(null);
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(fullAssignment('pa1'));
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
 
       const expiredChild = saWithAssignment('pa2', 'pa1', {
         effectiveTo: new Date('2025-12-31'),
@@ -1398,8 +1406,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('returns reportingLine from getReportingLine', async () => {
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(fullAssignment('pa1'));
       prisma.supervisorAssignment.findFirst
-        .mockResolvedValueOnce(saWithAssignment('pa1', 'pa0'))
         .mockResolvedValueOnce({
           id: 'sa0',
           supervisorAssignmentId: null,
@@ -1419,9 +1428,9 @@ describe('SupervisorAssignmentsService', () => {
     });
 
     it('truncates at MAX_TOTAL_NODES (10000)', async () => {
-      prisma.supervisorAssignment.findFirst
-        .mockResolvedValueOnce(saWithAssignment('pa1', null))
-        .mockResolvedValueOnce(null);
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(fullAssignment('pa1'));
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
 
       const manyChildren = Array.from({ length: 10001 }, (_, i) =>
         saWithAssignment(`pa${i + 2}`, 'pa1'),
@@ -1440,7 +1449,7 @@ describe('SupervisorAssignmentsService', () => {
         contextKey: 'other-company:branch-a',
       } as ActiveOperationalContext;
 
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
       await expect(service.getHierarchyTree('pa1', otherCtx)).rejects.toThrow(NotFoundException);
     });
   });

@@ -204,8 +204,10 @@ describe('SupervisorAssignments Tenant Isolation', () => {
     });
 
     it('getCandidates defaults to the active branch within the same company', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue({
-        id: 'sa1', companyId: 'company-a', assignment: { personnelId: 'p1', branchId: 'branch-c' },
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue({
+        id: 'sa1', companyId: 'company-a', personnelId: 'p1', branchId: 'branch-c',
+        departmentId: 'dept1', assignmentType: 'PRIMARY',
+        effectiveFrom: new Date('2026-01-01'), effectiveTo: null, deletedAt: null,
       });
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
       prisma.operationalPersonAssignment.count.mockResolvedValue(0);
@@ -349,10 +351,10 @@ describe('SupervisorAssignments Tenant Isolation', () => {
 
   describe('getCurrentTeam tenant isolation', () => {
     it('queries only within company scope', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
 
       await expect(service.getCurrentTeam('sa-b', ctxA)).rejects.toThrow(NotFoundException);
-      expect(prisma.supervisorAssignment.findFirst).toHaveBeenCalledWith(
+      expect(prisma.operationalPersonAssignment.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ companyId: 'company-a' }),
         }),
@@ -362,7 +364,7 @@ describe('SupervisorAssignments Tenant Isolation', () => {
 
   describe('getCandidates tenant isolation', () => {
     it('queries only within company scope', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
 
       await expect(service.getCandidates('sa-b', { page: '1', limit: '10' }, ctxA)).rejects.toThrow(NotFoundException);
     });
@@ -370,7 +372,7 @@ describe('SupervisorAssignments Tenant Isolation', () => {
 
   describe('bulkPreview tenant isolation', () => {
     it('validates supervisor within company scope', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
 
       await expect(service.bulkPreview({
         supervisorAssignmentId: 'pa-b',
@@ -380,10 +382,9 @@ describe('SupervisorAssignments Tenant Isolation', () => {
     });
 
     it('loads subordinate assignments within company scope', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue({
-        id: 'sa1', assignmentId: 'pa1',
-        assignment: { personnelId: 'personA', person: { name: 'S', code: 'S' }, branch: { id: 'branch-a' } },
-      });
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(
+        personAssignment('pa1', 'company-a', 'personA'),
+      );
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
 
       const result = await service.bulkPreview({
@@ -403,7 +404,7 @@ describe('SupervisorAssignments Tenant Isolation', () => {
 
   describe('bulkApply tenant isolation', () => {
     it('validates supervisor within company scope', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
 
       await expect(service.bulkApply({
         supervisorAssignmentId: 'pa-b',

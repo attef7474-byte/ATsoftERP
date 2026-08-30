@@ -48,19 +48,14 @@ describe('HIER-H Audit Security — Supervisor Assignments', () => {
   const supervisorSaForBulk = (overrides: Record<string, any> = {}) => ({
     id: 'sa1',
     companyId: 'company-a',
-    assignmentId: 'sa1',
-    supervisorAssignmentId: null,
-    relationshipType: 'DIRECT',
+    personnelId: 'sup-person',
+    departmentId: 'dept1',
+    assignmentType: 'PRIMARY',
+    branchId: 'branch-a',
     effectiveFrom: new Date('2026-01-01'),
     effectiveTo: null,
-    isActive: true,
     deletedAt: null,
-    assignment: {
-      personnelId: 'sup-person',
-      branchId: 'branch-a',
-      effectiveTo: null,
-      person: { id: 'sup-p', name: 'Sup Person', code: 'SP' },
-    },
+    person: { id: 'sup-p', name: 'Sup Person', code: 'SP' },
     ...overrides,
   });
 
@@ -162,12 +157,9 @@ describe('HIER-H Audit Security — Supervisor Assignments', () => {
     });
 
     it('HIGH_RISK_MUTATION_WITHOUT_AUDIT: bulk apply emits individual + summary audit', async () => {
-      prisma.supervisorAssignment.findFirst
-        .mockResolvedValueOnce(supervisorSaForBulk())
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(null);
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(supervisorSaForBulk());
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([
         pa('pa1', 'personA'),
         pa('pa2', 'personB'),
@@ -213,9 +205,9 @@ describe('HIER-H Audit Security — Supervisor Assignments', () => {
 
   describe('§16 Audit Atomicity', () => {
     it('BULK_AUDIT_INSIDE_TRANSACTION = YES: bulk apply audit uses logWithClient', async () => {
-      prisma.supervisorAssignment.findFirst
-        .mockResolvedValueOnce(supervisorSaForBulk())
-        .mockResolvedValueOnce(null);
+      prisma.operationalPersonAssignment.findFirst
+        .mockResolvedValueOnce(supervisorSaForBulk());
+      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([pa('pa1', 'personA')]);
       prisma.supervisorAssignment.findMany.mockResolvedValue([]);
       prisma.supervisorAssignment.count.mockResolvedValue(0);

@@ -650,26 +650,22 @@ export class SupervisorAssignmentsService {
   async getHierarchyTree(assignmentId: string, ctx: ActiveOperationalContext, asOf?: Date) {
     const now = asOf ?? new Date();
 
-    const rootSa = await (this.prisma.supervisorAssignment.findFirst as any)({
-      where: { assignmentId, companyId: ctx.companyId, deletedAt: null },
+    const rootOpa = await (this.prisma.operationalPersonAssignment.findFirst as any)({
+      where: { id: assignmentId, companyId: ctx.companyId, deletedAt: null },
       include: {
-        assignment: {
-          include: {
-            person: { select: { id: true, name: true, code: true } },
-            department: { select: { id: true, name: true, code: true } },
-            jobTitle: { select: { id: true, name: true, code: true } },
-            branch: { select: { id: true, name: true, code: true } },
-            administration: { select: { id: true, name: true, code: true } },
-          },
-        },
+        person: { select: { id: true, name: true, code: true } },
+        department: { select: { id: true, name: true, code: true } },
+        jobTitle: { select: { id: true, name: true, code: true } },
+        branch: { select: { id: true, name: true, code: true } },
+        administration: { select: { id: true, name: true, code: true } },
       },
     });
 
-    if (!rootSa) {
+    if (!rootOpa) {
       throw new NotFoundException({ messageKey: 'organization.supervisorAssignmentNotFound', message: 'Supervisor assignment not found' });
     }
 
-    if (!isEffectivelyActive(rootSa, now)) {
+    if (rootOpa.deletedAt !== null || rootOpa.effectiveFrom > now || (rootOpa.effectiveTo !== null && rootOpa.effectiveTo <= now)) {
       throw new NotFoundException({ messageKey: 'organization.supervisorAssignmentNotFound', message: 'Supervisor assignment not effective at the requested date' });
     }
 
@@ -683,16 +679,16 @@ export class SupervisorAssignmentsService {
     const rootNode: TreeNode = {
       assignmentId,
       level: 0,
-      person: rootSa.assignment.person,
-      jobTitle: rootSa.assignment.jobTitle,
-      department: rootSa.assignment.department,
-      branch: rootSa.assignment.branch,
-      administration: rootSa.assignment.administration,
-      leadershipLevel: rootSa.assignment.leadershipLevel ?? 'NONE',
-      assignmentType: rootSa.assignment.assignmentType,
-      effectiveFrom: rootSa.effectiveFrom,
-      effectiveTo: rootSa.effectiveTo,
-      isActive: rootSa.isActive,
+      person: rootOpa.person,
+      jobTitle: rootOpa.jobTitle,
+      department: rootOpa.department,
+      branch: rootOpa.branch,
+      administration: rootOpa.administration,
+      leadershipLevel: rootOpa.leadershipLevel ?? 'NONE',
+      assignmentType: rootOpa.assignmentType,
+      effectiveFrom: rootOpa.effectiveFrom,
+      effectiveTo: rootOpa.effectiveTo,
+      isActive: true,
       childCount: 0,
       children: [],
     };
@@ -1027,17 +1023,13 @@ export class SupervisorAssignmentsService {
   async getCurrentTeam(supervisorAssignmentId: string, ctx: ActiveOperationalContext, asOf?: Date) {
     const now = asOf ?? new Date();
 
-    const supervisor = await this.prisma.supervisorAssignment.findFirst({
+    const supervisor = await this.prisma.operationalPersonAssignment.findFirst({
       where: { id: supervisorAssignmentId, companyId: ctx.companyId, deletedAt: null },
       include: {
-        assignment: {
-          include: {
-            person: { select: { id: true, name: true, code: true } },
-            department: { select: { id: true, name: true, code: true } },
-            jobTitle: { select: { id: true, name: true, code: true } },
-            branch: { select: { id: true, name: true, code: true } },
-          },
-        },
+        person: { select: { id: true, name: true, code: true } },
+        department: { select: { id: true, name: true, code: true } },
+        jobTitle: { select: { id: true, name: true, code: true } },
+        branch: { select: { id: true, name: true, code: true } },
       },
     });
 
@@ -1070,12 +1062,12 @@ export class SupervisorAssignmentsService {
 
     return {
       supervisor: {
-        id: supervisor.assignment.person.id,
-        name: supervisor.assignment.person.name,
-        code: supervisor.assignment.person.code,
-        department: supervisor.assignment.department,
-        jobTitle: supervisor.assignment.jobTitle,
-        branch: supervisor.assignment.branch,
+        id: supervisor.person.id,
+        name: supervisor.person.name,
+        code: supervisor.person.code,
+        department: supervisor.department,
+        jobTitle: supervisor.jobTitle,
+        branch: supervisor.branch,
       },
       team: effectiveTeam.map(m => ({
         assignmentId: m.assignmentId,
@@ -1099,15 +1091,11 @@ export class SupervisorAssignmentsService {
     const limit = Math.min(parseInt(query.limit ?? '10', 10) || 10, 50);
     const skip = (page - 1) * limit;
 
-    const supervisorSa = await this.prisma.supervisorAssignment.findFirst({
+    const supervisorSa = await this.prisma.operationalPersonAssignment.findFirst({
       where: { id: supervisorAssignmentId, companyId: ctx.companyId, deletedAt: null },
       include: {
-        assignment: {
-          include: {
-            person: { select: { id: true, name: true, code: true } },
-            branch: { select: { id: true, name: true, code: true } },
-          },
-        },
+        person: { select: { id: true, name: true, code: true } },
+        branch: { select: { id: true, name: true, code: true } },
       },
     });
 
@@ -1115,8 +1103,8 @@ export class SupervisorAssignmentsService {
       throw new NotFoundException({ messageKey: 'organization.supervisorAssignmentNotFound', message: 'Supervisor assignment not found' });
     }
 
-    const supervisorPersonId = supervisorSa.assignment.personnelId;
-    const supervisorBranchId = supervisorSa.assignment.branchId;
+    const supervisorPersonId = supervisorSa.personnelId;
+    const supervisorBranchId = supervisorSa.branchId;
 
     const where: any = { companyId: ctx.companyId, deletedAt: null, branchId: query.branchId ?? ctx.branchId };
 
@@ -1196,7 +1184,7 @@ export class SupervisorAssignmentsService {
       }
 
       if (onThisTeamSet.has(a.id)) {
-        return { ...a, status: 'ALREADY_ON_THIS_TEAM', reasonCode: 'ALREADY_ON_THIS_TEAM', currentDirectSupervisor: { id: supervisorSa.id, person: supervisorSa.assignment.person } };
+        return { ...a, status: 'ALREADY_ON_THIS_TEAM', reasonCode: 'ALREADY_ON_THIS_TEAM', currentDirectSupervisor: { id: supervisorSa.id, person: supervisorSa.person } };
       }
 
       if (hasDirectMap.get(a.id)) {
@@ -1217,8 +1205,8 @@ export class SupervisorAssignmentsService {
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
       supervisor: {
         assignmentId: supervisorAssignmentId,
-        person: supervisorSa.assignment.person,
-        branch: supervisorSa.assignment.branch,
+        person: supervisorSa.person,
+        branch: supervisorSa.branch,
       },
     };
   }
@@ -1320,21 +1308,19 @@ export class SupervisorAssignmentsService {
       throw this.validationError('assignmentIds', 'validation.duplicateInput', 'Duplicate assignment IDs in request');
     }
 
-    const supervisorSa = await this.prisma.supervisorAssignment.findFirst({
+    const supervisorOpa = await this.prisma.operationalPersonAssignment.findFirst({
       where: { id: dto.supervisorAssignmentId, companyId: ctx.companyId, deletedAt: null },
       include: {
-        assignment: {
-          include: {
-            person: { select: { id: true, name: true, code: true } },
-            branch: { select: { id: true, name: true, code: true } },
-          },
-        },
+        person: { select: { id: true, name: true, code: true } },
+        branch: { select: { id: true, name: true, code: true } },
       },
     });
 
-    if (!supervisorSa) {
+    if (!supervisorOpa) {
       throw this.validationError('supervisorAssignmentId', 'validation.invalidReference', 'Supervisor assignment not found');
     }
+
+    const supervisorSa = { id: supervisorOpa.id, assignment: supervisorOpa };
 
     if (supervisorSa.assignment.effectiveTo && effectiveTo && effectiveTo > supervisorSa.assignment.effectiveTo) {
       throw this.validationError('effectiveTo', 'validation.assignmentOutOfRange', 'Supervision effectiveTo must not extend beyond supervisor assignment effectiveTo');
@@ -1406,20 +1392,18 @@ export class SupervisorAssignmentsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const supervisorSa = await tx.supervisorAssignment.findFirst({
+      const supervisorOpa = await tx.operationalPersonAssignment.findFirst({
         where: { id: dto.supervisorAssignmentId, companyId: ctx.companyId, deletedAt: null },
         include: {
-          assignment: {
-            include: {
-              person: { select: { id: true, name: true, code: true } },
-            },
-          },
+          person: { select: { id: true, name: true, code: true } },
         },
       });
 
-      if (!supervisorSa) {
+      if (!supervisorOpa) {
         throw this.validationError('supervisorAssignmentId', 'validation.invalidReference', 'Supervisor assignment not found');
       }
+
+      const supervisorSa = { id: supervisorOpa.id, assignment: supervisorOpa };
 
       if (supervisorSa.assignment.effectiveTo && effectiveTo && effectiveTo > supervisorSa.assignment.effectiveTo) {
         throw this.validationError('effectiveTo', 'validation.assignmentOutOfRange', 'Supervision effectiveTo must not extend beyond supervisor assignment effectiveTo');
@@ -1472,7 +1456,7 @@ export class SupervisorAssignmentsService {
           data: {
             companyId: ctx.companyId,
             assignmentId,
-            supervisorAssignmentId: supervisorSa.assignmentId,
+            supervisorAssignmentId: supervisorSa.id,
             relationshipType,
             effectiveFrom,
             effectiveTo,
@@ -1501,7 +1485,7 @@ export class SupervisorAssignmentsService {
           details: JSON.stringify({
             bulk: true,
             assignmentId,
-            supervisorAssignmentId: supervisorSa.assignmentId,
+            supervisorAssignmentId: supervisorSa.id,
             relationshipType,
             companyId: ctx.companyId,
           }),
@@ -1516,7 +1500,7 @@ export class SupervisorAssignmentsService {
         entity: 'SupervisorAssignment',
         details: JSON.stringify({
           bulkOperation: true,
-          supervisorAssignmentId: supervisorSa.assignmentId,
+          supervisorAssignmentId: supervisorSa.id,
           relationshipType,
           count: created.length,
           companyId: ctx.companyId,

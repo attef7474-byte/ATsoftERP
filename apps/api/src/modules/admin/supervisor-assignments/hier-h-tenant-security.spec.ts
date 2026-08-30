@@ -145,7 +145,7 @@ describe('HIER-H Tenant Security — Supervisor Assignments', () => {
 
   describe('§6 Root Isolation — Cross-Company team', () => {
     it('CROSS_COMPANY_ROOT_ACCESS: Company A cannot view Company B team', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
 
       const promise = service.getCurrentTeam('sa-from-b', ctxA);
       await expect(promise).rejects.toThrow(NotFoundException);
@@ -154,8 +154,8 @@ describe('HIER-H Tenant Security — Supervisor Assignments', () => {
 
   describe('§6 Root Isolation — Cross-Company candidates', () => {
     it('CROSS_COMPANY_NESTED_LEAK: Company A candidates query scoped to Company A', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(
-        sa('sa1', 'company-a', { assignment: { personnelId: 'person1', branchId: 'branch-a' } }),
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(
+        pa('sa1', 'company-a', 'person1'),
       );
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
       prisma.operationalPersonAssignment.count.mockResolvedValue(0);
@@ -171,8 +171,8 @@ describe('HIER-H Tenant Security — Supervisor Assignments', () => {
 
   describe('§6 Root Isolation — Cross-Company bulk preview', () => {
     it('CROSS_COMPANY_ROOT_ACCESS: Company A bulk preview scoped to Company A', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(
-        sa('sa1', 'company-a', { assignment: { personnelId: 'sup-person', branchId: 'branch-a' } }),
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(
+        pa('sa1', 'company-a', 'sup-person'),
       );
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
 
@@ -208,7 +208,7 @@ describe('HIER-H Tenant Security — Supervisor Assignments', () => {
 
   describe('§6 Root Isolation — Cross-Company hierarchy', () => {
     it('CROSS_COMPANY_ROOT_ACCESS: Company A hierarchy for non-existent Company A assignment', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(null);
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(null);
 
       const promise = service.getHierarchyTree('pa-missing', ctxA);
       await expect(promise).rejects.toThrow(NotFoundException);
@@ -243,8 +243,8 @@ describe('HIER-H Tenant Security — Supervisor Assignments', () => {
 
   describe('§7 Mixed-Tenant Bulk', () => {
     it('MIXED_TENANT_BULK_ALL_OR_NOTHING: bulk apply with non-existent IDs fails atomically', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(
-        sa('sa1', 'company-a', { assignment: { personnelId: 'sup-person', branchId: 'branch-a' } }),
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(
+        pa('sa1', 'company-a', 'sup-person'),
       );
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
 
@@ -257,8 +257,8 @@ describe('HIER-H Tenant Security — Supervisor Assignments', () => {
     });
 
     it('MIXED_TENANT_BULK_ALL_OR_NOTHING: bulk apply rejects when some IDs not in Company A', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(
-        sa('sa1', 'company-a', { assignment: { personnelId: 'sup-person', branchId: 'branch-a' } }),
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(
+        pa('sa1', 'company-a', 'sup-person'),
       );
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([
         pa('pa-a1', 'company-a', 'personA1'),
@@ -275,8 +275,8 @@ describe('HIER-H Tenant Security — Supervisor Assignments', () => {
 
   describe('§10 Cancelled Future Relationship Leak', () => {
     it('CANCELLED_FUTURE_OPERATIONAL_LEAK: isActive=false record does not appear in team', async () => {
-      const supervisor = sa('sa1', 'company-a', { assignment: { personnelId: 'sup-person', branchId: 'branch-a', person: { id: 'p1', name: 'S', code: 'C1' }, department: { id: 'd1', name: 'D', code: 'D1' }, jobTitle: { id: 'j1', name: 'J', code: 'J1' }, branch: { id: 'b1', name: 'B', code: 'B1' } } });
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(supervisor);
+      const supervisor = { id: 'sa1', companyId: 'company-a', personnelId: 'sup-person', branchId: 'branch-a', effectiveFrom: new Date('2026-01-01'), effectiveTo: null, deletedAt: null, person: { id: 'p1', name: 'S', code: 'C1' }, department: { id: 'd1', name: 'D', code: 'D1' }, jobTitle: { id: 'j1', name: 'J', code: 'J1' }, branch: { id: 'b1', name: 'B', code: 'B1' } };
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(supervisor);
 
       const cancelledRelation = sa('sa-cancelled', 'company-a', {
         assignmentId: 'pa-sub', supervisorAssignmentId: 'sa1',
@@ -326,8 +326,8 @@ describe('HIER-H Tenant Security — Supervisor Assignments', () => {
     });
 
     it('SOFT_DELETED_OPERATIONAL_LEAK: deletedAt≠null excluded from candidates', async () => {
-      prisma.supervisorAssignment.findFirst.mockResolvedValue(
-        sa('sa1', 'company-a', { assignment: { personnelId: 'sup-person', branchId: 'branch-a' } }),
+      prisma.operationalPersonAssignment.findFirst.mockResolvedValue(
+        pa('sa1', 'company-a', 'sup-person'),
       );
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
       prisma.operationalPersonAssignment.count.mockResolvedValue(0);
