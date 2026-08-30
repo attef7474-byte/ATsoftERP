@@ -16,9 +16,14 @@ export function getAssignmentBranchName(record: Pick<OperationalPersonAssignment
   return null;
 }
 
-export function shouldShowBranchMismatchWarning(activeBranchId: string | null | undefined, recordBranchId: string | null | undefined): boolean {
-  if (!activeBranchId || !recordBranchId) return false;
-  return activeBranchId !== recordBranchId;
+export function buildPersonAssignmentListParams(activeBranchId: string | null | undefined, extras?: { page?: number; limit?: number; search?: string }): Record<string, string | number | boolean | null | undefined> {
+  const params: Record<string, string | number | boolean | null | undefined> = {
+    page: extras?.page ?? undefined,
+    limit: extras?.limit ?? undefined,
+    search: extras?.search || undefined,
+  };
+  if (activeBranchId) params.branchId = activeBranchId;
+  return params;
 }
 
 export function buildAssignmentUpdatePayload(form: AssignmentFormData): AssignmentFormData & { effectiveTo: string | null; jobTitleId: string | null } {

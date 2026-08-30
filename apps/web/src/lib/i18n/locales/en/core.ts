@@ -130,7 +130,6 @@ const core: Pick<LocaleTranslations, 'core' | 'details' | 'companyProfile' | 'at
         stalePreview: 'Selection changed. Please run preview again before applying.',
         effectiveDateRange: 'Effective Date Range',
         notSpecified: 'Not specified',
-        assignmentBranchMismatchWarning: 'This assignment belongs to {assignmentBranch}, while the currently active branch is {activeBranch}.',
         leadershipLevel: 'Leadership Role',
         leadershipLevels: {
             NONE: 'No Leadership Role',

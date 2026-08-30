@@ -28,7 +28,7 @@ import type {
 import { Button, Input, Card, LoadingState, Modal, StatusBadge, Pagination, ConfirmDialog } from '@/components/admin/ui';
 import { F9Lookup, operationalPersonAdapter, branchAdapter, administrationAdapter, departmentAdapter, jobTitleAdapter } from '@/components/f9';
 import { shouldShowLeadershipDepartmentHelper } from '@/lib/person-assignment-leadership';
-import { buildAssignmentUpdatePayload, getAssignmentBranchName, shouldShowBranchMismatchWarning } from '@/lib/person-assignment-branch-context';
+import { buildAssignmentUpdatePayload, buildPersonAssignmentListParams, getAssignmentBranchName } from '@/lib/person-assignment-branch-context';
 import { Search, Plus, Edit, Trash2, RefreshCw, Users, ArrowRightLeft } from 'lucide-react';
 
 interface AssignmentForm {
@@ -125,7 +125,8 @@ export default function PersonAssignmentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/person-assignments', { params: { page, limit: 10, search: searchQuery || undefined } }) as any;
+      const params = buildPersonAssignmentListParams(activeContext?.branchId, { page, limit: 10, search: searchQuery || undefined });
+      const res = await api.get('/person-assignments', { params }) as any;
       setData(res.data);
       setMeta(res.meta);
     } catch {
@@ -133,9 +134,9 @@ export default function PersonAssignmentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, activeContext?.branchId]);
 
-  useEffect(() => { fetchData(1, search); }, []);
+  useEffect(() => { fetchData(1, search); }, [fetchData]);
 
   const handleSearch = () => fetchData(1, search);
 
@@ -634,9 +635,6 @@ export default function PersonAssignmentsPage() {
                   {editBranch?.name || t('core.notSpecified')}
                 </div>
               </div>
-              {shouldShowBranchMismatchWarning(activeContext?.branchId, editBranch?.id) && (
-                <p className="text-xs text-amber-700">{t('core.assignmentBranchMismatchWarning', undefined, { activeBranch: activeContext?.branchName || activeContext?.branchCode || t('core.notSpecified'), assignmentBranch: editBranch?.name || t('core.notSpecified') })}</p>
-              )}
             </div>
           )}
           <F9Lookup

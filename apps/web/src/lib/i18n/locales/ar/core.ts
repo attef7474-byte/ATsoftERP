@@ -130,7 +130,6 @@ const core: Pick<LocaleTranslations, 'core' | 'details' | 'companyProfile' | 'at
         stalePreview: 'تغيّر التحديد. يرجى إعادة المعاينة قبل التطبيق.',
         effectiveDateRange: 'فترة الصلاحية',
         notSpecified: 'غير محدد',
-        assignmentBranchMismatchWarning: 'هذا التعيين تابع لفرع {assignmentBranch}، بينما الفرع النشط حاليًا هو {activeBranch}.',
         leadershipLevel: 'الدور القيادي',
         leadershipLevels: {
             NONE: 'لا يوجد دور قيادي',
