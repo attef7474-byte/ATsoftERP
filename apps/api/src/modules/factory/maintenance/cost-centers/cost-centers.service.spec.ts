@@ -304,6 +304,168 @@ describe('CostCentersService', () => {
         expect.objectContaining({ data: expect.objectContaining({ branchId: null }) }),
       );
     });
+
+    describe('sensitive change detection (date representation)', () => {
+      const storedFrom = new Date('2026-08-30T00:00:00.000Z');
+      const storedTo = new Date('2026-12-31T00:00:00.000Z');
+      const existingWithDates = () =>
+        costCenter({ effectiveFrom: storedFrom, effectiveTo: storedTo, isPrimary: false, parentId: null });
+
+      beforeEach(() => {
+        prisma.costCenter.update.mockImplementation(({ data }: any) =>
+          Promise.resolve(costCenter({ effectiveFrom: storedFrom, effectiveTo: storedTo, ...data })),
+        );
+      });
+
+      it('A. unchanged edit with stored effectiveFrom/effectiveTo does NOT require a reason', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(existingWithDates());
+
+        const result = await service.update(
+          'cc1',
+          { effectiveFrom: '2026-08-30', effectiveTo: '2026-12-31' },
+          'u1',
+          ctxA,
+        );
+
+        expect(result).toBeTruthy();
+        expect(prisma.costCenter.update).toHaveBeenCalled();
+      });
+
+      it('A2. persisted raw values are preserved on an unchanged edit', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(existingWithDates());
+
+        await service.update('cc1', { effectiveFrom: '2026-08-30', effectiveTo: '2026-12-31' }, 'u1', ctxA);
+
+        expect(prisma.costCenter.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              effectiveFrom: storedFrom,
+              effectiveTo: storedTo,
+            }),
+          }),
+        );
+      });
+
+      it('E. real effectiveFrom change without reason is rejected', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(existingWithDates());
+
+        await expect(
+          service.update('cc1', { effectiveFrom: '2026-09-01' }, 'u1', ctxA),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('F. real effectiveTo change without reason is rejected', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(existingWithDates());
+
+        await expect(
+          service.update('cc1', { effectiveTo: '2027-01-15' }, 'u1', ctxA),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('G. parent change without reason is still rejected', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(existingWithDates());
+
+        await expect(
+          service.update('cc1', { parentId: 'p1' }, 'u1', ctxA),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('H. isPrimary change without reason is still rejected', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(existingWithDates());
+
+        await expect(
+          service.update('cc1', { isPrimary: true }, 'u1', ctxA),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('I. sensitive change with reason succeeds', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(existingWithDates());
+        prisma.costCenter.update.mockImplementation(({ data }: any) =>
+          Promise.resolve(costCenter({ ...data, effectiveFrom: new Date('2026-09-01T00:00:00.000Z') })),
+        );
+
+        const result = await service.update(
+          'cc1',
+          { effectiveFrom: '2026-09-01', reason: 'schedule shift' },
+          'u1',
+          ctxA,
+        );
+
+        expect(result).toBeTruthy();
+      });
+
+      it('J. ordinary name edit without reason succeeds', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(existingWithDates());
+
+        const result = await service.update('cc1', { name: 'Renamed' }, 'u1', ctxA);
+
+        expect(result).toBeTruthy();
+      });
+
+      it('K. ordinary description edit without reason succeeds', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(existingWithDates());
+
+        const result = await service.update('cc1', { description: 'Updated description' }, 'u1', ctxA);
+
+        expect(result).toBeTruthy();
+      });
+
+      it('D. null effectiveTo vs blank form representation remains unchanged', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(costCenter({ effectiveFrom: storedFrom, effectiveTo: null }));
+
+        const result = await service.update('cc1', { effectiveTo: '' }, 'u1', ctxA);
+
+        expect(result).toBeTruthy();
+        expect(prisma.costCenter.update).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ effectiveTo: null }) }),
+        );
+      });
+
+      it('B. effectiveFrom date-only equals its ISO equivalent business date', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(existingWithDates());
+
+        // The same business day expressed as date-only and as midnight UTC must not count as a change.
+        await service.update('cc1', { effectiveFrom: '2026-08-30' }, 'u1', ctxA);
+        expect(prisma.costCenter.update).toHaveBeenCalled();
+      });
+
+      it('M. null-stored record (live CC-000007 shape) unchanged edit does NOT require a reason', async () => {
+        // The stored record has null effectiveFrom/effectiveTo/parentId and isPrimary=false.
+        prisma.costCenter.findFirst.mockResolvedValue(costCenter());
+        prisma.costCenter.update.mockImplementation(({ data }: any) =>
+          Promise.resolve(costCenter({ effectiveFrom: null, effectiveTo: null, ...data })),
+        );
+
+        const result = await service.update(
+          'cc1',
+          { parentId: '', isPrimary: false },
+          'u1',
+          ctxA,
+        );
+
+        expect(result).toBeTruthy();
+        expect(prisma.costCenter.update).toHaveBeenCalled();
+      });
+
+      it('N. null-stored record: setting a real effectiveFrom without reason is rejected', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(costCenter());
+
+        await expect(
+          service.update('cc1', { effectiveFrom: '2027-01-01' }, 'u1', ctxA),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('O. null-stored record ordinary edit without reason succeeds', async () => {
+        prisma.costCenter.findFirst.mockResolvedValue(costCenter());
+        prisma.costCenter.update.mockImplementation(({ data }: any) =>
+          Promise.resolve(costCenter({ ...data, name: 'Renamed' })),
+        );
+
+        const result = await service.update('cc1', { name: 'Renamed' }, 'u1', ctxA);
+
+        expect(result).toBeTruthy();
+      });
+    });
   });
 
   describe('remove', () => {

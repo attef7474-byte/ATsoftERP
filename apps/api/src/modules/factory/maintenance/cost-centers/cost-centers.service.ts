@@ -89,6 +89,21 @@ export class CostCentersService {
     return item;
   }
 
+  /**
+   * Normalizes an optional date value to its business calendar-day UTC key.
+   *
+   * Date-only PATCH values like "2026-08-30" and the stored midnight UTC value
+   * "2026-08-30T00:00:00.000Z" represent the SAME cost center business date and
+   * must not be treated as a change by raw string comparison. Compare business
+   * dates at their UTC calendar day, never by the raw ISO representation.
+   */
+  private effectiveDayKey(value?: string | Date | null): string | null {
+    if (value === undefined || value === null || value === '') return null;
+    const date = value instanceof Date ? value : new Date(value);
+    if (isNaN(date.getTime())) return null;
+    return date.toISOString().slice(0, 10);
+  }
+
   private parseDates(effectiveFrom: string | undefined, effectiveTo?: string | null): { effectiveFrom?: Date; effectiveTo?: Date | null } {
     if (!effectiveFrom && effectiveTo === undefined) return {};
     const from = effectiveFrom ? new Date(effectiveFrom) : new Date();
@@ -379,10 +394,13 @@ export class CostCentersService {
     }
     const scope = this.deriveScope(dto, ctx);
 
+    const newParentId = dto.parentId === '' ? null : dto.parentId;
     const sensitiveChanged =
-      (dto.parentId !== undefined && dto.parentId !== (existing.parentId ?? undefined)) ||
-      (dto.effectiveFrom !== undefined && dto.effectiveFrom !== (existing.effectiveFrom ? existing.effectiveFrom.toISOString() : undefined)) ||
-      (dto.effectiveTo !== undefined && dto.effectiveTo !== (existing.effectiveTo ? existing.effectiveTo.toISOString() : undefined)) ||
+      (dto.parentId !== undefined && (newParentId ?? null) !== (existing.parentId ?? null)) ||
+      (dto.effectiveFrom !== undefined &&
+        this.effectiveDayKey(dto.effectiveFrom) !== this.effectiveDayKey(existing.effectiveFrom)) ||
+      (dto.effectiveTo !== undefined &&
+        this.effectiveDayKey(dto.effectiveTo) !== this.effectiveDayKey(existing.effectiveTo)) ||
       (dto.isPrimary !== undefined && dto.isPrimary !== existing.isPrimary);
     this.requireReason(dto, sensitiveChanged);
 

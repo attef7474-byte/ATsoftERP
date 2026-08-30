@@ -53,6 +53,16 @@ export default function CostCentersPage() {
   const handleApiError = useApiErrorHandler();
   const { permissions, isSuperAdmin } = useAuth();
 
+  const typeLabel = useCallback(
+    (type: string) => {
+      const key = `maintenance.costCenterTypes.${type}`;
+      const localized = t(key);
+      const fallback = dir === 'rtl' ? 'تعذر عرض النص المطلوب.' : 'The requested text could not be displayed.';
+      return localized && localized !== key && localized !== fallback ? localized : type;
+    },
+    [t, dir],
+  );
+
   const can = useCallback(
     (action: string) => isSuperAdmin || Boolean(permissions?.permissions.includes('operational-cost-center:' + action)),
     [isSuperAdmin, permissions],
@@ -165,26 +175,34 @@ export default function CostCentersPage() {
     const errors: Record<string, string> = {};
     if (!form.name) errors.name = t('validation.required');
     if (form.effectiveFrom && form.effectiveTo && form.effectiveTo < form.effectiveFrom) errors.effectiveTo = t('maintenance.effectiveRange');
+    const sensitiveChanged =
+      editItem !== null && (
+        (form.parentId !== (editItem.parentId || '')) ||
+        (toInputDate(editItem.effectiveFrom) !== form.effectiveFrom) ||
+        (toInputDate(editItem.effectiveTo) !== form.effectiveTo) ||
+        ((form.isPrimary || false) !== (editItem.isPrimary || false))
+      );
+    if (sensitiveChanged && !form.reason.trim()) errors.reason = t('maintenance.reasonRequiredValidation');
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       const payload: any = { name: form.name, type: form.type };
       if (form.description) payload.description = form.description;
-      if (form.parentId) payload.parentId = form.parentId;
+      if (editItem) {
+        payload.parentId = form.parentId || '';
+        payload.isPrimary = form.isPrimary;
+      } else {
+        if (form.parentId) payload.parentId = form.parentId;
+        if (form.isPrimary) payload.isPrimary = true;
+      }
       if (form.effectiveFrom) payload.effectiveFrom = form.effectiveFrom;
       if (form.effectiveTo) payload.effectiveTo = form.effectiveTo;
-      if (form.isPrimary) payload.isPrimary = true;
       if (form.companyId) payload.companyId = form.companyId;
       if (form.branchId) payload.branchId = form.branchId;
       if (form.administrationId) payload.administrationId = form.administrationId;
       if (form.departmentId) payload.departmentId = form.departmentId;
       if (editItem) {
-        const sensitiveChanged =
-          (form.parentId !== (editItem.parentId || '')) ||
-          (toInputDate(editItem.effectiveFrom) !== form.effectiveFrom) ||
-          (toInputDate(editItem.effectiveTo) !== form.effectiveTo) ||
-          ((form.isPrimary || false) !== (editItem.isPrimary || false));
         if (sensitiveChanged && form.reason) payload.reason = form.reason;
         await api.patch(`/maintenance/cost-centers/${editItem.id}`, payload);
         showToast(t('common.successUpdated'), 'success');
@@ -366,7 +384,7 @@ export default function CostCentersPage() {
   const columns: GridColumn<CostCenter>[] = [
     { key: 'code', header: t('common.code') },
     { key: 'name', header: t('common.name') },
-    { key: 'type', header: t('maintenance.type'), render: (c: CostCenter) => c.type },
+    { key: 'type', header: t('maintenance.type'), render: (c: CostCenter) => typeLabel(c.type) },
     { key: 'parent', header: t('maintenance.parent'), render: (c: CostCenter) => c.parent ? `[${c.parent.code}] ${c.parent.name}` : '-' },
     { key: 'company', header: t('core.company'), render: (c: CostCenter) => c.company?.name || '-' },
     { key: 'branch', header: t('core.branch'), render: (c: CostCenter) => c.branch?.name || '-' },
@@ -459,7 +477,7 @@ export default function CostCentersPage() {
               label={t('maintenance.type')}
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value })}
-              options={COST_CENTER_TYPES.map((type) => ({ value: type, label: type }))}
+              options={COST_CENTER_TYPES.map((type) => ({ value: type, label: typeLabel(type) }))}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -480,8 +498,9 @@ export default function CostCentersPage() {
           <F9Lookup label={t('core.department')} value={form.departmentId} onChange={(v) => setForm({ ...form, departmentId: v })} adapter={departmentAdapter} />
           {editItem && (
             <div>
-              <Textarea label={t('maintenance.reason')} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} rows={2} />
+              <Textarea label={t('maintenance.reason')} value={form.reason} onChange={(e) => { setForm({ ...form, reason: e.target.value }); setValidationErrors(prev => ({ ...prev, reason: '' })); }} rows={2} />
               <p className="text-xs text-gray-500 mt-1">{t('maintenance.reasonRequiredHint')}</p>
+              {validationErrors.reason && <p className="text-red-500 text-sm mt-1">{validationErrors.reason}</p>}
             </div>
           )}
           <div className="flex justify-end gap-3 pt-4">

@@ -26,6 +26,20 @@ const HIER_G_API_MESSAGE_KEYS = [
   'organization.assignmentNotFound',
 ] as const;
 
+const COST_CENTER_API_MESSAGE_KEYS = [
+  'costCenter.reasonRequired',
+  'maintenance.costCenterNotFound',
+  'costCenter.codeExists',
+  'costCenter.codeImmutable',
+  'costCenter.hierarchy.selfParent',
+  'costCenter.hierarchy.parentNotFound',
+  'costCenter.hierarchy.crossCompany',
+  'costCenter.hierarchy.parentInactive',
+  'costCenter.hierarchy.branchParentToCompanyChild',
+  'costCenter.hierarchy.cycle',
+  'costCenter.overlay.invalidRange',
+] as const;
+
 function createHostFor(exception: unknown, locale: string) {
   const json = jest.fn();
   const status = jest.fn(() => ({ json }));
@@ -161,5 +175,34 @@ describe('AllExceptionsFilter canonical error contract', () => {
     const body = json.mock.calls[0][0];
     expect(body.messageKey).toBe('organization.companyNotFound');
     expect(body.message[0]).toBe('Company not found');
+  });
+
+  it('M+N. localizes the cost center reason-required error in Arabic and English', () => {
+    expect(getApiMessage('costCenter.reasonRequired', 'ar')).toBe('السبب مطلوب لهذا التغيير');
+    expect(getApiMessage('costCenter.reasonRequired', 'en')).toBe('A reason is required for this change');
+  });
+
+  it('O. every known CostCenter validation key resolves to real text in both locales', () => {
+    for (const key of COST_CENTER_API_MESSAGE_KEYS) {
+      const ar = getApiMessage(key, 'ar');
+      const en = getApiMessage(key, 'en');
+      expect(ar).toBeTruthy();
+      expect(en).toBeTruthy();
+      expect(ar).not.toBe(key);
+      expect(en).not.toBe(key);
+      expect(ar).not.toContain('تعذر عرض النص المطلوب');
+      expect(en).not.toContain('could not be displayed');
+    }
+  });
+
+  it('P. the proven reason-required key never falls back to a raw-key message', () => {
+    const { json } = createHostFor(
+      new BadRequestException({ messageKey: 'costCenter.reasonRequired', message: 'A reason is required for this change' }),
+      'ar',
+    );
+    const body = json.mock.calls[0][0];
+    expect(body.messageKey).toBe('costCenter.reasonRequired');
+    expect(body.message[0]).toBe('السبب مطلوب لهذا التغيير');
+    expect(body.message[0]).not.toBe('costCenter.reasonRequired');
   });
 });

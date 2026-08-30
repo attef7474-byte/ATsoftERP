@@ -1,5 +1,34 @@
 import { LookupAdapter } from './types';
+import { getClientLocale } from '../../lib/i18n/locale-shared';
 import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionRun, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionMeasurementPoint, ProductionMaterialDocument, ProductionFinishedGoodsReceipt, ProductionInspection, ProductionQualityPlan, ProductionCostRate, ProductionCostSnapshot, JobTitle, OperationalPersonAssignment } from '../../lib/admin-types';
+
+const COST_CENTER_TYPE_LABELS: Record<'ar' | 'en', Record<string, string>> = {
+  ar: {
+    PRODUCTION: 'إنتاج',
+    MAINTENANCE: 'صيانة',
+    PROJECT: 'مشروع',
+    DEVELOPMENT: 'تطوير',
+    QUALITY: 'جودة',
+    UTILITIES: 'المرافق / الخدمات',
+    ADMIN: 'إداري',
+    OTHER: 'أخرى',
+  },
+  en: {
+    PRODUCTION: 'Production',
+    MAINTENANCE: 'Maintenance',
+    PROJECT: 'Project',
+    DEVELOPMENT: 'Development',
+    QUALITY: 'Quality',
+    UTILITIES: 'Utilities / Services',
+    ADMIN: 'Administrative',
+    OTHER: 'Other',
+  },
+};
+
+function costCenterTypeLabel(type: string): string {
+  const locale = getClientLocale();
+  return COST_CENTER_TYPE_LABELS[locale]?.[type] ?? type;
+}
 
 export const companyAdapter: LookupAdapter<Company> = {
   endpoint: '/companies',
@@ -350,7 +379,7 @@ export const costCenterAdapter: LookupAdapter<CostCenter> = {
   columns: [
     { key: 'code', header: 'Code' },
     { key: 'name', header: 'Name' },
-    { key: 'type', header: 'Type' },
+    { key: 'type', header: 'Type', render: (c) => costCenterTypeLabel(c.type) },
     { key: 'status', header: 'Status', render: (c) => c.status },
     { key: 'effectiveFrom', header: 'Effective From', render: (c) => c.effectiveFrom ?? '' },
     { key: 'effectiveTo', header: 'Effective To', render: (c) => c.effectiveTo ?? '' },
