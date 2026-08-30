@@ -347,7 +347,7 @@ export class CostCentersService {
       ];
     }
     if (query.type) where.type = query.type;
-    if (query.branchId) {
+    if (query.branchId && query.branchId === ctx.branchId) {
       where.branchId = query.branchId;
     } else {
       where.OR = (where.OR || []).concat([{ branchId: ctx.branchId }, { branchId: null }]);

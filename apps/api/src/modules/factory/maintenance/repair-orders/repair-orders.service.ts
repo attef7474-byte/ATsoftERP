@@ -214,6 +214,7 @@ export class RepairOrdersService {
           sparePartId: h.newSparePartId,
           condition: h.removedCondition || undefined,
           quantity: { gt: 0 },
+          warehouse: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] },
         },
         select: { id: true, warehouseId: true, condition: true, quantity: true, availableQuantity: true, warehouse: { select: { id: true, code: true, name: true, warehouseType: true } } },
       });
@@ -347,7 +348,7 @@ export class RepairOrdersService {
     if (existing) throw this.badRequest('maintenance.repairOrderAlreadyExists', 'An active repair order already exists for this source');
 
     const conditionBalances = await this.prisma.sparePartConditionBalance.findMany({
-      where: { sparePartId, condition: fullHistory.removedCondition, availableQuantity: { gt: 0 } },
+      where: { sparePartId, condition: fullHistory.removedCondition, availableQuantity: { gt: 0 }, warehouse: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] } },
       select: { warehouseId: true, quantity: true, availableQuantity: true },
       orderBy: { availableQuantity: 'desc' },
     });

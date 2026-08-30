@@ -241,11 +241,11 @@ export class OrganizationalUnitsService {
     return { message: 'Organizational unit deleted successfully' };
   }
 
-  async getTree(branchId: string | undefined, ctx: ActiveOperationalContext) {
+  async getTree(ctx: ActiveOperationalContext) {
     const where: any = {
       companyId: ctx.companyId,
+      branchId: ctx.branchId,
       deletedAt: null,
-      ...(branchId ? { branchId } : { branchId: ctx.branchId }),
     };
     const units = await this.prisma.organizationalUnit.findMany({
       where,

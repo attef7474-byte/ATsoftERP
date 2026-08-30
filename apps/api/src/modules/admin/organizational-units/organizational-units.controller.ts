@@ -45,8 +45,8 @@ export class OrganizationalUnitsController {
   @Get('tree')
   @Permissions('organizational-unit:read')
   @ApiOperation({ summary: 'Get the organizational unit tree for the active context' })
-  getTree(@Query('branchId') branchId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.service.getTree(branchId, ctx);
+  getTree(@CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getTree(ctx);
   }
 
   @Get(':id')
