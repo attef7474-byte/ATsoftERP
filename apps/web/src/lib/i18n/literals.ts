@@ -1,6 +1,12 @@
 import { Locale } from './types';
 import en from './locales/en';
 import ar from './locales/ar';
+import {
+  splitPermissionKey,
+  isKnownResource,
+  getResourceLabel,
+  getActionLabel,
+} from '../permissions/permission-catalogue';
 
 const allTranslations = { en, ar };
 
@@ -93,6 +99,14 @@ export function translateMovementType(value: string, locale: Locale): string {
 
 export function translatePermissionKey(key: string, locale: Locale): string {
   if (!key) return '-';
+
+  const catalogued = splitPermissionKey(key);
+  if (catalogued.resource && isKnownResource(catalogued.resource)) {
+    const resourceLabel = getResourceLabel(key, locale);
+    const actionLabel = getActionLabel(key, locale);
+    return resourceLabel + ' — ' + actionLabel;
+  }
+
   const parts = key.split(/[.:/]/).filter(Boolean);
   const actionRaw = parts.pop() || '';
   const moduleRaw = parts.join(' ');
