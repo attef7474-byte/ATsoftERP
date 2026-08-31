@@ -286,6 +286,7 @@ model Company {
   shiftHandoverItems               ShiftHandoverItem[]
   valuationPolicies                InventoryValuationPolicy[]
   valuationBalances                InventoryValuationBalance[]
+  valuationInitializations         InventoryValuationInitialization[]
 
   @@index([status])
   @@index([code])
@@ -1200,6 +1201,7 @@ model User {
   initializedValuationPolicies      InventoryValuationPolicy[]           @relation("InventoryValuationPolicyInitializedBy")
   createdValuationPolicies          InventoryValuationPolicy[]           @relation("InventoryValuationPolicyCreatedBy")
   updatedValuationPolicies          InventoryValuationPolicy[]           @relation("InventoryValuationPolicyUpdatedBy")
+  createdValuationInitializations   InventoryValuationInitialization[]
 
   @@index([email])
   @@index([status])
@@ -1516,6 +1518,7 @@ model Warehouse {
   requirementLines                 ProductionMaterialRequirementLine[]
   valuationPolicies                InventoryValuationPolicy[]
   valuationBalances                InventoryValuationBalance[]
+  valuationInitializations         InventoryValuationInitialization[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -1617,6 +1620,7 @@ model Product {
   inspections               ProductionInspection[]
   costTransactions          OperationalCostTransaction[]
   valuationBalances         InventoryValuationBalance[]
+  valuationInitializations  InventoryValuationInitialization[]
 
   @@index([categoryId])
   @@index([code])
@@ -1991,6 +1995,12 @@ model InventoryOpeningBalanceLine {
   quantity         Float
   // VAL-R1A: nullable quantityBase foundation (monetary input deferred to R1B)
   quantityBase     Decimal?                @db.Decimal(18, 4)
+  // VAL-R1B: explicit monetary input for legacy stock cost capture (nullable;
+  // unvalued/historical lines remain NULL). currencyCode must equal the policy
+  // currency when present; valuationReason documents zero/override cost input.
+  unitCost         Decimal?                @db.Decimal(19, 6)
+  currencyCode     String?
+  valuationReason  String?
   movementId       String?
   notes            String?
   createdAt        DateTime                @default(now())
@@ -2189,6 +2199,12 @@ model InventoryOperationalReceiptLine {
   quantity  Float
   // VAL-R1A: nullable quantityBase foundation (monetary input deferred to R1B)
   quantityBase Decimal?                 @db.Decimal(18, 4)
+  // VAL-R1B: explicit monetary input for legacy stock cost capture (nullable;
+  // unvalued/historical lines remain NULL). currencyCode must equal the policy
+  // currency when present; valuationReason documents zero/override cost input.
+  unitCost         Decimal?             @db.Decimal(19, 6)
+  currencyCode     String?
+  valuationReason  String?
   notes     String?
   createdAt DateTime                    @default(now())
   updatedAt DateTime                    @updatedAt
@@ -2221,6 +2237,8 @@ model InventoryValuationPolicy {
   createdBy   User?     @relation("InventoryValuationPolicyCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   updatedById String?
   updatedBy   User?     @relation("InventoryValuationPolicyUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  initializations InventoryValuationInitialization[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2256,6 +2274,48 @@ model InventoryValuationBalance {
   @@index([productId])
   @@index([updatedAt])
   @@map("inventory_valuation_balances")
+}
+
+// VAL-R1B: immutable legacy-stock monetary initialization evidence.
+//
+// One row per company + warehouse + product. It is the AUTHORITATIVE source of
+// record proving each product's initial unit cost was captured. It is immutable
+// after creation (no update/delete endpoint) and never alters physical inventory.
+// quantitySnapshot is SYSTEM-DERIVED from the authoritative aggregated physical
+// InventoryBalance.quantityBase (never client-supplied); totalValue is
+// system-derived as quantitySnapshot x unitCost using Decimal arithmetic.
+// The DB-level unique (companyId, warehouseId, productId) is the idempotency
+// guard: a second initialization for the same company + warehouse + product is
+// rejected rather than silently overwritten. Currency must exactly equal its
+// InventoryValuationPolicy.currencyCode. Creation and the matching
+// InventoryValuationBalance seed happen atomically in one transaction.
+model InventoryValuationInitialization {
+  id               String    @id @default(cuid())
+  companyId        String
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId      String
+  warehouse        Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId        String
+  product          Product   @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  policyId         String
+  policy           InventoryValuationPolicy @relation(fields: [policyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  quantitySnapshot Decimal @db.Decimal(18, 4)
+  unitCost         Decimal @db.Decimal(19, 6)
+  totalValue       Decimal @db.Decimal(19, 4)
+  currencyCode     String
+  reason           String?
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, warehouseId, productId])
+  @@index([warehouseId, productId])
+  @@index([productId])
+  @@index([policyId])
+  @@map("inventory_valuation_initializations")
 }
 
 model MachineCategory {
