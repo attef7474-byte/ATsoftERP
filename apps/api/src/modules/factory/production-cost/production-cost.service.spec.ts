@@ -938,6 +938,61 @@ describe('ProductionCostService', () => {
       expect(audit.logWithClient).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'CALCULATION_CREATE' }));
     });
 
+    it('B. creates a DRAFT ORDER-scoped calculation persisting the order scope ref', async () => {
+      prisma.operationalCostCalculation.create.mockImplementation(({ data }: any) => Promise.resolve(calculation({ id: 'created', ...data })));
+      prisma.productionOrder.findFirst.mockResolvedValue({ id: 'po1', companyId: 'c1', branchId: 'b1' });
+      const result = await service.createCalculation(
+        { scopeType: 'ORDER', scopeId: 'po1', periodFrom: '2026-02-01T00:00:00Z', periodTo: '2026-02-28T00:00:00Z' },
+        'maker',
+        ctxA,
+      );
+      const data = prisma.operationalCostCalculation.create.mock.calls[0][0].data;
+      expect(result.status).toBe('DRAFT');
+      expect(data.scopeType).toBe('ORDER');
+      expect(data.scopeId).toBe('po1');
+      expect(data.productionOrderId).toBe('po1');
+      expect(data.productionRunId).toBeUndefined();
+    });
+
+    it('A. creates a DRAFT BRANCH-scoped calculation with no order/run scope ref', async () => {
+      prisma.operationalCostCalculation.create.mockImplementation(({ data }: any) => Promise.resolve(calculation({ id: 'created', ...data })));
+      const result = await service.createCalculation(
+        { scopeType: 'BRANCH', scopeId: 'b1', periodFrom: '2026-02-01T00:00:00Z', periodTo: '2026-02-28T00:00:00Z' },
+        'maker',
+        ctxA,
+      );
+      const data = prisma.operationalCostCalculation.create.mock.calls[0][0].data;
+      expect(result.status).toBe('DRAFT');
+      expect(data.scopeType).toBe('BRANCH');
+      expect(data.scopeId).toBe('b1');
+      expect(data.productionOrderId).toBeUndefined();
+      expect(data.productionRunId).toBeUndefined();
+    });
+
+    it('rejects a BRANCH calculation whose scopeId is not the active branch', async () => {
+      await expect(service.createCalculation(
+        { scopeType: 'BRANCH', scopeId: 'other-branch', periodFrom: '2026-02-01T00:00:00Z', periodTo: '2026-02-28T00:00:00Z' },
+        'maker',
+        ctxA,
+      )).rejects.toMatchObject({ response: { messageKey: 'productionCostCalculation.branchScopeMismatch' } });
+    });
+
+    it('C. creates a DRAFT RUN-scoped calculation persisting the run scope ref', async () => {
+      prisma.operationalCostCalculation.create.mockImplementation(({ data }: any) => Promise.resolve(calculation({ id: 'created', ...data })));
+      prisma.productionRun.findFirst.mockResolvedValue({ id: 'run1', companyId: 'c1', branchId: 'b1' });
+      const result = await service.createCalculation(
+        { scopeType: 'RUN', scopeId: 'run1', periodFrom: '2026-02-01T00:00:00Z', periodTo: '2026-02-28T00:00:00Z' },
+        'maker',
+        ctxA,
+      );
+      const data = prisma.operationalCostCalculation.create.mock.calls[0][0].data;
+      expect(result.status).toBe('DRAFT');
+      expect(data.scopeType).toBe('RUN');
+      expect(data.scopeId).toBe('run1');
+      expect(data.productionRunId).toBe('run1');
+      expect(data.productionOrderId).toBeUndefined();
+    });
+
     it('walks the lifecycle DRAFT → REVIEW → FINALIZED and audits each transition', async () => {
       prisma.operationalCostCalculation.findFirst
         .mockResolvedValueOnce(calculation({ status: 'DRAFT' }))
