@@ -43,7 +43,7 @@ export interface Machine {
   department?: { id: string; name: string; classification?: string };
   productionLine?: { id: string; name: string; code: string };
   operationType?: { id: string; name: string; code: string };
-  defaultCostCenter?: { id: string; name: string; code: string };
+  defaultCostCenter?: { id: string; name: string; code: string; type?: string };
   technicalAdministration?: { id: string; name: string };
   technicalDepartment?: { id: string; name: string };
 }

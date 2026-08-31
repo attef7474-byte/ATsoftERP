@@ -7,6 +7,30 @@ import type { Machine } from '../../../../lib/admin-types';
 
 const MACHINE_CC_TYPES = ['PRODUCTION', 'MAINTENANCE', 'PROJECT', 'DEVELOPMENT', 'QUALITY', 'UTILITIES', 'ADMIN', 'OTHER'];
 
+// R2: CostCenter.type is a REQUIRED master-data classification for the Machine's
+// dedicated cost center. It is NEVER assigned as a universal default (no blanket
+// PRODUCTION). It may only be SUGGESTED from a clear canonical OperationType
+// mapping (rule 2); when there is no mapping the user MUST confirm explicitly
+// (rule 3). MachineCategory / Department.classification / ProductionLine presence
+// never determine the cost center type (rules 5-7).
+// UTILITIES/MAINTENANCE/QUALITY/PROJECT -> themselves; production ops -> PRODUCTION.
+const OP_TYPE_TO_CC_TYPE: Record<string, string> = {
+  UTILITIES: 'UTILITIES',
+  MAINTENANCE: 'MAINTENANCE',
+  QUALITY: 'QUALITY',
+  PROJECT: 'PROJECT',
+  MANUFACTURING: 'PRODUCTION',
+  PREPARATION: 'PRODUCTION',
+  MIXING: 'PRODUCTION',
+  FILLING: 'PRODUCTION',
+  PACKAGING: 'PRODUCTION',
+};
+
+export function suggestCostCenterType(operationTypeCode?: string | null): string {
+  if (!operationTypeCode) return '';
+  return OP_TYPE_TO_CC_TYPE[operationTypeCode] || '';
+}
+
 export interface MachineFormState {
   code: string;
   name: string;
@@ -37,7 +61,7 @@ export const EMPTY_MACHINE_FORM: MachineFormState = {
   productionLineId: '',
   operationTypeId: '',
   defaultCostCenterId: '',
-  dedicatedCostCenterType: 'PRODUCTION',
+  dedicatedCostCenterType: '',
   dedicatedCostCenterDescription: '',
   dedicatedCostCenterReady: false,
   model: '',
@@ -62,7 +86,7 @@ export function mapMachineToForm(machine: Machine): MachineFormState {
     productionLineId: machine.productionLineId || '',
     operationTypeId: machine.operationTypeId || '',
     defaultCostCenterId: machine.defaultCostCenterId || '',
-    dedicatedCostCenterType: 'PRODUCTION',
+    dedicatedCostCenterType: machine.defaultCostCenter?.type || '',
     dedicatedCostCenterDescription: '',
     dedicatedCostCenterReady: Boolean(machine.defaultCostCenterId),
     model: machine.model || '',
@@ -97,6 +121,11 @@ export function machineFormFieldErrors(
   if (!form.name.trim()) errs.name = t('validation.required');
   if (mode === 'create' ? !machineCostCenterSatisfied(form) : !machineCostCenterSatisfied(form, existingCcId)) {
     errs.dedicatedCostCenter = t('maintenance.machineNeedCostCenter');
+  } else if (!form.defaultCostCenterId && form.dedicatedCostCenterReady && !form.dedicatedCostCenterType) {
+    // R2 rules 1 & 3: a staged dedicated cost center must have an explicit
+    // classification. Only enforced on the dedicated-CC flow (not for an
+    // existing linked cost center that merely lacks a type).
+    errs.dedicatedCostCenter = t('maintenance.machineCostCenterTypeRequired');
   }
   return errs;
 }
@@ -105,9 +134,12 @@ export function machineFormFieldErrors(
 // atomically together with the machine (name always = machine name).
 export function machineDedicatedCcPayload(form: MachineFormState): { name: string; type: string; description?: string } | null {
   if (!form.dedicatedCostCenterReady) return null;
+  // R2 rule 1: the cost center type is a required classification. It must be
+  // resolved (empty never sent - the backend rejects an unclassified center).
+  if (!form.dedicatedCostCenterType) return null;
   const cc: { name: string; type: string; description?: string } = {
     name: form.name.trim(),
-    type: form.dedicatedCostCenterType || 'PRODUCTION',
+    type: form.dedicatedCostCenterType,
   };
   if (form.dedicatedCostCenterDescription.trim()) cc.description = form.dedicatedCostCenterDescription.trim();
   return cc;
@@ -130,6 +162,7 @@ export function MachineForm({ form, setForm, errors, mode = 'create', isReadOnly
   const { t, dir } = useTranslation();
   const readOnly = Boolean(isReadOnly);
   const [ccModalOpen, setCcModalOpen] = useState(false);
+  const [ccTypeSuggested, setCcTypeSuggested] = useState(false);
 
   const setField = (field: keyof MachineFormState, value: any) => {
     if (readOnly) return;
@@ -154,10 +187,27 @@ export function MachineForm({ form, setForm, errors, mode = 'create', isReadOnly
   };
 
   const hasLinkedCostCenter = Boolean(form.defaultCostCenterId);
+  // R2 rule 1: a dedicated cost center is only confirmable when a classification
+  // is resolved (explicit choice or a canonical OperationType suggestion).
+  const ccTypeResolved =
+    Boolean(form.dedicatedCostCenterType) && MACHINE_CC_TYPES.includes(form.dedicatedCostCenterType);
+
+  // R2 rule 2 + 4: when the user picks an OperationType before staging the cost
+  // center, prefill the type from the canonical map (still editable in the modal).
+  const handleOperationTypeSelect = (ot: { id: string; name: string; code: string }) => {
+    if (form.dedicatedCostCenterReady) return;
+    const suggested = suggestCostCenterType(ot.code);
+    if (suggested && !form.dedicatedCostCenterType) {
+      setForm((prev) => ({ ...prev, dedicatedCostCenterType: suggested }));
+      setCcTypeSuggested(true);
+    }
+  };
 
   const confirmDedicatedCostCenter = () => {
+    if (!ccTypeResolved) return;
     setForm((prev) => ({ ...prev, dedicatedCostCenterReady: true }));
     setCcModalOpen(false);
+    setCcTypeSuggested(false);
     onFieldChange?.();
   };
 
@@ -201,7 +251,7 @@ export function MachineForm({ form, setForm, errors, mode = 'create', isReadOnly
       <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.productionLine')}</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <F9Lookup label={t('maintenance.productionLine')} value={form.productionLineId} onChange={(v) => setField('productionLineId', v)} adapter={productionLineAdapter} filters={{ ...(form.companyId ? { companyId: form.companyId } : {}), ...(form.branchId ? { branchId: form.branchId } : {}) }} error={errors.productionLineId} disabled={readOnly} />
-        <F9Lookup label={t('maintenance.operationType')} value={form.operationTypeId} onChange={(v) => setField('operationTypeId', v)} adapter={operationTypeAdapter} error={errors.operationTypeId} disabled={readOnly} />
+        <F9Lookup label={t('maintenance.operationType')} value={form.operationTypeId} onChange={(v) => setField('operationTypeId', v)} onItemSelect={handleOperationTypeSelect} adapter={operationTypeAdapter} error={errors.operationTypeId} disabled={readOnly} />
       </div>
 
       <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.costCenters')}</h2>
@@ -253,16 +303,18 @@ export function MachineForm({ form, setForm, errors, mode = 'create', isReadOnly
         <div className="space-y-4">
           <p className="text-xs text-gray-500">{t('maintenance.machineCostCenterNameAuto')}</p>
           <Input label={t('maintenance.name')} value={form.name} disabled />
+          {ccTypeSuggested && <p className="text-xs text-blue-600">{t('maintenance.machineCostCenterTypeSuggested')}</p>}
           <Select
             label={t('maintenance.type')}
             value={form.dedicatedCostCenterType}
-            onChange={(e) => setForm((prev) => ({ ...prev, dedicatedCostCenterType: e.target.value }))}
+            placeholder={t('maintenance.selectMachineCostCenterType')}
+            onChange={(e) => { setForm((prev) => ({ ...prev, dedicatedCostCenterType: e.target.value })); setCcTypeSuggested(false); }}
             options={MACHINE_CC_TYPES.map((type) => ({ value: type, label: ccTypeLabel(type) }))}
           />
           <Input label={t('maintenance.description')} value={form.dedicatedCostCenterDescription} onChange={(e) => setForm((prev) => ({ ...prev, dedicatedCostCenterDescription: e.target.value }))} />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setCcModalOpen(false)}>{t('actions.cancel')}</Button>
-            <Button onClick={confirmDedicatedCostCenter}>{t('actions.confirm')}</Button>
+            <Button onClick={confirmDedicatedCostCenter} disabled={!ccTypeResolved}>{t('actions.confirm')}</Button>
           </div>
         </div>
       </Modal>
