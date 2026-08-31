@@ -18,6 +18,8 @@ import {
   materialReverseType,
 } from './material-document-domain.util';
 import { isWithinTolerance } from '../production-material-requirements/production-material-requirements.domain.util';
+import { PRODUCTION_COST_PURPOSE, isCostPurpose } from '../../../common/cost-purpose/cost-purpose.constants';
+import { assertCostPurposeOverrideAllowed } from '../../../common/cost-purpose/cost-purpose-permission';
 import {
   CancelMaterialDocumentDto,
   CreateMaterialDocumentDto,
@@ -94,6 +96,8 @@ export class ProductionMaterialDocumentsService {
           l.serialNumber ?? '',
           l.substitutionReason ?? '',
           l.originalIssueLineId ?? '',
+          l.costPurpose ?? '',
+          l.costPurposeOverrideReason ?? '',
         ].join(':'),
       )
       .sort()
@@ -114,6 +118,8 @@ export class ProductionMaterialDocumentsService {
           l.serialNumber ?? '',
           l.substitutionReason ?? '',
           l.originalIssueLineId ?? '',
+          l.costPurpose ?? '',
+          l.costPurposeOverrideReason ?? '',
         ].join(':'),
       )
       .sort()
@@ -143,6 +149,8 @@ export class ProductionMaterialDocumentsService {
           line.warehouseLocationId ?? '',
           line.batchNumber ?? '',
           line.serialNumber ?? '',
+          line.costPurpose ?? '',
+          line.costPurposeOverrideReason ?? '',
         ].join(':');
       })
       .sort()
@@ -161,6 +169,8 @@ export class ProductionMaterialDocumentsService {
           l.warehouseLocationId ?? '',
           l.batchNumber ?? '',
           l.serialNumber ?? '',
+          l.costPurpose ?? '',
+          l.costPurposeOverrideReason ?? '',
         ].join(':'),
       )
       .sort()
@@ -223,6 +233,97 @@ export class ProductionMaterialDocumentsService {
     }
 
     return { run, order, warehouse, products };
+  }
+
+  /**
+   * Resolves the canonical line-level Cost Purpose for an incoming OUT-side set
+   * of lines. Default is PRODUCTION. Any line requesting a non-default purpose
+   * is an override: it requires the canonical cost-purpose:override permission
+   * and a mandatory reason. Returns the resolved overrides (for audit) and throws
+   * before any persistence when a line is invalid/unauthorized.
+   */
+  private async resolveLineCostPurposes(
+    client: any,
+    userId: string,
+    lines: CreateMaterialDocumentLineDto[],
+  ): Promise<Array<{ lineNumber: number; productId: string; sourceDefaultPurpose: string; finalPurpose: string; overrideReason: string }>> {
+    const overrides: Array<{ lineNumber: number; productId: string; sourceDefaultPurpose: string; finalPurpose: string; overrideReason: string }> = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.costPurpose == null) continue;
+      if (!isCostPurpose(line.costPurpose)) throw this.badRequest('productionMaterial.costPurposeInvalid');
+      if (line.costPurpose !== PRODUCTION_COST_PURPOSE) {
+        overrides.push({
+          lineNumber: i + 1,
+          productId: line.productId,
+          sourceDefaultPurpose: PRODUCTION_COST_PURPOSE,
+          finalPurpose: line.costPurpose,
+          overrideReason: line.costPurposeOverrideReason ?? '',
+        });
+      }
+    }
+    if (overrides.length > 0) {
+      await assertCostPurposeOverrideAllowed(client, userId);
+      for (const o of overrides) {
+        if (!o.overrideReason) throw this.badRequest('productionMaterial.costPurposeOverrideReasonRequired');
+      }
+    }
+    return overrides;
+  }
+
+  /**
+   * Resolves the authoritative historical attribution snapshot from the parent
+   * ProductionOrder context (productionLineId, departmentId, costCenterId,
+   * machineId). machineId is only copied when a reliable parent Machine exists;
+   * otherwise NULL — never inferred/fabricated. Used at POST time and never
+   * rewritten afterwards.
+   */
+  private async resolveProductionSnapshot(client: any, orderId: string, ctx: ActiveOperationalContext) {
+    const order = await client.productionOrder.findFirst({
+      where: { id: orderId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
+      include: { productionLine: { select: { departmentId: true } } },
+    });
+    if (!order) throw this.notFound('productionMaterial.orderNotFound');
+    return {
+      productionLineId: order.productionLineId,
+      departmentId: order.productionLine?.departmentId ?? null,
+      costCenterId: order.costCenterId,
+      machineId: order.machineId ?? null,
+    };
+  }
+
+  private auditPurposeOverrides(
+    client: any,
+    userId: string,
+    doc: any,
+    overrides: Array<{ lineNumber: number; productId: string; sourceDefaultPurpose: string; finalPurpose: string; overrideReason: string }>,
+    ctx: ActiveOperationalContext,
+  ) {
+    const linesByNumber = new Map<number, any>(doc.lines.map((l: any) => [l.lineNumber, l]));
+    for (const o of overrides) {
+      const line = linesByNumber.get(o.lineNumber);
+      if (!line) continue;
+      this.audit.logWithClient(client, {
+        userId,
+        action: 'COST_PURPOSE_OVERRIDE',
+        entity: 'ProductionMaterialDocumentLine',
+        entityId: line.id,
+        details: {
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          sourceDefaultPurpose: o.sourceDefaultPurpose,
+          finalPurpose: o.finalPurpose,
+          overrideReason: o.overrideReason,
+          sourceDocument: 'PRODUCTION_MATERIAL_DOCUMENT',
+          sourceDocumentId: doc.id,
+          documentNumber: doc.documentNumber,
+          productId: o.productId,
+          lineNumber: o.lineNumber,
+          productionOrderId: doc.productionOrderId,
+          productionRunId: doc.productionRunId,
+        },
+      });
+    }
   }
 
   private documentLinesToMovementLines(documentType: string, dtoLines: CreateMaterialDocumentLineDto[]) {
@@ -435,6 +536,8 @@ export class ProductionMaterialDocumentsService {
             expiryDate: line.expiryDate ? new Date(line.expiryDate) : null,
             lineNumber: index + 1,
             notes: line.notes ?? null,
+            costPurpose: line.costPurpose ?? PRODUCTION_COST_PURPOSE,
+            costPurposeOverrideReason: line.costPurposeOverrideReason ?? null,
           })),
         },
       },
@@ -475,6 +578,7 @@ export class ProductionMaterialDocumentsService {
 
         const context = await this.resolveContext(dto, ctx, tx);
         await this.validateReturnReferences(tx, ctx, dto.lines, context.order.id);
+        const purposeOverrides = await this.resolveLineCostPurposes(tx, userId, dto.lines);
         const doc = await this.createDocumentWithMovement(tx, ctx, userId, dto.documentType, context.run, context.order, context.warehouse, dto, null, null);
 
         await this.writeAudit(tx, userId, 'CREATE', doc.id, ctx, {
@@ -485,6 +589,7 @@ export class ProductionMaterialDocumentsService {
           movementId: doc.movementId,
           lineCount: dto.lines.length,
         });
+        this.auditPurposeOverrides(tx, userId, doc, purposeOverrides, ctx);
         return doc;
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error: any) {
@@ -542,6 +647,7 @@ export class ProductionMaterialDocumentsService {
       const doc = await this.findDocument(id, ctx, tx);
       if (doc.status !== 'DRAFT') throw this.badRequest('productionMaterial.notDraft');
 
+      let purposeOverrides: Awaited<ReturnType<typeof this.resolveLineCostPurposes>> = [];
       if (dto.lines && dto.lines.length > 0) {
         for (const line of dto.lines) {
           const product = await tx.product.findUnique({ where: { id: line.productId } });
@@ -556,6 +662,8 @@ export class ProductionMaterialDocumentsService {
             if (doc.issueWarehouseId && location.warehouseId !== doc.issueWarehouseId) throw this.badRequest('productionMaterial.locationWarehouseMismatch');
           }
         }
+
+        purposeOverrides = await this.resolveLineCostPurposes(tx, userId, dto.lines);
 
         await tx.productionMaterialDocumentLine.deleteMany({ where: { documentId: id } });
         await tx.productionMaterialDocumentLine.createMany({
@@ -577,6 +685,8 @@ export class ProductionMaterialDocumentsService {
             expiryDate: line.expiryDate ? new Date(line.expiryDate) : null,
             lineNumber: index + 1,
             notes: line.notes ?? null,
+            costPurpose: line.costPurpose ?? PRODUCTION_COST_PURPOSE,
+            costPurposeOverrideReason: line.costPurposeOverrideReason ?? null,
           })),
         });
 
@@ -600,6 +710,7 @@ export class ProductionMaterialDocumentsService {
       });
 
       await this.writeAudit(tx, userId, 'UPDATE', id, ctx, { documentNumber: doc.documentNumber });
+      this.auditPurposeOverrides(tx, userId, updated, purposeOverrides, ctx);
       return updated;
     });
   }
@@ -612,6 +723,20 @@ export class ProductionMaterialDocumentsService {
 
       await this.validateSnapshotForPosting(tx, doc, ctx);
       await this.movementsService.postMovementWithinTransaction(tx, doc.movementId, userId, ctx);
+
+      // Cost Purpose R1 — write the authoritative historical attribution snapshot
+      // onto every line AT POSTING TIME from the parent ProductionOrder context.
+      // Immutable afterwards; never derived dynamically from current master data.
+      const snapshot = await this.resolveProductionSnapshot(tx, doc.productionOrderId, ctx);
+      await tx.productionMaterialDocumentLine.updateMany({
+        where: { documentId: id },
+        data: {
+          productionLineId: snapshot.productionLineId,
+          departmentId: snapshot.departmentId,
+          costCenterId: snapshot.costCenterId,
+          machineId: snapshot.machineId,
+        },
+      });
 
       const posted = await tx.productionMaterialDocument.update({
         where: { id },
@@ -723,6 +848,10 @@ export class ProductionMaterialDocumentsService {
             serialNumber: line.serialNumber ?? undefined,
             expiryDate: line.expiryDate ? line.expiryDate.toISOString() : undefined,
             originalIssueLineId: line.id,
+            // Reversal inherits the source line's canonical Cost Purpose (never
+            // an override): a MAINTENANCE/PRODUCTION source cannot silently flip.
+            costPurpose: line.costPurpose ?? PRODUCTION_COST_PURPOSE,
+            costPurposeOverrideReason: line.costPurposeOverrideReason ?? undefined,
           };
           if (reverseType === 'SUBSTITUTION' && line.substitutedProductId) {
             base.substitutedProductId = line.productId;

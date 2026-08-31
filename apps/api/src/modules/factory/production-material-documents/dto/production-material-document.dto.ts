@@ -13,6 +13,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { PRODUCTION_MATERIAL_DOCUMENT_TYPES } from '../production-material-documents.constants';
+import { COST_PURPOSE_VALUES } from '../../../../common/cost-purpose/cost-purpose.constants';
 
 export class CreateMaterialDocumentLineDto {
   @IsString()
@@ -63,6 +64,18 @@ export class CreateMaterialDocumentLineDto {
   @IsString()
   @MaxLength(2000)
   notes?: string;
+
+  // Cost Purpose R1 — canonical "WHY" attribution. Leave unset to use the source
+  // default (PRODUCTION). A non-default value is an override and requires the
+  // canonical cost-purpose:override permission + a mandatory reason (line-level).
+  @IsOptional()
+  @IsEnum(COST_PURPOSE_VALUES)
+  costPurpose?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  costPurposeOverrideReason?: string;
 }
 
 export class CreateMaterialDocumentDto {

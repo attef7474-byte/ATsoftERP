@@ -63,6 +63,7 @@ const M: Record<string, ResourceDef> = {
   'payment-term': { domain: 'organization', ar: 'شروط الدفع', en: 'Payment Terms' },
   'cost-center': { domain: 'organization', ar: 'مراكز التكلفة', en: 'Cost Centers' },
   'operational-cost-center': { domain: 'organization', ar: 'مراكز التكلفة التشغيلية', en: 'Operational Cost Centers' },
+  'cost-purpose': { domain: 'organization', ar: 'غرض التكلفة', en: 'Cost Purpose' },
   // --- Access Control ---
   user: { domain: 'accessControl', ar: 'المستخدمون', en: 'Users' },
   role: { domain: 'accessControl', ar: 'الأدوار', en: 'Roles' },

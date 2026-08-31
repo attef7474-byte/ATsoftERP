@@ -2,6 +2,19 @@ import type { LocaleTranslations } from '../../types';
 
 const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'actions' | 'status'> = {
     common: {
+        costPurpose: {
+            label: 'Cost Purpose',
+            MAINTENANCE: 'Maintenance',
+            PRODUCTION: 'Production',
+            QUALITY: 'Quality',
+            PROJECT: 'Project',
+            UTILITIES: 'Utilities',
+            ADMIN: 'Administration',
+            DEVELOPMENT: 'Development',
+            OTHER: 'Other',
+            overrideReason: 'Override Reason',
+            overrideReasonHint: 'Required when changing the default cost purpose.',
+        },
         appName: 'ATsoft ERP',
         loading: 'Loading...',
         saving: 'Saving...',

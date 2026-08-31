@@ -7,6 +7,8 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { MaintenanceRequest, MaintenanceTask, DowntimeLog, SparePartRequestLine } from '../../../../../lib/admin-types';
+import { useAuth } from '../../../../../lib/auth-context';
+import { COST_PURPOSE_VALUES, MAINTENANCE_COST_PURPOSE, COST_PURPOSE_OVERRIDE_PERMISSION } from '../../../../../lib/cost-purpose';
 
 interface RequestDetail extends MaintenanceRequest {
   tasks?: MaintenanceTask[];
@@ -24,6 +26,8 @@ export default function MaintenanceRequestDetailPage() {
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
+  const { isSuperAdmin, permissions } = useAuth();
+  const canOverrideCostPurpose = isSuperAdmin || Boolean(permissions?.permissions.includes(COST_PURPOSE_OVERRIDE_PERMISSION));
   const id = params.id as string;
   if (isReservedDetailRouteId(id)) {
     notFound();
@@ -59,6 +63,8 @@ export default function MaintenanceRequestDetailPage() {
   const [stockIssueRemovedWarehouseId, setStockIssueRemovedWarehouseId] = useState('');
   const [stockIssueRemovedQuantity, setStockIssueRemovedQuantity] = useState(0);
   const [stockIssueNoReturnReason, setStockIssueNoReturnReason] = useState('');
+  const [stockIssueCostPurpose, setStockIssueCostPurpose] = useState<string>(MAINTENANCE_COST_PURPOSE);
+  const [stockIssueCostPurposeOverrideReason, setStockIssueCostPurposeOverrideReason] = useState('');
   const [stockIssueMovements, setStockIssueMovements] = useState<any[]>([]);
   const [stockIssueMovementsLoading, setStockIssueMovementsLoading] = useState(false);
   const [showStockIssueHistory, setShowStockIssueHistory] = useState('');
@@ -200,6 +206,9 @@ export default function MaintenanceRequestDetailPage() {
     const errors: Record<string, string> = {};
     if (!stockIssueWarehouseId) errors.stockIssueWarehouseId = t('maintenance.sparePartRequest.selectWarehouseForIssue');
     if (stockIssueQuantity <= 0) errors.stockIssueQuantity = t('validation.quantityMustBePositive');
+    if (stockIssueCostPurpose !== MAINTENANCE_COST_PURPOSE && !stockIssueCostPurposeOverrideReason.trim()) {
+      errors.costPurposeOverrideReason = t('maintenance.costPurposeOverrideReasonRequired');
+    }
     setStockIssueErrors(errors);
     if (Object.keys(errors).length > 0) return;
     setStockIssueLoading(true);
@@ -210,6 +219,8 @@ export default function MaintenanceRequestDetailPage() {
         notes: stockIssueNotes || undefined,
         issuedStockCondition: stockIssueCondition,
         replacementAction: stockIssueReplacementAction,
+        costPurpose: stockIssueCostPurpose,
+        costPurposeOverrideReason: stockIssueCostPurpose !== MAINTENANCE_COST_PURPOSE ? stockIssueCostPurposeOverrideReason.trim() : undefined,
       };
       if (stockIssueReplacementAction === 'RETURNED_REMOVED_PART') {
         payload.removedPartCondition = stockIssueRemovedCondition;
@@ -231,6 +242,8 @@ export default function MaintenanceRequestDetailPage() {
       setStockIssueRemovedWarehouseId('');
       setStockIssueRemovedQuantity(0);
       setStockIssueNoReturnReason('');
+      setStockIssueCostPurpose(MAINTENANCE_COST_PURPOSE);
+      setStockIssueCostPurposeOverrideReason('');
       fetchPartLines();
     } catch (err: any) {
       handleApiError(err);
@@ -551,7 +564,7 @@ export default function MaintenanceRequestDetailPage() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-semibold text-gray-700">{t('maintenance.sparePartRequest.issueStockToWarehouse')}</h3>
-              <button onClick={() => { setStockIssueLineId(''); setStockIssueWarehouseId(''); setStockIssueQuantity(0); setStockIssueNotes(''); setStockIssueCondition('NEW'); setStockIssueReplacementAction('NEW_INSTALLATION'); setStockIssueRemovedCondition(''); setStockIssueRemovedWarehouseId(''); setStockIssueRemovedQuantity(0); setStockIssueNoReturnReason(''); }} className="text-gray-400 hover:text-gray-600">&times;</button>
+              <button onClick={() => { setStockIssueLineId(''); setStockIssueWarehouseId(''); setStockIssueQuantity(0); setStockIssueNotes(''); setStockIssueCondition('NEW'); setStockIssueReplacementAction('NEW_INSTALLATION'); setStockIssueRemovedCondition(''); setStockIssueRemovedWarehouseId(''); setStockIssueRemovedQuantity(0); setStockIssueNoReturnReason(''); setStockIssueCostPurpose(MAINTENANCE_COST_PURPOSE); setStockIssueCostPurposeOverrideReason(''); }} className="text-gray-400 hover:text-gray-600">&times;</button>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -596,6 +609,19 @@ export default function MaintenanceRequestDetailPage() {
               { value: 'DAMAGED_REPAIRABLE', label: t('maintenance.sparePartRequest.conditionDamagedRepairable') },
               { value: 'DAMAGED_NOT_REPAIRABLE', label: t('maintenance.sparePartRequest.conditionDamagedNotRepairable') },
             ]} />
+            <Select
+              label={t('common.costPurpose.label')}
+              value={stockIssueCostPurpose}
+              onChange={e => setStockIssueCostPurpose(e.target.value)}
+              options={COST_PURPOSE_VALUES.map(v => ({ value: v, label: t('common.costPurpose.' + v) }))}
+            />
+            {canOverrideCostPurpose && stockIssueCostPurpose !== MAINTENANCE_COST_PURPOSE && (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('common.costPurpose.overrideReason')}</label>
+                <input type="text" value={stockIssueCostPurposeOverrideReason} onChange={e => setStockIssueCostPurposeOverrideReason(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" placeholder={t('common.costPurpose.overrideReasonHint')} />
+                {stockIssueErrors.costPurposeOverrideReason && <p className="text-red-500 text-sm mt-1">{stockIssueErrors.costPurposeOverrideReason}</p>}
+              </div>
+            )}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.replacementAction')}</label>
               <div className="flex flex-wrap gap-2 mt-1">
@@ -639,7 +665,7 @@ export default function MaintenanceRequestDetailPage() {
             </div>
             <div className="flex gap-2">
               <button onClick={execStockIssue} disabled={stockIssueLoading} className="px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">{t('maintenance.sparePartRequest.issueStock')}</button>
-              <button onClick={() => { setStockIssueLineId(''); setStockIssueWarehouseId(''); setStockIssueQuantity(0); setStockIssueNotes(''); setStockIssueCondition('NEW'); setStockIssueReplacementAction('NEW_INSTALLATION'); setStockIssueRemovedCondition(''); setStockIssueRemovedWarehouseId(''); setStockIssueRemovedQuantity(0); setStockIssueNoReturnReason(''); }} className="px-3 py-1.5 text-xs font-medium bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">{t('common.cancel')}</button>
+              <button onClick={() => { setStockIssueLineId(''); setStockIssueWarehouseId(''); setStockIssueQuantity(0); setStockIssueNotes(''); setStockIssueCondition('NEW'); setStockIssueReplacementAction('NEW_INSTALLATION'); setStockIssueRemovedCondition(''); setStockIssueRemovedWarehouseId(''); setStockIssueRemovedQuantity(0); setStockIssueNoReturnReason(''); setStockIssueCostPurpose(MAINTENANCE_COST_PURPOSE); setStockIssueCostPurposeOverrideReason(''); }} className="px-3 py-1.5 text-xs font-medium bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">{t('common.cancel')}</button>
             </div>
           </CardContent>
         </Card>

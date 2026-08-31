@@ -3,6 +3,7 @@ import type { LocaleTranslations } from '../../types';
 const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanceWorkflow' | 'maintenanceDashboard' | 'preventiveMaintenance' | 'downtimeAnalysis' | 'sparePartRequest'> = {
 
     maintenance: {
+        costPurposeOverrideReasonRequired: 'A reason is required when overriding the default cost purpose for this issue.',
         machineCategories: 'Machine Categories',
         machines: 'Machines',
         machineCategory: 'Machine Category',

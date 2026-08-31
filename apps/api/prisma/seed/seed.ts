@@ -195,6 +195,7 @@ async function main() {
     { key: "operation-type:deactivate", module: "operation-type", action: "deactivate" },
     { key: "cost-center:activate", module: "cost-center", action: "activate" },
     { key: "cost-center:deactivate", module: "cost-center", action: "deactivate" },
+    { key: "cost-purpose:override", module: "cost-purpose", action: "override" },
     { key: "production-line:activate", module: "production-line", action: "activate" },
     { key: "production-line:deactivate", module: "production-line", action: "deactivate" },
     { key: "spare-part-conditions:read", module: "spare-part-conditions", action: "read" },

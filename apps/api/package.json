@@ -10,6 +10,7 @@
     "seed:factory": "ts-node prisma/seed/seed-factory-reference.ts",
     "seed:operational-reliability-permissions": "ts-node prisma/seed/seed-operational-reliability-permissions.ts",
     "seed:operations-reports-permissions": "ts-node prisma/seed/seed-operations-reports-permissions.ts",
+    "seed:cost-purpose-permissions": "ts-node prisma/seed/seed-cost-purpose-permissions.ts",
     "seed:permissions": "ts-node prisma/seed/seed-cmms-permissions.ts",
     "seed:production-permissions": "ts-node prisma/seed/seed-production-permissions.ts",
     "seed:production-numbering": "ts-node prisma/seed/seed-production-numbering.ts",

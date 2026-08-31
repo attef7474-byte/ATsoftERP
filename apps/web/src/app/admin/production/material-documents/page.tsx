@@ -13,6 +13,7 @@ import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionRefres
 import { F9Lookup } from '../../../../components/f9/F9Lookup';
 import { productionOrderAdapter, productionRunAdapter, warehouseAdapter } from '../../../../components/f9/lookup-adapters';
 import { MaterialLinesEditor, MaterialLineDraft, createEmptyMaterialLine } from './_components/lines-editor';
+import { COST_PURPOSE_OVERRIDE_PERMISSION, PRODUCTION_COST_PURPOSE } from '../../../../lib/cost-purpose';
 
 const DOCUMENT_TYPES = ['ISSUE', 'CONSUMPTION', 'RETURN', 'SUBSTITUTION'];
 const DOCUMENT_STATUSES = ['DRAFT', 'POSTED', 'CANCELLED'];
@@ -61,6 +62,11 @@ export default function ProductionMaterialDocumentsPage() {
 
   const can = useCallback(
     (action: string) => isSuperAdmin || Boolean(permissions?.permissions.includes('production-material-document:' + action)),
+    [isSuperAdmin, permissions],
+  );
+
+  const canOverrideCostPurpose = useCallback(
+    () => isSuperAdmin || Boolean(permissions?.permissions.includes(COST_PURPOSE_OVERRIDE_PERMISSION)),
     [isSuperAdmin, permissions],
   );
 
@@ -243,6 +249,8 @@ export default function ProductionMaterialDocumentsPage() {
     substitutedProductId: line.substitutedProductId || undefined,
     substitutionReason: line.substitutionReason.trim() || undefined,
     notes: line.notes.trim() || undefined,
+    costPurpose: (line.costPurpose || PRODUCTION_COST_PURPOSE) as any,
+    costPurposeOverrideReason: line.costPurposeOverrideReason.trim() || undefined,
   }));
 
   const handleCreate = async () => {
@@ -350,6 +358,8 @@ export default function ProductionMaterialDocumentsPage() {
         substitutedProductId: line.substitutedProductId || '',
         substitutionReason: line.substitutionReason || '',
         notes: line.notes || '',
+        costPurpose: (line as any).costPurpose || PRODUCTION_COST_PURPOSE,
+        costPurposeOverrideReason: (line as any).costPurposeOverrideReason || '',
       })),
     });
     setValidationErrors({});
@@ -545,6 +555,7 @@ export default function ProductionMaterialDocumentsPage() {
             lines={form.lines}
             onChange={(lines) => { setForm({ ...form, lines }); setValidationErrors(prev => ({ ...prev, lines: '' })); }}
             showSubstitution={form.documentType === 'SUBSTITUTION'}
+            allowOverride={canOverrideCostPurpose()}
             error={validationErrors.lines}
           />
           <Textarea label={t('production.materialDocuments.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />

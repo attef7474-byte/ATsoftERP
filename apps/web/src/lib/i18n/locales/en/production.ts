@@ -728,6 +728,8 @@ const production: Pick<LocaleTranslations, 'production'> = {
                 productTenantMismatch: 'Product does not belong to the active company.',
                 locationNotFound: 'Location not found.',
                 locationWarehouseMismatch: 'Location does not belong to the selected warehouse.',
+                costPurposeInvalid: 'The selected cost purpose is not valid.',
+                costPurposeOverrideReasonRequired: 'A reason is required when overriding the default cost purpose.',
             },
         },
         finishedGoodsReceipts: {

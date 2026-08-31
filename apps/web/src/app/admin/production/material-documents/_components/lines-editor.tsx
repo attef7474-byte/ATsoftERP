@@ -2,9 +2,10 @@
 
 import React from 'react';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
-import { Button, Input } from '../../../../../components/admin/ui';
+import { Button, Input, Select } from '../../../../../components/admin/ui';
 import { F9Lookup } from '../../../../../components/f9/F9Lookup';
 import { productAdapter, warehouseLocationAdapter } from '../../../../../components/f9/lookup-adapters';
+import { COST_PURPOSE_VALUES, PRODUCTION_COST_PURPOSE } from '../../../../../lib/cost-purpose';
 
 export interface MaterialLineDraft {
   key: string;
@@ -18,6 +19,8 @@ export interface MaterialLineDraft {
   substitutedProductId: string;
   substitutionReason: string;
   notes: string;
+  costPurpose: string;
+  costPurposeOverrideReason: string;
 }
 
 export function createEmptyMaterialLine(): MaterialLineDraft {
@@ -33,6 +36,8 @@ export function createEmptyMaterialLine(): MaterialLineDraft {
     substitutedProductId: '',
     substitutionReason: '',
     notes: '',
+    costPurpose: PRODUCTION_COST_PURPOSE,
+    costPurposeOverrideReason: '',
   };
 }
 
@@ -40,10 +45,11 @@ interface LinesEditorProps {
   lines: MaterialLineDraft[];
   onChange: (lines: MaterialLineDraft[]) => void;
   showSubstitution: boolean;
+  allowOverride: boolean;
   error?: string;
 }
 
-export function MaterialLinesEditor({ lines, onChange, showSubstitution, error }: LinesEditorProps) {
+export function MaterialLinesEditor({ lines, onChange, showSubstitution, allowOverride, error }: LinesEditorProps) {
   const { t } = useTranslation();
 
   const updateLine = (key: string, patch: Partial<MaterialLineDraft>) => {
@@ -160,6 +166,25 @@ export function MaterialLinesEditor({ lines, onChange, showSubstitution, error }
                   />
                 </div>
               </>
+            )}
+            <div className="col-span-2">
+              <Select
+                label={t('common.costPurpose.label')}
+                value={line.costPurpose}
+                onChange={(e) => updateLine(line.key, { costPurpose: e.target.value })}
+                options={COST_PURPOSE_VALUES.map((v) => ({ value: v, label: t('common.costPurpose.' + v) }))}
+              />
+            </div>
+            {allowOverride && line.costPurpose !== PRODUCTION_COST_PURPOSE && (
+              <div className="col-span-2">
+                <Input
+                  label={t('common.costPurpose.overrideReason')}
+                  maxLength={1000}
+                  placeholder={t('common.costPurpose.overrideReasonHint')}
+                  value={line.costPurposeOverrideReason}
+                  onChange={(e) => updateLine(line.key, { costPurposeOverrideReason: e.target.value })}
+                />
+              </div>
             )}
             <div className="col-span-2">
               <Input

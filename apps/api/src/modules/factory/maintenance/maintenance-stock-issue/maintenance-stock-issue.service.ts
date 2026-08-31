@@ -7,6 +7,8 @@ import { SparePartConditionService } from '../spare-part-conditions/spare-part-c
 import { InstalledPartsReplacementService } from '../installed-parts-replacement/installed-parts-replacement.service';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 import { assertWarehouseInContext, assertMachineInContext as assertMachineTenantInContext } from '../../../../common/operational-context/tenant-guards';
+import { MAINTENANCE_COST_PURPOSE, isCostPurpose, type CostPurpose } from '../../../../common/cost-purpose/cost-purpose.constants';
+import { assertCostPurposeOverrideAllowed } from '../../../../common/cost-purpose/cost-purpose-permission';
 
 const VALID_STOCK_CONDITIONS = ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'];
 const VALID_REPLACEMENT_ACTIONS = ['RETURNED_REMOVED_PART', 'NO_REMOVED_PART', 'NEW_INSTALLATION'];
@@ -159,6 +161,29 @@ export class MaintenanceStockIssueService {
     const sparePart = part.sparePart;
     derivedCostData.issuedStockCondition = dto.issuedStockCondition || 'NEW';
     derivedCostData.replacementAction = dto.replacementAction;
+
+    // Cost Purpose R1 — canonical "WHY". Source default is MAINTENANCE. A
+    // non-default requested value is an override: requires the canonical
+    // cost-purpose:override permission and a mandatory reason, and is audited.
+    let costPurpose: CostPurpose = MAINTENANCE_COST_PURPOSE;
+    let costPurposeOverrideReason: string | null = null;
+    let costPurposeOverridden = false;
+    if (dto.costPurpose != null) {
+      if (!isCostPurpose(dto.costPurpose)) {
+        throw new BadRequestException(`Invalid costPurpose '${dto.costPurpose}'. Must be one of: MAINTENANCE, PRODUCTION, QUALITY, PROJECT, UTILITIES, ADMIN, DEVELOPMENT, OTHER`);
+      }
+      if (dto.costPurpose !== MAINTENANCE_COST_PURPOSE) {
+        await assertCostPurposeOverrideAllowed(this.prisma, userId);
+        if (!dto.costPurposeOverrideReason) {
+          throw new BadRequestException('costPurposeOverrideReason is required when overriding the default Cost Purpose');
+        }
+        costPurpose = dto.costPurpose;
+        costPurposeOverrideReason = dto.costPurposeOverrideReason;
+        costPurposeOverridden = true;
+      }
+    }
+    derivedCostData.costPurpose = costPurpose;
+    derivedCostData.costPurposeOverrideReason = costPurposeOverrideReason;
 
     const companyId = ctx.companyId;
     const branchId = ctx.branchId;
@@ -350,6 +375,19 @@ export class MaintenanceStockIssueService {
       replacementAction: dto.replacementAction,
       issuedStockCondition: dto.issuedStockCondition,
     });
+
+    if (costPurposeOverridden) {
+      await this.audit.log(userId, 'COST_PURPOSE_OVERRIDE', 'MaintenanceRequestRequiredPart', lineId, {
+        sourceDefaultPurpose: MAINTENANCE_COST_PURPOSE,
+        finalPurpose: costPurpose,
+        overrideReason: costPurposeOverrideReason,
+        sourceDocument: 'MAINTENANCE_PART_LINE',
+        sourceLineId: lineId,
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+        maintenanceRequestId: requestId,
+      });
+    }
 
     return this.prisma.maintenanceRequestRequiredPart.findUnique({
       where: { id: lineId },

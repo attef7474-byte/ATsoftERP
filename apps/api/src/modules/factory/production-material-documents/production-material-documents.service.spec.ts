@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ProductionMaterialDocumentsService } from './production-material-documents.service';
 import { PRODUCTION_MATERIAL_DOCUMENT_INCLUDE } from './production-material-documents.constants';
 
@@ -105,7 +105,7 @@ function makeService(overrides: Record<string, any> = {}) {
       update: jest.fn(),
       count: jest.fn(),
     },
-    productionMaterialDocumentLine: { deleteMany: jest.fn(), createMany: jest.fn(), findFirst: jest.fn() },
+    productionMaterialDocumentLine: { deleteMany: jest.fn(), createMany: jest.fn(), findFirst: jest.fn(), updateMany: jest.fn() },
     inventoryMovement: { create: jest.fn(), update: jest.fn(), findUnique: jest.fn() },
     inventoryMovementLine: { deleteMany: jest.fn(), createMany: jest.fn() },
     productionRun: { findFirst: jest.fn() },
@@ -114,6 +114,7 @@ function makeService(overrides: Record<string, any> = {}) {
     warehouse: { findUnique: jest.fn() },
     product: { findUnique: jest.fn() },
     warehouseLocation: { findUnique: jest.fn() },
+    userRole: { findMany: jest.fn() },
     ...overrides,
   };
   prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
@@ -268,6 +269,84 @@ describe('ProductionMaterialDocumentsService', () => {
     });
   });
 
+  describe('create - cost purpose', () => {
+    const grantOverride = (p: any) => {
+      p.userRole.findMany.mockResolvedValue([
+        { role: { status: 'ACTIVE', code: 'COST', permissions: [{ permission: { status: 'ACTIVE', key: 'cost-purpose:override' } }] } },
+      ]);
+    };
+
+    it('rejects overriding the default PRODUCTION cost purpose without permission', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(run());
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.userRole.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.create(
+          baseDto({ lines: [{ productId: 'prod1', quantity: 5, unit: 'KG', costPurpose: 'QUALITY', costPurposeOverrideReason: 'qc' }] }),
+          'u1',
+          ctxA,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(prisma.userRole.findMany).toHaveBeenCalled();
+      expect(prisma.productionMaterialDocument.create).not.toHaveBeenCalled();
+    });
+
+    it('defaults the Cost Purpose to PRODUCTION when a line specifies none', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(run());
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov1', movementNumber: 'IM-000001' });
+      prisma.productionMaterialDocument.create.mockResolvedValue(document());
+      prisma.productionMaterialDocument.update.mockResolvedValue(document());
+
+      await service.create(baseDto(), 'u1', ctxA);
+
+      const docData = prisma.productionMaterialDocument.create.mock.calls[0][0].data;
+      expect(docData.lines.create[0].costPurpose).toBe('PRODUCTION');
+      expect(prisma.userRole.findMany).not.toHaveBeenCalled();
+    });
+
+    it('persists an authorized override with its reason and audits the override', async () => {
+      const { prisma, service, audit } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(run());
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.product.findUnique.mockResolvedValue(product());
+      grantOverride(prisma);
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov1', movementNumber: 'IM-000001' });
+      prisma.productionMaterialDocument.create.mockResolvedValue(
+        document({ lines: [{ id: 'line1', lineNumber: 1, productId: 'prod1', quantity: 5, unit: 'KG', substitutedProductId: null }] }),
+      );
+      prisma.productionMaterialDocument.update.mockResolvedValue(
+        document({ lines: [{ id: 'line1', lineNumber: 1, productId: 'prod1', quantity: 5, unit: 'KG', substitutedProductId: null }] }),
+      );
+
+      await service.create(
+        baseDto({ lines: [{ productId: 'prod1', quantity: 5, unit: 'KG', costPurpose: 'PROJECT', costPurposeOverrideReason: 'external project' }] }),
+        'u1',
+        ctxA,
+      );
+
+      const docData = prisma.productionMaterialDocument.create.mock.calls[0][0].data;
+      expect(docData.lines.create[0].costPurpose).toBe('PROJECT');
+      expect(docData.lines.create[0].costPurposeOverrideReason).toBe('external project');
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ action: 'COST_PURPOSE_OVERRIDE', entityId: 'line1', details: expect.objectContaining({ finalPurpose: 'PROJECT' }) }),
+      );
+    });
+  });
+
   describe('update', () => {
     it('rejects a line that references a product that does not exist', async () => {
       const { prisma, service } = makeService();
@@ -306,21 +385,63 @@ describe('ProductionMaterialDocumentsService', () => {
     });
   });
 
+  describe('update - cost purpose override RBAC', () => {
+    it('rejects an override on an edited line without the cost-purpose:override permission', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.userRole.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.update('doc1', { lines: [{ productId: 'prod1', quantity: 3, unit: 'KG', costPurpose: 'QUALITY', costPurposeOverrideReason: 'qc' }] }, 'u1', ctxA),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(prisma.productionMaterialDocumentLine.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('post', () => {
     it('posts through the shared movement transaction and marks the document POSTED', async () => {
       const { prisma, service, movements } = makeService();
       prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
+      prisma.productionOrder.findFirst.mockResolvedValue(order({ productionLine: { departmentId: 'dept1' }, productionLineId: 'l1', machineId: 'm1', costCenterId: 'cc1' }));
       prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
+      prisma.productionMaterialDocumentLine.updateMany.mockResolvedValue({ count: 1 });
       prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
 
       const result = await service.post('doc1', 'u1', ctxA);
 
       expect(movements.postMovementWithinTransaction).toHaveBeenCalledWith(prisma, 'mov1', 'u1', ctxA);
+      expect(prisma.productionMaterialDocumentLine.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { documentId: 'doc1' },
+          data: expect.objectContaining({ productionLineId: 'l1', departmentId: 'dept1', costCenterId: 'cc1', machineId: 'm1' }),
+        }),
+      );
       expect(prisma.productionMaterialDocument.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: 'POSTED', postedById: 'u1' }) }),
       );
       expect(result.status).toBe('POSTED');
+    });
+
+    it('writes the authoritative attribution snapshot (machine NULL when the parent order has none) at posting time', async () => {
+      const { prisma, service, movements } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
+      prisma.productionOrder.findFirst.mockResolvedValue(order({ productionLine: { departmentId: 'dept1' }, productionLineId: null, machineId: null, costCenterId: 'cc1' }));
+      prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
+
+      await service.post('doc1', 'u1', ctxA);
+
+      expect(movements.postMovementWithinTransaction).toHaveBeenCalled();
+      expect(prisma.productionMaterialDocumentLine.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { documentId: 'doc1' },
+          data: expect.objectContaining({ productionLineId: null, departmentId: 'dept1', costCenterId: 'cc1', machineId: null }),
+        }),
+      );
     });
 
     it('rejects posting a non-DRAFT document', async () => {
@@ -367,6 +488,7 @@ describe('ProductionMaterialDocumentsService', () => {
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(
         frozenRequirement({ lines: [{ id: 'rline1', productId: 'prod1', plannedQuantity: 10, overIssuePolicy: 'WITH_REASON', tolerancePercent: null }] }),
       );
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
       prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
       prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
 
@@ -383,6 +505,7 @@ describe('ProductionMaterialDocumentsService', () => {
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(
         frozenRequirement({ lines: [{ id: 'rline1', productId: 'prod1', plannedQuantity: 10, overIssuePolicy: 'TOLERANCE', tolerancePercent: 10 }] }),
       );
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
       prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
       prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
 
@@ -406,6 +529,7 @@ describe('ProductionMaterialDocumentsService', () => {
     it('allows posting a RETURN document without a frozen snapshot (returns are IN, no consumption)', async () => {
       const { prisma, service, movements } = makeService();
       prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ documentType: 'RETURN' }));
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
       prisma.productionMaterialDocument.update.mockResolvedValue(document({ documentType: 'RETURN', status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
 
       const result = await service.post('doc1', 'u1', ctxA);
@@ -437,6 +561,32 @@ describe('ProductionMaterialDocumentsService', () => {
       expect(docData.lines.create[0].productId).toBe('prod1');
       const movementData = prisma.inventoryMovement.create.mock.calls[0][0].data;
       expect(movementData.lines.create[0].direction).toBe('IN');
+    });
+
+    it('carries the source line Cost Purpose onto reversal lines (inheritance, no override re-check)', async () => {
+      const { prisma, service, audit } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id) return Promise.resolve(
+          document({
+            status: 'POSTED', postedAt: new Date(), postedById: 'u1',
+            lines: [{ id: 'line1', productId: 'prod1', quantity: 5, unit: 'KG', substitutedProductId: null, costPurpose: 'PROJECT', costPurposeOverrideReason: 'external project' }],
+          }),
+        );
+        return Promise.resolve(null);
+      });
+      prisma.productionRun.findFirst.mockResolvedValue(run());
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov2', movementNumber: 'IM-000002' });
+      prisma.productionMaterialDocument.create.mockResolvedValue(document({ id: 'doc2', documentNumber: 'PMD-000002', documentType: 'RETURN' }));
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({ id: 'doc2', documentType: 'RETURN' }));
+
+      await service.reverse('doc1', { requestId: 'req-rev-inherit' }, 'u1', ctxA);
+
+      const docData = prisma.productionMaterialDocument.create.mock.calls[0][0].data;
+      expect(docData.lines.create[0].costPurpose).toBe('PROJECT');
+      expect(docData.lines.create[0].costPurposeOverrideReason).toBe('external project');
+      expect(prisma.userRole.findMany).not.toHaveBeenCalled();
     });
 
     it('rejects reversing a DRAFT document', async () => {
@@ -682,6 +832,7 @@ describe('ProductionMaterialDocumentsService', () => {
       const { prisma, service } = makeService();
       prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
       prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
       prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
       await service.post('doc1', 'u1', ctxA);

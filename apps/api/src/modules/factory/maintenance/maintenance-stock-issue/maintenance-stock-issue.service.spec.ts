@@ -109,6 +109,7 @@ describe('MaintenanceStockIssueService tenant isolation', () => {
         create: jest.fn(),
       },
       product: { findUnique: jest.fn() },
+      userRole: { findMany: jest.fn() },
       $transaction: jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(prisma)),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
@@ -354,6 +355,70 @@ describe('MaintenanceStockIssueService tenant isolation', () => {
       expect(prisma.inventoryMovement.create).toHaveBeenCalled();
       expect(prisma.maintenanceRequestRequiredPart.update).toHaveBeenCalled();
       expect(audit.log).toHaveBeenCalledWith('u1', 'ISSUE_STOCK', 'MaintenanceRequestRequiredPart', 'line1', expect.any(Object));
+    });
+  });
+
+  describe('issue - cost purpose override RBAC', () => {
+    const fullIssueMocks = () => {
+      prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(partLine());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.machine.findUnique.mockResolvedValue(machine());
+      prisma.inventoryBalance.findFirst.mockResolvedValue({
+        id: 'bal1', sparePartId: 'sp1', productId: 'prod1', warehouseId: 'wh1', condition: 'NEW', quantity: 10, availableQuantity: 10,
+      });
+      prisma.inventoryBalance.update.mockResolvedValue({ id: 'bal1' });
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'im1', movementNumber: 'IM-0001', lines: [] });
+      prisma.maintenanceRequestRequiredPart.update.mockResolvedValue({ id: 'line1' });
+      prisma.sparePartConditionBalance.findFirst.mockResolvedValue({
+        id: 'cb1', sparePartId: 'sp1', productId: 'prod1', warehouseId: 'wh1', condition: 'NEW', quantity: 10, availableQuantity: 10,
+      });
+      prisma.sparePartConditionBalance.update.mockResolvedValue({ id: 'cb1' });
+      prisma.sparePartConditionMovement.create.mockResolvedValue({ id: 'scm1' });
+    };
+
+    it('rejects overriding the default MAINTENANCE cost purpose without the cost-purpose:override permission', async () => {
+      prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(partLine());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.userRole.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.issue('req1', 'line1', { ...baseIssueDto, costPurpose: 'PRODUCTION', costPurposeOverrideReason: 'project overhead' } as any, 'u1', ctx),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(prisma.userRole.findMany).toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects an override without a mandatory reason even when permission is granted', async () => {
+      prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(partLine());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.userRole.findMany.mockResolvedValue([
+        { role: { status: 'ACTIVE', code: 'MAINT', permissions: [{ permission: { status: 'ACTIVE', key: 'cost-purpose:override' } }] } },
+      ]);
+
+      await expect(
+        service.issue('req1', 'line1', { ...baseIssueDto, costPurpose: 'QUALITY', costPurposeOverrideReason: '' } as any, 'u1', ctx),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('accepts an authorized override with a reason, persists the purpose, and audits the override', async () => {
+      fullIssueMocks();
+      prisma.userRole.findMany.mockResolvedValue([
+        { role: { status: 'ACTIVE', code: 'COST', permissions: [{ permission: { status: 'ACTIVE', key: 'cost-purpose:override' } }] } },
+      ]);
+
+      await service.issue('req1', 'line1', { ...baseIssueDto, costPurpose: 'PROJECT', costPurposeOverrideReason: 'external project' } as any, 'u1', ctx);
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.inventoryMovement.create).toHaveBeenCalled();
+      expect(audit.log).toHaveBeenCalledWith('u1', 'COST_PURPOSE_OVERRIDE', 'MaintenanceRequestRequiredPart', 'line1', expect.objectContaining({
+        sourceDefaultPurpose: 'MAINTENANCE',
+        finalPurpose: 'PROJECT',
+        overrideReason: 'external project',
+      }));
     });
   });
 

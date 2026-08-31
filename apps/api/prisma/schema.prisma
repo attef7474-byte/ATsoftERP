@@ -2608,6 +2608,11 @@ model MaintenanceRequestRequiredPart {
   receivedByUserId          String?
   receivedAt                DateTime?
 
+  // Cost Purpose R1 — canonical "WHY" dimension (nullable additive, backward compatible)
+  // MAINTENANCE by default on stock issue; override requires cost-purpose:override + reason.
+  costPurpose                String?
+  costPurposeOverrideReason  String?
+
   // Batch Y Addendum — part condition, replacement action, removed part tracking
   issuedStockCondition        String?
   replacementAction           String?
@@ -2636,6 +2641,7 @@ model MaintenanceRequestRequiredPart {
   @@index([usedByUserId])
   @@index([failureCauseId])
   @@index([costOwnerType])
+  @@index([costPurpose])
   @@index([costProductionLineId])
   @@index([costMachineId])
   @@index([costMachineComponentId])
@@ -4469,6 +4475,17 @@ model ProductionMaterialDocumentLine {
   expiryDate                    DateTime?
   lineNumber                    Int                                @default(1)
   notes                         String?
+
+  // Cost Purpose R1 — canonical attribution foundation (nullable additive, scalar-only
+  // historical snapshots; never rewritten by later master-data changes).
+  // PRODUCTION by default on issue/consumption; override requires cost-purpose:override + reason.
+  costPurpose               String?
+  costPurposeOverrideReason String?
+  productionLineId          String?
+  departmentId              String?
+  costCenterId              String?
+  machineId                 String?
+
   createdAt                     DateTime                           @default(now())
   updatedAt                     DateTime                           @updatedAt
 
@@ -4479,6 +4496,11 @@ model ProductionMaterialDocumentLine {
   @@index([requirementLineId])
   @@index([originalIssueLineId])
   @@index([lossQuantityEventId])
+  @@index([costPurpose])
+  @@index([productionLineId])
+  @@index([departmentId])
+  @@index([costCenterId])
+  @@index([machineId])
   @@map("production_material_document_lines")
 }
 

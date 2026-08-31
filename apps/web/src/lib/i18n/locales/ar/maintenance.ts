@@ -2,6 +2,7 @@ import type { LocaleTranslations } from '../../types';
 
 const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanceWorkflow' | 'maintenanceDashboard' | 'preventiveMaintenance' | 'downtimeAnalysis' | 'sparePartRequest'> = {
     maintenance: {
+        costPurposeOverrideReasonRequired: 'مطلوب ذكر السبب عند تغيير غرض التكلفة الافتراضي لهذا الصرف.',
         machineCategories: 'تصنيفات الماكينات',
         machines: 'الماكينات',
         machineCategory: 'تصنيف الماكينة',

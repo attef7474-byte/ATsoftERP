@@ -729,6 +729,8 @@ const production: Pick<LocaleTranslations, 'production'> = {
                 productTenantMismatch: 'المنتج لا ينتمي للشركة النشطة.',
                 locationNotFound: 'الموقع غير موجود.',
                 locationWarehouseMismatch: 'الموقع لا ينتمي للمخزن المحدد.',
+                costPurposeInvalid: 'غرض التكلفة المحدد غير صالح.',
+                costPurposeOverrideReasonRequired: 'السبب مطلوب عند تغيير غرض التكلفة الافتراضي.',
             },
         },
         finishedGoodsReceipts: {

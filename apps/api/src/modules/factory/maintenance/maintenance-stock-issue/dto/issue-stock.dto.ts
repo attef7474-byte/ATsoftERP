@@ -1,5 +1,6 @@
 import { IsString, IsNumber, IsOptional, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { COST_PURPOSE_VALUES } from '../../../../../common/cost-purpose/cost-purpose.constants';
 
 export class IssueStockDto {
   @ApiProperty()
@@ -100,6 +101,19 @@ export class IssueStockDto {
   @IsOptional()
   @IsString()
   noReturnReason?: string;
+
+  // Cost Purpose R1 — canonical "WHY" attribution. Leave unset to use the
+  // source default (MAINTENANCE). A non-default value is an override and
+  // requires the canonical cost-purpose:override permission + a mandatory reason.
+  @ApiPropertyOptional({ enum: COST_PURPOSE_VALUES })
+  @IsOptional()
+  @IsString()
+  costPurpose?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  costPurposeOverrideReason?: string;
 }
 
 export class ReturnStockDto {

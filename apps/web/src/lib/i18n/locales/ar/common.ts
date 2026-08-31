@@ -2,6 +2,19 @@ import type { LocaleTranslations } from '../../types';
 
 const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'actions' | 'status'> = {
     common: {
+        costPurpose: {
+            label: 'غرض التكلفة',
+            MAINTENANCE: 'صيانة',
+            PRODUCTION: 'إنتاج',
+            QUALITY: 'جودة',
+            PROJECT: 'مشروع',
+            UTILITIES: 'مرافق',
+            ADMIN: 'إدارة',
+            DEVELOPMENT: 'تطوير',
+            OTHER: 'أخرى',
+            overrideReason: 'سبب التغيير',
+            overrideReasonHint: 'مطلوب عند تغيير غرض التكلفة الافتراضي.',
+        },
         appName: 'أتسوفت لإدارة الموارد',
         loading: 'جارٍ التحميل...',
         saving: 'جارٍ الحفظ...',
