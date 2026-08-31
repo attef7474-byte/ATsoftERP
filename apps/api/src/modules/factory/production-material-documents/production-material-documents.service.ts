@@ -292,6 +292,40 @@ export class ProductionMaterialDocumentsService {
     };
   }
 
+  /**
+   * R2 historical return attribution. A reversal of an already-posted
+   * issue/consumption negates the ORIGINAL event's economic effect, so each
+   * reversal line inherits the original posted line's attribution snapshot
+   * (productionLineId, departmentId, costCenterId, machineId). The value is
+   * never recomputed from current Order/Machine master data; a line without a
+   * valid original reference keeps NULL attribution (never fabricated).
+   */
+  private async applyReverseAttribution(client: any, doc: any, ctx: ActiveOperationalContext) {
+    const originalIds = [...new Set(doc.lines.map((l: any) => l.originalIssueLineId).filter(Boolean))];
+    const originals: Array<{ id: string; productionLineId: string | null; departmentId: string | null; costCenterId: string | null; machineId: string | null }> =
+      originalIds.length > 0
+        ? await client.productionMaterialDocumentLine.findMany({
+            where: { id: { in: originalIds }, companyId: ctx.companyId, branchId: ctx.branchId },
+            select: { id: true, productionLineId: true, departmentId: true, costCenterId: true, machineId: true },
+          })
+        : [];
+    const byId = new Map(originals.map((o) => [o.id, o]));
+
+    for (const line of doc.lines) {
+      const original = line.originalIssueLineId ? byId.get(line.originalIssueLineId) : undefined;
+      if (!original) continue;
+      await client.productionMaterialDocumentLine.update({
+        where: { id: line.id },
+        data: {
+          productionLineId: original.productionLineId,
+          departmentId: original.departmentId,
+          costCenterId: original.costCenterId,
+          machineId: original.machineId,
+        },
+      });
+    }
+  }
+
   private auditPurposeOverrides(
     client: any,
     userId: string,
@@ -727,16 +761,25 @@ export class ProductionMaterialDocumentsService {
       // Cost Purpose R1 — write the authoritative historical attribution snapshot
       // onto every line AT POSTING TIME from the parent ProductionOrder context.
       // Immutable afterwards; never derived dynamically from current master data.
-      const snapshot = await this.resolveProductionSnapshot(tx, doc.productionOrderId, ctx);
-      await tx.productionMaterialDocumentLine.updateMany({
-        where: { documentId: id },
-        data: {
-          productionLineId: snapshot.productionLineId,
-          departmentId: snapshot.departmentId,
-          costCenterId: snapshot.costCenterId,
-          machineId: snapshot.machineId,
-        },
-      });
+      if (doc.sourceType === 'REVERSE') {
+        // R2 historical return attribution — a true reversal/return of an
+        // already-posted issue/consumption NEGATES the original event, so its
+        // attribution snapshot is inherited from the original posted line(s),
+        // never recomputed from current Order/Machine master data that may have
+        // been reassigned since the original issue was posted.
+        await this.applyReverseAttribution(tx, doc, ctx);
+      } else {
+        const snapshot = await this.resolveProductionSnapshot(tx, doc.productionOrderId, ctx);
+        await tx.productionMaterialDocumentLine.updateMany({
+          where: { documentId: id },
+          data: {
+            productionLineId: snapshot.productionLineId,
+            departmentId: snapshot.departmentId,
+            costCenterId: snapshot.costCenterId,
+            machineId: snapshot.machineId,
+          },
+        });
+      }
 
       const posted = await tx.productionMaterialDocument.update({
         where: { id },

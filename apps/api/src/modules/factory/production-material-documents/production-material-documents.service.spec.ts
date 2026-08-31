@@ -105,7 +105,7 @@ function makeService(overrides: Record<string, any> = {}) {
       update: jest.fn(),
       count: jest.fn(),
     },
-    productionMaterialDocumentLine: { deleteMany: jest.fn(), createMany: jest.fn(), findFirst: jest.fn(), updateMany: jest.fn() },
+    productionMaterialDocumentLine: { deleteMany: jest.fn(), createMany: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
     inventoryMovement: { create: jest.fn(), update: jest.fn(), findUnique: jest.fn() },
     inventoryMovementLine: { deleteMany: jest.fn(), createMany: jest.fn() },
     productionRun: { findFirst: jest.fn() },
@@ -535,6 +535,71 @@ describe('ProductionMaterialDocumentsService', () => {
       const result = await service.post('doc1', 'u1', ctxA);
       expect(result.status).toBe('POSTED');
       expect(prisma.productionMaterialRequirement.findFirst).not.toHaveBeenCalled();
+      expect(movements.postMovementWithinTransaction).toHaveBeenCalled();
+    });
+
+    it('R2: a REVERSE return inherits the ORIGINAL posted line attribution (Line A), not current master data (Line B)', async () => {
+      const { prisma, service, movements } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(
+        document({
+          documentType: 'RETURN',
+          sourceType: 'REVERSE',
+          reversesDocumentId: 'issue1',
+          status: 'DRAFT',
+          lines: [
+            {
+              id: 'retline1',
+              originalIssueLineId: 'origline1',
+              productId: 'prod1',
+              quantity: 5,
+              unit: 'KG',
+              substitutedProductId: null,
+              costPurpose: 'PRODUCTION',
+            },
+          ],
+        }),
+      );
+      // The current parent order has been reassigned to Line B since the
+      // original issue was posted - the return must NOT pick up B.
+      prisma.productionOrder.findFirst.mockResolvedValue(
+        order({ productionLineId: 'lineB', productionLine: { departmentId: 'deptB' }, machineId: 'machineB', costCenterId: 'ccB' }),
+      );
+      // The original POSTED issue line carries the authoritative Line A snapshot.
+      prisma.productionMaterialDocumentLine.findMany.mockResolvedValue([
+        { id: 'origline1', productionLineId: 'lineA', departmentId: 'deptA', costCenterId: 'ccA', machineId: 'machineA' },
+      ]);
+      prisma.productionMaterialDocumentLine.update.mockResolvedValue({});
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({ documentType: 'RETURN', sourceType: 'REVERSE', status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
+
+      await service.post('doc1', 'u1', ctxA);
+
+      expect(prisma.productionOrder.findFirst).not.toHaveBeenCalled();
+      expect(prisma.productionMaterialDocumentLine.update).toHaveBeenCalledWith({
+        where: { id: 'retline1' },
+        data: { productionLineId: 'lineA', departmentId: 'deptA', costCenterId: 'ccA', machineId: 'machineA' },
+      });
+      expect(movements.postMovementWithinTransaction).toHaveBeenCalled();
+    });
+
+    it('R2: a non-REVERSE RETURN keeps parent-order snapshot resolution (no original reference to inherit)', async () => {
+      const { prisma, service, movements } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(
+        document({ documentType: 'RETURN', lines: [{ id: 'retline1', originalIssueLineId: null, productId: 'prod1', quantity: 5, unit: 'KG', substitutedProductId: null }] }),
+      );
+      prisma.productionOrder.findFirst.mockResolvedValue(
+        order({ productionLineId: 'lineB', productionLine: { departmentId: 'deptB' }, machineId: 'machineB', costCenterId: 'ccB' }),
+      );
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({ documentType: 'RETURN', status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
+
+      await service.post('doc1', 'u1', ctxA);
+
+      expect(prisma.productionOrder.findFirst).toHaveBeenCalled();
+      expect(prisma.productionMaterialDocumentLine.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { documentId: 'doc1' },
+          data: expect.objectContaining({ productionLineId: 'lineB', departmentId: 'deptB', costCenterId: 'ccB', machineId: 'machineB' }),
+        }),
+      );
       expect(movements.postMovementWithinTransaction).toHaveBeenCalled();
     });
   });
