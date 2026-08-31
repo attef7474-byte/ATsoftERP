@@ -284,6 +284,8 @@ model Company {
   supervisorAssignments            SupervisorAssignment[]
   shiftHandovers                   ShiftHandover[]
   shiftHandoverItems               ShiftHandoverItem[]
+  valuationPolicies                InventoryValuationPolicy[]
+  valuationBalances                InventoryValuationBalance[]
 
   @@index([status])
   @@index([code])
@@ -1194,6 +1196,10 @@ model User {
   generatedSparePartPlans           PreventiveSparePartPlan[]
   operationalScopes                 UserOperationalScope[]
   installedPartReadings             MachineInstalledPartReading[]
+  activatedValuationPolicies        InventoryValuationPolicy[]           @relation("InventoryValuationPolicyActivatedBy")
+  initializedValuationPolicies      InventoryValuationPolicy[]           @relation("InventoryValuationPolicyInitializedBy")
+  createdValuationPolicies          InventoryValuationPolicy[]           @relation("InventoryValuationPolicyCreatedBy")
+  updatedValuationPolicies          InventoryValuationPolicy[]           @relation("InventoryValuationPolicyUpdatedBy")
 
   @@index([email])
   @@index([status])
@@ -1508,6 +1514,8 @@ model Warehouse {
   materialDocuments                ProductionMaterialDocument[]
   fgReceiptDestinations            ProductionFinishedGoodsReceipt[]    @relation("FGReceiptWarehouse")
   requirementLines                 ProductionMaterialRequirementLine[]
+  valuationPolicies                InventoryValuationPolicy[]
+  valuationBalances                InventoryValuationBalance[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -1608,6 +1616,7 @@ model Product {
   materialConsumptions      ProductionMaterialConsumption[]
   inspections               ProductionInspection[]
   costTransactions          OperationalCostTransaction[]
+  valuationBalances         InventoryValuationBalance[]
 
   @@index([categoryId])
   @@index([code])
@@ -1852,6 +1861,11 @@ model InventoryMovementLine {
   unit                String?
   direction           String
   notes               String?
+  // VAL-R1A: nullable monetary snapshot foundation (no valuation posting yet)
+  unitCost            Decimal?           @db.Decimal(19, 6)
+  totalCost           Decimal?           @db.Decimal(19, 4)
+  currencyCode        String?
+  valuationMethod     String?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
@@ -1975,6 +1989,8 @@ model InventoryOpeningBalanceLine {
   locationId       String?
   location         WarehouseLocation?      @relation(fields: [locationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quantity         Float
+  // VAL-R1A: nullable quantityBase foundation (monetary input deferred to R1B)
+  quantityBase     Decimal?                @db.Decimal(18, 4)
   movementId       String?
   notes            String?
   createdAt        DateTime                @default(now())
@@ -2171,6 +2187,8 @@ model InventoryOperationalReceiptLine {
   productId String
   product   Product                     @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quantity  Float
+  // VAL-R1A: nullable quantityBase foundation (monetary input deferred to R1B)
+  quantityBase Decimal?                 @db.Decimal(18, 4)
   notes     String?
   createdAt DateTime                    @default(now())
   updatedAt DateTime                    @updatedAt
@@ -2178,6 +2196,66 @@ model InventoryOperationalReceiptLine {
   @@index([receiptId])
   @@index([productId])
   @@map("inventory_operational_receipt_lines")
+}
+
+model InventoryValuationPolicy {
+  id           String    @id @default(cuid())
+  companyId    String
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId  String
+  warehouse    Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  method       String    @default("WEIGHTED_AVERAGE")
+  status       String    @default("DRAFT")
+  currencyCode String
+
+  activatedById  String?
+  activatedBy    User?     @relation("InventoryValuationPolicyActivatedBy", fields: [activatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  activatedAt    DateTime?
+
+  initializedById String?
+  initializedBy   User?     @relation("InventoryValuationPolicyInitializedBy", fields: [initializedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  initializedAt   DateTime?
+
+  createdById String?
+  createdBy   User?     @relation("InventoryValuationPolicyCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updatedById String?
+  updatedBy   User?     @relation("InventoryValuationPolicyUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@unique([companyId, warehouseId])
+  @@index([warehouseId])
+  @@index([companyId, status])
+  @@index([status])
+  @@map("inventory_valuation_policies")
+}
+
+model InventoryValuationBalance {
+  id                     String    @id @default(cuid())
+  companyId              String
+  company                Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId            String
+  warehouse              Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId              String
+  product                Product   @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  averageUnitCost        Decimal   @db.Decimal(19, 8)
+  inventoryValue         Decimal   @db.Decimal(19, 4)
+  lastHistoricalUnitCost Decimal?  @db.Decimal(19, 8)
+
+  version Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, warehouseId, productId])
+  @@index([warehouseId, productId])
+  @@index([productId])
+  @@index([updatedAt])
+  @@map("inventory_valuation_balances")
 }
 
 model MachineCategory {
