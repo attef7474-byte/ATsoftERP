@@ -258,6 +258,14 @@ describe('InventoryValuationService', () => {
         expect.objectContaining({
           action: INVENTORY_VALUATION_POLICY_ACTIONS.legacyValuationInitialize,
           entity: INVENTORY_VALUATION_AUDIT_ENTITY_INITIALIZATION,
+          entityId: 'INIT-1',
+          details: expect.objectContaining({
+            policyId: 'POL-1',
+            productId: 'P-1',
+            warehouseId: 'WH-1',
+            currencyCode: 'USD',
+            reason: null,
+          }),
         }),
       );
       // movement lines must NOT be written (R1B intentionally creates no InventoryMovement)

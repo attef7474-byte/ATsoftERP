@@ -326,6 +326,7 @@ export class InventoryValuationService {
         unitCost: unitCost.toFixed(6),
         totalValue: totalValue.toFixed(4),
         currencyCode: policy.currencyCode,
+        reason: dto.reason ?? null,
       });
 
       return { initialization, balance };
