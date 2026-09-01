@@ -10,6 +10,7 @@ const NAMESPACE_FILES = [
   'reports.ts', 'validation.ts', 'system.ts', 'error-dialog.ts', 'workspace.ts',
   'production.ts', 'production-cost-transaction.ts', 'production-cost-calculation.ts',
   'production-reliability.ts', 'operations-reports.ts',
+  'inventory-valuation.ts',
 ];
 
 const INDEX_FILES = ['index.ts', 'index.ts'];
@@ -162,6 +163,7 @@ const REGISTERED_NAMESPACE_PREFIXES = new Set([
   'inventoryReconciliation', 'physicalCount', 'varianceControl', 'errorDialog',
   'production', 'productionCostTransaction', 'productionCostCalculation',
   'productionReliability', 'operationsReports',
+  'inventoryValuation',
 ]);
 
 function collectFiles(dir) {

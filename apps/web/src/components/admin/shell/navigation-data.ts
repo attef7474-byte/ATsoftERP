@@ -196,6 +196,7 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'inv-ledger', labelKey: 'navigation.inventoryLedger', route: '/admin/inventory/ledger' },
           { id: 'inv-reconciliation', labelKey: 'navigation.inventoryReconciliation', route: '/admin/inventory/reconciliation' },
           { id: 'inv-governance-audit', labelKey: 'navigation.inventoryAudit', route: '/admin/inventory/governance-audit' },
+          { id: 'inv-valuation', labelKey: 'navigation.inventoryValuation', route: '/admin/inventory/valuation', permission: 'inventory-valuation:read' },
         ],
       },
     ],

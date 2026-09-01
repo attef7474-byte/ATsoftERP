@@ -3,6 +3,7 @@ export * from './core';
 export * from './access';
 export * from './inventory';
 export * from './inventory-movement';
+export * from './inventory-valuation';
 export * from './maintenance';
 export * from './barcodes';
 export * from './system';

@@ -19,6 +19,7 @@ import productionCostTransaction from './production-cost-transaction';
 import productionCostCalculation from './production-cost-calculation';
 import productionReliability from './production-reliability';
 import operationsReports from './operations-reports';
+import inventoryValuation from './inventory-valuation';
 
 const en: LocaleTranslations = {
   ...common,
@@ -41,6 +42,7 @@ const en: LocaleTranslations = {
   ...productionCostCalculation,
   ...productionReliability,
   ...operationsReports,
+  ...inventoryValuation,
 };
 
 export default en;

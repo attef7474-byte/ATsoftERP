@@ -68,6 +68,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         inventoryReconciliation: 'Stock Reconciliation',
         inventoryLocks: 'Inventory Locks',
         inventoryAudit: 'Inventory Audit (Governance)',
+        inventoryValuation: 'Inventory Valuation',
         production: 'Production',
         productionUnits: 'Production Units',
         productionProductDefinitions: 'Production Product Definitions',

@@ -278,6 +278,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         APPROVED: 'Approved',
         REJECTED: 'Rejected',
         DRAFT: 'Draft',
+        INITIALIZING: 'Initializing',
         PLANNED: 'Planned',
         COMPLETED: 'Completed',
         CANCELLED: 'Cancelled',

@@ -20,6 +20,11 @@ test-results/
 
 token.txt
 proof-token.txt
+# disposable QA runtime credentials (never commit secrets)
+docs/proofs/inventory-valuation-legacy-init/qa-state.json
+docs/proofs/inventory-valuation-legacy-init/qa-session.json
+# browser-proof screenshots (never tracked)
+docs/proofs/inventory-valuation-legacy-init/screenshots/
 # local AI assistant rule folders
 .clinerules/
 .roo/

@@ -68,6 +68,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         inventoryReconciliation: 'مطابقة الأرصدة',
         inventoryLocks: 'أقفال المخزون',
         inventoryAudit: 'سجل تدقيق المخزون',
+        inventoryValuation: 'تقييم المخزون',
         production: 'الإنتاج',
         productionUnits: 'وحدات الإنتاج',
         productionProductDefinitions: 'تعريفات منتجات الإنتاج',
