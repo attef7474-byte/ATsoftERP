@@ -335,6 +335,23 @@ describe('Inventory Valuation UI (VAL-R1B)', () => {
       expect(read(EN_NAV)).toContain("inventoryValuation:");
       expect(read(AR_NAV)).toContain("inventoryValuation:");
     });
+
+    it('resolves the valuation nav to the canonical route and never the doubled admin path', () => {
+      const nav = read(NAV);
+      const match = nav.match(/\{\s*id: 'inv-valuation'[^}]*\}/);
+      expect(match).not.toBeNull();
+      const entry = match![0];
+      const route = entry.match(/route:\s*'([^']+)'/);
+      expect(route).not.toBeNull();
+      expect(route![1]).toBe('/admin/inventory/valuation');
+      expect(route![1]).not.toContain('admin/admin/');
+    });
+
+    it('contains no doubled-admin navigation declaration for valuation', () => {
+      const nav = read(NAV);
+      expect(nav).not.toContain('/admin/inventory/valuation'.replace('/admin', '/admin/admin'));
+      expect(nav).not.toContain("'/admin/admin/inventory/valuation'");
+    });
   });
 
   describe('17. Arabic + English parity and key completeness', () => {
