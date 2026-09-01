@@ -196,6 +196,9 @@ export class ProductionMaterialDocumentsService {
       where: { id: dto.productionRunId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
     });
     if (!run) throw this.notFound('productionMaterial.runNotFound');
+    if (run.costClosedAt) {
+      throw this.conflict('productionMaterial.runValuationClosed');
+    }
 
     const order = await client.productionOrder.findFirst({
       where: { id: dto.productionOrderId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
@@ -754,6 +757,35 @@ export class ProductionMaterialDocumentsService {
       const doc = await this.findDocument(id, ctx, tx);
       if (doc.status !== 'DRAFT') throw this.badRequest('productionMaterial.notDraft');
       if (!doc.movementId) throw this.badRequest('productionMaterial.movementMissing');
+
+      // VAL-R1G-A: acquire the run cost boundary lock to serialize posting
+      // against a concurrent close-for-valuation on the same run.
+      if (doc.productionRunId) {
+        const resource = `ATSOFT:PRODRUN:COST:${doc.productionRunId}`;
+        const lockResult: Array<{ result: number }> = await tx.$queryRaw`
+          DECLARE @res int;
+          EXEC @res = sp_getapplock @Resource = ${resource}, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 5000;
+          SELECT @res AS result;
+        `;
+        const status = lockResult?.[0]?.result;
+        if (status === -1 || status === -2 || status === -3) {
+          throw new ConflictException({
+            messageKey: 'productionMaterial.concurrencyConflict',
+            message: 'A concurrent valuation close conflicts on this run; retry the operation',
+          });
+        }
+      }
+
+      // Re-check run cost boundary status under the lock.
+      if (doc.productionRunId) {
+        const run = await tx.productionRun.findFirst({
+          where: { id: doc.productionRunId, companyId: ctx.companyId, branchId: ctx.branchId },
+          select: { costClosedAt: true },
+        });
+        if (run?.costClosedAt) {
+          throw this.conflict('productionMaterial.runValuationClosed');
+        }
+      }
 
       await this.validateSnapshotForPosting(tx, doc, ctx);
       await this.movementsService.postProductionMaterialMovementWithinTransaction(tx, doc.id, doc.movementId, userId, ctx);

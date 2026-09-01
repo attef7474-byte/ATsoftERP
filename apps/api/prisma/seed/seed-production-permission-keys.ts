@@ -13,4 +13,6 @@ export const PRODUCTION_EXTRA_PERMISSIONS: { key: string; module: string; action
   { key: "production-product:delete", module: "production-product", action: "delete" },
   { key: "production-product:activate", module: "production-product", action: "activate" },
   { key: "production-product:deactivate", module: "production-product", action: "deactivate" },
+  // VAL-R1G-A: production valuation close
+  { key: "production-run:close-valuation", module: "production-run", action: "close-valuation" },
 ];

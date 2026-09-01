@@ -161,12 +161,14 @@ describe('ProductionRunsService', () => {
       productionShiftAssignment: { findFirst: jest.fn() },
       productionShift: { findFirst: jest.fn() },
       auditLog: { findMany: jest.fn().mockResolvedValue([]) },
+      productionRunCostSnapshot: { findFirst: jest.fn(), create: jest.fn() },
       $transaction: jest.fn((fn: any) => fn(prisma)),
+      $queryRaw: jest.fn().mockResolvedValue([{ result: 0 }]),
     };
     audit = { logWithClient: jest.fn().mockResolvedValue({}) };
     numbering = { generateNumberAtomicWithClient: jest.fn().mockResolvedValue('RUN-000001') };
     orders = { finalizeOrderAfterLastRun: jest.fn().mockResolvedValue(null) };
-    service = new ProductionRunsService(prisma, audit, numbering, orders);
+    service = new ProductionRunsService(prisma, audit, numbering, orders, {} as any, {} as any);
   });
 
   describe('start', () => {

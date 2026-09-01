@@ -11,6 +11,7 @@ import { ProductionLossQuantityEventsService } from '../production-loss-quantity
 import { CreateProductionRunDto } from './dto/create-production-run.dto';
 import { RunActionDto, RunPauseActionDto, RunReasonActionDto } from './dto/run-action.dto';
 import { RecordOutputDto } from './dto/record-output.dto';
+import { CloseForValuationDto } from './dto/close-for-valuation.dto';
 import { RunQueryDto } from './dto/run-query.dto';
 
 @ApiTags('production-runs')
@@ -94,5 +95,11 @@ export class ProductionRunsController {
   @Permissions('production-output:record')
   recordOutput(@Param('id') id: string, @Body() dto: RecordOutputDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.recordOutput(id, dto, userId, ctx);
+  }
+
+  @Post(':id/close-for-valuation')
+  @Permissions('production-run:close-for-valuation')
+  closeForValuation(@Param('id') id: string, @Body() dto: CloseForValuationDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.closeForValuation(id, dto, userId, ctx);
   }
 }

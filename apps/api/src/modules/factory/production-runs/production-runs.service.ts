@@ -5,10 +5,13 @@ import { ActiveOperationalContext } from '../../../common/operational-context/op
 import { AuditService } from '../../audit/audit.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import { ProductionOrdersService } from '../production-orders/production-orders.service';
+import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
+import { ProductionRunCostAggregationService } from './production-run-cost-aggregation.service';
 import { CreateProductionRunDto } from './dto/create-production-run.dto';
 import { RunActionDto } from './dto/run-action.dto';
 import { RecordOutputDto } from './dto/record-output.dto';
 import { CorrectOutputDto } from './dto/correct-output.dto';
+import { CloseForValuationDto } from './dto/close-for-valuation.dto';
 import { RunQueryDto } from './dto/run-query.dto';
 import { normalizeCounterDelta as counterDelta, deriveRunTotals, progressPercent } from './production-runs.util';
 import { ResolvedRunAssignments } from './types';
@@ -46,6 +49,8 @@ export class ProductionRunsService {
     private readonly audit: AuditService,
     private readonly numbering: NumberingService,
     private readonly orders: ProductionOrdersService,
+    private readonly valuationEngine: InventoryValuationEngineService,
+    private readonly costAggregation: ProductionRunCostAggregationService,
   ) {}
 
   async findAll(query: RunQueryDto, ctx: ActiveOperationalContext) {
@@ -252,11 +257,143 @@ export class ProductionRunsService {
     return this.transitionWithIdempotentReplay(id, 'ABORT', dto, userId, ctx);
   }
 
+  /**
+   * VAL-R1G-A: SQL Server applock resource for production run cost boundary.
+   * Serializes close-for-valuation against concurrent material-document posting
+   * and output correction on the SAME run. Released automatically at commit.
+   */
+  private static readonly RUN_COST_BOUNDARY_LOCK_PREFIX = 'ATSOFT:PRODRUN:COST:';
+
+  /**
+   * VAL-R1G-A: acquire an Exclusive Transaction-scoped applock on a production run's
+   * cost boundary. This is the authoritative serialization primitive: any concurrent
+   * material-document posting or output correction on the same run must also acquire
+   * this lock first, so the close and the mutator cannot race past each other.
+   * Lock timeout (5s) is a hard concurrency failure surfaced as 409 Conflict.
+   */
+  async acquireRunCostBoundaryLock(tx: any, productionRunId: string): Promise<void> {
+    const resource = `${ProductionRunsService.RUN_COST_BOUNDARY_LOCK_PREFIX}${productionRunId}`;
+    const result: Array<{ result: number }> = await tx.$queryRaw`
+      DECLARE @res int;
+      EXEC @res = sp_getapplock @Resource = ${resource}, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 5000;
+      SELECT @res AS result;
+    `;
+    const status = result?.[0]?.result;
+    // 0 = granted, 1 = granted after wait, -1 = timeout, -2 = cancelled, -3 = deadlock victim
+    if (status === -1 || status === -2 || status === -3) {
+      throw new ConflictException({
+        messageKey: 'productionRunCostAggregation.concurrencyConflict',
+        message: 'A concurrent operation conflicts on this run cost boundary; retry the operation',
+      });
+    }
+  }
+
+  /**
+   * VAL-R1G-A: Production valuation close.
+   *
+   * Freezes the material cost boundary for a production run. After close:
+   * - No new material documents (ISSUE/CONSUMPTION/RETURN)
+   * - No output corrections
+   * - Immutable cost snapshot is created
+   *
+   * The close is terminal for this slice (no reopen in R1G-A).
+   */
+  async closeForValuation(id: string, dto: CloseForValuationDto, userId: string, ctx: ActiveOperationalContext) {
+    if (dto.requestId) {
+      const existing = await this.findDuplicateRunAction(this.prisma, id, dto.requestId, 'CLOSE_FOR_VALUATION', ctx);
+      if (existing) return existing;
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (dto.requestId) {
+          const raced = await this.findDuplicateRunAction(tx, id, dto.requestId, 'CLOSE_FOR_VALUATION', ctx);
+          if (raced) return raced;
+        }
+
+        // Acquire the run cost boundary lock INSIDE the Serializable transaction.
+        // This serializes against concurrent material-document posting and output
+        // correction which must also acquire this lock before mutating the run.
+        await this.acquireRunCostBoundaryLock(tx, id);
+
+        const current = await this.findOwnedRun(id, ctx, tx, true);
+
+        if (current.costClosedAt) {
+          throw new ConflictException({
+            messageKey: 'productionRunCostAggregation.alreadyClosed',
+            message: 'Production run is already valuation-closed',
+          });
+        }
+
+        const preconditions = await this.costAggregation.validateClosePreconditions(id, ctx);
+
+        const aggregation = await this.costAggregation.aggregateMaterialCost(
+          { productionRunId: id, companyId: ctx.companyId, branchId: ctx.branchId },
+          ctx,
+        );
+
+        const snapshot = await tx.productionRunCostSnapshot.create({
+          data: {
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+            productionRunId: id,
+            finalProductId: preconditions.finalProductId,
+            finalGoodQuantity: preconditions.finalGoodQuantity,
+            netMaterialValue: aggregation.netMaterialValue,
+            currencyCode: preconditions.currencyCode,
+            costBasis: 'NET_ACTUAL_MATERIAL_VALUE_ONLY',
+            closedAt: new Date(),
+            closedById: userId,
+            createdById: userId,
+          },
+        });
+
+        await tx.productionRun.update({
+          where: { id },
+          data: {
+            costClosedAt: new Date(),
+            costClosedById: userId,
+            updatedById: userId,
+          },
+        });
+
+        await this.writeRunTransition(tx, current, current.status, current.status, 'CLOSE_FOR_VALUATION', userId, dto.requestId ?? `${id}:close`);
+        await this.writeAudit(tx, userId, 'CLOSE_FOR_VALUATION', PRODUCTION_RUN_AUDIT_ENTITY, id, ctx, {
+          runNumber: current.runNumber,
+          finalGoodQuantity: preconditions.finalGoodQuantity.toString(),
+          netMaterialValue: aggregation.netMaterialValue.toString(),
+          currencyCode: preconditions.currencyCode,
+          costBasis: 'NET_ACTUAL_MATERIAL_VALUE_ONLY',
+          snapshotId: snapshot.id,
+        });
+
+        return snapshot;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        const raced = dto.requestId ? await this.findDuplicateRunAction(this.prisma, id, dto.requestId, 'CLOSE_FOR_VALUATION', ctx) : null;
+        if (raced) return raced;
+        throw error;
+      }
+      throw error;
+    }
+  }
+
   async recordOutput(id: string, dto: RecordOutputDto, userId: string, ctx: ActiveOperationalContext) {
     try {
       return await this.prisma.$transaction(async (tx) => {
+        // VAL-R1G-A: acquire the run cost boundary lock to serialize output
+        // recording against a concurrent close-for-valuation on the same run.
+        await this.acquireRunCostBoundaryLock(tx, id);
+
         const run = await this.findOwnedRun(id, ctx, tx);
         if (run.status !== 'RUNNING') throw new ConflictException({ messageKey: 'productionRun.outputRequiresRunning' });
+        if (run.costClosedAt) {
+          throw new ConflictException({
+            messageKey: 'productionRunCostAggregation.runClosed',
+            message: 'Cannot record output for a valuation-closed run',
+          });
+        }
         const existing = await this.findEventByRequestId(dto.requestId, ctx, tx);
         if (existing) return this.resolveIdempotentOutput(existing, run, dto);
 
@@ -312,8 +449,19 @@ export class ProductionRunsService {
         const original = await tx.productionOutputEvent.findFirst({ where: { id: eventId, companyId: ctx.companyId, branchId: ctx.branchId } });
         if (!original) throw new NotFoundException({ messageKey: 'productionRun.eventNotFound' });
         if (original.eventType !== 'PRODUCTION') throw new BadRequestException({ messageKey: 'productionRun.correctProductionOnly' });
+
+        // VAL-R1G-A: acquire the run cost boundary lock to serialize output
+        // correction against a concurrent close-for-valuation on the same run.
+        await this.acquireRunCostBoundaryLock(tx, original.productionRunId);
+
         const run = await this.findOwnedRun(original.productionRunId, ctx, tx);
         if (run.status !== 'RUNNING') throw new ConflictException({ messageKey: 'productionRun.outputRequiresRunning' });
+        if (run.costClosedAt) {
+          throw new ConflictException({
+            messageKey: 'productionRunCostAggregation.runClosed',
+            message: 'Cannot correct output for a valuation-closed run',
+          });
+        }
         const existing = await this.findEventByRequestId(dto.requestId, ctx, tx);
         if (existing) return this.resolveIdempotentCorrection(existing, original, dto);
 

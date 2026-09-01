@@ -119,6 +119,7 @@ function makeService(overrides: Record<string, any> = {}) {
     ...overrides,
   };
   prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
+  prisma.$queryRaw = jest.fn().mockResolvedValue([{ result: 0 }]);
   const audit: any = { log: jest.fn(), logWithClient: jest.fn() };
   const numbering: any = {
     generateNumberAtomicWithClient: jest.fn().mockResolvedValue('SEQ-000001'),

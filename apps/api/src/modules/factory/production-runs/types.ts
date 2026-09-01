@@ -40,3 +40,19 @@ export interface DerivedRunTotals {
   correctionsTotal: string;
   progressPercent: string;
 }
+
+export interface MaterialCostAggregation {
+  netMaterialValue: string;
+  grossOutValue: string;
+  returnValue: string;
+  outEventCount: number;
+  returnEventCount: number;
+  currencyCode: string;
+}
+
+export interface ClosePreconditions {
+  finalProductId: string;
+  finalGoodQuantity: string;
+  currencyCode: string;
+  hasOutput: boolean;
+}

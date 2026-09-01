@@ -287,6 +287,7 @@ model Company {
   valuationPolicies                InventoryValuationPolicy[]
   valuationBalances                InventoryValuationBalance[]
   valuationInitializations         InventoryValuationInitialization[]
+  productionRunCostSnapshots       ProductionRunCostSnapshot[]
 
   @@index([status])
   @@index([code])
@@ -373,6 +374,7 @@ model Branch {
   inventoryLocks                   InventoryLock[]
   personAssignments                OperationalPersonAssignment[]
   shiftHandovers                   ShiftHandover[]
+  productionRunCostSnapshots       ProductionRunCostSnapshot[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -1197,10 +1199,10 @@ model User {
   generatedSparePartPlans           PreventiveSparePartPlan[]
   operationalScopes                 UserOperationalScope[]
   installedPartReadings             MachineInstalledPartReading[]
-  activatedValuationPolicies        InventoryValuationPolicy[]           @relation("InventoryValuationPolicyActivatedBy")
-  initializedValuationPolicies      InventoryValuationPolicy[]           @relation("InventoryValuationPolicyInitializedBy")
-  createdValuationPolicies          InventoryValuationPolicy[]           @relation("InventoryValuationPolicyCreatedBy")
-  updatedValuationPolicies          InventoryValuationPolicy[]           @relation("InventoryValuationPolicyUpdatedBy")
+  activatedValuationPolicies        InventoryValuationPolicy[]          @relation("InventoryValuationPolicyActivatedBy")
+  initializedValuationPolicies      InventoryValuationPolicy[]          @relation("InventoryValuationPolicyInitializedBy")
+  createdValuationPolicies          InventoryValuationPolicy[]          @relation("InventoryValuationPolicyCreatedBy")
+  updatedValuationPolicies          InventoryValuationPolicy[]          @relation("InventoryValuationPolicyUpdatedBy")
   createdValuationInitializations   InventoryValuationInitialization[]
 
   @@index([email])
@@ -1621,6 +1623,7 @@ model Product {
   costTransactions          OperationalCostTransaction[]
   valuationBalances         InventoryValuationBalance[]
   valuationInitializations  InventoryValuationInitialization[]
+  runCostSnapshots          ProductionRunCostSnapshot[]
 
   @@index([categoryId])
   @@index([code])
@@ -2064,27 +2067,27 @@ model InventoryStockAdjustment {
 }
 
 model InventoryStockAdjustmentLine {
-  id             String                   @id @default(cuid())
-  adjustmentId   String
-  adjustment     InventoryStockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productId      String
-  product        Product                  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  locationId     String?
-  location       WarehouseLocation?       @relation(fields: [locationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  adjustmentType String
-  quantity       Float
-  movementId     String?
+  id              String                   @id @default(cuid())
+  adjustmentId    String
+  adjustment      InventoryStockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId       String
+  product         Product                  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locationId      String?
+  location        WarehouseLocation?       @relation(fields: [locationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  adjustmentType  String
+  quantity        Float
+  movementId      String?
   // VAL-R1D: authoritative monetary source for an expensive ADJUSTMENT_IN on an
   // ACTIVE valuation warehouse. Written by the user (with the cost-input
   // permission), validated against the ACTIVE policy, and used to apply the
   // valued receipt. ADJUSTMENT_OUT revalues at the current moving average and
   // leaves these null.
-  unitCost       Decimal?  @db.Decimal(19, 6)
-  currencyCode   String?
+  unitCost        Decimal?                 @db.Decimal(19, 6)
+  currencyCode    String?
   valuationReason String?
-  notes          String?
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
+  notes           String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
 
   @@index([adjustmentId])
   @@index([productId])
@@ -2153,7 +2156,7 @@ model InventoryStockTransferLine {
   // WEIGHTED_AVERAGE policy with the same currency; it is used BOTH to decrement
   // the source valuation balance and to increment the destination balance, so
   // combined value is conserved. Null for legacy (unvalued) transfers.
-  transferTotalValue    Decimal?  @db.Decimal(19, 4)
+  transferTotalValue    Decimal?               @db.Decimal(19, 4)
   notes                 String?
   transferOutMovementId String?
   transferInMovementId  String?
@@ -2213,23 +2216,23 @@ model InventoryOperationalReceipt {
 }
 
 model InventoryOperationalReceiptLine {
-  id        String                      @id @default(cuid())
-  receiptId String
-  receipt   InventoryOperationalReceipt @relation(fields: [receiptId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productId String
-  product   Product                     @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  quantity  Float
+  id              String                      @id @default(cuid())
+  receiptId       String
+  receipt         InventoryOperationalReceipt @relation(fields: [receiptId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId       String
+  product         Product                     @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity        Float
   // VAL-R1A: nullable quantityBase foundation (monetary input deferred to R1B)
-  quantityBase Decimal?                 @db.Decimal(18, 4)
+  quantityBase    Decimal?                    @db.Decimal(18, 4)
   // VAL-R1B: explicit monetary input for legacy stock cost capture (nullable;
   // unvalued/historical lines remain NULL). currencyCode must equal the policy
   // currency when present; valuationReason documents zero/override cost input.
-  unitCost         Decimal?             @db.Decimal(19, 6)
-  currencyCode     String?
-  valuationReason  String?
-  notes     String?
-  createdAt DateTime                    @default(now())
-  updatedAt DateTime                    @updatedAt
+  unitCost        Decimal?                    @db.Decimal(19, 6)
+  currencyCode    String?
+  valuationReason String?
+  notes           String?
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
 
   @@index([receiptId])
   @@index([productId])
@@ -2237,33 +2240,33 @@ model InventoryOperationalReceiptLine {
 }
 
 model InventoryValuationPolicy {
-  id           String    @id @default(cuid())
-  companyId    String
-  company      Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  warehouseId  String
-  warehouse    Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id          String    @id @default(cuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  method       String    @default("WEIGHTED_AVERAGE")
-  status       String    @default("DRAFT")
+  method       String @default("WEIGHTED_AVERAGE")
+  status       String @default("DRAFT")
   currencyCode String
 
-  activatedById  String?
-  activatedBy    User?     @relation("InventoryValuationPolicyActivatedBy", fields: [activatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  activatedAt    DateTime?
+  activatedById String?
+  activatedBy   User?     @relation("InventoryValuationPolicyActivatedBy", fields: [activatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  activatedAt   DateTime?
 
   initializedById String?
   initializedBy   User?     @relation("InventoryValuationPolicyInitializedBy", fields: [initializedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   initializedAt   DateTime?
 
   createdById String?
-  createdBy   User?     @relation("InventoryValuationPolicyCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdBy   User?   @relation("InventoryValuationPolicyCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   updatedById String?
-  updatedBy   User?     @relation("InventoryValuationPolicyUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updatedBy   User?   @relation("InventoryValuationPolicyUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   initializations InventoryValuationInitialization[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   @@unique([companyId, warehouseId])
@@ -2274,17 +2277,17 @@ model InventoryValuationPolicy {
 }
 
 model InventoryValuationBalance {
-  id                     String    @id @default(cuid())
-  companyId              String
-  company                Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  warehouseId            String
-  warehouse              Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productId              String
-  product                Product   @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id          String    @id @default(cuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  averageUnitCost        Decimal   @db.Decimal(19, 8)
-  inventoryValue         Decimal   @db.Decimal(19, 4)
-  lastHistoricalUnitCost Decimal?  @db.Decimal(19, 8)
+  averageUnitCost        Decimal  @db.Decimal(19, 8)
+  inventoryValue         Decimal  @db.Decimal(19, 4)
+  lastHistoricalUnitCost Decimal? @db.Decimal(19, 8)
 
   version Int @default(1)
 
@@ -2312,15 +2315,15 @@ model InventoryValuationBalance {
 // InventoryValuationPolicy.currencyCode. Creation and the matching
 // InventoryValuationBalance seed happen atomically in one transaction.
 model InventoryValuationInitialization {
-  id               String    @id @default(cuid())
-  companyId        String
-  company          Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  warehouseId      String
-  warehouse        Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productId        String
-  product          Product   @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  policyId         String
-  policy           InventoryValuationPolicy @relation(fields: [policyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id          String                   @id @default(cuid())
+  companyId   String
+  company     Company                  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId String
+  warehouse   Warehouse                @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId   String
+  product     Product                  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  policyId    String
+  policy      InventoryValuationPolicy @relation(fields: [policyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   quantitySnapshot Decimal @db.Decimal(18, 4)
   unitCost         Decimal @db.Decimal(19, 6)
@@ -2770,8 +2773,8 @@ model MaintenanceRequestRequiredPart {
 
   // Cost Purpose R1 — canonical "WHY" dimension (nullable additive, backward compatible)
   // MAINTENANCE by default on stock issue; override requires cost-purpose:override + reason.
-  costPurpose                String?
-  costPurposeOverrideReason  String?
+  costPurpose               String?
+  costPurposeOverrideReason String?
 
   // Batch Y Addendum — part condition, replacement action, removed part tracking
   issuedStockCondition        String?
@@ -4210,6 +4213,9 @@ model ProductionRun {
   updatedAt                         DateTime                    @updatedAt
   deletedAt                         DateTime?
 
+  costClosedAt   DateTime?
+  costClosedById String?
+
   sessions              ProductionRunSession[]
   transitions           ProductionRunTransition[]
   outputEvents          ProductionOutputEvent[]
@@ -4222,6 +4228,7 @@ model ProductionRun {
   inspections           ProductionInspection[]
   costTransactions      OperationalCostTransaction[]
   costCalculations      OperationalCostCalculation[]
+  costSnapshot          ProductionRunCostSnapshot?
 
   @@unique([companyId, branchId, runNumber])
   @@unique([companyId, branchId, clientRequestId])
@@ -4244,6 +4251,54 @@ model ProductionRun {
   @@index([issueWarehouseId])
   @@index([receiptWarehouseId])
   @@map("production_runs")
+}
+
+// VAL-R1G-A: immutable production-run cost boundary snapshot.
+//
+// One row per ProductionRun. It is the AUTHORITATIVE source of record proving
+// the run's material cost was frozen at a point in time. It is immutable after
+// creation (no update/delete endpoint) and never alters physical inventory.
+//
+// costBasis is always NET_ACTUAL_MATERIAL_VALUE_ONLY for this slice — meaning
+// only R1F valued production materials (ISSUE + CONSUMPTION, net of trusted
+// RETURN) are capitalized. Labor, energy, maintenance, overhead, and
+// OperationalCostTransaction are DEFERRED_NOT_CAPITALIZED (outside boundary).
+//
+// netMaterialValue is the exact sum of immutable R1F InventoryMovementLine
+// totalCost snapshots for OUT events minus trusted RETURN totalCost snapshots.
+// finalGoodQuantity is the authoritative GOOD output at close time (from
+// deriveRunTotals on authoritative measurement points, net of corrections).
+//
+// The DB-level unique (companyId, branchId, productionRunId) is the idempotency
+// guard: a second cost close for the same run is rejected rather than silently
+// overwritten. Currency must exactly equal the ACTIVE valuation policy currency.
+model ProductionRunCostSnapshot {
+  id              String        @id @default(cuid())
+  companyId       String
+  company         Company       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId        String
+  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionRunId String        @unique
+  productionRun   ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  finalProductId  String
+  finalProduct    Product       @relation(fields: [finalProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  finalGoodQuantity Decimal @db.Decimal(18, 4)
+  netMaterialValue  Decimal @db.Decimal(19, 4)
+  currencyCode      String
+  costBasis         String  @default("NET_ACTUAL_MATERIAL_VALUE_ONLY")
+
+  closedAt    DateTime @default(now())
+  closedById  String?
+  createdById String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, branchId, productionRunId])
+  @@index([companyId, branchId])
+  @@index([productionRunId])
+  @@index([finalProductId])
+  @@map("production_run_cost_snapshots")
 }
 
 model ProductionRunSession {
@@ -4646,8 +4701,8 @@ model ProductionMaterialDocumentLine {
   costCenterId              String?
   machineId                 String?
 
-  createdAt                     DateTime                           @default(now())
-  updatedAt                     DateTime                           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([documentId])
   @@index([productId])
