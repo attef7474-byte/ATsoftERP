@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { NumberingService } from '../../../modules/numbering/numbering.service';
@@ -8,6 +9,7 @@ import { StockTransferQueryDto } from './dto/stock-transfer-query.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { assertRowInContext, assertWarehouseInContext } from '../../../common/operational-context/tenant-guards';
 import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
+import { INVENTORY_VALUATION_METHOD_WEIGHTED_AVERAGE } from '../inventory-valuation/inventory-valuation.constants';
 
 @Injectable()
 export class InventoryStockTransfersService {
@@ -249,16 +251,33 @@ export class InventoryStockTransfersService {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      // VAL-R1C: warehouse transfer is blocked while either the source or the
-      // destination warehouse has an ACTIVE valuation policy (deferred to VAL-R1D).
-      for (const wh of [doc.sourceWarehouseId, doc.destinationWarehouseId]) {
-        const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, wh);
-        if (activePolicy) {
+      // VAL-R1D: a valued transfer requires BOTH warehouses to have an ACTIVE
+      // WEIGHTED_AVERAGE policy with the SAME currency; otherwise, if either
+      // warehouse has an ACTIVE valuation policy, the transfer is blocked
+      // (never half-valued).
+      const srcPolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, doc.sourceWarehouseId);
+      const dstPolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, doc.destinationWarehouseId);
+      let valued = false;
+      if (srcPolicy || dstPolicy) {
+        if (!srcPolicy || !dstPolicy) {
           throw new BadRequestException({
-            messageKey: 'inventoryValuation.unsupportedActiveFlow',
-            message: 'Stock transfer is blocked while an ACTIVE valuation policy exists for either warehouse',
+            messageKey: 'inventoryValuation.transferNotBothActive',
+            message: 'A warehouse transfer requires BOTH the source and destination warehouses to have an ACTIVE valuation policy',
           });
         }
+        if (srcPolicy.method !== INVENTORY_VALUATION_METHOD_WEIGHTED_AVERAGE || dstPolicy.method !== INVENTORY_VALUATION_METHOD_WEIGHTED_AVERAGE) {
+          throw new BadRequestException({
+            messageKey: 'inventoryValuation.transferNotBothActive',
+            message: 'A valued warehouse transfer requires the WEIGHTED_AVERAGE method on both warehouses',
+          });
+        }
+        if (srcPolicy.currencyCode.toUpperCase() !== dstPolicy.currencyCode.toUpperCase()) {
+          throw new BadRequestException({
+            messageKey: 'inventoryValuation.transferCurrencyMismatch',
+            message: 'A warehouse transfer requires the source and destination ACTIVE valuation policies to use the SAME currency',
+          });
+        }
+        valued = true;
       }
       await assertWarehouseInContext(tx, doc.sourceWarehouseId, ctx);
       await assertWarehouseInContext(tx, doc.destinationWarehouseId, ctx);
@@ -276,6 +295,10 @@ export class InventoryStockTransfersService {
       }
       const outMovementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
+      // Create the OUT movement HEADER only. Each InventoryMovementLine is
+      // created individually below and correlated 1:1 with its
+      // InventoryStockTransferLine (never by array index — duplicate product
+      // lines are legal and there is no source-line key on the movement line).
       const outMovement = await tx.inventoryMovement.create({
         data: {
           movementNumber: outMovementNumber,
@@ -291,29 +314,9 @@ export class InventoryStockTransfersService {
           postedById: userId,
           createdById: userId,
           notes: doc.reason,
-          lines: {
-            create: doc.lines.map(l => ({
-              productId: l.productId,
-              warehouseLocationId: doc.sourceLocationId || undefined,
-              quantity: l.quantity,
-              direction: 'OUT',
-              notes: l.notes,
-            })),
-          },
+          lines: { create: [] },
         },
       });
-
-      for (const line of doc.lines) {
-        const srcBalance = await this.getOrCreateBalance(tx, doc.sourceWarehouseId, line.productId, doc.sourceLocationId || null);
-        await tx.inventoryBalance.update({
-          where: { id: srcBalance.id },
-          data: { quantity: srcBalance.quantity - line.quantity },
-        });
-        await tx.inventoryStockTransferLine.update({
-          where: { id: line.id },
-          data: { transferOutMovementId: outMovement.id },
-        });
-      }
 
       const inMovementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
@@ -332,27 +335,107 @@ export class InventoryStockTransfersService {
           postedById: userId,
           createdById: userId,
           notes: doc.reason,
-          lines: {
-            create: doc.lines.map(l => ({
-              productId: l.productId,
-              warehouseLocationId: doc.destinationLocationId || undefined,
-              quantity: l.quantity,
-              direction: 'IN',
-              notes: l.notes,
-            })),
-          },
+          lines: { create: [] },
         },
       });
 
       for (const line of doc.lines) {
+        // Create THIS transfer line's OUT + IN movement lines individually so the
+        // exact returned ids are correlated with the source transfer line.
+        const outMovLine = await tx.inventoryMovementLine.create({
+          data: {
+            movementId: outMovement.id,
+            productId: line.productId,
+            warehouseLocationId: doc.sourceLocationId || null,
+            quantity: line.quantity,
+            quantityBase: line.quantity,
+            direction: 'OUT',
+            notes: line.notes,
+          },
+        });
+        const inMovLine = await tx.inventoryMovementLine.create({
+          data: {
+            movementId: inMovement.id,
+            productId: line.productId,
+            warehouseLocationId: doc.destinationLocationId || null,
+            quantity: line.quantity,
+            quantityBase: line.quantity,
+            direction: 'IN',
+            notes: line.notes,
+          },
+        });
+
+        // Capture authoritative Qold for BOTH scopes BEFORE any physical mutation
+        // (the engine's valued transfer uses these pre-mutation on-hand figures).
+        const srcQold = await this.valuationEngine.aggregatePhysicalQuantity(tx, doc.sourceWarehouseId, line.productId);
+        const dstQold = await this.valuationEngine.aggregatePhysicalQuantity(tx, doc.destinationWarehouseId, line.productId);
+
+        // Source physical decrement (keeps Float quantity and quantityBase in
+        // sync so the engine's physical authority never diverges).
+        const srcBalance = await this.getOrCreateBalance(tx, doc.sourceWarehouseId, line.productId, doc.sourceLocationId || null);
+        const srcBase =
+          srcBalance.quantityBase !== null && srcBalance.quantityBase !== undefined
+            ? new Prisma.Decimal(srcBalance.quantityBase.toString())
+            : new Prisma.Decimal(srcBalance.quantity);
+        await tx.inventoryBalance.update({
+          where: { id: srcBalance.id },
+          data: {
+            quantity: srcBalance.quantity - line.quantity,
+            quantityBase: srcBase.minus(new Prisma.Decimal(line.quantity)),
+          },
+        });
+
+        // Destination physical increment.
         const dstBalance = await this.getOrCreateBalance(tx, doc.destinationWarehouseId, line.productId, doc.destinationLocationId || null);
+        const dstBase =
+          dstBalance.quantityBase !== null && dstBalance.quantityBase !== undefined
+            ? new Prisma.Decimal(dstBalance.quantityBase.toString())
+            : new Prisma.Decimal(dstBalance.quantity);
         await tx.inventoryBalance.update({
           where: { id: dstBalance.id },
-          data: { quantity: dstBalance.quantity + line.quantity },
+          data: {
+            quantity: dstBalance.quantity + line.quantity,
+            quantityBase: dstBase.plus(new Prisma.Decimal(line.quantity)),
+          },
         });
+
+        // VAL-R1D: value the transfer atomically (source issue + destination
+        // receipt with the SAME authoritative transferTotalValue). Runs only
+        // when both warehouses are ACTIVE WEIGHTED_AVERAGE with one currency.
+        let transferTotalValue: Prisma.Decimal | null = null;
+        if (valued) {
+          const valuedResult = await this.valuationEngine.applyValuedTransfer(tx, {
+            source: {
+              companyId: ctx.companyId,
+              warehouseId: doc.sourceWarehouseId,
+              productId: line.productId,
+              qold: srcQold,
+              lineId: outMovLine.id,
+              movementId: outMovement.id,
+              currencyCode: srcPolicy!.currencyCode,
+            },
+            destination: {
+              companyId: ctx.companyId,
+              warehouseId: doc.destinationWarehouseId,
+              productId: line.productId,
+              qold: dstQold,
+              lineId: inMovLine.id,
+              movementId: inMovement.id,
+              currencyCode: dstPolicy!.currencyCode,
+            },
+            quantity: new Prisma.Decimal(line.quantity),
+            currencyCode: srcPolicy!.currencyCode,
+          });
+          transferTotalValue = valuedResult.transferTotalValue;
+        }
+
         await tx.inventoryStockTransferLine.update({
           where: { id: line.id },
-          data: { transferInMovementId: inMovement.id },
+          data: {
+            transferOutMovementId: outMovement.id,
+            transferInMovementId: inMovement.id,
+            transferTotalValue: transferTotalValue?.toString() ?? null,
+          },
         });
       }
 
@@ -365,7 +448,7 @@ export class InventoryStockTransfersService {
         where: { id },
         include: { lines: true },
       });
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     await this.audit.log(userId, 'POST', 'InventoryStockTransfer', id, {
       oldStatus: doc.status, newStatus: 'POSTED', linesCount: doc.lines.length,
@@ -480,7 +563,7 @@ export class InventoryStockTransfersService {
     let balance = await tx.inventoryBalance.findFirst({ where });
     if (!balance) {
       balance = await tx.inventoryBalance.create({
-        data: { warehouseId, productId, locationId: locationId || null, quantity: 0 },
+        data: { warehouseId, productId, locationId: locationId || null, quantity: 0, quantityBase: 0 },
       });
     }
     return balance;

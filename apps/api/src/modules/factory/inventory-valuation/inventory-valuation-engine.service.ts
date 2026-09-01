@@ -77,6 +77,30 @@ export interface ValuedPostingResult {
   valuationMethod: string;
 }
 
+// VAL-R1D: one side of a valued warehouse transfer (source or destination).
+export interface ValuedTransferSide {
+  companyId: string;
+  warehouseId: string;
+  productId: string;
+  qold: Prisma.Decimal;
+  lineId: string;
+  movementId: string;
+  currencyCode: string;
+}
+
+export interface ValuedTransferInput {
+  source: ValuedTransferSide;
+  destination: ValuedTransferSide;
+  quantity: Prisma.Decimal;
+  currencyCode: string;
+}
+
+export interface ValuedTransferResult {
+  source: ValuedPostingResult;
+  destination: ValuedPostingResult;
+  transferTotalValue: Prisma.Decimal;
+}
+
 type Tx = Prisma.TransactionClient;
 
 @Injectable()
@@ -93,7 +117,10 @@ export class InventoryValuationEngineService {
    */
   coverageGatePasses(): { pass: boolean; unprotected: { key: string; classification: string }[] } {
     const unprotected = INVENTORY_MUTATOR_COVERAGE.filter(
-      (m) => m.classification !== 'VALUATION_AWARE_R1C' && m.classification !== 'BLOCKED_WHEN_ACTIVE',
+      (m) =>
+        m.classification !== 'VALUATION_AWARE_R1C' &&
+        m.classification !== 'VALUATION_AWARE_R1D' &&
+        m.classification !== 'BLOCKED_WHEN_ACTIVE',
     );
     return { pass: unprotected.length === 0, unprotected };
   }
@@ -212,6 +239,26 @@ export class InventoryValuationEngineService {
     }
   }
 
+  // VAL-R1D: acquires the valuation applock for EVERY scope in a multi-warehouse
+  // operation (e.g. warehouse transfer touches source AND destination). Scopes
+  // are acquired in deterministic lexicographic order
+  // (companyId -> warehouseId -> productId) so two concurrent transfers between
+  // the same pair of warehouses always lock in the same order and cannot form an
+  // A->B / B->A deadlock.
+  async acquireValuationLocksSorted(
+    tx: Tx,
+    scopes: { companyId: string; warehouseId: string; productId: string }[],
+  ): Promise<void> {
+    const sorted = [...scopes].sort((a, b) => {
+      const ka = `${a.companyId}\u0000${a.warehouseId}\u0000${a.productId}`;
+      const kb = `${b.companyId}\u0000${b.warehouseId}\u0000${b.productId}`;
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
+    for (const scope of sorted) {
+      await this.acquireValuationLock(tx, scope.companyId, scope.warehouseId, scope.productId);
+    }
+  }
+
   // ── valued receipt ─────────────────────────────────────────────────────────
 
   /**
@@ -305,7 +352,122 @@ export class InventoryValuationEngineService {
     return this.persist(tx, input, balance?.id, qnew, vnew, cnew, vin, input.originalUnitCost, input.currencyCode);
   }
 
-  // ── shared persistence ─────────────────────────────────────────────────────
+  // ── valued warehouse transfer (VAL-R1D) ───────────────────────────────────
+
+  /**
+   * Weighted moving-average warehouse transfer with VALUE CONSERVATION:
+   *   A single authoritative `transferTotalValue` is used for BOTH the source
+   *   decrement and the destination increment, so the COMBINED value across the
+   *   two valuation balances is unchanged (source loses V, destination gains V).
+   *
+   *   Source issue:
+   *     if qty < qold:  vout = qty x avgSource ;  Vsrc_new = Vsrc_old - vout
+   *     if qty >= qold (FULL DEPLETION):
+   *       vout = Vsrc_old exactly, so Vsrc_new = 0 EXACTLY (no residual value)
+   *   Destination receipt (reblend at the transferred value):
+   *     Vdst_new = Vdst_old + vout ;  Qdst_new = Qdst_old + qty
+   *     avgDst = Vdst_new / Qdst_new
+   *
+   *   transferTotalValue (rounded to 4dp) is the single authoritative figure and
+   *   is persisted on the transfer line for audit; both movement-line snapshots
+   *   (source unitCost = avgSource, destination unitCost = new avgDst) carry the
+   *   same totalCost = transferTotalValue.
+   *
+   *   The engine acquires the source AND destination valuation applocks in
+   *   deterministic sorted order (deadlock avoidance). Both Balance mutations and
+   *   movement-line monetary snapshots happen on the caller's OWN transaction,
+   *   so source and destination update atomically together.
+   */
+  async applyValuedTransfer(tx: Tx, input: ValuedTransferInput): Promise<ValuedTransferResult> {
+    await this.acquireValuationLocksSorted(tx, [
+      {
+        companyId: input.source.companyId,
+        warehouseId: input.source.warehouseId,
+        productId: input.source.productId,
+      },
+      {
+        companyId: input.destination.companyId,
+        warehouseId: input.destination.warehouseId,
+        productId: input.destination.productId,
+      },
+    ]);
+
+    // ── Source side (issue) ─────────────────────────────────────────────────
+    const srcBalance = await this.readValuationBalance(
+      tx,
+      input.source.companyId,
+      input.source.warehouseId,
+      input.source.productId,
+    );
+    if (!srcBalance) {
+      throw new BadRequestException({
+        messageKey: 'inventoryValuation.stateMissing',
+        message: 'No valuation balance exists at the source; initialize the product first',
+      });
+    }
+    const srcQold = input.source.qold;
+    const srcVold = new Prisma.Decimal(srcBalance.inventoryValue.toString());
+    const srcAvg = new Prisma.Decimal(srcBalance.averageUnitCost.toString());
+    const qty = input.quantity;
+
+    if (qty.gt(srcQold)) {
+      throw new BadRequestException({
+        messageKey: 'inventoryValuation.negativeStock',
+        message: `Cannot transfer more than the available physical stock at source (available ${srcQold.toString()}, requested ${qty.toString()})`,
+      });
+    }
+
+    // Full depletion: remove the ENTIRE residual value so the source reaches
+    // exactly zero; otherwise value at the moving average.
+    const fullDepletion = qty.gte(srcQold);
+    const srcOutValue = fullDepletion ? srcVold : qty.mul(srcAvg);
+
+    const srcQnew = srcQold.minus(qty);
+    const srcVnew = fullDepletion ? new Prisma.Decimal(0) : srcVold.minus(srcOutValue);
+    const srcCnew = srcQnew.gt(0) ? srcVnew.dividedBy(srcQnew) : new Prisma.Decimal(0);
+
+    const transferTotalValue = srcOutValue.toDecimalPlaces(4);
+    const srcSnapshotUnit = (fullDepletion ? srcVold.dividedBy(srcQold) : srcAvg).toDecimalPlaces(6);
+
+    const sourceResult = await this.persist(
+      tx,
+      input.source,
+      srcBalance.id,
+      srcQnew,
+      srcVnew,
+      srcCnew,
+      transferTotalValue,
+      srcSnapshotUnit,
+      input.currencyCode,
+    );
+
+    // ── Destination side (receipt / reblend at the transferred value) ──────
+    const dstBalance = await this.readValuationBalance(
+      tx,
+      input.destination.companyId,
+      input.destination.warehouseId,
+      input.destination.productId,
+    );
+    const dstQold = input.destination.qold;
+    const dstVold = dstBalance ? new Prisma.Decimal(dstBalance.inventoryValue.toString()) : new Prisma.Decimal(0);
+    const dstVnew = dstVold.add(transferTotalValue);
+    const dstQnew = dstQold.add(qty);
+    const dstCnew = dstQold.gt(0) && dstQnew.gt(0) ? dstVnew.dividedBy(dstQnew) : transferTotalValue.dividedBy(qty).toDecimalPlaces(8);
+
+    const destinationResult = await this.persist(
+      tx,
+      input.destination,
+      dstBalance?.id,
+      dstQnew,
+      dstVnew,
+      dstCnew,
+      transferTotalValue,
+      dstCnew,
+      input.currencyCode,
+    );
+
+    return { source: sourceResult, destination: destinationResult, transferTotalValue };
+  }
 
   private async readValuationBalance(
     tx: Tx,

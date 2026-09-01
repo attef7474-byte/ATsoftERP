@@ -95,6 +95,7 @@ describe('InventoryStockTransfersService tenant isolation', () => {
         deleteMany: jest.fn(),
       },
       inventoryMovement: { create: jest.fn() },
+      inventoryMovementLine: { create: jest.fn() },
       inventoryBalance: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
       $transaction: jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(prisma)),
     };
@@ -103,7 +104,7 @@ describe('InventoryStockTransfersService tenant isolation', () => {
       generateNumberAtomicWithClient: jest.fn().mockResolvedValue('ST-0001'),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
-    service = new InventoryStockTransfersService(prisma as unknown as PrismaService, audit as unknown as AuditService, numbering as unknown as NumberingService, { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) } as any);
+    service = new InventoryStockTransfersService(prisma as unknown as PrismaService, audit as unknown as AuditService, numbering as unknown as NumberingService, { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null), aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new (require('@prisma/client').Prisma).Decimal(100)) } as any);
   });
 
   describe('update', () => {
@@ -213,6 +214,78 @@ describe('InventoryStockTransfersService tenant isolation', () => {
 
       await expect(service.post('t1', 'u1', ctx)).rejects.toThrow(ForbiddenException);
       expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('post with ACTIVE valuation policy (VAL-R1D)', () => {
+    const D = require('@prisma/client').Prisma;
+    const active = { id: 'pol-1', method: 'WEIGHTED_AVERAGE', currencyCode: 'USD' };
+
+    it('TRANSFER_NOT_BOTH_ACTIVE: blocks a half-valued transfer (only one warehouse ACTIVE) before any movement', async () => {
+      const findPolicy = jest.fn()
+        .mockResolvedValueOnce(active)
+        .mockResolvedValueOnce(null);
+      service = new InventoryStockTransfersService(prisma as unknown as PrismaService, audit as unknown as AuditService, numbering as unknown as NumberingService, { findActivePolicyForWarehouse: findPolicy, aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new D.Decimal(100)) } as any);
+      prisma.inventoryStockTransfer.findUnique.mockResolvedValue(doc({ status: 'APPROVED' }));
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', quantity: 100, quantityBase: 100 });
+
+      const promise = service.post('t1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventoryValuation.transferNotBothActive');
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    });
+
+    it('TRANSFER_CURRENCY_MISMATCH: blocks a transfer whose warehouses have different ACTIVE-valuation currencies', async () => {
+      const findPolicy = jest.fn()
+        .mockResolvedValueOnce({ ...active, currencyCode: 'USD' })
+        .mockResolvedValueOnce({ ...active, currencyCode: 'EUR' });
+      service = new InventoryStockTransfersService(prisma as unknown as PrismaService, audit as unknown as AuditService, numbering as unknown as NumberingService, { findActivePolicyForWarehouse: findPolicy, aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new D.Decimal(100)) } as any);
+      prisma.inventoryStockTransfer.findUnique.mockResolvedValue(doc({ status: 'APPROVED' }));
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', quantity: 100, quantityBase: 100 });
+
+      const promise = service.post('t1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventoryValuation.transferCurrencyMismatch');
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    });
+
+    it('TRANSFER_NAME: values the transfer when both warehouses are ACTIVE WEIGHTED_AVERAGE with one currency', async () => {
+      const applyValuedTransfer = jest.fn().mockResolvedValue({ transferTotalValue: new D.Decimal(200) });
+      service = new InventoryStockTransfersService(prisma as unknown as PrismaService, audit as unknown as AuditService, numbering as unknown as NumberingService, {
+        findActivePolicyForWarehouse: jest.fn().mockResolvedValue(active),
+        aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new D.Decimal(100)),
+        applyValuedTransfer,
+      } as any);
+      prisma.inventoryStockTransfer.findUnique.mockResolvedValue(doc({ status: 'APPROVED' }));
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', quantity: 100, quantityBase: 100 });
+      prisma.inventoryBalance.update.mockResolvedValue({});
+      prisma.inventoryMovement.create
+        .mockResolvedValueOnce({ id: 'out1' })
+        .mockResolvedValueOnce({ id: 'in1' });
+      prisma.inventoryMovementLine.create
+        .mockResolvedValueOnce({ id: 'out-line' })
+        .mockResolvedValueOnce({ id: 'in-line' });
+      prisma.inventoryStockTransferLine.update.mockResolvedValue({});
+
+      await service.post('t1', 'u1', ctx);
+
+      expect(applyValuedTransfer).toHaveBeenCalledTimes(1);
+      const input = applyValuedTransfer.mock.calls[0][1];
+      expect(input.source.lineId).toBe('out-line');
+      expect(input.source.movementId).toBe('out1');
+      expect(input.destination.lineId).toBe('in-line');
+      expect(input.destination.movementId).toBe('in1');
+      expect(input.quantity.toNumber()).toBe(10);
+      // conservation figure is persisted back onto the transfer line
+      const lineUpdate = prisma.inventoryStockTransferLine.update.mock.calls[0][0];
+      expect(lineUpdate.data.transferTotalValue).toBe('200');
+      expect(lineUpdate.data.transferOutMovementId).toBe('out1');
+      expect(lineUpdate.data.transferInMovementId).toBe('in1');
     });
   });
 });

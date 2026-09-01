@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InventoryStockAdjustmentsService } from './inventory-stock-adjustments.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
@@ -111,6 +111,8 @@ describe('InventoryStockAdjustmentsService', () => {
         deleteMany: jest.fn(),
       },
       inventoryMovement: { create: jest.fn() },
+      inventoryMovementLine: { create: jest.fn().mockResolvedValue({ id: 'ml1' }) },
+      userRole: { findMany: jest.fn() },
       inventoryBalance: {
         findFirst: jest.fn(),
         create: jest.fn(),
@@ -129,11 +131,17 @@ describe('InventoryStockAdjustmentsService', () => {
       log: jest.fn().mockResolvedValue(undefined),
       logWithClient: jest.fn().mockResolvedValue(undefined),
     };
+    const D = require('@prisma/client').Prisma;
     service = new InventoryStockAdjustmentsService(
       prisma as PrismaService,
       audit as AuditService,
       numbering as NumberingService,
-      { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) } as any,
+      {
+        findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null),
+        aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new D.Decimal(100)),
+        applyValuedReceipt: jest.fn().mockResolvedValue({}),
+        applyValuedIssue: jest.fn().mockResolvedValue({}),
+      } as any,
     );
   });
 
@@ -754,7 +762,9 @@ describe('InventoryStockAdjustmentsService', () => {
         postedById: 'u1',
         createdById: 'u1',
       });
-      expect(movementCall.data.lines.create[0]).toMatchObject({ productId: 'prd1', direction: 'IN', quantity: 5 });
+      expect(movementCall.data.lines.create).toEqual([]);
+      const inLineCall = prisma.inventoryMovementLine.create.mock.calls[0][0];
+      expect(inLineCall.data).toMatchObject({ movementId: 'mv1', productId: 'prd1', direction: 'IN', quantity: 5, quantityBase: 5 });
 
       const balanceCall = prisma.inventoryBalance.update.mock.calls[0][0];
       expect(balanceCall.where).toEqual({ id: 'b1' });
@@ -794,7 +804,9 @@ describe('InventoryStockAdjustmentsService', () => {
       expect(numbering.generateNumberAtomic).not.toHaveBeenCalled();
       const movementCall = prisma.inventoryMovement.create.mock.calls[0][0];
       expect(movementCall.data.movementType).toBe('STOCK_ADJUSTMENT_OUT');
-      expect(movementCall.data.lines.create[0]).toMatchObject({ productId: 'prd1', direction: 'OUT', quantity: 5 });
+      expect(movementCall.data.lines.create).toEqual([]);
+      const outLineCall = prisma.inventoryMovementLine.create.mock.calls[0][0];
+      expect(outLineCall.data).toMatchObject({ movementId: 'mv2', productId: 'prd1', direction: 'OUT', quantity: 5 });
 
       const balanceCall = prisma.inventoryBalance.update.mock.calls[0][0];
       expect(balanceCall.data.quantity).toBe(15);
@@ -912,20 +924,181 @@ describe('InventoryStockAdjustmentsService', () => {
       expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
     });
 
-    it('VAL-R1C: blocks post when the warehouse has an ACTIVE valuation policy, before any document write', async () => {
+    it('VAL-R1D: ADJUSTMENT_IN with explicit cost posts a valued receipt with the exact movement-line id', async () => {
+      const D = require('@prisma/client').Prisma;
+      const applyValuedReceipt = jest.fn().mockResolvedValue({});
+      const aggregatePhysicalQuantity = jest.fn().mockResolvedValue(new D.Decimal(80));
       service = new InventoryStockAdjustmentsService(
-        prisma as PrismaService,
-        audit as AuditService,
-        numbering as NumberingService,
-        { findActivePolicyForWarehouse: jest.fn().mockResolvedValue({ id: 'pol-1', status: 'ACTIVE', currencyCode: 'USD' }) } as any,
+        prisma as PrismaService, audit as AuditService, numbering as NumberingService,
+        { findActivePolicyForWarehouse: jest.fn().mockResolvedValue({ id: 'pol-1', method: 'WEIGHTED_AVERAGE', currencyCode: 'USD' }), aggregatePhysicalQuantity, applyValuedReceipt, applyValuedIssue: jest.fn().mockResolvedValue({}) } as any,
       );
-      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'APPROVED' }));
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(
+        adjustment({ status: 'APPROVED', lines: [line({ unitCost: 15, currencyCode: 'USD', valuationReason: 'loan-in' })] }),
+      );
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1', deletedAt: null });
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', quantity: 80, quantityBase: 80 });
+      prisma.inventoryStockAdjustment.updateMany.mockResolvedValue({ count: 1 });
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov1' });
+      prisma.userRole.findMany.mockResolvedValue([{ role: { status: 'ACTIVE', code: 'SUPER_ADMIN', permissions: [] } }]);
+      prisma.inventoryMovementLine.create.mockResolvedValue({ id: 'ml1' });
+
+      await service.post('a1', 'u1', ctx);
+
+      expect(applyValuedReceipt).toHaveBeenCalledTimes(1);
+      const call = applyValuedReceipt.mock.calls[0][1];
+      expect(call.lineId).toBe('ml1');
+      expect(call.movementId).toBe('mov1');
+      expect(call.qold).toEqual(new D.Decimal(80));
+      expect(call.unitCost).toEqual(new D.Decimal(15));
+      expect(call.currencyCode).toBe('USD');
+    });
+
+    it('VAL-R1D: ADJUSTMENT_OUT revalues at the current moving average via applyValuedIssue', async () => {
+      const D = require('@prisma/client').Prisma;
+      const applyValuedIssue = jest.fn().mockResolvedValue({});
+      service = new InventoryStockAdjustmentsService(
+        prisma as PrismaService, audit as AuditService, numbering as NumberingService,
+        { findActivePolicyForWarehouse: jest.fn().mockResolvedValue({ id: 'pol-1', method: 'WEIGHTED_AVERAGE', currencyCode: 'USD' }), aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new D.Decimal(100)), applyValuedReceipt: jest.fn().mockResolvedValue({}), applyValuedIssue } as any,
+      );
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(
+        adjustment({ status: 'APPROVED', lines: [line({ adjustmentType: 'ADJUSTMENT_OUT', quantity: 20 })] }),
+      );
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1', deletedAt: null });
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', quantity: 100, quantityBase: 100 });
+      prisma.inventoryStockAdjustment.updateMany.mockResolvedValue({ count: 1 });
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov1' });
+      prisma.inventoryMovementLine.create.mockResolvedValue({ id: 'ml1' });
+
+      await service.post('a1', 'u1', ctx);
+
+      expect(applyValuedIssue).toHaveBeenCalledTimes(1);
+      const call = applyValuedIssue.mock.calls[0][1];
+      expect(call.lineId).toBe('ml1');
+      expect(call.quantity).toEqual(new D.Decimal(20));
+    });
+
+    it('VAL-R1D: ADJUSTMENT_IN_WRONG_CURRENCY rejects before any movement so the whole post is atomic', async () => {
+      service = new InventoryStockAdjustmentsService(
+        prisma as PrismaService, audit as AuditService, numbering as NumberingService,
+        { findActivePolicyForWarehouse: jest.fn().mockResolvedValue({ id: 'pol-1', method: 'WEIGHTED_AVERAGE', currencyCode: 'USD' }), aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new (require('@prisma/client').Prisma).Decimal(80)), applyValuedReceipt: jest.fn().mockResolvedValue({}), applyValuedIssue: jest.fn().mockResolvedValue({}) } as any,
+      );
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(
+        adjustment({ status: 'APPROVED', lines: [line({ unitCost: 15, currencyCode: 'EUR', valuationReason: 'loan' })] }),
+      );
       prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
 
       const promise = service.post('a1', 'u1', ctx);
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
-      expect(response.messageKey).toBe('inventoryValuation.unsupportedActiveFlow');
+      expect(response.messageKey).toBe('inventoryValuation.currencyMismatch');
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovementLine.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    });
+
+    it('VAL-R1D: ADJUSTMENT_IN_ZERO_COST_REASON requires an explicit valuation reason', async () => {
+      service = new InventoryStockAdjustmentsService(
+        prisma as PrismaService, audit as AuditService, numbering as NumberingService,
+        { findActivePolicyForWarehouse: jest.fn().mockResolvedValue({ id: 'pol-1', method: 'WEIGHTED_AVERAGE', currencyCode: 'USD' }), aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new (require('@prisma/client').Prisma).Decimal(80)), applyValuedReceipt: jest.fn().mockResolvedValue({}), applyValuedIssue: jest.fn().mockResolvedValue({}) } as any,
+      );
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(
+        adjustment({ status: 'APPROVED', lines: [line({ unitCost: 0, currencyCode: 'USD', valuationReason: null })] }),
+      );
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+
+      const promise = service.post('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    });
+
+    it('VAL-R1D: ADJUSTMENT_IN_NEGATIVE_COST is rejected before any side effect', async () => {
+      service = new InventoryStockAdjustmentsService(
+        prisma as PrismaService, audit as AuditService, numbering as NumberingService,
+        { findActivePolicyForWarehouse: jest.fn().mockResolvedValue({ id: 'pol-1', method: 'WEIGHTED_AVERAGE', currencyCode: 'USD' }), aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new (require('@prisma/client').Prisma).Decimal(80)), applyValuedReceipt: jest.fn().mockResolvedValue({}), applyValuedIssue: jest.fn().mockResolvedValue({}) } as any,
+      );
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(
+        adjustment({ status: 'APPROVED', lines: [line({ unitCost: -5, currencyCode: 'USD', valuationReason: 'loan' })] }),
+      );
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+
+      const promise = service.post('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    });
+
+    it('VAL-R1D: ADJUSTMENT_IN_MISSING_COST is rejected before any side effect', async () => {
+      service = new InventoryStockAdjustmentsService(
+        prisma as PrismaService, audit as AuditService, numbering as NumberingService,
+        { findActivePolicyForWarehouse: jest.fn().mockResolvedValue({ id: 'pol-1', method: 'WEIGHTED_AVERAGE', currencyCode: 'USD' }), aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new (require('@prisma/client').Prisma).Decimal(80)), applyValuedReceipt: jest.fn().mockResolvedValue({}), applyValuedIssue: jest.fn().mockResolvedValue({}) } as any,
+      );
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(
+        adjustment({ status: 'APPROVED', lines: [line({ unitCost: undefined, currencyCode: 'USD' })] }),
+      );
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+
+      const promise = service.post('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventoryValuation.adjustmentCostRequired');
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    });
+
+    it('VAL-R1D: ADJUSTMENT_IN_MISSING_PERMISSION throws Forbidden for a non-admin without cost-input', async () => {
+      const D = require('@prisma/client').Prisma;
+      const applyValuedReceipt = jest.fn().mockResolvedValue({});
+      service = new InventoryStockAdjustmentsService(
+        prisma as PrismaService, audit as AuditService, numbering as NumberingService,
+        { findActivePolicyForWarehouse: jest.fn().mockResolvedValue({ id: 'pol-1', method: 'WEIGHTED_AVERAGE', currencyCode: 'USD' }), aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new D.Decimal(80)), applyValuedReceipt, applyValuedIssue: jest.fn().mockResolvedValue({}) } as any,
+      );
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(
+        adjustment({ status: 'APPROVED', lines: [line({ unitCost: 15, currencyCode: 'USD', valuationReason: 'loan' })] }),
+      );
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.userRole.findMany.mockResolvedValue([
+        { role: { status: 'ACTIVE', code: 'STOREKEEPER', permissions: [] } },
+      ]);
+
+      const promise = service.post('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(ForbiddenException);
+      expect(applyValuedReceipt).not.toHaveBeenCalled();
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('VAL-R1D: ADJUSTMENT_MULTI_LINE_ATOMICITY rejects the whole post when any IN line is invalid', async () => {
+      service = new InventoryStockAdjustmentsService(
+        prisma as PrismaService, audit as AuditService, numbering as NumberingService,
+        { findActivePolicyForWarehouse: jest.fn().mockResolvedValue({ id: 'pol-1', method: 'WEIGHTED_AVERAGE', currencyCode: 'USD' }), aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new (require('@prisma/client').Prisma).Decimal(80)), applyValuedReceipt: jest.fn().mockResolvedValue({}), applyValuedIssue: jest.fn().mockResolvedValue({}) } as any,
+      );
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(
+        adjustment({
+          status: 'APPROVED',
+          lines: [
+            line({ id: 'l1', unitCost: 15, currencyCode: 'USD', valuationReason: 'loan' }),
+            line({ id: 'l2', unitCost: undefined, currencyCode: 'USD' }),
+          ],
+        }),
+      );
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+      prisma.userRole.findMany.mockResolvedValue([{ role: { status: 'ACTIVE', code: 'SUPER_ADMIN', permissions: [] } }]);
+
+      const promise = service.post('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      // Prevalidation rejects the WHOLE post before any movement header is created.
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    });
+
+    it('VAL-R1D: ADJUSTMENT_POSTED_REPRICE is blocked (only APPROVED can post) before side effects', async () => {
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'POSTED' }));
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+
+      const promise = service.post('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
       expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
       expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
     });

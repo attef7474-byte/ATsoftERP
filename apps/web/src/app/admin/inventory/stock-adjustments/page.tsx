@@ -10,6 +10,8 @@ import { InventoryStatusBadge } from '../../../../components/inventory-counting/
 import { F9Lookup, companyAdapter, branchAdapter, warehouseAdapter, productAdapter, warehouseLocationAdapter } from '../../../../components/f9';
 import { useMemo } from 'react';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
+import { getUserPermissions } from '../../../../lib/auth';
+import { fetchActiveValuationPolicy, hasValuationCostInputPermission, VALUATION_COST_INPUT_PERMISSION } from '../../../../lib/inventory-valuation-helper';
 
 interface StockAdjustmentLine {
   _id?: string;
@@ -20,6 +22,9 @@ interface StockAdjustmentLine {
   adjustmentType: string;
   quantity: number;
   notes?: string;
+  unitCost?: number;
+  currencyCode?: string;
+  valuationReason?: string;
   movementId?: string;
 }
 
@@ -60,7 +65,9 @@ export default function StockAdjustmentsPage() {
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [lineFormOpen, setLineFormOpen] = useState(false);
-  const [lineForm, setLineForm] = useState({ productId: '', locationId: '', adjustmentType: 'ADJUSTMENT_IN', quantity: 1, notes: '' });
+  const [lineForm, setLineForm] = useState({ productId: '', locationId: '', adjustmentType: 'ADJUSTMENT_IN', quantity: 1, notes: '', unitCost: '', valuationReason: '' });
+  const [canCostInput, setCanCostInput] = useState(false);
+  const [activePolicyCurrency, setActivePolicyCurrency] = useState('');
   const [actionConfirmOpen, setActionConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState('');
   const [selectedId, setSelectedId] = useState('');
@@ -81,6 +88,26 @@ export default function StockAdjustmentsPage() {
 
   useEffect(() => { fetchData(); }, []);
 
+  useEffect(() => {
+    getUserPermissions().then((res) => {
+      setCanCostInput(hasValuationCostInputPermission(res.permissions, res.isSuperAdmin));
+    }).catch(() => setCanCostInput(false));
+  }, []);
+
+  const refreshActivePolicy = useCallback(async (warehouseId: string) => {
+    setActivePolicyCurrency('');
+    if (!warehouseId) return;
+    try {
+      const active = await fetchActiveValuationPolicy(warehouseId);
+      if (active) setActivePolicyCurrency(active.currencyCode || '');
+    } catch {
+      setActivePolicyCurrency('');
+    }
+  }, []);
+
+  const isActivePolicyAdjustmentIn = (type: string) => type === 'ADJUSTMENT_IN' && !!activePolicyCurrency;
+
+
   const openCreate = () => {
     setEditItem(null);
     setForm({
@@ -92,6 +119,7 @@ export default function StockAdjustmentsPage() {
       notes: '',
     });
     setValidationErrors({});
+    setActivePolicyCurrency('');
     setModalOpen(true);
   };
 
@@ -103,6 +131,8 @@ export default function StockAdjustmentsPage() {
     });
     setLines((item.lines || []).map((l: any) => ({ ...l, _id: l.id || Date.now().toString() })));
     setValidationErrors({});
+    setActivePolicyCurrency('');
+    refreshActivePolicy(item.warehouseId);
     setModalOpen(true);
   };
 
@@ -112,6 +142,13 @@ export default function StockAdjustmentsPage() {
     if (!form.warehouseId) errs.warehouseId = t('validation.required');
     if (!form.reason) errs.reason = t('validation.required');
     if (lines.length === 0) errs.lines = t('inventoryCounting.noLines');
+    if (activePolicyCurrency) {
+      if (!canCostInput) errs.costInput = t('inventoryValuation.missingPermission');
+      const zeroCostNoReason = lines.some(
+        (l) => l.adjustmentType === 'ADJUSTMENT_IN' && l.unitCost === 0 && !l.valuationReason,
+      );
+      if (zeroCostNoReason) errs.lines = t('inventoryValuation.reasonRequiredForZero');
+    }
     if (Object.keys(errs).length) { setValidationErrors(errs); return; }
     setValidationErrors({});
     setSaving(true);
@@ -122,6 +159,9 @@ export default function StockAdjustmentsPage() {
         lines: lines.map((l) => ({
           productId: l.productId, locationId: l.locationId || undefined,
           adjustmentType: l.adjustmentType, quantity: l.quantity, notes: l.notes || undefined,
+          unitCost: l.adjustmentType === 'ADJUSTMENT_IN' && l.unitCost !== undefined ? l.unitCost : undefined,
+          currencyCode: l.adjustmentType === 'ADJUSTMENT_IN' && l.currencyCode ? l.currencyCode : undefined,
+          valuationReason: l.adjustmentType === 'ADJUSTMENT_IN' && l.valuationReason ? l.valuationReason : undefined,
         })),
       };
       if (editItem) {
@@ -138,9 +178,18 @@ export default function StockAdjustmentsPage() {
 
   const handleAddLine = () => {
     if (!lineForm.productId || lineForm.quantity <= 0) return;
-    setLines([...lines, { ...lineForm, _id: Date.now().toString() }]);
-    setLineForm({ productId: '', locationId: '', adjustmentType: 'ADJUSTMENT_IN', quantity: 1, notes: '' });
+    const isIn = lineForm.adjustmentType === 'ADJUSTMENT_IN';
+    const unitCost = lineForm.unitCost === '' ? undefined : Number(lineForm.unitCost);
+    if (isIn && activePolicyCurrency) {
+      if (!canCostInput) { setValidationErrors((p) => ({ ...p, costInput: t('inventoryValuation.missingPermission') })); return; }
+      if (unitCost === undefined || Number.isNaN(unitCost)) { setValidationErrors((p) => ({ ...p, costInput: t('inventoryValuation.unitCostRequired') })); return; }
+      if (unitCost < 0) { setValidationErrors((p) => ({ ...p, costInput: t('inventoryValuation.negativeCost') })); return; }
+      if (unitCost === 0 && !lineForm.valuationReason) { setValidationErrors((p) => ({ ...p, costInput: t('inventoryValuation.reasonRequiredForZero') })); return; }
+    }
+    setLines([...lines, { ...lineForm, unitCost, currencyCode: isIn && activePolicyCurrency ? activePolicyCurrency : undefined, _id: Date.now().toString() }]);
+    setLineForm({ productId: '', locationId: '', adjustmentType: 'ADJUSTMENT_IN', quantity: 1, notes: '', unitCost: '', valuationReason: '' });
     setLineFormOpen(false);
+    setValidationErrors((p) => ({ ...p, costInput: '' }));
   };
 
   const handleRemoveLine = (id: string) => setLines(lines.filter((l) => l._id !== id));
@@ -235,8 +284,9 @@ export default function StockAdjustmentsPage() {
                 onChange={(v) => {
                   setForm({ ...form, warehouseId: v, locationId: '' });
                   setLines([]);
-                  setLineForm((previous) => ({ ...previous, locationId: '' }));
+                  setLineForm((previous) => ({ ...previous, locationId: '', unitCost: '', valuationReason: '' }));
                   setValidationErrors(p => ({ ...p, warehouseId: '' }));
+                  refreshActivePolicy(v);
                 }}
                 adapter={warehouseAdapter}
               />
@@ -257,7 +307,7 @@ export default function StockAdjustmentsPage() {
               <div className="border rounded p-3 mb-3 space-y-3 bg-gray-50">
                 <div className="grid grid-cols-2 gap-3">
                   <F9Lookup label={t('inventoryCounting.product')} value={lineForm.productId} onChange={(v) => setLineForm({ ...lineForm, productId: v })} adapter={productAdapter} />
-                  <Select label={t('common.type')} value={lineForm.adjustmentType} onChange={(e) => setLineForm({ ...lineForm, adjustmentType: e.target.value })} options={[
+                  <Select label={t('common.type')} value={lineForm.adjustmentType} onChange={(e) => setLineForm({ ...lineForm, adjustmentType: e.target.value, unitCost: '', valuationReason: '' })} options={[
                     { value: 'ADJUSTMENT_IN', label: t('inventory.adjustmentIncrease') }, { value: 'ADJUSTMENT_OUT', label: t('inventory.adjustmentDecrease') },
                   ]} />
                 </div>
@@ -271,6 +321,28 @@ export default function StockAdjustmentsPage() {
                 />
                 <Input label={t('inventoryCounting.quantity')} type="number" value={String(lineForm.quantity)} onChange={(e) => setLineForm({ ...lineForm, quantity: Number(e.target.value) })} />
                 <Textarea label={t('inventoryCounting.notes')} value={lineForm.notes} onChange={(e) => setLineForm({ ...lineForm, notes: e.target.value })} />
+                {isActivePolicyAdjustmentIn(lineForm.adjustmentType) && (
+                  <div className="border rounded p-3 bg-white space-y-3">
+                    <div className="text-xs font-medium text-gray-600">{t('inventoryValuation.monetaryInputHint')}</div>
+                    {!canCostInput ? (
+                      <p className="text-sm text-amber-700">{t('inventoryValuation.missingPermission')}</p>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Input label={t('inventoryValuation.unitCost')} type="number" value={lineForm.unitCost} onChange={(e) => setLineForm({ ...lineForm, unitCost: e.target.value })} />
+                          <div>
+                            <Input label={t('inventoryValuation.currency')} value={activePolicyCurrency} disabled />
+                          </div>
+                        </div>
+                        <Textarea label={t('inventoryValuation.reason')} value={lineForm.valuationReason} onChange={(e) => setLineForm({ ...lineForm, valuationReason: e.target.value })} />
+                        {lineForm.unitCost === '0' && !lineForm.valuationReason && (
+                          <p className="text-sm text-amber-700">{t('inventoryValuation.zeroCostHint')}</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+                {validationErrors.costInput && <p className="text-red-500 text-sm mt-1">{validationErrors.costInput}</p>}
                 <Button onClick={handleAddLine}>{t('common.add')}</Button>
               </div>
             )}
@@ -290,7 +362,12 @@ export default function StockAdjustmentsPage() {
                 <tbody>
                   {lines.map((line) => (
                     <tr key={line._id} className="border-b hover:bg-gray-50">
-                      <td className="p-2">{line.product?.name || line.productId}</td>
+                      <td className="p-2">
+                        {line.product?.name || line.productId}
+                        {line.adjustmentType === 'ADJUSTMENT_IN' && line.unitCost !== undefined && (
+                          <span className="block text-xs text-gray-500">{t('inventoryValuation.unitCost')}: {line.unitCost} {line.currencyCode || ''}{line.valuationReason ? ` (${line.valuationReason})` : ''}</span>
+                        )}
+                      </td>
                       <td className="p-2 text-center">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${line.adjustmentType === 'ADJUSTMENT_IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                           {line.adjustmentType === 'ADJUSTMENT_IN' ? `+ ${t('inventory.adjustmentIncrease')}` : `- ${t('inventory.adjustmentDecrease')}`}

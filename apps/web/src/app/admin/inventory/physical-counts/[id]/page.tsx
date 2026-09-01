@@ -3,8 +3,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
-import { Button, Input, Card, PageHeader, ConfirmDialog, LoadingState } from '../../../../../components/admin/ui';
+import { Button, Input, Textarea, Card, PageHeader, ConfirmDialog, LoadingState } from '../../../../../components/admin/ui';
 import { useRouter, useParams } from 'next/navigation';
+import { getUserPermissions } from '../../../../../lib/auth';
+import { fetchActiveValuationPolicy, hasValuationCostInputPermission } from '../../../../../lib/inventory-valuation-helper';
 
 interface CountLine {
   id: string;
@@ -51,6 +53,11 @@ export default function PhysicalCountDetailPage() {
   const [error, setError] = useState('');
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState<number>(0);
+  const [editUnitCost, setEditUnitCost] = useState('');
+  const [editValuationReason, setEditValuationReason] = useState('');
+  const [canCostInput, setCanCostInput] = useState(false);
+  const [activePolicyCurrency, setActivePolicyCurrency] = useState('');
+  const [costInputError, setCostInputError] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState('');
   const [actionSaving, setActionSaving] = useState(false);
@@ -62,6 +69,13 @@ export default function PhysicalCountDetailPage() {
     try {
       const res = await api.get<PhysicalCount>(`/inventory/physical-counts/${params.id}`);
       setCount(res);
+      if (res?.warehouse?.id) {
+        const active = await fetchActiveValuationPolicy(res.warehouse.id);
+        if (active) setActivePolicyCurrency(active.currencyCode || '');
+        else setActivePolicyCurrency('');
+      } else {
+        setActivePolicyCurrency('');
+      }
     } catch (err: any) {
       setError(err?.message || 'Load failed');
     } finally {
@@ -71,14 +85,39 @@ export default function PhysicalCountDetailPage() {
 
   useEffect(() => { fetchCount(); }, [fetchCount]);
 
+  useEffect(() => {
+    getUserPermissions().then((p) => {
+      setCanCostInput(hasValuationCostInputPermission(p.permissions, p.isSuperAdmin));
+    }).catch(() => setCanCostInput(false));
+  }, []);
+
   const startEdit = (line: CountLine) => {
     setEditingLineId(line.id);
     setEditQty(line.countedQty ?? 0);
+    setEditUnitCost('');
+    setEditValuationReason('');
+    setCostInputError('');
   };
 
   const saveEdit = async (lineId: string) => {
+    const line = count?.lines.find((l) => l.id === lineId);
+    const isSurplus = line ? (editQty - line.systemQty) > 0 : false;
+    const needsCost = isSurplus && !!activePolicyCurrency;
+    if (needsCost) {
+      if (!canCostInput) { setCostInputError(t('inventoryValuation.missingPermission')); return; }
+      const unitCost = editUnitCost === '' ? NaN : Number(editUnitCost);
+      if (Number.isNaN(unitCost)) { setCostInputError(t('inventoryValuation.unitCostRequired')); return; }
+      if (unitCost < 0) { setCostInputError(t('inventoryValuation.negativeCost')); return; }
+      if (unitCost === 0 && !editValuationReason) { setCostInputError(t('inventoryValuation.reasonRequiredForZero')); return; }
+    }
+    setCostInputError('');
     try {
-      await api.patch(`/inventory/physical-counts/${count!.id}/lines/${lineId}/enter`, { countedQty: editQty });
+      await api.patch(`/inventory/physical-counts/${count!.id}/lines/${lineId}/enter`, {
+        countedQty: editQty,
+        unitCost: needsCost ? Number(editUnitCost) : undefined,
+        currencyCode: needsCost ? activePolicyCurrency : undefined,
+        valuationReason: needsCost && editValuationReason ? editValuationReason : undefined,
+      });
       showToast('Count entered', 'success');
       setEditingLineId(null);
       fetchCount();
@@ -236,10 +275,34 @@ export default function PhysicalCountDetailPage() {
                 <td className="text-right py-2">{line.systemQty}</td>
                 <td className="text-right py-2">
                   {editingLineId === line.id ? (
-                    <div className="flex gap-1 justify-end">
-                      <Input type="number" value={editQty} onChange={e => setEditQty(parseFloat(e.target.value) || 0)} className="w-20 text-right" />
-                      <Button size="sm" onClick={() => saveEdit(line.id)}>{t('common.save')}</Button>
-                      <Button size="sm" variant="secondary" onClick={() => setEditingLineId(null)}>{t('common.cancel')}</Button>
+                    <div className="flex flex-col gap-1 items-end">
+                      <div className="flex gap-1 justify-end">
+                        <Input type="number" value={editQty} onChange={e => setEditQty(parseFloat(e.target.value) || 0)} className="w-20 text-right" />
+                        <Button size="sm" onClick={() => saveEdit(line.id)}>{t('common.save')}</Button>
+                        <Button size="sm" variant="secondary" onClick={() => setEditingLineId(null)}>{t('common.cancel')}</Button>
+                      </div>
+                      {activePolicyCurrency && (editQty - line.systemQty) > 0 && (
+                        <div className="border rounded p-2 bg-gray-50 space-y-2 w-64">
+                          {!canCostInput ? (
+                            <p className="text-xs text-amber-700">{t('inventoryValuation.missingPermission')}</p>
+                          ) : (
+                            <>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input label={t('inventoryValuation.unitCost')} type="number" value={editUnitCost} onChange={e => setEditUnitCost(e.target.value)} className="text-right" />
+                                <Input label={t('inventoryValuation.currency')} value={activePolicyCurrency} disabled />
+                              </div>
+                              <Textarea label={t('inventoryValuation.reason')} value={editValuationReason} onChange={e => setEditValuationReason(e.target.value)} />
+                              {editUnitCost === '0' && !editValuationReason && (
+                                <p className="text-xs text-amber-700">{t('inventoryValuation.zeroCostHint')}</p>
+                              )}
+                            </>
+                          )}
+                          {costInputError && <p className="text-xs text-red-600">{costInputError}</p>}
+                        </div>
+                      )}
+                      {activePolicyCurrency && (editQty - line.systemQty) <= 0 && (
+                        <p className="text-xs text-gray-500">{t('inventoryValuation.methodWeightedAverage')}</p>
+                      )}
                     </div>
                   ) : (
                     <span>{line.countedQty ?? '-'}</span>

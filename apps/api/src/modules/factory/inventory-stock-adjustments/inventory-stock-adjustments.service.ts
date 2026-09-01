@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
@@ -9,6 +9,7 @@ import { UpdateStockAdjustmentLineDto } from './dto/update-stock-adjustment-line
 import { StockAdjustmentQueryDto } from './dto/stock-adjustment-query.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
+import { INVENTORY_VALUATION_PERMISSION_KEYS } from '../inventory-valuation/inventory-valuation.constants';
 
 @Injectable()
 export class InventoryStockAdjustmentsService {
@@ -135,6 +136,35 @@ export class InventoryStockAdjustmentsService {
     }
   }
 
+  /**
+   * VAL-R1D: an ADJUSTMENT_IN with an explicit cost into an ACTIVE valuation
+   * warehouse requires the dedicated valuation cost-input permission
+   * (`inventory-valuation:cost-input`). Mirrors the auth PermissionsGuard logic
+   * (SUPER_ADMIN short-circuits to allow). Called BEFORE any movement or balance
+   * mutation so a denied user never triggers a side effect.
+   */
+  private async assertValuationCostInputPermission(userId: string): Promise<void> {
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { userId },
+      include: {
+        role: { include: { permissions: { include: { permission: true } } } },
+      },
+    });
+    for (const ur of userRoles) {
+      if (ur.role.status !== 'ACTIVE') continue;
+      if (ur.role.code === 'SUPER_ADMIN') return;
+      for (const rp of ur.role.permissions) {
+        if (rp.permission.status === 'ACTIVE' && rp.permission.key === INVENTORY_VALUATION_PERMISSION_KEYS.costInput) {
+          return;
+        }
+      }
+    }
+    throw new ForbiddenException({
+      messageKey: 'inventoryValuation.missingPermission',
+      message: 'The valuation cost-input permission is required to post an inventory adjustment IN into an ACTIVE valuation warehouse',
+    });
+  }
+
   async create(dto: CreateStockAdjustmentDto, userId: string, ctx: ActiveOperationalContext) {
     return this.prisma.$transaction(async (tx) => {
       // Company, warehouse, location, and line-product validation all run on the
@@ -174,6 +204,9 @@ export class InventoryStockAdjustmentsService {
               locationId: l.locationId,
               adjustmentType: l.adjustmentType,
               quantity: l.quantity,
+              unitCost: typeof l.unitCost === 'number' ? l.unitCost.toString() : undefined,
+              currencyCode: l.currencyCode || undefined,
+              valuationReason: l.valuationReason || undefined,
               notes: l.notes,
             })),
           },
@@ -384,11 +417,33 @@ export class InventoryStockAdjustmentsService {
       }
       if (current.status !== 'APPROVED') throw this.badRequest('inventory.stockAdjustmentOnlyApprovedCanPost');
 
-      // VAL-R1C: stock-adjustment posting (ADJUSTMENT_IN/OUT) is blocked while the
-      // warehouse has an ACTIVE valuation policy (deferred to VAL-R1D).
+      // VAL-R1D: when the warehouse has an ACTIVE valuation policy, the
+      // adjustment is valued: ADJUSTMENT_OUT revalues at the current moving
+      // average; ADJUSTMENT_IN requires an explicit unit cost + policy currency
+      // + reason (with the valuation cost-input permission) and is applied as a
+      // weighted-average receipt. When no ACTIVE policy exists, the legacy
+      // (unvalued) posting applies as before.
       const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, current.warehouseId);
       if (activePolicy) {
-        throw this.badRequest('inventoryValuation.unsupportedActiveFlow');
+        for (const l of current.lines as { adjustmentType: string; unitCost?: any; currencyCode?: string | null; valuationReason?: string | null; quantity: number }[]) {
+          if (l.adjustmentType !== 'ADJUSTMENT_IN') continue;
+          if (l.unitCost === null || l.unitCost === undefined) {
+            throw this.badRequest('inventoryValuation.adjustmentCostRequired');
+          }
+          const cost = new Prisma.Decimal(l.unitCost.toString());
+          if (cost.isNegative()) {
+            throw this.badRequest('inventoryValuation.adjustmentCostRequired');
+          }
+          // A free-of-cost gain into an ACTIVE valuation warehouse must carry an
+          // explicit reason so the write-off is never a silent zero.
+          if (cost.isZero() && !(l.valuationReason || '').trim()) {
+            throw this.badRequest('inventoryValuation.adjustmentCostRequired');
+          }
+          if ((l.currencyCode || '').toUpperCase() !== activePolicy.currencyCode.toUpperCase()) {
+            throw this.badRequest('inventoryValuation.currencyMismatch');
+          }
+          await this.assertValuationCostInputPermission(userId);
+        }
       }
 
       // Revalidate the COMPLETE relation graph inside the posting transaction,
@@ -415,6 +470,11 @@ export class InventoryStockAdjustmentsService {
       if (inLines.length > 0) {
         const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
+        // Create the movement HEADER only. Each InventoryMovementLine is created
+        // individually below so the exact returned movementLine.id is correlated
+        // 1:1 with its InventoryStockAdjustmentLine (never by array index — the
+        // source-line key on InventoryMovementLine is absent, and duplicate
+        // productId+locationId lines are legal).
         const movement = await tx.inventoryMovement.create({
           data: {
             movementNumber,
@@ -430,12 +490,47 @@ export class InventoryStockAdjustmentsService {
             postedById: userId,
             createdById: userId,
             notes: current.reason,
-            lines: { create: inLines.map(l => ({ productId: l.productId, warehouseLocationId: l.locationId, quantity: l.quantity, direction: 'IN', notes: l.notes })) },
+            lines: { create: [] },
           },
         });
 
         for (const line of inLines) {
+          // 1. Capture authoritative Qold BEFORE any physical mutation.
+          const qold = await this.valuationEngine.aggregatePhysicalQuantity(tx, current.warehouseId, line.productId);
+
+          // 2. Create the exact InventoryMovementLine for THIS adjustment line.
+          const movementLine = await tx.inventoryMovementLine.create({
+            data: {
+              movementId: movement.id,
+              productId: line.productId,
+              warehouseLocationId: line.locationId,
+              quantity: line.quantity,
+              quantityBase: line.quantity,
+              direction: 'IN',
+              notes: line.notes,
+            },
+          });
+
+          // 3. Apply physical delta exactly once.
           await this.applyBalanceDelta(tx, current.warehouseId, line.productId, line.locationId, line.quantity, 'IN');
+
+          // 4. Apply the valued receipt exactly once (monetary + snapshot), using
+          //    the pre-mutation Qold and the explicit line cost.
+          if (activePolicy) {
+            await this.valuationEngine.applyValuedReceipt(tx, {
+              companyId: ctx.companyId,
+              warehouseId: current.warehouseId,
+              productId: line.productId,
+              qold,
+              quantity: new Prisma.Decimal(line.quantity),
+              unitCost: new Prisma.Decimal((line as any).unitCost.toString()),
+              currencyCode: activePolicy.currencyCode,
+              lineId: movementLine.id,
+              movementId: movement.id,
+            });
+          }
+
+          // 5. Link the source adjustment line to the movement.
           await tx.inventoryStockAdjustmentLine.update({
             where: { id: line.id },
             data: { movementId: movement.id },
@@ -461,12 +556,47 @@ export class InventoryStockAdjustmentsService {
             postedById: userId,
             createdById: userId,
             notes: current.reason,
-            lines: { create: outLines.map(l => ({ productId: l.productId, warehouseLocationId: l.locationId, quantity: l.quantity, direction: 'OUT', notes: l.notes })) },
+            lines: { create: [] },
           },
         });
 
         for (const line of outLines) {
+          // 1. Capture authoritative Qold BEFORE physical mutation.
+          const qold = await this.valuationEngine.aggregatePhysicalQuantity(tx, current.warehouseId, line.productId);
+
+          // 2. Create the exact InventoryMovementLine for THIS adjustment line.
+          const movementLine = await tx.inventoryMovementLine.create({
+            data: {
+              movementId: movement.id,
+              productId: line.productId,
+              warehouseLocationId: line.locationId,
+              quantity: line.quantity,
+              quantityBase: line.quantity,
+              direction: 'OUT',
+              notes: line.notes,
+            },
+          });
+
+          // 3. Apply physical delta exactly once.
           await this.applyBalanceDelta(tx, current.warehouseId, line.productId, line.locationId, line.quantity, 'OUT');
+
+          // 4. Apply the valued issue exactly once at the current moving average
+          //    (applyValuedIssue reads the valuation balance itself; the pre-mutation
+          //    Qold is used for negative-stock protection).
+          if (activePolicy) {
+            await this.valuationEngine.applyValuedIssue(tx, {
+              companyId: ctx.companyId,
+              warehouseId: current.warehouseId,
+              productId: line.productId,
+              qold,
+              quantity: new Prisma.Decimal(line.quantity),
+              currencyCode: activePolicy.currencyCode,
+              lineId: movementLine.id,
+              movementId: movement.id,
+            });
+          }
+
+          // 5. Link the source adjustment line to the movement.
           await tx.inventoryStockAdjustmentLine.update({
             where: { id: line.id },
             data: { movementId: movement.id },
@@ -581,6 +711,9 @@ export class InventoryStockAdjustmentsService {
           locationId: dto.locationId,
           adjustmentType: dto.adjustmentType,
           quantity: dto.quantity,
+          unitCost: typeof dto.unitCost === 'number' ? dto.unitCost.toString() : undefined,
+          currencyCode: dto.currencyCode || undefined,
+          valuationReason: dto.valuationReason || undefined,
           notes: dto.notes,
         },
         include: { product: { select: { id: true, name: true, code: true } } },
@@ -631,6 +764,9 @@ export class InventoryStockAdjustmentsService {
         data.locationId = dto.locationId || null;
       }
       if (dto.notes !== undefined) data.notes = dto.notes;
+      if (dto.unitCost !== undefined) data.unitCost = dto.unitCost === null ? null : dto.unitCost.toString();
+      if (dto.currencyCode !== undefined) data.currencyCode = dto.currencyCode ?? null;
+      if (dto.valuationReason !== undefined) data.valuationReason = dto.valuationReason ?? null;
 
       const updated = await tx.inventoryStockAdjustmentLine.update({
         where: { id: lineId },

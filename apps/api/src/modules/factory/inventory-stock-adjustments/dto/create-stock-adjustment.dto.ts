@@ -8,6 +8,13 @@ export class CreateStockAdjustmentLineDto {
   @ApiProperty({ enum: ['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'] })
   @IsString() @IsIn(['ADJUSTMENT_IN', 'ADJUSTMENT_OUT']) adjustmentType: string;
   @ApiProperty() @IsNumber() @Min(0.001) quantity: number;
+  // VAL-R1D: authoritative cost source for an ADJUSTMENT_IN into an ACTIVE
+  // valuation warehouse (requires the valuation cost-input permission; currency
+  // must equal the ACTIVE policy currency). Ignored for ADJUSTMENT_OUT, which
+  // revalues at the current moving average.
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) unitCost?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() currencyCode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() valuationReason?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
 }
 

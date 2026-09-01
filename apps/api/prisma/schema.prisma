@@ -1782,6 +1782,14 @@ model InventoryPhysicalCountLine {
   systemQty           Float                  @default(0)
   countedQty          Float?
   varianceQty         Float?
+  // VAL-R1D: authoritative monetary source for a count surplus (variance > 0) on
+  // an ACTIVE valuation warehouse. Written by the user (requires the valuation
+  // cost-input permission), validated against the ACTIVE policy currency, and
+  // used to apply the valued receipt for the surplus. Shortage (variance < 0)
+  // revalues at the current moving average and leaves these null.
+  unitCost            Decimal?               @db.Decimal(19, 6)
+  currencyCode        String?
+  valuationReason     String?
   notes               String?
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
@@ -2066,6 +2074,14 @@ model InventoryStockAdjustmentLine {
   adjustmentType String
   quantity       Float
   movementId     String?
+  // VAL-R1D: authoritative monetary source for an expensive ADJUSTMENT_IN on an
+  // ACTIVE valuation warehouse. Written by the user (with the cost-input
+  // permission), validated against the ACTIVE policy, and used to apply the
+  // valued receipt. ADJUSTMENT_OUT revalues at the current moving average and
+  // leaves these null.
+  unitCost       Decimal?  @db.Decimal(19, 6)
+  currencyCode   String?
+  valuationReason String?
   notes          String?
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
@@ -2132,6 +2148,12 @@ model InventoryStockTransferLine {
   productId             String
   product               Product                @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quantity              Float
+  // VAL-R1D: the ONE authoritative monetary value for a valued transfer line.
+  // Set only when both the source and destination warehouses are ACTIVE under a
+  // WEIGHTED_AVERAGE policy with the same currency; it is used BOTH to decrement
+  // the source valuation balance and to increment the destination balance, so
+  // combined value is conserved. Null for legacy (unvalued) transfers.
+  transferTotalValue    Decimal?  @db.Decimal(19, 4)
   notes                 String?
   transferOutMovementId String?
   transferInMovementId  String?

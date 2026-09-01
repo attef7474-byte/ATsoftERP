@@ -177,7 +177,7 @@ export class InventoryValuationService {
         }
 
         // Coverage gate: refuse activation if any InventoryBalance mutator is
-        // neither VALUATION_AWARE_R1C nor BLOCKED_WHEN_ACTIVE.
+        // neither VALUATION_AWARE_R1C/VALUATION_AWARE_R1D nor BLOCKED_WHEN_ACTIVE.
         const gate = this.engine.coverageGatePasses();
         if (!gate.pass) {
           throw new BadRequestException({

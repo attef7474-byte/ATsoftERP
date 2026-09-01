@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { NumberingService } from '../../../modules/numbering/numbering.service';
@@ -9,6 +10,7 @@ import { RejectPhysicalCountDto } from './dto/reject-physical-count.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { assertRowInContext, assertWarehouseInContext } from '../../../common/operational-context/tenant-guards';
 import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
+import { INVENTORY_VALUATION_PERMISSION_KEYS } from '../inventory-valuation/inventory-valuation.constants';
 
 @Injectable()
 export class InventoryPhysicalCountsService {
@@ -228,7 +230,14 @@ export class InventoryPhysicalCountsService {
 
     const updated = await this.prisma.inventoryPhysicalCountLine.update({
       where: { id: lineId },
-      data: { countedQty: dto.countedQty, varianceQty, notes: dto.notes },
+      data: {
+        countedQty: dto.countedQty,
+        varianceQty,
+        unitCost: typeof dto.unitCost === 'number' ? dto.unitCost.toString() : undefined,
+        currencyCode: dto.currencyCode || undefined,
+        valuationReason: dto.valuationReason || undefined,
+        notes: dto.notes,
+      },
       include: {
         product: { select: { id: true, code: true, name: true, unit: true } },
         warehouseLocation: { select: { id: true, code: true, name: true } },
@@ -281,6 +290,35 @@ export class InventoryPhysicalCountsService {
     return updated;
   }
 
+  /**
+   * VAL-R1D: a count surplus (variance > 0) with an explicit cost into an ACTIVE
+   * valuation warehouse requires the dedicated valuation cost-input permission
+   * (`inventory-valuation:cost-input`). Mirrors the auth PermissionsGuard logic
+   * (SUPER_ADMIN short-circuits to allow). Called BEFORE any movement or balance
+   * mutation so a denied user never triggers a side effect.
+   */
+  private async assertValuationCostInputPermission(userId: string): Promise<void> {
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { userId },
+      include: {
+        role: { include: { permissions: { include: { permission: true } } } },
+      },
+    });
+    for (const ur of userRoles) {
+      if (ur.role.status !== 'ACTIVE') continue;
+      if (ur.role.code === 'SUPER_ADMIN') return;
+      for (const rp of ur.role.permissions) {
+        if (rp.permission.status === 'ACTIVE' && rp.permission.key === INVENTORY_VALUATION_PERMISSION_KEYS.costInput) {
+          return;
+        }
+      }
+    }
+    throw new ForbiddenException({
+      messageKey: 'inventoryValuation.missingPermission',
+      message: 'The valuation cost-input permission is required to post a count surplus into an ACTIVE valuation warehouse',
+    });
+  }
+
   async post(id: string, userId: string, ctx: ActiveOperationalContext) {
     const count = await this.findOne(id, ctx);
     if (count.status !== 'APPROVED') throw new BadRequestException('Only APPROVED physical counts can be posted');
@@ -301,18 +339,48 @@ export class InventoryPhysicalCountsService {
     const inLines = varianceLines.filter(l => (l.varianceQty ?? 0) > 0);
     const outLines = varianceLines.filter(l => (l.varianceQty ?? 0) < 0);
 
-    try {
     await this.prisma.$transaction(async (tx) => {
-      // VAL-R1C: physical-count variance posting is blocked while the warehouse
-      // has an ACTIVE valuation policy (deferred to VAL-R1D).
+      // VAL-R1D: when the warehouse has an ACTIVE valuation policy, count
+      // variance is valued: shortage revalues at the current moving average;
+      // surplus requires an explicit cost + policy currency + reason (+ the
+      // valuation cost-input permission) and is applied as a weighted-average
+      // receipt. When no ACTIVE policy exists, the legacy (unvalued) posting
+      // applies as before.
       const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, count.companyId, count.warehouseId);
       if (activePolicy) {
-        throw new BadRequestException({
-          messageKey: 'inventoryValuation.unsupportedActiveFlow',
-          message: 'Physical count posting is blocked while an ACTIVE valuation policy exists for the warehouse',
-        });
+        for (const l of inLines as { unitCost?: any; currencyCode?: string | null; valuationReason?: string | null }[]) {
+          if (l.unitCost === null || l.unitCost === undefined) {
+            throw new BadRequestException({
+              messageKey: 'inventoryValuation.countSurplusCostRequired',
+              message: 'A count surplus into an ACTIVE valuation warehouse requires an explicit unit cost',
+            });
+          }
+          const cost = new Prisma.Decimal(l.unitCost.toString());
+          if (cost.isNegative()) {
+            throw new BadRequestException({
+              messageKey: 'inventoryValuation.countSurplusCostRequired',
+              message: 'A count surplus unit cost cannot be negative',
+            });
+          }
+          // A free-of-cost surplus must carry an explicit reason so it is never a
+          // silent zero write-off into the ACTIVE valuation balance.
+          if (cost.isZero() && !(l.valuationReason || '').trim()) {
+            throw new BadRequestException({
+              messageKey: 'inventoryValuation.countSurplusCostRequired',
+              message: 'A zero-cost count surplus requires an explicit valuation reason',
+            });
+          }
+          if ((l.currencyCode || '').toUpperCase() !== activePolicy.currencyCode.toUpperCase()) {
+            throw new BadRequestException({
+              messageKey: 'inventoryValuation.currencyMismatch',
+              message: 'Count surplus currency must match the ACTIVE valuation policy currency',
+            });
+          }
+          await this.assertValuationCostInputPermission(userId);
+        }
       }
       await assertWarehouseInContext(tx, count.warehouseId, ctx);
+
       if (inLines.length > 0) {
         const movNum = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
@@ -331,34 +399,38 @@ export class InventoryPhysicalCountsService {
             postedById: userId,
             notes: `Count variance in from physical count ${count.countNumber}`,
             createdById: userId,
-            lines: {
-              create: inLines.map(l => ({
-                productId: l.productId,
-                warehouseLocationId: l.warehouseLocationId,
-                quantity: Math.abs(l.varianceQty ?? 0),
-                direction: 'IN',
-              })),
-            },
+            lines: { create: [] },
           },
         });
 
         for (const l of inLines) {
-          const bal = await tx.inventoryBalance.findFirst({
-            where: { warehouseId: count.warehouseId, productId: l.productId, locationId: l.warehouseLocationId ?? null },
+          // Capture authoritative Qold BEFORE any physical mutation.
+          const qold = await this.valuationEngine.aggregatePhysicalQuantity(tx, count.warehouseId, l.productId);
+          // Create the exact InventoryMovementLine for THIS count line.
+          const movementLine = await tx.inventoryMovementLine.create({
+            data: {
+              movementId: movement.id,
+              productId: l.productId,
+              warehouseLocationId: l.warehouseLocationId,
+              quantity: Math.abs(l.varianceQty ?? 0),
+              quantityBase: Math.abs(l.varianceQty ?? 0),
+              direction: 'IN',
+            },
           });
-          if (bal) {
-            await tx.inventoryBalance.update({
-              where: { id: bal.id },
-              data: { quantity: { increment: Math.abs(l.varianceQty ?? 0) } },
-            });
-          } else {
-            await tx.inventoryBalance.create({
-              data: {
-                warehouseId: count.warehouseId,
-                locationId: l.warehouseLocationId,
-                productId: l.productId,
-                quantity: Math.abs(l.varianceQty ?? 0),
-              },
+          // Apply physical delta exactly once (keeps quantityBase in sync).
+          await this.applyCountBalanceDelta(tx, count.warehouseId, l.productId, l.warehouseLocationId, Math.abs(l.varianceQty ?? 0), 'IN');
+          // Apply the valued receipt exactly once using the pre-mutation Qold.
+          if (activePolicy) {
+            await this.valuationEngine.applyValuedReceipt(tx, {
+              companyId: count.companyId,
+              warehouseId: count.warehouseId,
+              productId: l.productId,
+              qold,
+              quantity: new Prisma.Decimal(Math.abs(l.varianceQty ?? 0)),
+              unitCost: new Prisma.Decimal((l as any).unitCost.toString()),
+              currencyCode: activePolicy.currencyCode,
+              lineId: movementLine.id,
+              movementId: movement.id,
             });
           }
         }
@@ -381,25 +453,35 @@ export class InventoryPhysicalCountsService {
             postedById: userId,
             notes: `Count variance out from physical count ${count.countNumber}`,
             createdById: userId,
-            lines: {
-              create: outLines.map(l => ({
-                productId: l.productId,
-                warehouseLocationId: l.warehouseLocationId,
-                quantity: Math.abs(l.varianceQty ?? 0),
-                direction: 'OUT',
-              })),
-            },
+            lines: { create: [] },
           },
         });
 
         for (const l of outLines) {
-          const bal = await tx.inventoryBalance.findFirst({
-            where: { warehouseId: count.warehouseId, productId: l.productId, locationId: l.warehouseLocationId ?? null },
+          // Stale-count protection: capture the authoritative CURRENT Qold before
+          // physical mutation; applyValuedIssue blocks if the shortage exceeds it.
+          const qold = await this.valuationEngine.aggregatePhysicalQuantity(tx, count.warehouseId, l.productId);
+          const movementLine = await tx.inventoryMovementLine.create({
+            data: {
+              movementId: movement.id,
+              productId: l.productId,
+              warehouseLocationId: l.warehouseLocationId,
+              quantity: Math.abs(l.varianceQty ?? 0),
+              quantityBase: Math.abs(l.varianceQty ?? 0),
+              direction: 'OUT',
+            },
           });
-          if (bal) {
-            await tx.inventoryBalance.update({
-              where: { id: bal.id },
-              data: { quantity: { decrement: Math.abs(l.varianceQty ?? 0) } },
+          await this.applyCountBalanceDelta(tx, count.warehouseId, l.productId, l.warehouseLocationId, Math.abs(l.varianceQty ?? 0), 'OUT');
+          if (activePolicy) {
+            await this.valuationEngine.applyValuedIssue(tx, {
+              companyId: count.companyId,
+              warehouseId: count.warehouseId,
+              productId: l.productId,
+              qold,
+              quantity: new Prisma.Decimal(Math.abs(l.varianceQty ?? 0)),
+              currencyCode: activePolicy.currencyCode,
+              lineId: movementLine.id,
+              movementId: movement.id,
             });
           }
         }
@@ -409,11 +491,7 @@ export class InventoryPhysicalCountsService {
         where: { id },
         data: { status: 'POSTED', postedAt: new Date(), postedById: userId },
       });
-    });
-    } catch (error) {
-      console.error('Post error:', error);
-      throw error;
-    }
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     return this.findOne(id, ctx);
   }
@@ -451,5 +529,44 @@ export class InventoryPhysicalCountsService {
       take: 50,
     });
     return { count, auditLogs };
+  }
+
+  /**
+   * VAL-R1D: applies the count variance to the physical balance exactly ONCE per
+   * count line, keeping the Float quantity AND the quantityBase twin in sync so
+   * the engine's physical authority (SUM(quantityBase)) never diverges. Creates
+   * the balance row if it does not exist.
+   */
+  private async applyCountBalanceDelta(
+    tx: any,
+    warehouseId: string,
+    productId: string,
+    locationId: string | null | undefined,
+    quantity: number,
+    direction: 'IN' | 'OUT',
+  ) {
+    const where: any = { warehouseId, productId };
+    if (locationId) where.locationId = locationId; else where.locationId = null;
+    let bal = await tx.inventoryBalance.findFirst({ where });
+    const delta = new Prisma.Decimal(quantity).mul(direction === 'IN' ? 1 : -1);
+    if (!bal) {
+      bal = await tx.inventoryBalance.create({
+        data: { warehouseId, productId, locationId: locationId || null, quantity: 0, quantityBase: 0 },
+      });
+    }
+    const currentBase =
+      bal.quantityBase !== null && bal.quantityBase !== undefined
+        ? new Prisma.Decimal(bal.quantityBase.toString())
+        : new Prisma.Decimal(bal.quantity);
+    const nextBase = currentBase.add(delta);
+    if (nextBase.isNegative()) {
+      throw new BadRequestException(
+        `Insufficient stock for product ${productId} during physical count posting. Available: ${currentBase.toString()}, Variance: ${quantity}`,
+      );
+    }
+    await tx.inventoryBalance.update({
+      where: { id: bal.id },
+      data: { quantity: Number(nextBase.toFixed(4)), quantityBase: nextBase },
+    });
   }
 }

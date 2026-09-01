@@ -51,15 +51,17 @@ export const INVENTORY_VALUATION_POLICY_ACTIONS = {
 // monetary snapshot quartet for valued postings.
 export const INVENTORY_VALUATION_METHOD_WEIGHTED_AVERAGE = 'WEIGHTED_AVERAGE' as const;
 
-// VAL-R1C: authoritative coverage registry of every source path that can mutate
-// InventoryBalance.quantity / quantityBase. Each registered mutator must be
-// either VALUATION_AWARE_R1C (perpetual moving-average engine applies) or
-// BLOCKED_WHEN_ACTIVE (rejected while an ACTIVE valuation policy exists for the
-// warehouse). Activation fails (VALUATION_UNPROTECTED_MUTATOR) if any registered
-// mutator is neither. This list is the single source of truth for the coverage
-// gate; the engine consults it during activation and the blocking helpers use it
-// to keep every covered flow safe. Registry is intentionally additive: adding a
-// NEW mutator later must also add its entry here before activation can pass.
+// VAL-R1C/VAL-R1D: authoritative coverage registry of every source path that can
+// mutate InventoryBalance.quantity / quantityBase. Each registered mutator must
+// be either VALUATION_AWARE_R1C (perpetual moving-average engine applies),
+// VALUATION_AWARE_R1D (the VAL-R1D appreciated transfer / stock-adjustment /
+// physical-count engine applies), or BLOCKED_WHEN_ACTIVE (rejected while an
+// ACTIVE valuation policy exists for the warehouse). Activation fails
+// (VALUATION_UNPROTECTED_MUTATOR) if any registered mutator is neither. This
+// list is the single source of truth for the coverage gate; the engine consults
+// it during activation and the blocking helpers use it to keep every covered
+// flow safe. Registry is intentionally additive: adding a NEW mutator later must
+// also add its entry here before activation can pass.
 export const INVENTORY_MUTATOR_COVERAGE = [
   // Generic movement posting: OUT lines become a VALUED_ISSUE when ACTIVE.
   { key: 'INVENTORY_MOVEMENT_POST', classification: 'VALUATION_AWARE_R1C' as const },
@@ -71,14 +73,23 @@ export const INVENTORY_MUTATOR_COVERAGE = [
   { key: 'OPERATIONAL_RECEIPT_POST', classification: 'VALUATION_AWARE_R1C' as const },
   // Opening-balance posting is legacy initialization and is blocked while ACTIVE.
   { key: 'OPENING_BALANCE_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
-  // Inventory stock adjustment posting (ADJUSTMENT_IN/OUT) is blocked while ACTIVE.
-  { key: 'STOCK_ADJUSTMENT_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
-  // Inventory adjustment posting is blocked while ACTIVE.
+  // Inventory stock adjustment posting (ADJUSTMENT_IN/OUT) is valuation-aware for
+  // ACTIVE warehouses in VAL-R1D: OUT revalues at the current moving average,
+  // IN requires an explicit cost + policy currency + reason (cost-input RBAC).
+  { key: 'STOCK_ADJUSTMENT_POST', classification: 'VALUATION_AWARE_R1D' as const },
+  // Legacy inventory adjustment posting stays blocked while ACTIVE (no movement
+  // record, no valuation authority; a second parallel adjustment authority is
+  // forbidden — see the R1D canonical-flow decision).
   { key: 'INVENTORY_ADJUSTMENT_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
-  // Warehouse transfer posting is blocked while ACTIVE (deferred to VAL-R1D).
-  { key: 'STOCK_TRANSFER_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
-  // Physical count variance posting is blocked while ACTIVE (deferred to VAL-R1D).
-  { key: 'PHYSICAL_COUNT_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // Warehouse transfer posting is valuation-aware for ACTIVE warehouses in
+  // VAL-R1D: requires BOTH warehouses ACTIVE under WEIGHTED_AVERAGE with the
+  // same currency; a single authoritative transferTotalValue conserves combined
+  // value.
+  { key: 'STOCK_TRANSFER_POST', classification: 'VALUATION_AWARE_R1D' as const },
+  // Physical count variance posting is valuation-aware for ACTIVE warehouses in
+  // VAL-R1D: shortage revalues at the current moving average, surplus requires
+  // an explicit cost + policy currency + reason.
+  { key: 'PHYSICAL_COUNT_POST', classification: 'VALUATION_AWARE_R1D' as const },
   // Maintenance stock issue + return are blocked while ACTIVE (deferred to VAL-R1E).
   { key: 'MAINTENANCE_STOCK_ISSUE', classification: 'BLOCKED_WHEN_ACTIVE' as const },
   { key: 'MAINTENANCE_STOCK_RETURN', classification: 'BLOCKED_WHEN_ACTIVE' as const },

@@ -259,7 +259,10 @@ describe('VAL-R1C InventoryValuationEngineService (atomic weighted moving averag
     expect(gate.unprotected).toHaveLength(0);
     expect(
       INVENTORY_MUTATOR_COVERAGE.every(
-        (m) => m.classification === 'VALUATION_AWARE_R1C' || m.classification === 'BLOCKED_WHEN_ACTIVE',
+        (m) =>
+          m.classification === 'VALUATION_AWARE_R1C' ||
+          m.classification === 'VALUATION_AWARE_R1D' ||
+          m.classification === 'BLOCKED_WHEN_ACTIVE',
       ),
     ).toBe(true);
     expect(INVENTORY_MUTATOR_COVERAGE.length).toBeGreaterThanOrEqual(15);
@@ -379,5 +382,149 @@ describe('VAL-R1C InventoryValuationEngineService (atomic weighted moving averag
     ).rejects.toMatchObject({ response: { messageKey: 'inventoryValuation.negativeStock' } });
     expect(tx.inventoryValuationBalance.update).not.toHaveBeenCalled();
     expect(tx.inventoryMovementLine.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('VAL-R1D InventoryValuationEngineService (valued warehouse transfer)', () => {
+  const prisma = { $queryRaw: jest.fn() } as any as PrismaService;
+  function makeService() {
+    return new InventoryValuationEngineService(prisma);
+  }
+
+  // W1 = source, W2 = destination. dst null => no destination balance yet
+  // (first receipt at the destination).
+  function makeTransferTx(src: Record<string, any>, dst: Record<string, any> | null) {
+    const srcBal = {
+      id: 'bal-src',
+      companyId: 'C1', warehouseId: 'W1', productId: 'P1',
+      inventoryValue: new Prisma.Decimal(src.inventoryValue),
+      averageUnitCost: new Prisma.Decimal(src.averageUnitCost),
+      lastHistoricalUnitCost: null,
+      version: 1,
+    };
+    const dstBal = dst
+      ? {
+          id: 'bal-dst',
+          companyId: 'C1', warehouseId: 'W2', productId: 'P1',
+          inventoryValue: new Prisma.Decimal(dst.inventoryValue),
+          averageUnitCost: new Prisma.Decimal(dst.averageUnitCost),
+          lastHistoricalUnitCost: null,
+          version: 1,
+        }
+      : null;
+    const raw = jest.fn().mockResolvedValue([{ result: 0 }]);
+    const tx = {
+      inventoryValuationBalance: {
+        findUnique: jest.fn().mockImplementation(({ where }: any) =>
+          where.companyId_warehouseId_productId.warehouseId === 'W2' ? dstBal : srcBal,
+        ),
+        update: jest.fn().mockImplementation(() => Promise.resolve({ id: 'updated' })),
+        create: jest.fn().mockImplementation(() => Promise.resolve({ id: 'created' })),
+      },
+      inventoryMovementLine: { update: jest.fn().mockResolvedValue({ id: 'x' }) },
+      $queryRaw: raw,
+    };
+    return { tx: tx as any, raw };
+  }
+
+  const transferBase = {
+    source: { companyId: 'C1', warehouseId: 'W1', productId: 'P1', qold: new Prisma.Decimal(80), lineId: 'src-line', movementId: 'src-mov', currencyCode: 'USD' },
+    destination: { companyId: 'C1', warehouseId: 'W2', productId: 'P1', qold: new Prisma.Decimal(100), lineId: 'dst-line', movementId: 'dst-mov', currencyCode: 'USD' },
+    currencyCode: 'USD',
+  };
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('TRANSFER_VALUE_CONSERVATION_TEST: combined value is unchanged and both sides persist the same transferTotalValue', async () => {
+    // source 80@10=800 ; dest 100@10=1000 ; transfer 20
+    const { tx } = makeTransferTx({ inventoryValue: 800, averageUnitCost: 10 }, { inventoryValue: 1000, averageUnitCost: 10 });
+    const svc = makeService();
+    const r = await svc.applyValuedTransfer(tx, { ...transferBase, quantity: new Prisma.Decimal(20) });
+
+    expect(r.transferTotalValue.toNumber()).toBe(200);
+    const updates = tx.inventoryValuationBalance.update.mock.calls.map((c: any[]) => c[0].data);
+    // source: Q=60,V=600,AVG=10
+    const src = updates[0];
+    expect(src.inventoryValue.toNumber()).toBe(600);
+    expect(src.averageUnitCost.toNumber()).toBe(10);
+    // destination: Q=120,V=1200,AVG=10
+    const dst = updates[1];
+    expect(dst.inventoryValue.toNumber()).toBe(1200);
+    expect(dst.averageUnitCost.toNumber()).toBe(10);
+    // conservation: 800+1000 === 600+1200
+    expect(src.inventoryValue.plus(dst.inventoryValue).toNumber()).toBe(1800);
+    // both movement-line snapshots share the authoritative transferTotalValue
+    const lineUpdates = tx.inventoryMovementLine.update.mock.calls.map((c: any[]) => c[0].data);
+    expect(Number(lineUpdates[0].totalCost)).toBe(200);
+    expect(Number(lineUpdates[1].totalCost)).toBe(200);
+  });
+
+  it('TRANSFER_FULL_DEPLETION_TEST: full source depletion zeroes the source value exactly and passes the entire residual value to the destination', async () => {
+    // source 80 @ avg 5 but inventoryValue 400 (residual value) ; transfer all 80
+    const { tx } = makeTransferTx({ inventoryValue: 400, averageUnitCost: 5 }, null);
+    const svc = makeService();
+    const r = await svc.applyValuedTransfer(tx, {
+      ...transferBase,
+      destination: { ...transferBase.destination, qold: new Prisma.Decimal(0) },
+      quantity: new Prisma.Decimal(80),
+    });
+
+    expect(r.transferTotalValue.toNumber()).toBe(400);
+    const src = tx.inventoryValuationBalance.update.mock.calls[0][0].data;
+    expect(src.inventoryValue.toNumber()).toBe(0); // exactly zero, no residue
+    expect(src.averageUnitCost.toNumber()).toBe(0);
+    // destination created (no prior balance) with the full transferred value
+    const dst = tx.inventoryValuationBalance.create.mock.calls[0][0].data;
+    expect(dst.inventoryValue.toNumber()).toBe(400);
+    expect(dst.averageUnitCost.toNumber()).toBe(5);
+  });
+
+  it('TRANSFER_NEGATIVE_STOCK_TEST: transferring more than the source on-hand is blocked with no writes', async () => {
+    const { tx } = makeTransferTx({ inventoryValue: 800, averageUnitCost: 10 }, { inventoryValue: 1000, averageUnitCost: 10 });
+    const svc = makeService();
+    await expect(
+      svc.applyValuedTransfer(tx, { ...transferBase, quantity: new Prisma.Decimal(90) }),
+    ).rejects.toMatchObject({ response: { messageKey: 'inventoryValuation.negativeStock' } });
+    expect(tx.inventoryValuationBalance.update).not.toHaveBeenCalled();
+    expect(tx.inventoryMovementLine.update).not.toHaveBeenCalled();
+  });
+
+  it('TRANSFER_DEST_FIRST_RECEIPT_TEST: destination with no balance receives the value and blends from zero', async () => {
+    const { tx } = makeTransferTx({ inventoryValue: 800, averageUnitCost: 10 }, null);
+    const svc = makeService();
+    const r = await svc.applyValuedTransfer(tx, {
+      ...transferBase,
+      destination: { ...transferBase.destination, qold: new Prisma.Decimal(0) },
+      quantity: new Prisma.Decimal(20),
+    });
+
+    expect(r.transferTotalValue.toNumber()).toBe(200);
+    const dst = tx.inventoryValuationBalance.create.mock.calls[0][0].data;
+    expect(dst.inventoryValue.toNumber()).toBe(200);
+    expect(dst.averageUnitCost.toNumber()).toBe(10);
+  });
+
+  it('TRANSFER_SORTED_LOCKS_TEST: acquireValuationLocksSorted locks multiple scopes in deterministic lexicographic order', async () => {
+    const raw = jest.fn().mockResolvedValue([{ result: 0 }]);
+    const tx = { $queryRaw: raw } as any;
+    const svc = makeService();
+    await svc.acquireValuationLocksSorted(tx, [
+      { companyId: 'C1', warehouseId: 'W2', productId: 'P1' }, // passed OUT of order
+      { companyId: 'C1', warehouseId: 'W1', productId: 'P1' },
+    ]);
+    const resources = raw.mock.calls.map((c: any[]) => c[1]).filter((v: any) => typeof v === 'string');
+    expect(resources[0]).toBe('ATSOFT:VAL:WMA:C1:W1:P1');
+    expect(resources[1]).toBe('ATSOFT:VAL:WMA:C1:W2:P1');
+    expect(resources).toHaveLength(2);
+  });
+
+  it('MONETARY_DOUBLE_MUTATION=0: a transfer writes the monetary snapshot (movement-line update) exactly once per side', async () => {
+    const { tx } = makeTransferTx({ inventoryValue: 800, averageUnitCost: 10 }, { inventoryValue: 1000, averageUnitCost: 10 });
+    const svc = makeService();
+    await svc.applyValuedTransfer(tx, { ...transferBase, quantity: new Prisma.Decimal(20) });
+    // source snapshot once + destination snapshot once = 2 total, never more
+    expect(tx.inventoryMovementLine.update).toHaveBeenCalledTimes(2);
+    // each side also mutates its own valuation balance exactly once (update or create)
+    expect(tx.inventoryValuationBalance.findUnique).toHaveBeenCalledTimes(2);
   });
 });
