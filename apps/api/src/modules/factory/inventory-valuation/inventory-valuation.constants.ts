@@ -99,10 +99,17 @@ export const INVENTORY_MUTATOR_COVERAGE = [
   // VAL-R1E: maintenance work-order part issue is valuation-aware for ACTIVE
   // warehouses: valued at current weighted moving average.
   { key: 'MAINTENANCE_WORK_ORDER_ISSUE', classification: 'VALUATION_AWARE_R1E' as const },
-  // Production material consumption / finished-goods receipt are blocked while
-  // ACTIVE (deferred to VAL-R1F); routed through the generic movement posting so
-  // their movementType guard is handled by the engine's classifyValuedMovement.
-  { key: 'PRODUCTION_MATERIAL_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // VAL-R1F: production ISSUE / CONSUMPTION posts at the current moving average.
+  // A RETURN is valuation-aware only when every line is immutably linked to a
+  // trusted POSTED issue/consumption line carrying the original quartet.
+  { key: 'PRODUCTION_MATERIAL_ISSUE_POST', classification: 'VALUATION_AWARE_R1F' as const },
+  { key: 'PRODUCTION_MATERIAL_CONSUMPTION_POST', classification: 'VALUATION_AWARE_R1F' as const },
+  { key: 'PRODUCTION_MATERIAL_LINKED_RETURN_POST', classification: 'VALUATION_AWARE_R1F' as const },
+  { key: 'PRODUCTION_MATERIAL_UNLINKED_RETURN_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // Mixed OUT/IN substitution does not yet have a trusted value-conservation
+  // contract and therefore remains blocked while ACTIVE.
+  { key: 'PRODUCTION_MATERIAL_SUBSTITUTION_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // Finished-goods valuation remains explicitly deferred to VAL-R1G.
   { key: 'PRODUCTION_FINISHED_GOODS_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
   // Movement reversal / true-return into an ACTIVE valuation warehouse is blocked
   // for VAL-R1C (boolean return support is deferred to a later VAL slice).
@@ -121,7 +128,9 @@ export const INVENTORY_VALUATION_VALUED_RECEIPT_MOVEMENT_TYPES = ['STOCK_RECEIVI
 export const INVENTORY_VALUATION_BLOCKED_ACTIVE_SOURCE_TYPES: readonly string[] = [
   'PRODUCTION',
   'PRODUCTION_MATERIAL',
+  'PRODUCTION_MATERIAL_DOCUMENT',
   'PRODUCTION_FINISHED_GOODS',
+  'PRODUCTION_FINISHED_GOODS_RECEIPT',
   'MAINTENANCE',
   'STOCK_ADJUSTMENT',
   'STM_INVENTORY_ADJUSTMENT',

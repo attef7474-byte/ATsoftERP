@@ -263,6 +263,7 @@ describe('VAL-R1C InventoryValuationEngineService (atomic weighted moving averag
           m.classification === 'VALUATION_AWARE_R1C' ||
           m.classification === 'VALUATION_AWARE_R1D' ||
           m.classification === 'VALUATION_AWARE_R1E' ||
+          m.classification === 'VALUATION_AWARE_R1F' ||
           m.classification === 'BLOCKED_WHEN_ACTIVE',
       ),
     ).toBe(true);
@@ -275,7 +276,11 @@ describe('VAL-R1C InventoryValuationEngineService (atomic weighted moving averag
     expect(byKey('MAINTENANCE_WORK_ORDER_ISSUE')?.classification).toBe('VALUATION_AWARE_R1E');
     expect(byKey('MAINTENANCE_STOCK_RETURN')?.classification).toBe('BLOCKED_WHEN_ACTIVE');
     // Production / finished-goods remain BLOCKED_WHEN_ACTIVE (deferred to VAL-R1F).
-    expect(byKey('PRODUCTION_MATERIAL_POST')?.classification).toBe('BLOCKED_WHEN_ACTIVE');
+    expect(byKey('PRODUCTION_MATERIAL_ISSUE_POST')?.classification).toBe('VALUATION_AWARE_R1F');
+    expect(byKey('PRODUCTION_MATERIAL_CONSUMPTION_POST')?.classification).toBe('VALUATION_AWARE_R1F');
+    expect(byKey('PRODUCTION_MATERIAL_LINKED_RETURN_POST')?.classification).toBe('VALUATION_AWARE_R1F');
+    expect(byKey('PRODUCTION_MATERIAL_UNLINKED_RETURN_POST')?.classification).toBe('BLOCKED_WHEN_ACTIVE');
+    expect(byKey('PRODUCTION_MATERIAL_SUBSTITUTION_POST')?.classification).toBe('BLOCKED_WHEN_ACTIVE');
     expect(byKey('PRODUCTION_FINISHED_GOODS_POST')?.classification).toBe('BLOCKED_WHEN_ACTIVE');
     expect(gate.unprotected).toHaveLength(0);
   });

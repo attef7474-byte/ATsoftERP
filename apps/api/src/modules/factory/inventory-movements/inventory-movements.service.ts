@@ -17,6 +17,10 @@ import {
 const MOVEMENT_REVERSAL_SOURCE_TYPE = 'INVENTORY_MOVEMENT_REVERSAL';
 const MOVEMENT_REVERSAL_TOKEN_PREFIX = 'REVERSAL:';
 
+type ProductionMaterialValuationPlanEntry =
+  | { kind: 'ISSUE' }
+  | { kind: 'TRUE_RETURN'; originalUnitCost: Prisma.Decimal; originalEventValue: Prisma.Decimal };
+
 @Injectable()
 export class InventoryMovementsService {
   constructor(
@@ -424,6 +428,32 @@ export class InventoryMovementsService {
    * winner and rejects before touching inventory_balances.
    */
   async postMovementWithinTransaction(tx: any, id: string, userId: string, ctx: ActiveOperationalContext) {
+    return this.postMovementCore(tx, id, userId, ctx, null);
+  }
+
+  /**
+   * VAL-R1F canonical production-material entrypoint. Keeping this separate from
+   * generic movement posting prevents a caller from making an arbitrary
+   * PRODUCTION_MATERIAL_DOCUMENT movement valuation-eligible without proving the
+   * tenant-owned document, document type, and original-return linkage.
+   */
+  async postProductionMaterialMovementWithinTransaction(
+    tx: any,
+    documentId: string,
+    movementId: string,
+    userId: string,
+    ctx: ActiveOperationalContext,
+  ) {
+    return this.postMovementCore(tx, movementId, userId, ctx, documentId);
+  }
+
+  private async postMovementCore(
+    tx: any,
+    id: string,
+    userId: string,
+    ctx: ActiveOperationalContext,
+    productionMaterialDocumentId: string | null,
+  ) {
     const movement = await tx.inventoryMovement.findUnique({
       where: { id },
       include: { lines: true },
@@ -482,9 +512,29 @@ export class InventoryMovementsService {
       movement.warehouseId,
     );
 
+    let productionValuationPlan: Map<string, ProductionMaterialValuationPlanEntry> | null = null;
     if (activePolicy) {
-      // Blocks future-scope / reversal postings before any stock change.
-      await this.resolveValuedMovementFlow(tx, movement, ctx);
+      if (productionMaterialDocumentId) {
+        // Lock every touched product in deterministic order before reading the
+        // return history, physical qold, or monetary state.
+        const uniqueScopes = new Map<string, { companyId: string; warehouseId: string; productId: string }>();
+        for (const line of movement.lines) {
+          const scope = { companyId: ctx.companyId, warehouseId: movement.warehouseId, productId: line.productId };
+          uniqueScopes.set(`${scope.companyId}\u0000${scope.warehouseId}\u0000${scope.productId}`, scope);
+        }
+        await this.valuationEngine.acquireValuationLocksSorted(tx, [...uniqueScopes.values()]);
+        productionValuationPlan = await this.resolveProductionMaterialValuationPlan(
+          tx,
+          productionMaterialDocumentId,
+          movement,
+          activePolicy,
+          ctx,
+        );
+      } else {
+        // Generic callers and finished-goods callers remain governed by the
+        // existing active-flow classifier.
+        await this.resolveValuedMovementFlow(tx, movement, ctx);
+      }
     }
 
     for (const line of movement.lines) {
@@ -520,7 +570,24 @@ export class InventoryMovementsService {
           movement.warehouseId,
           line.productId,
         );
-        if (line.direction === 'OUT') {
+        const productionEntry = productionValuationPlan?.get(line.id);
+        if (productionValuationPlan && !productionEntry) {
+          throw this.badRequest('inventoryValuation.productionMaterialLineMismatch');
+        }
+        if (productionEntry?.kind === 'TRUE_RETURN') {
+          await this.valuationEngine.applyTrueReturn(tx, {
+            companyId: ctx.companyId,
+            warehouseId: movement.warehouseId,
+            productId: line.productId,
+            qold,
+            quantity: new Prisma.Decimal(line.quantityBase ?? line.quantity),
+            lineId: line.id,
+            movementId: movement.id,
+            originalUnitCost: productionEntry.originalUnitCost,
+            originalEventValue: productionEntry.originalEventValue,
+            currencyCode: activePolicy.currencyCode,
+          });
+        } else if (line.direction === 'OUT') {
           await this.valuationEngine.applyValuedIssue(tx, {
             companyId: ctx.companyId,
             warehouseId: movement.warehouseId,
@@ -552,6 +619,166 @@ export class InventoryMovementsService {
       where: { id },
       include: { lines: true },
     });
+  }
+
+  private productionMaterialLineKey(line: any): string {
+    const expiry = line.expiryDate ? new Date(line.expiryDate).toISOString() : '';
+    const quantity = new Prisma.Decimal(line.quantityBase ?? line.quantity).toDecimalPlaces(4).toFixed(4);
+    return [
+      line.productId,
+      line.warehouseLocationId ?? '',
+      line.batchNumber ?? '',
+      line.serialNumber ?? '',
+      expiry,
+      quantity,
+    ].join('|');
+  }
+
+  /**
+   * Builds a complete one-to-one plan between production document lines and
+   * movement lines. ISSUE/CONSUMPTION uses the current moving average. RETURN is
+   * allowed only when the exact original POSTED issue line and its immutable
+   * movement quartet can be proven. Any missing, ambiguous, cross-tenant,
+   * over-returned, or altered link is blocked before physical stock changes.
+   */
+  private async resolveProductionMaterialValuationPlan(
+    tx: any,
+    documentId: string,
+    movement: any,
+    activePolicy: { currencyCode: string; method: string },
+    ctx: ActiveOperationalContext,
+  ): Promise<Map<string, ProductionMaterialValuationPlanEntry>> {
+    const doc = await tx.productionMaterialDocument.findFirst({
+      where: { id: documentId, companyId: ctx.companyId, branchId: ctx.branchId },
+      include: { lines: { orderBy: { lineNumber: 'asc' } } },
+    });
+    if (!doc || doc.status !== 'DRAFT' || doc.movementId !== movement.id || doc.issueWarehouseId !== movement.warehouseId) {
+      throw this.badRequest('inventoryValuation.productionMaterialDocumentMismatch');
+    }
+    if (movement.sourceType !== 'PRODUCTION_MATERIAL_DOCUMENT') {
+      throw this.badRequest('inventoryValuation.productionMaterialSourceMismatch');
+    }
+
+    const expectedMovementTypes: Record<string, string> = {
+      ISSUE: 'PRODUCTION_ISSUE',
+      CONSUMPTION: 'PRODUCTION_CONSUMPTION',
+      RETURN: 'PRODUCTION_RETURN',
+    };
+    const expectedMovementType = expectedMovementTypes[doc.documentType];
+    if (!expectedMovementType || movement.movementType !== expectedMovementType) {
+      // SUBSTITUTION and every future production material type remain safely
+      // blocked until a dedicated valuation contract is implemented.
+      throw this.badRequest('inventoryValuation.unsupportedActiveFlow');
+    }
+
+    const expectedDirection = doc.documentType === 'RETURN' ? 'IN' : 'OUT';
+    if (movement.lines.length !== doc.lines.length || movement.lines.some((line: any) => line.direction !== expectedDirection)) {
+      throw this.badRequest('inventoryValuation.productionMaterialLineMismatch');
+    }
+
+    const unmatchedMovementLines = [...movement.lines];
+    const plan = new Map<string, ProductionMaterialValuationPlanEntry>();
+    for (const docLine of doc.lines) {
+      const key = this.productionMaterialLineKey(docLine);
+      const movementIndex = unmatchedMovementLines.findIndex((line: any) => this.productionMaterialLineKey(line) === key);
+      if (movementIndex < 0) throw this.badRequest('inventoryValuation.productionMaterialLineMismatch');
+      const movementLine = unmatchedMovementLines.splice(movementIndex, 1)[0];
+
+      if (doc.documentType !== 'RETURN') {
+        plan.set(movementLine.id, { kind: 'ISSUE' });
+        continue;
+      }
+
+      if (!docLine.originalIssueLineId) {
+        throw this.badRequest('inventoryValuation.productionReturnOriginalIssueRequired');
+      }
+      const original = await tx.productionMaterialDocumentLine.findFirst({
+        where: {
+          id: docLine.originalIssueLineId,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          productId: docLine.productId,
+          document: {
+            productionOrderId: doc.productionOrderId,
+            issueWarehouseId: movement.warehouseId,
+            status: 'POSTED',
+            documentType: { in: ['ISSUE', 'CONSUMPTION'] },
+          },
+        },
+        include: { document: { include: { movement: { include: { lines: true } } } } },
+      });
+      const originalMovement = original?.document?.movement;
+      if (!original || !originalMovement || originalMovement.status !== 'POSTED') {
+        throw this.badRequest('inventoryValuation.productionReturnOriginalIssueInvalid');
+      }
+
+      const originalCandidates = originalMovement.lines.filter(
+        (line: any) => line.direction === 'OUT' && this.productionMaterialLineKey(line) === this.productionMaterialLineKey(original),
+      );
+      if (originalCandidates.length !== 1) {
+        throw this.badRequest('inventoryValuation.productionReturnOriginalMovementAmbiguous');
+      }
+      const originalMovementLine = originalCandidates[0];
+      if (
+        originalMovementLine.unitCost == null ||
+        originalMovementLine.totalCost == null ||
+        originalMovementLine.currencyCode !== activePolicy.currencyCode ||
+        originalMovementLine.valuationMethod !== 'WEIGHTED_AVERAGE'
+      ) {
+        throw this.badRequest('inventoryValuation.productionReturnOriginalCostMissing');
+      }
+      const originalUnitCost = new Prisma.Decimal(originalMovementLine.unitCost);
+      const expectedOriginalTotal = new Prisma.Decimal(original.quantity).mul(originalUnitCost).toDecimalPlaces(4);
+      if (!expectedOriginalTotal.equals(new Prisma.Decimal(originalMovementLine.totalCost))) {
+        throw this.badRequest('inventoryValuation.productionReturnOriginalCostInvalid');
+      }
+
+      const priorReturnLines = await tx.productionMaterialDocumentLine.findMany({
+        where: {
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          originalIssueLineId: original.id,
+          documentId: { not: doc.id },
+          document: { documentType: 'RETURN', status: 'POSTED', issueWarehouseId: movement.warehouseId },
+        },
+        include: { document: { include: { movement: { include: { lines: true } } } } },
+      });
+      const previouslyReturned = priorReturnLines.reduce(
+        (sum: Prisma.Decimal, line: any) => sum.plus(new Prisma.Decimal(line.quantity)),
+        new Prisma.Decimal(0),
+      );
+      const currentReturnQuantity = new Prisma.Decimal(docLine.quantity);
+      const originalQuantity = new Prisma.Decimal(original.quantity);
+      if (previouslyReturned.plus(currentReturnQuantity).gt(originalQuantity)) {
+        throw this.badRequest('inventoryValuation.productionReturnExceedsOriginalIssue');
+      }
+
+      let previouslyReturnedValue = new Prisma.Decimal(0);
+      for (const prior of priorReturnLines) {
+        const priorMovement = prior.document?.movement;
+        const candidates = priorMovement?.lines?.filter(
+          (line: any) => line.direction === 'IN' && this.productionMaterialLineKey(line) === this.productionMaterialLineKey(prior),
+        ) ?? [];
+        if (candidates.length !== 1 || candidates[0].totalCost == null) {
+          throw this.badRequest('inventoryValuation.productionReturnPriorEvidenceInvalid');
+        }
+        previouslyReturnedValue = previouslyReturnedValue.plus(new Prisma.Decimal(candidates[0].totalCost));
+      }
+      const isFinalRemainder = previouslyReturned.plus(currentReturnQuantity).eq(originalQuantity);
+      const originalEventValue = isFinalRemainder
+        ? new Prisma.Decimal(originalMovementLine.totalCost).minus(previouslyReturnedValue)
+        : currentReturnQuantity.mul(originalUnitCost);
+      if (originalEventValue.isNegative()) {
+        throw this.badRequest('inventoryValuation.productionReturnPriorEvidenceInvalid');
+      }
+
+      plan.set(movementLine.id, { kind: 'TRUE_RETURN', originalUnitCost, originalEventValue });
+    }
+
+    if (unmatchedMovementLines.length !== 0 || plan.size !== movement.lines.length) {
+      throw this.badRequest('inventoryValuation.productionMaterialLineMismatch');
+    }
+    return plan;
   }
 
   /**

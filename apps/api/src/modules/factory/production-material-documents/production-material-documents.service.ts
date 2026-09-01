@@ -750,13 +750,13 @@ export class ProductionMaterialDocumentsService {
   }
 
   async post(id: string, userId: string, ctx: ActiveOperationalContext) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.withTransientTransactionRetry(() => this.prisma.$transaction(async (tx) => {
       const doc = await this.findDocument(id, ctx, tx);
       if (doc.status !== 'DRAFT') throw this.badRequest('productionMaterial.notDraft');
       if (!doc.movementId) throw this.badRequest('productionMaterial.movementMissing');
 
       await this.validateSnapshotForPosting(tx, doc, ctx);
-      await this.movementsService.postMovementWithinTransaction(tx, doc.movementId, userId, ctx);
+      await this.movementsService.postProductionMaterialMovementWithinTransaction(tx, doc.id, doc.movementId, userId, ctx);
 
       // Cost Purpose R1 — write the authoritative historical attribution snapshot
       // onto every line AT POSTING TIME from the parent ProductionOrder context.
@@ -809,7 +809,27 @@ export class ProductionMaterialDocumentsService {
         movementNumber: doc.movementNumber,
       });
       return posted;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+  }
+
+  /**
+   * R1D/R1E bounded transaction retry convention. Only Prisma P2034 is retried;
+   * domain, authorization, linkage, and uniqueness failures propagate unchanged.
+   * Retrying the whole Serializable post transaction cannot split or double the
+   * physical, monetary, document, movement, attribution, or audit effects.
+   */
+  private async withTransientTransactionRetry<T>(fn: () => Promise<T>): Promise<T> {
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        const isTransient = error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
+        if (!isTransient || attempt === maxAttempts) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 25 * attempt));
+      }
+    }
+    throw new Error('withTransientTransactionRetry exhausted attempts');
   }
 
   async cancel(id: string, dto: CancelMaterialDocumentDto, userId: string, ctx: ActiveOperationalContext) {

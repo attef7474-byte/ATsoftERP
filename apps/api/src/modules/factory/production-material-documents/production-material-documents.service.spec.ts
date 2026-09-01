@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ProductionMaterialDocumentsService } from './production-material-documents.service';
 import { PRODUCTION_MATERIAL_DOCUMENT_INCLUDE } from './production-material-documents.constants';
 
@@ -122,7 +123,10 @@ function makeService(overrides: Record<string, any> = {}) {
   const numbering: any = {
     generateNumberAtomicWithClient: jest.fn().mockResolvedValue('SEQ-000001'),
   };
-  const movements: any = { postMovementWithinTransaction: jest.fn().mockResolvedValue({}) };
+  const movements: any = {
+    postMovementWithinTransaction: jest.fn().mockResolvedValue({}),
+    postProductionMaterialMovementWithinTransaction: jest.fn().mockResolvedValue({}),
+  };
   const sourceChanges: any = { recordChange: jest.fn(), summaryForScope: jest.fn(), findByWindow: jest.fn(), findOne: jest.fn() };
   const service = new ProductionMaterialDocumentsService(prisma, audit, numbering, movements, sourceChanges);
   return { prisma, audit, numbering, movements, sourceChanges, service };
@@ -412,7 +416,7 @@ describe('ProductionMaterialDocumentsService', () => {
 
       const result = await service.post('doc1', 'u1', ctxA);
 
-      expect(movements.postMovementWithinTransaction).toHaveBeenCalledWith(prisma, 'mov1', 'u1', ctxA);
+      expect(movements.postProductionMaterialMovementWithinTransaction).toHaveBeenCalledWith(prisma, 'doc1', 'mov1', 'u1', ctxA);
       expect(prisma.productionMaterialDocumentLine.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { documentId: 'doc1' },
@@ -425,6 +429,31 @@ describe('ProductionMaterialDocumentsService', () => {
       expect(result.status).toBe('POSTED');
     });
 
+    it('retries the whole production post transaction after one transient P2034', async () => {
+      const { prisma, service, movements } = makeService();
+      const transient = new Prisma.PrismaClientKnownRequestError('write conflict', { code: 'P2034', clientVersion: '7.8.0' });
+      prisma.$transaction.mockRejectedValueOnce(transient).mockImplementation(async (cb: any) => cb(prisma));
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
+      prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
+      prisma.productionOrder.findFirst.mockResolvedValue(order({ productionLine: { departmentId: 'dept1' } }));
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'POSTED' }));
+
+      await expect(service.post('doc1', 'u1', ctxA)).resolves.toMatchObject({ status: 'POSTED' });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+      expect(movements.postProductionMaterialMovementWithinTransaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('bounds P2034 retry at three complete transaction attempts', async () => {
+      const { prisma, service, movements } = makeService();
+      const transient = new Prisma.PrismaClientKnownRequestError('write conflict', { code: 'P2034', clientVersion: '7.8.0' });
+      prisma.$transaction.mockRejectedValue(transient);
+
+      await expect(service.post('doc1', 'u1', ctxA)).rejects.toMatchObject({ code: 'P2034' });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(3);
+      expect(movements.postProductionMaterialMovementWithinTransaction).not.toHaveBeenCalled();
+    });
+
     it('writes the authoritative attribution snapshot (machine NULL when the parent order has none) at posting time', async () => {
       const { prisma, service, movements } = makeService();
       prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
@@ -435,7 +464,7 @@ describe('ProductionMaterialDocumentsService', () => {
 
       await service.post('doc1', 'u1', ctxA);
 
-      expect(movements.postMovementWithinTransaction).toHaveBeenCalled();
+      expect(movements.postProductionMaterialMovementWithinTransaction).toHaveBeenCalled();
       expect(prisma.productionMaterialDocumentLine.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { documentId: 'doc1' },
@@ -494,7 +523,7 @@ describe('ProductionMaterialDocumentsService', () => {
 
       const result = await service.post('doc1', 'u1', ctxA);
       expect(result.status).toBe('POSTED');
-      expect(movements.postMovementWithinTransaction).toHaveBeenCalled();
+      expect(movements.postProductionMaterialMovementWithinTransaction).toHaveBeenCalled();
     });
 
     it('allows over-issue within the tolerance percent under the TOLERANCE policy', async () => {
@@ -511,7 +540,7 @@ describe('ProductionMaterialDocumentsService', () => {
 
       const result = await service.post('doc1', 'u1', ctxA);
       expect(result.status).toBe('POSTED');
-      expect(movements.postMovementWithinTransaction).toHaveBeenCalled();
+      expect(movements.postProductionMaterialMovementWithinTransaction).toHaveBeenCalled();
     });
 
     it('blocks over-issue beyond the tolerance percent under the TOLERANCE policy', async () => {
@@ -535,7 +564,7 @@ describe('ProductionMaterialDocumentsService', () => {
       const result = await service.post('doc1', 'u1', ctxA);
       expect(result.status).toBe('POSTED');
       expect(prisma.productionMaterialRequirement.findFirst).not.toHaveBeenCalled();
-      expect(movements.postMovementWithinTransaction).toHaveBeenCalled();
+      expect(movements.postProductionMaterialMovementWithinTransaction).toHaveBeenCalled();
     });
 
     it('R2: a REVERSE return inherits the ORIGINAL posted line attribution (Line A), not current master data (Line B)', async () => {
@@ -578,7 +607,7 @@ describe('ProductionMaterialDocumentsService', () => {
         where: { id: 'retline1' },
         data: { productionLineId: 'lineA', departmentId: 'deptA', costCenterId: 'ccA', machineId: 'machineA' },
       });
-      expect(movements.postMovementWithinTransaction).toHaveBeenCalled();
+      expect(movements.postProductionMaterialMovementWithinTransaction).toHaveBeenCalled();
     });
 
     it('R2: a non-REVERSE RETURN keeps parent-order snapshot resolution (no original reference to inherit)', async () => {
@@ -600,7 +629,7 @@ describe('ProductionMaterialDocumentsService', () => {
           data: expect.objectContaining({ productionLineId: 'lineB', departmentId: 'deptB', costCenterId: 'ccB', machineId: 'machineB' }),
         }),
       );
-      expect(movements.postMovementWithinTransaction).toHaveBeenCalled();
+      expect(movements.postProductionMaterialMovementWithinTransaction).toHaveBeenCalled();
     });
   });
 

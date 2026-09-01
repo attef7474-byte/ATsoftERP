@@ -65,6 +65,9 @@ export interface ValuedIssueInput extends BasePostingInput {
 export interface ValuedReversalInput extends BasePostingInput {
   quantity: Prisma.Decimal;
   originalUnitCost: Prisma.Decimal;
+  /** Exact conserved event value for a final remainder when supplied by a
+   * trusted original-link resolver; otherwise quantity x originalUnitCost. */
+  originalEventValue?: Prisma.Decimal;
 }
 
 export interface ValuedPostingResult {
@@ -121,6 +124,7 @@ export class InventoryValuationEngineService {
         m.classification !== 'VALUATION_AWARE_R1C' &&
         m.classification !== 'VALUATION_AWARE_R1D' &&
         m.classification !== 'VALUATION_AWARE_R1E' &&
+        m.classification !== 'VALUATION_AWARE_R1F' &&
         m.classification !== 'BLOCKED_WHEN_ACTIVE',
     );
     return { pass: unprotected.length === 0, unprotected };
@@ -320,10 +324,14 @@ export class InventoryValuationEngineService {
       });
     }
 
-    const cissue = avg;
-    const vout = qout.mul(cissue);
+    // Full depletion removes the authoritative residual value exactly. This is
+    // important when the stored 8dp average cannot reproduce a 4dp inventory
+    // value perfectly by multiplication.
+    const fullDepletion = qout.eq(qold);
+    const cissue = fullDepletion && qold.gt(0) ? vold.dividedBy(qold) : avg;
+    const vout = fullDepletion ? vold : qout.mul(cissue);
     const qnew = qold.minus(qout);
-    const vnew = vold.minus(vout);
+    const vnew = fullDepletion ? new Prisma.Decimal(0) : vold.minus(vout);
     const cnew = qnew.gt(0) ? vnew.dividedBy(qnew) : new Prisma.Decimal(0);
 
     return this.persist(tx, input, balance.id, qnew, vnew, cnew, vout, cissue, input.currencyCode);
@@ -345,7 +353,7 @@ export class InventoryValuationEngineService {
     const qold = input.qold;
     const vold = balance ? new Prisma.Decimal(balance.inventoryValue.toString()) : new Prisma.Decimal(0);
     const qin = input.quantity;
-    const vin = qin.mul(input.originalUnitCost);
+    const vin = input.originalEventValue ?? qin.mul(input.originalUnitCost);
     const qnew = qold.add(qin);
     const vnew = vold.add(vin);
     const cnew = qold.gt(0) && qnew.gt(0) ? vnew.dividedBy(qnew) : input.originalUnitCost;
