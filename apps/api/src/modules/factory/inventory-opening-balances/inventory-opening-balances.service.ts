@@ -7,6 +7,7 @@ import { UpdateOpeningBalanceDto } from './dto/update-opening-balance.dto';
 import { OpeningBalanceQueryDto } from './dto/opening-balance-query.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { assertRowInContext, assertWarehouseInContext } from '../../../common/operational-context/tenant-guards';
+import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
 
 @Injectable()
 export class InventoryOpeningBalancesService {
@@ -14,6 +15,7 @@ export class InventoryOpeningBalancesService {
     private prisma: PrismaService,
     private audit: AuditService,
     private numberingService: NumberingService,
+    private valuationEngine: InventoryValuationEngineService,
   ) {}
 
   async create(dto: CreateOpeningBalanceDto, userId: string, ctx: ActiveOperationalContext) {
@@ -189,6 +191,15 @@ export class InventoryOpeningBalancesService {
     if (doc.status !== 'APPROVED') throw new BadRequestException('Only APPROVED documents can be posted');
 
     const result = await this.prisma.$transaction(async (tx) => {
+      // VAL-R1C: legacy opening-balance posting is initialization and is blocked
+      // while the warehouse has an ACTIVE valuation policy.
+      const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, doc.warehouseId);
+      if (activePolicy) {
+        throw new BadRequestException({
+          messageKey: 'inventoryValuation.unsupportedActiveFlow',
+          message: 'Opening-balance posting is blocked while an ACTIVE valuation policy exists for the warehouse',
+        });
+      }
       await assertWarehouseInContext(tx, doc.warehouseId, ctx);
       const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 

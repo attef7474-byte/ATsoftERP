@@ -70,6 +70,17 @@ export class InventoryValuationController {
     return this.service.beginInitialization(id, userId, ctx);
   }
 
+  @Post('policies/:id/activate')
+  @Permissions(INVENTORY_VALUATION_PERMISSION_KEYS.activate)
+  @ApiOperation({ summary: 'Activate the weighted moving-average engine (INITIALIZING → ACTIVE)' })
+  activate(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.service.activate(id, userId, ctx);
+  }
+
   @Get('policies/:id/readiness')
   @Permissions(INVENTORY_VALUATION_PERMISSION_KEYS.read)
   @ApiOperation({ summary: 'Derived legacy-initialization readiness for the policy warehouse' })

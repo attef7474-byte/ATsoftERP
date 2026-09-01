@@ -103,7 +103,7 @@ describe('InventoryStockTransfersService tenant isolation', () => {
       generateNumberAtomicWithClient: jest.fn().mockResolvedValue('ST-0001'),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
-    service = new InventoryStockTransfersService(prisma as unknown as PrismaService, audit as unknown as AuditService, numbering as unknown as NumberingService);
+    service = new InventoryStockTransfersService(prisma as unknown as PrismaService, audit as unknown as AuditService, numbering as unknown as NumberingService, { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) } as any);
   });
 
   describe('update', () => {

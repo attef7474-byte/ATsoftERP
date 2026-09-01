@@ -26,6 +26,10 @@ export const INVENTORY_VALUATION_PERMISSION_KEYS = {
   read: 'inventory-valuation:read',
   costInput: 'inventory-valuation:cost-input',
   initialize: 'inventory-valuation:initialize',
+  // VAL-R1C: explicit activation of the perpetual weighted moving average
+  // engine for a warehouse. Only a holder of this permission may transition a
+  // fully-ready INITIALIZING policy to ACTIVE (activation is never automatic).
+  activate: 'inventory-valuation:activate',
 } as const;
 
 // VAL-R1B: audit event identifiers (entity names) written through AuditService.
@@ -39,4 +43,74 @@ export const INVENTORY_VALUATION_POLICY_ACTIONS = {
   openingCostInput: 'OPENING_COST_INPUT',
   receiptCostInput: 'RECEIPT_COST_INPUT',
   legacyValuationInitialize: 'LEGACY_VALUATION_INITIALIZE',
+  // VAL-R1C: activation of the weighted moving average engine for a warehouse.
+  policyActivate: 'POLICY_ACTIVATE',
 } as const;
+
+// VAL-R1C: valuation method string persisted into the InventoryMovementLine
+// monetary snapshot quartet for valued postings.
+export const INVENTORY_VALUATION_METHOD_WEIGHTED_AVERAGE = 'WEIGHTED_AVERAGE' as const;
+
+// VAL-R1C: authoritative coverage registry of every source path that can mutate
+// InventoryBalance.quantity / quantityBase. Each registered mutator must be
+// either VALUATION_AWARE_R1C (perpetual moving-average engine applies) or
+// BLOCKED_WHEN_ACTIVE (rejected while an ACTIVE valuation policy exists for the
+// warehouse). Activation fails (VALUATION_UNPROTECTED_MUTATOR) if any registered
+// mutator is neither. This list is the single source of truth for the coverage
+// gate; the engine consults it during activation and the blocking helpers use it
+// to keep every covered flow safe. Registry is intentionally additive: adding a
+// NEW mutator later must also add its entry here before activation can pass.
+export const INVENTORY_MUTATOR_COVERAGE = [
+  // Generic movement posting: OUT lines become a VALUED_ISSUE when ACTIVE.
+  { key: 'INVENTORY_MOVEMENT_POST', classification: 'VALUATION_AWARE_R1C' as const },
+  // Generic movement inbound posting without a trusted receipt cost source is
+  // blocked while ACTIVE (see engine classifyValuedMovement).
+  { key: 'INVENTORY_MOVEMENT_IN_CREATE', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // Operational receipt posting carries the R1B trusted unitCost + currency and
+  // is applied as a VALUED_RECEIPT when ACTIVE.
+  { key: 'OPERATIONAL_RECEIPT_POST', classification: 'VALUATION_AWARE_R1C' as const },
+  // Opening-balance posting is legacy initialization and is blocked while ACTIVE.
+  { key: 'OPENING_BALANCE_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // Inventory stock adjustment posting (ADJUSTMENT_IN/OUT) is blocked while ACTIVE.
+  { key: 'STOCK_ADJUSTMENT_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // Inventory adjustment posting is blocked while ACTIVE.
+  { key: 'INVENTORY_ADJUSTMENT_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // Warehouse transfer posting is blocked while ACTIVE (deferred to VAL-R1D).
+  { key: 'STOCK_TRANSFER_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // Physical count variance posting is blocked while ACTIVE (deferred to VAL-R1D).
+  { key: 'PHYSICAL_COUNT_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // Maintenance stock issue + return are blocked while ACTIVE (deferred to VAL-R1E).
+  { key: 'MAINTENANCE_STOCK_ISSUE', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  { key: 'MAINTENANCE_STOCK_RETURN', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // Maintenance work-order part issue is blocked while ACTIVE (deferred to VAL-R1E).
+  { key: 'MAINTENANCE_WORK_ORDER_ISSUE', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // Production material consumption / finished-goods receipt are blocked while
+  // ACTIVE (deferred to VAL-R1F); routed through the generic movement posting so
+  // their movementType guard is handled by the engine's classifyValuedMovement.
+  { key: 'PRODUCTION_MATERIAL_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  { key: 'PRODUCTION_FINISHED_GOODS_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // Movement reversal / true-return into an ACTIVE valuation warehouse is blocked
+  // for VAL-R1C (boolean return support is deferred to a later VAL slice).
+  { key: 'INVENTORY_MOVEMENT_TRUE_RETURN', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // Balance recalculation must never run against an ACTIVE warehouse because it
+  // would bypass the moving-average ledger.
+  { key: 'INVENTORY_BALANCE_RECALCULATE', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+] as const;
+
+// VAL-R1C: movement types that carry a trusted R1B receipt cost source and are
+// therefore eligible to become a VALUED_RECEIPT while ACTIVE.
+export const INVENTORY_VALUATION_VALUED_RECEIPT_MOVEMENT_TYPES = ['STOCK_RECEIVING'] as const;
+
+// VAL-R1C: source types produced by the deferred (future-slice) flows that are
+// always blocked while an ACTIVE valuation policy exists for the warehouse.
+export const INVENTORY_VALUATION_BLOCKED_ACTIVE_SOURCE_TYPES: readonly string[] = [
+  'PRODUCTION',
+  'PRODUCTION_MATERIAL',
+  'PRODUCTION_FINISHED_GOODS',
+  'MAINTENANCE',
+  'STOCK_ADJUSTMENT',
+  'STM_INVENTORY_ADJUSTMENT',
+  'INVENTORY_ADJUSTMENT',
+  'STOCK_TRANSFER',
+  'PHYSICAL_COUNT',
+];

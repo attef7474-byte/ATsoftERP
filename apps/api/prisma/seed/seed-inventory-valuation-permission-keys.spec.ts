@@ -2,19 +2,20 @@ import { INVENTORY_VALUATION_PERMISSIONS } from './seed-inventory-valuation-perm
 import { INVENTORY_VALUATION_PERMISSION_KEYS } from '../../src/modules/factory/inventory-valuation/inventory-valuation.constants';
 
 describe('seedInventoryValuationPermissionKeys', () => {
-  it('seeds exactly the three R1B valuation permission keys', () => {
+  it('seeds exactly the four R1B+R1C valuation permission keys in lock-step with the module constants', () => {
     expect(INVENTORY_VALUATION_PERMISSIONS.map((p) => p.key).sort()).toEqual(
       [
         INVENTORY_VALUATION_PERMISSION_KEYS.read,
         INVENTORY_VALUATION_PERMISSION_KEYS.costInput,
         INVENTORY_VALUATION_PERMISSION_KEYS.initialize,
+        INVENTORY_VALUATION_PERMISSION_KEYS.activate,
       ].sort(),
     );
   });
 
   it('has the expected length and no duplicate keys', () => {
-    expect(INVENTORY_VALUATION_PERMISSIONS).toHaveLength(3);
-    expect(new Set(INVENTORY_VALUATION_PERMISSIONS.map((p) => p.key)).size).toBe(3);
+    expect(INVENTORY_VALUATION_PERMISSIONS).toHaveLength(4);
+    expect(new Set(INVENTORY_VALUATION_PERMISSIONS.map((p) => p.key)).size).toBe(4);
   });
 
   it('maps module/action to match the colon-split public convention', () => {
@@ -24,7 +25,7 @@ describe('seedInventoryValuationPermissionKeys', () => {
     }
   });
 
-  it('does NOT expose an activate key (deferred to VAL-R1C)', () => {
-    expect(INVENTORY_VALUATION_PERMISSIONS.map((p) => p.key)).not.toContain('inventory-valuation:activate');
+  it('includes the R1C activate key used to gate engine activation', () => {
+    expect(INVENTORY_VALUATION_PERMISSIONS.map((p) => p.key)).toContain('inventory-valuation:activate');
   });
 });

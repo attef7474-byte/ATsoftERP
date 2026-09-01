@@ -11,6 +11,7 @@ import {
   assertWarehouseInContext,
   assertInventoryCountInContext,
 } from '../../../common/operational-context/tenant-guards';
+import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
 
 @Injectable()
 export class InventoryAdjustmentsService {
@@ -18,6 +19,7 @@ export class InventoryAdjustmentsService {
     private prisma: PrismaService,
     private audit: AuditService,
     private numberingService: NumberingService,
+    private valuationEngine: InventoryValuationEngineService,
   ) {}
 
   private toUndefined(val: string | null | undefined): string | undefined {
@@ -225,6 +227,15 @@ export class InventoryAdjustmentsService {
     if (adjustment.status !== 'DRAFT') throw new BadRequestException('Only DRAFT adjustments can be posted');
 
     const posted = await this.prisma.$transaction(async (tx) => {
+      // VAL-R1C: inventory-adjustment posting is blocked while the warehouse has
+      // an ACTIVE valuation policy (deferred to VAL-R1D).
+      const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, adjustment.warehouseId);
+      if (activePolicy) {
+        throw new BadRequestException({
+          messageKey: 'inventoryValuation.unsupportedActiveFlow',
+          message: 'Inventory adjustment posting is blocked while an ACTIVE valuation policy exists for the warehouse',
+        });
+      }
       await assertWarehouseInContext(tx, adjustment.warehouseId, ctx);
       for (const line of adjustment.lines) {
         const balance = await this.getOrCreateBalance(tx, adjustment.warehouseId, line.productId, line.warehouseLocationId);

@@ -9,6 +9,7 @@ import { ActiveOperationalContext } from '../../../../common/operational-context
 import { assertWarehouseInContext, assertMachineInContext as assertMachineTenantInContext } from '../../../../common/operational-context/tenant-guards';
 import { MAINTENANCE_COST_PURPOSE, isCostPurpose, type CostPurpose } from '../../../../common/cost-purpose/cost-purpose.constants';
 import { assertCostPurposeOverrideAllowed } from '../../../../common/cost-purpose/cost-purpose-permission';
+import { InventoryValuationEngineService } from '../../inventory-valuation/inventory-valuation-engine.service';
 
 const VALID_STOCK_CONDITIONS = ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'];
 const VALID_REPLACEMENT_ACTIONS = ['RETURNED_REMOVED_PART', 'NO_REMOVED_PART', 'NEW_INSTALLATION'];
@@ -22,6 +23,7 @@ export class MaintenanceStockIssueService {
     private numberingService: NumberingService,
     private conditionService: SparePartConditionService,
     private installedPartsService: InstalledPartsReplacementService,
+    private valuationEngine: InventoryValuationEngineService,
   ) {}
 
   private async findPartLineOrFail(lineId: string, requestId: string, ctx: ActiveOperationalContext) {
@@ -191,6 +193,15 @@ export class MaintenanceStockIssueService {
     const movement = await this.prisma.$transaction(async (tx) => {
       const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
+      // VAL-R1C: maintenance spare-part issue is blocked while the warehouse has
+      // an ACTIVE valuation policy (deferred to VAL-R1D).
+      const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, companyId, dto.warehouseId);
+      if (activePolicy) {
+        throw new BadRequestException({
+          messageKey: 'inventoryValuation.unsupportedActiveFlow',
+          message: 'Maintenance stock issue is blocked while an ACTIVE valuation policy exists for the warehouse',
+        });
+      }
       await assertMachineTenantInContext(tx, part.maintenanceRequest.machine.id, ctx);
       await assertWarehouseInContext(tx, dto.warehouseId, ctx);
       if (dto.warehouseLocationId) {
@@ -432,6 +443,15 @@ export class MaintenanceStockIssueService {
     const movement = await this.prisma.$transaction(async (tx) => {
       const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
+      // VAL-R1C: maintenance spare-part return (true-return) is blocked while the
+      // warehouse has an ACTIVE valuation policy (deferred to VAL-R1D).
+      const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, warehouseId);
+      if (activePolicy) {
+        throw new BadRequestException({
+          messageKey: 'inventoryValuation.unsupportedActiveFlow',
+          message: 'Maintenance stock return is blocked while an ACTIVE valuation policy exists for the warehouse',
+        });
+      }
       await assertMachineTenantInContext(tx, part.maintenanceRequest.machine.id, ctx);
       await assertWarehouseInContext(tx, warehouseId, ctx);
       const balance = await this.getOrCreateBalance(tx, warehouseId, productId, null);

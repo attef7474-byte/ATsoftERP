@@ -7,6 +7,7 @@ import { UpdateStockTransferDto } from './dto/update-stock-transfer.dto';
 import { StockTransferQueryDto } from './dto/stock-transfer-query.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { assertRowInContext, assertWarehouseInContext } from '../../../common/operational-context/tenant-guards';
+import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
 
 @Injectable()
 export class InventoryStockTransfersService {
@@ -14,6 +15,7 @@ export class InventoryStockTransfersService {
     private prisma: PrismaService,
     private audit: AuditService,
     private numberingService: NumberingService,
+    private valuationEngine: InventoryValuationEngineService,
   ) {}
 
   async create(dto: CreateStockTransferDto, userId: string, ctx: ActiveOperationalContext) {
@@ -247,6 +249,17 @@ export class InventoryStockTransfersService {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
+      // VAL-R1C: warehouse transfer is blocked while either the source or the
+      // destination warehouse has an ACTIVE valuation policy (deferred to VAL-R1D).
+      for (const wh of [doc.sourceWarehouseId, doc.destinationWarehouseId]) {
+        const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, wh);
+        if (activePolicy) {
+          throw new BadRequestException({
+            messageKey: 'inventoryValuation.unsupportedActiveFlow',
+            message: 'Stock transfer is blocked while an ACTIVE valuation policy exists for either warehouse',
+          });
+        }
+      }
       await assertWarehouseInContext(tx, doc.sourceWarehouseId, ctx);
       await assertWarehouseInContext(tx, doc.destinationWarehouseId, ctx);
       if (doc.sourceLocationId) {

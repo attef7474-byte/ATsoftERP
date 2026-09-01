@@ -34,9 +34,10 @@ function mockPrisma() {
     inventoryOpeningBalanceLine: { findUnique: jest.fn(), update: jest.fn() },
     inventoryOperationalReceiptLine: { findUnique: jest.fn(), update: jest.fn() },
     inventoryValuationPolicy: { findUnique: jest.fn(), update: jest.fn() },
-    inventoryValuationInitialization: { findFirst: jest.fn(), create: jest.fn() },
+    inventoryValuationInitialization: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn() },
     inventoryValuationBalance: { findUnique: jest.fn(), create: jest.fn() },
     inventoryBalance: { findMany: jest.fn() },
+    inventoryMovementLine: { findFirst: jest.fn() },
   };
   const prisma = {
     inventoryValuationPolicy: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), findMany: jest.fn(), count: jest.fn() },
@@ -63,7 +64,9 @@ describe('InventoryValuationService', () => {
     prisma = m.prisma;
     tx = m.tx;
     jest.clearAllMocks();
-    service = new InventoryValuationService(prisma as any, audit as any);
+    service = new InventoryValuationService(prisma as any, audit as any, {
+      coverageGatePasses: () => ({ pass: true, unprotected: [] }),
+    } as any);
   });
 
   const policy = {
@@ -204,6 +207,101 @@ describe('InventoryValuationService', () => {
     });
   });
 
+  describe('ACTIVE receipt cost input (post-activation valued receipts)', () => {
+    const activePolicy = { ...policy, status: 'ACTIVE' };
+    const unpostedReceipt = { id: 'R-1', companyId: 'C1', branchId: 'B1', warehouseId: 'WH-1', status: 'APPROVED' };
+    const receiptLine = (receipt: any) => ({ id: 'LINE-1', productId: 'P-1', receipt });
+
+    it('ALLOWS receipt-cost input for a NEW unposted receipt line on an ACTIVE policy', async () => {
+      prisma.inventoryValuationPolicy.findUnique.mockResolvedValue(activePolicy);
+      tx.inventoryOperationalReceiptLine.findUnique.mockResolvedValue(receiptLine(unpostedReceipt));
+      tx.inventoryMovementLine.findFirst.mockResolvedValue(null);
+      tx.inventoryOperationalReceiptLine.update.mockResolvedValue({ id: 'LINE-1', currencyCode: 'USD', unitCost: mockDec('20') });
+      const out = await service.inputReceiptCost('POL-1', { lineId: 'LINE-1', unitCost: 20, currencyCode: 'USD' }, 'U1', ctx);
+      expect(tx.inventoryMovementLine.findFirst).toHaveBeenCalled();
+      expect(tx.inventoryOperationalReceiptLine.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ unitCost: expect.any(Object), currencyCode: 'USD' }) }),
+      );
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({ action: INVENTORY_VALUATION_POLICY_ACTIONS.receiptCostInput, details: expect.objectContaining({ lineId: 'LINE-1' }) }),
+      );
+      expect(out.currencyCode).toBe('USD');
+    });
+
+    it('BLOCKS re-price of an already POSTED receipt line (rewriting historical evidence)', async () => {
+      prisma.inventoryValuationPolicy.findUnique.mockResolvedValue(activePolicy);
+      tx.inventoryOperationalReceiptLine.findUnique.mockResolvedValue(receiptLine({ ...unpostedReceipt, status: 'POSTED' }));
+      await expect(
+        service.inputReceiptCost('POL-1', { lineId: 'LINE-1', unitCost: 30, currencyCode: 'USD' }, 'U1', ctx),
+      ).rejects.toMatchObject({ response: { messageKey: 'inventoryValuation.receiptLineFinalized' } });
+      expect(tx.inventoryOperationalReceiptLine.update).not.toHaveBeenCalled();
+    });
+
+    it('BLOCKS re-price when a valued movement-line monetary snapshot already exists for the receipt', async () => {
+      prisma.inventoryValuationPolicy.findUnique.mockResolvedValue(activePolicy);
+      tx.inventoryOperationalReceiptLine.findUnique.mockResolvedValue(receiptLine(unpostedReceipt));
+      tx.inventoryMovementLine.findFirst.mockResolvedValue({ id: 'ML-1', unitCost: mockDec('20') });
+      await expect(
+        service.inputReceiptCost('POL-1', { lineId: 'LINE-1', unitCost: 30, currencyCode: 'USD' }, 'U1', ctx),
+      ).rejects.toMatchObject({ response: { messageKey: 'inventoryValuation.receiptLineFinalized' } });
+      expect(tx.inventoryOperationalReceiptLine.update).not.toHaveBeenCalled();
+    });
+
+    it('BLOCKS receipt-cost input on an ACTIVE policy for a currency mismatch', async () => {
+      prisma.inventoryValuationPolicy.findUnique.mockResolvedValue(activePolicy);
+      await expect(
+        service.inputReceiptCost('POL-1', { lineId: 'LINE-1', unitCost: 20, currencyCode: 'EUR' }, 'U1', ctx),
+      ).rejects.toMatchObject({ response: { messageKey: 'inventoryValuation.currencyMismatch' } });
+      expect(tx.inventoryOperationalReceiptLine.update).not.toHaveBeenCalled();
+    });
+
+    it('BLOCKS negative receipt cost on an ACTIVE policy', async () => {
+      prisma.inventoryValuationPolicy.findUnique.mockResolvedValue(activePolicy);
+      await expect(
+        service.inputReceiptCost('POL-1', { lineId: 'LINE-1', unitCost: -5, currencyCode: 'USD' }, 'U1', ctx),
+      ).rejects.toMatchObject({ response: { messageKey: 'inventoryValuation.negativeCost' } });
+      expect(tx.inventoryOperationalReceiptLine.update).not.toHaveBeenCalled();
+    });
+
+    it('BLOCKS zero receipt cost without an explicit reason on an ACTIVE policy', async () => {
+      prisma.inventoryValuationPolicy.findUnique.mockResolvedValue(activePolicy);
+      await expect(
+        service.inputReceiptCost('POL-1', { lineId: 'LINE-1', unitCost: 0, currencyCode: 'USD' }, 'U1', ctx),
+      ).rejects.toMatchObject({ response: { messageKey: 'inventoryValuation.zeroCostRequiresReason' } });
+      expect(tx.inventoryOperationalReceiptLine.update).not.toHaveBeenCalled();
+    });
+
+    it('ALLOWS zero receipt cost with an explicit reason on an ACTIVE policy', async () => {
+      prisma.inventoryValuationPolicy.findUnique.mockResolvedValue(activePolicy);
+      tx.inventoryOperationalReceiptLine.findUnique.mockResolvedValue(receiptLine(unpostedReceipt));
+      tx.inventoryMovementLine.findFirst.mockResolvedValue(null);
+      tx.inventoryOperationalReceiptLine.update.mockResolvedValue({ id: 'LINE-1', currencyCode: 'USD', unitCost: mockDec('0') });
+      const out = await service.inputReceiptCost('POL-1', { lineId: 'LINE-1', unitCost: 0, currencyCode: 'USD', reason: 'Gratis' }, 'U1', ctx);
+      expect(tx.inventoryOperationalReceiptLine.update).toHaveBeenCalled();
+      expect(out.id).toBe('LINE-1');
+    });
+
+    it('BLOCKS legacy opening-balance cost rewrite on an ACTIVE policy (config remains frozen)', async () => {
+      prisma.inventoryValuationPolicy.findUnique.mockResolvedValue(activePolicy);
+      tx.inventoryOpeningBalanceLine.findUnique.mockResolvedValue({
+        id: 'L-1', productId: 'P-1', openingBalance: { companyId: 'C1', branchId: 'B1', warehouseId: 'WH-1' },
+      });
+      await expect(
+        service.inputOpeningCost('POL-1', { lineId: 'L-1', unitCost: 10, currencyCode: 'USD' }, 'U1', ctx),
+      ).rejects.toMatchObject({ response: { messageKey: 'inventoryValuation.policyNotEditable' } });
+      expect(tx.inventoryOpeningBalanceLine.update).not.toHaveBeenCalled();
+    });
+
+    it('BLOCKS legacy stock initialization on an ACTIVE policy (INITIALIZING only)', async () => {
+      prisma.inventoryValuationPolicy.findUnique.mockResolvedValue(activePolicy);
+      await expect(
+        service.initializeProduct('POL-1', { productId: 'P-1', unitCost: 10 }, 'U1', ctx),
+      ).rejects.toMatchObject({ response: { messageKey: 'inventoryValuation.policyNotInInitializing' } });
+      expect(tx.inventoryValuationInitialization.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('legacy initialization matrix', () => {
     const balancing = {
       findUnique: jest.fn(),
@@ -331,6 +429,83 @@ describe('InventoryValuationService', () => {
       await expect(
         service.initializeProduct('POL-1', { productId: 'P-1', unitCost: 10 }, 'U1', ctx),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('VAL-R1C activation', () => {
+    const readyBalance = { productId: 'P-1', quantity: 5, quantityBase: { toString: () => '5' } };
+
+    function setupActivePolicy() {
+      prisma.inventoryValuationPolicy.findUnique.mockResolvedValue({ ...policy, status: 'INITIALIZING' });
+      tx.inventoryValuationPolicy.findUnique.mockResolvedValue({ ...policy, status: 'INITIALIZING', currencyCode: 'USD' });
+      tx.inventoryBalance.findMany.mockResolvedValue([readyBalance]);
+      tx.inventoryValuationInitialization.findMany.mockResolvedValue([{ productId: 'P-1' }, { productId: 'P-2' }]);
+      tx.inventoryValuationPolicy.update.mockResolvedValue({ ...policy, status: 'ACTIVE' });
+    }
+
+    it('happy path: INITIALIZING with all products initialized and coverage gate passing => ACTIVE + activatedAt + audit', async () => {
+      setupActivePolicy();
+      const out = await service.activate('POL-1', 'U1', ctx);
+
+      const updateCall = tx.inventoryValuationPolicy.update.mock.calls[0][0];
+      expect(updateCall.data.status).toBe('ACTIVE');
+      expect(updateCall.data.activatedAt).toBeInstanceOf(Date);
+      expect(updateCall.data.activatedById).toBe('U1');
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({
+          action: INVENTORY_VALUATION_POLICY_ACTIONS.policyActivate,
+          entity: INVENTORY_VALUATION_AUDIT_ENTITY_POLICY,
+          entityId: 'POL-1',
+          details: expect.objectContaining({ warehouseId: 'WH-1', oldStatus: 'INITIALIZING', newStatus: 'ACTIVE', currencyCode: 'USD' }),
+        }),
+      );
+      expect(out.status).toBe('ACTIVE');
+    });
+
+    it('refuses activation when the policy is not INITIALIZING', async () => {
+      prisma.inventoryValuationPolicy.findUnique.mockResolvedValue({ ...policy, status: 'DRAFT' });
+      tx.inventoryValuationPolicy.findUnique.mockResolvedValue({ ...policy, status: 'DRAFT', currencyCode: 'USD' });
+      await expect(service.activate('POL-1', 'U1', ctx)).rejects.toMatchObject({
+        response: { messageKey: 'inventoryValuation.policyNotInInitializing' },
+      });
+      expect(tx.inventoryValuationPolicy.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses activation when a product with stock is not yet initialized (derived readiness)', async () => {
+      setupActivePolicy();
+      tx.inventoryValuationInitialization.findMany.mockResolvedValue([]); // P-1 has stock but no init
+      await expect(service.activate('POL-1', 'U1', ctx)).rejects.toMatchObject({
+        response: { messageKey: 'inventoryValuation.notReadyToActivate' },
+      });
+      expect(tx.inventoryValuationPolicy.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses activation when no frozen currency is present', async () => {
+      prisma.inventoryValuationPolicy.findUnique.mockResolvedValue({ ...policy, status: 'INITIALIZING' });
+      tx.inventoryValuationPolicy.findUnique.mockResolvedValue({ ...policy, status: 'INITIALIZING', currencyCode: '' });
+      await expect(service.activate('POL-1', 'U1', ctx)).rejects.toMatchObject({
+        response: { messageKey: 'inventoryValuation.currencyMissing' },
+      });
+    });
+
+    it('refuses activation when the coverage gate reports an unprotected mutator', async () => {
+      service = new InventoryValuationService(
+        prisma as any,
+        audit as any,
+        { coverageGatePasses: () => ({ pass: false, unprotected: [{ key: 'X', classification: 'LEGACY' }] }) } as any,
+      );
+      setupActivePolicy();
+      await expect(service.activate('POL-1', 'U1', ctx)).rejects.toMatchObject({
+        response: { messageKey: 'inventoryValuation.unprotectedMutator' },
+      });
+      expect(tx.inventoryValuationPolicy.update).not.toHaveBeenCalled();
+    });
+
+    it('TOCTOU: re-read policy with a foreign company is rejected inside the transaction', async () => {
+      prisma.inventoryValuationPolicy.findUnique.mockResolvedValue({ ...policy, status: 'INITIALIZING' });
+      tx.inventoryValuationPolicy.findUnique.mockResolvedValue({ ...policy, status: 'INITIALIZING', companyId: 'OTHER' });
+      await expect(service.activate('POL-1', 'U1', ctx)).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

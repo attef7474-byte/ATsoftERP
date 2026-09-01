@@ -47,7 +47,7 @@ describe('InventoryBalancesService recalculate tenant scoping', () => {
       $transaction: jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(prisma)),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
-    service = new InventoryBalancesService(prisma as unknown as PrismaService, audit as unknown as AuditService);
+    service = new InventoryBalancesService(prisma as unknown as PrismaService, audit as unknown as AuditService, { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null), findActivePoliciesInScope: jest.fn().mockResolvedValue([]) } as any);
   });
 
   it('scopes recalculate deleteMany to company + branch via warehouse relation', async () => {

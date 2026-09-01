@@ -98,7 +98,7 @@ describe('InventoryPhysicalCountsService tenant isolation', () => {
       generateNumberAtomicWithClient: jest.fn().mockResolvedValue('PC-0001'),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
-    service = new InventoryPhysicalCountsService(prisma as unknown as PrismaService, audit as unknown as AuditService, numbering as unknown as NumberingService);
+    service = new InventoryPhysicalCountsService(prisma as unknown as PrismaService, audit as unknown as AuditService, numbering as unknown as NumberingService, { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) } as any);
   });
 
   describe('update', () => {

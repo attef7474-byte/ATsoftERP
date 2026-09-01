@@ -9,6 +9,7 @@ import { AddWorkOrderCostEntryDto, UpdateWorkOrderCostEntryDto } from './dto/wor
 import { WorkOrderStatusActionDto } from './dto/work-order-status-action.dto';
 import { CurrentUserType } from '../../../../modules/auth/types/current-user.type';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { InventoryValuationEngineService } from '../../inventory-valuation/inventory-valuation-engine.service';
 
 const FORBIDDEN_WAREHOUSE_TYPES = ['PRODUCT', 'RAW_MATERIAL'];
 
@@ -18,6 +19,7 @@ export class MaintenanceWorkOrdersService {
     private prisma: PrismaService,
     private audit: AuditService,
     private numberingService: NumberingService,
+    private valuationEngine: InventoryValuationEngineService,
   ) {}
 
   private validationError(field: string, code: string, message: string): BadRequestException {
@@ -544,6 +546,13 @@ export class MaintenanceWorkOrdersService {
 
     await this.prisma.$transaction(async (tx) => {
       movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
+      // VAL-R1C: work-order parts issue is blocked while the warehouse has an
+      // ACTIVE valuation policy (deferred to VAL-R1D).
+      const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, warehouseId);
+      if (activePolicy) {
+        throw this.validationError('warehouseId', 'inventoryValuation.unsupportedActiveFlow',
+          'Work-order parts issue is blocked while an ACTIVE valuation policy exists for the warehouse');
+      }
       for (const { part, productId } of targetProducts) {
         const remaining = part.quantity - (part.issuedQuantity || 0);
         const issueQty = Math.min(remaining, part.quantity - (part.issuedQuantity || 0));

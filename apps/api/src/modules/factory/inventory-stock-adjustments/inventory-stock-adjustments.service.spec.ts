@@ -133,6 +133,7 @@ describe('InventoryStockAdjustmentsService', () => {
       prisma as PrismaService,
       audit as AuditService,
       numbering as NumberingService,
+      { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) } as any,
     );
   });
 
@@ -909,6 +910,24 @@ describe('InventoryStockAdjustmentsService', () => {
       expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
       expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
       expect(prisma.inventoryStockAdjustment.update).not.toHaveBeenCalled();
+    });
+
+    it('VAL-R1C: blocks post when the warehouse has an ACTIVE valuation policy, before any document write', async () => {
+      service = new InventoryStockAdjustmentsService(
+        prisma as PrismaService,
+        audit as AuditService,
+        numbering as NumberingService,
+        { findActivePolicyForWarehouse: jest.fn().mockResolvedValue({ id: 'pol-1', status: 'ACTIVE', currencyCode: 'USD' }) } as any,
+      );
+      prisma.inventoryStockAdjustment.findUnique.mockResolvedValue(adjustment({ status: 'APPROVED' }));
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'w1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+
+      const promise = service.post('a1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventoryValuation.unsupportedActiveFlow');
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
     });
   });
 

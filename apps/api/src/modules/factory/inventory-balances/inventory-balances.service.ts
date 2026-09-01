@@ -1,15 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { InventoryBalanceQueryDto } from './dto/inventory-balance-query.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { assertRowInContext } from '../../../common/operational-context/tenant-guards';
+import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
 
 @Injectable()
 export class InventoryBalancesService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private valuationEngine: InventoryValuationEngineService,
   ) {}
 
   private balanceWhere(ctx: ActiveOperationalContext): any {
@@ -89,6 +91,15 @@ export class InventoryBalancesService {
   async recalculate(userId: string, ctx: ActiveOperationalContext) {
     const branchFilter = ctx.branchId ? { branchId: ctx.branchId } : {};
     await this.prisma.$transaction(async (tx) => {
+      // VAL-R1C: rebuild-from-history is destructive and would wipe monetary
+      // valuation balances; block it when any in-scope warehouse is ACTIVE.
+      const activeWarehouses = await this.valuationEngine.findActivePoliciesInScope(tx, ctx.companyId, ctx.branchId ?? undefined);
+      if (activeWarehouses.length > 0) {
+        throw new BadRequestException({
+          messageKey: 'inventoryValuation.unsupportedActiveFlow',
+          message: 'Balance recalculation is blocked while an ACTIVE valuation policy exists in scope',
+        });
+      }
       await tx.inventoryBalance.deleteMany({ where: this.balanceWhere(ctx) });
 
       const movements = await tx.inventoryMovement.findMany({

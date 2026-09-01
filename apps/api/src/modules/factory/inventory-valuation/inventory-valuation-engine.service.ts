@@ -1,0 +1,393 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../../common/prisma/prisma.service';
+import {
+  INVENTORY_MUTATOR_COVERAGE,
+  INVENTORY_VALUATION_METHOD_WEIGHTED_AVERAGE,
+} from './inventory-valuation.constants';
+
+/**
+ * VAL-R1C: canonical ATOMIC PERPETUAL WEIGHTED MOVING AVERAGE ENGINE.
+ *
+ * This service owns ALL weighted-average valuation math and the authority over
+ * the running monetary InventoryValuationBalance state for ACTIVE warehouses. It
+ * is the ONLY place the receipt / issue / true-return formulas and the monetary
+ * movement snapshot are computed; no other service duplicates them.
+ *
+ * Design invariants (non-negotiable):
+ *  - Every operation runs on the caller's OWN open DB transaction (the passed-in
+ *    TransactionClient). The engine never opens an independent transaction
+ *    scope; the caller owns Serializable isolation and commit/rollback. The
+ *    physical InventoryBalance change, InventoryMovement/line, monetary snapshot,
+ *    and InventoryValuationBalance update therefore live in the SAME transaction
+ *    (ATOMIC_PHYSICAL_MONETARY_POSTING), and any failure rolls back the event.
+ *  - All authoritative quantity/cost/value math uses Prisma.Decimal. No
+ *    Number(...)/parseFloat(...)/Math.round(...)/binary multiplication for money.
+ *    Rounding only at storage boundaries (quantity 18,4; average 19,8;
+ *    movement unitCost 19,6; movement totalCost 19,4; inventoryValue 19,4).
+ *  - SQL Server serialization for (companyId, warehouseId, productId) is
+ *    authoritative at the DB level via an Exclusive Transaction-scoped applock
+ *    (sp_getapplock). It serializes both case A (valuation balance row exists)
+ *    and case B (very first receipt, no row yet) and is released at commit. The
+ *    unique (companyId, warehouseId, productId) index is the backstop.
+ *  - Physical quantity authority = SUM(InventoryBalance.quantityBase). The caller
+ *    passes `qold` (aggregate physical quantity BEFORE this line's impact),
+ *    computed on the same transaction under the lock, so `qold` is always the
+ *    current physical on hand. Monetary state authority =
+ *    InventoryValuationBalance.inventoryValue.
+ */
+
+export const VALUATION_ENGINE_WA_LOCK_RESOURCE_PREFIX = 'ATSOFT:VAL:WMA:';
+
+interface BasePostingInput {
+  companyId: string;
+  warehouseId: string;
+  productId: string;
+  qold: Prisma.Decimal;
+  lineId: string;
+  movementId: string;
+  currencyCode: string;
+}
+
+export interface ValuedReceiptInput extends BasePostingInput {
+  quantity: Prisma.Decimal;
+  unitCost: Prisma.Decimal;
+}
+
+export interface ValuedIssueInput extends BasePostingInput {
+  quantity: Prisma.Decimal;
+}
+
+export interface ValuedReversalInput extends BasePostingInput {
+  quantity: Prisma.Decimal;
+  originalUnitCost: Prisma.Decimal;
+}
+
+export interface ValuedPostingResult {
+  valuationBalanceId: string;
+  inventoryValue: Prisma.Decimal;
+  averageUnitCost: Prisma.Decimal;
+  unitCost: Prisma.Decimal;
+  totalCost: Prisma.Decimal;
+  currencyCode: string;
+  valuationMethod: string;
+}
+
+type Tx = Prisma.TransactionClient;
+
+@Injectable()
+export class InventoryValuationEngineService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  // ── coverage gate (consulted at activation) ───────────────────────────────
+
+  /**
+   * Verifies every registered InventoryBalance mutator is either
+   * VALUATION_AWARE_R1C or BLOCKED_WHEN_ACTIVE. A classification change or a
+   * future registry entry without a valid classification fails the gate, so
+   * activation cannot proceed with an unprotected active mutator.
+   */
+  coverageGatePasses(): { pass: boolean; unprotected: { key: string; classification: string }[] } {
+    const unprotected = INVENTORY_MUTATOR_COVERAGE.filter(
+      (m) => m.classification !== 'VALUATION_AWARE_R1C' && m.classification !== 'BLOCKED_WHEN_ACTIVE',
+    );
+    return { pass: unprotected.length === 0, unprotected };
+  }
+
+  /**
+   * Returns the ACTIVE valuation policy for a given company+warehouse, or null
+   * when no ACTIVE policy exists. Runs on the caller's transaction (tenant-safe).
+   */
+  async findActivePolicyForWarehouse(
+    tx: Tx,
+    companyId: string,
+    warehouseId: string,
+  ): Promise<{ id: string; currencyCode: string; method: string } | null> {
+    return tx.inventoryValuationPolicy.findFirst({
+      where: { companyId, warehouseId, status: 'ACTIVE', deletedAt: null },
+      select: { id: true, currencyCode: true, method: true },
+    });
+  }
+
+  /**
+   * Returns the ACTIVE valuation policies for all warehouses in a company-scope
+   * (optionally branch-scoped via the warehouse branch). Used to block
+   * destructive in-scope rebuilds.
+   */
+  async findActivePoliciesInScope(
+    tx: Tx,
+    companyId: string,
+    branchId?: string,
+  ): Promise<{ id: string; warehouseId: string; currencyCode: string }[]> {
+    return tx.inventoryValuationPolicy.findMany({
+      where: {
+        companyId,
+        status: 'ACTIVE',
+        deletedAt: null,
+        warehouse: { ...(branchId ? { branchId } : {}) },
+      },
+      select: { id: true, warehouseId: true, currencyCode: true },
+    });
+  }
+
+  /**
+   * VERIFIED: throws when an ACTIVE valuation policy exists for the warehouse,
+   * blocking a not-yet-valorized mutation path. Emits the generic active-flow
+   * error key.
+   */
+  async assertNotActiveForMutation(
+    tx: Tx,
+    companyId: string,
+    warehouseId: string,
+    _flowKey: string,
+  ): Promise<void> {
+    const policy = await this.findActivePolicyForWarehouse(tx, companyId, warehouseId);
+    if (policy) {
+      throw new BadRequestException({
+        messageKey: 'inventoryValuation.unsupportedActiveFlow',
+        message: 'This operation is blocked while an ACTIVE valuation policy exists for the warehouse',
+      });
+    }
+  }
+
+  /**
+   * Authoritative physical quantity for one product in one warehouse:
+   * SUM(InventoryBalance.quantityBase), falling back to the legacy Float
+   * quantity when quantityBase is null. This is the physical on-hand authority
+   * and the source of EVERY `qold` passed into receipt/issue/return math.
+   */
+  async aggregatePhysicalQuantity(
+    tx: Tx,
+    warehouseId: string,
+    productId: string,
+  ): Promise<Prisma.Decimal> {
+    const balances = await tx.inventoryBalance.findMany({
+      where: { warehouseId, productId },
+      select: { quantity: true, quantityBase: true },
+    });
+    let sum = new Prisma.Decimal(0);
+    for (const b of balances) {
+      if (b.quantityBase !== null && b.quantityBase !== undefined) {
+        sum = sum.plus(new Prisma.Decimal(b.quantityBase.toString()));
+      } else {
+        sum = sum.plus(new Prisma.Decimal(Number.isFinite(b.quantity) ? b.quantity : 0));
+      }
+    }
+    return sum;
+  }
+
+  // ── SQL Server valuation lock ─────────────────────────────────────────────
+
+  /**
+   * Acquires a Transaction-scoped Exclusive applock on a deterministic resource
+   * derived from (companyId, warehouseId, productId). SQL Server serializes
+   * concurrent transactions on the same resource at DB level (authoritative, not
+   * a JS/process mutex). Released automatically at commit/rollback. Handles both
+   * case A (balance row exists) and case B (first receipt, no row). Exclusive
+   * lock timeout (5s) is a hard concurrency failure.
+   */
+  async acquireValuationLock(
+    tx: Tx,
+    companyId: string,
+    warehouseId: string,
+    productId: string,
+  ): Promise<void> {
+    const resource = `${VALUATION_ENGINE_WA_LOCK_RESOURCE_PREFIX}${companyId}:${warehouseId}:${productId}`;
+    const result: Array<{ result: number }> = await tx.$queryRaw`
+      DECLARE @res int;
+      EXEC @res = sp_getapplock @Resource = ${resource}, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 5000;
+      SELECT @res AS result;
+    `;
+    const status = result?.[0]?.result;
+    // 0 = granted, 1 = granted after wait, -1 = timeout, -2 = cancelled, -3 = deadlock victim
+    if (status === -1 || status === -2 || status === -3) {
+      throw new ConflictException({
+        messageKey: 'inventoryValuation.concurrencyConflict',
+        message: 'A concurrent valuation operation conflicts on this product and warehouse; retry the operation',
+      });
+    }
+  }
+
+  // ── valued receipt ─────────────────────────────────────────────────────────
+
+  /**
+   * Weighted moving-average receipt:
+   *   Qnew = Qold + Qin
+   *   Vnew = Vold + Vin            (Vin = Qin x Cin)
+   *   if Qold > 0:  Cnew = Vnew / Qnew
+   *   if Qold = 0:  Cnew = Cin     (never blend stale cost at zero stock)
+   * Running inventoryValue is authoritative; average is derived from Vnew / Qnew.
+   */
+  async applyValuedReceipt(tx: Tx, input: ValuedReceiptInput): Promise<ValuedPostingResult> {
+    await this.acquireValuationLock(tx, input.companyId, input.warehouseId, input.productId);
+    const balance = await this.readValuationBalance(tx, input.companyId, input.warehouseId, input.productId);
+
+    const qold = input.qold;
+    const vold = balance ? new Prisma.Decimal(balance.inventoryValue.toString()) : new Prisma.Decimal(0);
+    const qin = input.quantity;
+    const vin = qin.mul(input.unitCost);
+    const qnew = qold.add(qin);
+    const vnew = vold.add(vin);
+
+    const cnew = qold.gt(0) && qnew.gt(0) ? vnew.dividedBy(qnew) : input.unitCost;
+
+    return this.persist(tx, input, balance?.id, qnew, vnew, cnew, vin, input.unitCost, input.currencyCode);
+  }
+
+  // ── valued issue ───────────────────────────────────────────────────────────
+
+  /**
+   * Weighted moving-average issue:
+   *   reject Qout > Qold (no active negative stock)
+   *   Vout = Qout x Cissue
+   *   Qnew = Qold - Qout
+   *   Vnew = Vold - Vout
+   *   if Qnew > 0:  averageUnitCost = Vnew / Qnew
+   *   if Qnew = 0:  inventoryValue = 0 exactly; averageUnitCost = 0 (no residue)
+   *   lastHistoricalUnitCost = current unit cost on issue
+   */
+  async applyValuedIssue(tx: Tx, input: ValuedIssueInput): Promise<ValuedPostingResult> {
+    await this.acquireValuationLock(tx, input.companyId, input.warehouseId, input.productId);
+    const balance = await this.readValuationBalance(tx, input.companyId, input.warehouseId, input.productId);
+    if (!balance) {
+      throw new BadRequestException({
+        messageKey: 'inventoryValuation.stateMissing',
+        message: 'No valuation balance exists to issue against; initialize the product first',
+      });
+    }
+
+    const qold = input.qold;
+    const vold = new Prisma.Decimal(balance.inventoryValue.toString());
+    const avg = new Prisma.Decimal(balance.averageUnitCost.toString());
+    const qout = input.quantity;
+
+    if (qout.gt(qold)) {
+      throw new BadRequestException({
+        messageKey: 'inventoryValuation.negativeStock',
+        message: `Cannot issue more than the available physical stock (available ${qold.toString()}, requested ${qout.toString()})`,
+      });
+    }
+
+    const cissue = avg;
+    const vout = qout.mul(cissue);
+    const qnew = qold.minus(qout);
+    const vnew = vold.minus(vout);
+    const cnew = qnew.gt(0) ? vnew.dividedBy(qnew) : new Prisma.Decimal(0);
+
+    return this.persist(tx, input, balance.id, qnew, vnew, cnew, vout, cissue, input.currencyCode);
+  }
+
+  // ── true return / reversal ─────────────────────────────────────────────────
+
+  /**
+   * True return linked to an original valued issue. Returned stock re-enters at
+   * the ORIGINAL historical movement snapshot cost (`originalUnitCost`) and
+   * reblends — never the current moving average. Only called when the reversal
+   * reliably identifies the original valued line; otherwise the reversal is
+   * blocked for the ACTIVE warehouse.
+   */
+  async applyTrueReturn(tx: Tx, input: ValuedReversalInput): Promise<ValuedPostingResult> {
+    await this.acquireValuationLock(tx, input.companyId, input.warehouseId, input.productId);
+    const balance = await this.readValuationBalance(tx, input.companyId, input.warehouseId, input.productId);
+
+    const qold = input.qold;
+    const vold = balance ? new Prisma.Decimal(balance.inventoryValue.toString()) : new Prisma.Decimal(0);
+    const qin = input.quantity;
+    const vin = qin.mul(input.originalUnitCost);
+    const qnew = qold.add(qin);
+    const vnew = vold.add(vin);
+    const cnew = qold.gt(0) && qnew.gt(0) ? vnew.dividedBy(qnew) : input.originalUnitCost;
+
+    return this.persist(tx, input, balance?.id, qnew, vnew, cnew, vin, input.originalUnitCost, input.currencyCode);
+  }
+
+  // ── shared persistence ─────────────────────────────────────────────────────
+
+  private async readValuationBalance(
+    tx: Tx,
+    companyId: string,
+    warehouseId: string,
+    productId: string,
+  ) {
+    return tx.inventoryValuationBalance.findUnique({
+      where: {
+        companyId_warehouseId_productId: { companyId, warehouseId, productId },
+      },
+    });
+  }
+
+  private async persist(
+    tx: Tx,
+    input: BasePostingInput,
+    balanceId: string | undefined,
+    qnew: Prisma.Decimal,
+    vnew: Prisma.Decimal,
+    cnew: Prisma.Decimal,
+    eventValue: Prisma.Decimal,
+    snapshotUnitCost: Prisma.Decimal,
+    snapshotCurrency: string,
+  ): Promise<ValuedPostingResult> {
+    const inventoryValue = vnew.toDecimalPlaces(4);
+    const averageUnitCost = cnew.toDecimalPlaces(8);
+    const snapshotUnit = snapshotUnitCost.toDecimalPlaces(6);
+    const snapshotTotal = eventValue.toDecimalPlaces(4);
+
+    let valuationBalanceId: string;
+    if (balanceId) {
+      const updated = await tx.inventoryValuationBalance.update({
+        where: { id: balanceId },
+        data: {
+          inventoryValue,
+          averageUnitCost,
+          lastHistoricalUnitCost: snapshotUnit,
+          version: { increment: 1 },
+        },
+        select: { id: true },
+      });
+      valuationBalanceId = updated.id;
+    } else {
+      // First receipt for (company, warehouse, product): create the valuation
+      // balance inside the transaction while holding the exclusive applock. The
+      // unique index is the backstop against a residual concurrent first-receipt
+      // race.
+      const created = await tx.inventoryValuationBalance.create({
+        data: {
+          companyId: input.companyId,
+          warehouseId: input.warehouseId,
+          productId: input.productId,
+          inventoryValue,
+          averageUnitCost,
+          lastHistoricalUnitCost: snapshotUnit,
+          version: 1,
+        },
+        select: { id: true },
+      });
+      valuationBalanceId = created.id;
+    }
+
+    // Monetary snapshot quartet on the movement line — always written together.
+    await tx.inventoryMovementLine.update({
+      where: { id: input.lineId },
+      data: {
+        unitCost: snapshotUnit,
+        totalCost: snapshotTotal,
+        currencyCode: snapshotCurrency,
+        valuationMethod: INVENTORY_VALUATION_METHOD_WEIGHTED_AVERAGE,
+      },
+    });
+
+    return {
+      valuationBalanceId,
+      inventoryValue,
+      averageUnitCost,
+      unitCost: snapshotUnit,
+      totalCost: snapshotTotal,
+      currencyCode: snapshotCurrency,
+      valuationMethod: INVENTORY_VALUATION_METHOD_WEIGHTED_AVERAGE,
+    };
+  }
+}

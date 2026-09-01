@@ -8,6 +8,7 @@ import { EnterCountLineDto } from './dto/enter-count-line.dto';
 import { RejectPhysicalCountDto } from './dto/reject-physical-count.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { assertRowInContext, assertWarehouseInContext } from '../../../common/operational-context/tenant-guards';
+import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
 
 @Injectable()
 export class InventoryPhysicalCountsService {
@@ -15,6 +16,7 @@ export class InventoryPhysicalCountsService {
     private prisma: PrismaService,
     private audit: AuditService,
     private numberingService: NumberingService,
+    private valuationEngine: InventoryValuationEngineService,
   ) {}
 
   async create(dto: CreatePhysicalCountDto, userId: string, ctx: ActiveOperationalContext) {
@@ -301,6 +303,15 @@ export class InventoryPhysicalCountsService {
 
     try {
     await this.prisma.$transaction(async (tx) => {
+      // VAL-R1C: physical-count variance posting is blocked while the warehouse
+      // has an ACTIVE valuation policy (deferred to VAL-R1D).
+      const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, count.companyId, count.warehouseId);
+      if (activePolicy) {
+        throw new BadRequestException({
+          messageKey: 'inventoryValuation.unsupportedActiveFlow',
+          message: 'Physical count posting is blocked while an ACTIVE valuation policy exists for the warehouse',
+        });
+      }
       await assertWarehouseInContext(tx, count.warehouseId, ctx);
       if (inLines.length > 0) {
         const movNum = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);

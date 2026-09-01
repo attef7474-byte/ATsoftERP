@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { InventoryMovementsService } from './inventory-movements.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
@@ -82,6 +83,7 @@ describe('InventoryMovementsService', () => {
   let prisma: any;
   let numbering: any;
   let audit: any;
+  let valuationEngine: any;
   let service: InventoryMovementsService;
   let txOptions: any;
 
@@ -126,10 +128,22 @@ describe('InventoryMovementsService', () => {
       log: jest.fn().mockResolvedValue(undefined),
       logWithClient: jest.fn().mockResolvedValue(undefined),
     };
+    valuationEngine = {
+      findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null),
+      findActivePoliciesInScope: jest.fn().mockResolvedValue([]),
+      aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new Prisma.Decimal(0)),
+      applyValuedIssue: jest.fn().mockResolvedValue({}),
+      applyValuedReceipt: jest.fn().mockResolvedValue({}),
+      applyTrueReturn: jest.fn().mockResolvedValue({}),
+      acquireValuationLock: jest.fn().mockResolvedValue(undefined),
+      assertNotActiveForMutation: jest.fn().mockResolvedValue(undefined),
+      coverageGatePasses: jest.fn().mockReturnValue({ pass: true, unprotected: [] }),
+    } as any;
     service = new InventoryMovementsService(
       prisma as PrismaService,
       audit as AuditService,
       numbering as NumberingService,
+      valuationEngine,
     );
 
     // Convenience defaults; individual tests override for hostile scenarios.
@@ -592,6 +606,75 @@ describe('InventoryMovementsService', () => {
       expect(prisma.inventoryBalance.findFirst).not.toHaveBeenCalled();
       expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
       expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('VAL-R1C: blocks a movement reversal / true-return into an ACTIVE valuation warehouse before any stock change', async () => {
+      valuationEngine.findActivePolicyForWarehouse.mockResolvedValue({ id: 'pol-1', status: 'ACTIVE', currencyCode: 'USD' });
+      prisma.inventoryMovement.findUnique.mockResolvedValue(
+        movement({ sourceType: 'INVENTORY_MOVEMENT_REVERSAL', reversesMovementId: 'm0', lines: [line(outLine)] }),
+      );
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', warehouseId: 'w1', productId: 'prd1', quantity: 10 });
+
+      const promise = service.post('m1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventoryValuation.unsupportedActiveFlow');
+      // the DRAFT -> POSTED claim precedes the block; the critical contract is no balance mutation
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    });
+
+    it('VAL-R1C: blocks a future-scope movement source into an ACTIVE valuation warehouse', async () => {
+      valuationEngine.findActivePolicyForWarehouse.mockResolvedValue({ id: 'pol-1', status: 'ACTIVE', currencyCode: 'USD' });
+      prisma.inventoryMovement.findUnique.mockResolvedValue(
+        movement({ sourceType: 'STOCK_TRANSFER', lines: [line(outLine)] }),
+      );
+
+      const promise = service.post('m1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventoryValuation.unsupportedActiveFlow');
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    });
+
+    it('VAL-R1C: blocks a generic inbound line into an ACTIVE valuation warehouse without a trusted receipt cost', async () => {
+      valuationEngine.findActivePolicyForWarehouse.mockResolvedValue({ id: 'pol-1', status: 'ACTIVE', currencyCode: 'USD' });
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ lines: [line({ direction: 'IN' })] }));
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', warehouseId: 'w1', productId: 'prd1', quantity: 10 });
+
+      const promise = service.post('m1', 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.messageKey).toBe('inventoryValuation.costRequired');
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    });
+
+    it('VAL-R1C: applies the valued issue atomically for an OUT movement into an ACTIVE warehouse', async () => {
+      valuationEngine.findActivePolicyForWarehouse.mockResolvedValue({ id: 'pol-1', status: 'ACTIVE', currencyCode: 'USD' });
+      prisma.inventoryMovement.findUnique
+        .mockResolvedValueOnce(movement({ lines: [line(outLine)] }))                // pre-read
+        .mockResolvedValueOnce(movement({ lines: [line(outLine)] }))                // in-transaction
+        .mockResolvedValueOnce(movement({ lines: [line(outLine)], status: 'POSTED' })); // result
+      prisma.inventoryMovement.updateMany.mockResolvedValue({ count: 1 });
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', warehouseId: 'w1', productId: 'prd1', quantity: 10 });
+      valuationEngine.aggregatePhysicalQuantity.mockResolvedValue(new Prisma.Decimal(10));
+
+      const result = await service.post('m1', 'u1', ctx);
+
+      expect(valuationEngine.applyValuedIssue).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({
+          companyId: 'c1',
+          warehouseId: 'w1',
+          productId: 'prd1',
+          quantity: expect.any(Prisma.Decimal),
+          currencyCode: 'USD',
+          movementId: 'm1',
+        }),
+      );
+      expect(prisma.inventoryMovement.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'POSTED' }) }),
+      );
+      expect(result.status).toBe('POSTED');
     });
   });
 

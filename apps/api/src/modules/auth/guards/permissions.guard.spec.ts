@@ -123,4 +123,44 @@ describe('PermissionsGuard', () => {
     const ctx = makeContext({ id: 'u1' }, handler, {});
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
+
+  it('VAL-R1C: activation is granted only by the exact inventory-valuation:activate key', async () => {
+    const handler = () => undefined;
+    Reflect.defineMetadata('permissions', ['inventory-valuation:activate'], handler);
+    prisma.userRole.findMany.mockResolvedValue([
+      activeRole('INVENTORY_MANAGER', ['inventory-valuation:activate']),
+    ]);
+    const ctx = makeContext({ id: 'u1' }, handler, {});
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+  });
+
+  it('VAL-R1C: inventory-valuation:initialize does NOT grant activation', async () => {
+    const handler = () => undefined;
+    Reflect.defineMetadata('permissions', ['inventory-valuation:activate'], handler);
+    prisma.userRole.findMany.mockResolvedValue([
+      activeRole('INVENTORY_MANAGER', ['inventory-valuation:initialize']),
+    ]);
+    const ctx = makeContext({ id: 'u1' }, handler, {});
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('VAL-R1C: inventory-valuation:cost-input does NOT grant activation', async () => {
+    const handler = () => undefined;
+    Reflect.defineMetadata('permissions', ['inventory-valuation:activate'], handler);
+    prisma.userRole.findMany.mockResolvedValue([
+      activeRole('INVENTORY_MANAGER', ['inventory-valuation:cost-input']),
+    ]);
+    const ctx = makeContext({ id: 'u1' }, handler, {});
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('VAL-R1C: generic inventory:update does NOT grant activation (no prefix/wildcard inheritance)', async () => {
+    const handler = () => undefined;
+    Reflect.defineMetadata('permissions', ['inventory-valuation:activate'], handler);
+    prisma.userRole.findMany.mockResolvedValue([
+      activeRole('INVENTORY_MANAGER', ['inventory:update', 'inventory:*']),
+    ]);
+    const ctx = makeContext({ id: 'u1' }, handler, {});
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
 });

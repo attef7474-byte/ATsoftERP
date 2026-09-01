@@ -97,12 +97,17 @@ describe('VAL-R1B migration-contract guard', () => {
     expect(sql).toMatch(/END CATCH/i);
   });
 
-  it('I: seeded permissions are exactly the three R1B keys and nothing else', () => {
+  it('I: seeded permissions in lock-step with the module constants', () => {
     const keys = INVENTORY_VALUATION_PERMISSIONS.map((p) => p.key).sort();
     expect(keys).toEqual(
-      [INVENTORY_VALUATION_PERMISSION_KEYS.read, INVENTORY_VALUATION_PERMISSION_KEYS.costInput, INVENTORY_VALUATION_PERMISSION_KEYS.initialize].sort(),
+      [
+        INVENTORY_VALUATION_PERMISSION_KEYS.read,
+        INVENTORY_VALUATION_PERMISSION_KEYS.costInput,
+        INVENTORY_VALUATION_PERMISSION_KEYS.initialize,
+        INVENTORY_VALUATION_PERMISSION_KEYS.activate,
+      ].sort(),
     );
-    expect(keys).not.toContain('inventory-valuation:activate');
+    expect(keys).toContain('inventory-valuation:activate');
     // unique
     expect(new Set(keys).size).toBe(keys.length);
   });
@@ -115,6 +120,7 @@ describe('VAL-R1B migration-contract guard', () => {
       'openingCostInput',
       'receiptCostInput',
       'legacyValuationInitialize',
+      'policyActivate',
     ]);
     expect(INVENTORY_VALUATION_AUDIT_ENTITY_POLICY).toBe('InventoryValuationPolicy');
     expect(INVENTORY_VALUATION_AUDIT_ENTITY_INITIALIZATION).toBe('InventoryValuationInitialization');

@@ -21,6 +21,7 @@ import { InventoryValuationPolicyQueryDto } from './dto/policy-query.dto';
 import { CostInputDto } from './dto/cost-input.dto';
 import { InitializeProductDto } from './dto/initialize.dto';
 import { InitializationQueryDto } from './dto/initialization-query.dto';
+import { InventoryValuationEngineService } from './inventory-valuation-engine.service';
 
 type Tx = Prisma.TransactionClient;
 
@@ -29,6 +30,7 @@ export class InventoryValuationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly engine: InventoryValuationEngineService,
   ) {}
 
   // ── policy lifecycle ───────────────────────────────────────────────────────
@@ -118,6 +120,91 @@ export class InventoryValuationService {
     return updated;
   }
 
+  // ── VAL-R1C: explicit activation of the perpetual weighted moving average ──
+
+  /**
+   * Activates the weighted moving-average engine for a warehouse by flipping the
+   * policy from INITIALIZING to ACTIVE.
+   *
+   * Guards (all evaluated inside a single Serializable transaction, re-reading
+   * the policy row to close the TOCTOU window):
+   *  1. policy status must be INITIALIZING
+   *  2. currency is frozen (immutable once DRAFT is left) and present
+   *  3. every product with positive physical stock has an initialized valuation
+   *     balance (derived readiness) — otherwise activation is refused
+   *  4. the coverage gate passes (no unprotected InventoryBalance mutator)
+   * Activation is never automatic; it requires the explicit inventory-valuation:activate
+   * permission enforced at the controller and this backend transition.
+   */
+  async activate(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const policy = await this.findPolicy(id, ctx);
+
+    return this.prisma.$transaction(
+      async (tx) => {
+        const row = await tx.inventoryValuationPolicy.findUnique({ where: { id: policy.id } });
+        if (!row || row.companyId !== ctx.companyId || row.deletedAt) {
+          throw new ForbiddenException({ messageKey: 'inventoryValuation.policyNotFound', message: 'Valuation policy not found' });
+        }
+        if (row.status !== 'INITIALIZING') {
+          throw new BadRequestException({ messageKey: 'inventoryValuation.policyNotInInitializing', message: 'Only an INITIALIZING valuation policy can be activated' });
+        }
+        if (!row.currencyCode || !row.currencyCode.trim()) {
+          throw new BadRequestException({ messageKey: 'inventoryValuation.currencyMissing', message: 'Valuation policy has no frozen currency; activation refused' });
+        }
+
+        // Derived readiness: every product with positive stock must be initialized.
+        const balances = await tx.inventoryBalance.findMany({
+          where: { warehouseId: row.warehouseId },
+          select: { productId: true, quantity: true, quantityBase: true },
+        });
+        const initializations = await tx.inventoryValuationInitialization.findMany({
+          where: { companyId: ctx.companyId, warehouseId: row.warehouseId },
+          select: { productId: true },
+        });
+        const initializedSet = new Set(initializations.map((i) => i.productId));
+        const missing = new Set<string>();
+        for (const b of balances) {
+          const q = b.quantityBase !== null && b.quantityBase !== undefined
+            ? new Prisma.Decimal(b.quantityBase.toString())
+            : new Prisma.Decimal(Number.isFinite(b.quantity) ? b.quantity : 0);
+          if (q.gt(0) && !initializedSet.has(b.productId)) missing.add(b.productId);
+        }
+        if (missing.size > 0) {
+          throw new BadRequestException({
+            messageKey: 'inventoryValuation.notReadyToActivate',
+            message: `Activation refused: ${missing.size} product(s) with stock are not initialized`,
+          });
+        }
+
+        // Coverage gate: refuse activation if any InventoryBalance mutator is
+        // neither VALUATION_AWARE_R1C nor BLOCKED_WHEN_ACTIVE.
+        const gate = this.engine.coverageGatePasses();
+        if (!gate.pass) {
+          throw new BadRequestException({
+            messageKey: 'inventoryValuation.unprotectedMutator',
+            message: 'Activation refused: unclassified active inventory mutator detected',
+          });
+        }
+
+        const updated = await tx.inventoryValuationPolicy.update({
+          where: { id: policy.id },
+          data: { status: 'ACTIVE', activatedAt: new Date(), activatedById: userId, updatedById: userId },
+        });
+
+        await this.writeAudit(tx, userId, INVENTORY_VALUATION_POLICY_ACTIONS.policyActivate, INVENTORY_VALUATION_AUDIT_ENTITY_POLICY, policy.id, ctx, {
+          warehouseId: row.warehouseId,
+          oldStatus: row.status,
+          newStatus: 'ACTIVE',
+          currencyCode: row.currencyCode,
+          method: row.method,
+        });
+
+        return updated;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+  }
+
   // ── explicit monetary input on legacy opening / receipt lines ─────────────
 
   async inputOpeningCost(policyId: string, dto: CostInputDto, userId: string, ctx: ActiveOperationalContext) {
@@ -154,7 +241,7 @@ export class InventoryValuationService {
 
   async inputReceiptCost(policyId: string, dto: CostInputDto, userId: string, ctx: ActiveOperationalContext) {
     const policy = await this.findPolicy(policyId, ctx);
-    this.assertMonetaryInputAllowed(policy);
+    this.assertOperationalReceiptCostInputAllowed(policy);
     this.assertCurrencyMatches(policy, dto.currencyCode);
     this.assertCostValid(dto.unitCost, dto.reason);
 
@@ -167,6 +254,14 @@ export class InventoryValuationService {
         throw new NotFoundException({ messageKey: 'inventoryValuation.lineNotFound', message: 'Operational receipt line not found' });
       }
       this.assertCostSourceInContext(line.receipt, policy, ctx);
+
+      // ACTIVE policy: receipt cost is transaction input (never frozen config).
+      // It is permitted for a NEW / unposted / unvalued operational receipt line,
+      // but strictly blocked once the receipt has been posted and valued so that
+      // historical monetary evidence is never rewritten.
+      if (policy.status === 'ACTIVE') {
+        await this.assertReceiptLineNotFinalized(tx, line);
+      }
 
       const updated = await tx.inventoryOperationalReceiptLine.update({
         where: { id: line.id },
@@ -415,6 +510,19 @@ export class InventoryValuationService {
     }
   }
 
+  /**
+   * Receipt-cost input is TRANSACTION INPUT, not frozen policy configuration.
+   * For an ACTIVE policy it remains permitted for a NEW, unposted, unvalued
+   * operational receipt line (see assertReceiptLineNotFinalized). Legacy policy
+   * configuration and opening-balance monetary editing are NOT reopened: they
+   * continue to use assertMonetaryInputAllowed (DRAFT/INITIALIZING only).
+   */
+  private assertOperationalReceiptCostInputAllowed(policy: { status: string }) {
+    if (policy.status !== 'DRAFT' && policy.status !== 'INITIALIZING' && policy.status !== 'ACTIVE') {
+      throw new BadRequestException({ messageKey: 'inventoryValuation.policyNotEditable', message: 'Receipt cost input is only allowed on a DRAFT, INITIALIZING or ACTIVE valuation policy' });
+    }
+  }
+
   private assertCurrencyMatches(policy: { currencyCode: string }, provided: string) {
     if (provided.trim().toUpperCase() !== policy.currencyCode.toUpperCase()) {
       throw new BadRequestException({ messageKey: 'inventoryValuation.currencyMismatch', message: 'Currency must match the valuation policy currency' });
@@ -443,6 +551,35 @@ export class InventoryValuationService {
     }
     if (source.warehouseId !== policy.warehouseId) {
       throw new BadRequestException({ messageKey: 'inventoryValuation.warehouseMismatch', message: 'Cost source warehouse must match the valuation policy warehouse' });
+    }
+  }
+
+  /**
+   * Guards ACTIVE-policy receipt-cost input against rewriting historical monetary
+   * evidence. A receipt line is final once its operational receipt is POSTED or a
+   * valued InventoryMovementLine monetary snapshot already exists for that receipt.
+   * Runs on the caller's transaction (tenant-safe) to prevent a TOCTOU reprice.
+   */
+  private async assertReceiptLineNotFinalized(
+    tx: Tx,
+    line: { receipt: { id: string; status: string } },
+  ) {
+    if (line.receipt.status === 'POSTED') {
+      throw new NotFoundException({ messageKey: 'inventoryValuation.receiptLineFinalized', message: 'Receipt cost is immutable once the operational receipt has been posted and valued' });
+    }
+    const snapshot = await tx.inventoryMovementLine.findFirst({
+      where: {
+        movement: { sourceType: 'OPERATIONAL_RECEIPT', sourceId: line.receipt.id },
+        OR: [
+          { unitCost: { not: null } },
+          { totalCost: { not: null } },
+          { valuationMethod: { not: null } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (snapshot) {
+      throw new NotFoundException({ messageKey: 'inventoryValuation.receiptLineFinalized', message: 'Receipt cost is immutable once the operational receipt has been valued' });
     }
   }
 

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { NumberingService } from '../../../modules/numbering/numbering.service';
@@ -7,6 +8,7 @@ import { UpdateOperationalReceiptDto } from './dto/update-operational-receipt.dt
 import { OperationalReceiptQueryDto } from './dto/operational-receipt-query.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { assertRowInContext, assertWarehouseInContext } from '../../../common/operational-context/tenant-guards';
+import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
 
 @Injectable()
 export class InventoryOperationalReceiptsService {
@@ -14,6 +16,7 @@ export class InventoryOperationalReceiptsService {
     private prisma: PrismaService,
     private audit: AuditService,
     private numberingService: NumberingService,
+    private valuationEngine: InventoryValuationEngineService,
   ) {}
 
   async create(dto: CreateOperationalReceiptDto, userId: string, ctx: ActiveOperationalContext) {
@@ -196,6 +199,29 @@ export class InventoryOperationalReceiptsService {
       }
       const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
 
+      // VAL-R1C: if the warehouse has an ACTIVE valuation policy, every line must
+      // carry a trusted R1B receipt cost + the policy currency, else the receipt
+      // is blocked (VALUATION_COST_REQUIRED / VALUATION_CURRENCY_MISMATCH) BEFORE
+      // any physical stock change. The valued receipt is applied atomically with
+      // the physical balance update in this same transaction.
+      const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, doc.warehouseId);
+      if (activePolicy) {
+        for (const l of doc.lines as { productId: string; quantity: number; unitCost?: any; currencyCode?: string | null }[]) {
+          if (l.unitCost === null || l.unitCost === undefined) {
+            throw new BadRequestException({
+              messageKey: 'inventoryValuation.costRequired',
+              message: 'An operational receipt posted into an ACTIVE valuation warehouse requires an explicit unit cost',
+            });
+          }
+          if ((l.currencyCode || '').toUpperCase() !== activePolicy.currencyCode.toUpperCase()) {
+            throw new BadRequestException({
+              messageKey: 'inventoryValuation.currencyMismatch',
+              message: 'Receipt currency must match the ACTIVE valuation policy currency',
+            });
+          }
+        }
+      }
+
       const movement = await tx.inventoryMovement.create({
         data: {
           movementNumber,
@@ -216,18 +242,51 @@ export class InventoryOperationalReceiptsService {
               productId: l.productId,
               warehouseLocationId: doc.locationId || undefined,
               quantity: l.quantity,
+              quantityBase: l.quantity,
               direction: 'IN',
               notes: l.notes,
             })),
           },
         },
+        include: { lines: true },
       });
 
-      for (const line of doc.lines) {
+      for (let i = 0; i < doc.lines.length; i++) {
+        const line = doc.lines[i] as { productId: string; quantity: number; unitCost?: any; currencyCode?: string | null };
+        const movLine = movement.lines[i];
+
+        // VAL-R1C: apply the weighted moving-average receipt atomically with the
+        // physical balance update below (same transaction).
+        if (activePolicy) {
+          const qold = await this.valuationEngine.aggregatePhysicalQuantity(tx, doc.warehouseId, line.productId);
+          await this.valuationEngine.applyValuedReceipt(tx, {
+            companyId: ctx.companyId,
+            warehouseId: doc.warehouseId,
+            productId: line.productId,
+            qold,
+            quantity: new Prisma.Decimal(line.quantity),
+            unitCost: new Prisma.Decimal(line.unitCost),
+            currencyCode: activePolicy.currencyCode,
+            lineId: movLine.id,
+            movementId: movement.id,
+          });
+        }
+
+        // VAL-R1C: keep the legacy physical twin (quantityBase) in sync with the
+        // Float quantity so the engine's physical authority (SUM(quantityBase),
+        // falling back to quantity when null) never diverges from on-hand. Mirror
+        // the movement-post semantics: prefer quantityBase when present.
         const balance = await this.getOrCreateBalance(tx, doc.warehouseId, line.productId, doc.locationId || null);
+        const quantityBase =
+          balance.quantityBase !== null && balance.quantityBase !== undefined
+            ? new Prisma.Decimal(balance.quantityBase.toString())
+            : new Prisma.Decimal(balance.quantity);
         await tx.inventoryBalance.update({
           where: { id: balance.id },
-          data: { quantity: balance.quantity + line.quantity },
+          data: {
+            quantity: balance.quantity + line.quantity,
+            quantityBase: quantityBase.plus(line.quantity),
+          },
         });
       }
 
@@ -240,7 +299,7 @@ export class InventoryOperationalReceiptsService {
         where: { id },
         include: { lines: true },
       });
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     await this.audit.log(userId, 'POST', 'InventoryOperationalReceipt', id, {
       oldStatus: doc.status, newStatus: 'POSTED', linesCount: doc.lines.length,

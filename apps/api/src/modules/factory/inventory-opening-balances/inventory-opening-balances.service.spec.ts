@@ -106,7 +106,7 @@ describe('InventoryOpeningBalancesService tenant isolation', () => {
       generateNumberAtomicWithClient: jest.fn().mockResolvedValue('OB-0001'),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
-    service = new InventoryOpeningBalancesService(prisma as unknown as PrismaService, audit as unknown as AuditService, numbering as unknown as NumberingService);
+    service = new InventoryOpeningBalancesService(prisma as unknown as PrismaService, audit as unknown as AuditService, numbering as unknown as NumberingService, { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) } as any);
   });
 
   describe('update', () => {

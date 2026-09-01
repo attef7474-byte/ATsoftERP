@@ -8,6 +8,11 @@ import { ReverseInventoryMovementDto } from './dto/reverse-inventory-movement.dt
 import { UpdateInventoryMovementDto } from './dto/update-inventory-movement.dto';
 import { InventoryMovementQueryDto } from './dto/inventory-movement-query.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
+import {
+  INVENTORY_VALUATION_BLOCKED_ACTIVE_SOURCE_TYPES,
+  INVENTORY_VALUATION_VALUED_RECEIPT_MOVEMENT_TYPES,
+} from '../inventory-valuation/inventory-valuation.constants';
 
 const MOVEMENT_REVERSAL_SOURCE_TYPE = 'INVENTORY_MOVEMENT_REVERSAL';
 const MOVEMENT_REVERSAL_TOKEN_PREFIX = 'REVERSAL:';
@@ -18,6 +23,7 @@ export class InventoryMovementsService {
     private prisma: PrismaService,
     private audit: AuditService,
     private numberingService: NumberingService,
+    private valuationEngine: InventoryValuationEngineService,
   ) {}
 
   private validationError(field: string, code: string, message: string): BadRequestException {
@@ -466,6 +472,21 @@ export class InventoryMovementsService {
       },
     });
 
+    // VAL-R1C: resolve whether the movement's warehouse has an ACTIVE valuation
+    // policy and, if so, whether this movement is eligible for valuation. Non-active
+    // and future-scope (production/finished-goods) postings are handled here:
+    // future-scope flows are blocked BEFORE any physical stock change.
+    const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(
+      tx,
+      ctx.companyId,
+      movement.warehouseId,
+    );
+
+    if (activePolicy) {
+      // Blocks future-scope / reversal postings before any stock change.
+      await this.resolveValuedMovementFlow(tx, movement, ctx);
+    }
+
     for (const line of movement.lines) {
       const balance = await this.getOrCreateBalance(
         tx,
@@ -489,6 +510,37 @@ export class InventoryMovementsService {
         );
       }
 
+      // VAL-R1C: for an ACTIVE valuation warehouse the physical increase/decrease
+      // and the monetary moving-average update happen in this SAME transaction
+      // (await engine call === atomic). Valuation is applied against the physical
+      // quantity BEFORE this line's own balance write, so `qold` is authoritative.
+      if (activePolicy) {
+        const qold = await this.valuationEngine.aggregatePhysicalQuantity(
+          tx,
+          movement.warehouseId,
+          line.productId,
+        );
+        if (line.direction === 'OUT') {
+          await this.valuationEngine.applyValuedIssue(tx, {
+            companyId: ctx.companyId,
+            warehouseId: movement.warehouseId,
+            productId: line.productId,
+            qold,
+            quantity: new Prisma.Decimal(line.quantityBase ?? line.quantity),
+            lineId: line.id,
+            movementId: movement.id,
+            currencyCode: activePolicy.currencyCode,
+          });
+        } else {
+          // Inbound movement into an ACTIVE warehouse without a trusted receipt
+          // cost is blocked (VALUATION_UNSUPPORTED_ACTIVE_FLOW).
+          throw new BadRequestException({
+            messageKey: 'inventoryValuation.costRequired',
+            message: 'An inbound stock movement into an ACTIVE valuation warehouse requires a valued receipt source',
+          });
+        }
+      }
+
       const newQuantity = Number(newQuantityBase.toFixed(4));
       await tx.inventoryBalance.update({
         where: { id: balance.id },
@@ -500,6 +552,38 @@ export class InventoryMovementsService {
       where: { id },
       include: { lines: true },
     });
+  }
+
+  /**
+   * VAL-R1C: classifies a movement being posted against an ACTIVE valuation
+   * warehouse. Returns 'ISSUE' for a generic OUT (valued issue) movement, or
+   * throws (before any stock change) for a blocked or unvalued flow:
+   *   - future-scope sources (production / finished-goods / maintenance /
+   *     adjustments / transfer / count) → VALUATION_UNSUPPORTED_ACTIVE_FLOW
+   *   - reversal / true-return of a valued movement → blocked for R1C
+   *     (TRUE_RETURN is DEFERRED_BLOCKED; original-cost linkage deferred).
+   * Inbound generic lines are additionally rejected by the line-level guard.
+   */
+  private async resolveValuedMovementFlow(
+    tx: any,
+    movement: { movementType: string; sourceType: string | null; reversesMovementId?: string | null; lines: { direction: string }[] },
+    ctx: ActiveOperationalContext,
+  ): Promise<'ISSUE' | null> {
+    if (movement.sourceType === MOVEMENT_REVERSAL_SOURCE_TYPE || movement.reversesMovementId) {
+      throw new BadRequestException({
+        messageKey: 'inventoryValuation.unsupportedActiveFlow',
+        message: 'Movement reversal / true-return into an ACTIVE valuation warehouse is not supported in VAL-R1C',
+      });
+    }
+    if (INVENTORY_VALUATION_BLOCKED_ACTIVE_SOURCE_TYPES.includes(movement.sourceType as string)) {
+      throw new BadRequestException({
+        messageKey: 'inventoryValuation.unsupportedActiveFlow',
+        message: `Movement source ${movement.sourceType} is not supported for an ACTIVE valuation warehouse`,
+      });
+    }
+    // A generic issue movement (all OUT) is the valued issue path. Any inbound
+    // line is rejected by the line-level cost guard.
+    return 'ISSUE';
   }
 
   /**

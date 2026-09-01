@@ -8,6 +8,7 @@ import { UpdateStockAdjustmentDto } from './dto/update-stock-adjustment.dto';
 import { UpdateStockAdjustmentLineDto } from './dto/update-stock-adjustment-line.dto';
 import { StockAdjustmentQueryDto } from './dto/stock-adjustment-query.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
 
 @Injectable()
 export class InventoryStockAdjustmentsService {
@@ -15,6 +16,7 @@ export class InventoryStockAdjustmentsService {
     private prisma: PrismaService,
     private audit: AuditService,
     private numberingService: NumberingService,
+    private valuationEngine: InventoryValuationEngineService,
   ) {}
 
   private validationError(field: string, code: string, message: string): BadRequestException {
@@ -381,6 +383,13 @@ export class InventoryStockAdjustmentsService {
         throw this.notFound('Stock adjustment not found');
       }
       if (current.status !== 'APPROVED') throw this.badRequest('inventory.stockAdjustmentOnlyApprovedCanPost');
+
+      // VAL-R1C: stock-adjustment posting (ADJUSTMENT_IN/OUT) is blocked while the
+      // warehouse has an ACTIVE valuation policy (deferred to VAL-R1D).
+      const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, current.warehouseId);
+      if (activePolicy) {
+        throw this.badRequest('inventoryValuation.unsupportedActiveFlow');
+      }
 
       // Revalidate the COMPLETE relation graph inside the posting transaction,
       // before any number generation, movement creation, or balance mutation.

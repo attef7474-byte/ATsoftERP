@@ -1,4 +1,5 @@
 import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { InventoryOperationalReceiptsService } from './inventory-operational-receipts.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
@@ -100,7 +101,7 @@ describe('InventoryOperationalReceiptsService tenant isolation', () => {
       generateNumberAtomicWithClient: jest.fn().mockResolvedValue('OR-0001'),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
-    service = new InventoryOperationalReceiptsService(prisma as unknown as PrismaService, audit as unknown as AuditService, numbering as unknown as NumberingService);
+    service = new InventoryOperationalReceiptsService(prisma as unknown as PrismaService, audit as unknown as AuditService, numbering as unknown as NumberingService, { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null), aggregatePhysicalQuantity: jest.fn().mockResolvedValue(new Prisma.Decimal(0)), applyValuedReceipt: jest.fn().mockResolvedValue({}) } as any);
   });
 
   describe('update', () => {
@@ -144,6 +145,27 @@ describe('InventoryOperationalReceiptsService tenant isolation', () => {
   });
 
   describe('post', () => {
+    // ── History / canonical quantityBase contract ─────────────────────────────
+    // The current inventory domain has NO general UOM conversion model: Product
+    // carries only `unit` (a display string), there is no baseUnit / inventory
+    // conversionFactor / UOM conversion table, and the inventory migration
+    // establishes `quantityBase = quantity`. All inventory stock mutators treat
+    // quantityBase as the canonical 1:1 Decimal shadow of the transaction
+    // quantity, falling back to quantity when the twin is null. Therefore the
+    // canonical inventory base-quantity contract is IDENTITY (1:1):
+    //
+    //   QUANTITY_BASE_USES_CANONICAL_CONVERSION = YES (identity)
+    //   NON_ONE_TO_ONE_QUANTITY_BASE_TEST        = N/A (no UOM conversion model)
+    //
+    // The receipt post must keep quantityBase in lock-step with quantity so the
+    // engine's physical authority (SUM(quantityBase)) never diverges from on-hand
+    // and is never left stale/null after a successful mutation.
+    //
+    // FUTURE SAFETY: if a multi-UOM inventory conversion mechanism is later
+    // introduced (e.g. Product.baseUnit + conversionFactor), this 1:1 identity
+    // assumption MUST be revisited and quantityBase must then be derived through
+    // that future canonical conversion service. Do not silently preserve 1:1.
+    // ──────────────────────────────────────────────────────────────────────────
     it('revalidates warehouse inside the transaction and uses in-tx numbering', async () => {
       prisma.inventoryOperationalReceipt.findUnique.mockResolvedValue(doc({ status: 'APPROVED' }));
       prisma.warehouse.findUnique.mockResolvedValue(warehouse());
@@ -166,6 +188,52 @@ describe('InventoryOperationalReceiptsService tenant isolation', () => {
 
       await expect(service.post('r1', 'u1', ctx)).rejects.toThrow(ForbiddenException);
       expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('keeps quantityBase physical twin in sync with quantity on an existing balance', async () => {
+      prisma.inventoryOperationalReceipt.findUnique.mockResolvedValue(doc({ status: 'APPROVED' }));
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov1', lines: [line({ id: 'ml1' })] });
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', quantity: 5, quantityBase: new Prisma.Decimal(5) });
+      prisma.inventoryBalance.update.mockResolvedValue({});
+      prisma.inventoryOperationalReceipt.update.mockResolvedValue(doc({ status: 'POSTED' }));
+
+      await service.post('r1', 'u1', ctx);
+
+      const updateCall = prisma.inventoryBalance.update.mock.calls[0][0];
+      expect(updateCall.data.quantity).toBe(15);
+      expect(updateCall.data.quantityBase.toString()).toBe('15');
+    });
+
+    it('bootstraps quantityBase from quantity when the balance twin is null', async () => {
+      prisma.inventoryOperationalReceipt.findUnique.mockResolvedValue(doc({ status: 'APPROVED' }));
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov1', lines: [line({ id: 'ml1' })] });
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', quantity: 5, quantityBase: null });
+      prisma.inventoryBalance.update.mockResolvedValue({});
+      prisma.inventoryOperationalReceipt.update.mockResolvedValue(doc({ status: 'POSTED' }));
+
+      await service.post('r1', 'u1', ctx);
+
+      const updateCall = prisma.inventoryBalance.update.mock.calls[0][0];
+      expect(updateCall.data.quantityBase.toString()).toBe('15');
+    });
+
+    it('preserves the canonical 1:1 invariant: quantityBase mirrors quantity after a receipt on a non-zero balance', async () => {
+      prisma.inventoryOperationalReceipt.findUnique.mockResolvedValue(doc({ status: 'APPROVED' }));
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov1', lines: [line({ id: 'ml1' })] });
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', quantity: 12, quantityBase: new Prisma.Decimal(12) });
+      prisma.inventoryBalance.update.mockResolvedValue({});
+      prisma.inventoryOperationalReceipt.update.mockResolvedValue(doc({ status: 'POSTED' }));
+
+      await service.post('r1', 'u1', ctx);
+
+      const updateCall = prisma.inventoryBalance.update.mock.calls[0][0];
+      // Engine authority reads SUM(quantityBase); the twin must equal on-hand.
+      expect(Number(updateCall.data.quantity)).toBe(12 + 10);
+      expect(updateCall.data.quantityBase.toString()).toBe(String(12 + 10));
+      expect(updateCall.data.quantityBase).not.toBeNull();
     });
   });
 });

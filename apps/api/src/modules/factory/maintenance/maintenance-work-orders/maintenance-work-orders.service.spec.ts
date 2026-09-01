@@ -131,6 +131,7 @@ describe('MaintenanceWorkOrdersService', () => {
       prisma as PrismaService,
       audit as AuditService,
       numbering as NumberingService,
+      { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) } as any,
     );
   });
 
