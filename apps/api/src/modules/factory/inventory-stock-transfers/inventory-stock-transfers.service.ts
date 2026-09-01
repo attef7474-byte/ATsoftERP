@@ -250,7 +250,7 @@ export class InventoryStockTransfersService {
       }
     }
 
-    const result = await this.prisma.$transaction(async (tx) => {
+    const result = await this.withTransientTransactionRetry(() => this.prisma.$transaction(async (tx) => {
       // VAL-R1D: a valued transfer requires BOTH warehouses to have an ACTIVE
       // WEIGHTED_AVERAGE policy with the SAME currency; otherwise, if either
       // warehouse has an ACTIVE valuation policy, the transfer is blocked
@@ -448,7 +448,7 @@ export class InventoryStockTransfersService {
         where: { id },
         include: { lines: true },
       });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 
     await this.audit.log(userId, 'POST', 'InventoryStockTransfer', id, {
       oldStatus: doc.status, newStatus: 'POSTED', linesCount: doc.lines.length,
@@ -567,5 +567,35 @@ export class InventoryStockTransfersService {
       });
     }
     return balance;
+  }
+
+  /**
+   * Bounded retry for the validated stock-transfer posting transaction.
+   *
+   * Retries ONLY the recognized transient SQL Server/Prisma transaction
+   * conflict: Prisma code P2034 (a write conflict / serialization failure /
+   * deadlock victim inside a Serializable transaction). This is the shared
+   * INVENTORY_MOVEMENT numbering-counter write-conflict that two truly
+   * concurrent transfer POSTs can hit. It is not an application failure.
+   *
+   * Domain failures (BadRequest/NotFound, P2002 uniqueness, etc.) are never
+   * retried — they propagate unchanged. Retry is bounded and idempotent-safe:
+   * the whole transfer posts in one transaction that rolls back cleanly before
+   * a retry, so a retried attempt cannot double-post or split inventory.
+   */
+  private async withTransientTransactionRetry<T>(fn: () => Promise<T>): Promise<T> {
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        const isTransient = error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
+        if (!isTransient || attempt === maxAttempts) {
+          throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25 * attempt));
+      }
+    }
+    throw new Error('withTransientTransactionRetry exhausted attempts');
   }
 }

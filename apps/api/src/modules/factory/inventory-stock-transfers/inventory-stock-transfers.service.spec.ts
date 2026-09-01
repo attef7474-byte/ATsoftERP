@@ -288,4 +288,76 @@ describe('InventoryStockTransfersService tenant isolation', () => {
       expect(lineUpdate.data.transferInMovementId).toBe('in1');
     });
   });
+
+  describe('post concurrent numbering (transient P2034/INVENTORY_MOVEMENT counter) regression', () => {
+    const Prisma = require('@prisma/client').Prisma;
+    const p2034 = () =>
+      new Prisma.PrismaClientKnownRequestError('Transaction failed due to a write conflict or deadlock', { code: 'P2034', clientVersion: '7.8.0' });
+
+    const setupPostSuccess = () => {
+      prisma.inventoryStockTransfer.findUnique.mockResolvedValue(doc({ status: 'APPROVED' }));
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', quantity: 100, quantityBase: 100 });
+      prisma.inventoryBalance.update.mockResolvedValue({});
+      prisma.inventoryMovementLine.create
+        .mockResolvedValueOnce({ id: 'out-line' })
+        .mockResolvedValueOnce({ id: 'in-line' });
+      prisma.inventoryStockTransferLine.update.mockResolvedValue({});
+      prisma.inventoryStockTransfer.update.mockResolvedValue(doc({ status: 'POSTED' }));
+    };
+
+    it('retries ONLY the transient P2034 numbering write-conflict and returns one successful result (no HTTP 500)', async () => {
+      setupPostSuccess();
+      // The observed failure: the shared INVENTORY_MOVEMENT counter bump inside
+      // the first Serializable attempt raises a P2034 write-conflict BEFORE any
+      // movement is created, so the failed attempt cannot leave a duplicate.
+      numbering.generateNumberAtomicWithClient
+        .mockRejectedValueOnce(p2034())          // first attempt: counter write-conflict
+        .mockResolvedValueOnce('IM-0001')         // OUT on retry
+        .mockResolvedValueOnce('IM-0002');        // IN on retry
+      prisma.inventoryMovement.create
+        .mockResolvedValueOnce({ id: 'out1' })
+        .mockResolvedValueOnce({ id: 'in1' });
+
+      const result = await service.post('t1', 'u1', ctx);
+      expect(result).toBeTruthy();
+
+      // Bounded automatic retry re-ran the whole Serializable posting tx; the
+      // caller receives ONE successful response (never a surfaced 500).
+      expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledTimes(3); // 1 failed + 2 on retry
+      // no transient 500 surfaced: post resolved rather than rejected
+      expect(result).not.toBeNull();
+      expect(prisma.inventoryMovement.create).toHaveBeenCalledTimes(2);
+      const out = prisma.inventoryMovement.create.mock.calls[0][0].data;
+      const inM = prisma.inventoryMovement.create.mock.calls[1][0].data;
+      // both eventually succeed with UNIQUE movement numbers
+      expect(out.movementNumber).toBe('IM-0001');
+      expect(inM.movementNumber).toBe('IM-0002');
+      expect(out.movementNumber).not.toBe(inM.movementNumber);
+      // OUT(-qty) + IN(+qty) in-tx => no lost inventory update across the retry
+      expect(out.movementType).toBe('STOCK_TRANSFER_OUT');
+      expect(inM.movementType).toBe('STOCK_TRANSFER_IN');
+    });
+
+    it('does NOT retry domain failures (BadRequest) when the transaction is NOT transient', async () => {
+      setupPostSuccess();
+      numbering.generateNumberAtomicWithClient.mockRejectedValueOnce(
+        new BadRequestException({ messageKey: 'inventoryValuation.transferNotBothActive' }),
+      );
+
+      await expect(service.post('t1', 'u1', ctx)).rejects.toThrow(BadRequestException);
+      // no retry happened for a domain error
+      expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledTimes(1);
+      expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('rethrows P2034 after the retry bound is exhausted (bounded retry does not loop forever)', async () => {
+      setupPostSuccess();
+      numbering.generateNumberAtomicWithClient.mockRejectedValue(p2034());
+
+      await expect(service.post('t1', 'u1', ctx)).rejects.toThrow(Prisma.PrismaClientKnownRequestError);
+      // bounded: one $transaction invocation per attempt, never loops forever
+      expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledTimes(3);
+    });
+  });
 });
