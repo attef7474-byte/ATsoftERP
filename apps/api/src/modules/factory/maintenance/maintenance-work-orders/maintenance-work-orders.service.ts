@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../../modules/numbering/numbering.service';
@@ -546,13 +547,12 @@ export class MaintenanceWorkOrdersService {
 
     await this.prisma.$transaction(async (tx) => {
       movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
-      // VAL-R1C: work-order parts issue is blocked while the warehouse has an
-      // ACTIVE valuation policy (deferred to VAL-R1D).
+      // VAL-R1E: for an ACTIVE valuation warehouse the physical decrement,
+      // monetary decrement, and immutable movement monetary quartet are all
+      // applied atomically per line by the single inventory valuation authority
+      // at the current weighted moving average. When no ACTIVE policy exists the
+      // legacy unprotected behavior (physical only) is preserved.
       const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, warehouseId);
-      if (activePolicy) {
-        throw this.validationError('warehouseId', 'inventoryValuation.unsupportedActiveFlow',
-          'Work-order parts issue is blocked while an ACTIVE valuation policy exists for the warehouse');
-      }
       for (const { part, productId } of targetProducts) {
         const remaining = part.quantity - (part.issuedQuantity || 0);
         const issueQty = Math.min(remaining, part.quantity - (part.issuedQuantity || 0));
@@ -579,7 +579,6 @@ export class MaintenanceWorkOrdersService {
             }],
           });
         }
-        await tx.inventoryBalance.update({ where: { id: balance.id }, data: { quantity: newQuantity } });
 
         const movement = await tx.inventoryMovement.create({
           data: {
@@ -607,6 +606,35 @@ export class MaintenanceWorkOrdersService {
             },
           },
           include: { lines: true },
+        });
+
+        if (activePolicy) {
+          const qold = await this.valuationEngine.aggregatePhysicalQuantity(tx, warehouseId, productId);
+          await this.valuationEngine.applyValuedIssue(tx, {
+            companyId: ctx.companyId,
+            warehouseId,
+            productId,
+            qold,
+            lineId: movement.lines[0].id,
+            movementId: movement.id,
+            currencyCode: activePolicy.currencyCode,
+            quantity: new Prisma.Decimal(issueQty),
+          });
+        }
+
+        // Physical decrement exactly once for both ACTIVE and INACTIVE flows,
+        // twin-syncing the legacy Float `quantity` and the Decimal `quantityBase`
+        // (physical authority = SUM(quantityBase)). Mirrors the proven R1C/R1D
+        // inventory-balance mutation pattern; the engine is the single monetary
+        // authority and is called above with the PRE-mutation `qold`.
+        const currentBase =
+          balance.quantityBase !== null && balance.quantityBase !== undefined
+            ? new Prisma.Decimal(balance.quantityBase.toString())
+            : new Prisma.Decimal(balance.quantity);
+        const newQuantityBase = currentBase.minus(new Prisma.Decimal(issueQty));
+        await tx.inventoryBalance.update({
+          where: { id: balance.id },
+          data: { quantity: newQuantity, quantityBase: newQuantityBase },
         });
 
         const newIssued = (part.issuedQuantity || 0) + issueQty;

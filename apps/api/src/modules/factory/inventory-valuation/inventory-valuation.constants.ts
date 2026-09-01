@@ -90,11 +90,15 @@ export const INVENTORY_MUTATOR_COVERAGE = [
   // VAL-R1D: shortage revalues at the current moving average, surplus requires
   // an explicit cost + policy currency + reason.
   { key: 'PHYSICAL_COUNT_POST', classification: 'VALUATION_AWARE_R1D' as const },
-  // Maintenance stock issue + return are blocked while ACTIVE (deferred to VAL-R1E).
-  { key: 'MAINTENANCE_STOCK_ISSUE', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // VAL-R1E: maintenance stock issue is valuation-aware for ACTIVE warehouses:
+  // valued at current weighted moving average via the inventory valuation engine.
+  { key: 'MAINTENANCE_STOCK_ISSUE', classification: 'VALUATION_AWARE_R1E' as const },
+  // Maintenance stock return is blocked while ACTIVE — no trusted original-issue
+  // cost linkage exists to derive the return valuation (deferred to future work).
   { key: 'MAINTENANCE_STOCK_RETURN', classification: 'BLOCKED_WHEN_ACTIVE' as const },
-  // Maintenance work-order part issue is blocked while ACTIVE (deferred to VAL-R1E).
-  { key: 'MAINTENANCE_WORK_ORDER_ISSUE', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // VAL-R1E: maintenance work-order part issue is valuation-aware for ACTIVE
+  // warehouses: valued at current weighted moving average.
+  { key: 'MAINTENANCE_WORK_ORDER_ISSUE', classification: 'VALUATION_AWARE_R1E' as const },
   // Production material consumption / finished-goods receipt are blocked while
   // ACTIVE (deferred to VAL-R1F); routed through the generic movement posting so
   // their movementType guard is handled by the engine's classifyValuedMovement.

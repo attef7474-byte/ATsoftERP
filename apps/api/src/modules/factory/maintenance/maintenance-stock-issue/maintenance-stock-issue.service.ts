@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../../modules/numbering/numbering.service';
@@ -190,18 +191,8 @@ export class MaintenanceStockIssueService {
     const companyId = ctx.companyId;
     const branchId = ctx.branchId;
 
-    const movement = await this.prisma.$transaction(async (tx) => {
+    const movement = await this.withTransientTransactionRetry(() => this.prisma.$transaction(async (tx) => {
       const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
-
-      // VAL-R1C: maintenance spare-part issue is blocked while the warehouse has
-      // an ACTIVE valuation policy (deferred to VAL-R1D).
-      const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, companyId, dto.warehouseId);
-      if (activePolicy) {
-        throw new BadRequestException({
-          messageKey: 'inventoryValuation.unsupportedActiveFlow',
-          message: 'Maintenance stock issue is blocked while an ACTIVE valuation policy exists for the warehouse',
-        });
-      }
       await assertMachineTenantInContext(tx, part.maintenanceRequest.machine.id, ctx);
       await assertWarehouseInContext(tx, dto.warehouseId, ctx);
       if (dto.warehouseLocationId) {
@@ -214,21 +205,36 @@ export class MaintenanceStockIssueService {
         await assertWarehouseInContext(tx, dto.removedPartWarehouseId, ctx);
       }
 
-      const balance = await this.getOrCreateBalance(tx, dto.warehouseId, productId, dto.warehouseLocationId);
-      const delta = -dto.issuedQuantity;
-      const newQuantity = balance.quantity + delta;
-
-      if (newQuantity < 0) {
-        const product = await tx.product.findUnique({ where: { id: productId } });
+      // Re-read mutable issue totals inside the transaction. Concurrent requests
+      // may both pass the outer authorization/business preflight against the same
+      // snapshot; using that stale snapshot here loses one issuedQuantity update.
+      // The in-transaction state is the write authority and is re-evaluated on a
+      // bounded P2034 retry together with every dependent inventory mutation.
+      const transactionalPart = await tx.maintenanceRequestRequiredPart.findUnique({
+        where: { id: lineId },
+        select: {
+          approvedQuantity: true,
+          requestedQuantity: true,
+          quantity: true,
+          issuedQuantity: true,
+          returnedQuantity: true,
+        },
+      });
+      if (!transactionalPart) throw new NotFoundException('Part line not found');
+      const transactionalApprovableQty =
+        transactionalPart.approvedQuantity || transactionalPart.requestedQuantity || transactionalPart.quantity;
+      const transactionalIssued = transactionalPart.issuedQuantity || 0;
+      const transactionalReturned = transactionalPart.returnedQuantity || 0;
+      const transactionalRemaining = transactionalApprovableQty - (transactionalIssued - transactionalReturned);
+      if (dto.issuedQuantity > transactionalRemaining) {
         throw new BadRequestException(
-          `Insufficient stock for product ${product?.name || productId}. Available: ${balance.quantity}, Requested: ${dto.issuedQuantity}`,
+          `Issued quantity ${dto.issuedQuantity} exceeds remaining issuable quantity ${transactionalRemaining}. Approved: ${transactionalApprovableQty}, Already issued net: ${transactionalIssued - transactionalReturned}`,
         );
       }
 
-      await tx.inventoryBalance.update({
-        where: { id: balance.id },
-        data: { quantity: newQuantity },
-      });
+      const balance = await this.getOrCreateBalance(tx, dto.warehouseId, productId, dto.warehouseLocationId);
+      const delta = -dto.issuedQuantity;
+      const newQuantity = balance.quantity + delta;
 
       const movement = await tx.inventoryMovement.create({
         data: {
@@ -258,8 +264,60 @@ export class MaintenanceStockIssueService {
         include: { lines: true },
       });
 
-      const newIssued = (part.issuedQuantity || 0) + dto.issuedQuantity;
-      const newStatus = this.computeIssueStatus(newIssued, currentReturned, approvableQty);
+      // VAL-R1E: for an ACTIVE valuation warehouse the physical decrement,
+      // monetary decrement, and immutable movement monetary quartet are all
+      // applied atomically by the SINGLE inventory valuation authority. The
+      // valuation engine acquires the applock, validates available quantity
+      // (negative stock blocked), decrements physical stock exactly once and
+      // inventory value exactly once, and writes the movement-line snapshot
+      // (unitCost/totalCost/currencyCode/valuationMethod) at the current
+      // weighted moving average. When no ACTIVE policy exists the legacy
+      // unprotected behavior (physical only) is preserved for backward
+      // compatibility (as in VAL-R1C inactive flows).
+      const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, companyId, dto.warehouseId);
+      if (activePolicy) {
+        if (newQuantity < 0) {
+          const product = await tx.product.findUnique({ where: { id: productId } });
+          throw new BadRequestException(
+            `Insufficient stock for product ${product?.name || productId}. Available: ${balance.quantity}, Requested: ${dto.issuedQuantity}`,
+          );
+        }
+        const qold = await this.valuationEngine.aggregatePhysicalQuantity(tx, dto.warehouseId, productId);
+        await this.valuationEngine.applyValuedIssue(tx, {
+          companyId,
+          warehouseId: dto.warehouseId,
+          productId,
+          qold,
+          lineId: movement.lines[0].id,
+          movementId: movement.id,
+          currencyCode: activePolicy.currencyCode,
+          quantity: new Prisma.Decimal(dto.issuedQuantity),
+        });
+      } else if (newQuantity < 0) {
+        const product = await tx.product.findUnique({ where: { id: productId } });
+        throw new BadRequestException(
+          `Insufficient stock for product ${product?.name || productId}. Available: ${balance.quantity}, Requested: ${dto.issuedQuantity}`,
+        );
+      }
+
+      // Physical decrement exactly once for both ACTIVE and INACTIVE flows,
+      // twin-syncing the legacy Float `quantity` and the Decimal `quantityBase`
+      // (physical authority = SUM(quantityBase)). This mirrors the proven
+      // R1C/R1D inventory-balance mutation pattern; the valuation engine is the
+      // single monetary authority and is called above with the PRE-mutation
+      // `qold`, while this single physical write applies the decrement.
+      const currentBase =
+        balance.quantityBase !== null && balance.quantityBase !== undefined
+          ? new Prisma.Decimal(balance.quantityBase.toString())
+          : new Prisma.Decimal(balance.quantity);
+      const newQuantityBase = currentBase.minus(new Prisma.Decimal(dto.issuedQuantity));
+      await tx.inventoryBalance.update({
+        where: { id: balance.id },
+        data: { quantity: newQuantity, quantityBase: newQuantityBase },
+      });
+
+      const newIssued = transactionalIssued + dto.issuedQuantity;
+      const newStatus = this.computeIssueStatus(newIssued, transactionalReturned, transactionalApprovableQty);
 
       const costData: any = { ...derivedCostData };
       // Only override derived values if user explicitly provided them
@@ -375,7 +433,7 @@ export class MaintenanceStockIssueService {
       }
 
       return movement;
-    });
+    }));
 
     await this.audit.log(userId, 'ISSUE_STOCK', 'MaintenanceRequestRequiredPart', lineId, {
       movementId: movement.id,
@@ -409,6 +467,26 @@ export class MaintenanceStockIssueService {
         lastIssueBy: { select: { id: true, name: true } },
       },
     });
+  }
+
+  /**
+   * Exact bounded transient-transaction retry convention established by R1D.
+   * Only Prisma P2034 is retried; domain and uniqueness failures propagate.
+   * The entire atomic maintenance issue transaction is retried, preventing a
+   * partial or duplicate movement when the shared numbering counter conflicts.
+   */
+  private async withTransientTransactionRetry<T>(fn: () => Promise<T>): Promise<T> {
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        const isTransient = error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
+        if (!isTransient || attempt === maxAttempts) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 25 * attempt));
+      }
+    }
+    throw new Error('withTransientTransactionRetry exhausted attempts');
   }
 
   async returnStock(requestId: string, lineId: string, dto: ReturnStockDto, userId: string, ctx: ActiveOperationalContext) {

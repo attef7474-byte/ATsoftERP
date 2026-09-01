@@ -262,10 +262,22 @@ describe('VAL-R1C InventoryValuationEngineService (atomic weighted moving averag
         (m) =>
           m.classification === 'VALUATION_AWARE_R1C' ||
           m.classification === 'VALUATION_AWARE_R1D' ||
+          m.classification === 'VALUATION_AWARE_R1E' ||
           m.classification === 'BLOCKED_WHEN_ACTIVE',
       ),
     ).toBe(true);
     expect(INVENTORY_MUTATOR_COVERAGE.length).toBeGreaterThanOrEqual(15);
+
+    const byKey = (key: string) => INVENTORY_MUTATOR_COVERAGE.find((m) => m.key === key);
+    // VAL-R1E: maintenance issue paths are valuation-aware; return remains blocked
+    // (no trusted original-issue linkage) and return = BLOCKED_WHEN_ACTIVE.
+    expect(byKey('MAINTENANCE_STOCK_ISSUE')?.classification).toBe('VALUATION_AWARE_R1E');
+    expect(byKey('MAINTENANCE_WORK_ORDER_ISSUE')?.classification).toBe('VALUATION_AWARE_R1E');
+    expect(byKey('MAINTENANCE_STOCK_RETURN')?.classification).toBe('BLOCKED_WHEN_ACTIVE');
+    // Production / finished-goods remain BLOCKED_WHEN_ACTIVE (deferred to VAL-R1F).
+    expect(byKey('PRODUCTION_MATERIAL_POST')?.classification).toBe('BLOCKED_WHEN_ACTIVE');
+    expect(byKey('PRODUCTION_FINISHED_GOODS_POST')?.classification).toBe('BLOCKED_WHEN_ACTIVE');
+    expect(gate.unprotected).toHaveLength(0);
   });
 
   it('findActivePolicyForWarehouse returns the ACTIVE policy scoped to company+warehouse', async () => {

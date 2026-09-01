@@ -120,6 +120,7 @@ export class InventoryValuationEngineService {
       (m) =>
         m.classification !== 'VALUATION_AWARE_R1C' &&
         m.classification !== 'VALUATION_AWARE_R1D' &&
+        m.classification !== 'VALUATION_AWARE_R1E' &&
         m.classification !== 'BLOCKED_WHEN_ACTIVE',
     );
     return { pass: unprotected.length === 0, unprotected };
