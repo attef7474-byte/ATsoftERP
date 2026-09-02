@@ -14,13 +14,28 @@ import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { InventoryValuationReconciliationService } from './inventory-valuation-reconciliation.service';
+import { InventoryValuationReconciliationQueryDto } from './dto/reconciliation-query.dto';
 
 @ApiTags('Inventory Valuation')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller({ path: 'inventory-valuation', version: '1' })
 export class InventoryValuationController {
-  constructor(private readonly service: InventoryValuationService) {}
+  constructor(
+    private readonly service: InventoryValuationService,
+    private readonly reconciliation: InventoryValuationReconciliationService,
+  ) {}
+
+  @Get('reconciliation')
+  @Permissions(INVENTORY_VALUATION_PERMISSION_KEYS.read)
+  @ApiOperation({ summary: 'Read-only physical and monetary valuation integrity reconciliation' })
+  reconcile(
+    @Query() query: InventoryValuationReconciliationQueryDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.reconciliation.reconcile(query, ctx);
+  }
 
   @Post('policies')
   @Permissions(INVENTORY_VALUATION_PERMISSION_KEYS.costInput)
