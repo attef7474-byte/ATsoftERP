@@ -179,6 +179,21 @@ describe('VAL-R1C InventoryValuationEngineService (atomic weighted moving averag
     expect(r.inventoryValue.toNumber()).toBe(250);
   });
 
+  it('receipt accepts an exact authoritative event total while retaining the nominal unit-cost snapshot', async () => {
+    const tx = mockTx({ findBalance: false });
+    const svc = makeService();
+    const r = await svc.applyValuedReceipt(tx, {
+      ...baseInput,
+      quantity: new Prisma.Decimal(1),
+      unitCost: new Prisma.Decimal('0.333333'),
+      authoritativeEventValue: new Prisma.Decimal('0.3334'),
+    });
+    expect(r.inventoryValue.toString()).toBe('0.3334');
+    expect(r.averageUnitCost.toString()).toBe('0.3334');
+    expect(r.unitCost.toString()).toBe('0.333333');
+    expect(r.totalCost.toString()).toBe('0.3334');
+  });
+
   it('true return re-enters at the original historical cost and reblends', async () => {
     // Q=80 AVG=15 V=1200, original issue cost was 12 for 10 units
     const tx = mockTx({
@@ -201,6 +216,35 @@ describe('VAL-R1C InventoryValuationEngineService (atomic weighted moving averag
     const lineData = tx.inventoryMovementLine.update.mock.calls[0][0].data;
     expect(lineData.unitCost.toNumber()).toBe(12);
     expect(lineData.totalCost.toNumber()).toBe(120);
+  });
+
+  it('FG receipt reversal removes the exact original event value rather than current average', async () => {
+    const tx = mockTx({ balance: { inventoryValue: new Prisma.Decimal(1900), averageUnitCost: new Prisma.Decimal('12.66666667') } });
+    const svc = makeService();
+    const r = await svc.applyValuedReceiptReversal(tx, {
+      ...baseInput,
+      qold: new Prisma.Decimal(150),
+      quantity: new Prisma.Decimal(100),
+      originalUnitCost: new Prisma.Decimal(9),
+      originalEventValue: new Prisma.Decimal(900),
+    });
+    expect(r.inventoryValue.toString()).toBe('1000');
+    expect(r.averageUnitCost.toString()).toBe('20');
+    expect(r.unitCost.toString()).toBe('9');
+    expect(r.totalCost.toString()).toBe('900');
+  });
+
+  it('FG receipt reversal blocks an unsafe negative monetary state', async () => {
+    const tx = mockTx({ balance: { inventoryValue: new Prisma.Decimal(500), averageUnitCost: new Prisma.Decimal(5) } });
+    const svc = makeService();
+    await expect(svc.applyValuedReceiptReversal(tx, {
+      ...baseInput,
+      qold: new Prisma.Decimal(100),
+      quantity: new Prisma.Decimal(100),
+      originalUnitCost: new Prisma.Decimal(9),
+      originalEventValue: new Prisma.Decimal(900),
+    })).rejects.toMatchObject({ response: { messageKey: 'inventoryValuation.receiptReversalStateInvalid' } });
+    expect(tx.inventoryValuationBalance.update).not.toHaveBeenCalled();
   });
 
   it('acquireValuationLock acquires the exclusive applock for the deterministic resource', async () => {
@@ -264,6 +308,7 @@ describe('VAL-R1C InventoryValuationEngineService (atomic weighted moving averag
           m.classification === 'VALUATION_AWARE_R1D' ||
           m.classification === 'VALUATION_AWARE_R1E' ||
           m.classification === 'VALUATION_AWARE_R1F' ||
+          m.classification === 'VALUATION_AWARE_R1G_B' ||
           m.classification === 'BLOCKED_WHEN_ACTIVE',
       ),
     ).toBe(true);
@@ -275,13 +320,15 @@ describe('VAL-R1C InventoryValuationEngineService (atomic weighted moving averag
     expect(byKey('MAINTENANCE_STOCK_ISSUE')?.classification).toBe('VALUATION_AWARE_R1E');
     expect(byKey('MAINTENANCE_WORK_ORDER_ISSUE')?.classification).toBe('VALUATION_AWARE_R1E');
     expect(byKey('MAINTENANCE_STOCK_RETURN')?.classification).toBe('BLOCKED_WHEN_ACTIVE');
-    // Production / finished-goods remain BLOCKED_WHEN_ACTIVE (deferred to VAL-R1F).
+    // Production material is R1F-aware; FG receipt and trusted reversal are R1G-B-aware.
     expect(byKey('PRODUCTION_MATERIAL_ISSUE_POST')?.classification).toBe('VALUATION_AWARE_R1F');
     expect(byKey('PRODUCTION_MATERIAL_CONSUMPTION_POST')?.classification).toBe('VALUATION_AWARE_R1F');
     expect(byKey('PRODUCTION_MATERIAL_LINKED_RETURN_POST')?.classification).toBe('VALUATION_AWARE_R1F');
     expect(byKey('PRODUCTION_MATERIAL_UNLINKED_RETURN_POST')?.classification).toBe('BLOCKED_WHEN_ACTIVE');
     expect(byKey('PRODUCTION_MATERIAL_SUBSTITUTION_POST')?.classification).toBe('BLOCKED_WHEN_ACTIVE');
-    expect(byKey('PRODUCTION_FINISHED_GOODS_POST')?.classification).toBe('BLOCKED_WHEN_ACTIVE');
+    expect(byKey('PRODUCTION_FINISHED_GOODS_RECEIPT_POST')?.classification).toBe('VALUATION_AWARE_R1G_B');
+    expect(byKey('PRODUCTION_FINISHED_GOODS_REVERSAL_POST')?.classification).toBe('VALUATION_AWARE_R1G_B');
+    expect(byKey('PRODUCTION_FINISHED_GOODS_HISTORICAL_UNVALUED')?.classification).toBe('BLOCKED_WHEN_ACTIVE');
     expect(gate.unprotected).toHaveLength(0);
   });
 

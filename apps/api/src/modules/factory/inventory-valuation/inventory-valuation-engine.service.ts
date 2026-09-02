@@ -56,6 +56,10 @@ interface BasePostingInput {
 export interface ValuedReceiptInput extends BasePostingInput {
   quantity: Prisma.Decimal;
   unitCost: Prisma.Decimal;
+  /** Exact authoritative receipt value. R1G-B supplies this from the frozen
+   * ProductionRunCostSnapshot allocation so the final partial receipt consumes
+   * the exact remaining 4dp value without a multiplication residue. */
+  authoritativeEventValue?: Prisma.Decimal;
 }
 
 export interface ValuedIssueInput extends BasePostingInput {
@@ -68,6 +72,12 @@ export interface ValuedReversalInput extends BasePostingInput {
   /** Exact conserved event value for a final remainder when supplied by a
    * trusted original-link resolver; otherwise quantity x originalUnitCost. */
   originalEventValue?: Prisma.Decimal;
+}
+
+export interface ValuedReceiptReversalInput extends BasePostingInput {
+  quantity: Prisma.Decimal;
+  originalUnitCost: Prisma.Decimal;
+  originalEventValue: Prisma.Decimal;
 }
 
 export interface ValuedPostingResult {
@@ -125,6 +135,7 @@ export class InventoryValuationEngineService {
         m.classification !== 'VALUATION_AWARE_R1D' &&
         m.classification !== 'VALUATION_AWARE_R1E' &&
         m.classification !== 'VALUATION_AWARE_R1F' &&
+        m.classification !== 'VALUATION_AWARE_R1G_B' &&
         m.classification !== 'BLOCKED_WHEN_ACTIVE',
     );
     return { pass: unprotected.length === 0, unprotected };
@@ -281,11 +292,12 @@ export class InventoryValuationEngineService {
     const qold = input.qold;
     const vold = balance ? new Prisma.Decimal(balance.inventoryValue.toString()) : new Prisma.Decimal(0);
     const qin = input.quantity;
-    const vin = qin.mul(input.unitCost);
+    const vin = input.authoritativeEventValue ?? qin.mul(input.unitCost);
     const qnew = qold.add(qin);
     const vnew = vold.add(vin);
 
-    const cnew = qold.gt(0) && qnew.gt(0) ? vnew.dividedBy(qnew) : input.unitCost;
+    const receiptValuePerUnit = vin.dividedBy(qin);
+    const cnew = qold.gt(0) && qnew.gt(0) ? vnew.dividedBy(qnew) : receiptValuePerUnit;
 
     return this.persist(tx, input, balance?.id, qnew, vnew, cnew, vin, input.unitCost, input.currencyCode);
   }
@@ -359,6 +371,54 @@ export class InventoryValuationEngineService {
     const cnew = qold.gt(0) && qnew.gt(0) ? vnew.dividedBy(qnew) : input.originalUnitCost;
 
     return this.persist(tx, input, balance?.id, qnew, vnew, cnew, vin, input.originalUnitCost, input.currencyCode);
+  }
+
+  /**
+   * R1G-B trusted finished-goods receipt reversal. The physical caller removes
+   * the original receipt quantity while this monetary twin removes the ORIGINAL
+   * immutable receipt event value, never today's warehouse moving average.
+   */
+  async applyValuedReceiptReversal(tx: Tx, input: ValuedReceiptReversalInput): Promise<ValuedPostingResult> {
+    await this.acquireValuationLock(tx, input.companyId, input.warehouseId, input.productId);
+    const balance = await this.readValuationBalance(tx, input.companyId, input.warehouseId, input.productId);
+    if (!balance) {
+      throw new BadRequestException({
+        messageKey: 'inventoryValuation.stateMissing',
+        message: 'No valuation balance exists to reverse the finished-goods receipt against',
+      });
+    }
+
+    const qold = input.qold;
+    const qout = input.quantity;
+    const vold = new Prisma.Decimal(balance.inventoryValue.toString());
+    if (qout.gt(qold)) {
+      throw new BadRequestException({
+        messageKey: 'inventoryValuation.negativeStock',
+        message: `Cannot reverse more finished goods than physical stock on hand (available ${qold.toString()}, requested ${qout.toString()})`,
+      });
+    }
+
+    const qnew = qold.minus(qout);
+    const vnew = vold.minus(input.originalEventValue);
+    if (vnew.isNegative() || (qnew.equals(0) && !vnew.equals(0))) {
+      throw new BadRequestException({
+        messageKey: 'inventoryValuation.receiptReversalStateInvalid',
+        message: 'The original finished-goods value cannot be removed from the current valuation state safely',
+      });
+    }
+    const cnew = qnew.gt(0) ? vnew.dividedBy(qnew) : new Prisma.Decimal(0);
+
+    return this.persist(
+      tx,
+      input,
+      balance.id,
+      qnew,
+      vnew,
+      cnew,
+      input.originalEventValue,
+      input.originalUnitCost,
+      input.currencyCode,
+    );
   }
 
   // ── valued warehouse transfer (VAL-R1D) ───────────────────────────────────

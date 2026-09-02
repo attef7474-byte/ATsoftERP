@@ -21,6 +21,10 @@ type ProductionMaterialValuationPlanEntry =
   | { kind: 'ISSUE' }
   | { kind: 'TRUE_RETURN'; originalUnitCost: Prisma.Decimal; originalEventValue: Prisma.Decimal };
 
+type ProductionFinishedGoodsValuationPlanEntry =
+  | { kind: 'FG_RECEIPT'; unitCost: Prisma.Decimal; eventValue: Prisma.Decimal }
+  | { kind: 'FG_REVERSAL'; originalUnitCost: Prisma.Decimal; originalEventValue: Prisma.Decimal };
+
 @Injectable()
 export class InventoryMovementsService {
   constructor(
@@ -428,7 +432,7 @@ export class InventoryMovementsService {
    * winner and rejects before touching inventory_balances.
    */
   async postMovementWithinTransaction(tx: any, id: string, userId: string, ctx: ActiveOperationalContext) {
-    return this.postMovementCore(tx, id, userId, ctx, null);
+    return this.postMovementCore(tx, id, userId, ctx, null, null);
   }
 
   /**
@@ -444,7 +448,22 @@ export class InventoryMovementsService {
     userId: string,
     ctx: ActiveOperationalContext,
   ) {
-    return this.postMovementCore(tx, movementId, userId, ctx, documentId);
+    return this.postMovementCore(tx, movementId, userId, ctx, documentId, null);
+  }
+
+  /**
+   * VAL-R1G-B canonical finished-goods entrypoint. The receipt identity is
+   * mandatory so a generic movement caller cannot claim frozen run value or
+   * trusted reversal evidence.
+   */
+  async postProductionFinishedGoodsMovementWithinTransaction(
+    tx: any,
+    receiptId: string,
+    movementId: string,
+    userId: string,
+    ctx: ActiveOperationalContext,
+  ) {
+    return this.postMovementCore(tx, movementId, userId, ctx, null, receiptId);
   }
 
   private async postMovementCore(
@@ -453,6 +472,7 @@ export class InventoryMovementsService {
     userId: string,
     ctx: ActiveOperationalContext,
     productionMaterialDocumentId: string | null,
+    productionFinishedGoodsReceiptId: string | null,
   ) {
     const movement = await tx.inventoryMovement.findUnique({
       where: { id },
@@ -503,9 +523,9 @@ export class InventoryMovementsService {
     });
 
     // VAL-R1C: resolve whether the movement's warehouse has an ACTIVE valuation
-    // policy and, if so, whether this movement is eligible for valuation. Non-active
-    // and future-scope (production/finished-goods) postings are handled here:
-    // future-scope flows are blocked BEFORE any physical stock change.
+    // policy and, if so, whether this movement is eligible for valuation. Dedicated
+    // production-material and finished-goods callers must prove their authoritative
+    // source document before any physical stock change.
     const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(
       tx,
       ctx.companyId,
@@ -513,8 +533,9 @@ export class InventoryMovementsService {
     );
 
     let productionValuationPlan: Map<string, ProductionMaterialValuationPlanEntry> | null = null;
+    let finishedGoodsValuationPlan: Map<string, ProductionFinishedGoodsValuationPlanEntry> | null = null;
     if (activePolicy) {
-      if (productionMaterialDocumentId) {
+      if (productionMaterialDocumentId || productionFinishedGoodsReceiptId) {
         // Lock every touched product in deterministic order before reading the
         // return history, physical qold, or monetary state.
         const uniqueScopes = new Map<string, { companyId: string; warehouseId: string; productId: string }>();
@@ -523,16 +544,25 @@ export class InventoryMovementsService {
           uniqueScopes.set(`${scope.companyId}\u0000${scope.warehouseId}\u0000${scope.productId}`, scope);
         }
         await this.valuationEngine.acquireValuationLocksSorted(tx, [...uniqueScopes.values()]);
-        productionValuationPlan = await this.resolveProductionMaterialValuationPlan(
-          tx,
-          productionMaterialDocumentId,
-          movement,
-          activePolicy,
-          ctx,
-        );
+        if (productionMaterialDocumentId) {
+          productionValuationPlan = await this.resolveProductionMaterialValuationPlan(
+            tx,
+            productionMaterialDocumentId,
+            movement,
+            activePolicy,
+            ctx,
+          );
+        } else {
+          finishedGoodsValuationPlan = await this.resolveProductionFinishedGoodsValuationPlan(
+            tx,
+            productionFinishedGoodsReceiptId!,
+            movement,
+            activePolicy,
+            ctx,
+          );
+        }
       } else {
-        // Generic callers and finished-goods callers remain governed by the
-        // existing active-flow classifier.
+        // Generic callers remain governed by the existing active-flow classifier.
         await this.resolveValuedMovementFlow(tx, movement, ctx);
       }
     }
@@ -571,10 +601,40 @@ export class InventoryMovementsService {
           line.productId,
         );
         const productionEntry = productionValuationPlan?.get(line.id);
+        const finishedGoodsEntry = finishedGoodsValuationPlan?.get(line.id);
         if (productionValuationPlan && !productionEntry) {
           throw this.badRequest('inventoryValuation.productionMaterialLineMismatch');
         }
-        if (productionEntry?.kind === 'TRUE_RETURN') {
+        if (finishedGoodsValuationPlan && !finishedGoodsEntry) {
+          throw this.badRequest('inventoryValuation.productionFinishedGoodsLineMismatch');
+        }
+        if (finishedGoodsEntry?.kind === 'FG_RECEIPT') {
+          await this.valuationEngine.applyValuedReceipt(tx, {
+            companyId: ctx.companyId,
+            warehouseId: movement.warehouseId,
+            productId: line.productId,
+            qold,
+            quantity: new Prisma.Decimal(line.quantityBase ?? line.quantity),
+            lineId: line.id,
+            movementId: movement.id,
+            unitCost: finishedGoodsEntry.unitCost,
+            authoritativeEventValue: finishedGoodsEntry.eventValue,
+            currencyCode: activePolicy.currencyCode,
+          });
+        } else if (finishedGoodsEntry?.kind === 'FG_REVERSAL') {
+          await this.valuationEngine.applyValuedReceiptReversal(tx, {
+            companyId: ctx.companyId,
+            warehouseId: movement.warehouseId,
+            productId: line.productId,
+            qold,
+            quantity: new Prisma.Decimal(line.quantityBase ?? line.quantity),
+            lineId: line.id,
+            movementId: movement.id,
+            originalUnitCost: finishedGoodsEntry.originalUnitCost,
+            originalEventValue: finishedGoodsEntry.originalEventValue,
+            currencyCode: activePolicy.currencyCode,
+          });
+        } else if (productionEntry?.kind === 'TRUE_RETURN') {
           await this.valuationEngine.applyTrueReturn(tx, {
             companyId: ctx.companyId,
             warehouseId: movement.warehouseId,
@@ -777,6 +837,308 @@ export class InventoryMovementsService {
 
     if (unmatchedMovementLines.length !== 0 || plan.size !== movement.lines.length) {
       throw this.badRequest('inventoryValuation.productionMaterialLineMismatch');
+    }
+    return plan;
+  }
+
+  private finishedGoodsLineKey(line: any): string {
+    const expiry = line.expiryDate ? new Date(line.expiryDate).toISOString() : '';
+    const quantity = new Prisma.Decimal(line.quantityBase ?? line.quantity).toDecimalPlaces(4).toFixed(4);
+    return [
+      line.productId,
+      line.warehouseLocationId ?? '',
+      line.batchNumber ?? '',
+      line.serialNumber ?? '',
+      expiry,
+      line.unit ?? '',
+      quantity,
+    ].join('|');
+  }
+
+  private matchFinishedGoodsLines(sourceLines: any[], movementLines: any[], direction: 'IN' | 'OUT') {
+    if (sourceLines.length !== movementLines.length || movementLines.some((line) => line.direction !== direction)) {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsLineMismatch');
+    }
+    const unmatched = [...movementLines];
+    const pairs: Array<{ sourceLine: any; movementLine: any }> = [];
+    for (const sourceLine of sourceLines) {
+      const key = this.finishedGoodsLineKey(sourceLine);
+      const index = unmatched.findIndex((line) => this.finishedGoodsLineKey(line) === key);
+      if (index < 0) throw this.badRequest('inventoryValuation.productionFinishedGoodsLineMismatch');
+      pairs.push({ sourceLine, movementLine: unmatched.splice(index, 1)[0] });
+    }
+    if (unmatched.length !== 0) throw this.badRequest('inventoryValuation.productionFinishedGoodsLineMismatch');
+    return pairs;
+  }
+
+  private assertFinishedGoodsQuartet(line: any, currencyCode: string) {
+    if (
+      line.unitCost == null ||
+      line.totalCost == null ||
+      line.currencyCode !== currencyCode ||
+      line.valuationMethod !== 'WEIGHTED_AVERAGE'
+    ) {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsEvidenceIncomplete');
+    }
+  }
+
+  /**
+   * VAL-R1G-B allocation authority for ACTIVE destination warehouses.
+   * Reads only the immutable ProductionRunCostSnapshot and already-posted FG
+   * movement quartets. Live output/loss/material data is intentionally absent.
+   */
+  private async resolveProductionFinishedGoodsValuationPlan(
+    tx: any,
+    receiptId: string,
+    movement: any,
+    activePolicy: { currencyCode: string; method: string },
+    ctx: ActiveOperationalContext,
+  ): Promise<Map<string, ProductionFinishedGoodsValuationPlanEntry>> {
+    const receipt = await tx.productionFinishedGoodsReceipt.findFirst({
+      where: { id: receiptId, companyId: ctx.companyId, branchId: ctx.branchId },
+      include: { lines: { orderBy: { lineNumber: 'asc' } } },
+    });
+    if (
+      !receipt ||
+      receipt.status !== 'DRAFT' ||
+      receipt.movementId !== movement.id ||
+      receipt.receiptWarehouseId !== movement.warehouseId
+    ) {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsReceiptMismatch');
+    }
+    if (movement.sourceType !== 'PRODUCTION_FINISHED_GOODS_RECEIPT') {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsSourceMismatch');
+    }
+    if (activePolicy.method !== 'WEIGHTED_AVERAGE') {
+      throw this.badRequest('inventoryValuation.unsupportedActiveFlow');
+    }
+
+    const isReversal = receipt.sourceType === 'REVERSE';
+    if (!isReversal && receipt.sourceType !== 'MANUAL') {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsSourceMismatch');
+    }
+    const expectedMovementType = isReversal ? 'PRODUCTION_FG_RECEIPT_REVERSAL' : 'PRODUCTION_FG_RECEIPT';
+    const expectedDirection: 'IN' | 'OUT' = isReversal ? 'OUT' : 'IN';
+    if (movement.movementType !== expectedMovementType || (isReversal ? !movement.sourceId : movement.sourceId != null)) {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsSourceMismatch');
+    }
+    const currentPairs = this.matchFinishedGoodsLines(receipt.lines, movement.lines, expectedDirection);
+    if (movement.lines.some((line: any) =>
+      line.unitCost != null || line.totalCost != null || line.currencyCode != null || line.valuationMethod != null)) {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsManualCostForbidden');
+    }
+
+    const run = await tx.productionRun.findFirst({
+      where: { id: receipt.productionRunId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
+      select: { id: true, productionOrderId: true, costClosedAt: true },
+    });
+    if (!run || run.productionOrderId !== receipt.productionOrderId) {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsRunMismatch');
+    }
+    if (!run.costClosedAt) {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsRunNotClosed');
+    }
+
+    const snapshot = await tx.productionRunCostSnapshot.findFirst({
+      where: {
+        productionRunId: run.id,
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+      },
+    });
+    if (!snapshot || !snapshot.closedAt || snapshot.costBasis !== 'NET_ACTUAL_MATERIAL_VALUE_ONLY') {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsSnapshotInvalid');
+    }
+    const totalFrozenQty = new Prisma.Decimal(snapshot.finalGoodQuantity);
+    const totalFrozenValue = new Prisma.Decimal(snapshot.netMaterialValue);
+    if (totalFrozenQty.lte(0) || totalFrozenValue.isNegative()) {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsSnapshotInvalid');
+    }
+    if (snapshot.currencyCode !== activePolicy.currencyCode) {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsCurrencyMismatch');
+    }
+    if (receipt.lines.some((line: any) => line.productId !== snapshot.finalProductId)) {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsProductMismatch');
+    }
+
+    const postedReceipts = await tx.productionFinishedGoodsReceipt.findMany({
+      where: {
+        id: { not: receipt.id },
+        productionRunId: run.id,
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+        status: 'POSTED',
+      },
+      include: {
+        lines: { orderBy: { lineNumber: 'asc' } },
+        movement: { include: { lines: true } },
+      },
+    });
+
+    const postedById = new Map<string, any>(postedReceipts.map((posted: any) => [posted.id, posted]));
+    const reversalCountByOriginal = new Map<string, number>();
+    for (const posted of postedReceipts) {
+      if (posted.sourceType !== 'REVERSE') continue;
+      const originalId = posted.movement?.sourceId;
+      const original = originalId ? postedById.get(originalId) : null;
+      if (
+        !original ||
+        original.sourceType === 'REVERSE' ||
+        original.productionOrderId !== posted.productionOrderId ||
+        original.receiptWarehouseId !== posted.receiptWarehouseId ||
+        !original.movement
+      ) {
+        throw this.badRequest('inventoryValuation.productionFinishedGoodsOriginalReceiptInvalid');
+      }
+      const reversalCount = (reversalCountByOriginal.get(original.id) ?? 0) + 1;
+      reversalCountByOriginal.set(original.id, reversalCount);
+      if (reversalCount > 1) {
+        throw this.badRequest('inventoryValuation.productionFinishedGoodsOverReversal');
+      }
+
+      const reversalPairs = this.matchFinishedGoodsLines(posted.lines, posted.movement.lines, 'OUT');
+      const originalPairs = this.matchFinishedGoodsLines(original.lines, original.movement.lines, 'IN');
+      const originalEvidenceByKey = new Map<string, any[]>();
+      for (const pair of originalPairs) {
+        const key = this.finishedGoodsLineKey(pair.sourceLine);
+        originalEvidenceByKey.set(key, [...(originalEvidenceByKey.get(key) ?? []), pair.movementLine]);
+      }
+      for (const pair of reversalPairs) {
+        const key = this.finishedGoodsLineKey(pair.sourceLine);
+        const candidates = originalEvidenceByKey.get(key) ?? [];
+        const originalLine = candidates.shift();
+        if (!originalLine) {
+          throw this.badRequest('inventoryValuation.productionFinishedGoodsOriginalReceiptInvalid');
+        }
+        originalEvidenceByKey.set(key, candidates);
+        this.assertFinishedGoodsQuartet(originalLine, snapshot.currencyCode);
+        this.assertFinishedGoodsQuartet(pair.movementLine, snapshot.currencyCode);
+        if (
+          !new Prisma.Decimal(pair.movementLine.unitCost).eq(new Prisma.Decimal(originalLine.unitCost)) ||
+          !new Prisma.Decimal(pair.movementLine.totalCost).eq(new Prisma.Decimal(originalLine.totalCost))
+        ) {
+          throw this.badRequest('inventoryValuation.productionFinishedGoodsOriginalReceiptInvalid');
+        }
+      }
+      if ([...originalEvidenceByKey.values()].some((entries) => entries.length !== 0)) {
+        throw this.badRequest('inventoryValuation.productionFinishedGoodsOriginalReceiptInvalid');
+      }
+    }
+
+    let alreadyCapitalizedQty = new Prisma.Decimal(0);
+    let alreadyCapitalizedValue = new Prisma.Decimal(0);
+    for (const posted of postedReceipts) {
+      const postedIsReversal = posted.sourceType === 'REVERSE';
+      const postedMovement = posted.movement;
+      if (
+        !postedMovement ||
+        postedMovement.status !== 'POSTED' ||
+        postedMovement.sourceType !== 'PRODUCTION_FINISHED_GOODS_RECEIPT' ||
+        postedMovement.warehouseId !== posted.receiptWarehouseId ||
+        postedMovement.movementType !== (postedIsReversal ? 'PRODUCTION_FG_RECEIPT_REVERSAL' : 'PRODUCTION_FG_RECEIPT') ||
+        (!postedIsReversal && posted.sourceType !== 'MANUAL') ||
+        (postedIsReversal ? !postedMovement.sourceId : postedMovement.sourceId != null) ||
+        posted.lines.some((line: any) => line.productId !== snapshot.finalProductId)
+      ) {
+        throw this.badRequest('inventoryValuation.productionFinishedGoodsEvidenceIncomplete');
+      }
+      const pairs = this.matchFinishedGoodsLines(posted.lines, postedMovement.lines, postedIsReversal ? 'OUT' : 'IN');
+      for (const pair of pairs) {
+        this.assertFinishedGoodsQuartet(pair.movementLine, snapshot.currencyCode);
+        const quantity = new Prisma.Decimal(pair.movementLine.quantityBase ?? pair.movementLine.quantity);
+        const value = new Prisma.Decimal(pair.movementLine.totalCost);
+        alreadyCapitalizedQty = postedIsReversal
+          ? alreadyCapitalizedQty.minus(quantity)
+          : alreadyCapitalizedQty.plus(quantity);
+        alreadyCapitalizedValue = postedIsReversal
+          ? alreadyCapitalizedValue.minus(value)
+          : alreadyCapitalizedValue.plus(value);
+      }
+    }
+
+    if (
+      alreadyCapitalizedQty.isNegative() ||
+      alreadyCapitalizedValue.isNegative() ||
+      alreadyCapitalizedQty.gt(totalFrozenQty) ||
+      alreadyCapitalizedValue.gt(totalFrozenValue)
+    ) {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsHistoricalStateInvalid');
+    }
+
+    const plan = new Map<string, ProductionFinishedGoodsValuationPlanEntry>();
+    if (isReversal) {
+      const original = postedReceipts.find((posted: any) => posted.id === movement.sourceId);
+      if (!original || original.sourceType === 'REVERSE' || original.productionOrderId !== receipt.productionOrderId ||
+          original.receiptWarehouseId !== receipt.receiptWarehouseId || !original.movement) {
+        throw this.badRequest('inventoryValuation.productionFinishedGoodsOriginalReceiptInvalid');
+      }
+      const priorReversal = postedReceipts.find((posted: any) =>
+        posted.sourceType === 'REVERSE' && posted.movement?.sourceId === original.id);
+      if (priorReversal) {
+        throw this.badRequest('inventoryValuation.productionFinishedGoodsOverReversal');
+      }
+
+      const originalPairs = this.matchFinishedGoodsLines(original.lines, original.movement.lines, 'IN');
+      const originalByKey = new Map<string, Array<{ sourceLine: any; movementLine: any }>>();
+      for (const pair of originalPairs) {
+        this.assertFinishedGoodsQuartet(pair.movementLine, snapshot.currencyCode);
+        const key = this.finishedGoodsLineKey(pair.sourceLine);
+        originalByKey.set(key, [...(originalByKey.get(key) ?? []), pair]);
+      }
+      for (const currentPair of currentPairs) {
+        const key = this.finishedGoodsLineKey(currentPair.sourceLine);
+        const candidates = originalByKey.get(key) ?? [];
+        const originalPair = candidates.shift();
+        if (!originalPair) {
+          throw this.badRequest('inventoryValuation.productionFinishedGoodsOriginalReceiptInvalid');
+        }
+        originalByKey.set(key, candidates);
+        plan.set(currentPair.movementLine.id, {
+          kind: 'FG_REVERSAL',
+          originalUnitCost: new Prisma.Decimal(originalPair.movementLine.unitCost),
+          originalEventValue: new Prisma.Decimal(originalPair.movementLine.totalCost),
+        });
+      }
+      if ([...originalByKey.values()].some((entries) => entries.length !== 0)) {
+        throw this.badRequest('inventoryValuation.productionFinishedGoodsOriginalReceiptInvalid');
+      }
+      return plan;
+    }
+
+    const receiptQty = receipt.lines.reduce(
+      (sum: Prisma.Decimal, line: any) => sum.plus(new Prisma.Decimal(line.quantity)),
+      new Prisma.Decimal(0),
+    );
+    const remainingQty = totalFrozenQty.minus(alreadyCapitalizedQty);
+    const remainingValue = totalFrozenValue.minus(alreadyCapitalizedValue);
+    if (receiptQty.lte(0) || receiptQty.gt(remainingQty)) {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsOverReceipt');
+    }
+
+    const receiptValue = receiptQty.eq(remainingQty)
+      ? remainingValue
+      : totalFrozenValue.mul(receiptQty).div(totalFrozenQty).toDecimalPlaces(4);
+    if (receiptValue.isNegative() || receiptValue.gt(remainingValue)) {
+      throw this.badRequest('inventoryValuation.productionFinishedGoodsHistoricalStateInvalid');
+    }
+
+    let allocated = new Prisma.Decimal(0);
+    const frozenUnitCost = totalFrozenValue.div(totalFrozenQty);
+    for (let index = 0; index < currentPairs.length; index++) {
+      const pair = currentPairs[index];
+      const quantity = new Prisma.Decimal(pair.sourceLine.quantity);
+      const eventValue = index === currentPairs.length - 1
+        ? receiptValue.minus(allocated)
+        : receiptValue.mul(quantity).div(receiptQty).toDecimalPlaces(4);
+      if (eventValue.isNegative()) {
+        throw this.badRequest('inventoryValuation.productionFinishedGoodsHistoricalStateInvalid');
+      }
+      allocated = allocated.plus(eventValue);
+      plan.set(pair.movementLine.id, {
+        kind: 'FG_RECEIPT',
+        unitCost: frozenUnitCost,
+        eventValue,
+      });
     }
     return plan;
   }

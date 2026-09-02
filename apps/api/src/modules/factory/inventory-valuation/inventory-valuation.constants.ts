@@ -109,8 +109,12 @@ export const INVENTORY_MUTATOR_COVERAGE = [
   // Mixed OUT/IN substitution does not yet have a trusted value-conservation
   // contract and therefore remains blocked while ACTIVE.
   { key: 'PRODUCTION_MATERIAL_SUBSTITUTION_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
-  // Finished-goods valuation remains explicitly deferred to VAL-R1G.
-  { key: 'PRODUCTION_FINISHED_GOODS_POST', classification: 'BLOCKED_WHEN_ACTIVE' as const },
+  // VAL-R1G-B: a closed run's finished-goods receipt capitalizes only the
+  // immutable R1G-A run snapshot; a trusted full reversal removes the original
+  // FG receipt event value. Historical/unlinked monetary evidence stays blocked.
+  { key: 'PRODUCTION_FINISHED_GOODS_RECEIPT_POST', classification: 'VALUATION_AWARE_R1G_B' as const },
+  { key: 'PRODUCTION_FINISHED_GOODS_REVERSAL_POST', classification: 'VALUATION_AWARE_R1G_B' as const },
+  { key: 'PRODUCTION_FINISHED_GOODS_HISTORICAL_UNVALUED', classification: 'BLOCKED_WHEN_ACTIVE' as const },
   // Movement reversal / true-return into an ACTIVE valuation warehouse is blocked
   // for VAL-R1C (boolean return support is deferred to a later VAL slice).
   { key: 'INVENTORY_MOVEMENT_TRUE_RETURN', classification: 'BLOCKED_WHEN_ACTIVE' as const },

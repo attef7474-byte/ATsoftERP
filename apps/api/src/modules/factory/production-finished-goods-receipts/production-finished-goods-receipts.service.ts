@@ -18,6 +18,8 @@ import {
   UpdateFgReceiptDto,
 } from './dto/production-finished-goods-receipt.dto';
 import { deriveRunTotals } from '../production-runs/production-runs.util';
+import { ProductionRunsService } from '../production-runs/production-runs.service';
+import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
 
 const FG_SOURCE_TYPE = 'PRODUCTION_FINISHED_GOODS_RECEIPT';
 
@@ -28,6 +30,8 @@ export class ProductionFinishedGoodsReceiptsService {
     private readonly audit: AuditService,
     private readonly numberingService: NumberingService,
     private readonly movementsService: InventoryMovementsService,
+    private readonly productionRunsService: ProductionRunsService,
+    private readonly valuationEngine: InventoryValuationEngineService,
   ) {}
 
   private notFound(key: string): NotFoundException {
@@ -420,16 +424,35 @@ export class ProductionFinishedGoodsReceiptsService {
   }
 
   async post(id: string, userId: string, ctx: ActiveOperationalContext) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.withTransientTransactionRetry(() => this.prisma.$transaction(async (tx) => {
       const receipt = await this.findReceipt(id, ctx, tx);
       if (receipt.status !== 'DRAFT') throw this.badRequest('productionFgReceipt.notDraft');
       if (!receipt.movementId) throw this.badRequest('productionFgReceipt.movementMissing');
 
-      if (receipt.sourceType !== 'REVERSE') {
+      // Shared R1G production-run boundary serializes close, all FG receipts,
+      // and trusted reversals before any remaining-capacity calculation.
+      await this.productionRunsService.acquireRunCostBoundaryLock(tx, receipt.productionRunId);
+
+      const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(
+        tx,
+        ctx.companyId,
+        receipt.receiptWarehouseId ?? '',
+      );
+      // Preserve the exact pre-R1G-B live-output eligibility behavior for
+      // warehouses without ACTIVE valuation. ACTIVE valuation instead uses the
+      // frozen ProductionRunCostSnapshot quantity inside the dedicated movement
+      // posting contract and never reprices from live output/loss events.
+      if (!activePolicy && receipt.sourceType !== 'REVERSE') {
         await this.assertWithinEligibleOutput(tx, receipt, ctx);
       }
 
-      await this.movementsService.postMovementWithinTransaction(tx, receipt.movementId, userId, ctx);
+      await this.movementsService.postProductionFinishedGoodsMovementWithinTransaction(
+        tx,
+        receipt.id,
+        receipt.movementId,
+        userId,
+        ctx,
+      );
 
       const posted = await tx.productionFinishedGoodsReceipt.update({
         where: { id },
@@ -443,7 +466,21 @@ export class ProductionFinishedGoodsReceiptsService {
         movementNumber: receipt.movementNumber,
       });
       return posted;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+  }
+
+  private async withTransientTransactionRetry<T>(fn: () => Promise<T>): Promise<T> {
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        const isTransient = error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
+        if (!isTransient || attempt === maxAttempts) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 25 * attempt));
+      }
+    }
+    throw new Error('withTransientTransactionRetry exhausted attempts');
   }
 
   async cancel(id: string, dto: CancelFgReceiptDto, userId: string, ctx: ActiveOperationalContext) {
@@ -488,6 +525,7 @@ export class ProductionFinishedGoodsReceiptsService {
 
         const source = await this.findReceipt(id, ctx, tx);
         if (source.status !== 'POSTED') throw this.badRequest('productionFgReceipt.reverseOnlyPosted');
+        if (source.sourceType === 'REVERSE') throw this.badRequest('productionFgReceipt.cannotReverseReversal');
 
         const reverseLines: CreateFgReceiptLineDto[] = source.lines.map((line: any) => ({
           productId: line.productId,

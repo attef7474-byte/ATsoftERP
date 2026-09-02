@@ -105,9 +105,18 @@ function makeService(overrides: Record<string, any> = {}) {
   const numbering: any = {
     generateNumberAtomicWithClient: jest.fn().mockResolvedValue('SEQ-000001'),
   };
-  const movements: any = { postMovementWithinTransaction: jest.fn().mockResolvedValue({}) };
-  const service = new ProductionFinishedGoodsReceiptsService(prisma, audit, numbering, movements);
-  return { prisma, audit, numbering, movements, service };
+  const movements: any = { postProductionFinishedGoodsMovementWithinTransaction: jest.fn().mockResolvedValue({}) };
+  const productionRuns: any = { acquireRunCostBoundaryLock: jest.fn().mockResolvedValue(undefined) };
+  const valuationEngine: any = { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) };
+  const service = new ProductionFinishedGoodsReceiptsService(
+    prisma,
+    audit,
+    numbering,
+    movements,
+    productionRuns,
+    valuationEngine,
+  );
+  return { prisma, audit, numbering, movements, productionRuns, valuationEngine, service };
 }
 
 describe('ProductionFinishedGoodsReceiptsService', () => {
@@ -227,6 +236,44 @@ describe('ProductionFinishedGoodsReceiptsService', () => {
   });
 
   describe('post', () => {
+    it('uses the frozen-value path for ACTIVE valuation without reading live output events', async () => {
+      const { prisma, service, movements, productionRuns, valuationEngine } = makeService();
+      prisma.productionFinishedGoodsReceipt.findFirst.mockResolvedValue(receipt());
+      prisma.productionFinishedGoodsReceipt.update.mockResolvedValue(receipt({ status: 'POSTED' }));
+      valuationEngine.findActivePolicyForWarehouse.mockResolvedValue({ id: 'vp1', currencyCode: 'USD', method: 'WEIGHTED_AVERAGE' });
+
+      await service.post('rct1', 'u1', ctxA);
+
+      expect(productionRuns.acquireRunCostBoundaryLock).toHaveBeenCalledWith(prisma, 'run1');
+      expect(prisma.productionOutputEvent.findMany).not.toHaveBeenCalled();
+      expect(movements.postProductionFinishedGoodsMovementWithinTransaction).toHaveBeenCalledWith(prisma, 'rct1', 'mov1', 'u1', ctxA);
+      expect(productionRuns.acquireRunCostBoundaryLock.mock.invocationCallOrder[0])
+        .toBeLessThan(movements.postProductionFinishedGoodsMovementWithinTransaction.mock.invocationCallOrder[0]);
+    });
+
+    it('retries the complete FG post transaction after one transient P2034', async () => {
+      const { prisma, service, movements, valuationEngine } = makeService();
+      const transient = new Prisma.PrismaClientKnownRequestError('write conflict', { code: 'P2034', clientVersion: '7.8.0' });
+      prisma.$transaction.mockRejectedValueOnce(transient).mockImplementation(async (cb: any) => cb(prisma));
+      prisma.productionFinishedGoodsReceipt.findFirst.mockResolvedValue(receipt());
+      prisma.productionFinishedGoodsReceipt.update.mockResolvedValue(receipt({ status: 'POSTED' }));
+      valuationEngine.findActivePolicyForWarehouse.mockResolvedValue({ id: 'vp1', currencyCode: 'USD', method: 'WEIGHTED_AVERAGE' });
+
+      await expect(service.post('rct1', 'u1', ctxA)).resolves.toMatchObject({ status: 'POSTED' });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+      expect(movements.postProductionFinishedGoodsMovementWithinTransaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('bounds transient P2034 retry at three complete transaction attempts', async () => {
+      const { prisma, service, movements } = makeService();
+      const transient = new Prisma.PrismaClientKnownRequestError('write conflict', { code: 'P2034', clientVersion: '7.8.0' });
+      prisma.$transaction.mockRejectedValue(transient);
+
+      await expect(service.post('rct1', 'u1', ctxA)).rejects.toMatchObject({ code: 'P2034' });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(3);
+      expect(movements.postProductionFinishedGoodsMovementWithinTransaction).not.toHaveBeenCalled();
+    });
+
     it('posts through the shared movement transaction and marks the receipt POSTED', async () => {
       const { prisma, service, movements } = makeService();
       prisma.productionFinishedGoodsReceipt.findFirst.mockResolvedValue(receipt());
@@ -249,7 +296,7 @@ describe('ProductionFinishedGoodsReceiptsService', () => {
 
       const result = await service.post('rct1', 'u1', ctxA);
 
-      expect(movements.postMovementWithinTransaction).toHaveBeenCalledWith(prisma, 'mov1', 'u1', ctxA);
+      expect(movements.postProductionFinishedGoodsMovementWithinTransaction).toHaveBeenCalledWith(prisma, 'rct1', 'mov1', 'u1', ctxA);
       expect(prisma.productionFinishedGoodsReceipt.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: 'POSTED', postedById: 'u1' }) }),
       );
@@ -303,7 +350,7 @@ describe('ProductionFinishedGoodsReceiptsService', () => {
       const result = await service.post('rct1', 'u1', ctxA);
 
       expect(result.status).toBe('POSTED');
-      expect(movements.postMovementWithinTransaction).toHaveBeenCalledWith(prisma, 'mov1', 'u1', ctxA);
+      expect(movements.postProductionFinishedGoodsMovementWithinTransaction).toHaveBeenCalledWith(prisma, 'rct1', 'mov1', 'u1', ctxA);
     });
 
     it('skips the output eligibility check for reversal receipts', async () => {
@@ -315,7 +362,7 @@ describe('ProductionFinishedGoodsReceiptsService', () => {
 
       expect(result.status).toBe('POSTED');
       expect(prisma.productionOutputEvent.findMany).not.toHaveBeenCalled();
-      expect(movements.postMovementWithinTransaction).toHaveBeenCalledWith(prisma, 'mov1', 'u1', ctxA);
+      expect(movements.postProductionFinishedGoodsMovementWithinTransaction).toHaveBeenCalledWith(prisma, 'rct1', 'mov1', 'u1', ctxA);
     });
 
     it('rejects posting a non-DRAFT receipt', async () => {
@@ -357,6 +404,17 @@ describe('ProductionFinishedGoodsReceiptsService', () => {
         return Promise.resolve(null);
       });
       await expect(service.reverse('rct1', {}, 'u1', ctxA)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects reversing a reversal receipt', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionFinishedGoodsReceipt.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id) return Promise.resolve(receipt({ status: 'POSTED', sourceType: 'REVERSE' }));
+        return Promise.resolve(null);
+      });
+      await expect(service.reverse('rct1', {}, 'u1', ctxA)).rejects.toMatchObject({
+        response: { messageKey: 'productionFgReceipt.cannotReverseReversal' },
+      });
     });
   });
 
@@ -454,7 +512,7 @@ describe('ProductionFinishedGoodsReceiptsService', () => {
 
       const updateArg = prisma.productionFinishedGoodsReceipt.update.mock.calls[0][0];
       expect(updateArg.data).toMatchObject({ status: 'POSTED', postedById: 'u1' });
-      expect(movements.postMovementWithinTransaction).toHaveBeenCalled();
+      expect(movements.postProductionFinishedGoodsMovementWithinTransaction).toHaveBeenCalled();
     });
 
     it('cancellation continues to set the scalar cancelledById actor on the receipt', async () => {
