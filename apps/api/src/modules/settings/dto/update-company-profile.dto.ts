@@ -1,4 +1,5 @@
-import { IsString, IsOptional } from 'class-validator'
+import { Transform } from 'class-transformer'
+import { IsISO4217CurrencyCode, IsString, IsOptional } from 'class-validator'
 import { ApiPropertyOptional } from '@nestjs/swagger'
 
 export class UpdateCompanyProfileDto {
@@ -57,8 +58,13 @@ export class UpdateCompanyProfileDto {
   @IsString()
   timezone?: string
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Company-scoped operational ledger currency. Null clears it before the first operational cost posting.',
+    example: 'USD',
+    nullable: true,
+  })
   @IsOptional()
-  @IsString()
-  currencyCode?: string
+  @Transform(({ value }) => typeof value === 'string' ? value.trim().toUpperCase() : value)
+  @IsISO4217CurrencyCode({ message: 'settings.company.invalidOperationalCurrency' })
+  operationalCurrencyCode?: string | null
 }

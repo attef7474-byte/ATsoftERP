@@ -35,8 +35,12 @@ export default function CompanyProfilePage() {
     setSaving(true);
     try {
       const { id, defaultLanguage, timezone, currencyCode, ...payload } = form;
+      payload.operationalCurrencyCode = form.operationalCurrencyCode?.trim()
+        ? form.operationalCurrencyCode.trim().toUpperCase()
+        : null;
       const updated = await api.patch<any>('/settings/company-profile', payload);
       setProfile(updated);
+      setForm(updated);
       showToast(t('settings.company.saveSuccess'), 'success');
     } catch (err: any) {
       showToast(err?.message || t('errors.updateFailed'), 'error');
@@ -66,7 +70,11 @@ export default function CompanyProfilePage() {
     { key: 'country', label: t('settings.company.country') },
     { key: 'defaultLanguage', label: t('settings.company.defaultLanguage') },
     { key: 'timezone', label: t('settings.company.timezone') },
-    { key: 'currencyCode', label: t('settings.company.currencyCode') },
+    {
+      key: 'operationalCurrencyCode',
+      label: t('settings.company.operationalCurrencyCode'),
+      description: t('settings.company.operationalCurrencyDescription'),
+    },
   ];
 
   return (
@@ -75,7 +83,7 @@ export default function CompanyProfilePage() {
       <Card className="max-w-2xl">
         <div className="space-y-4 p-4">
           {fields.map((f) => (
-            <Input key={f.key} label={f.label} value={form[f.key] || ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+            <Input key={f.key} label={f.label} description={f.description} value={form[f.key] || ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
           ))}
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => router.back()}>{t('actions.cancel')}</Button>

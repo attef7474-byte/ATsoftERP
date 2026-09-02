@@ -4,6 +4,9 @@ import { CompanyProfileService } from './company-profile.service'
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../../common/guards/permissions.guard'
 import { Permissions } from '../../../common/decorators/permissions.decorator'
+import { CurrentUser } from '../../../common/decorators/current-user.decorator'
+import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator'
+import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types'
 import { UpdateCompanyProfileDto } from '../dto/update-company-profile.dto'
 
 @ApiTags('Settings')
@@ -14,16 +17,20 @@ export class CompanyProfileController {
   constructor(private readonly service: CompanyProfileService) {}
 
   @Get()
-  @Permissions('settings.company.view')
+  @Permissions('company:read')
   @ApiOperation({ summary: 'Get company profile' })
-  async getProfile() {
-    return this.service.getProfile()
+  async getProfile(@CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getProfile(ctx)
   }
 
   @Patch()
-  @Permissions('settings.company.manage')
+  @Permissions('company:update')
   @ApiOperation({ summary: 'Update company profile' })
-  async updateProfile(@Body() dto: UpdateCompanyProfileDto) {
-    return this.service.updateProfile(dto)
+  async updateProfile(
+    @Body() dto: UpdateCompanyProfileDto,
+    @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.service.updateProfile(dto, userId, ctx)
   }
 }

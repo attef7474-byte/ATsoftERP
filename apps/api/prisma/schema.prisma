@@ -202,19 +202,20 @@ model BusinessPartnerBankAccount {
 // ── Existing Models ────────────────────────────────────────────
 
 model Company {
-  id        String    @id @default(cuid())
-  code      String    @unique
-  name      String
-  legalName String?
-  taxNumber String?
-  phone     String?
-  email     String?
-  address   String?
-  logo      String?
-  status    String    @default("ACTIVE")
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id                      String    @id @default(cuid())
+  code                    String    @unique
+  name                    String
+  legalName               String?
+  taxNumber               String?
+  phone                   String?
+  email                   String?
+  address                 String?
+  logo                    String?
+  operationalCurrencyCode String?   @db.NVarChar(3)
+  status                  String    @default("ACTIVE")
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
 
   branches                         Branch[]
   departments                      Department[]
