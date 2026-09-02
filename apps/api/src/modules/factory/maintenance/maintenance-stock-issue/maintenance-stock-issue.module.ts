@@ -6,9 +6,10 @@ import { SparePartConditionModule } from '../spare-part-conditions/spare-part-co
 import { InstalledPartsReplacementModule } from '../installed-parts-replacement/installed-parts-replacement.module';
 import { InventoryValuationModule } from '../../inventory-valuation/inventory-valuation.module';
 import { InventoryValuationEngineService } from '../../inventory-valuation/inventory-valuation-engine.service';
+import { ProductionCostModule } from '../../production-cost/production-cost.module';
 
 @Module({
-  imports: [AuditModule, SparePartConditionModule, InstalledPartsReplacementModule, InventoryValuationModule],
+  imports: [AuditModule, SparePartConditionModule, InstalledPartsReplacementModule, InventoryValuationModule, ProductionCostModule],
   controllers: [MaintenanceStockIssueController],
   providers: [MaintenanceStockIssueService, InventoryValuationEngineService],
   exports: [MaintenanceStockIssueService],

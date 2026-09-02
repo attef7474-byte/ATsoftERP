@@ -126,6 +126,7 @@ describe('MaintenanceStockIssueService tenant isolation', () => {
       conditionService as unknown as SparePartConditionService,
       installedPartsService as unknown as InstalledPartsReplacementService,
       { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) } as any,
+      { postLedgerEntryWithinTransaction: jest.fn(), reverseLedgerEntry: jest.fn() } as any,
     );
   });
 

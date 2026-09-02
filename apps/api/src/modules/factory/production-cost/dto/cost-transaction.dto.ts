@@ -13,11 +13,14 @@ import {
   Min,
 } from 'class-validator';
 import {
+  COST_NATURE_VALUES,
   COST_TRANSACTION_SOURCE_TYPES,
   COST_TRANSACTION_STATUSES,
   COST_TYPES,
   COST_UNITS,
+  ENTRY_ROLE_VALUES,
 } from '../production-cost.constants';
+import { COST_PURPOSE_VALUES } from '../../../../common/cost-purpose/cost-purpose.constants';
 
 export class PostCostTransactionDto {
   @IsUUID()
@@ -28,7 +31,7 @@ export class PostCostTransactionDto {
   @IsNotEmpty()
   eventType!: string;
 
-  @IsIn(COST_TRANSACTION_SOURCE_TYPES)
+  @IsIn([...COST_TRANSACTION_SOURCE_TYPES])
   @IsNotEmpty()
   sourceType!: string;
 
@@ -36,6 +39,23 @@ export class PostCostTransactionDto {
   @IsNotEmpty()
   @MaxLength(200)
   sourceId!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  sourceLineId?: string;
+
+  @IsOptional()
+  @IsIn(COST_NATURE_VALUES)
+  costNature?: string;
+
+  @IsOptional()
+  @IsIn(COST_PURPOSE_VALUES)
+  costPurpose?: string;
+
+  @IsOptional()
+  @IsIn(ENTRY_ROLE_VALUES)
+  entryRole?: string;
 
   @IsOptional()
   @IsString()
@@ -187,4 +207,118 @@ export class CostTransactionQueryDto {
   @IsOptional()
   @IsString()
   costCenterId?: string;
+
+  @IsOptional()
+  @IsIn(COST_NATURE_VALUES)
+  costNature?: string;
+
+  @IsOptional()
+  @IsIn(COST_PURPOSE_VALUES)
+  costPurpose?: string;
+
+  @IsOptional()
+  @IsIn(ENTRY_ROLE_VALUES)
+  entryRole?: string;
+}
+
+/**
+ * Canonical Unified Cost Ledger (COST-R1B) query. Filters are tenant-scoped and
+ * composition of costNature/costPurpose/entryRole/sourceLineId/canonical dimension
+ * is enforced in the service.
+ */
+export class LedgerQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit?: number;
+
+  @IsOptional()
+  @IsIn(COST_NATURE_VALUES)
+  costNature?: string;
+
+  @IsOptional()
+  @IsIn(COST_PURPOSE_VALUES)
+  costPurpose?: string;
+
+  @IsOptional()
+  @IsIn(ENTRY_ROLE_VALUES)
+  entryRole?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
+
+  @IsOptional()
+  @IsString()
+  departmentId?: string;
+
+  @IsOptional()
+  @IsString()
+  maintenanceWorkOrderId?: string;
+
+  @IsOptional()
+  @IsString()
+  maintenanceRequestId?: string;
+
+  @IsOptional()
+  @IsString()
+  costCenterId?: string;
+
+  @IsOptional()
+  @IsString()
+  productionRunId?: string;
+
+  @IsOptional()
+  @IsString()
+  productionOrderId?: string;
+
+  @IsOptional()
+  @IsString()
+  machineId?: string;
+}
+
+/**
+ * Canonical ledger totals (COST-R1B). Grouped by costPurpose by default.
+ * Only canonical PRIMARY_COST entries contribute to net totals; REVERSAL entries
+ * subtract their negated amount, so the returned total is the true net position.
+ */
+export class LedgerTotalsQueryDto {
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
+
+  @IsOptional()
+  @IsIn(COST_PURPOSE_VALUES)
+  costPurpose?: string;
+
+  @IsOptional()
+  @IsString()
+  costCenterId?: string;
+
+  @IsOptional()
+  @IsString()
+  departmentId?: string;
+
+  @IsOptional()
+  @IsString()
+  maintenanceWorkOrderId?: string;
+
+  @IsOptional()
+  @IsString()
+  maintenanceRequestId?: string;
 }

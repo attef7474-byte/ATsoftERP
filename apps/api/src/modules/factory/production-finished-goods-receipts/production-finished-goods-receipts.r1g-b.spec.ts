@@ -187,7 +187,11 @@ function makeHarness(options: HarnessOptions = {}) {
   };
   const audit: any = { logWithClient: jest.fn() };
   const engine = new InventoryValuationEngineService({} as any);
-  const service = new InventoryMovementsService({} as any, audit, {} as any, engine);
+  const productionCost: any = {
+    postLedgerEntryWithinTransaction: jest.fn().mockResolvedValue({}),
+    reverseLedgerEntry: jest.fn().mockResolvedValue({}),
+  };
+  const service = new InventoryMovementsService({} as any, audit, {} as any, engine, productionCost);
   const post = () => service.postProductionFinishedGoodsMovementWithinTransaction(tx, 'receipt1', 'mov1', 'u1', ctx);
   const postGeneric = () => service.postMovementWithinTransaction(tx, 'mov1', 'u1', ctx);
   const transactionalPost = async () => {

@@ -84,6 +84,7 @@ describe('InventoryMovementsService', () => {
   let numbering: any;
   let audit: any;
   let valuationEngine: any;
+  let productionCost: any;
   let service: InventoryMovementsService;
   let txOptions: any;
 
@@ -116,6 +117,22 @@ describe('InventoryMovementsService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      inventoryValuationPolicy: {
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+      },
+      operationalCostTransaction: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      },
+      productionMaterialDocument: {
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+      },
+      productionMaterialDocumentLine: {
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+      },
       $transaction: jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>, options?: any) => {
         txOptions = options;
         return fn(prisma);
@@ -136,14 +153,20 @@ describe('InventoryMovementsService', () => {
       applyValuedReceipt: jest.fn().mockResolvedValue({}),
       applyTrueReturn: jest.fn().mockResolvedValue({}),
       acquireValuationLock: jest.fn().mockResolvedValue(undefined),
+      acquireValuationLocksSorted: jest.fn().mockResolvedValue(undefined),
       assertNotActiveForMutation: jest.fn().mockResolvedValue(undefined),
       coverageGatePasses: jest.fn().mockReturnValue({ pass: true, unprotected: [] }),
+    } as any;
+    productionCost = {
+      postLedgerEntryWithinTransaction: jest.fn().mockResolvedValue({}),
+      reverseLedgerEntry: jest.fn().mockResolvedValue({}),
     } as any;
     service = new InventoryMovementsService(
       prisma as PrismaService,
       audit as AuditService,
       numbering as NumberingService,
       valuationEngine,
+      productionCost,
     );
 
     // Convenience defaults; individual tests override for hostile scenarios.
@@ -156,6 +179,11 @@ describe('InventoryMovementsService', () => {
     prisma.inventoryMovementLine.findUnique.mockResolvedValue({ id: 'l1', movementId: 'm1' });
     prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', warehouseId: 'w1', productId: 'prd1', quantity: 10 });
     prisma.inventoryBalance.update.mockResolvedValue({ id: 'bal1', quantity: 15 });
+    prisma.operationalCostTransaction.findFirst.mockResolvedValue(null);
+    prisma.operationalCostTransaction.create.mockResolvedValue({ id: 'oc1' });
+    prisma.productionMaterialDocument.findFirst.mockResolvedValue(null);
+    prisma.productionMaterialDocumentLine.findFirst.mockResolvedValue(null);
+    prisma.productionMaterialDocumentLine.findMany.mockResolvedValue([]);
   });
 
   describe('create', () => {
@@ -1052,6 +1080,206 @@ describe('InventoryMovementsService', () => {
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
       expect(response.messageKey).toBe('inventory.movementOnlyDraftCanPost');
+    });
+  });
+
+  describe('COST-R1B production material cost projection', () => {
+    const materialOutLine = {
+      id: 'l1',
+      movementId: 'm1',
+      productId: 'prd1',
+      warehouseLocationId: null,
+      quantity: 5,
+      quantityBase: new Prisma.Decimal(5),
+      batchNumber: null,
+      serialNumber: null,
+      expiryDate: null,
+      unit: 'pcs',
+      direction: 'OUT',
+      totalCost: null,
+      unitCost: null,
+      currencyCode: null,
+      valuationMethod: null,
+    };
+
+    const baseDoc = {
+      id: 'doc1',
+      companyId: 'c1',
+      branchId: 'b1',
+      productionOrderId: 'po1',
+      issueWarehouseId: 'w1',
+      movementId: 'm1',
+      status: 'DRAFT',
+      documentNumber: 'MD-0001',
+      lines: [],
+    };
+
+    function setupIssueHarness() {
+      valuationEngine.findActivePolicyForWarehouse.mockResolvedValue({ id: 'pol1', currencyCode: 'USD', method: 'WEIGHTED_AVERAGE' });
+      prisma.inventoryMovement.findUnique.mockResolvedValue(
+        movement({ sourceType: 'PRODUCTION_MATERIAL_DOCUMENT', movementType: 'PRODUCTION_ISSUE', lines: [materialOutLine] }),
+      );
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue({
+        ...baseDoc,
+        documentType: 'ISSUE',
+        lines: [{ id: 'dl1', productId: 'prd1', warehouseLocationId: null, quantity: new Prisma.Decimal(5), batchNumber: null, serialNumber: null, expiryDate: null, originalIssueLineId: null }],
+      });
+      valuationEngine.aggregatePhysicalQuantity.mockResolvedValue(new Prisma.Decimal(100));
+      valuationEngine.applyValuedIssue.mockResolvedValue({
+        totalCost: new Prisma.Decimal(50),
+        currencyCode: 'USD',
+        unitCost: new Prisma.Decimal(10),
+      });
+      valuationEngine.applyTrueReturn.mockResolvedValue({
+        totalCost: new Prisma.Decimal(0),
+        currencyCode: 'USD',
+        unitCost: new Prisma.Decimal(10),
+      });
+    }
+
+    it('projects a canonical PRIMARY_COST entry for a production material ISSUE line', async () => {
+      setupIssueHarness();
+
+      await service.postProductionMaterialMovementWithinTransaction(prisma, 'doc1', 'm1', 'u1', ctx);
+
+      expect(productionCost.postLedgerEntryWithinTransaction).toHaveBeenCalledTimes(1);
+      const call = productionCost.postLedgerEntryWithinTransaction.mock.calls[0];
+      expect(call[0]).toBe(prisma);
+      expect(call[1]).toMatchObject({
+        eventType: 'MATERIAL',
+        sourceType: 'INVENTORY_MOVEMENT_LINE',
+        sourceId: 'l1',
+        sourceLineId: 'l1',
+        costNature: 'ACTUAL',
+        costPurpose: 'PRODUCTION',
+        entryRole: 'PRIMARY_COST',
+        quantity: new Prisma.Decimal(5),
+        unit: 'UNIT',
+        sourceNumberSnapshot: 'MD-0001',
+        createdById: 'u1',
+        ctx: { companyId: 'c1', branchId: 'b1' },
+      });
+      expect(call[1].amount.toString()).toBe('50');
+      expect(call[1].refs._currencyCodeFromInventory).toBe('USD');
+      expect(call[1].clientRequestId).toBe('m1-line:l1-material-issue');
+    });
+
+    it('does not project a ledger entry for the generic active flow (no production document)', async () => {
+      valuationEngine.findActivePolicyForWarehouse.mockResolvedValue({ id: 'pol1', currencyCode: 'USD', method: 'WEIGHTED_AVERAGE' });
+      prisma.inventoryMovement.findUnique.mockResolvedValue(movement({ lines: [materialOutLine] }));
+      valuationEngine.aggregatePhysicalQuantity.mockResolvedValue(new Prisma.Decimal(100));
+      valuationEngine.applyValuedIssue.mockResolvedValue({ totalCost: new Prisma.Decimal(50), currencyCode: 'USD' });
+
+      await service.postMovementWithinTransaction(prisma, 'm1', 'u1', ctx);
+
+      expect(valuationEngine.applyValuedIssue).toHaveBeenCalled();
+      expect(productionCost.postLedgerEntryWithinTransaction).not.toHaveBeenCalled();
+      expect(productionCost.reverseLedgerEntry).not.toHaveBeenCalled();
+    });
+
+    it('TRUE_RETURN without a linked PRIMARY_COST entry does not reverse and does not fail', async () => {
+      valuationEngine.findActivePolicyForWarehouse.mockResolvedValue({ id: 'pol1', currencyCode: 'USD', method: 'WEIGHTED_AVERAGE' });
+      const returnLine = { ...materialOutLine, direction: 'IN' };
+      prisma.inventoryMovement.findUnique.mockResolvedValue(
+        movement({ sourceType: 'PRODUCTION_MATERIAL_DOCUMENT', movementType: 'PRODUCTION_RETURN', lines: [returnLine] }),
+      );
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue({
+        ...baseDoc,
+        documentType: 'RETURN',
+        lines: [{ id: 'dl1', productId: 'prd1', warehouseLocationId: null, quantity: new Prisma.Decimal(5), batchNumber: null, serialNumber: null, expiryDate: null, originalIssueLineId: 'oil1' }],
+      });
+      prisma.productionMaterialDocumentLine.findFirst.mockResolvedValue({
+        id: 'oil1',
+        companyId: 'c1',
+        branchId: 'b1',
+        productId: 'prd1',
+        quantity: new Prisma.Decimal(10),
+        document: {
+          id: 'orig-doc',
+          productionOrderId: 'po1',
+          status: 'POSTED',
+          documentType: 'CONSUMPTION',
+          issueWarehouseId: 'w1',
+          movement: {
+            id: 'orig-mov',
+            status: 'POSTED',
+            lines: [{
+              id: 'oml1', productId: 'prd1', warehouseLocationId: null, direction: 'OUT',
+              quantity: 10, quantityBase: new Prisma.Decimal(10), batchNumber: null, serialNumber: null,
+              expiryDate: null, totalCost: new Prisma.Decimal(100), unitCost: new Prisma.Decimal(10),
+              currencyCode: 'USD', valuationMethod: 'WEIGHTED_AVERAGE',
+            }],
+          },
+        },
+      });
+      prisma.productionMaterialDocumentLine.findMany.mockResolvedValue([]);
+      valuationEngine.aggregatePhysicalQuantity.mockResolvedValue(new Prisma.Decimal(100));
+      valuationEngine.applyTrueReturn.mockResolvedValue({ totalCost: new Prisma.Decimal(50), currencyCode: 'USD' });
+      prisma.operationalCostTransaction.findFirst.mockResolvedValue(null);
+
+      await service.postProductionMaterialMovementWithinTransaction(prisma, 'doc1', 'm1', 'u1', ctx);
+
+      expect(valuationEngine.applyTrueReturn).toHaveBeenCalled();
+      expect(prisma.operationalCostTransaction.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ sourceLineId: 'oml1', entryRole: 'PRIMARY_COST' }),
+        }),
+      );
+      expect(productionCost.reverseLedgerEntry).not.toHaveBeenCalled();
+    });
+
+    it('TRUE_RETURN with a linked PRIMARY_COST entry reverses it', async () => {
+      valuationEngine.findActivePolicyForWarehouse.mockResolvedValue({ id: 'pol1', currencyCode: 'USD', method: 'WEIGHTED_AVERAGE' });
+      const returnLine = { ...materialOutLine, direction: 'IN' };
+      prisma.inventoryMovement.findUnique.mockResolvedValue(
+        movement({ sourceType: 'PRODUCTION_MATERIAL_DOCUMENT', movementType: 'PRODUCTION_RETURN', lines: [returnLine] }),
+      );
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue({
+        ...baseDoc,
+        documentType: 'RETURN',
+        lines: [{ id: 'dl1', productId: 'prd1', warehouseLocationId: null, quantity: new Prisma.Decimal(5), batchNumber: null, serialNumber: null, expiryDate: null, originalIssueLineId: 'oil1' }],
+      });
+      prisma.productionMaterialDocumentLine.findFirst.mockResolvedValue({
+        id: 'oil1',
+        companyId: 'c1',
+        branchId: 'b1',
+        productId: 'prd1',
+        quantity: new Prisma.Decimal(10),
+        document: {
+          id: 'orig-doc',
+          productionOrderId: 'po1',
+          status: 'POSTED',
+          documentType: 'CONSUMPTION',
+          issueWarehouseId: 'w1',
+          movement: {
+            id: 'orig-mov',
+            status: 'POSTED',
+            lines: [{
+              id: 'oml1', productId: 'prd1', warehouseLocationId: null, direction: 'OUT',
+              quantity: 10, quantityBase: new Prisma.Decimal(10), batchNumber: null, serialNumber: null,
+              expiryDate: null, totalCost: new Prisma.Decimal(100), unitCost: new Prisma.Decimal(10),
+              currencyCode: 'USD', valuationMethod: 'WEIGHTED_AVERAGE',
+            }],
+          },
+        },
+      });
+      prisma.productionMaterialDocumentLine.findMany.mockResolvedValue([]);
+      valuationEngine.aggregatePhysicalQuantity.mockResolvedValue(new Prisma.Decimal(100));
+      valuationEngine.applyTrueReturn.mockResolvedValue({ totalCost: new Prisma.Decimal(50), currencyCode: 'USD' });
+      const originalEntry = { id: 'oc-orig', eventType: 'MATERIAL', sourceType: 'INVENTORY_MOVEMENT_LINE', sourceLineId: 'oml1', entryRole: 'PRIMARY_COST', amount: new Prisma.Decimal(100), quantity: new Prisma.Decimal(10), unit: 'UNIT', currencyCode: 'USD' };
+      prisma.operationalCostTransaction.findFirst.mockResolvedValue(originalEntry);
+
+      await service.postProductionMaterialMovementWithinTransaction(prisma, 'doc1', 'm1', 'u1', ctx);
+
+      expect(productionCost.reverseLedgerEntry).toHaveBeenCalledTimes(1);
+      const call = productionCost.reverseLedgerEntry.mock.calls[0];
+      expect(call[0]).toBe(prisma);
+      expect(call[1]).toBe(originalEntry);
+      expect(call[2]).toMatchObject({
+        reason: 'PRODUCTION_MATERIAL_RETURN',
+        createdById: 'u1',
+        ctx: { companyId: 'c1', branchId: 'b1' },
+      });
     });
   });
 });

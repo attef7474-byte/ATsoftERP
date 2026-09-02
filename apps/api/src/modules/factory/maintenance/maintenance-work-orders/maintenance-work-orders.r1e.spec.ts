@@ -239,13 +239,18 @@ function buildService(db: MockDb) {
     generateNumberAtomicWithClient: jest.fn().mockResolvedValue('IM-0001'),
   } as unknown as NumberingService;
   const engine = new InventoryValuationEngineService({} as unknown as PrismaService);
+  const productionCost = {
+    postLedgerEntryWithinTransaction: jest.fn().mockResolvedValue({ transaction: {}, updatedOriginal: null, replay: false }),
+    reverseLedgerEntry: jest.fn(),
+  } as any;
   const service = new MaintenanceWorkOrdersService(
     db as unknown as PrismaService,
     audit,
     numbering,
     engine,
+    productionCost,
   );
-  return { service, audit, numbering };
+  return { service, audit, numbering, productionCost };
 }
 
 describe('VAL-R1E MaintenanceWorkOrdersService — valuation-aware work-order part issue', () => {
@@ -381,6 +386,37 @@ describe('VAL-R1E MaintenanceWorkOrdersService — valuation-aware work-order pa
       const { service } = buildService(db);
       await service.issueParts('wo1', {}, user, ctx);
       expect(db.physicalUpdates).toHaveLength(1);
+    });
+  });
+
+  describe('COST-R1B unified ledger projection for valued maintenance issue', () => {
+    it('projects a canonical PRIMARY_COST entry with the exact valued totalCost on an ACTIVE issue', async () => {
+      const db = makeDb();
+      const { service, productionCost } = buildService(db);
+
+      await service.issueParts('wo1', {}, user, ctx);
+
+      expect(productionCost.postLedgerEntryWithinTransaction).toHaveBeenCalledTimes(1);
+      const opts = productionCost.postLedgerEntryWithinTransaction.mock.calls[0][1];
+      expect(opts.eventType).toBe('MATERIAL');
+      expect(opts.sourceType).toBe('INVENTORY_MOVEMENT_LINE');
+      expect(opts.sourceId).toBe('line1');
+      expect(opts.sourceLineId).toBe('line1');
+      expect(opts.costNature).toBe('ACTUAL');
+      expect(opts.costPurpose).toBe('MAINTENANCE');
+      expect(opts.entryRole).toBe('PRIMARY_COST');
+      expect(opts.amount.toString()).toBe('200');
+      expect(opts.refs._currencyCodeFromInventory).toBe('USD');
+      expect(opts.clientRequestId).toBe('im1-line:line1-maintenance-issue');
+    });
+
+    it('skips the ledger projection entirely for the legacy/unvalued no-policy flow', async () => {
+      const db = makeDb({ policy: null });
+      const { service, productionCost } = buildService(db);
+
+      await service.issueParts('wo1', {}, user, ctx);
+
+      expect(productionCost.postLedgerEntryWithinTransaction).not.toHaveBeenCalled();
     });
   });
 });

@@ -9,8 +9,10 @@ import { InstalledPartsReplacementService } from '../installed-parts-replacement
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 import { assertWarehouseInContext, assertMachineInContext as assertMachineTenantInContext } from '../../../../common/operational-context/tenant-guards';
 import { MAINTENANCE_COST_PURPOSE, isCostPurpose, type CostPurpose } from '../../../../common/cost-purpose/cost-purpose.constants';
+import { MATERIAL_EVENT_TYPE, canonicalLedgerUnit } from '../../production-cost/production-cost.constants';
 import { assertCostPurposeOverrideAllowed } from '../../../../common/cost-purpose/cost-purpose-permission';
 import { InventoryValuationEngineService } from '../../inventory-valuation/inventory-valuation-engine.service';
+import { ProductionCostService } from '../../production-cost/production-cost.service';
 
 const VALID_STOCK_CONDITIONS = ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'];
 const VALID_REPLACEMENT_ACTIONS = ['RETURNED_REMOVED_PART', 'NO_REMOVED_PART', 'NEW_INSTALLATION'];
@@ -25,7 +27,59 @@ export class MaintenanceStockIssueService {
     private conditionService: SparePartConditionService,
     private installedPartsService: InstalledPartsReplacementService,
     private valuationEngine: InventoryValuationEngineService,
+    private productionCost: ProductionCostService,
   ) {}
+
+  /**
+   * COST-R1B: canonical PRIMARY_COST ledger projection for a valued maintenance
+   * material OUT issue. Only called when the issue carried explicit valuation
+   * evidence (an ACTIVE policy produced a valued movement line with totalCost and
+   * currencyCode). Legacy/unvalued issues (no line id, no totalCost, no currency)
+   * are intentionally skipped without throwing. Runs on the SAME tx so a ledger
+   * failure rolls back the whole issue.
+   */
+  private async postMaintenanceMaterialLedgerEntry(
+    tx: any,
+    opts: {
+      movementId: string;
+      lineId: string;
+      totalCost: Prisma.Decimal;
+      currencyCode: string;
+      quantity: Prisma.Decimal;
+      unit: string;
+      sourceNumber: string;
+      movementDate: Date;
+      createdById: string;
+      ctx: ActiveOperationalContext;
+    },
+  ) {
+    if (!opts.lineId || !opts.totalCost || !opts.currencyCode) {
+      return;
+    }
+    await this.productionCost.postLedgerEntryWithinTransaction(tx, {
+      eventType: MATERIAL_EVENT_TYPE,
+      sourceType: 'INVENTORY_MOVEMENT_LINE',
+      sourceId: opts.lineId,
+      sourceLineId: opts.lineId,
+      costNature: 'ACTUAL',
+      costPurpose: MAINTENANCE_COST_PURPOSE,
+      entryRole: 'PRIMARY_COST',
+      amount: opts.totalCost,
+      quantity: opts.quantity,
+      unit: canonicalLedgerUnit(opts.unit),
+      currencyCode: null,
+      occurredAt: opts.movementDate,
+      clientRequestId: `${opts.movementId}-line:${opts.lineId}-maintenance-issue`,
+      requestPayloadFingerprint: `${opts.movementId}-line:${opts.lineId}-maintenance-issue`,
+      sourceNumberSnapshot: opts.sourceNumber,
+      refs: {
+        _currencyCodeFromInventory: opts.currencyCode,
+        _sourceKind: 'MAINTENANCE_MATERIAL',
+      },
+      createdById: opts.createdById,
+      ctx: opts.ctx,
+    });
+  }
 
   private async findPartLineOrFail(lineId: string, requestId: string, ctx: ActiveOperationalContext) {
     const part = await this.prisma.maintenanceRequestRequiredPart.findUnique({
@@ -283,15 +337,33 @@ export class MaintenanceStockIssueService {
           );
         }
         const qold = await this.valuationEngine.aggregatePhysicalQuantity(tx, dto.warehouseId, productId);
-        await this.valuationEngine.applyValuedIssue(tx, {
+        const issuedLine = movement.lines[0];
+        const valuedIssue = await this.valuationEngine.applyValuedIssue(tx, {
           companyId,
           warehouseId: dto.warehouseId,
           productId,
           qold,
-          lineId: movement.lines[0].id,
+          lineId: issuedLine.id,
           movementId: movement.id,
           currencyCode: activePolicy.currencyCode,
           quantity: new Prisma.Decimal(dto.issuedQuantity),
+        });
+        // COST-R1B: project the valued maintenance material OUT issue into the
+        // unified cost ledger as a canonical PRIMARY_COST entry. Guarded to
+        // valued issues only (the legacy/unvalued path has no monetary evidence
+        // and is skipped). Runs on the SAME tx so a ledger failure rolls back the
+        // whole issue.
+        await this.postMaintenanceMaterialLedgerEntry(tx, {
+          movementId: movement.id,
+          lineId: issuedLine.id,
+          totalCost: valuedIssue.totalCost,
+          currencyCode: valuedIssue.currencyCode,
+          quantity: new Prisma.Decimal(dto.issuedQuantity),
+          unit: (issuedLine as any).unit ?? 'pcs',
+          sourceNumber: movementNumber,
+          movementDate: movement.movementDate,
+          createdById: userId,
+          ctx,
         });
       } else if (newQuantity < 0) {
         const product = await tx.product.findUnique({ where: { id: productId } });

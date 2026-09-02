@@ -88,8 +88,12 @@ export class CompanyProfileService {
 
     await this.prisma.$transaction(async (tx) => {
       if (currencyChanged) {
+        // COST-R1B: currency freeze is driven by canonical history — at least one
+        // canonical PRIMARY_COST ledger entry (entryRole='PRIMARY_COST'). Purely manual
+        // economic snapshot/reversal-only rows do not freeze the currency. The canonical
+        // posting service sets entryRole on every ledger entry.
         const existingCostRows = await tx.operationalCostTransaction.count({
-          where: { companyId: ctx.companyId },
+          where: { companyId: ctx.companyId, entryRole: 'PRIMARY_COST' },
         })
         if (existingCostRows > 0) {
           throw new ConflictException({

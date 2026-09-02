@@ -94,7 +94,15 @@ describe('COST-R1A-C CompanyProfileService', () => {
   it('allows currency change before the first operational cost row', async () => {
     prisma.company.findFirst.mockResolvedValue(company('company-a', 'USD'))
     await service.updateProfile({ operationalCurrencyCode: 'EUR' }, 'user-a', ctxA)
-    expect(prisma.operationalCostTransaction.count).toHaveBeenCalledWith({ where: { companyId: 'company-a' } })
+    expect(prisma.operationalCostTransaction.count).toHaveBeenCalledWith({ where: { companyId: 'company-a', entryRole: 'PRIMARY_COST' } })
+    expect(prisma.company.update).toHaveBeenCalledWith(expect.objectContaining({ data: { operationalCurrencyCode: 'EUR' } }))
+  })
+
+  it('COST-R1B: freeze count filters to canonical PRIMARY_COST history (reversal-only rows do not freeze)', async () => {
+    prisma.company.findFirst.mockResolvedValue(company('company-a', 'USD'))
+    prisma.operationalCostTransaction.count.mockResolvedValue(0)
+    await service.updateProfile({ operationalCurrencyCode: 'EUR' }, 'user-a', ctxA)
+    expect(prisma.operationalCostTransaction.count).toHaveBeenCalledWith({ where: { companyId: 'company-a', entryRole: 'PRIMARY_COST' } })
     expect(prisma.company.update).toHaveBeenCalledWith(expect.objectContaining({ data: { operationalCurrencyCode: 'EUR' } }))
   })
 

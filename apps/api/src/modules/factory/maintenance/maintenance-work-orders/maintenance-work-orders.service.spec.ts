@@ -132,6 +132,7 @@ describe('MaintenanceWorkOrdersService', () => {
       audit as AuditService,
       numbering as NumberingService,
       { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) } as any,
+      { postLedgerEntryWithinTransaction: jest.fn(), reverseLedgerEntry: jest.fn() } as any,
     );
   });
 

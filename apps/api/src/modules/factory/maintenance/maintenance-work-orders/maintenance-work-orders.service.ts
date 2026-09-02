@@ -11,6 +11,9 @@ import { WorkOrderStatusActionDto } from './dto/work-order-status-action.dto';
 import { CurrentUserType } from '../../../../modules/auth/types/current-user.type';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 import { InventoryValuationEngineService } from '../../inventory-valuation/inventory-valuation-engine.service';
+import { ProductionCostService } from '../../production-cost/production-cost.service';
+import { MAINTENANCE_COST_PURPOSE } from '../../../../common/cost-purpose/cost-purpose.constants';
+import { MATERIAL_EVENT_TYPE, canonicalLedgerUnit } from '../../production-cost/production-cost.constants';
 
 const FORBIDDEN_WAREHOUSE_TYPES = ['PRODUCT', 'RAW_MATERIAL'];
 
@@ -21,7 +24,58 @@ export class MaintenanceWorkOrdersService {
     private audit: AuditService,
     private numberingService: NumberingService,
     private valuationEngine: InventoryValuationEngineService,
+    private productionCost: ProductionCostService,
   ) {}
+
+  /**
+   * COST-R1B: canonical PRIMARY_COST ledger projection for a valued maintenance
+   * material OUT issue. Only called when the issue carried explicit valuation
+   * evidence (an ACTIVE policy produced a valued movement line with totalCost and
+   * currencyCode). Legacy/unvalued issues (no line id, no totalCost, no currency)
+   * are intentionally skipped without throwing.
+   */
+  private async postMaintenanceMaterialLedgerEntry(
+    tx: any,
+    opts: {
+      movementId: string;
+      lineId: string;
+      totalCost: Prisma.Decimal;
+      currencyCode: string;
+      quantity: Prisma.Decimal;
+      unit: string;
+      workOrderNumber: string;
+      movementDate: Date;
+      createdById: string;
+      ctx: ActiveOperationalContext;
+    },
+  ) {
+    if (!opts.lineId || !opts.totalCost || !opts.currencyCode) {
+      return;
+    }
+    await this.productionCost.postLedgerEntryWithinTransaction(tx, {
+      eventType: MATERIAL_EVENT_TYPE,
+      sourceType: 'INVENTORY_MOVEMENT_LINE',
+      sourceId: opts.lineId,
+      sourceLineId: opts.lineId,
+      costNature: 'ACTUAL',
+      costPurpose: MAINTENANCE_COST_PURPOSE,
+      entryRole: 'PRIMARY_COST',
+      amount: opts.totalCost,
+      quantity: opts.quantity,
+      unit: canonicalLedgerUnit(opts.unit),
+      currencyCode: null,
+      occurredAt: opts.movementDate,
+      clientRequestId: `${opts.movementId}-line:${opts.lineId}-maintenance-issue`,
+      requestPayloadFingerprint: `${opts.movementId}-line:${opts.lineId}-maintenance-issue`,
+      sourceNumberSnapshot: opts.workOrderNumber,
+      refs: {
+        _currencyCodeFromInventory: opts.currencyCode,
+        _sourceKind: 'MAINTENANCE_MATERIAL',
+      },
+      createdById: opts.createdById,
+      ctx: opts.ctx,
+    });
+  }
 
   private validationError(field: string, code: string, message: string): BadRequestException {
     return new BadRequestException({
@@ -609,16 +663,35 @@ export class MaintenanceWorkOrdersService {
         });
 
         if (activePolicy) {
+          const line = movement.lines[0];
           const qold = await this.valuationEngine.aggregatePhysicalQuantity(tx, warehouseId, productId);
-          await this.valuationEngine.applyValuedIssue(tx, {
+          const valuedIssue = await this.valuationEngine.applyValuedIssue(tx, {
             companyId: ctx.companyId,
             warehouseId,
             productId,
             qold,
-            lineId: movement.lines[0].id,
+            lineId: line.id,
             movementId: movement.id,
             currencyCode: activePolicy.currencyCode,
             quantity: new Prisma.Decimal(issueQty),
+          });
+          // COST-R1B: project the valued maintenance material OUT issue into the
+          // unified cost ledger as a canonical PRIMARY_COST entry. The valuation
+          // engine has written totalCost/currencyCode to the movement line; the
+          // result is the exact authoritative amount. Guarded to valued issues
+          // only (legacy/unvalued path has no monetary evidence and is skipped).
+          // Runs on the SAME tx so a ledger failure rolls back the whole issue.
+          await this.postMaintenanceMaterialLedgerEntry(tx, {
+            movementId: movement.id,
+            lineId: line.id,
+            totalCost: valuedIssue.totalCost,
+            currencyCode: valuedIssue.currencyCode,
+            quantity: new Prisma.Decimal(issueQty),
+            unit: (line as any).unit ?? 'pcs',
+            workOrderNumber: wo.workOrderNumber,
+            movementDate: movement.movementDate,
+            createdById: user.id,
+            ctx,
           });
         }
 

@@ -13,13 +13,22 @@ import {
   INVENTORY_VALUATION_BLOCKED_ACTIVE_SOURCE_TYPES,
   INVENTORY_VALUATION_VALUED_RECEIPT_MOVEMENT_TYPES,
 } from '../inventory-valuation/inventory-valuation.constants';
+import { ProductionCostService } from '../production-cost/production-cost.service';
+import { ENTRY_ROLE_PRIMARY_COST, MATERIAL_EVENT_TYPE, canonicalLedgerUnit } from '../production-cost/production-cost.constants';
+import { PRODUCTION_COST_PURPOSE } from '../../../common/cost-purpose/cost-purpose.constants';
 
 const MOVEMENT_REVERSAL_SOURCE_TYPE = 'INVENTORY_MOVEMENT_REVERSAL';
 const MOVEMENT_REVERSAL_TOKEN_PREFIX = 'REVERSAL:';
 
 type ProductionMaterialValuationPlanEntry =
-  | { kind: 'ISSUE' }
-  | { kind: 'TRUE_RETURN'; originalUnitCost: Prisma.Decimal; originalEventValue: Prisma.Decimal };
+  | { kind: 'ISSUE'; sourceNumberSnapshot?: string }
+  | {
+      kind: 'TRUE_RETURN';
+      originalUnitCost: Prisma.Decimal;
+      originalEventValue: Prisma.Decimal;
+      sourceNumberSnapshot?: string;
+      originalMovementLineId: string;
+    };
 
 type ProductionFinishedGoodsValuationPlanEntry =
   | { kind: 'FG_RECEIPT'; unitCost: Prisma.Decimal; eventValue: Prisma.Decimal }
@@ -32,6 +41,7 @@ export class InventoryMovementsService {
     private audit: AuditService,
     private numberingService: NumberingService,
     private valuationEngine: InventoryValuationEngineService,
+    private productionCostService: ProductionCostService,
   ) {}
 
   private validationError(field: string, code: string, message: string): BadRequestException {
@@ -647,8 +657,32 @@ export class InventoryMovementsService {
             originalEventValue: productionEntry.originalEventValue,
             currencyCode: activePolicy.currencyCode,
           });
+          if (productionValuationPlan && productionEntry) {
+            // COST-R1B: a production material TRUE_RETURN negates the originally
+            // posted PRIMARY_COST ledger amount. Only reverse when a canonical
+            // PRIMARY_COST entry is actually linked to the original issue line;
+            // otherwise (e.g. the original issue predates this projection) the
+            // return still posts without a ledger reversal.
+            const originalLedgerEntry = await tx.operationalCostTransaction.findFirst({
+              where: {
+                companyId: ctx.companyId,
+                branchId: ctx.branchId,
+                sourceLineId: productionEntry.originalMovementLineId,
+                entryRole: ENTRY_ROLE_PRIMARY_COST,
+              },
+            });
+            if (originalLedgerEntry) {
+              await this.productionCostService.reverseLedgerEntry(tx, originalLedgerEntry, {
+                reason: 'PRODUCTION_MATERIAL_RETURN',
+                notes: `Production material return for movement line ${line.id}`,
+                clientRequestId: `${movement.id}-line:${line.id}-material-return`,
+                createdById: userId,
+                ctx,
+              });
+            }
+          }
         } else if (line.direction === 'OUT') {
-          await this.valuationEngine.applyValuedIssue(tx, {
+          const issueResult = await this.valuationEngine.applyValuedIssue(tx, {
             companyId: ctx.companyId,
             warehouseId: movement.warehouseId,
             productId: line.productId,
@@ -658,6 +692,35 @@ export class InventoryMovementsService {
             movementId: movement.id,
             currencyCode: activePolicy.currencyCode,
           });
+          if (productionValuationPlan && productionEntry?.kind === 'ISSUE') {
+            // COST-R1B: project the atomic material issue into the unified cost
+            // ledger as a canonical PRIMARY_COST entry. Guarded to the production
+            // material flow only (generic active flow and FG receipt are not
+            // ledger events). Runs on the SAME tx so a ledger failure rolls back
+            // the whole inventory movement, preserving inventory/costing atomicity.
+            await this.productionCostService.postLedgerEntryWithinTransaction(tx, {
+              eventType: MATERIAL_EVENT_TYPE,
+              sourceType: 'INVENTORY_MOVEMENT_LINE',
+              sourceId: line.id,
+              sourceLineId: line.id,
+              costNature: 'ACTUAL',
+              costPurpose: PRODUCTION_COST_PURPOSE,
+              entryRole: ENTRY_ROLE_PRIMARY_COST,
+              amount: issueResult.totalCost,
+              quantity: new Prisma.Decimal(line.quantityBase ?? line.quantity),
+              unit: canonicalLedgerUnit(line.unit),
+              occurredAt: movement.postedAt ?? new Date(),
+              clientRequestId: `${movement.id}-line:${line.id}-material-issue`,
+              requestPayloadFingerprint: `${movement.id}-line:${line.id}-material-issue`,
+              sourceNumberSnapshot: productionEntry.sourceNumberSnapshot ?? null,
+              refs: {
+                _currencyCodeFromInventory: issueResult.currencyCode,
+                _sourceKind: 'PRODUCTION_MATERIAL',
+              },
+              createdById: userId,
+              ctx,
+            });
+          }
         } else {
           // Inbound movement into an ACTIVE warehouse without a trusted receipt
           // cost is blocked (VALUATION_UNSUPPORTED_ACTIVE_FLOW).
@@ -745,7 +808,7 @@ export class InventoryMovementsService {
       const movementLine = unmatchedMovementLines.splice(movementIndex, 1)[0];
 
       if (doc.documentType !== 'RETURN') {
-        plan.set(movementLine.id, { kind: 'ISSUE' });
+        plan.set(movementLine.id, { kind: 'ISSUE', sourceNumberSnapshot: doc.documentNumber });
         continue;
       }
 
@@ -832,7 +895,13 @@ export class InventoryMovementsService {
         throw this.badRequest('inventoryValuation.productionReturnPriorEvidenceInvalid');
       }
 
-      plan.set(movementLine.id, { kind: 'TRUE_RETURN', originalUnitCost, originalEventValue });
+      plan.set(movementLine.id, {
+        kind: 'TRUE_RETURN',
+        originalUnitCost,
+        originalEventValue,
+        sourceNumberSnapshot: doc.documentNumber,
+        originalMovementLineId: originalMovementLine.id,
+      });
     }
 
     if (unmatchedMovementLines.length !== 0 || plan.size !== movement.lines.length) {

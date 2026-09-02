@@ -261,6 +261,10 @@ function buildService(db: MockDb) {
     recordReplacementInTx: jest.fn().mockResolvedValue({ id: 'rep1' }),
   } as unknown as InstalledPartsReplacementService;
   const engine = new InventoryValuationEngineService({} as unknown as PrismaService);
+  const productionCost = {
+    postLedgerEntryWithinTransaction: jest.fn().mockResolvedValue({ transaction: {}, updatedOriginal: null, replay: false }),
+    reverseLedgerEntry: jest.fn(),
+  } as any;
   const service = new MaintenanceStockIssueService(
     db as unknown as PrismaService,
     audit,
@@ -268,8 +272,9 @@ function buildService(db: MockDb) {
     conditionService,
     installedPartsService,
     engine,
+    productionCost,
   );
-  return { service, audit, numbering, installedPartsService };
+  return { service, audit, numbering, installedPartsService, productionCost };
 }
 
 const baseIssueDto = {
@@ -448,6 +453,48 @@ describe('VAL-R1E MaintenanceStockIssueService — valuation-aware maintenance i
       const { service } = buildService(db);
       await service.issue('req1', 'line1', baseIssueDto as any, 'u1', ctx);
       expect(db.physicalUpdates).toHaveLength(1);
+    });
+  });
+
+  describe('COST-R1B unified ledger projection for valued maintenance issue', () => {
+    it('projects a canonical PRIMARY_COST entry with the exact valued totalCost on an ACTIVE issue', async () => {
+      const db = makeDb();
+      const { service, productionCost } = buildService(db);
+
+      await service.issue('req1', 'line1', baseIssueDto as any, 'u1', ctx);
+
+      expect(productionCost.postLedgerEntryWithinTransaction).toHaveBeenCalledTimes(1);
+      const opts = productionCost.postLedgerEntryWithinTransaction.mock.calls[0][1];
+      expect(opts.eventType).toBe('MATERIAL');
+      expect(opts.sourceType).toBe('INVENTORY_MOVEMENT_LINE');
+      expect(opts.sourceId).toBe('line1');
+      expect(opts.sourceLineId).toBe('line1');
+      expect(opts.costNature).toBe('ACTUAL');
+      expect(opts.costPurpose).toBe('MAINTENANCE');
+      expect(opts.entryRole).toBe('PRIMARY_COST');
+      expect(opts.amount.toString()).toBe('200');
+      expect(opts.refs._currencyCodeFromInventory).toBe('USD');
+      expect(opts.clientRequestId).toBe('im1-line:line1-maintenance-issue');
+      expect(opts.sourceNumberSnapshot).toBe('IM-0001');
+    });
+
+    it('skips the ledger projection entirely for the legacy/unvalued no-policy flow', async () => {
+      const db = makeDb({ policy: null });
+      const { service, productionCost } = buildService(db);
+
+      await service.issue('req1', 'line1', baseIssueDto as any, 'u1', ctx);
+
+      expect(productionCost.postLedgerEntryWithinTransaction).not.toHaveBeenCalled();
+    });
+
+    it('never writes a maintenance return reversal (- returnStock has no valued ledger evidence)', async () => {
+      const db = makeDb({ partLine: partLine({ issuedQuantity: 50, returnedQuantity: 0 }) });
+      const { service, productionCost } = buildService(db);
+
+      await service.returnStock('req1', 'line1', { returnQuantity: 10 } as any, 'u1', ctx).catch(() => undefined);
+
+      expect(productionCost.reverseLedgerEntry).not.toHaveBeenCalled();
+      expect(productionCost.postLedgerEntryWithinTransaction).not.toHaveBeenCalled();
     });
   });
 

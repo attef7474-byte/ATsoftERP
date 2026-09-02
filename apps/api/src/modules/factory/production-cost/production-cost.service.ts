@@ -15,6 +15,9 @@ import {
   OPERATIONAL_COST_SNAPSHOT_INCLUDE,
   OPERATIONAL_COST_TRANSACTION_AUDIT_ENTITY,
   OPERATIONAL_COST_TRANSACTION_INCLUDE,
+  ENTRY_ROLE_PRIMARY_COST,
+  ENTRY_ROLE_REVERSAL,
+  isCanonicalSourceType,
 } from './production-cost.constants';
 import { CostRateQueryDto, CreateCostRateDto, UpdateCostRateDto } from './dto/cost-rate.dto';
 import {
@@ -24,7 +27,13 @@ import {
   SupersedeCostSnapshotDto,
   UpdateCostSnapshotDto,
 } from './dto/cost-snapshot.dto';
-import { CostTransactionQueryDto, PostCostTransactionDto, ReverseCostTransactionDto } from './dto/cost-transaction.dto';
+import {
+  CostTransactionQueryDto,
+  LedgerQueryDto,
+  LedgerTotalsQueryDto,
+  PostCostTransactionDto,
+  ReverseCostTransactionDto,
+} from './dto/cost-transaction.dto';
 import {
   AttachTransactionToCalculationDto,
   CostCalculationQueryDto,
@@ -429,7 +438,7 @@ export class ProductionCostService {
     machine: { id: string; productionLineId: string | null },
     costCenterId: string,
     occurredAt: Date,
-  ): Promise<{ rate: Prisma.Decimal; rateId: string | null; rateCode: string | null; tier: string; unit: string }> {
+  ): Promise<{ rate: Prisma.Decimal; rateId: string | null; rateCode: string | null; tier: string; unit: string; currencyCode: string | null }> {
     const whereCommon: any = {
       companyId: ctx.companyId,
       branchId: ctx.branchId,
@@ -459,7 +468,7 @@ export class ProductionCostService {
     });
     const machineRate = pick(machineRates);
     if (machineRate) {
-      return { rate: machineRate.rate, rateId: machineRate.id, rateCode: machineRate.code, tier: 'MACHINE', unit: machineRate.unit };
+      return { rate: machineRate.rate, rateId: machineRate.id, rateCode: machineRate.code, tier: 'MACHINE', unit: machineRate.unit, currencyCode: machineRate.currencyCode ?? null };
     }
 
     if (machine.productionLineId) {
@@ -469,7 +478,7 @@ export class ProductionCostService {
       });
       const lineRate = pick(lineRates);
       if (lineRate) {
-        return { rate: lineRate.rate, rateId: lineRate.id, rateCode: lineRate.code, tier: 'LINE', unit: lineRate.unit };
+        return { rate: lineRate.rate, rateId: lineRate.id, rateCode: lineRate.code, tier: 'LINE', unit: lineRate.unit, currencyCode: lineRate.currencyCode ?? null };
       }
     }
 
@@ -1164,6 +1173,10 @@ export class ProductionCostService {
               eventType: dto.eventType,
               sourceType: dto.sourceType,
               sourceId: dto.sourceId,
+              sourceLineId: dto.sourceLineId ?? null,
+              costNature: dto.costNature ?? 'MANUAL_ASSERTED_ACTUAL',
+              costPurpose: dto.costPurpose ?? 'OTHER',
+              entryRole: ENTRY_ROLE_PRIMARY_COST,
               sourceNumberSnapshot: dto.sourceNumberSnapshot ?? null,
               sourceFingerprint: fingerprint,
               requestPayloadFingerprint: this.payloadFingerprint(dto),
@@ -1237,7 +1250,7 @@ export class ProductionCostService {
     const valuation = this.assertDowntimeValuation(dto, log);
 
     const { costCenterId, costCenterCode } = await this.resolveDowntimeCostCenter(tx, dto, ctx, machine, occurredAt);
-    const { rate, rateId, rateCode, tier } = await this.resolveDowntimeRate(tx, dto, ctx, machine, costCenterId, occurredAt);
+    const { rate, rateId, rateCode, tier, currencyCode: rateCurrency } = await this.resolveDowntimeRate(tx, dto, ctx, machine, costCenterId, occurredAt);
 
     // rate is server-authoritative; a conflicting client rate is assertion-only.
     const clientRate = new Prisma.Decimal(dto.rate);
@@ -1246,6 +1259,17 @@ export class ProductionCostService {
     }
 
     const standardSnapshot = await this.resolveDowntimeStandardSnapshot(tx, dto, ctx, machine, costCenterId, occurredAt);
+
+    // COST-R1B currency authority (constraint 5): downtime currency MUST come from the
+    // proven server-side rate currency and MUST equal Company.operationalCurrencyCode.
+    // No fallback to USD/SAR/SystemSetting — a mismatch or an unset company currency BLOCKs.
+    const companyCurrency = await this.resolveOperationalCurrency(tx, ctx.companyId);
+    if (!companyCurrency) {
+      throw this.badRequest('productionCostTransaction.operationalCurrencyRequired');
+    }
+    if (!rateCurrency || rateCurrency !== companyCurrency) {
+      throw this.badRequest('productionCostTransaction.downtimeCurrencyMismatch');
+    }
 
     const productionOrderId = dto.productionOrderId ?? log.productionOrderId ?? null;
     const productionRunId = dto.productionRunId ?? log.productionRunId ?? null;
@@ -1284,6 +1308,10 @@ export class ProductionCostService {
         eventType: valuation.eventType,
         sourceType: 'DOWNTIME',
         sourceId: dto.sourceId,
+        sourceLineId: null,
+        costNature: 'RATE_DERIVED',
+        costPurpose: dto.costPurpose ?? 'OTHER',
+        entryRole: ENTRY_ROLE_PRIMARY_COST,
         sourceNumberSnapshot: null,
         sourceFingerprint: fingerprint,
         requestPayloadFingerprint: this.payloadFingerprint(dto),
@@ -1299,7 +1327,7 @@ export class ProductionCostService {
         unit: valuation.unit,
         rate,
         amount,
-        currencyCode: dto.currencyCode ?? 'USD',
+        currencyCode: companyCurrency,
         standardAmount,
         varianceAmount,
         occurredAt,
@@ -1419,6 +1447,10 @@ export class ProductionCostService {
               eventType: original.eventType,
               sourceType: 'REVERSAL',
               sourceId: original.id,
+              sourceLineId: original.sourceLineId ?? null,
+              costNature: original.costNature ?? null,
+              costPurpose: original.costPurpose ?? null,
+              entryRole: ENTRY_ROLE_REVERSAL,
               sourceNumberSnapshot: original.sourceNumberSnapshot,
               sourceFingerprint: null,
               requestPayloadFingerprint: this.reversePayloadFingerprint(id, dto.reason, dto.notes),
@@ -1493,6 +1525,451 @@ export class ProductionCostService {
       }
       throw e;
     }
+  }
+
+  // ── COST-R1B Canonical Unified Cost Ledger ─────────────────────────────────
+
+  /**
+   * Resolves the authoritative operational currency of a company. COST-R1B removes the
+   * legacy USD default: a POSTED canonical PRIMARY_COST entry requires a non-null company
+   * `operationalCurrencyCode` (the OPERATIONAL_CURRENCY_AUTHORITY). No fallback to USD,
+   * SAR or a SystemSetting. Returns null for a company with no operational currency.
+   */
+  private async resolveOperationalCurrency(tx: any, companyId: string): Promise<string | null> {
+    const company = await tx.company.findUnique({
+      where: { id: companyId },
+      select: { id: true, operationalCurrencyCode: true },
+    });
+    if (!company) throw this.notFound('company.notFound');
+    return company.operationalCurrencyCode ?? null;
+  }
+
+  /**
+   * Canonical ledger idempotency check. A replayed clientRequestId returns the existing
+   * row only when the stored canonical fingerprint matches the supplied one; otherwise a
+   * payload conflict is raised. This mirrors the legacy resolveIdempotentPost/resolve
+   * pattern but is the single code path for all canonical (COST-R1B) postings.
+   */
+  private async resolveCanonicalIdempotentPost(
+    tx: any,
+    companyId: string,
+    branchId: string,
+    clientRequestId: string,
+    incomingFingerprint: string,
+  ): Promise<any | null> {
+    if (!clientRequestId) return null;
+    const existing = await tx.operationalCostTransaction.findFirst({
+      where: { companyId, branchId, clientRequestId },
+    });
+    if (!existing) return null;
+    const stored = existing.requestPayloadFingerprint;
+    if (stored && stored !== incomingFingerprint) {
+      throw this.conflict('productionCostTransaction.requestPayloadConflict');
+    }
+    // Legacy row without a stored fingerprint cannot be safely proven identical -> replay conflict.
+    if (!stored) {
+      throw this.conflict('productionCostTransaction.requestPayloadConflict');
+    }
+    return existing;
+  }
+
+  /**
+   * Enforces that a canonical source type is one of the controlled set
+   * (INVENTORY_MOVEMENT_LINE | DOWNTIME_EVENT | MANUAL). The legacy REVERSAL convention
+   * is represented by entryRole=REVERSAL + reversalOfId and must never be submitted as a
+   * primary source type through the canonical writer.
+   */
+  private assertCanonicalSourceType(
+    sourceType: string,
+    entryRole: string,
+    opts: { allowLegacySourceTypes: boolean },
+  ) {
+    if (entryRole === ENTRY_ROLE_REVERSAL) {
+      // Reversals carry the original's source identity; sourceType here is descriptive.
+      return;
+    }
+    if (isCanonicalSourceType(sourceType)) return;
+    if (opts.allowLegacySourceTypes) {
+      // Hardened legacy generic post: source is a real, tenant-scoped operational source
+      // resolved through the legacy registry. Rejected otherwise below by the source set.
+      if (sourceType in COST_SOURCE_REGISTRY || sourceType === 'DOWNTIME' || sourceType === 'REVERSAL') return;
+    }
+    throw this.badRequest('productionCostTransaction.unsupportedCanonicalSource');
+  }
+
+  /**
+   * THE single canonical writer for the Unified Cost Ledger (COST-R1B).
+   *
+   * Creates a ledger entry with a controlled source type, costNature, costPurpose and
+   * entryRole. It is transaction-aware (takes the active `tx`) and:
+   *   - enforces canonical idempotency (clientRequestId + payload fingerprint),
+   *   - enforces source-level uniqueness (one live PRIMARY_COST per source fingerprint),
+   *   - enforces the operational currency authority (no USD/SAR/SystemSetting fallback),
+   *   - records postedAt (defaults to occurredAt) and fromLineId,
+   *   - blocks double reversal and reversing-a-reversal,
+   *   - computes reversal amount from ORIGINAL_LEDGER_EVENT only,
+   *   - writes the transaction audit event.
+   *
+   * `allowLegacySourceTypes` is TRUE only for the hardened legacy generic post path so
+   * existing source types keep working while still carrying canonical dimensions.
+   */
+  async postLedgerEntryWithinTransaction(
+    tx: any,
+    opts: {
+      eventType: string;
+      sourceType: string;
+      sourceId: string;
+      sourceLineId?: string | null;
+      costNature?: string;
+      costPurpose?: string;
+      entryRole?: string;
+      amount: Prisma.Decimal | string | number;
+      quantity: Prisma.Decimal | string | number;
+      unit: string;
+      rate?: Prisma.Decimal | string | number;
+      currencyCode?: string | null;
+      occurredAt: Date;
+      postedAt?: Date | null;
+      status?: 'POSTED' | 'REVERSED';
+      clientRequestId?: string;
+      requestPayloadFingerprint?: string;
+      sourceFingerprint?: string | null;
+      sourceNumberSnapshot?: string | null;
+      notes?: string | null;
+      reversalOfOriginal?: any | null;
+      reversalReason?: string | null;
+      standardAmount?: Prisma.Decimal | string | number | null;
+      varianceAmount?: Prisma.Decimal | string | number | null;
+      calculationId?: string | null;
+      refs?: Record<string, any>;
+      createdById: string;
+      ctx: ActiveOperationalContext;
+      allowLegacySourceTypes?: boolean;
+      sourceChanges?: boolean;
+    },
+  ) {
+    const ctx = opts.ctx;
+    const entryRole = opts.entryRole ?? ENTRY_ROLE_PRIMARY_COST;
+
+    // 1. Canonical idempotency.
+    const incomingFingerprint =
+      opts.requestPayloadFingerprint ?? `${opts.eventType}|${opts.sourceType}|${opts.sourceId}`;
+    const replay = await this.resolveCanonicalIdempotentPost(
+      tx,
+      ctx.companyId,
+      ctx.branchId,
+      opts.clientRequestId ?? '',
+      incomingFingerprint,
+    );
+    if (replay) return replay;
+
+    // 2. Reversal guardrails (operate on the original ledger event, never the reversal).
+    const reversing = entryRole === ENTRY_ROLE_REVERSAL;
+    if (reversing) {
+      if (!opts.reversalOfOriginal) throw this.badRequest('productionCostTransaction.reversalRequiresOriginal');
+      if (opts.reversalOfOriginal.reversalOfId) throw this.badRequest('productionCostTransaction.cannotReverseReversal');
+      if (opts.reversalOfOriginal.reversedAt) throw this.badRequest('productionCostTransaction.alreadyReversed');
+    }
+
+    // 3. Controlled source type.
+    this.assertCanonicalSourceType(opts.sourceType, entryRole, {
+      allowLegacySourceTypes: opts.allowLegacySourceTypes ?? false,
+    });
+
+    // 4. Source-level uniqueness for PRIMARY_COST entries backed by a real source.
+    if (opts.sourceFingerprint && !reversing) {
+      const dup = await tx.operationalCostTransaction.findFirst({
+        where: {
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          sourceFingerprint: opts.sourceFingerprint,
+          status: 'POSTED',
+          reversedAt: null,
+        },
+      });
+      if (dup) throw this.conflict('productionCostTransaction.sourceAlreadyValued');
+    }
+
+    // 5. Operate in quantities at Decimal precision.
+    const quantity = opts.quantity instanceof Prisma.Decimal ? opts.quantity : new Prisma.Decimal(opts.quantity);
+    const amount = opts.amount instanceof Prisma.Decimal ? opts.amount : new Prisma.Decimal(opts.amount);
+    const rate = opts.rate != null ? (opts.rate instanceof Prisma.Decimal ? opts.rate : new Prisma.Decimal(opts.rate)) : null;
+
+    // 6. Currency enforcement (OPERATIONAL_CURRENCY_AUTHORITY). No fallback.
+    let currencyCode: string;
+    let standardAmount: Prisma.Decimal | null = null;
+    let varianceAmount: Prisma.Decimal | null = null;
+    if (!reversing) {
+      const inventoryCurrency = opts.refs?._currencyCodeFromInventory ?? null;
+      const companyCurrency = await this.resolveOperationalCurrency(tx, ctx.companyId);
+      if (!companyCurrency) {
+        throw this.badRequest('productionCostTransaction.operationalCurrencyRequired');
+      }
+      if (inventoryCurrency && inventoryCurrency !== companyCurrency) {
+        throw this.badRequest('productionCostTransaction.materialCurrencyMismatch');
+      }
+      if (opts.currencyCode && opts.currencyCode !== companyCurrency && opts.costNature === 'RATE_DERIVED') {
+        throw this.badRequest('productionCostTransaction.downtimeCurrencyMismatch');
+      }
+      currencyCode = inventoryCurrency ?? opts.currencyCode ?? companyCurrency;
+      if (opts.standardAmount != null) {
+        standardAmount = opts.standardAmount instanceof Prisma.Decimal ? opts.standardAmount : new Prisma.Decimal(opts.standardAmount);
+        varianceAmount = amount.sub(standardAmount);
+      }
+    } else {
+      // Reversal inherits the original's currency and signs the original's amount.
+      currencyCode = opts.reversalOfOriginal.currencyCode;
+    }
+
+    // 7. Compose tenant refs (order/run/product/line/machine/shift/costCenter/department/workOrder/request).
+    const refs: Record<string, any> = { ...(opts.refs ?? {}) };
+    delete refs._currencyCodeFromInventory;
+    delete refs._companyCurrency;
+    delete refs._maintenanceMaterial;
+
+    const postedAt = opts.postedAt ?? new Date();
+    const status = opts.status ?? 'POSTED';
+
+    // 8. Create the ledger entry.
+    const transaction = await tx.operationalCostTransaction.create({
+      data: {
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+        eventType: opts.eventType,
+        sourceType: opts.sourceType,
+        sourceId: opts.sourceId,
+        sourceLineId: opts.sourceLineId ?? null,
+        costNature: opts.costNature ?? null,
+        costPurpose: opts.costPurpose ?? null,
+        entryRole,
+        sourceNumberSnapshot: opts.sourceNumberSnapshot ?? null,
+        sourceFingerprint: opts.sourceFingerprint ?? null,
+        requestPayloadFingerprint: incomingFingerprint,
+        clientRequestId: opts.clientRequestId ?? '',
+        calculationId: opts.calculationId ?? null,
+        quantity,
+        unit: opts.unit,
+        rate: rate ?? new Prisma.Decimal(0),
+        amount,
+        currencyCode,
+        standardAmount,
+        varianceAmount,
+        occurredAt: opts.occurredAt,
+        postedAt,
+        status,
+        reversalOfId: reversing ? opts.reversalOfOriginal.id : null,
+        reversalReason: opts.reversalReason ?? null,
+        notes: opts.notes ?? null,
+        createdById: opts.createdById,
+        ...refs,
+      },
+      include: OPERATIONAL_COST_TRANSACTION_INCLUDE,
+    });
+
+    // 9. For reversals, mark the original as reversed atomically.
+    let updatedOriginal: any = null;
+    if (reversing) {
+      updatedOriginal = await tx.operationalCostTransaction.update({
+        where: { id: opts.reversalOfOriginal.id },
+        data: { reversedById: opts.createdById, reversedAt: new Date() },
+      });
+    }
+
+    // 10. Source-change watermark for real sources (mirrors legacy downtime/reversal behavior).
+    if (opts.sourceChanges !== false) {
+      const scopeType = refs.productionRunId ? 'RUN' : refs.productionOrderId ? 'ORDER' : 'BRANCH';
+      const scopeId = refs.productionRunId ?? refs.productionOrderId ?? ctx.branchId;
+      await this.sourceChanges.recordChange(
+        tx,
+        ctx,
+        {
+          scopeType: scopeType as any,
+          scopeId,
+          entityType: 'OPERATIONAL_COST_TRANSACTION',
+          entityId: transaction.id,
+          changeType: reversing ? 'REVERSAL' : 'SOURCE_UPDATE',
+          reason: `${reversing ? 'Cost transaction reversal' : 'Unified ledger cost entry'} ${transaction.id}`,
+        },
+        opts.createdById,
+      );
+    }
+
+    // 11. Audit.
+    await this.writeAudit(
+      tx,
+      opts.createdById,
+      reversing ? 'TRANSACTION_REVERSE' : 'TRANSACTION_POST',
+      OPERATIONAL_COST_TRANSACTION_AUDIT_ENTITY,
+      reversing ? opts.reversalOfOriginal.id : transaction.id,
+      ctx,
+      {
+        eventType: opts.eventType,
+        sourceType: opts.sourceType,
+        sourceId: opts.sourceId,
+        sourceLineId: opts.sourceLineId ?? null,
+        costNature: opts.costNature ?? null,
+        costPurpose: opts.costPurpose ?? null,
+        entryRole,
+        sourceFingerprint: opts.sourceFingerprint ?? null,
+        amount: transaction.amount.toString(),
+        currencyCode: transaction.currencyCode,
+        varianceAmount: transaction.varianceAmount ? transaction.varianceAmount.toString() : null,
+        calculationId: transaction.calculationId ?? null,
+        ...(reversing
+          ? { reversalId: transaction.id, reversedAmount: amount.toString(), reason: opts.reversalReason ?? null }
+          : {}),
+      },
+    );
+
+    return { transaction, updatedOriginal, replay: false };
+  }
+
+  /**
+   * Canonical reversal entry computed strictly from the ORIGINAL_LEDGER_EVENT amount
+   * (amount is negated, standard stays positive, variance negated) and written through the
+   * single canonical writer. Blocks double reversal and reversing-a-reversal.
+   */
+  async reverseLedgerEntry(
+    tx: any,
+    original: any,
+    opts: { reason: string; notes?: string | null; clientRequestId: string; createdById: string; ctx: ActiveOperationalContext },
+  ) {
+    return this.postLedgerEntryWithinTransaction(tx, {
+      eventType: original.eventType,
+      sourceType: original.sourceType,
+      sourceId: original.sourceId,
+      sourceLineId: original.sourceLineId ?? null,
+      costNature: original.costNature ?? null,
+      costPurpose: original.costPurpose ?? null,
+      entryRole: ENTRY_ROLE_REVERSAL,
+      amount: original.amount.negated(),
+      quantity: original.quantity.negated(),
+      unit: original.unit,
+      rate: original.rate,
+      standardAmount: original.standardAmount ?? null,
+      varianceAmount: original.varianceAmount ? original.varianceAmount.negated() : null,
+      occurredAt: new Date(),
+      status: 'REVERSED',
+      clientRequestId: opts.clientRequestId,
+      requestPayloadFingerprint: [original.id, opts.reason, opts.notes ?? ''].join('|'),
+      sourceFingerprint: null,
+      sourceNumberSnapshot: original.sourceNumberSnapshot,
+      calculationId: original.calculationId,
+      refs: {
+        productionOrderId: original.productionOrderId ?? undefined,
+        productionRunId: original.productionRunId ?? undefined,
+        productId: original.productId ?? undefined,
+        productCodeSnapshot: original.productCodeSnapshot ?? undefined,
+        productNameSnapshot: original.productNameSnapshot ?? undefined,
+        productionVersionId: original.productionVersionId ?? undefined,
+        productionPackagingId: original.productionPackagingId ?? undefined,
+        productionLineId: original.productionLineId ?? undefined,
+        machineId: original.machineId ?? undefined,
+        shiftId: original.shiftId ?? undefined,
+        costCenterId: original.costCenterId ?? undefined,
+        departmentId: original.departmentId ?? undefined,
+        maintenanceWorkOrderId: original.maintenanceWorkOrderId ?? undefined,
+        maintenanceRequestId: original.maintenanceRequestId ?? undefined,
+        standardCostSnapshotId: original.standardCostSnapshotId ?? undefined,
+        outputEventId: original.outputEventId ?? undefined,
+      },
+      reversalOfOriginal: original,
+      reversalReason: opts.reason,
+      notes: opts.notes ?? original.notes,
+      createdById: opts.createdById,
+      ctx: opts.ctx,
+      sourceChanges: true,
+    });
+  }
+
+  /**
+   * Canonical Unified Cost Ledger read (COST-R1B). Tenant branch scoped; returns only
+   * canonical ledger entries (entryRole IS NOT NULL). Filters by costNature,
+   * costPurpose, entryRole, and the maintenance/department/cost-center refs.
+   */
+  async findLedgerEntries(query: LedgerQueryDto, ctx: ActiveOperationalContext) {
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const where: any = { companyId: ctx.companyId, branchId: ctx.branchId, entryRole: { not: null } };
+    if (query.costNature) where.costNature = query.costNature;
+    if (query.costPurpose) where.costPurpose = query.costPurpose;
+    if (query.entryRole) where.entryRole = query.entryRole;
+    if (query.departmentId) where.departmentId = query.departmentId;
+    if (query.maintenanceWorkOrderId) where.maintenanceWorkOrderId = query.maintenanceWorkOrderId;
+    if (query.maintenanceRequestId) where.maintenanceRequestId = query.maintenanceRequestId;
+    if (query.costCenterId) where.costCenterId = query.costCenterId;
+    if (query.productionRunId) where.productionRunId = query.productionRunId;
+    if (query.productionOrderId) where.productionOrderId = query.productionOrderId;
+    if (query.machineId) where.machineId = query.machineId;
+    if (query.dateFrom || query.dateTo) {
+      where.occurredAt = {};
+      if (query.dateFrom) where.occurredAt.gte = new Date(query.dateFrom);
+      if (query.dateTo) where.occurredAt.lte = new Date(query.dateTo);
+    }
+    const [data, total] = await Promise.all([
+      (this.prisma as any).operationalCostTransaction.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: [{ occurredAt: 'desc' }],
+        include: OPERATIONAL_COST_TRANSACTION_INCLUDE,
+      }),
+      (this.prisma as any).operationalCostTransaction.count({ where }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  /**
+   * Canonical Unified Cost Ledger net totals (COST-R1B). Only canonical PRIMARY_COST and
+   * REVERSAL entries contribute; a REVERSAL stores its negated amount, so net = sum of the
+   * stored amounts of the matched canonical rows. Grouped by costPurpose. Aggregated on the
+   * server with Decimal precision (never in the browser).
+   */
+  async getLedgerTotals(query: LedgerTotalsQueryDto, ctx: ActiveOperationalContext) {
+    const where: any = { companyId: ctx.companyId, branchId: ctx.branchId, entryRole: { not: null } };
+    if (query.costPurpose) where.costPurpose = query.costPurpose;
+    if (query.costCenterId) where.costCenterId = query.costCenterId;
+    if (query.departmentId) where.departmentId = query.departmentId;
+    if (query.maintenanceWorkOrderId) where.maintenanceWorkOrderId = query.maintenanceWorkOrderId;
+    if (query.maintenanceRequestId) where.maintenanceRequestId = query.maintenanceRequestId;
+    if (query.dateFrom || query.dateTo) {
+      where.occurredAt = {};
+      if (query.dateFrom) where.occurredAt.gte = new Date(query.dateFrom);
+      if (query.dateTo) where.occurredAt.lte = new Date(query.dateTo);
+    }
+    const rows = await (this.prisma as any).operationalCostTransaction.findMany({
+      where,
+      select: {
+        id: true,
+        amount: true,
+        currencyCode: true,
+        costPurpose: true,
+        entryRole: true,
+        status: true,
+      },
+    });
+
+    const byPurpose = new Map<string, Prisma.Decimal>();
+    for (const row of rows) {
+      const purpose = row.costPurpose ?? 'OTHER';
+      const current = byPurpose.get(purpose) ?? new Prisma.Decimal(0);
+      byPurpose.set(purpose, current.add(new Prisma.Decimal(row.amount.toString())));
+    }
+
+    let netTotal = new Prisma.Decimal(0);
+    const totals = [...byPurpose.entries()]
+      .map(([purpose, amount]) => {
+        netTotal = netTotal.add(amount);
+        return { purpose, amount: amount.toString(), currencyCode: rows[0]?.currencyCode ?? null };
+      })
+      .sort((a, b) => a.purpose.localeCompare(b.purpose));
+
+    return {
+      totals,
+      netTotal: netTotal.toString(),
+      currencyCode: rows[0]?.currencyCode ?? null,
+      entryCount: rows.length,
+    };
   }
 
   // ── Cost calculations (lifecycle) ────────────────────────────────────────────

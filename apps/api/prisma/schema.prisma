@@ -437,6 +437,7 @@ model Department {
   personAssignments       OperationalPersonAssignment[]
   machineResponsibilities MachineResponsibilityAssignment[]
   shiftHandovers          ShiftHandover[]
+  costTransactions        OperationalCostTransaction[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -2684,6 +2685,7 @@ model MaintenanceRequest {
   slaState              MaintenanceSlaState?
   sparePartPlanItems    PreventiveSparePartPlanItem[]
   downtimeSegments      DowntimeSegment[]
+  costTransactions      OperationalCostTransaction[]
 
   @@index([machineId])
   @@index([productionLineId])
@@ -3303,6 +3305,7 @@ model MaintenanceWorkOrder {
   parts            MaintenanceWorkOrderPart[]
   costEntries      MaintenanceWorkOrderCostEntry[]
   downtimeSegments DowntimeSegment[]
+  costTransactions OperationalCostTransaction[]
 
   @@unique([branchId, workOrderNumber])
   @@index([companyId])
@@ -5396,6 +5399,17 @@ model OperationalCostTransaction {
   eventType                 String
   sourceType                String
   sourceId                  String
+  sourceLineId              String?
+  /// Canonical ledger classification (COST-R1B). Nullable for backward compatibility
+  /// with legacy rows; set on all canonical entries.
+  costNature                String?
+  /// Canonical business purpose (COST-R1B): MAINTENANCE/PRODUCTION/QUALITY/PROJECT/
+  /// UTILITIES/ADMIN/DEVELOPMENT/OTHER. Nullable for legacy rows.
+  costPurpose               String?
+  /// Canonical ledger entry role (COST-R1B): PRIMARY_COST or REVERSAL. The canonical
+  /// discriminator for ledger arithmetic (reversals subtract), complementing the legacy
+  /// sourceType='REVERSAL' convention which is retained for backward compatibility.
+  entryRole                 String?
   sourceNumberSnapshot      String?
   /// Canonical identity of the authoritative source valuation (sourceType:sourceId:eventType).
   /// Set for real operational sources only (never MANUAL/REVERSAL). Non-null uniqueness per
@@ -5433,6 +5447,12 @@ model OperationalCostTransaction {
   standardCostSnapshot      OperationalStandardCostSnapshot? @relation(fields: [standardCostSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   outputEventId             String?
   outputEvent               ProductionOutputEvent?           @relation(fields: [outputEventId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId              String?
+  department                Department?                      @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenanceWorkOrderId    String?
+  maintenanceWorkOrder      MaintenanceWorkOrder?            @relation(fields: [maintenanceWorkOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenanceRequestId      String?
+  maintenanceRequest        MaintenanceRequest?              @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quantity                  Decimal                          @db.Decimal(18, 4)
   unit                      String
   rate                      Decimal                          @db.Decimal(19, 4)
@@ -5441,6 +5461,10 @@ model OperationalCostTransaction {
   standardAmount            Decimal?                         @db.Decimal(19, 4)
   varianceAmount            Decimal?                         @db.Decimal(19, 4)
   occurredAt                DateTime
+  /// Timestamp of the actual ledger posting (COST-R1B). For capacity/downtime-derived
+  /// entries this equals the posting moment; distinct from the business occurredAt when
+  /// the event was back-dated. Nullable for legacy rows (defaults to occurredAt on read).
+  postedAt                  DateTime?
   status                    String                           @default("POSTED")
   reversalOfId              String?
   reversalOf                OperationalCostTransaction?      @relation("OperationalCostReversal", fields: [reversalOfId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -5455,7 +5479,12 @@ model OperationalCostTransaction {
   @@unique([companyId, branchId, clientRequestId])
   @@index([companyId, branchId, eventType, occurredAt])
   @@index([companyId, branchId, sourceType, sourceId])
+  @@index([companyId, branchId, sourceType, sourceId, sourceLineId])
   @@index([companyId, branchId, sourceFingerprint])
+  @@index([companyId, branchId, costNature, occurredAt])
+  @@index([companyId, branchId, costPurpose, occurredAt])
+  @@index([companyId, branchId, entryRole, occurredAt])
+  @@index([companyId, branchId, postedAt])
   @@index([companyId, branchId, calculationId, occurredAt])
   @@index([companyId, branchId, productionOrderId, occurredAt])
   @@index([companyId, branchId, productionRunId, occurredAt])
@@ -5472,6 +5501,9 @@ model OperationalCostTransaction {
   @@index([standardCostSnapshotId])
   @@index([outputEventId])
   @@index([reversalOfId])
+  @@index([departmentId])
+  @@index([maintenanceWorkOrderId])
+  @@index([maintenanceRequestId])
   @@map("operational_cost_transactions")
 }
 

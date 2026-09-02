@@ -51,6 +51,9 @@ export const OPERATIONAL_COST_TRANSACTION_INCLUDE = {
   machine: { select: { id: true, code: true, name: true } },
   shift: { select: { id: true, code: true, name: true } },
   costCenter: { select: { id: true, code: true, name: true } },
+  department: { select: { id: true, code: true, name: true } },
+  maintenanceWorkOrder: { select: { id: true, workOrderNumber: true, title: true, status: true } },
+  maintenanceRequest: { select: { id: true, requestNumber: true, title: true, status: true } },
   standardCostSnapshot: { select: { id: true, code: true, revision: true, status: true } },
   outputEvent: { select: { id: true, eventType: true, classification: true, quantity: true, unit: true } },
   reversalOf: { select: { id: true, sourceNumberSnapshot: true, occurredAt: true } },
@@ -97,3 +100,72 @@ export const COST_TRANSACTION_SOURCE_TYPES = [
   'REVERSAL',
   'MANUAL',
 ] as const;
+
+/**
+ * COST-R1B Canonical Unified Cost Ledger contract.
+ *
+ * costNature (HOW the amount is known):
+ *   - ACTUAL                 : a real, posted, valued transaction amount (e.g. inventory material totalCost).
+ *   - RATE_DERIVED           : amount computed from a served rate x quantity (downtime capacity estimate).
+ *   - MANUAL_ASSERTED_ACTUAL : manually asserted value recorded by an authorized user.
+ */
+export const COST_NATURE_VALUES = ['ACTUAL', 'RATE_DERIVED', 'MANUAL_ASSERTED_ACTUAL'] as const;
+export type CostNature = (typeof COST_NATURE_VALUES)[number];
+
+export const PRIMARY_COST_NATURES: readonly string[] = ['ACTUAL', 'RATE_DERIVED', 'MANUAL_ASSERTED_ACTUAL'];
+
+/**
+ * entryRole (arithmetic role in the ledger):
+ *   - PRIMARY_COST : a positive cost entry.
+ *   - REVERSAL     : offsets (subtracts) the amount of its ORIGINAL_LEDGER_EVENT.
+ */
+export const ENTRY_ROLE_VALUES = ['PRIMARY_COST', 'REVERSAL'] as const;
+export type EntryRole = (typeof ENTRY_ROLE_VALUES)[number];
+
+export const ENTRY_ROLE_PRIMARY_COST = 'PRIMARY_COST' as const;
+export const ENTRY_ROLE_REVERSAL = 'REVERSAL' as const;
+
+/**
+ * The controlled, canonical source types that the Unified Cost Ledger accepts
+ * as authoritative source-of-truth events. Any source MUST map to one of these
+ * before it can be posted through the canonical posting service:
+ *   - INVENTORY_MOVEMENT_LINE : an atomic valued material movement line (production or maintenance).
+ *   - DOWNTIME_EVENT          : a resolved downtime event valued by a served rate.
+ *   - MANUAL                  : a manually asserted cost entry.
+ * Reversal arithmetic is carried by entryRole=REVERSAL + original linkage, not by
+ * an uncontrolled sourceType. The legacy sourceType='REVERSAL' convention is still
+ * written for backward compatibility but is NOT part of the canonical source set.
+ */
+export const CANONICAL_SOURCE_TYPES = ['INVENTORY_MOVEMENT_LINE', 'DOWNTIME_EVENT', 'MANUAL'] as const;
+export type CanonicalSourceType = (typeof CANONICAL_SOURCE_TYPES)[number];
+
+export function isCanonicalSourceType(value: string | null | undefined): value is CanonicalSourceType {
+  return !!value && (CANONICAL_SOURCE_TYPES as readonly string[]).includes(value);
+}
+
+export function isCostNature(value: string | null | undefined): value is CostNature {
+  return !!value && (COST_NATURE_VALUES as readonly string[]).includes(value);
+}
+
+export function isEntryRole(value: string | null | undefined): value is EntryRole {
+  return !!value && (ENTRY_ROLE_VALUES as readonly string[]).includes(value);
+}
+
+/**
+ * COST-R1B-B2: canonical material event type. Material cost (production or
+ * maintenance) is represented by the existing economic event `MATERIAL` and is
+ * distinguished by `costPurpose` (PRODUCTION / MAINTENANCE). Verbose caller
+ * strings (PRODUCTION_MATERIAL_ISSUE etc.) are NOT added to the DB vocabulary.
+ */
+export const MATERIAL_EVENT_TYPE = 'MATERIAL' as const;
+
+/**
+ * COST-R1B-B2: normalize a raw movement/product unit to the canonical ledger
+ * unit vocabulary enforced by the DB `unit_ck` check (MINUTE/HOUR/BATCH/LITER/
+ * TON/KG/UNIT/PACK). Any non-canonical or missing unit collapses to `UNIT`;
+ * no lowercase/raw free-form unit is ever written to a canonical ledger row.
+ */
+export function canonicalLedgerUnit(unit: string | null | undefined): string {
+  if (unit && (COST_UNITS as readonly string[]).includes(unit.toUpperCase())) return unit.toUpperCase();
+  return 'UNIT';
+}

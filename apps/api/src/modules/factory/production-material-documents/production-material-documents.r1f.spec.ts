@@ -212,12 +212,16 @@ function makeHarness(options: HarnessOptions = {}) {
     warehouse: { findUnique: jest.fn().mockResolvedValue({ id: 'wh1', companyId: 'c1', branchId: 'b1', status: 'ACTIVE', deletedAt: null }) },
     warehouseLocation: { findUnique: jest.fn() },
     product: { findUnique: jest.fn().mockImplementation(async ({ where }: any) => ({ id: where.id, name: where.id, deletedAt: null })) },
-    operationalCostTransaction: { create: operationalCostCreate },
+    operationalCostTransaction: { create: operationalCostCreate, findFirst: jest.fn().mockResolvedValue(null) },
   };
   const audit: any = { logWithClient: jest.fn() };
   const prisma: any = {};
   const engine = new InventoryValuationEngineService(prisma);
-  const service = new InventoryMovementsService(prisma, audit, {} as any, engine);
+  const productionCost: any = {
+    postLedgerEntryWithinTransaction: jest.fn().mockResolvedValue({}),
+    reverseLedgerEntry: jest.fn().mockResolvedValue({}),
+  };
+  const service = new InventoryMovementsService(prisma, audit, {} as any, engine, productionCost);
 
   const post = () => service.postProductionMaterialMovementWithinTransaction(tx, 'doc1', 'mov1', 'u1', ctx);
   const postGeneric = () => service.postMovementWithinTransaction(tx, 'mov1', 'u1', ctx);

@@ -10,7 +10,13 @@ import {
   SupersedeCostSnapshotDto,
   UpdateCostSnapshotDto,
 } from './dto/cost-snapshot.dto';
-import { CostTransactionQueryDto, PostCostTransactionDto, ReverseCostTransactionDto } from './dto/cost-transaction.dto';
+import {
+  CostTransactionQueryDto,
+  LedgerQueryDto,
+  LedgerTotalsQueryDto,
+  PostCostTransactionDto,
+  ReverseCostTransactionDto,
+} from './dto/cost-transaction.dto';
 import {
   AttachTransactionToCalculationDto,
   CostCalculationQueryDto,
@@ -149,6 +155,22 @@ export class ProductionCostController {
   @ApiOperation({ summary: 'Reverse a POSTED transaction (creates a REVERSED row; original stays immutable)' })
   reverseTransaction(@Param('id') id: string, @Body() dto: ReverseCostTransactionDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.reverseTransaction(id, dto, userId, ctx);
+  }
+
+  // ── COST-R1B Canonical Unified Cost Ledger ─────────────────────────────────
+
+  @Get('ledger')
+  @Permissions(PRODUCTION_COST_PERMISSION_KEYS.transactionRead)
+  @ApiOperation({ summary: 'Canonical Unified Cost Ledger entries scoped to the active context (COST-R1B)' })
+  findLedger(@Query() query: LedgerQueryDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findLedgerEntries(query, ctx);
+  }
+
+  @Get('ledger/totals')
+  @Permissions(PRODUCTION_COST_PERMISSION_KEYS.transactionRead)
+  @ApiOperation({ summary: 'Canonical Unified Cost Ledger net totals grouped by purpose (COST-R1B)' })
+  getLedgerTotals(@Query() query: LedgerTotalsQueryDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getLedgerTotals(query, ctx);
   }
 
   // ── Cost calculations (draft → review → finalize → reopen) ──────────────────

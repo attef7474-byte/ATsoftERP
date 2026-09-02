@@ -107,6 +107,7 @@ describe('ProductionCostService', () => {
       productionFinishedGoodsReceipt: { findUnique: jest.fn() }, productionMaterialDocument: { findUnique: jest.fn(), findFirst: jest.fn() },
       productionQualityDisposition: { findUnique: jest.fn() },
       downtimeLog: { findUnique: jest.fn(), findFirst: jest.fn() },
+      company: { findUnique: jest.fn().mockResolvedValue({ id: 'c1', operationalCurrencyCode: 'USD' }) },
       $transaction: jest.fn((fn: any) => fn(prisma)),
     };
     audit = { logWithClient: jest.fn().mockResolvedValue({}) };
@@ -1038,6 +1039,291 @@ describe('ProductionCostService', () => {
       await expect(service.reviewCalculation('calc1', {}, 'maker', ctxA)).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.operationalCostTransaction.update).not.toHaveBeenCalled();
       expect(prisma.operationalCostCalculation.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('COST-R1B Unified Cost Ledger (canonical posting service)', () => {
+    const ctxC3: any = { companyId: 'c3', branchId: 'b3' };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      prisma.operationalCostTransaction.findFirst.mockResolvedValue(null);
+      prisma.company.findUnique.mockResolvedValue({ id: 'c3', operationalCurrencyCode: 'SAR' });
+      prisma.operationalCostTransaction.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({
+          id: 'ledger-1', ...data,
+          currencyCode: data.currencyCode ?? 'SAR', status: 'POSTED',
+          reversedById: null, reversedAt: null, reversalOfId: null,
+          amount: new Prisma.Decimal(data.amount), quantity: new Prisma.Decimal(data.quantity),
+          rate: new Prisma.Decimal(data.rate ?? 0), standardAmount: data.standardAmount ?? null, varianceAmount: data.varianceAmount ?? null,
+        }));
+      prisma.operationalCostTransaction.update.mockImplementation(({ data }: any) => Promise.resolve({ id: 'orig-1', ...data }));
+    });
+
+    it('POST: PRIMARY_COST inventory movement line stamps all canonical dimensions and company currency', async () => {
+      const opts = {
+        eventType: 'MATERIAL', sourceType: 'INVENTORY_MOVEMENT_LINE', sourceId: 'inv-1', sourceLineId: 'mvl-1',
+        costNature: 'ACTUAL', costPurpose: 'PRODUCTION', entryRole: 'PRIMARY_COST',
+        amount: '100.0000', quantity: '10', unit: 'UNIT', rate: '10',
+        occurredAt: new Date('2026-02-01T08:00:00Z'),
+        clientRequestId: 'r1b-p-1', requestPayloadFingerprint: 'fp-p-1', sourceFingerprint: 'sf-p-1',
+        refs: { productionOrderId: 'po1', productionRunId: 'run1', costCenterId: 'cc1', departmentId: 'dep1', maintenanceWorkOrderId: 'wo1', maintenanceRequestId: 'mr1' },
+        createdById: 'maker', ctx: ctxC3,
+      };
+      const { transaction } = await service.postLedgerEntryWithinTransaction(prisma, opts as any);
+      const data = prisma.operationalCostTransaction.create.mock.calls[0][0].data;
+      expect(data.companyId).toBe('c3');
+      expect(data.costNature).toBe('ACTUAL');
+      expect(data.costPurpose).toBe('PRODUCTION');
+      expect(data.entryRole).toBe('PRIMARY_COST');
+      expect(data.sourceLineId).toBe('mvl-1');
+      expect(data.currencyCode).toBe('SAR');
+      expect(data.departmentId).toBe('dep1');
+      expect(data.maintenanceWorkOrderId).toBe('wo1');
+      expect(data.maintenanceRequestId).toBe('mr1');
+      expect(data.postedAt).toBeInstanceOf(Date);
+      expect(transaction.amount.toString()).toBe('100');
+    });
+
+    it('POST: idempotent replay of the same clientRequestId + fingerprint returns the existing row', async () => {
+      const existing = { id: 'ledger-dup', clientRequestId: 'r1b-p-2', requestPayloadFingerprint: 'fp-p-2' };
+      prisma.operationalCostTransaction.findFirst.mockResolvedValue(existing);
+      const result = await service.postLedgerEntryWithinTransaction(prisma, {
+        eventType: 'MATERIAL', sourceType: 'INVENTORY_MOVEMENT_LINE', sourceId: 'inv-2', sourceLineId: 'mvl-2',
+        costNature: 'ACTUAL', costPurpose: 'PRODUCTION', entryRole: 'PRIMARY_COST',
+        amount: '50', quantity: '5', unit: 'UNIT', occurredAt: new Date(),
+        clientRequestId: 'r1b-p-2', requestPayloadFingerprint: 'fp-p-2',
+        createdById: 'maker', ctx: ctxC3,
+      } as any);
+      expect(result.id).toBe('ledger-dup');
+      expect(prisma.operationalCostTransaction.create).not.toHaveBeenCalled();
+    });
+
+    it('POST: same clientRequestId with a different fingerprint is a payload conflict', async () => {
+      const existing = { id: 'ledger-dup', clientRequestId: 'r1b-p-3', requestPayloadFingerprint: 'fp-p-3' };
+      prisma.operationalCostTransaction.findFirst.mockResolvedValue(existing);
+      await expect(service.postLedgerEntryWithinTransaction(prisma, {
+        eventType: 'MATERIAL', sourceType: 'INVENTORY_MOVEMENT_LINE', sourceId: 'inv-3', sourceLineId: 'mvl-3',
+        costNature: 'ACTUAL', costPurpose: 'PRODUCTION', entryRole: 'PRIMARY_COST',
+        amount: '50', quantity: '5', unit: 'UNIT', occurredAt: new Date(),
+        clientRequestId: 'r1b-p-3', requestPayloadFingerprint: 'fp-DIFFERENT', createdById: 'maker', ctx: ctxC3,
+      } as any)).rejects.toMatchObject({ response: { messageKey: 'productionCostTransaction.requestPayloadConflict' } });
+      expect(prisma.operationalCostTransaction.create).not.toHaveBeenCalled();
+    });
+
+    it('POST: duplicate live PRIMARY_COST for the same source fingerprint is blocked', async () => {
+      prisma.operationalCostTransaction.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'dup', status: 'POSTED', reversedAt: null, sourceFingerprint: 'sf-dup' });
+      await expect(service.postLedgerEntryWithinTransaction(prisma, {
+        eventType: 'MATERIAL', sourceType: 'INVENTORY_MOVEMENT_LINE', sourceId: 'inv-4', sourceLineId: 'mvl-4',
+        costNature: 'ACTUAL', costPurpose: 'PRODUCTION', entryRole: 'PRIMARY_COST',
+        amount: '50', quantity: '5', unit: 'UNIT', occurredAt: new Date(),
+        clientRequestId: 'r1b-p-4', sourceFingerprint: 'sf-dup', createdById: 'maker', ctx: ctxC3,
+      } as any)).rejects.toMatchObject({ response: { messageKey: 'productionCostTransaction.sourceAlreadyValued' } });
+    });
+
+    it('POST: an uncontrolled source type is rejected (FG_RECEIPT is not canonical)', async () => {
+      await expect(service.postLedgerEntryWithinTransaction(prisma, {
+        eventType: 'MATERIAL', sourceType: 'FG_RECEIPT', sourceId: 'fg-1', sourceLineId: 'mvl-5',
+        costNature: 'ACTUAL', costPurpose: 'PRODUCTION', entryRole: 'PRIMARY_COST',
+        amount: '50', quantity: '5', unit: 'UNIT', occurredAt: new Date(),
+        clientRequestId: 'r1b-p-5', createdById: 'maker', ctx: ctxC3,
+      } as any)).rejects.toMatchObject({ response: { messageKey: 'productionCostTransaction.unsupportedCanonicalSource' } });
+    });
+
+    it('POST: a company with no operational currency blocks a PRIMARY_COST entry (no fallback)', async () => {
+      prisma.company.findUnique.mockResolvedValue({ id: 'c3', operationalCurrencyCode: null });
+      await expect(service.postLedgerEntryWithinTransaction(prisma, {
+        eventType: 'MATERIAL', sourceType: 'MANUAL', sourceId: 'm-1',
+        costNature: 'MANUAL_ASSERTED_ACTUAL', costPurpose: 'MAINTENANCE', entryRole: 'PRIMARY_COST',
+        amount: '50', quantity: '5', unit: 'UNIT', occurredAt: new Date(),
+        clientRequestId: 'r1b-p-6', createdById: 'maker', ctx: ctxC3,
+      } as any)).rejects.toMatchObject({ response: { messageKey: 'productionCostTransaction.operationalCurrencyRequired' } });
+      expect(prisma.operationalCostTransaction.create).not.toHaveBeenCalled();
+    });
+
+    it('POST: a MANUAL asserted actual honors an explicit inventory currency authority', async () => {
+      const { transaction } = await service.postLedgerEntryWithinTransaction(prisma, {
+        eventType: 'MATERIAL', sourceType: 'MANUAL', sourceId: 'm-2', sourceLineId: 'mvl-7',
+        costNature: 'MANUAL_ASSERTED_ACTUAL', costPurpose: 'ADMIN', entryRole: 'PRIMARY_COST',
+        amount: '25', quantity: '1', unit: 'UNIT', occurredAt: new Date(),
+        clientRequestId: 'r1b-p-7', refs: { _currencyCodeFromInventory: 'SAR' }, createdById: 'maker', ctx: ctxC3,
+      } as any);
+      expect(transaction.currencyCode).toBe('SAR');
+    });
+
+    it('POST: computes variance amount when a standard amount is provided', async () => {
+      const { transaction } = await service.postLedgerEntryWithinTransaction(prisma, {
+        eventType: 'MATERIAL', sourceType: 'INVENTORY_MOVEMENT_LINE', sourceId: 'inv-6', sourceLineId: 'mvl-8',
+        costNature: 'ACTUAL', costPurpose: 'PRODUCTION', entryRole: 'PRIMARY_COST',
+        amount: '120', quantity: '12', unit: 'UNIT', rate: '10', standardAmount: '96',
+        occurredAt: new Date(), clientRequestId: 'r1b-p-8', createdById: 'maker', ctx: ctxC3,
+      } as any);
+      expect(transaction.varianceAmount.toString()).toBe('24');
+    });
+
+    it('REVERSAL: negates the original amount, links reversalOfId, marks the original reversed', async () => {
+      const original = {
+        id: 'orig-1', companyId: 'c3', branchId: 'b3', eventType: 'MATERIAL',
+        sourceType: 'INVENTORY_MOVEMENT_LINE', sourceId: 'inv-7', sourceLineId: 'mvl-9',
+        costNature: 'ACTUAL', costPurpose: 'PRODUCTION', entryRole: 'PRIMARY_COST',
+        amount: new Prisma.Decimal('100'), quantity: new Prisma.Decimal('10'), unit: 'UNIT', rate: new Prisma.Decimal('10'),
+        currencyCode: 'SAR', standardAmount: null, varianceAmount: null, reversalOfId: null, reversedAt: null,
+      };
+      const { transaction, updatedOriginal } = await service.reverseLedgerEntry(prisma, original, {
+        reason: 'wrong quantity', notes: null, clientRequestId: 'r1b-r-1', createdById: 'maker', ctx: ctxC3,
+      });
+      const data = prisma.operationalCostTransaction.create.mock.calls[0][0].data;
+      expect(data.entryRole).toBe('REVERSAL');
+      expect(data.reversalOfId).toBe('orig-1');
+      expect(data.sourceType).toBe('INVENTORY_MOVEMENT_LINE');
+      expect(data.sourceLineId).toBe('mvl-9');
+      expect(data.status).toBe('REVERSED');
+      expect(data.currencyCode).toBe('SAR');
+      expect(transaction.amount.toString()).toBe('-100');
+      expect(data.amount.toString()).toBe('-100');
+      expect(prisma.operationalCostTransaction.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'orig-1' }, data: expect.objectContaining({ reversedAt: expect.any(Date) }),
+      }));
+    });
+
+    it('REVERSAL: double reversal of an already-reversed original is blocked', async () => {
+      const original = {
+        id: 'orig-1', companyId: 'c3', branchId: 'b3', eventType: 'MATERIAL', sourceType: 'INVENTORY_MOVEMENT_LINE', sourceId: 'inv-8', sourceLineId: 'mvl-10',
+        costNature: 'ACTUAL', costPurpose: 'PRODUCTION', entryRole: 'PRIMARY_COST',
+        amount: new Prisma.Decimal('100'), quantity: new Prisma.Decimal('10'), unit: 'UNIT', rate: new Prisma.Decimal('10'),
+        currencyCode: 'SAR', standardAmount: null, varianceAmount: null, reversalOfId: null, reversedAt: new Date(),
+      };
+      await expect(service.reverseLedgerEntry(prisma, original, {
+        reason: 'x', notes: null, clientRequestId: 'r1b-r-2', createdById: 'maker', ctx: ctxC3,
+      })).rejects.toMatchObject({ response: { messageKey: 'productionCostTransaction.alreadyReversed' } });
+    });
+
+    it('REVERSAL: reversing a reversal is blocked', async () => {
+      const original = {
+        id: 'rev-1', companyId: 'c3', branchId: 'b3', eventType: 'MATERIAL', sourceType: 'INVENTORY_MOVEMENT_LINE', sourceId: 'inv-9',
+        costNature: 'ACTUAL', costPurpose: 'PRODUCTION', entryRole: 'REVERSAL',
+        amount: new Prisma.Decimal('-100'), quantity: new Prisma.Decimal('-10'), unit: 'UNIT', rate: new Prisma.Decimal('10'),
+        currencyCode: 'SAR', standardAmount: null, varianceAmount: null, reversalOfId: 'orig-1', reversedAt: null,
+      };
+      await expect(service.reverseLedgerEntry(prisma, original, {
+        reason: 'x', notes: null, clientRequestId: 'r1b-r-3', createdById: 'maker', ctx: ctxC3,
+      })).rejects.toMatchObject({ response: { messageKey: 'productionCostTransaction.cannotReverseReversal' } });
+    });
+
+    it('DOWNTIME: rate currency matching company operational currency passes (BLOCK only on mismatch)', async () => {
+      prisma.downtimeLog.findFirst.mockResolvedValue(downtimeLog());
+      prisma.operationalCostRate.findMany.mockResolvedValue([downtimeRate({ currencyCode: 'SAR', machineId: 'm1' })]);
+      prisma.operationalStandardCostSnapshot.findMany.mockResolvedValue([]);
+      prisma.company.findUnique.mockResolvedValue({ id: 'c3', operationalCurrencyCode: 'SAR' });
+      const { transaction } = await service.postLedgerEntryWithinTransaction(prisma, {
+        eventType: 'DOWNTIME', sourceType: 'DOWNTIME_EVENT', sourceId: 'dl1',
+        costNature: 'RATE_DERIVED', costPurpose: 'PRODUCTION', entryRole: 'PRIMARY_COST',
+        amount: '1200', quantity: '120', unit: 'MINUTE', rate: '10', occurredAt: new Date('2026-02-01T08:00:00Z'),
+        clientRequestId: 'r1b-dt-1', createdById: 'maker', ctx: ctxC3,
+      } as any);
+      expect(transaction.currencyCode).toBe('SAR');
+    });
+
+    it('findLedgerEntries filters by canonical dimensions and excludes legacy (entryRole null) rows', async () => {
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([
+        { id: 'l1', entryRole: 'PRIMARY_COST', costNature: 'ACTUAL', costPurpose: 'PRODUCTION', currencyCode: 'SAR' },
+      ]);
+      prisma.operationalCostTransaction.count.mockResolvedValue(1);
+      await service.findLedgerEntries({ costPurpose: 'PRODUCTION' } as any, ctxC3);
+      const where = prisma.operationalCostTransaction.findMany.mock.calls[0][0].where;
+      expect(where.companyId).toBe('c3');
+      expect(where.entryRole).toEqual({ not: null });
+      expect(where.costPurpose).toBe('PRODUCTION');
+    });
+
+    it('getLedgerTotals nets PRIMARY_COST against REVERSAL (stored negated) grouped by purpose', async () => {
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([
+        { id: 'l1', amount: new Prisma.Decimal('100'), currencyCode: 'SAR', costPurpose: 'PRODUCTION', entryRole: 'PRIMARY_COST', status: 'POSTED' },
+        { id: 'l2', amount: new Prisma.Decimal('-40'), currencyCode: 'SAR', costPurpose: 'PRODUCTION', entryRole: 'REVERSAL', status: 'REVERSED' },
+        { id: 'l3', amount: new Prisma.Decimal('30'), currencyCode: 'SAR', costPurpose: 'MAINTENANCE', entryRole: 'PRIMARY_COST', status: 'POSTED' },
+      ]);
+      const result = await service.getLedgerTotals({} as any, ctxC3);
+      const production = result.totals.find((t: any) => t.purpose === 'PRODUCTION')!;
+      const maintenance = result.totals.find((t: any) => t.purpose === 'MAINTENANCE')!;
+      expect(production.amount).toBe('60');
+      expect(maintenance.amount).toBe('30');
+      expect(result.netTotal).toBe('90');
+    });
+  });
+
+  describe('COST-R1B ledger reads (tenant isolation + filters)', () => {
+    const ctxC4: any = { companyId: 'c4', branchId: 'b4' };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([]);
+      prisma.operationalCostTransaction.count.mockResolvedValue(0);
+    });
+
+    it('findLedgerEntries always scopes the where clause to the active company and branch from ctx, never a client companyId', async () => {
+      await service.findLedgerEntries({ companyId: 'evil', branchId: 'evil' } as any, ctxC4);
+      expect(prisma.operationalCostTransaction.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ companyId: 'c4', branchId: 'b4' }),
+      }));
+      const where = prisma.operationalCostTransaction.findMany.mock.calls[0][0].where;
+      expect(where.companyId).not.toBe('evil');
+      expect(where.branchId).not.toBe('evil');
+      // the count query is scoped identically
+      expect(prisma.operationalCostTransaction.count).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ companyId: 'c4', branchId: 'b4' }),
+      }));
+    });
+
+    it('findLedgerEntries applies costNature/costPurpose/entryRole filters only when provided and always excludes legacy (entryRole null) rows', async () => {
+      await service.findLedgerEntries({ costNature: 'ACTUAL', costPurpose: 'PRODUCTION', entryRole: 'REVERSAL' } as any, ctxC4);
+      const where = prisma.operationalCostTransaction.findMany.mock.calls[0][0].where;
+      expect(where.costNature).toBe('ACTUAL');
+      expect(where.costPurpose).toBe('PRODUCTION');
+      expect(where.entryRole).toBe('REVERSAL');
+
+      prisma.operationalCostTransaction.findMany.mockClear();
+      await service.findLedgerEntries({} as any, ctxC4);
+      const whereEmpty = prisma.operationalCostTransaction.findMany.mock.calls[0][0].where;
+      expect(whereEmpty.costNature).toBeUndefined();
+      expect(whereEmpty.costPurpose).toBeUndefined();
+      // legacy rows (entryRole null) are always excluded
+      expect(whereEmpty.entryRole).toEqual({ not: null });
+    });
+
+    it('Company B cannot read Company A ledger rows: the query is always scoped by the active ctx company', async () => {
+      prisma.operationalCostTransaction.findMany.mockImplementation(({ where }: any) =>
+        Promise.resolve([
+          { id: 'lB', companyId: where.companyId, branchId: where.branchId, entryRole: 'PRIMARY_COST', costPurpose: 'PRODUCTION', amount: new Prisma.Decimal('10'), currencyCode: 'SAR' },
+        ]),
+      );
+      // ctxB is the "other" tenant from the top-level suite (company c2), independent of ctxC4
+      const ctxOther: any = { companyId: 'company-b-isolated', branchId: 'branch-b-isolated' };
+      await service.findLedgerEntries({} as any, ctxOther);
+      const where = prisma.operationalCostTransaction.findMany.mock.calls[0][0].where;
+      expect(where.companyId).toBe('company-b-isolated');
+      expect(where.companyId).not.toBe(ctxC4.companyId);
+      // the service delegates to the ctx-scoped query result, never a company A id
+      expect(prisma.operationalCostTransaction.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ companyId: 'company-b-isolated', branchId: 'branch-b-isolated' }),
+      }));
+    });
+
+    it('getLedgerTotals scopes the query by the active ctx company and groups net amounts by costPurpose', async () => {
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([
+        { id: 't1', amount: new Prisma.Decimal('80'), currencyCode: 'SAR', costPurpose: 'PRODUCTION', entryRole: 'PRIMARY_COST', status: 'POSTED' },
+        { id: 't2', amount: new Prisma.Decimal('-20'), currencyCode: 'SAR', costPurpose: 'PRODUCTION', entryRole: 'REVERSAL', status: 'REVERSED' },
+        { id: 't3', amount: new Prisma.Decimal('50'), currencyCode: 'SAR', costPurpose: 'MAINTENANCE', entryRole: 'PRIMARY_COST', status: 'POSTED' },
+      ]);
+      const result = await service.getLedgerTotals({ costPurpose: 'PRODUCTION' } as any, ctxC4);
+      expect(prisma.operationalCostTransaction.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ companyId: 'c4', branchId: 'b4', costPurpose: 'PRODUCTION', entryRole: { not: null } }),
+      }));
+      expect(result.totals.map((t: any) => t.purpose).sort()).toEqual(['MAINTENANCE', 'PRODUCTION']);
+      expect(result.totals.find((t: any) => t.purpose === 'PRODUCTION')!.amount).toBe('60');
+      expect(result.totals.find((t: any) => t.purpose === 'MAINTENANCE')!.amount).toBe('50');
+      expect(result.netTotal).toBe('110');
     });
   });
 });
