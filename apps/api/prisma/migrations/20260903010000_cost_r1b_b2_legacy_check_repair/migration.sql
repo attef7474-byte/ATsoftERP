@@ -9,8 +9,6 @@
 --   event_type_ck     unchanged: MATERIAL and DOWNTIME already allowed
 --   rate_ck           rate > 0 generally; rate = 0 ALLOWED only for canonical
 --                      PRIMARY_COST + ACTUAL + MATERIAL (amount authority = totalCost)
---                      and for canonical REVERSAL rows (a reversal inherits the
---                      original's rate, which is legitimately 0 for material)
 --   quantity/amount_sign_ck  key on entryRole: PRIMARY_COST positive, REVERSAL negative,
 --                      legacy (entryRole IS NULL) rows keep the prior status-based rule
 --   reversal_link_ck  canonical REVERSAL requires reversalOfId; PRIMARY_COST has none;
@@ -45,7 +43,6 @@ IF OBJECT_ID(N'dbo.operational_cost_transactions_rate_ck') IS NOT NULL
 ALTER TABLE [dbo].[operational_cost_transactions] WITH NOCHECK ADD CONSTRAINT [operational_cost_transactions_rate_ck] CHECK
 (
   [rate]>(0) OR
-  ([entryRole]=N'REVERSAL' AND [rate]=(0)) OR
   ([entryRole]=N'PRIMARY_COST' AND [costNature]=N'ACTUAL' AND [eventType]=N'MATERIAL' AND [rate]=(0))
 );
 
