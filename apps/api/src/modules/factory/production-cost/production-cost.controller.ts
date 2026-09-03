@@ -1,7 +1,9 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ProductionCostService } from './production-cost.service';
+import { OperationalCostReconciliationService } from './operational-cost-reconciliation.service';
 import { PRODUCTION_COST_PERMISSION_KEYS } from './production-cost.constants';
+import { OperationalCostReconciliationQueryDto } from './dto/cost-reconciliation.dto';
 import { CostRateQueryDto, CreateCostRateDto, UpdateCostRateDto } from './dto/cost-rate.dto';
 import {
   CostSnapshotQueryDto,
@@ -37,7 +39,10 @@ import { ActiveOperationalContext } from '../../../common/operational-context/op
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller({ path: 'production', version: '1' })
 export class ProductionCostController {
-  constructor(private readonly service: ProductionCostService) {}
+  constructor(
+    private readonly service: ProductionCostService,
+    private readonly reconciliation: OperationalCostReconciliationService,
+  ) {}
 
   // ── Cost rates ──────────────────────────────────────────────────────────────
 
@@ -141,6 +146,13 @@ export class ProductionCostController {
   @ApiOperation({ summary: 'List cost transactions scoped to the active context' })
   findTransactions(@Query() query: CostTransactionQueryDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findTransactions(query, ctx);
+  }
+
+  @Get('cost-transactions/reconciliation')
+  @Permissions(PRODUCTION_COST_PERMISSION_KEYS.transactionRead)
+  @ApiOperation({ summary: 'Read-only unified cost ledger reconciliation audit scoped to the active context (COST-R1C)' })
+  reconcile(@Query() query: OperationalCostReconciliationQueryDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.reconciliation.reconcile(query, ctx);
   }
 
   @Get('cost-transactions/:id')
