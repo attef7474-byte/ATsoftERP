@@ -1,9 +1,15 @@
 import {
+  COST_R2C_EXTERNAL_SERVICE_MIGRATION,
+  EXTERNAL_SERVICE_EVENT_TYPE,
   MATERIAL_EVENT_TYPE,
   canonicalLedgerUnit,
 } from './production-cost.constants';
 
 describe('COST-R1B-B2 canonical ledger helper contract', () => {
+  it('freezes the COST-R2C-B external service event and exact migration identity', () => {
+    expect(EXTERNAL_SERVICE_EVENT_TYPE).toBe('EXTERNAL_SERVICE');
+    expect(COST_R2C_EXTERNAL_SERVICE_MIGRATION).toBe('20260904120000_cost_r2c_external_service_ledger');
+  });
   it('MATERIAL_EVENT_TYPE is the canonical material event', () => {
     expect(MATERIAL_EVENT_TYPE).toBe('MATERIAL');
   });

@@ -412,7 +412,7 @@ describe('MaintenanceWorkOrdersService', () => {
 
   describe('COST-R2B manual asserted maintenance labor', () => {
     const incurredAt = new Date('2026-09-03T09:00:00.000Z');
-    const labor = { id: 'labor1', amount: new Prisma.Decimal('125.75'), incurredAt };
+    const labor = { id: 'labor1', type: 'LABOR', amount: new Prisma.Decimal('125.75'), incurredAt };
     const completingWorkOrder = (overrides: Record<string, any> = {}) => wo({
       status: 'IN_PROGRESS',
       machineId: 'm1',
@@ -535,7 +535,7 @@ describe('MaintenanceWorkOrdersService', () => {
       prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([]);
       await service.transition('wo1', { action: 'complete' }, user, ctx);
       expect(prisma.maintenanceWorkOrderCostEntry.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: expect.objectContaining({ type: 'LABOR', amount: { gt: 0 } }),
+        where: expect.objectContaining({ type: { in: ['LABOR', 'EXTERNAL'] }, amount: { gt: 0 } }),
       }));
       expect(productionCost.postLedgerEntryWithinTransaction).not.toHaveBeenCalled();
     });
@@ -543,7 +543,7 @@ describe('MaintenanceWorkOrdersService', () => {
     it('posts every distinct eligible labor source exactly once', async () => {
       prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([
         labor,
-        { id: 'labor2', amount: new Prisma.Decimal('20'), incurredAt },
+        { id: 'labor2', type: 'LABOR', amount: new Prisma.Decimal('20'), incurredAt },
       ]);
       await service.transition('wo1', { action: 'complete' }, user, ctx);
       expect(productionCost.postLedgerEntryWithinTransaction).toHaveBeenCalledTimes(2);
@@ -597,6 +597,198 @@ describe('MaintenanceWorkOrdersService', () => {
       prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(completingWorkOrder({ status: 'CANCELLED' }));
       await expect(service.removeCostEntry('labor1', user, ctx)).rejects.toThrow(BadRequestException);
       expect(prisma.maintenanceWorkOrderCostEntry.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('COST-R2C-B manual asserted external maintenance service', () => {
+    const incurredAt = new Date('2026-09-04T09:00:00.000Z');
+    const external = { id: 'external1', type: 'EXTERNAL', amount: new Prisma.Decimal('987.6543'), incurredAt };
+    const completingWorkOrder = (overrides: Record<string, any> = {}) => wo({
+      status: 'IN_PROGRESS',
+      machineId: 'm1',
+      requestId: 'mr1',
+      request: { id: 'mr1', machineId: 'm1', productionLineId: null, costCenterId: 'cc-request' },
+      machine: { id: 'm1', productionLineId: null, departmentId: 'dep1', defaultCostCenterId: 'cc-machine' },
+      costEntries: [external],
+      actualCost: new Prisma.Decimal('999999'),
+      estimatedCost: new Prisma.Decimal('777777'),
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      prisma.maintenanceWorkOrder.findFirst.mockResolvedValue(completingWorkOrder());
+      prisma.maintenanceWorkOrderPart.findMany.mockResolvedValue([]);
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([external]);
+      prisma.maintenanceWorkOrderPart.aggregate.mockResolvedValue({ _sum: { totalCost: null } });
+      prisma.maintenanceWorkOrderCostEntry.aggregate.mockResolvedValue({ _sum: { amount: external.amount } });
+      prisma.machine.findFirst.mockResolvedValue({
+        id: 'm1', productionLineId: null, departmentId: 'dep1', defaultCostCenterId: 'cc-machine',
+      });
+      prisma.costCenter.findFirst.mockResolvedValue({ id: 'cc-request', departmentId: 'dep1' });
+      prisma.maintenanceWorkOrder.update.mockResolvedValue(completingWorkOrder({ status: 'COMPLETED' }));
+    });
+
+    it('posts exactly one canonical PRIMARY_COST at work-order completion', async () => {
+      await service.transition('wo1', { action: 'complete' }, user, ctx);
+      expect(productionCost.postLedgerEntryWithinTransaction).toHaveBeenCalledTimes(1);
+      expect(prisma.maintenanceWorkOrder.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses the exact external source identity, event and idempotency fingerprint', async () => {
+      await service.transition('wo1', { action: 'complete' }, user, ctx);
+      expect(productionCost.postLedgerEntryWithinTransaction.mock.calls[0][1]).toMatchObject({
+        eventType: 'EXTERNAL_SERVICE',
+        sourceType: 'MAINTENANCE_WORK_ORDER_COST_ENTRY',
+        sourceId: 'external1',
+        sourceLineId: 'external1',
+        sourceFingerprint: 'MAINTENANCE_WORK_ORDER_COST_ENTRY:external1:EXTERNAL_SERVICE',
+        clientRequestId: 'maintenance-external-service:external1:primary',
+      });
+    });
+
+    it('copies the authoritative Decimal amount and never uses work-order summaries', async () => {
+      await service.transition('wo1', { action: 'complete' }, user, ctx);
+      const opts = productionCost.postLedgerEntryWithinTransaction.mock.calls[0][1];
+      expect(opts.amount).toBe(external.amount);
+      expect(opts.amount.toString()).toBe('987.6543');
+      expect(opts.amount.toString()).not.toBe('999999');
+      expect(opts.amount.toString()).not.toBe('777777');
+    });
+
+    it('uses manual asserted actual, maintenance, AMOUNT and zero quantity/rate', async () => {
+      await service.transition('wo1', { action: 'complete' }, user, ctx);
+      const opts = productionCost.postLedgerEntryWithinTransaction.mock.calls[0][1];
+      expect(opts).toMatchObject({
+        costNature: 'MANUAL_ASSERTED_ACTUAL', costPurpose: 'MAINTENANCE', entryRole: 'PRIMARY_COST',
+        unit: 'AMOUNT', currencyCode: null,
+      });
+      expect(opts.quantity.toString()).toBe('0');
+      expect(opts.rate.toString()).toBe('0');
+    });
+
+    it('uses completion as postedAt while retaining incurredAt as occurredAt', async () => {
+      await service.transition('wo1', { action: 'complete' }, user, ctx);
+      const opts = productionCost.postLedgerEntryWithinTransaction.mock.calls[0][1];
+      const update = prisma.maintenanceWorkOrder.update.mock.calls[0][0];
+      expect(opts.postedAt).toBe(update.data.completedAt);
+      expect(opts.occurredAt).toBe(incurredAt);
+    });
+
+    it('preserves tenant/work-order attribution and request cost-center precedence', async () => {
+      await service.transition('wo1', { action: 'complete' }, user, ctx);
+      const opts = productionCost.postLedgerEntryWithinTransaction.mock.calls[0][1];
+      expect(opts.ctx).toBe(ctx);
+      expect(opts.refs).toMatchObject({
+        maintenanceWorkOrderId: 'wo1', maintenanceRequestId: 'mr1', machineId: 'm1',
+        costCenterId: 'cc-request', departmentId: 'dep1',
+      });
+      expect(opts.refs.productionOrderId).toBeUndefined();
+      expect(opts.refs.productionRunId).toBeUndefined();
+      expect(prisma.costCenter.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ id: 'cc-request', companyId: 'c1' }),
+      }));
+    });
+
+    it('falls back to machine default then the effective-dated resolver', async () => {
+      prisma.maintenanceWorkOrder.findFirst.mockResolvedValue(completingWorkOrder({
+        request: { id: 'mr1', machineId: 'm1', productionLineId: null, costCenterId: null },
+      }));
+      prisma.costCenter.findFirst.mockResolvedValue({ id: 'cc-machine', departmentId: 'dep1' });
+      await service.transition('wo1', { action: 'complete' }, user, ctx);
+      expect(prisma.costCenter.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ id: 'cc-machine' }),
+      }));
+
+      jest.clearAllMocks();
+      prisma.maintenanceWorkOrder.findFirst.mockResolvedValue(completingWorkOrder({
+        request: { id: 'mr1', machineId: 'm1', productionLineId: null, costCenterId: null },
+      }));
+      prisma.maintenanceWorkOrderPart.findMany.mockResolvedValue([]);
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([external]);
+      prisma.maintenanceWorkOrderPart.aggregate.mockResolvedValue({ _sum: { totalCost: null } });
+      prisma.maintenanceWorkOrderCostEntry.aggregate.mockResolvedValue({ _sum: { amount: external.amount } });
+      prisma.machine.findFirst.mockResolvedValue({ id: 'm1', productionLineId: null, departmentId: 'dep1', defaultCostCenterId: null });
+      costCenterResolver.resolveWithClient.mockResolvedValue({ costCenterId: 'cc-resolved' });
+      prisma.costCenter.findFirst.mockResolvedValue({ id: 'cc-resolved', departmentId: 'dep1' });
+      prisma.maintenanceWorkOrder.update.mockResolvedValue(completingWorkOrder({ status: 'COMPLETED' }));
+      productionCost.postLedgerEntryWithinTransaction.mockResolvedValue({ transaction: { id: 'ledger2' }, replay: false });
+      await service.transition('wo1', { action: 'complete' }, user, ctx);
+      expect(costCenterResolver.resolveWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ machineId: 'm1', referenceDate: incurredAt.toISOString() }),
+        ctx,
+      );
+    });
+
+    it.each([
+      ['LABOR', '1'],
+      ['PARTS', '1'],
+      ['OTHER', '1'],
+      ['EXTERNAL', '0'],
+    ])('excludes %s amount %s from external-service posting', async (type, amount) => {
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue(
+        type === 'EXTERNAL' && amount === '0' ? [] : [{ ...external, type, amount: new Prisma.Decimal(amount) }],
+      );
+      await service.transition('wo1', { action: 'complete' }, user, ctx);
+      const calls = productionCost.postLedgerEntryWithinTransaction.mock.calls
+        .filter((call: any[]) => call[1].eventType === 'EXTERNAL_SERVICE');
+      expect(calls).toHaveLength(0);
+    });
+
+    it('blocks completion for an invalid, missing or cross-tenant cost center', async () => {
+      prisma.costCenter.findFirst.mockResolvedValue(null);
+      await expect(service.transition('wo1', { action: 'complete' }, user, ctx)).rejects.toThrow(BadRequestException);
+      expect(prisma.maintenanceWorkOrder.update).not.toHaveBeenCalled();
+    });
+
+    it('blocks cross-company or cross-branch source context before posting', async () => {
+      prisma.maintenanceWorkOrder.findFirst.mockResolvedValue(null);
+      await expect(service.transition('wo1', { action: 'complete' }, user, ctx)).rejects.toThrow(NotFoundException);
+      expect(productionCost.postLedgerEntryWithinTransaction).not.toHaveBeenCalled();
+    });
+
+    it('rolls completion and audit back when external posting fails', async () => {
+      productionCost.postLedgerEntryWithinTransaction.mockRejectedValue(new BadRequestException('currency required'));
+      await expect(service.transition('wo1', { action: 'complete' }, user, ctx)).rejects.toThrow(BadRequestException);
+      expect(prisma.maintenanceWorkOrder.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('never backfills completed/cancelled work orders', async () => {
+      prisma.maintenanceWorkOrder.findFirst.mockResolvedValue(completingWorkOrder({ status: 'COMPLETED' }));
+      await service.transition('wo1', { action: 'complete' }, user, ctx);
+      expect(productionCost.postLedgerEntryWithinTransaction).not.toHaveBeenCalled();
+      prisma.maintenanceWorkOrder.findFirst.mockResolvedValue(completingWorkOrder({ status: 'CANCELLED' }));
+      await expect(service.transition('wo1', { action: 'complete' }, user, ctx)).rejects.toThrow(BadRequestException);
+    });
+
+    it('maps a duplicate race to a domain conflict instead of HTTP 500', async () => {
+      productionCost.postLedgerEntryWithinTransaction.mockRejectedValue({ code: 'P2002' });
+      await expect(service.transition('wo1', { action: 'complete' }, user, ctx)).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('freezes external source update and delete after completion', async () => {
+      prisma.maintenanceWorkOrderCostEntry.findUnique.mockResolvedValue(external);
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(completingWorkOrder({ status: 'COMPLETED' }));
+      await expect(service.updateCostEntry('external1', { amount: 1000 }, user, ctx)).rejects.toThrow(BadRequestException);
+      await expect(service.removeCostEntry('external1', user, ctx)).rejects.toThrow(BadRequestException);
+      expect(prisma.maintenanceWorkOrderCostEntry.update).not.toHaveBeenCalled();
+      expect(prisma.maintenanceWorkOrderCostEntry.delete).not.toHaveBeenCalled();
+    });
+
+    it('freezes a posted external source even if the work-order status is inconsistent', async () => {
+      prisma.maintenanceWorkOrderCostEntry.findUnique.mockResolvedValue(external);
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(completingWorkOrder({ status: 'IN_PROGRESS' }));
+      prisma.operationalCostTransaction.findFirst.mockResolvedValue({ id: 'external-ledger1' });
+      await expect(service.updateCostEntry('external1', { amount: 1000 }, user, ctx)).rejects.toThrow(BadRequestException);
+      expect(prisma.operationalCostTransaction.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          sourceFingerprint: { in: [
+            'MAINTENANCE_WORK_ORDER_COST_ENTRY:external1:LABOR',
+            'MAINTENANCE_WORK_ORDER_COST_ENTRY:external1:EXTERNAL_SERVICE',
+          ] },
+        }),
+      }));
     });
   });
 

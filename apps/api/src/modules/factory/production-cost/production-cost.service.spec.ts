@@ -1253,6 +1253,34 @@ describe('ProductionCostService', () => {
       expect(prisma.operationalCostTransaction.create.mock.calls[0][0].data.reversalOfId).toBe('labor-primary-public');
     });
 
+    it('COST-R2C-B reversal negates immutable external-service evidence and inherits all attribution', async () => {
+      const original = {
+        id: 'external-primary-1', companyId: 'c3', branchId: 'b3', eventType: 'EXTERNAL_SERVICE',
+        sourceType: 'MAINTENANCE_WORK_ORDER_COST_ENTRY', sourceId: 'external-source-1', sourceLineId: 'external-source-1',
+        costNature: 'MANUAL_ASSERTED_ACTUAL', costPurpose: 'MAINTENANCE', entryRole: 'PRIMARY_COST',
+        amount: new Prisma.Decimal('987.6543'), quantity: new Prisma.Decimal(0), unit: 'AMOUNT', rate: new Prisma.Decimal(0),
+        currencyCode: 'SAR', standardAmount: null, varianceAmount: null, reversalOfId: null, reversedAt: null,
+        costCenterId: 'cc-external', departmentId: 'dep-maint', machineId: 'machine-1', productionLineId: null,
+        maintenanceWorkOrderId: 'wo-1', maintenanceRequestId: 'mr-1',
+      };
+      const { transaction } = await service.reverseLedgerEntry(prisma, original, {
+        reason: 'replace external invoice evidence', notes: null,
+        clientRequestId: 'external-reversal-request-1', createdById: 'maker', ctx: ctxC3,
+      });
+      const data = prisma.operationalCostTransaction.create.mock.calls[0][0].data;
+      expect(transaction.amount.toString()).toBe('-987.6543');
+      expect(data).toMatchObject({
+        eventType: 'EXTERNAL_SERVICE', sourceType: 'MAINTENANCE_WORK_ORDER_COST_ENTRY',
+        sourceId: 'external-source-1', sourceLineId: 'external-source-1',
+        costNature: 'MANUAL_ASSERTED_ACTUAL', costPurpose: 'MAINTENANCE', entryRole: 'REVERSAL',
+        reversalOfId: 'external-primary-1', currencyCode: 'SAR', unit: 'AMOUNT',
+        costCenterId: 'cc-external', departmentId: 'dep-maint', machineId: 'machine-1',
+        maintenanceWorkOrderId: 'wo-1', maintenanceRequestId: 'mr-1',
+      });
+      expect(data.quantity.toString()).toBe('0');
+      expect(data.rate.toString()).toBe('0');
+    });
+
     it('REVERSAL: reversing a reversal is blocked', async () => {
       const original = {
         id: 'rev-1', companyId: 'c3', branchId: 'b3', eventType: 'MATERIAL', sourceType: 'INVENTORY_MOVEMENT_LINE', sourceId: 'inv-9',

@@ -83,6 +83,7 @@ export const OPERATIONAL_COST_CALCULATION_INCLUDE = {
 } as const;
 
 export const COST_TYPES = ['MATERIAL', 'LABOR', 'MACHINE', 'OVERHEAD', 'DOWNTIME'] as const;
+export const OPERATIONAL_LEDGER_EVENT_TYPES = [...COST_TYPES, 'EXTERNAL_SERVICE'] as const;
 export const COST_UNITS = ['PACK', 'UNIT', 'KG', 'TON', 'LITER', 'BATCH', 'HOUR', 'MINUTE'] as const;
 /** Ledger-only unit for a manual amount whose source has no quantity or rate evidence. */
 export const COST_TRANSACTION_UNITS = [...COST_UNITS, 'AMOUNT'] as const;
@@ -178,9 +179,11 @@ export function isEntryRole(value: string | null | undefined): value is EntryRol
  */
 export const MATERIAL_EVENT_TYPE = 'MATERIAL' as const;
 export const LABOR_EVENT_TYPE = 'LABOR' as const;
+export const EXTERNAL_SERVICE_EVENT_TYPE = 'EXTERNAL_SERVICE' as const;
 export const MAINTENANCE_LABOR_SOURCE_TYPE = 'MAINTENANCE_WORK_ORDER_COST_ENTRY' as const;
 export const MANUAL_AMOUNT_UNIT = 'AMOUNT' as const;
 export const COST_R2B_LABOR_MIGRATION = '20260903120000_cost_r2b_maintenance_labor_ledger' as const;
+export const COST_R2C_EXTERNAL_SERVICE_MIGRATION = '20260904120000_cost_r2c_external_service_ledger' as const;
 
 /**
  * COST-R1B-B2: normalize a raw movement/product unit to the canonical ledger

@@ -26,11 +26,24 @@ const materialSource = (overrides: Record<string, any> = {}) => ({
 
 const laborSource = (overrides: Record<string, any> = {}) => ({
   id: 'labor1',
+  type: 'LABOR',
   amount: new Prisma.Decimal('125.75'),
   incurredAt: new Date('2026-09-03T09:00:00.000Z'),
   workOrder: {
     id: 'wo1', companyId: 'c1', branchId: 'b1', status: 'COMPLETED',
     completedAt: new Date('2026-09-03T10:00:00.000Z'),
+  },
+  ...overrides,
+});
+
+const externalServiceSource = (overrides: Record<string, any> = {}) => ({
+  ...laborSource(),
+  id: 'external1',
+  type: 'EXTERNAL',
+  amount: new Prisma.Decimal('987.6543'),
+  workOrder: {
+    id: 'wo-external', companyId: 'c1', branchId: 'b1', status: 'COMPLETED',
+    completedAt: new Date('2026-09-04T10:00:00.000Z'),
   },
   ...overrides,
 });
@@ -41,6 +54,17 @@ const laborLedger = (overrides: Record<string, any> = {}) => row({
   sourceFingerprint: 'MAINTENANCE_WORK_ORDER_COST_ENTRY:labor1:LABOR', clientRequestId: 'maintenance-labor:labor1:primary',
   maintenanceWorkOrderId: 'wo1', maintenanceRequestId: 'mr1', costCenterId: 'cc1', departmentId: 'dep1',
   quantity: new Prisma.Decimal(0), unit: 'AMOUNT', rate: new Prisma.Decimal(0), amount: new Prisma.Decimal('125.75'),
+  currencyCode: 'USD',
+  ...overrides,
+});
+
+const externalServiceLedger = (overrides: Record<string, any> = {}) => row({
+  id: 'external-ledger1', eventType: 'EXTERNAL_SERVICE', sourceType: 'MAINTENANCE_WORK_ORDER_COST_ENTRY', sourceId: 'external1',
+  sourceLineId: 'external1', costNature: 'MANUAL_ASSERTED_ACTUAL', costPurpose: 'MAINTENANCE', entryRole: 'PRIMARY_COST',
+  sourceFingerprint: 'MAINTENANCE_WORK_ORDER_COST_ENTRY:external1:EXTERNAL_SERVICE',
+  clientRequestId: 'maintenance-external-service:external1:primary',
+  maintenanceWorkOrderId: 'wo-external', maintenanceRequestId: 'mr1', costCenterId: 'cc1', departmentId: 'dep1',
+  quantity: new Prisma.Decimal(0), unit: 'AMOUNT', rate: new Prisma.Decimal(0), amount: new Prisma.Decimal('987.6543'),
   currencyCode: 'USD',
   ...overrides,
 });
@@ -62,7 +86,9 @@ describe('COST-R1C OperationalCostReconciliationService', () => {
       },
       operationalSourceChange: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
       company: { findUnique: jest.fn().mockResolvedValue({ operationalCurrencyCode: 'USD' }) },
-      $queryRaw: jest.fn().mockResolvedValue([{ finished_at: new Date('2026-09-02T22:43:26.182Z'), rolled_back_at: null }]),
+      $queryRaw: jest.fn().mockResolvedValue([{
+        finished_at: new Date('2026-09-02T22:43:26.182Z'), rolled_back_at: null, applied_steps_count: 1,
+      }]),
     };
     service = new OperationalCostReconciliationService(prisma);
   });
@@ -278,8 +304,9 @@ describe('COST-R1C OperationalCostReconciliationService', () => {
 
     it('classifies a pre-migration completion as historical and never requires backfill', async () => {
       prisma.$queryRaw
-        .mockResolvedValueOnce([{ finished_at: new Date('2026-09-01T00:00:00.000Z'), rolled_back_at: null }])
-        .mockResolvedValueOnce([{ finished_at: new Date('2026-09-03T00:00:00.000Z'), rolled_back_at: null }]);
+        .mockResolvedValueOnce([{ finished_at: new Date('2026-09-01T00:00:00.000Z'), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([{ finished_at: new Date('2026-09-03T00:00:00.000Z'), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([{ finished_at: new Date('2026-09-04T00:00:00.000Z'), rolled_back_at: null, applied_steps_count: 1 }]);
       prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([laborSource({
         workOrder: { id: 'wo1', companyId: 'c1', branchId: 'b1', status: 'COMPLETED', completedAt: new Date('2026-09-02T00:00:00.000Z') },
       })]);
@@ -338,9 +365,129 @@ describe('COST-R1C OperationalCostReconciliationService', () => {
       await service.reconcile({} as any, ctxB);
       expect(prisma.maintenanceWorkOrderCostEntry.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: {
-          type: 'LABOR', amount: { gt: 0 },
+          type: { in: ['LABOR', 'EXTERNAL'] }, amount: { gt: 0 },
           workOrder: { companyId: 'c2', branchId: 'b2', status: 'COMPLETED', deletedAt: null },
         },
+      }));
+    });
+  });
+
+  describe('COST-R2C-B external service source reconciliation', () => {
+    it('reports a clean current source against its exact external-service primary', async () => {
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([externalServiceSource()]);
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([externalServiceLedger()]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts).toMatchObject({
+        EXTERNAL_SERVICE_SOURCE_COUNT: 1,
+        EXTERNAL_SERVICE_CURRENT_SOURCE_COUNT: 1,
+        EXTERNAL_SERVICE_LEDGER_COUNT: 1,
+        EXTERNAL_SERVICE_CURRENT_MISSING_LEDGER_COUNT: 0,
+        EXTERNAL_SERVICE_DUPLICATE_LEDGER_COUNT: 0,
+        EXTERNAL_SERVICE_VALUE_MISMATCH_COUNT: 0,
+        EXTERNAL_SERVICE_CURRENCY_MISMATCH_COUNT: 0,
+        CURRENT_EXTERNAL_SERVICE_LEDGER_ERROR_COUNT: 0,
+        HISTORICAL_EXTERNAL_SERVICE_BACKFILL_COUNT: 0,
+      });
+      expect(result.decision.totalDefectCount).toBe(0);
+    });
+
+    it('classifies completion strictly before the exact migration boundary as informational legacy', async () => {
+      const boundary = new Date('2026-09-04T10:00:00.000Z');
+      prisma.$queryRaw.mockResolvedValue([{
+        finished_at: boundary, rolled_back_at: null, applied_steps_count: 1,
+      }]);
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([externalServiceSource({
+        workOrder: {
+          id: 'wo-external', companyId: 'c1', branchId: 'b1', status: 'COMPLETED',
+          completedAt: new Date('2026-09-04T09:59:59.999Z'),
+        },
+      })]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.EXTERNAL_SERVICE_LEGACY_PRE_LEDGER_SOURCE_COUNT).toBe(1);
+      expect(result.counts.EXTERNAL_SERVICE_CURRENT_MISSING_LEDGER_COUNT).toBe(0);
+      expect(result.counts.HISTORICAL_EXTERNAL_SERVICE_BACKFILL_COUNT).toBe(0);
+    });
+
+    it('classifies a source exactly at the migration boundary as current', async () => {
+      const boundary = new Date('2026-09-04T10:00:00.000Z');
+      prisma.$queryRaw.mockResolvedValue([{
+        finished_at: boundary, rolled_back_at: null, applied_steps_count: 1,
+      }]);
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([externalServiceSource({
+        workOrder: {
+          id: 'wo-external', companyId: 'c1', branchId: 'b1', status: 'COMPLETED', completedAt: boundary,
+        },
+      })]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.EXTERNAL_SERVICE_LEGACY_PRE_LEDGER_SOURCE_COUNT).toBe(0);
+      expect(result.counts.EXTERNAL_SERVICE_CURRENT_SOURCE_COUNT).toBe(1);
+      expect(result.counts.EXTERNAL_SERVICE_CURRENT_MISSING_LEDGER_COUNT).toBe(1);
+    });
+
+    it('detects current missing, duplicate, value and currency defects', async () => {
+      prisma.company.findUnique.mockResolvedValue({ operationalCurrencyCode: 'YER' });
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([externalServiceSource()]);
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([
+        externalServiceLedger({ amount: new Prisma.Decimal('900'), currencyCode: 'USD' }),
+        externalServiceLedger({ id: 'external-ledger2', clientRequestId: 'external-duplicate', amount: new Prisma.Decimal('900'), currencyCode: 'USD' }),
+      ]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.EXTERNAL_SERVICE_DUPLICATE_LEDGER_COUNT).toBe(1);
+      expect(result.counts.EXTERNAL_SERVICE_VALUE_MISMATCH_COUNT).toBe(2);
+      expect(result.counts.EXTERNAL_SERVICE_CURRENCY_MISMATCH_COUNT).toBe(2);
+      expect(result.counts.CURRENT_EXTERNAL_SERVICE_LEDGER_ERROR_COUNT).toBeGreaterThanOrEqual(5);
+      expect(result.counts.CURRENT_CANONICAL_LEDGER_ERROR_COUNT).toBeGreaterThan(0);
+    });
+
+    it('detects orphan and double reversal only within EXTERNAL_SERVICE', async () => {
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([externalServiceSource()]);
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([
+        externalServiceLedger(),
+        externalServiceLedger({ id: 'er1', entryRole: 'REVERSAL', amount: new Prisma.Decimal('-987.6543'), reversalOfId: 'external-ledger1', sourceFingerprint: null, clientRequestId: 'er1', status: 'REVERSED' }),
+        externalServiceLedger({ id: 'er2', entryRole: 'REVERSAL', amount: new Prisma.Decimal('-987.6543'), reversalOfId: 'external-ledger1', sourceFingerprint: null, clientRequestId: 'er2', status: 'REVERSED' }),
+        externalServiceLedger({ id: 'er-orphan', entryRole: 'REVERSAL', amount: new Prisma.Decimal('-987.6543'), reversalOfId: 'missing', sourceFingerprint: null, clientRequestId: 'er-orphan', status: 'REVERSED' }),
+        laborLedger(),
+      ]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.EXTERNAL_SERVICE_ORPHAN_REVERSAL_COUNT).toBe(1);
+      expect(result.counts.EXTERNAL_SERVICE_DOUBLE_REVERSAL_COUNT).toBe(1);
+      expect(result.counts.MAINTENANCE_LABOR_DOUBLE_REVERSAL_COUNT).toBe(0);
+    });
+
+    it('makes the report NOT_READY when the exact successful external migration row is unavailable', async () => {
+      prisma.$queryRaw
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.meta.externalServiceCoverageBoundaryInferable).toBe(false);
+      expect(result.decision.status).toBe('NOT_READY');
+      expect(result.decision.coverageBoundaryInferable).toBe(false);
+    });
+
+    it.each([
+      [{ finished_at: new Date(), rolled_back_at: new Date(), applied_steps_count: 1 }],
+      [{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 0 }],
+      [{ finished_at: null, rolled_back_at: null, applied_steps_count: 1 }],
+    ])('rejects a failed, rolled-back or unfinished exact migration row', async (migrationRow) => {
+      prisma.$queryRaw
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce(migrationRow);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.decision.status).toBe('NOT_READY');
+    });
+
+    it('queries only completed positive LABOR/EXTERNAL atomic sources and excludes all summaries', async () => {
+      await service.reconcile({} as any, ctxB);
+      expect(prisma.maintenanceWorkOrderCostEntry.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: {
+          type: { in: ['LABOR', 'EXTERNAL'] }, amount: { gt: 0 },
+          workOrder: { companyId: 'c2', branchId: 'b2', status: 'COMPLETED', deletedAt: null },
+        },
+      }));
+      expect(prisma.maintenanceWorkOrderCostEntry.count).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ type: { in: ['PARTS', 'OTHER'] } }),
       }));
     });
   });
@@ -675,7 +822,7 @@ describe('COST-R1C OperationalCostReconciliationService', () => {
     const LEGACY_POSTED = new Date('2026-09-01T20:23:01.815Z');
     const CURRENT_POSTED = new Date('2026-09-03T10:00:00.000Z');
     const boundaryInferable = () =>
-      prisma.$queryRaw.mockResolvedValue([{ finished_at: BOUNDARY, rolled_back_at: null }]);
+      prisma.$queryRaw.mockResolvedValue([{ finished_at: BOUNDARY, rolled_back_at: null, applied_steps_count: 1 }]);
 
     const prodSource = (id: string, postedAt: Date, totalCost = new Prisma.Decimal('50')) =>
       materialSource({

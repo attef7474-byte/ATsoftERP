@@ -6,6 +6,7 @@ import {
   COST_TRANSACTION_UNITS,
   COST_CALCULATION_SCOPE_TYPES,
   OPERATIONAL_LEDGER_SOURCE_TYPES,
+  OPERATIONAL_LEDGER_EVENT_TYPES,
 } from './production-cost.constants';
 
 /**
@@ -36,6 +37,11 @@ const LABOR_MIGRATION_DIR = path.resolve(
   '../../../../prisma/migrations/20260903120000_cost_r2b_maintenance_labor_ledger',
 );
 const LABOR_MIGRATION_FILE = path.join(LABOR_MIGRATION_DIR, 'migration.sql');
+const EXTERNAL_SERVICE_MIGRATION_DIR = path.resolve(
+  __dirname,
+  '../../../../prisma/migrations/20260904120000_cost_r2c_external_service_ledger',
+);
+const EXTERNAL_SERVICE_MIGRATION_FILE = path.join(EXTERNAL_SERVICE_MIGRATION_DIR, 'migration.sql');
 
 interface CheckContract {
   constraintName: string;
@@ -77,12 +83,15 @@ const expectSameSet = (actual: string[], canonical: readonly string[], label: st
 describe('ProductionCost source-to-database CHECK contract guard', () => {
   let migrationSql: string;
   let laborMigrationSql: string;
+  let externalServiceMigrationSql: string;
 
   beforeAll(() => {
     expect(fs.existsSync(REPAIR_MIGRATION_FILE)).toBe(true);
     expect(fs.existsSync(LABOR_MIGRATION_FILE)).toBe(true);
+    expect(fs.existsSync(EXTERNAL_SERVICE_MIGRATION_FILE)).toBe(true);
     migrationSql = fs.readFileSync(REPAIR_MIGRATION_FILE, 'utf8');
     laborMigrationSql = fs.readFileSync(LABOR_MIGRATION_FILE, 'utf8');
+    externalServiceMigrationSql = fs.readFileSync(EXTERNAL_SERVICE_MIGRATION_FILE, 'utf8');
   });
 
   it('references the expected single repair migration', () => {
@@ -152,6 +161,41 @@ describe('ProductionCost source-to-database CHECK contract guard', () => {
       expect(laborMigrationSql).toMatch(new RegExp(`WITH\\s+CHECK\\s+ADD\\s+CONSTRAINT\\s+\\[${name}\\]`, 'i'));
       expect(laborMigrationSql).toMatch(new RegExp(`CHECK\\s+CONSTRAINT\\s+\\[${name}\\]`, 'i'));
     }
+  });
+
+  it('COST-R2C-B eventType CHECK matches the complete ledger event vocabulary', () => {
+    const c = parseCheckConstraints(externalServiceMigrationSql)
+      .find((x) => x.constraintName === 'operational_cost_transactions_event_type_ck')!;
+    expect(c.column).toBe('eventType');
+    expectSameSet(c.values, OPERATIONAL_LEDGER_EVENT_TYPES, 'transaction eventType');
+  });
+
+  it('COST-R2C-B is a trusted constraint-only migration with no data or history writes', () => {
+    expect(externalServiceMigrationSql).not.toMatch(/WITH\s+NOCHECK/i);
+    expect(externalServiceMigrationSql).not.toMatch(/\b(INSERT|UPDATE|DELETE|TRUNCATE)\b/i);
+    expect(externalServiceMigrationSql).not.toMatch(/_prisma_migrations/i);
+    for (const name of [
+      'operational_cost_transactions_event_type_ck',
+      'operational_cost_transactions_rate_ck',
+      'operational_cost_transactions_quantity_sign_ck',
+      'operational_cost_transactions_external_service_shape_ck',
+    ]) {
+      expect(externalServiceMigrationSql).toMatch(new RegExp(`WITH\\s+CHECK\\s+ADD\\s+CONSTRAINT\\s+\\[${name}\\]`, 'i'));
+      expect(externalServiceMigrationSql).toMatch(new RegExp(`CHECK\\s+CONSTRAINT\\s+\\[${name}\\]`, 'i'));
+    }
+  });
+
+  it('COST-R2C-B narrowly requires the source, amount unit and zero quantity/rate shape', () => {
+    const shape = externalServiceMigrationSql.match(
+      /ADD CONSTRAINT \[operational_cost_transactions_external_service_shape_ck\] CHECK\s*\(([\s\S]*?)\);/i,
+    )?.[1] ?? '';
+    expect(shape).toContain("[eventType] <> N'EXTERNAL_SERVICE'");
+    expect(shape).toContain("[sourceType] = N'MAINTENANCE_WORK_ORDER_COST_ENTRY'");
+    expect(shape).toContain("[costNature] = N'MANUAL_ASSERTED_ACTUAL'");
+    expect(shape).toContain("[costPurpose] = N'MAINTENANCE'");
+    expect(shape).toContain("[unit] = N'AMOUNT'");
+    expect(shape).toContain('[quantity] = (0)');
+    expect(shape).toContain('[rate] = (0)');
   });
 
   it('calculation scopeType CHECK matches the canonical COST_CALCULATION_SCOPE_TYPES (incl. BRANCH)', () => {

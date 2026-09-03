@@ -5,8 +5,10 @@ import { ActiveOperationalContext } from '../../../common/operational-context/op
 import {
   COST_NATURE_VALUES,
   COST_R2B_LABOR_MIGRATION,
+  COST_R2C_EXTERNAL_SERVICE_MIGRATION,
   ENTRY_ROLE_PRIMARY_COST,
   ENTRY_ROLE_REVERSAL,
+  EXTERNAL_SERVICE_EVENT_TYPE,
   LABOR_EVENT_TYPE,
   MAINTENANCE_LABOR_SOURCE_TYPE,
 } from './production-cost.constants';
@@ -71,6 +73,7 @@ type DowntimeSourceRow = {
 
 type MaintenanceLaborSourceRow = {
   id: string;
+  type: string;
   amount: Prisma.Decimal;
   incurredAt: Date;
   workOrder: {
@@ -130,7 +133,7 @@ export class OperationalCostReconciliationService {
       company,
       materialSourceRows,
       downtimeSourceRows,
-      maintenanceLaborSourceRows,
+      maintenanceCostSourceRows,
       materialLineCount,
       downtimeEligibleCount,
       fgReceipts,
@@ -140,6 +143,7 @@ export class OperationalCostReconciliationService {
       sourceChangeRows,
       coverageBoundary,
       laborCoverageBoundary,
+      externalServiceCoverageBoundary,
     ] = await Promise.all([
       (this.prisma as any).operationalCostTransaction.findMany({ where }),
       this.companyOperationalCurrency(ctx.companyId),
@@ -189,7 +193,7 @@ export class OperationalCostReconciliationService {
       }),
       (this.prisma as any).maintenanceWorkOrderCostEntry.findMany({
         where: {
-          type: 'LABOR',
+          type: { in: ['LABOR', 'EXTERNAL'] },
           amount: { gt: 0 },
           workOrder: {
             companyId: ctx.companyId,
@@ -200,6 +204,7 @@ export class OperationalCostReconciliationService {
         },
         select: {
           id: true,
+          type: true,
           amount: true,
           incurredAt: true,
           workOrder: { select: { id: true, companyId: true, branchId: true, status: true, completedAt: true } },
@@ -227,8 +232,9 @@ export class OperationalCostReconciliationService {
       // Maintenance cost aggregation has no direct companyId; it is scoped via its
       // workOrder relation. These entries are authoritative summaries (no ledger
       // expense each in their own right) and are excluded, never double counted.
+      // EXTERNAL is an atomic canonical source and therefore is not a summary.
       (this.prisma as any).maintenanceWorkOrderCostEntry.count({
-        where: { type: { not: 'LABOR' }, workOrder: { companyId: ctx.companyId, branchId: ctx.branchId } },
+        where: { type: { in: ['PARTS', 'OTHER'] }, workOrder: { companyId: ctx.companyId, branchId: ctx.branchId } },
       }),
       (this.prisma as any).operationalSourceChange.count({
         where: { companyId: ctx.companyId, branchId: ctx.branchId },
@@ -239,6 +245,7 @@ export class OperationalCostReconciliationService {
       }),
       this.resolveLedgerCoverageBoundary(),
       this.resolveCoverageBoundary(COST_R2B_LABOR_MIGRATION),
+      this.resolveCoverageBoundary(COST_R2C_EXTERNAL_SERVICE_MIGRATION),
     ]);
 
     const ledger = this.analyzeLedgerRows(rows as LedgerRow[]);
@@ -247,18 +254,22 @@ export class OperationalCostReconciliationService {
       coverageBoundary.inferable && coverageBoundary.boundary
         ? coverageBoundary.boundary
         : null;
+    const maintenanceCostSources = maintenanceCostSourceRows as MaintenanceLaborSourceRow[];
     const sources = this.analyzeSources(rows as LedgerRow[], {
       materialLineCount,
       downtimeEligibleCount,
       materialSources: materialSourceRows as MaterialSourceRow[],
       downtimeSources: downtimeSourceRows as DowntimeSourceRow[],
-      maintenanceLaborSources: maintenanceLaborSourceRows as MaintenanceLaborSourceRow[],
+      maintenanceLaborSources: maintenanceCostSources.filter((source) => source.type === 'LABOR'),
+      externalServiceSources: maintenanceCostSources.filter((source) => source.type === 'EXTERNAL'),
       operationalCurrencyCode: company,
       sourceChanges: sourceChangeRows as SourceChangeRow[],
       coverageBoundary: boundaryState,
       coverageBoundaryInferable: coverageBoundary.inferable,
       laborCoverageBoundary: laborCoverageBoundary.boundary,
       laborCoverageBoundaryInferable: laborCoverageBoundary.inferable,
+      externalServiceCoverageBoundary: externalServiceCoverageBoundary.boundary,
+      externalServiceCoverageBoundaryInferable: externalServiceCoverageBoundary.inferable,
     });
     const exclusions = {
       finishedGoodsReceiptCount: fgReceipts,
@@ -305,9 +316,18 @@ export class OperationalCostReconciliationService {
       maintenanceLaborCurrentCurrencyMismatch: sources.maintenanceLaborCurrentCurrencyMismatch,
       maintenanceLaborOrphanReversal: sources.maintenanceLaborOrphanReversal,
       maintenanceLaborDoubleReversal: sources.maintenanceLaborDoubleReversal,
+      externalServiceCurrentMissingLedger: sources.externalServiceCurrentMissingLedger,
+      externalServiceCurrentDuplicateLedger: sources.externalServiceCurrentDuplicateLedger,
+      externalServiceCurrentValueMismatch: sources.externalServiceCurrentValueMismatch,
+      externalServiceCurrentCurrencyMismatch: sources.externalServiceCurrentCurrencyMismatch,
+      externalServiceOrphanReversal: sources.externalServiceOrphanReversal,
+      externalServiceDoubleReversal: sources.externalServiceDoubleReversal,
     };
     const totalDefects = Object.values(defects).reduce((a, b) => a + (b ?? 0), 0);
-    const allCoverageBoundariesInferable = coverageBoundary.inferable && laborCoverageBoundary.inferable;
+    const allCoverageBoundariesInferable =
+      coverageBoundary.inferable
+      && laborCoverageBoundary.inferable
+      && externalServiceCoverageBoundary.inferable;
 
     return {
       meta: {
@@ -328,6 +348,10 @@ export class OperationalCostReconciliationService {
           ? laborCoverageBoundary.boundary.toISOString()
           : null,
         laborCoverageBoundaryInferable: laborCoverageBoundary.inferable,
+        costR2cExternalServiceCoverageBoundary: externalServiceCoverageBoundary.boundary
+          ? externalServiceCoverageBoundary.boundary.toISOString()
+          : null,
+        externalServiceCoverageBoundaryInferable: externalServiceCoverageBoundary.inferable,
         scope: query,
       },
       summary: {
@@ -382,6 +406,18 @@ export class OperationalCostReconciliationService {
         MAINTENANCE_LABOR_DOUBLE_REVERSAL_COUNT: sources.maintenanceLaborDoubleReversal,
         CURRENT_MAINTENANCE_LABOR_LEDGER_ERROR_COUNT: sources.currentMaintenanceLaborLedgerErrorCount,
         HISTORICAL_LABOR_BACKFILL_COUNT: 0,
+        EXTERNAL_SERVICE_SOURCE_COUNT: sources.externalServiceSourceCount,
+        EXTERNAL_SERVICE_LEGACY_PRE_LEDGER_SOURCE_COUNT: sources.externalServiceLegacyPreLedgerSourceCount,
+        EXTERNAL_SERVICE_CURRENT_SOURCE_COUNT: sources.externalServiceCurrentSourceCount,
+        EXTERNAL_SERVICE_LEDGER_COUNT: sources.externalServiceLedgerCount,
+        EXTERNAL_SERVICE_CURRENT_MISSING_LEDGER_COUNT: sources.externalServiceCurrentMissingLedger,
+        EXTERNAL_SERVICE_DUPLICATE_LEDGER_COUNT: sources.externalServiceDuplicateLedger,
+        EXTERNAL_SERVICE_VALUE_MISMATCH_COUNT: sources.externalServiceValueMismatch,
+        EXTERNAL_SERVICE_CURRENCY_MISMATCH_COUNT: sources.externalServiceCurrencyMismatch,
+        EXTERNAL_SERVICE_ORPHAN_REVERSAL_COUNT: sources.externalServiceOrphanReversal,
+        EXTERNAL_SERVICE_DOUBLE_REVERSAL_COUNT: sources.externalServiceDoubleReversal,
+        CURRENT_EXTERNAL_SERVICE_LEDGER_ERROR_COUNT: sources.currentExternalServiceLedgerErrorCount,
+        HISTORICAL_EXTERNAL_SERVICE_BACKFILL_COUNT: 0,
         CURRENT_CANONICAL_LEDGER_ERROR_COUNT: totalDefects,
         DOWNTIME_LEDGER_COUNT: sources.downtimeLedgerPrimary,
         DOWNTIME_SOURCE_MISSING_COUNT: sources.downtimeSourceMissing,
@@ -448,6 +484,19 @@ export class OperationalCostReconciliationService {
           currencyMismatch: sources.maintenanceLaborCurrencyMismatch,
           orphanReversal: sources.maintenanceLaborOrphanReversal,
           doubleReversal: sources.maintenanceLaborDoubleReversal,
+          historicalBackfillCount: 0,
+        },
+        externalService: {
+          sourceCount: sources.externalServiceSourceCount,
+          legacyPreLedgerSourceCount: sources.externalServiceLegacyPreLedgerSourceCount,
+          currentSourceCount: sources.externalServiceCurrentSourceCount,
+          ledgerCount: sources.externalServiceLedgerCount,
+          currentMissingLedger: sources.externalServiceCurrentMissingLedger,
+          duplicateLedger: sources.externalServiceDuplicateLedger,
+          valueMismatch: sources.externalServiceValueMismatch,
+          currencyMismatch: sources.externalServiceCurrencyMismatch,
+          orphanReversal: sources.externalServiceOrphanReversal,
+          doubleReversal: sources.externalServiceDoubleReversal,
           historicalBackfillCount: 0,
         },
         idempotencyViolations: sources.idempotencyViolations,
@@ -518,11 +567,14 @@ export class OperationalCostReconciliationService {
                    WHERE migration_name = ${migrationName}`,
       );
       const row = (Array.isArray(raw) ? raw[0] : raw) as
-        | { finished_at: Date | string | null; rolled_back_at: Date | string | null }
+        | { finished_at: Date | string | null; rolled_back_at: Date | string | null; applied_steps_count: number }
         | undefined;
       if (!row) return { inferable: false, boundary: null };
       if (row.rolled_back_at) return { inferable: false, boundary: null };
       if (row.finished_at == null) return { inferable: false, boundary: null };
+      if (!Number.isInteger(row.applied_steps_count) || row.applied_steps_count <= 0) {
+        return { inferable: false, boundary: null };
+      }
       const finished = new Date(row.finished_at);
       if (Number.isNaN(finished.getTime())) return { inferable: false, boundary: null };
       return { inferable: true, boundary: finished };
@@ -649,12 +701,15 @@ export class OperationalCostReconciliationService {
       materialSources: MaterialSourceRow[];
       downtimeSources: DowntimeSourceRow[];
       maintenanceLaborSources: MaintenanceLaborSourceRow[];
+      externalServiceSources: MaintenanceLaborSourceRow[];
       operationalCurrencyCode: string | null;
       sourceChanges: SourceChangeRow[];
       coverageBoundary: Date | null;
       coverageBoundaryInferable: boolean;
       laborCoverageBoundary: Date | null;
       laborCoverageBoundaryInferable: boolean;
+      externalServiceCoverageBoundary: Date | null;
+      externalServiceCoverageBoundaryInferable: boolean;
     },
   ) {
     let materialLedgerPrimary = 0;
@@ -703,6 +758,13 @@ export class OperationalCostReconciliationService {
     const laborSourceByFingerprint = new Map<string, MaintenanceLaborSourceRow>();
     for (const s of opts.maintenanceLaborSources) {
       laborSourceByFingerprint.set(fingerprintOf(MAINTENANCE_LABOR_SOURCE_TYPE, s.id, LABOR_EVENT_TYPE), s);
+    }
+    const externalServiceSourceByFingerprint = new Map<string, MaintenanceLaborSourceRow>();
+    for (const s of opts.externalServiceSources) {
+      externalServiceSourceByFingerprint.set(
+        fingerprintOf(MAINTENANCE_LABOR_SOURCE_TYPE, s.id, EXTERNAL_SERVICE_EVENT_TYPE),
+        s,
+      );
     }
 
     // ── Attribution mutation path ─────────────────────────────────────────────────
@@ -897,98 +959,150 @@ export class OperationalCostReconciliationService {
       if (opts.operationalCurrencyCode && primary.currencyCode !== opts.operationalCurrencyCode) downtimeCurrencyMismatch++;
     }
 
-    // ── Manual asserted maintenance labor reconciliation ─────────────────────────
-    // The source amount is authoritative. Work-order actualCost and maintenance
-    // request summaries are deliberately absent from this projection.
-    const classifyPreLaborLedger = (completedAt: Date | null): boolean => {
-      if (!opts.laborCoverageBoundaryInferable || !opts.laborCoverageBoundary || !completedAt) return false;
-      return completedAt < opts.laborCoverageBoundary;
+    // ── Manual asserted maintenance amount reconciliation ────────────────────────
+    // Both labor and external service use an atomic MaintenanceWorkOrderCostEntry.
+    // The source amount is authoritative; request/service, repair, estimate and
+    // work-order actualCost summaries are deliberately absent from this projection.
+    const analyzeMaintenanceAmountSources = (
+      sources: MaintenanceLaborSourceRow[],
+      eventType: string,
+      boundary: Date | null,
+      boundaryInferable: boolean,
+    ) => {
+      let sourceCount = 0;
+      let legacyPreLedgerSourceCount = 0;
+      let currentSourceCount = 0;
+      let ledgerCount = 0;
+      let currentMissingLedger = 0;
+      let duplicateLedger = 0;
+      let currentDuplicateLedger = 0;
+      let valueMismatch = 0;
+      let currentValueMismatch = 0;
+      let currencyMismatch = 0;
+      let currentCurrencyMismatch = 0;
+      let orphanReversal = 0;
+      let doubleReversal = 0;
+
+      const primariesByFingerprint = new Map<string, LedgerRow[]>();
+      for (const r of rows) {
+        if (
+          r.entryRole !== ENTRY_ROLE_PRIMARY_COST
+          || r.sourceType !== MAINTENANCE_LABOR_SOURCE_TYPE
+          || r.eventType !== eventType
+        ) continue;
+        if (!r.sourceFingerprint) {
+          doubleCountRiskUnknown++;
+          continue;
+        }
+        const group = primariesByFingerprint.get(r.sourceFingerprint) ?? [];
+        group.push(r);
+        primariesByFingerprint.set(r.sourceFingerprint, group);
+      }
+
+      for (const source of sources) {
+        sourceCount++;
+        // The work-order completion timestamp is the authoritative posting/finality
+        // boundary. Equality with migration finished_at is current, never legacy.
+        const historical = Boolean(
+          boundaryInferable
+          && boundary
+          && source.workOrder.completedAt
+          && source.workOrder.completedAt < boundary,
+        );
+        if (historical) legacyPreLedgerSourceCount++;
+        else currentSourceCount++;
+        const fingerprint = fingerprintOf(MAINTENANCE_LABOR_SOURCE_TYPE, source.id, eventType);
+        const primaries = primariesByFingerprint.get(fingerprint) ?? [];
+        if (primaries.length === 0) {
+          if (!historical) currentMissingLedger++;
+          continue;
+        }
+        ledgerCount += primaries.length;
+        if (primaries.length > 1) {
+          const duplicates = primaries.length - 1;
+          duplicateLedger += duplicates;
+          if (!historical) currentDuplicateLedger += duplicates;
+        }
+        for (const primary of primaries) {
+          if (!primary.amount.eq(source.amount)) {
+            valueMismatch++;
+            if (!historical) currentValueMismatch++;
+          }
+          if (opts.operationalCurrencyCode && primary.currencyCode !== opts.operationalCurrencyCode) {
+            currencyMismatch++;
+            if (!historical) currentCurrencyMismatch++;
+          }
+        }
+      }
+
+      const originalIds = new Set(
+        rows
+          .filter((r) =>
+            r.entryRole === ENTRY_ROLE_PRIMARY_COST
+            && r.sourceType === MAINTENANCE_LABOR_SOURCE_TYPE
+            && r.eventType === eventType)
+          .map((r) => r.id),
+      );
+      const reversalGroups = new Map<string, number>();
+      for (const r of rows) {
+        if (
+          r.entryRole !== ENTRY_ROLE_REVERSAL
+          || r.sourceType !== MAINTENANCE_LABOR_SOURCE_TYPE
+          || r.eventType !== eventType
+        ) continue;
+        if (!r.reversalOfId || !originalIds.has(r.reversalOfId)) orphanReversal++;
+        if (r.reversalOfId) {
+          reversalGroups.set(r.reversalOfId, (reversalGroups.get(r.reversalOfId) ?? 0) + 1);
+        }
+      }
+      for (const count of reversalGroups.values()) {
+        if (count > 1) doubleReversal += count - 1;
+      }
+      const currentErrorCount =
+        currentMissingLedger
+        + currentDuplicateLedger
+        + currentValueMismatch
+        + currentCurrencyMismatch
+        + orphanReversal
+        + doubleReversal;
+      return {
+        sourceCount,
+        legacyPreLedgerSourceCount,
+        currentSourceCount,
+        ledgerCount,
+        currentMissingLedger,
+        duplicateLedger,
+        currentDuplicateLedger,
+        valueMismatch,
+        currentValueMismatch,
+        currencyMismatch,
+        currentCurrencyMismatch,
+        orphanReversal,
+        doubleReversal,
+        currentErrorCount,
+      };
     };
-    let maintenanceLaborSourceCount = 0;
-    let maintenanceLaborLegacyPreLedgerSourceCount = 0;
-    let maintenanceLaborCurrentSourceCount = 0;
-    let maintenanceLaborLedgerCount = 0;
-    let maintenanceLaborCurrentMissingLedger = 0;
-    let maintenanceLaborDuplicateLedger = 0;
-    let maintenanceLaborCurrentDuplicateLedger = 0;
-    let maintenanceLaborValueMismatch = 0;
-    let maintenanceLaborCurrentValueMismatch = 0;
-    let maintenanceLaborCurrencyMismatch = 0;
-    let maintenanceLaborCurrentCurrencyMismatch = 0;
-    let maintenanceLaborOrphanReversal = 0;
-    let maintenanceLaborDoubleReversal = 0;
 
-    const laborPrimariesByFp = new Map<string, LedgerRow[]>();
-    for (const r of rows) {
-      if (r.entryRole !== ENTRY_ROLE_PRIMARY_COST || r.sourceType !== MAINTENANCE_LABOR_SOURCE_TYPE) continue;
-      if (!r.sourceFingerprint) {
-        doubleCountRiskUnknown++;
-        continue;
-      }
-      const group = laborPrimariesByFp.get(r.sourceFingerprint) ?? [];
-      group.push(r);
-      laborPrimariesByFp.set(r.sourceFingerprint, group);
-    }
-
-    for (const source of opts.maintenanceLaborSources) {
-      maintenanceLaborSourceCount++;
-      const historical = classifyPreLaborLedger(source.workOrder.completedAt);
-      if (historical) maintenanceLaborLegacyPreLedgerSourceCount++;
-      else maintenanceLaborCurrentSourceCount++;
-      const fp = fingerprintOf(MAINTENANCE_LABOR_SOURCE_TYPE, source.id, LABOR_EVENT_TYPE);
-      const primaries = laborPrimariesByFp.get(fp) ?? [];
-      if (primaries.length === 0) {
-        if (!historical) maintenanceLaborCurrentMissingLedger++;
-        continue;
-      }
-      maintenanceLaborLedgerCount += primaries.length;
-      if (primaries.length > 1) {
-        const duplicates = primaries.length - 1;
-        maintenanceLaborDuplicateLedger += duplicates;
-        if (!historical) maintenanceLaborCurrentDuplicateLedger += duplicates;
-      }
-      for (const primary of primaries) {
-        if (!primary.amount.eq(source.amount)) {
-          maintenanceLaborValueMismatch++;
-          if (!historical) maintenanceLaborCurrentValueMismatch++;
-        }
-        if (opts.operationalCurrencyCode && primary.currencyCode !== opts.operationalCurrencyCode) {
-          maintenanceLaborCurrencyMismatch++;
-          if (!historical) maintenanceLaborCurrentCurrencyMismatch++;
-        }
-      }
-    }
-
-    const laborOriginalIds = new Set(
-      rows
-        .filter((r) => r.entryRole === ENTRY_ROLE_PRIMARY_COST && r.sourceType === MAINTENANCE_LABOR_SOURCE_TYPE)
-        .map((r) => r.id),
+    const maintenanceLabor = analyzeMaintenanceAmountSources(
+      opts.maintenanceLaborSources,
+      LABOR_EVENT_TYPE,
+      opts.laborCoverageBoundary,
+      opts.laborCoverageBoundaryInferable,
     );
-    const laborReversalGroups = new Map<string, number>();
-    for (const r of rows) {
-      if (r.entryRole !== ENTRY_ROLE_REVERSAL || r.sourceType !== MAINTENANCE_LABOR_SOURCE_TYPE) continue;
-      if (!r.reversalOfId || !laborOriginalIds.has(r.reversalOfId)) maintenanceLaborOrphanReversal++;
-      if (r.reversalOfId) {
-        laborReversalGroups.set(r.reversalOfId, (laborReversalGroups.get(r.reversalOfId) ?? 0) + 1);
-      }
-    }
-    for (const count of laborReversalGroups.values()) {
-      if (count > 1) maintenanceLaborDoubleReversal += count - 1;
-    }
-    const currentMaintenanceLaborLedgerErrorCount =
-      maintenanceLaborCurrentMissingLedger
-      + maintenanceLaborCurrentDuplicateLedger
-      + maintenanceLaborCurrentValueMismatch
-      + maintenanceLaborCurrentCurrencyMismatch
-      + maintenanceLaborOrphanReversal
-      + maintenanceLaborDoubleReversal;
+    const externalService = analyzeMaintenanceAmountSources(
+      opts.externalServiceSources,
+      EXTERNAL_SERVICE_EVENT_TYPE,
+      opts.externalServiceCoverageBoundary,
+      opts.externalServiceCoverageBoundaryInferable,
+    );
 
-    // ── Cross-tenant resolution for material/downtime/labor primaries ─────────────
+    // ── Cross-tenant resolution for material/downtime/maintenance primaries ──────
     for (const fp of sourceCount.keys()) {
       const isMaterial = materialSourceByFingerprint.has(fp);
       const isDowntime = downtimeSourceByFingerprint.has(fp);
       const isLabor = laborSourceByFingerprint.has(fp);
-      if (!isMaterial && !isDowntime && !isLabor) {
+      const isExternalService = externalServiceSourceByFingerprint.has(fp);
+      if (!isMaterial && !isDowntime && !isLabor && !isExternalService) {
         // A live fingerprint that maps to no known authoritative source of the active
         // tenant is either a cross-tenant reference or an unresolvable source.
         doubleCountRiskUnknown++;
@@ -1016,8 +1130,15 @@ export class OperationalCostReconciliationService {
         const key = `${DOWNTIME_SOURCE_TYPE}:${r.sourceId}`;
         if (mutatedEntities.has(key)) postedAttributionMutationPath++;
       }
-      if (r.sourceType === MAINTENANCE_LABOR_SOURCE_TYPE && r.sourceFingerprint) {
-        const src = laborSourceByFingerprint.get(r.sourceFingerprint);
+      if (
+        r.sourceType === MAINTENANCE_LABOR_SOURCE_TYPE
+        && (r.eventType === LABOR_EVENT_TYPE || r.eventType === EXTERNAL_SERVICE_EVENT_TYPE)
+        && r.sourceFingerprint
+      ) {
+        const sourceMap = r.eventType === LABOR_EVENT_TYPE
+          ? laborSourceByFingerprint
+          : externalServiceSourceByFingerprint;
+        const src = sourceMap.get(r.sourceFingerprint);
         if (!src || src.workOrder.companyId !== r.companyId || src.workOrder.branchId !== r.branchId) {
           crossTenantLedgerDefect++;
         }
@@ -1063,20 +1184,34 @@ export class OperationalCostReconciliationService {
       downtimeSourceMissing,
       downtimeAmountMismatch,
       downtimeCurrencyMismatch,
-      maintenanceLaborSourceCount,
-      maintenanceLaborLegacyPreLedgerSourceCount,
-      maintenanceLaborCurrentSourceCount,
-      maintenanceLaborLedgerCount,
-      maintenanceLaborCurrentMissingLedger,
-      maintenanceLaborDuplicateLedger,
-      maintenanceLaborCurrentDuplicateLedger,
-      maintenanceLaborValueMismatch,
-      maintenanceLaborCurrentValueMismatch,
-      maintenanceLaborCurrencyMismatch,
-      maintenanceLaborCurrentCurrencyMismatch,
-      maintenanceLaborOrphanReversal,
-      maintenanceLaborDoubleReversal,
-      currentMaintenanceLaborLedgerErrorCount,
+      maintenanceLaborSourceCount: maintenanceLabor.sourceCount,
+      maintenanceLaborLegacyPreLedgerSourceCount: maintenanceLabor.legacyPreLedgerSourceCount,
+      maintenanceLaborCurrentSourceCount: maintenanceLabor.currentSourceCount,
+      maintenanceLaborLedgerCount: maintenanceLabor.ledgerCount,
+      maintenanceLaborCurrentMissingLedger: maintenanceLabor.currentMissingLedger,
+      maintenanceLaborDuplicateLedger: maintenanceLabor.duplicateLedger,
+      maintenanceLaborCurrentDuplicateLedger: maintenanceLabor.currentDuplicateLedger,
+      maintenanceLaborValueMismatch: maintenanceLabor.valueMismatch,
+      maintenanceLaborCurrentValueMismatch: maintenanceLabor.currentValueMismatch,
+      maintenanceLaborCurrencyMismatch: maintenanceLabor.currencyMismatch,
+      maintenanceLaborCurrentCurrencyMismatch: maintenanceLabor.currentCurrencyMismatch,
+      maintenanceLaborOrphanReversal: maintenanceLabor.orphanReversal,
+      maintenanceLaborDoubleReversal: maintenanceLabor.doubleReversal,
+      currentMaintenanceLaborLedgerErrorCount: maintenanceLabor.currentErrorCount,
+      externalServiceSourceCount: externalService.sourceCount,
+      externalServiceLegacyPreLedgerSourceCount: externalService.legacyPreLedgerSourceCount,
+      externalServiceCurrentSourceCount: externalService.currentSourceCount,
+      externalServiceLedgerCount: externalService.ledgerCount,
+      externalServiceCurrentMissingLedger: externalService.currentMissingLedger,
+      externalServiceDuplicateLedger: externalService.duplicateLedger,
+      externalServiceCurrentDuplicateLedger: externalService.currentDuplicateLedger,
+      externalServiceValueMismatch: externalService.valueMismatch,
+      externalServiceCurrentValueMismatch: externalService.currentValueMismatch,
+      externalServiceCurrencyMismatch: externalService.currencyMismatch,
+      externalServiceCurrentCurrencyMismatch: externalService.currentCurrencyMismatch,
+      externalServiceOrphanReversal: externalService.orphanReversal,
+      externalServiceDoubleReversal: externalService.doubleReversal,
+      currentExternalServiceLedgerErrorCount: externalService.currentErrorCount,
     };
   }
 }

@@ -14,6 +14,7 @@ import { InventoryValuationEngineService } from '../../inventory-valuation/inven
 import { ProductionCostService } from '../../production-cost/production-cost.service';
 import { MAINTENANCE_COST_PURPOSE } from '../../../../common/cost-purpose/cost-purpose.constants';
 import {
+  EXTERNAL_SERVICE_EVENT_TYPE,
   LABOR_EVENT_TYPE,
   MAINTENANCE_LABOR_SOURCE_TYPE,
   MANUAL_AMOUNT_UNIT,
@@ -144,7 +145,11 @@ export class MaintenanceWorkOrdersService {
     return `${MAINTENANCE_LABOR_SOURCE_TYPE}:${entryId}:${LABOR_EVENT_TYPE}`;
   }
 
-  private async configuredLaborCostCenter(
+  private externalServiceFingerprint(entryId: string): string {
+    return `${MAINTENANCE_LABOR_SOURCE_TYPE}:${entryId}:${EXTERNAL_SERVICE_EVENT_TYPE}`;
+  }
+
+  private async configuredMaintenanceCostCenter(
     tx: any,
     costCenterId: string,
     occurredAt: Date,
@@ -168,13 +173,13 @@ export class MaintenanceWorkOrdersService {
       throw this.validationError(
         'costCenterId',
         'validation.invalidReference',
-        'The maintenance labor cost center is not active in the work order tenant at the labor date',
+        'The maintenance cost center is not active in the work order tenant at the cost date',
       );
     }
     return costCenter;
   }
 
-  private async resolveLaborAttribution(tx: any, workOrder: any, occurredAt: Date, ctx: ActiveOperationalContext) {
+  private async resolveMaintenanceCostAttribution(tx: any, workOrder: any, occurredAt: Date, ctx: ActiveOperationalContext) {
     const request = workOrder.request ?? null;
     const machineId = workOrder.machineId ?? request?.machineId ?? null;
     if (workOrder.machineId && request?.machineId && workOrder.machineId !== request.machineId) {
@@ -193,24 +198,24 @@ export class MaintenanceWorkOrdersService {
         select: { id: true, productionLineId: true, departmentId: true, defaultCostCenterId: true },
       });
       if (!machine) {
-        throw this.validationError('machineId', 'validation.invalidReference', 'Maintenance labor machine is outside the active tenant');
+        throw this.validationError('machineId', 'validation.invalidReference', 'Maintenance cost machine is outside the active tenant');
       }
     }
 
     const configuredCostCenterId = request?.costCenterId ?? machine?.defaultCostCenterId ?? null;
     let costCenter: { id: string; departmentId: string | null };
     if (configuredCostCenterId) {
-      costCenter = await this.configuredLaborCostCenter(tx, configuredCostCenterId, occurredAt, ctx);
+      costCenter = await this.configuredMaintenanceCostCenter(tx, configuredCostCenterId, occurredAt, ctx);
     } else {
       if (!machineId) {
-        throw this.validationError('costCenterId', 'validation.required', 'A maintenance labor cost center could not be resolved');
+        throw this.validationError('costCenterId', 'validation.required', 'A maintenance cost center could not be resolved');
       }
       const resolved = await this.costCenterResolver.resolveWithClient(
         tx,
         { resourceType: 'MACHINE', machineId, referenceDate: occurredAt.toISOString() },
         ctx,
       );
-      costCenter = await this.configuredLaborCostCenter(tx, resolved.costCenterId, occurredAt, ctx);
+      costCenter = await this.configuredMaintenanceCostCenter(tx, resolved.costCenterId, occurredAt, ctx);
     }
 
     return {
@@ -230,7 +235,7 @@ export class MaintenanceWorkOrdersService {
     user: CurrentUserType,
     ctx: ActiveOperationalContext,
   ) {
-    const refs = await this.resolveLaborAttribution(tx, workOrder, entry.incurredAt, ctx);
+    const refs = await this.resolveMaintenanceCostAttribution(tx, workOrder, entry.incurredAt, ctx);
     const sourceFingerprint = this.laborFingerprint(entry.id);
     await this.productionCost.postLedgerEntryWithinTransaction(tx, {
       eventType: LABOR_EVENT_TYPE,
@@ -251,6 +256,49 @@ export class MaintenanceWorkOrdersService {
       requestPayloadFingerprint: [
         MAINTENANCE_LABOR_SOURCE_TYPE,
         entry.id,
+        entry.amount.toString(),
+        ctx.companyId,
+        ctx.branchId,
+        refs.costCenterId,
+      ].join('|'),
+      sourceNumberSnapshot: workOrder.workOrderNumber,
+      refs,
+      createdById: user.id,
+      ctx,
+    });
+  }
+
+  private async postMaintenanceExternalServiceLedgerEntry(
+    tx: any,
+    workOrder: any,
+    entry: { id: string; amount: Prisma.Decimal; incurredAt: Date },
+    completedAt: Date,
+    user: CurrentUserType,
+    ctx: ActiveOperationalContext,
+  ) {
+    const refs = await this.resolveMaintenanceCostAttribution(tx, workOrder, entry.incurredAt, ctx);
+    const sourceFingerprint = this.externalServiceFingerprint(entry.id);
+    await this.productionCost.postLedgerEntryWithinTransaction(tx, {
+      eventType: EXTERNAL_SERVICE_EVENT_TYPE,
+      sourceType: MAINTENANCE_LABOR_SOURCE_TYPE,
+      sourceId: entry.id,
+      sourceLineId: entry.id,
+      sourceFingerprint,
+      costNature: 'MANUAL_ASSERTED_ACTUAL',
+      costPurpose: MAINTENANCE_COST_PURPOSE,
+      entryRole: 'PRIMARY_COST',
+      amount: entry.amount,
+      quantity: new Prisma.Decimal(0),
+      rate: new Prisma.Decimal(0),
+      unit: MANUAL_AMOUNT_UNIT,
+      currencyCode: null,
+      occurredAt: entry.incurredAt,
+      postedAt: completedAt,
+      clientRequestId: `maintenance-external-service:${entry.id}:primary`,
+      requestPayloadFingerprint: [
+        MAINTENANCE_LABOR_SOURCE_TYPE,
+        entry.id,
+        EXTERNAL_SERVICE_EVENT_TYPE,
         entry.amount.toString(),
         ctx.companyId,
         ctx.branchId,
@@ -599,16 +647,21 @@ export class MaintenanceWorkOrdersService {
           );
         }
 
-        const laborEntries = await tx.maintenanceWorkOrderCostEntry.findMany({
-          where: { workOrderId: workOrder.id, type: 'LABOR', amount: { gt: 0 } },
+        const eligibleCostEntries = await tx.maintenanceWorkOrderCostEntry.findMany({
+          where: { workOrderId: workOrder.id, type: { in: ['LABOR', 'EXTERNAL'] }, amount: { gt: 0 } },
           orderBy: [{ incurredAt: 'asc' }, { id: 'asc' }],
-          select: { id: true, amount: true, incurredAt: true },
+          select: { id: true, type: true, amount: true, incurredAt: true },
         });
+        const laborEntries = eligibleCostEntries.filter((entry: any) => entry.type === 'LABOR');
+        const externalServiceEntries = eligibleCostEntries.filter((entry: any) => entry.type === 'EXTERNAL');
         for (const entry of laborEntries) {
           await this.postMaintenanceLaborLedgerEntry(tx, workOrder, entry, user, ctx);
         }
 
         const completedAt = new Date();
+        for (const entry of externalServiceEntries) {
+          await this.postMaintenanceExternalServiceLedgerEntry(tx, workOrder, entry, completedAt, user, ctx);
+        }
         const actualCost = await this.computeActualCost(tx, workOrder.id);
         const updated = await tx.maintenanceWorkOrder.update({
           where: { id: workOrder.id },
@@ -628,6 +681,7 @@ export class MaintenanceWorkOrdersService {
             companyId: workOrder.companyId,
             branchId: workOrder.branchId,
             maintenanceLaborPrimaryCount: laborEntries.length,
+            maintenanceExternalServicePrimaryCount: externalServiceEntries.length,
           },
         });
         return updated;
@@ -637,7 +691,7 @@ export class MaintenanceWorkOrdersService {
       if (error?.code === 'P2002') {
         throw new ConflictException({
           messageKey: 'productionCostTransaction.sourceAlreadyValued',
-          message: 'Maintenance labor was already posted to the unified cost ledger',
+          message: 'Maintenance cost was already posted to the unified cost ledger',
         });
       }
       throw error;
@@ -1059,7 +1113,7 @@ export class MaintenanceWorkOrdersService {
         branchId: ctx.branchId,
         sourceType: MAINTENANCE_LABOR_SOURCE_TYPE,
         sourceId: entryId,
-        sourceFingerprint: this.laborFingerprint(entryId),
+        sourceFingerprint: { in: [this.laborFingerprint(entryId), this.externalServiceFingerprint(entryId)] },
         entryRole: 'PRIMARY_COST',
       },
       select: { id: true },
@@ -1068,7 +1122,7 @@ export class MaintenanceWorkOrdersService {
       throw this.validationError(
         'amount',
         'validation.invalidStatusTransition',
-        'Posted maintenance labor is immutable; correct it through canonical reversal and a replacement source event',
+        'Posted maintenance cost is immutable; correct it through canonical reversal and a replacement source event',
       );
     }
   }
