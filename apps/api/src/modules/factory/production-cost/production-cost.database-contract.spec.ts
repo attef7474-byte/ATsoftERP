@@ -3,7 +3,9 @@ import * as path from 'path';
 import {
   COST_TYPES,
   COST_TRANSACTION_SOURCE_TYPES,
+  COST_TRANSACTION_UNITS,
   COST_CALCULATION_SCOPE_TYPES,
+  OPERATIONAL_LEDGER_SOURCE_TYPES,
 } from './production-cost.constants';
 
 /**
@@ -29,6 +31,11 @@ const REPAIR_MIGRATION_DIR = path.resolve(
   '../../../../prisma/migrations/20260831130000_repair_production_cost_check_constraints',
 );
 const REPAIR_MIGRATION_FILE = path.join(REPAIR_MIGRATION_DIR, 'migration.sql');
+const LABOR_MIGRATION_DIR = path.resolve(
+  __dirname,
+  '../../../../prisma/migrations/20260903120000_cost_r2b_maintenance_labor_ledger',
+);
+const LABOR_MIGRATION_FILE = path.join(LABOR_MIGRATION_DIR, 'migration.sql');
 
 interface CheckContract {
   constraintName: string;
@@ -69,10 +76,13 @@ const expectSameSet = (actual: string[], canonical: readonly string[], label: st
 
 describe('ProductionCost source-to-database CHECK contract guard', () => {
   let migrationSql: string;
+  let laborMigrationSql: string;
 
   beforeAll(() => {
     expect(fs.existsSync(REPAIR_MIGRATION_FILE)).toBe(true);
+    expect(fs.existsSync(LABOR_MIGRATION_FILE)).toBe(true);
     migrationSql = fs.readFileSync(REPAIR_MIGRATION_FILE, 'utf8');
+    laborMigrationSql = fs.readFileSync(LABOR_MIGRATION_FILE, 'utf8');
   });
 
   it('references the expected single repair migration', () => {
@@ -118,10 +128,30 @@ describe('ProductionCost source-to-database CHECK contract guard', () => {
     expectSameSet(c.values, COST_TYPES, 'transaction eventType');
   });
 
-  it('transaction sourceType CHECK matches the canonical COST_TRANSACTION_SOURCE_TYPES (incl. DOWNTIME)', () => {
-    const c = parseCheckConstraints(migrationSql).find((x) => x.constraintName === 'operational_cost_transactions_source_type_ck')!;
+  it('transaction sourceType CHECK matches the complete operational ledger vocabulary', () => {
+    const c = parseCheckConstraints(laborMigrationSql).find((x) => x.constraintName === 'operational_cost_transactions_source_type_ck')!;
     expect(c.column).toBe('sourceType');
-    expectSameSet(c.values, COST_TRANSACTION_SOURCE_TYPES, 'transaction sourceType');
+    expectSameSet(c.values, OPERATIONAL_LEDGER_SOURCE_TYPES, 'transaction sourceType');
+  });
+
+  it('COST-R2B ledger unit CHECK matches the ledger-only unit contract', () => {
+    const c = parseCheckConstraints(laborMigrationSql).find((x) => x.constraintName === 'operational_cost_transactions_unit_ck')!;
+    expect(c.column).toBe('unit');
+    expectSameSet(c.values, COST_TRANSACTION_UNITS, 'transaction unit');
+  });
+
+  it('COST-R2B migration is one trusted constraint-only extension with no NOCHECK', () => {
+    expect(laborMigrationSql).not.toMatch(/WITH\s+NOCHECK/i);
+    expect(laborMigrationSql).not.toMatch(/\b(INSERT|UPDATE|DELETE|TRUNCATE)\b/i);
+    for (const name of [
+      'operational_cost_transactions_source_type_ck',
+      'operational_cost_transactions_unit_ck',
+      'operational_cost_transactions_rate_ck',
+      'operational_cost_transactions_quantity_sign_ck',
+    ]) {
+      expect(laborMigrationSql).toMatch(new RegExp(`WITH\\s+CHECK\\s+ADD\\s+CONSTRAINT\\s+\\[${name}\\]`, 'i'));
+      expect(laborMigrationSql).toMatch(new RegExp(`CHECK\\s+CONSTRAINT\\s+\\[${name}\\]`, 'i'));
+    }
   });
 
   it('calculation scopeType CHECK matches the canonical COST_CALCULATION_SCOPE_TYPES (incl. BRANCH)', () => {
@@ -148,11 +178,18 @@ describe('ProductionCost canonical source value contract', () => {
   it('K. invalid random transaction source type remains rejected by the canonical set', () => {
     expect(COST_TRANSACTION_SOURCE_TYPES).not.toContain('BOGUS_SOURCE_TYPE');
   });
-  it('all nine documented source types are present', () => {
-    expect(COST_TRANSACTION_SOURCE_TYPES).toEqual(expect.arrayContaining([
+  it('all legacy and canonical documented source types are present in the ledger vocabulary', () => {
+    expect(OPERATIONAL_LEDGER_SOURCE_TYPES).toEqual(expect.arrayContaining([
       'PRODUCTION_ORDER', 'PRODUCTION_RUN', 'OUTPUT_EVENT', 'FG_RECEIPT',
       'MATERIAL_DOCUMENT', 'QUALITY_DISPOSITION', 'DOWNTIME', 'REVERSAL', 'MANUAL',
+      'INVENTORY_MOVEMENT_LINE', 'DOWNTIME_EVENT', 'MAINTENANCE_WORK_ORDER_COST_ENTRY',
     ]));
+  });
+
+  it('adapter-only canonical sources cannot be submitted through the generic posting DTO', () => {
+    expect(COST_TRANSACTION_SOURCE_TYPES).not.toContain('INVENTORY_MOVEMENT_LINE');
+    expect(COST_TRANSACTION_SOURCE_TYPES).not.toContain('DOWNTIME_EVENT');
+    expect(COST_TRANSACTION_SOURCE_TYPES).not.toContain('MAINTENANCE_WORK_ORDER_COST_ENTRY');
   });
 });
 

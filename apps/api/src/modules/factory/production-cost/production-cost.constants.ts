@@ -84,6 +84,8 @@ export const OPERATIONAL_COST_CALCULATION_INCLUDE = {
 
 export const COST_TYPES = ['MATERIAL', 'LABOR', 'MACHINE', 'OVERHEAD', 'DOWNTIME'] as const;
 export const COST_UNITS = ['PACK', 'UNIT', 'KG', 'TON', 'LITER', 'BATCH', 'HOUR', 'MINUTE'] as const;
+/** Ledger-only unit for a manual amount whose source has no quantity or rate evidence. */
+export const COST_TRANSACTION_UNITS = [...COST_UNITS, 'AMOUNT'] as const;
 export const COST_RATE_STATUSES = ['ACTIVE', 'INACTIVE'] as const;
 export const COST_SNAPSHOT_STATUSES = ['DRAFT', 'FROZEN', 'SUPERSEDED'] as const;
 export const COST_TRANSACTION_STATUSES = ['POSTED', 'REVERSED'] as const;
@@ -99,6 +101,18 @@ export const COST_TRANSACTION_SOURCE_TYPES = [
   'DOWNTIME',
   'REVERSAL',
   'MANUAL',
+] as const;
+
+/**
+ * Complete database/read-side vocabulary. Canonical adapter-only sources are
+ * deliberately excluded from COST_TRANSACTION_SOURCE_TYPES so the generic
+ * public posting DTO cannot impersonate an authoritative source event.
+ */
+export const OPERATIONAL_LEDGER_SOURCE_TYPES = [
+  ...COST_TRANSACTION_SOURCE_TYPES,
+  'INVENTORY_MOVEMENT_LINE',
+  'DOWNTIME_EVENT',
+  'MAINTENANCE_WORK_ORDER_COST_ENTRY',
 ] as const;
 
 /**
@@ -136,7 +150,12 @@ export const ENTRY_ROLE_REVERSAL = 'REVERSAL' as const;
  * an uncontrolled sourceType. The legacy sourceType='REVERSAL' convention is still
  * written for backward compatibility but is NOT part of the canonical source set.
  */
-export const CANONICAL_SOURCE_TYPES = ['INVENTORY_MOVEMENT_LINE', 'DOWNTIME_EVENT', 'MANUAL'] as const;
+export const CANONICAL_SOURCE_TYPES = [
+  'INVENTORY_MOVEMENT_LINE',
+  'DOWNTIME_EVENT',
+  'MANUAL',
+  'MAINTENANCE_WORK_ORDER_COST_ENTRY',
+] as const;
 export type CanonicalSourceType = (typeof CANONICAL_SOURCE_TYPES)[number];
 
 export function isCanonicalSourceType(value: string | null | undefined): value is CanonicalSourceType {
@@ -158,6 +177,10 @@ export function isEntryRole(value: string | null | undefined): value is EntryRol
  * strings (PRODUCTION_MATERIAL_ISSUE etc.) are NOT added to the DB vocabulary.
  */
 export const MATERIAL_EVENT_TYPE = 'MATERIAL' as const;
+export const LABOR_EVENT_TYPE = 'LABOR' as const;
+export const MAINTENANCE_LABOR_SOURCE_TYPE = 'MAINTENANCE_WORK_ORDER_COST_ENTRY' as const;
+export const MANUAL_AMOUNT_UNIT = 'AMOUNT' as const;
+export const COST_R2B_LABOR_MIGRATION = '20260903120000_cost_r2b_maintenance_labor_ledger' as const;
 
 /**
  * COST-R1B-B2: normalize a raw movement/product unit to the canonical ledger

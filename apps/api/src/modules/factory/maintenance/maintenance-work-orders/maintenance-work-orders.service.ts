@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
@@ -13,7 +13,14 @@ import { ActiveOperationalContext } from '../../../../common/operational-context
 import { InventoryValuationEngineService } from '../../inventory-valuation/inventory-valuation-engine.service';
 import { ProductionCostService } from '../../production-cost/production-cost.service';
 import { MAINTENANCE_COST_PURPOSE } from '../../../../common/cost-purpose/cost-purpose.constants';
-import { MATERIAL_EVENT_TYPE, canonicalLedgerUnit } from '../../production-cost/production-cost.constants';
+import {
+  LABOR_EVENT_TYPE,
+  MAINTENANCE_LABOR_SOURCE_TYPE,
+  MANUAL_AMOUNT_UNIT,
+  MATERIAL_EVENT_TYPE,
+  canonicalLedgerUnit,
+} from '../../production-cost/production-cost.constants';
+import { OperationalCostCenterResolver } from '../cost-centers/operational-cost-center-resolver.service';
 
 const FORBIDDEN_WAREHOUSE_TYPES = ['PRODUCT', 'RAW_MATERIAL'];
 
@@ -25,6 +32,7 @@ export class MaintenanceWorkOrdersService {
     private numberingService: NumberingService,
     private valuationEngine: InventoryValuationEngineService,
     private productionCost: ProductionCostService,
+    private costCenterResolver: OperationalCostCenterResolver,
   ) {}
 
   /**
@@ -130,6 +138,129 @@ export class MaintenanceWorkOrdersService {
       throw this.notFound('Maintenance work order not found');
     }
     return wo;
+  }
+
+  private laborFingerprint(entryId: string): string {
+    return `${MAINTENANCE_LABOR_SOURCE_TYPE}:${entryId}:${LABOR_EVENT_TYPE}`;
+  }
+
+  private async configuredLaborCostCenter(
+    tx: any,
+    costCenterId: string,
+    occurredAt: Date,
+    ctx: ActiveOperationalContext,
+  ) {
+    const costCenter = await tx.costCenter.findFirst({
+      where: {
+        id: costCenterId,
+        companyId: ctx.companyId,
+        deletedAt: null,
+        status: 'ACTIVE',
+        AND: [
+          { OR: [{ branchId: ctx.branchId }, { branchId: null }] },
+          { OR: [{ effectiveFrom: null }, { effectiveFrom: { lte: occurredAt } }] },
+          { OR: [{ effectiveTo: null }, { effectiveTo: { gte: occurredAt } }] },
+        ],
+      },
+      select: { id: true, departmentId: true },
+    });
+    if (!costCenter) {
+      throw this.validationError(
+        'costCenterId',
+        'validation.invalidReference',
+        'The maintenance labor cost center is not active in the work order tenant at the labor date',
+      );
+    }
+    return costCenter;
+  }
+
+  private async resolveLaborAttribution(tx: any, workOrder: any, occurredAt: Date, ctx: ActiveOperationalContext) {
+    const request = workOrder.request ?? null;
+    const machineId = workOrder.machineId ?? request?.machineId ?? null;
+    if (workOrder.machineId && request?.machineId && workOrder.machineId !== request.machineId) {
+      throw this.validationError('machineId', 'validation.invalidReference', 'Work order and maintenance request machines do not match');
+    }
+
+    let machine: any = null;
+    if (machineId) {
+      machine = await tx.machine.findFirst({
+        where: {
+          id: machineId,
+          companyId: ctx.companyId,
+          deletedAt: null,
+          OR: [{ branchId: ctx.branchId }, { branchId: null }],
+        },
+        select: { id: true, productionLineId: true, departmentId: true, defaultCostCenterId: true },
+      });
+      if (!machine) {
+        throw this.validationError('machineId', 'validation.invalidReference', 'Maintenance labor machine is outside the active tenant');
+      }
+    }
+
+    const configuredCostCenterId = request?.costCenterId ?? machine?.defaultCostCenterId ?? null;
+    let costCenter: { id: string; departmentId: string | null };
+    if (configuredCostCenterId) {
+      costCenter = await this.configuredLaborCostCenter(tx, configuredCostCenterId, occurredAt, ctx);
+    } else {
+      if (!machineId) {
+        throw this.validationError('costCenterId', 'validation.required', 'A maintenance labor cost center could not be resolved');
+      }
+      const resolved = await this.costCenterResolver.resolveWithClient(
+        tx,
+        { resourceType: 'MACHINE', machineId, referenceDate: occurredAt.toISOString() },
+        ctx,
+      );
+      costCenter = await this.configuredLaborCostCenter(tx, resolved.costCenterId, occurredAt, ctx);
+    }
+
+    return {
+      machineId,
+      productionLineId: machine?.productionLineId ?? request?.productionLineId ?? null,
+      costCenterId: costCenter.id,
+      departmentId: costCenter.departmentId ?? machine?.departmentId ?? null,
+      maintenanceWorkOrderId: workOrder.id,
+      maintenanceRequestId: workOrder.requestId ?? null,
+    };
+  }
+
+  private async postMaintenanceLaborLedgerEntry(
+    tx: any,
+    workOrder: any,
+    entry: { id: string; amount: Prisma.Decimal; incurredAt: Date },
+    user: CurrentUserType,
+    ctx: ActiveOperationalContext,
+  ) {
+    const refs = await this.resolveLaborAttribution(tx, workOrder, entry.incurredAt, ctx);
+    const sourceFingerprint = this.laborFingerprint(entry.id);
+    await this.productionCost.postLedgerEntryWithinTransaction(tx, {
+      eventType: LABOR_EVENT_TYPE,
+      sourceType: MAINTENANCE_LABOR_SOURCE_TYPE,
+      sourceId: entry.id,
+      sourceLineId: entry.id,
+      sourceFingerprint,
+      costNature: 'MANUAL_ASSERTED_ACTUAL',
+      costPurpose: MAINTENANCE_COST_PURPOSE,
+      entryRole: 'PRIMARY_COST',
+      amount: entry.amount,
+      quantity: new Prisma.Decimal(0),
+      rate: new Prisma.Decimal(0),
+      unit: MANUAL_AMOUNT_UNIT,
+      currencyCode: null,
+      occurredAt: entry.incurredAt,
+      clientRequestId: `maintenance-labor:${entry.id}:primary`,
+      requestPayloadFingerprint: [
+        MAINTENANCE_LABOR_SOURCE_TYPE,
+        entry.id,
+        entry.amount.toString(),
+        ctx.companyId,
+        ctx.branchId,
+        refs.costCenterId,
+      ].join('|'),
+      sourceNumberSnapshot: workOrder.workOrderNumber,
+      refs,
+      createdById: user.id,
+      ctx,
+    });
   }
 
   private async assertOwnedRef(
@@ -356,6 +487,9 @@ export class MaintenanceWorkOrdersService {
   }
 
   async transition(id: string, dto: WorkOrderStatusActionDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
+    if (dto.action === 'complete') {
+      return this.completeWorkOrder(id, user, ctx);
+    }
     const wo = await this.findOwned(id, ctx);
 
     const transitions: Record<string, { from: string[]; to: string }> = {
@@ -378,16 +512,6 @@ export class MaintenanceWorkOrdersService {
 
     const data: any = { status: rule.to };
     if (dto.action === 'start') data.startedAt = new Date();
-    if (dto.action === 'complete') {
-      const partLines = await this.prisma.maintenanceWorkOrderPart.findMany({ where: { workOrderId: wo.id } });
-      const partial = partLines.filter((p) => p.stockIssueStatus === 'PARTIALLY_ISSUED');
-      if (partial.length > 0) {
-        throw this.validationError('status', 'validation.invalidStatusTransition',
-          `Cannot complete the work order: ${partial.length} part line(s) are only partially issued. Issue the remaining quantity or remove the line.`);
-      }
-      data.completedAt = new Date();
-      data.actualCost = await this.computeActualCost(wo.id);
-    }
     if (dto.action === 'cancel') {
       data.cancelledAt = new Date();
       data.cancelReason = dto.reason;
@@ -411,13 +535,122 @@ export class MaintenanceWorkOrdersService {
     return updated;
   }
 
-  private async computeActualCost(workOrderId: string): Promise<number> {
+  private async completeWorkOrder(id: string, user: CurrentUserType, ctx: ActiveOperationalContext) {
+    try {
+      return await this.prisma.$transaction(async (tx: any) => {
+        // Serialize completion of this tenant-owned work order. The existing filtered
+        // unique ledger indexes remain the final DB-enforced duplicate barrier.
+        await tx.$queryRaw(Prisma.sql`
+          SELECT [id]
+          FROM [dbo].[maintenance_work_orders] WITH (UPDLOCK, HOLDLOCK)
+          WHERE [id] = ${id} AND [companyId] = ${ctx.companyId} AND [branchId] = ${ctx.branchId}
+        `);
+
+        const workOrder = await tx.maintenanceWorkOrder.findFirst({
+          where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
+          include: {
+            ...this.includeDetail,
+            machine: {
+              select: {
+                id: true,
+                companyId: true,
+                branchId: true,
+                productionLineId: true,
+                departmentId: true,
+                defaultCostCenterId: true,
+              },
+            },
+            request: {
+              select: {
+                id: true,
+                requestNumber: true,
+                title: true,
+                machineId: true,
+                productionLineId: true,
+                costCenterId: true,
+              },
+            },
+            costEntries: {
+              orderBy: { incurredAt: 'asc' },
+              include: { createdBy: { select: { id: true, name: true } } },
+            },
+          },
+        });
+        if (!workOrder) throw this.notFound('Maintenance work order not found');
+
+        // Completion is idempotent. Historical already-completed work orders are
+        // returned unchanged and are never silently backfilled.
+        if (workOrder.status === 'COMPLETED') return workOrder;
+        if (workOrder.status !== 'IN_PROGRESS') {
+          throw this.validationError(
+            'status',
+            'validation.invalidStatusTransition',
+            `Cannot complete a work order in status '${workOrder.status}'. Expected IN_PROGRESS`,
+          );
+        }
+
+        const partLines = await tx.maintenanceWorkOrderPart.findMany({ where: { workOrderId: workOrder.id } });
+        const partial = partLines.filter((p: any) => p.stockIssueStatus === 'PARTIALLY_ISSUED');
+        if (partial.length > 0) {
+          throw this.validationError(
+            'status',
+            'validation.invalidStatusTransition',
+            `Cannot complete the work order: ${partial.length} part line(s) are only partially issued. Issue the remaining quantity or remove the line.`,
+          );
+        }
+
+        const laborEntries = await tx.maintenanceWorkOrderCostEntry.findMany({
+          where: { workOrderId: workOrder.id, type: 'LABOR', amount: { gt: 0 } },
+          orderBy: [{ incurredAt: 'asc' }, { id: 'asc' }],
+          select: { id: true, amount: true, incurredAt: true },
+        });
+        for (const entry of laborEntries) {
+          await this.postMaintenanceLaborLedgerEntry(tx, workOrder, entry, user, ctx);
+        }
+
+        const completedAt = new Date();
+        const actualCost = await this.computeActualCost(tx, workOrder.id);
+        const updated = await tx.maintenanceWorkOrder.update({
+          where: { id: workOrder.id },
+          data: { status: 'COMPLETED', completedAt, actualCost },
+          include: this.includeDetail,
+        });
+
+        await this.audit.logWithClient(tx, {
+          userId: user.id,
+          action: 'STATUS_TRANSITION',
+          entity: 'MaintenanceWorkOrder',
+          entityId: workOrder.id,
+          details: {
+            from: 'IN_PROGRESS',
+            to: 'COMPLETED',
+            action: 'complete',
+            companyId: workOrder.companyId,
+            branchId: workOrder.branchId,
+            maintenanceLaborPrimaryCount: laborEntries.length,
+          },
+        });
+        return updated;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error: any) {
+      // A database uniqueness race is a domain conflict, never a user-visible 500.
+      if (error?.code === 'P2002') {
+        throw new ConflictException({
+          messageKey: 'productionCostTransaction.sourceAlreadyValued',
+          message: 'Maintenance labor was already posted to the unified cost ledger',
+        });
+      }
+      throw error;
+    }
+  }
+
+  private async computeActualCost(client: any, workOrderId: string): Promise<number> {
     const [parts, costs] = await Promise.all([
-      this.prisma.maintenanceWorkOrderPart.aggregate({
+      client.maintenanceWorkOrderPart.aggregate({
         where: { workOrderId, stockIssueStatus: { not: 'PENDING' } },
         _sum: { totalCost: true },
       }),
-      this.prisma.maintenanceWorkOrderCostEntry.aggregate({
+      client.maintenanceWorkOrderCostEntry.aggregate({
         where: { workOrderId },
         _sum: { amount: true },
       }),
@@ -769,7 +1002,8 @@ export class MaintenanceWorkOrdersService {
   async updateCostEntry(entryId: string, dto: UpdateWorkOrderCostEntryDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
     const entry = await this.prisma.maintenanceWorkOrderCostEntry.findUnique({ where: { id: entryId } });
     if (!entry) throw this.notFound('Work order cost entry not found');
-    await this.findOwned(entry.workOrderId, ctx);
+    const wo = await this.findOwned(entry.workOrderId, ctx);
+    await this.assertCostEntryMutable(entryId, wo.status, ctx);
 
     const updated = await this.prisma.maintenanceWorkOrderCostEntry.update({
       where: { id: entryId },
@@ -795,10 +1029,11 @@ export class MaintenanceWorkOrdersService {
     const entry = await this.prisma.maintenanceWorkOrderCostEntry.findUnique({ where: { id: entryId } });
     if (!entry) throw this.notFound('Work order cost entry not found');
     const wo = await this.findOwned(entry.workOrderId, ctx);
-    if (wo.status === 'COMPLETED') {
+    if (['COMPLETED', 'CANCELLED'].includes(wo.status)) {
       throw this.validationError('status', 'validation.invalidStatusTransition',
-        'Cannot remove cost entries from a completed work order');
+        `Cannot remove cost entries from a ${wo.status.toLowerCase()} work order`);
     }
+    await this.assertCostEntryMutable(entryId, wo.status, ctx);
 
     await this.prisma.maintenanceWorkOrderCostEntry.delete({ where: { id: entryId } });
 
@@ -808,6 +1043,34 @@ export class MaintenanceWorkOrdersService {
     });
 
     return { message: 'Work order cost entry deleted successfully' };
+  }
+
+  private async assertCostEntryMutable(entryId: string, workOrderStatus: string, ctx: ActiveOperationalContext) {
+    if (['COMPLETED', 'CANCELLED'].includes(workOrderStatus)) {
+      throw this.validationError(
+        'status',
+        'validation.invalidStatusTransition',
+        `Cannot change cost entries on a ${workOrderStatus.toLowerCase()} work order`,
+      );
+    }
+    const posted = await this.prisma.operationalCostTransaction.findFirst({
+      where: {
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+        sourceType: MAINTENANCE_LABOR_SOURCE_TYPE,
+        sourceId: entryId,
+        sourceFingerprint: this.laborFingerprint(entryId),
+        entryRole: 'PRIMARY_COST',
+      },
+      select: { id: true },
+    });
+    if (posted) {
+      throw this.validationError(
+        'amount',
+        'validation.invalidStatusTransition',
+        'Posted maintenance labor is immutable; correct it through canonical reversal and a replacement source event',
+      );
+    }
   }
 
   async remove(id: string, user: CurrentUserType, ctx: ActiveOperationalContext) {

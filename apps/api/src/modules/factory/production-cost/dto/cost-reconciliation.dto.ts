@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsDateString, IsIn, IsOptional, IsString } from 'class-validator';
-import { COST_NATURE_VALUES, ENTRY_ROLE_VALUES, COST_TRANSACTION_SOURCE_TYPES } from '../production-cost.constants';
+import { COST_NATURE_VALUES, ENTRY_ROLE_VALUES, OPERATIONAL_LEDGER_SOURCE_TYPES } from '../production-cost.constants';
 import { COST_PURPOSE_VALUES } from '../../../../common/cost-purpose/cost-purpose.constants';
 
 /**
@@ -23,7 +23,7 @@ export class OperationalCostReconciliationQueryDto {
   entryRole?: string;
 
   @IsOptional()
-  @IsIn([...COST_TRANSACTION_SOURCE_TYPES])
+  @IsIn([...OPERATIONAL_LEDGER_SOURCE_TYPES])
   sourceType?: string;
 
   @IsOptional()

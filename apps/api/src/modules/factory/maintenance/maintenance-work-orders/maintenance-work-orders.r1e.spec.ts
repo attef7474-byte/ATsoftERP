@@ -249,6 +249,7 @@ function buildService(db: MockDb) {
     numbering,
     engine,
     productionCost,
+    { resolveWithClient: jest.fn() } as any,
   );
   return { service, audit, numbering, productionCost };
 }

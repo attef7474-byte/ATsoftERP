@@ -4,8 +4,11 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import {
   COST_NATURE_VALUES,
+  COST_R2B_LABOR_MIGRATION,
   ENTRY_ROLE_PRIMARY_COST,
   ENTRY_ROLE_REVERSAL,
+  LABOR_EVENT_TYPE,
+  MAINTENANCE_LABOR_SOURCE_TYPE,
 } from './production-cost.constants';
 import { OperationalCostReconciliationQueryDto } from './dto/cost-reconciliation.dto';
 
@@ -66,6 +69,19 @@ type DowntimeSourceRow = {
   machine: { companyId: string; branchId: string };
 };
 
+type MaintenanceLaborSourceRow = {
+  id: string;
+  amount: Prisma.Decimal;
+  incurredAt: Date;
+  workOrder: {
+    id: string;
+    companyId: string;
+    branchId: string;
+    status: string;
+    completedAt: Date | null;
+  };
+};
+
 type SourceChangeRow = {
   entityType: string;
   entityId: string;
@@ -114,6 +130,7 @@ export class OperationalCostReconciliationService {
       company,
       materialSourceRows,
       downtimeSourceRows,
+      maintenanceLaborSourceRows,
       materialLineCount,
       downtimeEligibleCount,
       fgReceipts,
@@ -122,6 +139,7 @@ export class OperationalCostReconciliationService {
       sourceChangeCount,
       sourceChangeRows,
       coverageBoundary,
+      laborCoverageBoundary,
     ] = await Promise.all([
       (this.prisma as any).operationalCostTransaction.findMany({ where }),
       this.companyOperationalCurrency(ctx.companyId),
@@ -169,6 +187,24 @@ export class OperationalCostReconciliationService {
           machine: { select: { companyId: true, branchId: true } },
         },
       }),
+      (this.prisma as any).maintenanceWorkOrderCostEntry.findMany({
+        where: {
+          type: 'LABOR',
+          amount: { gt: 0 },
+          workOrder: {
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+            status: 'COMPLETED',
+            deletedAt: null,
+          },
+        },
+        select: {
+          id: true,
+          amount: true,
+          incurredAt: true,
+          workOrder: { select: { id: true, companyId: true, branchId: true, status: true, completedAt: true } },
+        },
+      }),
       (this.prisma as any).inventoryMovementLine.count({
         where: {
           movement: {
@@ -192,7 +228,7 @@ export class OperationalCostReconciliationService {
       // workOrder relation. These entries are authoritative summaries (no ledger
       // expense each in their own right) and are excluded, never double counted.
       (this.prisma as any).maintenanceWorkOrderCostEntry.count({
-        where: { workOrder: { companyId: ctx.companyId, branchId: ctx.branchId } },
+        where: { type: { not: 'LABOR' }, workOrder: { companyId: ctx.companyId, branchId: ctx.branchId } },
       }),
       (this.prisma as any).operationalSourceChange.count({
         where: { companyId: ctx.companyId, branchId: ctx.branchId },
@@ -202,6 +238,7 @@ export class OperationalCostReconciliationService {
         select: { entityType: true, entityId: true },
       }),
       this.resolveLedgerCoverageBoundary(),
+      this.resolveCoverageBoundary(COST_R2B_LABOR_MIGRATION),
     ]);
 
     const ledger = this.analyzeLedgerRows(rows as LedgerRow[]);
@@ -215,10 +252,13 @@ export class OperationalCostReconciliationService {
       downtimeEligibleCount,
       materialSources: materialSourceRows as MaterialSourceRow[],
       downtimeSources: downtimeSourceRows as DowntimeSourceRow[],
+      maintenanceLaborSources: maintenanceLaborSourceRows as MaintenanceLaborSourceRow[],
       operationalCurrencyCode: company,
       sourceChanges: sourceChangeRows as SourceChangeRow[],
       coverageBoundary: boundaryState,
       coverageBoundaryInferable: coverageBoundary.inferable,
+      laborCoverageBoundary: laborCoverageBoundary.boundary,
+      laborCoverageBoundaryInferable: laborCoverageBoundary.inferable,
     });
     const exclusions = {
       finishedGoodsReceiptCount: fgReceipts,
@@ -259,8 +299,15 @@ export class OperationalCostReconciliationService {
       downtimeSourceMissing: sources.downtimeSourceMissing,
       downtimeAmountMismatch: sources.downtimeAmountMismatch,
       downtimeCurrencyMismatch: sources.downtimeCurrencyMismatch,
+      maintenanceLaborCurrentMissingLedger: sources.maintenanceLaborCurrentMissingLedger,
+      maintenanceLaborCurrentDuplicateLedger: sources.maintenanceLaborCurrentDuplicateLedger,
+      maintenanceLaborCurrentValueMismatch: sources.maintenanceLaborCurrentValueMismatch,
+      maintenanceLaborCurrentCurrencyMismatch: sources.maintenanceLaborCurrentCurrencyMismatch,
+      maintenanceLaborOrphanReversal: sources.maintenanceLaborOrphanReversal,
+      maintenanceLaborDoubleReversal: sources.maintenanceLaborDoubleReversal,
     };
     const totalDefects = Object.values(defects).reduce((a, b) => a + (b ?? 0), 0);
+    const allCoverageBoundariesInferable = coverageBoundary.inferable && laborCoverageBoundary.inferable;
 
     return {
       meta: {
@@ -277,6 +324,10 @@ export class OperationalCostReconciliationService {
           ? coverageBoundary.boundary.toISOString()
           : null,
         historicalLedgerBackfillCount: 0,
+        costR2bLaborCoverageBoundary: laborCoverageBoundary.boundary
+          ? laborCoverageBoundary.boundary.toISOString()
+          : null,
+        laborCoverageBoundaryInferable: laborCoverageBoundary.inferable,
         scope: query,
       },
       summary: {
@@ -319,6 +370,18 @@ export class OperationalCostReconciliationService {
         MAINTENANCE_MATERIAL_CURRENT_VALUE_MISMATCH_COUNT: sources.maintenanceMaterialCurrentValueMismatch,
         MAINTENANCE_MATERIAL_DUPLICATE_LEDGER_COUNT: sources.maintenanceMaterialDuplicateLedger,
         MAINTENANCE_MATERIAL_VALUE_MISMATCH_COUNT: sources.maintenanceMaterialValueMismatch,
+        MAINTENANCE_LABOR_SOURCE_COUNT: sources.maintenanceLaborSourceCount,
+        MAINTENANCE_LABOR_LEGACY_PRE_LEDGER_SOURCE_COUNT: sources.maintenanceLaborLegacyPreLedgerSourceCount,
+        MAINTENANCE_LABOR_CURRENT_SOURCE_COUNT: sources.maintenanceLaborCurrentSourceCount,
+        MAINTENANCE_LABOR_LEDGER_COUNT: sources.maintenanceLaborLedgerCount,
+        MAINTENANCE_LABOR_CURRENT_MISSING_LEDGER_COUNT: sources.maintenanceLaborCurrentMissingLedger,
+        MAINTENANCE_LABOR_DUPLICATE_LEDGER_COUNT: sources.maintenanceLaborDuplicateLedger,
+        MAINTENANCE_LABOR_VALUE_MISMATCH_COUNT: sources.maintenanceLaborValueMismatch,
+        MAINTENANCE_LABOR_CURRENCY_MISMATCH_COUNT: sources.maintenanceLaborCurrencyMismatch,
+        MAINTENANCE_LABOR_ORPHAN_REVERSAL_COUNT: sources.maintenanceLaborOrphanReversal,
+        MAINTENANCE_LABOR_DOUBLE_REVERSAL_COUNT: sources.maintenanceLaborDoubleReversal,
+        CURRENT_MAINTENANCE_LABOR_LEDGER_ERROR_COUNT: sources.currentMaintenanceLaborLedgerErrorCount,
+        HISTORICAL_LABOR_BACKFILL_COUNT: 0,
         CURRENT_CANONICAL_LEDGER_ERROR_COUNT: totalDefects,
         DOWNTIME_LEDGER_COUNT: sources.downtimeLedgerPrimary,
         DOWNTIME_SOURCE_MISSING_COUNT: sources.downtimeSourceMissing,
@@ -374,6 +437,19 @@ export class OperationalCostReconciliationService {
           amountMismatch: sources.downtimeAmountMismatch,
           currencyMismatch: sources.downtimeCurrencyMismatch,
         },
+        maintenanceLabor: {
+          sourceCount: sources.maintenanceLaborSourceCount,
+          legacyPreLedgerSourceCount: sources.maintenanceLaborLegacyPreLedgerSourceCount,
+          currentSourceCount: sources.maintenanceLaborCurrentSourceCount,
+          ledgerCount: sources.maintenanceLaborLedgerCount,
+          currentMissingLedger: sources.maintenanceLaborCurrentMissingLedger,
+          duplicateLedger: sources.maintenanceLaborDuplicateLedger,
+          valueMismatch: sources.maintenanceLaborValueMismatch,
+          currencyMismatch: sources.maintenanceLaborCurrencyMismatch,
+          orphanReversal: sources.maintenanceLaborOrphanReversal,
+          doubleReversal: sources.maintenanceLaborDoubleReversal,
+          historicalBackfillCount: 0,
+        },
         idempotencyViolations: sources.idempotencyViolations,
         negativeSourceCount: sources.negativeSourceCount,
         crossTenantLedgerDefect: sources.crossTenantLedgerDefect,
@@ -382,16 +458,16 @@ export class OperationalCostReconciliationService {
       },
       exclusions,
       decision: {
-        status: !coverageBoundary.inferable
+        status: !allCoverageBoundariesInferable
           ? 'NOT_READY'
           : totalDefects === 0
             ? 'ALL_CLEAN'
             : 'ISSUES_DETECTED',
         totalDefectCount: totalDefects,
-        coverageBoundaryInferable: coverageBoundary.inferable,
-        readyToCloseCostR1C: coverageBoundary.inferable && totalDefects === 0,
-        note: !coverageBoundary.inferable
-          ? 'Coverage boundary could not be inferred from runtime migration record. Sources cannot be proven legacy; reconciliation is NOT ready. No repair was performed.'
+        coverageBoundaryInferable: allCoverageBoundariesInferable,
+        readyToCloseCostR1C: allCoverageBoundariesInferable && totalDefects === 0,
+        note: !allCoverageBoundariesInferable
+          ? 'A canonical coverage boundary could not be inferred from runtime migration records. Sources cannot be proven legacy; reconciliation is NOT ready. No repair was performed.'
           : totalDefects === 0
             ? 'No current canonical ledger defects detected. Legacy pre-ledger sources are excluded from the error count; ledger reconciles to its authoritative sources.'
             : 'Current canonical ledger defects detected. Reconciliation reports only; no repair was performed.',
@@ -428,11 +504,18 @@ export class OperationalCostReconciliationService {
     boundary: Date | null;
   }> {
     const R1B_MIGRATION = '20260903000000_cost_r1b_canonical_ledger_foundation';
+    return this.resolveCoverageBoundary(R1B_MIGRATION);
+  }
+
+  private async resolveCoverageBoundary(migrationName: string): Promise<{
+    inferable: boolean;
+    boundary: Date | null;
+  }> {
     try {
       const raw: unknown = await (this.prisma as any).$queryRaw(
         Prisma.sql`SELECT finished_at, rolled_back_at, applied_steps_count
                    FROM _prisma_migrations
-                   WHERE migration_name = ${R1B_MIGRATION}`,
+                   WHERE migration_name = ${migrationName}`,
       );
       const row = (Array.isArray(raw) ? raw[0] : raw) as
         | { finished_at: Date | string | null; rolled_back_at: Date | string | null }
@@ -565,10 +648,13 @@ export class OperationalCostReconciliationService {
       downtimeEligibleCount: number;
       materialSources: MaterialSourceRow[];
       downtimeSources: DowntimeSourceRow[];
+      maintenanceLaborSources: MaintenanceLaborSourceRow[];
       operationalCurrencyCode: string | null;
       sourceChanges: SourceChangeRow[];
       coverageBoundary: Date | null;
       coverageBoundaryInferable: boolean;
+      laborCoverageBoundary: Date | null;
+      laborCoverageBoundaryInferable: boolean;
     },
   ) {
     let materialLedgerPrimary = 0;
@@ -613,6 +699,10 @@ export class OperationalCostReconciliationService {
     const downtimeSourceByFingerprint = new Map<string, DowntimeSourceRow>();
     for (const s of opts.downtimeSources) {
       downtimeSourceByFingerprint.set(fingerprintOf(DOWNTIME_SOURCE_TYPE, s.id, DOWNTIME_EVENT_TYPE), s);
+    }
+    const laborSourceByFingerprint = new Map<string, MaintenanceLaborSourceRow>();
+    for (const s of opts.maintenanceLaborSources) {
+      laborSourceByFingerprint.set(fingerprintOf(MAINTENANCE_LABOR_SOURCE_TYPE, s.id, LABOR_EVENT_TYPE), s);
     }
 
     // ── Attribution mutation path ─────────────────────────────────────────────────
@@ -807,11 +897,98 @@ export class OperationalCostReconciliationService {
       if (opts.operationalCurrencyCode && primary.currencyCode !== opts.operationalCurrencyCode) downtimeCurrencyMismatch++;
     }
 
-    // ── Cross-tenant resolution for material/downtime primaries ───────────────────
+    // ── Manual asserted maintenance labor reconciliation ─────────────────────────
+    // The source amount is authoritative. Work-order actualCost and maintenance
+    // request summaries are deliberately absent from this projection.
+    const classifyPreLaborLedger = (completedAt: Date | null): boolean => {
+      if (!opts.laborCoverageBoundaryInferable || !opts.laborCoverageBoundary || !completedAt) return false;
+      return completedAt < opts.laborCoverageBoundary;
+    };
+    let maintenanceLaborSourceCount = 0;
+    let maintenanceLaborLegacyPreLedgerSourceCount = 0;
+    let maintenanceLaborCurrentSourceCount = 0;
+    let maintenanceLaborLedgerCount = 0;
+    let maintenanceLaborCurrentMissingLedger = 0;
+    let maintenanceLaborDuplicateLedger = 0;
+    let maintenanceLaborCurrentDuplicateLedger = 0;
+    let maintenanceLaborValueMismatch = 0;
+    let maintenanceLaborCurrentValueMismatch = 0;
+    let maintenanceLaborCurrencyMismatch = 0;
+    let maintenanceLaborCurrentCurrencyMismatch = 0;
+    let maintenanceLaborOrphanReversal = 0;
+    let maintenanceLaborDoubleReversal = 0;
+
+    const laborPrimariesByFp = new Map<string, LedgerRow[]>();
+    for (const r of rows) {
+      if (r.entryRole !== ENTRY_ROLE_PRIMARY_COST || r.sourceType !== MAINTENANCE_LABOR_SOURCE_TYPE) continue;
+      if (!r.sourceFingerprint) {
+        doubleCountRiskUnknown++;
+        continue;
+      }
+      const group = laborPrimariesByFp.get(r.sourceFingerprint) ?? [];
+      group.push(r);
+      laborPrimariesByFp.set(r.sourceFingerprint, group);
+    }
+
+    for (const source of opts.maintenanceLaborSources) {
+      maintenanceLaborSourceCount++;
+      const historical = classifyPreLaborLedger(source.workOrder.completedAt);
+      if (historical) maintenanceLaborLegacyPreLedgerSourceCount++;
+      else maintenanceLaborCurrentSourceCount++;
+      const fp = fingerprintOf(MAINTENANCE_LABOR_SOURCE_TYPE, source.id, LABOR_EVENT_TYPE);
+      const primaries = laborPrimariesByFp.get(fp) ?? [];
+      if (primaries.length === 0) {
+        if (!historical) maintenanceLaborCurrentMissingLedger++;
+        continue;
+      }
+      maintenanceLaborLedgerCount += primaries.length;
+      if (primaries.length > 1) {
+        const duplicates = primaries.length - 1;
+        maintenanceLaborDuplicateLedger += duplicates;
+        if (!historical) maintenanceLaborCurrentDuplicateLedger += duplicates;
+      }
+      for (const primary of primaries) {
+        if (!primary.amount.eq(source.amount)) {
+          maintenanceLaborValueMismatch++;
+          if (!historical) maintenanceLaborCurrentValueMismatch++;
+        }
+        if (opts.operationalCurrencyCode && primary.currencyCode !== opts.operationalCurrencyCode) {
+          maintenanceLaborCurrencyMismatch++;
+          if (!historical) maintenanceLaborCurrentCurrencyMismatch++;
+        }
+      }
+    }
+
+    const laborOriginalIds = new Set(
+      rows
+        .filter((r) => r.entryRole === ENTRY_ROLE_PRIMARY_COST && r.sourceType === MAINTENANCE_LABOR_SOURCE_TYPE)
+        .map((r) => r.id),
+    );
+    const laborReversalGroups = new Map<string, number>();
+    for (const r of rows) {
+      if (r.entryRole !== ENTRY_ROLE_REVERSAL || r.sourceType !== MAINTENANCE_LABOR_SOURCE_TYPE) continue;
+      if (!r.reversalOfId || !laborOriginalIds.has(r.reversalOfId)) maintenanceLaborOrphanReversal++;
+      if (r.reversalOfId) {
+        laborReversalGroups.set(r.reversalOfId, (laborReversalGroups.get(r.reversalOfId) ?? 0) + 1);
+      }
+    }
+    for (const count of laborReversalGroups.values()) {
+      if (count > 1) maintenanceLaborDoubleReversal += count - 1;
+    }
+    const currentMaintenanceLaborLedgerErrorCount =
+      maintenanceLaborCurrentMissingLedger
+      + maintenanceLaborCurrentDuplicateLedger
+      + maintenanceLaborCurrentValueMismatch
+      + maintenanceLaborCurrentCurrencyMismatch
+      + maintenanceLaborOrphanReversal
+      + maintenanceLaborDoubleReversal;
+
+    // ── Cross-tenant resolution for material/downtime/labor primaries ─────────────
     for (const fp of sourceCount.keys()) {
       const isMaterial = materialSourceByFingerprint.has(fp);
       const isDowntime = downtimeSourceByFingerprint.has(fp);
-      if (!isMaterial && !isDowntime) {
+      const isLabor = laborSourceByFingerprint.has(fp);
+      if (!isMaterial && !isDowntime && !isLabor) {
         // A live fingerprint that maps to no known authoritative source of the active
         // tenant is either a cross-tenant reference or an unresolvable source.
         doubleCountRiskUnknown++;
@@ -837,6 +1014,14 @@ export class OperationalCostReconciliationService {
           crossTenantLedgerDefect++;
         }
         const key = `${DOWNTIME_SOURCE_TYPE}:${r.sourceId}`;
+        if (mutatedEntities.has(key)) postedAttributionMutationPath++;
+      }
+      if (r.sourceType === MAINTENANCE_LABOR_SOURCE_TYPE && r.sourceFingerprint) {
+        const src = laborSourceByFingerprint.get(r.sourceFingerprint);
+        if (!src || src.workOrder.companyId !== r.companyId || src.workOrder.branchId !== r.branchId) {
+          crossTenantLedgerDefect++;
+        }
+        const key = `${MAINTENANCE_LABOR_SOURCE_TYPE}:${r.sourceId}`;
         if (mutatedEntities.has(key)) postedAttributionMutationPath++;
       }
     }
@@ -878,6 +1063,20 @@ export class OperationalCostReconciliationService {
       downtimeSourceMissing,
       downtimeAmountMismatch,
       downtimeCurrencyMismatch,
+      maintenanceLaborSourceCount,
+      maintenanceLaborLegacyPreLedgerSourceCount,
+      maintenanceLaborCurrentSourceCount,
+      maintenanceLaborLedgerCount,
+      maintenanceLaborCurrentMissingLedger,
+      maintenanceLaborDuplicateLedger,
+      maintenanceLaborCurrentDuplicateLedger,
+      maintenanceLaborValueMismatch,
+      maintenanceLaborCurrentValueMismatch,
+      maintenanceLaborCurrencyMismatch,
+      maintenanceLaborCurrentCurrencyMismatch,
+      maintenanceLaborOrphanReversal,
+      maintenanceLaborDoubleReversal,
+      currentMaintenanceLaborLedgerErrorCount,
     };
   }
 }

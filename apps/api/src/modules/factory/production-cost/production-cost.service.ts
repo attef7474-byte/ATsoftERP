@@ -1440,6 +1440,21 @@ export class ProductionCostService {
           }
           if (original.reversedAt) throw this.badRequest('productionCostTransaction.alreadyReversed');
 
+          // Canonical rows reverse through the single canonical writer so source
+          // identity and every attribution snapshot are copied from the immutable
+          // original ledger event. Legacy rows retain the established legacy path
+          // below for backward compatibility.
+          if (original.entryRole === ENTRY_ROLE_PRIMARY_COST) {
+            const canonical = await this.reverseLedgerEntry(tx, original, {
+              reason: dto.reason,
+              notes: dto.notes ?? null,
+              clientRequestId: dto.clientRequestId,
+              createdById: userId,
+              ctx,
+            });
+            return { original: canonical.updatedOriginal, reversal: canonical.transaction };
+          }
+
           const reversal = await tx.operationalCostTransaction.create({
             data: {
               companyId: ctx.companyId,

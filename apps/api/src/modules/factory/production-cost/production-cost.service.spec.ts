@@ -1200,6 +1200,59 @@ describe('ProductionCostService', () => {
       })).rejects.toMatchObject({ response: { messageKey: 'productionCostTransaction.alreadyReversed' } });
     });
 
+    it('COST-R2B LABOR reversal uses and copies the immutable original ledger event', async () => {
+      const original = {
+        id: 'labor-primary-1', companyId: 'c3', branchId: 'b3', eventType: 'LABOR',
+        sourceType: 'MAINTENANCE_WORK_ORDER_COST_ENTRY', sourceId: 'labor-source-1', sourceLineId: 'labor-source-1',
+        costNature: 'MANUAL_ASSERTED_ACTUAL', costPurpose: 'MAINTENANCE', entryRole: 'PRIMARY_COST',
+        amount: new Prisma.Decimal('125.75'), quantity: new Prisma.Decimal(0), unit: 'AMOUNT', rate: new Prisma.Decimal(0),
+        currencyCode: 'SAR', standardAmount: null, varianceAmount: null, reversalOfId: null, reversedAt: null,
+        costCenterId: 'cc-maint', departmentId: 'dep-maint', machineId: 'machine-1', productionLineId: 'line-1',
+        maintenanceWorkOrderId: 'wo-1', maintenanceRequestId: 'mr-1',
+      };
+      const { transaction } = await service.reverseLedgerEntry(prisma, original, {
+        reason: 'correct asserted labor amount', notes: null, clientRequestId: 'labor-reversal-request-1', createdById: 'maker', ctx: ctxC3,
+      });
+      const data = prisma.operationalCostTransaction.create.mock.calls[0][0].data;
+      expect(transaction.amount.toString()).toBe('-125.75');
+      expect(data).toMatchObject({
+        eventType: 'LABOR', sourceType: 'MAINTENANCE_WORK_ORDER_COST_ENTRY', sourceId: 'labor-source-1',
+        sourceLineId: 'labor-source-1', costNature: 'MANUAL_ASSERTED_ACTUAL', costPurpose: 'MAINTENANCE',
+        entryRole: 'REVERSAL', reversalOfId: 'labor-primary-1', currencyCode: 'SAR', unit: 'AMOUNT',
+        costCenterId: 'cc-maint', departmentId: 'dep-maint', machineId: 'machine-1', productionLineId: 'line-1',
+        maintenanceWorkOrderId: 'wo-1', maintenanceRequestId: 'mr-1',
+      });
+      expect(data.quantity.toString()).toBe('0');
+      expect(data.rate.toString()).toBe('0');
+    });
+
+    it('COST-R2B public reversal path delegates a canonical labor row to the canonical writer', async () => {
+      const original = {
+        id: 'labor-primary-public', companyId: 'c3', branchId: 'b3', eventType: 'LABOR',
+        sourceType: 'MAINTENANCE_WORK_ORDER_COST_ENTRY', sourceId: 'labor-source-public', sourceLineId: 'labor-source-public',
+        costNature: 'MANUAL_ASSERTED_ACTUAL', costPurpose: 'MAINTENANCE', entryRole: 'PRIMARY_COST',
+        amount: new Prisma.Decimal('80'), quantity: new Prisma.Decimal(0), unit: 'AMOUNT', rate: new Prisma.Decimal(0),
+        currencyCode: 'SAR', standardAmount: null, varianceAmount: null, reversalOfId: null, reversedAt: null,
+        costCenterId: 'cc-maint', departmentId: 'dep-maint', machineId: 'machine-1', productionLineId: null,
+        maintenanceWorkOrderId: 'wo-1', maintenanceRequestId: null, status: 'POSTED',
+      };
+      prisma.operationalCostTransaction.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(original)
+        .mockResolvedValueOnce(null);
+      const result = await service.reverseTransaction(
+        original.id,
+        { clientRequestId: 'labor-public-reversal', reason: 'manual labor correction' },
+        'maker',
+        ctxC3,
+      );
+      expect(result.reversal.sourceType).toBe('MAINTENANCE_WORK_ORDER_COST_ENTRY');
+      expect(result.reversal.sourceId).toBe('labor-source-public');
+      expect(result.reversal.amount.toString()).toBe('-80');
+      expect(prisma.operationalCostTransaction.create.mock.calls[0][0].data.reversalOfId).toBe('labor-primary-public');
+    });
+
     it('REVERSAL: reversing a reversal is blocked', async () => {
       const original = {
         id: 'rev-1', companyId: 'c3', branchId: 'b3', eventType: 'MATERIAL', sourceType: 'INVENTORY_MOVEMENT_LINE', sourceId: 'inv-9',

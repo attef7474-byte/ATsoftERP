@@ -24,6 +24,27 @@ const materialSource = (overrides: Record<string, any> = {}) => ({
   ...overrides,
 });
 
+const laborSource = (overrides: Record<string, any> = {}) => ({
+  id: 'labor1',
+  amount: new Prisma.Decimal('125.75'),
+  incurredAt: new Date('2026-09-03T09:00:00.000Z'),
+  workOrder: {
+    id: 'wo1', companyId: 'c1', branchId: 'b1', status: 'COMPLETED',
+    completedAt: new Date('2026-09-03T10:00:00.000Z'),
+  },
+  ...overrides,
+});
+
+const laborLedger = (overrides: Record<string, any> = {}) => row({
+  id: 'labor-ledger1', eventType: 'LABOR', sourceType: 'MAINTENANCE_WORK_ORDER_COST_ENTRY', sourceId: 'labor1',
+  sourceLineId: 'labor1', costNature: 'MANUAL_ASSERTED_ACTUAL', costPurpose: 'MAINTENANCE', entryRole: 'PRIMARY_COST',
+  sourceFingerprint: 'MAINTENANCE_WORK_ORDER_COST_ENTRY:labor1:LABOR', clientRequestId: 'maintenance-labor:labor1:primary',
+  maintenanceWorkOrderId: 'wo1', maintenanceRequestId: 'mr1', costCenterId: 'cc1', departmentId: 'dep1',
+  quantity: new Prisma.Decimal(0), unit: 'AMOUNT', rate: new Prisma.Decimal(0), amount: new Prisma.Decimal('125.75'),
+  currencyCode: 'USD',
+  ...overrides,
+});
+
 describe('COST-R1C OperationalCostReconciliationService', () => {
   let prisma: any;
   let service: OperationalCostReconciliationService;
@@ -35,7 +56,10 @@ describe('COST-R1C OperationalCostReconciliationService', () => {
       downtimeLog: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
       productionFinishedGoodsReceipt: { count: jest.fn().mockResolvedValue(0) },
       operationalStandardCostSnapshot: { count: jest.fn().mockResolvedValue(0) },
-      maintenanceWorkOrderCostEntry: { count: jest.fn().mockResolvedValue(0) },
+      maintenanceWorkOrderCostEntry: {
+        count: jest.fn().mockResolvedValue(0),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       operationalSourceChange: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
       company: { findUnique: jest.fn().mockResolvedValue({ operationalCurrencyCode: 'USD' }) },
       $queryRaw: jest.fn().mockResolvedValue([{ finished_at: new Date('2026-09-02T22:43:26.182Z'), rolled_back_at: null }]),
@@ -228,6 +252,96 @@ describe('COST-R1C OperationalCostReconciliationService', () => {
       ]);
       const result = await service.reconcile({} as any, ctxA);
       expect(result.sourceReconciliation.negativeSourceCount).toBe(1);
+    });
+  });
+
+  describe('COST-R2B maintenance labor source reconciliation', () => {
+    it('reports a clean current labor source and exact ledger amount', async () => {
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([laborSource()]);
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([laborLedger()]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts).toMatchObject({
+        MAINTENANCE_LABOR_SOURCE_COUNT: 1,
+        MAINTENANCE_LABOR_CURRENT_SOURCE_COUNT: 1,
+        MAINTENANCE_LABOR_LEDGER_COUNT: 1,
+        MAINTENANCE_LABOR_CURRENT_MISSING_LEDGER_COUNT: 0,
+        CURRENT_MAINTENANCE_LABOR_LEDGER_ERROR_COUNT: 0,
+      });
+    });
+
+    it('detects a current eligible source with no primary ledger', async () => {
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([laborSource()]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.MAINTENANCE_LABOR_CURRENT_MISSING_LEDGER_COUNT).toBe(1);
+      expect(result.counts.CURRENT_MAINTENANCE_LABOR_LEDGER_ERROR_COUNT).toBe(1);
+    });
+
+    it('classifies a pre-migration completion as historical and never requires backfill', async () => {
+      prisma.$queryRaw
+        .mockResolvedValueOnce([{ finished_at: new Date('2026-09-01T00:00:00.000Z'), rolled_back_at: null }])
+        .mockResolvedValueOnce([{ finished_at: new Date('2026-09-03T00:00:00.000Z'), rolled_back_at: null }]);
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([laborSource({
+        workOrder: { id: 'wo1', companyId: 'c1', branchId: 'b1', status: 'COMPLETED', completedAt: new Date('2026-09-02T00:00:00.000Z') },
+      })]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.MAINTENANCE_LABOR_LEGACY_PRE_LEDGER_SOURCE_COUNT).toBe(1);
+      expect(result.counts.MAINTENANCE_LABOR_CURRENT_MISSING_LEDGER_COUNT).toBe(0);
+      expect(result.counts.HISTORICAL_LABOR_BACKFILL_COUNT).toBe(0);
+    });
+
+    it('detects duplicate primary ledger rows for one labor source', async () => {
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([laborSource()]);
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([
+        laborLedger(), laborLedger({ id: 'labor-ledger2', clientRequestId: 'maintenance-labor:labor1:duplicate' }),
+      ]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.MAINTENANCE_LABOR_DUPLICATE_LEDGER_COUNT).toBe(1);
+      expect(result.counts.CURRENT_MAINTENANCE_LABOR_LEDGER_ERROR_COUNT).toBeGreaterThan(0);
+    });
+
+    it('detects a ledger value differing from MaintenanceWorkOrderCostEntry.amount', async () => {
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([laborSource()]);
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([laborLedger({ amount: new Prisma.Decimal('120') })]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.MAINTENANCE_LABOR_VALUE_MISMATCH_COUNT).toBe(1);
+    });
+
+    it('detects a ledger currency differing from Company.operationalCurrencyCode', async () => {
+      prisma.company.findUnique.mockResolvedValue({ operationalCurrencyCode: 'YER' });
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([laborSource()]);
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([laborLedger({ currencyCode: 'USD' })]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.MAINTENANCE_LABOR_CURRENCY_MISMATCH_COUNT).toBe(1);
+    });
+
+    it('detects a labor reversal whose original ledger event is absent', async () => {
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([laborLedger({
+        id: 'labor-reversal', entryRole: 'REVERSAL', amount: new Prisma.Decimal('-125.75'),
+        reversalOfId: 'missing', sourceFingerprint: null, clientRequestId: 'labor-reversal-1', status: 'REVERSED',
+      })]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.MAINTENANCE_LABOR_ORPHAN_REVERSAL_COUNT).toBe(1);
+    });
+
+    it('detects more than one reversal of the same labor original', async () => {
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([laborSource()]);
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([
+        laborLedger(),
+        laborLedger({ id: 'lr1', entryRole: 'REVERSAL', amount: new Prisma.Decimal('-125.75'), reversalOfId: 'labor-ledger1', sourceFingerprint: null, clientRequestId: 'lr1', status: 'REVERSED' }),
+        laborLedger({ id: 'lr2', entryRole: 'REVERSAL', amount: new Prisma.Decimal('-125.75'), reversalOfId: 'labor-ledger1', sourceFingerprint: null, clientRequestId: 'lr2', status: 'REVERSED' }),
+      ]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.MAINTENANCE_LABOR_DOUBLE_REVERSAL_COUNT).toBe(1);
+    });
+
+    it('scopes labor sources through the owning completed work order and excludes non-LABOR rows', async () => {
+      await service.reconcile({} as any, ctxB);
+      expect(prisma.maintenanceWorkOrderCostEntry.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: {
+          type: 'LABOR', amount: { gt: 0 },
+          workOrder: { companyId: 'c2', branchId: 'b2', status: 'COMPLETED', deletedAt: null },
+        },
+      }));
     });
   });
 

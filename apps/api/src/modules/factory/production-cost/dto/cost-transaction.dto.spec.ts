@@ -50,4 +50,14 @@ describe('COST-R1B PostCostTransactionDto', () => {
     const props = errors.map((e) => e.property);
     expect(props).toEqual(expect.arrayContaining(['quantity', 'rate', 'occurredAt', 'clientRequestId']));
   });
+
+  it('rejects adapter-only maintenance labor sources on the generic post contract', async () => {
+    const dto = plainToInstance(PostCostTransactionDto, {
+      ...validPost,
+      eventType: 'LABOR',
+      sourceType: 'MAINTENANCE_WORK_ORDER_COST_ENTRY',
+    });
+    const errors = await validate(dto, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errors.some((e) => e.property === 'sourceType')).toBe(true);
+  });
 });
