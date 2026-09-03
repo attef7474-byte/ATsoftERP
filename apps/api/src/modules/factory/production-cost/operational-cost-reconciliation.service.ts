@@ -50,6 +50,7 @@ type MaterialSourceRow = {
     movementType: string;
     status: string;
     postedAt: Date | null;
+    createdAt: Date;
     cancelledAt: Date | null;
     reversesMovementId: string | null;
   } | null;
@@ -120,6 +121,7 @@ export class OperationalCostReconciliationService {
       maintenanceSummaries,
       sourceChangeCount,
       sourceChangeRows,
+      coverageBoundary,
     ] = await Promise.all([
       (this.prisma as any).operationalCostTransaction.findMany({ where }),
       this.companyOperationalCurrency(ctx.companyId),
@@ -142,6 +144,7 @@ export class OperationalCostReconciliationService {
               movementType: true,
               status: true,
               postedAt: true,
+              createdAt: true,
               cancelledAt: true,
               reversesMovementId: true,
             },
@@ -198,10 +201,15 @@ export class OperationalCostReconciliationService {
         where: { companyId: ctx.companyId, branchId: ctx.branchId },
         select: { entityType: true, entityId: true },
       }),
+      this.resolveLedgerCoverageBoundary(),
     ]);
 
     const ledger = this.analyzeLedgerRows(rows as LedgerRow[]);
     const currency = this.analyzeCurrency(rows as LedgerRow[], company);
+    const boundaryState =
+      coverageBoundary.inferable && coverageBoundary.boundary
+        ? coverageBoundary.boundary
+        : null;
     const sources = this.analyzeSources(rows as LedgerRow[], {
       materialLineCount,
       downtimeEligibleCount,
@@ -209,6 +217,8 @@ export class OperationalCostReconciliationService {
       downtimeSources: downtimeSourceRows as DowntimeSourceRow[],
       operationalCurrencyCode: company,
       sourceChanges: sourceChangeRows as SourceChangeRow[],
+      coverageBoundary: boundaryState,
+      coverageBoundaryInferable: coverageBoundary.inferable,
     });
     const exclusions = {
       finishedGoodsReceiptCount: fgReceipts,
@@ -236,13 +246,13 @@ export class OperationalCostReconciliationService {
       crossTenantLedgerDefect: sources.crossTenantLedgerDefect,
       postedAttributionMutationPath: sources.postedAttributionMutationPath,
       doubleCountRiskUnknown: sources.doubleCountRiskUnknown,
-      productionMaterialMissingLedger: sources.productionMaterialMissingLedger,
-      productionMaterialDuplicateLedger: sources.productionMaterialDuplicateLedger,
-      productionMaterialValueMismatch: sources.productionMaterialValueMismatch,
-      productionMaterialCurrencyMismatch: sources.productionMaterialCurrencyMismatch,
-      maintenanceMaterialMissingLedger: sources.maintenanceMaterialMissingLedger,
-      maintenanceMaterialDuplicateLedger: sources.maintenanceMaterialDuplicateLedger,
-      maintenanceMaterialValueMismatch: sources.maintenanceMaterialValueMismatch,
+      productionMaterialCurrentMissingLedger: sources.productionMaterialCurrentMissingLedger,
+      productionMaterialCurrentDuplicateLedger: sources.productionMaterialCurrentDuplicateLedger,
+      productionMaterialCurrentValueMismatch: sources.productionMaterialCurrentValueMismatch,
+      productionMaterialCurrentCurrencyMismatch: sources.productionMaterialCurrentCurrencyMismatch,
+      maintenanceMaterialCurrentMissingLedger: sources.maintenanceMaterialCurrentMissingLedger,
+      maintenanceMaterialCurrentDuplicateLedger: sources.maintenanceMaterialCurrentDuplicateLedger,
+      maintenanceMaterialCurrentValueMismatch: sources.maintenanceMaterialCurrentValueMismatch,
       productionReturnMissingReversal: sources.productionReturnMissingReversal,
       productionReturnExtraPrimary: sources.productionReturnExtraPrimary,
       productionReturnValueMismatch: sources.productionReturnValueMismatch,
@@ -259,6 +269,14 @@ export class OperationalCostReconciliationService {
         branchId: ctx.branchId,
         operationalCurrencyCode: company,
         readOnly: true,
+        coverageBoundaryInferable: coverageBoundary.inferable,
+        coverageBoundaryAuthority: coverageBoundary.inferable
+          ? 'runtime:_prisma_migrations'
+          : 'NOT_INFERABLE',
+        costR1bLedgerCoverageBoundary: coverageBoundary.boundary
+          ? coverageBoundary.boundary.toISOString()
+          : null,
+        historicalLedgerBackfillCount: 0,
         scope: query,
       },
       summary: {
@@ -280,6 +298,11 @@ export class OperationalCostReconciliationService {
         PRODUCTION_MATERIAL_SOURCE_COUNT: sources.productionMaterialSourceCount,
         PRODUCTION_MATERIAL_LEDGER_COUNT: sources.productionMaterialLedgerCount,
         PRODUCTION_MATERIAL_MISSING_LEDGER_COUNT: sources.productionMaterialMissingLedger,
+        PRODUCTION_MATERIAL_LEGACY_PRE_LEDGER_SOURCE_COUNT: sources.productionMaterialLegacyPreLedgerSourceCount,
+        PRODUCTION_MATERIAL_CURRENT_SOURCE_COUNT: sources.productionMaterialCurrentSourceCount,
+        PRODUCTION_MATERIAL_CURRENT_MISSING_LEDGER_COUNT: sources.productionMaterialCurrentMissingLedger,
+        PRODUCTION_MATERIAL_CURRENT_DUPLICATE_LEDGER_COUNT: sources.productionMaterialCurrentDuplicateLedger,
+        PRODUCTION_MATERIAL_CURRENT_VALUE_MISMATCH_COUNT: sources.productionMaterialCurrentValueMismatch,
         PRODUCTION_MATERIAL_DUPLICATE_LEDGER_COUNT: sources.productionMaterialDuplicateLedger,
         PRODUCTION_MATERIAL_VALUE_MISMATCH_COUNT: sources.productionMaterialValueMismatch,
         PRODUCTION_MATERIAL_CURRENCY_MISMATCH_COUNT: sources.productionMaterialCurrencyMismatch,
@@ -289,8 +312,14 @@ export class OperationalCostReconciliationService {
         MAINTENANCE_MATERIAL_SOURCE_COUNT: sources.maintenanceMaterialSourceCount,
         MAINTENANCE_MATERIAL_LEDGER_COUNT: sources.maintenanceMaterialLedgerCount,
         MAINTENANCE_MATERIAL_MISSING_LEDGER_COUNT: sources.maintenanceMaterialMissingLedger,
+        MAINTENANCE_MATERIAL_LEGACY_PRE_LEDGER_SOURCE_COUNT: sources.maintenanceMaterialLegacyPreLedgerSourceCount,
+        MAINTENANCE_MATERIAL_CURRENT_SOURCE_COUNT: sources.maintenanceMaterialCurrentSourceCount,
+        MAINTENANCE_MATERIAL_CURRENT_MISSING_LEDGER_COUNT: sources.maintenanceMaterialCurrentMissingLedger,
+        MAINTENANCE_MATERIAL_CURRENT_DUPLICATE_LEDGER_COUNT: sources.maintenanceMaterialCurrentDuplicateLedger,
+        MAINTENANCE_MATERIAL_CURRENT_VALUE_MISMATCH_COUNT: sources.maintenanceMaterialCurrentValueMismatch,
         MAINTENANCE_MATERIAL_DUPLICATE_LEDGER_COUNT: sources.maintenanceMaterialDuplicateLedger,
         MAINTENANCE_MATERIAL_VALUE_MISMATCH_COUNT: sources.maintenanceMaterialValueMismatch,
+        CURRENT_CANONICAL_LEDGER_ERROR_COUNT: totalDefects,
         DOWNTIME_LEDGER_COUNT: sources.downtimeLedgerPrimary,
         DOWNTIME_SOURCE_MISSING_COUNT: sources.downtimeSourceMissing,
         DOWNTIME_AMOUNT_MISMATCH_COUNT: sources.downtimeAmountMismatch,
@@ -316,12 +345,22 @@ export class OperationalCostReconciliationService {
           productionSourceCount: sources.productionMaterialSourceCount,
           productionLedgerCount: sources.productionMaterialLedgerCount,
           productionMissingLedger: sources.productionMaterialMissingLedger,
+          productionLegacyPreLedgerSourceCount: sources.productionMaterialLegacyPreLedgerSourceCount,
+          productionCurrentSourceCount: sources.productionMaterialCurrentSourceCount,
+          productionCurrentMissingLedger: sources.productionMaterialCurrentMissingLedger,
+          productionCurrentDuplicateLedger: sources.productionMaterialCurrentDuplicateLedger,
+          productionCurrentValueMismatch: sources.productionMaterialCurrentValueMismatch,
           productionDuplicateLedger: sources.productionMaterialDuplicateLedger,
           productionValueMismatch: sources.productionMaterialValueMismatch,
           productionCurrencyMismatch: sources.productionMaterialCurrencyMismatch,
           maintenanceSourceCount: sources.maintenanceMaterialSourceCount,
           maintenanceLedgerCount: sources.maintenanceMaterialLedgerCount,
           maintenanceMissingLedger: sources.maintenanceMaterialMissingLedger,
+          maintenanceLegacyPreLedgerSourceCount: sources.maintenanceMaterialLegacyPreLedgerSourceCount,
+          maintenanceCurrentSourceCount: sources.maintenanceMaterialCurrentSourceCount,
+          maintenanceCurrentMissingLedger: sources.maintenanceMaterialCurrentMissingLedger,
+          maintenanceCurrentDuplicateLedger: sources.maintenanceMaterialCurrentDuplicateLedger,
+          maintenanceCurrentValueMismatch: sources.maintenanceMaterialCurrentValueMismatch,
           maintenanceDuplicateLedger: sources.maintenanceMaterialDuplicateLedger,
           maintenanceValueMismatch: sources.maintenanceMaterialValueMismatch,
           returnMissingReversal: sources.productionReturnMissingReversal,
@@ -343,11 +382,19 @@ export class OperationalCostReconciliationService {
       },
       exclusions,
       decision: {
-        status: totalDefects === 0 ? 'ALL_CLEAN' : 'ISSUES_DETECTED',
+        status: !coverageBoundary.inferable
+          ? 'NOT_READY'
+          : totalDefects === 0
+            ? 'ALL_CLEAN'
+            : 'ISSUES_DETECTED',
         totalDefectCount: totalDefects,
-        note: totalDefects === 0
-          ? 'No ledger defects detected. Ledger is internally consistent and reconciles to its authoritative sources.'
-          : 'Ledger defects detected. Reconciliation reports only; no repair was performed.',
+        coverageBoundaryInferable: coverageBoundary.inferable,
+        readyToCloseCostR1C: coverageBoundary.inferable && totalDefects === 0,
+        note: !coverageBoundary.inferable
+          ? 'Coverage boundary could not be inferred from runtime migration record. Sources cannot be proven legacy; reconciliation is NOT ready. No repair was performed.'
+          : totalDefects === 0
+            ? 'No current canonical ledger defects detected. Legacy pre-ledger sources are excluded from the error count; ledger reconciles to its authoritative sources.'
+            : 'Current canonical ledger defects detected. Reconciliation reports only; no repair was performed.',
       },
     };
   }
@@ -364,6 +411,41 @@ export class OperationalCostReconciliationService {
     const client = this.prisma as any;
     if (!client[model]) return 0;
     return client[model].count({ where: { companyId: ctx.companyId } });
+  }
+
+  /**
+   * Resolves the COST-R1B canonical ledger coverage boundary from the runtime
+   * migration record. The boundary is the exact `finished_at` of the R1B
+   * canonical-ledger foundation migration in `_prisma_migrations`, read at runtime
+   * (never a hard-coded timestamp, never a deployment guess). A source is
+   * LEGACY_PRE_LEDGER_SOURCE when posted strictly before this boundary, otherwise
+   * CURRENT_CANONICAL_ELIGIBLE_SOURCE. If the exact migration record is missing,
+   * failed/rolled back, or has a null `finished_at`, the boundary is NOT inferable
+   * and no source may be silently classified as legacy.
+   */
+  private async resolveLedgerCoverageBoundary(): Promise<{
+    inferable: boolean;
+    boundary: Date | null;
+  }> {
+    const R1B_MIGRATION = '20260903000000_cost_r1b_canonical_ledger_foundation';
+    try {
+      const raw: unknown = await (this.prisma as any).$queryRaw(
+        Prisma.sql`SELECT finished_at, rolled_back_at, applied_steps_count
+                   FROM _prisma_migrations
+                   WHERE migration_name = ${R1B_MIGRATION}`,
+      );
+      const row = (Array.isArray(raw) ? raw[0] : raw) as
+        | { finished_at: Date | string | null; rolled_back_at: Date | string | null }
+        | undefined;
+      if (!row) return { inferable: false, boundary: null };
+      if (row.rolled_back_at) return { inferable: false, boundary: null };
+      if (row.finished_at == null) return { inferable: false, boundary: null };
+      const finished = new Date(row.finished_at);
+      if (Number.isNaN(finished.getTime())) return { inferable: false, boundary: null };
+      return { inferable: true, boundary: finished };
+    } catch {
+      return { inferable: false, boundary: null };
+    }
   }
 
   private analyzeLedgerRows(rows: LedgerRow[]) {
@@ -485,6 +567,8 @@ export class OperationalCostReconciliationService {
       downtimeSources: DowntimeSourceRow[];
       operationalCurrencyCode: string | null;
       sourceChanges: SourceChangeRow[];
+      coverageBoundary: Date | null;
+      coverageBoundaryInferable: boolean;
     },
   ) {
     let materialLedgerPrimary = 0;
@@ -538,15 +622,37 @@ export class OperationalCostReconciliationService {
     for (const c of opts.sourceChanges) mutatedEntities.add(`${c.entityType}:${c.entityId}`);
 
     // ── Production / maintenance / return material reconciliation ────────────────
+    // A source is a LEGACY_PRE_LEDGER_SOURCE when it was posted strictly before the
+    // COST-R1B canonical ledger coverage boundary (read at runtime from
+    // `_prisma_migrations`). Legacy sources existed before the canonical ledger did
+    // and are informational only — they must NOT surface as current-eligible ledger
+    // defects. When the boundary is not inferable, no source may be proven legacy,
+    // so every source is conservatively treated as CURRENT_CANONICAL_ELIGIBLE_SOURCE.
+    const classifyPreLedger = (posted: Date | null): boolean => {
+      if (!opts.coverageBoundaryInferable) return false;
+      if (posted == null) return false;
+      return posted < opts.coverageBoundary!;
+    };
     let productionMaterialSourceCount = 0;
     let productionMaterialLedgerCount = 0;
     let productionMaterialMissingLedger = 0;
+    let productionMaterialLegacyPreLedgerSourceCount = 0;
+    let productionMaterialCurrentSourceCount = 0;
+    let productionMaterialCurrentMissingLedger = 0;
+    let productionMaterialCurrentDuplicateLedger = 0;
+    let productionMaterialCurrentValueMismatch = 0;
+    let productionMaterialCurrentCurrencyMismatch = 0;
     let productionMaterialDuplicateLedger = 0;
     let productionMaterialValueMismatch = 0;
     let productionMaterialCurrencyMismatch = 0;
     let maintenanceMaterialSourceCount = 0;
     let maintenanceMaterialLedgerCount = 0;
     let maintenanceMaterialMissingLedger = 0;
+    let maintenanceMaterialLegacyPreLedgerSourceCount = 0;
+    let maintenanceMaterialCurrentSourceCount = 0;
+    let maintenanceMaterialCurrentMissingLedger = 0;
+    let maintenanceMaterialCurrentDuplicateLedger = 0;
+    let maintenanceMaterialCurrentValueMismatch = 0;
     let maintenanceMaterialDuplicateLedger = 0;
     let maintenanceMaterialValueMismatch = 0;
     let productionReturnMissingReversal = 0;
@@ -580,27 +686,56 @@ export class OperationalCostReconciliationService {
       const ledgerPurpose = primaries[0]?.costPurpose ?? null;
       const isProduction = ledgerPurpose === 'PRODUCTION' || (line.movement.movementType ?? '').toUpperCase().includes('PRODUCTION');
       const isMaintenance = !isProduction && (ledgerPurpose === 'MAINTENANCE' || /MAINTENANCE|MAINTENANCE/gi.test(line.movement.movementType ?? ''));
+      const postedMoment = line.movement.postedAt ?? line.movement.createdAt ?? null;
+      const isLegacyPreLedger = classifyPreLedger(postedMoment);
 
       if (isProduction) {
         productionMaterialSourceCount++;
-        if (primaries.length === 0) productionMaterialMissingLedger++;
-        if (primaries.length > 1) productionMaterialDuplicateLedger += primaries.length - 1;
+        if (isLegacyPreLedger) productionMaterialLegacyPreLedgerSourceCount++;
+        else productionMaterialCurrentSourceCount++;
+        if (primaries.length === 0) {
+          productionMaterialMissingLedger++;
+          if (!isLegacyPreLedger) productionMaterialCurrentMissingLedger++;
+        }
+        if (primaries.length > 1) {
+          const dup = primaries.length - 1;
+          productionMaterialDuplicateLedger += dup;
+          if (!isLegacyPreLedger) productionMaterialCurrentDuplicateLedger += dup;
+        }
         if (primaries.length === 1) {
           productionMaterialLedgerCount++;
           const primary = primaries[0];
           const isMismatch = !primary.amount.eq(line.totalCost!);
-          if (isMismatch) productionMaterialValueMismatch++;
+          if (isMismatch) {
+            productionMaterialValueMismatch++;
+            if (!isLegacyPreLedger) productionMaterialCurrentValueMismatch++;
+          }
           const sourceCurrency = line.currencyCode ?? opts.operationalCurrencyCode ?? primary.currencyCode;
-          if (sourceCurrency && primary.currencyCode !== sourceCurrency) productionMaterialCurrencyMismatch++;
+          if (sourceCurrency && primary.currencyCode !== sourceCurrency) {
+            productionMaterialCurrencyMismatch++;
+            if (!isLegacyPreLedger) productionMaterialCurrentCurrencyMismatch++;
+          }
         }
       } else if (isMaintenance) {
         maintenanceMaterialSourceCount++;
-        if (primaries.length === 0) maintenanceMaterialMissingLedger++;
-        if (primaries.length > 1) maintenanceMaterialDuplicateLedger += primaries.length - 1;
+        if (isLegacyPreLedger) maintenanceMaterialLegacyPreLedgerSourceCount++;
+        else maintenanceMaterialCurrentSourceCount++;
+        if (primaries.length === 0) {
+          maintenanceMaterialMissingLedger++;
+          if (!isLegacyPreLedger) maintenanceMaterialCurrentMissingLedger++;
+        }
+        if (primaries.length > 1) {
+          const dup = primaries.length - 1;
+          maintenanceMaterialDuplicateLedger += dup;
+          if (!isLegacyPreLedger) maintenanceMaterialCurrentDuplicateLedger += dup;
+        }
         if (primaries.length === 1) {
           maintenanceMaterialLedgerCount++;
           const primary = primaries[0];
-          if (!primary.amount.eq(line.totalCost!)) maintenanceMaterialValueMismatch++;
+          if (!primary.amount.eq(line.totalCost!)) {
+            maintenanceMaterialValueMismatch++;
+            if (!isLegacyPreLedger) maintenanceMaterialCurrentValueMismatch++;
+          }
         }
       }
     }
@@ -718,12 +853,23 @@ export class OperationalCostReconciliationService {
       productionMaterialSourceCount,
       productionMaterialLedgerCount,
       productionMaterialMissingLedger,
+      productionMaterialLegacyPreLedgerSourceCount,
+      productionMaterialCurrentSourceCount,
+      productionMaterialCurrentMissingLedger,
+      productionMaterialCurrentDuplicateLedger,
+      productionMaterialCurrentValueMismatch,
+      productionMaterialCurrentCurrencyMismatch,
       productionMaterialDuplicateLedger,
       productionMaterialValueMismatch,
       productionMaterialCurrencyMismatch,
       maintenanceMaterialSourceCount,
       maintenanceMaterialLedgerCount,
       maintenanceMaterialMissingLedger,
+      maintenanceMaterialLegacyPreLedgerSourceCount,
+      maintenanceMaterialCurrentSourceCount,
+      maintenanceMaterialCurrentMissingLedger,
+      maintenanceMaterialCurrentDuplicateLedger,
+      maintenanceMaterialCurrentValueMismatch,
       maintenanceMaterialDuplicateLedger,
       maintenanceMaterialValueMismatch,
       productionReturnMissingReversal,

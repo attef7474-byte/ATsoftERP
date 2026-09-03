@@ -38,6 +38,7 @@ describe('COST-R1C OperationalCostReconciliationService', () => {
       maintenanceWorkOrderCostEntry: { count: jest.fn().mockResolvedValue(0) },
       operationalSourceChange: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
       company: { findUnique: jest.fn().mockResolvedValue({ operationalCurrencyCode: 'USD' }) },
+      $queryRaw: jest.fn().mockResolvedValue([{ finished_at: new Date('2026-09-02T22:43:26.182Z'), rolled_back_at: null }]),
     };
     service = new OperationalCostReconciliationService(prisma);
   });
@@ -552,6 +553,143 @@ describe('COST-R1C OperationalCostReconciliationService', () => {
       expect(prisma.operationalCostTransaction.delete).toBeUndefined();
       expect(prisma.$transaction).toBeUndefined();
       expect(prisma.operationalCostTransaction.findMany).toHaveBeenCalled();
+    });
+  });
+
+  describe('COST-R1C R2 legacy pre-ledger source classification', () => {
+    const BOUNDARY = new Date('2026-09-02T22:43:26.182Z');
+    const LEGACY_POSTED = new Date('2026-09-01T20:23:01.815Z');
+    const CURRENT_POSTED = new Date('2026-09-03T10:00:00.000Z');
+    const boundaryInferable = () =>
+      prisma.$queryRaw.mockResolvedValue([{ finished_at: BOUNDARY, rolled_back_at: null }]);
+
+    const prodSource = (id: string, postedAt: Date, totalCost = new Prisma.Decimal('50')) =>
+      materialSource({
+        id,
+        totalCost,
+        movement: {
+          companyId: 'c1',
+          branchId: 'b1',
+          movementType: 'PRODUCTION',
+          status: 'POSTED',
+          postedAt,
+          createdAt: postedAt,
+          cancelledAt: null,
+          reversesMovementId: null,
+        },
+      });
+
+    it('classifies a pre-boundary no-ledger source as LEGACY_PRE_LEDGER_SOURCE, not a current error', async () => {
+      boundaryInferable();
+      prisma.inventoryMovementLine.findMany.mockResolvedValue([prodSource('legacy-1', LEGACY_POSTED)]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.PRODUCTION_MATERIAL_LEGACY_PRE_LEDGER_SOURCE_COUNT).toBe(1);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_SOURCE_COUNT).toBe(0);
+      expect(result.counts.PRODUCTION_MATERIAL_MISSING_LEDGER_COUNT).toBe(1);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_MISSING_LEDGER_COUNT).toBe(0);
+      expect(result.counts.CURRENT_CANONICAL_LEDGER_ERROR_COUNT).toBe(0);
+      expect(result.decision.status).toBe('ALL_CLEAN');
+      expect(result.decision.readyToCloseCostR1C).toBe(true);
+    });
+
+    it('classifies an at/after-boundary no-ledger source as CURRENT and raises a current missing-ledger error', async () => {
+      boundaryInferable();
+      prisma.inventoryMovementLine.findMany.mockResolvedValue([prodSource('current-1', CURRENT_POSTED)]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.PRODUCTION_MATERIAL_LEGACY_PRE_LEDGER_SOURCE_COUNT).toBe(0);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_SOURCE_COUNT).toBe(1);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_MISSING_LEDGER_COUNT).toBe(1);
+      expect(result.counts.CURRENT_CANONICAL_LEDGER_ERROR_COUNT).toBe(1);
+      expect(result.decision.status).toBe('ISSUES_DETECTED');
+      expect(result.decision.readyToCloseCostR1C).toBe(false);
+    });
+
+    it('reports ALL_CLEAN for a current source with exactly one matching ledger primary at the same value', async () => {
+      boundaryInferable();
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([
+        row({ id: 'p1', sourceFingerprint: 'INVENTORY_MOVEMENT_LINE:current-1:MATERIAL', amount: new Prisma.Decimal('50'), costPurpose: 'PRODUCTION' }),
+      ]);
+      prisma.inventoryMovementLine.findMany.mockResolvedValue([prodSource('current-1', CURRENT_POSTED)]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_SOURCE_COUNT).toBe(1);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_MISSING_LEDGER_COUNT).toBe(0);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_DUPLICATE_LEDGER_COUNT).toBe(0);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_VALUE_MISMATCH_COUNT).toBe(0);
+      expect(result.counts.CURRENT_CANONICAL_LEDGER_ERROR_COUNT).toBe(0);
+      expect(result.decision.status).toBe('ALL_CLEAN');
+    });
+
+    it('a legacy source does not affect the current canonical error count', async () => {
+      boundaryInferable();
+      prisma.inventoryMovementLine.findMany.mockResolvedValue([
+        prodSource('legacy-1', LEGACY_POSTED),
+        prodSource('current-1', CURRENT_POSTED, new Prisma.Decimal('50')),
+      ]);
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([
+        row({ id: 'p1', sourceFingerprint: 'INVENTORY_MOVEMENT_LINE:current-1:MATERIAL', amount: new Prisma.Decimal('50'), costPurpose: 'PRODUCTION' }),
+      ]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.PRODUCTION_MATERIAL_LEGACY_PRE_LEDGER_SOURCE_COUNT).toBe(1);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_SOURCE_COUNT).toBe(1);
+      expect(result.counts.PRODUCTION_MATERIAL_MISSING_LEDGER_COUNT).toBe(1);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_MISSING_LEDGER_COUNT).toBe(0);
+      expect(result.counts.CURRENT_CANONICAL_LEDGER_ERROR_COUNT).toBe(0);
+      expect(result.decision.status).toBe('ALL_CLEAN');
+    });
+
+    it('two legacy sources with zero current errors is closeable (READY_TO_CLOSE_COST_R1C = true)', async () => {
+      boundaryInferable();
+      prisma.inventoryMovementLine.findMany.mockResolvedValue([
+        prodSource('legacy-1', LEGACY_POSTED),
+        prodSource('legacy-2', new Date('2026-09-01T20:23:02.090Z')),
+      ]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.PRODUCTION_MATERIAL_LEGACY_PRE_LEDGER_SOURCE_COUNT).toBe(2);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_SOURCE_COUNT).toBe(0);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_MISSING_LEDGER_COUNT).toBe(0);
+      expect(result.counts.CURRENT_CANONICAL_LEDGER_ERROR_COUNT).toBe(0);
+      expect(result.decision.status).toBe('ALL_CLEAN');
+      expect(result.decision.readyToCloseCostR1C).toBe(true);
+    });
+
+    it('when the boundary cannot be inferred, sources are not silently classified legacy -> NOT_READY', async () => {
+      prisma.$queryRaw.mockResolvedValue([]);
+      prisma.inventoryMovementLine.findMany.mockResolvedValue([prodSource('legacy-1', LEGACY_POSTED)]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.meta.coverageBoundaryInferable).toBe(false);
+      expect(result.counts.PRODUCTION_MATERIAL_LEGACY_PRE_LEDGER_SOURCE_COUNT).toBe(0);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_SOURCE_COUNT).toBe(1);
+      expect(result.counts.PRODUCTION_MATERIAL_CURRENT_MISSING_LEDGER_COUNT).toBe(1);
+      expect(result.decision.status).toBe('NOT_READY');
+      expect(result.decision.readyToCloseCostR1C).toBe(false);
+    });
+
+    it('never auto-backfills historical ledger data: backfill count is always zero and no write is invoked', async () => {
+      boundaryInferable();
+      prisma.inventoryMovementLine.findMany.mockResolvedValue([prodSource('legacy-1', LEGACY_POSTED)]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.meta.historicalLedgerBackfillCount).toBe(0);
+      expect(prisma.operationalCostTransaction.create).toBeUndefined();
+      expect(prisma.operationalCostTransaction.update).toBeUndefined();
+      expect(prisma.operationalCostTransaction.deleteMany).toBeUndefined();
+      expect(prisma.$transaction).toBeUndefined();
+    });
+
+    it('retains tenant isolation and scopes legacy classification to the active company/branch only', async () => {
+      boundaryInferable();
+      prisma.inventoryMovementLine.findMany.mockImplementation(({ where }: any) =>
+        Promise.resolve([
+          { ...prodSource('legacy-1', LEGACY_POSTED), movement: { ...prodSource('legacy-1', LEGACY_POSTED).movement, companyId: where.movement.companyId, branchId: where.movement.OR?.[0]?.branchId } },
+        ]),
+      );
+      const result = await service.reconcile({} as any, ctxB);
+      expect(result.meta.companyId).toBe('c2');
+      expect(result.meta.branchId).toBe('b2');
+      expect(prisma.inventoryMovementLine.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          movement: { companyId: 'c2', OR: [{ branchId: 'b2' }, { branchId: null }] },
+        }),
+      }));
     });
   });
 });
