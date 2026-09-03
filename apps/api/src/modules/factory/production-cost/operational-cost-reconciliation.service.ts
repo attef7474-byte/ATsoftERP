@@ -562,20 +562,24 @@ export class OperationalCostReconciliationService {
   }> {
     try {
       const raw: unknown = await (this.prisma as any).$queryRaw(
-        Prisma.sql`SELECT finished_at, rolled_back_at, applied_steps_count
+        Prisma.sql`SELECT finished_at, rolled_back_at
                    FROM _prisma_migrations
                    WHERE migration_name = ${migrationName}`,
       );
-      const row = (Array.isArray(raw) ? raw[0] : raw) as
-        | { finished_at: Date | string | null; rolled_back_at: Date | string | null; applied_steps_count: number }
-        | undefined;
-      if (!row) return { inferable: false, boundary: null };
-      if (row.rolled_back_at) return { inferable: false, boundary: null };
-      if (row.finished_at == null) return { inferable: false, boundary: null };
-      if (!Number.isInteger(row.applied_steps_count) || row.applied_steps_count <= 0) {
-        return { inferable: false, boundary: null };
-      }
-      const finished = new Date(row.finished_at);
+      const rows = (Array.isArray(raw) ? raw : [raw]) as Array<{
+        finished_at: Date | string | null;
+        rolled_back_at: Date | string | null;
+      }>;
+      // A valid coverage-boundary row is one that reached a successful applied
+      // state: finished_at is set and this record was never marked rolled back.
+      // For a migrate-resolve-applied deployment the PRIVILEGED DDL was applied
+      // out-of-band, so applied_steps_count may legitimately be 0 and must NOT be
+      // used to gate boundary eligibility. Historical rolled-back attempts must be
+      // ignored. Fail-closed: exactly one valid applied row is required, otherwise
+      // the boundary is unavailable/ambiguous.
+      const successful = rows.filter((r) => r.finished_at != null && r.rolled_back_at == null);
+      if (successful.length !== 1) return { inferable: false, boundary: null };
+      const finished = new Date(successful[0].finished_at as Date | string);
       if (Number.isNaN(finished.getTime())) return { inferable: false, boundary: null };
       return { inferable: true, boundary: finished };
     } catch {

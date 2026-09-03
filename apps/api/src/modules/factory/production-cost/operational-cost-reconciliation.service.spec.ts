@@ -466,16 +466,86 @@ describe('COST-R1C OperationalCostReconciliationService', () => {
     });
 
     it.each([
-      [{ finished_at: new Date(), rolled_back_at: new Date(), applied_steps_count: 1 }],
-      [{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 0 }],
-      [{ finished_at: null, rolled_back_at: null, applied_steps_count: 1 }],
-    ])('rejects a failed, rolled-back or unfinished exact migration row', async (migrationRow) => {
+      [[{ finished_at: new Date(), rolled_back_at: new Date(), applied_steps_count: 1 }]],
+      [[{ finished_at: null, rolled_back_at: null, applied_steps_count: 1 }]],
+      [[{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 0 }, { finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }]],
+    ])('rejects a failed, rolled-back, unfinished or ambiguous exact migration row', async (migrationRows) => {
       prisma.$queryRaw
         .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
         .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
-        .mockResolvedValueOnce(migrationRow);
+        .mockResolvedValueOnce(migrationRows);
       const result = await service.reconcile({} as any, ctxA);
       expect(result.decision.status).toBe('NOT_READY');
+    });
+
+    it('infers the boundary from a single resolve-applied row with applied_steps_count 0', async () => {
+      const boundary = new Date('2026-09-03T22:18:07.7533767Z');
+      prisma.$queryRaw
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([{ finished_at: boundary, rolled_back_at: null, applied_steps_count: 0 }]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.meta.externalServiceCoverageBoundaryInferable).toBe(true);
+      expect(result.meta.costR2cExternalServiceCoverageBoundary).toBe(boundary.toISOString());
+      expect(result.meta.coverageBoundaryAuthority).toBe('runtime:_prisma_migrations');
+    });
+
+    it('selects the single successful resolve-applied row and ignores the historical rolled-back attempt', async () => {
+      const boundary = new Date('2026-09-03T22:18:07.7533767Z');
+      prisma.$queryRaw
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([
+          { finished_at: new Date('2026-09-03T21:55:45.000Z'), rolled_back_at: new Date('2026-09-03T21:59:34.000Z'), applied_steps_count: 0 },
+          { finished_at: boundary, rolled_back_at: null, applied_steps_count: 0 },
+        ]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.meta.externalServiceCoverageBoundaryInferable).toBe(true);
+      expect(result.meta.costR2cExternalServiceCoverageBoundary).toBe(boundary.toISOString());
+    });
+
+    it('matches the migration by exact name when resolving the external-service boundary', async () => {
+      prisma.$queryRaw
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([{ finished_at: new Date('2026-09-03T22:18:07.7533767Z'), rolled_back_at: null, applied_steps_count: 0 }]);
+      await service.reconcile({} as any, ctxA);
+      const sqlCalls = prisma.$queryRaw.mock.calls.map((call: any[]) => call[0]);
+      const externalQuery = sqlCalls[2] as any;
+      expect(externalQuery?.values?.[0]).toBe('20260904120000_cost_r2c_external_service_ledger');
+      expect((externalQuery?.strings ?? []).join('')).toContain('migration_name');
+    });
+
+    it('treats equality of source completion with the boundary as CURRENT, not legacy', async () => {
+      const boundary = new Date('2026-09-04T10:00:00.000Z');
+      prisma.$queryRaw
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([{ finished_at: boundary, rolled_back_at: null, applied_steps_count: 0 }]);
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([
+        externalServiceSource({ workOrder: { id: 'wo-x', companyId: 'c1', branchId: 'b1', status: 'COMPLETED', completedAt: boundary } }),
+      ]);
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([externalServiceLedger()]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.EXTERNAL_SERVICE_CURRENT_SOURCE_COUNT).toBe(1);
+      expect(result.counts.EXTERNAL_SERVICE_LEGACY_PRE_LEDGER_SOURCE_COUNT).toBe(0);
+      expect(result.counts.EXTERNAL_SERVICE_CURRENT_MISSING_LEDGER_COUNT).toBe(0);
+    });
+
+    it('classifies a source completed strictly before the boundary as legacy pre-external-service-ledger', async () => {
+      const boundary = new Date('2026-09-04T10:00:00.000Z');
+      prisma.$queryRaw
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([{ finished_at: new Date(), rolled_back_at: null, applied_steps_count: 1 }])
+        .mockResolvedValueOnce([{ finished_at: boundary, rolled_back_at: null, applied_steps_count: 0 }]);
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([
+        externalServiceSource({ workOrder: { id: 'wo-x', companyId: 'c1', branchId: 'b1', status: 'COMPLETED', completedAt: new Date('2026-09-03T10:00:00.000Z') } }),
+      ]);
+      prisma.operationalCostTransaction.findMany.mockResolvedValue([externalServiceLedger()]);
+      const result = await service.reconcile({} as any, ctxA);
+      expect(result.counts.EXTERNAL_SERVICE_LEGACY_PRE_LEDGER_SOURCE_COUNT).toBe(1);
+      expect(result.counts.EXTERNAL_SERVICE_CURRENT_SOURCE_COUNT).toBe(0);
+      expect(result.counts.HISTORICAL_EXTERNAL_SERVICE_BACKFILL_COUNT).toBe(0);
     });
 
     it('queries only completed positive LABOR/EXTERNAL atomic sources and excludes all summaries', async () => {
