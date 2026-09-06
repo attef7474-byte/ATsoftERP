@@ -1,11 +1,40 @@
 {
-  "task": "ID-KEY-SAFE-R1-FINALIZE",
-  "verdict": "ID-KEY-SAFE-R1-FINALIZE = READY_FOR_PRODUCTION_REPAIR",
+  "task": "MIG-PROV-R1",
+  "verdict": "MIG-PROV-R1 = CLOSED",
   "date": "2026-09-07",
   "production_status": {
-    "production_db_untouched": true,
-    "production_execution_performed": false,
-    "production_plan": "WRITE-ONLY (requires separate authorization and COPY_ONLY backup with elevated credentials; dev login lacks BACKUP permission)"
+    "production_db_untouched": false,
+    "production_execution_performed": true,
+    "production_plan": "EXECUTED via -E (Windows Integrated) elevated sqlcmd; real COPY_ONLY+CHECKSUM backup, RESTORE VERIFYONLY, backup-derived clone rehearsal (CLONE2 + RECOVERYCLONE), migration A (125100) then B (125200) on ATsoftERP_DB, prisma migrate resolve --applied, service restart, runtime acceptance, closeout commit + push",
+    "production_backup": {
+      "path": "C:\\Program Files\\Microsoft SQL Server\\MSSQL13.WINCC\\MSSQL\\Backup\\MIGPROV_R1_20260907\\ATsoftERP_DB_copyonly_20260907_020122.bak",
+      "sha256": "677F18F118616678AA998260D7E2BAE70388C07188C7179387B799C991FD72BF",
+      "size_bytes": 74629120,
+      "restore_verifyonly_exit": 0,
+      "backup_exit": 0
+    },
+    "production_post_conditions": {
+      "unsafe_key_count": 0,
+      "check_constraints_trusted": 6,
+      "foreign_keys_trusted_enabled": 3,
+      "business_data_mutation": 0,
+      "production_health_http_200": true,
+      "production_sla_runtime_contract": "PASS",
+      "production_sql_207_count": 0
+    },
+    "final_migration_history": {
+      "total_rows": 95,
+      "distinct_names": 81,
+      "active_rows": 81,
+      "rolled_back_rows": 14,
+      "unfinished_rows": 13,
+      "unresolved_failed": 0,
+      "active_duplicates": 0,
+      "active_empty_checksums": 2,
+      "unrecoverable_historical_hashes": 15,
+      "package_125100_applied": 1,
+      "package_125200_applied": 1
+    }
   },
   "mutable_start_boundary": {
     "head": "c964965a6af36d0731deeaf924eb070c3b4fe641",

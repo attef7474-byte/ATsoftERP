@@ -1,9 +1,9 @@
 # ID-KEY-SAFE-R1-FINALIZE — Forward Migration Package Finalization Proof
 
-- Task: `ID-KEY-SAFE-R1-FINALIZE`
-- Status: `ID-KEY-SAFE-R1-FINALIZE = READY_FOR_PRODUCTION_REPAIR` (production execution NOT performed; plan is write-only)
+- Task: `MIG-PROV-R1` (ID-KEY-SAFE-R1-FINALIZE execution)
+- Status: `MIG-PROV-R1 = CLOSED` (production repair executed and verified; closeout commit created and pushed)
 - Date: 2026-09-07
-- Environment: Windows local SQL Server (DELL\WINCC, localhost:50079). Production database `ATsoftERP_DB` **untouched**. No `git` write operations. No push of `c964965`. COST-R2D-B1 untouched and not executed.
+- Environment: Windows local SQL Server (DELL\WINCC, localhost:50079). Production database `ATsoftERP_DB` **repaired** via frozen package (migrations A 125100 + B 125200) and `prisma migrate resolve --applied`; real COPY_ONLY backup taken and verified; backup-derived clone rehearsed; API service stopped/restarted via service control; closeout commit `82df76909e3c95a6c59b1540356700ee843f1f9c` + proof-update commit pushed to origin/main. COST-R2D-B1 untouched and not executed.
 - Machine-readable evidence: `docs/proofs/id-key-safety-r1-finalization-proof-evidence.json`.
 - Design authority: `docs/proofs/id-key-safety-r1-design-proof.md` (`ID-KEY-SAFE-R1 = DESIGN_PROVEN`, 2026-09-07).
 
