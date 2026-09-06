@@ -144,12 +144,29 @@ export class MaintenanceRequestsService {
     await this.audit.log(userId, 'CREATE', 'MaintenanceRequest', request.id,
       { requestNumber: request.requestNumber, machineId });
 
+    // Notifications are non-blocking side effects. A notification failure must never
+    // prevent SLA bookkeeping for the request.
     try {
       if (request.assignedToId) {
         await this.notificationService.notifyRequestCreated(request);
       }
+    } catch (e) {
+      console.error(
+        `[MaintenanceRequestsService.createRequest] notification failed for request ${request.id}`,
+        e instanceof Error ? e.message : e,
+      );
+    }
+
+    // SLA state creation is required bookkeeping. A failure must be observable
+    // (logged as an error), never silently swallowed.
+    try {
       await this.slaService.createSlaState(request.id, ctx);
-    } catch { }
+    } catch (e) {
+      console.error(
+        `[MaintenanceRequestsService.createRequest] createSlaState failed for request ${request.id}`,
+        e instanceof Error ? e.message : e,
+      );
+    }
     return request;
   }
 

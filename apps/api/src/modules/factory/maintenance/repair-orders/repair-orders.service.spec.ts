@@ -81,7 +81,7 @@ describe('RepairOrdersService', () => {
       expect(prisma.sparePartConditionBalance.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            sparePartId: 'sp1',
+            sparePartKey: 'sp1',
             condition: 'USED_REPAIRABLE',
             quantity: { gt: 0 },
             warehouse: {

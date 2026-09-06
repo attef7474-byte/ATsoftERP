@@ -1025,7 +1025,7 @@ export class SearchService {
             {
               conditionBalances: {
                 some: {
-                  warehouseId: filters.warehouseId,
+                  warehouseKey: filters.warehouseId,
                   warehouse: this.warehouseScope(context),
                   availableQuantity: { gt: 0 },
                 },

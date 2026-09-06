@@ -720,14 +720,16 @@ export class MaintenanceStockIssueService {
     await assertWarehouseInContext(tx, data.warehouseId, ctx);
     const balanceKey = { sparePartId: data.sparePartId, warehouseId: data.warehouseId, condition: data.condition };
     let balance = await tx.sparePartConditionBalance.findFirst({
-      where: { sparePartId: balanceKey.sparePartId, warehouseId: balanceKey.warehouseId, condition: balanceKey.condition },
+      where: { sparePartKey: balanceKey.sparePartId, warehouseKey: balanceKey.warehouseId, condition: balanceKey.condition },
     });
     if (!balance) {
       balance = await tx.sparePartConditionBalance.create({
         data: {
           sparePartId: balanceKey.sparePartId,
+          sparePartKey: balanceKey.sparePartId,
           productId: data.productId || null,
           warehouseId: balanceKey.warehouseId,
+          warehouseKey: balanceKey.warehouseId,
           condition: balanceKey.condition,
           quantity: 0,
           availableQuantity: 0,

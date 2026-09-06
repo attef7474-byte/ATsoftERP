@@ -211,7 +211,7 @@ export class RepairOrdersService {
 
       const conditionBalances = await this.prisma.sparePartConditionBalance.findMany({
         where: {
-          sparePartId: h.newSparePartId,
+          sparePartKey: h.newSparePartId,
           condition: h.removedCondition || undefined,
           quantity: { gt: 0 },
           warehouse: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] },
@@ -348,7 +348,7 @@ export class RepairOrdersService {
     if (existing) throw this.badRequest('maintenance.repairOrderAlreadyExists', 'An active repair order already exists for this source');
 
     const conditionBalances = await this.prisma.sparePartConditionBalance.findMany({
-      where: { sparePartId, condition: fullHistory.removedCondition, availableQuantity: { gt: 0 }, warehouse: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] } },
+      where: { sparePartKey: sparePartId, condition: fullHistory.removedCondition, availableQuantity: { gt: 0 }, warehouse: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] } },
       select: { warehouseId: true, quantity: true, availableQuantity: true },
       orderBy: { availableQuantity: 'desc' },
     });
@@ -753,14 +753,16 @@ export class RepairOrdersService {
   }, userId: string) {
     const balanceKey = { sparePartId: data.sparePartId, warehouseId: data.warehouseId, condition: data.condition };
     let balance = await tx.sparePartConditionBalance.findFirst({
-      where: { sparePartId: balanceKey.sparePartId, warehouseId: balanceKey.warehouseId, condition: balanceKey.condition },
+      where: { sparePartKey: balanceKey.sparePartId, warehouseKey: balanceKey.warehouseId, condition: balanceKey.condition },
     });
     if (!balance) {
       balance = await tx.sparePartConditionBalance.create({
         data: {
           sparePartId: balanceKey.sparePartId,
+          sparePartKey: balanceKey.sparePartId,
           productId: data.productId || null,
           warehouseId: balanceKey.warehouseId,
+          warehouseKey: balanceKey.warehouseId,
           condition: balanceKey.condition,
           quantity: 0,
           availableQuantity: 0,

@@ -202,4 +202,42 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
       service.addRequiredPart('r1', { sparePartId: 'sp1', quantity: 1 } as any, 'u1', ctx),
     ).rejects.toMatchObject({ response: { messageKey: 'maintenance.requestNotFound' } });
   });
+
+  it('create runs createSlaState with the created request id on the normal path', async () => {
+    prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+    prisma.$transaction = jest.fn(async (cb: any) => cb({
+      maintenanceRequest: { create: jest.fn().mockResolvedValue(requestRecord({ id: 'r1' })) },
+    }));
+    const result: any = await service.create({ machineId: 'm1', title: 'Fix pump', priority: 'MEDIUM' } as any, { id: 'u1' } as any, ctx);
+    expect(result.id).toBe('r1');
+    expect(sla.createSlaState).toHaveBeenCalledWith('r1', ctx);
+  });
+
+  it('create still calls createSlaState even when notification fails', async () => {
+    prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+    notification.notifyRequestCreated.mockRejectedValue(new Error('smtp down'));
+    prisma.$transaction = jest.fn(async (cb: any) => cb({
+      maintenanceRequest: { create: jest.fn().mockResolvedValue(requestRecord({ id: 'r1', assignedToId: 'u2' })) },
+    }));
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const result: any = await service.create({ machineId: 'm1', title: 'Fix pump' } as any, { id: 'u1' } as any, ctx);
+    expect(result.id).toBe('r1');
+    expect(sla.createSlaState).toHaveBeenCalledWith('r1', ctx);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('notification failed'), 'smtp down');
+    errorSpy.mockRestore();
+  });
+
+  it('create tolerates a createSlaState failure but surfaces it as a logged error, not silent', async () => {
+    prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+    sla.createSlaState.mockRejectedValue(new Error('sla boom'));
+    prisma.$transaction = jest.fn(async (cb: any) => cb({
+      maintenanceRequest: { create: jest.fn().mockResolvedValue(requestRecord({ id: 'r1' })) },
+    }));
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const result: any = await service.create({ machineId: 'm1', title: 'Fix pump' } as any, { id: 'u1' } as any, ctx);
+    expect(result.id).toBe('r1');
+    expect(sla.createSlaState).toHaveBeenCalledWith('r1', ctx);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('createSlaState failed'), 'sla boom');
+    errorSpy.mockRestore();
+  });
 });

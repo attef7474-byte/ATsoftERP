@@ -1,0 +1,120 @@
+{
+  "task": "ID-KEY-SAFE-R1-FINALIZE",
+  "verdict": "ID-KEY-SAFE-R1-FINALIZE = READY_FOR_PRODUCTION_REPAIR",
+  "date": "2026-09-07",
+  "production_status": {
+    "production_db_untouched": true,
+    "production_execution_performed": false,
+    "production_plan": "WRITE-ONLY (requires separate authorization and COPY_ONLY backup with elevated credentials; dev login lacks BACKUP permission)"
+  },
+  "mutable_start_boundary": {
+    "head": "c964965a6af36d0731deeaf924eb070c3b4fe641",
+    "origin_main": "e03773924b5c3b3b43b0ccc73ec96aba73066253",
+    "ahead_unpushed": 1,
+    "staged_changes": 0,
+    "stash_touched": false,
+    "b1_untouched": true
+  },
+  "frozen_package": {
+    "package_type": "TWO-FOLDER forward migration (SQL Server batch 207 constraint requires phase split; GO not honored)",
+    "phase_a": {
+      "folder": "20260904125100_mig_prov_r1_key_safety_hardening_a_add_bounded_mirror_columns",
+      "content": "pure nullable ADD COLUMN mirrors (no references to new columns)",
+      "sha256": "65AF411D606810CD696811C4F917A87AAEA1EF9F3E1406465EB68877BC4E0B68",
+      "sha256_reverified": "65AF411D606810CD696811C4F917A87AAEA1EF9F3E1406465EB68877BC4E0B68"
+    },
+    "phase_b": {
+      "folder": "20260904125200_mig_prov_r1_key_safety_hardening_b_apply_bounded_mirror_keys",
+      "content": "backfill, NOT NULL, 6 trusted CHECKs (mirror=source equality + LEN(source)<=200), drop/recreate 8 unsafe keys, narrow 4 non-FK key columns, canonical SCB FKs IF NOT EXISTS",
+      "sha256": "2EDE9D7A7BDEE19134CE210D6A9B7D943AFE2E70EBBA78430A66DC2DA7E53F81",
+      "sha256_reverified": "2EDE9D7A7BDEE19134CE210D6A9B7D943AFE2E70EBBA78430A66DC2DA7E53F81"
+    },
+    "superseded_identities_removed_from_migrations_dir": [
+      "20260904125600_id_key_safety_add_bounded_mirror_columns",
+      "20260904125700_id_key_safety_apply_bounded_mirror_keys",
+      "20260904125000_zz_gotest",
+      "20260904125600_id_key_safety_bounded_mirror_keys (stale draft)"
+    ],
+    "phase_b_handles_production_pk_names": "dynamic clustered-PK-name detection via sys.indexes (PK__maintena__3213E83FE0BF4E2C, PK__maintena__3213E83F6888E1F0)"
+  },
+  "source_tree_isolation": {
+    "worktree": "atsofterp-keysafe-wt",
+    "b1_hunk_contamination_count": 0,
+    "baseline_folders_match_production": "79 == 79 unique names (no gaps, no extras)",
+    "mig_prov_git_status": "7 modified files + 2 untracked migration package folders; no B1 models/hunks"
+  },
+  "fresh_replay": {
+    "database": "ATsoftERP_MIG_PROV_FRESH_FINAL",
+    "migrations_replayed": 81,
+    "fresh_replay_exit": 0,
+    "sql_1753_count": 0,
+    "index_width_warning_count": 0,
+    "final_unsafe_key_count": 0,
+    "legacy_duplicate_self_registration_migrations": [
+      "20260728180621_maintenance_sparepart_classification_cost_attribution",
+      "20260728200621_maintenance_part_condition_replacement_action"
+    ]
+  },
+  "production_shape_rehearsal": {
+    "database": "ATsoftERP_MIG_PROV_PRODCLONE_FINAL",
+    "method": "canonical replay of 79 baseline migrations then production-shape transform (SCB UQ as unique nonclustered INDEX 4100B, no SCB FKs, auto SLA PK names)",
+    "applied_migrations": "only the 2 final migrations (other 79 already recorded)",
+    "production_clone_repair": "PASS",
+    "post_repair_keys": {
+      "maintenance_sla_rules.PK_maintenance_sla_rules": {"key_bytes": 400, "safe": true},
+      "maintenance_sla_states.PK_maintenance_sla_states": {"key_bytes": 400, "safe": true},
+      "maintenance_sla_states.idx_maintenance_sla_states_request_key": {"key_bytes": 400, "unique": true, "safe": true},
+      "spare_part_condition_balances.PK_spare_part_condition_balances": {"key_bytes": 400, "safe": true},
+      "spare_part_condition_balances.UQ_spare_part_condition_balances": {"key_bytes": 900, "unique": true, "safe": true},
+      "spare_part_condition_balances.IX_scb_sparePartKey": {"key_bytes": 400, "safe": true},
+      "spare_part_condition_balances.IX_scb_warehouseKey": {"key_bytes": 400, "safe": true},
+      "spare_part_condition_balances.IX_scb_productId": {"key_bytes": 400, "safe": true}
+    },
+    "unsafe_key_count_after_clone_repair": 0,
+    "check_constraints_trusted": {"count": 6, "trusted": 6},
+    "scb_foreign_keys_added": ["FK_scb_sparePart", "FK_scb_warehouse"],
+    "business_data_mutation_count": 0,
+    "orphan_count": 0,
+    "row_counts_unchanged": true
+  },
+  "enforcement_proof": {
+    "prisma_create_with_mirrors": "CREATE_MIRROR_OK true",
+    "prisma_duplicate_mirror": "DUP_PASS P2002",
+    "prisma_readback_and_by_mirror_unique": "READBACK_OK true; BY_MIRROR_UNIQUE_OK true",
+    "sql_orphan_fk": "547 rejected",
+    "sql_mirror_equality_check": "547 rejected",
+    "sql_length_over_200": "8152 rejected",
+    "fail_closed_existing_over_200_without_mirrors": "547 (trusted CHECK add fails) FAILCLOSED_PASS",
+    "prisma_idempotency": "No pending migrations to apply",
+    "phase_a_rerun": {"noop": true, "error_count": 0}
+  },
+  "schema_contract_alignment": {
+    "diff_for_corrected_tables": "only index/PK/FK name renames + identical-value default rewrites; ZERO ALTER COLUMN; zero width changes; no new unsafe object",
+    "prisma_validate": "valid",
+    "prisma_generate": "ok"
+  },
+  "full_regression": {
+    "api_test_suites": {"suites": 150, "tests": 2618, "passed": 2618, "skipped": 0},
+    "api_build": "PASS",
+    "web_build": "PASS",
+    "i18n_check": "PASS (6023 en = 6023 ar)",
+    "ui_baseline_check": "PASS",
+    "git_diff_check": {"main_repo": 0, "mig_prov_tree": 0},
+    "newly_skipped_tests": 0,
+    "removed_tests": 0
+  },
+  "shared_client_note": {
+    "current": "@prisma/client reflects MIG-PROV worktree schema (side effect of MIG-PROV prisma generate)",
+    "restore_required_before_b1_resumes": "regenerate from main repo schema (documented, not a MIG-PROV defect)"
+  },
+  "production_plan_status": "WRITE-ONLY. COPY_ONLY+CHECKSUM backup (elevated), record pre-matrix, stop API, apply A then B (SHA256-verified), verify exit 0 / keys safe / CHECKs trusted / FKs present / rejects / row counts, migrate resolve only if needed, build+start, smoke+runtime proof, audit; THEN separate authorization for consumer-code deployment and git closeout.",
+  "rollback_strategy": "sources remain authoritative (mirrors are equality-checked derived); no tool-writes on production unless a DB restored from the pre-run backup; never migrate reset / destructive restore / delete sources",
+  "constraints_respected": {
+    "production_untouched": true,
+    "main_repo_untouched": true,
+    "no_git_write_operations": true,
+    "no_force_push": true,
+    "stash_tags_canary01_docker_untouched": true,
+    "b1_frozen_not_executed": true
+  }
+}

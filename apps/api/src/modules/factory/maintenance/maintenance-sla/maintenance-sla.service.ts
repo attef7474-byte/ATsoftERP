@@ -69,9 +69,10 @@ export class MaintenanceSlaService {
     const deadlines = await this.calculateDeadlines(request);
 
     await this.prisma.maintenanceSlaState.upsert({
-      where: { maintenanceRequestId: requestId },
+      where: { maintenanceRequestKey: requestId },
       create: {
         maintenanceRequestId: requestId,
+        maintenanceRequestKey: requestId,
         responseDueAt: deadlines.responseDueAt,
         startDueAt: deadlines.startDueAt,
         completeDueAt: deadlines.completeDueAt,
@@ -96,7 +97,7 @@ export class MaintenanceSlaService {
 
     const now = new Date();
     const state = await this.prisma.maintenanceSlaState.findUnique({
-      where: { maintenanceRequestId: requestId },
+      where: { maintenanceRequestKey: requestId },
     });
     if (!state) return;
 
@@ -139,7 +140,7 @@ export class MaintenanceSlaService {
     }
 
     await this.prisma.maintenanceSlaState.update({
-      where: { maintenanceRequestId: requestId },
+      where: { maintenanceRequestKey: requestId },
       data: {
         slaStatus,
         escalationLevel,
@@ -161,7 +162,7 @@ export class MaintenanceSlaService {
   async getSlaSummary(requestId: string, ctx: ActiveOperationalContext) {
     await this.assertRequestOwned(requestId, ctx);
     const state = await this.prisma.maintenanceSlaState.findUnique({
-      where: { maintenanceRequestId: requestId },
+      where: { maintenanceRequestKey: requestId },
     });
     return state;
   }

@@ -2682,7 +2682,7 @@ model MaintenanceRequest {
   installedParts        MachineInstalledPart[]
   replacementHistories  SparePartReplacementHistory[]
   repairOrders          SparePartRepairOrder[]
-  slaState              MaintenanceSlaState?
+  slaStates             MaintenanceSlaState[]
   sparePartPlanItems    PreventiveSparePartPlanItem[]
   downtimeSegments      DowntimeSegment[]
   costTransactions      OperationalCostTransaction[]
@@ -2820,10 +2820,10 @@ model MaintenanceRequestRequiredPart {
 }
 
 model MaintenanceSlaRule {
-  id                   String   @id @default(cuid())
+  id                   String   @id @default(cuid()) @db.NVarChar(200)
   name                 String
-  priority             String?  @default("MEDIUM")
-  type                 String?  @default("BOTH")
+  priority             String?  @default("MEDIUM") @db.NVarChar(50)
+  type                 String?  @default("BOTH") @db.NVarChar(50)
   responseHours        Float?   @map("response_hours")
   startHours           Float?   @map("start_hours")
   completeHours        Float?   @map("complete_hours")
@@ -2840,15 +2840,16 @@ model MaintenanceSlaRule {
 }
 
 model MaintenanceSlaState {
-  id                   String             @id @default(cuid())
+  id                   String             @id @default(cuid()) @db.NVarChar(200)
   maintenanceRequestId String             @map("maintenance_request_id")
+  maintenanceRequestKey String            @map("maintenance_request_key") @db.NVarChar(200)
   maintenanceRequest   MaintenanceRequest @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   responseDueAt      DateTime?   @map("response_due_at")
   startDueAt         DateTime?   @map("start_due_at")
   completeDueAt      DateTime?   @map("complete_due_at")
-  slaStatus          String      @default("ON_TRACK") @map("sla_status")
-  escalationLevel    String      @default("NONE") @map("escalation_level")
+  slaStatus          String      @default("ON_TRACK") @map("sla_status") @db.NVarChar(50)
+  escalationLevel    String      @default("NONE") @map("escalation_level") @db.NVarChar(50)
   lastEscalatedAt    DateTime?   @map("last_escalated_at")
   responseActualAt   DateTime?   @map("response_actual_at")
   startActualAt      DateTime?   @map("start_actual_at")
@@ -2860,7 +2861,7 @@ model MaintenanceSlaState {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@unique([maintenanceRequestId])
+  @@unique([maintenanceRequestKey])
   @@index([slaStatus])
   @@index([escalationLevel])
   @@map("maintenance_sla_states")
@@ -3745,23 +3746,25 @@ model OperationalCostCenterAssignment {
 }
 
 model SparePartConditionBalance {
-  id                String    @id @default(cuid())
+  id                String    @id @default(cuid()) @db.NVarChar(200)
   sparePartId       String
+  sparePartKey      String    @map("spare_part_key") @db.NVarChar(200)
   sparePart         SparePart @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productId         String?
+  productId         String?   @db.NVarChar(200)
   warehouseId       String
+  warehouseKey      String    @map("warehouse_key") @db.NVarChar(200)
   warehouse         Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  condition         String
+  condition         String    @db.NVarChar(50)
   quantity          Float     @default(0)
   availableQuantity Float     @default(0)
   lastMovementAt    DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  @@unique([sparePartId, warehouseId, condition])
-  @@index([sparePartId])
+  @@unique([sparePartKey, warehouseKey, condition])
+  @@index([sparePartKey])
   @@index([productId])
-  @@index([warehouseId])
+  @@index([warehouseKey])
   @@index([condition])
   @@index([lastMovementAt])
   @@map("spare_part_condition_balances")

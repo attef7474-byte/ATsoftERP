@@ -1,0 +1,126 @@
+{
+  "design_proof_id": "ID-KEY-SAFE-R1",
+  "verdict": "DESIGN_PROVEN",
+  "date": "2026-09-07",
+  "verified_on_clones": ["ATsoftERP_KEYSAFE_PROBE", "ATsoftERP_KEYSAFE_DIVERGENT"],
+  "production_untouched": true,
+  "main_repo_untouched": true,
+  "design": {
+    "name": "Option B - bounded mirror key columns",
+    "summary": "Keep wide FK columns (sparePartId/warehouseId/maintenance_request_id NVARCHAR(1000)); add NVARCHAR(200) stored mirror key columns with trusted CHECKs (mirror = source exact equality, source LEN <= 200); move uniqueness and performance indexes onto bounded mirrors; locally narrow non-FK key columns (scb.id, scb.productId, sla_rules.id, sla_states.id); add canonical FKs to converge production divergence."
+  },
+  "migrations_added": [
+    "20260904125600_id_key_safety_add_bounded_mirror_columns",
+    "20260904125700_id_key_safety_apply_bounded_mirror_keys"
+  ],
+  "migrations_removed_from_migrations_dir": [
+    "20260904125000_zz_gotest (unsupported GO batch - moved to trash)",
+    "20260904125600_id_key_safety_bounded_mirror_keys (stale broken draft - moved to trash)"
+  ],
+  "sql_server_batch_constraint_evidence": {
+    "observation": "Prisma migrate deploy does not honor GO batch separators; a migration SQL batch compiles as a single unit, so DDL referencing columns added earlier in the same batch fails with error 207 (invalid column name). The GO test migration failed with error 102 (incorrect syntax near GO).",
+    "resolution": "Split corrective into phase 1 (pure nullable ADD COLUMN, no references to new columns) and phase 2 (backfill, NOT NULL, CHECKs, index/PK changes, FK adds referencing existing columns). Both phases applied cleanly."
+  },
+  "object_matrix_probe": {
+    "database": "ATsoftERP_KEYSAFE_PROBE",
+    "shape": "canonical fresh replay of 81 migrations including correctives",
+    "indexes": {
+      "maintenance_sla_rules.PK_maintenance_sla_rules": {"key_bytes": 400, "safe": true},
+      "maintenance_sla_rules.idx_maintenance_sla_rules_is_active": {"key_bytes": 1, "safe": true},
+      "maintenance_sla_rules.idx_maintenance_sla_rules_priority": {"key_bytes": 100, "safe": true},
+      "maintenance_sla_rules.idx_maintenance_sla_rules_type": {"key_bytes": 100, "safe": true},
+      "maintenance_sla_states.PK_maintenance_sla_states": {"key_bytes": 400, "safe": true},
+      "maintenance_sla_states.idx_maintenance_sla_states_request_key": {"key_bytes": 400, "unique": true, "safe": true},
+      "maintenance_sla_states.idx_maintenance_sla_states_sla_status": {"key_bytes": 100, "safe": true},
+      "maintenance_sla_states.idx_maintenance_sla_states_escalation_level": {"key_bytes": 100, "safe": true},
+      "spare_part_condition_balances.PK_spare_part_condition_balances": {"key_bytes": 400, "safe": true},
+      "spare_part_condition_balances.UQ_spare_part_condition_balances": {"key_bytes": 900, "unique": true, "safe": true},
+      "spare_part_condition_balances.IX_scb_sparePartKey": {"key_bytes": 400, "safe": true},
+      "spare_part_condition_balances.IX_scb_warehouseKey": {"key_bytes": 400, "safe": true},
+      "spare_part_condition_balances.IX_scb_productId": {"key_bytes": 400, "safe": true},
+      "spare_part_condition_balances.IX_scb_condition": {"key_bytes": 100, "safe": true},
+      "spare_part_condition_balances.IX_scb_lastMovementAt": {"key_bytes": 8, "safe": true}
+    },
+    "all_indexes_safe": true,
+    "check_constraints_trusted": {"count": 6, "trusted": 6},
+    "foreign_keys": 3,
+    "scb_mirror_consistency": {"min_len": 20, "max_len": 20, "mismatches": 0},
+    "column_widths": {
+      "spare_part_condition_balances.id": "nvarchar(200)",
+      "spare_part_condition_balances.productId": "nvarchar(200)",
+      "spare_part_condition_balances.condition": "nvarchar(50)",
+      "spare_part_condition_balances.spare_part_key": "nvarchar(200)",
+      "spare_part_condition_balances.warehouse_key": "nvarchar(200)",
+      "maintenance_sla_rules.id": "nvarchar(200)",
+      "maintenance_sla_rules.name": "nvarchar(1000)",
+      "maintenance_sla_rules.priority": "nvarchar(50)",
+      "maintenance_sla_rules.type": "nvarchar(50)",
+      "maintenance_sla_states.id": "nvarchar(200)",
+      "maintenance_sla_states.maintenance_request_key": "nvarchar(200)",
+      "maintenance_sla_states.maintenance_request_id": "nvarchar(1000)"
+    }
+  },
+  "object_matrix_divergent": {
+    "database": "ATsoftERP_KEYSAFE_DIVERGENT",
+    "shape": "production-mirror: 79 baseline migrations, then dropped 2 SCB FKs, converted unique constraint to unique nonclustered index on (sparePartId, warehouseId, condition) at 4100 bytes (warning>1700), then correctives applied",
+    "state_after_correctives": "identical to probe object matrix: all indexes safe, UQ 900B on mirrors, 3 FKs, all CHECKs trusted",
+    "converged": true,
+    "note": "IF is_unique_constraint=1 DROP CONSTRAINT ELSE DROP INDEX branch handles both production shape variants idempotently; FK adds use IF NOT EXISTS."
+  },
+  "runtime_enforcement_proof": {
+    "database": "ATsoftERP_KEYSAFE_PROBE",
+    "sql_level": {
+      "A_valid_insert_with_mirrors": "passes",
+      "B_duplicate_mirror": "error 2601 (unique violation)",
+      "C_source_over_200_chars": "error 8152 (nvarchar(200) truncation on mirror)",
+      "D_mirror_not_equal_source": "error 547 (CHECK violation)"
+    },
+    "prisma_level": {
+      "parents_referenceable": "PARENTS_OK",
+      "create_with_mirror_equal_to_source": "CREATE_MIRROR_OK true",
+      "create_with_duplicate_mirror": "DUP_PASS P2002 (unique violation raised)",
+      "readback": "READBACK_OK true",
+      "unique_query_by_mirror": "BY_MIRROR_UNIQUE_OK true"
+    }
+  },
+  "schema_contract_alignment": {
+    "issue_found": "SCB model declared productId String? and condition String without explicit db width; Prisma defaults both to nvarchar(1000), which would instruct future 'prisma migrate dev' to widen the narrowed columns back and re-bloat IX_scb_productId (~2000B) and the UQ key (over prisma's 900B index-key limit).",
+    "fix_applied_in_worktree_schema": [
+      "SparePartConditionBalance.productId @db.NVarChar(200)",
+      "SparePartConditionBalance.condition @db.NVarChar(50)",
+      "MaintenanceSlaRule.priority @db.NVarChar(50)",
+      "MaintenanceSlaRule.type @db.NVarChar(50)",
+      "MaintenanceSlaState.slaStatus @db.NVarChar(50)",
+      "MaintenanceSlaState.escalationLevel @db.NVarChar(50)"
+    ],
+    "diff_after_fix_for_four_tables": "only index/PK/FK naming renames to Prisma defaults (cosmetic, pre-existing repo-wide pattern); zero ALTER COLUMN, zero width changes, zero new unsafe objects"
+  },
+  "prisma_validate": "valid",
+  "prisma_generate": "ok (client has sparePartKey/warehouseKey/maintenanceRequestKey required)",
+  "consumer_migration_status": {
+    "scope": "worktree only; main repo source untouched",
+    "changed_files": [
+      "apps/api/src/modules/factory/maintenance/maintenance-sla/maintenance-sla.service.ts",
+      "apps/api/src/modules/factory/maintenance/spare-part-conditions/spare-part-conditions.service.ts",
+      "apps/api/src/modules/factory/maintenance/repair-orders/repair-orders.service.ts",
+      "apps/api/src/modules/factory/maintenance/maintenance-stock-issue/maintenance-stock-issue.service.ts",
+      "apps/api/src/modules/search/search.service.ts",
+      "apps/api/src/modules/factory/maintenance/repair-orders/repair-orders.service.spec.ts",
+      "apps/api/prisma/schema.prisma"
+    ],
+    "typescript": "tsc --noEmit clean",
+    "tests": "49 passed / 49 in 5 suites (repair-orders, spare-part-conditions, maintenance-stock-issue, tenant-sla, maintenance-stock-issue.r1e)"
+  },
+  "pre_existing_findings_not_in_scope": [
+    "migrate diff from config-datasource to schema shows repo-wide index/FK/PK/default-constraint name drift (custom names vs Prisma defaults) on all tables; pre-existing pattern, cosmetic.",
+    "migrate diff from config datasource also shows default-value literal quoting differences (N'MEDIUM' vs 'MEDIUM') on many tables; pre-existing.",
+    "shadow database URL is not configured, so 'prisma migrate diff --from-migrations/--to-migrations' is unavailable; structural contract was verified directly against SQL Server metadata instead."
+  ],
+  "constraints_respected": {
+    "production_modified": false,
+    "migrations_replayed_to_front": true,
+    "no_git_write_operations": true,
+    "no_force_push": true,
+    "zz_gotest_resolve": "prisma migrate resolve --rolled-back 20260904125700_zz_gotest on probe applied database (P3009 cleared)"
+  }
+}

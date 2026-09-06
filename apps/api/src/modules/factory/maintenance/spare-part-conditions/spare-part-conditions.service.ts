@@ -44,8 +44,8 @@ export class SparePartConditionService {
 
   async getBalances(query: QueryConditionBalanceDto, ctx: ActiveOperationalContext) {
     const where: any = this.warehouseWhere(ctx);
-    if (query.sparePartId) where.sparePartId = query.sparePartId;
-    if (query.warehouseId) where.warehouseId = query.warehouseId;
+    if (query.sparePartId) where.sparePartKey = query.sparePartId;
+    if (query.warehouseId) where.warehouseKey = query.warehouseId;
     if (query.condition) where.condition = query.condition;
     if (query.minQuantity != null) where.quantity = { gte: query.minQuantity };
     if (query.availableOnly === 'true') where.availableQuantity = { gt: 0 };
@@ -75,7 +75,7 @@ export class SparePartConditionService {
 
   async getBalanceByKey(sparePartId: string, warehouseId: string, condition: string) {
     const balance = await this.prisma.sparePartConditionBalance.findFirst({
-      where: { sparePartId, warehouseId, condition },
+      where: { sparePartKey: sparePartId, warehouseKey: warehouseId, condition },
     });
     if (!balance) throw new NotFoundException('stock.conditionBalanceNotFound');
     return balance;
@@ -83,7 +83,7 @@ export class SparePartConditionService {
 
   async getBalancesBySparePart(sparePartId: string, ctx: ActiveOperationalContext) {
     return this.prisma.sparePartConditionBalance.findMany({
-      where: { sparePartId, ...this.warehouseWhere(ctx) },
+      where: { sparePartKey: sparePartId, ...this.warehouseWhere(ctx) },
       include: {
         warehouse: { select: { id: true, code: true, name: true, warehouseType: true } },
       },
@@ -94,7 +94,7 @@ export class SparePartConditionService {
   async getBalancesByWarehouse(warehouseId: string, ctx: ActiveOperationalContext) {
     await assertWarehouseInContext(this.prisma, warehouseId, ctx);
     return this.prisma.sparePartConditionBalance.findMany({
-      where: { warehouseId },
+      where: { warehouseKey: warehouseId },
       include: {
         sparePart: { select: { id: true, code: true, name: true, productId: true } },
       },
@@ -241,8 +241,8 @@ export class SparePartConditionService {
 
   private async getOrCreateBalance(tx: any, key: BalanceKey, productId?: string | null) {
     const where = {
-      sparePartId: key.sparePartId,
-      warehouseId: key.warehouseId,
+      sparePartKey: key.sparePartId,
+      warehouseKey: key.warehouseId,
       condition: key.condition,
     };
     let balance = await tx.sparePartConditionBalance.findFirst({ where });
@@ -250,8 +250,10 @@ export class SparePartConditionService {
       balance = await tx.sparePartConditionBalance.create({
         data: {
           sparePartId: key.sparePartId,
+          sparePartKey: key.sparePartId,
           productId: productId || null,
           warehouseId: key.warehouseId,
+          warehouseKey: key.warehouseId,
           condition: key.condition,
           quantity: 0,
           availableQuantity: 0,
