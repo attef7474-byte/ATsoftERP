@@ -1,8 +1,10 @@
 # ID-KEY-SAFE-R1 Design Proof — Bounded Mirror Key Columns
 
-- Status: `ID-KEY-SAFE-R1 = DESIGN_PROVEN`
+> **HISTORICAL DESIGN-TIME EVIDENCE.** This document records the design proof as it existed at design time (`ID-KEY-SAFE-R1 = DESIGN_PROVEN`, 2026-09-07) on disposable clones. The production-facing statements below ("untouched", "no git write operations") are true **as of design time only** and are superseded by the authorized production execution recorded in `docs/proofs/id-key-safety-r1-finalization-proof.md` (`MIG-PROV-R1 = CLOSED`). Do not read design-time "untouched" statements as current final-state claims.
+
+- Status: `ID-KEY-SAFE-R1 = DESIGN_PROVEN` (design-time verdict; production execution supersedes it — see finalization proof)
 - Date: 2026-09-07
-- Environment: Windows local SQL Server (DELL\WINCC, localhost:50079). Production database `ATsoftERP` **untouched**. Main repo **untouched**. All verification on disposable clones.
+- Environment: Windows local SQL Server (DELL\WINCC, localhost:50079). Design-time verification on disposable clones. Production database **untouched at design time**; **executed in production later** under MIG-PROV-R1.
 - Machine-readable evidence: `docs/proofs/id-key-safety-r1-design-proof-evidence.json`.
 
 ---
@@ -127,9 +129,11 @@ Both clone shapes are safe and converge; the mandatory runtime invariants (uniqu
 
 ## 12. FINALIZE (forward package) — cross-reference
 
-The frozen, forward-only production package and its full rehearsal, regression, SHA256s, write-only production plan and rollback strategy are recorded separately in:
+The frozen, forward-only production package and its full rehearsal, regression, SHA256s, real production execution and rollback strategy are recorded separately in:
 
 - `docs/proofs/id-key-safety-r1-finalization-proof.md`
 - `docs/proofs/id-key-safety-r1-finalization-proof-evidence.json`
 
-Status: `ID-KEY-SAFE-R1-FINALIZE = READY_FOR_PRODUCTION_REPAIR`. Frozen package = fresh identities `20260904125100_mig_prov_r1_key_safety_hardening_a_add_bounded_mirror_columns` + `20260904125200_mig_prov_r1_key_safety_hardening_b_apply_bounded_mirror_keys`. See the finalization proof for the verification matrix (fresh PRE-B1 replay on `ATsoftERP_MIG_PROV_FRESH_FINAL`, production-shape rehearsal on `ATsoftERP_MIG_PROV_PRODCLONE_FINAL`, enforcement + fail-closed, full 2618-test regression, and the write-only production/rollback plan).
+Frozen package = fresh identities `20260904125100_mig_prov_r1_key_safety_hardening_a_add_bounded_mirror_columns` + `20260904125200_mig_prov_r1_key_safety_hardening_b_apply_bounded_mirror_keys`.
+
+**Post-design execution note (final state):** The redirected final result is **`MIG-PROV-R1 = CLOSED`** (`FINAL_EVIDENCE_CONSISTENCY = PASS`, `CAN_RESUME_B1 = YES`). Production `ATsoftERP_DB` was executed with the frozen two-migration package (A + B), `prisma migrate resolve --applied`, real COPY_ONLY+CHECKSUM backup + RESTORE VERIFYONLY, real backup-derived rehearsal (PRODCLONE2 + RECOVERYCLONE), consumer deployment and git closeout push (chain `c964965` → `82df769` → `0afd3f0` + provenance commit). See the finalization proof (PHASE-1..6) for the full execution record, final key matrix, checksum reconciliation (15 = 8 recovered + 7 unrecoverable) and test-count reconciliation (150/2621 API, 34/964 web).

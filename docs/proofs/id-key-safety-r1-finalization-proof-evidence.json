@@ -1,148 +1,210 @@
 {
+  "document": "MIG-PROV-R1 FINAL PROVENANCE & FINALIZATION PROOF (evidence)",
   "task": "MIG-PROV-R1",
   "verdict": "MIG-PROV-R1 = CLOSED",
   "date": "2026-09-07",
+  "final_evidence_consistency": "PASS",
+  "can_resume_b1": "YES",
   "production_status": {
     "production_db_untouched": false,
     "production_execution_performed": true,
-    "production_plan": "EXECUTED via -E (Windows Integrated) elevated sqlcmd; real COPY_ONLY+CHECKSUM backup, RESTORE VERIFYONLY, backup-derived clone rehearsal (CLONE2 + RECOVERYCLONE), migration A (125100) then B (125200) on ATsoftERP_DB, prisma migrate resolve --applied, service restart, runtime acceptance, closeout commit + push",
     "production_backup": {
       "path": "C:\\Program Files\\Microsoft SQL Server\\MSSQL13.WINCC\\MSSQL\\Backup\\MIGPROV_R1_20260907\\ATsoftERP_DB_copyonly_20260907_020122.bak",
       "sha256": "677F18F118616678AA998260D7E2BAE70388C07188C7179387B799C991FD72BF",
       "size_bytes": 74629120,
+      "copy_only": true,
+      "checksum_enabled": true,
       "restore_verifyonly_exit": 0,
-      "backup_exit": 0
-    },
-    "production_post_conditions": {
-      "unsafe_key_count": 0,
-      "check_constraints_trusted": 6,
-      "foreign_keys_trusted_enabled": 3,
-      "business_data_mutation": 0,
-      "production_health_http_200": true,
-      "production_sla_runtime_contract": "PASS",
-      "production_sql_207_count": 0
-    },
-    "final_migration_history": {
-      "total_rows": 95,
-      "distinct_names": 81,
-      "active_rows": 81,
-      "rolled_back_rows": 14,
-      "unfinished_rows": 13,
-      "unresolved_failed": 0,
-      "active_duplicates": 0,
-      "active_empty_checksums": 2,
-      "unrecoverable_historical_hashes": 15,
-      "package_125100_applied": 1,
-      "package_125200_applied": 1
+      "backup_exit": 0,
+      "restore_verifyonly_message": "The backup set on file 1 is valid."
     }
   },
-  "mutable_start_boundary": {
-    "head": "c964965a6af36d0731deeaf924eb070c3b4fe641",
-    "origin_main": "e03773924b5c3b3b43b0ccc73ec96aba73066253",
-    "ahead_unpushed": 1,
-    "staged_changes": 0,
-    "stash_touched": false,
-    "b1_untouched": true
+  "historical_design_time_evidence": {
+    "design_proof_id": "ID-KEY-SAFE-R1",
+    "design_verdict_at_time": "DESIGN_PROVEN",
+    "design_db_untouched_at_time": true,
+    "design_main_repo_untouched_at_time": true,
+    "rehearsal_via_replay_shape_transform": {
+      "databases": ["ATsoftERP_KEYSAFE_PROBE", "ATsoftERP_KEYSAFE_DIVERGENT", "ATsoftERP_MIG_PROV_FRESH_FINAL", "ATsoftERP_MIG_PROV_PRODCLONE_FINAL"],
+      "note": "HISTORICAL pre-production proof only; superseded by the LATER real backup-derived rehearsal for final acceptance authority.",
+      "batch_backup_denied_for_dev_login_at_time": "permission 262/3013 (superseded)"
+    }
   },
-  "frozen_package": {
-    "package_type": "TWO-FOLDER forward migration (SQL Server batch 207 constraint requires phase split; GO not honored)",
-    "phase_a": {
-      "folder": "20260904125100_mig_prov_r1_key_safety_hardening_a_add_bounded_mirror_columns",
-      "content": "pure nullable ADD COLUMN mirrors (no references to new columns)",
-      "sha256": "65AF411D606810CD696811C4F917A87AAEA1EF9F3E1406465EB68877BC4E0B68",
-      "sha256_reverified": "65AF411D606810CD696811C4F917A87AAEA1EF9F3E1406465EB68877BC4E0B68"
+  "real_backup_derived_rehearsal": {
+    "note": "Final acceptance authority.",
+    "clone_rehearsal": {
+      "database": "ATsoftERP_MIGPROV_R1_PRODCLONE2",
+      "restore_exit": 0,
+      "precondition_matrix_identical_to_production": "Compare-Object empty",
+      "keys_matrix_identical_to_production": "Compare-Object empty",
+      "migration_a_exit": 0,
+      "migration_b_exit": 0,
+      "post_repair_unsafe_key_count": 0,
+      "check_constraints_trusted": {"count": 6, "trusted": 6},
+      "foreign_keys_trusted_enabled": {"count": 3, "trusted": 3},
+      "mirror_mismatch": 0,
+      "orphan_count": 0,
+      "business_data_mutation_count": 0,
+      "prisma_runtime_proof": "PRISMA_RUNTIME_PROOF_RESULT=PASS (19/19 gates, incl. P2002 dup proofs)",
+      "migrate_resolve_rehearsal": "PASS",
+      "migrate_status": "Database schema is up to date!"
     },
-    "phase_b": {
-      "folder": "20260904125200_mig_prov_r1_key_safety_hardening_b_apply_bounded_mirror_keys",
-      "content": "backfill, NOT NULL, 6 trusted CHECKs (mirror=source equality + LEN(source)<=200), drop/recreate 8 unsafe keys, narrow 4 non-FK key columns, canonical SCB FKs IF NOT EXISTS",
-      "sha256": "2EDE9D7A7BDEE19134CE210D6A9B7D943AFE2E70EBBA78430A66DC2DA7E53F81",
-      "sha256_reverified": "2EDE9D7A7BDEE19134CE210D6A9B7D943AFE2E70EBBA78430A66DC2DA7E53F81"
+    "recovery_clone": {
+      "database": "ATsoftERP_MIGPROV_R1_RECOVERYCLONE",
+      "restore_exit": 0,
+      "ddl_without_resolve_not_registered": "verified (no partial acceptance)",
+      "final_key_matrix_identical_to_prodclone2": true,
+      "recovery_plan_proven": "PASS"
+    }
+  },
+  "production_execution": {
+    "migration_a": {
+      "identity": "20260904125100_mig_prov_r1_key_safety_hardening_a_add_bounded_mirror_columns",
+      "exit": 0,
+      "frozen_sha256": "65AF411D606810CD696811C4F917A87AAEA1EF9F3E1406465EB68877BC4E0B68",
+      "file_sha256_recomputed": "65AF411D606810CD696811C4F917A87AAEA1EF9F3E1406465EB68877BC4E0B68",
+      "prod_stored_checksum_match": "PASS"
     },
-    "superseded_identities_removed_from_migrations_dir": [
-      "20260904125600_id_key_safety_add_bounded_mirror_columns",
-      "20260904125700_id_key_safety_apply_bounded_mirror_keys",
-      "20260904125000_zz_gotest",
-      "20260904125600_id_key_safety_bounded_mirror_keys (stale draft)"
-    ],
-    "phase_b_handles_production_pk_names": "dynamic clustered-PK-name detection via sys.indexes (PK__maintena__3213E83FE0BF4E2C, PK__maintena__3213E83F6888E1F0)"
+    "migration_b": {
+      "identity": "20260904125200_mig_prov_r1_key_safety_hardening_b_apply_bounded_mirror_keys",
+      "exit": 0,
+      "frozen_sha256": "2EDE9D7A7BDEE19134CE210D6A9B7D943AFE2E70EBBA78430A66DC2DA7E53F81",
+      "file_sha256_recomputed": "2EDE9D7A7BDEE19134CE210D6A9B7D943AFE2E70EBBA78430A66DC2DA7E53F81",
+      "prod_stored_checksum_match": "PASS"
+    },
+    "service_window": {
+      "service_stopped_before": true,
+      "port_4000_not_listening": true,
+      "b1_tables_absent": true,
+      "package_rows_absent_before": true
+    },
+    "post_execution_acceptance": {
+      "unsafe_key_count": 0,
+      "unsafe_index_after_repair_count": 0,
+      "unsafe_primary_key_count": 0,
+      "unsafe_unique_key_count": 0,
+      "check_constraints_trusted": {"count": 6, "trusted": 6},
+      "foreign_keys_trusted_enabled": {"count": 3, "trusted": 3},
+      "scb_mirror_mismatch": 0,
+      "sla_mirror_mismatch": 0,
+      "relevant_orphan_count": 0,
+      "over_bound_count": 0,
+      "business_data_mutation_count": 0,
+      "row_counts_preserved": true
+    }
   },
-  "source_tree_isolation": {
-    "worktree": "atsofterp-keysafe-wt",
-    "b1_hunk_contamination_count": 0,
-    "baseline_folders_match_production": "79 == 79 unique names (no gaps, no extras)",
-    "mig_prov_git_status": "7 modified files + 2 untracked migration package folders; no B1 models/hunks"
+  "final_key_matrix": {
+    "maintenance_sla_rules.PK_maintenance_sla_rules": {"key_bytes": 400, "safe": true},
+    "maintenance_sla_states.PK_maintenance_sla_states": {"key_bytes": 400, "safe": true},
+    "maintenance_sla_states.idx_maintenance_sla_states_request_key": {"key_bytes": 400, "unique": true, "safe": true},
+    "spare_part_condition_balances.PK_spare_part_condition_balances": {"key_bytes": 400, "safe": true},
+    "spare_part_condition_balances.UQ_spare_part_condition_balances": {"key_bytes": 900, "unique": true, "safe": true},
+    "spare_part_condition_balances.IX_scb_sparePartKey": {"key_bytes": 400, "safe": true},
+    "spare_part_condition_balances.IX_scb_warehouseKey": {"key_bytes": 400, "safe": true},
+    "spare_part_condition_balances.IX_scb_productId": {"key_bytes": 400, "safe": true}
   },
-  "fresh_replay": {
-    "database": "ATsoftERP_MIG_PROV_FRESH_FINAL",
-    "migrations_replayed": 81,
-    "fresh_replay_exit": 0,
-    "sql_1753_count": 0,
-    "index_width_warning_count": 0,
-    "final_unsafe_key_count": 0,
-    "legacy_duplicate_self_registration_migrations": [
+  "prisma_provenance": {
+    "resolve_applied_a": 0,
+    "resolve_applied_b": 0,
+    "migrate_status": "Database schema is up to date!",
+    "migration_125100_prod_checksum_match": "PASS",
+    "migration_125200_prod_checksum_match": "PASS"
+  },
+  "final_migration_history": {
+    "total_rows": 95,
+    "distinct_names": 81,
+    "active_rows": 81,
+    "rolled_back_rows": 14,
+    "unfinished_rows": 13,
+    "unresolved_failed": 0,
+    "active_duplicates": 0,
+    "active_empty_checksum_count": 2,
+    "package_125100_applied_rows": 1,
+    "package_125200_applied_rows": 1
+  },
+  "checksum_reconciliation": {
+    "method": "read-only classifier: sha256(current repo bytes) + recoverable variants (LF, CRLF, BOM, UTF-16) + all historical git blobs",
+    "active_checksum_difference_count": 15,
+    "recovered_equivalent_variant_count": 8,
+    "recovered_variant_notes": "8 of 15 = current content under CRLF line-ending variant",
+    "unrecoverable_historical_hash_count": 7,
+    "active_empty_checksum_count": 2,
+    "earlier_label_corrected": "earlier report labeled all 15 as UNRECOVERABLE_HISTORICAL_HASHES; measured decomposition = 8 recovered equivalent variants + 7 unrecoverable historical divergences",
+    "unrecoverable_migrations": [
+      "20260720231201_add_number_sequence_fields",
+      "20260725160000_add_operational_person_unique_user_link",
+      "20260726073000_add_downtime_rca_reliability_fields",
+      "20260726090000_add_maintenance_request_part_workflow_fields",
+      "20260727120000_add_stock_issue_fields_to_part_lines",
       "20260728180621_maintenance_sparepart_classification_cost_attribution",
-      "20260728200621_maintenance_part_condition_replacement_action"
-    ]
+      "20260806120000_add_production_material_and_fg_receipt"
+    ],
+    "pre_existing_unchanged": true,
+    "no_stored_checksum_modified": true
   },
-  "production_shape_rehearsal": {
-    "database": "ATsoftERP_MIG_PROV_PRODCLONE_FINAL",
-    "method": "canonical replay of 79 baseline migrations then production-shape transform (SCB UQ as unique nonclustered INDEX 4100B, no SCB FKs, auto SLA PK names)",
-    "applied_migrations": "only the 2 final migrations (other 79 already recorded)",
-    "production_clone_repair": "PASS",
-    "post_repair_keys": {
-      "maintenance_sla_rules.PK_maintenance_sla_rules": {"key_bytes": 400, "safe": true},
-      "maintenance_sla_states.PK_maintenance_sla_states": {"key_bytes": 400, "safe": true},
-      "maintenance_sla_states.idx_maintenance_sla_states_request_key": {"key_bytes": 400, "unique": true, "safe": true},
-      "spare_part_condition_balances.PK_spare_part_condition_balances": {"key_bytes": 400, "safe": true},
-      "spare_part_condition_balances.UQ_spare_part_condition_balances": {"key_bytes": 900, "unique": true, "safe": true},
-      "spare_part_condition_balances.IX_scb_sparePartKey": {"key_bytes": 400, "safe": true},
-      "spare_part_condition_balances.IX_scb_warehouseKey": {"key_bytes": 400, "safe": true},
-      "spare_part_condition_balances.IX_scb_productId": {"key_bytes": 400, "safe": true}
-    },
-    "unsafe_key_count_after_clone_repair": 0,
-    "check_constraints_trusted": {"count": 6, "trusted": 6},
-    "scb_foreign_keys_added": ["FK_scb_sparePart", "FK_scb_warehouse"],
-    "business_data_mutation_count": 0,
-    "orphan_count": 0,
-    "row_counts_unchanged": true
-  },
-  "enforcement_proof": {
-    "prisma_create_with_mirrors": "CREATE_MIRROR_OK true",
-    "prisma_duplicate_mirror": "DUP_PASS P2002",
-    "prisma_readback_and_by_mirror_unique": "READBACK_OK true; BY_MIRROR_UNIQUE_OK true",
-    "sql_orphan_fk": "547 rejected",
-    "sql_mirror_equality_check": "547 rejected",
-    "sql_length_over_200": "8152 rejected",
-    "fail_closed_existing_over_200_without_mirrors": "547 (trusted CHECK add fails) FAILCLOSED_PASS",
-    "prisma_idempotency": "No pending migrations to apply",
-    "phase_a_rerun": {"noop": true, "error_count": 0}
-  },
-  "schema_contract_alignment": {
-    "diff_for_corrected_tables": "only index/PK/FK name renames + identical-value default rewrites; ZERO ALTER COLUMN; zero width changes; no new unsafe object",
-    "prisma_validate": "valid",
-    "prisma_generate": "ok"
+  "runtime_acceptance": {
+    "deployed_artifact": "exact MIG-PROV build; 4150 files hash-identical to final commit dist; shared @prisma/client regenerated from committed MIG-PROV schema",
+    "service_running": true,
+    "port_4000_listening": true,
+    "health_http_200": "YES",
+    "production_sql_207_count": 0,
+    "sla_runtime_contract_after": "PASS",
+    "runtime_probe_gates": "6/6 PASS (SLA fields, SLA rule isActive, SLA state read, overdue query, SLA stats, SCB mirror read=2 rows)"
   },
   "full_regression": {
-    "api_test_suites": {"suites": 150, "tests": 2618, "passed": 2618, "skipped": 0},
+    "api_test_suites": {"final_suites": 150, "final_tests": 2621, "passed": 2621, "skipped": 0},
+    "web_test_suites": {"final_suites": 34, "final_tests": 964, "passed": 964, "skipped": 0},
+    "api_typecheck": "PASS",
     "api_build": "PASS",
     "web_build": "PASS",
     "i18n_check": "PASS (6023 en = 6023 ar)",
     "ui_baseline_check": "PASS",
-    "git_diff_check": {"main_repo": 0, "mig_prov_tree": 0},
+    "git_diff_check_passed": true
+  },
+  "test_count_reconciliation": {
+    "final_api_suite_count": 150,
+    "final_api_test_count": 2621,
+    "final_web_suite_count": 34,
+    "final_web_test_count": 964,
+    "served_2618_was_pre_fix": true,
+    "sla_fix_added_tests": 3,
+    "sla_fix_commit": "82df76909e3c95a6c59b1540356700ee843f1f9c",
+    "dirty_main_run": {"suites": 153, "tests": 2694},
+    "b1_only_untracked_spec_suites": 3,
+    "b1_only_untracked_spec_tests": 76,
+    "reconciliation_logic": "2618 + 3 (SLA fix) = 2621 committed; 2618 + 76 (B1-only untracked overhead specs) = 2694 dirty-main run",
+    "filtered_out_required_tests": 0,
     "newly_skipped_tests": 0,
-    "removed_tests": 0
+    "removed_tests": 0,
+    "test_count_history_explained": "PASS"
   },
-  "shared_client_note": {
-    "current": "@prisma/client reflects MIG-PROV worktree schema (side effect of MIG-PROV prisma generate)",
-    "restore_required_before_b1_resumes": "regenerate from main repo schema (documented, not a MIG-PROV defect)"
+  "git_closeout": {
+    "pushed_chain": [
+      "c964965a6af36d0731deeaf924eb070c3b4fe641",
+      "82df76909e3c95a6c59b1540356700ee843f1f9c",
+      "0afd3f0a25be29273eaa6c61097c691f34dfb023"
+    ],
+    "head_equals_origin_main": true,
+    "ahead_behind": "0 0",
+    "force_push_used": false,
+    "stash_unchanged": true,
+    "historical_tags_unchanged": true,
+    "canary01_untouched": true,
+    "docker_unused": true
   },
-  "production_plan_status": "WRITE-ONLY. COPY_ONLY+CHECKSUM backup (elevated), record pre-matrix, stop API, apply A then B (SHA256-verified), verify exit 0 / keys safe / CHECKs trusted / FKs present / rejects / row counts, migrate resolve only if needed, build+start, smoke+runtime proof, audit; THEN separate authorization for consumer-code deployment and git closeout.",
-  "rollback_strategy": "sources remain authoritative (mirrors are equality-checked derived); no tool-writes on production unless a DB restored from the pre-run backup; never migrate reset / destructive restore / delete sources",
-  "constraints_respected": {
-    "production_untouched": true,
-    "main_repo_untouched": true,
-    "no_git_write_operations": true,
+  "b1_boundary": {
+    "operational_overhead_periods_absent": true,
+    "operational_overhead_entries_absent": true,
+    "b1_migration_row_absent": true,
+    "b1_source_uncommitted_preserved": true,
+    "b1_tracked_files_in_pushed_head": 0,
+    "b1_executed": false
+  },
+  "constraints_respected_final": {
+    "production_schema_repaired_as_planned": true,
+    "no_production_business_data_mutation": true,
     "no_force_push": true,
+    "no_migrate_reset_or_db_push": true,
     "stash_tags_canary01_docker_untouched": true,
     "b1_frozen_not_executed": true
   }

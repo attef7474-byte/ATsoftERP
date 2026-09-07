@@ -1,10 +1,14 @@
 {
+  "document": "ID-KEY-SAFE-R1 DESIGN PROOF (evidence) — HISTORICAL DESIGN-TIME EVIDENCE; superseded for final-state claims by docs/proofs/id-key-safety-r1-finalization-proof-evidence.json (MIG-PROV-R1 = CLOSED)",
+  "design_time": true,
   "design_proof_id": "ID-KEY-SAFE-R1",
-  "verdict": "DESIGN_PROVEN",
+  "verdict": "DESIGN_PROVEN (design-time verdict)",
   "date": "2026-09-07",
   "verified_on_clones": ["ATsoftERP_KEYSAFE_PROBE", "ATsoftERP_KEYSAFE_DIVERGENT"],
   "production_untouched": true,
+  "production_untouched_scope": "DESIGN-TIME ONLY (superseded: production executed under MIG-PROV-R1)",
   "main_repo_untouched": true,
+  "main_repo_untouched_scope": "DESIGN-TIME ONLY (superseded: MIG-PROV-R1 deployed + git closeout pushed)",
   "design": {
     "name": "Option B - bounded mirror key columns",
     "summary": "Keep wide FK columns (sparePartId/warehouseId/maintenance_request_id NVARCHAR(1000)); add NVARCHAR(200) stored mirror key columns with trusted CHECKs (mirror = source exact equality, source LEN <= 200); move uniqueness and performance indexes onto bounded mirrors; locally narrow non-FK key columns (scb.id, scb.productId, sla_rules.id, sla_states.id); add canonical FKs to converge production divergence."
@@ -117,6 +121,7 @@
     "shadow database URL is not configured, so 'prisma migrate diff --from-migrations/--to-migrations' is unavailable; structural contract was verified directly against SQL Server metadata instead."
   ],
   "constraints_respected": {
+    "scope": "DESIGN-TIME ONLY (superseded by MIG-PROV-R1 production execution)",
     "production_modified": false,
     "migrations_replayed_to_front": true,
     "no_git_write_operations": true,
