@@ -122,11 +122,15 @@ For every ACTIVE migration whose stored checksum differs from current repository
 
 ---
 
-## PHASE-5. Git closeout
+## PHASE-5. Git closeout — stable non-recursive evidence model
 
-- Final pushed chain (origin/main, no force):
-  `c964965a6af36d0731deeaf924eb070c3b4fe641` → `82df76909e3c95a6c59b1540356700ee843f1f9c` → `0afd3f0a25be29273eaa6c61097c691f34dfb023` (+ final provenance correction commit, this session).
-- `HEAD == origin/main == 0afd3f0…`; `git rev-list --left-right --count origin/main...HEAD` = `0 0`.
+Git-state facts are recorded in three distinct, deliberately non-recursive layers. **The committed document never embeds the SHA of the commit that would contain this very document** (that would create a recursive/fixed-point requirement):
+
+1. **Production closeout Git head before final evidence reconciliation:** `0afd3f0a25be29273eaa6c61097c691f34dfb023` — the pushed head of the three-commit production implementation chain `c964965a6af36d0731deeaf924eb070c3b4fe641` → `82df76909e3c95a6c59b1540356700ee843f1f9c` → `0afd3f0a25be29273eaa6c61097c691f34dfb023` that delivered the production repair, SLA runtime contract fix, provenance repair, key-safety repair and their regression proof.
+2. **Final evidence reconciliation:** the documentation-only commit containing this document (this file and its evidence JSON corrected to this stable model; no code, Prisma schema, migration, or B1 changes are part of it). Its SHA is intentionally **not** written into these files.
+3. **Post-push current HEAD / origin synchronization:** verified **externally after push** by git commands (`git rev-parse HEAD`, `git rev-parse origin/main`, `git rev-list --left-right --count origin/main...HEAD`), and reported in the post-push execution report. A specific `HEAD == origin/main == <SHA>` assertion accordingly belongs in that report, never as a committed current-state claim.
+
+- Every push in MIG-PROV-R1 (production chain + evidence reconciliation) was a normal fast-forward; `force_push_used=false`.
 - `stash@{0}` unchanged; historical tags unchanged; Canary01 untouched; Docker unused.
 - B1 (COST-R2D-B1) preserved uncommitted in the main working tree and **not executed**.
 

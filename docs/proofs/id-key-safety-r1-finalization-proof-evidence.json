@@ -178,19 +178,29 @@
     "removed_tests": 0,
     "test_count_history_explained": "PASS"
   },
-  "git_closeout": {
-    "pushed_chain": [
-      "c964965a6af36d0731deeaf924eb070c3b4fe641",
-      "82df76909e3c95a6c59b1540356700ee843f1f9c",
-      "0afd3f0a25be29273eaa6c61097c691f34dfb023"
-    ],
-    "head_equals_origin_main": true,
-    "ahead_behind": "0 0",
-    "force_push_used": false,
-    "stash_unchanged": true,
-    "historical_tags_unchanged": true,
-    "canary01_untouched": true,
-    "docker_unused": true
+  "git_evidence": {
+    "model": "non-recursive; committed evidence never embeds the SHA of the commit containing it",
+    "production_closeout_git": {
+      "head_before_final_evidence_reconciliation": "0afd3f0a25be29273eaa6c61097c691f34dfb023",
+      "production_implementation_chain": [
+        "c964965a6af36d0731deeaf924eb070c3b4fe641",
+        "82df76909e3c95a6c59b1540356700ee843f1f9c",
+        "0afd3f0a25be29273eaa6c61097c691f34dfb023"
+      ],
+      "production_commit_chain_complete": true
+    },
+    "final_evidence_git": {
+      "commit_identity": "SELF (the documentation-only commit containing this evidence)",
+      "own_sha_not_embedded_by_design": true,
+      "post_push_head_origin_sync_verified_externally": true,
+      "force_push_used": false
+    },
+    "preserved_guardrails": {
+      "stash_unchanged": true,
+      "historical_tags_unchanged": true,
+      "canary01_untouched": true,
+      "docker_unused": true
+    }
   },
   "b1_boundary": {
     "operational_overhead_periods_absent": true,
