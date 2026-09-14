@@ -294,6 +294,8 @@ model Company {
   @@index([code])
   @@index([createdAt])
   @@map("companies")
+  operationalOverheadPeriods       OperationalOverheadPeriod[]
+  operationalOverheadEntries       OperationalOverheadEntry[]
 }
 
 model Branch {
@@ -381,6 +383,8 @@ model Branch {
   @@index([status])
   @@index([createdAt])
   @@map("branches")
+  operationalOverheadPeriods       OperationalOverheadPeriod[]
+  operationalOverheadEntries       OperationalOverheadEntry[]
 }
 
 model Administration {
@@ -3695,6 +3699,7 @@ model CostCenter {
   @@index([companyId, status])
   @@index([companyId, parentId, status])
   @@map("cost_centers")
+  operationalOverheadEntries OperationalOverheadEntry[]
 }
 
 // ── Operational Cost Center Assignment (Phase 2 Batch 2A) ─────
@@ -5745,4 +5750,74 @@ model SupervisorAssignment {
   @@index([supervisorAssignmentId])
   @@index([status])
   @@map("supervisor_assignments")
+}
+
+
+// COST-R2D-B1: source and period evidence only. No allocation or ledger posting.
+model OperationalOverheadPeriod {
+  id          String    @id(map: "pk_operational_overhead_periods") @default(cuid()) @db.NVarChar(200)
+  companyId   String
+  companyKey String @db.NVarChar(200)
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_periods_company")
+  branchId    String
+  branchKey String @db.NVarChar(200)
+  branch      Branch    @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_periods_branch")
+  code        String    @db.NVarChar(100)
+  periodFrom  DateTime @db.DateTime2
+  periodTo    DateTime @db.DateTime2
+  status      String    @default("DRAFT", map: "df_operational_overhead_periods_status") @db.NVarChar(20)
+  createdAt   DateTime  @default(dbgenerated("GETUTCDATE()"), map: "df_operational_overhead_periods_created_at") @db.DateTime2
+  updatedAt   DateTime  @updatedAt @db.DateTime2
+  createdById String
+  updatedById String
+  closedAt    DateTime? @db.DateTime2
+  closedById  String?
+  deletedAt   DateTime? @db.DateTime2
+
+  entries OperationalOverheadEntry[]
+
+  // Active uniqueness and overlap are serialized by the branch transaction lock.
+  @@index([companyKey, branchKey, status, periodFrom, periodTo], map: "ix_operational_overhead_periods_status_range")
+  @@index([companyKey, branchKey, code], map: "ix_operational_overhead_periods_code")
+  @@map("operational_overhead_periods")
+}
+
+model OperationalOverheadEntry {
+  id                        String                    @id(map: "pk_operational_overhead_entries") @default(cuid()) @db.NVarChar(200)
+  companyId                 String
+  companyKey String @db.NVarChar(200)
+  company                   Company                   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_entries_company")
+  branchId                  String
+  branchKey String @db.NVarChar(200)
+  branch                    Branch                    @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_entries_branch")
+  periodId                  String @db.NVarChar(200)
+  period                    OperationalOverheadPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_entries_period")
+  reference                 String                    @db.NVarChar(100)
+  overheadCategory          String                    @db.NVarChar(30)
+  costPurpose               String                    @db.NVarChar(30)
+  description               String                    @db.NVarChar(2000)
+  amount                    Decimal                   @db.Decimal(19, 4)
+  currencyCode              String                    @db.NVarChar(3)
+  incurredAt                DateTime @db.DateTime2
+  sourceCostCenterId        String
+  sourceCostCenterKey String @db.NVarChar(200)
+  sourceCostCenter          CostCenter                @relation(fields: [sourceCostCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_entries_costcenter")
+  status                    String                    @default("DRAFT", map: "df_operational_overhead_entries_status") @db.NVarChar(20)
+  finalizedAt               DateTime? @db.DateTime2
+  finalizedById             String?
+  notes                     String?                   @db.NVarChar(2000)
+  externalDocumentReference String?                   @db.NVarChar(200)
+  createdById               String
+  updatedById               String
+  createdAt                 DateTime                  @default(dbgenerated("GETUTCDATE()"), map: "df_operational_overhead_entries_created_at") @db.DateTime2
+  updatedAt                 DateTime                  @updatedAt @db.DateTime2
+  deletedAt                 DateTime? @db.DateTime2
+
+  // FK sources remain authoritative; trusted exact mirrors provide bounded search keys.
+  @@index([periodId, status], map: "ix_operational_overhead_entries_period")
+  @@index([companyKey, branchKey, sourceCostCenterKey], map: "ix_operational_overhead_entries_costcenter")
+  @@index([periodId, reference], map: "ix_operational_overhead_entries_reference")
+  @@index([companyKey, branchKey, overheadCategory, incurredAt], map: "ix_operational_overhead_entries_category_incurred")
+  @@index([companyKey, branchKey, costPurpose, incurredAt], map: "ix_operational_overhead_entries_purpose_incurred")
+  @@map("operational_overhead_entries")
 }
