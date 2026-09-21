@@ -202,6 +202,10 @@ model BusinessPartnerBankAccount {
 // ── Existing Models ────────────────────────────────────────────
 
 model Company {
+  // B2 inverse relations only; existing physical contract unchanged.
+  overheadAllocations OperationalOverheadPeriodAllocation[]
+  overheadAllocationLines OperationalOverheadAllocationLine[]
+  overheadAllocationSources OperationalOverheadAllocationSource[]
   id                      String    @id @default(cuid())
   code                    String    @unique
   name                    String
@@ -299,6 +303,10 @@ model Company {
 }
 
 model Branch {
+  // B2 inverse relations only; existing physical contract unchanged.
+  overheadAllocations OperationalOverheadPeriodAllocation[]
+  overheadAllocationLines OperationalOverheadAllocationLine[]
+  overheadAllocationSources OperationalOverheadAllocationSource[]
   id        String    @id @default(cuid())
   companyId String
   company   Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -3651,6 +3659,8 @@ model OperationType {
 
 // ── Cost Center ───────────────────────────────────────────────
 model CostCenter {
+  // B2 inverse relations only; existing physical contract unchanged.
+  overheadAllocationLines OperationalOverheadAllocationLine[]
   id                     String                            @id @default(cuid())
   code                   String
   name                   String
@@ -4161,6 +4171,8 @@ model PreventiveSparePartPlanItem {
 }
 
 model ProductionRun {
+  // B2 inverse relations only; existing physical contract unchanged.
+  overheadAllocationLines OperationalOverheadAllocationLine[]
   id                                String                      @id @default(cuid())
   companyId                         String
   company                           Company                     @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -4285,31 +4297,35 @@ model ProductionRun {
 // guard: a second cost close for the same run is rejected rather than silently
 // overwritten. Currency must exactly equal the ACTIVE valuation policy currency.
 model ProductionRunCostSnapshot {
-  id              String        @id @default(cuid())
+  // B2 source-description reconciliation only; existing physical contract unchanged.
+  overheadAllocationLines OperationalOverheadAllocationLine[]
+  // Native-width source reconciliation: historical and live parent already NVARCHAR(191).
+  id              String        @id(map: "pk_production_run_cost_snapshots") @default(cuid()) @db.NVarChar(191)
   companyId       String
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company         Company       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_production_run_cost_snapshots_company")
   branchId        String
-  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productionRunId String        @unique
-  productionRun   ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_production_run_cost_snapshots_branch")
+  productionRunId String        @unique(map: "uq_production_run_cost_snapshots_run")
+  productionRun   ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_production_run_cost_snapshots_run")
   finalProductId  String
-  finalProduct    Product       @relation(fields: [finalProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  finalProduct    Product       @relation(fields: [finalProductId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_production_run_cost_snapshots_product")
 
   finalGoodQuantity Decimal @db.Decimal(18, 4)
   netMaterialValue  Decimal @db.Decimal(19, 4)
-  currencyCode      String
-  costBasis         String  @default("NET_ACTUAL_MATERIAL_VALUE_ONLY")
+  currencyCode      String @db.NVarChar(10)
+  // No physical SQL default; the sole valuation-close create path writes the frozen value explicitly.
+  costBasis         String @db.NVarChar(100)
 
-  closedAt    DateTime @default(now())
+  closedAt    DateTime @default(dbgenerated("GETUTCDATE()"), map: "df_production_run_cost_snapshots_closed_at") @db.DateTime2
   closedById  String?
   createdById String?
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(dbgenerated("GETUTCDATE()"), map: "df_production_run_cost_snapshots_created_at") @db.DateTime2
 
-  @@unique([companyId, branchId, productionRunId])
-  @@index([companyId, branchId])
-  @@index([productionRunId])
-  @@index([finalProductId])
+  @@unique([companyId, branchId, productionRunId], map: "uq_production_run_cost_snapshots_tenant_run")
+  @@index([companyId, branchId], map: "ix_production_run_cost_snapshots_tenant")
+  @@index([productionRunId], map: "ix_production_run_cost_snapshots_run")
+  @@index([finalProductId], map: "ix_production_run_cost_snapshots_product")
   @@map("production_run_cost_snapshots")
 }
 
@@ -5755,6 +5771,9 @@ model SupervisorAssignment {
 
 // COST-R2D-B1: source and period evidence only. No allocation or ledger posting.
 model OperationalOverheadPeriod {
+  // B2 inverse relations only; existing physical contract unchanged.
+  allocation OperationalOverheadPeriodAllocation?
+  allocationLines OperationalOverheadAllocationLine[]
   id          String    @id(map: "pk_operational_overhead_periods") @default(cuid()) @db.NVarChar(200)
   companyId   String
   companyKey String @db.NVarChar(200)
@@ -5783,6 +5802,8 @@ model OperationalOverheadPeriod {
 }
 
 model OperationalOverheadEntry {
+  // B2 inverse relations only; existing physical contract unchanged.
+  allocationSource OperationalOverheadAllocationSource?
   id                        String                    @id(map: "pk_operational_overhead_entries") @default(cuid()) @db.NVarChar(200)
   companyId                 String
   companyKey String @db.NVarChar(200)
@@ -5820,4 +5841,89 @@ model OperationalOverheadEntry {
   @@index([companyKey, branchKey, overheadCategory, incurredAt], map: "ix_operational_overhead_entries_category_incurred")
   @@index([companyKey, branchKey, costPurpose, incurredAt], map: "ix_operational_overhead_entries_purpose_incurred")
   @@map("operational_overhead_entries")
+}
+
+// COST-R2D-B2: allocation evidence only; no ledger or capitalization.
+
+model OperationalOverheadPeriodAllocation {
+  id String @id(map: "ohoa_pk") @default(cuid()) @db.NVarChar(200)
+  companyId String @db.NVarChar(1000)
+  companyKey String @db.NVarChar(200)
+  branchId String @db.NVarChar(1000)
+  branchKey String @db.NVarChar(200)
+  periodId String @db.NVarChar(200)
+  version Int @default(1, map: "ohoa_version_df")
+  status String @default("DRAFT", map: "ohoa_status_df") @db.NVarChar(10)
+  clientRequestId String @db.NVarChar(200)
+  notes String? @db.NVarChar(2000)
+  currencyCode String @db.NVarChar(3)
+  periodFrom DateTime @db.DateTime2
+  periodTo DateTime @db.DateTime2
+  createdAt DateTime @default(dbgenerated("GETUTCDATE()"), map: "ohoa_created_df") @db.DateTime2
+  updatedAt DateTime @updatedAt @db.DateTime2
+  createdById String @db.NVarChar(1000)
+  updatedById String @db.NVarChar(1000)
+  finalizedAt DateTime? @db.DateTime2
+  finalizedById String? @db.NVarChar(1000)
+  company Company @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohoa_company_fk")
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohoa_branch_fk")
+  period OperationalOverheadPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohoa_period_fk")
+  lines OperationalOverheadAllocationLine[]
+  sources OperationalOverheadAllocationSource[]
+  @@unique([periodId], map: "ohoa_period_uq")
+  @@unique([companyKey, branchKey, clientRequestId], map: "ohoa_request_uq")
+  @@index([companyKey, branchKey, status, createdAt], map: "ohoa_scope_ix")
+  @@map("operational_overhead_period_allocations")
+}
+
+model OperationalOverheadAllocationLine {
+  id String @id(map: "ohol_pk") @default(cuid()) @db.NVarChar(200)
+  companyId String @db.NVarChar(1000)
+  companyKey String @db.NVarChar(200)
+  branchId String @db.NVarChar(1000)
+  branchKey String @db.NVarChar(200)
+  allocationId String @db.NVarChar(200)
+  periodId String @db.NVarChar(200)
+  productionRunId String @db.NVarChar(1000)
+  productionRunKey String @db.NVarChar(200)
+  costSnapshotId String @db.NVarChar(191)
+  destinationCostCenterId String @db.NVarChar(1000)
+  destinationCostCenterKey String @db.NVarChar(200)
+  costPurpose String @db.NVarChar(30)
+  driverType String @db.NVarChar(40)
+  driverQuantity Decimal @db.Decimal(18,4)
+  driverUnit String @db.NVarChar(1000)
+  poolAmount Decimal @db.Decimal(38,4)
+  totalDriver Decimal @db.Decimal(38,4)
+  allocatedAmount Decimal @db.Decimal(19,4)
+  currencyCode String @db.NVarChar(3)
+  runCostClosedAt DateTime @db.DateTime2
+  runNumberSnapshot String @db.NVarChar(1000)
+  costCenterCodeSnapshot String @db.NVarChar(1000)
+  createdAt DateTime @default(dbgenerated("GETUTCDATE()"), map: "ohol_created_df") @db.DateTime2
+  company Company @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_company_fk")
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_branch_fk")
+  allocation OperationalOverheadPeriodAllocation @relation(fields: [allocationId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_allocation_fk")
+  period OperationalOverheadPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_period_fk")
+  productionRun ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_productionRun_fk")
+  costSnapshot ProductionRunCostSnapshot @relation(fields: [costSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_costSnapshot_fk")
+  destinationCostCenter CostCenter @relation(fields: [destinationCostCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_destinationCostCenter_fk")
+  @@unique([allocationId, productionRunKey, costPurpose], map: "ohol_target_purpose_uq")
+  @@map("operational_overhead_allocation_lines")
+}
+
+model OperationalOverheadAllocationSource {
+  sourceEntryId String @id(map: "ohos_pk") @db.NVarChar(200)
+  companyId String @db.NVarChar(1000)
+  companyKey String @db.NVarChar(200)
+  branchId String @db.NVarChar(1000)
+  branchKey String @db.NVarChar(200)
+  allocationId String @db.NVarChar(200)
+  createdAt DateTime @default(dbgenerated("GETUTCDATE()"), map: "ohos_created_df") @db.DateTime2
+  company Company @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohos_company_fk")
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohos_branch_fk")
+  allocation OperationalOverheadPeriodAllocation @relation(fields: [allocationId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohos_allocation_fk")
+  sourceEntry OperationalOverheadEntry @relation(fields: [sourceEntryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohos_sourceEntry_fk")
+  @@index([allocationId, sourceEntryId], map: "ohos_allocation_ix")
+  @@map("operational_overhead_allocation_sources")
 }

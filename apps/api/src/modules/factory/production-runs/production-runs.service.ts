@@ -7,6 +7,7 @@ import { NumberingService } from '../../numbering/numbering.service';
 import { ProductionOrdersService } from '../production-orders/production-orders.service';
 import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
 import { ProductionRunCostAggregationService } from './production-run-cost-aggregation.service';
+import { acquireOverheadAllocationBoundary } from '../../../common/cost-purpose/overhead-allocation-boundary';
 import { CreateProductionRunDto } from './dto/create-production-run.dto';
 import { RunActionDto } from './dto/run-action.dto';
 import { RecordOutputDto } from './dto/record-output.dto';
@@ -311,6 +312,9 @@ export class ProductionRunsService {
           if (raced) return raced;
         }
 
+        // B2 membership: serialize BEFORE assigning costClosedAt. A delayed close
+        // cannot add a backdated target after a period's allocation was finalized.
+        await acquireOverheadAllocationBoundary(tx, ctx);
         // Acquire the run cost boundary lock INSIDE the Serializable transaction.
         // This serializes against concurrent material-document posting and output
         // correction which must also acquire this lock before mutating the run.

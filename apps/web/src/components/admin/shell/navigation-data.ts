@@ -267,6 +267,7 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'prd-cost-rates', labelKey: 'navigation.productionCostRates', route: '/admin/production/cost/rates', permission: 'production-cost-rate:read' },
           { id: 'prd-cost-snapshots', labelKey: 'navigation.productionCostSnapshots', route: '/admin/production/cost/snapshots', permission: 'production-cost-snapshot:read' },
           { id: 'prd-cost-transactions', labelKey: 'navigation.productionCostTransactions', route: '/admin/production/cost/transactions', permission: 'production-cost-transaction:read' },
+          { id: 'prd-overhead-allocations', labelKey: 'overheadAllocation.title', route: '/admin/production/cost/overhead-allocations', permission: 'production-cost-overhead-allocation:read' },
         ],
       },
       {

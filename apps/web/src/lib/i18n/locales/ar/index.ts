@@ -21,6 +21,7 @@ import productionReliability from './production-reliability';
 import operationsReports from './operations-reports';
 import inventoryValuation from './inventory-valuation';
 import operationalOverhead from './operational-overhead';
+import overheadAllocation from './overhead-allocation';
 
 const ar: LocaleTranslations = {
   ...common,
@@ -45,6 +46,7 @@ const ar: LocaleTranslations = {
   ...operationsReports,
   ...inventoryValuation,
   ...operationalOverhead,
+  ...overheadAllocation,
 };
 
 export default ar;

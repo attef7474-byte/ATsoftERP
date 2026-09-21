@@ -72,6 +72,15 @@ describe('VAL-R1G-A: Production Valuation Close — 25 behavioral cases', () => 
     expect(result.netMaterialValue.toFixed(4)).toBe('900.0000');
     expect(result.finalGoodQuantity.toFixed(4)).toBe('100.0000');
     expect(result.costBasis).toBe('NET_ACTUAL_MATERIAL_VALUE_ONLY');
+    const payload = costSnapshotModel.create.mock.calls[0][0].data;
+    expect(payload.costBasis).toBe('NET_ACTUAL_MATERIAL_VALUE_ONLY');
+    expect(payload.currencyCode).toBe('USD');
+    expect(payload.finalGoodQuantity.toFixed(4)).toBe('100.0000');
+    expect(payload.netMaterialValue.toFixed(4)).toBe('900.0000');
+    // Preserve the existing close timestamp override; createdAt uses the DB default and id uses cuid().
+    expect(payload.closedAt).toBeInstanceOf(Date);
+    expect(payload).not.toHaveProperty('id');
+    expect(payload).not.toHaveProperty('createdAt');
     expect(model.update).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ costClosedAt: expect.any(Date), costClosedById: 'u1' }),
     }));

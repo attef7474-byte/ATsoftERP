@@ -58,7 +58,8 @@ export type TranslationNamespace =
   | 'productionReliability'
   | 'operationsReports'
   | 'inventoryValuation'
-  | 'operationalOverhead';
+  | 'operationalOverhead'
+  | 'overheadAllocation';
 
 export type TranslationValue = string | { [key: string]: TranslationValue };
 export type Translations = Record<string, TranslationValue>;

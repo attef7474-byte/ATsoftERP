@@ -25,6 +25,7 @@ import { seedProductionAnalyticsNumbering } from "./seed-production-analytics-nu
 import { OPERATIONAL_COST_CENTER_PERMISSIONS } from "./seed-operational-cost-center-permission-keys";
 import { OPERATIONAL_RELIABILITY_PERMISSIONS } from "./seed-operational-reliability-permission-keys";
 import { OVERHEAD_PERMISSIONS } from "./seed-overhead-permission-keys";
+import { OVERHEAD_ALLOCATION_PERMISSIONS } from "./seed-overhead-allocation-permission-keys";
 import { BATCH_A_PERMISSIONS } from "./seed-batch-a-permission-keys";
 import { BATCH_B_PERMISSIONS } from "./seed-batch-b-permission-keys";
 import { INVENTORY_VALUATION_PERMISSIONS } from "./seed-inventory-valuation-permission-keys";
@@ -188,6 +189,7 @@ async function main() {
     ...OPERATIONAL_COST_CENTER_PERMISSIONS,
     ...OPERATIONAL_RELIABILITY_PERMISSIONS,
     ...OVERHEAD_PERMISSIONS,
+    ...OVERHEAD_ALLOCATION_PERMISSIONS,
     ...BATCH_A_PERMISSIONS,
     ...BATCH_B_PERMISSIONS,
     ...INVENTORY_VALUATION_PERMISSIONS,

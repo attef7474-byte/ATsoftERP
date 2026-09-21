@@ -226,6 +226,7 @@ export class ProductionRunCostAggregationService {
 
     const events = await this.prisma.productionOutputEvent.findMany({
       where: { productionRunId, companyId: ctx.companyId, branchId: ctx.branchId },
+      include: { measurementPoint: { select: { isAuthoritativeFinal: true } } },
     });
     const totals = deriveRunTotals(events.map((e: any) => ({
       id: e.id,
@@ -236,7 +237,7 @@ export class ProductionRunCostAggregationService {
       rejectQuantity: e.rejectQuantity,
       correctsEventId: e.correctsEventId,
       measurementPointId: e.measurementPointId,
-      measurementPoint: null,
+      measurementPoint: e.measurementPoint,
     })));
     const finalGoodQuantity = new Prisma.Decimal(totals.finalOutputGood);
 

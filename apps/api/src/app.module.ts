@@ -101,6 +101,7 @@ import { ProductionAnalyticsModule } from './modules/factory/production-analytic
 import { OperationalReliabilityModule } from './modules/factory/operational-analytics/reliability/operational-reliability.module';
 import { ShiftHandoversModule } from './modules/factory/production/shift-handovers/shift-handovers.module';
 import { OperationalOverheadModule } from './modules/factory/operational-overhead/operational-overhead.module';
+import { OverheadAllocationModule } from './modules/factory/overhead-allocation/overhead-allocation.module';
 
 @Module({
   imports: [
@@ -161,6 +162,7 @@ import { OperationalOverheadModule } from './modules/factory/operational-overhea
     OperationalReliabilityModule,
     ShiftHandoversModule,
     OperationalOverheadModule,
+    OverheadAllocationModule,
   ],
 })
 export class AppModule {}
