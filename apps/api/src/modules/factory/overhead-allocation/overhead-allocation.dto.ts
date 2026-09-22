@@ -12,6 +12,12 @@ export class CreateOverheadAllocationDto extends AllocationNotesDto {
   clientRequestId!: string;
 }
 export class AllocationActionDto {}
+export class ReverseOverheadAllocationLedgerDto {
+  @IsString() @IsNotEmpty() @MaxLength(200)
+  allocationLineId!: string;
+  @IsString() @IsNotEmpty() @MaxLength(1000)
+  reason!: string;
+}
 export class AllocationPageDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100000)
   page?: number;

@@ -7,6 +7,7 @@ import {
   COST_CALCULATION_SCOPE_TYPES,
   OPERATIONAL_LEDGER_SOURCE_TYPES,
   OPERATIONAL_LEDGER_EVENT_TYPES,
+  OVERHEAD_ALLOCATION_LINE_SOURCE_TYPE,
 } from './production-cost.constants';
 
 /**
@@ -42,6 +43,11 @@ const EXTERNAL_SERVICE_MIGRATION_DIR = path.resolve(
   '../../../../prisma/migrations/20260904120000_cost_r2c_external_service_ledger',
 );
 const EXTERNAL_SERVICE_MIGRATION_FILE = path.join(EXTERNAL_SERVICE_MIGRATION_DIR, 'migration.sql');
+const B3_MIGRATION_DIR = path.resolve(
+  __dirname,
+  '../../../../prisma/migrations/20260922010000_cost_r2d_b3_overhead_allocation_ledger_source_type',
+);
+const B3_MIGRATION_FILE = path.join(B3_MIGRATION_DIR, 'migration.sql');
 
 interface CheckContract {
   constraintName: string;
@@ -84,14 +90,17 @@ describe('ProductionCost source-to-database CHECK contract guard', () => {
   let migrationSql: string;
   let laborMigrationSql: string;
   let externalServiceMigrationSql: string;
+  let b3MigrationSql: string;
 
   beforeAll(() => {
     expect(fs.existsSync(REPAIR_MIGRATION_FILE)).toBe(true);
     expect(fs.existsSync(LABOR_MIGRATION_FILE)).toBe(true);
     expect(fs.existsSync(EXTERNAL_SERVICE_MIGRATION_FILE)).toBe(true);
+    expect(fs.existsSync(B3_MIGRATION_FILE)).toBe(true);
     migrationSql = fs.readFileSync(REPAIR_MIGRATION_FILE, 'utf8');
     laborMigrationSql = fs.readFileSync(LABOR_MIGRATION_FILE, 'utf8');
     externalServiceMigrationSql = fs.readFileSync(EXTERNAL_SERVICE_MIGRATION_FILE, 'utf8');
+    b3MigrationSql = fs.readFileSync(B3_MIGRATION_FILE, 'utf8');
   });
 
   it('references the expected single repair migration', () => {
@@ -138,9 +147,22 @@ describe('ProductionCost source-to-database CHECK contract guard', () => {
   });
 
   it('transaction sourceType CHECK matches the complete operational ledger vocabulary', () => {
-    const c = parseCheckConstraints(laborMigrationSql).find((x) => x.constraintName === 'operational_cost_transactions_source_type_ck')!;
+    const c = parseCheckConstraints(b3MigrationSql).find((x) => x.constraintName === 'operational_cost_transactions_source_type_ck')!;
     expect(c.column).toBe('sourceType');
     expectSameSet(c.values, OPERATIONAL_LEDGER_SOURCE_TYPES, 'transaction sourceType');
+  });
+
+  it('COST-R2D-B3 extends sourceType CHECK with OVERHEAD_ALLOCATION_LINE preserving every prior value', () => {
+    expect(b3MigrationSql).toMatch(new RegExp(`WITH\\s+CHECK\\s+ADD\\s+CONSTRAINT\\s+\\[operational_cost_transactions_source_type_ck\\]`, 'i'));
+    expect(b3MigrationSql).toMatch(new RegExp(`CHECK\\s+CONSTRAINT\\s+\\[operational_cost_transactions_source_type_ck\\]`, 'i'));
+    expect(b3MigrationSql).not.toMatch(/WITH\s+NOCHECK/i);
+    expect(b3MigrationSql).not.toMatch(/\b(INSERT|UPDATE|DELETE|TRUNCATE)\b/i);
+    expect(b3MigrationSql).not.toMatch(/_prisma_migrations/i);
+    const c = parseCheckConstraints(b3MigrationSql).find((x) => x.constraintName === 'operational_cost_transactions_source_type_ck')!;
+    expect(c.values).toContain(OVERHEAD_ALLOCATION_LINE_SOURCE_TYPE);
+    for (const prior of ['PRODUCTION_ORDER', 'PRODUCTION_RUN', 'OUTPUT_EVENT', 'FG_RECEIPT', 'MATERIAL_DOCUMENT', 'QUALITY_DISPOSITION', 'DOWNTIME', 'REVERSAL', 'MANUAL', 'INVENTORY_MOVEMENT_LINE', 'DOWNTIME_EVENT', 'MAINTENANCE_WORK_ORDER_COST_ENTRY']) {
+      expect(c.values).toContain(prior);
+    }
   });
 
   it('COST-R2B ledger unit CHECK matches the ledger-only unit contract', () => {
@@ -234,6 +256,7 @@ describe('ProductionCost canonical source value contract', () => {
     expect(COST_TRANSACTION_SOURCE_TYPES).not.toContain('INVENTORY_MOVEMENT_LINE');
     expect(COST_TRANSACTION_SOURCE_TYPES).not.toContain('DOWNTIME_EVENT');
     expect(COST_TRANSACTION_SOURCE_TYPES).not.toContain('MAINTENANCE_WORK_ORDER_COST_ENTRY');
+    expect(COST_TRANSACTION_SOURCE_TYPES).not.toContain(OVERHEAD_ALLOCATION_LINE_SOURCE_TYPE);
   });
 });
 

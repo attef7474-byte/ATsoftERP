@@ -11,9 +11,9 @@ import { OVERHEAD_ALLOCATION_PERMISSIONS, OVERHEAD_ALLOCATION_PERMISSION_KEYS as
 
 describe('B2 request authority and real permission guard', () => {
   const handlers = Object.getOwnPropertyNames(OverheadAllocationController.prototype).filter(n => n !== 'constructor');
-  it('protects every actual handler with one separate B2 permission', () => {
-    expect(handlers).toHaveLength(10);
-    expect(new Set(OVERHEAD_ALLOCATION_PERMISSIONS.map(p => p.key)).size).toBe(5);
+  it('protects every actual handler with one separate B2/B3 permission', () => {
+    expect(handlers).toHaveLength(13);
+    expect(new Set(OVERHEAD_ALLOCATION_PERMISSIONS.map(p => p.key)).size).toBe(7);
     for (const name of handlers) {
       const keys = Reflect.getMetadata(PERMISSIONS_KEY, (OverheadAllocationController.prototype as any)[name]);
       expect(keys).toHaveLength(1); expect(Object.values(P)).toContain(keys[0]);

@@ -139,6 +139,67 @@ describe('B2 page actual request callbacks and async contract', () => {
     expect(elements(tree).find(node => node.type === 'Modal' && node.props.title === 'overheadAllocation.confirm').props.open).toBe(false);
   });
 
+  it('POST TO LEDGER preserves empty-object payload, endpoint and double-submit lock', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, headers: new Headers({ 'content-type': 'application/json' }), json: async () => ({ allocationId: row.id, status: 'POSTED', currencyCode: 'USD', counts: { lineCount: 1, postedCount: 1, alreadyPostedCount: 0, zeroLineCount: 0 }, lines: [] }) });
+    const h = harness(); h.api.get.mockResolvedValue({ ...row, status: 'FINAL' });
+    const render = () => h.render(h.exports.AllocationDetails, { id: row.id, can: () => true, onClose: jest.fn() });
+    let tree = render(); await tick(); tree = render();
+    expect(button(tree, 'overheadAllocation.postToLedger')).toBeDefined();
+    button(tree, 'overheadAllocation.postToLedger').props.onClick(); tree = render();
+    const modal = elements(tree).find(node => node.type === 'Modal' && node.props.title === 'overheadAllocation.postToLedger');
+    expect(modal.props.open).toBe(true);
+    const post = button(modal, 'overheadAllocation.postToLedger');
+    post.props.onClick(); post.props.onClick();
+    const fetchMock = global.fetch as jest.Mock;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(new URL(url).pathname).toBe(`/api/v1${ROOT}/${row.id}/post-to-ledger`);
+    expect(options.method).toBe('POST'); expect(options.body).toBe(JSON.stringify({}));
+    await tick(); tree = render();
+    expect(h.toast).toHaveBeenCalledWith('overheadAllocation.ledgerPosted', 'success');
+    expect(h.api.get.mock.calls.filter(call => call[0] === `${ROOT}/${row.id}`)).toHaveLength(2);
+  });
+
+  it('ledger tab is present with permission and reads the R1C report once authorized FINAL', async () => {
+    const h = harness();
+    h.api.get.mockImplementation((url: string) => url.endsWith('/reconciliation')
+      ? Promise.resolve({ meta: { allocationId: row.id, allocationStatus: 'FINAL', currencyCode: 'USD', readOnly: true }, aggregate: { sourceTotal: '100', poolTotal: '100', postedEligibleTotal: '100', zeroTotal: '0', activePostedTotal: '100', sourcePoolConserved: true, poolFullyValued: true }, counts: { eligibleLineCount: 1, zeroLineCount: 0, postedLineCount: 1, missingLineCount: 0, ledgerPrimaryCount: 1, ledgerReversalCount: 0, lineDefectCount: 0 }, lines: [], decision: { status: 'ALL_CLEAN', totalDefectCount: 0, lineDefectCount: 0, reconciled: true, note: 'clear' } })
+      : Promise.resolve({ ...row, status: 'FINAL' }));
+    const render = () => h.render(h.exports.AllocationDetails, { id: row.id, can: (action: string) => action === 'reconcile', onClose: jest.fn() });
+    let tree = render(); await tick(); tree = render();
+    expect(button(tree, 'overheadAllocation.ledger')).toBeDefined();
+    button(tree, 'overheadAllocation.ledger').props.onClick(); tree = render(); await tick(); tree = render();
+    expect(h.api.get.mock.calls.map(call => call[0])).toEqual([`${ROOT}/${row.id}`, `${ROOT}/${row.id}/lines?page=1&limit=20`, `${ROOT}/${row.id}/reconciliation`]);
+    expect(h.api.get.mock.calls[2][1].signal).toBeInstanceOf(AbortSignal);
+    const summary = elements(tree).filter(node => node.type === 'p').some(node => JSON.stringify(node.props.children).includes('overheadAllocation.reconTitle'));
+    expect(summary).toBe(true);
+  });
+
+  it('denied or non-final rows never expose the ledger tab or post button', async () => {
+    const h = harness(); h.api.get.mockResolvedValue({ ...row, status: 'FINAL' });
+    const render = () => h.render(h.exports.AllocationDetails, { id: row.id, can: () => false, onClose: jest.fn() });
+    let tree = render(); await tick(); tree = render();
+    expect(button(tree, 'overheadAllocation.ledger')).toBeUndefined();
+    expect(button(tree, 'overheadAllocation.postToLedger')).toBeUndefined();
+    expect(h.api.get.mock.calls.map(call => call[0])).toEqual([`${ROOT}/${row.id}`, `${ROOT}/${row.id}/lines?page=1&limit=20`]);
+    const d = await details(); expect(button(d.render(), 'overheadAllocation.ledger')).toBeUndefined();
+  });
+
+  it('failure keeps lock released and never emits a success toast', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('localized API error'));
+    const h = harness(); h.api.get.mockResolvedValue({ ...row, status: 'FINAL' });
+    const render = () => h.render(h.exports.AllocationDetails, { id: row.id, can: () => true, onClose: jest.fn() });
+    let tree = render(); await tick(); tree = render();
+    button(tree, 'overheadAllocation.postToLedger').props.onClick(); tree = render();
+    const modal = elements(tree).find(node => node.type === 'Modal' && node.props.title === 'overheadAllocation.postToLedger');
+    expect(modal).toBeDefined();
+    button(modal, 'overheadAllocation.postToLedger').props.onClick();
+    await tick(); tree = render();
+    expect(h.error).toHaveBeenCalledTimes(1); expect(h.toast).not.toHaveBeenCalled();
+    expect(elements(tree).find(node => node.type === 'Modal' && node.props.title === 'overheadAllocation.postToLedger')).toBeUndefined();
+    expect(button(tree, 'overheadAllocation.postToLedger').props.disabled).toBe(false);
+  });
+
   it('failure keeps entered notes, delegates error, releases lock and never emits success', async () => {
     const h = await details(), failure = new Error('localized API error'); h.api.patch.mockRejectedValue(failure);
     let tree = h.render(); elements(tree).find(node => node.type === 'Textarea').props.onChange({ target: { value: 'keep me' } });
@@ -253,5 +314,23 @@ describe('unchanged real API prefix and serialization', () => {
     const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
     expect(new URL(url).pathname).toBe(`/api/v1${ROOT}/${row.id}${suffix}`);
     expect(options.method).toBe('PATCH'); expect(options.body).toBe(JSON.stringify(body));
+  });
+
+  it('COST-R2D-B3 lib clients hit the real API prefix with encoded IDs and serialized bodies', async () => {
+    const lib = require('../src/lib/overhead-allocation');
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, headers: new Headers({ 'content-type': 'application/json' }), json: async () => ({}) });
+    await lib.postAllocationToLedger(row.id);
+    await lib.getAllocationReconciliation(row.id);
+    await lib.reverseAllocationLedgerLine(row.id, 'line-1', 'reason عربي');
+    const calls = (global.fetch as jest.Mock).mock.calls;
+    const [url0, opt0] = calls[0];
+    expect(new URL(url0).pathname).toBe(`/api/v1${ROOT}/${row.id}/post-to-ledger`);
+    expect(opt0.method).toBe('POST'); expect(opt0.body).toBe(JSON.stringify({}));
+    const [url1, opt1] = calls[1];
+    expect(new URL(url1).pathname).toBe(`/api/v1${ROOT}/${row.id}/reconciliation`);
+    expect(opt1.method).toBe('GET'); expect(opt1.body).toBeUndefined();
+    const [url2, opt2] = calls[2];
+    expect(new URL(url2).pathname).toBe(`/api/v1${ROOT}/${row.id}/ledger-reversal`);
+    expect(opt2.method).toBe('POST'); expect(opt2.body).toBe(JSON.stringify({ allocationLineId: 'line-1', reason: 'reason عربي' }));
   });
 });

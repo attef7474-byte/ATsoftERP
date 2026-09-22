@@ -23,7 +23,7 @@ describe('B2 service boundaries (SQL runtime proof is separate)', () => {
     };
     db.$transaction = jest.fn((fn: any) => fn(db));
     audit = { logWithClient: jest.fn().mockResolvedValue({}) };
-    service = new OverheadAllocationService(db, audit);
+    service = new OverheadAllocationService(db, audit, {} as any, {} as any);
   });
   it('uses B1-identical lock identity and Serializable transaction', async () => {
     const expected = 'ATSOFT:OVERHEAD:PERIODS:' + createHash('sha256').update(JSON.stringify(['company','branch'])).digest('hex');

@@ -102,12 +102,12 @@ describe('B2 additive SQL contract (physical catalog proof is separate)', () => 
 });
 
 describe('B2 narrow idempotent permission seed', () => {
-  it.each([null, { id: 'existing-super-admin' }])('only upserts five definitions and existing-role links: %j', async role => {
+  it.each([null, { id: 'existing-super-admin' }])('only upserts seven definitions and existing-role links: %j', async role => {
     const tx = { role: { findFirst: jest.fn().mockResolvedValue(role) }, permission: { upsert: jest.fn().mockImplementation(args => ({ id: args.where.key })) }, rolePermission: { upsert: jest.fn() } };
     const db = { $transaction: jest.fn(work => work(tx)) };
-    for (let attempt = 0; attempt < 2; attempt++) expect(await seedOverheadAllocationPermissions(db as any)).toEqual({ permissionCount: 5, existingSuperAdminAssigned: !!role });
-    expect(tx.permission.upsert).toHaveBeenCalledTimes(10);
-    expect(tx.rolePermission.upsert).toHaveBeenCalledTimes(role ? 10 : 0);
-    for (const [args] of tx.permission.upsert.mock.calls) expect(args.where.key).toMatch(/^production-cost-overhead-allocation:(read|create|update|calculate|finalize)$/);
+    for (let attempt = 0; attempt < 2; attempt++) expect(await seedOverheadAllocationPermissions(db as any)).toEqual({ permissionCount: 7, existingSuperAdminAssigned: !!role });
+    expect(tx.permission.upsert).toHaveBeenCalledTimes(14);
+    expect(tx.rolePermission.upsert).toHaveBeenCalledTimes(role ? 14 : 0);
+    for (const [args] of tx.permission.upsert.mock.calls) expect(args.where.key).toMatch(/^production-cost-overhead-allocation:(read|create|update|calculate|finalize|post|reconcile)$/);
   });
 });

@@ -7,7 +7,7 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { OVERHEAD_ALLOCATION_PERMISSION_KEYS as P } from '../../../../prisma/seed/seed-overhead-allocation-permission-keys';
-import { AllocationActionDto, AllocationNotesDto, AllocationPageDto, AllocationQueryDto, CreateOverheadAllocationDto } from './overhead-allocation.dto';
+import { AllocationActionDto, AllocationNotesDto, AllocationPageDto, AllocationQueryDto, CreateOverheadAllocationDto, ReverseOverheadAllocationLedgerDto } from './overhead-allocation.dto';
 import { OverheadAllocationService } from './overhead-allocation.service';
 
 @ApiTags('Overhead Allocation')
@@ -36,4 +36,10 @@ export class OverheadAllocationController {
   sources(@Param('id') id: string, @Query() query: AllocationPageDto, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.sources(id, query, ctx); }
   @Get(':id/history') @Permissions(P.read)
   history(@Param('id') id: string, @Query() query: AllocationPageDto, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.history(id, query, ctx); }
+  @Post(':id/post-to-ledger') @Permissions(P.post)
+  postToLedger(@Param('id') id: string, @Body() dto: AllocationActionDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.postToLedger(id, userId, ctx); }
+  @Get(':id/reconciliation') @Permissions(P.reconcile)
+  reconciliation(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.reconciliation(id, userId, ctx); }
+  @Post(':id/ledger-reversal') @Permissions(P.post)
+  reverseLedger(@Param('id') id: string, @Body() dto: ReverseOverheadAllocationLedgerDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.reverseLedger(id, dto, userId, ctx); }
 }

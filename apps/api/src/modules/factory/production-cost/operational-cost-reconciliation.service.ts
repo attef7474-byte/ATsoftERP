@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
@@ -11,8 +11,10 @@ import {
   EXTERNAL_SERVICE_EVENT_TYPE,
   LABOR_EVENT_TYPE,
   MAINTENANCE_LABOR_SOURCE_TYPE,
+  OVERHEAD_ALLOCATION_LINE_SOURCE_TYPE,
 } from './production-cost.constants';
 import { OperationalCostReconciliationQueryDto } from './dto/cost-reconciliation.dto';
+import { parseOverheadAllocationGeneration } from '../overhead-allocation/overhead-allocation.ledger';
 
 type LedgerRow = {
   id: string;
@@ -83,6 +85,17 @@ type MaintenanceLaborSourceRow = {
     status: string;
     completedAt: Date | null;
   };
+};
+
+type OverheadAllocationLineRow = {
+  id: string;
+  allocationId: string;
+  periodId: string;
+  productionRunId: string;
+  destinationCostCenterId: string;
+  costPurpose: string;
+  allocatedAmount: Prisma.Decimal;
+  currencyCode: string | null;
 };
 
 type SourceChangeRow = {
@@ -1216,6 +1229,153 @@ export class OperationalCostReconciliationService {
       externalServiceOrphanReversal: externalService.orphanReversal,
       externalServiceDoubleReversal: externalService.doubleReversal,
       currentExternalServiceLedgerErrorCount: externalService.currentErrorCount,
+    };
+  }
+
+  /**
+   * COST-R2D-B3: read-only, allocation-scoped reconciliation of the Unified Cost
+   * Ledger for sourceType OVERHEAD_ALLOCATION_LINE. This is the single R1C
+   * reconciliation authority extending the branch-wide reconcile() with an
+   * OVERHEAD_ALLOCATION bucket. It NEVER mutates. `client` may be an active
+   * transaction so the read is serialized with posting/reversal under the shared
+   * B1/B2/B3 applock boundary.
+   */
+  async reconcileOverheadAllocation(allocationId: string, ctx: ActiveOperationalContext, client: any = this.prisma) {
+    const scope = { companyId: ctx.companyId, branchId: ctx.branchId, companyKey: ctx.companyId, branchKey: ctx.branchId };
+    const allocation = await client.operationalOverheadPeriodAllocation.findFirst({ where: { id: allocationId, ...scope } });
+    if (!allocation) throw new NotFoundException({ messageKey: 'overheadAllocation.notFound' });
+    const lines = (await client.operationalOverheadAllocationLine.findMany({
+      where: { allocationId, companyKey: ctx.companyId, branchKey: ctx.branchId },
+      orderBy: { id: 'asc' },
+    })) as OverheadAllocationLineRow[];
+    const rows = (await client.operationalCostTransaction.findMany({
+      where: { companyId: ctx.companyId, branchId: ctx.branchId, sourceType: OVERHEAD_ALLOCATION_LINE_SOURCE_TYPE, sourceId: allocationId },
+    })) as LedgerRow[];
+
+    const primariesByLine = new Map<string, LedgerRow[]>();
+    const originalById = new Map<string, LedgerRow>();
+    const reversalRows: LedgerRow[] = [];
+    for (const r of rows) {
+      if (r.entryRole === ENTRY_ROLE_REVERSAL) { reversalRows.push(r); continue; }
+      if (r.entryRole === ENTRY_ROLE_PRIMARY_COST) {
+        originalById.set(r.id, r);
+        if (r.sourceLineId) {
+          const list = primariesByLine.get(r.sourceLineId) ?? [];
+          list.push(r);
+          primariesByLine.set(r.sourceLineId, list);
+        }
+      }
+    }
+
+    const counts = {
+      eligibleLineCount: 0,
+      zeroLineCount: 0,
+      postedLineCount: 0,
+      missingLineCount: 0,
+      duplicateLineCount: 0,
+      valueMismatchCount: 0,
+      currencyMismatchCount: 0,
+      orphanReversalCount: 0,
+      doubleReversalCount: 0,
+      postedZeroLineCount: 0,
+      ledgerPrimaryCount: rows.filter(r => r.entryRole === ENTRY_ROLE_PRIMARY_COST).length,
+      ledgerReversalCount: reversalRows.length,
+      lineDefectCount: 0,
+    };
+
+    // Global reversal integrity pass (counted once, never per line).
+    const reversalCountByOriginal = new Map<string, number>();
+    for (const r of reversalRows) {
+      if (!r.reversalOfId || !originalById.has(r.reversalOfId)) counts.orphanReversalCount++;
+      else reversalCountByOriginal.set(r.reversalOfId, (reversalCountByOriginal.get(r.reversalOfId) ?? 0) + 1);
+    }
+    for (const count of reversalCountByOriginal.values()) {
+      if (count > 1) counts.doubleReversalCount += count - 1;
+    }
+
+    let activePostedTotal = new Prisma.Decimal(0);
+    let postedEligibleTotal = new Prisma.Decimal(0);
+    let poolTotal = new Prisma.Decimal(0);
+    const lineTrace: Array<Record<string, unknown>> = [];
+    for (const line of lines) {
+      poolTotal = poolTotal.add(line.allocatedAmount);
+      const expectedCurrency = line.currencyCode ?? allocation.currencyCode;
+      const primaries = primariesByLine.get(line.id) ?? [];
+      const eligible = line.allocatedAmount.gt(0);
+      if (!eligible) {
+        counts.zeroLineCount++;
+        lineTrace.push({ lineId: line.id, productionRunId: line.productionRunId, costPurpose: line.costPurpose, allocatedAmount: line.allocatedAmount.toString(), eligible: false, status: 'ZERO_NOT_POSTED', reversed: false, livePrimaryCount: 0, generation: 0, ledgerEntryId: null, satisfied: primaries.length === 0, defects: primaries.length > 0 ? ['ZERO_LINE_POSTED'] : [] });
+        if (primaries.length > 0) counts.postedZeroLineCount++;
+        continue;
+      }
+      counts.eligibleLineCount++;
+      postedEligibleTotal = postedEligibleTotal.add(line.allocatedAmount);
+      const live = primaries.filter(p => p.status === 'POSTED' && p.reversedAt === null);
+      const lineDefects: string[] = [];
+      if (live.length === 0) { counts.missingLineCount++; counts.lineDefectCount++; lineDefects.push('MISSING'); }
+      if (live.length > 1) { counts.duplicateLineCount += live.length - 1; counts.lineDefectCount++; lineDefects.push('DUPLICATE'); }
+      for (const p of live) {
+        activePostedTotal = activePostedTotal.add(p.amount);
+        if (!p.amount.eq(line.allocatedAmount)) { counts.valueMismatchCount++; counts.lineDefectCount++; lineDefects.push('VALUE_MISMATCH'); break; }
+        if (p.currencyCode !== expectedCurrency) { counts.currencyMismatchCount++; counts.lineDefectCount++; lineDefects.push('CURRENCY_MISMATCH'); break; }
+        const groupCount = reversalCountByOriginal.get(p.id);
+        if (groupCount && groupCount > 1 && !lineDefects.includes('DOUBLE_REVERSAL')) lineDefects.push('DOUBLE_REVERSAL');
+      }
+      const reversed = live.length === 0 && primaries.some(p => p.reversedAt !== null);
+      const lastPrimary = live[0] ?? primaries[primaries.length - 1];
+      lineTrace.push({
+        lineId: line.id, productionRunId: line.productionRunId, costPurpose: line.costPurpose, allocatedAmount: line.allocatedAmount.toString(), eligible: true,
+        status: live.length > 0 ? 'POSTED' : reversed ? 'REVERSED' : 'MISSING',
+        reversed, livePrimaryCount: live.length, generation: parseOverheadAllocationGeneration(lastPrimary?.clientRequestId) ?? primaries.length,
+        ledgerEntryId: live[0]?.id ?? null, currencyMatch: live.every(p => p.currencyCode === expectedCurrency),
+        satisfied: live.length === 1 && !reversed && lineDefects.length === 0, defects: lineDefects,
+      });
+    }
+    counts.postedLineCount = counts.eligibleLineCount - counts.missingLineCount;
+
+    let sourceTotal = new Prisma.Decimal(0);
+    const allocationSources = (await client.operationalOverheadAllocationSource.findMany({ where: { allocationId }, select: { sourceEntryId: true } })) as Array<{ sourceEntryId: string }>;
+    for (let offset = 0; offset < allocationSources.length; offset += 250) {
+      const entries = await client.operationalOverheadEntry.findMany({
+        where: { id: { in: allocationSources.slice(offset, offset + 250).map(s => s.sourceEntryId) }, companyId: ctx.companyId, branchId: ctx.branchId },
+        select: { amount: true },
+      });
+      for (const e of entries) sourceTotal = sourceTotal.add(e.amount);
+    }
+
+    const aggregate = {
+      sourceTotal: sourceTotal.toString(),
+      poolTotal: poolTotal.toString(),
+      postedEligibleTotal: postedEligibleTotal.toString(),
+      zeroTotal: poolTotal.sub(postedEligibleTotal).toString(),
+      activePostedTotal: activePostedTotal.toString(),
+      sourcePoolConserved: sourceTotal.eq(poolTotal),
+      poolFullyValued: postedEligibleTotal.eq(activePostedTotal),
+    };
+    const totalDefects = counts.lineDefectCount + counts.orphanReversalCount + counts.doubleReversalCount;
+    return {
+      meta: {
+        generatedAt: new Date().toISOString(),
+        companyId: ctx.companyId, branchId: ctx.branchId,
+        allocationId, allocationStatus: allocation.status, currencyCode: allocation.currencyCode,
+        finalizedAt: allocation.finalizedAt ? new Date(allocation.finalizedAt).toISOString() : null,
+        sourceType: OVERHEAD_ALLOCATION_LINE_SOURCE_TYPE,
+        readOnly: true,
+        authority: 'operational-cost-reconciliation.service',
+      },
+      aggregate,
+      counts,
+      lines: lineTrace,
+      decision: {
+        status: totalDefects === 0 ? 'ALL_CLEAN' : 'ISSUES_DETECTED',
+        totalDefectCount: totalDefects,
+        lineDefectCount: counts.lineDefectCount,
+        reconciled: totalDefects === 0 && aggregate.sourcePoolConserved && aggregate.poolFullyValued,
+        note: totalDefects === 0
+          ? 'All overhead allocation ledger postings reconcile with the B2 allocation lines.'
+          : 'Overhead allocation ledger defects detected.',
+      },
+      readOnly: true,
     };
   }
 }

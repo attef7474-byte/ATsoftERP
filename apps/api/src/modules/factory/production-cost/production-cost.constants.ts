@@ -114,6 +114,7 @@ export const OPERATIONAL_LEDGER_SOURCE_TYPES = [
   'INVENTORY_MOVEMENT_LINE',
   'DOWNTIME_EVENT',
   'MAINTENANCE_WORK_ORDER_COST_ENTRY',
+  'OVERHEAD_ALLOCATION_LINE',
 ] as const;
 
 /**
@@ -156,6 +157,7 @@ export const CANONICAL_SOURCE_TYPES = [
   'DOWNTIME_EVENT',
   'MANUAL',
   'MAINTENANCE_WORK_ORDER_COST_ENTRY',
+  'OVERHEAD_ALLOCATION_LINE',
 ] as const;
 export type CanonicalSourceType = (typeof CANONICAL_SOURCE_TYPES)[number];
 
@@ -182,6 +184,9 @@ export const LABOR_EVENT_TYPE = 'LABOR' as const;
 export const EXTERNAL_SERVICE_EVENT_TYPE = 'EXTERNAL_SERVICE' as const;
 export const MAINTENANCE_LABOR_SOURCE_TYPE = 'MAINTENANCE_WORK_ORDER_COST_ENTRY' as const;
 export const MANUAL_AMOUNT_UNIT = 'AMOUNT' as const;
+export const OVERHEAD_ALLOCATION_LINE_SOURCE_TYPE = 'OVERHEAD_ALLOCATION_LINE' as const;
+export const OVERHEAD_EVENT_TYPE = 'OVERHEAD' as const;
+export const COST_R2D_B3_OVERHEAD_ALLOCATION_MIGRATION = '20260922010000_cost_r2d_b3_overhead_allocation_ledger_source_type' as const;
 export const COST_R2B_LABOR_MIGRATION = '20260903120000_cost_r2b_maintenance_labor_ledger' as const;
 export const COST_R2C_EXTERNAL_SERVICE_MIGRATION = '20260904120000_cost_r2c_external_service_ledger' as const;
 

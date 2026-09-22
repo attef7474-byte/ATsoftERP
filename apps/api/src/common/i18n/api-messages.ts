@@ -600,6 +600,8 @@ const messages: Record<string, { ar: string; en: string }> = {
   'overheadAllocation.periodAlreadyAllocated': { ar: "يوجد توزيع لهذه الفترة بالفعل. افتح السجل الموجود.", en: "This period already has an allocation. Open the existing record." },
   'overheadAllocation.requestConflict': { ar: "استُخدم معرّف الطلب هذا مسبقًا مع بيانات مختلفة.", en: "This request identity was already used with different data." },
   'overheadAllocation.immutable': { ar: "التوزيع النهائي غير قابل للتعديل. يُسمح بالملاحظات والحساب في المسودة فقط.", en: "A final allocation is immutable. Only draft notes and calculations are allowed." },
+  'overheadAllocation.postingRequiresFinal': { ar: "لا يمكن ترحيل هذا التوزيع إلى دفتر الأستاذ للمكلف إلا بعد اعتماده نهائيًا.", en: "Only a FINAL allocation can be posted to the cost ledger." },
+  'overheadAllocation.ledgerLineNotPosted': { ar: "لا يوجد ترحيل نشط في دفتر الأستاذ لهذا السطر يمكن عكسه.", en: "This allocation line has no active ledger posting to reverse." },
   'overhead.periodNotFound': { ar: 'فترة النفقات العامة التشغيلية غير موجودة', en: 'Operational overhead period not found' },
   'overhead.periodInvalidRange': { ar: 'نطاق الفترة غير صالح (يجب أن تكون البداية قبل النهاية)', en: 'The period range is invalid (start must be before end)' },
   'overhead.periodOverlap': { ar: 'تتداخل الفترة مع فترة موجودة لهذا الفرع', en: 'The period overlaps an existing period for this branch' },

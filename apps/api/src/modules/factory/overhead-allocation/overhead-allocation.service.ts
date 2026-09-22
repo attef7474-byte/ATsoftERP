@@ -4,15 +4,36 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { acquireOverheadAllocationBoundary, overheadAllocationBoundary } from '../../../common/cost-purpose/overhead-allocation-boundary';
 import { AuditService } from '../../audit/audit.service';
-import { AllocationNotesDto, AllocationPageDto, AllocationQueryDto, CreateOverheadAllocationDto } from './overhead-allocation.dto';
+import { AllocationNotesDto, AllocationPageDto, AllocationQueryDto, CreateOverheadAllocationDto, ReverseOverheadAllocationLedgerDto } from './overhead-allocation.dto';
 import { calculateOverheadAllocation, OVERHEAD_ALLOCATION_MAX_SOURCES, OVERHEAD_ALLOCATION_MAX_TARGETS } from './overhead-allocation.engine';
+import {
+  ENTRY_ROLE_PRIMARY_COST,
+  MANUAL_AMOUNT_UNIT,
+  OVERHEAD_ALLOCATION_LINE_SOURCE_TYPE,
+  OVERHEAD_EVENT_TYPE,
+} from '../production-cost/production-cost.constants';
+import { ProductionCostService } from '../production-cost/production-cost.service';
+import { OperationalCostReconciliationService } from '../production-cost/operational-cost-reconciliation.service';
+import {
+  nextOverheadAllocationGeneration,
+  overheadAllocationClientRequestId,
+  overheadAllocationLedgerFingerprint,
+  parseOverheadAllocationGeneration,
+  OVERHEAD_ALLOCATION_LEDGER_POST_ACTION,
+  OVERHEAD_ALLOCATION_LEDGER_REVERSE_ACTION,
+} from './overhead-allocation.ledger';
 
 const ENTITY = 'OperationalOverheadPeriodAllocation';
 const headerInclude = { period: { select: { code: true } }, _count: { select: { lines: true, sources: true } } } satisfies Prisma.OperationalOverheadPeriodAllocationInclude;
 
 @Injectable()
 export class OverheadAllocationService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+    private readonly productionCost: ProductionCostService,
+    private readonly reconciliationAuthority: OperationalCostReconciliationService,
+  ) {}
   private bad(messageKey: string): never { throw new BadRequestException({ messageKey }); }
   private conflict(messageKey: string): never { throw new ConflictException({ messageKey }); }
   private tenant(ctx: ActiveOperationalContext) {
@@ -216,5 +237,144 @@ export class OverheadAllocationService {
       this.prisma.auditLog.findMany({ where, skip, take: limit, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], select: { id: true, action: true, userId: true, createdAt: true, details: true } }),
     ]);
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
+
+  /**
+   * COST-R2D-B3: atomically posts every eligible FINAL allocation line to the Unified
+   * Cost Ledger through the single canonical writer, inside the shared B1/B2/B3
+   * overhead boundary. Exactly-once per line is enforced by the canonical source
+   * fingerprint + canonical_line_key filtered indexes; already-posted lines are
+   * reported idempotently (ALREADY_POSTED) and re-submission never double-posts.
+   */
+  async postToLedger(id: string, userId: string, ctx: ActiveOperationalContext) {
+    return this.boundary(ctx, async tx => {
+      const row = await this.owned(tx, id, ctx);
+      if (row.status !== 'FINAL') this.conflict('overheadAllocation.postingRequiresFinal');
+      const operationalCurrencyCode = await this.currency(tx, ctx);
+      if (row.currencyCode !== operationalCurrencyCode) this.conflict('overhead.currencyMismatch');
+      const lines = await tx.operationalOverheadAllocationLine.findMany({ where: { ...this.scope(ctx), allocationId: id }, orderBy: { id: 'asc' } });
+      const ledgerRows = await tx.operationalCostTransaction.findMany({
+        where: { companyId: ctx.companyId, branchId: ctx.branchId, sourceType: OVERHEAD_ALLOCATION_LINE_SOURCE_TYPE, sourceId: id },
+        select: { id: true, sourceLineId: true, entryRole: true, status: true, reversedAt: true, clientRequestId: true, amount: true, currencyCode: true },
+      });
+      const primariesByLine = new Map<string, Array<(typeof ledgerRows)[number]>>();
+      for (const r of ledgerRows) {
+        if (r.entryRole !== ENTRY_ROLE_PRIMARY_COST || !r.sourceLineId) continue;
+        const list = primariesByLine.get(r.sourceLineId) ?? [];
+        list.push(r);
+        primariesByLine.set(r.sourceLineId, list);
+      }
+      const postedAt = new Date();
+      const linesResult: Array<Record<string, unknown>> = [];
+      let postedCount = 0, alreadyPostedCount = 0, zeroLineCount = 0;
+      for (const line of lines) {
+        const primaries = primariesByLine.get(line.id) ?? [];
+        const live = primaries.find(p => p.status === 'POSTED' && p.reversedAt === null);
+        if (!line.allocatedAmount.gt(0)) {
+          if (line.allocatedAmount.lt(0)) this.conflict('overheadAllocation.invalidInputs');
+          zeroLineCount++;
+          linesResult.push({ lineId: line.id, productionRunId: line.productionRunId, status: 'SKIPPED_ZERO', amount: line.allocatedAmount.toString() });
+          continue;
+        }
+        if (line.currencyCode && line.currencyCode !== row.currencyCode) this.conflict('overhead.currencyMismatch');
+        if (live) {
+          alreadyPostedCount++;
+          linesResult.push({
+            lineId: line.id, productionRunId: line.productionRunId, status: 'ALREADY_POSTED',
+            amount: line.allocatedAmount.toString(), generation: parseOverheadAllocationGeneration(live.clientRequestId) ?? nextOverheadAllocationGeneration(primaries.length),
+            ledgerEntryId: live.id, currencyCode: live.currencyCode,
+          });
+          continue;
+        }
+        const generation = nextOverheadAllocationGeneration(primaries.length);
+        const clientRequestId = overheadAllocationClientRequestId(id, line.id, generation, OVERHEAD_ALLOCATION_LEDGER_POST_ACTION);
+        const fingerprint = overheadAllocationLedgerFingerprint(id, line.id);
+        const witness = await this.productionCost.postLedgerEntryWithinTransaction(tx, {
+          eventType: OVERHEAD_EVENT_TYPE,
+          sourceType: OVERHEAD_ALLOCATION_LINE_SOURCE_TYPE,
+          sourceId: id,
+          sourceLineId: line.id,
+          costNature: 'ACTUAL',
+          costPurpose: line.costPurpose,
+          entryRole: ENTRY_ROLE_PRIMARY_COST,
+          amount: line.allocatedAmount,
+          quantity: 1,
+          unit: MANUAL_AMOUNT_UNIT,
+          rate: line.allocatedAmount,
+          currencyCode: line.currencyCode ?? row.currencyCode,
+          occurredAt: row.finalizedAt ?? row.periodTo,
+          postedAt,
+          clientRequestId,
+          requestPayloadFingerprint: `${OVERHEAD_EVENT_TYPE}|${OVERHEAD_ALLOCATION_LINE_SOURCE_TYPE}|${id}|${line.id}`,
+          sourceFingerprint: fingerprint,
+          refs: { productionRunId: line.productionRunId, costCenterId: line.destinationCostCenterId },
+          createdById: userId,
+          ctx,
+        });
+        const entry = 'transaction' in (witness as any) && (witness as any).transaction ? (witness as any).transaction : witness;
+        postedCount++;
+        linesResult.push({
+          lineId: line.id, productionRunId: line.productionRunId, status: 'POSTED',
+          amount: line.allocatedAmount.toString(), generation, ledgerEntryId: entry.id, currencyCode: entry.currencyCode,
+        });
+      }
+      await this.log(tx, userId, id, 'OVERHEAD_ALLOCATION_LEDGER_POST', ctx, {
+        allocationStatus: row.status, lineCount: lines.length, postedCount, alreadyPostedCount, zeroLineCount, currencyCode: row.currencyCode,
+      });
+      return { allocationId: id, status: 'POSTED', currencyCode: row.currencyCode, counts: { lineCount: lines.length, postedCount, alreadyPostedCount, zeroLineCount }, lines: linesResult };
+    });
+  }
+
+  /**
+   * COST-R2D-B3: reverses a live PRIMARY posting of one allocation line through the
+   * canonical writer (blocks double reversal, records the reversal reason). The B2
+   * FINAL allocation evidence is never mutated.
+   */
+  async reverseLedger(id: string, dto: ReverseOverheadAllocationLedgerDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.boundary(ctx, async tx => {
+      const row = await this.owned(tx, id, ctx);
+      if (row.status !== 'FINAL') this.conflict('overheadAllocation.postingRequiresFinal');
+      const line = await tx.operationalOverheadAllocationLine.findFirst({ where: { id: dto.allocationLineId, ...this.scope(ctx), allocationId: id } });
+      if (!line) throw new NotFoundException({ messageKey: 'overheadAllocation.notFound' });
+      const original = await tx.operationalCostTransaction.findFirst({
+        where: { companyId: ctx.companyId, branchId: ctx.branchId, sourceType: OVERHEAD_ALLOCATION_LINE_SOURCE_TYPE, sourceId: id, sourceLineId: dto.allocationLineId, entryRole: ENTRY_ROLE_PRIMARY_COST, status: 'POSTED', reversedAt: null },
+      });
+      if (!original) this.conflict('overheadAllocation.ledgerLineNotPosted');
+      const primaries = await tx.operationalCostTransaction.findMany({
+        where: { companyId: ctx.companyId, branchId: ctx.branchId, sourceType: OVERHEAD_ALLOCATION_LINE_SOURCE_TYPE, sourceId: id, sourceLineId: dto.allocationLineId, entryRole: ENTRY_ROLE_PRIMARY_COST },
+        select: { id: true, clientRequestId: true },
+      });
+      const generation = parseOverheadAllocationGeneration((original as any).clientRequestId) ?? nextOverheadAllocationGeneration(primaries.length);
+      const clientRequestId = overheadAllocationClientRequestId(id, dto.allocationLineId, generation, OVERHEAD_ALLOCATION_LEDGER_REVERSE_ACTION);
+      const witness = await this.productionCost.reverseLedgerEntry(tx, original, { reason: dto.reason, clientRequestId, createdById: userId, ctx });
+      const reversalId = 'transaction' in (witness as any) && (witness as any).transaction ? (witness as any).transaction.id : (witness as any).id;
+      await this.log(tx, userId, id, 'OVERHEAD_ALLOCATION_LEDGER_REVERSE', ctx, {
+        allocationLineId: dto.allocationLineId, originalId: original.id, reversalId, generation, reason: dto.reason, currencyCode: (original as any).currencyCode,
+      });
+      return {
+        allocationId: id, allocationLineId: dto.allocationLineId, originalId: original.id, reversalId, generation,
+        reversedAt: 'updatedOriginal' in (witness as any) && (witness as any).updatedOriginal ? (witness as any).updatedOriginal.reversedAt : (original as any).reversedAt,
+      };
+    });
+  }
+
+  /**
+   * COST-R2D-B3: read-only allocation-scoped reconciliation produced by the single
+   * R1C reconciliation authority, serialized with posting/reversal through the shared
+   * overhead boundary.
+   */
+  async reconciliation(id: string, userId: string, ctx: ActiveOperationalContext) {
+    return this.boundary(ctx, async tx => {
+      await this.owned(tx, id, ctx);
+      const report = await this.reconciliationAuthority.reconcileOverheadAllocation(id, ctx, tx);
+      await this.log(tx, userId, id, 'OVERHEAD_ALLOCATION_LEDGER_RECONCILE', ctx, {
+        decision: (report as any).decision?.status ?? 'ISSUES_DETECTED',
+        lineDefectCount: (report as any).counts?.lineDefectCount ?? 0,
+        eligibleLineCount: (report as any).counts?.eligibleLineCount ?? 0,
+        postedLineCount: (report as any).counts?.postedLineCount ?? 0,
+        aggregateEqual: (report as any).decision?.reconciled ?? false,
+      });
+      return report;
+    });
   }
 }

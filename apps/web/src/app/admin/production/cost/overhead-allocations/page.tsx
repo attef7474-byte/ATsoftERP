@@ -5,7 +5,7 @@ import { api } from '../../../../../lib/api';
 import { useAuth } from '../../../../../lib/auth-context';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { translateUnit } from '../../../../../lib/i18n/literals';
-import { allocationAmountText, canFinalizeAllocation, AllocationPage, OverheadAllocation, OverheadAllocationLine, OverheadAllocationPreview } from '../../../../../lib/overhead-allocation';
+import { allocationAmountText, canFinalizeAllocation, canPostAllocationToLedger, canReverseLedgerLine, postAllocationToLedger, reverseAllocationLedgerLine, AllocationPage, LedgerReportLine, OverheadAllocation, OverheadAllocationLine, OverheadAllocationPreview, OverheadAllocationReconciliation } from '../../../../../lib/overhead-allocation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { AdminDataGrid, GridColumn } from '../../../../../components/admin/datagrid';
@@ -145,14 +145,19 @@ function AllocationDetails({ id, can, onClose }: { id: string; can: Can; onClose
   const [confirm, setConfirm] = useState(false);
   const [tab, setTab] = useState('lines');
   const [page, setPage] = useState(1);
+  const [posting, setPosting] = useState(false);
+  const [reversal, setReversal] = useState<{ line: LedgerReportLine; reason: string } | null>(null);
   const lock = useRef(false);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => { if (header.data) setNotes(header.data.notes ?? ''); }, [header.data]);
   const row = header.data;
   const evidence = useRead<AllocationPage<OverheadAllocationLine | Source | History>>(
-    row && (row.status === 'FINAL' || tab === 'history') ? `${ROOT}/${id}/${tab}?page=${page}&limit=20` : null,
+    row && ((tab === 'lines' && row.status === 'FINAL') || tab === 'sources' || tab === 'history') ? `${ROOT}/${id}/${tab}?page=${page}&limit=20` : null,
     signal => api.get<AllocationPage<OverheadAllocationLine | Source | History>>(`${ROOT}/${id}/${tab}?page=${page}&limit=20`, { signal }), revision);
+  const report = useRead<OverheadAllocationReconciliation>(
+    row?.status === 'FINAL' && tab === 'ledger' && can('reconcile') ? `${ROOT}/${id}/reconciliation` : null,
+    signal => api.get<OverheadAllocationReconciliation>(`${ROOT}/${id}/reconciliation`, { signal }), revision);
   async function mutate(action: 'save' | 'calculate' | 'finalize', previewPage = 1) {
     if (lock.current || !row) return;
     lock.current = true; setBusy(true);
@@ -175,6 +180,24 @@ function AllocationDetails({ id, can, onClose }: { id: string; can: Can; onClose
     } catch (error) { if (alive.current) { setPreview(null); setConfirm(false); handleError(error); } }
     finally { lock.current = false; if (alive.current) setBusy(false); }
   }
+  async function postLedger() {
+    if (lock.current || !row) return;
+    lock.current = true; setBusy(true);
+    try {
+      await postAllocationToLedger(id);
+      if (alive.current) { setPosting(false); setRevision(value => value + 1); showToast(t('overheadAllocation.ledgerPosted'), 'success'); }
+    } catch (error) { if (alive.current) { setPosting(false); handleError(error); } }
+    finally { lock.current = false; if (alive.current) setBusy(false); }
+  }
+  async function reversePosting() {
+    if (lock.current || !reversal || !reversal.reason.trim()) return;
+    lock.current = true; setBusy(true);
+    try {
+      await reverseAllocationLedgerLine(id, reversal.line.lineId, reversal.reason.trim());
+      if (alive.current) { setReversal(null); setRevision(value => value + 1); showToast(t('overheadAllocation.reversalDone'), 'success'); }
+    } catch (error) { if (alive.current) { setReversal(null); handleError(error); } }
+    finally { lock.current = false; if (alive.current) setBusy(false); }
+  }
   const lineColumns: GridColumn<OverheadAllocationLine>[] = [
     { key: 'run', header: t('overheadAllocation.run'), render: line => line.runNumberSnapshot },
     { key: 'purpose', header: t('overheadAllocation.purpose'), render: line => t('common.costPurpose.' + line.costPurpose) },
@@ -186,8 +209,9 @@ function AllocationDetails({ id, can, onClose }: { id: string; can: Can; onClose
     { key: 'currency', header: t('overheadAllocation.currency'), render: line => line.currencyCode },
     { key: 'membership', header: t('overheadAllocation.membership'), render: line => new Date(line.runCostClosedAt).toLocaleString(locale) },
   ];
-  const historyLabels: Record<string, string> = { OVERHEAD_ALLOCATION_CREATE: 'overheadAllocation.created', OVERHEAD_ALLOCATION_UPDATE: 'overheadAllocation.updated', OVERHEAD_ALLOCATION_FINALIZE: 'overheadAllocation.finalAudit' };
-  const tabLabels: Record<string, string> = { lines: 'overheadAllocation.lines', sources: 'overheadAllocation.sources', history: 'overheadAllocation.history' };
+  const historyLabels: Record<string, string> = { OVERHEAD_ALLOCATION_CREATE: 'overheadAllocation.created', OVERHEAD_ALLOCATION_UPDATE: 'overheadAllocation.updated', OVERHEAD_ALLOCATION_FINALIZE: 'overheadAllocation.finalAudit', OVERHEAD_ALLOCATION_LEDGER_POST: 'overheadAllocation.ledgerPostAudit', OVERHEAD_ALLOCATION_LEDGER_REVERSE: 'overheadAllocation.ledgerReverseAudit', OVERHEAD_ALLOCATION_LEDGER_RECONCILE: 'overheadAllocation.ledgerReconcileAudit' };
+  const tabLabels: Record<string, string> = { lines: 'overheadAllocation.lines', sources: 'overheadAllocation.sources', history: 'overheadAllocation.history', ledger: 'overheadAllocation.ledger' };
+  const ledgerStatusLabels: Record<string, string> = { POSTED: 'overheadAllocation.ledgerLinePosted', REVERSED: 'overheadAllocation.ledgerLineReversed', MISSING: 'overheadAllocation.ledgerLineMissing', ZERO_NOT_POSTED: 'overheadAllocation.ledgerLineZero' };
   const gridProps = { dir, loading: evidence.loading || busy, loadingMessage: t('common.loading'), emptyMessage: t('common.noData'), error: evidence.failed ? t('errors.loadFailed') : undefined, onRetry: () => setRevision(value => value + 1) };
   return <Modal open size="xl" title={t('overheadAllocation.details')} onClose={() => { if (!busy && !confirm) onClose(); }}>
     {header.loading && <p role="status">{t('common.loading')}</p>}
@@ -201,8 +225,8 @@ function AllocationDetails({ id, can, onClose }: { id: string; can: Can; onClose
         {can('calculate') && <Button disabled={busy} onClick={() => void mutate('calculate')}>{t('overheadAllocation.calculate')}</Button>}
         {can('finalize') && <Button disabled={!canFinalizeAllocation(row.status, !!preview, can('finalize'), busy)} title={!preview ? t('overheadAllocation.previewRequired') : undefined} onClick={() => setConfirm(true)}>{t('overheadAllocation.finalize')}</Button>}
         {!preview && <p>{t('overheadAllocation.previewRequired')}</p>}
-      </div> : <p>{t('overheadAllocation.immutable')}</p>}
-      <div className="flex gap-3">{['lines', ...(row.status === 'FINAL' ? ['sources'] : []), 'history'].map(value => <Button key={value} variant={tab === value ? 'primary' : 'secondary'} disabled={busy} onClick={() => { setTab(value); setPage(1); }}>{t(tabLabels[value])}</Button>)}</div>
+      </div> : <div className="flex flex-wrap items-center gap-3"><p>{t('overheadAllocation.immutable')}</p>{can('post') && <Button disabled={!canPostAllocationToLedger(row.status, can('post'), busy)} onClick={() => setPosting(true)}>{t('overheadAllocation.postToLedger')}</Button>}</div>}
+      <div className="flex gap-3">{['lines', ...(row.status === 'FINAL' ? ['sources'] : []), 'history', ...(row.status === 'FINAL' && can('reconcile') ? ['ledger'] : [])].map(value => <Button key={value} variant={tab === value ? 'primary' : 'secondary'} disabled={busy} onClick={() => { setTab(value); setPage(1); }}>{t(tabLabels[value])}</Button>)}</div>
       {busy && <p role="status">{t('common.loading')}</p>}
       {tab === 'lines' && row.status === 'DRAFT' && !preview && <p>{t('overheadAllocation.notCalculated')}</p>}
       {tab === 'lines' && (row.status === 'FINAL' || preview) && <>
@@ -220,6 +244,23 @@ function AllocationDetails({ id, can, onClose }: { id: string; can: Can; onClose
         { key: 'action', header: t('overheadAllocation.action'), render: event => t(historyLabels[event.action] ?? 'overheadAllocation.history') },
         { key: 'date', header: t('overheadAllocation.date'), render: event => new Date(event.createdAt).toLocaleString(locale) },
       ]} />}
+      {tab === 'ledger' && <>{report.loading && <p role="status">{t('common.loading')}</p>}
+        {report.failed && <Button onClick={() => setRevision(value => value + 1)}>{t('common.refresh')}</Button>}
+        {report.data && <div className="space-y-3">
+          <p><strong>{t('overheadAllocation.reconTitle')}</strong> · {t(report.data.decision.status === 'ALL_CLEAN' ? 'overheadAllocation.reconClean' : 'overheadAllocation.reconIssues')}</p>
+          <p>{t('overheadAllocation.reconSourceTotal')}: {allocationAmountText(report.data.aggregate.sourceTotal)} {row.currencyCode} · {t('overheadAllocation.reconPoolTotal')}: {allocationAmountText(report.data.aggregate.poolTotal)} {row.currencyCode} · {t('overheadAllocation.reconActivePostedTotal')}: {allocationAmountText(report.data.aggregate.activePostedTotal)} {row.currencyCode}</p>
+          <p>{t('overheadAllocation.reconSourcePoolConserved')}: {report.data.aggregate.sourcePoolConserved ? t('overheadAllocation.reconSatisfied') : t('overheadAllocation.reconNotSatisfied')} · {t('overheadAllocation.reconPoolFullyValued')}: {report.data.aggregate.poolFullyValued ? t('overheadAllocation.reconSatisfied') : t('overheadAllocation.reconNotSatisfied')} · {t('overheadAllocation.reconEligible')}: {report.data.counts.eligibleLineCount} · {t('overheadAllocation.ledgerLineZero')}: {report.data.counts.zeroLineCount} · {t('overheadAllocation.reconDefects')}: {report.data.counts.lineDefectCount} - {report.data.decision.note}</p>
+          <AdminDataGrid {...gridProps} columns={[
+            { key: 'run', header: t('overheadAllocation.run'), render: (line: LedgerReportLine) => line.productionRunId },
+            { key: 'purpose', header: t('overheadAllocation.purpose'), render: (line: LedgerReportLine) => t('common.costPurpose.' + line.costPurpose) },
+            { key: 'amount', header: t('overheadAllocation.amount'), render: (line: LedgerReportLine) => allocationAmountText(line.allocatedAmount) },
+            { key: 'status', header: t('overheadAllocation.ledgerStatus'), render: (line: LedgerReportLine) => t(ledgerStatusLabels[line.status] ?? 'overheadAllocation.ledgerLineMissing') },
+            { key: 'generation', header: t('overheadAllocation.generation'), render: (line: LedgerReportLine) => line.generation ?? '—' },
+            { key: 'entry', header: t('overheadAllocation.ledgerEntryId'), render: (line: LedgerReportLine) => line.ledgerEntryId ?? '—' },
+            { key: 'satisfied', header: t('overheadAllocation.reconStatus'), render: (line: LedgerReportLine) => t(line.satisfied ? 'overheadAllocation.reconSatisfied' : 'overheadAllocation.reconNotSatisfied') },
+            ...(can('post') ? [{ key: 'action', header: '', render: (line: LedgerReportLine) => canReverseLedgerLine(line.status, can('post'), busy) ? <Button variant="secondary" disabled={busy} onClick={() => setReversal({ line, reason: '' })}>{t('overheadAllocation.reversePosting')}</Button> : <span>&nbsp;</span> }] : []),
+          ] as GridColumn<LedgerReportLine>[]} data={report.data.lines} keyExtractor={line => line.lineId} />
+        </div>}</>}
       {evidence.data && !busy && <Pagination {...evidence.data.meta} onPageChange={setPage} />}
     </div>}
     <Modal open={confirm} title={t('overheadAllocation.confirm')} onClose={() => { if (!busy) setConfirm(false); }}>
@@ -227,5 +268,16 @@ function AllocationDetails({ id, can, onClose }: { id: string; can: Can; onClose
       <div className="flex gap-3"><Button loading={busy} onClick={() => void mutate('finalize')}>{t('overheadAllocation.finalize')}</Button>
         <Button variant="secondary" disabled={busy} onClick={() => setConfirm(false)}>{t('common.cancel')}</Button></div>
     </Modal>
+    {posting && <Modal open title={t('overheadAllocation.postToLedger')} onClose={() => { if (!busy) setPosting(false); }}>
+      <p className="mb-4">{t('overheadAllocation.postingMessage')}</p>
+      <div className="flex gap-3"><Button loading={busy} onClick={() => void postLedger()}>{t('overheadAllocation.postToLedger')}</Button>
+        <Button variant="secondary" disabled={busy} onClick={() => setPosting(false)}>{t('common.cancel')}</Button></div>
+    </Modal>}
+    {reversal && <Modal open title={t('overheadAllocation.reversalConfirm')} onClose={() => { if (!busy) setReversal(null); }}>
+      <p className="mb-4">{t('overheadAllocation.reversalMessage')}</p>
+      <Textarea label={t('overheadAllocation.reversalReason')} maxLength={1000} value={reversal?.reason ?? ''} disabled={busy} onChange={event => setReversal(current => current ? { ...current, reason: event.target.value } : current)} />
+      <div className="mt-3 flex gap-3"><Button loading={busy} disabled={!reversal?.reason.trim()} onClick={() => void reversePosting()}>{t('overheadAllocation.reversePosting')}</Button>
+        <Button variant="secondary" disabled={busy} onClick={() => setReversal(null)}>{t('common.cancel')}</Button></div>
+    </Modal>}
   </Modal>;
 }
