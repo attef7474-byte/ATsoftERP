@@ -1,0 +1,79 @@
+{
+  "capacity": [
+    "cmudbwnus0007tw95zj2uqadx"
+  ],
+  "orders": [
+    "cmudbwokd000htw95s7vzhuv2",
+    "cmudbwp6v000otw95o623afle"
+  ],
+  "runs": [
+    "cmudbwpkn0011tw95sycht7hl"
+  ],
+  "points": [
+    "cmudbwpds000xtw95rrlp2ocb"
+  ],
+  "outputs": [
+    "cmudbwpuj001ctw95o0b3slca"
+  ],
+  "losses": [
+    "cmudbwq8u001ltw95csi90v1l"
+  ],
+  "lossReasons": [
+    "cmudbwpzs001etw95ymgdlwaz"
+  ],
+  "downtime": [
+    "cmudbwq44001itw95evv1176h"
+  ],
+  "matDocs": [
+    "cmudbwqhf001rtw95jh2oivty",
+    "cmudbwqvi0024tw95t46rno1r"
+  ],
+  "movements": [
+    null,
+    "cmudbwqoo001vtw95q55p5t9z"
+  ],
+  "requirements": [
+    null
+  ],
+  "consumptions": [
+    null
+  ],
+  "fg": [
+    "cmudbwqp4001xtw95svxtzcp4"
+  ],
+  "plans": [
+    "cmudbwr0i0028tw95fhzks0n1"
+  ],
+  "chars": [
+    "cmudbwr2u002atw95x0dgl31w"
+  ],
+  "inspections": [
+    "cmudbwr9x002gtw95rmd5umcr"
+  ],
+  "dispositions": [
+    "cmudbwrfg002ltw95sgb2qyc1"
+  ],
+  "ncrs": [
+    "cmudbwrih002otw95hesymvql"
+  ],
+  "targets": [
+    "cmudbwrn0002stw95tjjvwk40"
+  ],
+  "snapshots": [
+    null
+  ],
+  "balBefore": [
+    {
+      "product": "cmrlb0uf40002gg956cmv26mu",
+      "wh": "cmrvb4cmt0000no951xuxr6uc",
+      "qty": 4,
+      "base": 4
+    },
+    {
+      "product": "cmrlb0uf40002gg956cmv26mu",
+      "wh": "cmt77ykep003rc8952b8d3g9z",
+      "qty": 0,
+      "base": 0
+    }
+  ]
+}

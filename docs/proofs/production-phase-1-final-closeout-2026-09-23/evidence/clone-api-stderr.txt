@@ -1,0 +1,171 @@
+[AllExceptionsFilter] requestId=5a449ae9-7fd4-4863-8f84-4f2876c5e4ff method=PATCH url=/api/v1/production/orders/cmudbwokd000htw95s7vzhuv2 Error: [DecimalError] Invalid argument: undefined
+    at new Decimal2 (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client-runtime-utils\dist\index.js:2230:11)
+    at ProductionOrdersService.positiveDecimal (C:\Users\attef\PycharmProjects\Trae\ATsofterp\apps\api\dist\src\modules\factory\production-orders\production-orders.service.js:624:25)
+    at ProductionOrdersService.buildPlanningData (C:\Users\attef\PycharmProjects\Trae\ATsofterp\apps\api\dist\src\modules\factory\production-orders\production-orders.service.js:461:38)
+    at prisma.$transaction.isolationLevel (C:\Users\attef\PycharmProjects\Trae\ATsofterp\apps\api\dist\src\modules\factory\production-orders\production-orders.service.js:166:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Proxy._transactionWithCallback (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client\runtime\client.js:75:4800)
+[AllExceptionsFilter] requestId=087d7aac-6f67-4f47-9f82-25e1db9b3539 method=POST url=/api/v1/production/orders/cmudbwokd000htw95s7vzhuv2/material-requirements PrismaClientValidationError: 
+Invalid `prisma.productionMaterialRequirement.create()` invocation:
+
+{
+  data: {
+    companyId: "cmrl31uuy0000ok959hdjnca6",
+    branchId: "cmrx06a560000ng95g7d65vzh",
+    productionOrderId: "cmudbwokd000htw95s7vzhuv2",
+    revision: 1,
+    status: "DRAFT",
+    sourceType: "MANUAL",
+    productDefinitionCodeSnapshot: "QA-PPD2",
+    productDefinitionNameSnapshot: "QA PPD2",
+    productVersionLabelSnapshot: "v1",
+    productPackagingLabelSnapshot: null,
+    lines: {
+      create: [
+        {
+          lineNumber: 1,
+          productId: "cmrlb0uf40002gg956cmv26mu",
+          productCodeSnapshot: "",
+          productNameSnapshot: "",
+          componentRole: "RAW_MATERIAL",
+          plannedQuantityPerUnit: new Prisma.Decimal("0.02"),
+          plannedQuantity: new Prisma.Decimal("2"),
+          baseUnit: "UNIT",
+          issueUnit: "UNIT",
+          conversionFactor: new Prisma.Decimal("1"),
+          warehouseId: "cmrvb4cmt0000no951xuxr6uc",
+          productionStage: null,
+          lotControlRequired: false,
+          overIssuePolicy: "NOT_ALLOWED",
+          tolerancePercent: null,
+          notes: "runtime proof"
+        }
+      ]
+    },
+    notes: "runtime proof requirement",
+    preparedById: "cmrl31v0g0004ok95wxhdi9lm",
+    preparedAt: new Date("2026-09-22T23:52:21.517Z"),
+    requestId: "1ba319e1-d113-4c8e-97f0-254dd8ddafed"
+  },
+  include: {
+    productionOrder: {
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        plannedQuantity: true,
+        quantityUnit: true
+      }
+    },
+    lines: {
+      include: {
+        product: {
+          select: {
+            id: true,
+            code: true,
+            name: true
+          }
+        },
+        warehouse: {
+          select: {
+            id: true,
+            code: true,
+            name: true
+          }
+        }
+      }
+    },
+    materialDocuments: {
+      where: {
+        status: "POSTED"
+      },
+      select: {
+        id: true,
+        documentNumber: true,
+        documentType: true,
+        status: true,
+        documentDate: true
+      }
+    }
+  }
+}
+
+Argument `company` is missing.
+    at ar (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client\runtime\client.js:10:1374)
+    at zr.handleRequestError (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client\runtime\client.js:65:7929)
+    at zr.handleAndLogRequestError (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client\runtime\client.js:65:7581)
+    at zr.request (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client\runtime\client.js:65:7288)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client\runtime\client.js:75:6862)
+    at async prisma.$transaction.isolationLevel (C:\Users\attef\PycharmProjects\Trae\ATsofterp\apps\api\dist\src\modules\factory\production-material-requirements\production-material-requirements.service.js:199:35)
+    at async Proxy._transactionWithCallback (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client\runtime\client.js:75:4800)
+    at async ProductionMaterialRequirementsService.prepare (C:\Users\attef\PycharmProjects\Trae\ATsofterp\apps\api\dist\src\modules\factory\production-material-requirements\production-material-requirements.service.js:164:20)
+[AllExceptionsFilter] requestId=86422d50-4990-42be-96be-8f43d3bf038f method=POST url=/api/v1/production/material-consumptions PrismaClientValidationError: 
+Invalid `prisma.productionMaterialConsumption.findFirst()` invocation:
+
+{
+  where: {
+    companyId: "cmrl31uuy0000ok959hdjnca6",
+    branchId: "cmrx06a560000ng95g7d65vzh",
+    requestId: "6bc95a17-2deb-4494-af98-aaa1e69154c1"
+  },
+  include: {
+    productionOrder: {
+      select: {
+        id: true,
+        orderNumber: true
+      }
+    },
+    productionRun: {
+      select: {
+        id: true,
+        runNumber: true
+      }
+    },
+    product: {
+      select: {
+        id: true,
+        code: true,
+        name: true
+      }
+    },
+    requirementLine: {
+      select: {
+        id: true,
+        lineNumber: true,
+        plannedQuantity: true,
+        plannedQuantityPerUnit: true
+      }
+    },
+    corrections: {
+      orderBy: {
+        createdAt: "asc"
+      }
+    },
+    recordedBy: {
+    ~~~~~~~~~~
+      select: {
+        id: true,
+        name: true
+      }
+    },
+?   company?: true,
+?   branch?: true,
+?   requirement?: true
+  }
+}
+
+Unknown field `recordedBy` for include statement on model `ProductionMaterialConsumption`. Available options are marked with ?.
+    at ar (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client\runtime\client.js:10:1374)
+    at zr.handleRequestError (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client\runtime\client.js:65:7929)
+    at zr.handleAndLogRequestError (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client\runtime\client.js:65:7581)
+    at zr.request (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client\runtime\client.js:65:7288)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client\runtime\client.js:75:6862)
+    at async ProductionMaterialRequirementsService.recordConsumption (C:\Users\attef\PycharmProjects\Trae\ATsofterp\apps\api\dist\src\modules\factory\production-material-requirements\production-material-requirements.service.js:582:26)
+[AllExceptionsFilter] requestId=55fea082-31a9-4b59-8971-9a762cc5f38e method=PATCH url=/api/v1/production/performance-targets/cmudbwrn0002stw95tjjvwk40 Error: [DecimalError] Invalid argument: undefined
+    at new Decimal2 (C:\Users\attef\PycharmProjects\Trae\ATsofterp\node_modules\@prisma\client-runtime-utils\dist\index.js:2230:11)
+    at ProductionPerformanceTargetsService.percentage (C:\Users\attef\PycharmProjects\Trae\ATsofterp\apps\api\dist\src\modules\factory\production-analytics\production-performance-targets.service.js:456:25)
+    at ProductionPerformanceTargetsService.normalizeAndValidate (C:\Users\attef\PycharmProjects\Trae\ATsofterp\apps\api\dist\src\modules\factory\production-analytics\production-performance-targets.service.js:377:38)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async ProductionPerformanceTargetsService.update (C:\Users\attef\PycharmProjects\Trae\ATsofterp\apps\api\dist\src\modules\factory\production-analytics\production-performance-targets.service.js:110:28)

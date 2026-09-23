@@ -154,7 +154,9 @@ For spare-part issue/installation: validate tenant/warehouse/machine/component/w
 
 ## 12. Production Module
 
-Production does not exist yet as a complete operational domain. Build it incrementally as tested vertical slices (master data → shifts/assignments → capacity standards → orders → runs → output → downtime/loss reasons → waste/rework → material consumption → finished-goods receipt → quality → cost → OEE/reporting). Integrate with existing companies, branches, org structure, lines, machines, components, warehouses, products, cost centers, maintenance, downtime, notifications, audit, numbering, search, attachments. Do not duplicate existing entities.
+Production Phase 1 (slices 1.1–1.9) is implemented as tested vertical slices: master data, shifts/assignments, capacity standards, orders, runs, output, downtime/loss reasons, waste/rework, material requirements/documents, finished-goods receipt, quality, cost, and OEE/analytics. It integrates with existing companies, branches, org structure, lines, machines, components, warehouses, products, cost centers, maintenance, downtime, notifications, audit, numbering, search, attachments. Do not duplicate existing entities.
+
+Known production defects D1–D4 (see `docs/agent-rules/domain-rules/production.md`) are reported in the Phase 1 closeout and must not be silently hidden; each requires a dedicated, tested fix task. The current closeout evidence lives in `docs/proofs/production-phase-1-final-closeout-2026-09-23/`.
 
 ---
 
