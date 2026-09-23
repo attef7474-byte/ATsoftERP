@@ -1085,6 +1085,49 @@ describe('ProductionCostService', () => {
       expect(transaction.amount.toString()).toBe('100');
     });
 
+    it('D5 regression: private production-material metadata never reaches Prisma create data', async () => {
+      prisma.operationalCostTransaction.create.mockImplementation(({ data }: any) => {
+        if ('_sourceKind' in data) throw new Error('Unknown argument `_sourceKind`');
+        return Promise.resolve({
+          id: 'ledger-d5', ...data,
+          status: 'POSTED', reversedById: null, reversedAt: null, reversalOfId: null,
+        });
+      });
+
+      await expect(service.postLedgerEntryWithinTransaction(prisma, {
+        eventType: 'MATERIAL', sourceType: 'INVENTORY_MOVEMENT_LINE', sourceId: 'inv-d5', sourceLineId: 'mvl-d5',
+        costNature: 'ACTUAL', costPurpose: 'PRODUCTION', entryRole: 'PRIMARY_COST',
+        amount: '10', quantity: '2', unit: 'UNIT', occurredAt: new Date('2026-09-23T03:53:57Z'),
+        clientRequestId: 'r1b-d5', requestPayloadFingerprint: 'fp-d5',
+        refs: { _currencyCodeFromInventory: 'SAR', _sourceKind: 'PRODUCTION_MATERIAL' },
+        createdById: 'maker', ctx: ctxC3,
+      } as any)).resolves.toMatchObject({ transaction: { id: 'ledger-d5', currencyCode: 'SAR' } });
+
+      const data = prisma.operationalCostTransaction.create.mock.calls[0][0].data;
+      expect(data).not.toHaveProperty('_sourceKind');
+      expect(data).not.toHaveProperty('_currencyCodeFromInventory');
+    });
+
+    it('D5 security: refs cannot override tenant ownership or inject non-schema fields', async () => {
+      await service.postLedgerEntryWithinTransaction(prisma, {
+        eventType: 'MATERIAL', sourceType: 'INVENTORY_MOVEMENT_LINE', sourceId: 'inv-d5-sec', sourceLineId: 'mvl-d5-sec',
+        costNature: 'ACTUAL', costPurpose: 'PRODUCTION', entryRole: 'PRIMARY_COST',
+        amount: '10', quantity: '2', unit: 'UNIT', occurredAt: new Date('2026-09-23T03:53:57Z'),
+        clientRequestId: 'r1b-d5-sec', requestPayloadFingerprint: 'fp-d5-sec',
+        refs: {
+          companyId: 'foreign-company', branchId: 'foreign-branch', unknownField: 'not-a-column',
+          productionOrderId: 'po1', _currencyCodeFromInventory: 'SAR',
+        },
+        createdById: 'maker', ctx: ctxC3,
+      } as any);
+
+      const data = prisma.operationalCostTransaction.create.mock.calls[0][0].data;
+      expect(data.companyId).toBe('c3');
+      expect(data.branchId).toBe('b3');
+      expect(data.productionOrderId).toBe('po1');
+      expect(data).not.toHaveProperty('unknownField');
+    });
+
     it('POST: idempotent replay of the same clientRequestId + fingerprint returns the existing row', async () => {
       const existing = { id: 'ledger-dup', clientRequestId: 'r1b-p-2', requestPayloadFingerprint: 'fp-p-2' };
       prisma.operationalCostTransaction.findFirst.mockResolvedValue(existing);

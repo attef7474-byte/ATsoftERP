@@ -71,7 +71,13 @@ describe('ProductionPerformanceTargetsService resolution', () => {
     prisma = {
       productionPerformanceTarget: {
         findMany: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
       },
+      productionUnit: { findFirst: jest.fn() },
+      productionLine: { findFirst: jest.fn() },
+      machine: { findFirst: jest.fn() },
+      productionProductDefinition: { findFirst: jest.fn() },
     };
     service = new ProductionPerformanceTargetsService(prisma, { log: jest.fn() } as any, { generateNumberAtomic: jest.fn() } as any);
   });
@@ -238,6 +244,37 @@ describe('ProductionPerformanceTargetsService resolution', () => {
       prisma.productionPerformanceTarget.findMany.mockResolvedValue([otherProduct, companyTarget]);
       const resolved = await service.resolveForRun(baseCtx({ productionProductDefinitionId: product1 }));
       expect(resolved?.id).toBe(companyTarget.id);
+    });
+  });
+
+  describe('partial update preserves untouched fields (D1 regression)', () => {
+    it('does not overwrite current target values with class-transformer undefined own-properties', async () => {
+      const draft = target({ id: 't-draft', status: 'DRAFT', scopeType: 'LINE', productionLineId: line1, productionProductDefinitionId: null, productionUnitId: null, machineId: null });
+      prisma.productionPerformanceTarget.findFirst = jest.fn().mockResolvedValue(draft);
+      prisma.productionPerformanceTarget.update = jest.fn().mockResolvedValue(draft);
+      prisma.productionLine.findFirst = jest.fn().mockResolvedValue({ id: line1 });
+      const audit = { log: jest.fn().mockResolvedValue(undefined) };
+      const svc = new ProductionPerformanceTargetsService(prisma, audit as any, { generateNumberAtomic: jest.fn() } as any);
+
+      const partialDto = {
+        availabilityTarget: undefined,
+        performanceTarget: undefined,
+        qualityTarget: undefined,
+        oeeTarget: undefined,
+        effectiveFrom: undefined,
+        effectiveTo: undefined,
+        approvalNote: undefined,
+        notes: 'partial-note',
+      };
+      await svc.update('t-draft', partialDto as any, 'u1', { companyId: companyA, branchId: branchA } as any);
+
+      const data = prisma.productionPerformanceTarget.update.mock.calls[0][0].data;
+      expect(data.availabilityTarget.toString()).toBe('85');
+      expect(data.performanceTarget.toString()).toBe('90');
+      expect(data.qualityTarget.toString()).toBe('95');
+      expect(data.oeeTarget.toString()).toBe('70');
+      expect(data.notes).toBe('partial-note');
+      expect(data.productionLineId).toBe(line1);
     });
   });
 });

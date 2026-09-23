@@ -430,6 +430,23 @@ describe('ProductionMaterialDocumentsService', () => {
       expect(result.status).toBe('POSTED');
     });
 
+    it('D5 atomicity: a canonical-ledger failure aborts posting before document status and audit commit', async () => {
+      const { prisma, service, movements, audit } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
+      prisma.productionOrder.findFirst.mockResolvedValue(order({ productionLine: { departmentId: 'dept1' } }));
+      prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
+      movements.postProductionMaterialMovementWithinTransaction.mockRejectedValue(
+        new Prisma.PrismaClientValidationError('Unknown argument `_sourceKind`', { clientVersion: '7.8.0' }),
+      );
+
+      await expect(service.post('doc1', 'u1', ctxA)).rejects.toThrow('Unknown argument `_sourceKind`');
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.productionMaterialDocument.update).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
     it('retries the whole production post transaction after one transient P2034', async () => {
       const { prisma, service, movements } = makeService();
       const transient = new Prisma.PrismaClientKnownRequestError('write conflict', { code: 'P2034', clientVersion: '7.8.0' });

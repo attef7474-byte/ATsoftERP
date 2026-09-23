@@ -146,6 +146,8 @@ export class ProductionMaterialRequirementsService {
       const plannedQuantity = computePlannedQuantity(line.plannedQuantityPerUnit, orderPlannedQuantity, conversionFactor);
       return {
         lineNumber: index + 1,
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
         productId: line.productId,
         productCodeSnapshot: '',
         productNameSnapshot: '',

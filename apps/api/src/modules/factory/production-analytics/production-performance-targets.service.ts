@@ -10,6 +10,7 @@ import {
 } from './production-analytics.constants';
 import { CreatePerformanceTargetDto, UpdatePerformanceTargetDto } from './dto/performance-target.dto';
 import { PerformanceTargetQueryDto } from './dto/analytics-query.dto';
+import { stripUndefined } from '../../../common/helpers/strip-undefined';
 
 export interface TargetResolutionContext {
   companyId: string;
@@ -110,7 +111,7 @@ export class ProductionPerformanceTargetsService {
   async update(id: string, dto: UpdatePerformanceTargetDto, userId: string, ctx: ActiveOperationalContext) {
     const current = await this.findOwned(id, ctx);
     if (current.status !== 'DRAFT') this.invalid('status', 'performanceTarget.draftOnly', 'Only draft targets can be edited');
-    const merged = { ...this.materialFields(current), ...dto };
+    const merged = { ...this.materialFields(current), ...stripUndefined(dto) };
     const normalized = await this.normalizeAndValidate(merged, ctx);
     const updated = await this.model.update({
       where: { id },

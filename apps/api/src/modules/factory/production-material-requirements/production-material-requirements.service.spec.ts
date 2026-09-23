@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { ProductionMaterialRequirementsService } from './production-material-requirements.service';
+import { PRODUCTION_MATERIAL_CONSUMPTION_INCLUDE } from './production-material-requirements.constants';
 
 const ctxA: any = { companyId: 'c1', branchId: 'b1' };
 const ctxB: any = { companyId: 'c2', branchId: 'b2' };
@@ -152,6 +153,14 @@ function makeService(overrides: Record<string, any> = {}) {
 }
 
 describe('ProductionMaterialRequirementsService', () => {
+  describe('consumption include references only real model relations (D3 regression)', () => {
+    it('does not declare recordedBy because ProductionMaterialConsumption has no such relation', () => {
+      expect(Object.keys(PRODUCTION_MATERIAL_CONSUMPTION_INCLUDE).sort()).toEqual(
+        ['corrections', 'product', 'productionOrder', 'productionRun', 'requirementLine'],
+      );
+    });
+  });
+
   describe('prepare', () => {
     it('creates a DRAFT snapshot with computed planned quantities', async () => {
       const { prisma, service } = makeService();
@@ -175,6 +184,25 @@ describe('ProductionMaterialRequirementsService', () => {
       expect(data.lines.create[0].plannedQuantity.toString()).toBe('250');
       expect(data.lines.create[0].componentRole).toBe('RAW_MATERIAL');
       expect(data.lines.create[0].overIssuePolicy).toBe('NOT_ALLOWED');
+    });
+
+    it('carries tenant ownership on every prepared line (D4 regression, nested create is tenant-scoped)', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(null);
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.productionProductDefinition.findUnique.mockResolvedValue({ id: 'def1', code: 'DEF1', name: 'Def' });
+      prisma.productionMaterialRequirement.create.mockResolvedValue(draftRequirement());
+
+      await service.prepare('po1', prepareDto(), 'u1', ctxA);
+
+      const data = prisma.productionMaterialRequirement.create.mock.calls[0][0].data;
+      expect(data.companyId).toBe('c1');
+      expect(data.branchId).toBe('b1');
+      for (const line of data.lines.create) {
+        expect(line.companyId).toBe('c1');
+        expect(line.branchId).toBe('b1');
+      }
     });
 
     it('snapshots the real packagingType when the order has a packaging (no stale packaging.label access)', async () => {

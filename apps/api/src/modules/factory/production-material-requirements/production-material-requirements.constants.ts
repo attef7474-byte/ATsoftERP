@@ -52,5 +52,4 @@ export const PRODUCTION_MATERIAL_CONSUMPTION_INCLUDE = {
     select: { id: true, lineNumber: true, plannedQuantity: true, plannedQuantityPerUnit: true },
   },
   corrections: { orderBy: { createdAt: 'asc' } },
-  recordedBy: { select: { id: true, name: true } },
 } as const;

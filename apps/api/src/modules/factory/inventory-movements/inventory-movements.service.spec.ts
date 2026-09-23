@@ -1161,6 +1161,7 @@ describe('InventoryMovementsService', () => {
       });
       expect(call[1].amount.toString()).toBe('50');
       expect(call[1].refs._currencyCodeFromInventory).toBe('USD');
+      expect(call[1].refs._sourceKind).toBe('PRODUCTION_MATERIAL');
       expect(call[1].clientRequestId).toBe('m1-line:l1-material-issue');
     });
 

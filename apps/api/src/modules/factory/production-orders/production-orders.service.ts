@@ -12,6 +12,7 @@ import { CreateProductionOrderDto } from './dto/create-production-order.dto';
 import { UpdateProductionOrderDto } from './dto/update-production-order.dto';
 import { ProductionOrderQueryDto } from './dto/production-order-query.dto';
 import { ProductionOrderActionDto, ProductionOrderReasonActionDto } from './dto/production-order-action.dto';
+import { stripUndefined } from '../../../common/helpers/strip-undefined';
 import { calculatePlannedDuration } from './production-order-duration';
 import {
   PRODUCTION_ORDER_ARCHIVABLE_STATUSES,
@@ -158,7 +159,7 @@ export class ProductionOrdersService {
       const current = await this.findOwned(id, ctx, tx);
       this.assertEditable(current);
       this.assertLock(current, dto.lockVersion);
-      const input = { ...this.materialInput(current), ...dto } as any;
+      const input = { ...this.materialInput(current), ...stripUndefined(dto) } as any;
       delete input.lockVersion;
       const planning = await this.buildPlanningData(input, ctx, tx);
       const count = await (tx as any).productionOrder.updateMany({

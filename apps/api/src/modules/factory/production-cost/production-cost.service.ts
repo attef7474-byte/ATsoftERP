@@ -62,6 +62,30 @@ const COST_SOURCE_REGISTRY: Record<string, { model: string; numberField?: string
   DOWNTIME: { model: 'downtimeLog', errorKey: 'productionCostTransaction.sourceDowntimeNotFound' },
 };
 
+/**
+ * Scalar references that are part of OperationalCostTransaction's persisted contract.
+ * Callers may also pass private calculation metadata in `refs`; an explicit allowlist
+ * prevents that metadata (or tenant ownership fields) from reaching Prisma data.
+ */
+const OPERATIONAL_COST_TRANSACTION_REF_FIELDS = [
+  'productionOrderId',
+  'productionRunId',
+  'productId',
+  'productCodeSnapshot',
+  'productNameSnapshot',
+  'productionVersionId',
+  'productionPackagingId',
+  'productionLineId',
+  'machineId',
+  'shiftId',
+  'costCenterId',
+  'standardCostSnapshotId',
+  'outputEventId',
+  'departmentId',
+  'maintenanceWorkOrderId',
+  'maintenanceRequestId',
+] as const;
+
 interface DowntimeResolution {
   log: any;
   machine: { id: string; companyId: string | null; branchId: string | null; productionLineId: string | null };
@@ -1737,10 +1761,11 @@ export class ProductionCostService {
     }
 
     // 7. Compose tenant refs (order/run/product/line/machine/shift/costCenter/department/workOrder/request).
-    const refs: Record<string, any> = { ...(opts.refs ?? {}) };
-    delete refs._currencyCodeFromInventory;
-    delete refs._companyCurrency;
-    delete refs._maintenanceMaterial;
+    const rawRefs = opts.refs ?? {};
+    const refs: Record<string, any> = {};
+    for (const field of OPERATIONAL_COST_TRANSACTION_REF_FIELDS) {
+      if (rawRefs[field] !== undefined) refs[field] = rawRefs[field];
+    }
 
     const postedAt = opts.postedAt ?? new Date();
     const status = opts.status ?? 'POSTED';

@@ -195,6 +195,39 @@ describe('ProductionOrdersService', () => {
     await expect(service.update('po1', { lockVersion: 0 }, 'u2', ctxA)).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('does not overwrite current planning fields with class-transformer undefined own-properties (D2a regression)', async () => {
+    model.findFirst.mockResolvedValueOnce(record()).mockResolvedValueOnce(record({ lockVersion: 1 }));
+    model.updateMany.mockResolvedValue({ count: 1 });
+    const partialDto = {
+      lockVersion: 0,
+      productionProductDefinitionId: undefined,
+      productionVersionId: undefined,
+      productionPackagingId: undefined,
+      productionUnitId: undefined,
+      productionLineId: undefined,
+      machineId: undefined,
+      plannedQuantity: undefined,
+      capacityTimeBasis: undefined,
+      plannedStartAt: undefined,
+      plannedEndAt: undefined,
+      priority: undefined,
+      sourceType: undefined,
+      sourceReference: undefined,
+      costCenterId: undefined,
+      issueWarehouseId: undefined,
+      receiptWarehouseId: undefined,
+      notes: undefined,
+    };
+    await service.update('po1', partialDto as any, 'u2', ctxA);
+    expect(model.updateMany).toHaveBeenCalled();
+    const data = model.updateMany.mock.calls[0][0].data;
+    expect(Number(data.plannedGrossQuantity)).toBeGreaterThan(0);
+    expect(Number(data.plannedRunMinutes)).toBeGreaterThan(0);
+    expect(Number(data.plannedDurationMinutes)).toBeGreaterThan(0);
+    expect(data.priority).toBe('NORMAL');
+    expect(data.sourceType).toBe('MANUAL');
+  });
+
   it('plans a DRAFT order with a transition and audit', async () => {
     model.findFirst.mockResolvedValueOnce(record()).mockResolvedValueOnce(record({ status: 'PLANNED', lockVersion: 1 }));
     model.updateMany.mockResolvedValue({ count: 1 });

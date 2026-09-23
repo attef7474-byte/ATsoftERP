@@ -156,7 +156,7 @@ For spare-part issue/installation: validate tenant/warehouse/machine/component/w
 
 Production Phase 1 (slices 1.1–1.9) is implemented as tested vertical slices: master data, shifts/assignments, capacity standards, orders, runs, output, downtime/loss reasons, waste/rework, material requirements/documents, finished-goods receipt, quality, cost, and OEE/analytics. It integrates with existing companies, branches, org structure, lines, machines, components, warehouses, products, cost centers, maintenance, downtime, notifications, audit, numbering, search, attachments. Do not duplicate existing entities.
 
-Known production defects D1–D4 (see `docs/agent-rules/domain-rules/production.md`) are reported in the Phase 1 closeout and must not be silently hidden; each requires a dedicated, tested fix task. The current closeout evidence lives in `docs/proofs/production-phase-1-final-closeout-2026-09-23/`.
+Known production defects D1–D4 (see `docs/agent-rules/domain-rules/production.md`) are reported in the Phase 1 closeout and must not be silently hidden; each requires a dedicated, tested fix task. The current closeout evidence lives in `docs/proofs/production-phase-1-final-closeout-2026-09-23/`. D1–D5 received a dedicated, reviewed, tested fix task verified in `docs/proofs/production-phase-1-defect-repair-d1-d4-2026-09-23.md` (all former 500s success, full regression green, fixture sweep zero survivors); do not regress those repaired paths.
 
 ---
 
