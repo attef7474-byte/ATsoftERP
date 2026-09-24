@@ -22,6 +22,7 @@ interface CanonicalErrorBody {
   statusCode?: number;
   message?: string | string[];
   messageKey?: string;
+  params?: Record<string, unknown>;
   errors?: ApiFieldError[] | string[];
   requestId?: string;
   details?: string | Record<string, unknown>;
@@ -49,6 +50,7 @@ function extractCanonicalBody(err: unknown): CanonicalErrorBody | undefined {
     message?: string;
     code?: string | number;
     messageKey?: string;
+    params?: Record<string, unknown>;
     errors?: ApiFieldError[] | string[];
     details?: unknown;
     name?: string;
@@ -83,7 +85,7 @@ function detailFromBody(body: CanonicalErrorBody | undefined): string | undefine
   return JSON.stringify(body.details, null, 2);
 }
 
-export function normalizeApiError(err: unknown, t: (key: string, ns?: string) => string): ErrorConfig {
+export function normalizeApiError(err: unknown, t: (key: string, ns?: string, params?: Record<string, unknown>) => string): ErrorConfig {
   const config: ErrorConfig = { message: t('errors.generalError', 'errors') };
 
   if (!err) return config;
@@ -95,6 +97,7 @@ export function normalizeApiError(err: unknown, t: (key: string, ns?: string) =>
     message?: string;
     code?: string | number;
     messageKey?: string;
+    params?: Record<string, unknown>;
     details?: unknown;
     name?: string;
   };
@@ -125,7 +128,7 @@ export function normalizeApiError(err: unknown, t: (key: string, ns?: string) =>
     if (body.messageKey) {
       config.messageKey = body.messageKey;
       const serverMessage = firstMessage(body);
-      const webLocalized = t(body.messageKey);
+      const webLocalized = t(body.messageKey, undefined, body.params);
       if (serverMessage && serverMessage !== body.messageKey) {
         config.message = serverMessage;
       } else if (webLocalized && webLocalized !== body.messageKey) {

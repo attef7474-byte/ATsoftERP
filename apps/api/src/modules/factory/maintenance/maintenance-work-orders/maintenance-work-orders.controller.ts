@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } f
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceWorkOrdersService } from './maintenance-work-orders.service';
 import { CreateMaintenanceWorkOrderDto } from './dto/create-maintenance-work-order.dto';
+import { CreateWorkOrderFromRequestDto } from './dto/create-work-order-from-request.dto';
 import { UpdateMaintenanceWorkOrderDto } from './dto/update-maintenance-work-order.dto';
 import { AddWorkOrderPartDto, UpdateWorkOrderPartDto, IssueWorkOrderPartsDto } from './dto/work-order-part.dto';
 import { AddWorkOrderCostEntryDto, UpdateWorkOrderCostEntryDto } from './dto/work-order-cost-entry.dto';
@@ -26,6 +27,13 @@ export class MaintenanceWorkOrdersController {
   @ApiOperation({ summary: 'Create a maintenance work order in the active operational context' })
   create(@Body() dto: CreateMaintenanceWorkOrderDto, @CurrentUser() user: CurrentUserType, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.create(dto, user, ctx);
+  }
+
+  @Post('from-request/:requestId')
+  @Permissions('maintenance-work-order:create')
+  @ApiOperation({ summary: 'Create a maintenance work order canonically from a maintenance request (requestId/machineId server-derived)' })
+  createFromRequest(@Param('requestId') requestId: string, @Body() dto: CreateWorkOrderFromRequestDto, @CurrentUser() user: CurrentUserType, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.createFromRequest(requestId, dto, user, ctx);
   }
 
   @Get()

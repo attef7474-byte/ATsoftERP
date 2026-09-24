@@ -74,6 +74,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
       status?: number;
       code?: number | string;
       messageKey?: string;
+      params?: Record<string, unknown>;
       details?: unknown;
       errors?: unknown;
       requestId?: string;
@@ -81,6 +82,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
     error.status = response.status;
     error.code = json.code ?? response.status;
     error.messageKey = json.messageKey;
+    error.params = json.params;
     error.details = json.details;
     error.errors = json.errors;
     error.requestId = json.requestId;

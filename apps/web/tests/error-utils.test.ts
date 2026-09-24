@@ -127,4 +127,36 @@ describe('normalizeApiError', () => {
     const config = normalizeApiError(new Error('Something exploded'), t);
     expect(config.message).toBe('Something exploded');
   });
+
+  it('passes top-level params to the messageKey translator (block-cancel count)', () => {
+    const seen: Array<[string, string | undefined, Record<string, unknown> | undefined]> = [];
+    const trackingT = (key: string, ns?: string, params?: Record<string, unknown>) => {
+      seen.push([key, ns, params]);
+      return dictionary[key] ?? key;
+    };
+    const err = canonicalError({
+      messageKey: 'maintenance.activeWorkOrdersBlockCancel',
+      message: ['x'],
+      params: { count: '3' },
+    });
+    normalizeApiError(err, trackingT);
+    expect(seen).toEqual([
+      ['errors.generalError', 'errors', undefined],
+      ['maintenance.activeWorkOrdersBlockCancel', undefined, { count: '3' }],
+      ['errorDialog.title', 'errorDialog', undefined],
+    ]);
+  });
+
+  it('prefers the server message over interpolated web text when both exist', () => {
+    const paramsT = (key: string, _ns?: string, params?: Record<string, unknown>) => {
+      const v = dictionary[key] ?? key;
+      return params ? v.replace(/\{(\w+)\}/g, (_m: string, n: string) => String(params[n] ?? `{${n}}`)) : v;
+    };
+    const err = canonicalError({
+      messageKey: 'maintenance.activeWorkOrdersBlockCancel',
+      message: ['Cannot cancel: work orders in progress'],
+      params: { count: '1' },
+    });
+    expect(normalizeApiError(err, paramsT as any).message).toBe('Cannot cancel: work orders in progress');
+  });
 });

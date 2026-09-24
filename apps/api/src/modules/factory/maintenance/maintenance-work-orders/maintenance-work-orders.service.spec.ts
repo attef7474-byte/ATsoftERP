@@ -1007,4 +1007,335 @@ describe('MaintenanceWorkOrdersService', () => {
       await expect(service.remove('wo1', user, ctx)).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('R2-C create-from-request (canonical request→work-order link)', () => {
+    const ownedMachine = { id: 'm1', companyId: 'c1', branchId: 'b1' };
+    const requestRecord = (overrides: Record<string, any> = {}) => ({
+      id: 'r1',
+      requestNumber: 'MR-0001',
+      title: 'Fix pump',
+      status: 'OPEN',
+      machineId: 'm1',
+      machine: ownedMachine,
+      machineComponentId: null,
+      deletedAt: null,
+      ...overrides,
+    });
+
+    it('creates from a valid request with requestId/machineId server-derived and tenant from ctx', async () => {
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord());
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      prisma.machineComponent.findUnique.mockResolvedValue(null);
+      prisma.warehouse.findUnique.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.maintenanceWorkOrder.create.mockResolvedValue(wo({ requestId: 'r1', machineId: 'm1' }));
+
+      const result = await service.createFromRequest('r1', { title: 'Fix pump' } as any, user, ctx);
+      const createCall = prisma.maintenanceWorkOrder.create.mock.calls[0][0];
+      expect(createCall.data).toMatchObject({
+        companyId: 'c1',
+        branchId: 'b1',
+        requestId: 'r1',
+        machineId: 'm1',
+      });
+      expect(audit.log).toHaveBeenCalledWith('u1', 'CREATE', 'MaintenanceWorkOrder', 'wo1',
+        expect.objectContaining({ source: 'FROM_REQUEST', sourceRequestId: 'r1', requestId: 'r1' }));
+      expect(result.id).toBe('wo1');
+    });
+
+    it.each(['COMPLETED', 'CANCELLED', 'CLOSED'])('rejects creating from a %s request', async (status) => {
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status }));
+      const promise = service.createFromRequest('r1', { title: 'x' } as any, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'requestId', code: 'workOrderRequestTerminal' });
+    });
+
+    it('rejects a request whose machine belongs to another company (tenant isolation)', async () => {
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(
+        requestRecord({ machine: { id: 'r9m', companyId: 'c2', branchId: 'b2' } }),
+      );
+      const promise = service.createFromRequest('r1', { title: 'x' } as any, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'requestId', code: 'validation.invalidReference' });
+    });
+
+    it('defaults machineComponentId from the request when omitted', async () => {
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ machineComponentId: 'comp1' }));
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'comp1', machineId: 'm1' });
+      prisma.maintenanceWorkOrder.create.mockResolvedValue(
+        wo({ requestId: 'r1', machineId: 'm1', machineComponentId: 'comp1' }),
+      );
+
+      await service.createFromRequest('r1', { title: 'x' } as any, user, ctx);
+      const createCall = prisma.maintenanceWorkOrder.create.mock.calls[0][0];
+      expect(createCall.data.machineComponentId).toBe('comp1');
+      expect(createCall.data.machineId).toBe('m1');
+    });
+
+    it('rejects a component override that contradicts the request component', async () => {
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ machineComponentId: 'comp1' }));
+      const promise = service.createFromRequest('r1', { title: 'x', machineComponentId: 'comp9' } as any, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'machineComponentId', code: 'workOrderComponentRequestMismatch' });
+    });
+
+    it('rejects a component override that belongs to another machine', async () => {
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord());
+      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'comp9', machineId: 'm9' });
+      const promise = service.createFromRequest('r1', { title: 'x', machineComponentId: 'comp9' } as any, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'machineComponentId', code: 'workOrderComponentMachineMismatch' });
+    });
+
+    it('rejects a supervisor from another branch (tenant isolation on assignment)', async () => {
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord());
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      prisma.user.findUnique.mockResolvedValue({ id: 'u9', companyId: 'c1', branchId: 'b2', status: 'ACTIVE' });
+      const promise = service.createFromRequest('r1', { title: 'x', supervisorId: 'u9' } as any, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'supervisorId', code: 'validation.invalidReference' });
+    });
+
+    it('rejects an inactive assigned user', async () => {
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord());
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      prisma.user.findUnique.mockResolvedValue({ id: 'u2', companyId: 'c1', branchId: 'b1', status: 'INACTIVE' });
+      const promise = service.createFromRequest('r1', { title: 'x', assignedToId: 'u2' } as any, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'assignedToId', code: 'validation.invalidReference' });
+    });
+
+    it('allows multiple work orders built from the same request (many-to-one)', async () => {
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord());
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      numbering.generateNumberAtomic.mockResolvedValueOnce('WO-0001').mockResolvedValueOnce('WO-0002');
+      prisma.maintenanceWorkOrder.create.mockResolvedValueOnce(wo({ id: 'wo1' })).mockResolvedValueOnce(wo({ id: 'wo2' }));
+
+      await service.createFromRequest('r1', { title: 'first' } as any, user, ctx);
+      await service.createFromRequest('r1', { title: 'second' } as any, user, ctx);
+      expect(prisma.maintenanceWorkOrder.create).toHaveBeenCalledTimes(2);
+      expect(prisma.maintenanceWorkOrder.create.mock.calls[0][0].data.requestId).toBe('r1');
+      expect(prisma.maintenanceWorkOrder.create.mock.calls[1][0].data.requestId).toBe('r1');
+    });
+  });
+
+  describe('R2-C generic create request-link validation', () => {
+    const ownedMachine = { id: 'm1', companyId: 'c1', branchId: 'b1' };
+    const requestRecord = (overrides: Record<string, any> = {}) => ({
+      id: 'r1', status: 'OPEN', machineId: 'm1', machine: ownedMachine, machineComponentId: null, ...overrides,
+    });
+
+    it('terminal request cannot be linked by generic create', async () => {
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'COMPLETED' }));
+      const promise = service.create({ title: 'x', requestId: 'r1' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'requestId', code: 'workOrderRequestTerminal' });
+    });
+
+    it('rejects generic create when the WO machine differs from the request machine', async () => {
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord());
+      const promise = service.create({ title: 'x', requestId: 'r1', machineId: 'm2' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'machineId', code: 'workOrderMachineRequestMismatch' });
+    });
+
+    it('generic create derives the machine from the request when machineId is omitted', async () => {
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord());
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      prisma.machineComponent.findUnique.mockResolvedValue(null);
+      prisma.warehouse.findUnique.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.maintenanceWorkOrder.create.mockResolvedValue(wo({ requestId: 'r1', machineId: 'm1' }));
+
+      await service.create({ title: 'x', requestId: 'r1' }, user, ctx);
+      const createCall = prisma.maintenanceWorkOrder.create.mock.calls[0][0];
+      expect(createCall.data).toMatchObject({ requestId: 'r1', machineId: 'm1' });
+    });
+
+    it('rejects a component that belongs to another machine', async () => {
+      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'comp9', machineId: 'm9' });
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      const promise = service.create({ title: 'x', machineId: 'm1', machineComponentId: 'comp9' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'machineComponentId', code: 'workOrderComponentMachineMismatch' });
+    });
+
+    it('rejects a foreign warehouse on create', async () => {
+      prisma.warehouse.findUnique.mockResolvedValue({ id: 'wX', companyId: 'c2', branchId: 'b1' });
+      const promise = service.create({ title: 'x', warehouseId: 'wX' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'warehouseId', code: 'validation.invalidReference' });
+    });
+  });
+
+  describe('R2-C update linkage immutability', () => {
+    const ownedMachine = { id: 'm1', companyId: 'c1', branchId: 'b1' };
+    const requestRecord = (overrides: Record<string, any> = {}) => ({
+      id: 'r1', status: 'OPEN', machineId: 'm1', machine: ownedMachine, machineComponentId: null, ...overrides,
+    });
+
+    it('rejects changing the request link on a linked work order', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo({ requestId: 'r1', machineId: 'm1', status: 'PLANNED' }));
+      const promise = service.update('wo1', { requestId: 'r9' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'requestId', code: 'workOrderRequestLinkImmutable' });
+    });
+
+    it('rejects clearing the request link on a linked work order', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo({ requestId: 'r1', machineId: 'm1', status: 'PLANNED' }));
+      const promise = service.update('wo1', { requestId: null } as any, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'requestId', code: 'workOrderRequestLinkImmutable' });
+    });
+
+    it('keeps a COMPLETED work order linkage immutable', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo({ requestId: 'r1', machineId: 'm1', status: 'COMPLETED' }));
+      const promise = service.update('wo1', { requestId: 'r9' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'requestId', code: 'workOrderRequestLinkImmutable' });
+    });
+
+    it('attaches a request to an unlinked DRAFT work order with no child evidence', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo());
+      prisma.maintenanceWorkOrderPart = { count: jest.fn().mockResolvedValue(0) };
+      prisma.maintenanceWorkOrderCostEntry = { count: jest.fn().mockResolvedValue(0) };
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord());
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      prisma.machineComponent.findUnique.mockResolvedValue(null);
+      prisma.warehouse.findUnique.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.maintenanceWorkOrder.update.mockResolvedValue(wo({ requestId: 'r1', machineId: 'm1' }));
+
+      const result = await service.update('wo1', { requestId: 'r1' }, user, ctx);
+      const updateCall = prisma.maintenanceWorkOrder.update.mock.calls[0][0];
+      expect(updateCall.data).toMatchObject({ requestId: 'r1', machineId: 'm1' });
+      expect(result.requestId).toBe('r1');
+    });
+
+    it('rejects attaching a request to a DRAFT work order that already has parts', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo());
+      prisma.maintenanceWorkOrderPart = { count: jest.fn().mockResolvedValue(1) };
+      prisma.maintenanceWorkOrderCostEntry = { count: jest.fn().mockResolvedValue(0) };
+      const promise = service.update('wo1', { requestId: 'r1' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'requestId', code: 'workOrderRequestLinkImmutable' });
+    });
+
+    it('rejects linking a terminal request to an unlinked DRAFT work order', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo());
+      prisma.maintenanceWorkOrderPart = { count: jest.fn().mockResolvedValue(0) };
+      prisma.maintenanceWorkOrderCostEntry = { count: jest.fn().mockResolvedValue(0) };
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'CLOSED' }));
+      const promise = service.update('wo1', { requestId: 'r1' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'requestId', code: 'workOrderRequestTerminal' });
+    });
+
+    it('rejects a machine change that contradicts the linked request', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo({ requestId: 'r1', machineId: 'm1' }));
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord());
+      const promise = service.update('wo1', { machineId: 'm2' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'machineId', code: 'workOrderMachineRequestMismatch' });
+    });
+
+    it('rejects a component change that contradicts the linked request', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo({ requestId: 'r1', machineId: 'm1', machineComponentId: 'comp1' }));
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ machineComponentId: 'comp1' }));
+      const promise = service.update('wo1', { machineComponentId: 'comp2' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'machineComponentId', code: 'workOrderComponentRequestMismatch' });
+    });
+  });
+
+  describe('R2-C transition request-state coordination', () => {
+    it('start is rejected while the linked request is not IN_PROGRESS (OPEN request + PLANNED work order)', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo({ status: 'PLANNED', requestId: 'r1' }));
+      prisma.maintenanceRequest.findUnique.mockResolvedValue({ id: 'r1', status: 'OPEN' });
+      const promise = service.transition('wo1', { action: 'start' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'status', code: 'workOrderStartRequiresInProgressRequest' });
+    });
+
+    it('start succeeds when the linked request is IN_PROGRESS', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo({ status: 'PLANNED', requestId: 'r1' }));
+      prisma.maintenanceRequest.findUnique.mockResolvedValue({ id: 'r1', status: 'IN_PROGRESS' });
+      prisma.maintenanceWorkOrder.update.mockResolvedValue(wo({ status: 'IN_PROGRESS', startedAt: new Date() }));
+
+      const result = await service.transition('wo1', { action: 'start' }, user, ctx);
+      const updateCall = prisma.maintenanceWorkOrder.update.mock.calls[0][0];
+      expect(updateCall.data.status).toBe('IN_PROGRESS');
+      expect(result.status).toBe('IN_PROGRESS');
+    });
+
+    it.each(['COMPLETED', 'CANCELLED', 'CLOSED'])('start is rejected when the linked request is %s', async (status) => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo({ status: 'PLANNED', requestId: 'r1' }));
+      prisma.maintenanceRequest.findUnique.mockResolvedValue({ id: 'r1', status });
+      const promise = service.transition('wo1', { action: 'start' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'status', code: 'workOrderRequestTerminalBlocksTransition' });
+    });
+
+    it('plan is rejected when the linked request is terminal', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo({ status: 'DRAFT', requestId: 'r1' }));
+      prisma.maintenanceRequest.findUnique.mockResolvedValue({ id: 'r1', status: 'COMPLETED' });
+      const promise = service.transition('wo1', { action: 'plan' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'status', code: 'workOrderRequestTerminalBlocksTransition' });
+    });
+
+    it('complete rejects a work order whose linked request is CLOSED', async () => {
+      prisma.maintenanceWorkOrder.findFirst.mockResolvedValue(wo({
+        status: 'IN_PROGRESS',
+        requestId: 'r1',
+        request: { id: 'r1', status: 'CLOSED' },
+        costEntries: [],
+      }));
+      const promise = service.transition('wo1', { action: 'complete' }, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'status', code: 'workOrderRequestCancelledBlocksCompletion' });
+      expect(prisma.maintenanceWorkOrder.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('R2-C findAll requestId tenant scoping', () => {
+    it('scopes a requestId-filtered list to company, branch and non-deleted rows', async () => {
+      prisma.maintenanceWorkOrder.findMany.mockResolvedValue([]);
+      prisma.maintenanceWorkOrder.count.mockResolvedValue(0);
+
+      await service.findAll({ page: 1, limit: 10, requestId: 'r1' }, ctx);
+      expect(prisma.maintenanceWorkOrder.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'c1', branchId: 'b1', deletedAt: null, requestId: 'r1' }),
+        }),
+      );
+      expect(prisma.maintenanceWorkOrder.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'c1', branchId: 'b1', deletedAt: null, requestId: 'r1' }),
+        }),
+      );
+    });
+  });
 });

@@ -726,7 +726,7 @@ export interface MaintenanceWorkOrder {
   branch?: { id: string; name: string };
   machine?: { id: string; code: string; name: string };
   machineComponent?: { id: string; code: string; name: string };
-  request?: { id: string; requestNumber: string; title: string };
+  request?: { id: string; requestNumber: string; title?: string; status?: string };
   warehouse?: { id: string; code: string; name: string };
   assignedTo?: { id: string; name: string };
   supervisor?: { id: string; name: string };

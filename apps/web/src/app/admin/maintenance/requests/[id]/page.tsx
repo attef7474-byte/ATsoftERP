@@ -15,9 +15,9 @@ interface RequestDetail extends MaintenanceRequest {
   downtimeLogs?: DowntimeLog[];
   requiredParts?: any[];
 }
-import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, ConfirmDialog, Select } from '../../../../../components/admin/ui';
-import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionBarcodeIcon } from '../../../../../components/admin/admin-action-bar';
-import { F9Lookup, sparePartAdapter, warehouseAdapter } from '../../../../../components/f9';
+import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, ConfirmDialog, Select, Modal, Input, Textarea, Button } from '../../../../../components/admin/ui';
+import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionBarcodeIcon, ActionAddIcon } from '../../../../../components/admin/admin-action-bar';
+import { F9Lookup, sparePartAdapter, warehouseAdapter, userAdapter } from '../../../../../components/f9';
 import { ReplacementHistoryCard } from '../../../../../components/admin/maintenance/replacement-history-card';
 
 export default function MaintenanceRequestDetailPage() {
@@ -70,6 +70,16 @@ export default function MaintenanceRequestDetailPage() {
   const [showStockIssueHistory, setShowStockIssueHistory] = useState('');
   const [conditionBalances, setConditionBalances] = useState<any[]>([]);
   const [conditionBalancesLoading, setConditionBalancesLoading] = useState(false);
+  const [workOrders, setWorkOrders] = useState<any[]>([]);
+  const [workOrdersLoading, setWorkOrdersLoading] = useState(false);
+  const [showCreateWorkOrder, setShowCreateWorkOrder] = useState(false);
+  const [createWOLoading, setCreateWOLoading] = useState(false);
+  const [createWOForm, setCreateWOForm] = useState({
+    title: '', description: '', type: 'CORRECTIVE', priority: 'MEDIUM',
+    supervisorId: '', assignedToId: '', warehouseId: '',
+    plannedStartAt: '', plannedEndAt: '', estimatedCost: '', notes: '',
+  });
+  const [createWOErrors, setCreateWOErrors] = useState<Record<string, string>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -104,7 +114,16 @@ export default function MaintenanceRequestDetailPage() {
     finally { setPartLinesLoading(false); }
   }, [id]);
 
-  useEffect(() => { fetchData(); fetchAssignments(); fetchPartAccountabilities(); fetchPartLines(); }, [fetchData, fetchAssignments, fetchPartAccountabilities, fetchPartLines]);
+  const fetchWorkOrders = useCallback(async () => {
+    setWorkOrdersLoading(true);
+    try {
+      const res = await api.get<any>(`/maintenance-work-orders?requestId=${id}&limit=50`);
+      setWorkOrders(res.data || []);
+    } catch { setWorkOrders([]); }
+    finally { setWorkOrdersLoading(false); }
+  }, [id]);
+
+  useEffect(() => { fetchData(); fetchAssignments(); fetchPartAccountabilities(); fetchPartLines(); fetchWorkOrders(); }, [fetchData, fetchAssignments, fetchPartAccountabilities, fetchPartLines, fetchWorkOrders]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -134,7 +153,28 @@ export default function MaintenanceRequestDetailPage() {
     close: () => confirmAndExec('close'),
     cancel: () => confirmAndExec('cancel'),
     reopen: () => confirmAndExec('reopen'),
+    addWorkOrder: () => {
+      if (!data) return;
+      setCreateWOForm({
+        title: data.title || '',
+        description: data.description || '',
+        type: 'CORRECTIVE',
+        priority: data.priority || 'MEDIUM',
+        supervisorId: '',
+        assignedToId: '',
+        warehouseId: '',
+        plannedStartAt: '',
+        plannedEndAt: '',
+        estimatedCost: '',
+        notes: '',
+      });
+      setCreateWOErrors({});
+      setShowCreateWorkOrder(true);
+    },
   });
+
+  const canCreateWorkOrder = isSuperAdmin || Boolean(permissions?.permissions.includes('maintenance-work-order:create'));
+  const requestIsTerminal = data ? ['COMPLETED', 'CANCELLED', 'CLOSED'].includes(data.status) : true;
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
@@ -145,6 +185,7 @@ export default function MaintenanceRequestDetailPage() {
     { id: 'close', labelKey: 'common.close', icon: <ActionCompleteIcon />, onClick: () => exec('close'), enabled: !!(data && data.status === 'COMPLETED') },
     { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(data && (data.status === 'OPEN' || data.status === 'IN_PROGRESS')), variant: 'danger' },
     { id: 'reopen', labelKey: 'common.reopen', icon: <ActionRefreshIcon />, onClick: () => exec('reopen'), enabled: !!(data && (data.status === 'COMPLETED' || data.status === 'CANCELLED' || data.status === 'CLOSED')) },
+    { id: 'addWorkOrder', labelKey: 'maintenance.createWorkOrderFromRequest', icon: <ActionAddIcon />, onClick: () => exec('addWorkOrder'), enabled: !!data && !requestIsTerminal && canCreateWorkOrder },
   ]);
 
   if (loading) return <LoadingState />;
@@ -161,7 +202,11 @@ export default function MaintenanceRequestDetailPage() {
     { id: 'partAccountability', label: t('maintenance.partAccountabilities') },
     { id: 'costs', label: t('maintenanceWorkflow.workflowCosts') },
     { id: 'replacementHistory', label: t('maintenance.replacementHistory') },
+    { id: 'workOrders', label: t('maintenance.linkedWorkOrders') },
   ];
+
+  const createWOTypeOptions = ['CORRECTIVE', 'PREVENTIVE', 'PREDICTIVE', 'OVERHAUL', 'OTHER'].map((type) => ({ value: type, label: t(`status.${type}`) }));
+  const createWOPriorityOptions = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((priority) => ({ value: priority, label: t(`status.${priority}`) }));
 
   const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
 
@@ -174,6 +219,41 @@ export default function MaintenanceRequestDetailPage() {
     } catch (err: any) {
       handleApiError(err);
     } finally { setPartLineActionLoading(''); }
+  };
+
+  const createWorkOrderFromRequest = async () => {
+    const errors: Record<string, string> = {};
+    if (!createWOForm.title.trim()) errors.title = t('validation.required');
+    setCreateWOErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    setCreateWOLoading(true);
+    try {
+      const payload: any = { title: createWOForm.title.trim(), type: createWOForm.type || 'CORRECTIVE', priority: createWOForm.priority || 'MEDIUM' };
+      if (createWOForm.description.trim()) payload.description = createWOForm.description.trim();
+      if (createWOForm.supervisorId) payload.supervisorId = createWOForm.supervisorId;
+      if (createWOForm.assignedToId) payload.assignedToId = createWOForm.assignedToId;
+      if (createWOForm.warehouseId) payload.warehouseId = createWOForm.warehouseId;
+      if (createWOForm.plannedStartAt) payload.plannedStartAt = new Date(createWOForm.plannedStartAt).toISOString();
+      if (createWOForm.plannedEndAt) payload.plannedEndAt = new Date(createWOForm.plannedEndAt).toISOString();
+      if (createWOForm.estimatedCost.trim()) {
+        const value = Number(createWOForm.estimatedCost);
+        if (!Number.isNaN(value) && value >= 0) payload.estimatedCost = value;
+      }
+      if (createWOForm.notes.trim()) payload.notes = createWOForm.notes.trim();
+      const created = await api.post<any>(`/maintenance-work-orders/from-request/${id}`, payload);
+      showToast(t('common.successCreated'), 'success');
+      setShowCreateWorkOrder(false);
+      setCreateWOForm({
+        title: '', description: '', type: 'CORRECTIVE', priority: 'MEDIUM',
+        supervisorId: '', assignedToId: '', warehouseId: '',
+        plannedStartAt: '', plannedEndAt: '', estimatedCost: '', notes: '',
+      });
+      fetchWorkOrders();
+      if (created?.id) router.push(`/admin/maintenance/work-orders/${created.id}`);
+      else fetchData();
+    } catch (err: any) {
+      handleApiError(err);
+    } finally { setCreateWOLoading(false); }
   };
 
   const addPartLine = async () => {
@@ -724,6 +804,83 @@ export default function MaintenanceRequestDetailPage() {
 
       {activeTab === 'replacementHistory' && (
         <ReplacementHistoryCard requestId={id} />
+      )}
+
+      {activeTab === 'workOrders' && (
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-semibold text-gray-700">{t('maintenance.linkedWorkOrders')}</h3>
+              {!requestIsTerminal && canCreateWorkOrder && (
+                <button onClick={() => exec('addWorkOrder')} className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">{t('maintenance.createWorkOrderFromRequest')}</button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-gray-400 mb-3">{t('maintenance.createWorkOrderFromRequestHint')}</p>
+            {workOrdersLoading ? <LoadingState /> : workOrders.length === 0 ? (
+              <p className="text-sm text-gray-500 py-4">{t('maintenance.noLinkedWorkOrders')}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.workOrderNumber')}</th>
+                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.workOrderTitle')}</th>
+                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.workOrderStatus')}</th>
+                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.workOrderType')}</th>
+                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.workOrderMachine')}</th>
+                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('common.actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {workOrders.map((wo) => (
+                      <tr key={wo.id} className="border-b hover:bg-gray-50">
+                        <td className="py-2 px-2">{wo.workOrderNumber}</td>
+                        <td className="py-2 px-2">{wo.title}</td>
+                        <td className="py-2 px-2"><StatusBadge status={wo.status} /></td>
+                        <td className="py-2 px-2">{t('status.' + wo.type)}</td>
+                        <td className="py-2 px-2">{wo.machine ? `[${wo.machine.code}] ${wo.machine.name}` : '-'}</td>
+                        <td className="py-2 px-2">
+                          <button onClick={() => router.push(`/admin/maintenance/work-orders/${wo.id}`)} className="text-blue-600 hover:text-blue-800 font-medium">{t('maintenance.goToWorkOrder')}</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {showCreateWorkOrder && (
+        <Modal open={showCreateWorkOrder} onClose={() => setShowCreateWorkOrder(false)} title={t('maintenance.createWorkOrderFromRequest')}>
+          <div className="space-y-4">
+            {createWOErrors.form && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{createWOErrors.form}</div>}
+            <Input label={t('maintenance.workOrderTitle')} name="title" value={createWOForm.title} onChange={(e) => { setCreateWOForm({ ...createWOForm, title: e.target.value }); setCreateWOErrors(prev => ({ ...prev, title: '' })); }} error={createWOErrors.title} required />
+            <Textarea label={t('maintenance.workOrderDescription')} name="description" value={createWOForm.description} onChange={(e) => { setCreateWOForm({ ...createWOForm, description: e.target.value }); setCreateWOErrors(prev => ({ ...prev, description: '' })); }} error={createWOErrors.description} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Select label={t('maintenance.workOrderType')} name="type" value={createWOForm.type} onChange={(e) => setCreateWOForm({ ...createWOForm, type: e.target.value })} options={createWOTypeOptions} />
+              <Select label={t('maintenance.workOrderPriority')} name="priority" value={createWOForm.priority} onChange={(e) => setCreateWOForm({ ...createWOForm, priority: e.target.value })} options={createWOPriorityOptions} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <F9Lookup label={t('maintenance.workOrderSupervisor')} name="supervisorId" value={createWOForm.supervisorId} onChange={(v) => setCreateWOForm({ ...createWOForm, supervisorId: v })} adapter={userAdapter} />
+              <F9Lookup label={t('maintenance.workOrderAssignedTo')} name="assignedToId" value={createWOForm.assignedToId} onChange={(v) => setCreateWOForm({ ...createWOForm, assignedToId: v })} adapter={userAdapter} />
+            </div>
+            <F9Lookup label={t('maintenance.workOrderWarehouse')} name="warehouseId" value={createWOForm.warehouseId} onChange={(v) => setCreateWOForm({ ...createWOForm, warehouseId: v })} adapter={warehouseAdapter} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Input label={t('maintenance.workOrderPlannedStart')} name="plannedStartAt" type="datetime-local" value={createWOForm.plannedStartAt} onChange={(e) => setCreateWOForm({ ...createWOForm, plannedStartAt: e.target.value })} />
+              <Input label={t('maintenance.workOrderPlannedEnd')} name="plannedEndAt" type="datetime-local" value={createWOForm.plannedEndAt} onChange={(e) => setCreateWOForm({ ...createWOForm, plannedEndAt: e.target.value })} />
+              <Input label={t('maintenance.workOrderEstimatedCost')} name="estimatedCost" type="number" min="0" step="0.01" value={createWOForm.estimatedCost} onChange={(e) => setCreateWOForm({ ...createWOForm, estimatedCost: e.target.value })} />
+            </div>
+            <Textarea label={t('maintenance.workOrderNotes')} name="notes" value={createWOForm.notes} onChange={(e) => setCreateWOForm({ ...createWOForm, notes: e.target.value })} />
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="secondary" onClick={() => setShowCreateWorkOrder(false)}>{t('actions.cancel')}</Button>
+              <Button onClick={createWorkOrderFromRequest} loading={createWOLoading}>{t('actions.save')}</Button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={() => execWorkflow(pendingAction)}

@@ -582,6 +582,22 @@ export class MaintenanceRequestsService {
       throw this.badRequest('maintenance.onlyOpenInProgressCanCancel', 'Only OPEN or IN_PROGRESS requests can be cancelled');
     }
 
+    // R2-C: never orphan execution work orders. When a linked work order is already
+    // planned or in progress the request cannot be cancelled; the operator must
+    // cancel the work orders first. DRAFT work orders do not block cancellation and
+    // are never cascade-cancelled.
+    const activeWorkOrders = await this.prisma.maintenanceWorkOrder.findMany({
+      where: { requestId: id, status: { in: ['PLANNED', 'IN_PROGRESS'] }, deletedAt: null },
+      select: { id: true },
+    });
+    if (activeWorkOrders.length > 0) {
+      throw this.badRequest(
+        'maintenance.activeWorkOrdersBlockCancel',
+        `Cannot cancel request: ${activeWorkOrders.length} work order(s) are still planned or in progress. Cancel the work orders first.`,
+        { count: String(activeWorkOrders.length) },
+      );
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
       if (req.status === 'IN_PROGRESS') {
         const activeRequests = await tx.maintenanceRequest.count({
@@ -666,8 +682,19 @@ export class MaintenanceRequestsService {
       where: { id },
       data: { status: 'OPEN', endDate: null, downtimeHours: null },
     });
+    // R2-C: reopening a terminal request is a header-only operation. Work orders are
+    // never mutated; the audit records the current linked work-order context so the
+    // reopen is fully accountable (reopen keeps COMPLETED/CANCELLED evidence intact).
+    const linkedWorkOrders = await this.prisma.maintenanceWorkOrder.findMany({
+      where: { requestId: id, deletedAt: null },
+      select: { id: true, workOrderNumber: true, status: true },
+    });
     await this.audit.log(userId, 'REOPEN', 'MaintenanceRequest', id,
-      { oldStatus: req.status, newStatus: 'OPEN' });
+      {
+        oldStatus: req.status,
+        newStatus: 'OPEN',
+        linkedWorkOrders: linkedWorkOrders.map((w) => ({ id: w.id, workOrderNumber: w.workOrderNumber, status: w.status })),
+      });
     return updated;
   }
 

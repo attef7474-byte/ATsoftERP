@@ -484,4 +484,80 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
       expect.objectContaining({ data: expect.objectContaining({ deletedAt: expect.any(Date) }) }),
     );
   });
+
+  // -- R2-C: request↔work-order coordination --
+
+  it('cancel is blocked while a linked work order is PLANNED (anti-orphaning)', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'IN_PROGRESS' }));
+    prisma.maintenanceWorkOrder.findMany.mockResolvedValue([{ id: 'w1' }]);
+    await expect(service.cancel('r1', 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.activeWorkOrdersBlockCancel', params: { count: '1' } },
+    });
+    expect(prisma.maintenanceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it('cancel is blocked while a linked work order is IN_PROGRESS', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'IN_PROGRESS' }));
+    prisma.maintenanceWorkOrder.findMany.mockResolvedValue([{ id: 'w1' }, { id: 'w2' }]);
+    await expect(service.cancel('r1', 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.activeWorkOrdersBlockCancel', params: { count: '2' } },
+    });
+    expect(prisma.maintenanceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it('cancel succeeds when linked work orders are only DRAFT/CANCELLED/COMPLETED (non-blocking)', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'OPEN' }));
+    prisma.maintenanceWorkOrder.findMany.mockResolvedValue([]);
+    prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
+    prisma.maintenanceRequest.update.mockResolvedValue(requestRecord({ status: 'CANCELLED' }));
+
+    const result: any = await service.cancel('r1', 'u1', ctx);
+    expect(result.status).toBe('CANCELLED');
+    expect(prisma.maintenanceWorkOrder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ requestId: 'r1', status: { in: ['PLANNED', 'IN_PROGRESS'] }, deletedAt: null }),
+      }),
+    );
+    expect(audit.log).toHaveBeenCalledWith('u1', 'CANCEL', 'MaintenanceRequest', 'r1',
+      expect.objectContaining({ newStatus: 'CANCELLED' }));
+  });
+
+  it('reopen audits linked work-order context and never mutates work orders', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'CLOSED' }));
+    prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
+    prisma.maintenanceRequest.update.mockResolvedValue(requestRecord({ status: 'OPEN' }));
+    prisma.maintenanceWorkOrder.findMany.mockResolvedValue([
+      { id: 'w1', workOrderNumber: 'WO-0001', status: 'COMPLETED' },
+    ]);
+
+    const result: any = await service.reopen('r1', 'u1', ctx);
+    expect(result.status).toBe('OPEN');
+    expect(prisma.maintenanceRequest.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'OPEN', endDate: null, downtimeHours: null } }),
+    );
+    expect(audit.log).toHaveBeenCalledWith('u1', 'REOPEN', 'MaintenanceRequest', 'r1',
+      expect.objectContaining({
+        oldStatus: 'CLOSED',
+        newStatus: 'OPEN',
+        linkedWorkOrders: [{ id: 'w1', workOrderNumber: 'WO-0001', status: 'COMPLETED' }],
+      }),
+    );
+    expect((prisma.maintenanceWorkOrder as any).update).toBeUndefined();
+  });
+
+  it('reopen keeps linked work orders untouched (PLANNED survives a CANCELLED request reopen)', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'CANCELLED' }));
+    prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
+    prisma.maintenanceRequest.update.mockResolvedValue(requestRecord({ status: 'OPEN' }));
+    prisma.maintenanceWorkOrder.findMany.mockResolvedValue([
+      { id: 'w1', workOrderNumber: 'WO-0001', status: 'PLANNED' },
+    ]);
+
+    await service.reopen('r1', 'u1', ctx);
+    expect((prisma.maintenanceWorkOrder as any).update).toBeUndefined();
+    expect(audit.log).toHaveBeenCalledWith('u1', 'REOPEN', 'MaintenanceRequest', 'r1',
+      expect.objectContaining({
+        linkedWorkOrders: [expect.objectContaining({ status: 'PLANNED' })],
+      }));
+  });
 });

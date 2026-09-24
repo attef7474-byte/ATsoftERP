@@ -4,6 +4,7 @@ import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../../modules/numbering/numbering.service';
 import { CreateMaintenanceWorkOrderDto, CreateWorkOrderPartDto } from './dto/create-maintenance-work-order.dto';
+import { CreateWorkOrderFromRequestDto } from './dto/create-work-order-from-request.dto';
 import { UpdateMaintenanceWorkOrderDto } from './dto/update-maintenance-work-order.dto';
 import { AddWorkOrderPartDto, UpdateWorkOrderPartDto, IssueWorkOrderPartsDto } from './dto/work-order-part.dto';
 import { AddWorkOrderCostEntryDto, UpdateWorkOrderCostEntryDto } from './dto/work-order-cost-entry.dto';
@@ -111,7 +112,7 @@ export class MaintenanceWorkOrdersService {
     branch: { select: { id: true, name: true } },
     machine: { select: { id: true, code: true, name: true } },
     machineComponent: { select: { id: true, code: true, name: true } },
-    request: { select: { id: true, requestNumber: true, title: true } },
+    request: { select: { id: true, requestNumber: true, title: true, status: true } },
     warehouse: { select: { id: true, code: true, name: true } },
     assignedTo: { select: { id: true, name: true } },
     supervisor: { select: { id: true, name: true } },
@@ -313,7 +314,7 @@ export class MaintenanceWorkOrdersService {
 
   private async assertOwnedRef(
     model: 'machine' | 'machineComponent' | 'warehouse' | 'maintenanceRequest',
-    id: string | undefined,
+    id: string | null | undefined,
     field: string,
     ctx: ActiveOperationalContext,
   ) {
@@ -347,6 +348,121 @@ export class MaintenanceWorkOrdersService {
     if (user.companyId && user.companyId !== ctx.companyId) {
       throw this.validationError(field, 'validation.invalidReference', 'Referenced user belongs to another company');
     }
+    if (user.branchId && user.branchId !== ctx.branchId) {
+      throw this.validationError(field, 'validation.invalidReference', 'Referenced user belongs to another branch');
+    }
+    if (user.status && user.status !== 'ACTIVE') {
+      throw this.validationError(field, 'validation.invalidReference', 'Referenced user is not active');
+    }
+    if (user.deletedAt) {
+      throw this.validationError(field, 'validation.invalidReference', 'Referenced user is not active');
+    }
+  }
+
+  /**
+   * R2-C canonical request↔work-order link validation. When a work order is linked
+   * to a maintenance request the effective machine must equal the request machine,
+   * the component (when present) must belong to that machine, the request must be
+   * tenant-owned and not soft-deleted, and (on creation/attachment) must not be
+   * terminal. Server-side derivation: an omitted machine defaults from the request
+   * and an omitted component defaults from the request component. Resolves the
+   * canonical machine/component the caller must persist.
+   */
+  private async assertCanonicalRequestLink(
+    input: { requestId?: string | null; machineId?: string | null | undefined; machineComponentId?: string | null | undefined },
+    ctx: ActiveOperationalContext,
+    opts: { requireNonTerminal?: boolean } = {},
+  ): Promise<{ requestId: string | null; machineId: string | null; machineComponentId: string | null }> {
+    let requestId = input.requestId ?? null;
+    let machineId = input.machineId === undefined ? null : input.machineId;
+    let machineComponentId = input.machineComponentId === undefined ? null : input.machineComponentId;
+
+    if (requestId) {
+      const request = await this.prisma.maintenanceRequest.findUnique({
+        where: { id: requestId },
+        include: { machine: true },
+      });
+      if (!request || request.deletedAt) {
+        throw this.validationError('requestId', 'workOrderRequestInvalidReference', 'Referenced maintenance request not found or deleted');
+      }
+      // Tenant: the request must resolve to a machine owned by the active context.
+      let reqMachine: { companyId: string | null; branchId: string | null } | null = request.machine ?? null;
+      if (!reqMachine && request.machineId) {
+        reqMachine = await this.prisma.machine.findUnique({ where: { id: request.machineId } });
+      }
+      if (!reqMachine || reqMachine.companyId !== ctx.companyId) {
+        throw this.validationError('requestId', 'validation.invalidReference', 'Referenced request belongs to another company');
+      }
+      if (reqMachine.branchId && reqMachine.branchId !== ctx.branchId) {
+        throw this.validationError('requestId', 'validation.invalidReference', 'Referenced request belongs to another branch');
+      }
+      // Terminal requests cannot drive new or re-planned work orders.
+      if (opts.requireNonTerminal !== false && ['COMPLETED', 'CANCELLED', 'CLOSED'].includes(request.status)) {
+        throw this.validationError('requestId', 'workOrderRequestTerminal', `Cannot link the ${request.status} maintenance request to a work order`);
+      }
+      // Work-order machine must equal the request machine.
+      if (machineId && request.machineId && machineId !== request.machineId) {
+        throw this.validationError('machineId', 'workOrderMachineRequestMismatch', 'Work order machine does not match the maintenance request machine');
+      }
+      if (machineId === null && request.machineId) {
+        machineId = request.machineId;
+      }
+      // Component defaults from the request and must not contradict it.
+      if (request.machineComponentId) {
+        if (machineComponentId && machineComponentId !== request.machineComponentId) {
+          throw this.validationError('machineComponentId', 'workOrderComponentRequestMismatch', 'Work order component does not match the maintenance request component');
+        }
+        if (machineComponentId === null) {
+          machineComponentId = request.machineComponentId;
+        }
+      }
+    }
+
+    // General integrity: a component must belong to the effective machine.
+    if (machineComponentId && machineId) {
+      const component = await this.prisma.machineComponent.findUnique({ where: { id: machineComponentId } });
+      if (!component) {
+        throw this.validationError('machineComponentId', 'validation.invalidReference', 'Referenced machine component not found');
+      }
+      if (component.machineId && component.machineId !== machineId) {
+        throw this.validationError('machineComponentId', 'workOrderComponentMachineMismatch', 'Work order component does not belong to the work order machine');
+      }
+    }
+
+    return { requestId, machineId, machineComponentId };
+  }
+
+  /**
+   * R2-C request-state coordination for work-order transitions. A linked work order
+   * may only be planned against a non-terminal request and only started while its
+   * request is actually IN_PROGRESS. Fail-closed: terminal or missing requests block
+   * the transition with a structured validation error.
+   */
+  private async assertRequestStateAllowsTransition(requestId: string, action: string, ctx: ActiveOperationalContext) {
+    if (action !== 'plan' && action !== 'start') {
+      return;
+    }
+    const request = await this.prisma.maintenanceRequest.findUnique({
+      where: { id: requestId },
+      select: { id: true, status: true, deletedAt: true },
+    });
+    if (!request || request.deletedAt) {
+      throw this.validationError('requestId', 'workOrderRequestInvalidReference', 'The linked maintenance request does not exist or was deleted');
+    }
+    if (['COMPLETED', 'CANCELLED', 'CLOSED'].includes(request.status)) {
+      throw this.validationError(
+        'status',
+        'workOrderRequestTerminalBlocksTransition',
+        `Cannot ${action} the work order: its maintenance request is ${request.status}`,
+      );
+    }
+    if (action === 'start' && request.status !== 'IN_PROGRESS') {
+      throw this.validationError(
+        'status',
+        'workOrderStartRequiresInProgressRequest',
+        'The maintenance request must be IN_PROGRESS before its work orders can start',
+      );
+    }
   }
 
   private async resolvePartProduct(dto: CreateWorkOrderPartDto, ctx: ActiveOperationalContext) {
@@ -375,10 +491,40 @@ export class MaintenanceWorkOrdersService {
   }
 
   async create(dto: CreateMaintenanceWorkOrderDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
+    // R2-C: any requestId/machineId/component pair is validated canonically
+    // (tenant, terminal, request↔machine coupling, component↔machine binding).
+    const resolved = await this.assertCanonicalRequestLink(
+      { requestId: dto.requestId, machineId: dto.machineId, machineComponentId: dto.machineComponentId },
+      ctx,
+    );
+    return this.executeCreate(dto, resolved, 'GENERIC', user, ctx);
+  }
+
+  /**
+   * R2-C canonical create-from-request. requestId and machineId are server-derived
+   * from the validated maintenance request (companyId/branchId always from ctx);
+   * the machineComponentId defaults from the request and may only be overridden by
+   * a component that belongs to the request machine.
+   */
+  async createFromRequest(requestId: string, dto: CreateWorkOrderFromRequestDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
+    const resolved = await this.assertCanonicalRequestLink(
+      { requestId, machineId: null, machineComponentId: dto.machineComponentId },
+      ctx,
+    );
+    return this.executeCreate(dto, resolved, 'FROM_REQUEST', user, ctx, requestId);
+  }
+
+  private async executeCreate(
+    dto: CreateMaintenanceWorkOrderDto | CreateWorkOrderFromRequestDto,
+    resolvedLink: { requestId: string | null; machineId: string | null; machineComponentId: string | null },
+    source: 'GENERIC' | 'FROM_REQUEST',
+    user: CurrentUserType,
+    ctx: ActiveOperationalContext,
+    sourceRequestId?: string,
+  ) {
     await Promise.all([
-      this.assertOwnedRef('machine', dto.machineId, 'machineId', ctx),
-      this.assertOwnedRef('machineComponent', dto.machineComponentId, 'machineComponentId', ctx),
-      this.assertOwnedRef('maintenanceRequest', dto.requestId, 'requestId', ctx),
+      this.assertOwnedRef('machine', resolvedLink.machineId, 'machineId', ctx),
+      this.assertOwnedRef('machineComponent', resolvedLink.machineComponentId, 'machineComponentId', ctx),
       this.assertOwnedRef('warehouse', dto.warehouseId, 'warehouseId', ctx),
       this.assertOwnedUser(dto.assignedToId, 'assignedToId', ctx),
       this.assertOwnedUser(dto.supervisorId, 'supervisorId', ctx),
@@ -402,9 +548,9 @@ export class MaintenanceWorkOrdersService {
         type: dto.type ?? 'CORRECTIVE',
         priority: dto.priority ?? 'MEDIUM',
         status: 'DRAFT',
-        machineId: dto.machineId ?? null,
-        machineComponentId: dto.machineComponentId ?? null,
-        requestId: dto.requestId ?? null,
+        machineId: resolvedLink.machineId,
+        machineComponentId: resolvedLink.machineComponentId,
+        requestId: resolvedLink.requestId,
         warehouseId: dto.warehouseId ?? null,
         assignedToId: dto.assignedToId ?? null,
         supervisorId: dto.supervisorId ?? null,
@@ -438,6 +584,10 @@ export class MaintenanceWorkOrdersService {
       companyId: wo.companyId,
       branchId: wo.branchId,
       machineId: wo.machineId,
+      machineComponentId: wo.machineComponentId,
+      requestId: wo.requestId,
+      source,
+      sourceRequestId: sourceRequestId ?? null,
       partsCount: resolvedParts.length,
     });
 
@@ -475,7 +625,7 @@ export class MaintenanceWorkOrdersService {
         include: {
           machine: { select: { id: true, code: true, name: true } },
           assignedTo: { select: { id: true, name: true } },
-          request: { select: { id: true, requestNumber: true } },
+          request: { select: { id: true, requestNumber: true, title: true } },
           _count: { select: { parts: true, costEntries: true } },
         },
       }),
@@ -492,10 +642,66 @@ export class MaintenanceWorkOrdersService {
   async update(id: string, dto: UpdateMaintenanceWorkOrderDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
     const wo = await this.findOwned(id, ctx);
 
+    // R2-C linkage immutability: once a request is linked it is immutable through the
+    // generic PATCH. A still-unlinked DRAFT work order may attach a request only while
+    // DRAFT and before any execution evidence (parts/cost entries) exists.
+    let effectiveRequestId = wo.requestId;
+    if (dto.requestId !== undefined && (dto.requestId ?? null) !== wo.requestId) {
+      if (wo.requestId) {
+        throw this.validationError(
+          'requestId',
+          'workOrderRequestLinkImmutable',
+          'The maintenance request link is immutable once set; cancel the work order instead of relinking it',
+        );
+      }
+      if (wo.status !== 'DRAFT') {
+        throw this.validationError(
+          'requestId',
+          'workOrderRequestLinkImmutable',
+          'A work order can only be linked to a maintenance request while it is DRAFT',
+        );
+      }
+      const [existingParts, existingCosts] = await Promise.all([
+        this.prisma.maintenanceWorkOrderPart.count({ where: { workOrderId: id } }),
+        this.prisma.maintenanceWorkOrderCostEntry.count({ where: { workOrderId: id } }),
+      ]);
+      if (existingParts > 0 || existingCosts > 0) {
+        throw this.validationError(
+          'requestId',
+          'workOrderRequestLinkImmutable',
+          'Cannot attach a maintenance request to a work order that already has parts or cost entries',
+        );
+      }
+      effectiveRequestId = dto.requestId ?? null;
+    }
+
+    const effectiveMachineId = dto.machineId !== undefined ? dto.machineId ?? null : wo.machineId;
+    const effectiveMachineComponentId = dto.machineComponentId !== undefined ? dto.machineComponentId ?? null : wo.machineComponentId;
+
+    // Canonical coupling on the effective values, with the terminal guard applied
+    // only when a NEW link is being attached (existing links are never re-checked).
+    const resolved = effectiveRequestId
+      ? await this.assertCanonicalRequestLink(
+          { requestId: effectiveRequestId, machineId: effectiveMachineId, machineComponentId: effectiveMachineComponentId },
+          ctx,
+          { requireNonTerminal: effectiveRequestId !== wo.requestId },
+        )
+      : { requestId: null, machineId: effectiveMachineId, machineComponentId: effectiveMachineComponentId };
+
+    // Unlinked work orders still bind a component to its machine.
+    if (!effectiveRequestId && effectiveMachineComponentId && effectiveMachineId) {
+      const component = await this.prisma.machineComponent.findUnique({ where: { id: effectiveMachineComponentId } });
+      if (!component) {
+        throw this.validationError('machineComponentId', 'validation.invalidReference', 'Referenced machine component not found');
+      }
+      if (component.machineId && component.machineId !== effectiveMachineId) {
+        throw this.validationError('machineComponentId', 'workOrderComponentMachineMismatch', 'Work order component does not belong to the work order machine');
+      }
+    }
+
     await Promise.all([
-      this.assertOwnedRef('machine', dto.machineId, 'machineId', ctx),
-      this.assertOwnedRef('machineComponent', dto.machineComponentId, 'machineComponentId', ctx),
-      this.assertOwnedRef('maintenanceRequest', dto.requestId, 'requestId', ctx),
+      this.assertOwnedRef('machine', resolved.machineId, 'machineId', ctx),
+      this.assertOwnedRef('machineComponent', resolved.machineComponentId, 'machineComponentId', ctx),
       this.assertOwnedRef('warehouse', dto.warehouseId, 'warehouseId', ctx),
       this.assertOwnedUser(dto.assignedToId, 'assignedToId', ctx),
       this.assertOwnedUser(dto.supervisorId, 'supervisorId', ctx),
@@ -508,9 +714,17 @@ export class MaintenanceWorkOrdersService {
         description: dto.description !== undefined ? dto.description ?? null : undefined,
         type: dto.type,
         priority: dto.priority,
-        machineId: dto.machineId !== undefined ? dto.machineId ?? null : undefined,
-        machineComponentId: dto.machineComponentId !== undefined ? dto.machineComponentId ?? null : undefined,
-        requestId: dto.requestId !== undefined ? dto.requestId ?? null : undefined,
+        machineId: effectiveRequestId
+          ? resolved.machineId
+          : dto.machineId !== undefined
+            ? resolved.machineId
+            : undefined,
+        machineComponentId: effectiveRequestId
+          ? resolved.machineComponentId
+          : dto.machineComponentId !== undefined
+            ? resolved.machineComponentId
+            : undefined,
+        requestId: dto.requestId !== undefined ? effectiveRequestId : undefined,
         warehouseId: dto.warehouseId !== undefined ? dto.warehouseId ?? null : undefined,
         assignedToId: dto.assignedToId !== undefined ? dto.assignedToId ?? null : undefined,
         supervisorId: dto.supervisorId !== undefined ? dto.supervisorId ?? null : undefined,
@@ -528,6 +742,8 @@ export class MaintenanceWorkOrdersService {
       type: updated.type,
       priority: updated.priority,
       machineId: updated.machineId,
+      machineComponentId: updated.machineComponentId,
+      requestId: updated.requestId,
       status: updated.status,
     });
 
@@ -539,6 +755,12 @@ export class MaintenanceWorkOrdersService {
       return this.completeWorkOrder(id, user, ctx);
     }
     const wo = await this.findOwned(id, ctx);
+
+    // R2-C: a linked work order may only be planned/started in step with its request
+    // state (plan requires a non-terminal request; start requires an IN_PROGRESS one).
+    if (wo.requestId) {
+      await this.assertRequestStateAllowsTransition(wo.requestId, dto.action, ctx);
+    }
 
     const transitions: Record<string, { from: string[]; to: string }> = {
       plan: { from: ['DRAFT'], to: 'PLANNED' },
@@ -616,6 +838,7 @@ export class MaintenanceWorkOrdersService {
                 machineId: true,
                 productionLineId: true,
                 costCenterId: true,
+                status: true,
               },
             },
             costEntries: {
@@ -634,6 +857,18 @@ export class MaintenanceWorkOrdersService {
             'status',
             'validation.invalidStatusTransition',
             `Cannot complete a work order in status '${workOrder.status}'. Expected IN_PROGRESS`,
+          );
+        }
+
+        // R2-C: a work order cannot complete against a cancelled/closed request.
+        // (Request completion itself is already blocked while this work order is
+        // open, so this is defense-in-depth for inconsistent historical data.)
+        const linkedRequestStatus = workOrder.request?.status;
+        if (linkedRequestStatus === 'CANCELLED' || linkedRequestStatus === 'CLOSED') {
+          throw this.validationError(
+            'status',
+            'workOrderRequestCancelledBlocksCompletion',
+            `Cannot complete the work order: its maintenance request is ${linkedRequestStatus}`,
           );
         }
 

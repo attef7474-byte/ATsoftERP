@@ -5,7 +5,7 @@ import { safeString } from '../../../../../lib/form-utils';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { MaintenanceWorkOrder } from '../../../../../lib/admin-types';
-import { Button, Card, CardHeader, CardContent, DataTable, LoadingState, EmptyState, ErrorState, Modal, Input, ConfirmDialog, Select, Textarea } from '../../../../../components/admin/ui';
+import { Button, Card, CardHeader, CardContent, DataTable, LoadingState, EmptyState, ErrorState, Modal, Input, ConfirmDialog, Select, Textarea, StatusBadge } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionAddIcon, ActionDeleteIcon } from '../../../../../components/admin/admin-action-bar';
 import { F9Lookup, machineAdapter, machineComponentAdapter, maintenanceRequestAdapter, warehouseAdapter, userAdapter, sparePartAdapter, productAdapter } from '../../../../../components/f9';
 import { CmmsStatusBadge } from '../../../../../components/maintenance/CmmsStatusBadge';
@@ -544,7 +544,16 @@ export default function MaintenanceWorkOrderDetailPage() {
             </div>
             <div>
               <span className="text-xs text-gray-500 uppercase tracking-wider">{t('maintenance.workOrderRequest')}</span>
-              <p className="text-sm font-medium text-gray-900 mt-1">{data.request ? `${data.request.requestNumber} - ${data.request.title}` : '-'}</p>
+              <p className="text-sm font-medium text-gray-900 mt-1">
+                {data.request ? (
+                  <button type="button" onClick={() => data.request?.id && router.push(`/admin/maintenance/requests/${data.request.id}`)} className="text-blue-600 hover:text-blue-800 font-medium text-left">
+                    [{data.request.requestNumber}] {data.request.title || ''}
+                  </button>
+                ) : '-'}
+                {data.request?.status && (
+                  <span className="inline-flex ml-2 align-middle"><StatusBadge status={data.request.status} /></span>
+                )}
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">

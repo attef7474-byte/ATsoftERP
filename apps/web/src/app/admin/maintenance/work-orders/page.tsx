@@ -295,6 +295,7 @@ export default function MaintenanceWorkOrdersPage() {
       { value: 'CANCELLED', label: t('maintenance.workOrderCancelled') },
     ], render: (d) => <CmmsStatusBadge status={d.status} /> },
     { key: 'machine', header: t('maintenance.workOrderMachine'), sortable: true, render: (d) => d.machine ? `[${d.machine.code}] ${d.machine.name}` : '-' },
+    { key: 'requestId', header: t('maintenance.workOrderRequest'), filterable: true, render: (d) => d.request ? `[${d.request.requestNumber}] ${d.request.title || ''}`.trim() : '-' },
     { key: 'assignedTo', header: t('maintenance.workOrderAssignedTo'), sortable: true, render: (d) => d.assignedTo?.name || '-' },
     { key: 'estimatedCost', header: t('maintenance.workOrderEstimatedCost'), sortable: true, render: (d) => d.estimatedCost != null ? Number(d.estimatedCost).toLocaleString() : '-' },
     { key: 'partsCount', header: t('maintenance.workOrderParts'), sortable: true, render: (d) => d._count?.parts ?? 0 },

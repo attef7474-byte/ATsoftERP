@@ -14,7 +14,7 @@ export function useApiErrorHandler() {
 
   const handleApiError = useCallback(
     (err: unknown, options?: ErrorHandlerOptions): ErrorConfig => {
-      const config = normalizeApiError(err, t as (key: string, ns?: string) => string);
+      const config = normalizeApiError(err, t as (key: string, ns?: string, params?: Record<string, unknown>) => string);
       const merged: ErrorConfig = { ...config, ...options };
       if (options?.dialog !== false) showError(merged);
       return merged;
