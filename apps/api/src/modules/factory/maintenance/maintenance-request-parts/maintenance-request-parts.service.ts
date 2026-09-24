@@ -30,12 +30,21 @@ export class MaintenanceRequestPartsService {
   private async assertRequestOwned(requestId: string, ctx: ActiveOperationalContext) {
     const request = await this.prisma.maintenanceRequest.findUnique({
       where: { id: requestId },
-      include: { machine: { select: { companyId: true, branchId: true } } },
+      select: { id: true, requestNumber: true, status: true, machine: { select: { companyId: true, branchId: true } } },
     });
     if (!request || !this.isMachineInScope(request.machine, ctx)) {
       throw new BadRequestException('Maintenance request not found or not in the active company/branch');
     }
     return request;
+  }
+
+  private assertRequestNotTerminal(request: { status: string }) {
+    if (['COMPLETED', 'CANCELLED', 'CLOSED'].includes(request.status)) {
+      throw new BadRequestException({
+        messageKey: 'maintenance.cannotUpdatePartsTerminalRequest',
+        message: 'Cannot update parts on completed, cancelled, or closed requests',
+      });
+    }
   }
 
   private async findOwned(id: string, ctx: ActiveOperationalContext) {
@@ -47,6 +56,7 @@ export class MaintenanceRequestPartsService {
             id: true,
             requestNumber: true,
             title: true,
+            status: true,
             machine: { select: { companyId: true, branchId: true } },
           },
         },
@@ -61,6 +71,7 @@ export class MaintenanceRequestPartsService {
 
   async create(dto: CreateMaintenanceRequestPartDto, userId: string, ctx: ActiveOperationalContext) {
     const request = await this.assertRequestOwned(dto.requestId, ctx);
+    this.assertRequestNotTerminal(request);
 
     const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
     if (!product) throw new NotFoundException('Product not found');
@@ -96,7 +107,8 @@ export class MaintenanceRequestPartsService {
   }
 
   async update(id: string, dto: UpdateMaintenanceRequestPartDto, userId: string, ctx: ActiveOperationalContext) {
-    await this.findOwned(id, ctx);
+    const owned = await this.findOwned(id, ctx);
+    this.assertRequestNotTerminal(owned.request);
     const data: any = { ...dto };
     const qty = dto.quantity ?? undefined;
     const cost = dto.unitCost ?? undefined;
@@ -113,7 +125,8 @@ export class MaintenanceRequestPartsService {
   }
 
   async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
-    await this.findOwned(id, ctx);
+    const owned = await this.findOwned(id, ctx);
+    this.assertRequestNotTerminal(owned.request);
     await this.prisma.maintenanceRequestPartUsage.delete({ where: { id } });
     await this.audit.log(userId, 'DELETE', 'MaintenanceRequestPartUsage', id, { companyId: ctx.companyId, branchId: ctx.branchId });
     return { message: 'Part usage deleted successfully' };

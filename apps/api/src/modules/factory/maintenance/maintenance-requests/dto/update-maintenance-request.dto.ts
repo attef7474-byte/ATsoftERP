@@ -1,31 +1,57 @@
-import { PartialType } from '@nestjs/swagger';
-import { IsOptional, IsString, IsNumber, IsIn } from 'class-validator';
+import { IsOptional, IsString, IsIn } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { CreateMaintenanceRequestDto } from './create-maintenance-request.dto';
 
-export class UpdateMaintenanceRequestDto extends PartialType(CreateMaintenanceRequestDto) {
+/**
+ * Header-only fields for a maintenance request edit (R2-B contract T1/T2/T3).
+ *
+ * Lifecycle fields (status, startDate, endDate, downtimeHours, cost) are managed
+ * exclusively through the dedicated transition endpoints and must never be
+ * accepted here. Assignment is managed through the dedicated assign endpoint.
+ * Required spare parts are managed through the dedicated parts endpoints.
+ */
+export class UpdateMaintenanceRequestDto {
   @ApiPropertyOptional()
   @IsOptional()
-  @IsIn(['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'])
-  status?: string;
+  @IsString()
+  machineId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  startDate?: string;
+  title?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  endDate?: string;
+  description?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
-  downtimeHours?: number;
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional({ example: 'MEDIUM' })
+  @IsOptional()
+  @IsIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
+  priority?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
-  cost?: number;
+  @IsString()
+  productionLineId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  machineComponentId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  operationTypeId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  costCenterId?: string;
 }

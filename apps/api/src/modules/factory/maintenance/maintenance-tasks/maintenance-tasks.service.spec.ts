@@ -40,11 +40,26 @@ describe('MaintenanceTasksService canonical errors', () => {
     ).rejects.toMatchObject({ response: { messageKey: 'maintenance.cannotAddTaskTerminalRequest' } });
   });
 
-  it('cannot add tasks to a CANCELLED request', async () => {
-    prisma.maintenanceRequest.findUnique.mockResolvedValue({ ...ownedRequest, status: 'CANCELLED' });
+  it('cannot add tasks to a CLOSED request (terminal immutability)', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue({ ...ownedRequest, status: 'CLOSED' });
     await expect(
       service.create({ requestId: 'r1', title: 't' } as any, 'u1', ctx),
     ).rejects.toMatchObject({ response: { messageKey: 'maintenance.cannotAddTaskTerminalRequest' } });
+  });
+
+  it('cannot update a task on a CLOSED request (terminal immutability)', async () => {
+    prisma.maintenanceTask.findUnique.mockResolvedValue(ownedTask({ request: { ...ownedTask().request, status: 'CLOSED' } }));
+    await expect(service.update('t1', { title: 'x' } as any, 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.cannotUpdateTaskTerminalRequest' },
+    });
+  });
+
+  it('cannot assign a task on a CLOSED request (terminal immutability)', async () => {
+    prisma.maintenanceTask.findUnique.mockResolvedValue(ownedTask({ request: { ...ownedTask().request, status: 'CLOSED' } }));
+    prisma.user.findUnique.mockResolvedValue({ id: 'u2', companyId: 'c1', branchId: 'b1', status: 'ACTIVE' });
+    await expect(service.assignTask('t1', 'u2', 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.cannotAssignTaskTerminalRequest' },
+    });
   });
 
   it('only PENDING tasks can be started', async () => {
@@ -75,7 +90,7 @@ describe('MaintenanceTasksService canonical errors', () => {
   it('assigned user must exist with canonical user not-found', async () => {
     prisma.maintenanceTask.findUnique.mockResolvedValue(ownedTask({ status: 'PENDING' }));
     prisma.user.findUnique.mockResolvedValue(null);
-    await expect(service.assignTask('t1', 'u9', 'u1', ctx)).rejects.toMatchObject({ response: { messageKey: 'organization.userNotFound' } });
+    await expect(service.assignTask('t1', 'u9', 'u1', ctx)).rejects.toMatchObject({ response: { messageKey: 'maintenance.assignedUserNotFound' } });
   });
 
   it('not found error uses canonical messageKey', async () => {

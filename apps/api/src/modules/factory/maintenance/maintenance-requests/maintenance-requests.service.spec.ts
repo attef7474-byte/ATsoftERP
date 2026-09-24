@@ -30,6 +30,9 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
     prisma = {
       user: { findUnique: jest.fn() },
       machine: { findUnique: jest.fn() },
+      productionLine: { findUnique: jest.fn() },
+      operationType: { findUnique: jest.fn() },
+      costCenter: { findUnique: jest.fn() },
       sparePart: { findUnique: jest.fn() },
       machineComponent: { findUnique: jest.fn() },
       maintenanceRequest: {
@@ -42,17 +45,19 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
       maintenanceRequestRequiredPart: {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn(),
         update: jest.fn(),
       },
       maintenanceChecklistExecution: {
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn(),
         create: jest.fn(),
       },
       maintenanceChecklistExecutionItem: { count: jest.fn() },
       maintenanceSchedule: { findUnique: jest.fn() },
-      maintenanceTask: { findMany: jest.fn() },
+      maintenanceTask: { findMany: jest.fn().mockResolvedValue([]) },
+      maintenanceWorkOrder: { findMany: jest.fn().mockResolvedValue([]) },
       maintenanceRequestPartUsage: { findMany: jest.fn() },
       maintenanceRequestCostEntry: { findMany: jest.fn() },
       downtimeLog: { findMany: jest.fn(), aggregate: jest.fn() },
@@ -239,5 +244,244 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
     expect(sla.createSlaState).toHaveBeenCalledWith('r1', ctx);
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('createSlaState failed'), 'sla boom');
     errorSpy.mockRestore();
+  });
+
+  // -- R2-B: generic update lifecycle/assignment/parts bypass is closed --
+
+  it('generic update rejects lifecycle fields (status) with a canonical error', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'OPEN' }));
+    await expect(service.update('r1', { status: 'COMPLETED' } as any, 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.forbiddenRequestFieldUpdate' },
+    });
+  });
+
+  it('generic update rejects assignment fields (assignedToId)', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'OPEN' }));
+    await expect(service.update('r1', { assignedToId: 'u2' } as any, 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.forbiddenRequestFieldUpdate' },
+    });
+  });
+
+  it('generic update rejects requiredParts replacement payload (R2-B F3 containment)', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'OPEN' }));
+    await expect(service.update('r1', { requiredParts: [] } as any, 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.forbiddenRequestFieldUpdate' },
+    });
+  });
+
+  it('update no longer deletes or recreates required parts on a header edit', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'OPEN' }));
+    prisma.maintenanceRequest.update.mockResolvedValue(requestRecord({ status: 'OPEN', title: 'Changed' }));
+    const result: any = await service.update('r1', { title: 'Changed' } as any, 'u1', ctx);
+    expect(result.title).toBe('Changed');
+    const updateData = prisma.maintenanceRequest.update.mock.calls[0][0].data;
+    expect(updateData).not.toHaveProperty('requiredParts');
+    expect(prisma.maintenanceRequestRequiredPart.deleteMany).toBeUndefined();
+    expect(prisma.maintenanceRequestRequiredPart.findMany).not.toHaveBeenCalled();
+  });
+
+  // -- R2-B: emergency contract is server-enforced --
+
+  it('normal create rejects EMERGENCY type (must use the dedicated emergency endpoint)', async () => {
+    prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+    await expect(
+      service.create({ machineId: 'm1', title: 'Fix pump', type: 'EMERGENCY' } as any, { id: 'u1' } as any, ctx),
+    ).rejects.toMatchObject({ response: { messageKey: 'maintenance.emergencyTypeRequiresEmergencyEndpoint' } });
+  });
+
+  it('emergency create forces type EMERGENCY and priority HIGH regardless of DTO', async () => {
+    prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+    const createSpy = jest.fn().mockResolvedValue(requestRecord({ id: 'r1', type: 'EMERGENCY', priority: 'HIGH' }));
+    prisma.$transaction = jest.fn(async (cb: any) => cb({
+      maintenanceRequest: { create: createSpy },
+    }));
+    prisma.downtimeLog.create = jest.fn().mockResolvedValue({});
+    const result: any = await service.createEmergency(
+      { machineId: 'm1', title: 'Fire', type: 'PREVENTIVE', priority: 'LOW' } as any,
+      { id: 'u1' } as any,
+      ctx,
+    );
+    const createData = createSpy.mock.calls[0][0].data;
+    expect(createData.type).toBe('EMERGENCY');
+    expect(createData.priority).toBe('HIGH');
+    expect(createData.isEmergency).toBe(true);
+    expect(result).toBeTruthy();
+  });
+
+  // -- R2-B: tenant-validated operational references --
+
+  it('create rejects a production line from another company', async () => {
+    prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+    prisma.productionLine.findUnique.mockResolvedValue({ id: 'pl9', companyId: 'c2', branchId: 'b1', status: 'ACTIVE', deletedAt: null });
+    await expect(
+      service.create({ machineId: 'm1', title: 't', productionLineId: 'pl9' } as any, { id: 'u1' } as any, ctx),
+    ).rejects.toMatchObject({ response: { messageKey: 'maintenance.productionLineNotFound' } });
+  });
+
+  it('create rejects an inactive production line', async () => {
+    prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+    prisma.productionLine.findUnique.mockResolvedValue({ id: 'pl1', companyId: 'c1', branchId: 'b1', status: 'INACTIVE', deletedAt: null });
+    await expect(
+      service.create({ machineId: 'm1', title: 't', productionLineId: 'pl1' } as any, { id: 'u1' } as any, ctx),
+    ).rejects.toMatchObject({ response: { messageKey: 'maintenance.inactiveProductionLine' } });
+  });
+
+  it('create rejects a cost center from another branch', async () => {
+    prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+    prisma.costCenter.findUnique.mockResolvedValue({ id: 'cc9', companyId: 'c1', branchId: 'b2', status: 'ACTIVE', deletedAt: null });
+    await expect(
+      service.create({ machineId: 'm1', title: 't', costCenterId: 'cc9' } as any, { id: 'u1' } as any, ctx),
+    ).rejects.toMatchObject({ response: { messageKey: 'maintenance.costCenterNotFound' } });
+  });
+
+  it('create rejects an inactive operation type', async () => {
+    prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+    prisma.operationType.findUnique.mockResolvedValue({ id: 'ot1', status: 'INACTIVE', deletedAt: null });
+    await expect(
+      service.create({ machineId: 'm1', title: 't', operationTypeId: 'ot1' } as any, { id: 'u1' } as any, ctx),
+    ).rejects.toMatchObject({ response: { messageKey: 'maintenance.inactiveOperationType' } });
+  });
+
+  it('create rejects a machine component from another machine', async () => {
+    prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+    prisma.machineComponent.findUnique.mockResolvedValue({ id: 'comp9', machineId: 'm9', status: 'ACTIVE', deletedAt: null });
+    await expect(
+      service.create({ machineId: 'm1', title: 't', machineComponentId: 'comp9' } as any, { id: 'u1' } as any, ctx),
+    ).rejects.toMatchObject({ response: { messageKey: 'maintenance.componentMachineMismatch' } });
+  });
+
+  it('assign rejects a user from another company (tenant isolation on assignment)', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'OPEN' }));
+    prisma.user.findUnique.mockResolvedValue({ id: 'u9', companyId: 'c2', status: 'ACTIVE', deletedAt: null });
+    await expect(service.assign('r1', 'u9', 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.assignedUserCompanyMismatch' },
+    });
+  });
+
+  it('assign rejects a user from another branch (tenant isolation on assignment)', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'OPEN' }));
+    prisma.user.findUnique.mockResolvedValue({ id: 'u9', companyId: 'c1', branchId: 'b2', status: 'ACTIVE', deletedAt: null });
+    await expect(service.assign('r1', 'u9', 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.assignedUserBranchMismatch' },
+    });
+  });
+
+  it('assign rejects an inactive user', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'OPEN' }));
+    prisma.user.findUnique.mockResolvedValue({ id: 'u9', companyId: 'c1', branchId: 'b1', status: 'INACTIVE', deletedAt: null });
+    await expect(service.assign('r1', 'u9', 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.assignedUserNotActive' },
+    });
+  });
+
+  // -- R2-B: completion guards --
+
+  it('complete is blocked while open tasks are pending', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'IN_PROGRESS' }));
+    prisma.maintenanceTask.findMany.mockResolvedValue([{ id: 't1' }, { id: 't2' }]);
+    await expect(service.complete('r1', 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.openTasksBlockCompletion', params: { count: '2' } },
+    });
+  });
+
+  it('complete is blocked while required parts are unresolved', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'IN_PROGRESS' }));
+    prisma.maintenanceRequestRequiredPart.findMany.mockResolvedValue([{ id: 'rp1' }]);
+    await expect(service.complete('r1', 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.unresolvedPartsBlockCompletion', params: { count: '1' } },
+    });
+  });
+
+  it('complete is blocked while work orders are non-terminal', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'IN_PROGRESS' }));
+    prisma.maintenanceWorkOrder.findMany.mockResolvedValue([{ id: 'w1' }]);
+    await expect(service.complete('r1', 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.openWorkOrdersBlockCompletion', params: { count: '1' } },
+    });
+  });
+
+  it('complete passes when no blockers exist and syncs the machine', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'IN_PROGRESS' }));
+    prisma.downtimeLog.aggregate.mockResolvedValue({ _sum: { durationMinutes: 30 } });
+    const txUpdate = jest.fn().mockResolvedValue(requestRecord({ status: 'COMPLETED' }));
+    const txMachine = jest.fn().mockResolvedValue({});
+    const txCount = jest.fn().mockResolvedValue(0);
+    prisma.$transaction = jest.fn(async (cb: any) => cb({
+      maintenanceRequest: { update: txUpdate, count: txCount },
+      machine: { update: txMachine },
+    }));
+    const result: any = await service.complete('r1', 'u1', ctx);
+    expect(result.status).toBe('COMPLETED');
+    expect(txUpdate).toHaveBeenCalled();
+    expect(txMachine).toHaveBeenCalled();
+    expect(audit.log).toHaveBeenCalledWith('u1', 'COMPLETE', 'MaintenanceRequest', 'r1', expect.objectContaining({ newStatus: 'COMPLETED' }));
+  });
+
+  // -- R2-B: terminal request immutability for parts sub-resource --
+
+  it('addRequiredPart is blocked on a CLOSED request (terminal immutability)', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'CLOSED' }));
+    await expect(
+      service.addRequiredPart('r1', { sparePartId: 'sp1', quantity: 1 } as any, 'u1', ctx),
+    ).rejects.toMatchObject({ response: { messageKey: 'maintenance.cannotUpdatePartsTerminalRequest' } });
+  });
+
+  it('cancelRequiredPart is blocked on a COMPLETED request (terminal immutability)', async () => {
+    prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue({
+      id: 'rp1',
+      status: 'REQUESTED',
+      maintenanceRequest: { status: 'COMPLETED', machine: ownedMachine },
+    });
+    await expect(service.cancelRequiredPart('rp1', 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.cannotUpdatePartsTerminalRequest' },
+    });
+  });
+
+  // -- R2-B: activity read re-verifies request ownership --
+
+  it('getActivity rejects foreign requests before the audit log is read (tenant isolation)', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ machine: foreignMachine }));
+    await expect(service.getActivity('r1', {}, ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.requestNotFound' },
+    });
+    expect(prisma.auditLog.findMany).not.toHaveBeenCalled();
+  });
+
+  it('getActivity reads audit logs only after proving ownership', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'CLOSED' }));
+    prisma.auditLog.findMany.mockResolvedValue([{ id: 'l1', action: 'CLOSE', createdAt: new Date(), user: { id: 'u1', name: 'A' } }]);
+    prisma.auditLog.count.mockResolvedValue(1);
+    const result: any = await service.getActivity('r1', {}, ctx);
+    expect(result.meta.total).toBe(1);
+  });
+
+  // -- R2-B: workflow exposes reopen on CLOSED --
+
+  it('getWorkflow exposes reopen for CLOSED requests', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'CLOSED' }));
+    prisma.auditLog.findMany.mockResolvedValue([]);
+    const workflow: any = await service.getWorkflow('r1', ctx);
+    expect(workflow.transitions).toContainEqual(
+      expect.objectContaining({ action: 'reopen', fromStatus: 'CLOSED', toStatus: 'OPEN', permission: 'maintenance-request:reopen' }),
+    );
+  });
+
+  // -- R2-B: delete policy restricts removal to OPEN requests --
+
+  it('remove rejects requests with execution history (CLOSED)', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'CLOSED' }));
+    await expect(service.remove('r1', 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.onlyOpenRequestsCanBeDeleted' },
+    });
+  });
+
+  it('remove allows OPEN requests and soft-deletes them', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'OPEN' }));
+    prisma.maintenanceRequest.update.mockResolvedValue(requestRecord({ status: 'OPEN', deletedAt: new Date() }));
+    const result: any = await service.remove('r1', 'u1', ctx);
+    expect(result.message).toContain('deleted');
+    expect(prisma.maintenanceRequest.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ deletedAt: expect.any(Date) }) }),
+    );
   });
 });

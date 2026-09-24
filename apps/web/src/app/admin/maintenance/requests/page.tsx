@@ -9,7 +9,7 @@ import { MaintenanceRequest, Machine, SparePart } from '../../../../lib/admin-ty
 import { useRouter } from 'next/navigation';
 import { Button, Input, Select, Textarea, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { CmmsStatusBadge, CmmsPriorityBadge } from '../../../../components/maintenance';
-import { F9Lookup, machineAdapter, userAdapter, productionLineAdapter, machineComponentAdapter, operationTypeAdapter, costCenterAdapter, sparePartAdapter } from '../../../../components/f9';
+import { F9Lookup, machineAdapter, productionLineAdapter, machineComponentAdapter, operationTypeAdapter, costCenterAdapter, sparePartAdapter } from '../../../../components/f9';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionDeleteIcon } from '../../../../components/admin/admin-action-bar';
 
@@ -31,7 +31,7 @@ export default function MaintenanceRequestsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MaintenanceRequest | null>(null);
-  const [form, setForm] = useState({ machineId: '', title: '', description: '', type: '', priority: 'MEDIUM', assignedToId: '', requestNumber: '', notes: '', productionLineId: '', machineComponentId: '', operationTypeId: '', costCenterId: '' });
+  const [form, setForm] = useState({ machineId: '', title: '', description: '', type: '', priority: 'MEDIUM', requestNumber: '', notes: '', productionLineId: '', machineComponentId: '', operationTypeId: '', costCenterId: '' });
   const [requiredParts, setRequiredParts] = useState<Array<{ sparePartId: string; quantity: string; unit: string; usageNote: string; isPrimary: boolean }>>([]);
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -86,7 +86,7 @@ export default function MaintenanceRequestsPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ machineId: '', title: '', description: '', type: 'CORRECTIVE', priority: 'MEDIUM', assignedToId: '', requestNumber: '', notes: '', productionLineId: '', machineComponentId: '', operationTypeId: '', costCenterId: '' });
+    setForm({ machineId: '', title: '', description: '', type: 'CORRECTIVE', priority: 'MEDIUM', requestNumber: '', notes: '', productionLineId: '', machineComponentId: '', operationTypeId: '', costCenterId: '' });
     setRequiredParts([]);
     setModalOpen(true);
   };
@@ -103,7 +103,6 @@ export default function MaintenanceRequestsPage() {
         description: detail.description || '',
         type: detail.type || '',
         priority: detail.priority || 'MEDIUM',
-        assignedToId: detail.assignedToId || '',
         requestNumber: detail.requestNumber || '',
         notes: detail.notes || '',
         productionLineId: detail.productionLineId || '',
@@ -130,7 +129,7 @@ export default function MaintenanceRequestsPage() {
     const errors: Record<string, string> = {};
     if (!form.title) errors.title = t('validation.required');
     if (!form.machineId) errors.machineId = t('validation.required');
-    const filledParts = requiredParts.filter((p) => p.sparePartId);
+    const filledParts = editItem ? [] : requiredParts.filter((p) => p.sparePartId);
     const duplicateSpareIds = filledParts.filter((p, i) => filledParts.findIndex((q) => q.sparePartId === p.sparePartId) !== i).map((p) => p.sparePartId);
     if (duplicateSpareIds.length > 0) errors.requiredParts = t('maintenance.sparePartAlreadyAddedToRequest');
     for (const p of filledParts) {
@@ -141,28 +140,41 @@ export default function MaintenanceRequestsPage() {
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
-      const payload: any = { machineId: form.machineId, title: form.title, type: form.type, priority: form.priority };
+      const payload: any = { machineId: form.machineId, title: form.title, priority: form.priority };
       if (form.description) payload.description = form.description;
-      if (form.assignedToId) payload.assignedToId = form.assignedToId;
       if (form.notes) payload.notes = form.notes;
       if (form.productionLineId) payload.productionLineId = form.productionLineId;
       if (form.machineComponentId) payload.machineComponentId = form.machineComponentId;
       if (form.operationTypeId) payload.operationTypeId = form.operationTypeId;
       if (form.costCenterId) payload.costCenterId = form.costCenterId;
-      if (filledParts.length > 0) {
-        payload.requiredParts = filledParts.map((p) => ({
-          sparePartId: p.sparePartId,
-          quantity: Number(p.quantity) || 1,
-          ...(p.unit ? { unit: p.unit } : {}),
-          ...(p.usageNote ? { usageNote: p.usageNote } : {}),
-          isPrimary: p.isPrimary,
-        }));
-      }
       if (editItem) {
         await api.patch(`/maintenance/requests/${editItem.id}`, payload);
         showToast(t('common.successUpdated'), 'success');
       } else {
-        await api.post('/maintenance/requests', payload);
+        payload.type = form.type;
+        if (form.type === 'EMERGENCY') {
+          if (filledParts.length > 0) {
+            payload.requiredParts = filledParts.map((p) => ({
+              sparePartId: p.sparePartId,
+              quantity: Number(p.quantity) || 1,
+              ...(p.unit ? { unit: p.unit } : {}),
+              ...(p.usageNote ? { usageNote: p.usageNote } : {}),
+              isPrimary: p.isPrimary,
+            }));
+          }
+          await api.post('/maintenance/requests/emergency', payload);
+        } else {
+          if (filledParts.length > 0) {
+            payload.requiredParts = filledParts.map((p) => ({
+              sparePartId: p.sparePartId,
+              quantity: Number(p.quantity) || 1,
+              ...(p.unit ? { unit: p.unit } : {}),
+              ...(p.usageNote ? { usageNote: p.usageNote } : {}),
+              isPrimary: p.isPrimary,
+            }));
+          }
+          await api.post('/maintenance/requests', payload);
+        }
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
@@ -338,9 +350,11 @@ export default function MaintenanceRequestsPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">{t('maintenance.requiredSpareParts')}</span>
-                <Button variant="secondary" size="sm" onClick={addRequiredPart}>{t('maintenance.addRequiredPart')}</Button>
+                {!editItem && <Button variant="secondary" size="sm" onClick={addRequiredPart}>{t('maintenance.addRequiredPart')}</Button>}
               </div>
-              {requiredParts.length > 0 ? (
+              {editItem ? (
+                <p className="text-sm text-gray-500">{t('maintenance.managePartsFromDetailHint')}</p>
+              ) : requiredParts.length > 0 ? (
                 <div className="space-y-4">
                   {requiredParts.map((part, index) => (
                     <div key={index} className="border rounded-lg p-4 space-y-3">
@@ -375,9 +389,8 @@ export default function MaintenanceRequestsPage() {
               )}
               {validationErrors.requiredParts && <p className="text-red-500 text-sm mt-1">{validationErrors.requiredParts}</p>}
             </div>
-            <F9Lookup label={t('maintenance.assignedTo')} value={form.assignedToId} onChange={(v) => setForm({ ...form, assignedToId: v })} adapter={userAdapter} />
             <div className="grid grid-cols-2 gap-4">
-              <Select label={t('maintenance.maintenanceType')} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} options={typeOptions} />
+              <Select label={t('maintenance.maintenanceType')} value={form.type} disabled={Boolean(editItem)} onChange={(e) => setForm({ ...form, type: e.target.value })} options={typeOptions} />
               <Select label={t('maintenance.priority')} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} options={priorityOptions} />
             </div>
             <Textarea label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />

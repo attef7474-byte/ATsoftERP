@@ -84,11 +84,6 @@ export class CreateMaintenanceRequestDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  assignedToId?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
   notes?: string;
 
   @ApiPropertyOptional({ type: [CreateRequiredPartDto] })

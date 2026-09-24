@@ -20,6 +20,20 @@ export class MaintenanceTasksService {
     return new BadRequestException({ messageKey: key, message });
   }
 
+  private async validateAssignedUser(assignedToId: string, ctx: ActiveOperationalContext) {
+    const user = await this.prisma.user.findUnique({ where: { id: assignedToId } });
+    if (!user) throw this.notFound('maintenance.assignedUserNotFound', 'Assigned user not found');
+    if (user.companyId && user.companyId !== ctx.companyId) {
+      throw this.badRequest('maintenance.assignedUserCompanyMismatch', 'Assigned user belongs to another company');
+    }
+    if (user.branchId && user.branchId !== ctx.branchId) {
+      throw this.badRequest('maintenance.assignedUserBranchMismatch', 'Assigned user belongs to another branch');
+    }
+    if (user.status !== 'ACTIVE' || user.deletedAt) {
+      throw this.badRequest('maintenance.assignedUserNotActive', 'Assigned user is not active');
+    }
+  }
+
   private machineScope(ctx: ActiveOperationalContext) {
     return {
       companyId: ctx.companyId,
@@ -40,13 +54,12 @@ export class MaintenanceTasksService {
     if (!request || !this.machineOwns(request.machine, ctx)) {
       throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
     }
-    if (request.status === 'COMPLETED' || request.status === 'CANCELLED') {
-      throw this.badRequest('maintenance.cannotAddTaskTerminalRequest', 'Cannot add tasks to completed or cancelled requests');
+    if (request.status === 'COMPLETED' || request.status === 'CANCELLED' || request.status === 'CLOSED') {
+      throw this.badRequest('maintenance.cannotAddTaskTerminalRequest', 'Cannot add tasks to completed, cancelled, or closed requests');
     }
 
     if (dto.assignedToId) {
-      const user = await this.prisma.user.findUnique({ where: { id: dto.assignedToId } });
-      if (!user) throw this.notFound('maintenance.assignedUserNotFound', 'Assigned user not found');
+      await this.validateAssignedUser(dto.assignedToId, ctx);
     }
 
     const task = await this.prisma.maintenanceTask.create({ data: dto as any });
@@ -107,6 +120,9 @@ export class MaintenanceTasksService {
     if (task.status === 'DONE' || task.status === 'CANCELLED') {
       throw this.badRequest('maintenance.cannotUpdateTerminalTask', 'Cannot update completed or cancelled tasks');
     }
+    if (task.request.status === 'COMPLETED' || task.request.status === 'CANCELLED' || task.request.status === 'CLOSED') {
+      throw this.badRequest('maintenance.cannotUpdateTaskTerminalRequest', 'Cannot update tasks on completed, cancelled, or closed requests');
+    }
 
     if (dto.requestId) {
       const request = await this.prisma.maintenanceRequest.findUnique({
@@ -116,10 +132,12 @@ export class MaintenanceTasksService {
       if (!request || !this.machineOwns(request.machine, ctx)) {
         throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
       }
+      if (request.status === 'COMPLETED' || request.status === 'CANCELLED' || request.status === 'CLOSED') {
+        throw this.badRequest('maintenance.cannotUpdateTaskTerminalRequest', 'Cannot move tasks to completed, cancelled, or closed requests');
+      }
     }
     if (dto.assignedToId) {
-      const user = await this.prisma.user.findUnique({ where: { id: dto.assignedToId } });
-      if (!user) throw this.notFound('maintenance.assignedUserNotFound', 'Assigned user not found');
+      await this.validateAssignedUser(dto.assignedToId, ctx);
     }
 
     const updated = await this.prisma.maintenanceTask.update({ where: { id }, data: dto as any });
@@ -248,8 +266,10 @@ export class MaintenanceTasksService {
     if (task.status === 'DONE' || task.status === 'CANCELLED') {
       throw this.badRequest('maintenance.cannotAssignTerminalTask', 'Cannot assign completed or cancelled tasks');
     }
-    const user = await this.prisma.user.findUnique({ where: { id: assignedToId } });
-    if (!user) throw this.notFound('organization.userNotFound', 'User not found');
+    if (task.request.status === 'COMPLETED' || task.request.status === 'CANCELLED' || task.request.status === 'CLOSED') {
+      throw this.badRequest('maintenance.cannotAssignTaskTerminalRequest', 'Cannot assign tasks on completed, cancelled, or closed requests');
+    }
+    await this.validateAssignedUser(assignedToId, ctx);
 
     const updated = await this.prisma.maintenanceTask.update({
       where: { id },

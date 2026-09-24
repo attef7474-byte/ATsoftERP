@@ -45,6 +45,9 @@ export class MaintenanceChecklistExecutionsService {
     }
     const machine = await this.prisma.machine.findUnique({ where: { id: request.machineId } });
     if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+    if (['COMPLETED', 'CANCELLED', 'CLOSED'].includes(request.status)) {
+      throw this.badRequest('maintenance.cannotAddChecklistTerminalRequest', 'Cannot add checklist executions to completed, cancelled, or closed requests');
+    }
   }
 
   async create(dto: CreateMaintenanceChecklistExecutionDto, userId: string, ctx: ActiveOperationalContext) {

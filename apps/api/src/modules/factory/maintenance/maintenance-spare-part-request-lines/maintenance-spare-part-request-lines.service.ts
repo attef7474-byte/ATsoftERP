@@ -63,6 +63,15 @@ export class MaintenanceSparePartRequestLinesService {
     return ['CANCELLED', 'USED', 'REJECTED'].includes(status);
   }
 
+  private assertRequestNotTerminal(req: { status: string }) {
+    if (['COMPLETED', 'CANCELLED', 'CLOSED'].includes(req.status)) {
+      throw new BadRequestException({
+        messageKey: 'maintenance.cannotUpdatePartsTerminalRequest',
+        message: 'Cannot update parts on completed, cancelled, or closed requests',
+      });
+    }
+  }
+
   async create(requestId: string, dto: CreateSparePartRequestLineDto, userId: string, ctx: ActiveOperationalContext) {
     const req = await this.findRequestOrFail(requestId, ctx);
     if (['COMPLETED', 'CANCELLED', 'CLOSED'].includes(req.status)) {
@@ -209,7 +218,8 @@ export class MaintenanceSparePartRequestLinesService {
   }
 
   async submit(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
-    await this.findRequestOrFail(requestId, ctx);
+    const req = await this.findRequestOrFail(requestId, ctx);
+    this.assertRequestNotTerminal(req);
     const part = await this.findPartOrFail(lineId, requestId);
     if (part.status !== 'DRAFT') throw new BadRequestException(`Cannot request part in status '${part.status}'`);
 
@@ -235,7 +245,8 @@ export class MaintenanceSparePartRequestLinesService {
   }
 
   async approve(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
-    await this.findRequestOrFail(requestId, ctx);
+    const req = await this.findRequestOrFail(requestId, ctx);
+    this.assertRequestNotTerminal(req);
     const part = await this.findPartOrFail(lineId, requestId);
     if (part.status !== 'REQUESTED') throw new BadRequestException(`Cannot approve part in status '${part.status}'`);
 
@@ -261,7 +272,8 @@ export class MaintenanceSparePartRequestLinesService {
   }
 
   async reject(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
-    await this.findRequestOrFail(requestId, ctx);
+    const req = await this.findRequestOrFail(requestId, ctx);
+    this.assertRequestNotTerminal(req);
     const part = await this.findPartOrFail(lineId, requestId);
     if (part.status !== 'REQUESTED') throw new BadRequestException(`Cannot reject part in status '${part.status}'`);
 
@@ -286,7 +298,8 @@ export class MaintenanceSparePartRequestLinesService {
   }
 
   async reserve(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
-    await this.findRequestOrFail(requestId, ctx);
+    const req = await this.findRequestOrFail(requestId, ctx);
+    this.assertRequestNotTerminal(req);
     const part = await this.findPartOrFail(lineId, requestId);
     if (part.status !== 'APPROVED') throw new BadRequestException(`Cannot reserve part in status '${part.status}'`);
 
@@ -312,7 +325,8 @@ export class MaintenanceSparePartRequestLinesService {
   }
 
   async markUsed(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
-    await this.findRequestOrFail(requestId, ctx);
+    const req = await this.findRequestOrFail(requestId, ctx);
+    this.assertRequestNotTerminal(req);
     const part = await this.findPartOrFail(lineId, requestId);
     if (part.status !== 'RESERVED' && part.status !== 'APPROVED') {
       throw new BadRequestException(`Cannot mark as used part in status '${part.status}'`);
@@ -340,7 +354,8 @@ export class MaintenanceSparePartRequestLinesService {
   }
 
   async cancel(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
-    await this.findRequestOrFail(requestId, ctx);
+    const req = await this.findRequestOrFail(requestId, ctx);
+    this.assertRequestNotTerminal(req);
     const part = await this.findPartOrFail(lineId, requestId);
     if (this.isTerminalStatus(part.status)) {
       throw new BadRequestException(`Cannot cancel part in terminal status '${part.status}'`);

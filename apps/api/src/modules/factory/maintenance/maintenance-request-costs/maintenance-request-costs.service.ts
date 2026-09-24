@@ -30,12 +30,21 @@ export class MaintenanceRequestCostsService {
   private async assertRequestOwned(requestId: string, ctx: ActiveOperationalContext) {
     const request = await this.prisma.maintenanceRequest.findUnique({
       where: { id: requestId },
-      include: { machine: { select: { companyId: true, branchId: true } } },
+      select: { id: true, requestNumber: true, status: true, machine: { select: { companyId: true, branchId: true } } },
     });
     if (!request || !this.isMachineInScope(request.machine, ctx)) {
       throw new BadRequestException('Maintenance request not found or not in the active company/branch');
     }
     return request;
+  }
+
+  private assertRequestNotTerminal(request: { status: string }) {
+    if (['COMPLETED', 'CANCELLED', 'CLOSED'].includes(request.status)) {
+      throw new BadRequestException({
+        messageKey: 'maintenance.cannotUpdateCostsTerminalRequest',
+        message: 'Cannot update costs on completed, cancelled, or closed requests',
+      });
+    }
   }
 
   private async findOwned(id: string, ctx: ActiveOperationalContext) {
@@ -47,6 +56,7 @@ export class MaintenanceRequestCostsService {
             id: true,
             requestNumber: true,
             title: true,
+            status: true,
             machine: { select: { companyId: true, branchId: true } },
           },
         },
@@ -60,6 +70,7 @@ export class MaintenanceRequestCostsService {
 
   async create(dto: CreateMaintenanceRequestCostDto, userId: string, ctx: ActiveOperationalContext) {
     const request = await this.assertRequestOwned(dto.requestId, ctx);
+    this.assertRequestNotTerminal(request);
 
     const data: any = { ...dto };
     if (dto.incurredAt) data.incurredAt = new Date(dto.incurredAt);
@@ -89,7 +100,8 @@ export class MaintenanceRequestCostsService {
   }
 
   async update(id: string, dto: UpdateMaintenanceRequestCostDto, userId: string, ctx: ActiveOperationalContext) {
-    await this.findOwned(id, ctx);
+    const owned = await this.findOwned(id, ctx);
+    this.assertRequestNotTerminal(owned.request);
     const data: any = { ...dto };
     if (dto.incurredAt) data.incurredAt = new Date(dto.incurredAt);
 
@@ -99,7 +111,8 @@ export class MaintenanceRequestCostsService {
   }
 
   async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
-    await this.findOwned(id, ctx);
+    const owned = await this.findOwned(id, ctx);
+    this.assertRequestNotTerminal(owned.request);
     await this.prisma.maintenanceRequestCostEntry.delete({ where: { id } });
     await this.audit.log(userId, 'DELETE', 'MaintenanceRequestCostEntry', id, { companyId: ctx.companyId, branchId: ctx.branchId });
     return { message: 'Cost entry deleted successfully' };
