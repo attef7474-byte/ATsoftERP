@@ -872,9 +872,8 @@ export class ProductionMaterialRequirementsService {
             lossQuantityEvent: {
               select: {
                 id: true,
-                eventNumber: true,
-                lossType: true,
-                lostQuantity: true,
+                type: true,
+                quantity: true,
                 unit: true,
               },
             },

@@ -720,5 +720,55 @@ describe('ProductionMaterialRequirementsService', () => {
       prisma.productionOrder.findFirst.mockResolvedValue(null);
       await expect(service.getOrderTraceability('po1', ctxB)).rejects.toThrow(NotFoundException);
     });
+
+    it('selects only persisted loss-event fields in the traceability query', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
+      prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
+      prisma.productionMaterialConsumption.findMany.mockResolvedValue([]);
+
+      await service.getOrderTraceability('po1', ctxA);
+
+      const select = (prisma.productionMaterialDocument.findMany.mock.calls[0][0] as any).include.lines.include.lossQuantityEvent.select;
+      expect(select).toEqual({ id: true, type: true, quantity: true, unit: true });
+      expect(select).not.toHaveProperty('eventNumber');
+      expect(select).not.toHaveProperty('lossType');
+      expect(select).not.toHaveProperty('lostQuantity');
+    });
+
+    it('returns the loss event with persisted field names on posted document lines', async () => {
+      const lossEvent = { id: 'le1', type: 'WASTE', quantity: 3.5, unit: 'KG' };
+      const doc = {
+        id: 'mdoc1',
+        productionOrderId: 'po1',
+        companyId: 'c1',
+        branchId: 'b1',
+        status: 'POSTED',
+        documentDate: new Date('2026-03-03T08:00:00Z'),
+        lines: [
+          {
+            id: 'mdlin1',
+            documentId: 'mdoc1',
+            productId: 'prod1',
+            productCodeSnapshot: 'P1',
+            productNameSnapshot: 'Material',
+            unit: 'KG',
+            quantity: 250,
+            lineNumber: 1,
+            lossQuantityEvent: lossEvent,
+          },
+        ],
+      };
+      const { prisma, service } = makeService();
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
+      prisma.productionMaterialDocument.findMany.mockResolvedValue([doc]);
+      prisma.productionMaterialConsumption.findMany.mockResolvedValue([]);
+
+      const result = await service.getOrderTraceability('po1', ctxA);
+      expect(result.documents).toHaveLength(1);
+      expect(result.documents[0].lines[0].lossQuantityEvent).toEqual(lossEvent);
+    });
   });
 });

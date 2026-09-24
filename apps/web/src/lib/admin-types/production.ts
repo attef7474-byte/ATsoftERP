@@ -1005,9 +1005,8 @@ export interface ProductionMaterialTraceabilityDocumentLine {
   originalIssueLine?: { id: string; productId: string; lineNumber: number } | null;
   lossQuantityEvent?: {
     id: string;
-    eventNumber: string;
-    lossType: string;
-    lostQuantity: string;
+    type: string;
+    quantity: string | number;
     unit: string;
   } | null;
   productCodeSnapshot: string;

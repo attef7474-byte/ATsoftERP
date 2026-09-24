@@ -41,6 +41,10 @@ function toNumber(value: string | number | null | undefined): number {
   return value === null || value === undefined ? 0 : Number(value);
 }
 
+function typeLabelKey(value: string): string {
+  return 'production.losses.type' + value;
+}
+
 export default function ProductionMaterialRequirementsPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
@@ -111,19 +115,19 @@ export default function ProductionMaterialRequirementsPage() {
     setError('');
     try {
       const [reqRes, readinessRes, consumptionRes, historyRes] = await Promise.all([
-        api.get<{ data: ProductionMaterialRequirement }>(`/production/orders/${id}/material-requirements`).catch(() => ({ data: null as unknown as ProductionMaterialRequirement })),
-        api.get<{ data: ProductionMaterialReadiness }>(`/production/orders/${id}/material-readiness`),
-        api.get<{ data: ProductionConsumptionSummary }>(`/production/orders/${id}/material-consumption`),
+        api.get<ProductionMaterialRequirement>(`/production/orders/${id}/material-requirements`).catch(() => null as unknown as ProductionMaterialRequirement),
+        api.get<ProductionMaterialReadiness>(`/production/orders/${id}/material-readiness`),
+        api.get<ProductionConsumptionSummary>(`/production/orders/${id}/material-consumption`),
         api.get<{ data: ProductionMaterialConsumption[]; meta: any }>(`/production/orders/${id}/consumption-history`, { params: { page: 1, limit: 10 } }),
       ]);
-      setRequirement(reqRes.data);
-      setReadiness(readinessRes.data);
-      setConsumption(consumptionRes.data);
+      setRequirement(reqRes || null);
+      setReadiness(readinessRes || null);
+      setConsumption(consumptionRes || null);
       setHistory(historyRes.data || []);
       setHistoryMeta(historyRes.meta || { page: 1, limit: 10, total: 0, totalPages: 0 });
       if (canTrace()) {
-        const traceRes = await api.get<{ data: ProductionMaterialTraceability }>(`/production/orders/${id}/traceability`);
-        setTraceability(traceRes.data);
+        const traceRes = await api.get<ProductionMaterialTraceability>(`/production/orders/${id}/traceability`);
+        setTraceability(traceRes);
       } else {
         setTraceability(null);
       }
@@ -643,7 +647,7 @@ export default function ProductionMaterialRequirementsPage() {
                                     <span className="font-medium">[{line.product?.code || line.productCodeSnapshot}]</span> {line.product?.name || line.productNameSnapshot}
                                   </td>
                                   <td className="px-2 py-1" dir="ltr">{line.quantity} {line.unit}</td>
-                                  <td className="px-2 py-1">{line.lossQuantityEvent ? `${line.lossQuantityEvent.eventNumber} (${line.lossQuantityEvent.lossType})` : '-'}</td>
+                                  <td className="px-2 py-1">{line.lossQuantityEvent ? `${t(typeLabelKey(line.lossQuantityEvent.type))} · ${line.lossQuantityEvent.quantity} ${line.lossQuantityEvent.unit}` : '-'}</td>
                                   <td className="px-2 py-1">{line.originalIssueLine ? `#${line.originalIssueLine.lineNumber}` : '-'}</td>
                                 </tr>
                               ))}

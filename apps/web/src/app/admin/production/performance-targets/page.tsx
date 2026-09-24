@@ -192,8 +192,8 @@ export default function ProductionPerformanceTargetsPage() {
     finally { setSaving(false); }
   };
 
-  const payloadFrom = (source: FormState) => ({
-    scopeType: source.scopeType,
+  const payloadFrom = (source: FormState, forCreate: boolean) => ({
+    ...(forCreate ? { scopeType: source.scopeType } : {}),
     productionUnitId: source.productionUnitId || undefined,
     productionLineId: source.productionLineId || undefined,
     machineId: source.machineId || undefined,
@@ -232,8 +232,8 @@ export default function ProductionPerformanceTargetsPage() {
     if (validationError) { showToast(validationError, 'error'); return; }
     setSaving(true);
     try {
-      if (editItem) await api.patch(`/production/performance-targets/${editItem.id}`, payloadFrom(form));
-      else await api.post('/production/performance-targets', payloadFrom(form));
+      if (editItem) await api.patch(`/production/performance-targets/${editItem.id}`, payloadFrom(form, false));
+      else await api.post('/production/performance-targets', payloadFrom(form, true));
       showToast(t(editItem ? 'production.performanceTargets.updated' : 'production.performanceTargets.created'), 'success');
       setModalOpen(false); await fetchData(meta.page);
     } catch (err) { handleTargetError(err); }
@@ -335,7 +335,7 @@ export default function ProductionPerformanceTargetsPage() {
     <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('production.performanceTargets.editTarget') : t('production.performanceTargets.newTarget')} size="lg">
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Select label={t('production.performanceTargets.scopeType')} value={form.scopeType} onChange={(e) => setForm({ ...form, scopeType: e.target.value, productionUnitId: '', productionLineId: '', machineId: '', productionProductDefinitionId: '' })} options={SCOPE_OPTIONS.map((value) => ({ value, label: scopeLabel(value) }))} />
+          <Select label={t('production.performanceTargets.scopeType')} value={form.scopeType} disabled={!!editItem} onChange={(e) => setForm({ ...form, scopeType: e.target.value, productionUnitId: '', productionLineId: '', machineId: '', productionProductDefinitionId: '' })} options={SCOPE_OPTIONS.map((value) => ({ value, label: scopeLabel(value) }))} />
         </div>
         {dimensionField()}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
