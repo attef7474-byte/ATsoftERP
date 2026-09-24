@@ -188,6 +188,22 @@ export default function MaintenanceRequestDetailPage() {
     { id: 'addWorkOrder', labelKey: 'maintenance.createWorkOrderFromRequest', icon: <ActionAddIcon />, onClick: () => exec('addWorkOrder'), enabled: !!data && !requestIsTerminal && canCreateWorkOrder },
   ]);
 
+  useEffect(() => {
+    if (!stockIssueLineId || !partLines.length) { setConditionBalances([]); return; }
+    const line = partLines.find(l => l.id === stockIssueLineId);
+    if (!line?.sparePartId) { setConditionBalances([]); return; }
+    let cancelled = false;
+    (async () => {
+      setConditionBalancesLoading(true);
+      try {
+        const res = await api.get<any[]>(`/spare-part-conditions/by-spare-part/${line.sparePartId}`);
+        if (!cancelled) setConditionBalances(Array.isArray(res) ? res : []);
+      } catch { if (!cancelled) setConditionBalances([]); }
+      finally { if (!cancelled) setConditionBalancesLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [stockIssueLineId, partLines]);
+
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
   if (!data) return <ErrorState message={t('details.notFound')} onRetry={() => router.back()} />;
@@ -339,22 +355,6 @@ export default function MaintenanceRequestDetailPage() {
     } catch { setStockIssueMovements([]); }
     finally { setStockIssueMovementsLoading(false); }
   };
-
-  useEffect(() => {
-    if (!stockIssueLineId || !partLines.length) { setConditionBalances([]); return; }
-    const line = partLines.find(l => l.id === stockIssueLineId);
-    if (!line?.sparePartId) { setConditionBalances([]); return; }
-    let cancelled = false;
-    (async () => {
-      setConditionBalancesLoading(true);
-      try {
-        const res = await api.get<any[]>(`/spare-part-conditions/by-spare-part/${line.sparePartId}`);
-        if (!cancelled) setConditionBalances(Array.isArray(res) ? res : []);
-      } catch { if (!cancelled) setConditionBalances([]); }
-      finally { if (!cancelled) setConditionBalancesLoading(false); }
-    })();
-    return () => { cancelled = true; };
-  }, [stockIssueLineId, partLines]);
 
   const partStatusBadge = (status: string) => {
     return <StatusBadge status={status} />;
