@@ -1338,4 +1338,63 @@ describe('MaintenanceWorkOrdersService', () => {
       );
     });
   });
+
+  describe('R2-D linked work order part/stock authority (Option 1)', () => {
+    const ownedMachine = { id: 'm1', companyId: 'c1', branchId: 'b1' };
+    const requestRecord = (overrides: Record<string, any> = {}) => ({
+      id: 'r1',
+      requestNumber: 'MR-0001',
+      title: 'Fix pump',
+      status: 'OPEN',
+      machineId: 'm1',
+      machine: ownedMachine,
+      machineComponentId: null,
+      deletedAt: null,
+      ...overrides,
+    });
+
+    it('createFromRequest rejects part lines (no parallel part truth)', async () => {
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord());
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      prisma.machineComponent.findUnique.mockResolvedValue(null);
+      const promise = service.createFromRequest(
+        'r1',
+        { title: 'x', parts: [{ sparePartId: 'sp1', quantity: 2 }] } as any,
+        user,
+        ctx,
+      );
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'parts' });
+      expect(prisma.maintenanceWorkOrder.create).not.toHaveBeenCalled();
+    });
+
+    it('addPart rejects a request-linked work order', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo({ requestId: 'r1', status: 'DRAFT' }));
+      const promise = service.addPart('wo1', { sparePartId: 'sp1', quantity: 2 } as any, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'sparePartId' });
+      expect(prisma.maintenanceWorkOrderPart.create).not.toHaveBeenCalled();
+    });
+
+    it('issueParts rejects a request-linked work order (stock authority is the request)', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo({ requestId: 'r1', status: 'PLANNED' }));
+      const promise = service.issueParts('wo1', { warehouseId: 'wh1', partLineIds: [] } as any, user, ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const response = (await promise.catch((e) => e)).getResponse();
+      expect(response.errors[0]).toMatchObject({ field: 'partLineIds' });
+      expect(prisma.maintenanceWorkOrderPart.findMany).not.toHaveBeenCalled();
+    });
+
+    it('addPart still works for a standalone work order (no parallel truth regression)', async () => {
+      prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo({ requestId: null, status: 'PLANNED' }));
+      prisma.sparePart.findUnique.mockResolvedValue({ id: 'sp1', productId: 'prd1' });
+      prisma.product.findUnique.mockResolvedValue({ id: 'prd1' });
+      prisma.maintenanceWorkOrderPart.create.mockResolvedValue(part());
+      const result: any = await service.addPart('wo1', { sparePartId: 'sp1', quantity: 2 } as any, user, ctx);
+      expect(result.id).toBe('p1');
+      expect(prisma.maintenanceWorkOrderPart.create).toHaveBeenCalled();
+    });
+  });
 });

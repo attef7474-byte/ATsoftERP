@@ -171,7 +171,7 @@ export default function MaintenanceWorkOrderDetailPage() {
     { id: 'start', labelKey: 'maintenance.startWorkOrder', icon: <ActionEditIcon />, onClick: () => exec('start'), enabled: !!(data && data.status === 'PLANNED') },
     { id: 'complete', labelKey: 'maintenance.completeWorkOrder', icon: <ActionEditIcon />, onClick: () => exec('complete'), enabled: !!(data && data.status === 'IN_PROGRESS') },
     { id: 'cancel', labelKey: 'maintenance.cancelWorkOrder', icon: <ActionDeleteIcon />, onClick: () => exec('cancel'), enabled: !!(data && (data.status === 'DRAFT' || data.status === 'PLANNED')) },
-    { id: 'addPart', labelKey: 'maintenance.addPart', icon: <ActionAddIcon />, onClick: () => exec('addPart'), enabled: !!data && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' },
+    { id: 'addPart', labelKey: 'maintenance.addPart', icon: <ActionAddIcon />, onClick: () => exec('addPart'), enabled: !!data && !data.requestId && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' },
     { id: 'addCost', labelKey: 'maintenance.addCostEntry', icon: <ActionAddIcon />, onClick: () => exec('addCost'), enabled: !!data && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' },
   ]);
 
@@ -666,7 +666,7 @@ export default function MaintenanceWorkOrderDetailPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-700">{t('maintenance.workOrderParts')}</h2>
-              {canEdit && (
+              {canEdit && !data.requestId && (
                 <div className="flex gap-2">
                   <Button variant="secondary" size="sm" onClick={() => exec('addPart')}>{t('maintenance.addPart')}</Button>
                   {hasPendingParts && <Button size="sm" onClick={requestIssueParts}>{t('maintenance.issueParts')}</Button>}
@@ -675,7 +675,9 @@ export default function MaintenanceWorkOrderDetailPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {!data.parts || data.parts.length === 0 ? (
+            {data.requestId ? (
+              <p className="text-sm text-gray-500 py-4">{t('maintenance.managePartsFromDetailHint')}</p>
+            ) : !data.parts || data.parts.length === 0 ? (
               <EmptyState message={t('maintenance.noParts')} />
             ) : (
               <DataTable columns={partColumns} data={data.parts as any[]} keyExtractor={(p: any) => p.id} />

@@ -42,7 +42,7 @@ export class MaintenanceSparePartRequestLinesService {
   private async findPartOrFail(id: string, requestId: string) {
     const part = await this.prisma.maintenanceRequestRequiredPart.findUnique({
       where: { id },
-      include: { maintenanceRequest: true },
+      include: { maintenanceRequest: true, sparePart: true },
     });
     if (!part) throw new NotFoundException('Request part line not found');
     if (part.maintenanceRequestId !== requestId) {
@@ -88,7 +88,10 @@ export class MaintenanceSparePartRequestLinesService {
       },
     });
     if (existing && !this.isTerminalStatus(existing.status)) {
-      throw new BadRequestException('This spare part is already added to the request. Cancel existing line first.');
+      throw new BadRequestException({
+        messageKey: 'maintenance.sparePartAlreadyAddedToRequest',
+        message: 'This spare part is already added to the request',
+      });
     }
 
     if (dto.machineId) {
@@ -113,21 +116,34 @@ export class MaintenanceSparePartRequestLinesService {
       }
     }
 
-    const part = await this.prisma.maintenanceRequestRequiredPart.create({
-      data: {
-        maintenanceRequestId: requestId,
-        sparePartId: dto.sparePartId,
-        machineComponentId: dto.machineComponentId,
-        machineId: dto.machineId || req.machineId,
-        quantity: dto.quantity,
-        unit: dto.unit,
-        usageNote: dto.usageNote,
-        isPrimary: dto.isPrimary,
-        reason: dto.reason,
-        status: 'DRAFT',
-      },
-      include: { sparePart: true },
-    });
+    let part: any;
+    try {
+      part = await this.prisma.maintenanceRequestRequiredPart.create({
+        data: {
+          maintenanceRequestId: requestId,
+          sparePartId: dto.sparePartId,
+          machineComponentId: dto.machineComponentId,
+          machineId: dto.machineId || req.machineId,
+          quantity: dto.quantity,
+          unit: dto.unit,
+          usageNote: dto.usageNote,
+          isPrimary: dto.isPrimary,
+          reason: dto.reason,
+          status: 'DRAFT',
+        },
+        include: { sparePart: true },
+      });
+    } catch (e: any) {
+      // R2-D: a unique-constraint duplicate must surface as a canonical 400,
+      // never as a user-visible 500.
+      if (e?.code === 'P2002') {
+        throw new BadRequestException({
+          messageKey: 'maintenance.sparePartAlreadyAddedToRequest',
+          message: 'This spare part is already added to the request',
+        });
+      }
+      throw e;
+    }
 
     await this.audit.log(userId, 'CREATE', 'MaintenanceRequestRequiredPart', part.id,
       { requestId, sparePartId: dto.sparePartId, status: 'DRAFT', companyId: ctx.companyId, branchId: ctx.branchId });
@@ -250,13 +266,19 @@ export class MaintenanceSparePartRequestLinesService {
     const part = await this.findPartOrFail(lineId, requestId);
     if (part.status !== 'REQUESTED') throw new BadRequestException(`Cannot approve part in status '${part.status}'`);
 
+    // R2-D invariant: approvedQuantity can never exceed requestedQuantity. The
+    // submitted requested quantity is the approval ceiling; legacy REQUESTED lines
+    // without a requested quantity fall back to the requested line quantity.
+    const requested = part.requestedQuantity ?? part.quantity;
+    const approvedQuantity = Math.min(requested, part.quantity > 0 ? part.quantity : requested);
+
     const updated = await this.prisma.maintenanceRequestRequiredPart.update({
       where: { id: lineId },
       data: {
         status: 'APPROVED',
         approvedByUserId: userId,
         approvedAt: new Date(),
-        approvedQuantity: part.requestedQuantity || part.quantity,
+        approvedQuantity,
       },
       include: { sparePart: true },
     });
@@ -332,13 +354,30 @@ export class MaintenanceSparePartRequestLinesService {
       throw new BadRequestException(`Cannot mark as used part in status '${part.status}'`);
     }
 
+    // R2-D (T6): USED requires a physical inventory issue for stock-controlled
+    // parts (a spare part linked to an inventory product). A stock-controlled part
+    // can never be marked used purely as a flag flip: the canonical stock-issue
+    // service must have left inventory first (netIssued = issued - returned > 0).
+    const stockControlled = Boolean(part.sparePart?.productId);
+    const netIssued = (part.issuedQuantity ?? 0) - (part.returnedQuantity ?? 0);
+    if (stockControlled && netIssued <= 0) {
+      throw new BadRequestException({
+        messageKey: 'maintenance.usedRequiresStockIssue',
+        message: 'Stock must be issued before marking a stock-controlled part as used',
+      });
+    }
+
+    const usedQuantity = stockControlled
+      ? netIssued
+      : part.reservedQuantity ?? part.approvedQuantity ?? part.requestedQuantity ?? part.quantity;
+
     const updated = await this.prisma.maintenanceRequestRequiredPart.update({
       where: { id: lineId },
       data: {
         status: 'USED',
         usedByUserId: userId,
         usedAt: new Date(),
-        usedQuantity: part.reservedQuantity || part.approvedQuantity || part.requestedQuantity || part.quantity,
+        usedQuantity,
       },
       include: { sparePart: true },
     });
@@ -358,7 +397,11 @@ export class MaintenanceSparePartRequestLinesService {
     this.assertRequestNotTerminal(req);
     const part = await this.findPartOrFail(lineId, requestId);
     if (this.isTerminalStatus(part.status)) {
-      throw new BadRequestException(`Cannot cancel part in terminal status '${part.status}'`);
+      throw new BadRequestException({
+        messageKey: 'maintenance.partTerminalCannotCancel',
+        message: 'Cannot cancel a part in terminal status',
+        params: { status: part.status },
+      });
     }
 
     const updated = await this.prisma.maintenanceRequestRequiredPart.update({

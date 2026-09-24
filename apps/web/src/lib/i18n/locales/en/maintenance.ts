@@ -434,6 +434,9 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         cannotUpdatePartsTerminalRequest: 'Cannot update parts on completed, cancelled, or closed requests',
         noStockIssuedInBatch: 'No stock was issued in this batch',
         noFinanceEntryInBatch: 'No finance entry was created in this batch',
+        usedRequiresStockIssue: 'Stock must be issued before a stock-controlled part can be marked as used',
+        partTerminalCannotCancel: 'Cannot cancel a part in terminal status {status}',
+        partNotEditableInStatus: 'Parts can only be edited while in DRAFT status (current: {status})',
         sparePart: {
             form: {
                 code: 'Code',

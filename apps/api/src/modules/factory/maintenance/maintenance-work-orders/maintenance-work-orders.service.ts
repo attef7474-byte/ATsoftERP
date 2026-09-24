@@ -531,6 +531,16 @@ export class MaintenanceWorkOrdersService {
     ]);
 
     const parts = dto.parts && dto.parts.length > 0 ? dto.parts : [];
+    // R2-D (Option 1): a request-linked work order never carries parallel part
+    // lines. Spare parts are the request's required parts; the work order plans
+    // against them, it does not duplicate them.
+    if (resolvedLink.requestId && parts.length > 0) {
+      throw this.validationError(
+        'parts',
+        'validation.invalidStatusTransition',
+        'Linked work orders do not carry part lines. Add required parts on the maintenance request instead.',
+      );
+    }
     const resolvedParts = [];
     for (const p of parts) {
       resolvedParts.push(await this.resolvePartProduct(p, ctx));
@@ -951,6 +961,15 @@ export class MaintenanceWorkOrdersService {
 
   async addPart(workOrderId: string, dto: AddWorkOrderPartDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
     const wo = await this.findOwned(workOrderId, ctx);
+    // R2-D (Option 1): request-linked work orders must not create a parallel part
+    // truth. Spare parts belong on the maintenance request.
+    if (wo.requestId) {
+      throw this.validationError(
+        'sparePartId',
+        'validation.invalidStatusTransition',
+        'This work order is linked to a maintenance request. Add required parts on the request instead.',
+      );
+    }
     if (!['DRAFT', 'PLANNED'].includes(wo.status)) {
       throw this.validationError('status', 'validation.invalidStatusTransition',
         `Cannot add parts to a work order in status '${wo.status}'`);
@@ -1051,6 +1070,16 @@ export class MaintenanceWorkOrdersService {
 
   async issueParts(workOrderId: string, dto: IssueWorkOrderPartsDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
     const wo = await this.findOwned(workOrderId, ctx);
+    // R2-D (Option 1): stock for a request-linked work order is issued through the
+    // request's required parts (the canonical stock-issue authority). A linked work
+    // order never issues independent inventory movements.
+    if (wo.requestId) {
+      throw this.validationError(
+        'partLineIds',
+        'validation.invalidStatusTransition',
+        'Issue stock through the linked maintenance request parts instead of the work order.',
+      );
+    }
     if (!['PLANNED', 'IN_PROGRESS'].includes(wo.status)) {
       throw this.validationError('status', 'validation.invalidStatusTransition',
         `Cannot issue parts while the work order is '${wo.status}'. Expected PLANNED or IN_PROGRESS`);

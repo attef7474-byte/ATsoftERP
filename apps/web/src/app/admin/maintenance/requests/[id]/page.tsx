@@ -300,7 +300,7 @@ export default function MaintenanceRequestDetailPage() {
 
   const execStockIssue = async () => {
     const errors: Record<string, string> = {};
-    if (!stockIssueWarehouseId) errors.stockIssueWarehouseId = t('maintenance.sparePartRequest.selectWarehouseForIssue');
+    if (!stockIssueWarehouseId) errors.stockIssueWarehouseId = t('sparePartRequest.selectWarehouseForIssue');
     if (stockIssueQuantity <= 0) errors.stockIssueQuantity = t('validation.quantityMustBePositive');
     if (stockIssueCostPurpose !== MAINTENANCE_COST_PURPOSE && !stockIssueCostPurposeOverrideReason.trim()) {
       errors.costPurposeOverrideReason = t('maintenance.costPurposeOverrideReasonRequired');
@@ -360,16 +360,24 @@ export default function MaintenanceRequestDetailPage() {
     return <StatusBadge status={status} />;
   };
 
-  const canAction = (status: string, stockIssueStatus?: string | null): Record<string, boolean> => ({
-    request: status === 'DRAFT',
-    approve: status === 'REQUESTED',
-    reject: status === 'REQUESTED',
-    reserve: status === 'APPROVED',
-    use: status === 'RESERVED' || status === 'APPROVED',
-    cancel: !['CANCELLED', 'USED', 'REJECTED'].includes(status),
-    issueStock: status === 'APPROVED' || status === 'RESERVED',
-    hasIssues: stockIssueStatus != null && stockIssueStatus !== '' && stockIssueStatus !== 'NOT_ISSUED',
-  });
+  const canAction = (line: any): Record<string, boolean> => {
+    const status: string = line.status;
+    const stockIssueStatus: string | null | undefined = line.stockIssueStatus;
+    // R2-D: a stock-controlled spare part (linked inventory product) may only be
+    // marked USED after a physical stock issue; non-stock parts keep the plain flow.
+    const stockControlled = Boolean(line.sparePart?.productId);
+    const hasIssues = stockIssueStatus != null && stockIssueStatus !== '' && stockIssueStatus !== 'NOT_ISSUED';
+    return {
+      request: status === 'DRAFT',
+      approve: status === 'REQUESTED',
+      reject: status === 'REQUESTED',
+      reserve: status === 'APPROVED',
+      use: (status === 'RESERVED' || status === 'APPROVED') && (!stockControlled || hasIssues),
+      cancel: !['CANCELLED', 'USED', 'REJECTED'].includes(status),
+      issueStock: status === 'APPROVED' || status === 'RESERVED',
+      hasIssues,
+    };
+  };
 
   const statusActions: Record<string, string> = {
     OPEN: 'Start / Cancel',
@@ -540,14 +548,14 @@ export default function MaintenanceRequestDetailPage() {
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
-              <h3 className="text-sm font-semibold text-gray-700">{t('maintenance.sparePartRequest.requestedParts')}</h3>
-              <button onClick={() => setShowAddPart(true)} className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">{t('maintenance.sparePartRequest.addSparePart')}</button>
+              <h3 className="text-sm font-semibold text-gray-700">{t('sparePartRequest.requestedParts')}</h3>
+              <button onClick={() => setShowAddPart(true)} className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">{t('sparePartRequest.addSparePart')}</button>
             </div>
           </CardHeader>
           <CardContent>
             {showAddPart && (
               <div className="mb-6 p-4 border rounded-lg bg-gray-50 space-y-3">
-                <h4 className="text-sm font-medium text-gray-700">{t('maintenance.sparePartRequest.addSparePart')}</h4>
+                <h4 className="text-sm font-medium text-gray-700">{t('sparePartRequest.addSparePart')}</h4>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartLabel')}</label>
                   <F9Lookup value={addPartSparePartId} onChange={(v) => { setAddPartSparePartId(v); setAddPartErrors(prev => ({ ...prev, addPartSparePartId: '' })); }} adapter={sparePartAdapter} />
@@ -555,12 +563,12 @@ export default function MaintenanceRequestDetailPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.requestedQuantity')}</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.requestedQuantity')}</label>
                     <input type="number" min="0.01" step="0.01" value={addPartQuantity} onChange={e => { setAddPartQuantity(parseFloat(e.target.value) || 0); setAddPartErrors(prev => ({ ...prev, addPartQuantity: '' })); }} className="w-full border rounded px-2 py-1 text-sm" />
                     {addPartErrors.addPartQuantity && <p className="text-red-500 text-sm mt-1">{addPartErrors.addPartQuantity}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.requestReason')}</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.requestReason')}</label>
                     <input type="text" value={addPartReason} onChange={e => setAddPartReason(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
                   </div>
                 </div>
@@ -572,7 +580,7 @@ export default function MaintenanceRequestDetailPage() {
                   <button onClick={addPartLine} disabled={partLineActionLoading === 'add'} className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">{t('common.save')}</button>
                   <button onClick={() => setShowAddPart(false)} className="px-3 py-1.5 text-xs font-medium bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">{t('common.cancel')}</button>
                 </div>
-                <p className="text-xs text-amber-600 mt-2">{t('maintenance.sparePartRequest.noStockDeducted')}</p>
+                <p className="text-xs text-amber-600 mt-2">{t('sparePartRequest.noStockDeducted')}</p>
               </div>
             )}
             {partLinesLoading ? <LoadingState /> : partLines.length === 0 ? (
@@ -583,15 +591,15 @@ export default function MaintenanceRequestDetailPage() {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.sparePartLabel')}</th>
-                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.sparePartRequest.requestedQuantity')}</th>
-                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('maintenance.sparePartRequest.reason')}</th>
+                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('sparePartRequest.requestedQuantity')}</th>
+                      <th className="text-left py-2 px-2 font-medium text-gray-500">{t('sparePartRequest.reason')}</th>
                       <th className="text-left py-2 px-2 font-medium text-gray-500">{t('common.status')}</th>
                       <th className="text-left py-2 px-2 font-medium text-gray-500">{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {partLines.map((line) => {
-                      const actions = canAction(line.status, line.stockIssueStatus);
+                      const actions = canAction(line);
                       const stockIssueStatusColor = line.stockIssueStatus === 'FULLY_ISSUED' ? 'bg-green-100 text-green-700' : line.stockIssueStatus === 'PARTIALLY_ISSUED' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700';
                       return (
                         <tr key={line.id} className="border-b hover:bg-gray-50">
@@ -602,28 +610,28 @@ export default function MaintenanceRequestDetailPage() {
                           <td className="py-2 px-2">
                             <div className="flex flex-wrap gap-1">
                               {actions.request && (
-                                <button onClick={() => execPartAction(line.id, 'request')} disabled={partLineActionLoading === `${line.id}_request`} className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-50">{t('maintenance.sparePartRequest.requestSparePart')}</button>
+                                <button onClick={() => execPartAction(line.id, 'request')} disabled={partLineActionLoading === `${line.id}_request`} className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-50">{t('sparePartRequest.requestSparePart')}</button>
                               )}
                               {actions.approve && (
-                                <button onClick={() => execPartAction(line.id, 'approve')} disabled={partLineActionLoading === `${line.id}_approve`} className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50">{t('maintenance.sparePartRequest.approveSparePart')}</button>
+                                <button onClick={() => execPartAction(line.id, 'approve')} disabled={partLineActionLoading === `${line.id}_approve`} className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50">{t('sparePartRequest.approveSparePart')}</button>
                               )}
                               {actions.reject && (
-                                <button onClick={() => execPartAction(line.id, 'reject')} disabled={partLineActionLoading === `${line.id}_reject`} className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50">{t('maintenance.sparePartRequest.rejectSparePart')}</button>
+                                <button onClick={() => execPartAction(line.id, 'reject')} disabled={partLineActionLoading === `${line.id}_reject`} className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50">{t('sparePartRequest.rejectSparePart')}</button>
                               )}
                               {actions.reserve && (
-                                <button onClick={() => execPartAction(line.id, 'reserve')} disabled={partLineActionLoading === `${line.id}_reserve`} className="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 disabled:opacity-50">{t('maintenance.sparePartRequest.operationalReservation')}</button>
+                                <button onClick={() => execPartAction(line.id, 'reserve')} disabled={partLineActionLoading === `${line.id}_reserve`} className="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 disabled:opacity-50">{t('sparePartRequest.operationalReservation')}</button>
                               )}
                               {actions.use && (
-                                <button onClick={() => execPartAction(line.id, 'use')} disabled={partLineActionLoading === `${line.id}_use`} className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded hover:bg-amber-200 disabled:opacity-50">{t('maintenance.sparePartRequest.markPartUsed')}</button>
+                                <button onClick={() => execPartAction(line.id, 'use')} disabled={partLineActionLoading === `${line.id}_use`} className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded hover:bg-amber-200 disabled:opacity-50">{t('sparePartRequest.markPartUsed')}</button>
                               )}
                               {actions.issueStock && (
-                                <button onClick={() => setStockIssueLineId(line.id)} className="px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200">{t('maintenance.sparePartRequest.issueStock')}</button>
+                                <button onClick={() => setStockIssueLineId(line.id)} className="px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200">{t('sparePartRequest.issueStock')}</button>
                               )}
                               {actions.hasIssues && (
-                                <button onClick={() => fetchStockIssueHistory(line.id)} className="px-2 py-0.5 text-xs bg-teal-100 text-teal-700 rounded hover:bg-teal-200">{t('maintenance.sparePartRequest.stockIssueHistory')}</button>
+                                <button onClick={() => fetchStockIssueHistory(line.id)} className="px-2 py-0.5 text-xs bg-teal-100 text-teal-700 rounded hover:bg-teal-200">{t('sparePartRequest.stockIssueHistory')}</button>
                               )}
                               {actions.cancel && (
-                                <button onClick={() => execPartAction(line.id, 'cancel')} disabled={partLineActionLoading === `${line.id}_cancel`} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50">{t('maintenance.sparePartRequest.cancelRequest')}</button>
+                                <button onClick={() => execPartAction(line.id, 'cancel')} disabled={partLineActionLoading === `${line.id}_cancel`} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50">{t('sparePartRequest.cancelRequest')}</button>
                               )}
                             </div>
                           </td>
@@ -634,7 +642,7 @@ export default function MaintenanceRequestDetailPage() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-gray-400 mt-3">{t('maintenance.sparePartRequest.noStockDeducted')} — {t('maintenance.sparePartRequest.noInventoryMovement')} {t('maintenance.sparePartRequest.issueStock')}</p>
+            <p className="text-xs text-gray-400 mt-3">{t('sparePartRequest.noStockDeducted')} — {t('sparePartRequest.noInventoryMovement')} {t('sparePartRequest.issueStock')}</p>
           </CardContent>
         </Card>
       )}
@@ -643,7 +651,7 @@ export default function MaintenanceRequestDetailPage() {
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
-              <h3 className="text-sm font-semibold text-gray-700">{t('maintenance.sparePartRequest.issueStockToWarehouse')}</h3>
+              <h3 className="text-sm font-semibold text-gray-700">{t('sparePartRequest.issueStockToWarehouse')}</h3>
               <button onClick={() => { setStockIssueLineId(''); setStockIssueWarehouseId(''); setStockIssueQuantity(0); setStockIssueNotes(''); setStockIssueCondition('NEW'); setStockIssueReplacementAction('NEW_INSTALLATION'); setStockIssueRemovedCondition(''); setStockIssueRemovedWarehouseId(''); setStockIssueRemovedQuantity(0); setStockIssueNoReturnReason(''); setStockIssueCostPurpose(MAINTENANCE_COST_PURPOSE); setStockIssueCostPurposeOverrideReason(''); }} className="text-gray-400 hover:text-gray-600">&times;</button>
             </div>
           </CardHeader>
@@ -652,21 +660,21 @@ export default function MaintenanceRequestDetailPage() {
               <label className="block text-xs font-medium text-gray-500 mb-1">{t('inventory.warehouse')}</label>
               <F9Lookup value={stockIssueWarehouseId} onChange={(v) => { setStockIssueWarehouseId(v); setStockIssueErrors(prev => ({ ...prev, stockIssueWarehouseId: '' })); }} adapter={warehouseAdapter} />
               {stockIssueErrors.stockIssueWarehouseId && <p className="text-red-500 text-sm mt-1">{stockIssueErrors.stockIssueWarehouseId}</p>}
-              <p className="text-xs text-amber-600 mt-1">{t('maintenance.sparePartRequest.selectSparePartWarehouseOnly')}</p>
+              <p className="text-xs text-amber-600 mt-1">{t('sparePartRequest.selectSparePartWarehouseOnly')}</p>
             </div>
             {conditionBalancesLoading ? (
               <p className="text-xs text-gray-400">{t('common.loading')}</p>
             ) : conditionBalances.length > 0 ? (
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.availableConditionBalances')}</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.availableConditionBalances')}</label>
                 <div className="flex flex-wrap gap-2">
                   {conditionBalances.map((cb: any) => {
                     const conditionLabels: Record<string, string> = {
-                      NEW: t('maintenance.sparePartRequest.conditionNew'),
-                      USED_SERVICEABLE: t('maintenance.sparePartRequest.conditionUsedServiceable'),
-                      USED_REPAIRABLE: t('maintenance.sparePartRequest.conditionUsedRepairable'),
-                      DAMAGED_REPAIRABLE: t('maintenance.sparePartRequest.conditionDamagedRepairable'),
-                      DAMAGED_NOT_REPAIRABLE: t('maintenance.sparePartRequest.conditionDamagedNotRepairable'),
+                      NEW: t('sparePartRequest.conditionNew'),
+                      USED_SERVICEABLE: t('sparePartRequest.conditionUsedServiceable'),
+                      USED_REPAIRABLE: t('sparePartRequest.conditionUsedRepairable'),
+                      DAMAGED_REPAIRABLE: t('sparePartRequest.conditionDamagedRepairable'),
+                      DAMAGED_NOT_REPAIRABLE: t('sparePartRequest.conditionDamagedNotRepairable'),
                     };
                     return (
                       <span key={cb.id} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-700">
@@ -678,16 +686,16 @@ export default function MaintenanceRequestDetailPage() {
               </div>
             ) : null}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.issuedQuantity')}</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.issuedQuantity')}</label>
               <input type="number" min="0.001" step="0.001" value={stockIssueQuantity || ''} onChange={e => { setStockIssueQuantity(parseFloat(e.target.value) || 0); setStockIssueErrors(prev => ({ ...prev, stockIssueQuantity: '' })); }} className="w-full border rounded px-2 py-1 text-sm" />
               {stockIssueErrors.stockIssueQuantity && <p className="text-red-500 text-sm mt-1">{stockIssueErrors.stockIssueQuantity}</p>}
             </div>
-            <Select label={t('maintenance.sparePartRequest.issuedStockCondition')} value={stockIssueCondition} onChange={e => setStockIssueCondition(e.target.value)} options={[
-              { value: 'NEW', label: t('maintenance.sparePartRequest.conditionNew') },
-              { value: 'USED_SERVICEABLE', label: t('maintenance.sparePartRequest.conditionUsedServiceable') },
-              { value: 'USED_REPAIRABLE', label: t('maintenance.sparePartRequest.conditionUsedRepairable') },
-              { value: 'DAMAGED_REPAIRABLE', label: t('maintenance.sparePartRequest.conditionDamagedRepairable') },
-              { value: 'DAMAGED_NOT_REPAIRABLE', label: t('maintenance.sparePartRequest.conditionDamagedNotRepairable') },
+            <Select label={t('sparePartRequest.issuedStockCondition')} value={stockIssueCondition} onChange={e => setStockIssueCondition(e.target.value)} options={[
+              { value: 'NEW', label: t('sparePartRequest.conditionNew') },
+              { value: 'USED_SERVICEABLE', label: t('sparePartRequest.conditionUsedServiceable') },
+              { value: 'USED_REPAIRABLE', label: t('sparePartRequest.conditionUsedRepairable') },
+              { value: 'DAMAGED_REPAIRABLE', label: t('sparePartRequest.conditionDamagedRepairable') },
+              { value: 'DAMAGED_NOT_REPAIRABLE', label: t('sparePartRequest.conditionDamagedNotRepairable') },
             ]} />
             <Select
               label={t('common.costPurpose.label')}
@@ -703,39 +711,39 @@ export default function MaintenanceRequestDetailPage() {
               </div>
             )}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.replacementAction')}</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.replacementAction')}</label>
               <div className="flex flex-wrap gap-2 mt-1">
                 {['RETURNED_REMOVED_PART', 'NO_REMOVED_PART', 'NEW_INSTALLATION'].map(action => (
                   <button key={action} type="button" onClick={() => setStockIssueReplacementAction(action)} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${stockIssueReplacementAction === action ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                    {action === 'RETURNED_REMOVED_PART' ? t('maintenance.sparePartRequest.replacementReturnedRemoved') : action === 'NO_REMOVED_PART' ? t('maintenance.sparePartRequest.replacementNoRemoved') : t('maintenance.sparePartRequest.replacementNewInstallation')}
+                    {action === 'RETURNED_REMOVED_PART' ? t('sparePartRequest.replacementReturnedRemoved') : action === 'NO_REMOVED_PART' ? t('sparePartRequest.replacementNoRemoved') : t('sparePartRequest.replacementNewInstallation')}
                   </button>
                 ))}
               </div>
             </div>
             {stockIssueReplacementAction === 'RETURNED_REMOVED_PART' && (
               <div className="p-3 border border-amber-200 rounded-lg bg-amber-50 space-y-3">
-                <p className="text-xs font-medium text-amber-700">{t('maintenance.sparePartRequest.removedPartFields')}</p>
-                <Select label={t('maintenance.sparePartRequest.removedPartCondition')} value={stockIssueRemovedCondition} onChange={e => setStockIssueRemovedCondition(e.target.value)} options={[
+                <p className="text-xs font-medium text-amber-700">{t('sparePartRequest.removedPartFields')}</p>
+                <Select label={t('sparePartRequest.removedPartCondition')} value={stockIssueRemovedCondition} onChange={e => setStockIssueRemovedCondition(e.target.value)} options={[
                   { value: '', label: t('common.select') },
-                  { value: 'NEW', label: t('maintenance.sparePartRequest.conditionNew') },
-                  { value: 'USED_SERVICEABLE', label: t('maintenance.sparePartRequest.conditionUsedServiceable') },
-                  { value: 'USED_REPAIRABLE', label: t('maintenance.sparePartRequest.conditionUsedRepairable') },
-                  { value: 'DAMAGED_REPAIRABLE', label: t('maintenance.sparePartRequest.conditionDamagedRepairable') },
-                  { value: 'DAMAGED_NOT_REPAIRABLE', label: t('maintenance.sparePartRequest.conditionDamagedNotRepairable') },
+                  { value: 'NEW', label: t('sparePartRequest.conditionNew') },
+                  { value: 'USED_SERVICEABLE', label: t('sparePartRequest.conditionUsedServiceable') },
+                  { value: 'USED_REPAIRABLE', label: t('sparePartRequest.conditionUsedRepairable') },
+                  { value: 'DAMAGED_REPAIRABLE', label: t('sparePartRequest.conditionDamagedRepairable') },
+                  { value: 'DAMAGED_NOT_REPAIRABLE', label: t('sparePartRequest.conditionDamagedNotRepairable') },
                 ]} />
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.removedPartWarehouse')}</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.removedPartWarehouse')}</label>
                   <F9Lookup value={stockIssueRemovedWarehouseId} onChange={setStockIssueRemovedWarehouseId} adapter={warehouseAdapter} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.removedPartQuantity')}</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.removedPartQuantity')}</label>
                   <input type="number" min="0" step="0.001" value={stockIssueRemovedQuantity || ''} onChange={e => setStockIssueRemovedQuantity(parseFloat(e.target.value) || 0)} className="w-full border rounded px-2 py-1 text-sm" />
                 </div>
               </div>
             )}
             {stockIssueReplacementAction === 'NO_REMOVED_PART' && (
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">{t('maintenance.sparePartRequest.noReturnReason')}</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.noReturnReason')}</label>
                 <input type="text" value={stockIssueNoReturnReason} onChange={e => setStockIssueNoReturnReason(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
               </div>
             )}
@@ -744,7 +752,7 @@ export default function MaintenanceRequestDetailPage() {
               <input type="text" value={stockIssueNotes} onChange={e => setStockIssueNotes(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
             </div>
             <div className="flex gap-2">
-              <button onClick={execStockIssue} disabled={stockIssueLoading} className="px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">{t('maintenance.sparePartRequest.issueStock')}</button>
+              <button onClick={execStockIssue} disabled={stockIssueLoading} className="px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">{t('sparePartRequest.issueStock')}</button>
               <button onClick={() => { setStockIssueLineId(''); setStockIssueWarehouseId(''); setStockIssueQuantity(0); setStockIssueNotes(''); setStockIssueCondition('NEW'); setStockIssueReplacementAction('NEW_INSTALLATION'); setStockIssueRemovedCondition(''); setStockIssueRemovedWarehouseId(''); setStockIssueRemovedQuantity(0); setStockIssueNoReturnReason(''); setStockIssueCostPurpose(MAINTENANCE_COST_PURPOSE); setStockIssueCostPurposeOverrideReason(''); }} className="px-3 py-1.5 text-xs font-medium bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">{t('common.cancel')}</button>
             </div>
           </CardContent>
@@ -755,7 +763,7 @@ export default function MaintenanceRequestDetailPage() {
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
-              <h3 className="text-sm font-semibold text-gray-700">{t('maintenance.sparePartRequest.stockIssueHistory')}</h3>
+              <h3 className="text-sm font-semibold text-gray-700">{t('sparePartRequest.stockIssueHistory')}</h3>
               <button onClick={() => setShowStockIssueHistory('')} className="text-gray-400 hover:text-gray-600">&times;</button>
             </div>
           </CardHeader>
@@ -765,9 +773,9 @@ export default function MaintenanceRequestDetailPage() {
             ) : (
               <DataTable columns={[
                 { key: 'movementNumber', header: t('common.number'), render: (m: any) => m.movementNumber },
-                { key: 'movementType', header: t('common.type'), render: (m: any) => m.movementType === 'MAINTENANCE_ISSUE' ? t('maintenance.sparePartRequest.issueStock') : t('maintenance.sparePartRequest.returnStock') },
+                { key: 'movementType', header: t('common.type'), render: (m: any) => m.movementType === 'MAINTENANCE_ISSUE' ? t('sparePartRequest.issueStock') : t('sparePartRequest.returnStock') },
                 { key: 'warehouse', header: t('inventory.warehouse'), render: (m: any) => m.warehouse?.name || '-' },
-                { key: 'lines', header: t('maintenance.sparePartRequest.issuedQuantity'), render: (m: any) => m.lines?.map((l: any) => `${l.product?.name || l.productId} x ${l.quantity} (${l.direction})`).join(', ') || '-' },
+                { key: 'lines', header: t('sparePartRequest.issuedQuantity'), render: (m: any) => m.lines?.map((l: any) => `${l.product?.name || l.productId} x ${l.quantity} (${l.direction})`).join(', ') || '-' },
                 { key: 'createdAt', header: t('common.createdAt'), render: (m: any) => fmt(m.createdAt) },
               ]} data={stockIssueMovements} keyExtractor={(m: any) => m.id} />
             )}

@@ -383,24 +383,47 @@ export class PreventiveSparePartPlanService {
 
     if (items.length === 0) throw new BadRequestException('maintenance.noItemsToCopy');
 
+    // R2-D: every created required part is born in DRAFT and the copy is idempotent
+    // for parts already present on the request (live duplicate lines are never
+    // re-created, and a DB unique-constraint race is treated the same way instead of
+    // leaking as a user-visible 500).
+    const terminalStatuses = ['CANCELLED', 'USED', 'REJECTED'];
     const createdParts = [];
     for (const item of items) {
-      const requiredPart = await this.prisma.maintenanceRequestRequiredPart.create({
-        data: {
-          maintenanceRequestId: dto.requestId,
-          sparePartId: item.sparePartId,
-          machineId: plan.machineId,
-          quantity: item.plannedQuantity,
-          unit: item.unit,
-          status: 'REQUESTED',
+      const existing = await this.prisma.maintenanceRequestRequiredPart.findUnique({
+        where: {
+          maintenanceRequestId_sparePartId: { maintenanceRequestId: dto.requestId, sparePartId: item.sparePartId },
         },
       });
-      // Link the plan item back to the created request part
-      await this.prisma.preventiveSparePartPlanItem.update({
-        where: { id: item.id },
-        data: { copyToRequestId: dto.requestId },
-      });
-      createdParts.push(requiredPart);
+      if (existing && !terminalStatuses.includes(existing.status)) {
+        continue;
+      }
+      try {
+        const requiredPart = await this.prisma.maintenanceRequestRequiredPart.create({
+          data: {
+            maintenanceRequestId: dto.requestId,
+            sparePartId: item.sparePartId,
+            machineId: plan.machineId,
+            quantity: item.plannedQuantity,
+            unit: item.unit,
+            status: 'DRAFT',
+          },
+        });
+        // Link the plan item back to the created request part
+        await this.prisma.preventiveSparePartPlanItem.update({
+          where: { id: item.id },
+          data: { copyToRequestId: dto.requestId },
+        });
+        createdParts.push(requiredPart);
+      } catch (e: any) {
+        if (e?.code === 'P2002') {
+          continue;
+        }
+        throw e;
+      }
+    }
+    if (createdParts.length === 0) {
+      throw new BadRequestException('maintenance.noItemsToCopy');
     }
 
     // Mark plan as ACTIVE if still DRAFT

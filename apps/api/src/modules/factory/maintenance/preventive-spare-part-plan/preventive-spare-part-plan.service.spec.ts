@@ -170,4 +170,92 @@ describe('PreventiveSparePartPlanService tenant isolation', () => {
       ).rejects.toThrow(ForbiddenException);
     });
   });
+
+  describe('copyToRequest R2-D (DRAFT birth + idempotency)', () => {
+    const req = (overrides: Record<string, any> = {}) => ({
+      id: 'req-1',
+      status: 'OPEN',
+      machineId: 'm1',
+      machine: machine(),
+      ...overrides,
+    });
+    const planRecord = (overrides: Record<string, any> = {}) =>
+      plan({
+        items: [
+          { id: 'pi1', sparePartId: 'sp1', plannedQuantity: 2, unit: 'pcs' },
+          { id: 'pi2', sparePartId: 'sp2', plannedQuantity: 1, unit: 'pcs' },
+        ],
+        ...overrides,
+      });
+
+    beforeEach(() => {
+      prisma.maintenanceRequest = { findUnique: jest.fn() };
+      prisma.maintenanceRequestRequiredPart = {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+      };
+      prisma.preventiveSparePartPlanItem = { update: jest.fn() };
+    });
+
+    it('creates every required part in DRAFT and links the plan items back', async () => {
+      prisma.preventiveSparePartPlan.findUnique.mockResolvedValue(planRecord());
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(req());
+      prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(null);
+      prisma.maintenanceRequestRequiredPart.create.mockResolvedValue({ id: 'rp1', status: 'DRAFT' });
+      prisma.preventiveSparePartPlanItem.update.mockResolvedValue({});
+      prisma.preventiveSparePartPlan.update.mockResolvedValue(planRecord({ status: 'ACTIVE' }));
+
+      const result = await service.copyToRequest('p1', { requestId: 'req-1' } as any, 'u1', ctx);
+      expect(result).toMatchObject({ success: true, createdParts: 2 });
+      expect(prisma.maintenanceRequestRequiredPart.create).toHaveBeenCalledTimes(2);
+      expect(prisma.maintenanceRequestRequiredPart.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'DRAFT', machineId: 'm1', maintenanceRequestId: 'req-1' }),
+        }),
+      );
+      expect(prisma.preventiveSparePartPlan.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'ACTIVE' }) }),
+      );
+      expect(audit.log).toHaveBeenCalledWith('u1', 'COPY_TO_REQUEST', 'PreventiveSparePartPlan', 'p1',
+        expect.objectContaining({ requestId: 'req-1', itemCount: 2 }));
+    });
+
+    it('skips parts already live on the request (idempotent) and reports only newly created parts', async () => {
+      prisma.preventiveSparePartPlan.findUnique.mockResolvedValue(planRecord());
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(req());
+      prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue({ id: 'rp-existing', status: 'REQUESTED' });
+      prisma.maintenanceRequestRequiredPart.create.mockResolvedValue({ id: 'rp1', status: 'DRAFT' });
+
+      await expect(
+        service.copyToRequest('p1', { requestId: 'req-1' } as any, 'u1', ctx),
+      ).rejects.toMatchObject({ response: { message: 'maintenance.noItemsToCopy' } });
+      expect(prisma.maintenanceRequestRequiredPart.create).not.toHaveBeenCalled();
+      expect(prisma.preventiveSparePartPlan.update).not.toHaveBeenCalled();
+    });
+
+    it('treats a mixed run (one P2002 race, one live duplicate) as a partial idempotent copy', async () => {
+      prisma.preventiveSparePartPlan.findUnique.mockResolvedValue(planRecord());
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(req());
+      prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(null);
+      prisma.maintenanceRequestRequiredPart.create
+        .mockRejectedValueOnce({ code: 'P2002' })
+        .mockResolvedValueOnce({ id: 'rp-sp2', status: 'DRAFT' });
+      prisma.preventiveSparePartPlanItem.update.mockResolvedValue({});
+
+      const result = await service.copyToRequest('p1', { requestId: 'req-1' } as any, 'u1', ctx);
+      expect(result.createdParts).toBe(1);
+    });
+
+    it('never leaks a raw P2002 to the user when every part hits the unique race', async () => {
+      prisma.preventiveSparePartPlan.findUnique.mockResolvedValue(planRecord());
+      prisma.maintenanceRequest.findUnique.mockResolvedValue(req());
+      prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(null);
+      prisma.maintenanceRequestRequiredPart.create.mockRejectedValue({ code: 'P2002' });
+
+      await expect(
+        service.copyToRequest('p1', { requestId: 'req-1' } as any, 'u1', ctx),
+      ).rejects.toMatchObject({ response: { message: 'maintenance.noItemsToCopy' } });
+      expect(prisma.preventiveSparePartPlan.update).not.toHaveBeenCalled();
+    });
+  });
 });

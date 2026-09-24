@@ -140,32 +140,55 @@ export class MaintenanceRequestsService {
 
     const { machineId, requiredParts, ...rest } = dto;
 
-    const request = await this.prisma.$transaction(async (tx) => {
-      const requestNumber = await this.numberingService.generateNumberAtomicWithClient('MAINTENANCE_REQUEST', tx);
+    // R2-D: a required part is always born in DRAFT (dual-state F2/C defect closed)
+    // and the same spare part may never appear more than once per request payload.
+    if (requiredParts && requiredParts.length > 0) {
+      const seen = new Set<string>();
+      for (const p of requiredParts) {
+        if (seen.has(p.sparePartId)) {
+          throw this.badRequest('maintenance.sparePartAlreadyAddedToRequest', 'This spare part is already added to the request');
+        }
+        seen.add(p.sparePartId);
+      }
+    }
 
-      return tx.maintenanceRequest.create({
-        data: {
-          ...rest,
-          requestNumber,
-          machineId,
-          requestedById: userId,
-          type: isEmergency ? 'EMERGENCY' : dto.type,
-          isEmergency: isEmergency ? true : null,
-          priority: isEmergency ? 'HIGH' : (dto.priority || 'MEDIUM'),
-          requiredParts: requiredParts && requiredParts.length > 0 ? {
-            create: requiredParts.map(p => ({
-              sparePartId: p.sparePartId,
-              machineComponentId: p.machineComponentId,
-              machineId: p.machineId,
-              quantity: p.quantity,
-              unit: p.unit,
-              usageNote: p.usageNote,
-              isPrimary: p.isPrimary,
-            })),
-          } : undefined,
-        },
+    let request: any;
+    try {
+      request = await this.prisma.$transaction(async (tx) => {
+        const requestNumber = await this.numberingService.generateNumberAtomicWithClient('MAINTENANCE_REQUEST', tx);
+
+        return tx.maintenanceRequest.create({
+          data: {
+            ...rest,
+            requestNumber,
+            machineId,
+            requestedById: userId,
+            type: isEmergency ? 'EMERGENCY' : dto.type,
+            isEmergency: isEmergency ? true : null,
+            priority: isEmergency ? 'HIGH' : (dto.priority || 'MEDIUM'),
+            requiredParts: requiredParts && requiredParts.length > 0 ? {
+              create: requiredParts.map(p => ({
+                sparePartId: p.sparePartId,
+                machineComponentId: p.machineComponentId,
+                machineId: p.machineId,
+                quantity: p.quantity,
+                unit: p.unit,
+                usageNote: p.usageNote,
+                isPrimary: p.isPrimary,
+                status: 'DRAFT',
+              })),
+            } : undefined,
+          },
+        });
       });
-    });
+    } catch (e: any) {
+      // R2-D: a unique-constraint duplicate must surface as a canonical 400,
+      // never as a user-visible 500.
+      if (e?.code === 'P2002') {
+        throw this.badRequest('maintenance.sparePartAlreadyAddedToRequest', 'This spare part is already added to the request');
+      }
+      throw e;
+    }
 
     await this.audit.log(userId, 'CREATE', 'MaintenanceRequest', request.id,
       { requestNumber: request.requestNumber, machineId });
@@ -377,7 +400,11 @@ export class MaintenanceRequestsService {
     const existing = await this.prisma.maintenanceRequestRequiredPart.findUnique({
       where: { maintenanceRequestId_sparePartId: { maintenanceRequestId: requestId, sparePartId: dto.sparePartId } },
     });
-    if (existing) throw this.badRequest('maintenance.sparePartAlreadyAdded', 'This spare part is already added to the request');
+    // R2-D: only a live (non-terminal) duplicate blocks re-adding; a CANCELLED/REJECTED
+    // line may be replaced by a new DRAFT line, matching the canonical add-part path.
+    if (existing && !['CANCELLED', 'USED', 'REJECTED'].includes(existing.status)) {
+      throw this.badRequest('maintenance.sparePartAlreadyAddedToRequest', 'This spare part is already added to the request');
+    }
 
     if (dto.machineComponentId) {
       const comp = await this.prisma.machineComponent.findUnique({ where: { id: dto.machineComponentId } });
@@ -388,18 +415,29 @@ export class MaintenanceRequestsService {
       throw this.badRequest('maintenance.machineRequestMismatch', 'Machine does not match request machine');
     }
 
-    const part = await this.prisma.maintenanceRequestRequiredPart.create({
-      data: {
-        maintenanceRequestId: requestId,
-        sparePartId: dto.sparePartId,
-        machineComponentId: dto.machineComponentId,
-        machineId: dto.machineId || req.machineId,
-        quantity: dto.quantity,
-        unit: dto.unit,
-        usageNote: dto.usageNote,
-        isPrimary: dto.isPrimary,
-      },
-    });
+    let part: any;
+    try {
+      part = await this.prisma.maintenanceRequestRequiredPart.create({
+        data: {
+          maintenanceRequestId: requestId,
+          sparePartId: dto.sparePartId,
+          machineComponentId: dto.machineComponentId,
+          machineId: dto.machineId || req.machineId,
+          quantity: dto.quantity,
+          unit: dto.unit,
+          usageNote: dto.usageNote,
+          isPrimary: dto.isPrimary,
+          status: 'DRAFT',
+        },
+      });
+    } catch (e: any) {
+      // R2-D: a unique-constraint duplicate must surface as a canonical 400,
+      // never as a user-visible 500.
+      if (e?.code === 'P2002') {
+        throw this.badRequest('maintenance.sparePartAlreadyAddedToRequest', 'This spare part is already added to the request');
+      }
+      throw e;
+    }
     await this.audit.log(userId, 'CREATE', 'MaintenanceRequestRequiredPart', part.id,
       { requestId, sparePartId: dto.sparePartId });
     return part;
@@ -410,6 +448,12 @@ export class MaintenanceRequestsService {
     if (!part || !this.machineOwns(part.maintenanceRequest.machine, ctx)) throw this.notFound('maintenance.requiredPartNotFound', 'Required part not found');
     if (part.maintenanceRequest.status === 'COMPLETED' || part.maintenanceRequest.status === 'CANCELLED' || part.maintenanceRequest.status === 'CLOSED') {
       throw this.badRequest('maintenance.cannotUpdatePartsTerminalRequest', 'Cannot update parts on completed, cancelled, or closed requests');
+    }
+    // R2-D: a required part is only editable in DRAFT. Editing REQUESTED/APPROVED/
+    // RESERVED lines through this generic route would bypass the part-level FSM and
+    // could violate approvedQuantity <= requestedQuantity.
+    if (part.status !== 'DRAFT') {
+      throw this.badRequest('maintenance.partNotEditableInStatus', 'Parts can only be edited while in DRAFT status', { status: part.status });
     }
     const updated = await this.prisma.maintenanceRequestRequiredPart.update({
       where: { id },
@@ -425,10 +469,14 @@ export class MaintenanceRequestsService {
     if (part.maintenanceRequest.status === 'COMPLETED' || part.maintenanceRequest.status === 'CANCELLED' || part.maintenanceRequest.status === 'CLOSED') {
       throw this.badRequest('maintenance.cannotUpdatePartsTerminalRequest', 'Cannot update parts on completed, cancelled, or closed requests');
     }
-    if (part.status === 'CANCELLED') throw this.badRequest('maintenance.partAlreadyCancelled', 'Part is already cancelled');
+    // R2-D: USED/REJECTED/CANCELLED are terminal part states and can never be cancelled.
+    // Previously only CANCELLED was guarded, so a USED part could be cancelled.
+    if (['USED', 'REJECTED', 'CANCELLED'].includes(part.status)) {
+      throw this.badRequest('maintenance.partTerminalCannotCancel', 'Cannot cancel a part in terminal status', { status: part.status });
+    }
     const updated = await this.prisma.maintenanceRequestRequiredPart.update({
       where: { id },
-      data: { status: 'CANCELLED' },
+      data: { status: 'CANCELLED', cancelledByUserId: userId, cancelledAt: new Date() },
     });
     await this.audit.log(userId, 'CANCEL', 'MaintenanceRequestRequiredPart', id, { oldStatus: part.status });
     return updated;

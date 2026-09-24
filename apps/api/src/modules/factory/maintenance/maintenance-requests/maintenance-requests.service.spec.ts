@@ -129,7 +129,7 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
     prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue({ id: 'rp1', status: 'REQUESTED' });
     await expect(
       service.addRequiredPart('r1', { sparePartId: 'sp1', quantity: 1 } as any, 'u1', ctx),
-    ).rejects.toMatchObject({ response: { messageKey: 'maintenance.sparePartAlreadyAdded' } });
+    ).rejects.toMatchObject({ response: { messageKey: 'maintenance.sparePartAlreadyAddedToRequest' } });
   });
 
   it('rejects inactive spare part in addRequiredPart', async () => {
@@ -559,5 +559,86 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
       expect.objectContaining({
         linkedWorkOrders: [expect.objectContaining({ status: 'PLANNED' })],
       }));
+  });
+
+  // -- R2-D: required part lifecycle normalization --
+
+  it('nested create request parts are born in DRAFT (F2/C dual-state defect closed)', async () => {
+    prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+    const createSpy = jest.fn().mockResolvedValue(requestRecord({ id: 'r1' }));
+    prisma.$transaction = jest.fn(async (cb: any) => cb({ maintenanceRequest: { create: createSpy } }));
+    await service.create(
+      { machineId: 'm1', title: 'Fix pump', requiredParts: [{ sparePartId: 'sp1', quantity: 1 }] } as any,
+      { id: 'u1' } as any,
+      ctx,
+    );
+    const data = createSpy.mock.calls[0][0].data;
+    expect(data.requiredParts.create).toEqual([
+      expect.objectContaining({ sparePartId: 'sp1', status: 'DRAFT' }),
+    ]);
+  });
+
+  it('nested create rejects duplicate spare parts inside the payload with a canonical error', async () => {
+    prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+    await expect(
+      service.create(
+        { machineId: 'm1', title: 'Fix pump', requiredParts: [{ sparePartId: 'sp1', quantity: 1 }, { sparePartId: 'sp1', quantity: 2 }] } as any,
+        { id: 'u1' } as any,
+        ctx,
+      ),
+    ).rejects.toMatchObject({ response: { messageKey: 'maintenance.sparePartAlreadyAddedToRequest' } });
+    expect(prisma.maintenanceRequest.create).not.toHaveBeenCalled();
+  });
+
+  it('addRequiredPart allows re-adding a spare part after a terminal CANCELLED line (DRAFT create)', async () => {
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord());
+    prisma.sparePart.findUnique.mockResolvedValue({ id: 'sp1', status: 'ACTIVE' });
+    prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue({ id: 'rp-cancelled', status: 'CANCELLED' });
+    prisma.maintenanceRequestRequiredPart.create.mockResolvedValue({ id: 'rp-new', status: 'DRAFT' });
+
+    const part: any = await service.addRequiredPart('r1', { sparePartId: 'sp1', quantity: 2 } as any, 'u1', ctx);
+    expect(prisma.maintenanceRequestRequiredPart.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ sparePartId: 'sp1', status: 'DRAFT' }) }),
+    );
+    expect(part.status).toBe('DRAFT');
+  });
+
+  it('updateRequiredPart rejects editing a REQUESTED line (FSM bypass closed)', async () => {
+    prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue({
+      id: 'rp1',
+      status: 'REQUESTED',
+      maintenanceRequest: { status: 'OPEN', machine: ownedMachine },
+    });
+    await expect(
+      service.updateRequiredPart('rp1', { quantity: 9 } as any, 'u1', ctx),
+    ).rejects.toMatchObject({ response: { messageKey: 'maintenance.partNotEditableInStatus', params: { status: 'REQUESTED' } } });
+  });
+
+  it('cancelRequiredPart rejects cancelling a USED part (terminal state)', async () => {
+    prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue({
+      id: 'rp1',
+      status: 'USED',
+      maintenanceRequest: { status: 'OPEN', machine: ownedMachine },
+    });
+    await expect(service.cancelRequiredPart('rp1', 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.partTerminalCannotCancel', params: { status: 'USED' } },
+    });
+    expect(prisma.maintenanceRequestRequiredPart.update).not.toHaveBeenCalled();
+  });
+
+  it('cancelRequiredPart allows cancelling a DRAFT line and records the canceller', async () => {
+    prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue({
+      id: 'rp1',
+      status: 'DRAFT',
+      maintenanceRequest: { status: 'OPEN', machine: ownedMachine },
+    });
+    prisma.maintenanceRequestRequiredPart.update.mockResolvedValue({ id: 'rp1', status: 'CANCELLED' });
+    const result: any = await service.cancelRequiredPart('rp1', 'u1', ctx);
+    expect(prisma.maintenanceRequestRequiredPart.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELLED', cancelledByUserId: 'u1' }) }),
+    );
+    expect(result.status).toBe('CANCELLED');
+    expect(audit.log).toHaveBeenCalledWith('u1', 'CANCEL', 'MaintenanceRequestRequiredPart', 'rp1',
+      expect.objectContaining({ oldStatus: 'DRAFT' }));
   });
 });

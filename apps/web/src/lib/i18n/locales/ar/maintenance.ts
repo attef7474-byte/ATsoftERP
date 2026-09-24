@@ -433,6 +433,9 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         cannotUpdatePartsTerminalRequest: 'لا يمكن تحديث قطع لطلبات مكتملة أو ملغاة أو مغلقة',
         noStockIssuedInBatch: 'لم يتم صرف أي مخزون في هذه الدفعة',
         noFinanceEntryInBatch: 'لم يتم إنشاء أي قيد مالي في هذه الدفعة',
+        usedRequiresStockIssue: 'يجب صرف المخزون أولاً قبل تحديد قطعة مُدارة بالمخزون كمستخدمة',
+        partTerminalCannotCancel: 'لا يمكن إلغاء قطعة في حالة نهائية {status}',
+        partNotEditableInStatus: 'يمكن تعديل القطع فقط عندما تكون بحالة مسودة (الحالة الحالية: {status})',
         sparePart: {
             form: {
                 code: 'الكود',
