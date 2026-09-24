@@ -18,6 +18,7 @@ const validation: Pick<LocaleTranslations, 'validation' | 'errors' | 'complexFor
         invalidId: 'Invalid ID.',
         invalidQuantity: 'Invalid quantity.',
         invalidStatusTransition: 'This operation is not allowed in the current status.',
+        workOrderStartRequiresInProgressRequest: 'The maintenance request must be IN_PROGRESS before its work orders can start.',
         leadershipAdministrationRequired: 'An administration is required for the selected leadership level.',
         leadershipDepartmentRequired: 'A department is required for the selected leadership level.',
         insufficientStock: 'Insufficient stock for this item.',

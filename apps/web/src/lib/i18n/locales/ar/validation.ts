@@ -18,6 +18,7 @@ const validation: Pick<LocaleTranslations, 'validation' | 'errors' | 'complexFor
         invalidId: 'معرف غير صالح.',
         invalidQuantity: 'كمية غير صالحة.',
         invalidStatusTransition: 'هذه العملية غير مسموح بها في الحالة الحالية.',
+        workOrderStartRequiresInProgressRequest: 'يجب أن يكون طلب الصيانة قيد التنفيذ قبل بدء أوامر العمل الخاصة به.',
         leadershipAdministrationRequired: 'الدور القيادي يتطلب تحديد الإدارة',
         leadershipDepartmentRequired: 'الدور القيادي يتطلب تحديد القسم',
         insufficientStock: 'مخزون غير كافٍ لهذا الصنف.',
