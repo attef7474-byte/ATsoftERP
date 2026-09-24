@@ -33,7 +33,7 @@ The Production Phase 1 defect-repair release was executed end-to-end against the
 | Original repair commit (app code + tests) | `64eb80c32814830002ef551cc17aa6547f77f1a3` |
 | Code commit (PT edit payload fix; MR traceability fields) | `f2f2c55771efd7957f9922883f214f52338e5ce1` |
 | **Release source commit** (proof docs on top) | `be4116ca4e65a6373569c098a3330bec5b86874b` |
-| Recloseout commit (this document) | `RECLOSEOUT_COMMIT` (full SHA recorded in git) |
+| Recloseout commit (this document) | `b4fd65e60607b56783fae7e9a4c56df18ead3294` |
 | Published `origin/main` HEAD | `HEAD` = recloseout commit, `AHEAD_BEHIND=0/0` |
 | Pre-release worktree | clean (`git status --porcelain` empty) |
 | Post-release worktree | clean |
