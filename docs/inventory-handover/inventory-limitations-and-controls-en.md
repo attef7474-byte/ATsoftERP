@@ -15,6 +15,7 @@
 | Insufficient stock check | Prevents OUT when balance too low | Implemented |
 | Posted document immutability | No edit/delete after posting | Implemented |
 | Transfer source ≠ destination | Prevents same-warehouse transfer | Implemented |
+| Inventory valuation: WEIGHTED_AVERAGE | Unit cost and weighted-average valuation for valued inventory flows | Implemented (Inventory Valuation R1A–R1H) |
 
 ## Known Limitations
 | Limitation | Impact | Workaround | Planned? |
@@ -28,7 +29,7 @@
 | Purchasing not activated | No PO→receiving link | Inventory in via operational receipt | Separate batch |
 | Opening Balance no pre-posting guard | Posting may succeed before governance review | Manual review before posting; check audit log | Could be added |
 | Migration uses `prisma migrate deploy` | No `migrate dev` (shadow DB unavailable) | Must use `deploy` in CI/CD | Not needed |
-| No stock valuation method (FIFO/LIFO/weighted) | Quantity only, no unit cost | Not implemented | Future enhancement |
+| FIFO/LIFO valuation not implemented | Only WEIGHTED_AVERAGE valuation is implemented | Use WEIGHTED_AVERAGE | Not confirmed |
 | No inventory reorder / min-max alerts | No automated replenishment suggestions | Manual monitoring | Future enhancement |
 | No batch/lot tracking | Items tracked by product only | Not implemented | Future enhancement |
 | No serial number tracking | Items tracked by product only | Not implemented | Future enhancement |
@@ -37,4 +38,3 @@
 - Pre-posting governance check for Opening Balance
 - Lock override with justification audit trail
 - Reorder level alerts
-- Stock valuation and unit cost

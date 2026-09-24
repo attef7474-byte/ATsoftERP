@@ -34,19 +34,19 @@
 
 **Recommended fix**: Define and document criteria for which grid to use. Migrate to single grid component if feasible.
 
-## 5. i18n: 5 Unimplemented Namespaces
+## 5. i18n: 5 Unimplemented Namespaces (RESOLVED)
 
-**Issue**: The following i18n namespaces are defined in the config but have **no translation files**:
+**Issue**: The following i18n namespaces were initially defined in the config but had **no translation files**:
 
 | Namespace | Status |
 |-----------|--------|
-| `inventoryCounting` | Not implemented |
-| `maintenanceDashboard` | Not implemented |
-| `preventiveMaintenance` | Not implemented |
-| `downtimeAnalysis` | Not implemented |
-| `sparePartRequest` | Not implemented |
+| `inventoryCounting` | Implemented (locale `inventory.ts` / `barcodes.ts`) |
+| `maintenanceDashboard` | Implemented (locale `maintenance.ts`) |
+| `preventiveMaintenance` | Implemented (locale `maintenance.ts`) |
+| `downtimeAnalysis` | Implemented (locale `maintenance.ts`) |
+| `sparePartRequest` | Implemented (locale `maintenance.ts`) |
 
-**Impact**: Pages in these areas may show raw keys instead of translated text.
+**Resolved**: All five namespaces now ship matching EN/AR translation keys, verified by the synchronized i18n gate.
 
 **Recommended fix**: Create translation files for each namespace in both EN and AR.
 
@@ -77,13 +77,11 @@
 
 **Design Decision**: This was intentional — `InventoryBalance` is not changed to avoid breaking existing inventory flows.
 
-## 9. BOM: Inactive in Current Release
+## 9. BOM: Inactive in Current Release (RESOLVED)
 
-**Issue**: The BOM module (MaintenanceBom, MaintenanceBomVersion) was created in batch AH-AI with full infrastructure (schema, backend, frontend pages) but is **not activated** for production use.
+**Issue**: The BOM module (MaintenanceBom, MaintenanceBomVersion) was created in batch AH-AI with full infrastructure (schema, backend, frontend pages) but was **not activated** for production use.
 
-**Status**: BOM pages exist in routes but are hidden from sidebar. No actual approval/activation has occurred.
-
-**Recommended fix**: Activate BOM when the user explicitly approves it in a future batch.
+**Status**: Resolved — the BOM module is now fully implemented (`maintenance-bom` controller/service/module registered in `app.module.ts`), the `/admin/maintenance/bom` route ships in the sidebar navigation, and tenant-scoped BOM spec coverage is in place.
 
 ## 10. No Accounting Integration
 
