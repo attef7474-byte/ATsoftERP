@@ -39,7 +39,7 @@ Supporting cost-domain hardening ancestors (all on `origin/main`): `a92d7cba` (t
 | Item | Value |
 |---|---|
 | Branch | `main` |
-| `origin/main` HEAD at closeout | `d01fbaa1a799922bf8fe6d3cec3870544eaf91ea` |
+| `origin/main` HEAD at closeout | `c9c53c53fb929e9d0c1d44fd700c5c45c37532d7` (this document) |
 | `HEAD == origin/main` | TRUE, `AHEAD_BEHIND=0/0` |
 | Worktree | clean (`git status --porcelain` empty) |
 | COST slice commits contained in `origin/main` | all of the above (`git merge-base --is-ancestor` exit 0 for every slice commit) |
