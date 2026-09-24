@@ -175,3 +175,85 @@ Run in the repair worktree at baseline `fb82a455`:
 ## 9. Handover to Release
 
 Baseline for the repair: `main` @ `fb82a455387d1e6ae9ca2eb7a060606a40902e79`. The fix changes are staged as the REPAIR_COMMIT on branch `production-phase1-defect-repair-d1-d4-20260923` and must be merged to `main` and released through the standard release pipeline (run `prisma migrate deploy` to apply migration `20260923000000_repair_widen_audit_details`). `READY_FOR_PRODUCTION_RELEASE=YES`.
+
+---
+
+## 10. Acceptance Re-certification Supplement (2026-09-24)
+
+Strict pre-production acceptance was re-run on top of the repair commit `64eb80c3` with **real-browser mutations** (Playwright clicking the actual web UI) against the authoritative clone boundary (`ATsoftERP_P1CLOSE_20260923` via clone API `localhost:4010`). This section supersedes the earlier provisional notes in sections 1 and 6 with corrected, evidence-backed findings.
+
+### 10.1 Commits in scope
+
+- `64eb80c3` — original D1–D5 repair commit (section 2).
+- `f2f2c557` — top-of-branch follow-up (no amend, no push): MR traceability loss-event field alignment + PT edit payload fix (section 10.4). 5 files, +72/−20.
+
+### 10.2 Corrected root-cause attribution for the "PATCH 500" findings
+
+Earlier diagnosis attributed the Order PATCH 500 unconditionally to the D1/D2a decimal-undefined bug. Re-certification proved the boundary matters:
+
+- **`ATsoftERP_DB` real database**: `audit_logs.details` physically created `NVARCHAR(1000)` in migration `20260714042111_init_core_foundation` (Prisma model declares `String?`). A full PATCH stores previous+new snapshots (~1215 chars) and fails with truncation 500. This is a **pre-existing schema gap on the real DB only**; the validated migration `20260923000000_repair_widen_audit_details` fixes it at deploy.
+- **Authoritative clone `ATsoftERP_P1CLOSE_20260923`**: migration applied; `PATCH /production/orders/:id` partial **and** full both return **200** with `lockVersion` advance and the 1215-char audit persisted intact. Reproduced in real browser (section 10.5).
+
+### 10.3 Newly found real boundary blocker (frontend): PT edit PATCH 400
+
+- **Root cause:** the web performance-targets page sent `scopeType` in the PATCH body, but the Update DTO (`performance-target.dto.ts`) has **no** `scopeType` field → class-transformer 400 `property scopeType should not exist`.
+- **Fix (web):** `payloadFrom(source, forCreate)` now includes `scopeType` only on create; PATCH omits it; the scope `<Select>` is disabled while editing, so a mismatch between form and DTO is impossible.
+- **Browser proof:** PT create → PATCH edit now returns **200** with grid reflecting edited notes and numeric preservation (A=92, P=97, Q=95, OEE=88). Pre-fix this exact click returned 400.
+
+### 10.4 MR traceability loss-event field alignment
+
+- The traceability select on `productionMaterialDocumentLine.lossQuantityEvent` listed non-existent fields `eventNumber/lossType/lostQuantity`; the persisted Prisma model has `type/quantity/unit`.
+- **Fixed:** service select → `{ id, type, quantity, unit }`; `admin-types/production.ts` typed accordingly; web page renders the translated `production.losses.type*` label + quantity + unit.
+- **Tests added:** service spec asserts the select contains only persisted fields (no `eventNumber`/`lossType`/`lostQuantity`) and returns the persisted field names on posted document lines. i18n labels verified present in `en/ar` (`production.losses.typeWASTE`, etc.), so the web build and i18n check pass.
+- Also corrected in the same page: the material-requirements page consumed the `{ data }` envelope for endpoints that return the bare entity (`/material-requirements`, `/material-readiness`, `/material-consumption`, `/traceability`); now unwrapped correctly.
+
+### 10.5 Real-browser mutation recertification results
+
+Headless Chromium drove the real web (`localhost:3000`, build-time `NEXT_PUBLIC_API_URL=http://localhost:4010/api/v1`) against the clean clone API/DB and performed real creates/edits:
+
+| Flow item | Result |
+|---|---|
+| PT create + partial edit (PATCH) | **PASS** — 200; grid + notes + numeric preservation verified |
+| Order create (full POST) | **PASS** — 201 |
+| Order partial edit PATCH | **PASS** — 200 |
+| Order full edit PATCH | **PASS** — 200; qty=310, priority=URGENT persisted |
+| Order delete (UI) | **PASS** — 200 |
+| MR prepare POST / freeze PATCH | **PASS** — 201 / 200 → FROZEN snapshot shown |
+| Material Document create control | **PASS** — renders (post not attempted: requires a RELEASED order with FROZEN snapshot; none exists on clone; not safely reproducible, correctly skipped) |
+| AR/RTL + EN/LTR | PASS |
+| Raw i18n key / raw-CUID leakage | PASS (0) |
+| console errors / 4xx-5xx | **2 FAILs (single pre-existing handled pattern)** |
+
+The two criteria FAILs are one pre-existing, intentionally handled browser path: `404 GET /production/orders/{id}/material-requirements` when the order has no snapshot yet. The page catches it (`.catch(() => null)` → empty state), so it is a **handled empty-state contract, not a repair blocker**, and existed unchanged before and after this fix (`getOrderTraceability`'s sibling `getByOrder` throws `NotFound` by contract). Full flow: **21/21 flow items PASS; 4/4 other criteria PASS; 2 criteria FAILs traced to the handled 404 above.**
+
+### 10.6 Clone residue cleanup (final)
+
+The browser mutation run created new fixtures (`PO-000034`, `PPT-000020`, one FROZEN MR). Per policy, in-copy row-level backups were written to the protected evidence workspace before deletion (`evidence/`), and the deletion ran in a transaction:
+
+- **Backed up then deleted (clone):** 1 order + 1 transition + 1 MR + 1 MR line + 1 PT + 8 scoped audit rows.
+- **Post-cleanup verification (clone):** `production_orders` `cmue%` = 0, `production_performance_targets` = 0, `production_material_requirements` = 0 (global), test transitions = 0; reference orders PO-000001..000004 intact (DRAFT/IN_PROGRESS/PLANNED/PLANNED, lockVersions 0/3/1/1); latest created order = PO-000004; remaining `cmue%` audit rows are legitimate LOGIN sessions only (15).
+- **Balances untouched** (per decision): original real-DB values unverifiable; `ATTsoftERP_DB` WH-000001 `cmrlb0uf40002gg956cmv26mu` qty=4 vs clone qty=2, WH-000006 has no balance row in `ATsoftERP_DB` (clone qty=39). Flagged, not silently modified.
+
+### 10.7 Regression gates re-run for `f2f2c557`
+
+| Gate | Result |
+|---|---|
+| Focused API Jest (MR service + PT service specs) | 60 / 60 PASS |
+| Full API Jest | 2914 / 2914 PASS (165 suites) |
+| API `tsc --noEmit` | PASS |
+| API build | PASS |
+| Web `tsc --noEmit` | PASS |
+| Web build (`next build`, clone env) | PASS |
+| i18n check | PASS (6110 EN = 6110 AR) |
+| UI baseline check | PASS (99 checks) |
+| `git diff --check` / `git diff --cached --check` | PASS |
+| Git status | only the 5 intended files staged/committed |
+
+### 10.8 Honest flags carried forward
+
+- `ATsoftERP_DB` at `:4000` still has `audit_logs.details = NVARCHAR(1000)` — **pre-existing**, corrected only by applying the validated migration at release deploy. Not migrated directly per policy in this task.
+- Browser mutation surfaced exactly one handled pre-existing 404 pattern (section 10.5); documented, not a blocker.
+- Inventory balances intentionally left untouched (section 10.6).
+- Runtime services restored to production state after proof: `ATsoftERP_Web` NSSM service running (port 3000), real API on `:4000` untouched, temp clone API `:4010` and temp web stopped, ports freed.
+
+**Acceptance status: COMPLETE on the authoritative clone boundary.** The two former real-blocks (Order PATCH in clone context and PT PATCH 400) are resolved and browser-proven; remaining flags are pre-existing, documented, and remediation-gated at release.
