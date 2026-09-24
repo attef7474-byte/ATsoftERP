@@ -117,5 +117,5 @@ R2_C_MIGRATION_EXECUTED=NO
 - Source (frozen): `feat(maintenance): canonical request-to-work-order integration (R2-C)` — `b8c620544d0be7aad9288e436fc6c6f5e206d1d7`.
 - Closeout (frozen): `docs(maintenance): close R2-C request-to-work-order integration` — `b816af5513f0233fad0ccc43206c1f6d1f0b9e7a`.
 - Hotfix (this task): `fix(maintenance): correct request detail hook ordering` — `ec903ff603c86dc21353921aa31768be44bc7623` (page.tsx + regression test only).
-- Addendum (this task): `<R2_C_BROWSER_ADDENDUM_COMMIT>`.
+- Addendum (this task): `9e077cba` — `docs(maintenance): certify R2-C browser and real-db integration`.
 - No push, no merge, no tag. This addendum reports actual results only.
