@@ -11,6 +11,23 @@ interface Props {
   title?: string;
 }
 
+// Explicit, exhaustive condition key map. Never build a translation key by string
+// concatenation: an unknown condition must fall back to a readable value instead of
+// leaking a raw translation key to the user.
+const CONDITION_LABEL_KEYS: Record<string, string> = {
+  NEW: 'sparePartRequest.conditionNew',
+  USED_SERVICEABLE: 'sparePartRequest.conditionUsedServiceable',
+  USED_REPAIRABLE: 'sparePartRequest.conditionUsedRepairable',
+  DAMAGED_REPAIRABLE: 'sparePartRequest.conditionDamagedRepairable',
+  DAMAGED_NOT_REPAIRABLE: 'sparePartRequest.conditionDamagedNotRepairable',
+};
+
+function conditionLabel(t: (key: string) => string, condition?: string | null): string | null {
+  if (!condition) return null;
+  const key = CONDITION_LABEL_KEYS[condition];
+  return key ? t(key) : condition;
+}
+
 export function ReplacementHistoryCard({ machineId, requestId, title }: Props) {
   const { t } = useTranslation();
   const [history, setHistory] = useState<SparePartReplacementHistory[]>([]);
@@ -42,22 +59,35 @@ export function ReplacementHistoryCard({ machineId, requestId, title }: Props) {
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={fetchHistory} />;
 
+  // R2-E: the removed (old) identity is presented before the new one because the
+  // event itself is "the removed part was replaced by the new part". Both sides are
+  // always shown as human-readable catalog identity, never as a raw record id.
   const columns = [
     {
       key: 'replacementNumber',
       header: t('common.number') || 'Number',
     },
     {
-      key: 'newSparePart',
-      header: t('maintenance.newPart'),
-      render: (row: SparePartReplacementHistory) =>
-        row.newSparePart ? `${row.newSparePart.code} - ${row.newSparePart.name}` : '-',
-    },
-    {
       key: 'oldSparePart',
       header: t('maintenance.oldPart'),
       render: (row: SparePartReplacementHistory) =>
         row.oldSparePart ? `${row.oldSparePart.code} - ${row.oldSparePart.name}` : '-',
+    },
+    {
+      key: 'removedDetails',
+      header: t('maintenance.removedPartDetails'),
+      render: (row: SparePartReplacementHistory) => {
+        const condition = conditionLabel(t, row.removedCondition);
+        const quantity = row.removedQuantity != null ? `${t('common.quantity') || 'Qty'} ${row.removedQuantity}` : null;
+        const details = [condition, quantity].filter(Boolean).join(' · ');
+        return details || '-';
+      },
+    },
+    {
+      key: 'newSparePart',
+      header: t('maintenance.newPart'),
+      render: (row: SparePartReplacementHistory) =>
+        row.newSparePart ? `${row.newSparePart.code} - ${row.newSparePart.name}` : '-',
     },
     {
       key: 'replacementAction',

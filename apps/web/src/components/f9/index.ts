@@ -36,6 +36,7 @@ export {
   productionLineAdapter,
   machineComponentAdapter,
   sparePartAdapter,
+  machineInstalledPartAdapter,
   maintenancePersonnelAdapter,
   stockTransferAdapter,
   operationalReceiptAdapter,

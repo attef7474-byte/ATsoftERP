@@ -118,6 +118,7 @@ describe('MaintenanceStockIssueService tenant isolation', () => {
     installedPartsService = {
       recordInstalledPartInTx: jest.fn().mockResolvedValue({ id: 'ip1' }),
       recordReplacementInTx: jest.fn().mockResolvedValue({ id: 'rep1' }),
+      markInstalledPartRemovedInTx: jest.fn().mockResolvedValue({ id: 'ip-old', status: 'REMOVED' }),
     };
     service = new MaintenanceStockIssueService(
       prisma as unknown as PrismaService,
@@ -207,6 +208,9 @@ describe('MaintenanceStockIssueService tenant isolation', () => {
 
     it('rejects issuing from a foreign-company removedPartWarehouse before any mutation', async () => {
       prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(partLine());
+      // R2-E: a true replacement must name the ACTUAL installed part being removed.
+      prisma.machineInstalledPart = { findUnique: jest.fn() };
+      prisma.$queryRaw = jest.fn().mockResolvedValue([{ result: 0 }]);
       prisma.warehouse.findUnique
         .mockResolvedValueOnce(warehouse())
         .mockResolvedValueOnce(warehouse({ id: 'wh-removed-foreign', companyId: 'c2' }));
@@ -215,6 +219,7 @@ describe('MaintenanceStockIssueService tenant isolation', () => {
         service.issue('req1', 'line1', {
           ...baseIssueDto,
           replacementAction: 'RETURNED_REMOVED_PART',
+          oldInstalledPartId: 'ip-old',
           removedPartCondition: 'USED_REPAIRABLE',
           removedPartWarehouseId: 'wh-removed-foreign',
           removedPartQuantity: 1,
@@ -224,6 +229,46 @@ describe('MaintenanceStockIssueService tenant isolation', () => {
       expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
       expect(prisma.sparePartConditionBalance.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a removedPartWarehouse belonging to another company inside the transaction', async () => {
+      prisma.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(partLine());
+      prisma.machineInstalledPart = {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'ip-old',
+          machineId: 'm1',
+          machineComponentId: null,
+          sparePartId: 'sp-old',
+          productId: 'prod-old',
+          installedQuantity: 1,
+          installedCondition: 'USED_REPAIRABLE',
+          status: 'ACTIVE',
+          machine: machine(),
+          sparePart: { id: 'sp-old', code: 'SP-OLD', name: 'Old Part', productId: 'prod-old' },
+        }),
+      };
+      prisma.$queryRaw = jest.fn().mockResolvedValue([{ result: 0 }]);
+      prisma.warehouse.findUnique
+        .mockResolvedValueOnce(warehouse())
+        .mockResolvedValueOnce(warehouse({ id: 'wh-removed-foreign', companyId: 'c2' }));
+      prisma.sparePartReplacementHistory = { findFirst: jest.fn() };
+
+      await expect(
+        service.issue('req1', 'line1', {
+          ...baseIssueDto,
+          replacementAction: 'RETURNED_REMOVED_PART',
+          oldInstalledPartId: 'ip-old',
+          removedPartCondition: 'USED_REPAIRABLE',
+          removedPartWarehouseId: 'wh-removed-foreign',
+          removedPartQuantity: 1,
+        } as any, 'u1', ctx),
+      ).rejects.toThrow(ForbiddenException);
+
+      // Nothing may be mutated when the return warehouse is outside the tenant.
+      expect(installedPartsService.markInstalledPartRemovedInTx).not.toHaveBeenCalled();
+      expect(installedPartsService.recordInstalledPartInTx).not.toHaveBeenCalled();
+      expect(installedPartsService.recordReplacementInTx).not.toHaveBeenCalled();
+      expect(prisma.sparePartConditionMovement.create).not.toHaveBeenCalled();
     });
   });
 

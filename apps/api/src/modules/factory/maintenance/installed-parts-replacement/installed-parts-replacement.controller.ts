@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { InstalledPartsReplacementService } from './installed-parts-replacement.service';
-import { QueryInstalledPartDto, QueryReplacementHistoryDto, SetExpectedLifeDto, RecordInstalledPartReadingDto } from './dto/installed-parts-replacement.dto';
+import { QueryInstalledPartDto, QueryInstalledPartLookupDto, QueryReplacementHistoryDto, SetExpectedLifeDto, RecordInstalledPartReadingDto } from './dto/installed-parts-replacement.dto';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../auth/guards/permissions.guard';
 import { Permissions } from '../../../auth/decorators/permissions.decorator';
@@ -21,6 +21,13 @@ export class InstalledPartsReplacementController {
   @ApiOperation({ summary: 'List installed parts with optional filters' })
   getInstalledParts(@Query() query: QueryInstalledPartDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.getInstalledParts(query, ctx);
+  }
+
+  @Get('lookup')
+  @Permissions('installed-parts:read')
+  @ApiOperation({ summary: 'Paginated installed-part lookup for the unified F9 search' })
+  lookupInstalledParts(@Query() query: QueryInstalledPartLookupDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.lookupInstalledParts(query, ctx);
   }
 
   @Get('by-machine/:machineId')

@@ -6,7 +6,7 @@ import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
-import { MaintenanceRequest, MaintenanceTask, DowntimeLog, SparePartRequestLine } from '../../../../../lib/admin-types';
+import { MaintenanceRequest, MaintenanceTask, DowntimeLog, SparePartRequestLine, MachineInstalledPart } from '../../../../../lib/admin-types';
 import { useAuth } from '../../../../../lib/auth-context';
 import { COST_PURPOSE_VALUES, MAINTENANCE_COST_PURPOSE, COST_PURPOSE_OVERRIDE_PERMISSION } from '../../../../../lib/cost-purpose';
 
@@ -17,7 +17,7 @@ interface RequestDetail extends MaintenanceRequest {
 }
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, ConfirmDialog, Select, Modal, Input, Textarea, Button } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionBarcodeIcon, ActionAddIcon } from '../../../../../components/admin/admin-action-bar';
-import { F9Lookup, sparePartAdapter, warehouseAdapter, userAdapter } from '../../../../../components/f9';
+import { F9Lookup, sparePartAdapter, warehouseAdapter, userAdapter, machineInstalledPartAdapter } from '../../../../../components/f9';
 import { ReplacementHistoryCard } from '../../../../../components/admin/maintenance/replacement-history-card';
 
 export default function MaintenanceRequestDetailPage() {
@@ -59,9 +59,10 @@ export default function MaintenanceRequestDetailPage() {
   const [stockIssueErrors, setStockIssueErrors] = useState<Record<string, string>>({});
   const [stockIssueCondition, setStockIssueCondition] = useState('NEW');
   const [stockIssueReplacementAction, setStockIssueReplacementAction] = useState('NEW_INSTALLATION');
+  const [stockIssueOldInstalledPartId, setStockIssueOldInstalledPartId] = useState('');
+  const [stockIssueOldInstalledPart, setStockIssueOldInstalledPart] = useState<MachineInstalledPart | null>(null);
   const [stockIssueRemovedCondition, setStockIssueRemovedCondition] = useState('');
   const [stockIssueRemovedWarehouseId, setStockIssueRemovedWarehouseId] = useState('');
-  const [stockIssueRemovedQuantity, setStockIssueRemovedQuantity] = useState(0);
   const [stockIssueNoReturnReason, setStockIssueNoReturnReason] = useState('');
   const [stockIssueCostPurpose, setStockIssueCostPurpose] = useState<string>(MAINTENANCE_COST_PURPOSE);
   const [stockIssueCostPurposeOverrideReason, setStockIssueCostPurposeOverrideReason] = useState('');
@@ -298,10 +299,52 @@ export default function MaintenanceRequestDetailPage() {
     } finally { setPartLineActionLoading(''); }
   };
 
+  const isStockIssueReplacement = stockIssueReplacementAction !== 'NEW_INSTALLATION';
+
+  // R2-E: changing the action invalidates every action-specific field, so a stale
+  // selection can never leak from one action into another submission.
+  const selectStockIssueReplacementAction = (action: string) => {
+    setStockIssueReplacementAction(action);
+    setStockIssueOldInstalledPartId('');
+    setStockIssueOldInstalledPart(null);
+    setStockIssueRemovedCondition('');
+    setStockIssueRemovedWarehouseId('');
+    setStockIssueNoReturnReason('');
+    setStockIssueErrors((prev) => ({ ...prev, oldInstalledPartId: '', removedPartCondition: '', removedPartWarehouseId: '', noReturnReason: '' }));
+  };
+
+  const resetStockIssueForm = () => {
+    setStockIssueLineId('');
+    setStockIssueWarehouseId('');
+    setStockIssueQuantity(0);
+    setStockIssueNotes('');
+    setStockIssueCondition('NEW');
+    setStockIssueReplacementAction('NEW_INSTALLATION');
+    setStockIssueOldInstalledPartId('');
+    setStockIssueOldInstalledPart(null);
+    setStockIssueRemovedCondition('');
+    setStockIssueRemovedWarehouseId('');
+    setStockIssueNoReturnReason('');
+    setStockIssueCostPurpose(MAINTENANCE_COST_PURPOSE);
+    setStockIssueCostPurposeOverrideReason('');
+  };
+
   const execStockIssue = async () => {
     const errors: Record<string, string> = {};
     if (!stockIssueWarehouseId) errors.stockIssueWarehouseId = t('sparePartRequest.selectWarehouseForIssue');
     if (stockIssueQuantity <= 0) errors.stockIssueQuantity = t('validation.quantityMustBePositive');
+    // R2-E: a true replacement must name the ACTUAL installed part being removed,
+    // and the full selected record is what the removed quantity is derived from.
+    if (isStockIssueReplacement && (!stockIssueOldInstalledPartId || !stockIssueOldInstalledPart)) {
+      errors.oldInstalledPartId = t('sparePartRequest.selectOldInstalledPartRequired');
+    }
+    if (stockIssueReplacementAction === 'RETURNED_REMOVED_PART') {
+      if (!stockIssueRemovedCondition) errors.removedPartCondition = t('sparePartRequest.removedPartConditionRequired');
+      if (!stockIssueRemovedWarehouseId) errors.removedPartWarehouseId = t('sparePartRequest.removedPartWarehouseRequired');
+    }
+    if (stockIssueReplacementAction === 'NO_REMOVED_PART' && !stockIssueNoReturnReason.trim()) {
+      errors.noReturnReason = t('sparePartRequest.noReturnReasonRequired');
+    }
     if (stockIssueCostPurpose !== MAINTENANCE_COST_PURPOSE && !stockIssueCostPurposeOverrideReason.trim()) {
       errors.costPurposeOverrideReason = t('maintenance.costPurposeOverrideReasonRequired');
     }
@@ -318,28 +361,25 @@ export default function MaintenanceRequestDetailPage() {
         costPurpose: stockIssueCostPurpose,
         costPurposeOverrideReason: stockIssueCostPurpose !== MAINTENANCE_COST_PURPOSE ? stockIssueCostPurposeOverrideReason.trim() : undefined,
       };
+      // Only the installed-part record id is ever sent. The removed spare-part and
+      // product identity are derived server-side, so OLD and NEW can never be
+      // conflated or dictated by the client.
+      if (isStockIssueReplacement) {
+        payload.oldInstalledPartId = stockIssueOldInstalledPartId;
+      }
       if (stockIssueReplacementAction === 'RETURNED_REMOVED_PART') {
         payload.removedPartCondition = stockIssueRemovedCondition;
         payload.removedPartWarehouseId = stockIssueRemovedWarehouseId;
-        payload.removedPartQuantity = stockIssueRemovedQuantity;
+        // Full-quantity removal of the one physical installed record; the backend
+        // re-derives this and fails closed on any mismatch.
+        payload.removedPartQuantity = stockIssueOldInstalledPart!.installedQuantity;
       }
       if (stockIssueReplacementAction === 'NO_REMOVED_PART') {
-        payload.noReturnReason = stockIssueNoReturnReason;
+        payload.noReturnReason = stockIssueNoReturnReason.trim();
       }
       await api.post(`/maintenance/requests/${id}/parts/${stockIssueLineId}/stock-issue/issue`, payload);
       showToast(t('common.successUpdated'), 'success');
-      setStockIssueLineId('');
-      setStockIssueWarehouseId('');
-      setStockIssueQuantity(0);
-      setStockIssueNotes('');
-      setStockIssueCondition('NEW');
-      setStockIssueReplacementAction('NEW_INSTALLATION');
-      setStockIssueRemovedCondition('');
-      setStockIssueRemovedWarehouseId('');
-      setStockIssueRemovedQuantity(0);
-      setStockIssueNoReturnReason('');
-      setStockIssueCostPurpose(MAINTENANCE_COST_PURPOSE);
-      setStockIssueCostPurposeOverrideReason('');
+      resetStockIssueForm();
       fetchPartLines();
     } catch (err: any) {
       handleApiError(err);
@@ -652,7 +692,7 @@ export default function MaintenanceRequestDetailPage() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-semibold text-gray-700">{t('sparePartRequest.issueStockToWarehouse')}</h3>
-              <button onClick={() => { setStockIssueLineId(''); setStockIssueWarehouseId(''); setStockIssueQuantity(0); setStockIssueNotes(''); setStockIssueCondition('NEW'); setStockIssueReplacementAction('NEW_INSTALLATION'); setStockIssueRemovedCondition(''); setStockIssueRemovedWarehouseId(''); setStockIssueRemovedQuantity(0); setStockIssueNoReturnReason(''); setStockIssueCostPurpose(MAINTENANCE_COST_PURPOSE); setStockIssueCostPurposeOverrideReason(''); }} className="text-gray-400 hover:text-gray-600">&times;</button>
+              <button onClick={resetStockIssueForm} className="text-gray-400 hover:text-gray-600">&times;</button>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -714,37 +754,94 @@ export default function MaintenanceRequestDetailPage() {
               <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.replacementAction')}</label>
               <div className="flex flex-wrap gap-2 mt-1">
                 {['RETURNED_REMOVED_PART', 'NO_REMOVED_PART', 'NEW_INSTALLATION'].map(action => (
-                  <button key={action} type="button" onClick={() => setStockIssueReplacementAction(action)} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${stockIssueReplacementAction === action ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                  <button key={action} type="button" onClick={() => selectStockIssueReplacementAction(action)} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${stockIssueReplacementAction === action ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                     {action === 'RETURNED_REMOVED_PART' ? t('sparePartRequest.replacementReturnedRemoved') : action === 'NO_REMOVED_PART' ? t('sparePartRequest.replacementNoRemoved') : t('sparePartRequest.replacementNewInstallation')}
                   </button>
                 ))}
               </div>
             </div>
-            {stockIssueReplacementAction === 'RETURNED_REMOVED_PART' && (
-              <div className="p-3 border border-amber-200 rounded-lg bg-amber-50 space-y-3">
-                <p className="text-xs font-medium text-amber-700">{t('sparePartRequest.removedPartFields')}</p>
-                <Select label={t('sparePartRequest.removedPartCondition')} value={stockIssueRemovedCondition} onChange={e => setStockIssueRemovedCondition(e.target.value)} options={[
-                  { value: '', label: t('common.select') },
-                  { value: 'NEW', label: t('sparePartRequest.conditionNew') },
-                  { value: 'USED_SERVICEABLE', label: t('sparePartRequest.conditionUsedServiceable') },
-                  { value: 'USED_REPAIRABLE', label: t('sparePartRequest.conditionUsedRepairable') },
-                  { value: 'DAMAGED_REPAIRABLE', label: t('sparePartRequest.conditionDamagedRepairable') },
-                  { value: 'DAMAGED_NOT_REPAIRABLE', label: t('sparePartRequest.conditionDamagedNotRepairable') },
-                ]} />
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.removedPartWarehouse')}</label>
-                  <F9Lookup value={stockIssueRemovedWarehouseId} onChange={setStockIssueRemovedWarehouseId} adapter={warehouseAdapter} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.removedPartQuantity')}</label>
-                  <input type="number" min="0" step="0.001" value={stockIssueRemovedQuantity || ''} onChange={e => setStockIssueRemovedQuantity(parseFloat(e.target.value) || 0)} className="w-full border rounded px-2 py-1 text-sm" />
-                </div>
-              </div>
-            )}
-            {stockIssueReplacementAction === 'NO_REMOVED_PART' && (
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.noReturnReason')}</label>
-                <input type="text" value={stockIssueNoReturnReason} onChange={e => setStockIssueNoReturnReason(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
+            {isStockIssueReplacement && (
+              <div className="p-3 border border-indigo-200 rounded-lg bg-indigo-50 space-y-3">
+                <p className="text-xs font-medium text-indigo-700">{t('sparePartRequest.oldInstalledPartSection')}</p>
+                <F9Lookup
+                  name="oldInstalledPartId"
+                  label={t('sparePartRequest.oldInstalledPart')}
+                  value={stockIssueOldInstalledPartId}
+                  onChange={(value) => { setStockIssueOldInstalledPartId(value); if (!value) setStockIssueOldInstalledPart(null); }}
+                  onItemSelect={(part: MachineInstalledPart) => setStockIssueOldInstalledPart(part)}
+                  adapter={machineInstalledPartAdapter}
+                  filters={{ machineId: data?.machineId || '', status: 'ACTIVE' }}
+                  placeholder={t('sparePartRequest.oldInstalledPartPlaceholder')}
+                  error={stockIssueErrors.oldInstalledPartId}
+                />
+                {/* R2-E read-only derived context: the removed part's identity is
+                    shown, never typed. The backend re-derives and re-validates it. */}
+                {stockIssueOldInstalledPart && (
+                  <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-700 bg-white rounded border border-indigo-100 p-2">
+                    <dt className="text-gray-500">{t('sparePartRequest.oldPartSparePart')}</dt>
+                    <dd className="font-medium">{stockIssueOldInstalledPart.sparePart ? `[${stockIssueOldInstalledPart.sparePart.code}] ${stockIssueOldInstalledPart.sparePart.name}` : '-'}</dd>
+                    <dt className="text-gray-500">{t('sparePartRequest.oldPartCondition')}</dt>
+                    <dd className="font-medium">{stockIssueOldInstalledPart.installedCondition}</dd>
+                    <dt className="text-gray-500">{t('sparePartRequest.oldPartQuantity')}</dt>
+                    <dd className="font-medium">{stockIssueOldInstalledPart.installedQuantity}</dd>
+                    <dt className="text-gray-500">{t('sparePartRequest.oldPartComponent')}</dt>
+                    <dd className="font-medium">{stockIssueOldInstalledPart.machineComponent?.name || t('sparePartRequest.machineLevelPart')}</dd>
+                    {stockIssueOldInstalledPart.serialNumber && (
+                      <>
+                        <dt className="text-gray-500">{t('sparePartRequest.oldPartSerial')}</dt>
+                        <dd className="font-medium">{stockIssueOldInstalledPart.serialNumber}</dd>
+                      </>
+                    )}
+                    {stockIssueOldInstalledPart.batchNumber && (
+                      <>
+                        <dt className="text-gray-500">{t('sparePartRequest.oldPartBatch')}</dt>
+                        <dd className="font-medium">{stockIssueOldInstalledPart.batchNumber}</dd>
+                      </>
+                    )}
+                  </dl>
+                )}
+                {stockIssueReplacementAction === 'RETURNED_REMOVED_PART' && (
+                  <div className="space-y-3 border-t border-indigo-100 pt-3">
+                    <p className="text-xs font-medium text-amber-700">{t('sparePartRequest.removedPartFields')}</p>
+                    <Select label={t('sparePartRequest.removedPartCondition')} value={stockIssueRemovedCondition} onChange={e => setStockIssueRemovedCondition(e.target.value)} options={[
+                      { value: '', label: t('common.select') },
+                      { value: 'NEW', label: t('sparePartRequest.conditionNew') },
+                      { value: 'USED_SERVICEABLE', label: t('sparePartRequest.conditionUsedServiceable') },
+                      { value: 'USED_REPAIRABLE', label: t('sparePartRequest.conditionUsedRepairable') },
+                      { value: 'DAMAGED_REPAIRABLE', label: t('sparePartRequest.conditionDamagedRepairable') },
+                      { value: 'DAMAGED_NOT_REPAIRABLE', label: t('sparePartRequest.conditionDamagedNotRepairable') },
+                    ]} />
+                    {stockIssueErrors.removedPartCondition && <p className="text-red-500 text-sm">{stockIssueErrors.removedPartCondition}</p>}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.removedPartWarehouse')}</label>
+                      <F9Lookup value={stockIssueRemovedWarehouseId} onChange={setStockIssueRemovedWarehouseId} adapter={warehouseAdapter} />
+                      {stockIssueErrors.removedPartWarehouseId && <p className="text-red-500 text-sm mt-1">{stockIssueErrors.removedPartWarehouseId}</p>}
+                    </div>
+                    <div>
+                      {/* The returned quantity is the full installed quantity of the
+                          selected physical part. It is displayed read-only because a
+                          partial removal of one installed record is not representable. */}
+                      <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.removedPartQuantity')}</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.001"
+                        readOnly
+                        value={stockIssueOldInstalledPart?.installedQuantity ?? ''}
+                        placeholder={t('sparePartRequest.removedPartQuantityDerived')}
+                        className="w-full border rounded px-2 py-1 text-sm bg-gray-50 text-gray-700"
+                      />
+                      {stockIssueErrors.removedPartQuantity && <p className="text-red-500 text-sm mt-1">{stockIssueErrors.removedPartQuantity}</p>}
+                    </div>
+                  </div>
+                )}
+                {stockIssueReplacementAction === 'NO_REMOVED_PART' && (
+                  <div className="border-t border-indigo-100 pt-3">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('sparePartRequest.noReturnReason')}</label>
+                    <input type="text" value={stockIssueNoReturnReason} onChange={e => setStockIssueNoReturnReason(e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
+                    {stockIssueErrors.noReturnReason && <p className="text-red-500 text-sm mt-1">{stockIssueErrors.noReturnReason}</p>}
+                  </div>
+                )}
               </div>
             )}
             <div>
@@ -753,7 +850,7 @@ export default function MaintenanceRequestDetailPage() {
             </div>
             <div className="flex gap-2">
               <button onClick={execStockIssue} disabled={stockIssueLoading} className="px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">{t('sparePartRequest.issueStock')}</button>
-              <button onClick={() => { setStockIssueLineId(''); setStockIssueWarehouseId(''); setStockIssueQuantity(0); setStockIssueNotes(''); setStockIssueCondition('NEW'); setStockIssueReplacementAction('NEW_INSTALLATION'); setStockIssueRemovedCondition(''); setStockIssueRemovedWarehouseId(''); setStockIssueRemovedQuantity(0); setStockIssueNoReturnReason(''); setStockIssueCostPurpose(MAINTENANCE_COST_PURPOSE); setStockIssueCostPurposeOverrideReason(''); }} className="px-3 py-1.5 text-xs font-medium bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">{t('common.cancel')}</button>
+              <button onClick={resetStockIssueForm} className="px-3 py-1.5 text-xs font-medium bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">{t('common.cancel')}</button>
             </div>
           </CardContent>
         </Card>

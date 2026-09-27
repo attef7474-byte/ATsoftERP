@@ -75,6 +75,21 @@ export class IssueStockDto {
   @IsString()
   replacementAction?: string;
 
+  // R2-E — the ACTUAL currently-installed physical part being replaced. This is the
+  // only old-identity input a client may supply: it is an installed-part record id,
+  // never a spare-part id. The old spare part and old product identity are derived
+  // server-side from this record so a client can never dictate them, and OLD and
+  // NEW spare-part identities can never be conflated.
+  // Required for RETURNED_REMOVED_PART and NO_REMOVED_PART; forbidden for
+  // NEW_INSTALLATION (a fresh installation replaces nothing).
+  @ApiPropertyOptional({
+    description:
+      'MachineInstalledPart id of the ACTIVE installed part being removed. Required for RETURNED_REMOVED_PART and NO_REMOVED_PART; must not be sent for NEW_INSTALLATION.',
+  })
+  @IsOptional()
+  @IsString()
+  oldInstalledPartId?: string;
+
   // Removed part fields (required when replacementAction = RETURNED_REMOVED_PART)
   @ApiPropertyOptional({ enum: ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'] })
   @IsOptional()

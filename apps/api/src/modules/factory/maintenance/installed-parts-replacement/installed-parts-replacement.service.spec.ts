@@ -290,3 +290,73 @@ describe('InstalledPartsReplacementService (expected life lifecycle)', () => {
     );
   });
 });
+
+describe('InstalledPartsReplacementService (installed part lookup)', () => {
+  let prisma: any;
+  let numbering: any;
+  let audit: any;
+  let service: InstalledPartsReplacementService;
+
+  beforeEach(() => {
+    prisma = {
+      machine: { findUnique: jest.fn() },
+      machineInstalledPart: { findMany: jest.fn(), count: jest.fn() },
+    };
+    numbering = { generateNumberAtomic: jest.fn(), generateNumberAtomicWithClient: jest.fn() };
+    audit = { log: jest.fn() };
+    service = new InstalledPartsReplacementService(prisma as PrismaService, numbering as NumberingService, audit as AuditService);
+    prisma.machineInstalledPart.findMany.mockResolvedValue([]);
+    prisma.machineInstalledPart.count.mockResolvedValue(0);
+  });
+
+  it('scopes the lookup to the active company and branch even without filters', async () => {
+    await service.lookupInstalledParts({}, ctx);
+
+    expect(prisma.machineInstalledPart.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { machine: { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] } },
+      }),
+    );
+  });
+
+  it('restricts the lookup to ACTIVE parts when status is requested', async () => {
+    await service.lookupInstalledParts({ status: 'ACTIVE' } as any, ctx);
+
+    const where = prisma.machineInstalledPart.findMany.mock.calls[0][0].where;
+    expect(where.status).toBe('ACTIVE');
+    expect(where.machine).toEqual({ companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] });
+  });
+
+  it('applies machine, component and spare-part filters together', async () => {
+    prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+
+    await service.lookupInstalledParts({ machineId: 'm1', machineComponentId: 'mc1', sparePartId: 'sp1' } as any, ctx);
+
+    const where = prisma.machineInstalledPart.findMany.mock.calls[0][0].where;
+    expect(where.machineId).toBe('m1');
+    expect(where.machineComponentId).toBe('mc1');
+    expect(where.sparePartId).toBe('sp1');
+  });
+
+  it('refuses to look up parts of a machine owned by another company', async () => {
+    prisma.machine.findUnique.mockResolvedValue({ id: 'mX', companyId: 'c2', branchId: 'b1' });
+
+    const promise = service.lookupInstalledParts({ machineId: 'mX' } as any, ctx);
+    await expect(promise).rejects.toThrow(NotFoundException);
+    expect(prisma.machineInstalledPart.findMany).not.toHaveBeenCalled();
+  });
+
+  it('paginates the lookup', async () => {
+    prisma.machineInstalledPart.count.mockResolvedValue(42);
+
+    const result = await service.lookupInstalledParts({ page: 3, limit: 10 } as any, ctx);
+
+    expect(prisma.machineInstalledPart.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 20, take: 10 }),
+    );
+    expect(result).toEqual(expect.objectContaining({
+      data: [],
+      meta: { page: 3, limit: 10, total: 42, totalPages: 5 },
+    }));
+  });
+});

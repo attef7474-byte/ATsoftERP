@@ -134,23 +134,287 @@ export class MaintenanceStockIssueService {
     return 'PARTIALLY_ISSUED';
   }
 
+  private badRequest(messageKey: string, message: string, params?: Record<string, string | number>) {
+    return new BadRequestException({ messageKey, message, ...(params ? { params } : {}) });
+  }
+
+  private notFound(messageKey: string, message: string) {
+    return new NotFoundException({ messageKey, message });
+  }
+
+  /**
+   * R2-E — replacement action contract. The three actions are mutually exclusive
+   * and each carries its own mandatory/field-forbidden set, so a NEW_INSTALLATION
+   * can never be smuggled in as a replacement (which would fabricate an old part)
+   * and a no-return replacement can never fake a stock return.
+   *
+   *   NEW_INSTALLATION      — installs a new part, replaces NOTHING.
+   *                          oldInstalledPartId MUST be absent.
+   *   RETURNED_REMOVED_PART — a true replacement of an ACTUAL installed part whose
+   *                          removal comes back to condition stock.
+   *                          oldInstalledPartId + removed condition + removed
+   *                          quantity + return warehouse are mandatory.
+   *   NO_REMOVED_PART       — a true replacement where the removed part never came
+   *                          back. oldInstalledPartId + noReturnReason mandatory;
+   *                          return facts are forbidden.
+   */
   private validateReplacementAction(dto: IssueStockDto) {
     if (!dto.replacementAction) {
-      throw new BadRequestException('replacementAction is required (RETURNED_REMOVED_PART, NO_REMOVED_PART, or NEW_INSTALLATION)');
+      throw this.badRequest(
+        'maintenance.replacementActionRequired',
+        `replacementAction is required (${VALID_REPLACEMENT_ACTIONS.join(', ')})`,
+      );
     }
     if (!VALID_REPLACEMENT_ACTIONS.includes(dto.replacementAction)) {
-      throw new BadRequestException(`Invalid replacementAction '${dto.replacementAction}'. Must be one of: ${VALID_REPLACEMENT_ACTIONS.join(', ')}`);
+      throw this.badRequest(
+        'maintenance.replacementActionInvalid',
+        `Invalid replacementAction '${dto.replacementAction}'. Must be one of: ${VALID_REPLACEMENT_ACTIONS.join(', ')}`,
+        { action: dto.replacementAction, allowed: VALID_REPLACEMENT_ACTIONS.join(', ') },
+      );
     }
+
+    const hasRemovedPartField =
+      dto.removedPartCondition != null ||
+      dto.removedPartWarehouseId != null ||
+      dto.removedPartQuantity != null ||
+      dto.removedPartReturnedByUserId != null;
+
+    if (dto.replacementAction === 'NEW_INSTALLATION') {
+      if (dto.oldInstalledPartId) {
+        throw this.badRequest(
+          'maintenance.replacementNewInstallationRejectsOldPart',
+          'oldInstalledPartId is not accepted for NEW_INSTALLATION because a new installation replaces no existing installed part',
+        );
+      }
+      if (hasRemovedPartField || dto.noReturnReason) {
+        throw this.badRequest(
+          'maintenance.replacementNewInstallationRejectsRemovedPartFields',
+          'Removed-part and no-return fields are not accepted for NEW_INSTALLATION because no part was removed',
+        );
+      }
+      return;
+    }
+
+    // Both true-replacement actions require the ACTUAL installed part being removed.
+    if (!dto.oldInstalledPartId) {
+      throw this.badRequest(
+        'maintenance.replacementOldInstalledPartRequired',
+        `oldInstalledPartId is required when replacementAction is ${dto.replacementAction}`,
+      );
+    }
+
     if (dto.replacementAction === 'RETURNED_REMOVED_PART') {
-      if (!dto.removedPartCondition) throw new BadRequestException('removedPartCondition is required when replacementAction is RETURNED_REMOVED_PART');
-      if (!dto.removedPartWarehouseId) throw new BadRequestException('removedPartWarehouseId is required when replacementAction is RETURNED_REMOVED_PART');
-      if (!dto.removedPartQuantity || dto.removedPartQuantity <= 0) throw new BadRequestException('removedPartQuantity (positive) is required when replacementAction is RETURNED_REMOVED_PART');
+      if (!dto.removedPartCondition) {
+        throw this.badRequest(
+          'maintenance.replacementRemovedPartConditionRequired',
+          'removedPartCondition is required when replacementAction is RETURNED_REMOVED_PART',
+        );
+      }
+      if (!dto.removedPartWarehouseId) {
+        throw this.badRequest(
+          'maintenance.replacementRemovedPartWarehouseRequired',
+          'removedPartWarehouseId is required when replacementAction is RETURNED_REMOVED_PART',
+        );
+      }
+      if (!dto.removedPartQuantity || dto.removedPartQuantity <= 0) {
+        throw this.badRequest(
+          'maintenance.replacementRemovedPartQuantityRequired',
+          'removedPartQuantity (positive) is required when replacementAction is RETURNED_REMOVED_PART',
+        );
+      }
       if (!VALID_STOCK_CONDITIONS.includes(dto.removedPartCondition)) {
-        throw new BadRequestException(`Invalid removedPartCondition '${dto.removedPartCondition}'`);
+        throw this.badRequest(
+          'maintenance.replacementRemovedPartConditionInvalid',
+          `Invalid removedPartCondition '${dto.removedPartCondition}'`,
+          { condition: dto.removedPartCondition },
+        );
+      }
+      if (dto.noReturnReason) {
+        throw this.badRequest(
+          'maintenance.replacementReturnedRejectsNoReturnReason',
+          'noReturnReason is not accepted when the removed part is RETURNED_REMOVED_PART',
+        );
       }
     }
+
     if (dto.replacementAction === 'NO_REMOVED_PART') {
-      if (!dto.noReturnReason) throw new BadRequestException('noReturnReason is required when replacementAction is NO_REMOVED_PART');
+      if (!dto.noReturnReason) {
+        throw this.badRequest(
+          'maintenance.replacementNoReturnReasonRequired',
+          'noReturnReason is required when replacementAction is NO_REMOVED_PART',
+        );
+      }
+      if (hasRemovedPartField) {
+        throw this.badRequest(
+          'maintenance.replacementNoReturnRejectsReturnFields',
+          'Removed-part return fields are not accepted when replacementAction is NO_REMOVED_PART because no stock return occurred',
+        );
+      }
+    }
+  }
+
+  /**
+   * R2-E — the old installed part selection contract, evaluated inside the
+   * replacement transaction. The returned record is the SERVER authority for the
+   * removed physical part; the client never supplies the old spare part or old
+   * product identity.
+   *
+   * Validated: existence, ACTIVE status (not already removed/replaced), same
+   * machine, same machine component when the request line is component-scoped,
+   * machine-level when the line is machine-level, and tenant ownership through the
+   * owning machine.
+   *
+   * `lockOldInstalledPartForReplacement` must be called on the same transaction
+   * immediately before this method, so this read runs under the UPDLOCK/HOLDLOCK
+   * lock. That is what makes a concurrent double replacement of the SAME physical
+   * installed part impossible without a schema unique constraint: the second
+   * writer re-reads the row as REMOVED and fails the ACTIVE check above.
+   */
+  private async resolveOldInstalledPartForReplacement(
+    tx: any,
+    dto: IssueStockDto,
+    part: any,
+    ctx: ActiveOperationalContext,
+  ): Promise<{
+    id: string;
+    sparePartId: string;
+    productId: string | null;
+    machineId: string;
+    machineComponentId: string | null;
+    installedQuantity: number;
+    installedCondition: string;
+    sparePart: { id: string; code: string; name: string; productId: string | null };
+  }> {
+    const oldInstalledPartId = dto.oldInstalledPartId!;
+    const machineId = part.maintenanceRequest.machine.id;
+    const requestComponentId = part.machineComponent?.id ?? part.machineComponentId ?? null;
+
+    const oldPart = await tx.machineInstalledPart.findUnique({
+      where: { id: oldInstalledPartId },
+      select: {
+        id: true,
+        machineId: true,
+        machineComponentId: true,
+        sparePartId: true,
+        productId: true,
+        installedQuantity: true,
+        installedCondition: true,
+        status: true,
+        machine: { select: { id: true, companyId: true, branchId: true } },
+        sparePart: { select: { id: true, code: true, name: true, productId: true } },
+      },
+    });
+
+    // A missing record and a foreign-tenant record are reported identically so
+    // the endpoint never discloses another company's installed-part ids.
+    if (!oldPart) {
+      throw this.notFound(
+        'maintenance.replacementOldInstalledPartNotFound',
+        'The selected old installed part does not exist in the active company and branch',
+      );
+    }
+    if (oldPart.machine.companyId !== ctx.companyId) {
+      throw this.notFound(
+        'maintenance.replacementOldInstalledPartNotFound',
+        'The selected old installed part does not exist in the active company and branch',
+      );
+    }
+    if (oldPart.machine.branchId && oldPart.machine.branchId !== ctx.branchId) {
+      throw this.notFound(
+        'maintenance.replacementOldInstalledPartNotFound',
+        'The selected old installed part does not exist in the active company and branch',
+      );
+    }
+
+    if (oldPart.status !== 'ACTIVE') {
+      throw this.badRequest(
+        'maintenance.replacementOldInstalledPartNotActive',
+        `The selected old installed part is in status '${oldPart.status}' and can no longer be replaced`,
+      );
+    }
+
+    if (oldPart.machineId !== machineId) {
+      throw this.badRequest(
+        'maintenance.replacementOldInstalledPartMachineMismatch',
+        'The selected old installed part does not belong to this request machine',
+      );
+    }
+
+    // Component identity: a component-scoped request line may only remove a part
+    // installed on that same component, and a machine-level line may only remove a
+    // machine-level installed part. Neither may silently cross the boundary, and no
+    // fake component is invented.
+    const oldComponentId = oldPart.machineComponentId ?? null;
+    if (requestComponentId || oldComponentId) {
+      if (oldComponentId !== requestComponentId) {
+        throw this.badRequest(
+          'maintenance.replacementOldInstalledPartComponentMismatch',
+          'The selected old installed part does not belong to the machine component of this request part line',
+        );
+      }
+    }
+
+    // R2-E partial-removal decision: the current installed-part model has a single
+    // ACTIVE/REMOVED status and no residual-quantity field, so a partial removal
+    // cannot be represented safely. The replacement is therefore fail-closed to a
+    // FULL removal of the whole physical installed record.
+    const installedQuantity = Number(oldPart.installedQuantity || 0);
+    if (!(installedQuantity > 0)) {
+      throw this.badRequest(
+        'maintenance.replacementOldInstalledPartQuantityInvalid',
+        'The selected old installed part has no active installed quantity to remove',
+      );
+    }
+    if (dto.replacementAction === 'RETURNED_REMOVED_PART' && dto.removedPartQuantity !== installedQuantity) {
+      throw this.badRequest(
+        'maintenance.replacementPartialRemovalNotSupported',
+        `Partial removal is not supported: removedPartQuantity must equal the selected old installed part's installed quantity (${installedQuantity})`,
+        { installedQuantity: String(installedQuantity), requestedQuantity: String(dto.removedPartQuantity) },
+      );
+    }
+
+    return {
+      id: oldPart.id,
+      sparePartId: oldPart.sparePartId,
+      productId: oldPart.productId ?? oldPart.sparePart.productId ?? null,
+      machineId: oldPart.machineId,
+      machineComponentId: oldComponentId,
+      installedQuantity,
+      installedCondition: oldPart.installedCondition,
+      sparePart: oldPart.sparePart,
+    };
+  }
+
+  /**
+   * R2-E — take the canonical SQL Server serialization lock on the old installed
+   * part row for the rest of the replacement transaction. Two concurrent
+   * replacements of the SAME physical installed part are serialized here: the
+   * second transaction re-reads the row after the first commits and fails the
+   * ACTIVE re-check with a canonical 400 instead of double-removing it.
+   */
+  private async lockOldInstalledPartForReplacement(tx: any, oldInstalledPartId: string, ctx: ActiveOperationalContext) {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT [id]
+      FROM [dbo].[machine_installed_parts] WITH (UPDLOCK, HOLDLOCK)
+      WHERE [id] = ${oldInstalledPartId}
+    `);
+    // Defense in depth: the same lock identity is only ever taken for a row that
+    // the caller has already proven to belong to the active company/branch.
+    const owned = await tx.machineInstalledPart.findFirst({
+      where: {
+        id: oldInstalledPartId,
+        machine: {
+          companyId: ctx.companyId,
+          OR: [{ branchId: ctx.branchId }, { branchId: null }],
+        },
+      },
+      select: { id: true },
+    });
+    if (!owned) {
+      throw this.notFound(
+        'maintenance.replacementOldInstalledPartNotFound',
+        'The selected old installed part does not exist in the active company and branch',
+      );
     }
   }
 
@@ -245,6 +509,8 @@ export class MaintenanceStockIssueService {
     const companyId = ctx.companyId;
     const branchId = ctx.branchId;
 
+    const isReplacement = dto.replacementAction !== 'NEW_INSTALLATION';
+
     const movement = await this.withTransientTransactionRetry(() => this.prisma.$transaction(async (tx) => {
       const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
       await assertMachineTenantInContext(tx, part.maintenanceRequest.machine.id, ctx);
@@ -257,6 +523,17 @@ export class MaintenanceStockIssueService {
       }
       if (dto.removedPartWarehouseId) {
         await assertWarehouseInContext(tx, dto.removedPartWarehouseId, ctx);
+      }
+
+      // ── R2-E: old installed part is locked and resolved FIRST ──────────────
+      // The lock is taken before any mutation so two concurrent replacements of the
+      // SAME physical installed part serialize; the loser re-reads a REMOVED row and
+      // fails with a canonical 400. The resolved record is the server authority for
+      // the removed part's spare-part and product identity.
+      let oldInstalled: Awaited<ReturnType<typeof this.resolveOldInstalledPartForReplacement>> | null = null;
+      if (isReplacement) {
+        await this.lockOldInstalledPartForReplacement(tx, dto.oldInstalledPartId!, ctx);
+        oldInstalled = await this.resolveOldInstalledPartForReplacement(tx, dto, part, ctx);
       }
 
       // Re-read mutable issue totals inside the transaction. Concurrent requests
@@ -403,10 +680,12 @@ export class MaintenanceStockIssueService {
       if (dto.unitCost != null) costData.totalCost = dto.issuedQuantity * dto.unitCost;
       if (dto.receivedByUserId) { costData.receivedByUserId = dto.receivedByUserId; costData.receivedAt = new Date(); }
 
-      // Removed part fields
+      // R2-E: the removed-part facts recorded on the request line are the legitimate
+      // removal facts only. No spare-part or product identity is ever taken from the
+      // client for the removed part.
       if (dto.removedPartCondition) costData.removedPartCondition = dto.removedPartCondition;
       if (dto.removedPartWarehouseId) costData.removedPartWarehouseId = dto.removedPartWarehouseId;
-      if (dto.removedPartQuantity != null) costData.removedPartQuantity = dto.removedPartQuantity;
+      if (oldInstalled) costData.removedPartQuantity = oldInstalled.installedQuantity;
       if (dto.removedPartReturnedByUserId) costData.removedPartReturnedByUserId = dto.removedPartReturnedByUserId;
       if (dto.noReturnReason) costData.noReturnReason = dto.noReturnReason;
 
@@ -422,7 +701,7 @@ export class MaintenanceStockIssueService {
         },
       });
 
-      // Record condition OUT for issued part
+      // Record condition OUT for the NEWLY ISSUED part.
       const issuedCondition = dto.issuedStockCondition || 'NEW';
       const outMovement = await this.recordConditionMovementInTx(tx, {
         sparePartId: part.sparePart.id,
@@ -441,28 +720,7 @@ export class MaintenanceStockIssueService {
       }, userId, ctx);
       const conditionOutMovementId = outMovement?.id;
 
-      // If removed part returned, record condition IN
-      let conditionInMovementId: string | null = null;
-      if (dto.replacementAction === 'RETURNED_REMOVED_PART' && dto.removedPartCondition && dto.removedPartWarehouseId && dto.removedPartQuantity) {
-        const inMovement = await this.recordConditionMovementInTx(tx, {
-          sparePartId: part.sparePart.id,
-          productId,
-          warehouseId: dto.removedPartWarehouseId,
-          condition: dto.removedPartCondition,
-          direction: 'IN',
-          quantity: dto.removedPartQuantity,
-          sourceType: 'MAINTENANCE_REMOVED_PART_RETURN',
-          sourceId: lineId,
-          maintenanceRequestId: requestId,
-          requiredPartId: lineId,
-          inventoryMovementId: movement.id,
-          replacementAction: dto.replacementAction,
-          notes: `Returned removed part ${part.sparePart.code} (condition: ${dto.removedPartCondition}, qty: ${dto.removedPartQuantity})`,
-        }, userId, ctx);
-        if (inMovement) conditionInMovementId = inMovement.id;
-      }
-
-      // Record installed part
+      // Record the NEW installed part (always ACTIVE).
       const installedPart = await this.installedPartsService.recordInstalledPartInTx(tx, {
         machineId: part.maintenanceRequest.machine.id,
         machineComponentId: part.machineComponent?.id || null,
@@ -480,19 +738,68 @@ export class MaintenanceStockIssueService {
         notes: dto.notes || null,
       });
 
-      // Record replacement history when replacing an existing part
-      if (dto.replacementAction && dto.replacementAction !== 'NEW_INSTALLATION') {
+      // ── R2-E: remove the OLD installed part, then account for the removed part ──
+      // The single canonical removal authority is
+      // InstalledPartsReplacementService.markInstalledPartRemovedInTx. Removal is
+      // never duplicated in another service.
+      let conditionInMovementId: string | null = null;
+      let removedQuantity: number | null = null;
+      let removedCondition: string | null = null;
+      if (oldInstalled) {
+        removedQuantity = oldInstalled.installedQuantity;
+        removedCondition = dto.removedPartCondition || null;
+
+        await this.installedPartsService.markInstalledPartRemovedInTx(tx, oldInstalled.id, {
+          removedByUserId: userId,
+          removedCondition,
+          removedQuantity,
+          removedReason: dto.replacementAction === 'RETURNED_REMOVED_PART'
+            ? 'MAINTENANCE_REPLACEMENT_RETURNED_TO_STOCK'
+            : `MAINTENANCE_REPLACEMENT_NOT_RETURNED: ${dto.noReturnReason || 'NO_REMOVED_PART'}`,
+          newStatus: 'REMOVED',
+        });
+
+        // RETURNED_REMOVED_PART only: the condition IN movement describes the part
+        // that physically came back, so it MUST carry the OLD spare-part and OLD
+        // product identity — never the newly issued part. A NO_REMOVED_PART
+        // replacement writes NO condition IN movement at all.
+        if (dto.replacementAction === 'RETURNED_REMOVED_PART' && dto.removedPartCondition && dto.removedPartWarehouseId) {
+          const inMovement = await this.recordConditionMovementInTx(tx, {
+            sparePartId: oldInstalled.sparePartId,
+            productId: oldInstalled.productId,
+            warehouseId: dto.removedPartWarehouseId,
+            condition: dto.removedPartCondition,
+            direction: 'IN',
+            quantity: oldInstalled.installedQuantity,
+            sourceType: 'MAINTENANCE_REMOVED_PART_RETURN',
+            sourceId: lineId,
+            maintenanceRequestId: requestId,
+            requiredPartId: lineId,
+            inventoryMovementId: movement.id,
+            replacementAction: dto.replacementAction,
+            notes: `Returned removed part ${oldInstalled.sparePart.code} (condition: ${dto.removedPartCondition}, qty: ${oldInstalled.installedQuantity})`,
+          }, userId, ctx);
+          if (inMovement) conditionInMovementId = inMovement.id;
+        }
+      }
+
+      // Record the immutable replacement event. OLD and NEW identity are always
+      // both present and always distinct records, even when the catalog spare part
+      // is identical.
+      if (isReplacement && oldInstalled && dto.replacementAction !== undefined && dto.replacementAction !== 'NEW_INSTALLATION') {
         await this.installedPartsService.recordReplacementInTx(tx, {
           machineId: part.maintenanceRequest.machine.id,
           machineComponentId: part.machineComponent?.id || null,
           maintenanceRequestId: requestId,
           requiredPartId: lineId,
+          oldInstalledPartId: oldInstalled.id,
+          oldSparePartId: oldInstalled.sparePartId,
           newInstalledPartId: installedPart.id,
           newSparePartId: part.sparePart.id,
           issuedCondition,
           issuedQuantity: dto.issuedQuantity,
-          removedCondition: dto.removedPartCondition || null,
-          removedQuantity: dto.removedPartQuantity || null,
+          removedCondition,
+          removedQuantity,
           replacementAction: dto.replacementAction,
           noReturnReason: dto.noReturnReason || null,
           removedReturnedToStock: dto.replacementAction === 'RETURNED_REMOVED_PART',
@@ -505,7 +812,11 @@ export class MaintenanceStockIssueService {
       }
 
       return movement;
-    }));
+    // R2-E: Serializable isolation plus the UPDLOCK/HOLDLOCK row lock on the old
+    // installed part is what makes a concurrent double replacement of the SAME
+    // physical installed part safe without a schema unique constraint. A losing
+    // writer is retried on P2034 and then fails the ACTIVE re-check canonically.
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 
     await this.audit.log(userId, 'ISSUE_STOCK', 'MaintenanceRequestRequiredPart', lineId, {
       movementId: movement.id,
@@ -516,6 +827,53 @@ export class MaintenanceStockIssueService {
       replacementAction: dto.replacementAction,
       issuedStockCondition: dto.issuedStockCondition,
     });
+
+    // R2-E accountability: the old→new physical part identity transition is an
+    // audited event of its own, with both installed-part records and both
+    // catalog/part identities so no downstream consumer can confuse them.
+    if (dto.replacementAction !== 'NEW_INSTALLATION') {
+      const history = await this.prisma.sparePartReplacementHistory.findFirst({
+        where: { inventoryOutMovementId: movement.id },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          replacementNumber: true,
+          oldInstalledPartId: true,
+          oldSparePartId: true,
+          newInstalledPartId: true,
+          newSparePartId: true,
+          removedCondition: true,
+          removedQuantity: true,
+          removedReturnedToStock: true,
+          conditionOutMovementId: true,
+          conditionInMovementId: true,
+          inventoryOutMovementId: true,
+        },
+      });
+      if (history) {
+        await this.audit.log(userId, 'MACHINE_INSTALLED_PART_REPLACED', 'SparePartReplacementHistory', history.id, {
+          replacementNumber: history.replacementNumber,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          maintenanceRequestId: requestId,
+          requiredPartId: lineId,
+          machineId: part.maintenanceRequest.machine.id,
+          machineComponentId: part.machineComponent?.id || null,
+          replacementAction: dto.replacementAction,
+          oldInstalledPartId: history.oldInstalledPartId,
+          oldSparePartId: history.oldSparePartId,
+          oldRemovedQuantity: history.removedQuantity,
+          oldRemovedCondition: history.removedCondition,
+          oldReturnedToStock: history.removedReturnedToStock,
+          newInstalledPartId: history.newInstalledPartId,
+          newSparePartId: history.newSparePartId,
+          conditionOutMovementId: history.conditionOutMovementId,
+          conditionInMovementId: history.conditionInMovementId,
+          inventoryOutMovementId: history.inventoryOutMovementId,
+          noReturnReason: dto.noReturnReason || null,
+        });
+      }
+    }
 
     if (costPurposeOverridden) {
       await this.audit.log(userId, 'COST_PURPOSE_OVERRIDE', 'MaintenanceRequestRequiredPart', lineId, {

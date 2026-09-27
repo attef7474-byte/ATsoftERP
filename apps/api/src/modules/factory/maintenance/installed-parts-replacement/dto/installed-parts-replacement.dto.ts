@@ -39,6 +39,48 @@ export class QueryInstalledPartDto {
   lifeStatus?: string;
 }
 
+export class QueryInstalledPartLookupDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  machineId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  machineComponentId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  sparePartId?: string;
+
+  @ApiPropertyOptional({ enum: ['ACTIVE', 'REMOVED', 'REPLACED', 'DECOMMISSIONED'] })
+  @IsOptional()
+  @IsString()
+  status?: string;
+}
+
 export class QueryReplacementHistoryDto {
   @ApiPropertyOptional()
   @IsOptional()

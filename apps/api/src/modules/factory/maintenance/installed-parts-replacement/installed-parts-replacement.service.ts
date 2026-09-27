@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { NumberingService } from '../../../../modules/numbering/numbering.service';
 import { AuditService } from '../../../../common/audit/audit.service';
-import { QueryInstalledPartDto, QueryReplacementHistoryDto, SetExpectedLifeDto, RecordInstalledPartReadingDto } from './dto/installed-parts-replacement.dto';
+import { QueryInstalledPartDto, QueryInstalledPartLookupDto, QueryReplacementHistoryDto, SetExpectedLifeDto, RecordInstalledPartReadingDto } from './dto/installed-parts-replacement.dto';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 export const DUE_PROGRESS_THRESHOLD = 0.9;
@@ -278,6 +278,58 @@ export class InstalledPartsReplacementService {
       return { ...part, life: state };
     });
     return enriched;
+  }
+
+  /**
+   * R2-E — paginated, tenant-scoped lookup used by the unified F9 search. A
+   * replacement must be selected as the ACTUAL installed physical part, so the
+   * caller can restrict the list to one machine and receive the human-readable
+   * identity (spare part, condition, quantity, serial/batch) instead of a bare id.
+   *
+   * Machine access is validated for an explicit machineId, and the whole query
+   * stays inside the active company/branch machine scope, so the list can never
+   * leak another tenant's installed parts.
+   */
+  async lookupInstalledParts(query: QueryInstalledPartLookupDto, ctx: ActiveOperationalContext) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const where: any = { machine: this.machineScope(ctx) };
+    if (query.machineId) {
+      await this.machineAccess(query.machineId, ctx);
+      where.machineId = query.machineId;
+    }
+    if (query.machineComponentId) where.machineComponentId = query.machineComponentId;
+    if (query.sparePartId) where.sparePartId = query.sparePartId;
+    if (query.status) where.status = query.status;
+    if (query.search) {
+      where.AND = [{
+        OR: [
+          { serialNumber: { contains: query.search } },
+          { batchNumber: { contains: query.search } },
+          { sparePart: { code: { contains: query.search } } },
+          { sparePart: { name: { contains: query.search } } },
+        ],
+      }];
+    }
+
+    const [parts, total] = await Promise.all([
+      this.prisma.machineInstalledPart.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { installedAt: 'desc' },
+        include: {
+          machine: { select: { id: true, code: true, name: true } },
+          machineComponent: { select: { id: true, code: true, name: true } },
+          sparePart: { select: { id: true, code: true, name: true, unit: true } },
+        },
+      }),
+      this.prisma.machineInstalledPart.count({ where }),
+    ]);
+
+    return { data: parts, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async getInstalledPartById(id: string, ctx: ActiveOperationalContext) {

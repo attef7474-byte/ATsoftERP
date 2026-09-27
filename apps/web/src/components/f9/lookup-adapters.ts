@@ -1,6 +1,6 @@
 import { LookupAdapter } from './types';
 import { getClientLocale } from '../../lib/i18n/locale-shared';
-import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionRun, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionMeasurementPoint, ProductionMaterialDocument, ProductionFinishedGoodsReceipt, ProductionInspection, ProductionQualityPlan, ProductionCostRate, ProductionCostSnapshot, JobTitle, OperationalPersonAssignment } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionRun, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionMeasurementPoint, ProductionMaterialDocument, ProductionFinishedGoodsReceipt, ProductionInspection, ProductionQualityPlan, ProductionCostRate, ProductionCostSnapshot, JobTitle, OperationalPersonAssignment, MachineInstalledPart } from '../../lib/admin-types';
 
 const COST_CENTER_TYPE_LABELS: Record<'ar' | 'en', Record<string, string>> = {
   ar: {
@@ -411,6 +411,30 @@ export const sparePartAdapter: LookupAdapter<SparePart> = {
     { key: 'partNumber', header: 'Part Number' },
     { key: 'category', header: 'Category' },
     { key: 'status', header: 'Status', render: (s) => s.status },
+  ],
+};
+
+/**
+ * R2-E — the ACTUAL installed physical part on a machine. This adapter exists so a
+ * replacement can never be expressed as a bare spare-part id: the selected record
+ * IS the physical part being removed, and its human-readable identity (spare part
+ * code, condition, quantity, serial/batch) is what the operator confirms.
+ */
+export const machineInstalledPartAdapter: LookupAdapter<MachineInstalledPart> = {
+  endpoint: '/installed-parts/lookup',
+  detailEndpoint: '/installed-parts',
+  displayLabel: (p) =>
+    `[${p.sparePart?.code ?? '?'}] ${p.sparePart?.name ?? ''} · ${p.installedCondition} · ${p.installedQuantity}`.trim(),
+  searchFields: ['sparePartCode', 'sparePartName', 'serialNumber', 'batchNumber'],
+  columns: [
+    { key: 'sparePart', header: 'Spare Part', render: (p) => (p.sparePart ? `[${p.sparePart.code}] ${p.sparePart.name}` : '-') },
+    { key: 'machine', header: 'Machine', render: (p) => p.machine?.name || '-' },
+    { key: 'machineComponent', header: 'Component', render: (p) => p.machineComponent?.name || '-' },
+    { key: 'installedQuantity', header: 'Qty' },
+    { key: 'installedCondition', header: 'Condition' },
+    { key: 'serialNumber', header: 'Serial' },
+    { key: 'batchNumber', header: 'Batch' },
+    { key: 'status', header: 'Status' },
   ],
 };
 

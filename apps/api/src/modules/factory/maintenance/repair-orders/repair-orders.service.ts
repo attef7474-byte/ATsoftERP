@@ -177,6 +177,59 @@ export class RepairOrdersService {
     return order;
   }
 
+  /**
+   * R2-E — resolve the EXACT return evidence for a replacement event. The
+   * condition IN movement is the strongest proof of where the removed part
+   * physically came back, so it is resolved by id and verified against the
+   * replacement identity instead of guessing a warehouse.
+   *
+   * When no exact movement exists (legacy historical rows) the caller is told so
+   * and may fall back to a condition-balance scan; a warehouse is never invented.
+   */
+  private async resolveExactReturnSource(history: {
+    id: string;
+    oldSparePartId: string | null;
+    removedCondition: string | null;
+    conditionInMovementId: string | null;
+  }, ctx: ActiveOperationalContext) {
+    if (!history.conditionInMovementId) return null;
+    const movement = await this.prisma.sparePartConditionMovement.findUnique({
+      where: { id: history.conditionInMovementId },
+      include: { warehouse: { select: { id: true, code: true, name: true, warehouseType: true, companyId: true, branchId: true } } },
+    });
+    if (!movement) {
+      throw this.badRequest(
+        'maintenance.repairSourceReturnMovementNotFound',
+        'The recorded returned-part condition movement for this replacement no longer exists',
+      );
+    }
+    if (movement.direction !== 'IN') {
+      throw this.badRequest(
+        'maintenance.repairSourceReturnMovementMismatch',
+        'The recorded returned-part condition movement is not a stock IN movement',
+      );
+    }
+    if (history.oldSparePartId && movement.sparePartId !== history.oldSparePartId) {
+      throw this.badRequest(
+        'maintenance.repairSourceReturnMovementMismatch',
+        'The recorded returned-part condition movement does not belong to the removed part',
+      );
+    }
+    if (history.removedCondition && movement.condition !== history.removedCondition) {
+      throw this.badRequest(
+        'maintenance.repairSourceReturnMovementMismatch',
+        'The recorded returned-part condition movement condition does not match the removed part condition',
+      );
+    }
+    if (!this.warehouseOwns(movement.warehouse, ctx)) {
+      throw this.notFound(
+        'maintenance.repairSourceNotFound',
+        'The returned part warehouse does not belong to the active company and branch',
+      );
+    }
+    return movement;
+  }
+
   async findRepairableQueue(query: QueryRepairablePartsDto, ctx: ActiveOperationalContext) {
     const where: any = { removedReturnedToStock: true, machine: this.machineScope(ctx) };
     if (query.condition) where.removedCondition = query.condition;
@@ -184,7 +237,9 @@ export class RepairOrdersService {
       await this.machineAccess(query.machineId, ctx);
       where.machineId = query.machineId;
     }
-    if (query.sparePartId) { where.newSparePartId = query.sparePartId; }
+    // R2-E: the repairable source is the REMOVED part, so the queue filter is keyed
+    // on the old spare part identity, never the newly installed one.
+    if (query.sparePartId) { where.oldSparePartId = query.sparePartId; }
 
     const histories = await this.prisma.sparePartReplacementHistory.findMany({
       where,
@@ -192,8 +247,33 @@ export class RepairOrdersService {
         machine: { select: { id: true, code: true, name: true } },
         machineComponent: { select: { id: true, code: true, name: true } },
         maintenanceRequest: { select: { id: true, requestNumber: true, title: true } },
+        oldSparePart: { select: { id: true, code: true, name: true, productId: true, unit: true } },
         newSparePart: { select: { id: true, code: true, name: true, productId: true, unit: true } },
-        oldSparePart: { select: { id: true, code: true, name: true } },
+        oldInstalledPart: {
+          select: {
+            id: true,
+            status: true,
+            installedQuantity: true,
+            installedCondition: true,
+            installedAt: true,
+            removedAt: true,
+            removedCondition: true,
+            removedQuantity: true,
+            serialNumber: true,
+            batchNumber: true,
+            sparePart: { select: { id: true, code: true, name: true } },
+          },
+        },
+        newInstalledPart: {
+          select: {
+            id: true,
+            status: true,
+            installedQuantity: true,
+            installedCondition: true,
+            installedAt: true,
+            sparePart: { select: { id: true, code: true, name: true } },
+          },
+        },
       },
       orderBy: { replacedAt: 'desc' },
       take: query.limit || 50,
@@ -209,28 +289,67 @@ export class RepairOrdersService {
         select: { id: true, status: true, repairOrderNumber: true },
       });
 
-      const conditionBalances = await this.prisma.sparePartConditionBalance.findMany({
-        where: {
-          sparePartKey: h.newSparePartId,
-          condition: h.removedCondition || undefined,
-          quantity: { gt: 0 },
-          warehouse: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] },
-        },
-        select: { id: true, warehouseId: true, condition: true, quantity: true, availableQuantity: true, warehouse: { select: { id: true, code: true, name: true, warehouseType: true } } },
-      });
+      // R2-E: the exact return warehouse is resolved by movement id first and
+      // reported as the authoritative source. Condition balances for the REMOVED
+      // spare part are listed as supporting evidence only, with the exact return
+      // warehouse first — the queue never promotes an arbitrary warehouse merely
+      // because it also holds condition stock of the removed part.
+      const exactReturn = await this.resolveExactReturnSource(
+        { id: h.id, oldSparePartId: h.oldSparePartId, removedCondition: h.removedCondition, conditionInMovementId: h.conditionInMovementId },
+        ctx,
+      );
+
+      const conditionBalances = h.oldSparePartId
+        ? await this.prisma.sparePartConditionBalance.findMany({
+          where: {
+            sparePartKey: h.oldSparePartId,
+            condition: h.removedCondition || undefined,
+            quantity: { gt: 0 },
+            warehouse: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] },
+          },
+          select: { id: true, warehouseId: true, condition: true, quantity: true, availableQuantity: true, warehouse: { select: { id: true, code: true, name: true, warehouseType: true } } },
+        })
+        : [];
+
+      const orderedBalances = exactReturn
+        ? [...conditionBalances].sort((left, right) => {
+          if (left.warehouseId === exactReturn.warehouseId) return -1;
+          if (right.warehouseId === exactReturn.warehouseId) return 1;
+          return 0;
+        })
+        : conditionBalances;
 
       results.push({
         replacementHistoryId: h.id,
+        replacementNumber: h.replacementNumber,
         replacedAt: h.replacedAt,
-        sparePart: h.newSparePart,
-        oldSparePart: h.oldSparePart,
-        machine: h.machine,
-        machineComponent: h.machineComponent,
-        maintenanceRequest: h.maintenanceRequest,
+        replacementAction: h.replacementAction,
+        // The repairable identity is the ACTUAL REMOVED part.
+        sparePart: h.oldSparePart,
+        installedPart: h.oldInstalledPart,
         removedCondition: h.removedCondition,
         removedQuantity: h.removedQuantity,
         conditionInMovementId: h.conditionInMovementId,
-        availableBalances: conditionBalances,
+        exactReturnSource: exactReturn
+          ? {
+            movementId: exactReturn.id,
+            movementNumber: exactReturn.movementNumber,
+            sparePartId: exactReturn.sparePartId,
+            productId: exactReturn.productId,
+            warehouseId: exactReturn.warehouseId,
+            warehouse: exactReturn.warehouse,
+            condition: exactReturn.condition,
+            direction: exactReturn.direction,
+            quantity: exactReturn.quantity,
+          }
+          : null,
+        // Replacement context only — never the repair source.
+        newSparePart: h.newSparePart,
+        newInstalledPart: h.newInstalledPart,
+        machine: h.machine,
+        machineComponent: h.machineComponent,
+        maintenanceRequest: h.maintenanceRequest,
+        availableBalances: orderedBalances,
         existingRepairOrder: existingOrder || null,
       });
     }
@@ -328,6 +447,8 @@ export class RepairOrdersService {
       where: { id: dto.replacementHistoryId },
       include: {
         newSparePart: { select: { id: true, productId: true } },
+        oldSparePart: { select: { id: true, code: true, name: true, productId: true } },
+        oldInstalledPart: { select: { id: true, productId: true, status: true } },
         machine: { select: { id: true, name: true } },
         machineComponent: { select: { id: true, name: true } },
         maintenanceRequest: { select: { id: true, requestNumber: true, title: true } },
@@ -339,23 +460,61 @@ export class RepairOrdersService {
       throw this.badRequest('maintenance.repairSourceNotRepairable', 'Removed part condition is not repairable');
     }
 
-    const sparePartId = fullHistory.newSparePartId;
-    const productId = fullHistory.newSparePart.productId;
+    // R2-E — the repair source is the ACTUAL REMOVED part. When the historical
+    // event carries no provable old identity the operation fails closed rather
+    // than silently consuming the NEWLY INSTALLED part as the repair source.
+    if (!fullHistory.oldSparePartId) {
+      throw this.badRequest(
+        'maintenance.repairSourceOldIdentityMissing',
+        'This replacement event has no provable removed-part identity, so it cannot be used as a repair source',
+      );
+    }
+    const sparePartId = fullHistory.oldSparePartId;
+    // Canonical product identity of the removed part: the installed record's linked
+    // product when present, otherwise the old spare part's catalog product.
+    const productId = fullHistory.oldInstalledPart?.productId
+      ?? fullHistory.oldSparePart?.productId
+      ?? null;
 
     const existing = await this.prisma.sparePartRepairOrder.findFirst({
       where: { replacementHistoryId: history.id, status: { notIn: ['CANCELLED', 'SCRAPPED', 'COMPLETED_SERVICEABLE', 'COMPLETED_PARTIAL', 'COMPLETED_NOT_REPAIRABLE'] } },
     });
     if (existing) throw this.badRequest('maintenance.repairOrderAlreadyExists', 'An active repair order already exists for this source');
 
-    const conditionBalances = await this.prisma.sparePartConditionBalance.findMany({
-      where: { sparePartKey: sparePartId, condition: fullHistory.removedCondition, availableQuantity: { gt: 0 }, warehouse: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] } },
-      select: { warehouseId: true, quantity: true, availableQuantity: true },
-      orderBy: { availableQuantity: 'desc' },
-    });
-    if (conditionBalances.length === 0) throw this.badRequest('stock.insufficientConditionBalance', 'No available condition balance for the removed part');
+    // R2-E — resolve the EXACT return warehouse from the recorded condition IN
+    // movement. A warehouse that merely happens to hold condition stock of the
+    // removed part is never substituted for the recorded return location.
+    const exactReturn = await this.resolveExactReturnSource(
+      { id: history.id, oldSparePartId: fullHistory.oldSparePartId, removedCondition: fullHistory.removedCondition, conditionInMovementId: fullHistory.conditionInMovementId },
+      ctx,
+    );
 
-    const warehouseId = conditionBalances[0].warehouseId;
-    const sourceQuantity = fullHistory.removedQuantity || conditionBalances[0].availableQuantity;
+    let warehouseId: string;
+    let availableQuantity: number;
+    if (exactReturn) {
+      const balance = await this.conditionService.getBalanceByKey(sparePartId, exactReturn.warehouseId, fullHistory.removedCondition!);
+      availableQuantity = balance.availableQuantity;
+      if (availableQuantity < (fullHistory.removedQuantity || 0)) {
+        throw this.badRequest(
+          'stock.insufficientConditionBalance',
+          'The returned part stock at its recorded return warehouse does not support the requested repair source quantity',
+        );
+      }
+      warehouseId = exactReturn.warehouseId;
+    } else {
+      // Legacy historical event without a recorded return movement: fall back to
+      // the condition-balance scan rather than inventing a warehouse.
+      const conditionBalances = await this.prisma.sparePartConditionBalance.findMany({
+        where: { sparePartKey: sparePartId, condition: fullHistory.removedCondition, availableQuantity: { gt: 0 }, warehouse: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] } },
+        select: { warehouseId: true, quantity: true, availableQuantity: true },
+        orderBy: { availableQuantity: 'desc' },
+      });
+      if (conditionBalances.length === 0) throw this.badRequest('stock.insufficientConditionBalance', 'No available condition balance for the removed part');
+      warehouseId = conditionBalances[0].warehouseId;
+      availableQuantity = conditionBalances[0].availableQuantity;
+    }
+
+    const sourceQuantity = fullHistory.removedQuantity || availableQuantity;
 
     await this.warehouseAccess(warehouseId, ctx);
     const warehouse = await this.prisma.warehouse.findUnique({ where: { id: warehouseId } });
@@ -368,13 +527,15 @@ export class RepairOrdersService {
       productId: productId || undefined,
       warehouseId,
       sourceCondition: fullHistory.removedCondition,
-      sourceQuantity: Math.min(sourceQuantity, conditionBalances[0].availableQuantity),
+      sourceQuantity: Math.min(sourceQuantity, availableQuantity),
       sourceType: 'REPLACEMENT_HISTORY',
       sourceId: history.id,
       maintenanceRequestId: fullHistory.maintenanceRequestId || undefined,
       requiredPartId: fullHistory.requiredPartId || undefined,
       replacementHistoryId: history.id,
-      installedPartId: fullHistory.newInstalledPartId || undefined,
+      // R2-E: the removed installed part is the repair source. The newly installed
+      // part is a different physical record on the machine and is never the source.
+      installedPartId: fullHistory.oldInstalledPartId || undefined,
       conditionInMovementId: fullHistory.conditionInMovementId || undefined,
       machineId: fullHistory.machineId,
       machineComponentId: fullHistory.machineComponentId || undefined,
