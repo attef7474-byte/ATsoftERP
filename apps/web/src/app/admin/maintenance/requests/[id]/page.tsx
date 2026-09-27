@@ -7,6 +7,18 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { MaintenanceRequest, MaintenanceTask, DowntimeLog, SparePartRequestLine, MachineInstalledPart } from '../../../../../lib/admin-types';
+import { CloseReadiness, CloseReadinessBlocker } from '../../../../../lib/canonical-cost-types';
+
+function blockerLabelKey(code: CloseReadinessBlocker['code']): string {
+  switch (code) {
+    case 'OPEN_TASKS': return 'maintenanceWorkflow.blockerOpenTasks';
+    case 'UNRESOLVED_REQUIRED_PARTS': return 'maintenanceWorkflow.blockerUnresolvedParts';
+    case 'ACTIVE_WORK_ORDERS': return 'maintenanceWorkflow.blockerActiveWorkOrders';
+    case 'MANDATORY_CHECKLIST_PENDING': return 'maintenanceWorkflow.blockerMandatoryChecklist';
+    case 'REQUEST_NOT_COMPLETED': return 'maintenanceWorkflow.blockerRequestNotCompleted';
+    default: return 'maintenanceWorkflow.closeReadinessBlocked';
+  }
+}
 import { useAuth } from '../../../../../lib/auth-context';
 import { COST_PURPOSE_VALUES, MAINTENANCE_COST_PURPOSE, COST_PURPOSE_OVERRIDE_PERMISSION } from '../../../../../lib/cost-purpose';
 
@@ -81,6 +93,7 @@ export default function MaintenanceRequestDetailPage() {
     plannedStartAt: '', plannedEndAt: '', estimatedCost: '', notes: '',
   });
   const [createWOErrors, setCreateWOErrors] = useState<Record<string, string>>({});
+  const [closeReadiness, setCloseReadiness] = useState<CloseReadiness | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -124,7 +137,14 @@ export default function MaintenanceRequestDetailPage() {
     finally { setWorkOrdersLoading(false); }
   }, [id]);
 
-  useEffect(() => { fetchData(); fetchAssignments(); fetchPartAccountabilities(); fetchPartLines(); fetchWorkOrders(); }, [fetchData, fetchAssignments, fetchPartAccountabilities, fetchPartLines, fetchWorkOrders]);
+  const fetchCloseReadiness = useCallback(async () => {
+    try {
+      const res = await api.get<CloseReadiness>(`/maintenance/requests/${id}/close-readiness`);
+      setCloseReadiness(res);
+    } catch { setCloseReadiness(null); }
+  }, [id]);
+
+  useEffect(() => { fetchData(); fetchAssignments(); fetchPartAccountabilities(); fetchPartLines(); fetchWorkOrders(); fetchCloseReadiness(); }, [fetchData, fetchAssignments, fetchPartAccountabilities, fetchPartLines, fetchWorkOrders, fetchCloseReadiness]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -429,6 +449,38 @@ export default function MaintenanceRequestDetailPage() {
 
   return (
     <div className="space-y-6">
+      {closeReadiness && (
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold">{t('maintenanceWorkflow.closeReadinessTitle')}</h3>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3 mb-3">
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${closeReadiness.canComplete ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                {t('maintenanceWorkflow.closeReadinessCanComplete')}: {closeReadiness.canComplete ? t('common.yes') : t('common.no')}
+              </span>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${closeReadiness.canClose ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+                {t('maintenanceWorkflow.closeReadinessCanClose')}: {closeReadiness.canClose ? t('common.yes') : t('common.no')}
+              </span>
+            </div>
+            {closeReadiness.closeBlockers.length === 0 ? (
+              <p className="text-sm text-gray-700">{t('maintenanceWorkflow.closeReadinessReady')}</p>
+            ) : (
+              <>
+                <p className="text-sm text-gray-700 mb-2">{t('maintenanceWorkflow.closeReadinessBlocked')}</p>
+                <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
+                  {closeReadiness.closeBlockers.map((b, i) => (
+                    <li key={`${b.code}-${i}`}>
+                      {t(blockerLabelKey(b.code))}
+                      {b.code !== 'REQUEST_NOT_COMPLETED' ? ` (${b.count})` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardContent>
           <dl className="grid grid-cols-1 md:grid-cols-3 gap-6">

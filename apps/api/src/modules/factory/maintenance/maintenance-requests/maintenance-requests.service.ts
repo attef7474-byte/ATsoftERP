@@ -8,6 +8,15 @@ import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dt
 import { UpdateMaintenanceRequestDto } from './dto/update-maintenance-request.dto';
 import { CurrentUserType } from '../../../../modules/auth/types/current-user.type';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import {
+  ACTIVE_WORK_ORDER_STATUSES,
+  MAINTENANCE_REQUEST_CLOSE_SOURCE_STATUS,
+  OPEN_TASK_STATUSES,
+  UNRESOLVED_REQUIRED_PART_STATUSES,
+  blockerMessage,
+  CloseReadiness,
+  CloseReadinessBlocker,
+} from './maintenance-request-close-policy';
 
 @Injectable()
 export class MaintenanceRequestsService {
@@ -510,47 +519,43 @@ export class MaintenanceRequestsService {
     return updated;
   }
 
-  async complete(id: string, userId: string, ctx: ActiveOperationalContext) {
-    const req = await this.findOne(id, ctx);
-    if (req.status !== 'IN_PROGRESS') throw this.badRequest('maintenance.onlyInProgressCanComplete', 'Only IN_PROGRESS requests can be completed');
+  /**
+   * R2-H: the single canonical execution-readiness evaluator.
+   *
+   * complete(), close() and the read-only close-readiness endpoint all consume
+   * this one function, so a close-readiness banner, the completion transition
+   * and the close transition can never disagree about what is outstanding.
+   * A repair order is deliberately NOT a blocker: a spare-part repair order is
+   * the independent lifecycle of an old removed part (see the R2-H policy
+   * decision), and the machine is already restored by the replacement, so
+   * blocking close on it would strand finished maintenance for the weeks an
+   * offsite refurbishment can take.
+   */
+  private async collectCloseBlockers(id: string): Promise<CloseReadinessBlocker[]> {
+    const blockers: CloseReadinessBlocker[] = [];
 
-    // Completion guards (R2-B contract T4): the request may only be completed when
-    // no unfinished tasks, no unresolved required parts, and no non-terminal work
-    // orders remain linked to it.
     const openTasks = await this.prisma.maintenanceTask.findMany({
-      where: { requestId: id, status: { in: ['PENDING', 'IN_PROGRESS'] } },
+      where: { requestId: id, status: { in: [...OPEN_TASK_STATUSES] } },
       select: { id: true },
     });
     if (openTasks.length > 0) {
-      throw this.badRequest(
-        'maintenance.openTasksBlockCompletion',
-        `Cannot complete request: ${openTasks.length} open task(s) are still pending or in progress. Complete all tasks first.`,
-        { count: String(openTasks.length) },
-      );
+      blockers.push({ code: 'OPEN_TASKS', count: openTasks.length, messageKey: 'maintenance.openTasksBlockCompletion', params: { count: String(openTasks.length) } });
     }
 
     const unresolvedParts = await this.prisma.maintenanceRequestRequiredPart.findMany({
-      where: { maintenanceRequestId: id, status: { in: ['DRAFT', 'REQUESTED', 'APPROVED', 'RESERVED'] } },
+      where: { maintenanceRequestId: id, status: { in: [...UNRESOLVED_REQUIRED_PART_STATUSES] } },
       select: { id: true },
     });
     if (unresolvedParts.length > 0) {
-      throw this.badRequest(
-        'maintenance.unresolvedPartsBlockCompletion',
-        `Cannot complete request: ${unresolvedParts.length} required part(s) are still unresolved. Resolve all part lines first.`,
-        { count: String(unresolvedParts.length) },
-      );
+      blockers.push({ code: 'UNRESOLVED_REQUIRED_PARTS', count: unresolvedParts.length, messageKey: 'maintenance.unresolvedPartsBlockCompletion', params: { count: String(unresolvedParts.length) } });
     }
 
     const openWorkOrders = await this.prisma.maintenanceWorkOrder.findMany({
-      where: { requestId: id, status: { in: ['DRAFT', 'PLANNED', 'IN_PROGRESS'] } },
+      where: { requestId: id, status: { in: [...ACTIVE_WORK_ORDER_STATUSES] } },
       select: { id: true },
     });
     if (openWorkOrders.length > 0) {
-      throw this.badRequest(
-        'maintenance.openWorkOrdersBlockCompletion',
-        `Cannot complete request: ${openWorkOrders.length} work order(s) are still open. Complete or cancel them first.`,
-        { count: String(openWorkOrders.length) },
-      );
+      blockers.push({ code: 'ACTIVE_WORK_ORDERS', count: openWorkOrders.length, messageKey: 'maintenance.openWorkOrdersBlockCompletion', params: { count: String(openWorkOrders.length) } });
     }
 
     const incompleteChecklists = await this.prisma.maintenanceChecklistExecution.findMany({
@@ -564,12 +569,48 @@ export class MaintenanceRequestsService {
     });
     const blockingMandatory = incompleteChecklists.flatMap(ce => ce.items);
     if (blockingMandatory.length > 0) {
-      throw this.badRequest(
-        'maintenance.mandatoryChecklistPending',
-        `Cannot complete request: ${blockingMandatory.length} mandatory checklist item(s) still pending. Complete all mandatory checklist items first.`,
-        { count: String(blockingMandatory.length) },
-      );
+      blockers.push({ code: 'MANDATORY_CHECKLIST_PENDING', count: blockingMandatory.length, messageKey: 'maintenance.mandatoryChecklistPending', params: { count: String(blockingMandatory.length) } });
     }
+
+    return blockers;
+  }
+
+  private throwFirstBlocker(blockers: CloseReadinessBlocker[]): void {
+    const first = blockers[0];
+    if (!first) return;
+    throw this.badRequest(first.messageKey, blockerMessage(first.code, first.count), first.params);
+  }
+
+  /**
+   * R2-H: read-only close readiness for the request detail UI. It reports
+   * structured blocker codes and counts so the UI can render a checklist and
+   * the operator can see exactly what must be resolved before closing.
+   */
+  async getCloseReadiness(id: string, ctx: ActiveOperationalContext): Promise<CloseReadiness> {
+    const req = await this.findOne(id, ctx);
+    const completionBlockers = await this.collectCloseBlockers(id);
+
+    const closeBlockers: CloseReadinessBlocker[] = [];
+    if (req.status !== MAINTENANCE_REQUEST_CLOSE_SOURCE_STATUS) {
+      closeBlockers.push({ code: 'REQUEST_NOT_COMPLETED', count: 1, messageKey: 'maintenance.onlyCompletedCanClose', params: {} });
+    }
+    closeBlockers.push(...completionBlockers);
+
+    return {
+      requestId: id,
+      status: req.status,
+      canComplete: req.status === 'IN_PROGRESS' && completionBlockers.length === 0,
+      canClose: closeBlockers.length === 0,
+      completionBlockers,
+      closeBlockers,
+    };
+  }
+
+  async complete(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findOne(id, ctx);
+    if (req.status !== 'IN_PROGRESS') throw this.badRequest('maintenance.onlyInProgressCanComplete', 'Only IN_PROGRESS requests can be completed');
+
+    this.throwFirstBlocker(await this.collectCloseBlockers(id));
 
     const downtimeAgg = await this.prisma.downtimeLog.aggregate({
       where: { requestId: id, cancelledAt: null },
@@ -607,8 +648,18 @@ export class MaintenanceRequestsService {
 
   async close(id: string, userId: string, ctx: ActiveOperationalContext) {
     const req = await this.findOne(id, ctx);
-    if (req.status !== 'COMPLETED') {
+    if (req.status !== MAINTENANCE_REQUEST_CLOSE_SOURCE_STATUS) {
       throw this.badRequest('maintenance.onlyCompletedCanClose', 'Only COMPLETED requests can be closed');
+    }
+    // Fail closed on the same evaluator completion uses, so a record that
+    // became inconsistent after completion can never be closed.
+    const blockers = await this.collectCloseBlockers(id);
+    if (blockers.length > 0) {
+      throw this.badRequest(
+        'maintenance.closeBlockedByReadiness',
+        `Cannot close request: ${blockers.length} readiness blocker(s) remain unresolved.`,
+        { count: String(blockers.length) },
+      );
     }
     const updated = await this.prisma.maintenanceRequest.update({
       where: { id },

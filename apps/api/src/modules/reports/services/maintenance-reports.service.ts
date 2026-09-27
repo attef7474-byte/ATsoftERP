@@ -1,7 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { MaintenanceReportFilterDto } from '../dto/report-filter.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { MAINTENANCE_COST_PURPOSE } from '../../../common/cost-purpose/cost-purpose.constants';
+import {
+  ENTRY_ROLE_PRIMARY_COST,
+  ENTRY_ROLE_REVERSAL,
+} from '../../factory/production-cost/production-cost.constants';
 import { buildDateFilter, nowPlusDays, paginate } from './report-query-utils';
 
 @Injectable()
@@ -868,6 +874,112 @@ export class MaintenanceReportsService {
         { label: 'openBacklog', value: openRequests.length },
       ],
       backlogByMonth: Array.from(monthlyMap.entries()).map(([month, count]) => ({ month, count })),
+    };
+  }
+
+  /**
+   * R2-H: the ledger-authoritative maintenance cost report.
+   *
+   * Every total below is summed from OperationalCostTransaction rows whose
+   * costPurpose is MAINTENANCE, scoped to the active company and branch. Only
+   * canonical entryRole values contribute to the net, matching the frozen Cost
+   * Program arithmetic (reversals are stored negated).
+   *
+   * The legacy MaintenanceRequestCostEntry and MaintenanceRequestPartUsage
+   * tables are reported as counts only, under explicitly labelled keys, and
+   * are never added into any total. Those tables hold Float amounts and carry
+   * no tenant, warehouse or valuation columns, so including them would
+   * double-count money that the ledger already holds and would mix binary
+   * floating point into a Decimal ledger.
+   */
+  async maintenanceCanonicalCosts(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    const occurredAt: Record<string, Date> = {};
+    if (filters.dateFrom) occurredAt.gte = new Date(filters.dateFrom);
+    if (filters.dateTo) occurredAt.lte = new Date(filters.dateTo);
+
+    const ledgerWhere: any = {
+      companyId: ctx.companyId,
+      branchId: ctx.branchId,
+      costPurpose: MAINTENANCE_COST_PURPOSE,
+    };
+    if (Object.keys(occurredAt).length > 0) ledgerWhere.occurredAt = occurredAt;
+    if (filters.machineId) {
+      await this.assertMachineAccess(filters.machineId, ctx);
+      ledgerWhere.machineId = filters.machineId;
+    }
+
+    const requestWhere: any = { machine: this.machineScope(ctx), deletedAt: null };
+    if (filters.machineId) requestWhere.machineId = filters.machineId;
+    if (filters.dateFrom || filters.dateTo) {
+      requestWhere.createdAt = buildDateFilter(filters.dateFrom, filters.dateTo);
+    }
+
+    const [rows, legacyCostEntryCount, legacyPartUsageCount] = await Promise.all([
+      this.prisma.operationalCostTransaction.findMany({
+        where: ledgerWhere,
+        select: {
+          id: true, eventType: true, entryRole: true, costNature: true,
+          amount: true, currencyCode: true, machineId: true,
+        },
+      }),
+      this.prisma.maintenanceRequestCostEntry.count({ where: { request: requestWhere } }),
+      this.prisma.maintenanceRequestPartUsage.count({ where: { request: requestWhere } }),
+    ]);
+
+    const bucket = () => new Map<string, { key: string; netAmount: Prisma.Decimal; entryCount: number }>();
+    const byEventType = bucket();
+    const byCostNature = bucket();
+    const byCurrency = bucket();
+    let net = new Prisma.Decimal(0);
+    let postedEntryCount = 0;
+    let reversalEntryCount = 0;
+    let nonCanonicalRowCount = 0;
+
+    const add = (map: ReturnType<typeof bucket>, key: string, amount: Prisma.Decimal) => {
+      const existing = map.get(key);
+      if (existing) {
+        existing.netAmount = existing.netAmount.add(amount);
+        existing.entryCount += 1;
+      } else {
+        map.set(key, { key, netAmount: amount, entryCount: 1 });
+      }
+    };
+
+    for (const row of rows) {
+      if (row.entryRole !== ENTRY_ROLE_PRIMARY_COST && row.entryRole !== ENTRY_ROLE_REVERSAL) {
+        nonCanonicalRowCount += 1;
+        continue;
+      }
+      net = net.add(row.amount);
+      if (row.entryRole === ENTRY_ROLE_REVERSAL) reversalEntryCount += 1;
+      else postedEntryCount += 1;
+      add(byEventType, row.eventType, row.amount);
+      add(byCostNature, row.costNature ?? 'UNCLASSIFIED', row.amount);
+      add(byCurrency, row.currencyCode, row.amount);
+    }
+
+    const serialize = (map: ReturnType<typeof bucket>) =>
+      [...map.values()]
+        .map(b => ({ key: b.key, netAmount: b.netAmount.toString(), entryCount: b.entryCount }))
+        .sort((a, b) => a.key.localeCompare(b.key));
+
+    return {
+      source: 'OPERATIONAL_COST_LEDGER',
+      authoritative: true,
+      netCost: net.toString(),
+      postedEntryCount,
+      reversalEntryCount,
+      nonCanonicalRowCount,
+      byEventType: serialize(byEventType),
+      byCostNature: serialize(byCostNature),
+      byCurrency: serialize(byCurrency),
+      legacy: {
+        authoritative: false,
+        excludedFromTotals: true,
+        maintenanceRequestCostEntryCount: legacyCostEntryCount,
+        maintenanceRequestPartUsageCount: legacyPartUsageCount,
+        note: 'Legacy request cost and part usage rows are historical evidence only. Their amounts are not added to netCost because the operational cost ledger already holds this money.',
+      },
     };
   }
 }

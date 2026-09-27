@@ -44,6 +44,13 @@ export class ReportsController {
     return this.service.getMaintenanceCostsReport(filters, ctx);
   }
 
+  @Get('maintenance/costs/canonical')
+  @Permissions('reports.maintenance:read')
+  @ApiOperation({ summary: 'Ledger-authoritative maintenance cost report with legacy rows labelled and excluded' })
+  getMaintenanceCanonicalCosts(@Query() filters: MaintenanceReportFilterDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getMaintenanceCanonicalCostsReport(filters, ctx);
+  }
+
   @Get('maintenance/schedules')
   @Permissions('reports.maintenance:read')
   @ApiOperation({ summary: 'Preventive schedule due report' })

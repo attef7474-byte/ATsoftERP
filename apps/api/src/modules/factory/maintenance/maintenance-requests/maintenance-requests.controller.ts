@@ -95,6 +95,11 @@ export class MaintenanceRequestsController {
   @ApiOperation({ summary: 'Cancel maintenance request' })
   cancel(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.cancel(id, userId, ctx); }
 
+  @Get(':id/close-readiness')
+  @Permissions('maintenance-request:read')
+  @ApiOperation({ summary: 'Get canonical close readiness and structured blockers for a maintenance request' })
+  closeReadiness(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.getCloseReadiness(id, ctx); }
+
   @Patch(':id/close')
   @Permissions('maintenance-request:close')
   @ApiOperation({ summary: 'Close a completed maintenance request' })

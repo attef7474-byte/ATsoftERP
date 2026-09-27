@@ -41,6 +41,10 @@ export class ReportsService {
     return this.maintenanceReportsService.getMaintenanceCostsReport(filters, ctx);
   }
 
+  getMaintenanceCanonicalCostsReport(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
+    return this.maintenanceReportsService.maintenanceCanonicalCosts(filters, ctx);
+  }
+
   getPreventiveSchedulesReport(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
     return this.maintenanceReportsService.getPreventiveSchedulesReport(filters, ctx);
   }

@@ -27,17 +27,6 @@ export class MaintenanceRequestCostsService {
       && (machine.branchId === null || machine.branchId === ctx.branchId);
   }
 
-  private async assertRequestOwned(requestId: string, ctx: ActiveOperationalContext) {
-    const request = await this.prisma.maintenanceRequest.findUnique({
-      where: { id: requestId },
-      select: { id: true, requestNumber: true, status: true, machine: { select: { companyId: true, branchId: true } } },
-    });
-    if (!request || !this.isMachineInScope(request.machine, ctx)) {
-      throw new BadRequestException('Maintenance request not found or not in the active company/branch');
-    }
-    return request;
-  }
-
   private assertRequestNotTerminal(request: { status: string }) {
     if (['COMPLETED', 'CANCELLED', 'CLOSED'].includes(request.status)) {
       throw new BadRequestException({
@@ -68,17 +57,37 @@ export class MaintenanceRequestCostsService {
     return entry;
   }
 
-  async create(dto: CreateMaintenanceRequestCostDto, userId: string, ctx: ActiveOperationalContext) {
-    const request = await this.assertRequestOwned(dto.requestId, ctx);
-    this.assertRequestNotTerminal(request);
+  /**
+   * R2-H: legacy request-cost recording is read-only.
+   *
+   * The canonical monetary authority is OperationalCostTransaction, written
+   * only through the frozen Cost Program writer
+   * (ProductionCostService.postLedgerEntryWithinTransaction) with
+   * costPurpose MAINTENANCE and entryRole PRIMARY_COST.
+   *
+   * A legitimate manual maintenance cost use case does exist, and the closed
+   * Cost Program already serves it canonically: work-order labor and external
+   * service are asserted on MaintenanceWorkOrderCostEntry and projected into
+   * the ledger when the work order completes, with a per-source fingerprint
+   * and a maintenanceWorkOrderId reference. Material is posted from valued
+   * inventory movement lines. A request-level manual cost entry is therefore
+   * not a missing feature; it is a second ledger for the same money.
+   *
+   * The legacy row also cannot be delegated: the canonical writer requires a
+   * resolvable maintenanceWorkOrderId and a cost centre resolved for the
+   * posting date, neither of which the legacy payload (requestId/type/
+   * description/amount) carries. Posting it would fabricate cost attribution,
+   * so these mutations fail closed as deprecated instead.
+   */
+  private legacyWriteDeprecated(): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'maintenance.legacyCostEntryWriteDeprecated',
+      message: 'Legacy request cost recording is read-only; use work-order cost entries and the operational cost ledger',
+    });
+  }
 
-    const data: any = { ...dto };
-    if (dto.incurredAt) data.incurredAt = new Date(dto.incurredAt);
-
-    const entry = await this.prisma.maintenanceRequestCostEntry.create({ data });
-    await this.audit.log(userId, 'CREATE', 'MaintenanceRequestCostEntry', entry.id,
-      { requestId: dto.requestId, requestNumber: request.requestNumber, type: dto.type, amount: dto.amount, companyId: ctx.companyId, branchId: ctx.branchId });
-    return entry;
+  async create(_dto: CreateMaintenanceRequestCostDto, _userId: string, _ctx: ActiveOperationalContext) {
+    throw this.legacyWriteDeprecated();
   }
 
   async findAll(query: { requestId?: string; type?: string }, ctx: ActiveOperationalContext) {
@@ -99,22 +108,11 @@ export class MaintenanceRequestCostsService {
     return this.findOwned(id, ctx);
   }
 
-  async update(id: string, dto: UpdateMaintenanceRequestCostDto, userId: string, ctx: ActiveOperationalContext) {
-    const owned = await this.findOwned(id, ctx);
-    this.assertRequestNotTerminal(owned.request);
-    const data: any = { ...dto };
-    if (dto.incurredAt) data.incurredAt = new Date(dto.incurredAt);
-
-    const updated = await this.prisma.maintenanceRequestCostEntry.update({ where: { id }, data });
-    await this.audit.log(userId, 'UPDATE', 'MaintenanceRequestCostEntry', id, { dto, companyId: ctx.companyId, branchId: ctx.branchId });
-    return updated;
+  async update(_id: string, _dto: UpdateMaintenanceRequestCostDto, _userId: string, _ctx: ActiveOperationalContext) {
+    throw this.legacyWriteDeprecated();
   }
 
-  async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
-    const owned = await this.findOwned(id, ctx);
-    this.assertRequestNotTerminal(owned.request);
-    await this.prisma.maintenanceRequestCostEntry.delete({ where: { id } });
-    await this.audit.log(userId, 'DELETE', 'MaintenanceRequestCostEntry', id, { companyId: ctx.companyId, branchId: ctx.branchId });
-    return { message: 'Cost entry deleted successfully' };
+  async remove(_id: string, _userId: string, _ctx: ActiveOperationalContext) {
+    throw this.legacyWriteDeprecated();
   }
 }

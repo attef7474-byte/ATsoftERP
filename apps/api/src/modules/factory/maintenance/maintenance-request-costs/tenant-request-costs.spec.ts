@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common'
+import { NotFoundException } from '@nestjs/common'
 import { MaintenanceRequestCostsService } from './maintenance-request-costs.service'
 
 describe('maintenance-request-costs tenant isolation', () => {
@@ -34,23 +34,25 @@ describe('maintenance-request-costs tenant isolation', () => {
     })
   })
 
-  it('rejects create when the maintenance request is outside the active context', async () => {
+  it('rejects create outright because legacy request cost is read-only (R2-H)', async () => {
     const db = buildDb()
     db.maintenanceRequest.findUnique.mockResolvedValue({ id: 'req-9', requestNumber: 'MR-9', machine: machineOf('company-b', 'branch-b') })
     const audit: any = { log: jest.fn() }; const service = new MaintenanceRequestCostsService(db, audit)
 
-    await expect(service.create({ requestId: 'req-9', type: 'LABOR', amount: 100 } as any, 'user-1', ctx)).rejects.toBeInstanceOf(BadRequestException)
+    await expect(service.create({ requestId: 'req-9', type: 'LABOR', amount: 100 } as any, 'user-1', ctx))
+      .rejects.toMatchObject({ response: { messageKey: 'maintenance.legacyCostEntryWriteDeprecated' } })
     expect(db.maintenanceRequestCostEntry.create).not.toHaveBeenCalled()
   })
 
-  it('creates only after request ownership passes', async () => {
+  it('never writes a cost entry, not even for an in-context request (R2-H)', async () => {
     const db = buildDb()
     db.maintenanceRequest.findUnique.mockResolvedValue({ id: 'req-1', requestNumber: 'MR-1', machine: machineOf('company-a', 'branch-a') })
     db.maintenanceRequestCostEntry.create.mockResolvedValue(entry(machineOf('company-a', 'branch-a')))
     const audit: any = { log: jest.fn() }; const service = new MaintenanceRequestCostsService(db, audit)
 
-    await service.create({ requestId: 'req-1', type: 'MATERIAL', amount: 50 } as any, 'user-1', ctx)
-    expect(db.maintenanceRequestCostEntry.create).toHaveBeenCalled()
+    await expect(service.create({ requestId: 'req-1', type: 'MATERIAL', amount: 50 } as any, 'user-1', ctx))
+      .rejects.toMatchObject({ response: { messageKey: 'maintenance.legacyCostEntryWriteDeprecated' } })
+    expect(db.maintenanceRequestCostEntry.create).not.toHaveBeenCalled()
   })
 
   it('allows reading an in-context entry and rejects foreign ones with 404', async () => {
@@ -64,21 +66,23 @@ describe('maintenance-request-costs tenant isolation', () => {
     await expect(service.findOne('c-1', ctx)).resolves.toMatchObject({ id: 'c-1' })
   })
 
-  it('rejects update of a foreign entry before any write', async () => {
+  it('rejects update of a foreign entry before any write (R2-H: writes are retired)', async () => {
     const db = buildDb()
     db.maintenanceRequestCostEntry.findUnique.mockResolvedValue(entry(machineOf('company-b', 'branch-b')))
     const audit: any = { log: jest.fn() }; const service = new MaintenanceRequestCostsService(db, audit)
 
-    await expect(service.update('c-1', { amount: 999 } as any, 'user-1', ctx)).rejects.toBeInstanceOf(NotFoundException)
+    await expect(service.update('c-1', { amount: 999 } as any, 'user-1', ctx))
+      .rejects.toMatchObject({ response: { messageKey: 'maintenance.legacyCostEntryWriteDeprecated' } })
     expect(db.maintenanceRequestCostEntry.update).not.toHaveBeenCalled()
   })
 
-  it('rejects delete of a foreign entry', async () => {
+  it('rejects delete of a foreign entry (R2-H: writes are retired)', async () => {
     const db = buildDb()
     db.maintenanceRequestCostEntry.findUnique.mockResolvedValue(entry(machineOf('company-b', 'branch-b')))
     const audit: any = { log: jest.fn() }; const service = new MaintenanceRequestCostsService(db, audit)
 
-    await expect(service.remove('c-1', 'user-1', ctx)).rejects.toBeInstanceOf(NotFoundException)
+    await expect(service.remove('c-1', 'user-1', ctx))
+      .rejects.toMatchObject({ response: { messageKey: 'maintenance.legacyCostEntryWriteDeprecated' } })
     expect(db.maintenanceRequestCostEntry.delete).not.toHaveBeenCalled()
   })
 })

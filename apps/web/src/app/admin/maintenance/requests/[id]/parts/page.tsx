@@ -3,112 +3,53 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
-import { useToast } from '../../../../../../components/admin/toast-provider';
-import { MaintenanceRequestPartUsage, MaintenanceRequest } from '../../../../../../lib/admin-types';
-import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, Modal, Button, Input, Textarea } from '../../../../../../components/admin/ui';
-import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionAddIcon } from '../../../../../../components/admin/admin-action-bar';
-import { F9Lookup, productAdapter } from '../../../../../../components/f9';
-import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
+import { MaintenanceRequestPartUsage } from '../../../../../../lib/admin-types';
+import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState } from '../../../../../../components/admin/ui';
+import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../../../components/admin/admin-action-bar';
 
-export default function UsedPartsPage() {
+export default function PartsPage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useTranslation();
-  const { showToast } = useToast();
-  const handleApiError = useApiErrorHandler();
   const id = params.id as string;
   const [parts, setParts] = useState<MaintenanceRequestPartUsage[]>([]);
-  const [request, setRequest] = useState<MaintenanceRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<MaintenanceRequestPartUsage | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [form, setForm] = useState({ productId: '', quantity: 0, unitCost: 0, notes: '' });
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const [reqRes, partsRes] = await Promise.all([
-        api.get<MaintenanceRequest>(`/maintenance/requests/${id}`),
-        api.get<MaintenanceRequestPartUsage[]>(`/maintenance/request-parts`, { params: { requestId: id } }),
-      ]);
-      setRequest(reqRes);
-      setParts(Array.isArray(partsRes) ? partsRes : []);
+      const res = await api.get<MaintenanceRequestPartUsage[]>('/maintenance/request-parts', { params: { requestId: id } });
+      setParts(Array.isArray(res) ? res : []);
     } catch (err: any) { setError(err?.message || t('errors.loadFailed')); }
     finally { setLoading(false); }
   }, [id, t]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const openCreate = () => {
-    setEditItem(null);
-    setForm({ productId: '', quantity: 1, unitCost: 0, notes: '' });
-    setValidationErrors({});
-    setModalOpen(true);
-  };
-
-  const openEdit = (item: MaintenanceRequestPartUsage) => {
-    setEditItem(item);
-    setForm({ productId: item.productId, quantity: item.quantity, unitCost: item.unitCost ?? 0, notes: item.notes || '' });
-    setValidationErrors({});
-    setModalOpen(true);
-  };
-
-  const handleSave = async () => {
-    const errors: Record<string, string> = {};
-    if (!form.productId) errors.productId = t('validation.required');
-    if (!form.quantity) errors.quantity = t('validation.required');
-    setValidationErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-    setSaving(true);
-    try {
-      const payload = { requestId: id, ...form, totalCost: form.unitCost * form.quantity };
-      if (editItem) {
-        await api.patch(`/maintenance/request-parts/${editItem.id}`, payload);
-        showToast(t('maintenanceWorkflow.partUpdated'), 'success');
-      } else {
-        await api.post('/maintenance/request-parts', payload);
-        showToast(t('maintenanceWorkflow.partAdded'), 'success');
-      }
-      setModalOpen(false);
-      fetchData();
-    } catch (err: any) { handleApiError(err); }
-    finally { setSaving(false); }
-  };
-
-  const handleDelete = async (itemId: string) => {
-    try {
-      await api.delete(`/maintenance/request-parts/${itemId}`);
-      showToast(t('maintenanceWorkflow.partDeleted'), 'success');
-      fetchData();
-    } catch (err: any) { handleApiError(err); }
-  };
-
   const { exec } = useStableHandlers({
     back: () => router.back(),
     refresh: () => fetchData(),
-    add: () => openCreate(),
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'add', labelKey: 'maintenanceWorkflow.addPart', icon: <ActionAddIcon />, onClick: () => exec('add') },
   ]);
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
-  const totalCost = parts.reduce((sum, p) => sum + (p.totalCost ?? p.unitCost ?? 0 * p.quantity), 0);
-
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader><h3 className="text-lg font-semibold">{t('maintenanceWorkflow.usedParts')}</h3></CardHeader>
+        <CardHeader><h3 className="text-lg font-semibold">{t('maintenanceWorkflow.legacyPartsTitle')}</h3></CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-500 mb-4">{t('maintenanceWorkflow.usedPartsDescription')}</p>
+          <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm mb-4">
+            <div className="font-medium">{t('maintenanceWorkflow.legacyPartsReadOnlyNotice')}</div>
+            <div className="mt-1">{t('maintenanceWorkflow.legacyPartsExcludedNotice')}</div>
+            <div className="mt-1">{t('maintenanceWorkflow.legacyPartsWhereToRecord')}</div>
+          </div>
           {parts.length === 0 ? (
             <p className="text-sm text-gray-500 py-4">{t('common.noData')}</p>
           ) : (
@@ -116,40 +57,12 @@ export default function UsedPartsPage() {
               { key: 'product', header: t('maintenanceWorkflow.partProduct'), render: (p: MaintenanceRequestPartUsage) => p.product?.name || p.productId },
               { key: 'quantity', header: t('maintenanceWorkflow.partQuantity'), render: (p: MaintenanceRequestPartUsage) => p.quantity },
               { key: 'unitCost', header: t('maintenanceWorkflow.partUnitCost'), render: (p: MaintenanceRequestPartUsage) => p.unitCost ?? '-' },
-              { key: 'totalCost', header: t('maintenanceWorkflow.partTotalCost'), render: (p: MaintenanceRequestPartUsage) => (p.totalCost ?? (p.unitCost ?? 0) * p.quantity).toLocaleString() },
+              { key: 'totalCost', header: t('maintenanceWorkflow.partTotalCost'), render: (p: MaintenanceRequestPartUsage) => p.totalCost ?? '-' },
               { key: 'notes', header: t('maintenanceWorkflow.partNotes'), render: (p: MaintenanceRequestPartUsage) => p.notes || '-' },
-              {
-                key: 'actions', header: t('common.actions'), render: (p: MaintenanceRequestPartUsage) => (
-                  <div className="flex gap-2">
-                    <button onClick={() => openEdit(p)} className="text-blue-600 hover:text-blue-800 text-sm">{t('actions.edit')}</button>
-                    <button onClick={() => handleDelete(p.id)} className="text-red-600 hover:text-red-800 text-sm">{t('actions.delete')}</button>
-                  </div>
-                ),
-              },
             ]} data={parts} keyExtractor={(p: MaintenanceRequestPartUsage) => p.id} />
           )}
-          <div className="mt-4 text-right font-semibold">{t('maintenanceWorkflow.totalCost')}: {totalCost.toLocaleString()}</div>
         </CardContent>
       </Card>
-
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenanceWorkflow.editPart') : t('maintenanceWorkflow.addPart')} size="md">
-        <div className="space-y-4">
-          <div>
-            <F9Lookup label={t('maintenanceWorkflow.partProduct')} value={form.productId} onChange={(v) => { setForm({ ...form, productId: v }); setValidationErrors(prev => ({ ...prev, productId: '' })); }} adapter={productAdapter} />
-            {validationErrors.productId && <p className="text-red-500 text-sm mt-1">{validationErrors.productId}</p>}
-          </div>
-          <div>
-            <Input label={t('maintenanceWorkflow.partQuantity')} type="number" value={form.quantity} onChange={(e) => { setForm({ ...form, quantity: parseFloat(e.target.value) || 0 }); setValidationErrors(prev => ({ ...prev, quantity: '' })); }} />
-            {validationErrors.quantity && <p className="text-red-500 text-sm mt-1">{validationErrors.quantity}</p>}
-          </div>
-          <Input label={t('maintenanceWorkflow.partUnitCost')} type="number" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: parseFloat(e.target.value) || 0 })} />
-          <Textarea label={t('maintenanceWorkflow.partNotes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
-            <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

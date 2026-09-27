@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common'
+import { NotFoundException } from '@nestjs/common'
 import { MaintenanceRequestPartsService } from './maintenance-request-parts.service'
 
 describe('maintenance-request-parts tenant isolation', () => {
@@ -37,17 +37,17 @@ describe('maintenance-request-parts tenant isolation', () => {
     })
   })
 
-  it('rejects create when the maintenance request is outside the active context', async () => {
+  it('rejects create outright because legacy part usage is read-only (R2-H)', async () => {
     const db = buildDb()
-    db.maintenanceRequest.findUnique.mockResolvedValue({ id: 'req-9', requestNumber: 'MR-9', machine: machineOf('company-b', 'branch-b') })
     const audit: any = { log: jest.fn() }
     const service = new MaintenanceRequestPartsService(db, audit)
 
-    await expect(service.create({ requestId: 'req-9', productId: 'prod-1', quantity: 2 } as any, 'user-1', ctx)).rejects.toBeInstanceOf(BadRequestException)
+    await expect(service.create({ requestId: 'req-9', productId: 'prod-1', quantity: 2 } as any, 'user-1', ctx))
+      .rejects.toMatchObject({ response: { messageKey: 'maintenance.legacyPartUsageWriteDeprecated' } })
     expect(db.maintenanceRequestPartUsage.create).not.toHaveBeenCalled()
   })
 
-  it('creates only after request ownership and product validation pass', async () => {
+  it('never writes a part usage row, not even for an in-context request (R2-H)', async () => {
     const db = buildDb()
     db.maintenanceRequest.findUnique.mockResolvedValue({ id: 'req-1', requestNumber: 'MR-1', machine: machineOf('company-a', 'branch-a') })
     db.product.findUnique.mockResolvedValue({ id: 'prod-1' })
@@ -55,8 +55,9 @@ describe('maintenance-request-parts tenant isolation', () => {
     const audit: any = { log: jest.fn() }
     const service = new MaintenanceRequestPartsService(db, audit)
 
-    await service.create({ requestId: 'req-1', productId: 'prod-1', quantity: 2 } as any, 'user-1', ctx)
-    expect(db.maintenanceRequestPartUsage.create).toHaveBeenCalled()
+    await expect(service.create({ requestId: 'req-1', productId: 'prod-1', quantity: 2 } as any, 'user-1', ctx))
+      .rejects.toMatchObject({ response: { messageKey: 'maintenance.legacyPartUsageWriteDeprecated' } })
+    expect(db.maintenanceRequestPartUsage.create).not.toHaveBeenCalled()
   })
 
   it('allows reading an in-context usage and rejects foreign ones with 404', async () => {
@@ -71,23 +72,25 @@ describe('maintenance-request-parts tenant isolation', () => {
     await expect(service.findOne('u-1', ctx)).resolves.toMatchObject({ id: 'u-1' })
   })
 
-  it('rejects update of a foreign usage before any write', async () => {
+  it('rejects update of a foreign usage before any write (R2-H: writes are retired)', async () => {
     const db = buildDb()
     db.maintenanceRequestPartUsage.findUnique.mockResolvedValue(part(machineOf('company-b', 'branch-b')))
     const audit: any = { log: jest.fn() }
     const service = new MaintenanceRequestPartsService(db, audit)
 
-    await expect(service.update('u-1', { quantity: 9 } as any, 'user-1', ctx)).rejects.toBeInstanceOf(NotFoundException)
+    await expect(service.update('u-1', { quantity: 9 } as any, 'user-1', ctx))
+      .rejects.toMatchObject({ response: { messageKey: 'maintenance.legacyPartUsageWriteDeprecated' } })
     expect(db.maintenanceRequestPartUsage.update).not.toHaveBeenCalled()
   })
 
-  it('rejects delete of a foreign usage', async () => {
+  it('rejects delete of a foreign usage (R2-H: writes are retired)', async () => {
     const db = buildDb()
     db.maintenanceRequestPartUsage.findUnique.mockResolvedValue(part(machineOf('company-b', 'branch-b')))
     const audit: any = { log: jest.fn() }
     const service = new MaintenanceRequestPartsService(db, audit)
 
-    await expect(service.remove('u-1', 'user-1', ctx)).rejects.toBeInstanceOf(NotFoundException)
+    await expect(service.remove('u-1', 'user-1', ctx))
+      .rejects.toMatchObject({ response: { messageKey: 'maintenance.legacyPartUsageWriteDeprecated' } })
     expect(db.maintenanceRequestPartUsage.delete).not.toHaveBeenCalled()
   })
 })

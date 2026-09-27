@@ -27,17 +27,6 @@ export class MaintenanceRequestPartsService {
       && (machine.branchId === null || machine.branchId === ctx.branchId);
   }
 
-  private async assertRequestOwned(requestId: string, ctx: ActiveOperationalContext) {
-    const request = await this.prisma.maintenanceRequest.findUnique({
-      where: { id: requestId },
-      select: { id: true, requestNumber: true, status: true, machine: { select: { companyId: true, branchId: true } } },
-    });
-    if (!request || !this.isMachineInScope(request.machine, ctx)) {
-      throw new BadRequestException('Maintenance request not found or not in the active company/branch');
-    }
-    return request;
-  }
-
   private assertRequestNotTerminal(request: { status: string }) {
     if (['COMPLETED', 'CANCELLED', 'CLOSED'].includes(request.status)) {
       throw new BadRequestException({
@@ -69,22 +58,33 @@ export class MaintenanceRequestPartsService {
     return part;
   }
 
-  async create(dto: CreateMaintenanceRequestPartDto, userId: string, ctx: ActiveOperationalContext) {
-    const request = await this.assertRequestOwned(dto.requestId, ctx);
-    this.assertRequestNotTerminal(request);
+  /**
+   * R2-H: legacy part-usage recording is read-only.
+   *
+   * MaintenanceRequestPartUsage was a parallel record with no inventory
+   * movement, no balance effect, no valuation and no tenant columns of its
+   * own, so a row written here asserted a part consumption that never
+   * physically happened. The canonical physical authority is
+   * MaintenanceRequestRequiredPart -> MaintenanceStockIssue ->
+   * InventoryMovement -> InventoryBalance, and the canonical current-status
+   * authority is the required-part lifecycle.
+   *
+   * The legacy payload carries only requestId/productId/quantity/unitCost. It
+   * has no warehouse, no approval and no valuation evidence, so a safe
+   * delegation to the canonical stock-issue path is impossible: performing it
+   * would require inventing a warehouse, an approval and a cost. These
+   * mutations therefore fail closed as deprecated rather than fabricating
+   * physical truth.
+   */
+  private legacyWriteDeprecated(): BadRequestException {
+    return new BadRequestException({
+      messageKey: 'maintenance.legacyPartUsageWriteDeprecated',
+      message: 'Legacy part usage recording is read-only; use the required-part and stock-issue flow',
+    });
+  }
 
-    const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
-    if (!product) throw new NotFoundException('Product not found');
-
-    const data: any = { ...dto };
-    if (dto.unitCost && dto.quantity) {
-      data.totalCost = dto.unitCost * dto.quantity;
-    }
-
-    const part = await this.prisma.maintenanceRequestPartUsage.create({ data });
-    await this.audit.log(userId, 'CREATE', 'MaintenanceRequestPartUsage', part.id,
-      { requestId: dto.requestId, requestNumber: request.requestNumber, productId: dto.productId, quantity: dto.quantity, companyId: ctx.companyId, branchId: ctx.branchId });
-    return part;
+  async create(_dto: CreateMaintenanceRequestPartDto, _userId: string, _ctx: ActiveOperationalContext) {
+    throw this.legacyWriteDeprecated();
   }
 
   async findAll(query: { requestId?: string; productId?: string }, ctx: ActiveOperationalContext) {
@@ -106,29 +106,11 @@ export class MaintenanceRequestPartsService {
     return this.findOwned(id, ctx);
   }
 
-  async update(id: string, dto: UpdateMaintenanceRequestPartDto, userId: string, ctx: ActiveOperationalContext) {
-    const owned = await this.findOwned(id, ctx);
-    this.assertRequestNotTerminal(owned.request);
-    const data: any = { ...dto };
-    const qty = dto.quantity ?? undefined;
-    const cost = dto.unitCost ?? undefined;
-    if (cost !== undefined && qty !== undefined) {
-      data.totalCost = cost * qty;
-    } else if (cost !== undefined && qty === undefined) {
-      const existing = await this.prisma.maintenanceRequestPartUsage.findUnique({ where: { id } });
-      if (existing) data.totalCost = cost * existing.quantity;
-    }
-
-    const updated = await this.prisma.maintenanceRequestPartUsage.update({ where: { id }, data });
-    await this.audit.log(userId, 'UPDATE', 'MaintenanceRequestPartUsage', id, { dto, companyId: ctx.companyId, branchId: ctx.branchId });
-    return updated;
+  async update(_id: string, _dto: UpdateMaintenanceRequestPartDto, _userId: string, _ctx: ActiveOperationalContext) {
+    throw this.legacyWriteDeprecated();
   }
 
-  async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
-    const owned = await this.findOwned(id, ctx);
-    this.assertRequestNotTerminal(owned.request);
-    await this.prisma.maintenanceRequestPartUsage.delete({ where: { id } });
-    await this.audit.log(userId, 'DELETE', 'MaintenanceRequestPartUsage', id, { companyId: ctx.companyId, branchId: ctx.branchId });
-    return { message: 'Part usage deleted successfully' };
+  async remove(_id: string, _userId: string, _ctx: ActiveOperationalContext) {
+    throw this.legacyWriteDeprecated();
   }
 }
