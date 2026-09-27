@@ -3,8 +3,9 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RepairOrdersService } from './repair-orders.service';
 import {
   QueryRepairOrderDto, CreateRepairOrderDto, CreateRepairOrderFromReplacementDto,
-  CompleteServiceableDto, CompletePartialDto, ScrapRepairOrderDto,
+  CompleteServiceableDto, CompletePartialDto, CompleteNotRepairableDto, ScrapRepairOrderDto,
   CancelRepairOrderDto, CreateRepairActionDto, QueryRepairablePartsDto, UpdateRepairStatusDto,
+  OpenRepairOrderDto, RecordInspectionResultDto, WaitForPartsDto, ResumeFromPartsWaitDto,
 } from './dto/repair-order.dto';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../auth/guards/permissions.guard';
@@ -55,6 +56,13 @@ export class RepairOrdersController {
     return this.service.createFromReplacementHistory(dto, userId, ctx);
   }
 
+  @Post(':id/open')
+  @Permissions('repair-orders:manage')
+  @ApiOperation({ summary: 'Open a drafted repair order' })
+  open(@Param('id') id: string, @Body() dto: OpenRepairOrderDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.open(id, dto, userId, ctx);
+  }
+
   @Post(':id/start-inspection')
   @Permissions('repair-orders:manage')
   @ApiOperation({ summary: 'Start inspection' })
@@ -62,18 +70,44 @@ export class RepairOrdersController {
     return this.service.startInspection(id, dto, userId, ctx);
   }
 
+  /**
+   * R2-F — the canonical inspection decision. One endpoint records both the
+   * repairable verdict (-> APPROVED_FOR_REPAIR) and the not-repairable verdict
+   * (-> INSPECTION_FAILED); both persist the inspection result.
+   */
+  @Post(':id/inspection-result')
+  @Permissions('repair-orders:manage')
+  @ApiOperation({ summary: 'Record the inspection verdict (repairable or not repairable)' })
+  recordInspectionResult(@Param('id') id: string, @Body() dto: RecordInspectionResultDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.recordInspectionResult(id, dto, userId, ctx);
+  }
+
   @Post(':id/approve-repair')
   @Permissions('repair-orders:manage')
-  @ApiOperation({ summary: 'Approve for repair' })
+  @ApiOperation({ summary: 'Approve for repair (legacy alias of inspection-result with a repairable verdict)' })
   approveRepair(@Param('id') id: string, @Body() dto: UpdateRepairStatusDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.approveRepair(id, dto, userId, ctx);
   }
 
   @Post(':id/start-repair')
   @Permissions('repair-orders:manage')
-  @ApiOperation({ summary: 'Start repair' })
+  @ApiOperation({ summary: 'Start repair, or return a tested order to repair' })
   startRepair(@Param('id') id: string, @Body() dto: UpdateRepairStatusDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.startRepair(id, dto, userId, ctx);
+  }
+
+  @Post(':id/wait-for-parts')
+  @Permissions('repair-orders:manage')
+  @ApiOperation({ summary: 'Pause an order under repair while waiting for parts' })
+  waitForParts(@Param('id') id: string, @Body() dto: WaitForPartsDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.waitForParts(id, dto, userId, ctx);
+  }
+
+  @Post(':id/resume-from-parts-wait')
+  @Permissions('repair-orders:manage')
+  @ApiOperation({ summary: 'Resume an order that was waiting for parts' })
+  resumeFromPartsWait(@Param('id') id: string, @Body() dto: ResumeFromPartsWaitDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.resumeFromPartsWait(id, dto, userId, ctx);
   }
 
   @Post(':id/start-test')
@@ -95,6 +129,13 @@ export class RepairOrdersController {
   @ApiOperation({ summary: 'Complete repair as partial' })
   completePartial(@Param('id') id: string, @Body() dto: CompletePartialDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.completePartial(id, dto, userId, ctx);
+  }
+
+  @Post(':id/complete-not-repairable')
+  @Permissions('repair-orders:complete')
+  @ApiOperation({ summary: 'Complete repair as not repairable' })
+  completeNotRepairable(@Param('id') id: string, @Body() dto: CompleteNotRepairableDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.completeNotRepairable(id, dto, userId, ctx);
   }
 
   @Post(':id/scrap')

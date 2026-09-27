@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, Min, IsBoolean, IsBooleanString } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Min, MinLength, IsBoolean, IsIn } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -44,6 +44,52 @@ export class CreateRepairOrderFromReplacementDto {
 
 export class UpdateRepairStatusDto {
   @ApiPropertyOptional() @IsOptional() @IsString() repairDescription?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+}
+
+/**
+ * R2-F — DRAFT -> OPEN. The order is registered here; it has not consumed or
+ * reserved stock, so opening is a pure lifecycle edge.
+ */
+export class OpenRepairOrderDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() failureDescription?: string;
+}
+
+/**
+ * R2-F — the inspection decision. One canonical action records BOTH outcomes of
+ * an inspection: a repairable verdict moves to APPROVED_FOR_REPAIR, a
+ * not-repairable verdict moves to INSPECTION_FAILED. `inspectionResult` is
+ * mandatory in both directions so the verdict is always evidenced, and
+ * `failureDescription` is mandatory when the verdict is not repairable.
+ */
+export class RecordInspectionResultDto {
+  @ApiProperty({ enum: ['REPAIRABLE', 'NOT_REPAIRABLE'] }) @IsIn(['REPAIRABLE', 'NOT_REPAIRABLE']) outcome: string;
+  @ApiProperty() @IsString() @MinLength(1) inspectionResult: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() failureDescription?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+}
+
+/** R2-F — UNDER_REPAIR -> WAITING_PARTS. A reason is mandatory. */
+export class WaitForPartsDto {
+  @ApiProperty() @IsString() @MinLength(1) reason: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+}
+
+/** R2-F — WAITING_PARTS -> UNDER_REPAIR. */
+export class ResumeFromPartsWaitDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+}
+
+/**
+ * R2-F — UNDER_TEST -> COMPLETED_NOT_REPAIRABLE. The tested quantity leaves the
+ * source condition pool permanently (OUT movement, no IN movement) because the
+ * existing quantity model has no other representation for a part that is no
+ * longer repairable and is not returned as serviceable.
+ */
+export class CompleteNotRepairableDto {
+  @ApiProperty() @IsNumber() @Min(0.001) notRepairableQuantity: number;
+  @ApiProperty() @IsString() @MinLength(1) reason: string;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
 }
 

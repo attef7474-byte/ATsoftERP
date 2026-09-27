@@ -260,4 +260,51 @@ describe('SparePartConditionService tenant isolation', () => {
       await expect(service.getMovementById('scm1', ctx)).rejects.toThrow(ForbiddenException);
     });
   });
+
+  describe('getMovements', () => {
+    /**
+     * R2-F regression: `limit` used to be copied into the Prisma `where` object,
+     * which Prisma rejects with "Unknown argument `limit`" and turned the whole
+     * movement-evidence endpoint into a 500 whenever a page size was supplied.
+     */
+    it('never leaks the page size into the Prisma where filter', async () => {
+      prisma.sparePartConditionMovement.findMany.mockResolvedValue([]);
+
+      await service.getMovements({ limit: 25 } as any, ctx);
+
+      expect(prisma.sparePartConditionMovement.findMany).toHaveBeenCalledTimes(1);
+      const args = prisma.sparePartConditionMovement.findMany.mock.calls[0][0];
+      expect(args.where).not.toHaveProperty('limit');
+      expect(args.take).toBe(25);
+    });
+
+    it('applies the documented default page size when none is supplied', async () => {
+      prisma.sparePartConditionMovement.findMany.mockResolvedValue([]);
+
+      await service.getMovements({} as any, ctx);
+
+      const args = prisma.sparePartConditionMovement.findMany.mock.calls[0][0];
+      expect(args.where).not.toHaveProperty('limit');
+      expect(args.take).toBe(100);
+    });
+
+    it('maps the supported filters into the where clause alongside the tenant scope', async () => {
+      prisma.sparePartConditionMovement.findMany.mockResolvedValue([]);
+
+      await service.getMovements(
+        { sparePartId: 'sp1', warehouseId: 'wh1', condition: 'USED_REPAIRABLE', sourceType: 'REPAIR_SCRAPPED' } as any,
+        ctx,
+      );
+
+      const args = prisma.sparePartConditionMovement.findMany.mock.calls[0][0];
+      expect(args.where).toMatchObject({
+        sparePartId: 'sp1',
+        warehouseId: 'wh1',
+        condition: 'USED_REPAIRABLE',
+        sourceType: 'REPAIR_SCRAPPED',
+      });
+      // the tenant scope must survive alongside the caller filters
+      expect(args.where.warehouse).toBeDefined();
+    });
+  });
 });

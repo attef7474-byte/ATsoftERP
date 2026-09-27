@@ -5,8 +5,9 @@ import { NumberingService } from '../../../../modules/numbering/numbering.servic
 import { SparePartConditionService } from '../spare-part-conditions/spare-part-conditions.service';
 import {
   QueryRepairOrderDto, CreateRepairOrderDto, CreateRepairOrderFromReplacementDto,
-  CompleteServiceableDto, CompletePartialDto, ScrapRepairOrderDto,
-  CancelRepairOrderDto, CreateRepairActionDto, QueryRepairablePartsDto,
+  CompleteServiceableDto, CompletePartialDto, CompleteNotRepairableDto, ScrapRepairOrderDto,
+  CancelRepairOrderDto, CreateRepairActionDto, QueryRepairablePartsDto, UpdateRepairStatusDto,
+  OpenRepairOrderDto, RecordInspectionResultDto, WaitForPartsDto, ResumeFromPartsWaitDto,
 } from './dto/repair-order.dto';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
@@ -14,6 +15,34 @@ const VALID_SOURCE_CONDITIONS = ['USED_REPAIRABLE', 'DAMAGED_REPAIRABLE'];
 const VALID_TARGET_CONDITIONS = ['USED_SERVICEABLE', 'USED_REPAIRABLE'];
 const FORBIDDEN_SOURCE_CONDITIONS = ['NEW'];
 
+/**
+ * R2-F — the complete modelled repair-order lifecycle. Recovered from the real
+ * schema (SparePartRepairOrder.status) and the pre-R2-F transition map; both
+ * agree on exactly these thirteen values.
+ */
+export const REPAIR_ORDER_STATUSES = [
+  'DRAFT', 'OPEN', 'IN_INSPECTION', 'INSPECTION_FAILED', 'APPROVED_FOR_REPAIR',
+  'UNDER_REPAIR', 'WAITING_PARTS', 'UNDER_TEST', 'COMPLETED_SERVICEABLE',
+  'COMPLETED_PARTIAL', 'COMPLETED_NOT_REPAIRABLE', 'SCRAPPED', 'CANCELLED',
+] as const;
+
+/** Terminal states admit no further transition and admit no further repair action. */
+export const TERMINAL_REPAIR_STATUSES = [
+  'COMPLETED_SERVICEABLE', 'COMPLETED_PARTIAL', 'COMPLETED_NOT_REPAIRABLE',
+  'SCRAPPED', 'CANCELLED',
+] as const;
+
+/**
+ * R2-F — canonical transition map. Every status mutation in this service is
+ * validated against this single map by assertTransition(); no method may write
+ * `status` without passing that guard.
+ *
+ * Before R2-F this map declared four edges that no code path could ever
+ * produce (DRAFT->OPEN, IN_INSPECTION->INSPECTION_FAILED,
+ * UNDER_REPAIR->WAITING_PARTS, UNDER_TEST->COMPLETED_NOT_REPAIRABLE), while
+ * completeServiceable/completePartial/scrap bypassed the map entirely and
+ * therefore accepted illegal source states.
+ */
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   DRAFT: ['OPEN', 'CANCELLED'],
   OPEN: ['IN_INSPECTION', 'CANCELLED'],
@@ -29,6 +58,11 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   SCRAPPED: [],
   CANCELLED: [],
 };
+
+/** Statuses in which an order still holds a claim on its source condition stock. */
+const ACTIVE_REPAIR_STATUSES = REPAIR_ORDER_STATUSES.filter(
+  (s) => !TERMINAL_REPAIR_STATUSES.includes(s as any),
+);
 
 @Injectable()
 export class RepairOrdersService {
@@ -120,6 +154,27 @@ export class RepairOrdersService {
       throw this.notFound('maintenance.repairSourceNotFound', 'Replacement history not found');
     }
     return history;
+  }
+
+  /**
+   * R2-F — repair orders have no companyId/branchId column: tenancy is derived
+   * from the machine when one is set, otherwise from the warehouse. For every
+   * action that moves condition stock, the warehouse must ALSO be inside the
+   * active context, otherwise a machine-scoped order could drain a foreign
+   * company's condition balance.
+   */
+  private async assertSourceWarehouseInContext(
+    order: { warehouseId: string; warehouse?: { id: string; companyId: string | null; branchId: string | null } | null },
+    ctx: ActiveOperationalContext,
+  ) {
+    const warehouse = order.warehouse ?? await this.prisma.warehouse.findUnique({
+      where: { id: order.warehouseId },
+      select: { id: true, companyId: true, branchId: true },
+    });
+    if (!warehouse) throw this.notFound('inventory.warehouseNotFound', 'Warehouse not found');
+    if (!this.warehouseOwns(warehouse, ctx)) {
+      throw this.notFound('inventory.warehouseNotFound', 'Warehouse not found');
+    }
   }
 
   // ── READ ─────────────────────────────────────────────────────
@@ -388,6 +443,26 @@ export class RepairOrdersService {
       throw this.badRequest('stock.sparePartWarehouseRequired', 'Repair orders require a spare-part warehouse');
     }
 
+    // ── R2-F reservation / claim invariant ────────────────────────
+    // `SparePartConditionBalance.availableQuantity` is NOT on-hand-minus-reserved
+    // anywhere in this codebase: every module moves `quantity` and
+    // `availableQuantity` by the same delta, so the column is a mirror of on-hand
+    // stock and has no reserved concept. Reducing `availableQuantity` at order
+    // creation would therefore invent balance semantics and break the invariant
+    // every other module relies on.
+    //
+    // The enforceable invariant with the existing model is: the stock claimed by
+    // all ACTIVE repair orders over one (spare part, warehouse, condition) key
+    // must never exceed that condition balance's on-hand quantity. An order's own
+    // `sourceQuantity` is its claim, and reaching a terminal state releases it.
+    //
+    // The aggregate is re-read inside the create transaction so the claim is
+    // measured against committed state at write time. It cannot be made a hard
+    // serialisation point without isolation-level or raw-locking infrastructure
+    // this codebase does not use anywhere, so the authoritative protection
+    // against consuming the same physical stock twice remains the atomic
+    // compare-and-set balance guard in recordConditionMovementInTx, which
+    // fails the operation loudly rather than allowing a negative balance.
     if (dto.machineId) await this.machineAccess(dto.machineId, ctx);
     if (dto.machineComponentId && dto.machineId) {
       const comp = await this.prisma.machineComponent.findUnique({ where: { id: dto.machineComponentId } });
@@ -401,6 +476,24 @@ export class RepairOrdersService {
     const repairOrderNumber = await this.numberingService.generateNumberAtomic('SPARE_PART_REPAIR_ORDER');
 
     const order = await this.prisma.$transaction(async (tx: any) => {
+      const claimed = await tx.sparePartRepairOrder.aggregate({
+        where: {
+          sparePartId: dto.sparePartId,
+          warehouseId: dto.warehouseId,
+          sourceCondition: dto.sourceCondition,
+          status: { in: ACTIVE_REPAIR_STATUSES as unknown as string[] },
+        },
+        _sum: { sourceQuantity: true },
+      });
+      const alreadyClaimed = claimed?._sum?.sourceQuantity ?? 0;
+      const onHand = await this.conditionService.getBalanceByKey(dto.sparePartId, dto.warehouseId, dto.sourceCondition);
+      if (alreadyClaimed + dto.sourceQuantity > (onHand.quantity ?? 0)) {
+        throw this.badRequest(
+          'maintenance.repairSourceQuantityExceedsClaim',
+          `Active repair orders already claim ${alreadyClaimed} of the ${onHand.quantity ?? 0} available in condition ${dto.sourceCondition}`,
+        );
+      }
+
       return tx.sparePartRepairOrder.create({
         data: {
           repairOrderNumber,
@@ -565,32 +658,123 @@ export class RepairOrdersService {
 
   // ── STATUS TRANSITIONS ───────────────────────────────────────
 
-  private async transition(id: string, newStatus: string, userId: string, ctx: ActiveOperationalContext, extra?: Record<string, any>) {
+  /**
+   * R2-F — the one canonical transition guard. Every status mutation funnels
+   * through here, so there is no second status authority anywhere in the
+   * service. It is deliberately fail-closed:
+   *  - an unknown target status is rejected;
+   *  - a terminal current status rejects everything (terminal immutability);
+   *  - an unknown/unmapped current status rejects everything;
+   *  - a repeat of the current status is rejected as a no-op rather than
+   *    silently re-applied.
+   */
+  private assertTransition(current: string, next: string) {
+    if (!REPAIR_ORDER_STATUSES.includes(next as any)) {
+      throw this.badRequest('maintenance.invalidRepairTransition', `Unknown repair order status ${next}`);
+    }
+    if (TERMINAL_REPAIR_STATUSES.includes(current as any)) {
+      throw this.badRequest(
+        'maintenance.repairAlreadyCompleted',
+        `Repair order is already ${current} and cannot change status`,
+      );
+    }
+    if (current === next) {
+      throw this.badRequest('maintenance.repairAlreadyInStatus', `Repair order is already in status ${next}`);
+    }
+    const allowed = ALLOWED_TRANSITIONS[current];
+    if (!allowed || !allowed.includes(next)) {
+      throw this.badRequest(
+        'maintenance.invalidRepairTransition',
+        `A repair order in status ${current} cannot move to ${next}`,
+      );
+    }
+  }
+
+  /**
+   * R2-F — some target states are reachable through more than one edge in the
+   * canonical map, which would let a misleadingly named action perform it. The
+   * map alone cannot express "resume only after a parts wait", so the actions
+   * that name a specific situation also pin their allowed source states.
+   */
+  private assertSourceStatus(order: { status: string }, allowed: string[]) {
+    if (!allowed.includes(order.status)) {
+      throw this.badRequest(
+        'maintenance.invalidRepairTransition',
+        `This action is not available while the repair order is ${order.status}`,
+      );
+    }
+  }
+
+  /**
+   * R2-F — load an order for a state-changing action: tenant/branch access is
+   * enforced first, then the canonical guard. Returns the order so callers never
+   * re-read it outside the guard.
+   */
+  private async loadForAction(id: string, next: string, ctx: ActiveOperationalContext) {
     const order = await this.orderAccess(id, ctx);
+    this.assertTransition(order.status, next);
+    return order;
+  }
 
-    if (order.status === newStatus) {
-      throw this.badRequest('maintenance.repairAlreadyInStatus', `Repair order is already in status ${newStatus}`);
+  /**
+   * R2-F — claim the transition atomically. A plain `update({ where: { id } })`
+   * lets two concurrent callers both read UNDER_TEST and both commit, which
+   * would double-consume the condition balance. Matching on the current status
+   * makes the second writer's update affect zero rows and roll the transaction
+   * back instead.
+   */
+  private async claimStatusInTx(tx: any, id: string, expectedStatus: string, data: Record<string, any>) {
+    const claimed = await tx.sparePartRepairOrder.updateMany({
+      where: { id, status: expectedStatus },
+      data,
+    });
+    if (claimed.count !== 1) {
+      throw this.badRequest(
+        'maintenance.repairTransitionConflict',
+        'This repair order was changed by another user. Reload it and try again.',
+      );
     }
+  }
 
-    const allowed = ALLOWED_TRANSITIONS[order.status] || [];
-    if (!allowed.includes(newStatus)) {
-      throw this.badRequest('maintenance.invalidRepairTransition', 'Invalid status transition for this repair order');
-    }
+  private async transition(id: string, newStatus: string, userId: string, ctx: ActiveOperationalContext, extra?: Record<string, any>) {
+    const order = await this.loadForAction(id, newStatus, ctx);
 
     const data: any = { status: newStatus, ...(extra || {}) };
     if (newStatus === 'CANCELLED') {
       if (!extra?.cancelReason) throw this.badRequest('maintenance.repairCancelReasonRequired', 'Cancel reason is required');
       data.cancelledAt = new Date();
+      data.reservedQuantity = 0;
     }
-    if (newStatus === 'IN_INSPECTION') data.inspectionStartedAt = new Date();
-    if (newStatus === 'UNDER_REPAIR') data.repairStartedAt = new Date();
-    if (newStatus === 'UNDER_TEST') data.testStartedAt = new Date();
-    if (['COMPLETED_SERVICEABLE', 'COMPLETED_PARTIAL', 'COMPLETED_NOT_REPAIRABLE', 'SCRAPPED'].includes(newStatus)) {
+    if (newStatus === 'OPEN') {
+      data.openedByUserId = userId;
+      data.openedAt = new Date();
+    }
+    if (newStatus === 'IN_INSPECTION') {
+      data.inspectionStartedAt = new Date();
+      data.inspectedByUserId = userId;
+    }
+    if (newStatus === 'INSPECTION_FAILED') data.inspectedByUserId = userId;
+    if (newStatus === 'APPROVED_FOR_REPAIR') data.inspectedByUserId = userId;
+    if (newStatus === 'UNDER_REPAIR') {
+      data.repairStartedAt = new Date();
+      data.repairedByUserId = userId;
+    }
+    if (newStatus === 'WAITING_PARTS') data.repairedByUserId = order.repairedByUserId || userId;
+    if (newStatus === 'UNDER_TEST') {
+      data.testStartedAt = new Date();
+      data.testedByUserId = userId;
+    }
+    if (TERMINAL_REPAIR_STATUSES.includes(newStatus as any)) {
       data.completedAt = new Date();
       data.closedByUserId = userId;
+      // R2-F: a terminal order no longer holds a claim on its source stock.
+      data.reservedQuantity = 0;
     }
 
-    const updated = await this.prisma.sparePartRepairOrder.update({ where: { id }, data });
+    const updated = await this.prisma.$transaction(async (tx: any) => {
+      await this.claimStatusInTx(tx, id, order.status, data);
+      return tx.sparePartRepairOrder.findUnique({ where: { id } });
+    });
 
     await this.audit.log(userId, `SPARE_PART_REPAIR_${newStatus}`, 'SparePartRepairOrder', id, {
       previousStatus: order.status, newStatus, ...extra,
@@ -599,30 +783,112 @@ export class RepairOrdersService {
     return updated;
   }
 
-  async startInspection(id: string, dto: any, userId: string, ctx: ActiveOperationalContext) {
-    return this.transition(id, 'IN_INSPECTION', userId, ctx, { inspectedByUserId: userId });
+  // ── LIFECYCLE ACTIONS ────────────────────────────────────────
+
+  /** R2-F — DRAFT -> OPEN. Before R2-F no code path could produce OPEN. */
+  async open(id: string, dto: OpenRepairOrderDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.transition(id, 'OPEN', userId, ctx, {
+      notes: dto?.notes || undefined,
+      failureDescription: dto?.failureDescription || undefined,
+    });
   }
 
-  async approveRepair(id: string, dto: any, userId: string, ctx: ActiveOperationalContext) {
-    return this.transition(id, 'APPROVED_FOR_REPAIR', userId, ctx);
+  async startInspection(id: string, dto: UpdateRepairStatusDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.transition(id, 'IN_INSPECTION', userId, ctx, {
+      notes: dto?.notes || undefined,
+    });
   }
 
-  async startRepair(id: string, dto: any, userId: string, ctx: ActiveOperationalContext) {
-    return this.transition(id, 'UNDER_REPAIR', userId, ctx, { repairedByUserId: userId });
+  /**
+   * R2-F — the canonical inspection decision. Before R2-F the verdict was never
+   * persisted: approve-repair moved the status but wrote no inspectionResult, and
+   * there was no way at all to reach INSPECTION_FAILED.
+   */
+  async recordInspectionResult(id: string, dto: RecordInspectionResultDto, userId: string, ctx: ActiveOperationalContext) {
+    if (!dto.inspectionResult || !dto.inspectionResult.trim()) {
+      throw this.badRequest('validation.required', 'An inspection result is required');
+    }
+    if (dto.outcome === 'NOT_REPAIRABLE' && !(dto.failureDescription || '').trim()) {
+      throw this.badRequest('validation.required', 'A failure description is required when the part is not repairable');
+    }
+    const next = dto.outcome === 'REPAIRABLE' ? 'APPROVED_FOR_REPAIR' : 'INSPECTION_FAILED';
+    return this.transition(id, next, userId, ctx, {
+      inspectionResult: dto.inspectionResult.trim(),
+      failureDescription: dto.outcome === 'REPAIRABLE' ? (dto.failureDescription || null) : dto.failureDescription!.trim(),
+      notes: dto.notes || undefined,
+    });
   }
 
-  async startTest(id: string, dto: any, userId: string, ctx: ActiveOperationalContext) {
-    return this.transition(id, 'UNDER_TEST', userId, ctx, { testedByUserId: userId });
+  /**
+   * Backward-compatible alias for the pre-R2-F `approve-repair` route. It now
+   * shares the single inspection code path instead of transitioning blindly, so
+   * the inspection verdict is always recorded.
+   */
+  async approveRepair(id: string, dto: UpdateRepairStatusDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.recordInspectionResult(id, {
+      outcome: 'REPAIRABLE',
+      inspectionResult: 'REPAIRABLE',
+      notes: dto?.notes,
+    } as RecordInspectionResultDto, userId, ctx);
+  }
+
+  /** R2-F — UNDER_REPAIR -> WAITING_PARTS, with a mandatory reason. */
+  async waitForParts(id: string, dto: WaitForPartsDto, userId: string, ctx: ActiveOperationalContext) {
+    if (!(dto?.reason || '').trim()) {
+      throw this.badRequest('validation.required', 'A reason is required when waiting for parts');
+    }
+    const reason = dto.reason.trim();
+    const order = await this.transition(id, 'WAITING_PARTS', userId, ctx, {
+      notes: dto.notes || reason,
+    });
+    await this.recordAction(id, {
+      actionType: 'NOTE',
+      actionStatus: 'DONE',
+      description: reason,
+      notes: `Waiting for parts: ${reason}`,
+    }, userId, ctx);
+    return order;
+  }
+
+  /** R2-F — WAITING_PARTS -> UNDER_REPAIR (parts arrived). */
+  async resumeFromPartsWait(id: string, dto: ResumeFromPartsWaitDto, userId: string, ctx: ActiveOperationalContext) {
+    const order = await this.orderAccess(id, ctx);
+    this.assertSourceStatus(order, ['WAITING_PARTS']);
+    return this.transition(id, 'UNDER_REPAIR', userId, ctx, {
+      notes: dto?.notes || undefined,
+    });
+  }
+
+  /**
+   * R2-F — begins a repair (from an approved inspection) or returns a tested
+   * order to repair. It is deliberately NOT a way to resume a parts wait: that
+   * is `resumeFromPartsWait`, and WAITING_PARTS is excluded here so the audit
+   * trail cannot show a resume as an ordinary repair start.
+   */
+  async startRepair(id: string, dto: UpdateRepairStatusDto, userId: string, ctx: ActiveOperationalContext) {
+    const order = await this.orderAccess(id, ctx);
+    this.assertSourceStatus(order, ['APPROVED_FOR_REPAIR', 'UNDER_TEST']);
+    return this.transition(id, 'UNDER_REPAIR', userId, ctx, {
+      repairDescription: dto?.repairDescription || undefined,
+      notes: dto?.notes || undefined,
+    });
+  }
+
+  async startTest(id: string, dto: UpdateRepairStatusDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.transition(id, 'UNDER_TEST', userId, ctx, {
+      notes: dto?.notes || undefined,
+    });
   }
 
   // ── COMPLETE SERVICEABLE ─────────────────────────────────────
 
   async completeServiceable(id: string, dto: CompleteServiceableDto, userId: string, ctx: ActiveOperationalContext) {
-    const order = await this.orderAccess(id, ctx);
-
-    if (order.status === 'COMPLETED_SERVICEABLE' || order.status === 'COMPLETED_PARTIAL') {
-      throw this.badRequest('maintenance.repairAlreadyCompleted', 'Repair order already completed');
-    }
+    // R2-F: the guard is now the only authority on the source state. Previously
+    // this method only rejected the two completed states, so an order in DRAFT,
+    // OPEN, IN_INSPECTION, INSPECTION_FAILED, APPROVED_FOR_REPAIR, WAITING_PARTS,
+    // SCRAPPED, CANCELLED or COMPLETED_NOT_REPAIRABLE could be completed here.
+    const order = await this.loadForAction(id, 'COMPLETED_SERVICEABLE', ctx);
+    await this.assertSourceWarehouseInContext(order, ctx);
 
     if (dto.repairedQuantity <= 0) throw this.badRequest('validation.invalidQuantity', 'Quantity must be greater than zero');
     if (dto.repairedQuantity > order.remainingQuantity) {
@@ -668,21 +934,20 @@ export class RepairOrdersService {
       }, userId);
 
       const newRemaining = order.remainingQuantity - sourceDecreaseQty;
-      await tx.sparePartRepairOrder.update({
-        where: { id },
-        data: {
-          status: 'COMPLETED_SERVICEABLE',
-          repairedQuantity: (order.repairedQuantity || 0) + sourceDecreaseQty,
-          remainingQuantity: newRemaining,
-          targetCondition: dto.targetCondition,
-          conditionOutMovementId: outMovement.id,
-          conditionInMovementId: inMovement.id,
-          testResult: dto.testResult || null,
-          testNotes: dto.testNotes || null,
-          repairDescription: dto.repairDescription || null,
-          completedAt: new Date(),
-          closedByUserId: userId,
-        },
+      await this.claimStatusInTx(tx, id, order.status, {
+        status: 'COMPLETED_SERVICEABLE',
+        repairedQuantity: (order.repairedQuantity || 0) + sourceDecreaseQty,
+        remainingQuantity: newRemaining,
+        targetCondition: dto.targetCondition,
+        conditionOutMovementId: outMovement.id,
+        conditionInMovementId: inMovement.id,
+        testResult: dto.testResult || null,
+        testNotes: dto.testNotes || null,
+        repairDescription: dto.repairDescription || null,
+        notes: dto.notes || null,
+        completedAt: new Date(),
+        closedByUserId: userId,
+        reservedQuantity: 0,
       });
     });
 
@@ -696,13 +961,14 @@ export class RepairOrdersService {
   // ── COMPLETE PARTIAL ─────────────────────────────────────────
 
   async completePartial(id: string, dto: CompletePartialDto, userId: string, ctx: ActiveOperationalContext) {
-    const order = await this.orderAccess(id, ctx);
-    if (order.status === 'COMPLETED_SERVICEABLE' || order.status === 'COMPLETED_PARTIAL') {
-      throw this.badRequest('maintenance.repairAlreadyCompleted', 'Repair order already completed');
-    }
+    const order = await this.loadForAction(id, 'COMPLETED_PARTIAL', ctx);
+    await this.assertSourceWarehouseInContext(order, ctx);
 
     const totalQty = dto.repairedQuantity + dto.scrappedQuantity;
     if (totalQty <= 0) throw this.badRequest('validation.invalidQuantity', 'Quantity must be greater than zero');
+    if (dto.repairedQuantity < 0 || dto.scrappedQuantity < 0) {
+      throw this.badRequest('validation.invalidQuantity', 'Quantities cannot be negative');
+    }
     if (totalQty > order.remainingQuantity) {
       throw this.badRequest('maintenance.repairQuantityInvalid', 'Total quantity exceeds remaining quantity');
     }
@@ -760,17 +1026,16 @@ export class RepairOrdersService {
       }
 
       const newRemaining = order.remainingQuantity - totalQty;
-      await tx.sparePartRepairOrder.update({
-        where: { id },
-        data: {
-          status: 'COMPLETED_PARTIAL',
-          repairedQuantity: (order.repairedQuantity || 0) + dto.repairedQuantity,
-          scrappedQuantity: (order.scrappedQuantity || 0) + dto.scrappedQuantity,
-          remainingQuantity: newRemaining,
-          targetCondition: dto.targetCondition,
-          completedAt: new Date(),
-          closedByUserId: userId,
-        },
+      await this.claimStatusInTx(tx, id, order.status, {
+        status: 'COMPLETED_PARTIAL',
+        repairedQuantity: (order.repairedQuantity || 0) + dto.repairedQuantity,
+        scrappedQuantity: (order.scrappedQuantity || 0) + dto.scrappedQuantity,
+        remainingQuantity: newRemaining,
+        targetCondition: dto.targetCondition,
+        notes: dto.notes || null,
+        completedAt: new Date(),
+        closedByUserId: userId,
+        reservedQuantity: 0,
       });
     });
 
@@ -781,13 +1046,88 @@ export class RepairOrdersService {
     return this.findById(id, ctx);
   }
 
+  // ── COMPLETE NOT REPAIRABLE ──────────────────────────────────
+
+  /**
+   * R2-F — UNDER_TEST -> COMPLETED_NOT_REPAIRABLE. This terminal outcome had no
+   * producer at all before R2-F.
+   *
+   * Inventory semantics: the tested quantity leaves the source condition pool
+   * permanently — one OUT movement and no IN movement. It is deliberately NOT
+   * returned to any condition, because a part that is not repairable is not
+   * serviceable stock, and leaving it in USED_REPAIRABLE would keep an unusable
+   * part reservable forever. The existing model has no other quantity bucket for
+   * it, so it is accounted in scrappedQuantity, which is the same treatment
+   * completePartial already gives to its scrapped leg.
+   */
+  async completeNotRepairable(id: string, dto: CompleteNotRepairableDto, userId: string, ctx: ActiveOperationalContext) {
+    const order = await this.loadForAction(id, 'COMPLETED_NOT_REPAIRABLE', ctx);
+    await this.assertSourceWarehouseInContext(order, ctx);
+
+    if (dto.notRepairableQuantity <= 0) {
+      throw this.badRequest('validation.invalidQuantity', 'Quantity must be greater than zero');
+    }
+    if (dto.notRepairableQuantity > order.remainingQuantity) {
+      throw this.badRequest('maintenance.repairQuantityInvalid', 'Not-repairable quantity exceeds remaining quantity');
+    }
+    if (!(dto.reason || '').trim()) {
+      throw this.badRequest('validation.required', 'A reason is required when completing as not repairable');
+    }
+
+    const oldBalance = await this.conditionService.getBalanceByKey(order.sparePartId, order.warehouseId, order.sourceCondition);
+    if (oldBalance.availableQuantity < dto.notRepairableQuantity) {
+      throw this.badRequest('stock.insufficientConditionBalance', 'Insufficient available condition balance');
+    }
+
+    await this.prisma.$transaction(async (tx: any) => {
+      const outMovement = await this.recordConditionMovementInTx(tx, {
+        sparePartId: order.sparePartId,
+        productId: order.productId || '',
+        warehouseId: order.warehouseId,
+        condition: order.sourceCondition,
+        direction: 'OUT',
+        quantity: dto.notRepairableQuantity,
+        sourceType: 'REPAIR_NOT_REPAIRABLE',
+        sourceId: id,
+        maintenanceRequestId: order.maintenanceRequestId || null,
+        notes: `Not repairable after test: ${dto.reason}`,
+      }, userId);
+
+      await this.claimStatusInTx(tx, id, order.status, {
+        status: 'COMPLETED_NOT_REPAIRABLE',
+        scrappedQuantity: (order.scrappedQuantity || 0) + dto.notRepairableQuantity,
+        remainingQuantity: order.remainingQuantity - dto.notRepairableQuantity,
+        // R2-F — the reason belongs with the failure evidence, NOT on top of
+        // inspectionResult. The inspection verdict recorded at the inspection
+        // step is the first thing a reader needs, so it is never overwritten;
+        // the test outcome is appended to the failure description instead.
+        failureDescription: order.failureDescription
+          ? `${order.failureDescription} | Not repairable after test: ${dto.reason}`
+          : `Not repairable after test: ${dto.reason}`,
+        conditionOutMovementId: outMovement.id,
+        notes: dto.notes || null,
+        completedAt: new Date(),
+        closedByUserId: userId,
+        reservedQuantity: 0,
+      });
+    });
+
+    await this.audit.log(userId, 'SPARE_PART_REPAIR_COMPLETED_NOT_REPAIRABLE', 'SparePartRepairOrder', id, {
+      notRepairableQuantity: dto.notRepairableQuantity, reason: dto.reason,
+    });
+
+    return this.findById(id, ctx);
+  }
+
   // ── SCRAP ────────────────────────────────────────────────────
 
   async scrap(id: string, dto: ScrapRepairOrderDto, userId: string, ctx: ActiveOperationalContext) {
-    const order = await this.orderAccess(id, ctx);
-    if (['COMPLETED_SERVICEABLE', 'COMPLETED_PARTIAL', 'SCRAPPED', 'CANCELLED'].includes(order.status)) {
-      throw this.badRequest('maintenance.repairAlreadyCompleted', 'Repair order already completed or cancelled');
-    }
+    // R2-F: the guard restricts scrap to the states the canonical map allows
+    // (INSPECTION_FAILED, UNDER_REPAIR). Previously only already-finished orders
+    // were rejected, so scrap was accepted from DRAFT/OPEN/IN_INSPECTION/
+    // APPROVED_FOR_REPAIR/WAITING_PARTS/UNDER_TEST.
+    const order = await this.loadForAction(id, 'SCRAPPED', ctx);
+    await this.assertSourceWarehouseInContext(order, ctx);
 
     if (dto.scrappedQuantity <= 0) throw this.badRequest('validation.invalidQuantity', 'Quantity must be greater than zero');
     if (dto.scrappedQuantity > order.remainingQuantity) {
@@ -813,16 +1153,14 @@ export class RepairOrdersService {
         notes: dto.reason || `Spare part scrapped - not repairable`,
       }, userId);
 
-      await tx.sparePartRepairOrder.update({
-        where: { id },
-        data: {
-          status: 'SCRAPPED',
-          scrappedQuantity: (order.scrappedQuantity || 0) + dto.scrappedQuantity,
-          remainingQuantity: order.remainingQuantity - dto.scrappedQuantity,
-          completedAt: new Date(),
-          closedByUserId: userId,
-          notes: dto.notes || order.notes,
-        },
+      await this.claimStatusInTx(tx, id, order.status, {
+        status: 'SCRAPPED',
+        scrappedQuantity: (order.scrappedQuantity || 0) + dto.scrappedQuantity,
+        remainingQuantity: order.remainingQuantity - dto.scrappedQuantity,
+        completedAt: new Date(),
+        closedByUserId: userId,
+        notes: dto.notes || order.notes,
+        reservedQuantity: 0,
       });
     });
 
@@ -836,28 +1174,21 @@ export class RepairOrdersService {
   // ── CANCEL ───────────────────────────────────────────────────
 
   async cancel(id: string, dto: CancelRepairOrderDto, userId: string, ctx: ActiveOperationalContext) {
-    const order = await this.orderAccess(id, ctx);
-    if (['COMPLETED_SERVICEABLE', 'COMPLETED_PARTIAL', 'SCRAPPED'].includes(order.status)) {
-      throw this.badRequest('maintenance.repairAlreadyCompleted', 'Repair order already completed');
-    }
-    if (order.status === 'CANCELLED') {
-      throw this.badRequest('maintenance.repairAlreadyInStatus', 'Repair order is already cancelled');
+    const order = await this.loadForAction(id, 'CANCELLED', ctx);
+    if (!(dto.reason || '').trim()) {
+      throw this.badRequest('maintenance.repairCancelReasonRequired', 'Cancel reason is required');
     }
 
-    const allowed = ALLOWED_TRANSITIONS[order.status] || [];
-    if (!allowed.includes('CANCELLED')) {
-      throw this.badRequest('maintenance.invalidRepairTransition', 'Invalid status transition for this repair order');
-    }
-
-    const updated = await this.prisma.sparePartRepairOrder.update({
-      where: { id },
-      data: {
+    const updated = await this.prisma.$transaction(async (tx: any) => {
+      await this.claimStatusInTx(tx, id, order.status, {
         status: 'CANCELLED',
         cancelledAt: new Date(),
         cancelReason: dto.reason,
         notes: dto.notes || order.notes,
         reservedQuantity: 0,
-      },
+        closedByUserId: userId,
+      });
+      return tx.sparePartRepairOrder.findUnique({ where: { id } });
     });
 
     await this.audit.log(userId, 'SPARE_PART_REPAIR_CANCELLED', 'SparePartRepairOrder', id, {
@@ -878,9 +1209,14 @@ export class RepairOrdersService {
     });
   }
 
-  async addAction(repairOrderId: string, dto: CreateRepairActionDto, userId: string, ctx: ActiveOperationalContext) {
+  /**
+   * R2-F — single writer for repair actions, so an action recorded by a state
+   * transition and one recorded by the user go through identical evidence and
+   * identical terminal-state rules.
+   */
+  private async recordAction(repairOrderId: string, dto: CreateRepairActionDto, userId: string, ctx: ActiveOperationalContext) {
     const order = await this.orderAccess(repairOrderId, ctx);
-    if (['COMPLETED_SERVICEABLE', 'COMPLETED_PARTIAL', 'SCRAPPED', 'CANCELLED'].includes(order.status)) {
+    if (TERMINAL_REPAIR_STATUSES.includes(order.status as any)) {
       throw this.badRequest('maintenance.repairAlreadyCompleted', 'Repair order already completed or cancelled');
     }
 
@@ -903,6 +1239,10 @@ export class RepairOrdersService {
     });
 
     return action;
+  }
+
+  async addAction(repairOrderId: string, dto: CreateRepairActionDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.recordAction(repairOrderId, dto, userId, ctx);
   }
 
   // ── INTERNAL HELPERS ─────────────────────────────────────────
@@ -931,23 +1271,28 @@ export class RepairOrdersService {
       });
     }
 
-    const delta = data.direction === 'IN' ? data.quantity : -data.quantity;
-    const newQuantity = balance.quantity + delta;
-    const newAvailable = balance.availableQuantity + delta;
-
-    if (newQuantity < 0 || newAvailable < 0) {
-      throw this.badRequest('stock.insufficientConditionBalance', 'Insufficient available condition balance');
-    }
-
-    await tx.sparePartConditionBalance.update({
-      where: { id: balance.id },
+    // R2-F — the balance is mutated with a conditional (compare-and-set) update
+    // rather than a read-modify-write. Two concurrent completions that both read
+    // the same `quantity` would each compute their own new value and the last
+    // writer would win, letting a condition balance go negative. Putting the
+    // sufficiency precondition in the `where` clause makes the check and the
+    // write a single atomic row operation, so the guard cannot be raced past.
+    const isIn = data.direction === 'IN';
+    const updated = await tx.sparePartConditionBalance.updateMany({
+      where: isIn
+        ? { id: balance.id }
+        : { id: balance.id, quantity: { gte: data.quantity }, availableQuantity: { gte: data.quantity } },
       data: {
-        quantity: newQuantity,
-        availableQuantity: newAvailable,
+        quantity: isIn ? { increment: data.quantity } : { decrement: data.quantity },
+        availableQuantity: isIn ? { increment: data.quantity } : { decrement: data.quantity },
         lastMovementAt: new Date(),
-        productId: data.productId || balance.productId,
+        ...(data.productId ? { productId: data.productId } : {}),
       },
     });
+
+    if (updated.count !== 1) {
+      throw this.badRequest('stock.insufficientConditionBalance', 'Insufficient available condition balance');
+    }
 
     const movementNumber = await this.numberingService.generateNumberAtomicWithClient('SPARE_PART_CONDITION_MOVEMENT', tx);
 

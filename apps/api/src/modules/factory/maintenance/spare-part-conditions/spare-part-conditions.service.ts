@@ -193,7 +193,6 @@ export class SparePartConditionService {
     if (query.sourceId) where.sourceId = query.sourceId;
     if (query.fromDate) where.createdAt = { ...where.createdAt, gte: new Date(query.fromDate) };
     if (query.toDate) where.createdAt = { ...where.createdAt, lte: new Date(query.toDate) };
-    if (query.limit) where.limit = query.limit;
 
     return this.prisma.sparePartConditionMovement.findMany({
       where,

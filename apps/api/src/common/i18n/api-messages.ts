@@ -235,6 +235,9 @@ const messages: Record<string, { ar: string; en: string }> = {
   'maintenance.repairAlreadyCompleted': { ar: 'أمر الإصلاح مكتمل بالفعل', en: 'Repair order is already completed' },
   'maintenance.repairAlreadyCancelled': { ar: 'أمر الإصلاح ملغي بالفعل', en: 'Repair order is already cancelled' },
   'maintenance.repairCancelReasonRequired': { ar: 'سبب الإلغاء مطلوب', en: 'Cancel reason is required' },
+  'maintenance.repairAlreadyInStatus': { ar: 'أمر الإصلاح في هذه الحالة بالفعل', en: 'Repair order is already in this status' },
+  'maintenance.repairTransitionConflict': { ar: 'تم تعديل أمر الإصلاح من مستخدم آخر. أعد تحميله ثم حاول مرة أخرى', en: 'This repair order was changed by another user. Reload it and try again' },
+  'maintenance.repairSourceQuantityExceedsClaim': { ar: 'كمية الطلب تتجاوز المخزون المطلوب مسبقاً في حالة قطعة الغيار هذه', en: 'The requested quantity exceeds the stock still claimable in this part condition' },
 
   'maintenance.bomNotFound': { ar: 'قائمة المكونات غير موجودة', en: 'BOM not found' },
   'maintenance.bomCannotScopeToBothMachineAndComponent': { ar: 'لا يمكن تحديد ماكينة ومكون معاً لنفس القائمة', en: 'Cannot scope BOM to both machine and component' },
