@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { NotFoundException } from '@nestjs/common';
 import { MaintenanceRequestsService } from './maintenance-requests/maintenance-requests.service';
 import { MaintenanceRequestPartsService } from './maintenance-request-parts/maintenance-request-parts.service';
 import { MaintenanceRequestCostsService } from './maintenance-request-costs/maintenance-request-costs.service';
@@ -240,8 +241,31 @@ describe('R2-H canonical cost summary comes from the operational cost ledger', (
     expect(where.maintenanceRequestId).toBe('r1');
   });
 
-  it('reports an asserted-but-unposted labor cost as a reconciliation gap', async () => {
+  it('never answers a foreign-tenant request with a zeroed summary that echoes the id', async () => {
+    const prisma = prismaMock({ maintenanceRequest: { findFirst: jest.fn().mockResolvedValue(null) } });
+    await expect(new MaintenanceCostSummaryService(prisma).requestSummary('other-tenant-request', ctx))
+      .rejects.toMatchObject({ response: { messageKey: 'maintenance.requestNotFound' } });
+    expect(prisma.operationalCostTransaction.findMany).not.toHaveBeenCalled();
+  });
+
+  it('never answers a foreign-tenant work order with a zeroed summary that echoes the id', async () => {
+    const prisma = prismaMock({ maintenanceWorkOrder: { findFirst: jest.fn().mockResolvedValue(null) } });
+    await expect(new MaintenanceCostSummaryService(prisma).workOrderSummary('other-tenant-work-order', ctx))
+      .rejects.toMatchObject({ response: { messageKey: 'maintenance.workOrderNotFound' } });
+    expect(prisma.operationalCostTransaction.findMany).not.toHaveBeenCalled();
+  });
+
+  it('scopes the work-order lookup to the company and branch of the caller', async () => {
     const prisma = prismaMock({
+      maintenanceWorkOrder: { findFirst: jest.fn().mockResolvedValue({ id: 'w1', workOrderNumber: 'WO-1', status: 'COMPLETED' }) },
+    });
+    await new MaintenanceCostSummaryService(prisma).workOrderSummary('w1', ctx);
+    const where = prisma.maintenanceWorkOrder.findFirst.mock.calls[0][0].where;
+    expect(where.companyId).toBe('c1');
+    expect(where.branchId).toBe('b1');
+  });
+
+  it('reports an asserted-but-unposted labor cost as a reconciliation gap', async () => {    const prisma = prismaMock({
       maintenanceWorkOrder: { findFirst: jest.fn().mockResolvedValue({ id: 'w1', workOrderNumber: 'WO-1', status: 'IN_PROGRESS' }) },
       maintenanceWorkOrderCostEntry: { findMany: jest.fn().mockResolvedValue([{ id: 'ce1', type: 'LABOR' }]) },
     });
@@ -296,8 +320,8 @@ describe('R2-H canonical cost summary comes from the operational cost ledger', (
 
   it('excludes records outside the active tenant', async () => {
     const prisma = prismaMock({ maintenanceRequest: { findFirst: jest.fn().mockResolvedValue(null) } });
-    const summary = await new MaintenanceCostSummaryService(prisma).requestSummary('other-company', ctx);
-    expect(summary.netCost).toBe('0');
+    await expect(new MaintenanceCostSummaryService(prisma).requestSummary('other-company', ctx))
+      .rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.operationalCostTransaction.findMany).not.toHaveBeenCalled();
   });
 });

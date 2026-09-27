@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
@@ -64,7 +64,7 @@ export class MaintenanceCostSummaryService {
       where: { id: requestId, deletedAt: null, machine: { companyId: ctx.companyId, branchId: ctx.branchId } },
       select: { id: true, requestNumber: true, status: true },
     });
-    if (!request) return this.notFoundSummary('REQUEST', requestId);
+    if (!request) throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
 
     return this.build('REQUEST', request.id, request.requestNumber, request.status, {
       maintenanceRequestId: requestId,
@@ -80,7 +80,7 @@ export class MaintenanceCostSummaryService {
       },
       select: { id: true, workOrderNumber: true, status: true },
     });
-    if (!workOrder) return this.notFoundSummary('WORK_ORDER', workOrderId);
+    if (!workOrder) throw this.notFound('maintenance.workOrderNotFound', 'Maintenance work order not found');
 
     const sourceEntries = await this.prisma.maintenanceWorkOrderCostEntry.findMany({
       where: { workOrderId },
@@ -92,31 +92,8 @@ export class MaintenanceCostSummaryService {
     }, ctx, MAINTENANCE_LABOR_SOURCE_TYPE, sourceEntries);
   }
 
-  private notFoundSummary(scope: CanonicalCostScope, entityId: string): CanonicalCostSummary {
-    return {
-      scope,
-      entityId,
-      entityNumber: null,
-      status: null,
-      currencyCode: null,
-      netCost: '0',
-      postedEntryCount: 0,
-      reversalEntryCount: 0,
-      byEventType: [],
-      byCostNature: [],
-      byCurrency: [],
-      nonCanonicalRowCount: 0,
-      nonCanonicalRowExplanation: 'NO_LEDGER_ROWS',
-      sourceReconciliation: {
-        sourceKind: 'NOT_APPLICABLE',
-        sourceEntryCount: 0,
-        postedSourceEntryCount: 0,
-        unpostedSourceEntryCount: 0,
-        unpostedSourceEntryIds: [],
-        unpostedReason: 'NOT_APPLICABLE',
-        nextAction: null,
-      },
-    };
+  private notFound(key: string, message: string): NotFoundException {
+    return new NotFoundException({ messageKey: key, message });
   }
 
   private async build(
