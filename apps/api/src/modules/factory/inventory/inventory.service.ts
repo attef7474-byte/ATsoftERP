@@ -34,7 +34,20 @@ export class InventoryService {
       companyId: ctx.companyId,
       OR: [{ branchId: ctx.branchId }, { branchId: null }],
     };
-    if (query.search) where.name = { contains: query.search };
+    if (query.search) {
+      // The warehouse lookup adapter (warehouseAdapter) advertises
+      // searchFields ['code', 'name'], so both must match. The company/branch
+      // scope above already occupies the top-level `OR`, therefore the search
+      // predicate is added as a separate AND-ed group instead of overwriting it.
+      where.AND = [
+        {
+          OR: [
+            { code: { contains: query.search } },
+            { name: { contains: query.search } },
+          ],
+        },
+      ];
+    }
     if (query.warehouseType) where.warehouseType = query.warehouseType;
 
     const [data, total] = await Promise.all([
