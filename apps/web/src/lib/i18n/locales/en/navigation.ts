@@ -52,6 +52,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         bom: 'Bill of Materials',
         sparePartPlans: 'Spare Part Plans',
         repairOrders: 'Repair Orders',
+        repairablePartsQueue: 'Repairable Parts Queue',
         installedParts: 'Installed Parts',
         sparePartConditions: 'Spare Part Conditions',
         mttr: 'MTTR',

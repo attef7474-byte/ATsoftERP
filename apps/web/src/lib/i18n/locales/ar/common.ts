@@ -282,6 +282,17 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         PLANNED: 'مخطط',
         COMPLETED: 'مكتمل',
         CANCELLED: 'ملغي',
+        // R2-G — حالات دورة حياة أمر الإصلاح. بدونها كانت شارة الحالة تعرض
+        // القيمة الخام بالإنجليزية، وهو خلل في الواجهة العربية.
+        IN_INSPECTION: 'قيد الفحص',
+        INSPECTION_FAILED: 'فشل الفحص',
+        APPROVED_FOR_REPAIR: 'معتمد للإصلاح',
+        UNDER_REPAIR: 'قيد الإصلاح',
+        WAITING_PARTS: 'بانتظار القطع',
+        UNDER_TEST: 'قيد الاختبار',
+        COMPLETED_SERVICEABLE: 'مكتمل صالح للاستخدام',
+        COMPLETED_PARTIAL: 'مكتمل جزئي',
+        COMPLETED_NOT_REPAIRABLE: 'مكتمل غير قابل للإصلاح',
         PARTIALLY_ISSUED: 'صرف جزئي',
         FULLY_ISSUED: 'صرف كامل',
         SUBMITTED: 'مقدم',

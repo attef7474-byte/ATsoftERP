@@ -52,6 +52,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         bom: 'قائمة المواد',
         sparePartPlans: 'خطط قطع الغيار',
         repairOrders: 'أوامر الإصلاح',
+        repairablePartsQueue: 'قائمة القطع القابلة للإصلاح',
         installedParts: 'القطع المثبتة',
         sparePartConditions: 'حالات قطع الغيار',
         mttr: 'متوسط وقت الإصلاح',

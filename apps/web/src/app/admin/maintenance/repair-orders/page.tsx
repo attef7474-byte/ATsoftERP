@@ -1,231 +1,309 @@
 'use client';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { api } from '../../../../lib/api';
+/**
+ * R2-G — the repair-order list.
+ *
+ * Availability comes from the backend: every row carries
+ * `availableActionKeys`, computed server-side from the same workflow table the
+ * detail page's `/workflow` endpoint reads, so the grid offers exactly what the
+ * API would accept and never has to re-derive the lifecycle in the browser. The
+ * caller's own permissions narrow that further.
+ *
+ * The grid itself is a read-and-navigate surface: it filters, it opens the detail
+ * workspace, and it jumps to the repairable queue. The evidence forms live in the
+ * dialog component shared with the detail page, so both surfaces build identical
+ * request bodies.
+ */
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
-import {
-  LocalizedValue, PageHeader, StatusBadge, Modal, Input, Select, Textarea, Button, ConfirmDialog,
-} from '../../../../components/admin/ui';
+import { useToast } from '../../../../components/admin/toast-provider';
+import { useAuth } from '../../../../lib/auth-context';
+import { useApiErrorHandler } from '../../../../components/admin/error-handler';
+import { LocalizedValue, PageHeader, StatusBadge, Button } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import {
-  useRegisterAdminActions, useStableHandlers, ActionRefreshIcon,
-  ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionDeleteIcon,
+  useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionViewIcon,
 } from '../../../../components/admin/admin-action-bar';
-import { useAuth } from '../../../../lib/auth-context';
-import { REPAIR_ACTIONS, RepairActionDef } from './repair-order-actions';
+import { F9Lookup, machineAdapter, sparePartAdapter, warehouseAdapter } from '../../../../components/f9';
+import { RepairOrderActionDialog } from './repair-order-action-dialog';
+import {
+  EMPTY_REPAIR_FORM, RepairFormState, buildRepairPayload, repairActionDef, REPAIR_ACTIONS,
+  canRunRepairAction, effectiveRepairPermissions,
+} from './repair-order-actions';
+import {
+  RepairOrderSummary, REPAIR_STATUS_OPTIONS, REPAIR_SOURCE_CONDITIONS,
+  fetchRepairOrders, submitWorkflowAction,
+} from './repair-order-api';
 
-interface RepairOrder {
-  id: string; repairOrderNumber?: string; status: string;
-  sparePartId: string; sourceCondition: string; sourceQuantity: number;
-  repairedQuantity: number; scrappedQuantity: number; remainingQuantity?: number;
-  sparePart?: { id: string; code: string; name: string };
-  warehouse?: { id: string; code: string; name: string };
-  maintenanceRequest?: { id: string; requestNumber: string };
-}
-
-const ICONS: Record<RepairActionDef['icon'], React.ReactNode> = {
-  start: <ActionStartIcon />,
-  complete: <ActionCompleteIcon />,
-  cancel: <ActionCancelIcon />,
-  delete: <ActionDeleteIcon />,
-};
-
-interface FormState {
-  outcome: string;
-  inspectionResult: string;
-  failureDescription: string;
-  repairedQuantity: string;
-  scrappedQuantity: string;
-  notRepairableQuantity: string;
-  targetCondition: string;
-  reason: string;
-}
-
-const EMPTY_FORM: FormState = {
-  outcome: 'REPAIRABLE',
-  inspectionResult: '',
-  failureDescription: '',
-  repairedQuantity: '',
-  scrappedQuantity: '',
-  notRepairableQuantity: '',
-  targetCondition: 'USED_SERVICEABLE',
-  reason: '',
-};
+const PAGE_SIZE = 50;
 
 export default function RepairOrdersPage() {
   const { t, dir } = useTranslation();
+  const { showToast } = useToast();
+  const handleApiError = useApiErrorHandler();
   const { permissions, isSuperAdmin } = useAuth();
-  const [data, setData] = useState<RepairOrder[]>([]);
+  const router = useRouter();
+
+  const [data, setData] = useState<RepairOrderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [search, setSearch] = useState('');
-  const [busy, setBusy] = useState(false);
 
-  const [confirmKey, setConfirmKey] = useState<string | null>(null);
-  const [confirmOrder, setConfirmOrder] = useState<RepairOrder | null>(null);
-  const [formKey, setFormKey] = useState<string | null>(null);
-  const [formOrder, setFormOrder] = useState<RepairOrder | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [formError, setFormError] = useState('');
+  // Real backend filters — no client-side pre-filtering masquerading as a filter.
+  const [status, setStatus] = useState('');
+  const [sourceCondition, setSourceCondition] = useState('');
+  const [warehouseId, setWarehouseId] = useState('');
+  const [sparePartId, setSparePartId] = useState('');
+  const [machineId, setMachineId] = useState('');
+
+  const [form, setForm] = useState<RepairFormState>(EMPTY_REPAIR_FORM);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [pending, setPending] = useState<{ order: RepairOrderSummary; actionKey: string } | null>(null);
+  const [actionError, setActionError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const can = useCallback(
-    (action: RepairActionDef['permission']) => isSuperAdmin || Boolean(permissions?.permissions.includes('repair-orders:' + action)),
+    (permission: string) => isSuperAdmin || Boolean(permissions?.permissions.includes(permission)),
     [isSuperAdmin, permissions],
   );
 
-  const defFor = useCallback((key: string) => REPAIR_ACTIONS.find((def) => def.key === key), []);
+  /**
+   * The seeded set lifecycle actions are checked against. A super administrator
+   * is never filtered by the seeded list, so the grant is widened explicitly
+   * rather than relying on the API echoing every permission back.
+   */
+  const repairPermissions = useMemo(
+    () => effectiveRepairPermissions(permissions?.permissions, isSuperAdmin),
+    [permissions, isSuperAdmin],
+  );
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get<RepairOrder[]>('/maintenance/repair-orders', { params: { limit: 50 } });
-      setData(Array.isArray(res) ? res : []);
+      setData(await fetchRepairOrders({
+        status: status || undefined,
+        sourceCondition: sourceCondition || undefined,
+        warehouseId: warehouseId || undefined,
+        sparePartId: sparePartId || undefined,
+        machineId: machineId || undefined,
+        limit: PAGE_SIZE,
+      }));
     } catch (err: unknown) {
       setError((err as { message?: string })?.message || t('errors.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [status, sourceCondition, warehouseId, sparePartId, machineId, t]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const closeDialogs = useCallback(() => {
-    setConfirmKey(null); setConfirmOrder(null);
-    setFormKey(null); setFormOrder(null);
-    setForm(EMPTY_FORM); setFormError('');
+    setPending(null);
+    setActionError('');
+    setFieldErrors({});
+    setForm(EMPTY_REPAIR_FORM);
   }, []);
 
-  const runAction = useCallback(async (
-    order: RepairOrder,
-    def: RepairActionDef,
-    body?: Record<string, unknown>,
-  ) => {
-    setBusy(true);
-    setError('');
-    try {
-      await api.post(`/maintenance/repair-orders/${order.id}/${def.route}`, body ?? {});
-      setNotice(t('maintenance.repairOrderActionSucceeded'));
-      await fetchData();
-      return true;
-    } catch (err: unknown) {
-      setError((err as { message?: string })?.message || t('errors.updateFailed'));
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }, [fetchData, t]);
+  const openDetail = useCallback((order: RepairOrderSummary) => {
+    router.push(`/admin/maintenance/repair-orders/${order.id}`);
+  }, [router]);
 
-  const startAction = useCallback((order: RepairOrder, key: string) => {
-    const def = defFor(key);
+  const startAction = useCallback((order: RepairOrderSummary, actionKey: string) => {
+    setActionError('');
+    setFieldErrors({});
+    const remaining = Number(order.remainingQuantity ?? order.sourceQuantity ?? 0);
+    setForm({
+      ...EMPTY_REPAIR_FORM,
+      repairedQuantity: String(remaining),
+      notRepairableQuantity: String(remaining),
+      scrappedQuantity: String(remaining),
+    });
+    setPending({ order, actionKey });
+  }, []);
+
+  const submitAction = useCallback(async () => {
+    if (!pending) return;
+    const def = repairActionDef(pending.actionKey);
     if (!def) return;
-    setError(''); setNotice(''); setFormError('');
-    if (!def.needsInput) {
-      setConfirmOrder(order); setConfirmKey(key);
+    const remaining = Number(pending.order.remainingQuantity ?? pending.order.sourceQuantity ?? 0);
+    const result = buildRepairPayload(pending.actionKey, form, remaining);
+    if (!result.ok) {
+      setFieldErrors(result.fieldErrors);
       return;
     }
-    const remaining = order.remainingQuantity ?? 0;
-    setForm({ ...EMPTY_FORM, repairedQuantity: String(remaining), notRepairableQuantity: String(remaining) });
-    setFormOrder(order); setFormKey(key);
-  }, [defFor]);
-
-  const submitForm = useCallback(async () => {
-    if (!formOrder || !formKey) return;
-    const def = defFor(formKey);
-    if (!def) return;
-    const require = (value: string) => {
-      if (!value.trim()) { setFormError(t('validation.required')); return false; }
-      return true;
-    };
-    let body: Record<string, unknown> = {};
-    if (formKey === 'recordInspection') {
-      if (!require(form.inspectionResult)) return;
-      if (form.outcome === 'NOT_REPAIRABLE' && !require(form.failureDescription)) return;
-      body = {
-        outcome: form.outcome,
-        inspectionResult: form.inspectionResult.trim(),
-        failureDescription: form.failureDescription.trim() || undefined,
-      };
-    } else if (formKey === 'waitForParts') {
-      if (!require(form.reason)) return;
-      body = { reason: form.reason.trim() };
-    } else if (formKey === 'completeServiceable') {
-      if (form.repairedQuantity === '') { setFormError(t('validation.required')); return; }
-      body = { repairedQuantity: Number(form.repairedQuantity), targetCondition: form.targetCondition };
-    } else if (formKey === 'completePartial') {
-      body = {
-        repairedQuantity: Number(form.repairedQuantity || 0),
-        scrappedQuantity: Number(form.scrappedQuantity || 0),
-        targetCondition: form.targetCondition,
-      };
-    } else if (formKey === 'completeNotRepairable') {
-      if (form.notRepairableQuantity === '' || !require(form.reason)) return;
-      body = { notRepairableQuantity: Number(form.notRepairableQuantity), reason: form.reason.trim() };
-    } else if (formKey === 'scrap') {
-      if (form.scrappedQuantity === '') { setFormError(t('validation.required')); return; }
-      body = { scrappedQuantity: Number(form.scrappedQuantity), reason: form.reason.trim() || undefined };
-    } else if (formKey === 'cancel') {
-      if (!require(form.reason)) return;
-      body = { reason: form.reason.trim() };
+    setSaving(true);
+    setActionError('');
+    try {
+      await submitWorkflowAction(pending.order.id, def.route, result.payload);
+      showToast(t('maintenance.repairOrderActionSucceeded'), 'success');
+      closeDialogs();
+      // Re-read the list so quantities and statuses come back from the server.
+      await fetchData();
+    } catch (err: unknown) {
+      handleApiError(err);
+      setActionError((err as { message?: string })?.message || t('errors.updateFailed'));
+    } finally {
+      setSaving(false);
     }
-    const ok = await runAction(formOrder, def, body);
-    if (ok) closeDialogs();
-  }, [closeDialogs, defFor, form, formKey, formOrder, runAction, t]);
+  }, [pending, form, showToast, t, closeDialogs, fetchData, handleApiError]);
 
-  const handlers = useMemo(() => ({ refresh: () => fetchData() }), [fetchData]);
+  const handlers = useMemo(() => ({
+    refresh: () => fetchData(),
+    queue: () => router.push('/admin/maintenance/repair-orders/queue'),
+  }), [fetchData, router]);
   const { exec } = useStableHandlers(handlers);
 
   useRegisterAdminActions([
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 
-  const gridActions = useMemo<GridAction<RepairOrder>[]>(() => REPAIR_ACTIONS.map((def) => ({
-    label: t(def.labelKey),
-    icon: ICONS[def.icon],
-    variant: def.danger ? 'danger' : 'default',
-    onClick: (order: RepairOrder) => startAction(order, def.key),
-    enabled: (order: RepairOrder) => def.statuses.includes(order.status) && can(def.permission),
-  })), [can, startAction, t]);
+  const clearFilters = useCallback(() => {
+    setStatus('');
+    setSourceCondition('');
+    setWarehouseId('');
+    setSparePartId('');
+    setMachineId('');
+  }, []);
+
+  const hasFilters = Boolean(status || sourceCondition || warehouseId || sparePartId || machineId);
+
+  /**
+   * Only the actions the backend published for that row AND the signed-in user is
+   * permitted to press. An action the server did not offer cannot appear here.
+   */
+  const gridActions = useMemo<GridAction<RepairOrderSummary>[]>(() => {
+    const result: GridAction<RepairOrderSummary>[] = [{
+      label: t('common.view'),
+      icon: <ActionViewIcon />,
+      onClick: openDetail,
+      enabled: () => true,
+    }];
+    for (const def of REPAIR_ACTIONS) {
+      result.push({
+        label: t(def.labelKey),
+        variant: def.danger ? 'danger' : 'default',
+        onClick: (order: RepairOrderSummary) => startAction(order, def.key),
+        enabled: (order: RepairOrderSummary) =>
+          (order.availableActionKeys || []).includes(def.key) && canRunRepairAction(repairPermissions, def),
+      });
+    }
+    return result;
+  }, [openDetail, repairPermissions, startAction, t]);
 
   const visibleData = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
     if (!term) return data;
     return data.filter((order) => [
       order.repairOrderNumber,
-      order.sparePart?.name,
       order.sparePart?.code,
+      order.sparePart?.name,
       order.warehouse?.name,
+      order.machine?.code,
       order.maintenanceRequest?.requestNumber,
       order.sourceCondition,
       order.status,
     ].some((value) => String(value || '').toLocaleLowerCase().includes(term)));
   }, [data, search]);
 
-  const columns = useMemo<GridColumn<RepairOrder>[]>(() => ([
-    { key: 'repairOrderNumber', header: t('common.code'), render: (r: RepairOrder) => r.repairOrderNumber || '-' },
-    { key: 'sparePart', header: t('maintenance.sparePartLabel'), render: (r: RepairOrder) => r.sparePart?.name || '-' },
-    { key: 'sourceCondition', header: t('maintenance.condition'), render: (r: RepairOrder) => <LocalizedValue value={r.sourceCondition} /> },
-    { key: 'sourceQuantity', header: t('common.quantity'), render: (r: RepairOrder) => r.sourceQuantity },
-    { key: 'repairedQuantity', header: t('maintenance.repairedQuantity'), render: (r: RepairOrder) => r.repairedQuantity || 0 },
-    { key: 'status', header: t('common.status'), render: (r: RepairOrder) => <StatusBadge status={r.status} /> },
+  const columns = useMemo<GridColumn<RepairOrderSummary>[]>(() => ([
+    { key: 'repairOrderNumber', header: t('common.code'), render: (r) => r.repairOrderNumber || '-' },
+    { key: 'sparePart', header: t('maintenance.sparePartLabel'), render: (r) => r.sparePart?.name || '-' },
+    { key: 'sourceCondition', header: t('maintenance.condition'), render: (r) => <LocalizedValue value={r.sourceCondition} /> },
+    { key: 'sourceQuantity', header: t('common.quantity'), render: (r) => r.sourceQuantity },
+    { key: 'repairedQuantity', header: t('maintenance.repairedQuantity'), render: (r) => r.repairedQuantity ?? 0 },
+    { key: 'status', header: t('common.status'), render: (r) => <StatusBadge status={r.status} /> },
   ]), [t]);
 
-  const confirmDef = confirmKey ? defFor(confirmKey) : undefined;
-  const formDef = formKey ? defFor(formKey) : undefined;
+  const statusOptions = useMemo(() => REPAIR_STATUS_OPTIONS.map((value) => ({
+    value,
+    label: t(`status.${value}`),
+  })), [t]);
 
-  const targetConditionOptions = useMemo(() => ([
-    { value: 'USED_SERVICEABLE', label: t('maintenance.conditionUsedServiceable') },
-    { value: 'USED_REPAIRABLE', label: t('maintenance.conditionUsedRepairable') },
-  ]), [t]);
+  const conditionOptions = useMemo(() => REPAIR_SOURCE_CONDITIONS.map((value) => ({
+    value,
+    label: t(value === 'USED_REPAIRABLE' ? 'maintenance.conditionUsedRepairable' : 'maintenance.conditionDamagedRepairable'),
+  })), [t]);
 
   return (
     <div>
       <PageHeader title={t('maintenance.repairOrders')} />
-      {notice ? <div className="mb-3 text-sm text-green-700" role="status">{notice}</div> : null}
+
+      <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3" data-testid="repair-order-filters">
+        <label className="text-xs text-gray-600">
+          {t('common.status')}
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+          >
+            <option value="">{t('common.all')}</option>
+            {statusOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-xs text-gray-600">
+          {t('maintenance.condition')}
+          <select
+            value={sourceCondition}
+            onChange={(e) => setSourceCondition(e.target.value)}
+            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+          >
+            <option value="">{t('common.all')}</option>
+            {conditionOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+
+        <F9Lookup
+          label={t('maintenance.warehouse')}
+          name="repairWarehouse"
+          value={warehouseId}
+          onChange={setWarehouseId}
+          adapter={warehouseAdapter}
+          bindToActiveContext
+        />
+
+        <F9Lookup
+          label={t('maintenance.sparePartLabel')}
+          name="repairSparePart"
+          value={sparePartId}
+          onChange={setSparePartId}
+          adapter={sparePartAdapter}
+        />
+
+        <F9Lookup
+          label={t('maintenance.machine')}
+          name="repairMachine"
+          value={machineId}
+          onChange={setMachineId}
+          adapter={machineAdapter}
+          bindToActiveContext
+        />
+
+        {hasFilters ? (
+          <div className="md:col-span-2 lg:col-span-5">
+            <Button size="sm" variant="secondary" onClick={clearFilters}>
+              {t('maintenance.repairClearFilters')}
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mb-3">
+        <Button size="sm" variant="secondary" onClick={() => exec('queue')}>
+          {t('maintenance.repairablePartsQueue')}
+        </Button>
+      </div>
+
       <AdminDataGrid
         columns={columns}
         data={visibleData}
-        keyExtractor={(r: RepairOrder) => r.id}
+        keyExtractor={(r: RepairOrderSummary) => r.id}
         loading={loading}
         emptyMessage={t('common.noData')}
         error={error || undefined}
@@ -239,112 +317,18 @@ export default function RepairOrdersPage() {
         actions={gridActions}
       />
 
-      <ConfirmDialog
-        open={!!confirmDef}
+      <RepairOrderActionDialog
+        actionKey={pending?.actionKey ?? null}
+        form={form}
+        fieldErrors={fieldErrors}
+        remaining={Number(pending?.order.remainingQuantity ?? pending?.order.sourceQuantity ?? 0)}
+        orderLabel={pending?.order.repairOrderNumber || pending?.order.id}
+        saving={saving}
+        error={actionError}
+        onChange={setForm}
+        onSubmit={submitAction}
         onClose={closeDialogs}
-        loading={busy}
-        variant={confirmDef?.danger ? 'danger' : 'primary'}
-        title={confirmDef ? t(confirmDef.labelKey) : ''}
-        message={confirmOrder?.repairOrderNumber || confirmOrder?.id || ''}
-        confirmLabel={t('common.confirm')}
-        cancelLabel={t('common.cancel')}
-        onConfirm={async () => {
-          if (!confirmOrder || !confirmDef) return;
-          const ok = await runAction(confirmOrder, confirmDef);
-          if (ok) closeDialogs();
-        }}
       />
-
-      <Modal open={!!formDef} onClose={closeDialogs} title={formDef ? t(formDef.labelKey) : ''}>
-        <div className="space-y-4">
-          {formKey === 'recordInspection' ? (
-            <>
-              <Select
-                label={t('maintenance.inspectionOutcome')} name="outcome" required
-                value={form.outcome}
-                onChange={(e) => setForm({ ...form, outcome: e.target.value })}
-                options={[
-                  { value: 'REPAIRABLE', label: t('maintenance.inspectionRepairable') },
-                  { value: 'NOT_REPAIRABLE', label: t('maintenance.inspectionNotRepairable') },
-                ]}
-              />
-              <Input
-                label={t('maintenance.inspectionResult')} name="inspectionResult" required
-                value={form.inspectionResult}
-                onChange={(e) => setForm({ ...form, inspectionResult: e.target.value })}
-              />
-              {form.outcome === 'NOT_REPAIRABLE' ? (
-                <Textarea
-                  label={t('maintenance.failureDescription')} name="failureDescription" required
-                  value={form.failureDescription}
-                  onChange={(e) => setForm({ ...form, failureDescription: e.target.value })}
-                />
-              ) : null}
-            </>
-          ) : null}
-
-          {formKey === 'waitForParts' || formKey === 'cancel' || formKey === 'completeNotRepairable' ? (
-            <Textarea
-              label={t('maintenance.repairReason')} name="reason" required
-              value={form.reason}
-              onChange={(e) => setForm({ ...form, reason: e.target.value })}
-            />
-          ) : null}
-
-          {formKey === 'completeServiceable' || formKey === 'completePartial' ? (
-            <>
-              <Input
-                label={t('maintenance.repairedQuantity')} name="repairedQuantity" type="number" required={formKey === 'completeServiceable'}
-                value={form.repairedQuantity}
-                onChange={(e) => setForm({ ...form, repairedQuantity: e.target.value })}
-              />
-              {formKey === 'completePartial' ? (
-                <Input
-                  label={t('maintenance.scrappedQuantity')} name="scrappedQuantity" type="number"
-                  value={form.scrappedQuantity}
-                  onChange={(e) => setForm({ ...form, scrappedQuantity: e.target.value })}
-                />
-              ) : null}
-              <Select
-                label={t('maintenance.targetCondition')} name="targetCondition" required
-                value={form.targetCondition}
-                onChange={(e) => setForm({ ...form, targetCondition: e.target.value })}
-                options={targetConditionOptions}
-              />
-            </>
-          ) : null}
-
-          {formKey === 'completeNotRepairable' ? (
-            <Input
-              label={t('maintenance.notRepairableQuantity')} name="notRepairableQuantity" type="number" required
-              value={form.notRepairableQuantity}
-              onChange={(e) => setForm({ ...form, notRepairableQuantity: e.target.value })}
-            />
-          ) : null}
-
-          {formKey === 'scrap' ? (
-            <>
-              <Input
-                label={t('maintenance.scrappedQuantity')} name="scrappedQuantity" type="number" required
-                value={form.scrappedQuantity}
-                onChange={(e) => setForm({ ...form, scrappedQuantity: e.target.value })}
-              />
-              <Textarea
-                label={t('maintenance.repairReason')} name="reason"
-                value={form.reason}
-                onChange={(e) => setForm({ ...form, reason: e.target.value })}
-              />
-            </>
-          ) : null}
-
-          {formError ? <div className="text-sm text-red-600" role="alert">{formError}</div> : null}
-
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={closeDialogs} disabled={busy}>{t('common.cancel')}</Button>
-            <Button onClick={submitForm} loading={busy} disabled={busy}>{t('common.save')}</Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

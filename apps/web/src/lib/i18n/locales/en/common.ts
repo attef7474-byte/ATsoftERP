@@ -282,6 +282,19 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         PLANNED: 'Planned',
         COMPLETED: 'Completed',
         CANCELLED: 'Cancelled',
+        // R2-G — the repair-order lifecycle states. Without these the status
+        // badge fell through to humanize() and rendered the raw enum, which in
+        // Arabic produced Latin text. Keyed by the exact SparePartRepairOrder
+        // status values.
+        IN_INSPECTION: 'Under Inspection',
+        INSPECTION_FAILED: 'Inspection Failed',
+        APPROVED_FOR_REPAIR: 'Approved for Repair',
+        UNDER_REPAIR: 'Under Repair',
+        WAITING_PARTS: 'Waiting for Parts',
+        UNDER_TEST: 'Under Test',
+        COMPLETED_SERVICEABLE: 'Completed Serviceable',
+        COMPLETED_PARTIAL: 'Completed Partial',
+        COMPLETED_NOT_REPAIRABLE: 'Completed Not Repairable',
         PARTIALLY_ISSUED: 'Partially Issued',
         FULLY_ISSUED: 'Fully Issued',
         SUBMITTED: 'Submitted',

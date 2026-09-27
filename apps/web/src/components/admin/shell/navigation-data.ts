@@ -162,6 +162,7 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'mnt-spare-part-conditions', labelKey: 'navigation.sparePartConditions', route: '/admin/spare-part-conditions' },
           { id: 'mnt-installed-parts', labelKey: 'navigation.installedParts', route: '/admin/installed-parts' },
           { id: 'mnt-repair-orders', labelKey: 'navigation.repairOrders', route: '/admin/maintenance/repair-orders' },
+          { id: 'mnt-repair-orders-queue', labelKey: 'navigation.repairablePartsQueue', route: '/admin/maintenance/repair-orders/queue' },
           { id: 'mnt-bom', labelKey: 'navigation.bom', route: '/admin/maintenance/bom' },
           { id: 'mnt-spare-part-plans', labelKey: 'navigation.sparePartPlans', route: '/admin/maintenance/spare-part-plans' },
         ],

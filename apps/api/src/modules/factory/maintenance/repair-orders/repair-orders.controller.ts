@@ -42,6 +42,20 @@ export class RepairOrdersController {
     return this.service.findById(id, ctx);
   }
 
+  /**
+   * R2-G — read-only lifecycle metadata for one order. The operator UI calls this
+   * instead of deciding for itself which transitions are legal, so the browser
+   * never becomes a second state-machine authority. Declared with the same
+   * read permission as the record itself; the service applies the same
+   * tenant/branch guard, so this leaks nothing the detail route would not.
+   */
+  @Get(':id/workflow')
+  @Permissions('repair-orders:read')
+  @ApiOperation({ summary: 'Get the available lifecycle actions for a repair order' })
+  getWorkflow(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.getWorkflow(id, ctx);
+  }
+
   @Post()
   @Permissions('repair-orders:create')
   @ApiOperation({ summary: 'Create a new repair order' })

@@ -1,5 +1,7 @@
 'use client';
 
+import { useId } from 'react';
+
 interface ConfirmDialogProps {
   open: boolean;
   onClose: () => void;
@@ -14,12 +16,19 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ open, onClose, onConfirm, title, message, confirmLabel, cancelLabel, variant = 'danger', loading, children }: ConfirmDialogProps) {
+  const titleId = useId();
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6"
+      >
+        <h3 id={titleId} className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
         <p className="text-sm text-gray-600 mb-4">{message}</p>
         {children}
         <div className="flex justify-end gap-3">

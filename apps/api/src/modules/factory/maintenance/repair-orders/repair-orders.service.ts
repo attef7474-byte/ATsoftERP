@@ -64,6 +64,61 @@ const ACTIVE_REPAIR_STATUSES = REPAIR_ORDER_STATUSES.filter(
   (s) => !TERMINAL_REPAIR_STATUSES.includes(s as any),
 );
 
+/**
+ * R2-G — the operator-facing description of every lifecycle route.
+ *
+ * This table is DESCRIPTIVE, never authoritative. It exists so the UI can ask the
+ * backend what a given order currently offers instead of re-implementing the
+ * lifecycle in the browser. Nothing here can grant an action the backend would
+ * refuse:
+ *  - `sources` is pinned to each route's own `assertSourceStatus` guard, which
+ *    stays the literal authority and was not changed for R2-G;
+ *  - `targets` is pinned to ALLOWED_TRANSITIONS, which `assertTransition` already
+ *    enforces on every write;
+ *  - `permission` mirrors the controller's `@Permissions` decorator.
+ * `repair-orders.r2g.spec.ts` re-parses the guards, the transition map and the
+ * controller decorators and fails if any of the three ever drifts from this
+ * table, so a rename or a new guard cannot slip through unnoticed.
+ *
+ * `legacy: true` marks a route kept only for backward compatibility; the UI
+ * never offers it.
+ */
+export interface RepairOrderWorkflowAction {
+  key: string;
+  /** Route segment under `POST /maintenance/repair-orders/:id/`. */
+  route: string;
+  /** The controller permission that guards this route. */
+  permission: string;
+  /** Source states the route's own assertSourceStatus guard accepts. */
+  sources: string[];
+  /** Statuses the route can produce. Inspection has two, chosen by the verdict. */
+  targets: string[];
+  /** True when the route needs an evidence form rather than a bare confirmation. */
+  requiresInput: boolean;
+  danger?: boolean;
+  legacy?: boolean;
+}
+
+export const REPAIR_ORDER_WORKFLOW_ACTIONS: RepairOrderWorkflowAction[] = [
+  { key: 'open', route: 'open', permission: 'repair-orders:manage', sources: ['DRAFT'], targets: ['OPEN'], requiresInput: false },
+  { key: 'startInspection', route: 'start-inspection', permission: 'repair-orders:manage', sources: ['OPEN'], targets: ['IN_INSPECTION'], requiresInput: false },
+  { key: 'recordInspection', route: 'inspection-result', permission: 'repair-orders:manage', sources: ['IN_INSPECTION'], targets: ['APPROVED_FOR_REPAIR', 'INSPECTION_FAILED'], requiresInput: true },
+  { key: 'approveRepair', route: 'approve-repair', permission: 'repair-orders:manage', sources: ['IN_INSPECTION'], targets: ['APPROVED_FOR_REPAIR'], requiresInput: false, legacy: true },
+  { key: 'startRepair', route: 'start-repair', permission: 'repair-orders:manage', sources: ['APPROVED_FOR_REPAIR', 'UNDER_TEST'], targets: ['UNDER_REPAIR'], requiresInput: false },
+  { key: 'waitForParts', route: 'wait-for-parts', permission: 'repair-orders:manage', sources: ['UNDER_REPAIR'], targets: ['WAITING_PARTS'], requiresInput: true },
+  { key: 'resumeFromPartsWait', route: 'resume-from-parts-wait', permission: 'repair-orders:manage', sources: ['WAITING_PARTS'], targets: ['UNDER_REPAIR'], requiresInput: false },
+  { key: 'startTest', route: 'start-test', permission: 'repair-orders:manage', sources: ['UNDER_REPAIR'], targets: ['UNDER_TEST'], requiresInput: false },
+  { key: 'completeServiceable', route: 'complete-serviceable', permission: 'repair-orders:complete', sources: ['UNDER_TEST'], targets: ['COMPLETED_SERVICEABLE'], requiresInput: true },
+  { key: 'completePartial', route: 'complete-partial', permission: 'repair-orders:complete', sources: ['UNDER_TEST'], targets: ['COMPLETED_PARTIAL'], requiresInput: true },
+  { key: 'completeNotRepairable', route: 'complete-not-repairable', permission: 'repair-orders:complete', sources: ['UNDER_TEST'], targets: ['COMPLETED_NOT_REPAIRABLE'], requiresInput: true, danger: true },
+  { key: 'scrap', route: 'scrap', permission: 'repair-orders:scrap', sources: ['INSPECTION_FAILED', 'UNDER_REPAIR'], targets: ['SCRAPPED'], requiresInput: true, danger: true },
+  { key: 'cancel', route: 'cancel', permission: 'repair-orders:manage', sources: ['DRAFT', 'OPEN', 'INSPECTION_FAILED', 'APPROVED_FOR_REPAIR', 'UNDER_REPAIR', 'WAITING_PARTS'], targets: ['CANCELLED'], requiresInput: true, danger: true },
+];
+
+/** Actions a user may actually be offered, i.e. excluding legacy compatibility routes. */
+export const OFFERABLE_REPAIR_WORKFLOW_ACTIONS = REPAIR_ORDER_WORKFLOW_ACTIONS.filter(
+  (action) => !action.legacy,
+);
 @Injectable()
 export class RepairOrdersService {
   constructor(
@@ -81,8 +136,20 @@ export class RepairOrdersService {
     return new BadRequestException({ messageKey: key, message, ...(params ? { params } : {}) });
   }
 
-  private machineScope(ctx: ActiveOperationalContext) {
-    return {
+  /**
+   * R2-G — the one place that answers "which lifecycle actions apply to this
+   * status?". Both the list projection and the per-order workflow endpoint call
+   * it, so a list row and its detail page can never disagree about what the
+   * order may do next.
+   *
+   * The caller is responsible for narrowing further by the caller's own
+   * permissions; this returns what the ORDER supports, never who may press it.
+   */
+  private availableActionsFor(status: string): RepairOrderWorkflowAction[] {
+    return OFFERABLE_REPAIR_WORKFLOW_ACTIONS.filter((action) => action.sources.includes(status));
+  }
+
+  private machineScope(ctx: ActiveOperationalContext) {    return {
       companyId: ctx.companyId,
       OR: [{ branchId: ctx.branchId }, { branchId: null }],
     };
@@ -199,7 +266,7 @@ export class RepairOrdersService {
     }
     if (query.machineComponentId) where.machineComponentId = query.machineComponentId;
 
-    return this.prisma.sparePartRepairOrder.findMany({
+    const orders = await this.prisma.sparePartRepairOrder.findMany({
       where,
       include: {
         sparePart: { select: { id: true, code: true, name: true, unit: true, productId: true } },
@@ -212,6 +279,14 @@ export class RepairOrdersService {
       orderBy: { openedAt: 'desc' },
       take: query.limit || 50,
     });
+
+    // R2-G — the list ships the same availability answer the detail workflow
+    // endpoint gives, so the grid never has to ask per row (no N+1) and never has
+    // to re-derive the lifecycle itself.
+    return orders.map((order) => ({
+      ...order,
+      availableActionKeys: this.availableActionsFor(order.status).map((action) => action.key),
+    }));
   }
 
   async findById(id: string, ctx: ActiveOperationalContext) {
@@ -229,7 +304,35 @@ export class RepairOrdersService {
       },
     });
     if (!order) throw this.notFound('maintenance.repairOrderNotFound', 'Repair order not found');
-    return order;
+    return {
+      ...order,
+      availableActionKeys: this.availableActionsFor(order.status).map((action) => action.key),
+    };
+  }
+
+  /**
+   * R2-G — the single question the operator UI asks the backend: "given this
+   * order's current status, which lifecycle actions may I offer?"
+   *
+   * Read-only by construction: it loads the order through the same tenant/branch
+   * `orderAccess` guard the mutating routes use, then filters the descriptive
+   * workflow table by that status. It cannot widen access — an order outside the
+   * active company/branch is a 404 here exactly as it is on every other route —
+   * and it cannot invent an action, because the table is pinned to the guards and
+   * the transition map by `repair-orders.r2g.spec.ts`.
+   *
+   * The response deliberately carries NO quantities or money: the detail view
+   * already loads the authoritative record, and keeping this payload to status
+   * metadata means the workflow answer cannot drift from what the form submits.
+   */
+  async getWorkflow(id: string, ctx: ActiveOperationalContext) {
+    const order = await this.orderAccess(id, ctx);
+    return {
+      repairOrderId: order.id,
+      status: order.status,
+      isTerminal: TERMINAL_REPAIR_STATUSES.includes(order.status as any),
+      actions: this.availableActionsFor(order.status).map((action) => ({ ...action })),
+    };
   }
 
   /**
