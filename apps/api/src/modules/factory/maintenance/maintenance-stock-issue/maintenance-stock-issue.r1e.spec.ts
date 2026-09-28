@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException, ValidationPipe } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { MaintenanceStockIssueService } from './maintenance-stock-issue.service';
 import { InventoryValuationEngineService } from '../../inventory-valuation/inventory-valuation-engine.service';
@@ -8,6 +8,9 @@ import { NumberingService } from '../../../numbering/numbering.service';
 import { SparePartConditionService } from '../spare-part-conditions/spare-part-conditions.service';
 import { InstalledPartsReplacementService } from '../installed-parts-replacement/installed-parts-replacement.service';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { ProductionCostService } from '../../production-cost/production-cost.service';
+import { MaintenanceCostSummaryService } from '../../production-cost/maintenance-cost-summary.service';
+import { IssueStockDto } from './dto/issue-stock.dto';
 
 const ctx: ActiveOperationalContext = {
   contextKey: 'c1:b1:-:-',
@@ -476,6 +479,8 @@ describe('VAL-R1E MaintenanceStockIssueService — valuation-aware maintenance i
       expect(opts.refs._currencyCodeFromInventory).toBe('USD');
       expect(opts.clientRequestId).toBe('im1-line:line1-maintenance-issue');
       expect(opts.sourceNumberSnapshot).toBe('IM-0001');
+      expect(opts.refs.maintenanceRequestId).toBe('req1');
+      expect(opts.refs.maintenanceWorkOrderId).toBeUndefined();
     });
 
     it('skips the ledger projection entirely for the legacy/unvalued no-policy flow', async () => {
@@ -540,5 +545,118 @@ describe('VAL-R1E MaintenanceStockIssueService — valuation-aware maintenance i
       expect(db.physicalUpdates).toHaveLength(1);
       expect(db.valuationUpdates).toHaveLength(1);
     });
+  });
+});
+
+describe('R2I-BLOCKER-R1 — issue → real canonical writer → request summary', () => {
+  // Only persistence and unrelated side effects are doubles. Valuation, issue,
+  // canonical idempotency/reference projection and summary aggregation run unchanged.
+  function setup(overrides: Parameters<typeof makeDb>[0] = {}) {
+    const db = makeDb(overrides);
+    const rows: any[] = [];
+    const matches = (row: any, where: any) => Object.entries(where).every(([key, value]) => row[key] === value);
+    db.company = { findUnique: jest.fn().mockResolvedValue({ id: 'c1', operationalCurrencyCode: 'USD' }) };
+    db.operationalCostTransaction = {
+      findFirst: jest.fn(async ({ where }) => rows.find(row => matches(row, where)) ?? null),
+      findMany: jest.fn(async ({ where }) => rows.filter(row => matches(row, where))),
+      create: jest.fn(async ({ data }) => {
+        const row = { id: `cost-${rows.length + 1}`, maintenanceWorkOrderId: null, ...data };
+        rows.push(row);
+        return row;
+      }),
+    };
+    db.maintenanceRequest = { findFirst: jest.fn(async ({ where }) =>
+      ['req1', 'req-unrelated'].includes(where.id) && where.machine.companyId === 'c1' && where.machine.branchId === 'b1'
+        ? { id: where.id, requestNumber: where.id, status: 'IN_PROGRESS' } : null) };
+    db.maintenanceWorkOrder = { findMany: jest.fn().mockResolvedValue([
+      { id: 'wo-first', requestId: 'req1' }, { id: 'wo-second', requestId: 'req1' },
+    ]) };
+    db.maintenanceRequestCostEntry = { create: jest.fn() };
+    const { service } = buildService(db);
+    const writer = new ProductionCostService(db as any,
+      { logWithClient: jest.fn() } as any, { recordChange: jest.fn() } as any, {} as any, {} as any);
+    (service as any).productionCost = writer;
+    const posting = jest.spyOn(writer, 'postLedgerEntryWithinTransaction');
+    return { db, rows, service, writer, posting, summary: new MaintenanceCostSummaryService(db as any) };
+  }
+
+  it('persists positive valuation-derived material with authoritative request/tenant/source and reconciles its exact subtotal', async () => {
+    const { db, rows, service, summary } = setup();
+    const before = await summary.requestSummary('req1', ctx);
+    await service.issue('req1', 'line1', { ...baseIssueDto, unitCost: 9999 } as any, 'u1', ctx);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ companyId: 'c1', branchId: 'b1', maintenanceRequestId: 'req1',
+      maintenanceWorkOrderId: null, sourceType: 'INVENTORY_MOVEMENT_LINE', sourceId: 'line1', sourceLineId: 'line1',
+      eventType: 'MATERIAL', costPurpose: 'MAINTENANCE', entryRole: 'PRIMARY_COST', currencyCode: 'USD',
+      clientRequestId: 'im1-line:line1-maintenance-issue' });
+    expect(rows[0].amount.gt(0)).toBe(true);
+    expect(rows[0].amount.eq(db.lineUpdates[0].totalCost!)).toBe(true);
+    expect(rows[0].amount.toString()).toBe('200');
+    expect(rows[0].currencyCode).toBe(db.lineUpdates[0].currencyCode);
+    const after = await summary.requestSummary('req1', ctx);
+    expect(new Prisma.Decimal(after.netCost).minus(before.netCost).toString()).toBe('200');
+    expect(after.byEventType).toEqual([{ key: 'MATERIAL', netAmount: '200', entryCount: 1 }]);
+    expect(db.maintenanceRequestCostEntry.create).not.toHaveBeenCalled();
+    expect(db.maintenanceWorkOrder.findMany).not.toHaveBeenCalled();
+  });
+
+  it('ignores injected attribution at service level and never chooses among multiple linked work orders', async () => {
+    const { rows, service } = setup();
+    await service.issue('req1', 'line1', { ...baseIssueDto, maintenanceRequestId: 'foreign-request',
+      maintenanceWorkOrderId: 'wo-first', companyId: 'foreign-company', branchId: 'foreign-branch' } as any, 'u1', ctx);
+    expect(rows[0]).toMatchObject({ maintenanceRequestId: 'req1', maintenanceWorkOrderId: null, companyId: 'c1', branchId: 'b1' });
+  });
+
+  it.each(['maintenanceRequestId', 'maintenanceWorkOrderId', 'companyId', 'branchId'])('rejects client %s at the real DTO boundary', async field => {
+    const pipe = new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true });
+    await expect(pipe.transform({ ...baseIssueDto, [field]: 'foreign' }, { type: 'body', metatype: IssueStockDto }))
+      .rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('canonical replay of the same issue source does not create a second cost row', async () => {
+    const { db, rows, service, writer, posting } = setup();
+    await service.issue('req1', 'line1', baseIssueDto as any, 'u1', ctx);
+    const [tx, opts] = posting.mock.calls[0];
+    await writer.postLedgerEntryWithinTransaction(tx, opts);
+    expect(rows).toHaveLength(1);
+    expect(db.operationalCostTransaction.create).toHaveBeenCalledTimes(1);
+    expect(db.inventoryMovement.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('whole-transaction retry preserves one physical issue and one attributed cost', async () => {
+    const { db, rows, service } = setup();
+    db.$transaction.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('write conflict', { code: 'P2034', clientVersion: '7.8.0' }));
+    await service.issue('req1', 'line1', baseIssueDto as any, 'u1', ctx);
+    expect(db.$transaction).toHaveBeenCalledTimes(2);
+    expect(db.inventoryMovement.create).toHaveBeenCalledTimes(1);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].maintenanceRequestId).toBe('req1');
+  });
+
+  it('an unrelated request never includes this material amount', async () => {
+    const { service, summary } = setup();
+    await service.issue('req1', 'line1', baseIssueDto as any, 'u1', ctx);
+    expect(await summary.requestSummary('req-unrelated', ctx)).toMatchObject({ netCost: '0', postedEntryCount: 0, byEventType: [] });
+  });
+
+  it.each([{ companyId: 'c2' }, { branchId: 'b2' }])('foreign context %j cannot read or attribute this issue', async foreign => {
+    const { service, summary, rows } = setup();
+    const foreignCtx = { ...ctx, ...foreign };
+    await expect(service.issue('req1', 'line1', baseIssueDto as any, 'u1', foreignCtx)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(rows).toHaveLength(0);
+    await service.issue('req1', 'line1', baseIssueDto as any, 'u1', ctx);
+    await expect(summary.requestSummary('req1', foreignCtx)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('rejects a mismatched route request rather than attributing the part to it', async () => {
+    const { service, rows } = setup();
+    await expect(service.issue('req-unrelated', 'line1', baseIssueDto as any, 'u1', ctx)).rejects.toBeInstanceOf(BadRequestException);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('preserves the no-policy non-posting contract', async () => {
+    const { service, rows } = setup({ policy: null });
+    await service.issue('req1', 'line1', baseIssueDto as any, 'u1', ctx);
+    expect(rows).toHaveLength(0);
   });
 });

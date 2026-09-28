@@ -43,6 +43,7 @@ export class MaintenanceStockIssueService {
     opts: {
       movementId: string;
       lineId: string;
+      maintenanceRequestId: string;
       totalCost: Prisma.Decimal;
       currencyCode: string;
       quantity: Prisma.Decimal;
@@ -73,6 +74,7 @@ export class MaintenanceStockIssueService {
       requestPayloadFingerprint: `${opts.movementId}-line:${opts.lineId}-maintenance-issue`,
       sourceNumberSnapshot: opts.sourceNumber,
       refs: {
+        maintenanceRequestId: opts.maintenanceRequestId,
         _currencyCodeFromInventory: opts.currencyCode,
         _sourceKind: 'MAINTENANCE_MATERIAL',
       },
@@ -633,6 +635,8 @@ export class MaintenanceStockIssueService {
         await this.postMaintenanceMaterialLedgerEntry(tx, {
           movementId: movement.id,
           lineId: issuedLine.id,
+          // RequiredPart owns the request; linked work orders have no per-issue allocation.
+          maintenanceRequestId: part.maintenanceRequestId,
           totalCost: valuedIssue.totalCost,
           currencyCode: valuedIssue.currencyCode,
           quantity: new Prisma.Decimal(dto.issuedQuantity),
