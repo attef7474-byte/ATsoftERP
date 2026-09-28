@@ -14,6 +14,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../lib/form-validation';
 import { formatDateTime } from '../../../../../lib/i18n/literals';
+import { CanonicalCostSummary } from '../../../../../lib/canonical-cost-types';
 
 const WORK_ORDER_TYPES = ['CORRECTIVE', 'PREVENTIVE', 'PREDICTIVE', 'OVERHAUL', 'OTHER'];
 const WORK_ORDER_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
@@ -77,6 +78,7 @@ export default function MaintenanceWorkOrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notFound, setNotFound] = useState(false);
+  const [costSummary, setCostSummary] = useState<CanonicalCostSummary | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
   const [headerModalOpen, setHeaderModalOpen] = useState(false);
@@ -118,6 +120,11 @@ export default function MaintenanceWorkOrderDetailPage() {
     try {
       const res = await api.get<MaintenanceWorkOrder>(`/maintenance-work-orders/${id}`);
       setData(res);
+      try {
+        setCostSummary(await api.get<CanonicalCostSummary>(`/maintenance-cost/work-orders/${id}/cost-summary`));
+      } catch {
+        setCostSummary(null);
+      }
     } catch (err: any) {
       if (err?.status === 404) {
         setNotFound(true);
@@ -687,6 +694,60 @@ export default function MaintenanceWorkOrderDetailPage() {
       )}
 
       {activeTab === 'costs' && (
+        <>
+        {costSummary && (
+          <Card>
+            <CardHeader>
+              <h2 className="text-sm font-semibold text-gray-700">{t('maintenanceWorkflow.canonicalCostTitle')}</h2>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-6">
+                  <div>
+                    <div className="text-xs text-gray-500">{t('maintenanceWorkflow.canonicalCostNet')}</div>
+                    <div className="text-xl font-semibold">{costSummary.netCost} {costSummary.currencyCode ?? ''}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">{t('maintenanceWorkflow.canonicalCostPostedEntries')}</div>
+                    <div className="text-xl font-semibold">{costSummary.postedEntryCount}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">{t('maintenanceWorkflow.canonicalCostReversals')}</div>
+                    <div className="text-xl font-semibold">{costSummary.reversalEntryCount}</div>
+                  </div>
+                </div>
+
+                {costSummary.postedEntryCount === 0 && (
+                  <p className="text-sm text-gray-500">{t('maintenanceWorkflow.canonicalCostNoLedgerRows')}</p>
+                )}
+
+                {costSummary.byEventType.length > 0 && (
+                  <DataTable
+                    columns={[
+                      { key: 'key', header: t('maintenanceWorkflow.costType'), render: (b: any) => b.key },
+                      { key: 'netAmount', header: t('maintenanceWorkflow.canonicalCostNet'), render: (b: any) => b.netAmount },
+                      { key: 'entryCount', header: t('maintenanceWorkflow.canonicalCostPostedEntries'), render: (b: any) => b.entryCount },
+                    ]}
+                    data={costSummary.byEventType}
+                    keyExtractor={(b: any) => b.key}
+                  />
+                )}
+
+                {costSummary.sourceReconciliation.unpostedSourceEntryCount > 0 && (
+                  <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm">
+                    <div className="font-medium">{t('maintenanceWorkflow.canonicalCostUnposted')}: {costSummary.sourceReconciliation.unpostedSourceEntryCount}</div>
+                    {costSummary.sourceReconciliation.nextAction && (
+                      <div className="mt-1">
+                        <span className="font-medium">{t('maintenanceWorkflow.canonicalCostUnpostedNext')}: </span>
+                        {costSummary.sourceReconciliation.nextAction}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -702,6 +763,7 @@ export default function MaintenanceWorkOrderDetailPage() {
             )}
           </CardContent>
         </Card>
+        </>
       )}
 
       <Modal open={headerModalOpen} onClose={() => setHeaderModalOpen(false)} title={t('maintenance.editMaintenanceWorkOrder')}>

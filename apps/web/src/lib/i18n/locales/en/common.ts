@@ -170,6 +170,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         insufficientPermissions: 'You do not have permission to perform this action.',
         accountInactive: 'Your account is inactive. Please contact administrator.',
         sessionExpired: 'Your session has expired. Please login again.',
+        tooManyAttempts: 'Too many login attempts. Please try again later.',
         loginSuccess: 'Login successful.',
         emailPlaceholder: 'admin@atsofterp.com',
         forgotPassword: 'Forgot Password?',

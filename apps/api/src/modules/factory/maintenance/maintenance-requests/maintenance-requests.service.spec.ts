@@ -103,7 +103,7 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
 
   it('only COMPLETED requests can be closed', async () => {
     prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'OPEN' }));
-    await expect(service.close('r1', 'u1', ctx)).rejects.toMatchObject({ response: { messageKey: 'maintenance.onlyCompletedCanClose' } });
+    await expect(service.close('r1', 'u1', ctx)).rejects.toMatchObject({ response: { messageKey: 'maintenance.closeRequiresCompleted', params: { status: 'OPEN' } } });
   });
 
   it('only OPEN or IN_PROGRESS requests can be cancelled', async () => {
@@ -113,6 +113,14 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
 
   it('cannot update terminal requests', async () => {
     prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'CLOSED' }));
+    await expect(service.update('r1', { title: 'x' } as any, 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.requestClosedImmutable' },
+    });
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'CANCELLED' }));
+    await expect(service.update('r1', { title: 'x' } as any, 'u1', ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.requestCancelledImmutable' },
+    });
+    prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ status: 'COMPLETED' }));
     await expect(service.update('r1', { title: 'x' } as any, 'u1', ctx)).rejects.toMatchObject({
       response: { messageKey: 'maintenance.cannotUpdateTerminalRequest' },
     });

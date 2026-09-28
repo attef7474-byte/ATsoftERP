@@ -170,6 +170,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         insufficientPermissions: 'ليس لديك صلاحية لتنفيذ هذا الإجراء.',
         accountInactive: 'حسابك غير نشط. يرجى الاتصال بالمسؤول.',
         sessionExpired: 'انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى.',
+        tooManyAttempts: 'عدد كبير جدًا من محاولات تسجيل الدخول. يرجى المحاولة لاحقًا.',
         loginSuccess: 'تم تسجيل الدخول بنجاح.',
         emailPlaceholder: 'admin@atsofterp.com',
         forgotPassword: 'نسيت كلمة المرور؟',

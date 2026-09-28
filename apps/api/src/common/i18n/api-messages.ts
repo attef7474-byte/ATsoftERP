@@ -24,6 +24,7 @@ const messages: Record<string, { ar: string; en: string }> = {
   'auth.userNotFound': { ar: 'المستخدم غير موجود أو غير نشط', en: 'User not found or inactive' },
   'auth.noUserFound': { ar: 'لا يوجد مستخدم', en: 'No user found' },
   'auth.insufficientPermissions': { ar: 'صلاحيات غير كافية', en: 'Insufficient permissions' },
+  'auth.tooManyAttempts': { ar: 'عدد كبير جدًا من محاولات تسجيل الدخول. يرجى المحاولة لاحقًا.', en: 'Too many login attempts. Please try again later.' },
   'auth.loggedOut': { ar: 'تم تسجيل الخروج بنجاح', en: 'Logged out successfully' },
   'auth.sessionRevoked': { ar: 'تم إنهاء الجلسة. يرجى تسجيل الدخول مرة أخرى', en: 'This session has been revoked. Sign in again' },
   'auth.currentPasswordIncorrect': { ar: 'كلمة المرور الحالية غير صحيحة', en: 'The current password is incorrect' },

@@ -344,7 +344,19 @@ export class MaintenanceRequestsService {
 
   async update(id: string, dto: UpdateMaintenanceRequestDto, userId: string, ctx: ActiveOperationalContext) {
     const req = await this.findOne(id, ctx);
-    if (req.status === 'COMPLETED' || req.status === 'CANCELLED' || req.status === 'CLOSED') {
+    if (req.status === 'CLOSED') {
+      throw this.badRequest(
+        'maintenance.requestClosedImmutable',
+        'The request is CLOSED and accepts no operational change. An authorized reopen is required first.',
+      );
+    }
+    if (req.status === 'CANCELLED') {
+      throw this.badRequest(
+        'maintenance.requestCancelledImmutable',
+        'The request is CANCELLED and accepts no operational or cost change.',
+      );
+    }
+    if (req.status === 'COMPLETED') {
       throw this.badRequest('maintenance.cannotUpdateTerminalRequest', 'Cannot update completed, cancelled, or closed requests');
     }
 
@@ -649,7 +661,11 @@ export class MaintenanceRequestsService {
   async close(id: string, userId: string, ctx: ActiveOperationalContext) {
     const req = await this.findOne(id, ctx);
     if (req.status !== MAINTENANCE_REQUEST_CLOSE_SOURCE_STATUS) {
-      throw this.badRequest('maintenance.onlyCompletedCanClose', 'Only COMPLETED requests can be closed');
+      throw this.badRequest(
+        'maintenance.closeRequiresCompleted',
+        `A request can only be closed after it is COMPLETED. The current status is ${req.status}.`,
+        { status: req.status },
+      );
     }
     // Fail closed on the same evaluator completion uses, so a record that
     // became inconsistent after completion can never be closed.

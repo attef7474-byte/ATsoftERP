@@ -87,9 +87,24 @@ describe('R2-H close policy: single canonical readiness evaluator', () => {
 
   it('does NOT block completion on an active repair order (independent asset lifecycle)', async () => {
     const prisma = prismaMock();
+    // R2-H policy C: a repair order owns an independent asset lifecycle and must
+    // never appear as a request completion or close blocker. This is proven
+    // structurally, not by observing an empty result: even if the repair-order
+    // table were consulted and returned an active order, the blocker set is
+    // unchanged, and the readiness evaluator never reads that table at all.
+    const repairOrderQuery = jest.fn().mockResolvedValue([{ id: 'ro1', status: 'IN_REPAIR' }]);
+    prisma.sparePartRepairOrder = { findMany: repairOrderQuery, findFirst: repairOrderQuery, count: repairOrderQuery };
+    prisma.maintenanceRequestPartUsage = {
+      findMany: jest.fn().mockResolvedValue([{ id: 'ru1' }]),
+      findUnique: jest.fn().mockResolvedValue({ id: 'ru1' }),
+    };
     const readiness = await requestsService(prisma).getCloseReadiness('r1', ctx);
+    expect(repairOrderQuery).not.toHaveBeenCalled();
     expect(readiness.completionBlockers).toEqual([]);
+    // the request is IN_PROGRESS, so the only close blocker is its own status
+    expect(readiness.closeBlockers.map((b) => b.code)).toEqual(['REQUEST_NOT_COMPLETED']);
     expect(JSON.stringify(readiness)).not.toContain('REPAIR');
+    expect(JSON.stringify(readiness)).not.toContain('ro1');
   });
 
   it('completion and close-readiness agree on the same blocker set', async () => {
@@ -121,12 +136,54 @@ describe('R2-H close policy: single canonical readiness evaluator', () => {
     });
   });
 
-  it('refuses to close an OPEN or IN_PROGRESS request', async () => {
+  it('refuses to close an OPEN or IN_PROGRESS request and reports the current status', async () => {
     for (const status of ['OPEN', 'IN_PROGRESS']) {
       const prisma = prismaMock({ maintenanceRequest: { findUnique: jest.fn().mockResolvedValue(requestRecord(status)) } });
       await expect(requestsService(prisma).close('r1', 'u1', ctx)).rejects.toMatchObject({
-        response: { messageKey: 'maintenance.onlyCompletedCanClose' },
+        response: { messageKey: 'maintenance.closeRequiresCompleted', params: { status } },
       });
+    }
+  });
+
+  it('refuses to close a terminal request that was already closed or cancelled', async () => {
+    for (const status of ['CLOSED', 'CANCELLED']) {
+      const prisma = prismaMock({ maintenanceRequest: { findUnique: jest.fn().mockResolvedValue(requestRecord(status)) } });
+      await expect(requestsService(prisma).close('r1', 'u1', ctx)).rejects.toMatchObject({
+        response: { messageKey: 'maintenance.closeRequiresCompleted', params: { status } },
+      });
+    }
+  });
+
+  it('never writes to the request on any rejected close attempt', async () => {
+    for (const status of ['OPEN', 'IN_PROGRESS', 'CLOSED', 'CANCELLED']) {
+      const prisma = prismaMock({ maintenanceRequest: { findUnique: jest.fn().mockResolvedValue(requestRecord(status)), update: jest.fn() } });
+      await expect(requestsService(prisma).close('r1', 'u1', ctx)).rejects.toBeDefined();
+      expect(prisma.maintenanceRequest.update).not.toHaveBeenCalled();
+    }
+  });
+
+  it('rejects edits with a precise, actionable error per terminal state', async () => {
+    const cases: [string, string][] = [
+      ['CLOSED', 'maintenance.requestClosedImmutable'],
+      ['CANCELLED', 'maintenance.requestCancelledImmutable'],
+      ['COMPLETED', 'maintenance.cannotUpdateTerminalRequest'],
+    ];
+    for (const [status, messageKey] of cases) {
+      const prisma = prismaMock({ maintenanceRequest: { findUnique: jest.fn().mockResolvedValue(requestRecord(status)), update: jest.fn() } });
+      await expect(requestsService(prisma).update('r1', { title: 'x' } as any, 'u1', ctx)).rejects.toMatchObject({
+        response: { messageKey },
+      });
+      expect(prisma.maintenanceRequest.update).not.toHaveBeenCalled();
+    }
+  });
+
+  it('refuses to complete a CLOSED or CANCELLED request', async () => {
+    for (const status of ['CLOSED', 'CANCELLED']) {
+      const prisma = prismaMock({ maintenanceRequest: { findUnique: jest.fn().mockResolvedValue(requestRecord(status)), update: jest.fn() } });
+      await expect(requestsService(prisma).complete('r1', 'u1', ctx)).rejects.toMatchObject({
+        response: { messageKey: 'maintenance.onlyInProgressCanComplete' },
+      });
+      expect(prisma.maintenanceRequest.update).not.toHaveBeenCalled();
     }
   });
 });
