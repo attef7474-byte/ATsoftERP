@@ -391,3 +391,99 @@ no double counting, no guesswork, no legacy write and no migration.
 **R2-I verdict: NOT CERTIFIED.** This document does not certify R2-I. The
 historical failed checkpoint stands, and a fresh source-frozen R2-I
 certification on a new clone is the only remaining work.
+
+---
+
+## 17. POST-COMMIT VISUAL REVIEW CORRECTION
+
+Appended after commit `0068450d7cf19a6a278480fccf39f2c335dad6c8`. Nothing above
+this line has been edited, reordered or reinterpreted; the earlier text is
+preserved exactly as committed so the chronology stays auditable. Where this
+section contradicts an earlier claim, **this section supersedes it**.
+
+### 17.1 What still stands unchanged
+
+1. **The material attribution repair itself remains proven.** Source commit
+   `232f70428d2269f27fb41541a011206eaba2e91e` is unchanged and remains the
+   repair for `R2I-001`.
+2. **The SQL and API reconciliation `25 = 25` remains valid.** Canonical ledger
+   row amount `25.00 USD`, request cost summary net `25`, MATERIAL bucket `25`,
+   posted entries `1`, reversals `0`, exactly one canonical row for the request,
+   `0` legacy rows, `37.5 − 25 = 12.5` inventory closure, and the same-tenant
+   exclusion of the unrelated request are all unaffected by this correction.
+3. **The tenancy, branch, idempotency, no-migration and no-double-counting
+   conclusions remain valid**, as do the full regression and static-gate results
+   in section 12.
+4. **`R2I-BLOCKER-R1` remains `CLOSED`** for the attribution defect scope.
+
+### 17.2 What the later visual review found, and what is superseded
+
+Owner pixel-level review of the retained captures in section 11 found **raw,
+unlocalized enum values visible in the Arabic user interface**. This is a real
+frontend localization defect on maintenance surfaces. It was **not** detected by
+the agent-side evidence recorded above, and the agent-side evidence is therefore
+insufficient.
+
+Specifically observed raw in the Arabic UI:
+
+| Observed raw value | Surface | Render site |
+| --- | --- | --- |
+| `MATERIAL` | Request cost summary, canonical breakdown table | `apps/web/src/app/admin/maintenance/requests/[id]/cost/page.tsx:86` |
+| `APPROVED` | Request detail, Required Parts status column | `apps/web/src/app/admin/maintenance/requests/[id]/page.tsx:559` |
+| `ON_TRACK` | Request detail, SLA status badge | `apps/web/src/app/admin/maintenance/requests/[id]/page.tsx:491` |
+
+The same `MATERIAL` pattern is additionally present in
+`apps/web/src/app/admin/maintenance/work-orders/[id]/page.tsx:727`.
+
+These statements above are **superseded**:
+
+- Section 11's row **"Raw translation keys | none in EN, none in AR, none on the
+  detail page"**. That row is literally true only for *dotted translation keys*.
+  It is materially misleading as a localization result, because raw **enum
+  values** were rendered. It must not be read as a localization-clean UI.
+- The section 11 rendered-text block, which reproduces `AR MATERIAL 25 1` without
+  flagging it as a defect. That exact string is the defect evidence, not a pass.
+- Section 15 item 2, which states that owner review "stands in its place" as a
+  clean substitute. The owner's actual verdict was **FAIL**.
+- Section 16's row **"Agent-side pixel-level visual review | NOT_VERIFIED,
+  tool-blocked, owner review substituted and disclosed"**, together with the
+  "Blocker verdict: COMPLETE" framing immediately above it, insofar as either
+  could be read as covering overall UI quality. The attribution blocker is
+  complete; the **UI is not localization-clean**, and this document must not be
+  cited as visual evidence of a clean interface.
+
+The root cause is a static-gate blind spot, not a translation-catalog gap. The
+i18n catalog is complete and `EN == AR` (`maintenanceWorkflow.costMaterial`,
+`maintenance.statusApproved`, `maintenance.slaOnTrack` all already exist in both
+locales). The defect is that specific render sites bypass translation entirely,
+and the `status` namespace additionally lacks canonical `ON_TRACK` and `OVERDUE`
+keys, so the shared `StatusBadge` path also falls back to English `humanize()`
+inside Arabic.
+
+### 17.3 Status and next action
+
+```text
+R2I_BLOCKER_R1_STATUS=CLOSED
+R2I_BLOCKER_R1_ATTRIBUTION_REPAIR=PROVEN_AND_UNCHANGED
+R2I_BLOCKER_R1_COST_RECONCILIATION_25_EQ_25=VALID
+R2I_BLOCKER_R1_SUPERSEDED_CLAIMS=VISUAL_CLEAN_UI_OPS_ONLY
+R2_I_STATUS=NOT_CERTIFIED
+R2_I_VISUAL_SCREENSHOT_PROOF=FAIL
+VISUAL_PROOF_BLOCKED_BY_TOOL_CAPABILITY=NO
+VISUAL_LOCALIZATION_DEFECT=YES
+RAW_MATERIAL_VISIBLE_AR=YES
+RAW_REQUIRED_PART_STATUS_VISIBLE_AR=YES
+RAW_SLA_STATUS_VISIBLE_AR=YES
+LOCALIZATION_DEFECT_OWNER=R2I-BLOCKER-R2
+R2I_BLOCKER_R2_STATUS=AUTHORIZED_PENDING
+PRODUCTION_DB_MUTATED=NO
+```
+
+The localization defect is **not** repaired by this document and no application
+source was changed to produce it. It is authorized for repair and proof under
+**`R2I-BLOCKER-R2` — visual localization / raw enum leak repair**, recorded in
+`docs/proofs/maintenance-workflow-r2-i-blocker-r2-visual-localization.md`.
+
+A fresh source-frozen R2-I certification remains mandatory and is still **NOT
+STARTED**. `R2-J` remains **NOT READY**. No prior statement in this document
+certifies the UI as localization-clean.
