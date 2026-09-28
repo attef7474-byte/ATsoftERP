@@ -1,8 +1,8 @@
-# R2-I — End-to-end certification: COMPLETE
+# R2-I — End-to-end certification: CLOSED
 
 Date: 2026-09-28/29. Program: MAINTENANCE-WORKFLOW-R2.
 
-**Status: COMPLETE (automated portion). Final CLOSED pending owner screenshot review.**
+**Status: CLOSED. R2-J readiness: YES (owner visual review completed, no blocking defect).**
 
 The failed R2-I strict-stop checkpoint (`maintenance-workflow-r2-i-end-to-end-certification.md`,
 R2I-001 material cost attribution defect) was repaired in `232f7042 fix(cost): preserve
@@ -10,6 +10,10 @@ maintenance request attribution for material issues`, with further i18n hardenin
 `721edb3e`/`a43675b9` and two dedicated blocker docs. This new certificate supersedes that
 failed checkpoint and re-certifies the full request → work-order → cost reconciliation
 chain end-to-end on a **fresh** disposable clone `ATsoftERP_R2I_CERT3_20260928`.
+
+**Owner visual review (2026-09-29):** the seven chain-4 screenshots (EN-LTR requests
+list/detail, work-orders list, WO cost summary; AR-RTL equivalents) were reviewed by the
+owner. No blocking visual defect was found. R2-I is therefore fully CLOSED.
 
 ## 1. Baseline and authority
 
@@ -84,7 +88,8 @@ localStorage token reused; locale switched EN→AR in-place.
   `C:\Users\attef\AppData\Local\Temp\ATsofterp-R2I-CERT3-20260928\chain4-screenshots\`
   (en-requests-list, en-request-detail, en-work-orders-list, en-work-order-costs,
   ar-requests-list, ar-request-detail, ar-work-order-costs). The agent cannot read
-  images; **owner review of these 7 PNGs is required for final CLOSED**.
+  images; the owner has since reviewed all 7 PNGs and reported **no blocking visual
+  defect** (owner statement 2026-09-29).
 
 ## 3. Final evidence gate (production zero-mutation + reconciliation)
 
@@ -142,7 +147,7 @@ regression, and not part of the `qa:all` gate.
 ## 5. Final disposition
 
 ```text
-R2_I_STATUS=COMPLETE
+R2_I_STATUS=CLOSED
 R2_I_AUTOMATED_CERTIFICATION=PASS
 R2_I_FINAL_EVIDENCE_GATES=PASS_19_OF_19
 R2_I_BROWSER_PROOF=PASS_48_OF_48
@@ -157,8 +162,8 @@ PRODUCTION_BACKFILL=NO
 TENANT_ISOLATION_PROOF=PASS_TWO_NONADMIN_ROLES
 AUDIT_TRAIL=PASS_6_ROWS_FOR_CERTIFIED_ENTITIES
 R2_I_VISUAL_SCREENSHOT_PROOF=CAPTURED_7_OUTSIDE_REPO
-R2_I_VISUAL_REVIEW=REQUIRED_OWNER_IMAGE_REVIEW_BEFORE_FINAL_CLOSE
-R2_J_READY=NO_UNTIL_OWNER_SCREENSHOT_REVIEW
+R2_I_VISUAL_REVIEW=OWNER_REVIEWED_2026-09-29_NO_BLOCKING_DEFECT
+R2_J_READY=YES
 ```
 
 Runtime proof classification per chain: Frontend → API → Permission → Service →
@@ -169,8 +174,8 @@ audit rows, EN/AR, RTL/LTR, and production zero-mutation. Reported honestly:
 
 ## 6. Known limitations
 
-- Screenshot proof cannot be verified by the agent (no image input capability); the 7
-  PNGs are retained outside the repository for the owner's mandatory visual review.
+- The 7 screenshots are retained outside the repository (repo convention); the owner's
+  visual review (2026-09-29) reported no blocking defect, so this is no longer a blocker.
 - Lint tooling unavailable locally (pre-existing; not a regression).
 - Web-logic/API Jest teardown warning and shared AuditLog tenant columns remain the
   documented pre-existing platform limitations.
