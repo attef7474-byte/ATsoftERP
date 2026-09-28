@@ -13,7 +13,10 @@ chain end-to-end on a **fresh** disposable clone `ATsoftERP_R2I_CERT3_20260928`.
 
 **Owner visual review (2026-09-29):** the seven chain-4 screenshots (EN-LTR requests
 list/detail, work-orders list, WO cost summary; AR-RTL equivalents) were reviewed by the
-owner. No blocking visual defect was found. R2-I is therefore fully CLOSED.
+owner and found compliant with the required R2-I visual criteria — verdict PASS. R2-I is
+therefore fully CLOSED. (The executing agent cannot perform pixel inspection itself; the
+seven retained screenshots were subsequently reviewed by the owner/image-capable reviewer
+and passed — valid actual visual review, not DOM-only substitution.)
 
 ## 1. Baseline and authority
 
@@ -146,6 +149,50 @@ regression, and not part of the `qa:all` gate.
 
 ## 5. Final disposition
 
+### 5.1 Owner visual-review closeout (2026-09-29)
+
+The seven retained R2-I screenshots (ar-work-order-costs.png, en-request-detail.png,
+en-requests-list.png, en-work-order-costs.png, en-work-orders-list.png, ar-request-detail.png,
+ar-requests-list.png) were reviewed by the owner/image-capable reviewer. The executing agent
+could not perform pixel inspection itself (no image input capability), but these seven
+retained screenshots were subsequently reviewed by the owner and passed the required R2-I
+visual criteria. This is valid actual visual review, not DOM-only substitution.
+
+| Visual finding | Owner verdict |
+|---|---|
+| EN / LTR direction | PASS |
+| AR / RTL direction | PASS |
+| Visible layout clipping | NO |
+| Visible control overlap | NO |
+| Visible horizontal overflow | NO BLOCKING ISSUE |
+| Raw translation keys | NO |
+| Raw material enum in Arabic | NO |
+| Raw required-part status in Arabic | NO |
+| Raw SLA status in Arabic | NO |
+| Raw escalation enum in required surfaces | NO |
+
+Visually confirmed localized labels include Arabic "خدمة خارجية" / "ضمن الوقت" /
+"قيد التنفيذ" / "جاهزية الإغلاق" and English "External Service" / "On Track" /
+"In Progress" / "Completed". English text inside Arabic pages originating from stored
+synthetic fixture/business data (test titles, descriptions, machine names, the
+"Administrator" display name) is classified as business data, not an untranslated UI
+literal. This visual PASS applies to the required R2-I certification surfaces only; it is
+not a claim of repository-wide localization perfection.
+
+```text
+OWNER_VISUAL_REVIEW=PASS
+R2_I_VISUAL_SCREENSHOT_PROOF=PASS
+VISUAL_PROOF_BLOCKED_BY_TOOL_CAPABILITY=NO_LONGER_BLOCKING
+EN_LTR_BROWSER=PASS
+AR_RTL_BROWSER=PASS
+RAW_MATERIAL_VISIBLE_AR=NO
+RAW_REQUIRED_PART_STATUS_VISIBLE_AR=NO
+RAW_SLA_STATUS_VISIBLE_AR=NO
+RAW_ESCALATION_LEVEL_VISIBLE_AR=NO
+```
+
+### 5.2 Certification disposition
+
 ```text
 R2_I_STATUS=CLOSED
 R2_I_AUTOMATED_CERTIFICATION=PASS
@@ -161,8 +208,8 @@ PRODUCTION_SYNTHETIC_R2I_ROWS=0
 PRODUCTION_BACKFILL=NO
 TENANT_ISOLATION_PROOF=PASS_TWO_NONADMIN_ROLES
 AUDIT_TRAIL=PASS_6_ROWS_FOR_CERTIFIED_ENTITIES
-R2_I_VISUAL_SCREENSHOT_PROOF=CAPTURED_7_OUTSIDE_REPO
-R2_I_VISUAL_REVIEW=OWNER_REVIEWED_2026-09-29_NO_BLOCKING_DEFECT
+R2_I_VISUAL_SCREENSHOT_PROOF=PASS
+R2_I_VISUAL_REVIEW=OWNER_PASS_2026-09-29
 R2_J_READY=YES
 ```
 
