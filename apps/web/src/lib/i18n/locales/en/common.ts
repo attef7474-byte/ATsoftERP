@@ -298,6 +298,23 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         COMPLETED_NOT_REPAIRABLE: 'Completed Not Repairable',
         PARTIALLY_ISSUED: 'Partially Issued',
         FULLY_ISSUED: 'Fully Issued',
+        // R2I-BLOCKER-R2 - the required-part lifecycle pair and the explicit SLA pair.
+        // MaintenanceRequestRequiredPart.status is exactly
+        // DRAFT|REQUESTED|APPROVED|REJECTED|RESERVED|USED|CANCELLED
+        // (maintenance-spare-part-request-lines.service.ts) and is rendered by
+        // partStatusBadge -> StatusBadge, which resolves through this namespace. The
+        // three keys below were missing, so APPROVED/REJECTED/RESERVED/USED/DRAFT fell
+        // through to humanize() and rendered the raw enum, i.e. Latin text in Arabic.
+        // ON_TRACK/OVERDUE are the MaintenanceRequest.slaStatus pair
+        // (maintenance-sla.service.ts); they are mapped explicitly by
+        // maintenanceSlaStatusLabel and are defined here in the same namespace.
+        // AR wording is kept identical to the established labels already in this
+        // namespace (onTrack/overdue) so the namespace never self-contradicts.
+        ON_TRACK: 'On Track',
+        OVERDUE: 'Overdue',
+        REQUESTED: 'Requested',
+        RESERVED: 'Reserved',
+        USED: 'Used',
         SUBMITTED: 'Submitted',
         OPEN: 'Open',
         CLOSED: 'Closed',

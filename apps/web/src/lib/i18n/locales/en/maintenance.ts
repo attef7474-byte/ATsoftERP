@@ -668,6 +668,15 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         onTrack: 'On Track',
         overdue: 'Overdue',
         escalated: 'Escalated',
+        // R2I-BLOCKER-R2 - escalationLevel is NOT a closed enum, so it is owned here
+        // next to `escalated` instead of in the shared `status` namespace. The audited
+        // value set is NONE plus LEVEL_1..LEVEL_n, generated at runtime from the active
+        // MaintenanceSlaRule.escalationLevels integer (maintenance-sla.service.ts),
+        // which has no application-level bound. A fixed key set would have to invent
+        // values, so the level is a parameterised label with a non-leaking fallback.
+        escalationLevelNone: 'No escalation',
+        escalationLevelNumber: 'Level {level}',
+        escalationLevelUnknown: 'Escalation level',
         slaCompliance: 'SLA Compliance',
         role: 'Role',
         estimatedDuration: 'Estimated Duration',
@@ -906,6 +915,16 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         costType: 'Cost Type',
         costLabor: 'Labor',
         costMaterial: 'Material',
+        // R2I-BLOCKER-R2 - the remaining canonical ledger event types.
+        // operational_cost_transactions.eventType is closed by the database check
+        // constraint operational_cost_transactions_event_type_ck to exactly
+        // MATERIAL|LABOR|MACHINE|OVERHEAD|DOWNTIME|EXTERNAL_SERVICE. The canonical
+        // breakdown renders that value, so all six need a label in this family.
+        // Arabic wording reuses the established cost-event labels in the repo.
+        costMachine: 'Machine',
+        costOverhead: 'Overhead',
+        costDowntime: 'Downtime',
+        costExternalService: 'External Service',
         costService: 'Service',
         costOther: 'Other',
         costAmount: 'Amount',

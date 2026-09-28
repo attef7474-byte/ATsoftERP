@@ -8,6 +8,7 @@ import { useToast } from '../../../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import { MaintenanceRequest, MaintenanceTask, DowntimeLog, SparePartRequestLine, MachineInstalledPart } from '../../../../../lib/admin-types';
 import { CloseReadiness, CloseReadinessBlocker } from '../../../../../lib/canonical-cost-types';
+import { maintenanceEscalationLevelLabel, maintenanceSlaStatusLabel } from '../../../../../lib/maintenance-labels';
 
 function blockerLabelKey(code: CloseReadinessBlocker['code']): string {
   switch (code) {
@@ -488,7 +489,11 @@ export default function MaintenanceRequestDetailPage() {
             <div><dt className="text-sm font-medium text-gray-500">{t('details.maintenanceRequest.title') || t('common.name')}</dt><dd className="mt-1 text-sm text-gray-900">{data.title}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('common.status')}</dt><dd className="mt-1"><StatusBadge status={data.status} /></dd></div>
             {(data as any).slaStatus && (
-              <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.slaStatus')}</dt><dd className="mt-1"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${(data as any).slaStatus === 'ON_TRACK' ? 'bg-green-100 text-green-800' : (data as any).slaStatus === 'OVERDUE' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{(data as any).slaStatus}</span>{(data as any).escalationLevel && (data as any).escalationLevel !== 'NONE' ? <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">{t('maintenance.escalated')}: {(data as any).escalationLevel}</span> : null}</dd></div>
+              /* R2I-BLOCKER-R2: this rendered the raw slaStatus and escalationLevel values.
+                 slaStatus is exactly ON_TRACK|OVERDUE and the escalation level is not a
+                 closed enum, so both go through the maintenance label helpers. The
+                 existing green/red/grey colour classes are preserved unchanged. */
+              <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.slaStatus')}</dt><dd className="mt-1"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${(data as any).slaStatus === 'ON_TRACK' ? 'bg-green-100 text-green-800' : (data as any).slaStatus === 'OVERDUE' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{maintenanceSlaStatusLabel((data as any).slaStatus, t)}</span>{(data as any).escalationLevel && (data as any).escalationLevel !== 'NONE' ? <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">{t('maintenance.escalated')}: {maintenanceEscalationLevelLabel((data as any).escalationLevel, t)}</span> : null}</dd></div>
             )}
             <div><dt className="text-sm font-medium text-gray-500">{t('details.maintenanceRequest.machine')}</dt><dd className="mt-1 text-sm text-gray-900">{data.machine?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.productionLine')}</dt><dd className="mt-1 text-sm text-gray-900">{(data as any).productionLine?.name || '-'}</dd></div>
@@ -556,7 +561,11 @@ export default function MaintenanceRequestDetailPage() {
                     <td className="py-2 px-2">{part.sparePart?.name || part.sparePartId || '-'}</td>
                     <td className="py-2 px-2">{part.quantity}</td>
                     <td className="py-2 px-2">{part.unit || '-'}</td>
-                    <td className="py-2 px-2">{part.status === 'PLANNED' ? t('maintenance.statusPlanned') : part.status === 'REQUESTED' ? t('maintenance.statusRequested') : part.status === 'CANCELLED' ? t('maintenance.statusCancelled') : part.status || '-'}</td>
+                    {/* R2I-BLOCKER-R2: this ternary only covered PLANNED/REQUESTED/CANCELLED and
+                        fell through to the raw enum for APPROVED/REJECTED/RESERVED/USED/DRAFT.
+                        Use the same canonical partStatusBadge already used by the required-part
+                        lines table below so all seven required-part states are localized. */}
+                    <td className="py-2 px-2">{partStatusBadge(part.status)}</td>
                     <td className="py-2 px-2">{part.usageNote || '-'}</td>
                   </tr>
                 ))}

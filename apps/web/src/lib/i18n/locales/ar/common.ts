@@ -296,6 +296,20 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         COMPLETED_NOT_REPAIRABLE: 'مكتمل غير قابل للإصلاح',
         PARTIALLY_ISSUED: 'صرف جزئي',
         FULLY_ISSUED: 'صرف كامل',
+        // R2I-BLOCKER-R2 - تُضاف مفاتيح SLA و دورة حالة قطعة الغيار المطلوبة.
+        // MaintenanceRequest.slaStatus هو بالضبط ON_TRACK|OVERDUE
+        // (maintenance-sla.service.ts)، و MaintenanceRequestRequiredPart.status هو بالضبط
+        // DRAFT|REQUESTED|APPROVED|REJECTED|RESERVED|USED|CANCELLED
+        // (maintenance-spare-part-request-lines.service.ts). المكوّن StatusBadge
+        // يبحث في هذه المساحة فقط، فبدون هذه المفاتيح كان يسقط إلى humanize()
+        // ويعرض القيمة الخام، أي نص لاتيني داخل الواجهة العربية.
+        // نصوص العربية مطابقة تماماً للترجمات الموجودة أصلاً في هذه المساحة
+        // (onTrack/overdue) حتى لا تتناقض المساحة مع نفسها.
+        ON_TRACK: 'ضمن الوقت',
+        OVERDUE: 'متأخر',
+        REQUESTED: 'مطلوب',
+        RESERVED: 'محجوز',
+        USED: 'مستخدم',
         SUBMITTED: 'مقدم',
         OPEN: 'مفتوح',
         CLOSED: 'مغلق',

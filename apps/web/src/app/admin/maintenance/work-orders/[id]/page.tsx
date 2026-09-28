@@ -15,6 +15,7 @@ import { useApiErrorHandler } from '../../../../../components/admin/error-handle
 import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../lib/form-validation';
 import { formatDateTime } from '../../../../../lib/i18n/literals';
 import { CanonicalCostSummary } from '../../../../../lib/canonical-cost-types';
+import { canonicalCostEventLabel } from '../../../../../lib/maintenance-labels';
 
 const WORK_ORDER_TYPES = ['CORRECTIVE', 'PREVENTIVE', 'PREDICTIVE', 'OVERHAUL', 'OTHER'];
 const WORK_ORDER_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
@@ -724,7 +725,7 @@ export default function MaintenanceWorkOrderDetailPage() {
                 {costSummary.byEventType.length > 0 && (
                   <DataTable
                     columns={[
-                      { key: 'key', header: t('maintenanceWorkflow.costType'), render: (b: any) => b.key },
+                      { key: 'key', header: t('maintenanceWorkflow.costType'), render: (b: any) => canonicalCostEventLabel(b.key, t) },
                       { key: 'netAmount', header: t('maintenanceWorkflow.canonicalCostNet'), render: (b: any) => b.netAmount },
                       { key: 'entryCount', header: t('maintenanceWorkflow.canonicalCostPostedEntries'), render: (b: any) => b.entryCount },
                     ]}

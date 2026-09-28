@@ -7,6 +7,7 @@ import { MaintenanceRequestCostEntry } from '../../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, Button } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../../../components/admin/admin-action-bar';
 import { CanonicalCostSummary } from '../../../../../../lib/canonical-cost-types';
+import { canonicalCostEventLabel } from '../../../../../../lib/maintenance-labels';
 
 export default function CostEntriesPage() {
   const params = useParams();
@@ -83,7 +84,7 @@ export default function CostEntriesPage() {
                   <div className="text-sm font-medium mb-2">{t('maintenanceWorkflow.canonicalCostByEvent')}</div>
                   <DataTable
                     columns={[
-                      { key: 'key', header: t('maintenanceWorkflow.costType'), render: (b: any) => b.key },
+                      { key: 'key', header: t('maintenanceWorkflow.costType'), render: (b: any) => canonicalCostEventLabel(b.key, t) },
                       { key: 'netAmount', header: t('maintenanceWorkflow.canonicalCostNet'), render: (b: any) => b.netAmount },
                       { key: 'entryCount', header: t('maintenanceWorkflow.canonicalCostPostedEntries'), render: (b: any) => b.entryCount },
                     ]}

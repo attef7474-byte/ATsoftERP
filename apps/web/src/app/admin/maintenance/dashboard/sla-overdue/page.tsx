@@ -6,6 +6,7 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { Card, CardHeader, CardContent, DataTable, PageHeader, LoadingState, ErrorState, EmptyState, StatusBadge } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, ActionBackIcon, ActionRefreshIcon } from '../../../../../components/admin/admin-action-bar';
 import { MaintenanceRequest } from '../../../../../lib/admin-types';
+import { maintenanceEscalationLevelLabel } from '../../../../../lib/maintenance-labels';
 
 export default function SlaOverduePage() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export default function SlaOverduePage() {
     { key: 'title', header: t('common.title') },
     { key: 'machine', header: t('maintenance.machine'), render: (r: MaintenanceRequest) => (r as any).machine?.name || '-' },
     { key: 'slaStatus', header: t('maintenance.slaStatus'), render: (r: MaintenanceRequest) => <StatusBadge status={(r as any).slaStatus} /> },
-    { key: 'escalationLevel', header: t('maintenance.escalated'), render: (r: MaintenanceRequest) => (r as any).escalationLevel !== 'NONE' ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">{(r as any).escalationLevel}</span> : '-' },
+      { key: 'escalationLevel', header: t('maintenance.escalated'), render: (r: MaintenanceRequest) => (r as any).escalationLevel !== 'NONE' ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">{maintenanceEscalationLevelLabel((r as any).escalationLevel, t)}</span> : '-' },
     { key: 'status', header: t('common.status'), render: (r: MaintenanceRequest) => <StatusBadge status={r.status} /> },
   ];
 

@@ -667,6 +667,15 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         onTrack: 'ضمن الوقت',
         overdue: 'متأخر',
         escalated: 'مصعّد',
+        // R2I-BLOCKER-R2 - escalationLevel is NOT a closed enum, so it is owned here
+        // next to `escalated` instead of in the shared `status` namespace. The audited
+        // value set is NONE plus LEVEL_1..LEVEL_n, generated at runtime from the active
+        // MaintenanceSlaRule.escalationLevels integer (maintenance-sla.service.ts),
+        // which has no application-level bound. A fixed key set would have to invent
+        // values, so the level is a parameterised label with a non-leaking fallback.
+        escalationLevelNone: 'بدون تصعيد',
+        escalationLevelNumber: 'المستوى {level}',
+        escalationLevelUnknown: 'مستوى التصعيد',
         slaCompliance: 'الالتزام بمستوى الخدمة',
         role: 'الدور',
         estimatedDuration: 'المدة المقدرة',
@@ -905,6 +914,17 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         costType: 'نوع التكلفة',
         costLabor: 'عمالة',
         costMaterial: 'مواد',
+        // R2I-BLOCKER-R2 - بقية أنواع أحداث السجل المعتمدة.
+        // القيمة operational_cost_transactions.eventType مغلقة بقيد قاعدة البيانات
+        // operational_cost_transactions_event_type_ck على
+        // MATERIAL|LABOR|MACHINE|OVERHEAD|DOWNTIME|EXTERNAL_SERVICE بالضبط.
+        // وتعرض لوحة التكلفة المعتمدة هذه القيمة مباشرة، لذلك تحتاج الأنواع الستة
+        // جميعها إلى تسمية في هذه العائلة. النصوص العربية مأخوذة من تسميات أحداث
+        // التكلفة المعتمدة الموجودة في المستودع.
+        costMachine: 'الماكينة',
+        costOverhead: 'تكاليف عامة',
+        costDowntime: 'التوقف',
+        costExternalService: 'خدمة خارجية',
         costService: 'خدمات',
         costOther: 'أخرى',
         costAmount: 'المبلغ',
