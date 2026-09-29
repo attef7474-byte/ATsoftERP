@@ -116,6 +116,7 @@ const messages: Record<string, { ar: string; en: string }> = {
   'maintenance.productionLineNotFound': { ar: 'خط الإنتاج غير موجود', en: 'Production line not found' },
   'maintenance.productionLineMachineMismatch': { ar: 'خط الإنتاج لا يطابق ماكينة الطلب', en: 'Production line does not match machine' },
   'maintenance.operationTypeNotFound': { ar: 'نوع العملية غير موجود', en: 'Operation type not found' },
+  'operationType.notDeleted': { ar: 'نوع العملية غير محذوف', en: 'Operation type is not deleted' },
   'maintenance.costCenterNotFound': { ar: 'مركز التكلفة غير موجود', en: 'Cost center not found' },
   'costCenter.assignNotFound': { ar: 'إسناد مركز التكلفة التشغيلي غير موجود', en: 'Operational cost center assignment not found' },
   'costCenter.overlay.invalidRange': { ar: 'نطاق السريان غير صالح: تاريخ النهاية يجب أن يكون بعد تاريخ البداية', en: 'Invalid effective range: end date must be after start date' },

@@ -53,6 +53,17 @@ export class OperationTypesController {
     return this.service.remove(id, userId);
   }
 
+  @Patch(':id/restore')
+  @Permissions('operationTypes:update')
+  @ApiOperation({
+    summary: 'Restore a soft-deleted operation type (SUPER_ADMIN system administration only)',
+    description:
+      'Operation types are global reference data, so restoring one row changes what every tenant can see. This route therefore requires SUPER_ADMIN system-administration authority resolved from the database in addition to the permission guard. It revives the same record by clearing deletedAt and never changes code, name, createdAt or status. This is distinct from /activate, which only flips status and leaves deletedAt set.',
+  })
+  restore(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+    return this.service.restore(id, userId);
+  }
+
   @Patch(':id/activate')
   @Permissions('operationTypes:activate')
   @ApiOperation({ summary: 'Activate operation type' })
