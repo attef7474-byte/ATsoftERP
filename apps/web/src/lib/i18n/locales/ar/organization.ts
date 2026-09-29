@@ -16,6 +16,9 @@ const organization: Pick<LocaleTranslations, 'organization'> = {
         cannotDeleteAdministrationWithDepartments: 'لا يمكن حذف إدارة مرتبطة بأقسام نشطة. قم بإلغاء تنشيط الأقسام أولاً.',
         companyNotAllowed: 'الشركة غير مسموح بها.',
         branchNotAllowed: 'الفرع غير مسموح به.',
+        systemAdministrationRequired: 'هذا الإجراء يتطلب صلاحية مدير النظام.',
+        bootstrapCompanyNotActive: 'الشركة غير نشطة، لا يمكن إنشاء أول فرع لها.',
+        bootstrapBranchAlreadyExists: 'للشركة فرع بالفعل، ولا يمكن استخدام إنشاء الفرع الأول.',
     },
 };
 

@@ -177,6 +177,25 @@ describe('AllExceptionsFilter canonical error contract', () => {
     expect(body.message[0]).toBe('Company not found');
   });
 
+  it('never returns a raw key as the user-facing message for first-branch bootstrap errors', () => {
+    for (const key of [
+      'organization.systemAdministrationRequired',
+      'organization.bootstrapCompanyNotActive',
+      'organization.bootstrapBranchAlreadyExists',
+    ]) {
+      for (const locale of ['ar', 'en'] as const) {
+        const translated = getApiMessage(key, locale);
+        expect(translated).not.toBe(key);
+        expect(translated.length).toBeGreaterThan(0);
+      }
+      const { json } = createHostFor(
+        new HttpException({ messageKey: key, message: 'human readable fallback' }, 409),
+        'en',
+      );
+      expect(json.mock.calls[0][0].message[0]).toBe(getApiMessage(key, 'en'));
+    }
+  });
+
   it('M+N. localizes the cost center reason-required error in Arabic and English', () => {
     expect(getApiMessage('costCenter.reasonRequired', 'ar')).toBe('السبب مطلوب لهذا التغيير');
     expect(getApiMessage('costCenter.reasonRequired', 'en')).toBe('A reason is required for this change');

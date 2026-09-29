@@ -16,6 +16,9 @@ const organization: Pick<LocaleTranslations, 'organization'> = {
         cannotDeleteAdministrationWithDepartments: 'Cannot delete an administration with active departments. Deactivate the departments first.',
         companyNotAllowed: 'Company not allowed.',
         branchNotAllowed: 'Branch not allowed.',
+        systemAdministrationRequired: 'This action requires system administration authority.',
+        bootstrapCompanyNotActive: 'The company is not active, its first branch cannot be created.',
+        bootstrapBranchAlreadyExists: 'The company already has a branch, first-branch creation is not available.',
     },
 };
 

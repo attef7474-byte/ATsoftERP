@@ -2,11 +2,15 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { BranchesService } from './branches.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { NumberingService } from '../../numbering/numbering.service';
+import { AuditService } from '../../audit/audit.service';
+import { AllowedContextResolver } from '../../../common/operational-context/allowed-context.resolver';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 describe('BranchesService', () => {
   let prisma: any;
   let numbering: any;
+  let audit: any;
+  let resolver: any;
   let service: BranchesService;
   const ctx: ActiveOperationalContext = {
     contextKey: 'company-a:branch-a',
@@ -19,7 +23,7 @@ describe('BranchesService', () => {
 
   beforeEach(() => {
     prisma = {
-      company: { findUnique: jest.fn() },
+      company: { findUnique: jest.fn(), findFirst: jest.fn() },
       branch: {
         findFirst: jest.fn(),
         create: jest.fn(),
@@ -27,9 +31,17 @@ describe('BranchesService', () => {
         findMany: jest.fn(),
         count: jest.fn(),
       },
+      $transaction: jest.fn(),
     };
     numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('BR-0001') };
-    service = new BranchesService(prisma as PrismaService, numbering as NumberingService);
+    audit = { logWithClient: jest.fn() };
+    resolver = { getAuthorization: jest.fn().mockResolvedValue({ isSuperAdmin: true, roles: [], permissions: [] }) };
+    service = new BranchesService(
+      prisma as PrismaService,
+      numbering as NumberingService,
+      audit as AuditService,
+      resolver as AllowedContextResolver,
+    );
   });
 
   describe('create', () => {

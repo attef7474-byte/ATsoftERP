@@ -3,11 +3,15 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { BranchesService } from './branches.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
+import { BootstrapFirstBranchDto } from './dto/bootstrap-first-branch.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { CurrentUserType } from '../../../modules/auth/types/current-user.type';
 import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { OperationalContextOptional } from '../../../common/operational-context/operational-context-optional.decorator';
 
 @ApiTags('Branches')
 @ApiBearerAuth()
@@ -21,6 +25,22 @@ export class BranchesController {
   @ApiOperation({ summary: 'Create a branch' })
   create(@Body() dto: CreateBranchDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.branchesService.create(dto, ctx);
+  }
+
+  @Post('bootstrap')
+  @Permissions('branches:create')
+  @OperationalContextOptional()
+  @ApiOperation({
+    summary:
+      'Create the first branch of a company that has none (SUPER_ADMIN system administration only)',
+    description:
+      'A company with zero branches cannot have an active operational context, so the normal context-bound branch creation path is unreachable for it. This route resolves authority from the database, requires an ACTIVE target company with zero non-deleted branches, and creates exactly one branch owned by the submitted company. It never trusts a client company for the normal path and never mutates user scopes.',
+  })
+  bootstrapFirstBranch(
+    @Body() dto: BootstrapFirstBranchDto,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.branchesService.bootstrapFirstBranch(dto, user.id);
   }
 
   @Get()

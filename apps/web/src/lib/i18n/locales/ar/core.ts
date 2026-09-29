@@ -29,6 +29,7 @@ const core: Pick<LocaleTranslations, 'core' | 'details' | 'companyProfile' | 'at
         editCompany: 'تعديل الشركة',
         newBranch: 'فرع جديد',
         editBranch: 'تعديل الفرع',
+        branchFirstBootstrapHint: 'هذه الشركة لا يوجد لها فروع بعد، سيتم إنشاء أول فرع لها بصلاحية مدير النظام.',
         newAdministration: 'إدارة جديدة',
         editAdministration: 'تعديل الإدارة',
         newDepartment: 'قسم جديد',

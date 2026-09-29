@@ -29,6 +29,7 @@ const core: Pick<LocaleTranslations, 'core' | 'details' | 'companyProfile' | 'at
         editCompany: 'Edit Company',
         newBranch: 'New Branch',
         editBranch: 'Edit Branch',
+        branchFirstBootstrapHint: 'This company has no branches yet, so its first branch will be created with system administration authority.',
         newAdministration: 'New Administration',
         editAdministration: 'Edit Administration',
         newDepartment: 'New Department',

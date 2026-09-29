@@ -3,9 +3,11 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { api } from '../../../../lib/api';
 import { safeString } from '../../../../lib/form-utils';
 import { useCrudList, CrudOperation } from '../../../../hooks/useCrudList';
+import { useAuth } from '../../../../lib/auth-context';
+import { resolveBranchCreateRoute } from '../../../../lib/first-branch-bootstrap';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Branch, PaginationMeta } from '../../../../lib/admin-types';
+import { Branch, Company, PaginationMeta } from '../../../../lib/admin-types';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Button, Input, Card, Pagination, LoadingState, Modal, StatusBadge, ConfirmDialog } from '../../../../components/admin/ui';
 import { GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
@@ -63,11 +65,17 @@ export default function BranchesPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
+  const { isSuperAdmin, activeContext } = useAuth();
   const [search, setSearch] = useState('');
   const [sortColumn, setSortColumn] = useState('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [showFilters, setShowFilters] = useState(false);
+
+  // Branch count of the company currently selected in the form. It decides
+  // whether creation must use the SUPER_ADMIN first-branch bootstrap path
+  // (ORG-FIRST-BRANCH-R1) or the normal context-bound path.
+  const [selectedCompanyBranchCount, setSelectedCompanyBranchCount] = useState<number | null>(null);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate'>('deactivate');
@@ -145,7 +153,18 @@ export default function BranchesPage() {
       return api.get('/branches', { params });
     },
     detailRequest: (id) => api.get(`/branches/${id}`),
-    createRequest: (payload) => api.post('/branches', payload),
+    createRequest: (payload) => {
+      const decision = resolveBranchCreateRoute({
+        isSuperAdmin,
+        selectedCompanyId: String((payload as { companyId?: string })?.companyId ?? ''),
+        activeCompanyId: activeContext?.companyId,
+        selectedCompanyBranchCount,
+      });
+      if (decision.useBootstrap) {
+        return api.post('/branches/bootstrap', payload);
+      }
+      return api.post('/branches', payload);
+    },
     updateRequest: (id, payload) => api.patch(`/branches/${id}`, payload),
     mapRecordToForm: (detail) => ({
       companyId: safeString(detail.companyId),
@@ -189,6 +208,15 @@ export default function BranchesPage() {
 
   const paginationMeta = meta ?? INITIAL_META;
 
+  // Resolved again from the live form so the modal can explain which path the
+  // save will take before the user submits.
+  const branchCreateRoute = resolveBranchCreateRoute({
+    isSuperAdmin,
+    selectedCompanyId: form.companyId,
+    activeCompanyId: activeContext?.companyId,
+    selectedCompanyBranchCount,
+  });
+
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
 
   const { exec } = useStableHandlers({
@@ -212,6 +240,12 @@ export default function BranchesPage() {
     setConfirmAction(action);
     setConfirmOpen(true);
   };
+
+  const closeBranchForm = useCallback(() => {
+    closeFormModal();
+    setValidationErrors({});
+    setSelectedCompanyBranchCount(null);
+  }, [closeFormModal]);
 
   const handleStatusChange = async () => {
     setStatusSaving(true);
@@ -450,16 +484,21 @@ export default function BranchesPage() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => { closeFormModal(); setValidationErrors({}); }} title={editItem ? t('core.editBranch') : t('core.newBranch')}>
+      <Modal open={modalOpen} onClose={closeBranchForm} title={editItem ? t('core.editBranch') : t('core.newBranch')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
           {validationErrors.form && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{validationErrors.form}</div>}
-          <F9Lookup label={t('core.company')} name="companyId" value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} error={validationErrors.companyId} adapter={companyAdapter} />
+          <F9Lookup label={t('core.company')} name="companyId" value={form.companyId} onChange={(v) => { setForm({ ...form, companyId: v }); setSelectedCompanyBranchCount(null); setValidationErrors(prev => ({ ...prev, companyId: '' })); }} onItemSelect={(company: Company) => setSelectedCompanyBranchCount(company._count?.branches ?? null)} error={validationErrors.companyId} adapter={companyAdapter} />
+          {branchCreateRoute.useBootstrap && (
+            <p className="text-xs text-gray-500" data-testid="first-branch-bootstrap-hint">
+              {t('core.branchFirstBootstrapHint')}
+            </p>
+          )}
           <Input label={t('common.code')} name="code" value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} error={validationErrors.code} />
           <Input label={t('common.name')} name="name" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} error={validationErrors.name} required />
           <Input label={t('common.address')} name="address" value={form.address} onChange={(e) => { setForm({ ...form, address: e.target.value }); setValidationErrors(prev => ({ ...prev, address: '' })); }} error={validationErrors.address} />
           <Input label={t('common.phone')} name="phone" value={form.phone} onChange={(e) => { setForm({ ...form, phone: e.target.value }); setValidationErrors(prev => ({ ...prev, phone: '' })); }} error={validationErrors.phone} />
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => { closeFormModal(); setValidationErrors({}); }}>{t('actions.cancel')}</Button>
+            <Button variant="secondary" onClick={closeBranchForm}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
           </div>
         </div>}

@@ -265,6 +265,9 @@ const messages: Record<string, { ar: string; en: string }> = {
   'permissions.roleRequired': { ar: 'الدور مطلوب', en: 'Role is required' },
 
   'organization.companyNotFound': { ar: 'الشركة غير موجودة', en: 'Company not found' },
+  'organization.systemAdministrationRequired': { ar: 'هذا الإجراء يتطلب صلاحية مدير النظام', en: 'This action requires system administration authority' },
+  'organization.bootstrapCompanyNotActive': { ar: 'الشركة غير نشطة، لا يمكن إنشاء أول فرع لها', en: 'The company is not active, its first branch cannot be created' },
+  'organization.bootstrapBranchAlreadyExists': { ar: 'للشركة فرع بالفعل، ولا يمكن استخدام إنشاء الفرع الأول', en: 'The company already has a branch, first-branch creation is not available' },
   'organization.branchNotFound': { ar: 'الفرع غير موجود', en: 'Branch not found' },
   'organization.administrationNotFound': { ar: 'الإدارة غير موجودة', en: 'Administration not found' },
   'organization.departmentNotFound': { ar: 'القسم غير موجود', en: 'Department not found' },
