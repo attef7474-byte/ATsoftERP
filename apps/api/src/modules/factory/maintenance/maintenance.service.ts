@@ -45,7 +45,8 @@ export class MaintenanceService {
     return machine;
   }
 
-  private async validateMachineReferences(dto: any, existing?: any, ctx?: ActiveOperationalContext) {
+  private async validateMachineReferences(dto: any, existing?: any, ctx?: ActiveOperationalContext, client?: any) {
+    const db = client ?? this.prisma;
     const companyId = dto.companyId ?? existing?.companyId;
     const branchId = dto.branchId ?? existing?.branchId;
     const administrationId = dto.administrationId ?? existing?.administrationId;
@@ -59,7 +60,7 @@ export class MaintenanceService {
     }
 
     if (dto.productionLineId) {
-      const line = await this.prisma.productionLine.findUnique({ where: { id: dto.productionLineId } });
+      const line = await db.productionLine.findUnique({ where: { id: dto.productionLineId } });
       if (!line) throw this.validationError('productionLineId', 'validation.invalidReference', 'Production line not found');
       if (companyId && line.companyId !== companyId) throw this.validationError('productionLineId', 'validation.invalidValue', 'Production line does not belong to the selected company');
       if (branchId && line.branchId !== branchId) throw this.validationError('productionLineId', 'validation.invalidValue', 'Production line does not belong to the selected branch');
@@ -68,22 +69,22 @@ export class MaintenanceService {
     }
 
     if (dto.operationTypeId) {
-      const ot = await this.prisma.operationType.findUnique({ where: { id: dto.operationTypeId } });
+      const ot = await db.operationType.findUnique({ where: { id: dto.operationTypeId } });
       if (!ot) throw this.validationError('operationTypeId', 'validation.invalidReference', 'Operation type not found');
     }
 
     if (dto.defaultCostCenterId) {
-      const cc = await this.prisma.costCenter.findUnique({ where: { id: dto.defaultCostCenterId } });
+      const cc = await db.costCenter.findUnique({ where: { id: dto.defaultCostCenterId } });
       if (!cc) throw this.validationError('defaultCostCenterId', 'validation.invalidReference', 'Cost center not found');
     }
 
     if (dto.technicalAdministrationId) {
-      const ta = await this.prisma.administration.findUnique({ where: { id: dto.technicalAdministrationId } });
+      const ta = await db.administration.findUnique({ where: { id: dto.technicalAdministrationId } });
       if (!ta) throw this.validationError('technicalAdministrationId', 'validation.invalidReference', 'Technical administration not found');
     }
 
     if (dto.technicalDepartmentId) {
-      const td = await this.prisma.department.findUnique({ where: { id: dto.technicalDepartmentId } });
+      const td = await db.department.findUnique({ where: { id: dto.technicalDepartmentId } });
       if (!td) throw this.validationError('technicalDepartmentId', 'validation.invalidReference', 'Technical department not found');
       if (dto.technicalAdministrationId && td.administrationId !== dto.technicalAdministrationId) {
         throw this.validationError('technicalDepartmentId', 'validation.invalidValue', 'Technical department does not belong to the selected technical administration');
@@ -139,7 +140,7 @@ export class MaintenanceService {
     const code = dataDto.code?.trim() || await this.numberingService.generateNumberAtomicWithClient('MACHINE', client);
     const existing = await client.machine.findUnique({ where: { code } });
     if (existing) throw this.validationError('code', 'validation.duplicateValue', 'Machine code already exists');
-    await this.validateMachineReferences(dataDto, undefined, ctx);
+    await this.validateMachineReferences(dataDto, undefined, ctx, client);
     const { purchaseDate, warrantyEnd, ...rest } = dataDto;
     return client.machine.create({
       data: {
@@ -227,7 +228,7 @@ export class MaintenanceService {
     if (dedicatedCostCenter) {
       return this.prisma.$transaction(async (tx) => {
         const cc = await this.costCenters.createDedicatedCostCenter(tx, dedicatedCostCenter, ctx, userId);
-        await this.validateMachineReferences({ ...machinePayload, defaultCostCenterId: cc.id }, existing, ctx);
+        await this.validateMachineReferences({ ...machinePayload, defaultCostCenterId: cc.id }, existing, ctx, tx);
         return this.updateMachineRecord(tx, id, { ...machinePayload, defaultCostCenterId: cc.id }, userId, ctx);
       });
     }

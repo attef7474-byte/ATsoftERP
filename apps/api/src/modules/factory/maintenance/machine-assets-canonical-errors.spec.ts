@@ -365,7 +365,7 @@ describe('Machine assets canonical error contracts', () => {
         downtimeLog: { count: jest.fn() },
         machinePart: { count: jest.fn() },
         machineDocument: { count: jest.fn() },
-        costCenter: { findUnique: jest.fn().mockResolvedValue({ id: 'cc-new' }) },
+        costCenter: { findUnique: jest.fn().mockResolvedValue(null) },
       };
       numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('M-0001'), generateNumberAtomicWithClient: jest.fn().mockResolvedValue('M-0001') };
       audit = { log: jest.fn().mockResolvedValue(undefined), logWithClient: jest.fn().mockResolvedValue(undefined) };
@@ -454,7 +454,10 @@ describe('Machine assets canonical error contracts', () => {
 
       beforeEach(() => {
         tx = {
-          costCenter: { create: jest.fn().mockResolvedValue({ id: 'cc-new', name: 'Lathe', code: 'CC-1' }) },
+          costCenter: {
+            create: jest.fn().mockResolvedValue({ id: 'cc-new', name: 'Lathe', code: 'CC-1' }),
+            findUnique: jest.fn().mockResolvedValue({ id: 'cc-new', name: 'Lathe', code: 'CC-1' }),
+          },
           machine: {
             findUnique: jest.fn().mockResolvedValue(null),
             create: jest.fn().mockResolvedValue({ id: 'm1', code: 'M-0001', name: 'Lathe', defaultCostCenterId: 'cc-new' }),
@@ -529,6 +532,19 @@ describe('Machine assets canonical error contracts', () => {
         );
         expect(costCenters.createDedicatedCostCenter).toHaveBeenCalled();
         expect(tx.machine.create).not.toHaveBeenCalled();
+      });
+
+      it('validates the dedicated cost center reference inside the transaction so the uncommitted row resolves', async () => {
+        // The outer prisma client cannot see the dedicated cost center until the
+        // transaction commits (SQL Server READ_COMMITTED). validateMachineReferences
+        // must run against the tx client or every atomic machine create would be
+        // rejected with defaultCostCenterId = invalidReference.
+        prisma.costCenter.findUnique.mockResolvedValue(null);
+
+        const result = await service.createMachine({ name: 'Lathe', dedicatedCostCenter: dedicatedDto } as any, 'u1', ctx);
+
+        expect(tx.costCenter.findUnique).toHaveBeenCalledWith({ where: { id: 'cc-new' } });
+        expect(result.defaultCostCenterId).toBe('cc-new');
       });
     });
   });
