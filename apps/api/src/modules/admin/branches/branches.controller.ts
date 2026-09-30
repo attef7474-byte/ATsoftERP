@@ -64,8 +64,13 @@ export class BranchesController {
   @Patch(':id')
   @Permissions('branches:update')
   @ApiOperation({ summary: 'Update branch' })
-  update(@Param('id') id: string, @Body() dto: UpdateBranchDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.branchesService.update(id, dto, ctx);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateBranchDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.branchesService.update(id, dto, ctx, user.id);
   }
 
   @Delete(':id')

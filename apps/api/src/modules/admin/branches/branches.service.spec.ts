@@ -119,7 +119,7 @@ describe('BranchesService', () => {
         .mockResolvedValueOnce({ id: 'b1', companyId: 'company-a', code: 'BR-1' })
         .mockResolvedValueOnce({ id: 'b2' });
 
-      const promise = service.update('b1', { code: 'BR-1' }, ctx);
+      const promise = service.update('b1', { code: 'BR-1' }, ctx, 'user-1');
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
       expect(response.errors[0]).toMatchObject({ field: 'code', code: 'validation.duplicateValue' });
@@ -131,11 +131,33 @@ describe('BranchesService', () => {
     it('never trusts a client-supplied companyId on update', async () => {
       prisma.branch.findFirst.mockResolvedValue({ id: 'b1', companyId: 'company-a' });
       prisma.branch.update.mockResolvedValue({ id: 'b1' });
+      prisma.$transaction.mockImplementation(async (cb: any) => cb({
+        branch: prisma.branch,
+        auditLog: { create: jest.fn() },
+      }));
 
-      await service.update('b1', { companyId: 'evil-company', name: 'Renamed' }, ctx);
+      await service.update('b1', { companyId: 'evil-company', name: 'Renamed' }, ctx, 'user-1');
       expect(prisma.branch.update).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.not.objectContaining({ companyId: 'evil-company' }),
       }));
+    });
+
+    it('writes one UPDATE audit row naming the same branch inside the same transaction', async () => {
+      const txClient = { branch: prisma.branch, auditLog: { create: jest.fn() } };
+      prisma.branch.findFirst.mockResolvedValue({ id: 'b1', companyId: 'company-a', code: 'BR-1', name: 'Old' });
+      prisma.branch.update.mockResolvedValue({ id: 'b1', code: 'BR-1', name: 'New' });
+      prisma.$transaction.mockImplementation(async (cb: any) => cb(txClient));
+
+      await service.update('b1', { name: 'New' }, ctx, 'user-1');
+
+      expect(audit.logWithClient).toHaveBeenCalledTimes(1);
+      expect(audit.logWithClient).toHaveBeenCalledWith(txClient, {
+        userId: 'user-1',
+        action: 'UPDATE',
+        entity: 'Branch',
+        entityId: 'b1',
+        details: expect.objectContaining({ branchCode: 'BR-1', previousName: 'Old', newName: 'New' }),
+      });
     });
   });
 

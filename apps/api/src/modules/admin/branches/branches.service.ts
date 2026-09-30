@@ -221,7 +221,7 @@ export class BranchesService {
     return branch;
   }
 
-  async update(id: string, dto: UpdateBranchDto, ctx: ActiveOperationalContext) {
+  async update(id: string, dto: UpdateBranchDto, ctx: ActiveOperationalContext, userId?: string) {
     const branch = await this.findOne(id, ctx);
 
     const code = dto.code?.trim();
@@ -233,7 +233,26 @@ export class BranchesService {
       dto = { ...dto, code };
     }
     const { companyId: _companyId, ...data } = dto;
-    return this.prisma.branch.update({ where: { id: branch.id }, data });
+    const changedFields = Object.keys(data).filter(
+      (field) => (branch as Record<string, unknown>)[field] !== (data as Record<string, unknown>)[field],
+    );
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.branch.update({ where: { id: branch.id }, data });
+      await this.auditService.logWithClient(tx, {
+        userId,
+        action: 'UPDATE',
+        entity: 'Branch',
+        entityId: updated.id,
+        details: {
+          companyId: ctx.companyId,
+          branchCode: updated.code,
+          changedFields,
+          previousName: branch.name,
+          newName: updated.name,
+        },
+      });
+      return updated;
+    });
   }
 
   async remove(id: string, ctx: ActiveOperationalContext) {
