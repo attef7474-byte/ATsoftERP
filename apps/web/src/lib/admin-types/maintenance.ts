@@ -52,6 +52,7 @@ export interface MachinePart {
   id: string;
   machineId?: string | null;
   productId?: string | null;
+  sparePartId?: string | null;
   code: string;
   name: string;
   partNumber?: string | null;
@@ -62,6 +63,7 @@ export interface MachinePart {
   updatedAt: string;
   machine?: { id: string; name: string; code: string };
   product?: { id: string; name: string; code: string };
+  sparePart?: { id: string; code: string; name: string; partNumber?: string | null; manufacturer?: string | null; specification?: string | null; unit?: string | null; category?: string | null };
 }
 
 export interface MachineDocument {

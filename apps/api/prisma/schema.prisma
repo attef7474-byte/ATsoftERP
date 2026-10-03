@@ -228,6 +228,7 @@ model Company {
   users                            User[]
   warehouses                       Warehouse[]
   machines                         Machine[]
+  machineParts                     MachinePart[]
   counts                           InventoryCount[]
   movements                        InventoryMovement[]
   adjustments                      InventoryAdjustment[]
@@ -326,6 +327,7 @@ model Branch {
   users                            User[]
   warehouses                       Warehouse[]
   machines                         Machine[]
+  machineParts                     MachinePart[]
   numberSeqs                       NumberSequence[]
   counts                           InventoryCount[]
   movements                        InventoryMovement[]
@@ -2464,22 +2466,40 @@ model Machine {
 }
 
 model MachinePart {
-  id         String   @id @default(cuid())
-  code       String   @unique
-  name       String
-  machineId  String?
-  machine    Machine? @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productId  String?
-  product    Product? @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  partNumber String?
-  quantity   Float    @default(0)
-  minStock   Float    @default(0)
-  unit       String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id     String  @id @default(cuid())
+  code   String  @unique
+  name   String
+  // R4N: additive canonical link to the single authoritative technical catalog.
+  // Nullable and unpopulated for all historical rows; a non-null value is only
+  // ever written when technical identity is independently verified.
+  sparePartId String?
+  sparePart   SparePart? @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId   String?
+  machine     Machine?   @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId   String?
+  product     Product?   @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // R4O: additive, NULLABLE tenant ownership for rows that are NOT bound to a
+  // Machine. machineId alone cannot express who owns an unbound part-list entry,
+  // which previously made every unbound row readable, editable and deletable by
+  // every tenant. Ownership is always derived from the authenticated operational
+  // context or from an authorized Machine; it is never accepted from the client.
+  // A NULL value means ownership is UNPROVEN and such rows stay visible to
+  // SUPER_ADMIN only.
+  companyId   String?
+  company     Company?   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId    String?
+  branch      Branch?    @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partNumber  String?
+  quantity    Float      @default(0)
+  minStock    Float      @default(0)
+  unit        String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@index([machineId])
   @@index([productId])
+  @@index([sparePartId])
+  @@index([companyId, branchId])
   @@index([code])
   @@index([name])
   @@map("machine_parts")
@@ -2571,6 +2591,7 @@ model SparePart {
 
   componentLinks            ComponentSparePart[]
   machineLinks              MachineSparePart[]
+  machinePartCanonicalLinks MachinePart[]
   requiredInRequests        MaintenanceRequestRequiredPart[]
   maintenanceWorkOrderParts MaintenanceWorkOrderPart[]
   partAccountabilities      MaintenancePartAccountability[]

@@ -89,7 +89,7 @@ describe('permission catalogue localization', () => {
 
   it('resource labels are human-readable and resource-specific across a representative sample', () => {
     const samples = [
-      ['machine:create', 'ماكينات'],
+      ['machine:create', 'الآلات والمعدات'],
       ['maintenance-request:read', 'طلبات'],
       ['inventory.physical-count:post', 'الجرد'],
       ['production-order:release', 'أوامر'],

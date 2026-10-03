@@ -68,12 +68,23 @@ export class MachineSparePartsService {
 
   private machineScope(ctx: ActiveOperationalContext) { return { companyId: ctx.companyId, deletedAt: null, OR: [{ branchId: ctx.branchId }, { branchId: null }] }; }
 
+  /**
+   * R4O: a machine applicability link may only reference a canonical catalog item
+   * that is both non-deleted and ACTIVE.
+   *
+   * The previous check filtered on deletedAt alone, so a deactivated catalog item
+   * could still be linked to a machine even though the R4N canonical rule in
+   * MachinePartsService.canonicalPartAccess rejects exactly that case. That
+   * inconsistency let a link path bypass the canonical validation, so the same
+   * ACTIVE requirement is now enforced on the write, not only on the canonical
+   * part-list path.
+   */
   private async assertReferences(tx: any, machineId: string, sparePartId: string, ctx: ActiveOperationalContext) {
     const [machine, sparePart] = await Promise.all([
       tx.machine.findFirst({ where: { id: machineId, ...this.machineScope(ctx) }, select: { id: true } }),
-      tx.sparePart.findFirst({ where: { id: sparePartId, deletedAt: null }, select: { id: true } }),
+      tx.sparePart.findFirst({ where: { id: sparePartId, deletedAt: null, status: 'ACTIVE' }, select: { id: true } }),
     ]);
     if (!machine) throw new BadRequestException('Machine not found');
-    if (!sparePart) throw new BadRequestException('Spare part not found');
+    if (!sparePart) throw new BadRequestException('Spare part not found or not active');
   }
 }

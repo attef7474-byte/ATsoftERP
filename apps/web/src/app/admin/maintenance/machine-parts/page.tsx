@@ -5,7 +5,7 @@ import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { MachinePart } from '../../../../lib/admin-types';
 import { Button, Input, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
-import { F9Lookup, machineAdapter, productAdapter } from '../../../../components/f9';
+import { F9Lookup, machineAdapter, productAdapter, sparePartAdapter } from '../../../../components/f9';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
@@ -24,7 +24,7 @@ export default function MachinePartsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MachinePart | null>(null);
-  const [form, setForm] = useState({ name: '', partNumber: '', unit: '', quantity: '0', minStock: '0', machineId: '', productId: '' });
+  const [form, setForm] = useState({ name: '', partNumber: '', unit: '', quantity: '0', minStock: '0', machineId: '', productId: '', sparePartId: '' });
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -62,7 +62,7 @@ useRegisterAdminActions([
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ name: '', partNumber: '', unit: '', quantity: '0', minStock: '0', machineId: '', productId: '' });
+    setForm({ name: '', partNumber: '', unit: '', quantity: '0', minStock: '0', machineId: '', productId: '', sparePartId: '' });
     setValidationErrors({});
     setModalOpen(true);
   };
@@ -76,6 +76,7 @@ useRegisterAdminActions([
         name: item.name, partNumber: item.partNumber || '',
         unit: item.unit || '', quantity: String(item.quantity ?? 0), minStock: String(item.minStock ?? 0),
         machineId: item.machineId || '', productId: item.productId || '',
+        sparePartId: item.sparePartId || '',
       });
       setModalOpen(true);
     } catch (err: any) { handleApiError(err); }
@@ -99,6 +100,7 @@ useRegisterAdminActions([
       if (form.partNumber.trim()) payload.partNumber = form.partNumber.trim();
       if (form.machineId) payload.machineId = form.machineId;
       if (form.productId) payload.productId = form.productId;
+      if (form.sparePartId) payload.sparePartId = form.sparePartId;
       if (editItem) {
         await api.patch(`/maintenance/machine-parts/${editItem.id}`, payload);
         showToast(t('common.successUpdated'), 'success');
@@ -135,6 +137,7 @@ useRegisterAdminActions([
     { key: 'name', header: t('common.name') },
     { key: 'partNumber', header: t('maintenance.partNumber'), render: (p: MachinePart) => p.partNumber || '-' },
     { key: 'machine', header: t('maintenance.machine'), render: (p: MachinePart) => p.machine?.name || '-' },
+    { key: 'sparePart', header: t('maintenance.canonicalSparePart'), render: (p: MachinePart) => p.sparePart?.code || '-' },
     { key: 'quantity', header: t('maintenance.quantity'), render: (p: MachinePart) => p.quantity },
     { key: 'unit', header: t('maintenance.unit'), render: (p: MachinePart) => p.unit || '-' },
   ];
@@ -185,6 +188,8 @@ useRegisterAdminActions([
             </div>
           </div>
           <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setForm({ ...form, machineId: v })} adapter={machineAdapter} />
+          <F9Lookup label={t('maintenance.canonicalSparePart')} value={form.sparePartId} onChange={(v) => setForm({ ...form, sparePartId: v })} adapter={sparePartAdapter} />
+          <p className="text-sm text-gray-500">{t('maintenance.canonicalSparePartHint')}</p>
           <F9Lookup label={t('maintenance.linkedInventoryItem')} value={form.productId} onChange={(v) => setForm({ ...form, productId: v })} adapter={productAdapter} />
           <Input label={t('maintenance.partNumber')} value={form.partNumber} onChange={(e) => setForm({ ...form, partNumber: e.target.value })} />
           <div className="grid grid-cols-2 gap-4">

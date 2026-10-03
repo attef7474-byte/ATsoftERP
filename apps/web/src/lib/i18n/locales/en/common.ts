@@ -206,7 +206,7 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         productCategories: 'Product Categories',
         products: 'Products',
         machineCategories: 'Machine Categories',
-        machines: 'Machines',
+        machines: 'Machines & Equipment',
         unavailable: 'Unavailable',
         kpis: 'KPIs',
         activeAlerts: 'Active Alerts',

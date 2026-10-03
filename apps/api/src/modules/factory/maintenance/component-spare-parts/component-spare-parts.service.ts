@@ -68,12 +68,20 @@ export class ComponentSparePartsService {
 
   private machineScope(ctx: ActiveOperationalContext) { return { companyId: ctx.companyId, deletedAt: null, OR: [{ branchId: ctx.branchId }, { branchId: null }] }; }
 
+  /**
+   * R4O: mirrors MachineSparePartsService.assertReferences.
+   *
+   * A component applicability link may only reference a non-deleted, ACTIVE
+   * canonical catalog item. Filtering on deletedAt alone allowed a deactivated
+   * item to be attached to a component, bypassing the R4N canonical rule that
+   * MachinePartsService.canonicalPartAccess already enforces.
+   */
   private async assertReferences(tx: any, componentId: string, sparePartId: string, ctx: ActiveOperationalContext) {
     const [component, sparePart] = await Promise.all([
       tx.machineComponent.findFirst({ where: { id: componentId, deletedAt: null, machine: this.machineScope(ctx) }, select: { id: true } }),
-      tx.sparePart.findFirst({ where: { id: sparePartId, deletedAt: null }, select: { id: true } }),
+      tx.sparePart.findFirst({ where: { id: sparePartId, deletedAt: null, status: 'ACTIVE' }, select: { id: true } }),
     ]);
     if (!component) throw new BadRequestException('Component not found');
-    if (!sparePart) throw new BadRequestException('Spare part not found');
+    if (!sparePart) throw new BadRequestException('Spare part not found or not active');
   }
 }

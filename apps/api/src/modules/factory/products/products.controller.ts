@@ -6,6 +6,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
+import { CurrentUser } from '../../../modules/auth/decorators/current-user.decorator';
 
 @ApiTags('Products')
 @ApiBearerAuth()
@@ -17,7 +18,7 @@ export class ProductsController {
   @Post()
   @Permissions('products:create')
   @ApiOperation({ summary: 'Create a product' })
-  create(@Body() dto: CreateProductDto) { return this.service.create(dto); }
+  create(@Body() dto: CreateProductDto, @CurrentUser('sub') userId: string) { return this.service.create(dto, userId); }
 
   @Get()
   @Permissions('products:read')
@@ -40,22 +41,22 @@ export class ProductsController {
   @Patch(':id')
   @Permissions('products:update')
   @ApiOperation({ summary: 'Update product' })
-  update(@Param('id') id: string, @Body() dto: UpdateProductDto) { return this.service.update(id, dto); }
+  update(@Param('id') id: string, @Body() dto: UpdateProductDto, @CurrentUser('sub') userId: string) { return this.service.update(id, dto, userId); }
 
   @Delete(':id')
   @Permissions('products:delete')
   @ApiOperation({ summary: 'Soft delete product' })
-  remove(@Param('id') id: string) { return this.service.remove(id); }
+  remove(@Param('id') id: string, @CurrentUser('sub') userId: string) { return this.service.remove(id, userId); }
 
   @Patch(':id/activate')
   @Permissions('products:update')
   @ApiOperation({ summary: 'Activate product' })
-  activate(@Param('id') id: string) { return this.service.activate(id); }
+  activate(@Param('id') id: string, @CurrentUser('sub') userId: string) { return this.service.activate(id, userId); }
 
   @Patch(':id/deactivate')
   @Permissions('products:update')
   @ApiOperation({ summary: 'Deactivate product' })
-  deactivate(@Param('id') id: string) { return this.service.deactivate(id); }
+  deactivate(@Param('id') id: string, @CurrentUser('sub') userId: string) { return this.service.deactivate(id, userId); }
 
   @Get(':id/balances')
   @Permissions('products:read')

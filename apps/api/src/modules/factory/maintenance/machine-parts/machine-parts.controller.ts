@@ -27,19 +27,19 @@ export class MachinePartsController {
   @Get()
   @Permissions('machine-part:read')
   @ApiOperation({ summary: 'List machine parts' })
-  findAll(@Query() query: { page?: string; limit?: string; search?: string; machineId?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+  findAll(@Query() query: { page?: string; limit?: string; search?: string; machineId?: string }, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,
       machineId: query.machineId,
-    }, ctx);
+    }, ctx, userId);
   }
 
   @Get(':id')
   @Permissions('machine-part:read')
   @ApiOperation({ summary: 'Get machine part by ID' })
-  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOne(id, ctx); }
+  findOne(@Param('id') id: string, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOne(id, ctx, userId); }
 
   @Patch(':id')
   @Permissions('machine-part:update')
@@ -58,7 +58,7 @@ export class MachinePartsController {
   @Get(':id/machines')
   @Permissions('machine-part:read')
   @ApiOperation({ summary: 'Get machines linked to this part' })
-  getPartMachines(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.getPartMachines(id, ctx); }
+  getPartMachines(@Param('id') id: string, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.getPartMachines(id, ctx, userId); }
 
   @Post(':id/machines')
   @Permissions('machine-part:linkMachine')
@@ -77,5 +77,5 @@ export class MachinePartsController {
   @Get(':id/usage-history')
   @Permissions('machine-part:read')
   @ApiOperation({ summary: 'Get usage history for this part' })
-  getUsageHistory(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.getUsageHistory(id, ctx); }
+  getUsageHistory(@Param('id') id: string, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.getUsageHistory(id, ctx, userId); }
 }

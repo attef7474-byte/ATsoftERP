@@ -1,0 +1,357 @@
+{
+  "note": "Owner ruling: these clusters are AMBIGUOUS_TECHNICAL_IDENTITY. name+unit+quantity is not technical identity. Not merged.",
+  "clusterCount": 70,
+  "recordsHeldUnchanged": 421,
+  "clusters": [
+    {
+      "name": "محرك المتنبل",
+      "rows": 9,
+      "machineCount": 8
+    },
+    {
+      "name": "بيرنجات محرك المتنبل",
+      "rows": 9,
+      "machineCount": 8
+    },
+    {
+      "name": "لمد محرك المتنبل",
+      "rows": 9,
+      "machineCount": 8
+    },
+    {
+      "name": "جيربوكس محرك المتنبل",
+      "rows": 9,
+      "machineCount": 8
+    },
+    {
+      "name": "بيرنجات جيربوكس محرك المتنبل",
+      "rows": 9,
+      "machineCount": 8
+    },
+    {
+      "name": "لمد جيربوكس محرك المتنبل",
+      "rows": 9,
+      "machineCount": 8
+    },
+    {
+      "name": "زيت جيربوكس محرك المتنبل",
+      "rows": 9,
+      "machineCount": 8
+    },
+    {
+      "name": "ترس جيربوكس محرك المتنبل",
+      "rows": 9,
+      "machineCount": 8
+    },
+    {
+      "name": "سلسلة ترس جيربوكس محرك المتنبل",
+      "rows": 9,
+      "machineCount": 8
+    },
+    {
+      "name": "ترس عمود المتنبل",
+      "rows": 9,
+      "machineCount": 8
+    },
+    {
+      "name": "بيرنجات عمود المتنبل",
+      "rows": 9,
+      "machineCount": 8
+    },
+    {
+      "name": "كفرات عمود المتنبل",
+      "rows": 9,
+      "machineCount": 8
+    },
+    {
+      "name": "انفرتر محرك المتنبل",
+      "rows": 9,
+      "machineCount": 8
+    },
+    {
+      "name": "محرك الداعس",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "بيرنجات محرك الداعس",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "لمد محرك الداعس",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "جيربوكس محرك الداعس",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "بيرنجات جيربوكس محرك الداعس",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "لمد جيربوكس محرك الداعس",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "زيت جيربوكس محرك الداعس",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "الداعس",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "بيرنجات الداعس",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "كفرات الداعس",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "انفرتر محرك الداعس",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "محرك خلاط النكهة 1",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "بيرنجات محرك خلاط النكهة 1",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "لمد محرك خلاط النكهة 1",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "عمود خلاط النكهة 1",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "بيرنجات عمود خلاط النكهة 1",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "لمد عمود خلاط النكهة 1",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "فيبرات محرك خلاط النكهة 1",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "خزان خلاط النكهة 1",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "بيت سخان خزان خلاط النكهة 1",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "سخان خزان خلاط النكهة 1",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "حساس سخان خزان خلاط النكهة 1",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "ساعة حرارة سخان خزان خلاط النكهة 1",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "انفرتر محرك خلاط النكهة 1",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "محرك خلاط النكهة 2",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "بيرنجات محرك خلاط النكهة 2",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "لمد محرك خلاط النكهة 2",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "عمود خلاط النكهة 2",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "بيرنجات عمود خلاط النكهة 2",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "لمد عمود خلاط النكهة 2",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "فيبرات محرك خلاط النكهة 2",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "خزان خلاط النكهة 2",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "بيت سخان خزان خلاط النكهة 2",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "سخان خزان خلاط النكهة 2",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "حساس سخان خزان خلاط النكهة 2",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "ساعة حرارة سخان خزان خلاط النكهة 2",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "انفرتر محرك خلاط النكهة 2",
+      "rows": 6,
+      "machineCount": 5
+    },
+    {
+      "name": "محرك خلاط الذرة",
+      "rows": 5,
+      "machineCount": 5
+    },
+    {
+      "name": "بيرنجات محرك خلاط الذرة",
+      "rows": 5,
+      "machineCount": 5
+    },
+    {
+      "name": "لمد محرك خلاط الذرة",
+      "rows": 5,
+      "machineCount": 5
+    },
+    {
+      "name": "حلزون خلاط الذرة",
+      "rows": 5,
+      "machineCount": 5
+    },
+    {
+      "name": "بيرنجات حلزون خلاط الذرة",
+      "rows": 5,
+      "machineCount": 5
+    },
+    {
+      "name": "سيور النقل لخلاط الذرة",
+      "rows": 5,
+      "machineCount": 5
+    },
+    {
+      "name": "محرك مغذي النكهة",
+      "rows": 4,
+      "machineCount": 3
+    },
+    {
+      "name": "بيرنجات محرك مغذي النكهة",
+      "rows": 4,
+      "machineCount": 3
+    },
+    {
+      "name": "لمد محرك مغذي النكهة",
+      "rows": 4,
+      "machineCount": 3
+    },
+    {
+      "name": "جيربوكس محرك مغذي النكهة",
+      "rows": 4,
+      "machineCount": 3
+    },
+    {
+      "name": "بيرنجات جيربوكس محرك مغذي النكهة",
+      "rows": 4,
+      "machineCount": 3
+    },
+    {
+      "name": "لمد جيربوكس محرك مغذي النكهة",
+      "rows": 4,
+      "machineCount": 3
+    },
+    {
+      "name": "زيت جيربوكس محرك مغذي النكهة",
+      "rows": 4,
+      "machineCount": 3
+    },
+    {
+      "name": "بيرنجات عمود حلزون النكهة",
+      "rows": 4,
+      "machineCount": 3
+    },
+    {
+      "name": "حلزون مغذي النكهة",
+      "rows": 4,
+      "machineCount": 3
+    },
+    {
+      "name": "انفرتر محرك مغذي النكهة",
+      "rows": 4,
+      "machineCount": 3
+    },
+    {
+      "name": "محرك الرجاج",
+      "rows": 3,
+      "machineCount": 2
+    },
+    {
+      "name": "بيرنجات محرك الرجاج",
+      "rows": 3,
+      "machineCount": 2
+    },
+    {
+      "name": "لمد محرك الرجاج",
+      "rows": 3,
+      "machineCount": 2
+    },
+    {
+      "name": "اسبرنجات الرجاج",
+      "rows": 3,
+      "machineCount": 2
+    }
+  ]
+}

@@ -9,6 +9,7 @@ import { MachineDocumentsService } from './machine-documents/machine-documents.s
 import { MaintenanceService } from './maintenance.service';
 import { CostCentersService } from './cost-centers/cost-centers.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { AllowedContextResolver } from '../../../common/operational-context/allowed-context.resolver';
 
 const ctx: ActiveOperationalContext = {
   contextKey: 'c1:b1',
@@ -29,6 +30,27 @@ const ctx: ActiveOperationalContext = {
   source: 'EXPLICIT_SCOPE',
 };
 const ownedMachine = { id: 'm1', code: 'M-001', name: 'Lathe', companyId: 'c1', branchId: 'b1' };
+
+/**
+ * R4O: a MachinePart row whose tenant ownership is PROVEN for the active context
+ * (company c1 / branch b1).
+ *
+ * An unbound row whose ownership column is NULL is unproven, and unproven rows
+ * are quarantined for SUPER_ADMIN only. Scenarios that exercise an unrelated rule
+ * (code immutability, link validation, delete guards) therefore have to model an
+ * owned row; leaving them unbound would silently change what they assert.
+ */
+const ownedPart = (over: Record<string, unknown> = {}) => ({
+  id: 'p1',
+  code: 'PART-001',
+  name: 'Pump',
+  machineId: null,
+  productId: null,
+  sparePartId: null,
+  companyId: 'c1',
+  branchId: 'b1',
+  ...over,
+});
 
 const expectValidationError = async (promise: Promise<unknown>, field: string, code: string) => {
   await expect(promise).rejects.toThrow(BadRequestException);
@@ -51,6 +73,7 @@ describe('Machine assets canonical error contracts', () => {
     let audit: any;
     let numbering: any;
     let service: MachinePartsService;
+    let resolver: AllowedContextResolver;
 
     beforeEach(() => {
       prisma = {
@@ -61,7 +84,8 @@ describe('Machine assets canonical error contracts', () => {
       };
       audit = { log: jest.fn().mockResolvedValue(undefined) };
       numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('PART-0001') };
-      service = new MachinePartsService(prisma as PrismaService, audit as AuditService, numbering as NumberingService);
+      resolver = { getAuthorization: jest.fn().mockResolvedValue({ isSuperAdmin: false, roles: [], permissions: [] }) } as unknown as AllowedContextResolver;
+      service = new MachinePartsService(prisma as PrismaService, audit as AuditService, numbering as NumberingService, resolver);
     });
 
     it('generates an auto code from numbering when code is absent', async () => {
@@ -100,27 +124,27 @@ describe('Machine assets canonical error contracts', () => {
 
     it('throws a messageKey not-found when the part does not exist', async () => {
       prisma.machinePart.findUnique.mockResolvedValue(null);
-      await expectMessageKeyNotFound(service.findOne('ghost', ctx), 'maintenance.machinePartNotFound');
+      await expectMessageKeyNotFound(service.findOne('ghost', ctx, 'u1'), 'maintenance.machinePartNotFound');
     });
 
     it('throws a messageKey not-found when the part belongs to another company', async () => {
       prisma.machinePart.findUnique.mockResolvedValue({ id: 'pX', machineId: 'mX', machine: { id: 'mX', companyId: 'c2', branchId: 'b1' } });
-      await expectMessageKeyNotFound(service.findOne('pX', ctx), 'maintenance.machinePartNotFound');
+      await expectMessageKeyNotFound(service.findOne('pX', ctx, 'u1'), 'maintenance.machinePartNotFound');
     });
 
     it('rejects changing the code after creation', async () => {
-      prisma.machinePart.findUnique.mockResolvedValue({ id: 'p1', code: 'PART-001' });
+      prisma.machinePart.findUnique.mockResolvedValue(ownedPart());
       await expectValidationError(service.update('p1', { code: 'PART-002' }, 'u1', ctx), 'code', 'validation.invalidValue');
     });
 
     it('throws a messageKey not-found when linking to an unknown machine', async () => {
-      prisma.machinePart.findUnique.mockResolvedValue({ id: 'p1', code: 'PART-001', name: 'Pump' });
+      prisma.machinePart.findUnique.mockResolvedValue(ownedPart());
       prisma.machine.findUnique.mockResolvedValue(null);
       await expectMessageKeyNotFound(service.linkToMachine('p1', 'ghost', 'u1', ctx), 'maintenance.machineNotFound');
     });
 
     it('deletes the part and audits DELETE with the userId', async () => {
-      prisma.machinePart.findUnique.mockResolvedValue({ id: 'p1', code: 'PART-001', name: 'Pump', productId: null });
+      prisma.machinePart.findUnique.mockResolvedValue(ownedPart());
       prisma.maintenanceRequestPartUsage.count.mockResolvedValue(0);
       prisma.machinePart.delete.mockResolvedValue({ id: 'p1' });
 
@@ -131,7 +155,7 @@ describe('Machine assets canonical error contracts', () => {
     });
 
     it('blocks deleting a part with linked usage records', async () => {
-      prisma.machinePart.findUnique.mockResolvedValue({ id: 'p1', code: 'PART-001', name: 'Pump', productId: 'prod1' });
+      prisma.machinePart.findUnique.mockResolvedValue(ownedPart({ productId: 'prod1' }));
       prisma.maintenanceRequestPartUsage.count.mockResolvedValue(3);
 
       await expect(service.remove('p1', 'u1', ctx)).rejects.toThrow(ConflictException);

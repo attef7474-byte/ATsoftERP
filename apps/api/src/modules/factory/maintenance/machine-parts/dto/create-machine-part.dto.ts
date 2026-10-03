@@ -12,6 +12,13 @@ export class CreateMachinePartDto {
   @IsString()
   name: string;
 
+  // R4N: canonical technical catalog item this part-list entry represents.
+  // Optional and nullable; only set when technical identity is verified.
+  @ApiPropertyOptional({ description: 'Canonical SparePart this entry represents' })
+  @IsOptional()
+  @IsString()
+  sparePartId?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

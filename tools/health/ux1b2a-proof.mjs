@@ -381,7 +381,7 @@ try {
   info = await p.evaluate(() => ({ dir: document.documentElement.dir || document.body.getAttribute('dir'), text: document.body.innerText, tr: document.querySelectorAll('table tbody tr').length }));
   if (info.dir === 'rtl') ok('Machines AR: dir=rtl');
   else nok('Machines AR: dir', info.dir || 'none');
-  if (info.text.includes('الماكينات') || info.text.includes('آلات')) ok('Machines AR: header translated');
+  if (info.text.includes('الآلات والمعدات') || info.text.includes('آلات')) ok('Machines AR: header translated');
   else nok('Machines AR: header', '');
   await ss('07-machines-ar-rtl.png');
 
@@ -389,7 +389,7 @@ try {
   info = await p.evaluate(() => ({ dir: document.documentElement.dir || document.body.getAttribute('dir'), text: document.body.innerText }));
   if (info.dir === 'rtl') ok('Machine Categories AR: dir=rtl');
   else nok('Machine Categories AR: dir', info.dir || 'none');
-  if (info.text.includes('تصنيفات الماكينات') || info.text.includes('تصنيف')) ok('Machine Categories AR: header translated');
+  if (info.text.includes('تصنيفات الآلات') || info.text.includes('تصنيف')) ok('Machine Categories AR: header translated');
   else nok('Machine Categories AR: header', '');
   await ss('08-machine-categories-ar-rtl.png');
 
@@ -397,7 +397,7 @@ try {
   info = await p.evaluate(() => ({ dir: document.documentElement.dir || document.body.getAttribute('dir'), text: document.body.innerText }));
   if (info.dir === 'rtl') ok('Machine Components AR: dir=rtl');
   else nok('Machine Components AR: dir', info.dir || 'none');
-  if (info.text.includes('مكونات الماكينة') || info.text.includes('مكونات الماكينات')) ok('Machine Components AR: header translated');
+  if (info.text.includes('أجزاء ووحدات الآلات') || info.text.includes('وحدات الآلات')) ok('Machine Components AR: header translated');
   else nok('Machine Components AR: header', '');
   await ss('09-machine-components-ar-rtl.png');
 
@@ -405,7 +405,7 @@ try {
   info = await p.evaluate(() => ({ dir: document.documentElement.dir || document.body.getAttribute('dir'), text: document.body.innerText }));
   if (info.dir === 'rtl') ok('Machine Parts AR: dir=rtl');
   else nok('Machine Parts AR: dir', info.dir || 'none');
-  if (info.text.includes('قطع الماكينات') || info.text.includes('قطع')) ok('Machine Parts AR: header translated');
+  if (info.text.includes('قوائم قطع الآلات') || info.text.includes('قطع')) ok('Machine Parts AR: header translated');
   else nok('Machine Parts AR: header', '');
   await ss('10-machine-parts-ar-rtl.png');
 
