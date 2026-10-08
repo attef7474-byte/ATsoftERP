@@ -4,6 +4,7 @@ import { NumberingService } from '../../../../modules/numbering/numbering.servic
 import { AuditService } from '../../../../common/audit/audit.service';
 import { QueryInstalledPartDto, QueryInstalledPartLookupDto, QueryReplacementHistoryDto, SetExpectedLifeDto, RecordInstalledPartReadingDto } from './dto/installed-parts-replacement.dto';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { assertMachineComponentBelongsToMachine } from '../../../../common/operational-context/tenant-guards';
 
 export const DUE_PROGRESS_THRESHOLD = 0.9;
 
@@ -142,6 +143,13 @@ export class InstalledPartsReplacementService {
       notes?: string | null;
     },
   ) {
+    // Invariant A — the component must be mounted on the machine the part is
+    // installed on. Enforced here on the single MachineInstalledPart writer so
+    // every current and future caller is covered. Runs on the same tx client.
+    if (data.machineComponentId) {
+      await assertMachineComponentBelongsToMachine(tx, data.machineComponentId, data.machineId);
+    }
+
     return tx.machineInstalledPart.create({
       data: {
         machineId: data.machineId,
@@ -191,6 +199,19 @@ export class InstalledPartsReplacementService {
       notes?: string | null;
     },
   ) {
+    // Invariant A (defense in depth) — the SAME canonical guard used by the
+    // installed-part writer. The replacement history is written in the same
+    // transaction, immediately after the guarded installed-part write, and both
+    // the machine and component identities are server-derived from the
+    // tenant-scoped requirement line (findPartLineOrFail -> assertMachineInContext),
+    // never from the client. Because this low-level writer operates only on
+    // already tenant-validated identities, no active context is re-sourced here
+    // (the helper's ctx is optional for exactly this case). Null component stays
+    // valid for whole-machine parts.
+    if (data.machineComponentId) {
+      await assertMachineComponentBelongsToMachine(tx, data.machineComponentId, data.machineId);
+    }
+
     const replacementNumber = await this.numberingService.generateNumberAtomicWithClient('SPARE_PART_REPLACEMENT', tx);
 
     return tx.sparePartReplacementHistory.create({

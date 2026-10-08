@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { MaintenanceNotificationService } from '../maintenance-notification/maintenance-notification.service';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { assertMachineComponentBelongsToMachine } from '../../../../common/operational-context/tenant-guards';
 import { CreateSparePartRequestLineDto, UpdateSparePartRequestLineDto } from './dto/create-spare-part-request-line.dto';
 
 @Injectable()
@@ -94,17 +95,15 @@ export class MaintenanceSparePartRequestLinesService {
       });
     }
 
+    const effectiveMachineId = dto.machineId || req.machineId;
     if (dto.machineId) {
       await this.assertMachineInContext(dto.machineId, ctx);
     }
     if (dto.machineComponentId) {
-      const comp = await this.prisma.machineComponent.findUnique({
-        where: { id: dto.machineComponentId },
-        include: { machine: { select: { companyId: true, branchId: true } } },
-      });
-      if (!comp || !this.isMachineInScope(comp.machine, ctx)) {
-        throw new NotFoundException('Machine component not found or not in the active company/branch');
-      }
+      // Invariant A (root prevention) — the component must be mounted on the
+      // machine the line is for; a valid component of another machine in the
+      // same tenant must never be accepted.
+      await assertMachineComponentBelongsToMachine(this.prisma, dto.machineComponentId, effectiveMachineId, ctx);
     }
     if (dto.failureCauseId) {
       const log = await this.prisma.downtimeLog.findUnique({
@@ -204,14 +203,14 @@ export class MaintenanceSparePartRequestLinesService {
     if (dto.machineId !== undefined && dto.machineId !== req.machineId) {
       await this.assertMachineInContext(dto.machineId, ctx);
     }
-    if (dto.machineComponentId !== undefined) {
-      const comp = await this.prisma.machineComponent.findUnique({
-        where: { id: dto.machineComponentId },
-        include: { machine: { select: { companyId: true, branchId: true } } },
-      });
-      if (!comp || !this.isMachineInScope(comp.machine, ctx)) {
-        throw new NotFoundException('Machine component not found or not in the active company/branch');
-      }
+    // Invariant A (root prevention) — validate the resulting component/machine
+    // pair after applying the patch. This also catches a machine change that
+    // leaves an existing component pointing at a different machine.
+    const effectiveMachineId = dto.machineId ?? part.machineId ?? req.machineId;
+    const effectiveMachineComponentId =
+      dto.machineComponentId !== undefined ? dto.machineComponentId : part.machineComponentId;
+    if (effectiveMachineComponentId) {
+      await assertMachineComponentBelongsToMachine(this.prisma, effectiveMachineComponentId, effectiveMachineId, ctx);
     }
 
     const data: any = {};

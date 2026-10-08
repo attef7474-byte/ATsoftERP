@@ -878,6 +878,7 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         repairQuantityExceedsRemaining: 'لا يمكن أن تتجاوز الكمية المتبقية',
         repairInspectionOutcomeInvalid: 'اختر نتيجة فحص صحيحة',
         repairTargetConditionInvalid: 'اختر حالة مستهدفة صحيحة',
+        machineComponentMachineMismatch: 'المكوّن لا ينتمي إلى الماكينة المحددة',
     },
     cmms: {
         operationalSummary: 'الملخص التشغيلي',

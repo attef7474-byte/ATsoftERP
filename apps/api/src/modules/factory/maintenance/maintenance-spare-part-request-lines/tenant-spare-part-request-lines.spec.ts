@@ -119,4 +119,32 @@ describe('maintenance-spare-part-request-lines tenant isolation', () => {
     await expect(service.markUsed('req-9', 'line-1', 'user-1', ctx)).rejects.toBeInstanceOf(NotFoundException)
     expect(db.maintenanceRequestRequiredPart.update).not.toHaveBeenCalled()
   })
+
+  it('rejects create when the component belongs to a different machine in the same tenant', async () => {
+    const db = buildDb()
+    db.maintenanceRequest.findUnique.mockResolvedValue(requestOf('company-a', 'branch-a'))
+    db.sparePart.findUnique.mockResolvedValue({ id: 'sp-1', status: 'ACTIVE' })
+    db.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(null)
+    db.machineComponent.findUnique.mockResolvedValue({ id: 'mc-x', machineId: 'm-2', machine: machineOf('company-a', 'branch-a') })
+    const service = new MaintenanceSparePartRequestLinesService(db, audit, notification)
+
+    const promise = service.create('req-1', { sparePartId: 'sp-1', quantity: 1, machineComponentId: 'mc-x' } as any, 'user-1', ctx)
+    await expect(promise).rejects.toBeInstanceOf(BadRequestException)
+    const error: any = await promise.catch((e) => e)
+    expect(error.getResponse().messageKey).toBe('maintenance.machineComponentMachineMismatch')
+    expect(db.maintenanceRequestRequiredPart.create).not.toHaveBeenCalled()
+  })
+
+  it('creates when the component belongs to the request machine', async () => {
+    const db = buildDb()
+    db.maintenanceRequest.findUnique.mockResolvedValue(requestOf('company-a', 'branch-a'))
+    db.sparePart.findUnique.mockResolvedValue({ id: 'sp-1', status: 'ACTIVE' })
+    db.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(null)
+    db.machineComponent.findUnique.mockResolvedValue({ id: 'mc-1', machineId: 'm-1', machine: machineOf('company-a', 'branch-a') })
+    db.maintenanceRequestRequiredPart.create.mockResolvedValue({ id: 'line-1' })
+    const service = new MaintenanceSparePartRequestLinesService(db, audit, notification)
+
+    await service.create('req-1', { sparePartId: 'sp-1', quantity: 1, machineComponentId: 'mc-1' } as any, 'user-1', ctx)
+    expect(db.maintenanceRequestRequiredPart.create).toHaveBeenCalled()
+  })
 })

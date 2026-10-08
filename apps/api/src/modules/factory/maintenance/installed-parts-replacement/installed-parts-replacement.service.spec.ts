@@ -360,3 +360,127 @@ describe('InstalledPartsReplacementService (installed part lookup)', () => {
     }));
   });
 });
+
+describe('InstalledPartsReplacementService (installed-part component/machine invariant)', () => {
+  let service: InstalledPartsReplacementService;
+  let numbering: any;
+  let tx: any;
+
+  const baseData = {
+    machineId: 'm1',
+    machineComponentId: 'mc1',
+    sparePartId: 'sp1',
+    maintenanceRequestId: 'req1',
+    requiredPartId: 'line1',
+    inventoryMovementId: 'mv1',
+    installedQuantity: 1,
+    installedCondition: 'NEW',
+    installedByUserId: 'u1',
+  };
+
+  const replacementData = {
+    machineId: 'm1',
+    machineComponentId: 'mc1',
+    maintenanceRequestId: 'req1',
+    requiredPartId: 'line1',
+    newInstalledPartId: 'ip2',
+    newSparePartId: 'sp1',
+    issuedCondition: 'NEW',
+    issuedQuantity: 1,
+    replacementAction: 'RETURNED_REMOVED_PART',
+    inventoryOutMovementId: 'mv1',
+    replacedByUserId: 'u1',
+  };
+
+  beforeEach(() => {
+    numbering = { generateNumberAtomicWithClient: jest.fn().mockResolvedValue('REP-0001') };
+    service = new InstalledPartsReplacementService({} as PrismaService, numbering as NumberingService, { log: jest.fn() } as any);
+    tx = {
+      machineComponent: { findUnique: jest.fn() },
+      machineInstalledPart: { create: jest.fn().mockResolvedValue({ id: 'ip1' }) },
+      sparePartReplacementHistory: { create: jest.fn().mockResolvedValue({ id: 'rep1' }) },
+    };
+  });
+
+  it('records the installed part when the component belongs to the machine', async () => {
+    tx.machineComponent.findUnique.mockResolvedValue({ id: 'mc1', machineId: 'm1', machine: { companyId: null, branchId: null } });
+
+    await service.recordInstalledPartInTx(tx, baseData);
+
+    expect(tx.machineInstalledPart.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an installed part whose component belongs to another machine', async () => {
+    tx.machineComponent.findUnique.mockResolvedValue({ id: 'mc1', machineId: 'm2', machine: { companyId: null, branchId: null } });
+
+    const promise = service.recordInstalledPartInTx(tx, baseData);
+    await expect(promise).rejects.toThrow(BadRequestException);
+    const error: any = await promise.catch((e) => e);
+    expect(error.getResponse().messageKey).toBe('maintenance.machineComponentMachineMismatch');
+    expect(tx.machineInstalledPart.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects when the referenced component does not exist', async () => {
+    tx.machineComponent.findUnique.mockResolvedValue(null);
+
+    await expect(service.recordInstalledPartInTx(tx, baseData)).rejects.toThrow(NotFoundException);
+    expect(tx.machineInstalledPart.create).not.toHaveBeenCalled();
+  });
+
+  it('does not load a component when the installed part is machine-level', async () => {
+    await service.recordInstalledPartInTx(tx, { ...baseData, machineComponentId: null });
+
+    expect(tx.machineComponent.findUnique).not.toHaveBeenCalled();
+    expect(tx.machineInstalledPart.create).toHaveBeenCalledTimes(1);
+  });
+
+  // TEST A — valid machine/component pair.
+  it('records the replacement history when the component belongs to the machine', async () => {
+    tx.machineComponent.findUnique.mockResolvedValue({ id: 'mc1', machineId: 'm1', machine: { companyId: null, branchId: null } });
+
+    const result = await service.recordReplacementInTx(tx, replacementData);
+
+    expect(result).toEqual({ id: 'rep1' });
+    expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledWith('SPARE_PART_REPLACEMENT', tx);
+    expect(tx.sparePartReplacementHistory.create).toHaveBeenCalledTimes(1);
+  });
+
+  // TEST B — same-tenant component that belongs to a DIFFERENT machine.
+  it('rejects a replacement whose component belongs to another machine (400)', async () => {
+    tx.machineComponent.findUnique.mockResolvedValue({ id: 'mc1', machineId: 'm2', machine: { companyId: null, branchId: null } });
+
+    const promise = service.recordReplacementInTx(tx, replacementData);
+    await expect(promise).rejects.toThrow(BadRequestException);
+    const error: any = await promise.catch((e) => e);
+    expect(error.getResponse().messageKey).toBe('maintenance.machineComponentMachineMismatch');
+    // TEST F — the guard fails closed before any replacement-history mutation.
+    expect(tx.sparePartReplacementHistory.create).not.toHaveBeenCalled();
+    expect(numbering.generateNumberAtomicWithClient).not.toHaveBeenCalled();
+  });
+
+  // TEST D — missing component.
+  it('rejects a replacement when the referenced component does not exist (404)', async () => {
+    tx.machineComponent.findUnique.mockResolvedValue(null);
+
+    await expect(service.recordReplacementInTx(tx, replacementData)).rejects.toThrow(NotFoundException);
+    expect(tx.sparePartReplacementHistory.create).not.toHaveBeenCalled();
+  });
+
+  // TEST E — nullable component (whole-machine replacement).
+  it('accepts a machine-level replacement with no component', async () => {
+    const result = await service.recordReplacementInTx(tx, { ...replacementData, machineComponentId: null });
+
+    expect(result).toEqual({ id: 'rep1' });
+    expect(tx.machineComponent.findUnique).not.toHaveBeenCalled();
+    expect(tx.sparePartReplacementHistory.create).toHaveBeenCalledTimes(1);
+  });
+});
+
+// TEST C — foreign / out-of-context component. This low-level writer has no active
+// context and operates only on server-derived, tenant-validated identities
+// (findPartLineOrFail loads the requirement line tenant-scoped and validates the
+// machine; the component id comes from that line, never from the client). The 404
+// "foreign component" contract is therefore enforced upstream at the tenant-facing
+// boundary. That boundary is covered by
+// maintenance-spare-part-request-lines/tenant-spare-part-request-lines.spec.ts
+// ("rejects create when a client-supplied component is outside the active context").

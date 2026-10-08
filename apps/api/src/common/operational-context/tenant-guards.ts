@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActiveOperationalContext } from './operational-context.types';
@@ -73,6 +73,46 @@ export function assertMaintenanceRequestInContext(
       }
       if (request.machine.branchId && request.machine.branchId !== ctx.branchId) {
         throw new ForbiddenException('forbidden: maintenance request does not belong to active branch');
+      }
+    });
+}
+
+/**
+ * Invariant A — a MachineComponent is physically mounted on exactly one Machine
+ * (`MachineComponent.machineId` is required). Any operation that pairs a
+ * component with a machine (installed parts, required-part lines) must prove
+ * `component.machineId === machineId`; the individual foreign keys only prove
+ * each side exists, never that they belong together.
+ *
+ * Runs on the SAME client that performs the write so the check and the mutation
+ * cannot diverge. When `ctx` is supplied the component's owning machine is also
+ * proven to belong to the active company/branch (defense in depth against a
+ * cross-tenant component whose machine would otherwise never be loaded).
+ */
+export function assertMachineComponentBelongsToMachine(
+  client: TenantGuardClient,
+  machineComponentId: string,
+  machineId: string,
+  ctx?: ActiveOperationalContext,
+): Promise<void> {
+  return client.machineComponent
+    .findUnique({
+      where: { id: machineComponentId },
+      select: {
+        id: true,
+        machineId: true,
+        machine: { select: { companyId: true, branchId: true } },
+      },
+    })
+    .then((component) => {
+      if (!component || (ctx && !rowInContext(component.machine.companyId, component.machine.branchId, ctx))) {
+        throw new NotFoundException('Machine component not found or not in the active company/branch');
+      }
+      if (component.machineId !== machineId) {
+        throw new BadRequestException({
+          messageKey: 'maintenance.machineComponentMachineMismatch',
+          message: 'The machine component does not belong to the selected machine',
+        });
       }
     });
 }

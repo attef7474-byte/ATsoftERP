@@ -236,6 +236,7 @@ const messages: Record<string, { ar: string; en: string }> = {
   'maintenance.repairSourceOldIdentityMissing': { ar: 'لا يوجد هوية مسجلة للقطعة المسحوبة', en: 'The removed part has no recorded identity' },
   'maintenance.repairSourceReturnMovementNotFound': { ar: 'لم يتم العثور على حركة إرجاع مخزون القطعة المسحوبة', en: 'The stock return movement of the removed part was not found' },
   'maintenance.repairSourceReturnMovementMismatch': { ar: 'حركة إرجاع المخزون لا تطابق القطعة المسحوبة', en: 'The stock return movement does not match the removed part' },
+  'maintenance.machineComponentMachineMismatch': { ar: 'المكوّن لا ينتمي إلى الماكينة المحددة', en: 'The machine component does not belong to the selected machine' },
 
   'installedParts.notFound': { ar: 'الجزء المثبت غير موجود', en: 'Installed part not found' },
   'installedParts.duplicateInstallation': { ar: 'تم تركيب هذا الجزء مسبقاً لطلب الصيانة هذا', en: 'Part already installed for this maintenance request' },

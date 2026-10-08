@@ -879,6 +879,7 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         repairQuantityExceedsRemaining: 'Quantity cannot exceed the remaining quantity',
         repairInspectionOutcomeInvalid: 'Select a valid inspection outcome',
         repairTargetConditionInvalid: 'Select a valid target condition',
+        machineComponentMachineMismatch: 'The machine component does not belong to the selected machine',
     },
     cmms: {
         operationalSummary: 'Operational Summary',
