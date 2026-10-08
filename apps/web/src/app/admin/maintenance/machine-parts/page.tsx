@@ -11,11 +11,26 @@ import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon } from '../../../../components/admin/admin-action-bar';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
+import { useAuth } from '../../../../lib/auth-context';
 
 export default function MachinePartsPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
+  const { permissions, isSuperAdmin } = useAuth();
+  // MachinePart is TENANT-SCOPED maintenance applicability data, not the global catalog.
+  // These permissions are gated independently so a read-only catalog user is not offered
+  // maintenance write controls, and so a maintenance operator keeps every operation it owns.
+  const can = useCallback(
+    (action: string) => isSuperAdmin || Boolean(permissions?.permissions.includes(`machine-part:${action}`)),
+    [isSuperAdmin, permissions],
+  );
+  const canCreate = can('create');
+  const canUpdate = can('update');
+  const canDelete = can('delete');
+  // This surface exposes only list/detail/create/update/delete. The linkMachine,
+  // unlinkMachine, activate and deactivate permissions have no control here; those
+  // operations are not rendered on this page and remain API-enforced only.
   const [data, setData] = useState<MachinePart[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -41,10 +56,10 @@ const { exec } = useStableHandlers({
 });
 
 useRegisterAdminActions([
-  { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-  { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+  { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new'), enabled: canCreate },
+  { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId && canUpdate },
   { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!selectedId, variant: 'danger' },
+  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!selectedId && canDelete, variant: 'danger' },
 ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -143,8 +158,8 @@ useRegisterAdminActions([
   ];
 
   const gridActions: GridAction<MachinePart>[] = [
-    { label: t('actions.edit'), onClick: (p: MachinePart) => openEdit(p.id) },
-    { label: t('common.delete'), onClick: (p: MachinePart) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
+    { label: t('actions.edit'), onClick: (p: MachinePart) => openEdit(p.id), enabled: () => canUpdate },
+    { label: t('common.delete'), onClick: (p: MachinePart) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, variant: 'danger', enabled: () => canDelete },
   ];
 
   return (
@@ -208,7 +223,7 @@ useRegisterAdminActions([
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
-            <Button onClick={handleSave} loading={saving || loadingDetail}>{t('actions.save')}</Button>
+            <Button onClick={handleSave} loading={saving || loadingDetail} disabled={editItem ? !canUpdate : !canCreate}>{t('actions.save')}</Button>
           </div>
         </div>
       </Modal>

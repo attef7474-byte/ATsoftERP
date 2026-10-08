@@ -1,12 +1,24 @@
 import type { LocaleTranslations } from '../../types';
 
-const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanceWorkflow' | 'maintenanceDashboard' | 'preventiveMaintenance' | 'downtimeAnalysis' | 'sparePartRequest'> = {
+const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanceWorkflow' | 'maintenanceDashboard' | 'preventiveMaintenance' | 'downtimeAnalysis' | 'sparePartRequest' | 'sparePartIssue'> = {
 
     maintenance: {
         costPurposeOverrideReasonRequired: 'A reason is required when overriding the default cost purpose for this issue.',
         machineCategories: 'Machine Categories',
         machines: 'Machines & Equipment',
         machineCategory: 'Machine Category',
+        machineCategoriesAndOperationTypes: 'Machine Categories & Operation Types',
+        machineCategoriesAndOperationTypesDescription:
+            'Machine categories and operation types are maintained together here. Both are global factory master data reviewed while classifying machines. The relationship between them is derived from the machines themselves, because the system stores no direct category-to-operation-type link.',
+        categoryOperationTypes: 'Category Operation Types',
+        categoryOperationTypesDerivedHint:
+            'This view is derived from the machines classified under the selected category. A machine carries both a category and an operation type, so changing the relationship means changing the machine.',
+        noOperationTypesInCategory: 'No operation types in this category',
+        categoryOperationTypesEmptyHint:
+            'None of the machines in this category have an operation type assigned yet. Assign an operation type on the machine itself.',
+        machinesWithoutOperationType: 'Machines in this category without an operation type',
+        machineCount: 'Machines',
+        selectCategoryFirst: 'Select a machine category',
         machine: 'Machine',
         newMachineCategory: 'New Machine Category',
         editMachineCategory: 'Edit Machine Category',
@@ -1143,6 +1155,39 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         weekly: 'Weekly',
         daily: 'Daily',
     },
+    // R4R: the canonical spare-part issue screen is a standalone warehouse
+    // transaction, not part of the maintenance request form.
+    sparePartIssue: {
+        title: 'Spare Part Issues',
+        description: 'Issue approved spare parts from a warehouse. The spare part, machine, component and approved quantity come from the approved maintenance requirement.',
+        request: 'Maintenance Request',
+        machine: 'Machine',
+        component: 'Component',
+        sparePart: 'Spare Part',
+        oldSparePart: 'Removed Spare Part',
+        approvedQuantity: 'Approved Quantity',
+        remaining: 'Remaining to Issue',
+        availableInWarehouse: 'Available in Warehouse',
+        issuable: 'Ready to Issue',
+        fullyIssued: 'Fully Issued',
+        notIssuable: 'Not Ready to Issue',
+        noIssuable: 'No approved spare parts are waiting to be issued',
+        issue: 'Issue Stock',
+        confirmIssue: 'Confirm Issue',
+        issueModalTitle: 'Issue Spare Parts',
+        issuedSuccess: 'Spare parts issued successfully',
+        movements: 'Stock Movements',
+        noMovements: 'No stock movements have been recorded for this requirement',
+quantityExceedsApproved: 'Issued quantity cannot exceed the remaining approved quantity',
+            readOnlyContext: 'Maintenance requirement (read-only)',
+            returnUnusedStock: 'Return Unused Stock',
+            returnModalTitle: 'Return Unused Spare-Part Stock',
+            returnQuantity: 'Return Quantity',
+            returnedSuccess: 'Unused spare-part stock returned successfully',
+            returnUnusedOnlyHint: 'Only unused, still-usable stock is returned here, as usable balance in the same warehouse. A removed or damaged part is returned through the issue itself, with its own condition and destination warehouse.',
+            noStockToReturn: 'No issued spare-part stock is available to return for this requirement',
+            returnQuantityExceedsIssued: 'Return quantity cannot exceed the net issued quantity',
+        },
     sparePartRequest: {
         requestedParts: 'Requested Spare Parts',
         addSparePart: 'Add Spare Part',
@@ -1164,6 +1209,8 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         partUsed: 'Spare part used',
         noStockDeducted: 'Stock is not deducted in this phase',
         noInventoryMovement: 'No inventory movement',
+        // R4R: the request is a planning record; issuing happens on its own screen.
+        issueStockMovedToCanonicalWorkflow: 'To issue stock for a requirement, use the standalone Spare Part Issues screen',
         // Batch O — stock issue integration
         issueStock: 'Issue Stock',
         returnStock: 'Return Stock',

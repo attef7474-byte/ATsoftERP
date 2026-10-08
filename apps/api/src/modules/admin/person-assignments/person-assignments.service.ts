@@ -6,6 +6,7 @@ import { UpdatePersonAssignmentDto } from './dto/update-person-assignment.dto';
 import { TransferPreviewDto } from './dto/transfer-preview.dto';
 import { TransferApplyDto, RelationshipResolutionDto } from './dto/transfer-apply.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { assertUserPermissions } from '../../../common/permissions/assert-user-permissions';
 import {
   assertBranchCompatible,
   DirectIntegrityRelationshipSnapshot,
@@ -724,31 +725,9 @@ export class PersonAssignmentsService {
     userId: string | undefined,
     requiredPermissions: string[],
   ): Promise<void> {
-    if (requiredPermissions.length === 0) return;
-    if (!userId) {
-      throw new ForbiddenException({ messageKey: 'auth.insufficientPermissions', message: 'Insufficient permissions' });
-    }
-    const userRoles = await (client as any).userRole.findMany({
-      where: { userId },
-      include: {
-        role: {
-          include: {
-            permissions: { include: { permission: true } },
-          },
-        },
-      },
-    });
-    const granted = new Set<string>();
-    for (const userRole of userRoles) {
-      if (userRole.role?.status !== 'ACTIVE') continue;
-      if (userRole.role.code === 'SUPER_ADMIN') return;
-      for (const rolePermission of userRole.role.permissions ?? []) {
-        if (rolePermission.permission?.status === 'ACTIVE') granted.add(rolePermission.permission.key);
-      }
-    }
-    if (!requiredPermissions.every((permission) => granted.has(permission))) {
-      throw new ForbiddenException({ messageKey: 'auth.insufficientPermissions', message: 'Insufficient permissions' });
-    }
+    // Shared implementation so the assignment workflow and the person-registration
+    // orchestration cannot drift apart in what they consider an authorised actor.
+    await assertUserPermissions(client as any, userId, requiredPermissions);
   }
 
   private assignmentWindowBlockReason(

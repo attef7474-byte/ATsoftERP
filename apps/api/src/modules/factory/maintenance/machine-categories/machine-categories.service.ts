@@ -147,4 +147,57 @@ export class MachineCategoriesService {
       orderBy: { name: 'asc' },
     });
   }
+
+  /**
+   * R4R — the operation types reachable from a machine category.
+   *
+   * There is deliberately NO `operationTypeId` on MachineCategory: a category does not
+   * own operation types. The only structural link in the schema is
+   * Machine.categoryId -> Machine.operationTypeId -> OperationType, so the set of
+   * operation types for a category is DERIVED from the machines inside it. This
+   * returns the derived read model, including which machines drive each operation type,
+   * so the UI can explain the relationship instead of inventing a second owner.
+   */
+  async categoryOperationTypes(id: string, ctx: ActiveOperationalContext) {
+    await this.findOne(id);
+    const machines = await this.prisma.machine.findMany({
+      where: { categoryId: id, ...this.machineScope(ctx) },
+      select: {
+        id: true, code: true, name: true, status: true,
+        operationType: { select: { id: true, code: true, name: true, status: true, description: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    const byOperationType = new Map<
+      string,
+      { id: string; code: string; name: string; status: string; description: string | null; machineCount: number; machines: { id: string; code: string; name: string }[] }
+    >();
+    for (const machine of machines) {
+      const operationType = machine.operationType;
+      if (!operationType) continue;
+      const existing = byOperationType.get(operationType.id);
+      if (existing) {
+        existing.machineCount += 1;
+        existing.machines.push({ id: machine.id, code: machine.code, name: machine.name });
+      } else {
+        byOperationType.set(operationType.id, {
+          id: operationType.id,
+          code: operationType.code,
+          name: operationType.name,
+          status: operationType.status,
+          description: operationType.description,
+          machineCount: 1,
+          machines: [{ id: machine.id, code: machine.code, name: machine.name }],
+        });
+      }
+    }
+
+    return {
+      categoryId: id,
+      derivedVia: 'Machine.categoryId -> Machine.operationTypeId -> OperationType',
+      machinesWithoutOperationType: machines.filter((m) => !m.operationType).length,
+      data: [...byOperationType.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  }
 }

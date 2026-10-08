@@ -15,6 +15,7 @@ import { StatusBadge } from '@/components/admin/ui';
 import { Pagination } from '@/components/admin/ui';
 import { ConfirmDialog } from '@/components/admin/ui';
 import { Search, Plus, Edit, Trash2, RefreshCw, Briefcase } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
 
 interface JobTitleForm {
   code: string;
@@ -36,6 +37,16 @@ export default function JobTitlesPage() {
   const searchParams = useSearchParams();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { permissions, isSuperAdmin } = useAuth();
+  // Job titles are part of the personnel/organization domain and are gated by the
+  // job-title permission domain only.
+  const can = useCallback(
+    (permission: string) => isSuperAdmin || Boolean(permissions?.permissions.includes(permission)),
+    [isSuperAdmin, permissions],
+  );
+  const canCreate = can('job-title:create');
+  const canUpdate = can('job-title:update');
+  const canDelete = can('job-title:delete');
 
   const [data, setData] = useState<JobTitle[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>(INITIAL_META);
@@ -155,10 +166,12 @@ export default function JobTitlesPage() {
             <Button onClick={() => fetchData(meta.page, search)} variant="secondary" size="sm">
               <RefreshCw className="h-4 w-4 mr-1" />
             </Button>
+            {canCreate && (
             <Button onClick={openCreateModal} size="sm">
               <Plus className="h-4 w-4 mr-1" />
               {t('core.newJobTitle')}
             </Button>
+            )}
           </div>
         </div>
 
@@ -209,12 +222,16 @@ export default function JobTitlesPage() {
                     </td>
                     <td className="py-3 px-2">
                       <div className="flex gap-1">
+                        {canUpdate && (
                         <Button onClick={() => router.push(`/admin/core/job-titles/${record.id}`)} variant="ghost" size="sm">
                           <Edit className="h-4 w-4" />
                         </Button>
+                        )}
+                        {canDelete && (
                         <Button onClick={() => { setDeleteTarget(record.id); setConfirmDelete(true); }} variant="ghost" size="sm" className="text-red-600">
                           <Trash2 className="h-4 w-4" />
                         </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -276,7 +293,7 @@ export default function JobTitlesPage() {
           </div>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving || (editingId ? !canUpdate : !canCreate)}>
               {saving ? t('common.loading') : t('actions.save')}
             </Button>
           </div>

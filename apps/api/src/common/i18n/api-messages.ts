@@ -171,6 +171,13 @@ const messages: Record<string, { ar: string; en: string }> = {
   'maintenance.legacyCostEntryWriteDeprecated': { ar: 'تسجيل تكاليف الطلب في النظام القديم لم يعد يقبل عمليات الكتابة. مصدر الحقيقة المعتمد للتكاليف هو دفتر التكاليف التشغيلية. تُسجَّل تكاليف العمالة والخدمات الخارجية لأوامر العمل عبر بنود تكاليف أمر العمل وتُرحَّل إلى الدفتر عند الإتمام.', en: 'Legacy request cost recording no longer accepts writes. The canonical cost truth is the operational cost ledger. Work-order labor and external-service costs are recorded through work-order cost entries and posted to the ledger on completion.' },
   'maintenance.requestClosedImmutable': { ar: 'الطلب مغلق ولا يقبل أي تغيير تشغيلي. يلزم إعادة الفتح المصرّح بها أولاً.', en: 'The request is CLOSED and accepts no operational change. An authorized reopen is required first.' },
   'maintenance.requestCancelledImmutable': { ar: 'الطلب ملغى ولا يقبل أي تغيير تشغيلي أو تكلفة.', en: 'The request is CANCELLED and accepts no operational or cost change.' },
+  // R4R — canonical spare part issue (standalone warehouse transaction).
+  'sparePartIssue.requirementNotFound': { ar: 'بند الصيانة المحدد غير موجود في الشركة والفرع النشطين', en: 'The selected maintenance requirement does not exist in the active company and branch' },
+  'sparePartIssue.requirementRequestMismatch': { ar: 'البند لا ينتمي إلى طلب الصيانة المحدد', en: 'The requirement does not belong to the supplied maintenance request' },
+  'sparePartIssue.requirementNotIssuable': { ar: 'حالة البند {status}؛ يجب أن يكون معتمداً أو محجوزاً قبل الصرف', en: "Requirement is in status '{status}' and must be APPROVED or RESERVED before stock can be issued" },
+  'sparePartIssue.sparePartMissing': { ar: 'لا يوجد صنف قطعة غيار معتمد مرتبط بهذا البند', en: 'The requirement has no canonical spare part item attached' },
+  'sparePartIssue.sparePartDeleted': { ar: 'صنف قطعة الغيار {code} محذوف منطقياً ولا يمكن صرفه', en: 'Spare part {code} is soft-deleted and cannot be issued' },
+  'sparePartIssue.sparePartNotActive': { ar: 'صنف قطعة الغيار {code} حالته {status}؛ يجب أن يكون نشطاً قبل الصرف', en: "Spare part {code} is in status '{status}' and must be ACTIVE before it can be issued" },
   'maintenance.closeRequiresCompleted': { ar: 'لا يمكن إغلاق الطلب إلا بعد اكتماله. الحالة الحالية {status}.', en: 'A request can only be closed after it is COMPLETED. The current status is {status}.' },
   'maintenance.closeBlockedByReadiness': { ar: 'لا يمكن إغلاق الطلب: {count} عائق أو عوائق تمنع الإغلاق.', en: 'The request cannot be closed: {count} blocker(s) prevent closing.' },
   'maintenance.partAlreadyCancelled': { ar: 'الجزء ملغي بالفعل', en: 'Part is already cancelled' },

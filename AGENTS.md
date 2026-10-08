@@ -221,3 +221,14 @@ A feature is complete only when applicable: existing implementation inspected; n
 Report at the end of an implementation task: 1) task status, 2) exact scope completed, 3) files created, 4) files modified, 5) database models/migrations changed, 6) API endpoints added/changed, 7) frontend routes added/changed, 8) permissions added/changed, 9) tests added and results, 10) build and validation results, 11) runtime proof results, 12) tenant-isolation proof, 13) known limitations, 14) pre-existing issues encountered, 15) git status, 16) commit/tag status only when explicitly requested.
 
 Do not use vague statements such as "everything should work", "likely complete", "tests appear fine", or "production ready" without evidence.
+
+<!-- BEGIN:turborepo-agent-rules -->
+
+# This is NOT the Turborepo you know
+
+Turborepo configuration, task behavior, and CLI commands can vary between installed versions and may differ from your training data. Resolve the `turbo` package from this file's directory or relevant workspace; in monorepos, it may not be visible from the repository root. For example, run `node -p "require.resolve('turbo/package.json')"` from a workspace that depends on `turbo`.
+
+Read `docs/README.md` inside that installed package first, then read the relevant pages from its `docs/` directory before changing Turborepo configuration or commands. Heed deprecation notices. These bundled docs match the installed package version and are available without network access.
+
+This block is written and re-added by `turbo` before repository-scoped commands when an AI agent is detected. In the Turborepo source repository, its template is defined in `crates/turborepo-cli/src/cli/agent_guidance.rs`. Removing the managed block while updates are enabled means a later qualifying invocation will add it again. Set `"agentGuidance": false` in the root `turbo.json` or `turbo.jsonc` to opt out; this does not remove an existing block. Keep the block committed with your work to avoid an uncommitted change on the next agent invocation.
+<!-- END:turborepo-agent-rules -->

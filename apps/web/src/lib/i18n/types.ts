@@ -44,6 +44,7 @@ export type TranslationNamespace =
   | 'preventiveMaintenance'
   | 'downtimeAnalysis'
   | 'sparePartRequest'
+  | 'sparePartIssue'
   | 'search'
   | 'messaging'
   | 'grid'

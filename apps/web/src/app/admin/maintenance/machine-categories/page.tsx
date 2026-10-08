@@ -1,221 +1,131 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
-import { api } from '../../../../lib/api';
+import { useSearchParams } from 'next/navigation';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
-import { useToast } from '../../../../components/admin/toast-provider';
-import { useApiErrorHandler } from '../../../../components/admin/error-handler';
-import { MachineCategory } from '../../../../lib/admin-types';
-import { Button, Input, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
-import { CmmsStatusBadge } from '../../../../components/maintenance';
-import { F9Lookup, machineCategoryAdapter } from '../../../../components/f9';
-import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { useMemo } from 'react';
-import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
-import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
+import { PageHeader, Tabs, TabPanel, Select } from '../../../../components/admin/ui';
+import { MachineCategoriesPanel } from '../../../../components/maintenance/unified-master-data/machine-categories-panel';
+import { OperationTypesPanel } from '../../../../components/maintenance/unified-master-data/operation-types-panel';
+import { CategoryOperationTypesPanel } from '../../../../components/maintenance/unified-master-data/category-operation-types-panel';
+import { api } from '../../../../lib/api';
 
-export default function MachineCategoriesPage() {
-  const { t, dir } = useTranslation();
-  const { showToast } = useToast();
-  const handleApiError = useApiErrorHandler();
-  const [data, setData] = useState<MachineCategory[]>([]);
-  const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
+type UnifiedTab = 'categories' | 'operation-types' | 'relationships';
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<MachineCategory | null>(null);
-  const [form, setForm] = useState({ code: '', name: '', description: '', parentId: '' });
-  const [saving, setSaving] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState('');
+const TAB_PARAM = 'tab';
 
-  const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
+/**
+ * R4R — unified Machine Categories & Operation Types.
+ *
+ * This replaces the two competing standalone screens. Machine categories and operation
+ * types are both global factory master data that the same engineer maintains while
+ * classifying machines, so they belong on one page with one review flow.
+ *
+ * There is deliberately NO stored category→operation-type relationship: the schema has
+ * no such column and no join table. The relationship is derived from
+ * Machine.categoryId → Machine.operationTypeId, so the "Relationships" tab reports that
+ * derived reality instead of letting an operator type an association that does not
+ * exist. `/admin/maintenance/operation-types` now redirects here, so there is exactly one
+ * place to maintain either entity.
+ */
+export default function MachineCategoriesAndOperationTypesPage() {
+  const { t } = useTranslation();
+  const searchParams = useSearchParams();
 
-const { exec } = useStableHandlers({
-  new: () => openCreate(),
-  edit: () => selectedRecord && openEdit(selectedRecord.id),
-  refresh: () => fetchData(meta.page),
-  activate: () => confirmStatus(selectedId),
-  deactivate: () => confirmStatus(selectedId),
-  delete: () => setConfirmDeleteOpen(true),
-});
+  const initial = (searchParams?.get(TAB_PARAM) as UnifiedTab | null) ?? 'categories';
+  const [tab, setTab] = useState<UnifiedTab>(
+    initial === 'operation-types' || initial === 'relationships' ? initial : 'categories',
+  );
 
-useRegisterAdminActions([
-  { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-  { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
-  { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-  { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-  { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
-  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!selectedId, variant: 'danger' },
-]);
-
-  const fetchData = useCallback(async (page = 1) => {
-    setLoading(true); setError('');
-    try {
-      const params: Record<string, any> = { page, limit: 10 };
-      if (search) params.search = search;
-      const res = await api.get<{ data: MachineCategory[]; meta: any }>('/maintenance/machine-categories', { params });
-      setData(res.data || []); setMeta(res.meta);
-    } catch (err: any) { setError(err?.message || t('errors.loadFailed')); }
-    finally { setLoading(false); }
-  }, [search, t]);
-
-  useEffect(() => { fetchData(); }, []);
-
-  const openCreate = () => {
-    setEditItem(null);
-    setForm({ code: '', name: '', description: '', parentId: '' });
-    setValidationErrors({});
-    setModalOpen(true);
-  };
-  const openEdit = async (id: string) => {
-    setLoading(true);
-    setValidationErrors({});
-    try {
-      const item = await api.get<MachineCategory>(`/maintenance/machine-categories/${id}`);
-      setEditItem(item);
-      setForm({ code: item.code, name: item.name, description: item.description || '', parentId: item.parentId || '' });
-      setModalOpen(true);
-    } catch (err: any) {
-      handleApiError(err);
-    } finally {
-      setLoading(false);
+  // Deep links from the retired operation-types screen and from bookmarks keep working.
+  useEffect(() => {
+    const requested = searchParams?.get(TAB_PARAM) as UnifiedTab | null;
+    if (requested === 'operation-types' || requested === 'relationships' || requested === 'categories') {
+      setTab(requested);
     }
-  };
+  }, [searchParams]);
 
-  const handleSave = async () => {
-    const errors: Record<string, string> = {};
-    if (!form.name.trim()) errors.name = t('validation.required');
-    setValidationErrors(errors);
-    if (Object.keys(errors).length > 0) {
-      focusFirstInvalidField(Object.entries(errors).map(([field, message]) => ({ field, code: 'validation.required', message })));
-      return;
-    }
-    setSaving(true);
-    try {
-      const payload: any = editItem ? { name: form.name.trim() } : { name: form.name.trim() };
-      if (form.description.trim()) payload.description = form.description.trim();
-      if (form.parentId) payload.parentId = form.parentId;
-      if (editItem) {
-        await api.patch(`/maintenance/machine-categories/${editItem.id}`, payload);
-        showToast(t('common.successUpdated'), 'success');
-      } else {
-        await api.post('/maintenance/machine-categories', payload);
-        showToast(t('common.successCreated'), 'success');
-      }
-      setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) {
-      const config = handleApiError(err);
-      if (config.errors?.length) {
-        setValidationErrors(adaptFieldErrorsToMap(config.errors));
-        focusFirstInvalidField(config.errors);
-      }
-    }
-    finally { setSaving(false); }
-  };
+  const selectTab = useCallback((next: string) => {
+    setTab(next as UnifiedTab);
+  }, []);
 
-  const confirmStatus = (id: string) => { setSelectedId(id); setConfirmOpen(true); };
-  const handleDelete = async () => {
-    setSaving(true);
-    try {
-      await api.delete(`/maintenance/machine-categories/${selectedId}`);
-      showToast(t('common.successDeleted'), 'success');
-      setConfirmDeleteOpen(false);
-      setSelectedId('');
-      fetchData(meta.page);
-    } catch (err: any) {
-      handleApiError(err);
-    } finally {
-      setSaving(false);
-    }
-  };
-  const handleStatusChange = async () => {
-    setSaving(true);
-    try {
-      const item = data.find((m) => m.id === selectedId);
-      const status = item?.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-      if (status === 'ACTIVE') {
-        await api.patch(`/maintenance/machine-categories/${selectedId}/activate`);
-      } else {
-        await api.patch(`/maintenance/machine-categories/${selectedId}/deactivate`);
-      }
-      showToast(status === 'ACTIVE' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
-      setConfirmOpen(false); fetchData(meta.page);
-    } catch (err: any) { handleApiError(err); }
-    finally { setSaving(false); }
-  };
+  const [categories, setCategories] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
 
-  const columns: GridColumn<MachineCategory>[] = [
-    { key: 'code', header: t('common.code') },
-    { key: 'name', header: t('common.name') },
-    { key: 'description', header: t('common.description'), render: (c: MachineCategory) => c.description || '-' },
-    { key: 'parent', header: t('maintenance.parentCategory'), render: (c: MachineCategory) => c.parent?.name || '-' },
-    { key: 'status', header: t('common.status'), render: (c: MachineCategory) => <CmmsStatusBadge status={c.status} /> },
-    { key: 'machines', header: t('maintenance.machines'), render: (c: MachineCategory) => c._count?.machines ?? 0 },
-  ];
-
-  const gridActions: GridAction<MachineCategory>[] = [
-    { label: t('actions.edit'), onClick: (c: MachineCategory) => openEdit(c.id) },
-    { label: t('actions.deactivate'), onClick: (c: MachineCategory) => confirmStatus(c.id), enabled: (c: MachineCategory) => c.status === 'ACTIVE', variant: 'danger' },
-    { label: t('actions.activate'), onClick: (c: MachineCategory) => confirmStatus(c.id), enabled: (c: MachineCategory) => c.status !== 'ACTIVE' },
-    { label: t('actions.delete'), onClick: (c: MachineCategory) => { setSelectedId(c.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
-  ];
+  // The relationships tab needs a category selector. It is loaded only when that tab is
+  // opened, so the default categories tab keeps its existing single-request behaviour.
+  useEffect(() => {
+    if (tab !== 'relationships' || categories.length > 0) return;
+    let cancelled = false;
+    setCategoriesLoading(true);
+    api
+      .get<{ data: { id: string; code: string; name: string }[] }>('/maintenance/machine-categories', {
+        params: { page: 1, limit: 200 },
+      })
+      .then((res) => {
+        if (cancelled) return;
+        const items = res?.data ?? [];
+        setCategories(items);
+        if (items.length > 0) setSelectedCategoryId((current) => current || items[0].id);
+      })
+      .catch(() => {
+        if (!cancelled) setCategories([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCategoriesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, categories.length]);
 
   return (
     <div>
       <PageHeader title={t('maintenance.machineCategories')} />
-      <AdminDataGrid
-        columns={columns}
-        data={data}
-        keyExtractor={(c: MachineCategory) => c.id}
-        onRowClick={(c: MachineCategory) => setSelectedId(c.id)}
-        selectedKey={selectedId}
-        loading={loading}
-        emptyMessage={t('common.noData')}
-        error={error || undefined}
-        onRetry={() => fetchData(meta.page)}
-        actions={gridActions}
-        dir={dir}
-        globalSearch={search}
-        onGlobalSearch={setSearch}
-        searchPlaceholder={t('common.search')}
-        onRefresh={() => fetchData(meta.page)}
-        refreshLoading={loading}
+      <p className="text-sm text-gray-500 mb-4">{t('maintenance.machineCategoriesAndOperationTypesDescription')}</p>
+
+      <Tabs
+        ariaLabel={t('maintenance.machineCategoriesAndOperationTypes')}
+        activeId={tab}
+        onChange={selectTab}
+        items={[
+          { id: 'categories', label: t('maintenance.machineCategories'), badge: categories.length || undefined },
+          { id: 'operation-types', label: t('maintenance.operationTypes') },
+          { id: 'relationships', label: t('maintenance.categoryOperationTypes') },
+        ]}
       />
-      {data.length > 0 && (
-        <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
-      )}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('maintenance.editMachineCategory') : t('maintenance.newMachineCategory')} size="lg">
+
+      <TabPanel id="categories" activeId={tab}>
+        <MachineCategoriesPanel />
+      </TabPanel>
+
+      <TabPanel id="operation-types" activeId={tab}>
+        <OperationTypesPanel />
+      </TabPanel>
+
+      <TabPanel id="relationships" activeId={tab}>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            {editItem ? (
-              <Input label={t('common.code')} value={form.code} disabled />
-            ) : (
-              <div className="text-sm text-gray-500 self-end pb-2">{t('common.code')}: {t('common.autoGenerated')}</div>
-            )}
-            <div>
-              <Input label={t('common.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} required />
-              {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
-            </div>
+          <div className="max-w-md">
+            <Select
+              label={t('maintenance.machineCategory')}
+              value={selectedCategoryId}
+              onChange={(e) => setSelectedCategoryId(e.target.value)}
+              disabled={categoriesLoading || categories.length === 0}
+              options={[
+                { value: '', label: t('maintenance.selectCategoryFirst') },
+                ...categories.map((category) => ({
+                  value: category.id,
+                  label: `${category.code} - ${category.name}`,
+                })),
+              ]}
+            />
           </div>
-          <Input label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <div>
-            <F9Lookup label={t('maintenance.parentCategory')} value={form.parentId} onChange={(v) => setForm({ ...form, parentId: v })} adapter={machineCategoryAdapter} />
-            {validationErrors.parentId && <p className="text-red-500 text-sm mt-1">{validationErrors.parentId}</p>}
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
-            <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
-          </div>
+          {categoriesLoading ? (
+            <div className="text-center py-8 text-gray-400">{t('common.loading')}</div>
+          ) : (
+            <CategoryOperationTypesPanel categoryId={selectedCategoryId} />
+          )}
         </div>
-      </Modal>
-      <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleStatusChange}
-        title={t('common.confirmDeactivateTitle')} message={t('common.confirmDeactivateMessage')} variant="danger" loading={saving} />
-      <ConfirmDialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} onConfirm={handleDelete}
-        title={t('common.confirmDeleteTitle')} message={t('common.confirmDeleteMessage')} variant="danger" loading={saving} />
+      </TabPanel>
     </div>
   );
 }

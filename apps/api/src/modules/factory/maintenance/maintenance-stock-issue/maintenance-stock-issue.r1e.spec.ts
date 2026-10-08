@@ -80,7 +80,7 @@ const partLine = (overrides: Record<string, any> = {}) => ({
   warehouseId: null,
   machineComponentId: null,
   machineComponent: null,
-  sparePart: { id: 'sp1', productId: 'prod1', code: 'SP1', name: 'Spare Part 1' },
+  sparePart: { id: 'sp1', productId: 'prod1', code: 'SP1', name: 'Spare Part 1', status: 'ACTIVE', deletedAt: null },
   maintenanceRequest: {
     machine: { id: 'm1', companyId: 'c1', branchId: 'b1', productionLineId: null, departmentId: null, defaultCostCenterId: null },
   },

@@ -4,6 +4,7 @@ const access: Pick<LocaleTranslations, 'access' | 'users' | 'roles' | 'permissio
     access: {
         users: 'المستخدمين',
         roles: 'الأدوار',
+        systemAccess: 'الوصول للنظام',
         permissions: 'الصلاحيات',
         user: 'المستخدم',
         role: 'الدور',

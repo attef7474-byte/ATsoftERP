@@ -1,0 +1,103 @@
+{
+  "routes": [
+    {
+      "path": "/admin/maintenance/machine-categories",
+      "status": 200,
+      "dir": "ltr",
+      "rawCuid": 0,
+      "rawKey": 0,
+      "new4xx5xx": 0,
+      "newConsoleErrors": 0
+    },
+    {
+      "path": "/admin/maintenance/operation-types",
+      "status": 200,
+      "dir": "ltr",
+      "rawCuid": 0,
+      "rawKey": 0,
+      "new4xx5xx": 0,
+      "newConsoleErrors": 0
+    },
+    {
+      "path": "/admin/maintenance/spare-parts",
+      "status": 200,
+      "dir": "ltr",
+      "rawCuid": 0,
+      "rawKey": 0,
+      "new4xx5xx": 0,
+      "newConsoleErrors": 0
+    },
+    {
+      "path": "/admin/maintenance/machine-parts",
+      "status": 200,
+      "dir": "ltr",
+      "rawCuid": 0,
+      "rawKey": 0,
+      "new4xx5xx": 0,
+      "newConsoleErrors": 0
+    },
+    {
+      "path": "/admin/maintenance/spare-part-issues",
+      "status": 200,
+      "dir": "ltr",
+      "rawCuid": 0,
+      "rawKey": 0,
+      "new4xx5xx": 0,
+      "newConsoleErrors": 0
+    },
+    {
+      "path": "/admin/maintenance/requests",
+      "status": 200,
+      "dir": "ltr",
+      "rawCuid": 0,
+      "rawKey": 0,
+      "new4xx5xx": 0,
+      "newConsoleErrors": 0
+    },
+    {
+      "path": "/admin/core/supervisor-assignments",
+      "status": 200,
+      "dir": "ltr",
+      "rawCuid": 0,
+      "rawKey": 0,
+      "new4xx5xx": 0,
+      "newConsoleErrors": 0
+    }
+  ],
+  "checks": {
+    "enListHttp": 200,
+    "enDir": "ltr",
+    "enHeading": "Employees, Users & Maintenance Personnel",
+    "enHasRow": true,
+    "enPersonRegistrationsStatus": 200,
+    "enRawCuidCount": 0,
+    "enRawKeyCount": 0,
+    "enPageErrorCount": 0,
+    "section_personal-information": true,
+    "section_organization-assignment": true,
+    "section_maintenance-capability": true,
+    "section_system-login": true,
+    "personalInfoNamePrefilled": true,
+    "personalInfoNameValue": "حنظل",
+    "maintenanceToggleEnabled": true,
+    "loginToggleEnabled": true,
+    "section_roles_access": true,
+    "enNew4xx5xxDuringEdit": 0,
+    "enRawCuidCountAfterEdit": 0,
+    "enRawKeyCountAfterEdit": 0,
+    "arListHttp": 200,
+    "arDir": "rtl",
+    "arHeading": "الموظفون والمستخدمون وكادر الصيانة",
+    "arRawCuidCount": 0,
+    "arRawKeyCount": 0,
+    "arHasRow": true,
+    "totalConsoleErrors": 0,
+    "totalPageErrors": 0,
+    "totalBadResponses": 0,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "badResponses": []
+  },
+  "findings": [],
+  "capturedAt": "2026-10-07T21:57:22.529Z"
+}

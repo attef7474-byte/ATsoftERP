@@ -4,8 +4,9 @@ import React, { useMemo } from 'react';
 import Link from 'next/link';
 import type { TranslationNamespace } from '../../../lib/i18n/types';
 import { MessageButton } from './message-button';
-import { sidebarGroups, routeGroupMap, type SidebarGroup } from './navigation-data';
+import { sidebarGroups, routeGroupMap, filterSidebarGroups, type SidebarGroup } from './navigation-data';
 import { shellIconMap } from './shell-icons';
+import { useAuth } from '../../../lib/auth-context';
 
 type Translate = (key: string, namespace?: TranslationNamespace) => string;
 
@@ -102,13 +103,18 @@ export function Sidebar({
   onCollapsedIconClick,
   onNavigate,
 }: SidebarProps) {
+  const { permissions, isSuperAdmin } = useAuth();
   const activeGroupId = useMemo(() => getActiveGroupId(pathname), [pathname]);
+  const visibleGroups = useMemo(
+    () => filterSidebarGroups(sidebarGroups, permissions?.permissions ?? null, isSuperAdmin),
+    [permissions, isSuperAdmin],
+  );
 
   return (
     <aside className={`admin-sidebar hidden lg:flex${collapsed ? ' admin-sidebar-collapsed' : ''}`}>
       {collapsed ? (
         <nav className="admin-sidebar-icons">
-          {sidebarGroups.map((group) => {
+          {visibleGroups.map((group) => {
             const isActive = activeGroupId === group.id;
             return (
               <button
@@ -135,7 +141,7 @@ export function Sidebar({
           </div>
 
           {/* Groups */}
-          {sidebarGroups.map((group) => {
+          {visibleGroups.map((group) => {
             const hasChildren = !!(group.children || group.items);
             const isActive = activeGroupId === group.id;
             const isOpen = openGroup === group.id;
@@ -175,7 +181,7 @@ export function Sidebar({
 
           {/* MessageButton at bottom */}
           {(() => {
-            const msg = sidebarGroups.find(g => g.id === 'messaging');
+            const msg = visibleGroups.find(g => g.id === 'messaging');
             return msg ? (
               <div style={{ marginTop: 'auto', paddingTop: 8 }}>
                 <MessageButton

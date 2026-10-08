@@ -9,12 +9,26 @@ import { Button, Input, Select, Pagination, PageHeader, Modal, ConfirmDialog } f
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon, ActionDeleteIcon, ActionBackIcon } from '../../../../components/admin/admin-action-bar';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
+import { useAuth } from '../../../../lib/auth-context';
 
 export default function SparePartsPage() {
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
+  const { permissions, isSuperAdmin } = useAuth();
+  // SparePart is a global canonical technical catalog. Writes are reserved for an
+  // explicitly approved catalog-maintenance role, so a read-only operational user must
+  // not be offered create/edit/delete/lifecycle controls.
+  const can = useCallback(
+    (action: string) => isSuperAdmin || Boolean(permissions?.permissions.includes(`spare-part:${action}`)),
+    [isSuperAdmin, permissions],
+  );
+  const canCreate = can('create');
+  const canUpdate = can('update');
+  const canDelete = can('delete');
+  const canActivate = can('activate');
+  const canDeactivate = can('deactivate');
   const [data, setData] = useState<SparePart[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -129,9 +143,9 @@ export default function SparePartsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'add', labelKey: 'actions.add', icon: <ActionAddIcon />, onClick: () => exec('add') },
+    { id: 'add', labelKey: 'actions.add', icon: <ActionAddIcon />, onClick: () => exec('add'), enabled: canCreate },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId && canDelete },
   ]);
 
   const columns: GridColumn<SparePart>[] = [
@@ -151,10 +165,10 @@ export default function SparePartsPage() {
 
   const gridActions: GridAction<SparePart>[] = [
     { label: t('actions.view'), onClick: (s) => router.push(`/admin/maintenance/spare-parts/${s.id}`) },
-    { label: t('actions.edit'), onClick: (s) => openEdit(s.id) },
-    { label: t('common.delete'), onClick: (s) => { setSelectedId(s.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
-    { label: t('actions.deactivate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'deactivate' }), enabled: (s) => s.status === 'ACTIVE' },
-    { label: t('actions.activate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'activate' }), enabled: (s) => s.status !== 'ACTIVE' },
+    { label: t('actions.edit'), onClick: (s) => openEdit(s.id), enabled: () => canUpdate },
+    { label: t('common.delete'), onClick: (s) => { setSelectedId(s.id); setConfirmDeleteOpen(true); }, variant: 'danger', enabled: () => canDelete },
+    { label: t('actions.deactivate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'deactivate' }), enabled: (s) => s.status === 'ACTIVE' && canDeactivate },
+    { label: t('actions.activate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'activate' }), enabled: (s) => s.status !== 'ACTIVE' && canActivate },
   ];
 
   return (

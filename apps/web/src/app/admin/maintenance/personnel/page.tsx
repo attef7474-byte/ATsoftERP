@@ -5,6 +5,7 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
+import { useAuth } from '@/lib/auth-context';
 import { MaintenancePersonnel } from '../../../../lib/admin-types';
 import { User } from '../../../../lib/admin-types/access';
 import { Button, Input, Select, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
@@ -16,6 +17,20 @@ export default function MaintenancePersonnelPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
+  const { permissions, isSuperAdmin } = useAuth();
+  // Granting a user the ability to perform maintenance work is a MAINTENANCE capability,
+  // gated by the maintenance-personnel domain. It is deliberately independent of both the
+  // operational-person domain and the access-control (user:*) domain, so personnel
+  // administration can never implicitly grant system access.
+  const can = useCallback(
+    (permission: string) => isSuperAdmin || Boolean(permissions?.permissions.includes(permission)),
+    [isSuperAdmin, permissions],
+  );
+  const canCreate = can('maintenance-personnel:create');
+  const canUpdate = can('maintenance-personnel:update');
+  const canDelete = can('maintenance-personnel:delete');
+  const canActivate = can('maintenance-personnel:activate');
+  const canDeactivate = can('maintenance-personnel:deactivate');
   const [data, setData] = useState<MaintenancePersonnel[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -146,12 +161,17 @@ export default function MaintenancePersonnelPage() {
     } catch (e: any) { handleApiError(e); }
   }, [meta.page, showToast, t, fetchData]);
 
-  const { exec } = useStableHandlers({ add: () => openNew(), refresh: () => fetchData(meta.page), delete: () => setConfirmDeleteOpen(true) });
+  // Group 1: person registration is centralized in the unified workspace. This surface is
+  // retained for maintenance-personnel READ/detail/history, but its primary "create" is
+  // redirected so an operator cannot bypass the canonical /person-registrations
+  // orchestration by minting a MaintenancePersonnel (and implicitly an OperationalPerson)
+  // from here.
+  const { exec } = useStableHandlers({ add: () => router.push('/admin/core/persons'), refresh: () => fetchData(meta.page), delete: () => setConfirmDeleteOpen(true) });
   useRegisterAdminActions(useMemo(() => [
-    { id: 'add', labelKey: 'actions.add', icon: React.createElement(ActionAddIcon), onClick: () => exec('add') },
+    { id: 'add', labelKey: 'core.registerPerson', icon: React.createElement(ActionAddIcon), onClick: () => exec('add') },
     { id: 'refresh', labelKey: 'common.refresh', icon: React.createElement(ActionRefreshIcon), onClick: () => exec('refresh') },
     { id: 'delete', labelKey: 'common.delete', icon: React.createElement(ActionDeleteIcon), variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
-  ], [exec, selectedId]));
+  ], [exec, selectedId, router]));
 
   const handleRowClick = useCallback((item: MaintenancePersonnel) => {
     router.push(`/admin/maintenance/personnel/${item.id}`);
@@ -169,10 +189,10 @@ export default function MaintenancePersonnelPage() {
   ];
 
   const gridActions: GridAction<MaintenancePersonnel>[] = [
-    { label: t('actions.edit'), onClick: (s) => openEdit(s.id) },
-    { label: t('actions.delete'), onClick: (s) => { setSelectedId(s.id); setConfirmDeleteOpen(true); } },
-    { label: t('actions.deactivate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'deactivate' }), enabled: (s) => s.isActive },
-    { label: t('actions.activate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'activate' }), enabled: (s) => !s.isActive },
+    { label: t('actions.edit'), onClick: (s) => openEdit(s.id), enabled: () => canUpdate },
+    { label: t('actions.delete'), onClick: (s) => { setSelectedId(s.id); setConfirmDeleteOpen(true); }, enabled: () => canDelete },
+    { label: t('actions.deactivate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'deactivate' }), enabled: (s) => s.isActive && canDeactivate },
+    { label: t('actions.activate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'activate' }), enabled: (s) => !s.isActive && canActivate },
   ];
 
   return (
@@ -244,7 +264,7 @@ export default function MaintenancePersonnelPage() {
             <Input label={t('maintenance.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
-              <Button onClick={handleSave} disabled={saving} variant="primary">{saving ? t('common.saving') : t('actions.save')}</Button>
+              <Button onClick={handleSave} disabled={saving || !canCreate} variant="primary">{saving ? t('common.saving') : t('actions.save')}</Button>
             </div>
           </div>
         )}

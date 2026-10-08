@@ -1,11 +1,23 @@
 import type { LocaleTranslations } from '../../types';
 
-const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanceWorkflow' | 'maintenanceDashboard' | 'preventiveMaintenance' | 'downtimeAnalysis' | 'sparePartRequest'> = {
+const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanceWorkflow' | 'maintenanceDashboard' | 'preventiveMaintenance' | 'downtimeAnalysis' | 'sparePartRequest' | 'sparePartIssue'> = {
     maintenance: {
         costPurposeOverrideReasonRequired: 'مطلوب ذكر السبب عند تغيير غرض التكلفة الافتراضي لهذا الصرف.',
         machineCategories: 'تصنيفات الآلات',
         machines: 'الآلات والمعدات',
         machineCategory: 'تصنيف الماكينة',
+        machineCategoriesAndOperationTypes: 'تصنيفات الآلات وأنواع العمليات',
+        machineCategoriesAndOperationTypesDescription:
+            'يُدار تصنيفات الآلات وأنواع العمليات معًا في هذه الشاشة. كلاهما بيانات مرجعية عامة للمصنع تُراجع أثناء تصنيف الآلات. أما العلاقة بينهما فتُشتق من الآلات نفسها، لأن النظام لا يخزّن أي ارتباط مباشر بين التصنيف ونوع العملية.',
+        categoryOperationTypes: 'أنواع عمليات التصنيف',
+        categoryOperationTypesDerivedHint:
+            'تُشتق هذه القائمة من الآلات المصنّفة ضمن التصنيف المحدد. تحمل الآلة تصنيفًا ونوع عملية معًا، لذا فإن تغيير العلاقة يتم بتعديل الآلة.',
+        noOperationTypesInCategory: 'لا توجد أنواع عمليات في هذا التصنيف',
+        categoryOperationTypesEmptyHint:
+            'لم يتم تعيين نوع عملية لأي من آلات هذا التصنيف بعد. عيّن نوع العملية على الآلة نفسها.',
+        machinesWithoutOperationType: 'آلات في هذا التصنيف بدون نوع عملية',
+        machineCount: 'الآلات',
+        selectCategoryFirst: 'اختر تصنيف آلة',
         machine: 'الماكينة',
         newMachineCategory: 'تصنيف آلة جديد',
         editMachineCategory: 'تعديل تصنيف الآلة',
@@ -1143,6 +1155,37 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         weekly: 'أسبوعي',
         daily: 'يومي',
     },
+        sparePartIssue: {
+            title: 'صرف قطع الغيار',
+            description: 'صرف قطع الغيار المعتمدة من المستودع. الصنف والآلة والمكون والكمية المعتمدة تُستمد من بند الصيانة المعتمد.',
+            request: 'طلب الصيانة',
+            machine: 'الآلة',
+            component: 'المكون',
+            sparePart: 'قطعة الغيار',
+            oldSparePart: 'قطعة الغيار المسحوبة',
+            approvedQuantity: 'الكمية المعتمدة',
+            remaining: 'المتبقي للصرف',
+            availableInWarehouse: 'المتاح في المستودع',
+            issuable: 'جاهز للصرف',
+            fullyIssued: 'تم صرفه بالكامل',
+            notIssuable: 'غير جاهز للصرف',
+            noIssuable: 'لا توجد قطع غيار معتمدة بانتظار الصرف',
+            issue: 'صرف المخزون',
+            confirmIssue: 'تأكيد الصرف',
+            issueModalTitle: 'صرف قطع الغيار',
+            issuedSuccess: 'تم صرف قطع الغيار بنجاح',
+            movements: 'حركات المخزون',
+            noMovements: 'لا توجد حركات مخزون مسجلة لهذا البند',
+            quantityExceedsApproved: 'لا يمكن أن تتجاوز كمية الصرف الكمية المعتمدة المتبقية',
+            readOnlyContext: 'بند الصيانة (للقراءة فقط)',
+            returnUnusedStock: 'إرجاع المخزون غير المستخدم',
+            returnModalTitle: 'إرجاع مخزون قطع الغيار غير المستخدم',
+            returnQuantity: 'كمية الإرجاع',
+            returnedSuccess: 'تم إرجاع مخزون قطع الغيار غير المستخدم بنجاح',
+            returnUnusedOnlyHint: 'يُرجع هنا المخزون غير المستخدم والصالح فقط، كرصيد صالح في نفس المستودع. أما القطعة المسحوبة أو التالفة فيُرجع عبر عملية الصرف نفسها مع حالتها ومستودعها الوجهة.',
+            noStockToReturn: 'لا يوجد مخزون قطع غيار مُصدر لهذا البند يمكن إرجاعه',
+            returnQuantityExceedsIssued: 'لا يمكن أن تتجاوز كمية الإرجاع كمية الصافي المُصدر',
+        },
     sparePartRequest: {
         requestedParts: 'قطع الغيار المطلوبة',
         addSparePart: 'إضافة قطعة غيار',
@@ -1164,6 +1207,8 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         partUsed: 'تم استخدام القطعة',
         noStockDeducted: 'لا يتم خصم المخزون في هذه المرحلة',
         noInventoryMovement: 'لا توجد حركة مخزون',
+        // R4R: الطلب سجل تخطيط؛ يتم الصرف من شاشة مستقلة.
+        issueStockMovedToCanonicalWorkflow: 'لصرف مخزون بند طلب، استخدم شاشة صرف قطع الغيار المستقلة',
         // Batch O — stock issue integration
         issueStock: 'صرف المخزون',
         returnStock: 'إرجاع المخزون',
@@ -1324,6 +1369,7 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         installedCondition: 'حالة التركيب',
         noInstalledParts: 'لا توجد قطع مركبة',
         noReplacementHistory: 'لا يوجد سجل استبدال',
+        // R4R: شاشة صرف قطع الغيار معرّفة بذاتها، وليست جزءاً من نموذج طلب الصيانة.
         // AF-AG KPI keys
         kpiOverview: 'نظرة عامة على مؤشرات الأداء',
         repeatFailureRate: 'معدل الأعطال المتكررة',

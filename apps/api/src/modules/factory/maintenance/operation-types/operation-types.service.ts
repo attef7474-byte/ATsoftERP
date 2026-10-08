@@ -118,7 +118,7 @@ export class OperationTypesService {
    * column, so restoring one row changes what every tenant can see and select.
    * That is why this path is privileged in two independent layers:
    *
-   * - `operationTypes:update` is enforced by the controller guards. The shared
+   * - `operation-type:update` is enforced by the controller guards. The shared
    *   PermissionsGuard grants SUPER_ADMIN a documented bypass, which is why that
    *   layer alone is not sufficient here.
    * - SUPER_ADMIN system-administration authority is re-resolved from the

@@ -58,6 +58,9 @@ const partLine = (overrides: Record<string, any> = {}) => ({
     usageType: null,
     nature: null,
     importance: null,
+    // R4R: the issue path now enforces the catalog lifecycle state.
+    status: 'ACTIVE',
+    deletedAt: null,
   },
   maintenanceRequest: { machine: machine() },
   ...overrides,

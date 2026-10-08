@@ -194,9 +194,21 @@ async function main() {
     ...BATCH_B_PERMISSIONS,
     ...INVENTORY_VALUATION_PERMISSIONS,
     { key: "user:reset-password", module: "user", action: "reset-password" },
+    // R4R: UserActivityController enforces `users.loginHistory.view` on two routes, but the
+    // key was declared nowhere in the seed, so those routes were a permanently-denied 403
+    // for every non-SUPER_ADMIN role. Declared here so the guard key is grantable.
+    { key: "users.loginHistory.view", module: "users", action: "loginHistory.view" },
     { key: "numbering:generate", module: "numbering", action: "generate" },
     { key: "messaging:send", module: "messaging", action: "send" },
     { key: "messaging:manage", module: "messaging", action: "manage" },
+    // R4R: OperationTypesController enforces create/read/update/delete in addition to
+    // activate/deactivate, but only activate/deactivate were ever declared in the seed.
+    // A key that is enforced but never seeded is a permanently-denied route on a fresh
+    // database, so the full enforced set is declared here.
+    { key: "operation-type:read", module: "operation-type", action: "read" },
+    { key: "operation-type:create", module: "operation-type", action: "create" },
+    { key: "operation-type:update", module: "operation-type", action: "update" },
+    { key: "operation-type:delete", module: "operation-type", action: "delete" },
     { key: "operation-type:activate", module: "operation-type", action: "activate" },
     { key: "operation-type:deactivate", module: "operation-type", action: "deactivate" },
     { key: "cost-center:activate", module: "cost-center", action: "activate" },
@@ -229,8 +241,9 @@ async function main() {
     { key: "operational-person:create", module: "operational-person", action: "create" },
     { key: "operational-person:read", module: "operational-person", action: "read" },
     { key: "operational-person:update", module: "operational-person", action: "update" },
-    { key: "operational-person:deactivate", module: "operational-person", action: "deactivate" },
-    { key: "operational-person:delete", module: "operational-person", action: "delete" },
+{ key: "operational-person:deactivate", module: "operational-person", action: "deactivate" },
+  { key: "operational-person:activate", module: "operational-person", action: "activate" },
+  { key: "operational-person:delete", module: "operational-person", action: "delete" },
     // Maintenance work order permissions (status transitions + part lines + costs)
     { key: "maintenance-work-order:plan", module: "maintenance-work-order", action: "plan" },
     { key: "maintenance-work-order:start", module: "maintenance-work-order", action: "start" },

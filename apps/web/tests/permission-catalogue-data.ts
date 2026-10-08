@@ -88,4 +88,11 @@ export const AUTHORITATIVE_PERMISSION_KEYS: string[] = [
   "spare-part:deactivate", "spare-part:delete", "spare-part:read", "spare-part:update", "spare-part-conditions:create", "spare-part-conditions:read", "system-setting:create", "system-setting:delete",
   "system-setting:read", "system-setting:update", "user:create", "user:delete", "user:read", "user:reset-password", "user:update", "warehouse:create",
   "warehouse:delete", "warehouse:read", "warehouse:update", "warehouse-location:create", "warehouse-location:delete", "warehouse-location:read", "warehouse-location:update",
+  // --- Group 1: Personnel & Organization (live rows created by the R4R role reconciliation) ---
+  "job-title:create", "job-title:delete", "job-title:read", "job-title:update",
+  "operational-person:activate", "operational-person:create", "operational-person:deactivate",
+  "operational-person:delete", "operational-person:read", "operational-person:update",
+  "person-assignment:create", "person-assignment:read", "person-assignment:transfer", "person-assignment:update",
+  "supervisor:assign", "supervisor:read", "supervisor:remove",
+  "users.loginHistory.view",
 ];

@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { readdirSync, readFileSync } from 'fs';
+import { join } from 'path';
 import { OperationTypesService } from './operation-types.service';
 import { OperationTypesController } from './operation-types.controller';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
@@ -35,7 +37,7 @@ describe('OperationTypesService.restore (OPTYPE-RESTORE-R3A)', () => {
     roles: [{ code: 'COMPANY_ADMIN' }],
     // Holds the permission key but is NOT a system administrator: proves the
     // explicit service-side check is real and not a restatement of the guard.
-    permissions: ['operationTypes:update', 'operationTypes:read'],
+    permissions: ['operation-type:update', 'operation-type:read'],
   };
   const ACTOR = 'super-admin-user';
 
@@ -270,12 +272,65 @@ describe('OperationTypesService.restore (OPTYPE-RESTORE-R3A)', () => {
       ]);
     }
 
-    it('requires operationTypes:update on the restore route', () => {
-      expect(metadataOf('restore')).toEqual(['operationTypes:update']);
+    it('requires the SEEDED operation-type:update on the restore route', () => {
+      // R4R: the controller previously enforced `operationTypes:update`, but the seed
+      // only ever creates `operation-type:*`. A guard key that no role can be granted
+      // is a permanently-denied route, so the enforced key must be a seeded key.
+      expect(metadataOf('restore')).toEqual(['operation-type:update']);
     });
 
     it('keeps activate on its own permission key', () => {
-      expect(metadataOf('activate')).toEqual(['operationTypes:activate']);
+      expect(metadataOf('activate')).toEqual(['operation-type:activate']);
+    });
+
+    it('every enforced permission key is a SEEDED operation-type key, never the unseeded operationTypes:* spelling', () => {
+      const handlers = [
+        'create', 'findAll', 'findOne', 'update', 'remove',
+        'activate', 'deactivate', 'restore',
+      ];
+      for (const handler of handlers) {
+        const keys = metadataOf(handler) ?? [];
+        for (const key of keys) {
+          expect(key.startsWith('operationTypes:')).toBe(false);
+          expect(key.startsWith('operation-type:')).toBe(true);
+        }
+      }
+    });
+
+    it('SEEDS every operation-type key the controller enforces (OPTYPE-SEEDED-KEYS)', () => {
+      // R4R: the assertion above only checked the `operation-type:` PREFIX, so the four
+      // enforced-but-unseeded keys (create/read/update/delete) passed unnoticed. A key that
+      // is enforced but never declared in the seed is a permanently-denied route on a fresh
+      // database, so every enforced key must appear in the actual seed catalogue.
+      const seedDirectory = join(
+        __dirname, '..', '..', '..', '..', '..', 'prisma', 'seed',
+      );
+      const seededKeys = new Set<string>();
+      for (const file of readdirSync(seedDirectory)) {
+        if (!file.endsWith('.ts')) continue;
+        const seedSource = readFileSync(join(seedDirectory, file), 'utf8');
+        for (const match of seedSource.matchAll(/key:\s*"([^"]+)"/g)) {
+          seededKeys.add(match[1]);
+        }
+      }
+      const handlers = [
+        'create', 'findAll', 'findOne', 'update', 'remove',
+        'activate', 'deactivate', 'restore',
+      ];
+      const enforced = handlers.flatMap((handler) => metadataOf(handler) ?? []);
+      expect(enforced.length).toBeGreaterThan(0);
+      for (const key of enforced) {
+        expect(seededKeys.has(key)).toBe(true);
+      }
+      // Explicitly pin the four keys the seed was missing before this fix.
+      for (const key of [
+        'operation-type:create',
+        'operation-type:read',
+        'operation-type:update',
+        'operation-type:delete',
+      ]) {
+        expect(seededKeys.has(key)).toBe(true);
+      }
     });
 
     function guardContext(handler: string, user: unknown) {
@@ -300,7 +355,7 @@ describe('OperationTypesService.restore (OPTYPE-RESTORE-R3A)', () => {
             role: {
               status: 'ACTIVE',
               code: 'TECHNICIAN',
-              permissions: [{ permission: { key: 'operationTypes:read', status: 'ACTIVE' } }],
+              permissions: [{ permission: { key: 'operation-type:read', status: 'ACTIVE' } }],
             },
           },
         ]),

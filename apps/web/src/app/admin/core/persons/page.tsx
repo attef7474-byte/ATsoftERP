@@ -1,76 +1,205 @@
 'use client';
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { api } from '../../../../lib/api';
 import { safeString } from '../../../../lib/form-utils';
-import { useCrudList, CrudOperation } from '../../../../hooks/useCrudList';
+import { useCrudList } from '../../../../hooks/useCrudList';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { OperationalPerson, PaginationMeta } from '../../../../lib/admin-types';
-import { useRouter } from 'next/navigation';
-import { Button, Input, Modal, Pagination, ConfirmDialog } from '../../../../components/admin/ui';
+import { useAuth } from '@/lib/auth-context';
+import { Button, Input, Modal, Pagination, LoadingState } from '../../../../components/admin/ui';
 import { GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { F9Lookup, departmentAdapter } from '../../../../components/f9';
-import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon, ActionDeleteIcon } from '../../../../components/admin/admin-action-bar';
-import { EntityWorkspaceLayout, EntityPageHeader, EntityDataTable, EntityEmptyState } from '../../../../components/entity';
+import {
+  EntityWorkspaceLayout,
+  EntityPageHeader,
+  EntityDataTable,
+  EntityEmptyState,
+} from '../../../../components/entity';
+import {
+  useRegisterAdminActions,
+  useStableHandlers,
+  ActionAddIcon,
+  ActionEditIcon,
+  ActionRefreshIcon,
+} from '../../../../components/admin/admin-action-bar';
+import {
+  F9Lookup,
+  branchAdapter,
+  departmentAdapter,
+  jobTitleAdapter,
+  administrationAdapter,
+} from '../../../../components/f9';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
 
-const EMPLOYEE_CATEGORIES = ['OPERATIONAL', 'MAINTENANCE'];
+/**
+ * UNIFIED GROUP 1 WORKSPACE.
+ *
+ * "Employees, Users & Maintenance Personnel" is the single human-registration entry point.
+ * Every write goes through the canonical orchestration endpoint
+ * `/api/v1/person-registrations` (POST create, PATCH update), which writes the
+ * OperationalPerson, its OperationalPersonAssignment and the optional User /
+ * MaintenancePersonnel in one transaction. The page never issues the three independent
+ * legacy creates (`/employees`, `/users`, `/maintenance/personnel`), so an operator cannot
+ * bypass the orchestration. The specialized pages remain for login/account administration,
+ * role management, login history and maintenance-personnel detail/history.
+ */
 
-interface EmployeeForm {
+interface PersonAssignmentView {
+  id: string;
+  branch?: { id: string; name: string } | null;
+  administration?: { id: string; name: string } | null;
+  department?: { id: string; name: string } | null;
+  jobTitle?: { id: string; name: string } | null;
+  assignmentType?: string;
+  status?: string;
+}
+
+interface PersonLoginView {
+  id: string;
+  email: string;
+  status: string;
+  roleIds?: string[];
+}
+
+interface PersonMaintenanceView {
+  id: string;
+  role: string;
+  specialty: string | null;
+  dailyCapacityMinutes?: number;
+  isActive: boolean;
+}
+
+interface PersonRegistrationRow {
+  id: string;
   code: string;
   name: string;
   category: string;
+  phone: string | null;
+  email: string | null;
+  notes?: string | null;
+  isActive: boolean;
+  currentAssignment?: PersonAssignmentView | null;
+  assignments?: PersonAssignmentView[];
+  login?: PersonLoginView | null;
+  maintenanceCapability?: PersonMaintenanceView | null;
+}
+
+interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+interface UnifiedForm {
+  code: string;
+  name: string;
+  category: 'OPERATIONAL' | 'MAINTENANCE';
   phone: string;
   email: string;
   notes: string;
+  isActive: boolean;
+
+  branchId: string;
+  administrationId: string;
   departmentId: string;
+  jobTitleId: string;
+  assignmentType: 'PRIMARY' | 'SECONDARY' | 'TEMPORARY' | 'ACTING';
+  effectiveFrom: string;
+  assignmentNotes: string;
+
+  enableMaintenance: boolean;
+  maintenanceRole: string;
+  maintenanceSpecialty: string;
+  dailyCapacityMinutes: number;
+  maintenanceIsActive: boolean;
+
+  enableLogin: boolean;
+  loginEmail: string;
+  loginPassword: string;
+  loginName: string;
+  loginPhone: string;
+  roleIds: string[];
 }
 
-interface EmployeePayload {
-  code: string;
-  name: string;
-  category?: string;
-  phone?: string;
-  email?: string;
-  notes?: string;
-  departmentId?: string;
-}
+const EMPLOYEE_CATEGORIES = ['OPERATIONAL', 'MAINTENANCE'];
+const ASSIGNMENT_TYPES = ['PRIMARY', 'SECONDARY', 'TEMPORARY', 'ACTING'];
 
-const EMPTY_EMPLOYEE_FORM: EmployeeForm = { code: '', name: '', category: 'MAINTENANCE', phone: '', email: '', notes: '', departmentId: '' };
+const EMPTY_FORM: UnifiedForm = {
+  code: '',
+  name: '',
+  category: 'MAINTENANCE',
+  phone: '',
+  email: '',
+  notes: '',
+  isActive: true,
+  branchId: '',
+  administrationId: '',
+  departmentId: '',
+  jobTitleId: '',
+  assignmentType: 'PRIMARY',
+  effectiveFrom: '',
+  assignmentNotes: '',
+  enableMaintenance: false,
+  maintenanceRole: '',
+  maintenanceSpecialty: '',
+  dailyCapacityMinutes: 480,
+  maintenanceIsActive: true,
+  enableLogin: false,
+  loginEmail: '',
+  loginPassword: '',
+  loginName: '',
+  loginPhone: '',
+  roleIds: [],
+};
+
 const INITIAL_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
 
-const employeeIcon = (
+const personIcon = (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
 );
 
-function EmployeeStatusBadge({ active, label }: { active: boolean; label: string }) {
+function StatusBadge({ active, label }: { active: boolean; label: string }) {
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${
+        active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+      }`}
+    >
       {label}
     </span>
   );
 }
 
-export default function EmployeesPage() {
-  const router = useRouter();
+export default function UnifiedPersonsPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
+  const { permissions, isSuperAdmin } = useAuth();
+
+  // Group 1 permission segmentation. Each control family is gated by its OWN domain; a
+  // single broad "canEdit" flag would let personnel administration imply access control.
+  const can = useCallback(
+    (permission: string) => isSuperAdmin || Boolean(permissions?.permissions.includes(permission)),
+    [isSuperAdmin, permissions],
+  );
+  const canCreatePersonnel = can('operational-person:create');
+  const canUpdatePersonnel = can('operational-person:update');
+  const canCreateUser = can('user:create');
+  const canUpdateUser = can('user:update');
+  const canCreateMaintenance = can('maintenance-personnel:create');
+  const canUpdateMaintenance = can('maintenance-personnel:update');
+
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [sortColumn, setSortColumn] = useState('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [showFilters, setShowFilters] = useState(false);
-
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'deactivate' | 'activate'>('deactivate');
-  const [statusSaving, setStatusSaving] = useState(false);
   const [selectedId, setSelectedId] = useState('');
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [deleteError, setDeleteError] = useState('');
+  const [roles, setRoles] = useState<Array<{ id: string; name: string }>>([]);
 
   const {
     data,
@@ -83,18 +212,13 @@ export default function EmployeesPage() {
     editItem,
     detailLoading,
     saving,
-    deleting,
-    deleteConfirmOpen,
     refresh: fetchData,
     openCreate,
     openEdit,
     closeFormModal,
-    requestDelete,
-    cancelDelete,
     handleSave,
-    handleDelete,
-  } = useCrudList<OperationalPerson, EmployeeForm, EmployeePayload, PaginationMeta, [page?: number]>({
-    initialForm: EMPTY_EMPLOYEE_FORM,
+  } = useCrudList<PersonRegistrationRow, UnifiedForm, Record<string, unknown>, PaginationMeta, [page?: number]>({
+    initialForm: EMPTY_FORM,
     initialMeta: INITIAL_META,
     initialListArgs: [1],
     listRequest: (page = 1) => {
@@ -107,143 +231,204 @@ export default function EmployeesPage() {
       Object.entries(filters).forEach(([key, value]) => {
         if (value) params[key] = value;
       });
-      return api.get('/employees', { params });
+      return api.get('/person-registrations', { params });
     },
-    detailRequest: (id) => api.get(`/employees/${id}`),
-    createRequest: (payload) => api.post('/employees', payload),
-    updateRequest: (id, payload) => api.patch(`/employees/${id}`, payload),
-    deleteRequest: (id) => api.delete(`/employees/${id}`),
-    mapRecordToForm: (detail) => ({
-      code: safeString(detail.code),
-      name: safeString(detail.name),
-      category: safeString(detail.category) || 'MAINTENANCE',
-      phone: safeString(detail.phone),
-      email: safeString(detail.email),
-      notes: safeString(detail.notes),
-      departmentId: '',
-    }),
-    mapFormToPayload: (currentForm) => ({
-      code: currentForm.code.trim(),
-      name: currentForm.name,
-      category: currentForm.category || 'MAINTENANCE',
-      ...(currentForm.phone.trim() ? { phone: currentForm.phone.trim() } : {}),
-      ...(currentForm.email.trim() ? { email: currentForm.email.trim() } : {}),
-      ...(currentForm.notes.trim() ? { notes: currentForm.notes.trim() } : {}),
-      ...(currentForm.departmentId ? { departmentId: currentForm.departmentId } : {}),
-    }),
-    validate: (currentForm) => {
+    detailRequest: (id) => api.get(`/person-registrations/${id}`),
+    createRequest: (payload) => api.post('/person-registrations', payload),
+    updateRequest: (id, payload) => api.patch(`/person-registrations/${id}`, payload),
+    mapRecordToForm: (detail) => {
+      const assignment = detail.currentAssignment || detail.assignments?.[0] || null;
+const maintenance = detail.maintenanceCapability || null;
+    const user = detail.login || null;
+      return {
+        code: safeString(detail.code),
+        name: safeString(detail.name),
+        category: (detail.category as UnifiedForm['category']) || 'MAINTENANCE',
+        phone: safeString(detail.phone),
+        email: safeString(detail.email),
+        notes: safeString(detail.notes),
+        isActive: detail.isActive !== false,
+        branchId: safeString(assignment?.branch?.id),
+        administrationId: safeString(assignment?.administration?.id),
+        departmentId: safeString(assignment?.department?.id),
+        jobTitleId: safeString(assignment?.jobTitle?.id),
+        assignmentType: (assignment?.assignmentType as UnifiedForm['assignmentType']) || 'PRIMARY',
+        effectiveFrom: '',
+        assignmentNotes: '',
+        enableMaintenance: Boolean(maintenance),
+        maintenanceRole: safeString(maintenance?.role),
+        maintenanceSpecialty: safeString(maintenance?.specialty),
+        dailyCapacityMinutes: maintenance?.dailyCapacityMinutes ?? 480,
+        maintenanceIsActive: maintenance?.isActive !== false,
+        enableLogin: Boolean(user),
+        loginEmail: safeString(user?.email),
+        loginPassword: '',
+        loginName: safeString(detail.name),
+        loginPhone: safeString(detail.phone),
+        // Role selection is never prefilled: it is only sent when the operator explicitly
+        // changes it, so an unrelated edit can never silently reset grant state.
+        roleIds: [],
+      };
+    },
+    mapFormToPayload: (values) => {
+      const payload: Record<string, unknown> = {
+        name: values.name,
+        category: values.category,
+        phone: values.phone || null,
+        email: values.email || null,
+        notes: values.notes || null,
+        isActive: values.isActive,
+        placement: {
+          departmentId: values.departmentId,
+          branchId: values.branchId || undefined,
+          administrationId: values.administrationId || undefined,
+          jobTitleId: values.jobTitleId || undefined,
+          assignmentType: values.assignmentType,
+          effectiveFrom: values.effectiveFrom || undefined,
+          notes: values.assignmentNotes || undefined,
+        },
+      };
+      if (values.code) payload.code = values.code;
+      if (values.enableLogin) {
+        // Only the contract fields are sent; credential and authentication metadata are
+        // never part of the unified payload.
+        payload.login = {
+          email: values.loginEmail,
+          ...(values.loginPassword ? { password: values.loginPassword } : {}),
+          name: values.loginName || values.name,
+          phone: values.loginPhone || values.phone || null,
+          roleIds: values.roleIds,
+        };
+      }
+      if (values.enableMaintenance) {
+        payload.maintenance = {
+          role: values.maintenanceRole,
+          specialty: values.maintenanceSpecialty || null,
+          dailyCapacityMinutes: values.dailyCapacityMinutes,
+          isActive: values.maintenanceIsActive,
+        };
+      }
+      return payload;
+    },
+    validate: (values) => {
       const fieldErrors: Record<string, string> = {};
-      if (!currentForm.code.trim()) fieldErrors.code = t('validation.required');
-      if (!currentForm.name.trim()) fieldErrors.name = t('validation.required');
-      if (Object.keys(fieldErrors).length > 0) {
-        return { message: t('validation.required'), fieldErrors };
+      if (!values.name?.trim()) fieldErrors.name = t('validation.requiredField');
+      if (!values.departmentId) fieldErrors.departmentId = t('validation.requiredField');
+      if (values.enableMaintenance && !values.maintenanceRole?.trim()) {
+        fieldErrors.maintenanceRole = t('validation.requiredField');
       }
-      return null;
+      if (values.enableLogin && !values.loginEmail?.trim()) {
+        fieldErrors.loginEmail = t('validation.requiredField');
+      }
+      return Object.keys(fieldErrors).length > 0 ? { fieldErrors } : null;
     },
-    errorMessage: (operation: CrudOperation) => {
-      if (operation === 'list' || operation === 'detail') return t('errors.loadFailed');
-      if (operation === 'delete') return t('errors.deleteFailed');
-      return operation === 'create' ? t('errors.createFailed') : t('errors.updateFailed');
-    },
-    onError: (message, operation, thrown) => {
-      if (operation === 'list' || operation === 'detail') return;
-      if (operation === 'delete') {
-        setDeleteError(message);
-        handleApiError(thrown, { dialog: true });
-        return;
-      }
-      const config = handleApiError(thrown, { dialog: false });
-      if (config.errors && config.errors.length > 0) {
-        setValidationErrors(adaptFieldErrorsToMap(config.errors));
-        focusFirstInvalidField(config.errors);
-      } else {
-        setValidationErrors({ form: message });
-      }
+    onError: (message) => {
+      setValidationErrors({ form: message });
     },
     onFieldErrors: (errors) => {
       setValidationErrors(adaptFieldErrorsToMap(errors));
       focusFirstInvalidField(errors);
     },
     onSuccess: (operation) => {
-      const message = operation === 'create'
-        ? t('common.successCreated')
-        : operation === 'update'
-          ? t('common.successUpdated')
-          : t('common.successDeleted');
+      const message =
+        operation === 'create' ? t('common.successCreated') : t('common.successUpdated');
       showToast(message, 'success');
-      if (operation === 'delete') setSelectedId('');
+      setValidationErrors({});
     },
   });
 
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get('/roles', { params: { limit: 200 } })
+      .then((res: any) => {
+        if (cancelled) return;
+        const list = res?.data?.data || res?.data || [];
+        setRoles(Array.isArray(list) ? list.map((r: any) => ({ id: r.id, name: r.name })) : []);
+      })
+      .catch(() => {
+        // Role list is supplemental; failure must not block person administration.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const paginationMeta = meta ?? INITIAL_META;
-  const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
+  const selectedRecord = useMemo(() => data.find((d) => d.id === selectedId), [data, selectedId]);
 
   const { exec } = useStableHandlers({
     new: () => openCreate(),
     edit: () => selectedRecord && openEdit(selectedRecord),
     refresh: () => fetchData(paginationMeta.page),
-    activate: () => confirmStatusChange(selectedId, 'activate'),
-    deactivate: () => confirmStatusChange(selectedId, 'deactivate'),
-    delete: () => selectedRecord && requestDelete(selectedRecord),
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new'), enabled: canCreatePersonnel },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId && canUpdatePersonnel },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.isActive === false) },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.isActive === true) },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!selectedId },
   ]);
 
-  const confirmStatusChange = (id: string, action: 'activate' | 'deactivate') => {
-    setSelectedId(id);
-    setConfirmAction(action);
-    setConfirmOpen(true);
-  };
-
-  const handleStatusChange = async () => {
-    setStatusSaving(true);
-    try {
-      const endpoint = confirmAction === 'activate' ? 'activate' : 'deactivate';
-      await api.post(`/employees/${selectedId}/${endpoint}`);
-      showToast(confirmAction === 'activate' ? t('common.successActivated') : t('common.successDeactivated'), 'success');
-      setConfirmOpen(false);
-      fetchData(paginationMeta.page);
-    } catch (err: any) {
-      handleApiError(err);
-    } finally {
-      setStatusSaving(false);
-    }
-  };
-
-  const baseColumns: GridColumn<OperationalPerson>[] = [
-    { key: 'code', header: t('common.code'), sortable: true, filterable: true },
-    { key: 'name', header: t('common.name'), sortable: true, filterable: true },
-    { key: 'category', header: t('core.personCategory'), sortable: true, filterable: true, filterType: 'select', filterOptions: EMPLOYEE_CATEGORIES.map((c) => ({ value: c, label: t(`core.employeeCategories.${c}`) })), render: (d) => <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{t(`core.employeeCategories.${d.category || 'MAINTENANCE'}`)}</span> },
-    { key: 'phone', header: t('common.phone'), render: (d) => d.phone || '-' },
-    { key: 'email', header: t('common.email'), render: (d) => d.email || '-' },
-    { key: 'isActive', header: t('common.status'), filterable: true, filterType: 'select', filterOptions: [
-      { value: 'true', label: t('common.active') },
-      { value: 'false', label: t('common.inactive') },
-    ], render: (d) => <EmployeeStatusBadge active={d.isActive} label={d.isActive ? t('common.active') : t('common.inactive')} /> },
+  const baseColumns: GridColumn<PersonRegistrationRow>[] = [
+    { key: 'code', header: t('common.code'), sortable: true },
+    { key: 'name', header: t('common.name'), sortable: true },
+    {
+      key: 'department',
+      header: t('core.department'),
+      render: (d) => safeString(d.currentAssignment?.department?.name) || '-',
+    },
+    {
+      key: 'jobTitle',
+      header: t('core.jobTitle'),
+      render: (d) => safeString(d.currentAssignment?.jobTitle?.name) || '-',
+    },
+    {
+      key: 'systemAccess',
+      header: t('access.systemAccess'),
+      render: (d) =>
+        d.login
+          ? d.login.status === 'ACTIVE'
+            ? t('common.active')
+            : `${t('common.active')} (${t('common.inactive')})`
+          : t('common.no'),
+    },
+    {
+      key: 'maintenanceCapability',
+      header: t('maintenance.maintenancePersonnel'),
+      render: (d) =>
+        d.maintenanceCapability
+          ? d.maintenanceCapability.isActive
+            ? t('common.active')
+            : `${t('common.active')} (${t('common.inactive')})`
+          : t('common.no'),
+    },
+    {
+      key: 'isActive',
+      header: t('common.status'),
+      render: (d) => <StatusBadge active={d.isActive} label={d.isActive ? t('common.active') : t('common.inactive')} />,
+    },
   ];
 
-  const gridActions: GridAction<OperationalPerson>[] = [
-    { label: t('grid.view'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>, onClick: (d) => router.push(`/admin/core/persons/${d.id}`) },
-    { label: t('grid.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (d) => openEdit(d) },
-    { label: t('common.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, onClick: (d) => confirmStatusChange(d.id, 'activate'), enabled: (d) => d.isActive === false },
-    { label: t('common.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, variant: 'danger', onClick: (d) => confirmStatusChange(d.id, 'deactivate'), enabled: (d) => d.isActive === true },
-    { label: t('grid.delete'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>, variant: 'danger', onClick: (d) => { setDeleteError(''); requestDelete(d); } },
+  const gridActions: GridAction<PersonRegistrationRow>[] = [
+    {
+      label: t('grid.edit'),
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      ),
+      onClick: (d) => openEdit(d),
+      enabled: () => canUpdatePersonnel,
+    },
   ];
 
-  const handleSort = useCallback((col: string, dir: 'asc' | 'desc') => {
+  const handleSort = useCallback((col: string, direction: 'asc' | 'desc') => {
     setSortColumn(col);
-    setSortDirection(dir);
+    setSortDirection(direction);
   }, []);
 
   const handleFilter = useCallback((col: string, value: string) => {
-    setFilters(prev => ({ ...prev, [col]: value }));
+    setFilters((prev) => ({ ...prev, [col]: value }));
   }, []);
 
   const handleClearFilters = useCallback(() => {
@@ -251,14 +436,19 @@ export default function EmployeesPage() {
     setSearch('');
   }, []);
 
+  const maintenanceToggleDisabled = !canCreateMaintenance && !canUpdateMaintenance && !editItem;
+  const loginToggleDisabled = !canCreateUser && !canUpdateUser && !editItem;
+
   return (
     <EntityWorkspaceLayout drawerOpen={false}>
-      <EntityPageHeader title={t('core.persons')} icon={employeeIcon} />
-      {error && <div className="text-center py-12"><p className="text-red-500 mb-4">{error}</p></div>}
-      {!error && loading && data.length === 0 && <div className="py-12" />}
-      {!error && !loading && data.length === 0 && (
-        <EntityEmptyState title={t('common.noData')} />
+      <EntityPageHeader title={t('navigation.persons')} icon={personIcon} />
+      {error && (
+        <div className="text-center py-12">
+          <p className="text-red-500 mb-4">{error}</p>
+        </div>
       )}
+      {!error && loading && data.length === 0 && <div className="py-12" />}
+      {!error && !loading && data.length === 0 && <EntityEmptyState title={t('common.noData')} />}
       {(!error || !loading) && data.length > 0 && (
         <EntityDataTable
           columns={baseColumns}
@@ -288,54 +478,268 @@ export default function EmployeesPage() {
         />
       )}
       {data.length > 0 && (
-        <div className="mt-3">
+        <div className="flex justify-end p-4">
           <Pagination page={paginationMeta.page} totalPages={paginationMeta.totalPages} total={paginationMeta.total} onPageChange={fetchData} />
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => { closeFormModal(); setValidationErrors({}); }} title={editItem ? t('core.editEmployee') : t('core.newEmployee')}>
-        {detailLoading ? <div className="py-6" /> : <div className="space-y-4">
-          {validationErrors.form && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{validationErrors.form}</div>}
-          <Input label={t('common.code')} name="code" value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(prev => ({ ...prev, code: '' })); }} error={validationErrors.code} required />
-          <Input label={t('common.name')} name="name" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} error={validationErrors.name} required />
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('core.personCategory')}</label>
-            <select value={form.category} onChange={(e) => { setForm({ ...form, category: e.target.value }); setValidationErrors(prev => ({ ...prev, category: '' })); }} className="w-full border rounded px-3 py-2 text-sm" style={{ borderColor: validationErrors.category ? '#fca5a5' : undefined }}>
-              {EMPLOYEE_CATEGORIES.map((c) => <option key={c} value={c}>{t(`core.employeeCategories.${c}`)}</option>)}
-            </select>
-            {validationErrors.category && <p className="text-sm text-red-500 mt-1">{validationErrors.category}</p>}
-          </div>
-          <Input label={t('common.phone')} name="phone" value={form.phone} onChange={(e) => { setForm({ ...form, phone: e.target.value }); setValidationErrors(prev => ({ ...prev, phone: '' })); }} error={validationErrors.phone} />
-          <Input label={t('common.email')} name="email" value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); setValidationErrors(prev => ({ ...prev, email: '' })); }} error={validationErrors.email} />
-          <Input label={t('common.notes')} name="notes" value={form.notes} onChange={(e) => { setForm({ ...form, notes: e.target.value }); setValidationErrors(prev => ({ ...prev, notes: '' })); }} error={validationErrors.notes} />
-          {!editItem && (
-            <>
-              <F9Lookup label={t('core.initialPlacement')} name="departmentId" value={form.departmentId} onChange={(v) => { setForm({ ...form, departmentId: v }); setValidationErrors(prev => ({ ...prev, departmentId: '' })); }} adapter={departmentAdapter} error={validationErrors.departmentId} />
-              <p className="text-xs text-gray-500">{t('core.createAssignmentHint')}</p>
-            </>
-          )}
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => { closeFormModal(); setValidationErrors({}); }}>{t('actions.cancel')}</Button>
-            <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
-          </div>
-        </div>}
-      </Modal>
+      <Modal
+        open={modalOpen}
+        onClose={() => {
+          closeFormModal();
+          setValidationErrors({});
+        }}
+        title={editItem ? t('common.edit') : t('common.create')}
+        size="xl"
+      >
+        {detailLoading ? (
+          <LoadingState />
+        ) : (
+          <div className="space-y-6 max-h-[70vh] overflow-y-auto">
+            {validationErrors.form && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                {validationErrors.form}
+              </div>
+            )}
 
-      <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)}
-        onConfirm={handleStatusChange}
-        title={confirmAction === 'activate' ? t('common.confirmActivateTitle') : t('common.confirmDeactivateTitle')}
-        message={confirmAction === 'activate' ? t('common.confirmActivateMessage') : t('common.confirmDeactivateMessage')}
-        variant={confirmAction === 'activate' ? 'primary' : 'danger'} loading={statusSaving} />
+            {/* A. PERSONAL INFORMATION */}
+            <section className="space-y-4" data-section="personal-information">
+              <h3 className="text-lg font-medium border-b pb-2">{t('core.personalInformation')}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label={t('common.code')}
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  error={validationErrors.code}
+                />
+                <Input
+                  label={t('common.name')}
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  error={validationErrors.name}
+                  required
+                />
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('core.personCategory')}</label>
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value as UnifiedForm['category'] })}
+                    className="w-full border rounded px-3 py-2 text-sm"
+                  >
+                    {EMPLOYEE_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {t(`core.employeeCategories.${c}`)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Input
+                  label={t('common.phone')}
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  error={validationErrors.phone}
+                />
+                <Input
+                  label={t('common.email')}
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  error={validationErrors.email}
+                />
+                <Input
+                  label={t('common.notes')}
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  error={validationErrors.notes}
+                />
+              </div>
+            </section>
 
-      <ConfirmDialog open={deleteConfirmOpen} onClose={() => { cancelDelete(); setDeleteError(''); }}
-        onConfirm={handleDelete}
-        title={t('core.confirmDeleteEmployeeTitle')}
-        message={t('core.confirmDeleteEmployeeMessage')}
-        variant="danger" loading={deleting}>
-        {deleteError && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{deleteError}</div>
+            {/* B. ORGANIZATION / ASSIGNMENT */}
+            <section className="space-y-4" data-section="organization-assignment">
+              <h3 className="text-lg font-medium border-b pb-2">{t('core.organizationAssignment')}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <F9Lookup
+                  label={t('core.branch')}
+                  value={form.branchId}
+                  onChange={(v) => setForm({ ...form, branchId: v })}
+                  adapter={branchAdapter}
+                  error={validationErrors.branchId}
+                />
+                <F9Lookup
+                  label={t('core.administration')}
+                  value={form.administrationId}
+                  onChange={(v) => setForm({ ...form, administrationId: v })}
+                  adapter={administrationAdapter}
+                  error={validationErrors.administrationId}
+                />
+                <F9Lookup
+                  label={t('core.department')}
+                  value={form.departmentId}
+                  onChange={(v) => setForm({ ...form, departmentId: v })}
+                  adapter={departmentAdapter}
+                  error={validationErrors.departmentId}
+                />
+                <F9Lookup
+                  label={t('core.jobTitle')}
+                  value={form.jobTitleId}
+                  onChange={(v) => setForm({ ...form, jobTitleId: v })}
+                  adapter={jobTitleAdapter}
+                  error={validationErrors.jobTitleId}
+                />
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('core.assignmentType')}</label>
+                  <select
+                    value={form.assignmentType}
+                    onChange={(e) => setForm({ ...form, assignmentType: e.target.value as UnifiedForm['assignmentType'] })}
+                    className="w-full border rounded px-3 py-2 text-sm"
+                  >
+                    {ASSIGNMENT_TYPES.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Input
+                  label={t('core.effectiveFrom')}
+                  type="date"
+                  value={form.effectiveFrom}
+                  onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })}
+                  error={validationErrors.effectiveFrom}
+                />
+                <Input
+                  label={t('core.assignmentNotes')}
+                  value={form.assignmentNotes}
+                  onChange={(e) => setForm({ ...form, assignmentNotes: e.target.value })}
+                  error={validationErrors.assignmentNotes}
+                />
+              </div>
+            </section>
+
+            {/* C. MAINTENANCE CAPABILITY */}
+            <section className="space-y-4" data-section="maintenance-capability">
+              <h3 className="text-lg font-medium border-b pb-2">{t('core.maintenanceCapability')}</h3>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.enableMaintenance}
+                  disabled={maintenanceToggleDisabled}
+                  onChange={(e) => setForm({ ...form, enableMaintenance: e.target.checked })}
+                />
+                {t('core.enableMaintenanceCapability')}
+              </label>
+              {form.enableMaintenance && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label={t('maintenance.role')}
+                    value={form.maintenanceRole}
+                    onChange={(e) => setForm({ ...form, maintenanceRole: e.target.value })}
+                    error={validationErrors.maintenanceRole}
+                  />
+                  <Input
+                    label={t('maintenance.specialty')}
+                    value={form.maintenanceSpecialty}
+                    onChange={(e) => setForm({ ...form, maintenanceSpecialty: e.target.value })}
+                    error={validationErrors.maintenanceSpecialty}
+                  />
+                  <Input
+                    label={t('core.dailyCapacityMinutes')}
+                    type="number"
+                    value={String(form.dailyCapacityMinutes)}
+                    onChange={(e) => setForm({ ...form, dailyCapacityMinutes: parseInt(e.target.value, 10) || 0 })}
+                    error={validationErrors.dailyCapacityMinutes}
+                  />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.maintenanceIsActive}
+                      onChange={(e) => setForm({ ...form, maintenanceIsActive: e.target.checked })}
+                    />
+                    {t('common.active')}
+                  </label>
+                </div>
+              )}
+            </section>
+
+            {/* D. SYSTEM LOGIN */}
+            <section className="space-y-4" data-section="system-login">
+              <h3 className="text-lg font-medium border-b pb-2">{t('core.systemLogin')}</h3>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.enableLogin}
+                  disabled={loginToggleDisabled}
+                  onChange={(e) => setForm({ ...form, enableLogin: e.target.checked })}
+                />
+                {t('core.enableSystemAccess')}
+              </label>
+              {form.enableLogin && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label={t('common.email')}
+                      type="email"
+                      value={form.loginEmail}
+                      onChange={(e) => setForm({ ...form, loginEmail: e.target.value })}
+                      error={validationErrors.loginEmail}
+                    />
+                    {!editItem && (
+                      <Input
+                        label={t('access.password')}
+                        type="password"
+                        value={form.loginPassword}
+                        onChange={(e) => setForm({ ...form, loginPassword: e.target.value })}
+                        error={validationErrors.loginPassword}
+                      />
+                    )}
+                  </div>
+                  {/* E. ROLES / ACCESS — only rendered when the caller can grant roles. */}
+                  {canUpdateUser && (
+                    <div data-section="roles-access">
+                      <label className="block text-sm font-medium mb-1">{t('access.roles')}</label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border rounded p-3 max-h-40 overflow-y-auto">
+                        {roles.map((role) => (
+                          <label key={role.id} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={form.roleIds.includes(role.id)}
+                              onChange={(e) => {
+                                setForm({
+                                  ...form,
+                                  roleIds: e.target.checked
+                                    ? [...form.roleIds, role.id]
+                                    : form.roleIds.filter((id) => id !== role.id),
+                                });
+                              }}
+                            />
+                            {role.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  closeFormModal();
+                  setValidationErrors({});
+                }}
+              >
+                {t('actions.cancel')}
+              </Button>
+              <Button onClick={handleSave} loading={saving}>
+                {t('actions.save')}
+              </Button>
+            </div>
+          </div>
         )}
-      </ConfirmDialog>
+      </Modal>
     </EntityWorkspaceLayout>
   );
 }

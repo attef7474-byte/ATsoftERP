@@ -57,7 +57,7 @@ export class EmployeesController {
   }
 
   @Post(':id/activate')
-  @Permissions('operational-person:deactivate')
+  @Permissions('operational-person:activate')
   @ApiOperation({ summary: 'Activate an employee' })
   activate(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.employeesService.activate(id, ctx);

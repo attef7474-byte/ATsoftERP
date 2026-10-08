@@ -11,6 +11,7 @@ import { DepartmentsModule } from './modules/admin/departments/departments.modul
 import { JobTitlesModule } from './modules/admin/job-titles/job-titles.module'
 import { PersonAssignmentsModule } from './modules/admin/person-assignments/person-assignments.module'
 import { EmployeesModule } from './modules/admin/employees/employees.module'
+import { PersonRegistrationsModule } from './modules/admin/person-registrations/person-registrations.module'
 import { SupervisorAssignmentsModule } from './modules/admin/supervisor-assignments/supervisor-assignments.module'
 import { OrganizationalUnitsModule } from './modules/admin/organizational-units/organizational-units.module'
 import { CompaniesModule } from './modules/companies/companies.module'
@@ -71,6 +72,7 @@ import { MaintenanceNotificationModule } from './modules/factory/maintenance/mai
 import { MaintenanceSlaModule } from './modules/factory/maintenance/maintenance-sla/maintenance-sla.module'
 import { MaintenanceCalendarWorkloadModule } from './modules/factory/maintenance/maintenance-calendar-workload/maintenance-calendar-workload.module'
 import { MaintenanceStockIssueModule } from './modules/factory/maintenance/maintenance-stock-issue/maintenance-stock-issue.module'
+import { SparePartIssuesModule } from './modules/factory/maintenance/spare-part-issues/spare-part-issues.module'
 import { SparePartConditionModule } from './modules/factory/maintenance/spare-part-conditions/spare-part-conditions.module'
 import { InstalledPartsReplacementModule } from './modules/factory/maintenance/installed-parts-replacement/installed-parts-replacement.module'
 import { RepairOrdersModule } from './modules/factory/maintenance/repair-orders/repair-orders.module'
@@ -106,7 +108,7 @@ import { OverheadAllocationModule } from './modules/factory/overhead-allocation/
 @Module({
   imports: [
     PrismaModule, HealthModule, AuthModule,
-    UsersModule, RolesModule, PermissionsModule, BranchesModule, AdministrationsModule, DepartmentsModule, JobTitlesModule, PersonAssignmentsModule, SupervisorAssignmentsModule, OrganizationalUnitsModule, CompaniesModule, EmployeesModule,
+    UsersModule, RolesModule, PermissionsModule, BranchesModule, AdministrationsModule, DepartmentsModule, JobTitlesModule, PersonAssignmentsModule, SupervisorAssignmentsModule, OrganizationalUnitsModule, CompaniesModule, EmployeesModule, PersonRegistrationsModule,
     ProductsModule, ProductCategoriesModule, InventoryModule, MaintenanceModule,
     AuditModule,
     MachineCategoriesModule, MachinePartsModule, MachineDocumentsModule,
@@ -132,6 +134,7 @@ import { OverheadAllocationModule } from './modules/factory/overhead-allocation/
     MaintenanceSlaModule,
     MaintenanceCalendarWorkloadModule,
     MaintenanceStockIssueModule,
+    SparePartIssuesModule,
     SparePartConditionModule,
     InstalledPartsReplacementModule,
     RepairOrdersModule,

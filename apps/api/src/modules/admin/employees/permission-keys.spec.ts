@@ -52,8 +52,14 @@ describe('EmployeesController permissions', () => {
     expect(getPermissions(controller, 'deactivate')).toContain('operational-person:deactivate');
   });
 
-  it('POST /:id/activate requires operational-person:deactivate', () => {
-    expect(getPermissions(controller, 'activate')).toContain('operational-person:deactivate');
+  it('POST /:id/activate requires operational-person:activate', () => {
+    expect(getPermissions(controller, 'activate')).toContain('operational-person:activate');
+  });
+
+  it('POST /:id/activate does NOT accept the deactivate permission', () => {
+    // Regression guard: activation must never be authorized by the deactivation key,
+    // otherwise holding operational-person:deactivate would allow re-activating persons.
+    expect(getPermissions(controller, 'activate')).not.toContain('operational-person:deactivate');
   });
 
   it('DELETE /:id requires operational-person:delete', () => {

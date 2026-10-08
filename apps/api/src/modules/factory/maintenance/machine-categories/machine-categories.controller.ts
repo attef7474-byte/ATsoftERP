@@ -75,12 +75,21 @@ export class MachineCategoriesController {
   }
 
   @Get(':id/summary')
-  @Permissions('machine-category:read')
+  @Permissions('machine-category:summary')
   @ApiOperation({ summary: 'Get machine category summary' })
   categorySummary(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.categorySummary(id, ctx); }
 
   @Get(':id/machines')
-  @Permissions('machine-category:read')
+  @Permissions('machine-category:machines')
   @ApiOperation({ summary: 'Get machines in this category' })
   categoryMachines(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.categoryMachines(id, ctx); }
+
+  @Get(':id/operation-types')
+  @Permissions('machine-category:read')
+  @ApiOperation({
+    summary: 'Get the operation types of this category, derived through its machines',
+    description:
+      'A machine category does not own operation types; there is no direct foreign key. The relationship is derived from Machine.categoryId -> Machine.operationTypeId -> OperationType, so the returned operation types are those actually used by the machines inside this category, together with those machines.',
+  })
+  categoryOperationTypes(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.categoryOperationTypes(id, ctx); }
 }

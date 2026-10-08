@@ -29,10 +29,62 @@ export interface SidebarSection {
   items: SidebarItem[];
 }
 
+/**
+ * R4R: an item is visible only when the signed-in principal holds its declared
+ * permission key. SUPER_ADMIN bypasses the menu filter exactly like the API guard
+ * does; the API still enforces independently of menu visibility.
+ *
+ * `permissions === null` means the permission payload has not been resolved yet
+ * (still loading). In that state the full menu is rendered so a slow or failed
+ * permission fetch can never hide the whole navigation; filtering starts as soon
+ * as the real permission list arrives.
+ */
+export function isSidebarItemVisible(
+  item: { permission?: string },
+  permissions: string[] | null,
+  isSuperAdmin: boolean,
+): boolean {
+  if (!item.permission) return true;
+  if (permissions === null || isSuperAdmin) return true;
+  return permissions.includes(item.permission);
+}
+
+const visibleItems = (
+  items: SidebarItem[],
+  permissions: string[] | null,
+  isSuperAdmin: boolean,
+): SidebarItem[] => items.filter((item) => isSidebarItemVisible(item, permissions, isSuperAdmin));
+
+/**
+ * R4R: drop items the principal cannot access, then drop any section or group
+ * that ends up empty so the menu never shows a heading with nothing under it.
+ */
+export function filterSidebarGroups(
+  groups: SidebarGroup[],
+  permissions: string[] | null,
+  isSuperAdmin: boolean,
+): SidebarGroup[] {
+  if (permissions === null || isSuperAdmin) return groups;
+
+  return groups.reduce<SidebarGroup[]>((acc, group) => {
+    const children = group.children
+      ?.map((section) => ({ ...section, items: visibleItems(section.items, permissions, isSuperAdmin) }))
+      .filter((section) => section.items.length > 0);
+
+    const items = group.items ? visibleItems(group.items, permissions, isSuperAdmin) : undefined;
+
+    const hasChildren = !!(children && children.length > 0) || !!(items && items.length > 0);
+    if (hasChildren) acc.push({ ...group, children, items });
+    else if (group.route && isSidebarItemVisible(group, permissions, isSuperAdmin)) acc.push(group);
+    return acc;
+  }, []);
+}
+
 export interface SidebarGroup {
   id: string;
   labelKey: string;
   icon: ShellIconName;
+  permission?: string;
   route?: string;
   children?: SidebarSection[];
   items?: SidebarItem[];
@@ -44,8 +96,10 @@ export const routeGroupMap: Record<string, string> = {
   '/admin/core': 'organization',
   '/admin/access': 'access',
   '/admin/maintenance/machines': 'assets',
-  '/admin/maintenance/machine-categories': 'assets',
+  '/admin/core/persons': 'organization',
+  '/admin/maintenance/machine-categories': 'organization',
   '/admin/maintenance/machine-parts': 'assets',
+  '/admin/maintenance/spare-parts': 'maintenance',
   '/admin/maintenance/machine-documents': 'assets',
   '/admin/maintenance/production-lines': 'organization',
   '/admin/maintenance/operation-types': 'organization',
@@ -80,7 +134,7 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'org-branches', labelKey: 'navigation.branches', route: '/admin/core/branches' },
           { id: 'org-administrations', labelKey: 'navigation.administrations', route: '/admin/core/administrations' },
           { id: 'org-departments', labelKey: 'navigation.departments', route: '/admin/core/departments', permission: 'department:read' },
-          { id: 'org-persons', labelKey: 'navigation.persons', route: '/admin/core/persons', permission: 'operational-person:read' },
+          { id: 'org-employees', labelKey: 'navigation.persons', route: '/admin/core/persons', permission: 'operational-person:read' },
           { id: 'org-job-titles', labelKey: 'navigation.jobTitles', route: '/admin/core/job-titles', permission: 'job-title:read' },
           { id: 'org-person-assignments', labelKey: 'navigation.personAssignments', route: '/admin/core/person-assignments', permission: 'person-assignment:read' },
           { id: 'org-supervisor-assignments', labelKey: 'navigation.supervisorAssignments', route: '/admin/core/supervisor-assignments', permission: 'supervisor:read' },
@@ -89,7 +143,7 @@ export const sidebarGroups: SidebarGroup[] = [
       {
         id: 'org-operational', labelKey: 'navigation.navSection.operationalData', items: [
           { id: 'org-production-lines', labelKey: 'navigation.productionLines', route: '/admin/maintenance/production-lines' },
-          { id: 'org-operation-types', labelKey: 'navigation.operationTypes', route: '/admin/maintenance/operation-types' },
+          { id: 'org-machine-categories', labelKey: 'navigation.machineCategories', route: '/admin/maintenance/machine-categories', permission: 'machine-category:read' },
           { id: 'org-cost-centers', labelKey: 'navigation.costCenters', route: '/admin/maintenance/cost-centers' },
         ],
       },
@@ -101,7 +155,6 @@ export const sidebarGroups: SidebarGroup[] = [
     id: 'access', labelKey: 'navigation.accessControl', icon: 'access', children: [
       {
         id: 'access-users-section', labelKey: 'navigation.navSection.usersAndPermissions', items: [
-          { id: 'access-users', labelKey: 'navigation.users', route: '/admin/access/users' },
           { id: 'access-roles', labelKey: 'navigation.roles', route: '/admin/access/roles' },
           { id: 'access-permissions', labelKey: 'navigation.permissions', route: '/admin/access/permissions' },
         ],
@@ -115,14 +168,12 @@ export const sidebarGroups: SidebarGroup[] = [
       {
         id: 'assets-assets', labelKey: 'navigation.navSection.assets', items: [
           { id: 'assets-machines', labelKey: 'navigation.machines', route: '/admin/maintenance/machines' },
-          { id: 'assets-machine-categories', labelKey: 'navigation.machineCategories', route: '/admin/maintenance/machine-categories' },
           { id: 'assets-machine-documents', labelKey: 'navigation.machineDocuments', route: '/admin/maintenance/machine-documents' },
         ],
       },
       {
         id: 'assets-technical', labelKey: 'navigation.navSection.technicalStructure', items: [
           { id: 'assets-machine-components', labelKey: 'navigation.machineComponents', route: '/admin/maintenance/machine-components' },
-          { id: 'assets-machine-parts', labelKey: 'navigation.machineParts', route: '/admin/maintenance/machine-parts' },
         ],
       },
     ],
@@ -151,14 +202,15 @@ export const sidebarGroups: SidebarGroup[] = [
       },
       {
         id: 'mnt-personnel-section', labelKey: 'navigation.navSection.maintenanceStaff', items: [
-          { id: 'mnt-personnel', labelKey: 'navigation.maintenancePersonnel', route: '/admin/maintenance/personnel' },
           { id: 'mnt-machine-responsibilities', labelKey: 'navigation.machineResponsibilities', route: '/admin/maintenance/machine-responsibilities' },
           { id: 'mnt-accountability', labelKey: 'navigation.maintenanceAccountability', route: '/admin/maintenance/accountability' },
         ],
       },
       {
         id: 'mnt-spare-parts-section', labelKey: 'navigation.navSection.maintenanceSpareParts', items: [
-          { id: 'mnt-spare-parts', labelKey: 'navigation.spareParts', route: '/admin/maintenance/spare-parts' },
+          { id: 'mnt-machine-parts', labelKey: 'navigation.machineParts', route: '/admin/maintenance/machine-parts', permission: 'spare-part:read' },
+          { id: 'mnt-spare-parts', labelKey: 'navigation.spareParts', route: '/admin/maintenance/spare-parts', permission: 'spare-part:read' },
+          { id: 'mnt-spare-part-issues', labelKey: 'navigation.sparePartIssues', route: '/admin/maintenance/spare-part-issues', permission: 'maintenance-stock-issue:read' },
           { id: 'mnt-spare-part-conditions', labelKey: 'navigation.sparePartConditions', route: '/admin/spare-part-conditions' },
           { id: 'mnt-installed-parts', labelKey: 'navigation.installedParts', route: '/admin/installed-parts' },
           { id: 'mnt-repair-orders', labelKey: 'navigation.repairOrders', route: '/admin/maintenance/repair-orders' },

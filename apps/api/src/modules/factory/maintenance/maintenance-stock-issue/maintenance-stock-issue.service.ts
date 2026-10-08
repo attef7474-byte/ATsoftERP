@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
@@ -102,6 +102,7 @@ export class MaintenanceStockIssueService {
           select: {
             id: true, productId: true, code: true, name: true,
             technicalClassification: true, usageType: true, nature: true, importance: true,
+            status: true, deletedAt: true,
           },
         },
         machineComponent: {
@@ -115,6 +116,120 @@ export class MaintenanceStockIssueService {
     }
     this.assertMachineInContext(part.maintenanceRequest.machine, ctx);
     return part as any;
+  }
+
+  /**
+   * R4R — canonical spare-part write guard on the issue path.
+   *
+   * The catalog item being physically issued out of a warehouse must be an ACTIVE,
+   * non-soft-deleted SparePart. Before R4R the issue path resolved the linked
+   * Product and the technical identity but never re-checked the SparePart's own
+   * lifecycle state, so a deactivated or soft-deleted catalog item could still be
+   * issued. This is the same ACTIVE + deletedAt IS NULL rule already enforced on
+   * the other spare-part write paths (R4P), applied here so the independent issue
+   * workflow cannot weaken it.
+   */
+  private assertSparePartIssuable(part: any) {
+    const sparePart = part?.sparePart;
+    if (!sparePart) {
+      throw this.badRequest(
+        'sparePartIssue.sparePartMissing',
+        'The required part line has no canonical spare part item attached',
+      );
+    }
+    if (sparePart.deletedAt) {
+      throw this.badRequest(
+        'sparePartIssue.sparePartDeleted',
+        `Spare part ${sparePart.code} is soft-deleted and cannot be issued`,
+        { code: sparePart.code },
+      );
+    }
+    if (sparePart.status !== 'ACTIVE') {
+      throw this.badRequest(
+        'sparePartIssue.sparePartNotActive',
+        `Spare part ${sparePart.code} is in status '${sparePart.status}' and must be ACTIVE before it can be issued`,
+        { code: sparePart.code, status: sparePart.status },
+      );
+    }
+  }
+
+  /**
+   * R4R — idempotency for the canonical issue entry point.
+   *
+   * `inventory_movements` already carries a SQL Server FILTERED UNIQUE index on
+   * (companyId, branchId, requestId) WHERE requestId IS NOT NULL — the established
+   * inventory idempotency mechanism in this codebase (migration 20260806200000).
+   * The issue writes the caller-supplied client request id into that column, so a
+   * duplicated submission of the SAME issue fails atomically on the unique index
+   * inside the transaction instead of deducting stock twice. There is no parallel
+   * idempotency table and no new schema object.
+   */
+  private async findMovementByClientRequestId(clientRequestId: string, ctx: ActiveOperationalContext) {
+    return this.prisma.inventoryMovement.findFirst({
+      where: {
+        requestId: clientRequestId,
+        companyId: ctx.companyId,
+        OR: [{ branchId: ctx.branchId }, { branchId: null }],
+        deletedAt: null,
+      },
+      include: {
+        lines: { include: { product: { select: { id: true, code: true, name: true } } } },
+        warehouse: { select: { id: true, code: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * R4R: a client request id is bound to exactly one movement AND to exactly one
+   * requirement line. Reusing a key against a different line is a conflicting
+   * payload, not a replay: silently returning the other line's state would report
+   * success for a transaction that never happened. This rejects that case before
+   * any stock is touched.
+   */
+  private async findReplayMovement(
+    clientRequestId: string,
+    lineId: string,
+    ctx: ActiveOperationalContext,
+  ) {
+    const existing = await this.findMovementByClientRequestId(clientRequestId, ctx);
+    if (!existing) return null;
+    if (existing.sourceType !== 'MAINTENANCE_PART_LINE' || existing.sourceId !== lineId) {
+      throw new ConflictException({
+        message: 'Idempotency key conflict: this client request id was already used for a different maintenance requirement line',
+        error: 'IDEMPOTENCY_KEY_CONFLICT',
+        clientRequestId,
+        existingLineId: existing.sourceId,
+        requestedLineId: lineId,
+      });
+    }
+    return existing;
+  }
+
+  /**
+   * R4R: P2002 is only a duplicate submission when the violated index is the
+   * idempotency index (companyId, branchId, requestId). Any other unique-violation
+   * (movement number, replacement number, …) is a genuine failure and must not be
+   * swallowed as a replay.
+   */
+  private isIdempotencyReplayError(error: unknown, clientRequestId?: string): boolean {
+    if (!clientRequestId) return false;
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') return false;
+    const target = (error.meta as { target?: unknown } | undefined)?.target;
+    const fields = Array.isArray(target) ? target.map(String) : typeof target === 'string' ? [target] : [];
+    return fields.length === 0 || fields.some((field) => field.toLowerCase() === 'requestid');
+  }
+
+  private async loadIssuedLineState(lineId: string) {
+    return this.prisma.maintenanceRequestRequiredPart.findUnique({
+      where: { id: lineId },
+      include: {
+        sparePart: { select: { id: true, code: true, name: true, productId: true,
+          technicalClassification: true, usageType: true, nature: true, importance: true } },
+        warehouse: { select: { id: true, code: true, name: true } },
+        lastIssueBy: { select: { id: true, name: true } },
+      },
+    });
   }
 
   private assertMachineInContext(
@@ -426,10 +541,31 @@ export class MaintenanceStockIssueService {
     }
   }
 
-  async issue(requestId: string, lineId: string, dto: IssueStockDto, userId: string, ctx: ActiveOperationalContext) {
+  async issue(
+    requestId: string,
+    lineId: string,
+    dto: IssueStockDto,
+    userId: string,
+    ctx: ActiveOperationalContext,
+    options: { clientRequestId?: string } = {},
+  ) {
     const part: any = await this.findPartLineOrFail(lineId, requestId, ctx);
     if (!['APPROVED', 'RESERVED'].includes(part.status)) {
       throw new BadRequestException(`Cannot issue stock for part in status '${part.status}'. Must be APPROVED or RESERVED`);
+    }
+
+    // R4R: the canonical spare part must be ACTIVE and not soft-deleted.
+    this.assertSparePartIssuable(part);
+
+    // R4R: idempotent replay. A repeated submission carrying the same client request
+    // id returns the ORIGINAL movement instead of deducting stock a second time. A
+    // key that was already used against a DIFFERENT requirement line is rejected as a
+    // conflict rather than reported as a successful issue.
+    if (options.clientRequestId) {
+      const existingMovement = await this.findReplayMovement(options.clientRequestId, lineId, ctx);
+      if (existingMovement) {
+        return { ...(await this.loadIssuedLineState(lineId)), idempotentReplay: true };
+      }
     }
 
     this.validateReplacementAction(dto);
@@ -513,7 +649,9 @@ export class MaintenanceStockIssueService {
 
     const isReplacement = dto.replacementAction !== 'NEW_INSTALLATION';
 
-    const movement = await this.withTransientTransactionRetry(() => this.prisma.$transaction(async (tx) => {
+    let movement: any;
+    try {
+      movement = await this.withTransientTransactionRetry(() => this.prisma.$transaction(async (tx) => {
       const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
       await assertMachineTenantInContext(tx, part.maintenanceRequest.machine.id, ctx);
       await assertWarehouseInContext(tx, dto.warehouseId, ctx);
@@ -579,6 +717,10 @@ export class MaintenanceStockIssueService {
           status: 'POSTED',
           sourceType: 'MAINTENANCE_PART_LINE',
           sourceId: lineId,
+          // R4R: client request id is stored in the column that already carries the
+          // FILTERED UNIQUE index (companyId, branchId, requestId) WHERE requestId IS
+          // NOT NULL, so duplicate submission is rejected by the database itself.
+          ...(options.clientRequestId ? { requestId: options.clientRequestId } : {}),
           movementDate: new Date(),
           postedAt: new Date(),
           createdById: userId,
@@ -820,7 +962,16 @@ export class MaintenanceStockIssueService {
     // installed part is what makes a concurrent double replacement of the SAME
     // physical installed part safe without a schema unique constraint. A losing
     // writer is retried on P2034 and then fails the ACTIVE re-check canonically.
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+    } catch (error: any) {
+      // R4R: a duplicated submission of the SAME client request id loses the
+      // (companyId, branchId, requestId) FILTERED UNIQUE index race and surfaces as
+      // P2002. That is a replay, not a failure: return the ORIGINAL line state so a
+      // double-clicked or retried issue never deducts stock twice. Any other P2002 is
+      // a real uniqueness failure and must propagate.
+      if (!this.isIdempotencyReplayError(error, options.clientRequestId)) throw error;
+      return { ...(await this.loadIssuedLineState(lineId)), idempotentReplay: true };
+    }
 
     await this.audit.log(userId, 'ISSUE_STOCK', 'MaintenanceRequestRequiredPart', lineId, {
       movementId: movement.id,
@@ -830,6 +981,7 @@ export class MaintenanceStockIssueService {
       productId,
       replacementAction: dto.replacementAction,
       issuedStockCondition: dto.issuedStockCondition,
+      ...(options.clientRequestId ? { clientRequestId: options.clientRequestId } : {}),
     });
 
     // R2-E accountability: the old→new physical part identity transition is an

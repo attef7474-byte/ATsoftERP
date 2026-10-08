@@ -86,8 +86,12 @@ export class InstalledPartsReplacementController {
     return this.service.evaluateAll(ctx);
   }
 
+  // R4R: was `machines:update` (plural), which the seed never declares - MODULES
+  // contains the singular "machine". The unseeded spelling made this route a
+  // permanently-denied 403 for every non-SUPER_ADMIN role. Corrected to the seeded
+  // sibling. Candidate follow-up: a dedicated `installed-parts:update` key.
   @Patch(':id/expected-life')
-  @Permissions('machines:update')
+  @Permissions('machine:update')
   @ApiOperation({ summary: 'Configure expected life for an installed part' })
   setExpectedLife(@Param('id') id: string, @Body() dto: SetExpectedLifeDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.setExpectedLife(id, dto, userId, ctx);
@@ -100,8 +104,9 @@ export class InstalledPartsReplacementController {
     return this.service.getReadings(id, ctx);
   }
 
+  // R4R: same unseeded plural-spelling defect as the expected-life route above.
   @Post(':id/readings')
-  @Permissions('machines:update')
+  @Permissions('machine:update')
   @ApiOperation({ summary: 'Record a reading for an installed part' })
   recordReading(@Param('id') id: string, @Body() dto: RecordInstalledPartReadingDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.recordReading(id, dto, userId, ctx);

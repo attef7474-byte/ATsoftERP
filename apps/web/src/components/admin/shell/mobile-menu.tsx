@@ -4,9 +4,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { UserProfile } from '../../../lib/auth';
 import { useTranslation } from '../../../lib/i18n/use-translation';
-import { sidebarGroups, type SidebarGroup } from './navigation-data';
+import { sidebarGroups, filterSidebarGroups, type SidebarGroup } from './navigation-data';
 import { shellIconMap } from './shell-icons';
 import { MobileUserSummary } from './user-menu';
+import { useAuth } from '../../../lib/auth-context';
 
 export function MobileMenuOverlay({ onClose }: { onClose: () => void }) {
   return <div className="fixed inset-0 z-[65] bg-black bg-opacity-50" onClick={onClose} aria-hidden />;
@@ -114,6 +115,12 @@ export function MobileMenuPanel({
   onClose,
 }: MobileMenuPanelProps) {
   const { t } = useTranslation();
+  const { permissions, isSuperAdmin } = useAuth();
+  const visibleGroups = filterSidebarGroups(
+    sidebarGroups,
+    permissions?.permissions ?? null,
+    isSuperAdmin,
+  );
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   // Close on Escape + move focus into the drawer for keyboard users
@@ -149,7 +156,7 @@ export function MobileMenuPanel({
         </button>
       </div>
       <nav className="admin-sidebar-inner flex-1" role="navigation" aria-label={t('workspace.sidebar')}>
-        {sidebarGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <MobileGroup
             key={group.id}
             group={group}

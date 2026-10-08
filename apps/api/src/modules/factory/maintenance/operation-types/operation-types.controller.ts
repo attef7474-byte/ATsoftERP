@@ -16,14 +16,14 @@ export class OperationTypesController {
   constructor(private service: OperationTypesService) {}
 
   @Post()
-  @Permissions('operationTypes:create')
+  @Permissions('operation-type:create')
   @ApiOperation({ summary: 'Create operation type' })
   create(@Body() dto: CreateOperationTypeDto, @CurrentUser('sub') userId: string) {
     return this.service.create(dto, userId);
   }
 
   @Get()
-  @Permissions('operationTypes:read')
+  @Permissions('operation-type:read')
   @ApiOperation({ summary: 'List operation types' })
   findAll(@Query() query: { page?: string; limit?: string; search?: string; status?: string }) {
     return this.service.findAll({
@@ -35,26 +35,26 @@ export class OperationTypesController {
   }
 
   @Get(':id')
-  @Permissions('operationTypes:read')
+  @Permissions('operation-type:read')
   @ApiOperation({ summary: 'Get operation type by ID' })
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
 
   @Patch(':id')
-  @Permissions('operationTypes:update')
+  @Permissions('operation-type:update')
   @ApiOperation({ summary: 'Update operation type' })
   update(@Param('id') id: string, @Body() dto: UpdateOperationTypeDto, @CurrentUser('sub') userId: string) {
     return this.service.update(id, dto, userId);
   }
 
   @Delete(':id')
-  @Permissions('operationTypes:delete')
+  @Permissions('operation-type:delete')
   @ApiOperation({ summary: 'Soft delete operation type' })
   remove(@Param('id') id: string, @CurrentUser('sub') userId: string) {
     return this.service.remove(id, userId);
   }
 
   @Patch(':id/restore')
-  @Permissions('operationTypes:update')
+  @Permissions('operation-type:update')
   @ApiOperation({
     summary: 'Restore a soft-deleted operation type (SUPER_ADMIN system administration only)',
     description:
@@ -65,14 +65,14 @@ export class OperationTypesController {
   }
 
   @Patch(':id/activate')
-  @Permissions('operationTypes:activate')
+  @Permissions('operation-type:activate')
   @ApiOperation({ summary: 'Activate operation type' })
   activate(@Param('id') id: string, @CurrentUser('sub') userId: string) {
     return this.service.activate(id, userId);
   }
 
   @Patch(':id/deactivate')
-  @Permissions('operationTypes:deactivate')
+  @Permissions('operation-type:deactivate')
   @ApiOperation({ summary: 'Deactivate operation type' })
   deactivate(@Param('id') id: string, @CurrentUser('sub') userId: string) {
     return this.service.deactivate(id, userId);

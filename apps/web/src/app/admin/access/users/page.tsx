@@ -14,6 +14,7 @@ import { F9Lookup, companyAdapter, branchAdapter, departmentAdapter, roleAdapter
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 import { useErrorModal } from '../../../../components/admin/error-modal';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
+import { useAuth } from '@/lib/auth-context';
 import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
 import { translateRoleName } from '../../../../lib/i18n/literals';
 
@@ -22,6 +23,17 @@ export default function UsersPage() {
   const { t, dir, locale } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
+  const { permissions, isSuperAdmin } = useAuth();
+  // System login / account administration is a SECURITY capability and is gated by the
+  // access-control (user:*) domain only. Personnel administration (operational-person,
+  // person-assignment, supervisor, maintenance-personnel) must never imply it, and holding
+  // these keys must never imply any personnel/catalog authority.
+  const can = useCallback(
+    (permission: string) => isSuperAdmin || Boolean(permissions?.permissions.includes(permission)),
+    [isSuperAdmin, permissions],
+  );
+  const canCreateAccount = can('user:create');
+  const canUpdateAccount = can('user:update');
   const { showError } = useErrorModal();
   const [data, setData] = useState<User[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -64,11 +76,11 @@ export default function UsersPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new'), enabled: canCreateAccount },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId && canUpdateAccount },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') && canUpdateAccount },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') && canUpdateAccount },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -214,9 +226,9 @@ export default function UsersPage() {
 
   const gridActions: GridAction<User>[] = [
     { label: t('grid.view'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>, onClick: (r) => router.push(`/admin/access/users/${r.id}`) },
-    { label: t('grid.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (r) => openEdit(r) },
-    { label: t('common.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, onClick: (r) => confirmActivate(r.id), enabled: (r) => r.status !== 'ACTIVE' },
-    { label: t('common.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, variant: 'danger', onClick: (r) => confirmDeactivate(r.id), enabled: (r) => r.status === 'ACTIVE' },
+    { label: t('grid.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (r) => openEdit(r), enabled: () => canUpdateAccount },
+    { label: t('common.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, onClick: (r) => confirmActivate(r.id), enabled: (r) => r.status !== 'ACTIVE' && canUpdateAccount },
+    { label: t('common.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>, variant: 'danger', onClick: (r) => confirmDeactivate(r.id), enabled: (r) => r.status === 'ACTIVE' && canUpdateAccount },
   ];
 
   const handleSort = useCallback((col: string, dir: 'asc' | 'desc') => {
@@ -366,7 +378,7 @@ export default function UsersPage() {
           <F9Lookup label={t('users.role')} name="roleId" value={form.roleId} onChange={(v) => setForm({ ...form, roleId: v })} error={validationErrors.roleId} adapter={roleAdapter} />
           <div className="flex justify-end space-x-2 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={handleSave} disabled={saving}>{saving ? t('common.saving') : t('common.save')}</Button>
+            <Button onClick={handleSave} disabled={saving || (editItem ? !canUpdateAccount : !canCreateAccount)}>{saving ? t('common.saving') : t('common.save')}</Button>
           </div>
         </div>}
       </Modal>
