@@ -104,7 +104,7 @@ const M: Record<string, ResourceDef> = {
   'maintenance-request-part': { domain: 'maintenance', ar: 'قطع غيار طلبات الصيانة', en: 'Maintenance Request Parts' },
   'maintenance-request-parts': { domain: 'maintenance', ar: 'قطع غيار طلبات الصيانة (الطلبات)', en: 'Maintenance Request Part Requests' },
   'maintenance-request-required-part': { domain: 'maintenance', ar: 'قطع الغيار المطلوبة لطلبات الصيانة', en: 'Maintenance Request Required Parts' },
-  'maintenance-task': { domain: 'maintenance', ar: 'مهام الصيانة', en: 'Maintenance Tasks' },
+  'maintenance-task': { domain: 'maintenance', ar: 'تنفيذ وإكمال العمل', en: 'Execute & Complete Work' },
   'maintenance-schedule': { domain: 'maintenance', ar: 'جداول الصيانة', en: 'Maintenance Schedules' },
   'maintenance-checklist': { domain: 'maintenance', ar: 'قوائم الفحص', en: 'Maintenance Checklists' },
   'maintenance-checklist-execution': { domain: 'maintenance', ar: 'تنفيذ قوائم الفحص', en: 'Maintenance Checklist Execution' },
@@ -214,6 +214,10 @@ const M: Record<string, ResourceDef> = {
 
 /** Action-key → localized label; covers the full action inventory. */
 const A: Record<string, ActionDef> = {
+  registerHistorical: { ar: 'تسجيل عمل منفذ سابقاً', en: 'Register performed work' },
+  'parts.issue': { ar: 'صرف القطع الفعلية للتنفيذ', en: 'Issue actual execution parts' },
+  'downtime.close': { ar: 'إعادة المعدة للخدمة', en: 'Return machine to service' },
+
   create: { ar: 'إنشاء', en: 'Create' },
   read: { ar: 'عرض', en: 'View' },
   view: { ar: 'عرض', en: 'View' },

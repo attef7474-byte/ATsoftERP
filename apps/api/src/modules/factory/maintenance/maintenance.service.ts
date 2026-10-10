@@ -614,8 +614,8 @@ export class MaintenanceService {
             by: ['machineId'], where: { machineId: { in: machineIds }, status: 'IN_PROGRESS', deletedAt: null }, _count: true,
           }),
           this.prisma.maintenanceTask.findMany({
-            where: { request: { machineId: { in: machineIds } }, status: { in: ['PENDING', 'IN_PROGRESS'] } },
-            select: { id: true, request: { select: { machineId: true } } },
+            where: { machineId: { in: machineIds }, status: { in: ['PENDING', 'IN_PROGRESS'] } },
+            select: { id: true, machineId: true, request: { select: { machineId: true } } },
           }),
           this.prisma.downtimeLog.groupBy({
             by: ['machineId'], where: { machineId: { in: machineIds }, endTime: null, cancelledAt: null }, _count: true,
@@ -635,7 +635,8 @@ export class MaintenanceService {
     const activeReqMap = Object.fromEntries(activeRequests.map((r) => [r.machineId, r._count]));
     const openTaskCountByMachine: Record<string, number> = {};
     for (const t of openTasksWithMachine) {
-      const mid = t.request.machineId;
+      const mid = t.machineId ?? t.request?.machineId;
+      if (!mid) continue;
       openTaskCountByMachine[mid] = (openTaskCountByMachine[mid] || 0) + 1;
     }
     const activeDowntimeMap = Object.fromEntries(activeDowntimes.map((r) => [r.machineId, r._count]));

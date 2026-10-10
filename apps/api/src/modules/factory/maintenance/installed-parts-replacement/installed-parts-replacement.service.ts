@@ -129,13 +129,14 @@ export class InstalledPartsReplacementService {
       machineComponentId?: string | null;
       sparePartId: string;
       productId?: string | null;
-      maintenanceRequestId: string;
-      requiredPartId: string;
+      maintenanceRequestId?: string | null;
+      requiredPartId?: string | null;
       inventoryMovementId: string;
       conditionMovementId?: string | null;
       installedQuantity: number;
       installedCondition: string;
       installedByUserId: string;
+      installedAt?: Date;
       sourceType?: string;
       sourceId?: string;
       serialNumber?: string | null;
@@ -162,7 +163,7 @@ export class InstalledPartsReplacementService {
         conditionMovementId: data.conditionMovementId || null,
         installedQuantity: data.installedQuantity,
         installedCondition: data.installedCondition || 'NEW',
-        installedAt: new Date(),
+        installedAt: data.installedAt ?? new Date(),
         installedByUserId: data.installedByUserId,
         sourceType: data.sourceType || 'MAINTENANCE_ISSUE',
         sourceId: data.sourceId || data.requiredPartId,
@@ -179,8 +180,8 @@ export class InstalledPartsReplacementService {
     data: {
       machineId: string;
       machineComponentId?: string | null;
-      maintenanceRequestId: string;
-      requiredPartId: string;
+      maintenanceRequestId?: string | null;
+      requiredPartId?: string | null;
       newInstalledPartId: string;
       oldInstalledPartId?: string | null;
       oldSparePartId?: string | null;
@@ -196,6 +197,7 @@ export class InstalledPartsReplacementService {
       conditionInMovementId?: string | null;
       inventoryOutMovementId: string;
       replacedByUserId: string;
+      replacedAt?: Date;
       notes?: string | null;
     },
   ) {
@@ -235,7 +237,7 @@ export class InstalledPartsReplacementService {
         conditionOutMovementId: data.conditionOutMovementId || null,
         conditionInMovementId: data.conditionInMovementId || null,
         inventoryOutMovementId: data.inventoryOutMovementId,
-        replacedAt: new Date(),
+        replacedAt: data.replacedAt ?? new Date(),
         replacedByUserId: data.replacedByUserId,
         notes: data.notes || null,
       },

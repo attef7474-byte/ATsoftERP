@@ -165,7 +165,7 @@ export default function MaintenanceWorkOrderDetailPage() {
     },
     plan: () => { setConfirmAction('plan'); setConfirmOpen(true); },
     start: () => { setConfirmAction('start'); setConfirmOpen(true); },
-    complete: () => { setConfirmAction('complete'); setConfirmOpen(true); },
+    complete: () => router.push('/admin/maintenance/tasks?sourceType=WORK_ORDER&workOrderId=' + id),
     cancel: () => { setCancelReason(''); setValidationErrors({}); setConfirmAction('cancel'); setConfirmOpen(true); },
     addPart: () => { setPartForm(EMPTY_PART_FORM); setValidationErrors({}); setPartModalOpen(true); },
     addCost: () => { setCostForm(EMPTY_COST_FORM); setValidationErrors({}); setCostModalOpen(true); },
@@ -177,7 +177,7 @@ export default function MaintenanceWorkOrderDetailPage() {
     { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!data && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' },
     { id: 'plan', labelKey: 'maintenance.planWorkOrder', icon: <ActionEditIcon />, onClick: () => exec('plan'), enabled: !!(data && data.status === 'DRAFT') },
     { id: 'start', labelKey: 'maintenance.startWorkOrder', icon: <ActionEditIcon />, onClick: () => exec('start'), enabled: !!(data && data.status === 'PLANNED') },
-    { id: 'complete', labelKey: 'maintenance.completeWorkOrder', icon: <ActionEditIcon />, onClick: () => exec('complete'), enabled: !!(data && data.status === 'IN_PROGRESS') },
+    { id: 'complete', labelKey: 'maintenance.executeCompleteWork', icon: <ActionEditIcon />, onClick: () => exec('complete'), enabled: !!(data && data.status === 'IN_PROGRESS') },
     { id: 'cancel', labelKey: 'maintenance.cancelWorkOrder', icon: <ActionDeleteIcon />, onClick: () => exec('cancel'), enabled: !!(data && (data.status === 'DRAFT' || data.status === 'PLANNED')) },
     { id: 'addPart', labelKey: 'maintenance.addPart', icon: <ActionAddIcon />, onClick: () => exec('addPart'), enabled: !!data && !data.requestId && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' },
     { id: 'addCost', labelKey: 'maintenance.addCostEntry', icon: <ActionAddIcon />, onClick: () => exec('addCost'), enabled: !!data && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' },
@@ -476,7 +476,7 @@ export default function MaintenanceWorkOrderDetailPage() {
     switch (confirmAction) {
       case 'plan': return t('maintenance.planWorkOrder');
       case 'start': return t('maintenance.startWorkOrder');
-      case 'complete': return t('maintenance.completeWorkOrder');
+      case 'complete': return t('maintenance.executeCompleteWork');
       case 'cancel': return t('maintenance.cancelWorkOrder');
       case 'issue': return t('maintenance.issueParts');
       case 'deletePart': return t('common.confirmDeleteTitle');
@@ -657,7 +657,7 @@ export default function MaintenanceWorkOrderDetailPage() {
                 <div className="flex gap-2">
                   {data.status === 'DRAFT' && <Button size="sm" onClick={() => exec('plan')}>{t('maintenance.planWorkOrder')}</Button>}
                   {data.status === 'PLANNED' && <Button size="sm" onClick={() => exec('start')}>{t('maintenance.startWorkOrder')}</Button>}
-                  {data.status === 'IN_PROGRESS' && <Button size="sm" onClick={() => exec('complete')}>{t('maintenance.completeWorkOrder')}</Button>}
+                  {data.status === 'IN_PROGRESS' && <Button size="sm" onClick={() => exec('complete')}>{t('maintenance.executeCompleteWork')}</Button>}
                   {(data.status === 'DRAFT' || data.status === 'PLANNED') && <Button variant="danger" size="sm" onClick={() => exec('cancel')}>{t('maintenance.cancelWorkOrder')}</Button>}
                 </div>
               )}

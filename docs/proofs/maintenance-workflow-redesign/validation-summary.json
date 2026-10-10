@@ -1,0 +1,47 @@
+{
+  "observedAtUtc": "2026-10-10T20:27:27.882302+00:00",
+  "api": {
+    "numTotalTestSuites": 187,
+    "numPassedTestSuites": 187,
+    "numFailedTestSuites": 0,
+    "numTotalTests": 3757,
+    "numPassedTests": 3757,
+    "numFailedTests": 0
+  },
+  "web": {
+    "numTotalTestSuites": 53,
+    "numPassedTestSuites": 53,
+    "numFailedTestSuites": 0,
+    "numTotalTests": 1301,
+    "numPassedTests": 1301,
+    "numFailedTests": 0
+  },
+  "apiTypecheck": "PASS",
+  "webTypecheck": "PASS",
+  "prismaValidate": "PASS",
+  "prismaGenerate": "PASS (7.8.0)",
+  "isolatedApiBuild": "PASS",
+  "isolatedWebBuild": "PASS (191 pages)",
+  "uiBaselineI18nRawKeysAndPermissions": "PASS",
+  "focusedApiGuards": "5 suites / 191 tests PASS",
+  "migration": {
+    "name": "20261008020000_maintenance_execution_workflow_redesign",
+    "bytes": 18267,
+    "sha256": "d95967a51d976a4645244705c4c6196049981132fe30b73d134814a02be0bb06",
+    "lineEndings": "LF"
+  },
+  "migrationChecks": 17,
+  "warnings": [
+    "Existing Web build: no ESLint configuration.",
+    "Multiple lockfiles: isolated validation copy shares the root dependency installation.",
+    "next start warns about standalone output; isolated runtime served successfully."
+  ],
+  "productionBuildsOverwritten": false,
+  "productionMigrationApplied": false,
+  "realHttpSqlChecks": 25,
+  "realHttpRequests": 84,
+  "status": "PASS",
+  "credentialsGate": "PASS",
+  "gitDiffCheck": "PASS",
+  "browserChecks": 8
+}

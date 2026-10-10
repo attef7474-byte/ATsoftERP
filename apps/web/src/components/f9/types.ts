@@ -1,6 +1,7 @@
 export interface F9Column<T> {
   key: string;
   header: string;
+  headerKey?: string;
   render?: (item: T) => React.ReactNode;
 }
 

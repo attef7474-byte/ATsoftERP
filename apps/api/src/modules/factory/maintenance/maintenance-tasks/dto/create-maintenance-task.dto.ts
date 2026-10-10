@@ -1,18 +1,44 @@
-import { IsString, IsOptional } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsIn, IsNotEmpty, MaxLength } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateMaintenanceTaskDto {
-  @ApiProperty({ example: 'request-id' })
-  @IsString()
-  requestId: string;
+  @ApiPropertyOptional({ enum: ['MAINTENANCE_REQUEST', 'WORK_ORDER', 'DIRECT'] })
+  @IsOptional() @IsIn(['MAINTENANCE_REQUEST', 'WORK_ORDER', 'DIRECT'])
+  sourceType?: 'MAINTENANCE_REQUEST' | 'WORK_ORDER' | 'DIRECT';
 
-  @ApiProperty({ example: 'Inspect motor windings' })
-  @IsString()
-  title: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty()
+  requestId?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty()
+  workOrderId?: string;
+
+  @ApiPropertyOptional({ enum: ['MACHINE', 'PRODUCTION_LINE', 'GENERAL'] })
+  @IsOptional() @IsIn(['MACHINE', 'PRODUCTION_LINE', 'GENERAL'])
+  scopeType?: 'MACHINE' | 'PRODUCTION_LINE' | 'GENERAL';
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty()
+  productionLineId?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty()
+  machineId?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty()
+  machineComponentId?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(1000)
+  workLocation?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty()
+  costCenterId?: string;
+
+  @ApiPropertyOptional({ description: 'Legacy title; new execution titles are generated.' })
+  @IsOptional() @IsString() @MaxLength(1000)
+  title?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   description?: string;
 
   @ApiPropertyOptional()
@@ -23,5 +49,6 @@ export class CreateMaintenanceTaskDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   notes?: string;
 }

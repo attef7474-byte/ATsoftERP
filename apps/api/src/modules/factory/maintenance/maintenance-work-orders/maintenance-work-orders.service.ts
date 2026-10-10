@@ -1,3 +1,5 @@
+import { MaintenanceStockIssueService } from '../maintenance-stock-issue/maintenance-stock-issue.service';
+import { resolveExecutionScope, executionError } from '../maintenance-tasks/maintenance-execution-policy';
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
@@ -19,8 +21,6 @@ import {
   LABOR_EVENT_TYPE,
   MAINTENANCE_LABOR_SOURCE_TYPE,
   MANUAL_AMOUNT_UNIT,
-  MATERIAL_EVENT_TYPE,
-  canonicalLedgerUnit,
 } from '../../production-cost/production-cost.constants';
 import { OperationalCostCenterResolver } from '../cost-centers/operational-cost-center-resolver.service';
 
@@ -35,57 +35,9 @@ export class MaintenanceWorkOrdersService {
     private valuationEngine: InventoryValuationEngineService,
     private productionCost: ProductionCostService,
     private costCenterResolver: OperationalCostCenterResolver,
+    private stockIssue: MaintenanceStockIssueService,
   ) {}
 
-  /**
-   * COST-R1B: canonical PRIMARY_COST ledger projection for a valued maintenance
-   * material OUT issue. Only called when the issue carried explicit valuation
-   * evidence (an ACTIVE policy produced a valued movement line with totalCost and
-   * currencyCode). Legacy/unvalued issues (no line id, no totalCost, no currency)
-   * are intentionally skipped without throwing.
-   */
-  private async postMaintenanceMaterialLedgerEntry(
-    tx: any,
-    opts: {
-      movementId: string;
-      lineId: string;
-      totalCost: Prisma.Decimal;
-      currencyCode: string;
-      quantity: Prisma.Decimal;
-      unit: string;
-      workOrderNumber: string;
-      movementDate: Date;
-      createdById: string;
-      ctx: ActiveOperationalContext;
-    },
-  ) {
-    if (!opts.lineId || !opts.totalCost || !opts.currencyCode) {
-      return;
-    }
-    await this.productionCost.postLedgerEntryWithinTransaction(tx, {
-      eventType: MATERIAL_EVENT_TYPE,
-      sourceType: 'INVENTORY_MOVEMENT_LINE',
-      sourceId: opts.lineId,
-      sourceLineId: opts.lineId,
-      costNature: 'ACTUAL',
-      costPurpose: MAINTENANCE_COST_PURPOSE,
-      entryRole: 'PRIMARY_COST',
-      amount: opts.totalCost,
-      quantity: opts.quantity,
-      unit: canonicalLedgerUnit(opts.unit),
-      currencyCode: null,
-      occurredAt: opts.movementDate,
-      clientRequestId: `${opts.movementId}-line:${opts.lineId}-maintenance-issue`,
-      requestPayloadFingerprint: `${opts.movementId}-line:${opts.lineId}-maintenance-issue`,
-      sourceNumberSnapshot: opts.workOrderNumber,
-      refs: {
-        _currencyCodeFromInventory: opts.currencyCode,
-        _sourceKind: 'MAINTENANCE_MATERIAL',
-      },
-      createdById: opts.createdById,
-      ctx: opts.ctx,
-    });
-  }
 
   private validationError(field: string, code: string, message: string): BadRequestException {
     return new BadRequestException({
@@ -111,6 +63,8 @@ export class MaintenanceWorkOrdersService {
     company: { select: { id: true, name: true } },
     branch: { select: { id: true, name: true } },
     machine: { select: { id: true, code: true, name: true } },
+    productionLine: { select: { id: true, code: true, name: true } },
+    costCenter: { select: { id: true, code: true, name: true } },
     machineComponent: { select: { id: true, code: true, name: true } },
     request: { select: { id: true, requestNumber: true, title: true, status: true } },
     warehouse: { select: { id: true, code: true, name: true } },
@@ -131,9 +85,9 @@ export class MaintenanceWorkOrdersService {
     },
   };
 
-  private async findOwned(id: string, ctx: ActiveOperationalContext) {
-    const wo = await this.prisma.maintenanceWorkOrder.findUnique({
-      where: { id },
+  private async findOwned(id: string, ctx: ActiveOperationalContext, client: any = this.prisma) {
+    const wo = await client.maintenanceWorkOrder.findUnique({
+      where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
       include: this.includeDetail,
     });
     if (!wo || !this.owns(wo, ctx)) {
@@ -203,7 +157,7 @@ export class MaintenanceWorkOrdersService {
       }
     }
 
-    const configuredCostCenterId = request?.costCenterId ?? machine?.defaultCostCenterId ?? null;
+    const configuredCostCenterId = request?.costCenterId ?? workOrder.costCenterId ?? machine?.defaultCostCenterId ?? null;
     let costCenter: { id: string; departmentId: string | null };
     if (configuredCostCenterId) {
       costCenter = await this.configuredMaintenanceCostCenter(tx, configuredCostCenterId, occurredAt, ctx);
@@ -491,6 +445,7 @@ export class MaintenanceWorkOrdersService {
   }
 
   async create(dto: CreateMaintenanceWorkOrderDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
+    if (dto.requestId) throw executionError('maintenance.workOrderUseLegacyRequestEndpoint');
     // R2-C: any requestId/machineId/component pair is validated canonically
     // (tenant, terminal, request↔machine coupling, component↔machine binding).
     const resolved = await this.assertCanonicalRequestLink(
@@ -530,6 +485,7 @@ export class MaintenanceWorkOrdersService {
       this.assertOwnedUser(dto.supervisorId, 'supervisorId', ctx),
     ]);
 
+    const executionScope = await resolveExecutionScope(this.prisma, { ...dto, ...resolvedLink }, ctx);
     const parts = dto.parts && dto.parts.length > 0 ? dto.parts : [];
     // R2-D (Option 1): a request-linked work order never carries parallel part
     // lines. Spare parts are the request's required parts; the work order plans
@@ -553,7 +509,8 @@ export class MaintenanceWorkOrdersService {
         companyId: ctx.companyId,
         branchId: ctx.branchId,
         workOrderNumber,
-        title: dto.title,
+        title: dto.description?.trim().slice(0, 160) || workOrderNumber,
+        ...executionScope,
         description: dto.description ?? null,
         type: dto.type ?? 'CORRECTIVE',
         priority: dto.priority ?? 'MEDIUM',
@@ -606,7 +563,7 @@ export class MaintenanceWorkOrdersService {
 
   async findAll(query: {
     page?: number; limit?: number; search?: string;
-    status?: string; type?: string; priority?: string; machineId?: string; requestId?: string;
+    status?: string; type?: string; priority?: string; machineId?: string; requestId?: string; executionEligible?: boolean;
   }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -620,7 +577,8 @@ export class MaintenanceWorkOrdersService {
         { description: { contains: query.search } },
       ];
     }
-    if (query.status) where.status = query.status;
+    if (query.executionEligible) where.status = { in: ['DRAFT', 'PLANNED', 'IN_PROGRESS'] };
+    else if (query.status) where.status = query.status;
     if (query.type) where.type = query.type;
     if (query.priority) where.priority = query.priority;
     if (query.machineId) where.machineId = query.machineId;
@@ -652,9 +610,8 @@ export class MaintenanceWorkOrdersService {
   async update(id: string, dto: UpdateMaintenanceWorkOrderDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
     const wo = await this.findOwned(id, ctx);
 
-    // R2-C linkage immutability: once a request is linked it is immutable through the
-    // generic PATCH. A still-unlinked DRAFT work order may attach a request only while
-    // DRAFT and before any execution evidence (parts/cost entries) exists.
+    // Historical request links are immutable. New request links are rejected by
+    // generic PATCH; only the explicitly deprecated compatibility endpoint creates them.
     let effectiveRequestId = wo.requestId;
     if (dto.requestId !== undefined && (dto.requestId ?? null) !== wo.requestId) {
       if (wo.requestId) {
@@ -664,25 +621,8 @@ export class MaintenanceWorkOrdersService {
           'The maintenance request link is immutable once set; cancel the work order instead of relinking it',
         );
       }
-      if (wo.status !== 'DRAFT') {
-        throw this.validationError(
-          'requestId',
-          'workOrderRequestLinkImmutable',
-          'A work order can only be linked to a maintenance request while it is DRAFT',
-        );
-      }
-      const [existingParts, existingCosts] = await Promise.all([
-        this.prisma.maintenanceWorkOrderPart.count({ where: { workOrderId: id } }),
-        this.prisma.maintenanceWorkOrderCostEntry.count({ where: { workOrderId: id } }),
-      ]);
-      if (existingParts > 0 || existingCosts > 0) {
-        throw this.validationError(
-          'requestId',
-          'workOrderRequestLinkImmutable',
-          'Cannot attach a maintenance request to a work order that already has parts or cost entries',
-        );
-      }
-      effectiveRequestId = dto.requestId ?? null;
+      throw this.validationError('requestId', 'workOrderRequestLinkImmutable',
+        'New work orders are independent; only the explicitly deprecated compatibility endpoint creates request links');
     }
 
     const effectiveMachineId = dto.machineId !== undefined ? dto.machineId ?? null : wo.machineId;
@@ -717,10 +657,32 @@ export class MaintenanceWorkOrdersService {
       this.assertOwnedUser(dto.supervisorId, 'supervisorId', ctx),
     ]);
 
-    const updated = await this.prisma.maintenanceWorkOrder.update({
+    const executionScope = await resolveExecutionScope(this.prisma, {
+      scopeType: dto.scopeType ?? wo.scopeType,
+      machineId: resolved.machineId, machineComponentId: resolved.machineComponentId,
+      productionLineId: dto.productionLineId !== undefined ? dto.productionLineId || null : wo.productionLineId,
+      workLocation: dto.workLocation !== undefined ? dto.workLocation : wo.workLocation,
+      costCenterId: dto.costCenterId !== undefined ? dto.costCenterId || null : wo.costCenterId,
+    }, ctx);
+    return this.prisma.$transaction(async tx => {
+      await tx.$queryRaw(Prisma.sql([
+        'SELECT [id] FROM [dbo].[maintenance_work_orders] WITH (UPDLOCK,HOLDLOCK) WHERE [id]=',
+        ' AND [companyId]=', ' AND [branchId]=', '',
+      ], id, ctx.companyId, ctx.branchId));
+      const current = await this.findOwned(id, ctx, tx);
+      if (current.status !== wo.status || current.updatedAt && wo.updatedAt && +current.updatedAt !== +wo.updatedAt) {
+        throw new ConflictException({ messageKey: 'maintenance.executionConcurrentChange' });
+      }
+      const executions = await tx.maintenanceTask.count({ where: { workOrderId: id } });
+      if (executions && ['scopeType', 'machineId', 'machineComponentId', 'productionLineId', 'costCenterId', 'workLocation']
+        .some(key => (dto as any)[key] !== undefined && ((dto as any)[key] || null) !== ((current as any)[key] || null))) {
+        throw executionError('maintenance.executionSourceImmutable');
+      }
+    const updated = await tx.maintenanceWorkOrder.update({
       where: { id },
       data: {
-        title: dto.title,
+        ...executionScope,
+        title: dto.description !== undefined ? dto.description?.trim().slice(0, 160) || wo.workOrderNumber : dto.title,
         description: dto.description !== undefined ? dto.description ?? null : undefined,
         type: dto.type,
         priority: dto.priority,
@@ -746,18 +708,10 @@ export class MaintenanceWorkOrdersService {
       include: this.includeDetail,
     });
 
-    await this.audit.log(user.id, 'UPDATE', 'MaintenanceWorkOrder', wo.id, {
-      workOrderNumber: wo.workOrderNumber,
-      title: updated.title,
-      type: updated.type,
-      priority: updated.priority,
-      machineId: updated.machineId,
-      machineComponentId: updated.machineComponentId,
-      requestId: updated.requestId,
-      status: updated.status,
-    });
+    await this.audit.logWithClient(tx, { userId: user.id, action: 'UPDATE', entity: 'MaintenanceWorkOrder', entityId: id,
+      details: { workOrderNumber: wo.workOrderNumber, companyId: ctx.companyId, branchId: ctx.branchId } });
+    return updated;    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
-    return updated;
   }
 
   async transition(id: string, dto: WorkOrderStatusActionDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
@@ -817,7 +771,25 @@ export class MaintenanceWorkOrdersService {
 
   private async completeWorkOrder(id: string, user: CurrentUserType, ctx: ActiveOperationalContext) {
     try {
-      return await this.prisma.$transaction(async (tx: any) => {
+      return await this.prisma.$transaction(tx => this.completeWithClient(tx, id, user, ctx), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error: any) {
+      if (error?.code === 'P2002') throw new ConflictException({ messageKey: 'productionCostTransaction.sourceAlreadyValued' });
+      throw error;
+    }
+  }
+
+  async startExecutionWithClient(tx: any, id: string, userId: string, ctx: ActiveOperationalContext, at = new Date()) {
+    const wo = await tx.maintenanceWorkOrder.findFirst({ where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null }, include: { request: true } });
+    if (!wo) throw this.notFound('Maintenance work order not found');
+    if (wo.status === 'IN_PROGRESS') return wo;
+    if (!['DRAFT', 'PLANNED'].includes(wo.status) || wo.request && !['OPEN', 'IN_PROGRESS'].includes(wo.request.status)) throw executionError('maintenance.executionSourceNotEligible');
+    const updated = await tx.maintenanceWorkOrder.update({ where: { id }, data: { status: 'IN_PROGRESS', startedAt: at } });
+    await this.audit.logWithClient(tx, { userId, action: 'STATUS_TRANSITION', entity: 'MaintenanceWorkOrder', entityId: id,
+      details: { from: wo.status, to: 'IN_PROGRESS', action: 'start-execution', companyId: ctx.companyId, branchId: ctx.branchId } });
+    return updated;
+  }
+
+  async completeWithClient(tx: any, id: string, user: CurrentUserType, ctx: ActiveOperationalContext, completedAt = new Date()) {
         // Serialize completion of this tenant-owned work order. The existing filtered
         // unique ledger indexes remain the final DB-enforced duplicate barrier.
         await tx.$queryRaw(Prisma.sql`
@@ -882,15 +854,9 @@ export class MaintenanceWorkOrdersService {
           );
         }
 
-        const partLines = await tx.maintenanceWorkOrderPart.findMany({ where: { workOrderId: workOrder.id } });
-        const partial = partLines.filter((p: any) => p.stockIssueStatus === 'PARTIALLY_ISSUED');
-        if (partial.length > 0) {
-          throw this.validationError(
-            'status',
-            'validation.invalidStatusTransition',
-            `Cannot complete the work order: ${partial.length} part line(s) are only partially issued. Issue the remaining quantity or remove the line.`,
-          );
-        }
+        const openExecutions = await tx.maintenanceTask.count({ where: { workOrderId: id, status: { in: ['PENDING', 'IN_PROGRESS'] } } });
+        if (openExecutions) throw executionError('maintenance.openTasksBlockCompletion');
+        // Planned quantities are estimates. Actual consumption may be less, more, or unplanned.
 
         const eligibleCostEntries = await tx.maintenanceWorkOrderCostEntry.findMany({
           where: { workOrderId: workOrder.id, type: { in: ['LABOR', 'EXTERNAL'] }, amount: { gt: 0 } },
@@ -903,7 +869,6 @@ export class MaintenanceWorkOrdersService {
           await this.postMaintenanceLaborLedgerEntry(tx, workOrder, entry, user, ctx);
         }
 
-        const completedAt = new Date();
         for (const entry of externalServiceEntries) {
           await this.postMaintenanceExternalServiceLedgerEntry(tx, workOrder, entry, completedAt, user, ctx);
         }
@@ -930,23 +895,12 @@ export class MaintenanceWorkOrdersService {
           },
         });
         return updated;
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    } catch (error: any) {
-      // A database uniqueness race is a domain conflict, never a user-visible 500.
-      if (error?.code === 'P2002') {
-        throw new ConflictException({
-          messageKey: 'productionCostTransaction.sourceAlreadyValued',
-          message: 'Maintenance cost was already posted to the unified cost ledger',
-        });
-      }
-      throw error;
-    }
   }
 
   private async computeActualCost(client: any, workOrderId: string): Promise<number> {
     const [parts, costs] = await Promise.all([
-      client.maintenanceWorkOrderPart.aggregate({
-        where: { workOrderId, stockIssueStatus: { not: 'PENDING' } },
+      client.inventoryMovementLine.aggregate({
+        where: { direction: 'OUT', movement: { status: 'POSTED', OR: [{ sourceType: 'MAINTENANCE_WORK_ORDER', sourceId: workOrderId }, { sourceType: 'MAINTENANCE_EXECUTION', executionPartUsages: { some: { execution: { workOrderId } } } }] } },
         _sum: { totalCost: true },
       }),
       client.maintenanceWorkOrderCostEntry.aggregate({
@@ -1111,10 +1065,10 @@ export class MaintenanceWorkOrdersService {
     let targets = lines;
     if (dto.partLineIds && dto.partLineIds.length > 0) {
       const requested = new Set(dto.partLineIds);
-      for (const l of lines) {
-        if (!requested.has(l.id)) {
+      for (const requestedId of requested) {
+        if (!lines.some(line => line.id === requestedId)) {
           throw this.validationError('partLineIds', 'validation.invalidReference',
-            `Part line ${l.id} does not belong to this work order`);
+            `Part line ${requestedId} does not belong to this work order`);
         }
       }
       targets = lines.filter((l) => requested.has(l.id));
@@ -1148,118 +1102,48 @@ export class MaintenanceWorkOrdersService {
     }
 
     const movements: any[] = [];
-    let movementNumber: string | null = null;
-
     await this.prisma.$transaction(async (tx) => {
-      movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
-      // VAL-R1E: for an ACTIVE valuation warehouse the physical decrement,
-      // monetary decrement, and immutable movement monetary quartet are all
-      // applied atomically per line by the single inventory valuation authority
-      // at the current weighted moving average. When no ACTIVE policy exists the
-      // legacy unprotected behavior (physical only) is preserved.
-      const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, warehouseId);
-      for (const { part, productId } of targetProducts) {
+      await tx.$queryRaw(Prisma.sql([
+        'SELECT [id] FROM [dbo].[maintenance_work_orders] WITH (UPDLOCK,HOLDLOCK) WHERE [id]=',
+        ' AND [companyId]=', ' AND [branchId]=', '',
+      ], workOrderId, ctx.companyId, ctx.branchId));
+      const currentOrder = await this.findOwned(workOrderId, ctx, tx);
+      if (currentOrder.requestId || !['PLANNED', 'IN_PROGRESS'].includes(currentOrder.status)) {
+        throw this.validationError('status', 'validation.invalidStatusTransition', 'Work order is no longer eligible for independent issue');
+      }
+      for (const target of targetProducts) {
+        const part = await tx.maintenanceWorkOrderPart.findUnique({ where: { id: target.part.id } });
+        if (!part || part.workOrderId !== workOrderId) throw this.validationError('partLineIds', 'validation.invalidReference', 'Work order part not found');
+        const spare = part.sparePartId ? await tx.sparePart.findUnique({ where: { id: part.sparePartId } }) : null;
+        if (part.sparePartId && (!spare || spare.deletedAt || spare.status !== 'ACTIVE')) {
+          throw this.validationError('partLineIds', 'validation.invalidReference', 'Only an active canonical spare part may be issued');
+        }
+        const productId = spare?.productId || part.productId;
+        const product = productId ? await tx.product.findUnique({ where: { id: productId } }) : null;
+        if (!productId || !product || product.deletedAt || product.status !== 'ACTIVE'
+          || part.productId && spare?.productId && part.productId !== spare.productId) {
+          throw this.validationError('partLineIds', 'validation.invalidReference', 'Only the matching active inventory product may be issued');
+        }
         const remaining = part.quantity - (part.issuedQuantity || 0);
         const issueQty = Math.min(remaining, part.quantity - (part.issuedQuantity || 0));
         if (issueQty <= 0) continue;
 
-        const whereBalance: any = { warehouseId, productId };
-        whereBalance.locationId = null;
-        let balance = await tx.inventoryBalance.findFirst({ where: whereBalance });
-        if (!balance) {
-          balance = await tx.inventoryBalance.create({
-            data: { warehouseId, productId, locationId: null, quantity: 0 },
-          });
+        let movement: any;
+        try {
+          movement = await this.stockIssue.postStockIssueInTx(tx, {
+            productId, warehouseId, quantity: issueQty,
+            sourceType: 'MAINTENANCE_WORK_ORDER', sourceId: workOrderId,
+            maintenanceWorkOrderId: workOrderId, machineId: wo.machineId,
+            productionLineId: wo.productionLineId, costCenterId: wo.costCenterId,
+            notes: dto.notes || 'Maintenance work order ' + wo.workOrderNumber + ' parts issue',
+            lineNotes: 'Work order ' + wo.workOrderNumber + ' issue',
+          }, user.id, ctx);
+        } catch (error) {
+          if (error instanceof BadRequestException && (error.getResponse() as any).messageKey === 'maintenance.executionInsufficientStock') {
+            throw this.validationError('partLineIds', 'validation.insufficientStock', 'Insufficient stock for the requested work order parts');
+          }
+          throw error;
         }
-        const newQuantity = balance.quantity - issueQty;
-        if (newQuantity < 0) {
-          const product = await tx.product.findUnique({ where: { id: productId } });
-          throw new BadRequestException({
-            messageKey: 'common.validationFailed',
-            message: 'Validation failed',
-            errors: [{
-              field: 'partLineIds',
-              code: 'validation.insufficientStock',
-              message: `Insufficient stock for ${product?.name || productId}. Available: ${balance.quantity}, Requested: ${issueQty}`,
-            }],
-          });
-        }
-
-        const movement = await tx.inventoryMovement.create({
-          data: {
-            movementNumber,
-            companyId: ctx.companyId,
-            branchId: ctx.branchId,
-            warehouseId,
-            movementType: 'MAINTENANCE_ISSUE',
-            status: 'POSTED',
-            sourceType: 'MAINTENANCE_WORK_ORDER',
-            sourceId: workOrderId,
-            movementDate: new Date(),
-            postedAt: new Date(),
-            createdById: user.id,
-            postedById: user.id,
-            notes: dto.notes || `Maintenance work order ${wo.workOrderNumber} parts issue`,
-            lines: {
-              create: [{
-                productId,
-                warehouseLocationId: null,
-                quantity: issueQty,
-                direction: 'OUT',
-                notes: `Work order ${wo.workOrderNumber} issue${part.sparePartId ? ` for spare part ${part.sparePartId}` : ''}`,
-              }],
-            },
-          },
-          include: { lines: true },
-        });
-
-        if (activePolicy) {
-          const line = movement.lines[0];
-          const qold = await this.valuationEngine.aggregatePhysicalQuantity(tx, warehouseId, productId);
-          const valuedIssue = await this.valuationEngine.applyValuedIssue(tx, {
-            companyId: ctx.companyId,
-            warehouseId,
-            productId,
-            qold,
-            lineId: line.id,
-            movementId: movement.id,
-            currencyCode: activePolicy.currencyCode,
-            quantity: new Prisma.Decimal(issueQty),
-          });
-          // COST-R1B: project the valued maintenance material OUT issue into the
-          // unified cost ledger as a canonical PRIMARY_COST entry. The valuation
-          // engine has written totalCost/currencyCode to the movement line; the
-          // result is the exact authoritative amount. Guarded to valued issues
-          // only (legacy/unvalued path has no monetary evidence and is skipped).
-          // Runs on the SAME tx so a ledger failure rolls back the whole issue.
-          await this.postMaintenanceMaterialLedgerEntry(tx, {
-            movementId: movement.id,
-            lineId: line.id,
-            totalCost: valuedIssue.totalCost,
-            currencyCode: valuedIssue.currencyCode,
-            quantity: new Prisma.Decimal(issueQty),
-            unit: (line as any).unit ?? 'pcs',
-            workOrderNumber: wo.workOrderNumber,
-            movementDate: movement.movementDate,
-            createdById: user.id,
-            ctx,
-          });
-        }
-
-        // Physical decrement exactly once for both ACTIVE and INACTIVE flows,
-        // twin-syncing the legacy Float `quantity` and the Decimal `quantityBase`
-        // (physical authority = SUM(quantityBase)). Mirrors the proven R1C/R1D
-        // inventory-balance mutation pattern; the engine is the single monetary
-        // authority and is called above with the PRE-mutation `qold`.
-        const currentBase =
-          balance.quantityBase !== null && balance.quantityBase !== undefined
-            ? new Prisma.Decimal(balance.quantityBase.toString())
-            : new Prisma.Decimal(balance.quantity);
-        const newQuantityBase = currentBase.minus(new Prisma.Decimal(issueQty));
-        await tx.inventoryBalance.update({
-          where: { id: balance.id },
-          data: { quantity: newQuantity, quantityBase: newQuantityBase },
-        });
 
         const newIssued = (part.issuedQuantity || 0) + issueQty;
         const newStatus = newIssued >= part.quantity ? 'FULLY_ISSUED' : 'PARTIALLY_ISSUED';
@@ -1276,15 +1160,11 @@ export class MaintenanceWorkOrdersService {
 
         movements.push({ partId: part.id, movement, issuedQuantity: issueQty, newStatus });
       }
-    });
-
-    await this.audit.log(user.id, 'ISSUE_STOCK', 'MaintenanceWorkOrder', workOrderId, {
-      workOrderNumber: wo.workOrderNumber,
-      movementNumber,
-      warehouseId,
-      issuedLines: movements.length,
-      parts: movements.map((m) => ({ partId: m.partId, issuedQuantity: m.issuedQuantity, status: m.newStatus })),
-    });
+      await this.audit.logWithClient(tx, { userId: user.id, action: 'ISSUE_STOCK', entity: 'MaintenanceWorkOrder', entityId: workOrderId,
+        details: { workOrderNumber: wo.workOrderNumber, warehouseId, companyId: ctx.companyId, branchId: ctx.branchId,
+          movementNumbers: movements.map(m => m.movement.movementNumber),
+          issuedLines: movements.length, parts: movements.map(m => ({ partId: m.partId, issuedQuantity: m.issuedQuantity, status: m.newStatus })) } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     return this.findOwned(workOrderId, ctx);
   }

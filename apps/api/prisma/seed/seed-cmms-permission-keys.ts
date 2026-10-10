@@ -214,4 +214,7 @@ export const CMMS_EXTRA_PERMISSIONS: { key: string; module: string; action: stri
   { key: "inventory:operational-receipt:post", module: "inventory:operational-receipt", action: "post" },
   { key: "inventory:operational-receipt:cancel", module: "inventory:operational-receipt", action: "cancel" },
   { key: "inventory:operational-receipt:delete-draft", module: "inventory:operational-receipt", action: "delete-draft" },
+  { key: "maintenance-task:registerHistorical", module: "maintenance-task", action: "registerHistorical" },
+  { key: "maintenance-task:parts.issue", module: "maintenance-task", action: "parts.issue" },
+  { key: "maintenance-task:downtime.close", module: "maintenance-task", action: "downtime.close" },
 ];

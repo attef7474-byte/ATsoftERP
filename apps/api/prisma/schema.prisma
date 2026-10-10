@@ -295,6 +295,8 @@ model Company {
   valuationInitializations         InventoryValuationInitialization[]
   productionRunCostSnapshots       ProductionRunCostSnapshot[]
 
+  maintenanceExecutions MaintenanceTask[]
+
   @@index([status])
   @@index([code])
   @@index([createdAt])
@@ -388,6 +390,8 @@ model Branch {
   personAssignments                OperationalPersonAssignment[]
   shiftHandovers                   ShiftHandover[]
   productionRunCostSnapshots       ProductionRunCostSnapshot[]
+
+  maintenanceExecutions MaintenanceTask[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -533,6 +537,10 @@ model ProductionLine {
   performanceTargets               ProductionPerformanceTarget[]
   productionRuns                   ProductionRun[]
   machineResponsibilities          MachineResponsibilityAssignment[]
+
+  maintenanceExecutions MaintenanceTask[]
+
+  scopedMaintenanceWorkOrders MaintenanceWorkOrder[]
 
   @@index([code])
   @@index([companyId])
@@ -1221,6 +1229,11 @@ model User {
   updatedValuationPolicies          InventoryValuationPolicy[]          @relation("InventoryValuationPolicyUpdatedBy")
   createdValuationInitializations   InventoryValuationInitialization[]
 
+  createdMaintenanceExecutions MaintenanceTask[] @relation("MaintenanceTaskCreatedBy")
+  maintenanceExecutionSessions MaintenanceExecutionSession[] @relation("ExecutionSessionTechnician")
+  maintenanceSessionHandoffs MaintenanceExecutionSession[] @relation("ExecutionSessionHandoff")
+  recordedExecutionPartUsages MaintenanceExecutionPartUsage[] @relation("ExecutionPartRecordedBy")
+
   @@index([email])
   @@index([status])
   @@index([name])
@@ -1641,6 +1654,8 @@ model Product {
   valuationInitializations  InventoryValuationInitialization[]
   runCostSnapshots          ProductionRunCostSnapshot[]
 
+  executionPartUsages MaintenanceExecutionPartUsage[]
+
   @@index([categoryId])
   @@index([code])
   @@index([status])
@@ -1861,6 +1876,8 @@ model InventoryMovement {
   // SQL Server filtered unique index in migration 20260806200000 (WHERE [requestId]
   // IS NOT NULL). Prisma cannot express filtered unique indexes, so this is a plain
   // index here; the filtered index is the single source of truth for idempotency.
+  executionPartUsages MaintenanceExecutionPartUsage[]
+
   @@index([companyId, branchId, requestId])
   @@index([companyId])
   @@index([branchId])
@@ -2448,6 +2465,8 @@ model Machine {
   performanceTargets               ProductionPerformanceTarget[]
   productionRuns                   ProductionRun[]
 
+  maintenanceExecutions MaintenanceTask[]
+
   @@index([categoryId])
   @@index([companyId])
   @@index([branchId])
@@ -2552,6 +2571,8 @@ model MachineComponent {
   boms                        MaintenanceBom[]
   productionMeasurementPoints ProductionMeasurementPoint[]
 
+  maintenanceExecutions MaintenanceTask[]
+
   @@unique([machineId, code])
   @@index([machineId])
   @@index([parentComponentId])
@@ -2603,6 +2624,8 @@ model SparePart {
   repairOrders              SparePartRepairOrder[]
   bomItems                  MaintenanceBomItem[]
   planItems                 PreventiveSparePartPlanItem[]
+
+  executionPartUsages MaintenanceExecutionPartUsage[]
 
   @@index([code])
   @@index([name])
@@ -2827,6 +2850,8 @@ model MaintenanceRequestRequiredPart {
   installedParts       MachineInstalledPart[]
   replacementHistories SparePartReplacementHistory[]
   repairOrders         SparePartRepairOrder[]
+
+  executionPartUsages MaintenanceExecutionPartUsage[]
 
   @@unique([maintenanceRequestId, sparePartId])
   @@index([maintenanceRequestId])
@@ -3108,29 +3133,135 @@ model MaintenancePartAccountability {
   @@map("maintenance_part_accountability")
 }
 
+// Canonical maintenance execution root. Historical task IDs and request links are preserved.
 model MaintenanceTask {
-  id           String             @id @default(cuid())
-  requestId    String
-  request      MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  title        String
-  description  String?
-  status       String             @default("PENDING")
-  assignedToId String?
-  assignedTo   User?              @relation("MaintenanceTaskAssignedTo", fields: [assignedToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  startedAt    DateTime?
-  completedAt  DateTime?
-  cancelledAt  DateTime?
-  notes        String?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  id                 String                      @id @default(cuid())
+  sourceType         String                      @default("MAINTENANCE_REQUEST") @db.NVarChar(32)
+  scopeType          String                      @default("MACHINE") @db.NVarChar(32)
+  requestId          String?
+  request            MaintenanceRequest?         @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId        String?
+  workOrder          MaintenanceWorkOrder?       @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companyId          String?
+  company            Company?                    @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId           String?
+  branch             Branch?                     @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId          String?
+  machine            Machine?                    @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId   String?
+  productionLine     ProductionLine?             @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineComponentId String?
+  machineComponent   MachineComponent?           @relation(fields: [machineComponentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  costCenterId       String?
+  costCenter         CostCenter?                 @relation(fields: [costCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workLocation       String?
+  createdById        String?
+  createdBy          User?                       @relation("MaintenanceTaskCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title              String
+  description        String?
+  status             String                      @default("PENDING")
+  assignedToId       String?
+  assignedTo         User?                       @relation("MaintenanceTaskAssignedTo", fields: [assignedToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  startedAt          DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+  notes              String?
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+
+  sessions     MaintenanceExecutionSession[]
+  partUsages   MaintenanceExecutionPartUsage[]
+  downtimeLogs DowntimeLog[]
 
   @@index([requestId])
+  @@index([workOrderId])
   @@index([assignedToId])
+  @@index([createdById])
+  @@index([machineId])
+  @@index([productionLineId])
+  @@index([machineComponentId])
+  @@index([costCenterId])
+  @@index([companyId, branchId, status])
+  @@index([sourceType, status])
   @@index([status])
   @@index([requestId, status])
+  @@index([workOrderId, status])
   @@index([assignedToId, status])
   @@index([completedAt])
   @@map("maintenance_tasks")
+}
+
+// Labor participation is independent from execution elapsed time and machine downtime.
+model MaintenanceExecutionSession {
+  id               String          @id @default(cuid())
+  executionId      String
+  execution        MaintenanceTask @relation(fields: [executionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  technicianUserId String
+  technicianUser   User            @relation("ExecutionSessionTechnician", fields: [technicianUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  startedAt        DateTime
+  endedAt          DateTime?
+  workPerformed    String?         @db.NVarChar(Max)
+  remainingWork    String?         @db.NVarChar(Max)
+  endReason        String?         @db.NVarChar(32)
+  handoffToUserId  String?
+  handoffToUser    User?           @relation("ExecutionSessionHandoff", fields: [handoffToUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  notes            String?         @db.NVarChar(Max)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  partUsages MaintenanceExecutionPartUsage[]
+
+  // SQL migration additionally enforces UNIQUE technicianUserId WHERE endedAt IS NULL.
+  @@index([executionId, endedAt])
+  @@index([technicianUserId, startedAt])
+  @@index([handoffToUserId])
+  @@map("maintenance_execution_sessions")
+}
+
+// Traceability only: InventoryMovement and canonical valuation retain stock/cost authority.
+model MaintenanceExecutionPartUsage {
+  id                   String                          @id @default(cuid())
+  executionId          String
+  execution            MaintenanceTask                 @relation(fields: [executionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  executionSessionId   String?
+  executionSession     MaintenanceExecutionSession?    @relation(fields: [executionSessionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sparePartId          String?
+  sparePart            SparePart?                      @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId            String
+  product              Product                         @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity             Decimal                         @db.Decimal(18, 4)
+  unit                 String?
+  usageType            String                          @db.NVarChar(32)
+  inventoryMovementId  String                          @unique
+  inventoryMovement    InventoryMovement               @relation(fields: [inventoryMovementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  recordedByUserId     String
+  recordedByUser       User                            @relation("ExecutionPartRecordedBy", fields: [recordedByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  usedAt               DateTime
+  requiredPartId       String?
+  requiredPart         MaintenanceRequestRequiredPart? @relation(fields: [requiredPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderPartId      String?
+  workOrderPart        MaintenanceWorkOrderPart?       @relation(fields: [workOrderPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  installedPartId      String?
+  installedPart        MachineInstalledPart?           @relation(fields: [installedPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replacementHistoryId String?
+  replacementHistory   SparePartReplacementHistory?    @relation(fields: [replacementHistoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  clientRequestId      String                          @db.NVarChar(100)
+  requestFingerprint   String                          @db.NVarChar(64)
+  notes                String?                         @db.NVarChar(Max)
+  createdAt            DateTime                        @default(now())
+  updatedAt            DateTime                        @updatedAt
+
+  @@unique([executionId, clientRequestId])
+  @@index([executionSessionId])
+  @@index([sparePartId])
+  @@index([productId])
+  @@index([recordedByUserId])
+  @@index([requiredPartId])
+  @@index([workOrderPartId])
+  @@index([installedPartId])
+  @@index([replacementHistoryId])
+  @@index([executionId, usedAt])
+  @@map("maintenance_execution_part_usages")
 }
 
 model MaintenanceSchedule {
@@ -3192,6 +3323,8 @@ model DowntimeLog {
   machine                Machine             @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   requestId              String?
   request                MaintenanceRequest? @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  executionId            String?
+  execution              MaintenanceTask?    @relation(fields: [executionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   startTime              DateTime
   endTime                DateTime?
   durationMinutes        Float?
@@ -3239,6 +3372,8 @@ model DowntimeLog {
 
   requiredParts MaintenanceRequestRequiredPart[]
   segments      DowntimeSegment[]
+
+  @@index([executionId])
 
   @@index([machineId])
   @@index([requestId])
@@ -3309,6 +3444,12 @@ model MaintenanceWorkOrder {
   type               String              @default("CORRECTIVE")
   priority           String              @default("MEDIUM")
   status             String              @default("DRAFT")
+  scopeType          String              @default("GENERAL") @db.NVarChar(32)
+  productionLineId   String?
+  productionLine     ProductionLine?     @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workLocation       String?
+  costCenterId       String?
+  costCenter         CostCenter?         @relation(fields: [costCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   machineId          String?
   machine            Machine?            @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   machineComponentId String?
@@ -3340,6 +3481,11 @@ model MaintenanceWorkOrder {
   costEntries      MaintenanceWorkOrderCostEntry[]
   downtimeSegments DowntimeSegment[]
   costTransactions OperationalCostTransaction[]
+
+  executions MaintenanceTask[]
+
+  @@index([productionLineId])
+  @@index([costCenterId])
 
   @@unique([branchId, workOrderNumber])
   @@index([companyId])
@@ -3380,6 +3526,8 @@ model MaintenanceWorkOrderPart {
   lastIssueBy      User?                @relation("MaintenanceWorkOrderPartIssuedBy", fields: [lastIssueById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
+
+  executionPartUsages MaintenanceExecutionPartUsage[]
 
   @@index([workOrderId])
   @@index([sparePartId])
@@ -3717,6 +3865,10 @@ model CostCenter {
   costTransactions       OperationalCostTransaction[]
   operationalAssignments OperationalCostCenterAssignment[]
 
+  maintenanceExecutions MaintenanceTask[]
+
+  scopedMaintenanceWorkOrders MaintenanceWorkOrder[]
+
   @@unique([companyId, code])
   @@index([code])
   @@index([type])
@@ -3999,6 +4151,8 @@ model MachineInstalledPart {
   replacementHistoryOld SparePartReplacementHistory[] @relation("OldInstalledPart")
   readings              MachineInstalledPartReading[]
 
+  executionPartUsages MaintenanceExecutionPartUsage[]
+
   @@index([machineId])
   @@index([machineComponentId])
   @@index([sparePartId])
@@ -4064,6 +4218,8 @@ model SparePartReplacementHistory {
   replacedByUserId       String?                         @map("replaced_by_user_id")
   notes                  String?
   createdAt              DateTime                        @default(now()) @map("created_at")
+
+  executionPartUsages MaintenanceExecutionPartUsage[]
 
   @@index([machineId])
   @@index([machineComponentId])

@@ -127,7 +127,16 @@ export interface MaintenanceRequest {
 
 export interface MaintenanceTask {
   id: string;
-  requestId: string;
+  requestId?: string | null;
+  workOrderId?: string | null;
+  sourceType: 'MAINTENANCE_REQUEST' | 'WORK_ORDER' | 'DIRECT';
+  scopeType: 'MACHINE' | 'PRODUCTION_LINE' | 'GENERAL';
+  productionLineId?: string | null;
+  machineId?: string | null;
+  machineComponentId?: string | null;
+  createdById?: string | null;
+  workLocation?: string | null;
+  costCenterId?: string | null;
   assignedToId?: string | null;
   title: string;
   description?: string | null;
@@ -143,7 +152,48 @@ export interface MaintenanceTask {
   createdAt: string;
   updatedAt: string;
   request?: { id: string; requestNumber: string; title: string; status: string };
+  workOrder?: MaintenanceWorkOrder | null;
+  createdBy?: { id: string; name: string } | null;
+  machine?: { id: string; name: string; code: string } | null;
+  productionLine?: { id: string; name: string; code: string } | null;
+  machineComponent?: { id: string; name: string; code: string } | null;
+  sessions?: MaintenanceExecutionSession[];
+  partUsages?: MaintenanceExecutionPartUsage[];
+  downtimeLogs?: DowntimeLog[];
+  metrics?: { elapsedMinutes: number; totalLaborMinutes: number; downtimeMinutes: number; waitingForContinuation: boolean };
   assignedTo?: { id: string; name: string; email: string };
+}
+
+export interface MaintenanceExecutionSession {
+  id: string;
+  executionId: string;
+  technicianUserId: string;
+  startedAt: string;
+  endedAt?: string | null;
+  workPerformed?: string | null;
+  remainingWork?: string | null;
+  endReason?: 'HANDOFF' | 'PAUSE' | 'LEAVE' | 'COMPLETE' | null;
+  handoffToUserId?: string | null;
+  notes?: string | null;
+  technicianUser?: { id: string; name: string };
+  handoffToUser?: { id: string; name: string } | null;
+}
+
+export interface MaintenanceExecutionPartUsage {
+  id: string;
+  executionId: string;
+  executionSessionId?: string | null;
+  productId: string;
+  sparePartId?: string | null;
+  quantity: number | string;
+  usageType: 'CONSUMED' | 'INSTALLED' | 'REPLACED';
+  inventoryMovementId: string;
+  usedAt: string;
+  notes?: string | null;
+  product?: { id: string; name: string; code: string; unit?: string };
+  sparePart?: { id: string; name: string; code: string } | null;
+  recordedByUser?: { id: string; name: string };
+  inventoryMovement?: { id: string; movementNumber?: string };
 }
 
 export interface MaintenanceSchedule {
@@ -705,6 +755,10 @@ export interface MaintenanceWorkOrder {
   type: string;
   priority: string;
   status: string;
+  scopeType: 'MACHINE' | 'PRODUCTION_LINE' | 'GENERAL';
+  productionLineId?: string | null;
+  workLocation?: string | null;
+  costCenterId?: string | null;
   machineId?: string | null;
   machineComponentId?: string | null;
   requestId?: string | null;
@@ -727,6 +781,7 @@ export interface MaintenanceWorkOrder {
   company?: { id: string; name: string };
   branch?: { id: string; name: string };
   machine?: { id: string; code: string; name: string };
+  productionLine?: { id: string; code: string; name: string };
   machineComponent?: { id: string; code: string; name: string };
   request?: { id: string; requestNumber: string; title?: string; status?: string };
   warehouse?: { id: string; code: string; name: string };

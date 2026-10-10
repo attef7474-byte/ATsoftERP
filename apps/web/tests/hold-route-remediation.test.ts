@@ -164,11 +164,12 @@ describe('active requests create modal reaches legacy /new parity (DEAD-ROUTES-P
     expect(requests).toContain('adapter={operationTypeAdapter}');
     expect(requests).toContain('adapter={costCenterAdapter}');
     expect(requests).toContain("filters={{ machineId: form.machineId }}");
-    expect(requests).toContain('filters={{ machineId: form.machineId, componentId: form.machineComponentId }}');
+    expect(requests).toContain('filters={{ productionLineId: form.productionLineId }}');
+    expect(requests).toContain('disabled={!form.productionLineId}');
   });
 
   it('auto-fills operational context from the selected machine (productionLine, operationType, defaultCostCenter)', () => {
-    expect(requests).toContain('productionLineId: machine.productionLineId');
+    expect(requests).toContain('productionLineId: prev.productionLineId');
     expect(requests).toContain('operationTypeId: machine.operationTypeId');
     expect(requests).toContain('costCenterId: machine.defaultCostCenterId');
     expect(requests).toContain('onItemSelect={handleMachineSelect}');
@@ -179,13 +180,15 @@ describe('active requests create modal reaches legacy /new parity (DEAD-ROUTES-P
     expect(requests).toContain("t('maintenance.notes')");
   });
 
-  it('exposes required-parts editing (add/remove/sparePart adapter/isPrimary/quantity) wired to the payload', () => {
-    expect(requests).toContain('const addRequiredPart = () => {');
-    expect(requests).toContain('adapter={sparePartAdapter}');
-    expect(requests).toContain('t(\'maintenance.requiredSpareParts\')');
-    expect(requests).toContain("t('maintenance.addRequiredPart')");
-    expect(requests).toContain('payload.requiredParts = filledParts.map(');
-    expect(requests).toContain('(sparePart: SparePart) => handleSparePartSelect(index, sparePart)');
+  it('collects actual parts through execution while new requests contain fault information only', () => {
+    expect(requests).not.toContain("t('maintenance.addRequiredPart')");
+    expect(requests).not.toContain('payload.requiredParts');
+    const tasks = read('apps/web/src/app/admin/maintenance/tasks/page.tsx');
+    const editor = read('apps/web/src/components/maintenance/execution-parts.tsx');
+    expect(tasks).toContain('ExecutionPartsEditor');
+    expect(editor).toContain('sparePartAdapter');
+    expect(editor).toContain('quantity');
+    expect(editor).toContain('usageType');
   });
 
   it('uses backend-valid priority options (URGENT, never CRITICAL)', () => {
@@ -275,13 +278,13 @@ describe('requests create backend accepts the exposed request priorities/types (
 describe('active tasks create modal reaches legacy /new parity (notes)', () => {
   const tasks = read('apps/web/src/app/admin/maintenance/tasks/page.tsx');
 
-  it('exposes the notes field in create/edit and sends it to the API', () => {
-    expect(tasks).toContain("notes: ''");
-    expect(tasks).toContain("notes: item.notes || ''");
-    expect(tasks).toContain('if (form.notes) payload.notes = form.notes;');
-    expect(tasks).toContain("t('maintenance.notes')");
-  });
-});
+  it('preserves notes in creation and same-record editing through the canonical execution form', () => {
+    const create = read('apps/web/src/components/maintenance/execution-form.tsx');
+    expect(create).toContain('notes: notes.trim()');
+    expect(tasks).toContain("setNotes(selected.notes || '')");
+    expect(tasks).toContain('description: workPerformed, notes');
+    expect(create).toContain("t('maintenance.notes')");
+  });});
 
 describe('tasks create backend accepts notes', () => {
   it('CreateMaintenanceTaskDto supports notes', () => {

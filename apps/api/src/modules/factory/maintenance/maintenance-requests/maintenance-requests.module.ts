@@ -1,3 +1,4 @@
+import { DowntimeLogsModule } from '../downtime-logs/downtime-logs.module';
 import { Module } from '@nestjs/common';
 import { MaintenanceRequestsController } from './maintenance-requests.controller';
 import { MaintenanceRequestsService } from './maintenance-requests.service';
@@ -6,7 +7,7 @@ import { MaintenanceNotificationModule } from '../maintenance-notification/maint
 import { MaintenanceSlaModule } from '../maintenance-sla/maintenance-sla.module';
 
 @Module({
-  imports: [AuditModule, MaintenanceNotificationModule, MaintenanceSlaModule],
+  imports: [DowntimeLogsModule, AuditModule, MaintenanceNotificationModule, MaintenanceSlaModule],
   controllers: [MaintenanceRequestsController],
   providers: [MaintenanceRequestsService],
   exports: [MaintenanceRequestsService],

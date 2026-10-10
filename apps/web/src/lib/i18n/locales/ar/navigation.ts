@@ -41,7 +41,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         productionLines: 'خطوط الإنتاج',
         maintenanceRequests: 'طلبات الصيانة',
         maintenanceWorkOrders: 'أوامر العمل',
-        maintenanceTasks: 'مهام الصيانة',
+        maintenanceTasks: "تنفيذ وإكمال العمل",
         maintenanceSchedules: 'جداول الصيانة',
         checklistItems: 'قوائم الفحص',
         downtimeLogs: 'سجلات التوقف',

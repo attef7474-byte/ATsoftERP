@@ -41,10 +41,26 @@ export class CreateWorkOrderPartDto {
 }
 
 export class CreateMaintenanceWorkOrderDto {
+  @ApiPropertyOptional({ enum: ['MACHINE', 'PRODUCTION_LINE', 'GENERAL'] })
+  @IsOptional() @IsIn(['MACHINE', 'PRODUCTION_LINE', 'GENERAL'])
+  scopeType?: 'MACHINE' | 'PRODUCTION_LINE' | 'GENERAL';
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString()
+  productionLineId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString()
+  costCenterId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString()
+  workLocation?: string;
+
   @ApiProperty({ example: 'Fix conveyor motor overheating' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  title: string;
+  title?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

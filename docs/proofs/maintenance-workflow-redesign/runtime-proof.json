@@ -1,0 +1,585 @@
+{
+  "status": "PASS",
+  "database": "ATsoftERP_MWR_RUNTIME_20261008202957",
+  "databaseId": 45,
+  "productionMutations": "NONE",
+  "observedAtUtc": "2026-10-10T20:23:23.864Z",
+  "checks": [
+    {
+      "name": "request_without_parts_authenticated_creator_and_generated_title",
+      "result": "PASS"
+    },
+    {
+      "name": "machine_stop_requires_description",
+      "result": "PASS"
+    },
+    {
+      "name": "M5_same_tenant_component_mismatch_is_400",
+      "result": "PASS"
+    },
+    {
+      "name": "selected_line_cannot_contain_unassigned_machine",
+      "result": "PASS"
+    },
+    {
+      "name": "request_stop_creates_one_canonical_downtime",
+      "result": "PASS"
+    },
+    {
+      "name": "request_execution_team_start",
+      "result": "PASS"
+    },
+    {
+      "name": "source_context_frozen_after_execution_and_list_detail_downtime_agree",
+      "result": "PASS"
+    },
+    {
+      "name": "one_engineer_cannot_start_overlapping_execution",
+      "result": "PASS"
+    },
+    {
+      "name": "handoff_does_not_start_successor_or_complete_work_or_close_downtime",
+      "result": "PASS"
+    },
+    {
+      "name": "late_join_and_early_leave_affect_only_own_participation",
+      "result": "PASS"
+    },
+    {
+      "name": "return_to_service_closes_downtime_while_execution_remains_active",
+      "result": "PASS"
+    },
+    {
+      "name": "request_actual_part_internal_line_usage_and_idempotent_team_issue",
+      "result": "PASS"
+    },
+    {
+      "name": "team_completion_shared_timestamp_and_canonical_request_completion",
+      "result": "PASS"
+    },
+    {
+      "name": "terminal_sources_excluded_and_rejected_for_new_execution",
+      "result": "PASS"
+    },
+    {
+      "name": "direct_general_consumption_valuation_and_no_fake_parent",
+      "result": "PASS"
+    },
+    {
+      "name": "direct_line_scope_without_fake_machine",
+      "result": "PASS"
+    },
+    {
+      "name": "direct_machine_installation_and_canonical_replacement",
+      "result": "PASS"
+    },
+    {
+      "name": "independent_work_order_scopes_and_planned_actual_separation",
+      "result": "PASS"
+    },
+    {
+      "name": "multiple_executions_only_final_sibling_completes_source",
+      "result": "PASS"
+    },
+    {
+      "name": "historical_registration_and_overlap_validation",
+      "result": "PASS"
+    },
+    {
+      "name": "permission_allow_deny_and_embedded_part_permission",
+      "result": "PASS"
+    },
+    {
+      "name": "tenant_and_branch_read_edit_reference_and_list_isolation",
+      "result": "PASS"
+    },
+    {
+      "name": "insufficient_stock_completion_rolls_back_without_partial_usage",
+      "result": "PASS"
+    },
+    {
+      "name": "ATOMIC_COMPLETION_ROLLBACK_AFTER_SOURCE_AND_DOWNTIME_MUTATIONS",
+      "result": "PASS"
+    },
+    {
+      "name": "unauthenticated_precision_foreign_warehouse_session_and_new_link_denial",
+      "result": "PASS"
+    }
+  ],
+  "requests": [
+    {
+      "method": "POST",
+      "route": "/maintenance/requests",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/requests",
+      "status": 400
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/requests",
+      "status": 400
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/requests",
+      "status": 400
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/requests",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p/start",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/requests/cmv2ud4nm0003yk95frdj1b14",
+      "status": 400
+    },
+    {
+      "method": "GET",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "route": "/maintenance/tasks?requestId=cmv2ud4nm0003yk95frdj1b14",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 400
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud5f8000fyk95w93af0zr/start",
+      "status": 409
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud5f8000fyk95w93af0zr/cancel",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p/handoff",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p/join",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p/leave",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p/return-to-service",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p/parts",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p/parts",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p/parts",
+      "status": 409
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p/parts",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p/join",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p/complete",
+      "status": 400
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p/complete",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 400
+    },
+    {
+      "method": "GET",
+      "route": "/maintenance/requests?executionEligible=true&limit=100",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud6y9001gyk957trl5i3m/start",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud6y9001gyk957trl5i3m/complete",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud78o001tyk95sb8rs7b8/start",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud78o001tyk95sb8rs7b8/complete",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud7e3001yyk9531hl59an/start",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks/cmv2ud7e3001yyk9531hl59an/parts",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks/cmv2ud7e3001yyk9531hl59an/parts",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud7e3001yyk9531hl59an/complete",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance-work-orders",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud7xb002ryk95xdtyxqra/start",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud7xb002ryk95xdtyxqra/complete",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance-work-orders",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance-work-orders",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance-work-orders",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud8gz003kyk95jbz4ekvk/start",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud8gz003kyk95jbz4ekvk/complete",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud8ii003myk95vmz67e72/start",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud8ii003myk95vmz67e72/complete",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks/register-historical",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks/register-historical",
+      "status": 409
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks/register-historical",
+      "status": 400
+    },
+    {
+      "method": "GET",
+      "route": "/maintenance/tasks",
+      "status": 403
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud93n004cyk95t1yj2rd0/start",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud93n004cyk95t1yj2rd0/complete",
+      "status": 403
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud93n004cyk95t1yj2rd0/complete",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p",
+      "status": 404
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p",
+      "status": 404
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "route": "/maintenance/tasks?limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "route": "/maintenance/tasks/participants?limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "route": "/maintenance/tasks/cmv2ud4vr0008yk95o6dn9w2p",
+      "status": 404
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud9gi004hyk95x312dmc2/start",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud9gi004hyk95x312dmc2/complete",
+      "status": 400
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud9gi004hyk95x312dmc2/complete",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance-work-orders",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud9sc004wyk95rqy9v5as/start",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud9sc004wyk95rqy9v5as/complete",
+      "status": 500
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2ud9sc004wyk95rqy9v5as/complete",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "route": "/maintenance/tasks",
+      "status": 401,
+      "authentication": "NONE"
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2udaax005qyk95ybq0i8yu/start",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks/cmv2udaax005qyk95ybq0i8yu/parts",
+      "status": 400
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks/cmv2udaax005qyk95ybq0i8yu/parts",
+      "status": 404
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance/tasks/cmv2udaax005qyk95ybq0i8yu/parts",
+      "status": 404
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance-work-orders",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance-work-orders/cmv2udamy005uyk95qwu7r6go",
+      "status": 400
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance/tasks/cmv2udaax005qyk95ybq0i8yu/complete",
+      "status": 200
+    }
+  ],
+  "fixtures": {
+    "prefix": "MWR_1791663793932",
+    "context": {
+      "companyId": "cmrvaph2200009g95oj1o8m1j",
+      "branchId": "cmrvaph4100019g95kisacppa"
+    },
+    "otherContext": {
+      "companyId": "cmv2ud3hg0000hs95y8hf7i9y",
+      "branchId": "cmv2ud3ie0001hs95box35l7k"
+    },
+    "users": [
+      {
+        "id": "cmv2ud3sn0005hs95j20s6fyo",
+        "name": "MWR Engineer 1"
+      },
+      {
+        "id": "cmv2ud3tm0006hs95zjzn1ruy",
+        "name": "MWR Engineer 2"
+      },
+      {
+        "id": "cmv2ud3tu0007hs952fbzyj9k",
+        "name": "MWR Engineer 3"
+      },
+      {
+        "id": "cmv2ud3u30008hs95k0brcxva",
+        "name": "MWR Engineer 4"
+      }
+    ],
+    "machineId": "cmv2ud3v8000bhs95td1h5zv7",
+    "componentId": "cmv2ud3w9000dhs95tlcqdrg9",
+    "warehouseId": "cmv2ud3x0000fhs95ry580ckg",
+    "productId": "cmv2ud3xu000hhs95seajndix",
+    "sparePartId": "cmv2ud3yf000ihs95garfng9p",
+    "requestId": "cmv2ud4nm0003yk95frdj1b14",
+    "executionId": "cmv2ud4vr0008yk95o6dn9w2p",
+    "workOrderId": "cmv2ud7v3002oyk95bug0o0jf",
+    "createdExecutionIds": [
+      "cmv2ud4vr0008yk95o6dn9w2p",
+      "cmv2ud5f8000fyk95w93af0zr",
+      "cmv2ud6tk001eyk95747bj4c0",
+      "cmv2ud6y9001gyk957trl5i3m",
+      "cmv2ud78o001tyk95sb8rs7b8",
+      "cmv2ud7e3001yyk9531hl59an",
+      "cmv2ud7xb002ryk95xdtyxqra",
+      "cmv2ud8gz003kyk95jbz4ekvk",
+      "cmv2ud8ii003myk95vmz67e72",
+      "cmv2ud93n004cyk95t1yj2rd0",
+      "cmv2ud9gi004hyk95x312dmc2",
+      "cmv2ud9sc004wyk95rqy9v5as",
+      "cmv2udaax005qyk95ybq0i8yu"
+    ]
+  },
+  "cleanup": "Fixtures retained only in disposable database for browser proof; no production cleanup required."
+}

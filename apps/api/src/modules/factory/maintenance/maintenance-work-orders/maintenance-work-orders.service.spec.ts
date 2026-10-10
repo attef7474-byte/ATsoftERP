@@ -1,3 +1,4 @@
+import { MaintenanceStockIssueService } from '../maintenance-stock-issue/maintenance-stock-issue.service';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { MaintenanceWorkOrdersService } from './maintenance-work-orders.service';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
@@ -117,7 +118,7 @@ describe('MaintenanceWorkOrdersService', () => {
       operationalCostTransaction: { findFirst: jest.fn() },
       costCenter: { findFirst: jest.fn() },
       machine: { findUnique: jest.fn(), findFirst: jest.fn() },
-      machineComponent: { findUnique: jest.fn() },
+      machineComponent: { findUnique: jest.fn(), findFirst: jest.fn().mockResolvedValue({ id: 'comp1' }) },
       maintenanceRequest: { findUnique: jest.fn() },
       warehouse: { findUnique: jest.fn() },
       sparePart: { findUnique: jest.fn() },
@@ -125,9 +126,13 @@ describe('MaintenanceWorkOrdersService', () => {
       user: { findUnique: jest.fn() },
       inventoryBalance: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
       inventoryMovement: { create: jest.fn() },
+      inventoryMovementLine: { aggregate: jest.fn().mockResolvedValue({ _sum: { totalCost: 0 } }) },
+      maintenanceTask: { count: jest.fn().mockResolvedValue(0) },
+      productionLine: { findFirst: jest.fn() },
       $queryRaw: jest.fn().mockResolvedValue([{ id: 'wo1' }]),
       $transaction: jest.fn().mockImplementation(async (cb: any) => cb(prisma)),
     };
+    prisma.machine.findFirst.mockImplementation((args: any) => prisma.machine.findUnique(args));
     numbering = {
       generateNumberAtomic: jest.fn().mockResolvedValue('WO-0001'),
       generateNumberAtomicWithClient: jest.fn().mockResolvedValue('IM-0001'),
@@ -145,6 +150,8 @@ describe('MaintenanceWorkOrdersService', () => {
       { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) } as any,
       productionCost,
       costCenterResolver,
+      new MaintenanceStockIssueService(prisma, audit, numbering, {} as any, {} as any,
+        { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) } as any, productionCost),
     );
   });
 
@@ -162,7 +169,7 @@ describe('MaintenanceWorkOrdersService', () => {
       prisma.maintenanceRequest.findUnique.mockResolvedValue({ id: 'rX', machineId: 'mX' });
       prisma.machine.findUnique.mockResolvedValue({ id: 'mX', companyId: 'c2', branchId: 'b1' });
 
-      const promise = service.create({ title: 'WO', requestId: 'rX' }, user, ctx);
+      const promise = service.createFromRequest('rX', { title: 'WO' }, user, ctx);
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
       expect(response.errors[0]).toMatchObject({ field: 'requestId', code: 'validation.invalidReference' });
@@ -176,7 +183,7 @@ describe('MaintenanceWorkOrdersService', () => {
       prisma.user.findUnique.mockResolvedValue(null);
       prisma.maintenanceWorkOrder.create.mockResolvedValue(wo({ workOrderNumber: 'WO-0001' }));
 
-      const result = await service.create({ title: 'Fix motor' }, user, ctx);
+      const result = await service.create({ description: 'Fix motor' }, user, ctx);
       expect(numbering.generateNumberAtomic).toHaveBeenCalledWith('MAINTENANCE_WORK_ORDER');
       expect(prisma.maintenanceWorkOrder.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -318,9 +325,18 @@ describe('MaintenanceWorkOrdersService', () => {
       expect(prisma.maintenanceWorkOrder.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'wo1' }, data: expect.objectContaining({ title: 'Renamed' }) }),
       );
-      expect(audit.log).toHaveBeenCalledWith('u1', 'UPDATE', 'MaintenanceWorkOrder', 'wo1', expect.any(Object));
+      expect(audit.logWithClient).toHaveBeenCalledWith(prisma, expect.objectContaining({ userId: 'u1', action: 'UPDATE', entity: 'MaintenanceWorkOrder', entityId: 'wo1' }));
+      expect(audit.log).not.toHaveBeenCalled();
       expect(result.title).toBe('Renamed');
     });
+  });
+
+  it('includes owning company and branch in direct work-order detail queries', async () => {
+    prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo());
+    await service.findOne('wo1', ctx);
+    expect(prisma.maintenanceWorkOrder.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'wo1', companyId: 'c1', branchId: 'b1', deletedAt: null },
+    }));
   });
 
   describe('transition (status workflow)', () => {
@@ -361,14 +377,15 @@ describe('MaintenanceWorkOrdersService', () => {
       await expect(service.transition('wo1', { action: 'start' }, user, ctx)).rejects.toThrow(BadRequestException);
     });
 
-    it('blocks completion while a part line is partially issued', async () => {
+    it('allows actual consumption below the planned estimate during completion', async () => {
       prisma.maintenanceWorkOrder.findFirst.mockResolvedValue(wo({ status: 'IN_PROGRESS', costEntries: [] }));
       prisma.maintenanceWorkOrderPart.findMany.mockResolvedValue([part({ stockIssueStatus: 'PARTIALLY_ISSUED' })]);
-
-      const promise = service.transition('wo1', { action: 'complete' }, user, ctx);
-      await expect(promise).rejects.toThrow(BadRequestException);
-      const response = (await promise.catch((e) => e)).getResponse();
-      expect(response.errors[0]).toMatchObject({ code: 'validation.invalidStatusTransition' });
+      prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([]);
+      prisma.maintenanceWorkOrderCostEntry.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
+      prisma.maintenanceWorkOrder.update.mockResolvedValue(wo({ status: 'COMPLETED' }));
+      await service.transition('wo1', { action: 'complete' }, user, ctx);
+      expect(prisma.maintenanceWorkOrder.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'COMPLETED', actualCost: 0 }) }));
+      expect(prisma.maintenanceWorkOrderPart.update).not.toHaveBeenCalled();
     });
 
     it('completes a work order and computes actualCost from issued parts and cost entries', async () => {
@@ -377,7 +394,7 @@ describe('MaintenanceWorkOrdersService', () => {
         part({ stockIssueStatus: 'FULLY_ISSUED' }),
         part({ stockIssueStatus: 'PENDING', id: 'p2' }),
       ]);
-      prisma.maintenanceWorkOrderPart.aggregate.mockResolvedValue({ _sum: { totalCost: 20 } });
+      prisma.inventoryMovementLine.aggregate.mockResolvedValue({ _sum: { totalCost: 20 } });
       prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([]);
       prisma.maintenanceWorkOrderCostEntry.aggregate.mockResolvedValue({ _sum: { amount: 30.5 } });
       prisma.maintenanceWorkOrder.update.mockResolvedValue(wo({ status: 'COMPLETED', actualCost: 50.5 }));
@@ -427,7 +444,7 @@ describe('MaintenanceWorkOrdersService', () => {
       prisma.maintenanceWorkOrder.findFirst.mockResolvedValue(completingWorkOrder());
       prisma.maintenanceWorkOrderPart.findMany.mockResolvedValue([]);
       prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([labor]);
-      prisma.maintenanceWorkOrderPart.aggregate.mockResolvedValue({ _sum: { totalCost: null } });
+      prisma.inventoryMovementLine.aggregate.mockResolvedValue({ _sum: { totalCost: null } });
       prisma.maintenanceWorkOrderCostEntry.aggregate.mockResolvedValue({ _sum: { amount: labor.amount } });
       prisma.machine.findFirst.mockResolvedValue({
         id: 'm1', productionLineId: 'line1', departmentId: 'dep1', defaultCostCenterId: 'cc-machine',
@@ -619,7 +636,7 @@ describe('MaintenanceWorkOrdersService', () => {
       prisma.maintenanceWorkOrder.findFirst.mockResolvedValue(completingWorkOrder());
       prisma.maintenanceWorkOrderPart.findMany.mockResolvedValue([]);
       prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([external]);
-      prisma.maintenanceWorkOrderPart.aggregate.mockResolvedValue({ _sum: { totalCost: null } });
+      prisma.inventoryMovementLine.aggregate.mockResolvedValue({ _sum: { totalCost: null } });
       prisma.maintenanceWorkOrderCostEntry.aggregate.mockResolvedValue({ _sum: { amount: external.amount } });
       prisma.machine.findFirst.mockResolvedValue({
         id: 'm1', productionLineId: null, departmentId: 'dep1', defaultCostCenterId: 'cc-machine',
@@ -705,7 +722,7 @@ describe('MaintenanceWorkOrdersService', () => {
       }));
       prisma.maintenanceWorkOrderPart.findMany.mockResolvedValue([]);
       prisma.maintenanceWorkOrderCostEntry.findMany.mockResolvedValue([external]);
-      prisma.maintenanceWorkOrderPart.aggregate.mockResolvedValue({ _sum: { totalCost: null } });
+      prisma.inventoryMovementLine.aggregate.mockResolvedValue({ _sum: { totalCost: null } });
       prisma.maintenanceWorkOrderCostEntry.aggregate.mockResolvedValue({ _sum: { amount: external.amount } });
       prisma.machine.findFirst.mockResolvedValue({ id: 'm1', productionLineId: null, departmentId: 'dep1', defaultCostCenterId: null });
       costCenterResolver.resolveWithClient.mockResolvedValue({ costCenterId: 'cc-resolved' });
@@ -841,14 +858,21 @@ describe('MaintenanceWorkOrdersService', () => {
 
   describe('issueParts (atomic inventory)', () => {
     const tx = () => ({
+      $queryRaw: prisma.$queryRaw,
+      maintenanceWorkOrder: { findUnique: prisma.maintenanceWorkOrder.findUnique },
+      sparePart: { findUnique: jest.fn().mockResolvedValue({ id: 'sp1', productId: 'prd1', status: 'ACTIVE' }) },
+      warehouse: { findUnique: prisma.warehouse.findUnique },
       inventoryBalance: {
         findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
       },
       inventoryMovement: { create: jest.fn() },
-      product: { findUnique: jest.fn() },
-      maintenanceWorkOrderPart: { update: jest.fn() },
+      inventoryMovementLine: { aggregate: jest.fn().mockResolvedValue({ _sum: { totalCost: 0 } }) },
+      maintenanceTask: { count: jest.fn().mockResolvedValue(0) },
+      productionLine: { findFirst: jest.fn() },
+      product: { findUnique: jest.fn().mockResolvedValue({ id: 'prd1', status: 'ACTIVE', name: 'Product' }) },
+      maintenanceWorkOrderPart: { findUnique: jest.fn().mockResolvedValue(part()), update: jest.fn() },
     });
 
     it('rejects issuing when no warehouse is set on the work order or payload', async () => {
@@ -922,7 +946,7 @@ describe('MaintenanceWorkOrdersService', () => {
       const result = await service.issueParts('wo1', {}, user, ctx);
       expect(prisma.$transaction).toHaveBeenCalled();
       expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledWith('INVENTORY_MOVEMENT', expect.anything());
-      expect(audit.log).toHaveBeenCalledWith('u1', 'ISSUE_STOCK', 'MaintenanceWorkOrder', 'wo1', expect.any(Object));
+      expect(audit.logWithClient).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ userId: 'u1', action: 'ISSUE_STOCK', entity: 'MaintenanceWorkOrder', entityId: 'wo1' }));
       expect(result.id).toBe('wo1');
     });
 
@@ -1064,7 +1088,7 @@ describe('MaintenanceWorkOrdersService', () => {
     it('defaults machineComponentId from the request when omitted', async () => {
       prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ machineComponentId: 'comp1' }));
       prisma.machine.findUnique.mockResolvedValue(ownedMachine);
-      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'comp1', machineId: 'm1' });
+      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'comp1', machineId: 'm1', machine: { companyId: 'c1', branchId: 'b1' } });
       prisma.maintenanceWorkOrder.create.mockResolvedValue(
         wo({ requestId: 'r1', machineId: 'm1', machineComponentId: 'comp1' }),
       );
@@ -1137,7 +1161,8 @@ describe('MaintenanceWorkOrdersService', () => {
       const promise = service.create({ title: 'x', requestId: 'r1' }, user, ctx);
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
-      expect(response.errors[0]).toMatchObject({ field: 'requestId', code: 'workOrderRequestTerminal' });
+      expect(response).toMatchObject({ messageKey: 'maintenance.workOrderUseLegacyRequestEndpoint' });
+      expect(prisma.maintenanceWorkOrder.create).not.toHaveBeenCalled();
     });
 
     it('rejects generic create when the WO machine differs from the request machine', async () => {
@@ -1145,20 +1170,13 @@ describe('MaintenanceWorkOrdersService', () => {
       const promise = service.create({ title: 'x', requestId: 'r1', machineId: 'm2' }, user, ctx);
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
-      expect(response.errors[0]).toMatchObject({ field: 'machineId', code: 'workOrderMachineRequestMismatch' });
+      expect(response).toMatchObject({ messageKey: 'maintenance.workOrderUseLegacyRequestEndpoint' });
+      expect(prisma.maintenanceWorkOrder.create).not.toHaveBeenCalled();
     });
 
-    it('generic create derives the machine from the request when machineId is omitted', async () => {
-      prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord());
-      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
-      prisma.machineComponent.findUnique.mockResolvedValue(null);
-      prisma.warehouse.findUnique.mockResolvedValue(null);
-      prisma.user.findUnique.mockResolvedValue(null);
-      prisma.maintenanceWorkOrder.create.mockResolvedValue(wo({ requestId: 'r1', machineId: 'm1' }));
-
-      await service.create({ title: 'x', requestId: 'r1' }, user, ctx);
-      const createCall = prisma.maintenanceWorkOrder.create.mock.calls[0][0];
-      expect(createCall.data).toMatchObject({ requestId: 'r1', machineId: 'm1' });
+    it('requires explicit legacy endpoint rather than silently linking a new work order', async () => {
+      await expect(service.create({ title: 'x', requestId: 'r1' }, user, ctx)).rejects.toMatchObject({ response: { messageKey: 'maintenance.workOrderUseLegacyRequestEndpoint' } });
+      expect(prisma.maintenanceWorkOrder.create).not.toHaveBeenCalled();
     });
 
     it('rejects a component that belongs to another machine', async () => {
@@ -1209,7 +1227,7 @@ describe('MaintenanceWorkOrdersService', () => {
       expect(response.errors[0]).toMatchObject({ field: 'requestId', code: 'workOrderRequestLinkImmutable' });
     });
 
-    it('attaches a request to an unlinked DRAFT work order with no child evidence', async () => {
+    it('rejects adding a new request link through generic update even without child evidence', async () => {
       prisma.maintenanceWorkOrder.findUnique.mockResolvedValue(wo());
       prisma.maintenanceWorkOrderPart = { count: jest.fn().mockResolvedValue(0) };
       prisma.maintenanceWorkOrderCostEntry = { count: jest.fn().mockResolvedValue(0) };
@@ -1220,10 +1238,10 @@ describe('MaintenanceWorkOrdersService', () => {
       prisma.user.findUnique.mockResolvedValue(null);
       prisma.maintenanceWorkOrder.update.mockResolvedValue(wo({ requestId: 'r1', machineId: 'm1' }));
 
-      const result = await service.update('wo1', { requestId: 'r1' }, user, ctx);
-      const updateCall = prisma.maintenanceWorkOrder.update.mock.calls[0][0];
-      expect(updateCall.data).toMatchObject({ requestId: 'r1', machineId: 'm1' });
-      expect(result.requestId).toBe('r1');
+      await expect(service.update('wo1', { requestId: 'r1' }, user, ctx)).rejects.toMatchObject({
+        response: { errors: [expect.objectContaining({ field: 'requestId', code: 'workOrderRequestLinkImmutable' })] },
+      });
+      expect(prisma.maintenanceWorkOrder.update).not.toHaveBeenCalled();
     });
 
     it('rejects attaching a request to a DRAFT work order that already has parts', async () => {
@@ -1244,7 +1262,7 @@ describe('MaintenanceWorkOrdersService', () => {
       const promise = service.update('wo1', { requestId: 'r1' }, user, ctx);
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
-      expect(response.errors[0]).toMatchObject({ field: 'requestId', code: 'workOrderRequestTerminal' });
+      expect(response.errors[0]).toMatchObject({ field: 'requestId', code: 'workOrderRequestLinkImmutable' });
     });
 
     it('rejects a machine change that contradicts the linked request', async () => {

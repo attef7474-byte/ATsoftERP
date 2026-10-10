@@ -36,6 +36,7 @@ export class MaintenanceRequestsController {
   @Permissions('maintenance-request:read')
   @ApiOperation({ summary: 'List maintenance requests' })
   findAll(@Query() query: {
+    executionEligible?: string;
     page?: string; limit?: string; search?: string;
     machineId?: string; status?: string; type?: string; priority?: string;
     requestedById?: string; assignedToId?: string;
@@ -43,6 +44,7 @@ export class MaintenanceRequestsController {
     isEmergency?: string;
   }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAll({
+      executionEligible: query.executionEligible === 'true',
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,

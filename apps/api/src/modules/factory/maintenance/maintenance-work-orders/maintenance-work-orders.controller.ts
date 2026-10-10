@@ -31,7 +31,7 @@ export class MaintenanceWorkOrdersController {
 
   @Post('from-request/:requestId')
   @Permissions('maintenance-work-order:create')
-  @ApiOperation({ summary: 'Create a maintenance work order canonically from a maintenance request (requestId/machineId server-derived)' })
+  @ApiOperation({ summary: 'Legacy compatibility: create a linked work order from a request', deprecated: true })
   createFromRequest(@Param('requestId') requestId: string, @Body() dto: CreateWorkOrderFromRequestDto, @CurrentUser() user: CurrentUserType, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.createFromRequest(requestId, dto, user, ctx);
   }
@@ -40,10 +40,12 @@ export class MaintenanceWorkOrdersController {
   @Permissions('maintenance-work-order:read')
   @ApiOperation({ summary: 'List maintenance work orders scoped to the active context' })
   findAll(@Query() query: {
+    executionEligible?: string;
     page?: string; limit?: string; search?: string;
     status?: string; type?: string; priority?: string; machineId?: string; requestId?: string;
   }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAll({
+      executionEligible: query.executionEligible === 'true',
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,

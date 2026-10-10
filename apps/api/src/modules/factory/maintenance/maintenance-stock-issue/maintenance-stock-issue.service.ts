@@ -7,7 +7,7 @@ import { IssueStockDto, ReturnStockDto } from './dto/issue-stock.dto';
 import { SparePartConditionService } from '../spare-part-conditions/spare-part-conditions.service';
 import { InstalledPartsReplacementService } from '../installed-parts-replacement/installed-parts-replacement.service';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
-import { assertWarehouseInContext, assertMachineInContext as assertMachineTenantInContext } from '../../../../common/operational-context/tenant-guards';
+import { assertWarehouseInContext, assertMachineComponentBelongsToMachine, assertMachineInContext as assertMachineTenantInContext } from '../../../../common/operational-context/tenant-guards';
 import { MAINTENANCE_COST_PURPOSE, isCostPurpose, type CostPurpose } from '../../../../common/cost-purpose/cost-purpose.constants';
 import { MATERIAL_EVENT_TYPE, canonicalLedgerUnit } from '../../production-cost/production-cost.constants';
 import { assertCostPurposeOverrideAllowed } from '../../../../common/cost-purpose/cost-purpose-permission';
@@ -17,6 +17,36 @@ import { ProductionCostService } from '../../production-cost/production-cost.ser
 const VALID_STOCK_CONDITIONS = ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'];
 const VALID_REPLACEMENT_ACTIONS = ['RETURNED_REMOVED_PART', 'NO_REMOVED_PART', 'NEW_INSTALLATION'];
 const FORBIDDEN_WAREHOUSE_TYPES = ['PRODUCT', 'RAW_MATERIAL'];
+
+export interface ExecutionPartIssueInput {
+  executionId: string;
+  executionSessionId?: string | null;
+  requestId?: string | null;
+  workOrderId?: string | null;
+  requiredPartId?: string | null;
+  workOrderPartId?: string | null;
+  machineId?: string | null;
+  machineComponentId?: string | null;
+  productionLineId?: string | null;
+  costCenterId?: string | null;
+  sparePartId?: string | null;
+  productId?: string | null;
+  warehouseId: string;
+  warehouseLocationId?: string;
+  quantity: number;
+  usageType: 'CONSUMED' | 'INSTALLED' | 'REPLACED';
+  issuedStockCondition?: string;
+  replacementAction?: string;
+  oldInstalledPartId?: string;
+  removedPartCondition?: string;
+  removedPartWarehouseId?: string;
+  removedPartQuantity?: number;
+  removedPartReturnedByUserId?: string;
+  noReturnReason?: string;
+  notes?: string;
+  clientRequestId: string;
+  usedAt?: Date;
+}
 
 @Injectable()
 export class MaintenanceStockIssueService {
@@ -43,7 +73,12 @@ export class MaintenanceStockIssueService {
     opts: {
       movementId: string;
       lineId: string;
-      maintenanceRequestId: string;
+      maintenanceRequestId?: string | null;
+      maintenanceWorkOrderId?: string | null;
+      machineId?: string | null;
+      productionLineId?: string | null;
+      costCenterId?: string | null;
+      productId?: string | null;
       totalCost: Prisma.Decimal;
       currencyCode: string;
       quantity: Prisma.Decimal;
@@ -75,6 +110,11 @@ export class MaintenanceStockIssueService {
       sourceNumberSnapshot: opts.sourceNumber,
       refs: {
         maintenanceRequestId: opts.maintenanceRequestId,
+        maintenanceWorkOrderId: opts.maintenanceWorkOrderId,
+        machineId: opts.machineId,
+        productionLineId: opts.productionLineId,
+        productId: opts.productId,
+        costCenterId: opts.costCenterId,
         _currencyCodeFromInventory: opts.currencyCode,
         _sourceKind: 'MAINTENANCE_MATERIAL',
       },
@@ -390,7 +430,7 @@ export class MaintenanceStockIssueService {
   private async resolveOldInstalledPartForReplacement(
     tx: any,
     dto: IssueStockDto,
-    part: any,
+    target: { machineId: string; machineComponentId?: string | null },
     ctx: ActiveOperationalContext,
   ): Promise<{
     id: string;
@@ -400,11 +440,12 @@ export class MaintenanceStockIssueService {
     machineComponentId: string | null;
     installedQuantity: number;
     installedCondition: string;
+    installedAt: Date | null;
     sparePart: { id: string; code: string; name: string; productId: string | null };
   }> {
     const oldInstalledPartId = dto.oldInstalledPartId!;
-    const machineId = part.maintenanceRequest.machine.id;
-    const requestComponentId = part.machineComponent?.id ?? part.machineComponentId ?? null;
+    const machineId = target.machineId;
+    const requestComponentId = target.machineComponentId ?? null;
 
     const oldPart = await tx.machineInstalledPart.findUnique({
       where: { id: oldInstalledPartId },
@@ -416,6 +457,7 @@ export class MaintenanceStockIssueService {
         productId: true,
         installedQuantity: true,
         installedCondition: true,
+        installedAt: true,
         status: true,
         machine: { select: { id: true, companyId: true, branchId: true } },
         sparePart: { select: { id: true, code: true, name: true, productId: true } },
@@ -498,6 +540,7 @@ export class MaintenanceStockIssueService {
       machineComponentId: oldComponentId,
       installedQuantity,
       installedCondition: oldPart.installedCondition,
+      installedAt: oldPart.installedAt ?? null,
       sparePart: oldPart.sparePart,
     };
   }
@@ -539,6 +582,314 @@ export class MaintenanceStockIssueService {
     if (dto.issuedStockCondition && !VALID_STOCK_CONDITIONS.includes(dto.issuedStockCondition)) {
       throw new BadRequestException(`Invalid issuedStockCondition '${dto.issuedStockCondition}'`);
     }
+  }
+
+  /** The shared physical/valuation posting authority for request, order and direct execution. */
+  async postStockIssueInTx(tx: any, input: {
+    productId: string;
+    warehouseId: string;
+    warehouseLocationId?: string;
+    quantity: number;
+    sourceType: string;
+    sourceId: string;
+    clientRequestId?: string;
+    movementNumber?: string;
+    maintenanceRequestId?: string | null;
+    maintenanceWorkOrderId?: string | null;
+    machineId?: string | null;
+    productionLineId?: string | null;
+    costCenterId?: string | null;
+    unit?: string;
+    notes?: string;
+    lineNotes?: string;
+    usedAt?: Date;
+  }, userId: string, ctx: ActiveOperationalContext) {
+    await assertWarehouseInContext(tx, input.warehouseId, ctx);
+    if (input.warehouseLocationId) {
+      const location = await tx.warehouseLocation.findUnique({ where: { id: input.warehouseLocationId } });
+      if (!location || location.warehouseId !== input.warehouseId) {
+        throw this.badRequest('maintenance.executionWarehouseLocationMismatch', 'The location does not belong to the selected warehouse');
+      }
+    }
+    const balance = await this.getOrCreateBalance(tx, input.warehouseId, input.productId, input.warehouseLocationId);
+    const currentBase = balance.quantityBase != null
+      ? new Prisma.Decimal(balance.quantityBase.toString()) : new Prisma.Decimal(balance.quantity);
+    const quantity = new Prisma.Decimal(input.quantity);
+    if (!quantity.isFinite() || quantity.lte(0) || currentBase.lt(quantity) || balance.quantity < input.quantity) {
+      throw this.badRequest('maintenance.executionInsufficientStock', 'Insufficient stock for the requested quantity');
+    }
+    const movementNumber = input.movementNumber
+      ?? await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', tx);
+    const movement = await tx.inventoryMovement.create({
+      data: {
+        movementNumber, companyId: ctx.companyId, branchId: ctx.branchId,
+        warehouseId: input.warehouseId, movementType: 'MAINTENANCE_ISSUE', status: 'POSTED',
+        sourceType: input.sourceType, sourceId: input.sourceId,
+        ...(input.clientRequestId ? { requestId: input.clientRequestId } : {}),
+        movementDate: input.usedAt ?? new Date(), postedAt: new Date(),
+        createdById: userId, postedById: userId, notes: input.notes || null,
+        lines: { create: [{
+          productId: input.productId, warehouseLocationId: input.warehouseLocationId || null,
+          quantity: input.quantity, quantityBase: quantity, direction: 'OUT',
+          ...(input.unit ? { unit: input.unit } : {}), notes: input.lineNotes || null,
+        }] },
+      }, include: { lines: true },
+    });
+    const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, ctx.companyId, input.warehouseId);
+    if (activePolicy) {
+      const qold = await this.valuationEngine.aggregatePhysicalQuantity(tx, input.warehouseId, input.productId);
+      const line = movement.lines[0];
+      const valued = await this.valuationEngine.applyValuedIssue(tx, {
+        companyId: ctx.companyId, warehouseId: input.warehouseId, productId: input.productId,
+        qold, lineId: line.id, movementId: movement.id,
+        currencyCode: activePolicy.currencyCode, quantity,
+      });
+      await this.postMaintenanceMaterialLedgerEntry(tx, {
+        movementId: movement.id, lineId: line.id,
+        maintenanceRequestId: input.maintenanceRequestId,
+        maintenanceWorkOrderId: input.maintenanceWorkOrderId,
+        machineId: input.machineId, productionLineId: input.productionLineId, costCenterId: input.costCenterId, productId: input.productId,
+        totalCost: valued.totalCost, currencyCode: valued.currencyCode, quantity,
+        unit: input.unit ?? line.unit ?? 'pcs', sourceNumber: movementNumber,
+        movementDate: movement.movementDate, createdById: userId, ctx,
+      });
+    }
+    await tx.inventoryBalance.update({
+      where: { id: balance.id },
+      data: { quantity: balance.quantity - input.quantity, quantityBase: currentBase.minus(quantity) },
+    });
+    return movement;
+  }
+
+  /** Runs exclusively on the completion caller's transaction; this never commits independently. */
+  async issueExecutionPartInTx(tx: any, input: ExecutionPartIssueInput, userId: string, ctx: ActiveOperationalContext) {
+    if (!['CONSUMED', 'INSTALLED', 'REPLACED'].includes(input.usageType)
+      || !Number.isFinite(input.quantity) || input.quantity <= 0 || new Prisma.Decimal(input.quantity).decimalPlaces() > 4 || !input.clientRequestId?.trim()) {
+      throw this.badRequest('maintenance.executionPartInvalid', 'A valid usage type, positive quantity and submission key are required');
+    }
+    if (input.notes && input.notes.length > 1000) {
+      throw this.badRequest('maintenance.executionPartInvalid', 'Part notes must not exceed 1000 characters');
+    }
+    if (input.usedAt && (!Number.isFinite(input.usedAt.getTime()) || input.usedAt.getTime() > Date.now())) {
+      throw this.badRequest('maintenance.executionInvalidChronology', 'Part usage time must be valid and cannot be in the future');
+    }
+    if (input.requestId && input.workOrderId) {
+      throw this.badRequest('maintenance.executionSourceInvalid', 'Execution may have only one source');
+    }
+    if (input.machineId) {
+      await assertMachineTenantInContext(tx, input.machineId, ctx);
+      if (input.machineComponentId) {
+        await assertMachineComponentBelongsToMachine(tx, input.machineComponentId, input.machineId, ctx);
+      }
+    } else if (input.machineComponentId || input.usageType !== 'CONSUMED') {
+      throw this.badRequest('maintenance.executionInstallationRequiresMachine', 'Installed and replaced items require a real machine');
+    }
+    const sparePart = input.sparePartId
+      ? await tx.sparePart.findUnique({ where: { id: input.sparePartId } }) : null;
+    if (input.sparePartId) this.assertSparePartIssuable({ sparePart });
+    if (input.usageType !== 'CONSUMED' && !sparePart) {
+      throw this.badRequest('maintenance.executionInstallationRequiresSparePart', 'Installed and replaced items require a canonical spare part');
+    }
+    const productId: string | null = sparePart?.productId ?? input.productId ?? null;
+    if (!productId || (sparePart && input.productId && sparePart.productId !== input.productId)) {
+      throw this.badRequest('maintenance.executionProductMismatch', 'The stock product must match the canonical spare part');
+    }
+    const product = await tx.product.findUnique({ where: { id: productId } });
+    if (!product || product.deletedAt || product.status !== 'ACTIVE') {
+      throw this.notFound('maintenance.executionProductNotFound', 'Active inventory product not found');
+    }
+    const warehouse = await tx.warehouse.findFirst({ where: { id: input.warehouseId, companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }], status: 'ACTIVE', deletedAt: null } });
+    if (!warehouse) throw this.notFound('maintenance.executionWarehouseNotFound', 'Maintenance warehouse not found');
+    await assertWarehouseInContext(tx, input.warehouseId, ctx);
+    if (FORBIDDEN_WAREHOUSE_TYPES.includes(warehouse?.warehouseType ?? '')) {
+      throw this.badRequest('maintenance.executionWarehouseTypeInvalid', 'This warehouse does not support maintenance issues');
+    }
+    const dto: IssueStockDto = { ...input, issuedQuantity: input.quantity,
+      replacementAction: input.usageType === 'INSTALLED' ? 'NEW_INSTALLATION' : input.replacementAction };
+    this.validateStockCondition(dto);
+    if (input.usageType !== 'CONSUMED') {
+      this.validateReplacementAction(dto);
+      if (input.usageType === 'REPLACED' && dto.replacementAction === 'NEW_INSTALLATION') {
+        throw this.badRequest('maintenance.executionReplacementRequired', 'Replacement must identify the actual old installed part');
+      }
+    } else if (input.oldInstalledPartId || input.replacementAction || input.removedPartCondition
+      || input.removedPartWarehouseId || input.removedPartQuantity != null || input.noReturnReason) {
+      throw this.badRequest('maintenance.executionConsumedRejectsReplacement', 'Consumed items cannot carry installation or replacement facts');
+    }
+    if (input.removedPartWarehouseId) await assertWarehouseInContext(tx, input.removedPartWarehouseId, ctx);
+
+    let requiredPart: any = null;
+    if (input.requestId) {
+      const request = await tx.maintenanceRequest.findFirst({ where: {
+        id: input.requestId, deletedAt: null,
+        machine: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] },
+      } });
+      if (!request || request.machineId !== input.machineId) {
+        throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found for this execution machine');
+      }
+      if (['COMPLETED', 'CANCELLED', 'REJECTED'].includes(request.status)) {
+        throw this.badRequest('maintenance.executionSourceClosed', 'The source request is no longer open');
+      }
+      if (input.requiredPartId) {
+        requiredPart = await tx.maintenanceRequestRequiredPart.findFirst({ where: {
+          id: input.requiredPartId, maintenanceRequestId: input.requestId,
+        } });
+        if (!requiredPart || requiredPart.sparePartId !== sparePart?.id
+          || (requiredPart.machineComponentId ?? null) !== (input.machineComponentId ?? null)) {
+          throw this.notFound('maintenance.executionRequiredPartNotFound', 'The request part does not match this execution');
+        }
+        if (!['APPROVED', 'RESERVED'].includes(requiredPart.status)) {
+          throw this.badRequest('maintenance.executionRequiredPartNotApproved', 'The request part must be approved before issue');
+        }
+        const remaining = (requiredPart.approvedQuantity || requiredPart.requestedQuantity || requiredPart.quantity)
+          - ((requiredPart.issuedQuantity || 0) - (requiredPart.returnedQuantity || 0));
+        if (input.quantity > remaining) {
+          throw this.badRequest('maintenance.executionRequiredPartQuantityExceeded', 'The issue exceeds the approved request part quantity');
+        }
+      } else if (sparePart) {
+        requiredPart = await tx.maintenanceRequestRequiredPart.findFirst({ where: { maintenanceRequestId: input.requestId, sparePartId: sparePart.id } });
+        if (requiredPart) {
+          if ((requiredPart.machineComponentId ?? null) !== (input.machineComponentId ?? null)
+            || ['CANCELLED', 'REJECTED'].includes(requiredPart.status)) {
+            throw this.badRequest('maintenance.executionRequiredPartNotApproved', 'Existing requirement does not allow this execution issue');
+          }
+          const actualAfter = (requiredPart.issuedQuantity || 0) - (requiredPart.returnedQuantity || 0) + input.quantity;
+          const approvedQuantity = Math.max(requiredPart.approvedQuantity || requiredPart.requestedQuantity || requiredPart.quantity, actualAfter);
+          requiredPart = await tx.maintenanceRequestRequiredPart.update({ where: { id: requiredPart.id }, data: {
+            approvedQuantity, approvedAt: requiredPart.approvedAt || new Date(), approvedByUserId: requiredPart.approvedByUserId || userId,
+            status: 'APPROVED',
+          } });
+        } else {
+          requiredPart = await tx.maintenanceRequestRequiredPart.create({ data: {
+            maintenanceRequestId: input.requestId, sparePartId: sparePart.id, machineId: input.machineId,
+            machineComponentId: input.machineComponentId || null, quantity: input.quantity,
+            requestedQuantity: input.quantity, approvedQuantity: input.quantity,
+            status: 'APPROVED', approvedAt: new Date(), approvedByUserId: userId, usageNote: input.notes || null,
+          } });
+        }
+        await this.audit.logWithClient(tx, { userId, action: 'EXECUTION_REQUIREMENT_APPROVED', entity: 'MaintenanceRequestRequiredPart',
+          entityId: requiredPart.id, details: { executionId: input.executionId, companyId: ctx.companyId, branchId: ctx.branchId, actualQuantity: input.quantity } });
+      }
+    } else if (input.requiredPartId) {
+      throw this.badRequest('maintenance.executionSourceInvalid', 'A required part must belong to a request source');
+    }
+    let workOrderPart: any = null;
+    if (input.workOrderId) {
+      const order = await tx.maintenanceWorkOrder.findFirst({ where: {
+        id: input.workOrderId, companyId: ctx.companyId,
+        branchId: ctx.branchId, deletedAt: null,
+      } });
+      if (!order) throw this.notFound('maintenance.workOrderNotFound', 'Maintenance work order not found');
+      if (!['PLANNED', 'IN_PROGRESS'].includes(order.status)) {
+        throw this.badRequest('maintenance.executionSourceClosed', 'The source work order is no longer open');
+      }
+      if (input.workOrderPartId) {
+        workOrderPart = await tx.maintenanceWorkOrderPart.findFirst({ where: {
+          id: input.workOrderPartId, workOrderId: input.workOrderId,
+        } });
+        if (!workOrderPart || (workOrderPart.sparePartId ?? null) !== (sparePart?.id ?? null)
+          || (workOrderPart.productId && workOrderPart.productId !== productId)) {
+          throw this.notFound('maintenance.executionWorkOrderPartNotFound', 'The planned part does not match this execution');
+        }
+      }
+    } else if (input.workOrderPartId) {
+      throw this.badRequest('maintenance.executionSourceInvalid', 'A planned part must belong to a work order source');
+    }
+
+    let oldInstalled: Awaited<ReturnType<MaintenanceStockIssueService['resolveOldInstalledPartForReplacement']>> | null = null;
+    if (input.usageType === 'REPLACED') {
+      await this.lockOldInstalledPartForReplacement(tx, dto.oldInstalledPartId!, ctx);
+      oldInstalled = await this.resolveOldInstalledPartForReplacement(tx, dto, {
+        machineId: input.machineId!, machineComponentId: input.machineComponentId,
+      }, ctx);
+      if (input.usedAt && oldInstalled.installedAt && input.usedAt < new Date(oldInstalled.installedAt)) {
+        throw this.badRequest('maintenance.executionInvalidChronology', 'A part cannot be replaced before it was installed');
+      }
+    }
+    const movement = await this.postStockIssueInTx(tx, {
+      productId, warehouseId: input.warehouseId, warehouseLocationId: input.warehouseLocationId,
+      quantity: input.quantity, sourceType: 'MAINTENANCE_EXECUTION', sourceId: input.executionId,
+      clientRequestId: `execution:${input.executionId}:${input.clientRequestId}`,
+      maintenanceRequestId: input.requestId, maintenanceWorkOrderId: input.workOrderId,
+      machineId: input.machineId, productionLineId: input.productionLineId, costCenterId: input.costCenterId,
+      unit: product.unit, notes: input.notes, usedAt: input.usedAt,
+    }, userId, ctx);
+    if (requiredPart) {
+      const issued = (requiredPart.issuedQuantity || 0) + input.quantity;
+      await tx.maintenanceRequestRequiredPart.update({ where: { id: requiredPart.id }, data: {
+        usedQuantity: (requiredPart.usedQuantity || 0) + input.quantity, usedAt: input.usedAt || new Date(), usedByUserId: userId,
+        status: (requiredPart.usedQuantity || 0) + input.quantity >= (requiredPart.approvedQuantity || requiredPart.quantity) ? 'USED' : 'APPROVED',
+        issuedQuantity: issued, stockIssueStatus: this.computeIssueStatus(issued,
+          requiredPart.returnedQuantity || 0, requiredPart.approvedQuantity || requiredPart.quantity),
+        warehouseId: input.warehouseId, lastIssueAt: new Date(), lastIssueByUserId: userId,
+        costPurpose: MAINTENANCE_COST_PURPOSE, costMachineId: input.machineId || null,
+        costMachineComponentId: input.machineComponentId || null,
+      } });
+    }
+    if (workOrderPart) {
+      const issuedQuantity = (workOrderPart.issuedQuantity || 0) + input.quantity;
+      await tx.maintenanceWorkOrderPart.update({ where: { id: workOrderPart.id }, data: {
+        issuedQuantity, stockIssueStatus: issuedQuantity >= workOrderPart.quantity ? 'FULLY_ISSUED' : 'PARTIALLY_ISSUED',
+        lastIssueAt: new Date(), lastIssueById: userId,
+      } });
+    }
+    const condition = input.issuedStockCondition || 'NEW';
+    const out = sparePart ? await this.recordConditionMovementInTx(tx, {
+      sparePartId: sparePart.id, productId, warehouseId: input.warehouseId, condition,
+      direction: 'OUT', quantity: input.quantity, sourceType: 'MAINTENANCE_EXECUTION', sourceId: input.executionId,
+      maintenanceRequestId: input.requestId || null, requiredPartId: requiredPart?.id || null,
+      inventoryMovementId: movement.id, replacementAction: dto.replacementAction, notes: input.notes || '',
+    }, userId, ctx) : null;
+    let installedPart: any = null;
+    let replacementHistory: any = null;
+    if (input.usageType !== 'CONSUMED') {
+      installedPart = await this.installedPartsService.recordInstalledPartInTx(tx, {
+        machineId: input.machineId!, machineComponentId: input.machineComponentId,
+        sparePartId: sparePart!.id, productId, maintenanceRequestId: input.requestId,
+        requiredPartId: requiredPart?.id, inventoryMovementId: movement.id, conditionMovementId: out?.id,
+        installedQuantity: input.quantity, installedCondition: condition, installedByUserId: userId,
+        installedAt: input.usedAt,
+        sourceType: 'MAINTENANCE_EXECUTION', sourceId: input.executionId, notes: input.notes,
+      });
+    }
+    if (oldInstalled) {
+      await this.installedPartsService.markInstalledPartRemovedInTx(tx, oldInstalled.id, {
+        removedByUserId: userId, removedQuantity: oldInstalled.installedQuantity, removedAt: input.usedAt,
+        removedCondition: input.removedPartCondition,
+        removedReason: dto.replacementAction === 'RETURNED_REMOVED_PART'
+          ? 'MAINTENANCE_REPLACEMENT_RETURNED_TO_STOCK' : `MAINTENANCE_REPLACEMENT_NOT_RETURNED: ${input.noReturnReason}`,
+      });
+      const returned = dto.replacementAction === 'RETURNED_REMOVED_PART'
+        ? await this.recordConditionMovementInTx(tx, {
+          sparePartId: oldInstalled.sparePartId, productId: oldInstalled.productId,
+          warehouseId: input.removedPartWarehouseId!, condition: input.removedPartCondition!, direction: 'IN',
+          quantity: oldInstalled.installedQuantity, sourceType: 'MAINTENANCE_REMOVED_PART_RETURN', sourceId: input.executionId,
+          maintenanceRequestId: input.requestId || null, requiredPartId: requiredPart?.id || null,
+          inventoryMovementId: movement.id, replacementAction: dto.replacementAction, notes: input.notes || '',
+        }, userId, ctx) : null;
+      replacementHistory = await this.installedPartsService.recordReplacementInTx(tx, {
+        machineId: input.machineId!, machineComponentId: input.machineComponentId,
+        maintenanceRequestId: input.requestId, requiredPartId: requiredPart?.id,
+        oldInstalledPartId: oldInstalled.id, oldSparePartId: oldInstalled.sparePartId,
+        newInstalledPartId: installedPart.id, newSparePartId: sparePart!.id,
+        issuedCondition: condition, issuedQuantity: input.quantity,
+        removedCondition: input.removedPartCondition, removedQuantity: oldInstalled.installedQuantity,
+        replacementAction: dto.replacementAction!, noReturnReason: input.noReturnReason,
+        removedReturnedToStock: dto.replacementAction === 'RETURNED_REMOVED_PART',
+        conditionOutMovementId: out?.id, conditionInMovementId: returned?.id,
+        inventoryOutMovementId: movement.id, replacedByUserId: userId, replacedAt: input.usedAt, notes: input.notes,
+      });
+    }
+    await this.audit.logWithClient(tx, { userId, action: 'ISSUE_EXECUTION_PART', entity: 'MaintenanceTask',
+      entityId: input.executionId, details: {
+        companyId: ctx.companyId, branchId: ctx.branchId, movementId: movement.id,
+        productId, sparePartId: sparePart?.id ?? null, quantity: input.quantity, usageType: input.usageType,
+        installedPartId: installedPart?.id ?? null, replacementHistoryId: replacementHistory?.id ?? null,
+      } });
+    return { movement, productId, sparePartId: sparePart?.id ?? null,
+      requiredPartId: requiredPart?.id ?? null, workOrderPartId: workOrderPart?.id ?? null,
+      installedPartId: installedPart?.id ?? null, replacementHistoryId: replacementHistory?.id ?? null };
   }
 
   async issue(
@@ -673,7 +1024,10 @@ export class MaintenanceStockIssueService {
       let oldInstalled: Awaited<ReturnType<typeof this.resolveOldInstalledPartForReplacement>> | null = null;
       if (isReplacement) {
         await this.lockOldInstalledPartForReplacement(tx, dto.oldInstalledPartId!, ctx);
-        oldInstalled = await this.resolveOldInstalledPartForReplacement(tx, dto, part, ctx);
+        oldInstalled = await this.resolveOldInstalledPartForReplacement(tx, dto, {
+          machineId: part.maintenanceRequest.machine.id,
+          machineComponentId: part.machineComponent?.id ?? part.machineComponentId ?? null,
+        }, ctx);
       }
 
       // Re-read mutable issue totals inside the transaction. Concurrent requests
@@ -703,113 +1057,13 @@ export class MaintenanceStockIssueService {
         );
       }
 
-      const balance = await this.getOrCreateBalance(tx, dto.warehouseId, productId, dto.warehouseLocationId);
-      const delta = -dto.issuedQuantity;
-      const newQuantity = balance.quantity + delta;
-
-      const movement = await tx.inventoryMovement.create({
-        data: {
-          movementNumber,
-          companyId,
-          branchId,
-          warehouseId: dto.warehouseId,
-          movementType: 'MAINTENANCE_ISSUE',
-          status: 'POSTED',
-          sourceType: 'MAINTENANCE_PART_LINE',
-          sourceId: lineId,
-          // R4R: client request id is stored in the column that already carries the
-          // FILTERED UNIQUE index (companyId, branchId, requestId) WHERE requestId IS
-          // NOT NULL, so duplicate submission is rejected by the database itself.
-          ...(options.clientRequestId ? { requestId: options.clientRequestId } : {}),
-          movementDate: new Date(),
-          postedAt: new Date(),
-          createdById: userId,
-          postedById: userId,
-          notes: dto.notes || null,
-          lines: {
-            create: [{
-              productId,
-              warehouseLocationId: dto.warehouseLocationId || null,
-              quantity: dto.issuedQuantity,
-              direction: 'OUT',
-              notes: `Maintenance stock issue for spare part ${part.sparePart.code} - ${part.sparePart.name}`,
-            }],
-          },
-        },
-        include: { lines: true },
-      });
-
-      // VAL-R1E: for an ACTIVE valuation warehouse the physical decrement,
-      // monetary decrement, and immutable movement monetary quartet are all
-      // applied atomically by the SINGLE inventory valuation authority. The
-      // valuation engine acquires the applock, validates available quantity
-      // (negative stock blocked), decrements physical stock exactly once and
-      // inventory value exactly once, and writes the movement-line snapshot
-      // (unitCost/totalCost/currencyCode/valuationMethod) at the current
-      // weighted moving average. When no ACTIVE policy exists the legacy
-      // unprotected behavior (physical only) is preserved for backward
-      // compatibility (as in VAL-R1C inactive flows).
-      const activePolicy = await this.valuationEngine.findActivePolicyForWarehouse(tx, companyId, dto.warehouseId);
-      if (activePolicy) {
-        if (newQuantity < 0) {
-          const product = await tx.product.findUnique({ where: { id: productId } });
-          throw new BadRequestException(
-            `Insufficient stock for product ${product?.name || productId}. Available: ${balance.quantity}, Requested: ${dto.issuedQuantity}`,
-          );
-        }
-        const qold = await this.valuationEngine.aggregatePhysicalQuantity(tx, dto.warehouseId, productId);
-        const issuedLine = movement.lines[0];
-        const valuedIssue = await this.valuationEngine.applyValuedIssue(tx, {
-          companyId,
-          warehouseId: dto.warehouseId,
-          productId,
-          qold,
-          lineId: issuedLine.id,
-          movementId: movement.id,
-          currencyCode: activePolicy.currencyCode,
-          quantity: new Prisma.Decimal(dto.issuedQuantity),
-        });
-        // COST-R1B: project the valued maintenance material OUT issue into the
-        // unified cost ledger as a canonical PRIMARY_COST entry. Guarded to
-        // valued issues only (the legacy/unvalued path has no monetary evidence
-        // and is skipped). Runs on the SAME tx so a ledger failure rolls back the
-        // whole issue.
-        await this.postMaintenanceMaterialLedgerEntry(tx, {
-          movementId: movement.id,
-          lineId: issuedLine.id,
-          // RequiredPart owns the request; linked work orders have no per-issue allocation.
-          maintenanceRequestId: part.maintenanceRequestId,
-          totalCost: valuedIssue.totalCost,
-          currencyCode: valuedIssue.currencyCode,
-          quantity: new Prisma.Decimal(dto.issuedQuantity),
-          unit: (issuedLine as any).unit ?? 'pcs',
-          sourceNumber: movementNumber,
-          movementDate: movement.movementDate,
-          createdById: userId,
-          ctx,
-        });
-      } else if (newQuantity < 0) {
-        const product = await tx.product.findUnique({ where: { id: productId } });
-        throw new BadRequestException(
-          `Insufficient stock for product ${product?.name || productId}. Available: ${balance.quantity}, Requested: ${dto.issuedQuantity}`,
-        );
-      }
-
-      // Physical decrement exactly once for both ACTIVE and INACTIVE flows,
-      // twin-syncing the legacy Float `quantity` and the Decimal `quantityBase`
-      // (physical authority = SUM(quantityBase)). This mirrors the proven
-      // R1C/R1D inventory-balance mutation pattern; the valuation engine is the
-      // single monetary authority and is called above with the PRE-mutation
-      // `qold`, while this single physical write applies the decrement.
-      const currentBase =
-        balance.quantityBase !== null && balance.quantityBase !== undefined
-          ? new Prisma.Decimal(balance.quantityBase.toString())
-          : new Prisma.Decimal(balance.quantity);
-      const newQuantityBase = currentBase.minus(new Prisma.Decimal(dto.issuedQuantity));
-      await tx.inventoryBalance.update({
-        where: { id: balance.id },
-        data: { quantity: newQuantity, quantityBase: newQuantityBase },
-      });
+      const movement = await this.postStockIssueInTx(tx, {
+        productId, warehouseId: dto.warehouseId, warehouseLocationId: dto.warehouseLocationId,
+        quantity: dto.issuedQuantity, movementNumber, sourceType: 'MAINTENANCE_PART_LINE', sourceId: lineId,
+        clientRequestId: options.clientRequestId, maintenanceRequestId: part.maintenanceRequestId,
+        notes: dto.notes,
+        lineNotes: `Maintenance stock issue for spare part ${part.sparePart.code} - ${part.sparePart.name}`,
+      }, userId, ctx);
 
       const newIssued = transactionalIssued + dto.issuedQuantity;
       const newStatus = this.computeIssueStatus(newIssued, transactionalReturned, transactionalApprovableQty);
@@ -1225,8 +1479,8 @@ export class MaintenanceStockIssueService {
     quantity: number;
     sourceType: string;
     sourceId: string;
-    maintenanceRequestId: string;
-    requiredPartId: string;
+    maintenanceRequestId: string | null;
+    requiredPartId: string | null;
     inventoryMovementId: string;
     replacementAction?: string;
     notes: string;

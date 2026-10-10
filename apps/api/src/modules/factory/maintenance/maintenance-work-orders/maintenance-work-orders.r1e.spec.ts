@@ -1,3 +1,4 @@
+import { MaintenanceStockIssueService } from '../maintenance-stock-issue/maintenance-stock-issue.service';
 import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { MaintenanceWorkOrdersService } from './maintenance-work-orders.service';
@@ -53,7 +54,7 @@ interface MockDb {
   }[];
   forcePhysicalUpdateError: boolean;
   maintenanceWorkOrder: { findUnique: jest.Mock };
-  maintenanceWorkOrderPart: { findMany: jest.Mock; update: jest.Mock };
+  maintenanceWorkOrderPart: { findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
   inventoryValuationBalance: Record<string, unknown>;
   $transaction: jest.Mock;
   [key: string]: any;
@@ -135,6 +136,7 @@ function makeDb(overrides: {
     maintenanceWorkOrder: { findUnique: jest.fn().mockResolvedValue(wo()) },
     maintenanceWorkOrderPart: {
       findMany: jest.fn().mockResolvedValue(overrides.parts ?? [part()]),
+      findUnique: jest.fn().mockImplementation(async ({ where }: any) => (overrides.parts ?? [part()]).find((row: any) => row.id === where.id)),
       update: jest.fn().mockResolvedValue({}),
     },
     inventoryValuationBalance: {
@@ -210,8 +212,8 @@ function makeDb(overrides: {
   };
   db.warehouse = { findUnique: jest.fn().mockImplementation(async () => overrides.warehouse ?? warehouse()) };
   db.machine = { findUnique: jest.fn().mockImplementation(async () => wo().machineId) };
-  db.sparePart = { findUnique: jest.fn().mockResolvedValue({ id: 'sp1', productId: 'prod1' }) };
-  db.product = { findUnique: jest.fn().mockResolvedValue({ id: 'prod1', name: 'Product 1' }) };
+  db.sparePart = { findUnique: jest.fn().mockResolvedValue({ id: 'sp1', productId: 'prod1', status: 'ACTIVE', deletedAt: null }) };
+  db.product = { findUnique: jest.fn().mockResolvedValue({ id: 'prod1', name: 'Product 1', status: 'ACTIVE', deletedAt: null }) };
   db.$queryRaw = jest.fn().mockResolvedValue([{ result: 0 }]);
 
   const snapshot = () => cloneState(state);
@@ -233,7 +235,7 @@ function makeDb(overrides: {
 }
 
 function buildService(db: MockDb) {
-  const audit = { log: jest.fn().mockResolvedValue(undefined) } as unknown as AuditService;
+  const audit = { log: jest.fn().mockResolvedValue(undefined), logWithClient: jest.fn().mockResolvedValue(undefined) } as unknown as AuditService;
   const numbering = {
     generateNumberAtomic: jest.fn().mockResolvedValue('WO-0001'),
     generateNumberAtomicWithClient: jest.fn().mockResolvedValue('IM-0001'),
@@ -250,6 +252,7 @@ function buildService(db: MockDb) {
     engine,
     productionCost,
     { resolveWithClient: jest.fn() } as any,
+    new MaintenanceStockIssueService(db as any, audit, numbering, {} as any, {} as any, engine, productionCost),
   );
   return { service, audit, numbering, productionCost };
 }

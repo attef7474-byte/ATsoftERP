@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { api } from '../../lib/api';
 import { useTranslation } from '../../lib/i18n/use-translation';
 import type { PaginatedResponse } from '../../lib/admin-types';
@@ -31,21 +31,31 @@ export function F9LookupModal<T extends Record<string, any>>({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const requestVersion = useRef(0);
+  const [failed, setFailed] = useState(false);
+  const filterKey = JSON.stringify(Object.entries(filters ?? {}).sort(([left], [right]) => left.localeCompare(right)));
+  const stableFilters = useMemo(() => JSON.parse(filterKey) as Record<string, string>, [filterKey]);
 
   const fetchData = useCallback(async (p: number, q: string) => {
+    const version = ++requestVersion.current;
     setLoading(true);
+    setFailed(false);
     try {
       const params: Record<string, any> = { page: p, limit: 10 };
       if (q) params.search = q;
-      if (filters) {
-        Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
+      if (stableFilters) {
+        Object.entries(stableFilters).forEach(([k, v]) => { if (v) params[k] = v; });
       }
       const res = await api.get<PaginatedResponse<T>>(adapter.endpoint, { params });
+      if (version !== requestVersion.current) return;
       setData(res.data || []);
       setTotalPages(res.meta?.totalPages || 1);
-    } catch { setData([]); }
-    finally { setLoading(false); }
-  }, [adapter.endpoint, contextVersion, filters]);
+    } catch {
+      if (version === requestVersion.current) { setData([]); setFailed(true); }
+    } finally {
+      if (version === requestVersion.current) setLoading(false);
+    }
+  }, [adapter.endpoint, contextVersion, stableFilters]);
 
   useEffect(() => {
     if (open) {
@@ -54,8 +64,10 @@ export function F9LookupModal<T extends Record<string, any>>({
       setPage(1);
       setHighlightedIndex(-1);
       fetchData(1, '');
-      setTimeout(() => searchRef.current?.focus(), 100);
+      const focusTimer = setTimeout(() => searchRef.current?.focus(), 100);
+      return () => { clearTimeout(focusTimer); requestVersion.current += 1; };
     }
+    requestVersion.current += 1;
   }, [contextVersion, open, fetchData]);
 
   useEffect(() => {
@@ -111,7 +123,8 @@ export function F9LookupModal<T extends Record<string, any>>({
               <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
             </div>
           )}
-          {!loading && data.length === 0 && (
+          {failed && <p role="alert" className="text-center py-4 text-sm text-red-600">{t('errors.loadFailed')}</p>}
+          {!loading && !failed && data.length === 0 && (
             <p className="text-center py-8 text-sm text-gray-500">{t('f9.noRecords')}</p>
           )}
           {!loading && data.length > 0 && (
@@ -120,7 +133,7 @@ export function F9LookupModal<T extends Record<string, any>>({
                 <tr>
                   {adapter.columns.map((col) => (
                     <th key={col.key} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      {col.header}
+                      {col.headerKey ? t(col.headerKey) : col.header}
                     </th>
                   ))}
                 </tr>

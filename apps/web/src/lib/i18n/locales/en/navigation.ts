@@ -41,7 +41,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         productionLines: 'Production Lines',
         maintenanceRequests: 'Maintenance Requests',
         maintenanceWorkOrders: 'Work Orders',
-        maintenanceTasks: 'Maintenance Tasks',
+        maintenanceTasks: "Execute & Complete Work",
         maintenanceSchedules: 'Maintenance Schedules',
         checklistItems: 'Checklist Items',
         downtimeLogs: 'Downtime Logs',

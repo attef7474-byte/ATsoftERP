@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { api } from '../../../../lib/api';
+import { useAuth } from '../../../../lib/auth-context';
 import { safeString } from '../../../../lib/form-utils';
 import { useCrudList, CrudOperation } from '../../../../hooks/useCrudList';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
@@ -9,7 +10,7 @@ import { MaintenanceWorkOrder, PaginationMeta } from '../../../../lib/admin-type
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Button, Input, Textarea, Card, Pagination, LoadingState, Modal, ConfirmDialog, Select } from '../../../../components/admin/ui';
 import { GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { F9Lookup, machineAdapter, machineComponentAdapter, maintenanceRequestAdapter, warehouseAdapter, userAdapter } from '../../../../components/f9';
+import { F9Lookup, machineAdapter, machineComponentAdapter, productionLineAdapter, costCenterAdapter, warehouseAdapter, userAdapter } from '../../../../components/f9';
 import { CmmsStatusBadge } from '../../../../components/maintenance/CmmsStatusBadge';
 import { CmmsPriorityBadge } from '../../../../components/maintenance/CmmsPriorityBadge';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionDeleteIcon } from '../../../../components/admin/admin-action-bar';
@@ -28,7 +29,10 @@ interface WorkOrderForm {
   priority: string;
   machineId: string;
   machineComponentId: string;
-  requestId: string;
+  scopeType: 'MACHINE' | 'PRODUCTION_LINE' | 'GENERAL';
+  productionLineId: string;
+  workLocation: string;
+  costCenterId: string;
   warehouseId: string;
   assignedToId: string;
   supervisorId: string;
@@ -39,13 +43,16 @@ interface WorkOrderForm {
 }
 
 interface WorkOrderPayload {
-  title: string;
+  title?: string;
   description?: string;
   type?: string;
   priority?: string;
   machineId?: string;
   machineComponentId?: string;
-  requestId?: string;
+  scopeType: 'MACHINE' | 'PRODUCTION_LINE' | 'GENERAL';
+  productionLineId?: string;
+  workLocation?: string;
+  costCenterId?: string;
   warehouseId?: string;
   assignedToId?: string;
   supervisorId?: string;
@@ -57,7 +64,7 @@ interface WorkOrderPayload {
 
 const EMPTY_WO_FORM: WorkOrderForm = {
   title: '', description: '', type: 'CORRECTIVE', priority: 'MEDIUM',
-  machineId: '', machineComponentId: '', requestId: '', warehouseId: '',
+  machineId: '', machineComponentId: '', scopeType: 'MACHINE', productionLineId: '', workLocation: '', costCenterId: '', warehouseId: '',
   assignedToId: '', supervisorId: '', plannedStartAt: '', plannedEndAt: '',
   estimatedCost: '', notes: '',
 };
@@ -92,6 +99,8 @@ export default function MaintenanceWorkOrdersPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { t, dir } = useTranslation();
+  const { user, isSuperAdmin, permissions } = useAuth();
+  const can = (key: string) => isSuperAdmin || !!permissions?.permissions.includes(key);
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
   const [search, setSearch] = useState('');
@@ -168,7 +177,10 @@ export default function MaintenanceWorkOrdersPage() {
       priority: safeString(detail.priority) || 'MEDIUM',
       machineId: safeString(detail.machineId),
       machineComponentId: safeString(detail.machineComponentId),
-      requestId: safeString(detail.requestId),
+      scopeType: detail.scopeType || (detail.machineId ? 'MACHINE' : 'GENERAL'),
+      productionLineId: safeString(detail.productionLineId),
+      workLocation: safeString(detail.workLocation),
+      costCenterId: safeString(detail.costCenterId),
       warehouseId: safeString(detail.warehouseId),
       assignedToId: safeString(detail.assignedToId),
       supervisorId: safeString(detail.supervisorId),
@@ -178,13 +190,16 @@ export default function MaintenanceWorkOrdersPage() {
       notes: safeString(detail.notes),
     }),
     mapFormToPayload: (currentForm) => {
-      const payload: WorkOrderPayload = { title: currentForm.title.trim() };
+      const payload: WorkOrderPayload = { scopeType: currentForm.scopeType };
+      if (editItem) payload.title = currentForm.title.trim();
       if (currentForm.description.trim()) payload.description = currentForm.description.trim();
       payload.type = currentForm.type || 'CORRECTIVE';
       payload.priority = currentForm.priority || 'MEDIUM';
       if (currentForm.machineId) payload.machineId = currentForm.machineId;
       if (currentForm.machineComponentId) payload.machineComponentId = currentForm.machineComponentId;
-      if (currentForm.requestId) payload.requestId = currentForm.requestId;
+      if (currentForm.productionLineId) payload.productionLineId = currentForm.productionLineId;
+      if (currentForm.workLocation.trim()) payload.workLocation = currentForm.workLocation.trim();
+      if (currentForm.costCenterId) payload.costCenterId = currentForm.costCenterId;
       if (currentForm.warehouseId) payload.warehouseId = currentForm.warehouseId;
       if (currentForm.assignedToId) payload.assignedToId = currentForm.assignedToId;
       if (currentForm.supervisorId) payload.supervisorId = currentForm.supervisorId;
@@ -199,7 +214,9 @@ export default function MaintenanceWorkOrdersPage() {
     },
     validate: (currentForm) => {
       const fieldErrors: Record<string, string> = {};
-      if (!currentForm.title.trim()) fieldErrors.title = t('validation.required');
+      if (!currentForm.description.trim()) fieldErrors.description = t('validation.required');
+      if (currentForm.scopeType !== 'GENERAL' && !currentForm.productionLineId) fieldErrors.productionLineId = t('validation.required');
+      if (currentForm.scopeType === 'MACHINE' && !currentForm.machineId) fieldErrors.machineId = t('validation.required');
       if (Object.keys(fieldErrors).length > 0) {
         return { message: t('validation.required'), fieldErrors };
       }
@@ -251,7 +268,7 @@ export default function MaintenanceWorkOrdersPage() {
     { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
     { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!selectedId },
-  ]);
+  ].filter(item => item.id === 'new' ? can('maintenance-work-order:create') : item.id === 'complete' ? can('maintenance-task:create') : true));
 
   const confirmTransition = (id: string, action: 'plan' | 'start' | 'complete' | 'cancel') => {
     setSelectedId(id);
@@ -306,7 +323,7 @@ export default function MaintenanceWorkOrdersPage() {
     { label: t('grid.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (d) => openEdit(d) },
     { label: t('maintenance.planWorkOrder'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3" /></svg>, onClick: (d) => confirmTransition(d.id, 'plan'), enabled: (d) => d.status === 'DRAFT' },
     { label: t('maintenance.startWorkOrder'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (d) => confirmTransition(d.id, 'start'), enabled: (d) => d.status === 'PLANNED' },
-    { label: t('maintenance.completeWorkOrder'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (d) => confirmTransition(d.id, 'complete'), enabled: (d) => d.status === 'IN_PROGRESS' },
+    { label: t('maintenance.executeCompleteWork'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (d) => router.push(`/admin/maintenance/tasks?sourceType=WORK_ORDER&workOrderId=${d.id}`), enabled: (d) => d.status === 'IN_PROGRESS' },
     { label: t('maintenance.cancelWorkOrder'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>, variant: 'danger', onClick: (d) => confirmTransition(d.id, 'cancel'), enabled: (d) => d.status === 'DRAFT' || d.status === 'PLANNED' },
     { label: t('grid.delete'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>, variant: 'danger', onClick: (d) => requestDelete(d), enabled: (d) => d.status === 'DRAFT' || d.status === 'PLANNED' || d.status === 'CANCELLED' },
   ];
@@ -493,15 +510,21 @@ export default function MaintenanceWorkOrdersPage() {
       <Modal open={modalOpen} onClose={() => { closeFormModal(); setValidationErrors({}); }} title={editItem ? t('maintenance.editMaintenanceWorkOrder') : t('maintenance.newMaintenanceWorkOrder')}>
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
           {validationErrors.form && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{validationErrors.form}</div>}
-          <Input label={t('maintenance.workOrderTitle')} name="title" value={form.title} onChange={(e) => { setForm({ ...form, title: e.target.value }); setValidationErrors(prev => ({ ...prev, title: '' })); }} error={validationErrors.title} required />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><Input label={t('common.code')} value={editItem?.workOrderNumber || t('common.codeAutoGenerated')} disabled /><Input label={t('maintenance.createdBy')} value={editItem?.createdBy?.name || user?.name || ''} disabled /></div>
+          {editItem && <Input label={t('maintenance.workOrderTitle')} name="title" value={form.title} onChange={(e) => { setForm({ ...form, title: e.target.value }); setValidationErrors(prev => ({ ...prev, title: '' })); }} error={validationErrors.title} />}
           <Textarea label={t('maintenance.workOrderDescription')} name="description" value={form.description} onChange={(e) => { setForm({ ...form, description: e.target.value }); setValidationErrors(prev => ({ ...prev, description: '' })); }} error={validationErrors.description} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Select label={t('maintenance.workOrderType')} name="type" value={form.type} onChange={(e) => { setForm({ ...form, type: e.target.value }); setValidationErrors(prev => ({ ...prev, type: '' })); }} options={typeOptions} error={validationErrors.type} />
             <Select label={t('maintenance.workOrderPriority')} name="priority" value={form.priority} onChange={(e) => { setForm({ ...form, priority: e.target.value }); setValidationErrors(prev => ({ ...prev, priority: '' })); }} options={priorityOptions} error={validationErrors.priority} />
           </div>
-          <F9Lookup label={t('maintenance.workOrderMachine')} name="machineId" value={form.machineId} onChange={(v) => { setForm({ ...form, machineId: v }); setValidationErrors(prev => ({ ...prev, machineId: '' })); }} adapter={machineAdapter} error={validationErrors.machineId} />
-          <F9Lookup label={t('maintenance.workOrderComponent')} name="machineComponentId" value={form.machineComponentId} onChange={(v) => { setForm({ ...form, machineComponentId: v }); setValidationErrors(prev => ({ ...prev, machineComponentId: '' })); }} adapter={machineComponentAdapter} filters={form.machineId ? { machineId: form.machineId } : undefined} error={validationErrors.machineComponentId} />
-          <F9Lookup label={t('maintenance.workOrderRequest')} name="requestId" value={form.requestId} onChange={(v) => { setForm({ ...form, requestId: v }); setValidationErrors(prev => ({ ...prev, requestId: '' })); }} adapter={maintenanceRequestAdapter} error={validationErrors.requestId} />
+          <Select label={t('maintenance.scopeType')} value={form.scopeType} onChange={(e) => setForm({ ...form, scopeType: e.target.value as WorkOrderForm['scopeType'], productionLineId: '', machineId: '', machineComponentId: '' })} options={['MACHINE', 'PRODUCTION_LINE', 'GENERAL'].map((value) => ({ value, label: t(`maintenance.scope${value}`) }))} />
+          {form.scopeType !== 'GENERAL' && <F9Lookup label={t('maintenance.productionLine')} value={form.productionLineId} onChange={(v) => setForm({ ...form, productionLineId: v, machineId: '', machineComponentId: '' })} adapter={productionLineAdapter} error={validationErrors.productionLineId} />}
+          {form.scopeType === 'MACHINE' && <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setForm({ ...form, machineId: v, machineComponentId: '' })} adapter={machineAdapter} filters={{ productionLineId: form.productionLineId }} disabled={!form.productionLineId} error={validationErrors.machineId} />
+            <F9Lookup label={t('maintenance.machineComponent')} value={form.machineComponentId} onChange={(v) => setForm({ ...form, machineComponentId: v })} adapter={machineComponentAdapter} filters={{ machineId: form.machineId }} disabled={!form.machineId} error={validationErrors.machineComponentId} />
+          </div>}
+          <Input label={t('maintenance.workLocation')} value={form.workLocation} onChange={(e) => setForm({ ...form, workLocation: e.target.value })} />
+          <F9Lookup label={t('maintenance.costCenter')} value={form.costCenterId} onChange={(v) => setForm({ ...form, costCenterId: v })} adapter={costCenterAdapter} />
           <F9Lookup label={t('maintenance.workOrderWarehouse')} name="warehouseId" value={form.warehouseId} onChange={(v) => { setForm({ ...form, warehouseId: v }); setValidationErrors(prev => ({ ...prev, warehouseId: '' })); }} adapter={warehouseAdapter} error={validationErrors.warehouseId} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <F9Lookup label={t('maintenance.workOrderAssignedTo')} name="assignedToId" value={form.assignedToId} onChange={(v) => { setForm({ ...form, assignedToId: v }); setValidationErrors(prev => ({ ...prev, assignedToId: '' })); }} adapter={userAdapter} error={validationErrors.assignedToId} />

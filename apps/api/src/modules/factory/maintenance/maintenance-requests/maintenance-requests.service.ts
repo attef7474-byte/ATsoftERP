@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { Optional } from '@nestjs/common';
+import { DowntimeLogsService } from '../downtime-logs/downtime-logs.service';
+import { assertMachineComponentBelongsToMachine } from '../../../../common/operational-context/tenant-guards';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../../modules/numbering/numbering.service';
@@ -26,6 +30,7 @@ export class MaintenanceRequestsService {
     private numberingService: NumberingService,
     private notificationService: MaintenanceNotificationService,
     private slaService: MaintenanceSlaService,
+    @Optional() private downtimeService?: DowntimeLogsService,
   ) {}
 
   private notFound(key: string, message: string): NotFoundException {
@@ -68,7 +73,7 @@ export class MaintenanceRequestsService {
       if (pl.status !== 'ACTIVE' || pl.deletedAt) {
         throw this.badRequest('maintenance.inactiveProductionLine', 'Inactive production line cannot be referenced by a request');
       }
-      if (machine.productionLineId && dto.productionLineId !== machine.productionLineId) {
+      if (dto.productionLineId !== machine.productionLineId) {
         throw this.badRequest('maintenance.productionLineMachineMismatch', 'Production line does not match machine');
       }
     } else if (machine.productionLineId) {
@@ -76,6 +81,7 @@ export class MaintenanceRequestsService {
     }
 
     if (dto.machineComponentId) {
+      await assertMachineComponentBelongsToMachine(this.prisma, dto.machineComponentId, dto.machineId, ctx);
       const comp = await this.prisma.machineComponent.findUnique({ where: { id: dto.machineComponentId } });
       if (!comp) throw this.notFound('maintenance.componentNotFound', 'Machine component not found');
       if (comp.machineId !== dto.machineId) {
@@ -119,21 +125,7 @@ export class MaintenanceRequestsService {
   }
 
   async createEmergency(dto: CreateMaintenanceRequestDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
-    const request = await this.createRequest(dto, user, true, ctx);
-
-    await this.prisma.downtimeLog.create({
-      data: {
-        machineId: dto.machineId,
-        requestId: request.id,
-        startTime: new Date(),
-        reason: `Emergency: ${dto.title}`,
-        notes: dto.notes || 'Emergency downtime',
-      },
-    });
-
-    await this.audit.log(user.id, 'EMERGENCY', 'MaintenanceRequest', request.id,
-      { requestNumber: request.requestNumber, machineId: dto.machineId });
-    return request;
+    return this.createRequest({ ...dto, machineStopped: dto.machineStopped ?? true }, user, true, ctx);
   }
 
   private async createRequest(dto: CreateMaintenanceRequestDto, user: CurrentUserType, isEmergency: boolean, ctx: ActiveOperationalContext) {
@@ -147,7 +139,8 @@ export class MaintenanceRequestsService {
       );
     }
 
-    const { machineId, requiredParts, ...rest } = dto;
+    const { machineId, requiredParts, machineStopped, title: _legacyTitle, ...rest } = dto;
+    if (machineStopped && !dto.description?.trim()) throw this.badRequest('maintenance.executionDescriptionRequired', 'Describe the machine stoppage');
 
     // R2-D: a required part is always born in DRAFT (dual-state F2/C defect closed)
     // and the same spare part may never appear more than once per request payload.
@@ -166,10 +159,11 @@ export class MaintenanceRequestsService {
       request = await this.prisma.$transaction(async (tx) => {
         const requestNumber = await this.numberingService.generateNumberAtomicWithClient('MAINTENANCE_REQUEST', tx);
 
-        return tx.maintenanceRequest.create({
+        const created = await tx.maintenanceRequest.create({
           data: {
             ...rest,
             requestNumber,
+            title: dto.description?.trim().slice(0, 160) || requestNumber,
             machineId,
             requestedById: userId,
             type: isEmergency ? 'EMERGENCY' : dto.type,
@@ -189,6 +183,12 @@ export class MaintenanceRequestsService {
             } : undefined,
           },
         });
+        if (machineStopped) {
+          if (!this.downtimeService) throw new Error('Downtime service is not configured');
+          await this.downtimeService.startOrReuseInTx(tx, { machineId, requestId: created.id, reason: dto.description!.trim(), notes: dto.notes }, userId, ctx);
+        }
+        await this.audit.logWithClient(tx, { userId, action: isEmergency ? 'EMERGENCY' : 'CREATE', entity: 'MaintenanceRequest', entityId: created.id, details: { requestNumber, machineId, machineStopped: !!machineStopped } });
+        return created;
       });
     } catch (e: any) {
       // R2-D: a unique-constraint duplicate must surface as a canonical 400,
@@ -198,9 +198,6 @@ export class MaintenanceRequestsService {
       }
       throw e;
     }
-
-    await this.audit.log(userId, 'CREATE', 'MaintenanceRequest', request.id,
-      { requestNumber: request.requestNumber, machineId });
 
     // Notifications are non-blocking side effects. A notification failure must never
     // prevent SLA bookkeeping for the request.
@@ -231,7 +228,7 @@ export class MaintenanceRequestsService {
   async findAll(query: {
     page?: number; limit?: number; search?: string;
     machineId?: string; status?: string; type?: string; priority?: string;
-    requestedById?: string; assignedToId?: string;
+    requestedById?: string; assignedToId?: string; executionEligible?: boolean;
     productionLineId?: string; machineComponentId?: string; operationTypeId?: string; costCenterId?: string; sparePartId?: string;
     isEmergency?: string;
   }, ctx: ActiveOperationalContext) {
@@ -249,7 +246,8 @@ export class MaintenanceRequestsService {
       ];
     }
     if (query.machineId) where.machineId = query.machineId;
-    if (query.status) where.status = query.status;
+    if (query.executionEligible) where.status = { in: ['OPEN', 'IN_PROGRESS'] };
+    else if (query.status) where.status = query.status;
     if (query.type) where.type = query.type;
     if (query.priority) where.priority = query.priority;
     if (query.isEmergency !== undefined) where.isEmergency = query.isEmergency === 'true';
@@ -315,7 +313,7 @@ export class MaintenanceRequestsService {
 
   async findOne(id: string, ctx: ActiveOperationalContext) {
     const request = await this.prisma.maintenanceRequest.findUnique({
-      where: { id },
+      where: { id, deletedAt: null, machine: this.machineScope(ctx) },
       include: {
         machine: true,
         productionLine: true,
@@ -385,13 +383,32 @@ export class MaintenanceRequestsService {
     if (dto.operationTypeId === null || dto.operationTypeId === '') data.operationTypeId = null;
     if (dto.costCenterId === null || dto.costCenterId === '') data.costCenterId = null;
 
-    const updated = await this.prisma.maintenanceRequest.update({
-      where: { id },
-      data,
-    });
-    await this.audit.log(userId, 'UPDATE', 'MaintenanceRequest', id,
-      { oldStatus: req.status });
-    return updated;
+    return this.prisma.$transaction(async tx => {
+      await tx.$queryRaw(Prisma.sql([
+        'SELECT r.[id] FROM [dbo].[maintenance_requests] r WITH (UPDLOCK,HOLDLOCK) JOIN [dbo].[machines] m ON m.[id]=r.[machineId] WHERE r.[id]=',
+        ' AND m.[companyId]=', ' AND (m.[branchId]=', ' OR m.[branchId] IS NULL)',
+      ], id, ctx.companyId, ctx.branchId));
+      const current = await tx.maintenanceRequest.findFirst({ where: { id, deletedAt: null, machine: this.machineScope(ctx) } });
+      if (!current) throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
+      if (current.status !== req.status || current.updatedAt && req.updatedAt && +current.updatedAt !== +req.updatedAt) {
+        throw new ConflictException({ messageKey: 'maintenance.executionConcurrentChange' });
+      }
+      const changingScope = ['machineId', 'machineComponentId', 'productionLineId', 'costCenterId', 'operationTypeId']
+        .some(key => data[key] !== undefined && (data[key] || null) !== ((current as any)[key] || null));
+      if (changingScope) {
+        const [executions, stops, parts] = await Promise.all([
+          tx.maintenanceTask.count({ where: { requestId: id } }),
+          tx.downtimeLog.count({ where: { requestId: id, cancelledAt: null } }),
+          tx.maintenanceRequestRequiredPart.count({ where: { maintenanceRequestId: id } }),
+        ]);
+        if (executions || stops || parts) throw this.badRequest('maintenance.executionSourceImmutable', 'Source context is immutable after operational evidence exists');
+      }
+      const updated = await tx.maintenanceRequest.update({ where: { id }, data });
+      await this.audit.logWithClient(tx, { userId, action: 'UPDATE', entity: 'MaintenanceRequest', entityId: id,
+        details: { oldStatus: req.status, companyId: ctx.companyId, branchId: ctx.branchId } });
+      return updated;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
   }
 
   // -- Required Parts sub-resource --
@@ -505,29 +522,41 @@ export class MaintenanceRequestsService {
 
   // -- Existing methods unchanged below --
 
+  async startWithClient(tx: any, id: string, userId: string, ctx: ActiveOperationalContext, at = new Date()) {
+    const req = await tx.maintenanceRequest.findFirst({ where: { id, deletedAt: null, machine: this.machineScope(ctx) } });
+    if (!req) throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
+    if (req.status === 'IN_PROGRESS') return req;
+    if (req.status !== 'OPEN') throw this.badRequest('maintenance.onlyOpenCanStart', 'Only OPEN requests can be started');
+    await tx.machine.update({ where: { id: req.machineId }, data: { status: 'UNDER_MAINTENANCE' } });
+    const updated = await tx.maintenanceRequest.update({ where: { id }, data: { status: 'IN_PROGRESS', startDate: at } });
+    await this.audit.logWithClient(tx, { userId, action: 'START', entity: 'MaintenanceRequest', entityId: id,
+      details: { oldStatus: req.status, newStatus: 'IN_PROGRESS', machineId: req.machineId } });
+    return updated;
+  }
+
+  /** Existing notifications/SLA remain post-commit effects; a rolled-back execution never emits them. */
+  async notifyCommittedExecutionTransition(id: string, action: 'START' | 'COMPLETE', at: Date, ctx: ActiveOperationalContext) {
+    try {
+      const request = await this.findOne(id, ctx);
+      const changedAt = action === 'START' ? request.startDate : request.endDate;
+      if (!at || !changedAt || +changedAt !== +at) return;
+      if (action === 'START') {
+        await this.notificationService.notifyRequestStarted(request);
+        await this.slaService.recalculateSla(id, ctx);
+      } else {
+        await this.notificationService.notifyRequestCompleted(request);
+      }
+    } catch (error) { console.error('Maintenance execution post-commit notification/SLA failed', error); }
+  }
+
   async start(id: string, userId: string, ctx: ActiveOperationalContext) {
     const req = await this.findOne(id, ctx);
     if (req.status !== 'OPEN') throw this.badRequest('maintenance.onlyOpenCanStart', 'Only OPEN requests can be started');
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await tx.machine.update({
-        where: { id: req.machineId },
-        data: { status: 'UNDER_MAINTENANCE' },
-      });
-      return tx.maintenanceRequest.update({
-        where: { id },
-        data: { status: 'IN_PROGRESS', startDate: new Date() },
-      });
-    });
-
-    await this.audit.log(userId, 'START', 'MaintenanceRequest', id,
-      { oldStatus: req.status, newStatus: 'IN_PROGRESS', machineId: req.machineId });
-
+    const updated = await this.prisma.$transaction(tx => this.startWithClient(tx, id, userId, ctx), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     try {
-      const startedRequest = await this.findOne(id, ctx);
-      await this.notificationService.notifyRequestStarted(startedRequest);
+      await this.notificationService.notifyRequestStarted(await this.findOne(id, ctx));
       await this.slaService.recalculateSla(id, ctx);
-    } catch { }
+    } catch (error) { console.error('Maintenance request start notification/SLA failed', error); }
     return updated;
   }
 
@@ -543,10 +572,10 @@ export class MaintenanceRequestsService {
    * blocking close on it would strand finished maintenance for the weeks an
    * offsite refurbishment can take.
    */
-  private async collectCloseBlockers(id: string): Promise<CloseReadinessBlocker[]> {
+  private async collectCloseBlockers(id: string, client: any = this.prisma): Promise<CloseReadinessBlocker[]> {
     const blockers: CloseReadinessBlocker[] = [];
 
-    const openTasks = await this.prisma.maintenanceTask.findMany({
+    const openTasks = await client.maintenanceTask.findMany({
       where: { requestId: id, status: { in: [...OPEN_TASK_STATUSES] } },
       select: { id: true },
     });
@@ -554,7 +583,7 @@ export class MaintenanceRequestsService {
       blockers.push({ code: 'OPEN_TASKS', count: openTasks.length, messageKey: 'maintenance.openTasksBlockCompletion', params: { count: String(openTasks.length) } });
     }
 
-    const unresolvedParts = await this.prisma.maintenanceRequestRequiredPart.findMany({
+    const unresolvedParts = await client.maintenanceRequestRequiredPart.findMany({
       where: { maintenanceRequestId: id, status: { in: [...UNRESOLVED_REQUIRED_PART_STATUSES] } },
       select: { id: true },
     });
@@ -562,7 +591,7 @@ export class MaintenanceRequestsService {
       blockers.push({ code: 'UNRESOLVED_REQUIRED_PARTS', count: unresolvedParts.length, messageKey: 'maintenance.unresolvedPartsBlockCompletion', params: { count: String(unresolvedParts.length) } });
     }
 
-    const openWorkOrders = await this.prisma.maintenanceWorkOrder.findMany({
+    const openWorkOrders = await client.maintenanceWorkOrder.findMany({
       where: { requestId: id, status: { in: [...ACTIVE_WORK_ORDER_STATUSES] } },
       select: { id: true },
     });
@@ -570,7 +599,7 @@ export class MaintenanceRequestsService {
       blockers.push({ code: 'ACTIVE_WORK_ORDERS', count: openWorkOrders.length, messageKey: 'maintenance.openWorkOrdersBlockCompletion', params: { count: String(openWorkOrders.length) } });
     }
 
-    const incompleteChecklists = await this.prisma.maintenanceChecklistExecution.findMany({
+    const incompleteChecklists = await client.maintenanceChecklistExecution.findMany({
       where: { requestId: id, status: 'IN_PROGRESS' },
       include: {
         items: {
@@ -579,7 +608,7 @@ export class MaintenanceRequestsService {
         },
       },
     });
-    const blockingMandatory = incompleteChecklists.flatMap(ce => ce.items);
+    const blockingMandatory = incompleteChecklists.flatMap((ce: any) => ce.items);
     if (blockingMandatory.length > 0) {
       blockers.push({ code: 'MANDATORY_CHECKLIST_PENDING', count: blockingMandatory.length, messageKey: 'maintenance.mandatoryChecklistPending', params: { count: String(blockingMandatory.length) } });
     }
@@ -618,43 +647,29 @@ export class MaintenanceRequestsService {
     };
   }
 
+  async completeWithClient(tx: any, id: string, userId: string, ctx: ActiveOperationalContext, completedAt = new Date()) {
+    const req = await tx.maintenanceRequest.findFirst({ where: { id, deletedAt: null, machine: this.machineScope(ctx) } });
+    if (!req) throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
+    if (req.status !== 'IN_PROGRESS') throw this.badRequest('maintenance.onlyInProgressCanComplete', 'Only IN_PROGRESS requests can be completed');
+    this.throwFirstBlocker(await this.collectCloseBlockers(id, tx));
+    const downtimeAgg = await tx.downtimeLog.aggregate({ where: { requestId: id, cancelledAt: null }, _sum: { durationMinutes: true } });
+    const downtimeHours = downtimeAgg._sum.durationMinutes ? downtimeAgg._sum.durationMinutes / 60 : null;
+    const activeRequests = await tx.maintenanceRequest.count({ where: { machineId: req.machineId, status: 'IN_PROGRESS', id: { not: id }, deletedAt: null } });
+    const activeDowntime = await tx.downtimeLog.count({ where: { machineId: req.machineId, endTime: null, cancelledAt: null } });
+    if (activeRequests === 0 && activeDowntime === 0) await tx.machine.update({ where: { id: req.machineId }, data: { status: 'ACTIVE' } });
+    const updated = await tx.maintenanceRequest.update({ where: { id }, data: { status: 'COMPLETED', endDate: completedAt, downtimeHours } });
+    await this.audit.logWithClient(tx, { userId, action: 'COMPLETE', entity: 'MaintenanceRequest', entityId: id,
+      details: { oldStatus: req.status, newStatus: 'COMPLETED', machineId: req.machineId, downtimeHours, companyId: ctx.companyId, branchId: ctx.branchId } });
+    return updated;
+  }
+
   async complete(id: string, userId: string, ctx: ActiveOperationalContext) {
     const req = await this.findOne(id, ctx);
     if (req.status !== 'IN_PROGRESS') throw this.badRequest('maintenance.onlyInProgressCanComplete', 'Only IN_PROGRESS requests can be completed');
-
     this.throwFirstBlocker(await this.collectCloseBlockers(id));
-
-    const downtimeAgg = await this.prisma.downtimeLog.aggregate({
-      where: { requestId: id, cancelledAt: null },
-      _sum: { durationMinutes: true },
-    });
-    const downtimeHours = downtimeAgg._sum.durationMinutes
-      ? downtimeAgg._sum.durationMinutes / 60
-      : null;
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const activeRequests = await tx.maintenanceRequest.count({
-        where: { machineId: req.machineId, status: 'IN_PROGRESS', id: { not: id }, deletedAt: null },
-      });
-      if (activeRequests === 0) {
-        await tx.machine.update({
-          where: { id: req.machineId },
-          data: { status: 'ACTIVE' },
-        });
-      }
-      return tx.maintenanceRequest.update({
-        where: { id },
-        data: { status: 'COMPLETED', endDate: new Date(), downtimeHours },
-      });
-    });
-
-    await this.audit.log(userId, 'COMPLETE', 'MaintenanceRequest', id,
-      { oldStatus: req.status, newStatus: 'COMPLETED', machineId: req.machineId, downtimeHours });
-
-    try {
-      const completedRequest = await this.findOne(id, ctx);
-      await this.notificationService.notifyRequestCompleted(completedRequest);
-    } catch { }
+    const updated = await this.prisma.$transaction(tx => this.completeWithClient(tx, id, userId, ctx), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    try { await this.notificationService.notifyRequestCompleted(await this.findOne(id, ctx)); }
+    catch (error) { console.error('Maintenance request completion notification failed', error); }
     return updated;
   }
 

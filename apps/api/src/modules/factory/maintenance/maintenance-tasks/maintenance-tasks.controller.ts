@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } f
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceTasksService } from './maintenance-tasks.service';
 import { CreateMaintenanceTaskDto } from './dto/create-maintenance-task.dto';
+import { ExecutionStartDto, ExecutionJoinDto, ExecutionLeaveDto, ExecutionHandoffDto, ExecutionCompleteDto, ExecutionPartInputDto, RegisterHistoricalExecutionDto } from './dto/execution-action.dto';
 import { UpdateMaintenanceTaskDto } from './dto/update-maintenance-task.dto';
 import { JwtAuthGuard } from '../../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../modules/auth/guards/permissions.guard';
@@ -29,16 +30,64 @@ export class MaintenanceTasksController {
   @ApiOperation({ summary: 'List maintenance tasks' })
   findAll(@Query() query: {
     page?: string; limit?: string; search?: string;
-    requestId?: string; assignedToId?: string; status?: string;
+    requestId?: string; workOrderId?: string; sourceType?: string; assignedToId?: string; status?: string;
   }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       search: query.search,
       requestId: query.requestId,
+      workOrderId: query.workOrderId,
+      sourceType: query.sourceType,
       assignedToId: query.assignedToId,
       status: query.status,
     }, ctx);
+  }
+
+  @Get('participants')
+  @Permissions('maintenance-task:read')
+  participants(@Query() query: { page?: string; limit?: string; search?: string }, @CurrentUser('id') actorId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.participants({ page: Number(query.page) || 1, limit: Number(query.limit) || 20, search: query.search }, ctx, actorId);
+  }
+
+  @Get('participants/:id')
+  @Permissions('maintenance-task:read')
+  participant(@Param('id') id: string, @CurrentUser('id') actorId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.participant(id, ctx, actorId); }
+
+  @Post('register-historical')
+  @Permissions('maintenance-task:registerHistorical')
+  registerHistorical(@Body() dto: RegisterHistoricalExecutionDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.registerHistorical(dto, userId, ctx);
+  }
+
+  @Patch(':id/join')
+  @Permissions('maintenance-task:start')
+  join(@Param('id') id: string, @Body() dto: ExecutionJoinDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.join(id, dto, userId, ctx);
+  }
+
+  @Patch(':id/leave')
+  @Permissions('maintenance-task:update')
+  leave(@Param('id') id: string, @Body() dto: ExecutionLeaveDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.leave(id, dto, userId, ctx);
+  }
+
+  @Patch(':id/handoff')
+  @Permissions('maintenance-task:update')
+  handoff(@Param('id') id: string, @Body() dto: ExecutionHandoffDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.handoff(id, dto, userId, ctx);
+  }
+
+  @Post(':id/parts')
+  @Permissions('maintenance-task:parts.issue')
+  issuePart(@Param('id') id: string, @Body() dto: ExecutionPartInputDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.issuePart(id, dto, userId, ctx);
+  }
+
+  @Patch(':id/return-to-service')
+  @Permissions('maintenance-task:downtime.close')
+  returnToService(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.returnToService(id, userId, ctx);
   }
 
   @Get('my-tasks')
@@ -94,12 +143,12 @@ export class MaintenanceTasksController {
   @Patch(':id/start')
   @Permissions('maintenance-task:start')
   @ApiOperation({ summary: 'Start maintenance task' })
-  start(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.start(id, userId, ctx); }
+  start(@Param('id') id: string, @Body() dto: ExecutionStartDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.start(id, userId, ctx, dto); }
 
   @Patch(':id/complete')
   @Permissions('maintenance-task:complete')
   @ApiOperation({ summary: 'Complete maintenance task' })
-  complete(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.complete(id, userId, ctx); }
+  complete(@Param('id') id: string, @Body() dto: ExecutionCompleteDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.complete(id, userId, ctx, dto); }
 
   @Patch(':id/cancel')
   @Permissions('maintenance-task:cancel')

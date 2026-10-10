@@ -4,6 +4,7 @@ import { AuditService } from '../../../../common/audit/audit.service';
 import { CreateDowntimeLogDto } from './dto/create-downtime-log.dto';
 import { UpdateDowntimeLogDto } from './dto/update-downtime-log.dto';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { Prisma } from '@prisma/client';
 
 const MAX_RELIABILITY_SUMMARY_EVENTS = 2000;
 
@@ -32,6 +33,94 @@ export class DowntimeLogsService {
   private machineOwns(machine: { companyId?: string | null; branchId?: string | null }, ctx: ActiveOperationalContext): boolean {
     return machine.companyId === ctx.companyId
       && (machine.branchId === null || machine.branchId === ctx.branchId);
+  }
+
+  /** Machine stop authority shared by requests and execution, on the caller's transaction. */
+  async startOrReuseInTx(tx: any, input: {
+    machineId: string; requestId?: string | null; executionId?: string | null;
+    reason: string; startTime?: Date; notes?: string;
+  }, userId: string, ctx: ActiveOperationalContext) {
+    const machine = await tx.machine.findFirst({ where: { id: input.machineId, ...this.machineScope(ctx) } });
+    if (!machine) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+    await tx.$queryRaw(Prisma.sql`
+      SELECT [id] FROM [dbo].[machines] WITH (UPDLOCK, HOLDLOCK) WHERE [id] = ${input.machineId}
+    `);
+    if (input.requestId) {
+      const request = await tx.maintenanceRequest.findFirst({ where: {
+        id: input.requestId, machineId: input.machineId, machine: this.machineScope(ctx), deletedAt: null,
+      } });
+      if (!request) throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
+    }
+    if (input.executionId) {
+      const execution = await tx.maintenanceTask.findFirst({ where: {
+        id: input.executionId, machineId: input.machineId, companyId: ctx.companyId,
+        OR: [{ branchId: ctx.branchId }, { branchId: null }],
+      } });
+      if (!execution) throw this.notFound('maintenance.taskNotFound', 'Maintenance execution not found');
+    }
+    const active = await tx.downtimeLog.findFirst({ where: {
+      machineId: input.machineId, endTime: null, cancelledAt: null,
+    } });
+    if (active) {
+      if ((input.requestId && active.requestId && active.requestId !== input.requestId)
+        || (input.executionId && active.executionId && active.executionId !== input.executionId)) {
+        throw this.badRequest('maintenance.activeDowntimeExists', 'The active machine stop belongs to another maintenance event');
+      }
+      const linked = await tx.downtimeLog.update({ where: { id: active.id }, data: {
+        ...(input.requestId && !active.requestId ? { requestId: input.requestId } : {}),
+        ...(input.executionId && !active.executionId ? { executionId: input.executionId } : {}),
+      } });
+      await this.audit.logWithClient(tx, { userId, action: 'LINK_EXECUTION', entity: 'DowntimeLog',
+        entityId: active.id, details: { companyId: ctx.companyId, branchId: ctx.branchId,
+          machineId: input.machineId, requestId: input.requestId, executionId: input.executionId } });
+      return linked;
+    }
+    const startTime = input.startTime ?? new Date();
+    if (!input.reason?.trim() || !Number.isFinite(startTime.getTime()) || startTime > new Date()) {
+      throw this.badRequest('maintenance.executionDowntimeInvalid', 'A stop reason and valid non-future start time are required');
+    }
+    const log = await tx.downtimeLog.create({ data: {
+      machineId: input.machineId, requestId: input.requestId || null, executionId: input.executionId || null,
+      companyId: ctx.companyId, branchId: ctx.branchId, productionLineId: machine.productionLineId || null,
+      reason: input.reason.trim(), startTime, detectedAt: startTime, machineStopped: true,
+      sourceType: 'MAINTENANCE', status: 'OPEN', notes: input.notes || null,
+    } });
+    await this.audit.logWithClient(tx, { userId, action: 'START', entity: 'DowntimeLog', entityId: log.id,
+      details: { companyId: ctx.companyId, branchId: ctx.branchId, machineId: input.machineId,
+        requestId: input.requestId, executionId: input.executionId, startTime: startTime.toISOString() } });
+    return log;
+  }
+
+  /** Leaving or handing off a session never calls this; return-to-service explicitly does. */
+  async closeInTx(tx: any, input: {
+    machineId: string; requestId?: string | null; executionId?: string | null; endTime?: Date;
+  }, userId: string, ctx: ActiveOperationalContext) {
+    const machine = await tx.machine.findFirst({ where: { id: input.machineId, ...this.machineScope(ctx) } });
+    if (!machine) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+    await tx.$queryRaw(Prisma.sql`
+      SELECT [id] FROM [dbo].[machines] WITH (UPDLOCK, HOLDLOCK) WHERE [id] = ${input.machineId}
+    `);
+    const references: any[] = [];
+    if (input.requestId) references.push({ requestId: input.requestId });
+    if (input.executionId) references.push({ executionId: input.executionId });
+    const existing = await tx.downtimeLog.findFirst({ where: {
+      machineId: input.machineId, endTime: null, cancelledAt: null,
+      ...(references.length ? { OR: references } : {}), machine: this.machineScope(ctx),
+    } });
+    if (!existing) return null;
+    const endTime = input.endTime ?? new Date();
+    const durationMinutes = (endTime.getTime() - new Date(existing.startTime).getTime()) / 60000;
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0 || endTime > new Date()) {
+      throw this.badRequest('maintenance.durationMustBePositive', 'Duration must be positive and end time cannot be in the future');
+    }
+    const log = await tx.downtimeLog.update({ where: { id: existing.id }, data: {
+      endTime, durationMinutes, status: 'CLOSED', repairCompletedAt: endTime,
+    } });
+    await this.audit.logWithClient(tx, { userId, action: 'RETURN_TO_SERVICE', entity: 'DowntimeLog',
+      entityId: existing.id, details: { companyId: ctx.companyId, branchId: ctx.branchId,
+        machineId: input.machineId, requestId: input.requestId, executionId: input.executionId,
+        endTime: endTime.toISOString(), durationMinutes } });
+    return { ...log, status: 'CLOSED', durationHours: durationMinutes / 60 };
   }
 
   async create(dto: CreateDowntimeLogDto, userId: string, ctx: ActiveOperationalContext) {

@@ -55,7 +55,7 @@ export default function EditMaintenanceRequestPage() {
     setLoading(true); setError('');
     try {
       const res = await api.get<any>(`/maintenance/requests/${id}`);
-      const item = res;
+      const item = res.data || res;
       setData(item);
       setForm({ machineId: item.machineId || '', type: item.type || 'CORRECTIVE', priority: item.priority || 'MEDIUM', title: item.title || '', description: item.description || '', notes: item.notes || '', productionLineId: (item as any).productionLineId || '', machineComponentId: (item as any).machineComponentId || '', operationTypeId: (item as any).operationTypeId || '', costCenterId: (item as any).costCenterId || '' });
     } catch (err: any) {
@@ -142,15 +142,16 @@ export default function EditMaintenanceRequestPage() {
             <h2 className="text-lg font-semibold text-gray-900">{t('complexForms.requestInformation')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input label={t('maintenance.title')} name="title" value={form.title} onChange={(e) => setField('title', e.target.value)} error={errors.title} required disabled={isReadOnly} />
-              <Select label={t('maintenance.type')} value={form.type} disabled options={REQUEST_TYPES} />
+              <Select label={t('maintenance.type')} value={form.type} disabled options={REQUEST_TYPES.map((option) => ({ ...option, label: t(`status.${option.value}`) }))} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select label={t('maintenance.priority')} value={form.priority} onChange={(e) => setField('priority', e.target.value)} options={PRIORITY_OPTIONS} disabled={isReadOnly} />
-              <Input label={t('maintenance.status')} value={data.status} disabled />
+              <Select label={t('maintenance.priority')} value={form.priority} onChange={(e) => setField('priority', e.target.value)} options={PRIORITY_OPTIONS.map((option) => ({ ...option, label: t(`status.${option.value}`) }))} disabled={isReadOnly} />
+              <Input label={t('common.status')} value={data.status} disabled />
             </div>
             <Textarea label={t('maintenance.description')} value={form.description} onChange={(e) => setField('description', e.target.value)} disabled={isReadOnly} />
 
             <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.machine')}</h2>
+            <F9Lookup label={t('maintenance.productionLine')} value={form.productionLineId} onChange={(v) => { setForm({ ...form, productionLineId: v, machineId: '', machineComponentId: '', operationTypeId: '', costCenterId: '' }); setDirty(true); }} adapter={productionLineAdapter} disabled={isReadOnly} />
             <F9Lookup
               label={t('maintenance.machine')}
               name="machineId"
@@ -160,7 +161,6 @@ export default function EditMaintenanceRequestPage() {
                 setForm((previous) => ({
                   ...previous,
                   machineId: value,
-                  productionLineId: '',
                   machineComponentId: '',
                   operationTypeId: '',
                   costCenterId: '',
@@ -172,7 +172,7 @@ export default function EditMaintenanceRequestPage() {
                 setForm((previous) => ({
                   ...previous,
                   machineId: machine.id,
-                  productionLineId: machine.productionLineId || '',
+                  productionLineId: previous.productionLineId,
                   machineComponentId: '',
                   operationTypeId: machine.operationTypeId || '',
                   costCenterId: machine.defaultCostCenterId || '',
@@ -181,12 +181,12 @@ export default function EditMaintenanceRequestPage() {
               }}
               adapter={machineAdapter}
               error={errors.machineId}
-              disabled={isReadOnly}
+              disabled={isReadOnly || !form.productionLineId}
+              filters={{ productionLineId: form.productionLineId }}
             />
 
             <h2 className="text-lg font-semibold text-gray-900 pt-4">{t('maintenance.operationalContext')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <F9Lookup label={t('maintenance.productionLine')} value={form.productionLineId} onChange={(v) => setField('productionLineId', v)} adapter={productionLineAdapter} disabled={isReadOnly || Boolean(form.machineId)} />
               <F9Lookup label={t('maintenance.machineComponent')} value={form.machineComponentId} onChange={(v) => setField('machineComponentId', v)} adapter={machineComponentAdapter} filters={{ machineId: form.machineId }} disabled={isReadOnly || !form.machineId} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

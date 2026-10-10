@@ -1,0 +1,51 @@
+{
+  "status": "PASS",
+  "observedAtUtc": "2026-10-10T20:27:04.003Z",
+  "access": "SELECT_ONLY",
+  "businessDataMutations": "NONE",
+  "candidateApplied": false,
+  "productionDeployment": false,
+  "facts": [
+    [
+      {
+        "databaseName": "ATsoftERP_DB",
+        "databaseId": 8,
+        "serverPropertyName": "DELL\\WINCC",
+        "configuredServerName": "DESKTOP-HJALRR4\\WINCC",
+        "sqlVersion": "13.0.5108.50"
+      }
+    ],
+    [
+      {
+        "tasks": 0,
+        "requestsAll": 13,
+        "requestsNotDeleted": 7,
+        "workOrders": 4,
+        "downtimeLogs": 0,
+        "candidateLedgerRows": 0
+      }
+    ],
+    [
+      {
+        "taskSourceTypeColumn": null,
+        "executionSessionTable": null,
+        "executionUsageTable": null
+      }
+    ]
+  ],
+  "artifacts": [
+    {
+      "path": "apps/api/dist/src/main.js",
+      "bytes": 4450,
+      "lastWriteTimeUtc": "2026-10-07T23:42:01.234Z",
+      "sha256": "cc818df04266781ad2bf65f7c31f667f29579aa1f05b864a8493f08a92f119eb"
+    },
+    {
+      "path": "apps/web/.next/BUILD_ID",
+      "bytes": 21,
+      "lastWriteTimeUtc": "2026-10-08T19:24:37.172Z",
+      "sha256": "7a4ad8fd63a51bf0ca8261662c92ed8b8ad36bbac87f2fa7bf5f2ab65e632ba1"
+    }
+  ],
+  "note": "Artifact hashes are final observations, not a claim of a newly captured before/after comparison. All task builds and runtime fixtures used .tmp/mwr-validation and guarded disposable databases."
+}

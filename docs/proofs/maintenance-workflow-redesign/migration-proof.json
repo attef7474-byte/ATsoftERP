@@ -1,0 +1,311 @@
+{
+  "status": "PASS",
+  "productionMutations": "NONE",
+  "sourceDatabase": "ATsoftERP_DB",
+  "server": "DESKTOP-HJALRR4\\WINCC",
+  "sourceDatabaseId": 8,
+  "proofDatabase": "ATsoftERP_MWR_PROOF_20261010201256",
+  "rollbackDatabase": "ATsoftERP_MWR_ROLLBACK_20261010201256",
+  "observedAtUtc": "2026-10-10T20:12:59.048Z",
+  "migration": {
+    "name": "20261008020000_maintenance_execution_workflow_redesign",
+    "bytes": 18267,
+    "sha256": "d95967a51d976a4645244705c4c6196049981132fe30b73d134814a02be0bb06",
+    "lineEndings": "LF"
+  },
+  "historicalFixtureRows": 3,
+  "actualProductionHistoricalTasks": 0,
+  "results": [
+    {
+      "name": "candidate_migration_applies",
+      "result": "PASS"
+    },
+    {
+      "name": "historical_backfill_and_fact_preservation",
+      "result": "PASS"
+    },
+    {
+      "name": "source_and_scope_valid_truth_table",
+      "result": "PASS"
+    },
+    {
+      "name": "invalid_source_combinations_reject",
+      "result": "PASS"
+    },
+    {
+      "name": "invalid_scope_combinations_reject",
+      "result": "PASS"
+    },
+    {
+      "name": "work_order_scope_backfill_and_checks",
+      "result": "PASS"
+    },
+    {
+      "name": "simultaneous_team_sessions",
+      "result": "PASS"
+    },
+    {
+      "name": "same_engineer_active_twice_rejects",
+      "result": "PASS"
+    },
+    {
+      "name": "handoff_and_sequential_continuation",
+      "result": "PASS"
+    },
+    {
+      "name": "session_chronology_and_fk_reject",
+      "result": "PASS"
+    },
+    {
+      "name": "execution_team_usage_without_request_or_work_order",
+      "result": "PASS"
+    },
+    {
+      "name": "session_attributed_usage",
+      "result": "PASS"
+    },
+    {
+      "name": "usage_idempotency_movement_quantity_type_and_fk_checks",
+      "result": "PASS"
+    },
+    {
+      "name": "shared_team_completion_timestamp",
+      "result": "PASS"
+    },
+    {
+      "name": "usage_transaction_atomic_rollback",
+      "result": "PASS"
+    },
+    {
+      "name": "trusted_enabled_constraint_and_index_metadata",
+      "result": "PASS"
+    },
+    {
+      "name": "ATOMIC_ROLLBACK",
+      "result": "PASS"
+    }
+  ],
+  "metadata": [
+    [
+      {
+        "name": "maintenance_execution_part_usages_install_trace_ck",
+        "is_disabled": false,
+        "is_not_trusted": false
+      },
+      {
+        "name": "maintenance_execution_part_usages_quantity_ck",
+        "is_disabled": false,
+        "is_not_trusted": false
+      },
+      {
+        "name": "maintenance_execution_part_usages_source_line_ck",
+        "is_disabled": false,
+        "is_not_trusted": false
+      },
+      {
+        "name": "maintenance_execution_part_usages_type_ck",
+        "is_disabled": false,
+        "is_not_trusted": false
+      },
+      {
+        "name": "maintenance_execution_sessions_chronology_ck",
+        "is_disabled": false,
+        "is_not_trusted": false
+      },
+      {
+        "name": "maintenance_execution_sessions_end_reason_ck",
+        "is_disabled": false,
+        "is_not_trusted": false
+      },
+      {
+        "name": "maintenance_tasks_chronology_ck",
+        "is_disabled": false,
+        "is_not_trusted": false
+      },
+      {
+        "name": "maintenance_tasks_scope_contract_ck",
+        "is_disabled": false,
+        "is_not_trusted": false
+      },
+      {
+        "name": "maintenance_tasks_source_contract_ck",
+        "is_disabled": false,
+        "is_not_trusted": false
+      },
+      {
+        "name": "maintenance_work_orders_scope_contract_ck",
+        "is_disabled": false,
+        "is_not_trusted": false
+      }
+    ],
+    [
+      {
+        "name": "maintenance_execution_sessions_one_active_technician_key",
+        "is_unique": true,
+        "is_disabled": false,
+        "has_filter": true,
+        "filter_definition": "([endedAt] IS NULL)"
+      }
+    ],
+    [
+      {
+        "name": "downtime_logs_executionId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_execution_part_usages_executionId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_execution_part_usages_executionSessionId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_execution_part_usages_installedPartId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_execution_part_usages_inventoryMovementId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_execution_part_usages_productId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_execution_part_usages_recordedByUserId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_execution_part_usages_replacementHistoryId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_execution_part_usages_requiredPartId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_execution_part_usages_sparePartId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_execution_part_usages_workOrderPartId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_execution_sessions_executionId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_execution_sessions_handoffToUserId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_execution_sessions_technicianUserId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_tasks_branchId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_tasks_companyId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_tasks_costCenterId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_tasks_createdById_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_tasks_machineComponentId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_tasks_machineId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_tasks_productionLineId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      },
+      {
+        "name": "maintenance_tasks_workOrderId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false,
+        "delete_referential_action_desc": "NO_ACTION",
+        "update_referential_action_desc": "NO_ACTION"
+      }
+    ]
+  ],
+  "limitations": [
+    "This proves migration and structural invariants, not HTTP inventory posting. InventoryMovement fixture copies are confined to disposable databases.",
+    "The disposable structural clone contains affected/reference tables only; no production data or ledger mutation occurred."
+  ]
+}

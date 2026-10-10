@@ -1,11 +1,12 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
-import { unwrapApiList } from '../../../../lib/form-utils';
+import { unwrapApiList, unwrapApiData } from '../../../../lib/form-utils';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
-import { MaintenanceRequest, Machine, SparePart } from '../../../../lib/admin-types';
+import { MaintenanceRequest, Machine } from '../../../../lib/admin-types';
+import { useAuth } from '../../../../lib/auth-context';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Select, Textarea, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { CmmsStatusBadge, CmmsPriorityBadge } from '../../../../components/maintenance';
@@ -16,6 +17,8 @@ import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIc
 export default function MaintenanceRequestsPage() {
   const router = useRouter();
   const { t, dir } = useTranslation();
+  const { user, isSuperAdmin, permissions } = useAuth();
+  const can = (key: string) => isSuperAdmin || !!permissions?.permissions.includes(key);
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
   const [data, setData] = useState<MaintenanceRequest[]>([]);
@@ -31,8 +34,7 @@ export default function MaintenanceRequestsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MaintenanceRequest | null>(null);
-  const [form, setForm] = useState({ machineId: '', title: '', description: '', type: '', priority: 'MEDIUM', requestNumber: '', notes: '', productionLineId: '', machineComponentId: '', operationTypeId: '', costCenterId: '' });
-  const [requiredParts, setRequiredParts] = useState<Array<{ sparePartId: string; quantity: string; unit: string; usageNote: string; isPrimary: boolean }>>([]);
+  const [form, setForm] = useState({ machineId: '', title: '', description: '', type: '', priority: 'MEDIUM', requestNumber: '', notes: '', productionLineId: '', machineComponentId: '', operationTypeId: '', costCenterId: '', machineStopped: false });
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
@@ -49,20 +51,20 @@ export default function MaintenanceRequestsPage() {
     edit: () => selectedRecord && openEdit(selectedRecord.id),
     refresh: () => fetchData(meta.page),
     start: () => confirmAction(selectedId, 'start'),
-    complete: () => confirmAction(selectedId, 'complete'),
+    complete: () => router.push(`/admin/maintenance/tasks?sourceType=MAINTENANCE_REQUEST&requestId=${selectedId}`),
     cancel: () => confirmAction(selectedId, 'cancel'),
     delete: () => confirmDelete(selectedId),
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new'), visible: can('maintenance-request:create') },
     { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
     { id: 'start', labelKey: 'common.start', icon: <ActionStartIcon />, onClick: () => exec('start'), enabled: !!(selectedId && selectedRecord?.status === 'OPEN') },
-    { id: 'complete', labelKey: 'common.complete', icon: <ActionCompleteIcon />, onClick: () => exec('complete'), enabled: !!(selectedId && selectedRecord?.status === 'IN_PROGRESS') },
+    { id: 'complete', labelKey: 'maintenance.executeCompleteWork', icon: <ActionCompleteIcon />, onClick: () => exec('complete'),  enabled: !!(selectedId && selectedRecord?.status === 'IN_PROGRESS') },
     { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(selectedId && (selectedRecord?.status === 'OPEN' || selectedRecord?.status === 'IN_PROGRESS')) },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
-  ]);
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger' as const, onClick: () => exec('delete'), enabled: !!selectedId },
+  ].filter(item => item.id === 'new' ? can('maintenance-request:create') : item.id === 'complete' ? can('maintenance-task:create') : true));
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true); setError('');
@@ -86,8 +88,8 @@ export default function MaintenanceRequestsPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ machineId: '', title: '', description: '', type: 'CORRECTIVE', priority: 'MEDIUM', requestNumber: '', notes: '', productionLineId: '', machineComponentId: '', operationTypeId: '', costCenterId: '' });
-    setRequiredParts([]);
+    setForm({ machineId: '', title: '', description: '', type: 'CORRECTIVE', priority: 'MEDIUM', requestNumber: '', notes: '', productionLineId: '', machineComponentId: '', operationTypeId: '', costCenterId: '', machineStopped: false });
+    setValidationErrors({});
     setModalOpen(true);
   };
 
@@ -95,7 +97,7 @@ export default function MaintenanceRequestsPage() {
     setLoadingDetail(true);
     try {
       const res = await api.get<{ data: MaintenanceRequest }>(`/maintenance/requests/${id}`);
-      const detail = res.data;
+      const detail = unwrapApiData<MaintenanceRequest>(res);
       setEditItem(detail);
       setForm({
         machineId: detail.machineId || '',
@@ -109,14 +111,8 @@ export default function MaintenanceRequestsPage() {
         machineComponentId: detail.machineComponentId || '',
         operationTypeId: detail.operationTypeId || '',
         costCenterId: detail.costCenterId || '',
+        machineStopped: false,
       });
-      setRequiredParts((detail.requiredParts || []).map((p) => ({
-        sparePartId: p.sparePartId,
-        quantity: String(p.quantity || '1'),
-        unit: p.unit || '',
-        usageNote: p.usageNote || '',
-        isPrimary: !!p.isPrimary,
-      })));
       setModalOpen(true);
     } catch (err: any) {
       showToast(err?.message || t('errors.loadFailed'), 'error');
@@ -127,20 +123,16 @@ export default function MaintenanceRequestsPage() {
 
   const handleSave = async () => {
     const errors: Record<string, string> = {};
-    if (!form.title) errors.title = t('validation.required');
+    if (!form.productionLineId) errors.productionLineId = t('validation.required');
     if (!form.machineId) errors.machineId = t('validation.required');
-    const filledParts = editItem ? [] : requiredParts.filter((p) => p.sparePartId);
-    const duplicateSpareIds = filledParts.filter((p, i) => filledParts.findIndex((q) => q.sparePartId === p.sparePartId) !== i).map((p) => p.sparePartId);
-    if (duplicateSpareIds.length > 0) errors.requiredParts = t('maintenance.sparePartAlreadyAddedToRequest');
-    for (const p of filledParts) {
-      if (!p.sparePartId) { errors.requiredParts = t('complexForms.requiredField'); break; }
-      if (!p.quantity || Number(p.quantity) <= 0) { errors.requiredParts = t('maintenance.quantityMustBeGreaterThanZero'); break; }
-    }
+    if (form.machineStopped && !form.description.trim()) errors.description = t('validation.required');
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
-      const payload: any = { machineId: form.machineId, title: form.title, priority: form.priority };
+      const payload: any = { machineId: form.machineId, priority: form.priority };
+      if (editItem) payload.title = form.title;
+      else payload.machineStopped = form.machineStopped;
       if (form.description) payload.description = form.description;
       if (form.notes) payload.notes = form.notes;
       if (form.productionLineId) payload.productionLineId = form.productionLineId;
@@ -152,29 +144,7 @@ export default function MaintenanceRequestsPage() {
         showToast(t('common.successUpdated'), 'success');
       } else {
         payload.type = form.type;
-        if (form.type === 'EMERGENCY') {
-          if (filledParts.length > 0) {
-            payload.requiredParts = filledParts.map((p) => ({
-              sparePartId: p.sparePartId,
-              quantity: Number(p.quantity) || 1,
-              ...(p.unit ? { unit: p.unit } : {}),
-              ...(p.usageNote ? { usageNote: p.usageNote } : {}),
-              isPrimary: p.isPrimary,
-            }));
-          }
-          await api.post('/maintenance/requests/emergency', payload);
-        } else {
-          if (filledParts.length > 0) {
-            payload.requiredParts = filledParts.map((p) => ({
-              sparePartId: p.sparePartId,
-              quantity: Number(p.quantity) || 1,
-              ...(p.unit ? { unit: p.unit } : {}),
-              ...(p.usageNote ? { usageNote: p.usageNote } : {}),
-              isPrimary: p.isPrimary,
-            }));
-          }
-          await api.post('/maintenance/requests', payload);
-        }
+        await api.post(form.type === 'EMERGENCY' ? '/maintenance/requests/emergency' : '/maintenance/requests', payload);
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
@@ -207,23 +177,10 @@ export default function MaintenanceRequestsPage() {
     finally { setSaving(false); }
   };
 
-  const addRequiredPart = () => {
-    setRequiredParts(prev => [...prev, { sparePartId: '', quantity: '1', unit: '', usageNote: '', isPrimary: false }]);
-  };
-
-  const updateRequiredPart = (index: number, field: string, value: any) => {
-    setRequiredParts(prev => prev.map((part, i) => i === index ? { ...part, [field]: value } : part));
-  };
-
-  const removeRequiredPart = (index: number) => {
-    setRequiredParts(prev => prev.filter((_, i) => i !== index));
-  };
-
   const handleMachineChange = (value: string) => {
     setForm(prev => ({
       ...prev,
       machineId: value,
-      productionLineId: '',
       machineComponentId: '',
       operationTypeId: '',
       costCenterId: '',
@@ -235,20 +192,12 @@ export default function MaintenanceRequestsPage() {
     setForm(prev => ({
       ...prev,
       machineId: machine.id,
-      productionLineId: machine.productionLineId || '',
+      productionLineId: prev.productionLineId,
       machineComponentId: '',
       operationTypeId: machine.operationTypeId || '',
       costCenterId: machine.defaultCostCenterId || '',
     }));
     setValidationErrors(prev => ({ ...prev, machineId: '' }));
-  };
-
-  const handleSparePartSelect = (index: number, sparePart: SparePart) => {
-    setRequiredParts(prev => prev.map((part, i) => (
-      i === index
-        ? { ...part, sparePartId: sparePart.id, unit: sparePart.unit || '' }
-        : part
-    )));
   };
 
   const typeOptions = [
@@ -281,7 +230,7 @@ export default function MaintenanceRequestsPage() {
   const gridActions: GridAction<MaintenanceRequest>[] = [
     { label: t('details.viewDetails'), onClick: (r: MaintenanceRequest) => router.push(`/admin/maintenance/requests/${r.id}`) },
     { label: t('maintenance.start'), onClick: (r: MaintenanceRequest) => confirmAction(r.id, 'start'), enabled: (r: MaintenanceRequest) => r.status === 'OPEN' },
-    { label: t('maintenance.complete'), onClick: (r: MaintenanceRequest) => confirmAction(r.id, 'complete'), enabled: (r: MaintenanceRequest) => r.status === 'IN_PROGRESS' },
+    { label: t('maintenance.executeCompleteWork'), onClick: (r: MaintenanceRequest) => router.push(`/admin/maintenance/tasks?sourceType=MAINTENANCE_REQUEST&requestId=${r.id}`), enabled: (r: MaintenanceRequest) => r.status === 'IN_PROGRESS' },
     { label: t('maintenance.cancel'), onClick: (r: MaintenanceRequest) => confirmAction(r.id, 'cancel'), enabled: (r: MaintenanceRequest) => r.status === 'OPEN' || r.status === 'IN_PROGRESS', variant: 'danger' },
     { label: t('actions.edit'), onClick: (r: MaintenanceRequest) => openEdit(r.id) },
     { label: t('common.delete'), onClick: (r: MaintenanceRequest) => confirmDelete(r.id), variant: 'danger' },
@@ -323,77 +272,29 @@ export default function MaintenanceRequestsPage() {
           <div className="p-8 text-center">{t('common.loading')}...</div>
         ) : (
           <div className="space-y-4 max-h-96 overflow-y-auto">
-            {editItem ? (
-              <div>
-                <Input label={t('common.code')} value={form.requestNumber} disabled />
-                <p className="text-xs text-gray-500 mt-1">{t('common.codeImmutableHint')}</p>
-              </div>
-            ) : (
-              <Input label={t('common.code')} value={t('common.codeAutoGenerated')} disabled />
-            )}
-            <div>
-              <Input label={t('common.title')} value={form.title} onChange={(e) => { setForm({ ...form, title: e.target.value }); setValidationErrors(prev => ({ ...prev, title: '' })); }} required />
-              {validationErrors.title && <p className="text-red-500 text-sm mt-1">{validationErrors.title}</p>}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input label={t('common.code')} value={editItem ? form.requestNumber : t('common.codeAutoGenerated')} disabled />
+              <Input label={t('maintenance.createdBy')} value={editItem?.requestedBy?.name || user?.name || ''} disabled />
             </div>
-            <div>
-              <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={handleMachineChange} onItemSelect={handleMachineSelect} adapter={machineAdapter} />
-              {validationErrors.machineId && <p className="text-red-500 text-sm mt-1">{validationErrors.machineId}</p>}
+            {editItem && <Input label={t('common.title')} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <F9Lookup label={t('maintenance.productionLine')} value={form.productionLineId} onChange={(v) => setForm({ ...form, productionLineId: v, machineId: '', machineComponentId: '', operationTypeId: '', costCenterId: '' })} adapter={productionLineAdapter} error={validationErrors.productionLineId} />
+              <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={handleMachineChange} onItemSelect={handleMachineSelect} adapter={machineAdapter} filters={{ productionLineId: form.productionLineId }} disabled={!form.productionLineId} error={validationErrors.machineId} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <F9Lookup label={t('maintenance.productionLine')} value={form.productionLineId} onChange={(v) => setForm({ ...form, productionLineId: v })} adapter={productionLineAdapter} disabled={Boolean(form.machineId)} />
+            {!form.productionLineId && <p className="text-sm text-gray-500">{t('maintenance.selectLineFirst')}</p>}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <F9Lookup label={t('maintenance.machineComponent')} value={form.machineComponentId} onChange={(v) => setForm({ ...form, machineComponentId: v })} adapter={machineComponentAdapter} filters={{ machineId: form.machineId }} disabled={!form.machineId} />
+              {!editItem && <Select label={t('maintenance.machineStoppedQuestion')} value={form.machineStopped ? 'YES' : 'NO'} onChange={(e) => setForm({ ...form, machineStopped: e.target.value === 'YES' })} options={[{ value: 'NO', label: t('common.no') }, { value: 'YES', label: t('common.yes') }]} />}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <F9Lookup label={t('maintenance.operationType')} value={form.operationTypeId} onChange={(v) => setForm({ ...form, operationTypeId: v })} adapter={operationTypeAdapter} disabled={Boolean(form.machineId)} />
               <F9Lookup label={t('maintenance.costCenter')} value={form.costCenterId} onChange={(v) => setForm({ ...form, costCenterId: v })} adapter={costCenterAdapter} disabled={Boolean(form.machineId)} />
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">{t('maintenance.requiredSpareParts')}</span>
-                {!editItem && <Button variant="secondary" size="sm" onClick={addRequiredPart}>{t('maintenance.addRequiredPart')}</Button>}
-              </div>
-              {editItem ? (
-                <p className="text-sm text-gray-500">{t('maintenance.managePartsFromDetailHint')}</p>
-              ) : requiredParts.length > 0 ? (
-                <div className="space-y-4">
-                  {requiredParts.map((part, index) => (
-                    <div key={index} className="border rounded-lg p-4 space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">{t('maintenance.requiredPart')} #{index + 1}</span>
-                        <Button variant="danger" size="sm" onClick={() => removeRequiredPart(index)}>{t('actions.remove')}</Button>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <F9Lookup
-                          label={t('maintenance.selectSparePart')}
-                          value={part.sparePartId}
-                          onChange={(v) => updateRequiredPart(index, 'sparePartId', v)}
-                          onItemSelect={(sparePart: SparePart) => handleSparePartSelect(index, sparePart)}
-                          adapter={sparePartAdapter}
-                          filters={{ machineId: form.machineId, componentId: form.machineComponentId }}
-                        />
-                        <Input label={t('maintenance.partRequiredQuantity')} type="number" min="1" value={part.quantity} onChange={(e) => updateRequiredPart(index, 'quantity', e.target.value)} />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input label={t('maintenance.unit')} value={part.unit} onChange={(e) => updateRequiredPart(index, 'unit', e.target.value)} disabled />
-                        <div className="flex items-center gap-2 pt-6">
-                          <input type="checkbox" id={`isPrimary-${index}`} checked={part.isPrimary} onChange={(e) => updateRequiredPart(index, 'isPrimary', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                          <label htmlFor={`isPrimary-${index}`} className="text-sm text-gray-700">{t('maintenance.isPrimary')}</label>
-                        </div>
-                      </div>
-                      <Textarea label={t('maintenance.partUsageNote')} value={part.usageNote} onChange={(e) => updateRequiredPart(index, 'usageNote', e.target.value)} />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">{t('maintenance.noRequiredSpareParts')}</p>
-              )}
-              {validationErrors.requiredParts && <p className="text-red-500 text-sm mt-1">{validationErrors.requiredParts}</p>}
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <Select label={t('maintenance.maintenanceType')} value={form.type} disabled={Boolean(editItem)} onChange={(e) => setForm({ ...form, type: e.target.value })} options={typeOptions} />
               <Select label={t('maintenance.priority')} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} options={priorityOptions} />
             </div>
-            <Textarea label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <Textarea label={t('common.description')} required={form.machineStopped} error={validationErrors.description} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             <Textarea label={t('maintenance.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>

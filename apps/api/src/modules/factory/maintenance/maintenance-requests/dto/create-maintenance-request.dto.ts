@@ -72,9 +72,15 @@ export class CreateMaintenanceRequestDto {
   @IsIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
   priority?: string;
 
-  @ApiProperty({ example: 'Motor bearing replacement' })
+  @ApiPropertyOptional({ description: 'Legacy title; new requests derive their title on the server.' })
+  @IsOptional()
   @IsString()
-  title: string;
+  title?: string;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  machineStopped?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()

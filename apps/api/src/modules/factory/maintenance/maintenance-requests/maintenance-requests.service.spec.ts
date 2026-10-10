@@ -28,6 +28,7 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
 
   beforeEach(() => {
     prisma = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       user: { findUnique: jest.fn() },
       machine: { findUnique: jest.fn() },
       productionLine: { findUnique: jest.fn() },
@@ -43,6 +44,7 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
         aggregate: jest.fn(),
       },
       maintenanceRequestRequiredPart: {
+        count: jest.fn().mockResolvedValue(0),
         findUnique: jest.fn(),
         findFirst: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
@@ -56,7 +58,7 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
       },
       maintenanceChecklistExecutionItem: { count: jest.fn() },
       maintenanceSchedule: { findUnique: jest.fn() },
-      maintenanceTask: { findMany: jest.fn().mockResolvedValue([]) },
+      maintenanceTask: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
       maintenanceWorkOrder: { findMany: jest.fn().mockResolvedValue([]) },
       maintenanceRequestPartUsage: { findMany: jest.fn() },
       maintenanceRequestCostEntry: { findMany: jest.fn() },
@@ -64,7 +66,10 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
       attachment: { findMany: jest.fn() },
       auditLog: { findMany: jest.fn(), count: jest.fn() },
     };
-    audit = { log: jest.fn().mockResolvedValue({}) };
+    audit = { log: jest.fn().mockResolvedValue({}), logWithClient: jest.fn().mockResolvedValue({}) };
+    prisma.maintenanceRequest.findFirst = jest.fn(args => prisma.maintenanceRequest.findUnique(args));
+    prisma.downtimeLog.count = jest.fn().mockResolvedValue(0);
+    prisma.$transaction = jest.fn(async cb => cb(prisma));
     numbering = {
       generateNumberAtomic: jest.fn().mockResolvedValue('MR-0001'),
       generateNumberAtomicWithClient: jest.fn().mockResolvedValue('MR-0001'),
@@ -77,7 +82,7 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
       notifyRequestAssigned: jest.fn().mockResolvedValue(undefined),
     };
     sla = { createSlaState: jest.fn().mockResolvedValue(undefined), recalculateSla: jest.fn().mockResolvedValue(undefined) };
-    service = new MaintenanceRequestsService(prisma, audit, numbering, notification, sla);
+    service = new MaintenanceRequestsService(prisma, audit, numbering, notification, sla, { startOrReuseInTx: jest.fn().mockResolvedValue({ id: 'stop' }) } as any);
   });
 
   it('only OPEN requests can be started', async () => {
@@ -305,7 +310,7 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
     }));
     prisma.downtimeLog.create = jest.fn().mockResolvedValue({});
     const result: any = await service.createEmergency(
-      { machineId: 'm1', title: 'Fire', type: 'PREVENTIVE', priority: 'LOW' } as any,
+      { machineId: 'm1', description: 'Fire', title: 'Fire', type: 'PREVENTIVE', priority: 'LOW' } as any,
       { id: 'u1' } as any,
       ctx,
     );
@@ -352,10 +357,10 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
 
   it('create rejects a machine component from another machine', async () => {
     prisma.machine.findUnique.mockResolvedValue(ownedMachine);
-    prisma.machineComponent.findUnique.mockResolvedValue({ id: 'comp9', machineId: 'm9', status: 'ACTIVE', deletedAt: null });
+    prisma.machineComponent.findUnique.mockResolvedValue({ id: 'comp9', machineId: 'm9', machine: ownedMachine, status: 'ACTIVE', deletedAt: null });
     await expect(
       service.create({ machineId: 'm1', title: 't', machineComponentId: 'comp9' } as any, { id: 'u1' } as any, ctx),
-    ).rejects.toMatchObject({ response: { messageKey: 'maintenance.componentMachineMismatch' } });
+    ).rejects.toMatchObject({ response: { messageKey: 'maintenance.machineComponentMachineMismatch' } });
   });
 
   it('assign rejects a user from another company (tenant isolation on assignment)', async () => {
@@ -415,14 +420,19 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
     const txMachine = jest.fn().mockResolvedValue({});
     const txCount = jest.fn().mockResolvedValue(0);
     prisma.$transaction = jest.fn(async (cb: any) => cb({
-      maintenanceRequest: { update: txUpdate, count: txCount },
+      maintenanceRequest: { findFirst: prisma.maintenanceRequest.findFirst, update: txUpdate, count: txCount },
+      downtimeLog: prisma.downtimeLog,
+      maintenanceTask: prisma.maintenanceTask,
+      maintenanceRequestRequiredPart: prisma.maintenanceRequestRequiredPart,
+      maintenanceWorkOrder: prisma.maintenanceWorkOrder,
+      maintenanceChecklistExecution: prisma.maintenanceChecklistExecution,
       machine: { update: txMachine },
     }));
     const result: any = await service.complete('r1', 'u1', ctx);
     expect(result.status).toBe('COMPLETED');
     expect(txUpdate).toHaveBeenCalled();
     expect(txMachine).toHaveBeenCalled();
-    expect(audit.log).toHaveBeenCalledWith('u1', 'COMPLETE', 'MaintenanceRequest', 'r1', expect.objectContaining({ newStatus: 'COMPLETED' }));
+    expect(audit.logWithClient).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ userId: 'u1', action: 'COMPLETE', entity: 'MaintenanceRequest', entityId: 'r1', details: expect.objectContaining({ newStatus: 'COMPLETED' }) }));
   });
 
   // -- R2-B: terminal request immutability for parts sub-resource --
