@@ -1,0 +1,193 @@
+{
+  "requirement": "maintenance-task:registerHistorical",
+  "evaluatedAt": "2026-10-10T21:35:52.204Z",
+  "roles": [
+    {
+      "code": "CATALOG_ADMIN",
+      "status": "ACTIVE",
+      "hasKey": false,
+      "bypass": false,
+      "granted": false
+    },
+    {
+      "code": "E2E_ROLE",
+      "status": "ACTIVE",
+      "hasKey": false,
+      "bypass": false,
+      "granted": false
+    },
+    {
+      "code": "PERSONNEL_ADMIN",
+      "status": "ACTIVE",
+      "hasKey": false,
+      "bypass": false,
+      "granted": false
+    },
+    {
+      "code": "ROLE-1787573285953",
+      "status": "ACTIVE",
+      "hasKey": false,
+      "bypass": false,
+      "granted": false
+    },
+    {
+      "code": "ROLE-1787573406138",
+      "status": "ACTIVE",
+      "hasKey": false,
+      "bypass": false,
+      "granted": false
+    },
+    {
+      "code": "ROLE-1787573773251",
+      "status": "ACTIVE",
+      "hasKey": false,
+      "bypass": false,
+      "granted": false
+    },
+    {
+      "code": "ROLE-1787575182832",
+      "status": "ACTIVE",
+      "hasKey": false,
+      "bypass": false,
+      "granted": false
+    },
+    {
+      "code": "ROLE-1787575951227",
+      "status": "ACTIVE",
+      "hasKey": false,
+      "bypass": false,
+      "granted": false
+    },
+    {
+      "code": "ROLE-1787582197369",
+      "status": "ACTIVE",
+      "hasKey": false,
+      "bypass": false,
+      "granted": false
+    },
+    {
+      "code": "SUPER_ADMIN",
+      "status": "ACTIVE",
+      "hasKey": false,
+      "bypass": true,
+      "granted": true
+    },
+    {
+      "code": "TEST_VIEWER",
+      "status": "ACTIVE",
+      "hasKey": false,
+      "bypass": false,
+      "granted": false
+    },
+    {
+      "code": "TEST_VIEWER2",
+      "status": "ACTIVE",
+      "hasKey": false,
+      "bypass": false,
+      "granted": false
+    },
+    {
+      "code": "TEST_WAREHOUSE",
+      "status": "ACTIVE",
+      "hasKey": false,
+      "bypass": false,
+      "granted": false
+    }
+  ],
+  "users": [
+    {
+      "id": "cmrl31v0g0004ok95wxhdi9lm",
+      "email": "admin@atsofterp.com",
+      "roles": [
+        "SUPER_ADMIN"
+      ],
+      "bypass": true,
+      "hasKey": false,
+      "granted": true
+    },
+    {
+      "id": "cmrn5c3670001gk959os3th19",
+      "email": "e2e-test2@example.com",
+      "roles": [],
+      "bypass": false,
+      "hasKey": false,
+      "granted": false
+    },
+    {
+      "id": "cmrn5cort0004gk95za1pwrci",
+      "email": "e2e-user@example.com",
+      "roles": [],
+      "bypass": false,
+      "hasKey": false,
+      "granted": false
+    },
+    {
+      "id": "cmrn5d3q40006gk95z3zwp72b",
+      "email": "e2e-test3@example.com",
+      "roles": [
+        "E2E_ROLE"
+      ],
+      "bypass": false,
+      "hasKey": false,
+      "granted": false
+    },
+    {
+      "id": "cmrvc41md0000ys95gy4pegey",
+      "email": "atef@atsofterp.com",
+      "roles": [
+        "E2E_ROLE"
+      ],
+      "bypass": false,
+      "hasKey": false,
+      "granted": false
+    },
+    {
+      "id": "cmsm1cjjn0007ac958hsrn8c8",
+      "email": "reaudit.deny.20260809194715@atsofterp.com",
+      "roles": [],
+      "bypass": false,
+      "hasKey": false,
+      "granted": false
+    },
+    {
+      "id": "cmtf71yxk0000vc95dd7a5upa",
+      "email": "emp-proof-super-1788057139723@atsofterp.local",
+      "roles": [],
+      "bypass": false,
+      "hasKey": false,
+      "granted": false
+    },
+    {
+      "id": "cmtf71z310002vc9540ih1ssq",
+      "email": "emp-proof-noperm-1788057139930@atsofterp.local",
+      "roles": [],
+      "bypass": false,
+      "hasKey": false,
+      "granted": false
+    },
+    {
+      "id": "cmtf72zag0000go95jsuoctxb",
+      "email": "emp-proof-super-1788057186841@atsofterp.local",
+      "roles": [],
+      "bypass": false,
+      "hasKey": false,
+      "granted": false
+    },
+    {
+      "id": "cmtf72zgb0002go95p4dg3jy6",
+      "email": "emp-proof-noperm-1788057187061@atsofterp.local",
+      "roles": [],
+      "bypass": false,
+      "hasKey": false,
+      "granted": false
+    },
+    {
+      "id": "E5DC1A08-EF80-47B1-896D-49DBF9A98C4B",
+      "email": "test@atsofterp.com",
+      "roles": [],
+      "bypass": false,
+      "hasKey": false,
+      "granted": false
+    }
+  ]
+}
