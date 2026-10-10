@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { api } from '../../../../lib/api';
 import { useAuth } from '../../../../lib/auth-context';
+import { plannedPartsPayload, validatePlannedParts, type PlannedPartDraft } from '../../../../lib/work-order-planned-parts';
 import { safeString } from '../../../../lib/form-utils';
 import { useCrudList, CrudOperation } from '../../../../hooks/useCrudList';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
@@ -10,7 +11,7 @@ import { MaintenanceWorkOrder, PaginationMeta } from '../../../../lib/admin-type
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Button, Input, Textarea, Card, Pagination, LoadingState, Modal, ConfirmDialog, Select } from '../../../../components/admin/ui';
 import { GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { F9Lookup, machineAdapter, machineComponentAdapter, productionLineAdapter, costCenterAdapter, warehouseAdapter, userAdapter } from '../../../../components/f9';
+import { F9Lookup, machineAdapter, machineComponentAdapter, productionLineAdapter, costCenterAdapter, warehouseAdapter, userAdapter, sparePartAdapter, productAdapter } from '../../../../components/f9';
 import { CmmsStatusBadge } from '../../../../components/maintenance/CmmsStatusBadge';
 import { CmmsPriorityBadge } from '../../../../components/maintenance/CmmsPriorityBadge';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionDeleteIcon } from '../../../../components/admin/admin-action-bar';
@@ -23,6 +24,7 @@ const WORK_ORDER_TYPES = ['CORRECTIVE', 'PREVENTIVE', 'PREDICTIVE', 'OVERHAUL', 
 const WORK_ORDER_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
 interface WorkOrderForm {
+  parts: PlannedPartDraft[];
   title: string;
   description: string;
   type: string;
@@ -43,6 +45,7 @@ interface WorkOrderForm {
 }
 
 interface WorkOrderPayload {
+  parts?: ReturnType<typeof plannedPartsPayload>['parts'];
   title?: string;
   description?: string;
   type?: string;
@@ -65,7 +68,7 @@ interface WorkOrderPayload {
 const EMPTY_WO_FORM: WorkOrderForm = {
   title: '', description: '', type: 'CORRECTIVE', priority: 'MEDIUM',
   machineId: '', machineComponentId: '', scopeType: 'MACHINE', productionLineId: '', workLocation: '', costCenterId: '', warehouseId: '',
-  assignedToId: '', supervisorId: '', plannedStartAt: '', plannedEndAt: '',
+  assignedToId: '', supervisorId: '', plannedStartAt: '', plannedEndAt: '', parts: [],
   estimatedCost: '', notes: '',
 };
 const INITIAL_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
@@ -171,6 +174,7 @@ export default function MaintenanceWorkOrdersPage() {
     updateRequest: (id, payload) => api.patch(`/maintenance-work-orders/${id}`, payload),
     deleteRequest: (id) => api.delete(`/maintenance-work-orders/${id}`),
     mapRecordToForm: (detail) => ({
+      parts: [], // Saved-order parts remain managed through their dedicated endpoints.
       title: safeString(detail.title),
       description: safeString(detail.description),
       type: safeString(detail.type) || 'CORRECTIVE',
@@ -189,8 +193,8 @@ export default function MaintenanceWorkOrdersPage() {
       estimatedCost: detail.estimatedCost != null ? String(detail.estimatedCost) : '',
       notes: safeString(detail.notes),
     }),
-    mapFormToPayload: (currentForm) => {
-      const payload: WorkOrderPayload = { scopeType: currentForm.scopeType };
+    mapFormToPayload: (currentForm, context) => {
+      const payload: WorkOrderPayload = { scopeType: currentForm.scopeType, ...plannedPartsPayload(currentForm.parts, context.mode) };
       if (editItem) payload.title = currentForm.title.trim();
       if (currentForm.description.trim()) payload.description = currentForm.description.trim();
       payload.type = currentForm.type || 'CORRECTIVE';
@@ -212,8 +216,11 @@ export default function MaintenanceWorkOrdersPage() {
       if (currentForm.notes.trim()) payload.notes = currentForm.notes.trim();
       return payload;
     },
-    validate: (currentForm) => {
+    validate: (currentForm, context) => {
       const fieldErrors: Record<string, string> = {};
+      if (context.mode === 'create') {
+        Object.entries(validatePlannedParts(currentForm.parts)).forEach(([field, key]) => { fieldErrors[field] = t(key); });
+      }
       if (!currentForm.description.trim()) fieldErrors.description = t('validation.required');
       if (currentForm.scopeType !== 'GENERAL' && !currentForm.productionLineId) fieldErrors.productionLineId = t('validation.required');
       if (currentForm.scopeType === 'MACHINE' && !currentForm.machineId) fieldErrors.machineId = t('validation.required');
@@ -535,6 +542,40 @@ export default function MaintenanceWorkOrdersPage() {
             <Input label={t('maintenance.workOrderPlannedEnd')} name="plannedEndAt" type="datetime-local" value={form.plannedEndAt} onChange={(e) => { setForm({ ...form, plannedEndAt: e.target.value }); setValidationErrors(prev => ({ ...prev, plannedEndAt: '' })); }} error={validationErrors.plannedEndAt} />
             <Input label={t('maintenance.workOrderEstimatedCost')} name="estimatedCost" type="number" min="0" step="0.01" value={form.estimatedCost} onChange={(e) => { setForm({ ...form, estimatedCost: e.target.value }); setValidationErrors(prev => ({ ...prev, estimatedCost: '' })); }} error={validationErrors.estimatedCost} />
           </div>
+          {!editItem && <section aria-labelledby="planned-parts-heading" className="space-y-3 border-t pt-4">
+            <h3 id="planned-parts-heading" className="font-medium">{t('maintenance.plannedParts')}</h3>
+            <p className="text-sm text-gray-500">{t('maintenance.plannedPartsHint')}</p>
+            {validationErrors.parts && <p role="alert" className="text-sm text-red-600">{validationErrors.parts}</p>}
+            {form.parts.map((part, index) => {
+              const field = (name: string) => 'parts.' + index + '.' + name;
+              const update = (patch: Partial<PlannedPartDraft>) => {
+                setForm(current => ({ ...current, parts: current.parts.map(row => row.clientKey === part.clientKey ? { ...row, ...patch } : row) }));
+                setValidationErrors(current => Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'parts' && !key.startsWith('parts.' + index + '.'))));
+              };
+              return <fieldset key={part.clientKey} disabled={saving} className="space-y-3 border rounded-lg p-3">
+                <legend className="px-1 text-sm">{t('maintenance.plannedParts')} {index + 1}</legend>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <F9Lookup id={part.clientKey + '-sparePart'} name={field('sparePartId')} label={t('maintenance.sparePartLabel')} value={part.sparePartId} adapter={sparePartAdapter} disabled={saving} filters={{ status: 'ACTIVE' }}
+                    onChange={sparePartId => update({ sparePartId, productId: '', unit: '' })}
+                    onItemSelect={item => update({ sparePartId: item.id, productId: item.productId || '', unit: safeString(item.unit) })}
+                    error={validationErrors[field('sparePartId')]} />
+                  <F9Lookup id={part.clientKey + '-product'} name={field('productId')} label={t('maintenance.inventoryProduct')} value={part.productId} adapter={productAdapter} disabled={saving} filters={{ status: 'ACTIVE' }}
+                    onChange={productId => update({ productId, unit: '' })}
+                    onItemSelect={item => update({ productId: item.id, unit: safeString(item.unit) })}
+                    error={validationErrors[field('productId')]} />
+                  <Input id={part.clientKey + '-quantity'} name={field('quantity')} label={t('maintenance.partQuantity')} type="number" min="0.0001" step="0.0001" required value={part.quantity} onChange={event => update({ quantity: event.target.value })} error={validationErrors[field('quantity')]} />
+                  <Input id={part.clientKey + '-unit'} label={t('maintenance.unit')} value={part.unit} disabled />
+                  <Input id={part.clientKey + '-unitCost'} name={field('unitCost')} label={t('maintenance.partUnitCost')} type="number" min="0" step="0.01" value={part.unitCost} onChange={event => update({ unitCost: event.target.value })} error={validationErrors[field('unitCost')]} />
+                  <Input id={part.clientKey + '-notes'} name={field('notes')} label={t('maintenance.workOrderNotes')} value={part.notes} onChange={event => update({ notes: event.target.value })} />
+                </div>
+                <Button variant="danger" disabled={saving} onClick={() => {
+                  setForm(current => ({ ...current, parts: current.parts.filter(row => row.clientKey !== part.clientKey) }));
+                  setValidationErrors(current => Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'parts' && !key.startsWith('parts.'))));
+                }}>{t('actions.remove')}</Button>
+              </fieldset>;
+            })}
+            <Button variant="secondary" disabled={saving} onClick={() => setForm(current => ({ ...current, parts: [...current.parts, { clientKey: crypto.randomUUID(), sparePartId: '', productId: '', quantity: '1', unit: '', unitCost: '', notes: '' }] }))}>{t('maintenance.addPart')}</Button>
+          </section>}
           <Textarea label={t('maintenance.workOrderNotes')} name="notes" value={form.notes} onChange={(e) => { setForm({ ...form, notes: e.target.value }); setValidationErrors(prev => ({ ...prev, notes: '' })); }} error={validationErrors.notes} />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => { closeFormModal(); setValidationErrors({}); }}>{t('actions.cancel')}</Button>
