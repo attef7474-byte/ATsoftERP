@@ -81,6 +81,8 @@ const core: Pick<LocaleTranslations, 'core' | 'details' | 'companyProfile' | 'at
         dailyCapacityMinutes: 'Daily Capacity (minutes)',
         systemLogin: 'System Login',
         enableSystemAccess: 'Enable System Access',
+        systemAccessNotProvisioned: 'System access has not been provisioned',
+        systemAccessEnabled: 'System access enabled',
         registerPerson: 'Register Person',
         confirmDeleteEmployeeTitle: 'Delete Employee',
         confirmDeleteEmployeeMessage: 'Are you sure you want to delete this employee? If the employee has any assignments, run history, or references, deletion will be blocked and you must deactivate the employee instead.',

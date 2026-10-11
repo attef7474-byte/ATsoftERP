@@ -18,6 +18,7 @@ import {
   PersonMaintenanceCapabilityDto,
 } from './dto/create-person-registration.dto';
 import { UpdatePersonRegistrationDto } from './dto/update-person-registration.dto';
+import { EnablePersonLoginDto } from './dto/enable-person-login.dto';
 
 /**
  * CANONICAL PERSON REGISTRATION ORCHESTRATION (Group 1).
@@ -573,6 +574,67 @@ export class PersonRegistrationsService {
    * role set and placement rows are all left alone unless the request explicitly asks for
    * that specific field.
    */
+  async enableLogin(
+    personId: string,
+    dto: EnablePersonLoginDto,
+    ctx: ActiveOperationalContext,
+    actorUserId?: string,
+  ) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await assertUserPermissions(tx, actorUserId, ['operational-person:update', 'user:create']);
+        const person = await tx.operationalPerson.findFirst({
+          where: {
+            id: personId,
+            isActive: true,
+            assignments: { some: { ...this.currentPlacementWhere(ctx), status: 'ACTIVE' } },
+          },
+          select: { id: true, name: true, phone: true, userId: true },
+        });
+        if (!person) {
+          throw new NotFoundException({ messageKey: 'employees.notFound' });
+        }
+        if (person.userId) {
+          throw new ConflictException({ messageKey: 'organization.personAlreadyHasLogin' });
+        }
+        const existing = await tx.user.findUnique({ where: { email: dto.email }, select: { id: true } });
+        if (existing) {
+          throw this.validationError('email', 'validation.duplicateValue', 'Email already in use');
+        }
+        const user = await this.createLinkedUser(tx, {
+          email: dto.email,
+          password: dto.password,
+          name: person.name,
+          phone: person.phone ?? undefined,
+        }, ctx, person.id, ctx.branchId, actorUserId);
+        await tx.operationalPerson.update({ where: { id: person.id }, data: { userId: user.id } });
+        await this.auditService.logWithClient(tx, {
+          userId: actorUserId,
+          action: 'CREATE', entity: 'User', entityId: user.id,
+          details: { source: 'PERSON_LOGIN_ENABLEMENT', companyId: ctx.companyId,
+            branchId: ctx.branchId, operationalPersonId: person.id, email: user.email, roleIds: [] },
+        });
+        await this.auditService.logWithClient(tx, {
+          userId: actorUserId,
+          action: 'UPDATE', entity: 'OperationalPerson', entityId: person.id,
+          details: { source: 'PERSON_LOGIN_ENABLEMENT', companyId: ctx.companyId,
+            branchId: ctx.branchId, loginEnabled: true, previousUserId: null, userId: user.id },
+        });
+        return this.buildResponse(tx, person.id, ctx);
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error: unknown) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw this.validationError('email', 'validation.duplicateValue', 'Email already in use');
+        }
+        if (error.code === 'P2034') {
+          throw new ConflictException({ messageKey: 'organization.personRegistrationConflict' });
+        }
+      }
+      throw error;
+    }
+  }
+
   async update(
     personId: string,
     dto: UpdatePersonRegistrationDto,

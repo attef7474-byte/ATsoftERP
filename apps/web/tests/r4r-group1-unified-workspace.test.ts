@@ -63,7 +63,7 @@ describe('R4R Group 1 unified workspace', () => {
     });
 
     it('optional User/Maintenance payloads are only sent when the toggle is enabled', () => {
-      expect(source).toMatch(/if \(values\.enableLogin\)/);
+      expect(source).toMatch(/if \(values\.enableLogin && \(!isEdit \|\| context\?\.record\?\.login\)\)/);
       expect(source).toMatch(/if \(values\.enableMaintenance\)/);
     });
 

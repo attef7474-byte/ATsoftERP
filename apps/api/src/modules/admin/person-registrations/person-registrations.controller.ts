@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PersonRegistrationsService } from './person-registrations.service';
 import { CreatePersonRegistrationDto } from './dto/create-person-registration.dto';
 import { UpdatePersonRegistrationDto } from './dto/update-person-registration.dto';
+import { EnablePersonLoginDto } from './dto/enable-person-login.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -63,6 +64,18 @@ export class PersonRegistrationsController {
   @ApiOperation({ summary: 'Get one registered person with placement, login and capability' })
   findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.personRegistrationsService.findOne(id, ctx);
+  }
+
+  @Post(':id/enable-login')
+  @Permissions('operational-person:update', 'user:create')
+  @ApiOperation({ summary: 'Enable first-time system access for an existing person' })
+  enableLogin(
+    @Param('id') id: string,
+    @Body() dto: EnablePersonLoginDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+    @CurrentUser('id') actorUserId: string,
+  ) {
+    return this.personRegistrationsService.enableLogin(id, dto, ctx, actorUserId);
   }
 
   @Patch(':id')

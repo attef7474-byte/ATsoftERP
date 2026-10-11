@@ -106,6 +106,7 @@ const messages: Record<string, { ar: string; en: string }> = {
   'validation.unknownField': { ar: 'حقل غير معروف', en: 'Unknown field' },
   'validation.tooShort': { ar: 'القيمة أقصر من الحد الأدنى المسموح', en: 'Value is shorter than the allowed minimum' },
   'validation.tooLong': { ar: 'القيمة أطول من الحد الأقصى المسموح', en: 'Value is longer than the allowed maximum' },
+  'organization.personAlreadyHasLogin': { ar: 'يوجد حساب دخول مرتبط بهذا الشخص بالفعل', en: 'This person already has a linked login' },
   'validation.passwordMismatch': { ar: 'تأكيد كلمة المرور غير مطابق', en: 'Password confirmation does not match' },
   'validation.passwordWhitespaceOnly': { ar: 'لا يمكن أن تتكون كلمة المرور من مسافات فقط', en: 'Password cannot contain only whitespace' },
   'validation.passwordMinLength': { ar: 'يجب ألا يقل طول كلمة المرور عن {min} أحرف', en: 'Password must be at least {min} characters' },

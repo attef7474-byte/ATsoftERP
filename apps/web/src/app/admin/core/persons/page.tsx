@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import EnableLoginDialog from './enable-login-dialog';
 import { api } from '../../../../lib/api';
 import { safeString } from '../../../../lib/form-utils';
 import { useCrudList } from '../../../../hooks/useCrudList';
@@ -200,6 +201,7 @@ export default function UnifiedPersonsPage() {
   const canCreateMaintenance = can('maintenance-personnel:create');
   const canUpdateMaintenance = can('maintenance-personnel:update');
 
+  const [enableLoginPerson, setEnableLoginPerson] = useState<PersonRegistrationRow | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [sortColumn, setSortColumn] = useState('');
@@ -305,7 +307,7 @@ const maintenance = detail.maintenanceCapability || null;
           notes: values.assignmentNotes || undefined,
         };
       }
-      if (values.enableLogin) {
+      if (values.enableLogin && (!isEdit || context?.record?.login)) {
         // Only the contract fields are sent; credential and authentication metadata are
         // never part of the unified payload.
         payload.login = {
@@ -337,7 +339,7 @@ const maintenance = detail.maintenanceCapability || null;
       if (values.enableMaintenance && !values.maintenanceRole?.trim()) {
         fieldErrors.maintenanceRole = t('validation.requiredField');
       }
-      if (values.enableLogin && !values.loginEmail?.trim()) {
+      if (values.enableLogin && (!isEdit || context?.record?.login) && !values.loginEmail?.trim()) {
         fieldErrors.loginEmail = t('validation.requiredField');
       }
       return Object.keys(fieldErrors).length > 0 ? { fieldErrors } : null;
@@ -696,6 +698,16 @@ const maintenance = detail.maintenanceCapability || null;
             {/* D. SYSTEM LOGIN */}
             <section className="space-y-4" data-section="system-login">
               <h3 className="text-lg font-medium border-b pb-2">{t('core.systemLogin')}</h3>
+              {editItem && !editItem.login ? (
+                <div className="space-y-3">
+                  <p>{t('core.systemAccessNotProvisioned')}</p>
+                  {canUpdatePersonnel && canCreateUser && editItem.isActive && (
+                    <Button onClick={() => setEnableLoginPerson(editItem)} disabled={saving || detailLoading}>
+                      {t('core.enableSystemAccess')}
+                    </Button>
+                  )}
+                </div>
+              ) : (
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -705,7 +717,8 @@ const maintenance = detail.maintenanceCapability || null;
                 />
                 {t('core.enableSystemAccess')}
               </label>
-              {form.enableLogin && (
+              )}
+              {form.enableLogin && (!editItem || editItem.login) && (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input
@@ -772,6 +785,16 @@ const maintenance = detail.maintenanceCapability || null;
           </div>
         )}
       </Modal>
+      {enableLoginPerson && (
+        <EnableLoginDialog key={enableLoginPerson.id} person={enableLoginPerson}
+          onClose={() => setEnableLoginPerson(null)}
+          onEnabled={() => {
+            setEnableLoginPerson(null);
+            closeFormModal();
+            showToast(t('core.systemAccessEnabled'), 'success');
+            void fetchData(paginationMeta.page);
+          }} />
+      )}
     </EntityWorkspaceLayout>
   );
 }

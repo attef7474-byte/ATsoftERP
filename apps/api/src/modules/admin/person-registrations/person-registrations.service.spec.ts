@@ -45,6 +45,7 @@ describe('PersonRegistrationsService', () => {
    */
   const ALL_DOMAIN_KEYS = [
     'person-assignment:create',
+    'operational-person:update',
     'user:create',
     'user:update',
     'maintenance-personnel:create',
@@ -215,6 +216,98 @@ describe('PersonRegistrationsService', () => {
     );
     return { service, prisma, auditService, passwordCredentials, numberingService };
   }
+
+  describe('enableLogin', () => {
+    const login = () => ({ email: 'new@tenant.test', password: require('crypto').randomBytes(24).toString('base64') });
+    const target = { id: personId, name: 'Existing Person', phone: '0771', userId: null };
+
+    it('creates exactly one user and links the existing person, without new identities/assignments/scopes', async () => {
+      const { tx, calls } = makeTx({ people: [target] });
+      const { service, passwordCredentials, prisma } = makeService(tx);
+      await service.enableLogin(personId, login(), ctx, actorId);
+      expect(calls.created.map((c: any) => c.table)).toEqual(['user']);
+      expect(calls.created[0].data).toMatchObject({ name: target.name, phone: target.phone, companyId: ctx.companyId, branchId: ctx.branchId });
+      expect(calls.created[0].data.roles).toBeUndefined();
+      expect(calls.updated).toEqual([{ table: 'person', args: { where: { id: personId }, data: { userId: 'user-new' } } }]);
+      expect(passwordCredentials.preparePassword).toHaveBeenCalledTimes(1);
+      expect(passwordCredentials.preparePassword.mock.calls[0][2].client).toBe(tx);
+      expect(prisma.$transaction.mock.calls[0][1]).toEqual({ isolationLevel: 'Serializable' });
+    });
+
+    it('rejects already-linked person without creating a second account', async () => {
+      const { tx, calls } = makeTx({ people: [{ ...target, userId: 'existing-user' }] });
+      const { service } = makeService(tx);
+      await expect(service.enableLogin(personId, login(), ctx, actorId)).rejects.toMatchObject({ response: { messageKey: 'organization.personAlreadyHasLogin' } });
+      expect(calls.created).toEqual([]);
+      expect(calls.updated).toEqual([]);
+    });
+
+    it('rejects duplicate email without stealing an existing account or changing person', async () => {
+      const { tx, calls } = makeTx({ people: [target], users: [{ id: 'other', email: 'new@tenant.test' }] });
+      const { service, auditService } = makeService(tx);
+      await expect(service.enableLogin(personId, login(), ctx, actorId)).rejects.toBeInstanceOf(BadRequestException);
+      expect(calls.created).toEqual([]);
+      expect(calls.updated).toEqual([]);
+      expect(auditService.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it.each(['user:create', 'operational-person:update'])('requires %s independently of other permissions', async (missing) => {
+      const roles = fullyGrantedRoles();
+      roles[0].role.permissions = roles[0].role.permissions.filter((p) => p.permission.key !== missing);
+      const { tx, calls } = makeTx({ people: [target], userRoles: roles });
+      const { service } = makeService(tx);
+      await expect(service.enableLogin(personId, login(), ctx, actorId)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(calls.created).toEqual([]);
+    });
+
+    it('denies missing actor', async () => {
+      const { tx, calls } = makeTx({ people: [target] });
+      const { service } = makeService(tx);
+      await expect(service.enableLogin(personId, login(), ctx)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(calls.created).toEqual([]);
+    });
+
+    it('requires active person and active assignment in the authorized company/branch', async () => {
+      const { tx } = makeTx();
+      const { service } = makeService(tx);
+      await expect(service.enableLogin('foreign-person', login(), ctx, actorId)).rejects.toBeInstanceOf(NotFoundException);
+      expect(tx.operationalPerson.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: {
+        id: 'foreign-person', isActive: true, assignments: { some: expect.objectContaining({ companyId: ctx.companyId, branchId: ctx.branchId, status: 'ACTIVE', deletedAt: null }) },
+      } }));
+      expect(tx.user.create).not.toHaveBeenCalled();
+    });
+
+    it('password policy failure aborts before user/link/audit writes', async () => {
+      const { tx, calls } = makeTx({ people: [target] });
+      const { service, auditService } = makeService(tx, { preparePassword: jest.fn().mockRejectedValue(new BadRequestException()) });
+      await expect(service.enableLogin(personId, login(), ctx, actorId)).rejects.toBeInstanceOf(BadRequestException);
+      expect(calls.created).toEqual([]);
+      expect(calls.updated).toEqual([]);
+      expect(auditService.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('records only safe canonical user-created and person-linked audits', async () => {
+      const { tx } = makeTx({ people: [target] });
+      const { service, auditService } = makeService(tx);
+      const dto = login();
+      await service.enableLogin(personId, dto, ctx, actorId);
+      expect(auditService.logWithClient.mock.calls.map((c: any) => [c[1].action, c[1].entity])).toEqual([['CREATE', 'User'], ['UPDATE', 'OperationalPerson']]);
+      const json = JSON.stringify(auditService.logWithClient.mock.calls);
+      expect(json.includes(dto.password)).toBe(false);
+      expect(json.includes('passwordHash')).toBe(false);
+      expect(auditService.logWithClient.mock.calls[1][1].details).toMatchObject({ loginEnabled: true, previousUserId: null, userId: 'user-new' });
+    });
+
+    it('propagates link or audit failure to the transaction for rollback', async () => {
+      const { tx } = makeTx({ people: [target] });
+      const { service, auditService } = makeService(tx);
+      tx.operationalPerson.update.mockRejectedValueOnce(new Error('controlled link failure'));
+      await expect(service.enableLogin(personId, login(), ctx, actorId)).rejects.toThrow('controlled link failure');
+      expect(auditService.logWithClient).not.toHaveBeenCalled();
+      auditService.logWithClient.mockRejectedValueOnce(new Error('controlled audit failure'));
+      await expect(service.enableLogin(personId, login(), ctx, actorId)).rejects.toThrow('controlled audit failure');
+    });
+  });
 
   describe('create', () => {
     it('writes the person, the placement and the audit record in one transaction', async () => {

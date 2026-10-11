@@ -36,6 +36,7 @@ interface HarnessOverrides {
   permissions?: string[];
   isSuperAdmin?: boolean;
   modalOpen?: boolean;
+  editItem?: any;
   form?: any;
   data?: any[];
 }
@@ -102,7 +103,7 @@ function harness(overrides: HarnessOverrides = {}): Harness {
       form: overrides.form ?? options.initialForm,
       setForm: jest.fn(),
       modalOpen: overrides.modalOpen ?? false,
-      editItem: null,
+      editItem: overrides.editItem ?? null,
       detailLoading: false,
       saving: false,
       refresh: jest.fn(),
@@ -176,7 +177,7 @@ const emptyForm = {
 };
 
 const createContext = { mode: 'create' as const, record: null };
-const editContext = { mode: 'edit' as const, record: { id: 'p1' } };
+const editContext = { mode: 'edit' as const, record: { id: 'p1', login: { id: 'u1' } } };
 
 describe('Group 1 unified page — executed canonical API wiring', () => {
   it('listRequest calls GET /person-registrations with pagination params', async () => {
@@ -438,5 +439,36 @@ describe('Group 1 unified page — independent permission gating (rendered)', ()
     const tree = h.render(h.exported.default);
     expect(elements(tree).some((n) => n.props?.['data-section'] === 'roles-access')).toBe(true);
     expect(checkboxDisabled(tree).some(Boolean)).toBe(false);
+  });
+});
+
+describe('first-time system access separation', () => {
+  it('never sends login via PATCH for a person without a linked account, even with stale toggle state', () => {
+    const h = harness(); h.render(h.exported.default);
+    const payload = h.options().mapFormToPayload({ ...emptyForm, name: 'A', enableLogin: true, loginEmail: 'a@b.test', rolesTouched: true, roleIds: ['r1'] }, { mode: 'edit', record: { id: 'p1', login: null } });
+    expect(payload).not.toHaveProperty('login');
+    expect(payload).not.toHaveProperty('category');
+    expect(payload).not.toHaveProperty('placement');
+  });
+  it('shows the dedicated action and unprovisioned state for authorized actor, without account-update checkbox', () => {
+    const h = harness({ modalOpen: true, editItem: { id: 'p1', isActive: true, login: null }, permissions: ['operational-person:update', 'user:create'] });
+    const tree = h.render(h.exported.default);
+    const section = elements(tree).find(n => n.props?.['data-section'] === 'system-login');
+    expect(elements(section).some(n => n.props?.children?.includes('core.systemAccessNotProvisioned'))).toBe(true);
+    expect(elements(section).some(n => n.props?.type === 'checkbox')).toBe(false);
+    expect(elements(section).filter(n => typeof n.props?.onClick === 'function')).toHaveLength(1);
+  });
+  it.each(['operational-person:update', 'user:create'])('hides enable action without BOTH permissions', (permission) => {
+    const permissions = [permission];
+    const h = harness({ modalOpen: true, editItem: { id: 'p1', isActive: true, login: null }, permissions });
+    const tree = h.render(h.exported.default);
+    const section = elements(tree).find(n => n.props?.['data-section'] === 'system-login');
+    expect(elements(section).filter(n => typeof n.props?.onClick === 'function')).toHaveLength(0);
+  });
+  it('does not show first-time action for an existing linked account', () => {
+    const h = harness({ modalOpen: true, editItem: { id: 'p1', login: { id: 'u1' } }, form: { ...emptyForm, enableLogin: true }, permissions: ['operational-person:update', 'user:create', 'user:update'] });
+    const tree = h.render(h.exported.default);
+    const section = elements(tree).find(n => n.props?.['data-section'] === 'system-login');
+    expect(elements(section).some(n => n.props?.children?.includes('core.systemAccessNotProvisioned'))).toBe(false);
   });
 });
