@@ -66,6 +66,7 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         usageCONSUMED: "Consumed",
         partUsageType: "Usage type",
         inventoryProduct: "Inventory item",
+        sparePartInventoryProductMissing: "This spare part has no linked inventory item and cannot be issued.",
         addActualPart: "Add actual used part",
         actualPart: "Actual part",
         actualParts: "Actual used parts",

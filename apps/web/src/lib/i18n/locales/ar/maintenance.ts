@@ -65,6 +65,7 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         usageCONSUMED: "مستهلك",
         partUsageType: "نوع الاستخدام",
         inventoryProduct: "صنف المخزون",
+        sparePartInventoryProductMissing: "قطعة الغيار هذه غير مرتبطة بصنف مخزون ولا يمكن صرفها.",
         addActualPart: "إضافة قطعة مستخدمة فعلياً",
         actualPart: "قطعة فعلية",
         actualParts: "القطع المستخدمة فعلياً",

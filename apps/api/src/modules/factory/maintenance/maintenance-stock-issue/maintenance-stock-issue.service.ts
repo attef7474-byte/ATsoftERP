@@ -661,6 +661,31 @@ export class MaintenanceStockIssueService {
     return movement;
   }
 
+  /**
+   * Canonical SparePart -> Inventory Product resolution for a maintenance execution.
+   * A selected spare part ALWAYS governs the product: an unlinked spare cannot be
+   * issued, and a client-supplied product can never override or substitute the link.
+   * Product-only consumption (no spare part) remains supported but requires a product.
+   */
+  private resolveExecutionProductId(sparePart: any, submittedProductId?: string | null): string {
+    if (sparePart) {
+      if (!sparePart.productId) {
+        throw this.badRequest('maintenance.sparePartInventoryProductMissing',
+          `Spare part ${sparePart.code} has no linked inventory product and cannot be issued`,
+          { code: sparePart.code });
+      }
+      if (submittedProductId && submittedProductId !== sparePart.productId) {
+        throw this.badRequest('maintenance.sparePartInventoryProductMismatch',
+          'The submitted product does not match the spare part inventory product');
+      }
+      return sparePart.productId;
+    }
+    if (!submittedProductId) {
+      throw this.badRequest('maintenance.executionProductMismatch', 'A stock product is required for a part usage');
+    }
+    return submittedProductId;
+  }
+
   /** Runs exclusively on the completion caller's transaction; this never commits independently. */
   async issueExecutionPartInTx(tx: any, input: ExecutionPartIssueInput, userId: string, ctx: ActiveOperationalContext) {
     if (!['CONSUMED', 'INSTALLED', 'REPLACED'].includes(input.usageType)
@@ -690,10 +715,7 @@ export class MaintenanceStockIssueService {
     if (input.usageType !== 'CONSUMED' && !sparePart) {
       throw this.badRequest('maintenance.executionInstallationRequiresSparePart', 'Installed and replaced items require a canonical spare part');
     }
-    const productId: string | null = sparePart?.productId ?? input.productId ?? null;
-    if (!productId || (sparePart?.productId && input.productId && sparePart.productId !== input.productId)) {
-      throw this.badRequest('maintenance.executionProductMismatch', 'The stock product must match the canonical spare part');
-    }
+    const productId: string = this.resolveExecutionProductId(sparePart, input.productId);
     const product = await tx.product.findUnique({ where: { id: productId } });
     if (!product || product.deletedAt || product.status !== 'ACTIVE') {
       throw this.notFound('maintenance.executionProductNotFound', 'Active inventory product not found');
@@ -936,7 +958,9 @@ export class MaintenanceStockIssueService {
 
     const productId = part.sparePart.productId;
     if (!productId) {
-      throw new BadRequestException('Spare part has no linked product. Cannot issue stock.');
+      throw this.badRequest('maintenance.sparePartInventoryProductMissing',
+        `Spare part ${part.sparePart.code} has no linked inventory product and cannot be issued`,
+        { code: part.sparePart.code });
     }
 
     await assertWarehouseInContext(this.prisma, dto.warehouseId, ctx);

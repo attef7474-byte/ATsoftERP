@@ -183,7 +183,8 @@ describe('Maintenance execution canonical inventory orchestration', () => {
 
   it('rejects mismatched Product and SparePart identities', async () => {
     const f = fixture(); await expect(f.run(input({ sparePartId: 'spare', productId: 'other' }))).rejects.toMatchObject({
-      response: { messageKey: 'maintenance.executionProductMismatch' } });
+      response: { messageKey: 'maintenance.sparePartInventoryProductMismatch' } });
+    expect(f.state().movements).toHaveLength(0);
   });
 
   it('request unplanned usage creates approved internal line and preserves canonical issue tracking', async () => {
@@ -287,21 +288,20 @@ describe('Maintenance execution canonical inventory orchestration', () => {
 });
 
 describe('execution part product identity resolution (Defect B regression)', () => {
-  it('B3 accepts an unlinked canonical spare part when an explicit inventory product is supplied', async () => {
+  it('B3 rejects an unlinked canonical spare part even when an explicit inventory product is supplied', async () => {
     const f = fixture();
     (f.sparePart as any).productId = null;
-    const result = await f.run(input({ sparePartId: 'spare', productId: 'product' }));
-    expect(result.productId).toBe('product');
-    expect(result.sparePartId).toBe('spare');
-    expect(f.state().movements).toHaveLength(1);
-    expect(f.state().conditions).toHaveLength(1);
+    await expect(f.run(input({ sparePartId: 'spare', productId: 'product' }))).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.sparePartInventoryProductMissing' } });
+    expect(f.state().movements).toHaveLength(0);
+    expect(f.state().conditions).toHaveLength(0);
   });
 
   it('B4 rejects an unlinked canonical spare part that has no resolvable inventory product', async () => {
     const f = fixture();
     (f.sparePart as any).productId = null;
     await expect(f.run(input({ sparePartId: 'spare', productId: undefined }))).rejects.toMatchObject({
-      response: { messageKey: 'maintenance.executionProductMismatch' } });
+      response: { messageKey: 'maintenance.sparePartInventoryProductMissing' } });
     expect(f.state().movements).toHaveLength(0);
   });
 
@@ -321,7 +321,7 @@ describe('execution part product identity resolution (Defect B regression)', () 
   it('B6 still rejects a product that conflicts with the linked spare product', async () => {
     const f = fixture();
     await expect(f.run(input({ sparePartId: 'spare', productId: 'other' }))).rejects.toMatchObject({
-      response: { messageKey: 'maintenance.executionProductMismatch' } });
+      response: { messageKey: 'maintenance.sparePartInventoryProductMismatch' } });
     expect(f.state().movements).toHaveLength(0);
   });
 
@@ -331,5 +331,12 @@ describe('execution part product identity resolution (Defect B regression)', () 
     expect(result.productId).toBe('product');
     expect(result.sparePartId).toBeNull();
     expect(f.state().movements).toHaveLength(1);
+  });
+
+  it('B8 requires an inventory product for product-only issuance without a canonical spare part', async () => {
+    const f = fixture();
+    await expect(f.run(input({ productId: undefined, sparePartId: undefined }))).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.executionProductMismatch' } });
+    expect(f.state().movements).toHaveLength(0);
   });
 });

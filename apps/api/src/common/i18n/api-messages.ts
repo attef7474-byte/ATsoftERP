@@ -62,6 +62,8 @@ const messages: Record<string, { ar: string; en: string }> = {
   'maintenance.partNotEditableInStatus': { ar: "يمكن تعديل القطع فقط عندما تكون بحالة مسودة (الحالة الحالية: {status})", en: "Parts can only be edited while in DRAFT status (current: {status})" },
   'maintenance.partTerminalCannotCancel': { ar: "لا يمكن إلغاء قطعة في حالة نهائية {status}", en: "Cannot cancel a part in terminal status {status}" },
   'maintenance.sparePartAlreadyAddedToRequest': { ar: "هذه القطعة مضافة مسبقاً للطلب", en: "This spare part is already added to the request" },
+  'maintenance.sparePartInventoryProductMissing': { ar: "قطعة الغيار {code} غير مرتبطة بصنف مخزون ولا يمكن صرفها", en: "Spare part {code} has no linked inventory product and cannot be issued" },
+  'maintenance.sparePartInventoryProductMismatch': { ar: "الصنف المُرسل لا يطابق صنف المخزون المرتبط بقطعة الغيار", en: "The submitted product does not match the spare part inventory product" },
   'maintenance.unresolvedPartsBlockCompletion': { ar: "لا يمكن إكمال الطلب: توجد قطع مطلوبة لم تُحل بعد", en: "Cannot complete request: required parts are still unresolved" },
   'maintenance.workOrderUseLegacyRequestEndpoint': { ar: "أوامر العمل الجديدة مستقلة. إنشاء أمر مرتبط بطلب متاح فقط عبر مسار التوافق القديم.", en: "New work orders are independent. Request-linked creation is available only through the legacy compatibility path." },
   'common.badRequest': { ar: 'طلب غير صالح', en: 'Bad request' },
