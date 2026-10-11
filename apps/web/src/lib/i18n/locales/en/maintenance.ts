@@ -6,7 +6,6 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         selectLineFirst: "Select a production line before choosing a machine.",
         machineStoppedQuestion: "Machine stopped?",
         workOrder: "Work Order",
-        warehouseLocation: "Warehouse location",
 
         partsUsedQuestion: "Were spare parts/materials used?",
         joinCurrentUserHint: "Leave empty to join yourself, or select an authorized participating engineer.",
@@ -62,8 +61,6 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         executionCreatedStartPending: "Execution saved. Retry starting this same record or open its details.",
         removedQuantity: "Removed quantity",
         actualPartsTeamHint: "Record a shared item once for the whole team. A participant may be attributed without duplicating stock use.",
-        teamUsage: "Shared team use",
-        partAttribution: "Usage attribution",
         usageREPLACED: "Replaced",
         usageINSTALLED: "Installed",
         usageCONSUMED: "Consumed",

@@ -5,7 +5,6 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         selectLineFirst: "اختر خط الإنتاج أولًا لتحديد الماكينة.",
         machineStoppedQuestion: "هل تم إيقاف الماكينة؟",
         workOrder: "أمر العمل",
-        warehouseLocation: "موقع التخزين",
 
         partsUsedQuestion: "هل تم استخدام/استبدال قطع غيار؟",
         joinCurrentUserHint: "اترك الحقل فارغًا للانضمام بنفسك، أو اختر مهندسًا مشاركًا مصرحًا له.",
@@ -61,8 +60,6 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         executionCreatedStartPending: "تم حفظ التنفيذ. أعد محاولة بدء السجل نفسه أو افتح تفاصيله.",
         removedQuantity: "الكمية المنزوعة",
         actualPartsTeamHint: "سجل القطعة المشتركة مرة واحدة للفريق. يمكن نسبتها إلى مشارك دون تكرار الصرف.",
-        teamUsage: "استخدام مشترك للفريق",
-        partAttribution: "نسبة الاستخدام",
         usageREPLACED: "مستبدل",
         usageINSTALLED: "مركب",
         usageCONSUMED: "مستهلك",

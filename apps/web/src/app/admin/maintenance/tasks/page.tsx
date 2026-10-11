@@ -6,7 +6,7 @@ import { unwrapApiData, unwrapApiList } from '../../../../lib/form-utils';
 import { useAuth } from '../../../../lib/auth-context';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import type { MaintenanceTask } from '../../../../lib/admin-types';
-import type { ExecutionPartInput, ExecutionSourceType } from '../../../../lib/maintenance-execution';
+import { buildExecutionPartPayload, type ExecutionPartInput, type ExecutionSourceType } from '../../../../lib/maintenance-execution';
 import { Button, Input, Select, Textarea, Pagination, PageHeader, Modal } from '../../../../components/admin/ui';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { useToast } from '../../../../components/admin/toast-provider';
@@ -88,11 +88,11 @@ export default function MaintenanceTasksPage() {
         await api.patch(url, { description: workPerformed, notes, ...(successor ? { assignedToId: successor } : {}) });
       } else if (action === 'parts') {
         // Each item keeps its submission identity after an error; retries do not duplicate stock.
-        for (const part of parts) await api.post(url + '/parts', part);
+        for (const part of parts) await api.post(url + '/parts', buildExecutionPartPayload(part));
       } else {
         const payload = action === 'start' ? { participantUserIds: participants.filter(Boolean) }
           : action === 'join' ? (successor ? { technicianUserId: successor } : {})
-          : action === 'complete' ? { workPerformed, notes, parts: usedParts ? parts : [], machineReturnedToService: returned, confirmEndParticipants: confirmed }
+          : action === 'complete' ? { workPerformed, notes, parts: usedParts ? parts.map(buildExecutionPartPayload) : [], machineReturnedToService: returned, confirmEndParticipants: confirmed }
           : action === 'handoff' ? { workPerformed, remainingWork, notes, ...(successor ? { handoffToUserId: successor } : {}) }
           : action === 'leave' ? { workPerformed, remainingWork, notes, endReason: 'LEAVE' }
           : {};
@@ -189,7 +189,7 @@ export default function MaintenanceTasksPage() {
           <Textarea label={t('maintenance.notes')} value={notes} disabled={busy} onChange={e => setNotes(e.target.value)} />
         </>}
         {action === 'complete' && can('maintenance-task:parts.issue') && <Select label={t('maintenance.partsUsedQuestion')} value={usedParts ? 'YES' : 'NO'} disabled={busy} onChange={event => setUsedParts(event.target.value === 'YES')} options={[{ value: 'NO', label: t('common.no') }, { value: 'YES', label: t('common.yes') }]} />}
-        {selected && (action === 'parts' || action === 'complete' && usedParts && can('maintenance-task:parts.issue')) && <ExecutionPartsEditor parts={parts} onChange={setParts} scopeType={selected.scopeType} machineId={selected.machineId} sessions={selected.sessions} disabled={busy} />}
+        {selected && (action === 'parts' || action === 'complete' && usedParts && can('maintenance-task:parts.issue')) && <ExecutionPartsEditor parts={parts} onChange={setParts} scopeType={selected.scopeType} machineId={selected.machineId} disabled={busy} />}
         {action === 'complete' && <>
           <p className="text-sm text-gray-500">{t('maintenance.completionAtomicHint')}</p>
           <label className="flex gap-2"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} disabled={busy} />{t('maintenance.confirmEndParticipants')}</label>

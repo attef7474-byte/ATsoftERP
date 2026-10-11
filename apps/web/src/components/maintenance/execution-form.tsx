@@ -6,7 +6,7 @@ import { useAuth } from '../../lib/auth-context';
 import { unwrapApiData } from '../../lib/form-utils';
 import { useTranslation } from '../../lib/i18n/use-translation';
 import type { MaintenanceRequest, MaintenanceWorkOrder, User } from '../../lib/admin-types';
-import { emptyExecutionScope, executionSourceReference, isValidHistoricalInterval, type ExecutionScopeType, type ExecutionSourceType } from '../../lib/maintenance-execution';
+import { emptyExecutionScope, executionSourceReference, isValidHistoricalInterval, buildExecutionPartPayload, type ExecutionScopeType, type ExecutionSourceType } from '../../lib/maintenance-execution';
 import { ExecutionPartsEditor, validateExecutionParts } from './execution-parts';
 import type { ExecutionPartInput } from '../../lib/maintenance-execution';
 import { Button, Input, Select, Textarea } from '../admin/ui';
@@ -116,7 +116,7 @@ export function ExecutionCreateForm({ initialSourceType = 'WORK_ORDER', initialS
       };
       if (mode === 'HISTORICAL') {
         const completed = unwrapApiData<{ id: string }>(await api.post('/maintenance/tasks/register-historical', {
-          ...payload, startedAt: new Date(startedAt).toISOString(), completedAt: new Date(completedAt).toISOString(), participantUserIds, workPerformed: workPerformed.trim(), parts: usedParts ? parts : [],
+          ...payload, startedAt: new Date(startedAt).toISOString(), completedAt: new Date(completedAt).toISOString(), participantUserIds, workPerformed: workPerformed.trim(), parts: usedParts ? parts.map(buildExecutionPartPayload) : [],
           machineReturnedToService: returned, ...(downtimeStartedAt ? { downtimeStartedAt: new Date(downtimeStartedAt).toISOString() } : {}),
         }));
         onCreated(completed.id);

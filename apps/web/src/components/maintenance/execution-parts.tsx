@@ -2,14 +2,13 @@
 
 import React from 'react';
 import { useTranslation } from '../../lib/i18n/use-translation';
-import type { MaintenanceExecutionSession } from '../../lib/admin-types';
 import { canInstallExecutionPart, type ExecutionPartInput, type ExecutionScopeType } from '../../lib/maintenance-execution';
 import { Button, Input, Select, Textarea } from '../admin/ui';
-import { F9Lookup, machineInstalledPartAdapter, productAdapter, sparePartAdapter, warehouseAdapter, warehouseLocationAdapter } from '../f9';
+import { F9Lookup, machineInstalledPartAdapter, productAdapter, sparePartAdapter, warehouseAdapter } from '../f9';
 
 export { validateExecutionParts } from '../../lib/maintenance-execution';
 
-export function ExecutionPartsEditor({ parts, onChange, scopeType, machineId, sessions = [], disabled = false }: { parts: ExecutionPartInput[]; onChange: (parts: ExecutionPartInput[]) => void; scopeType: ExecutionScopeType; machineId?: string | null; sessions?: MaintenanceExecutionSession[]; disabled?: boolean }) {
+export function ExecutionPartsEditor({ parts, onChange, scopeType, machineId, disabled = false }: { parts: ExecutionPartInput[]; onChange: (parts: ExecutionPartInput[]) => void; scopeType: ExecutionScopeType; machineId?: string | null; disabled?: boolean }) {
   const { t } = useTranslation();
   const update = (index: number, patch: Partial<ExecutionPartInput>) => onChange(parts.map((part, position) => position === index ? { ...part, ...patch } : part));
   const installed = canInstallExecutionPart(scopeType, machineId);
@@ -27,12 +26,10 @@ export function ExecutionPartsEditor({ parts, onChange, scopeType, machineId, se
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <F9Lookup label={t('sparePartIssue.sparePart')} value={part.sparePartId || ''} adapter={sparePartAdapter} disabled={disabled} filters={{ status: 'ACTIVE' }} onChange={(sparePartId) => update(index, { sparePartId: sparePartId || undefined, productId: undefined })} onItemSelect={(item) => update(index, { sparePartId: item.id, productId: item.productId || undefined })} />
         {(!part.sparePartId || !part.productId) && <F9Lookup label={t('maintenance.inventoryProduct')} value={part.productId || ''} adapter={productAdapter} disabled={disabled} filters={{ status: 'ACTIVE' }} onChange={(productId) => update(index, { productId: productId || undefined })} />}
-        <F9Lookup label={t('maintenance.workOrderWarehouse')} value={part.warehouseId} adapter={warehouseAdapter} disabled={disabled} onChange={(warehouseId) => update(index, { warehouseId, warehouseLocationId: undefined })} />
-        <F9Lookup label={t('maintenance.warehouseLocation')} value={part.warehouseLocationId || ''} adapter={warehouseLocationAdapter} disabled={disabled || !part.warehouseId} filters={{ warehouseId: part.warehouseId }} onChange={(warehouseLocationId) => update(index, { warehouseLocationId: warehouseLocationId || undefined })} />
+        <F9Lookup label={t('maintenance.workOrderWarehouse')} value={part.warehouseId} adapter={warehouseAdapter} disabled={disabled} onChange={(warehouseId) => update(index, { warehouseId })} />
         <Input label={t('maintenance.quantity')} type="number" min="0.0001" step="0.0001" value={part.quantity} onChange={(event) => update(index, { quantity: Number(event.target.value) })} required />
         <Select label={t('maintenance.partUsageType')} value={part.usageType} onChange={(event) => update(index, { usageType: event.target.value as ExecutionPartInput['usageType'], oldInstalledPartId: undefined, replacementAction: event.target.value === 'REPLACED' ? 'RETURNED_REMOVED_PART' : undefined })} options={(installed ? ['CONSUMED', 'INSTALLED', 'REPLACED'] : ['CONSUMED']).map((value) => ({ value, label: t(`maintenance.usage${value}`) }))} />
         {part.sparePartId && <Select label={t('sparePartRequest.issuedStockCondition')} value={part.issuedStockCondition || 'NEW'} options={conditions} onChange={(event) => update(index, { issuedStockCondition: event.target.value })} />}
-        {sessions.some(session => !session.endedAt) && <Select label={t('maintenance.partAttribution')} value={part.executionSessionId || ''} options={[{ value: '', label: t('maintenance.teamUsage') }, ...sessions.filter(session => !session.endedAt).map((session) => ({ value: session.id, label: `${session.technicianUser?.name || t('maintenance.participant')} · ${new Date(session.startedAt).toLocaleString()}` }))]} onChange={(event) => update(index, { executionSessionId: event.target.value || undefined })} />}
       </div>
       {part.usageType === 'REPLACED' && <div className="space-y-3 rounded-lg bg-gray-50 p-3">
         <F9Lookup label={t('sparePartRequest.oldInstalledPart')} value={part.oldInstalledPartId || ''} adapter={machineInstalledPartAdapter} filters={{ machineId: machineId || '', status: 'ACTIVE' }} disabled={disabled || !machineId} onChange={(oldInstalledPartId) => update(index, { oldInstalledPartId: oldInstalledPartId || undefined })} />

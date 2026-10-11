@@ -8,10 +8,8 @@ export interface ExecutionPartInput {
   sparePartId?: string;
   productId?: string;
   warehouseId: string;
-  warehouseLocationId?: string;
   quantity: number;
   usageType: 'CONSUMED' | 'INSTALLED' | 'REPLACED';
-  executionSessionId?: string;
   issuedStockCondition?: string;
   replacementAction?: string;
   oldInstalledPartId?: string;
@@ -20,6 +18,32 @@ export interface ExecutionPartInput {
   removedPartQuantity?: number;
   noReturnReason?: string;
   notes?: string;
+}
+
+/**
+ * Canonical request body for issuing/using an execution part. Only the fields
+ * validated by the API are sent; the optional storage-location and per-technician
+ * attribution inputs are intentionally omitted so the backend resolves the
+ * deterministic warehouse-level balance and the canonical execution-level
+ * (shared) usage attribution.
+ */
+export function buildExecutionPartPayload(part: ExecutionPartInput) {
+  return {
+    clientRequestId: part.clientRequestId,
+    ...(part.sparePartId ? { sparePartId: part.sparePartId } : {}),
+    ...(part.productId ? { productId: part.productId } : {}),
+    warehouseId: part.warehouseId,
+    quantity: part.quantity,
+    usageType: part.usageType,
+    ...(part.issuedStockCondition ? { issuedStockCondition: part.issuedStockCondition } : {}),
+    ...(part.replacementAction ? { replacementAction: part.replacementAction } : {}),
+    ...(part.oldInstalledPartId ? { oldInstalledPartId: part.oldInstalledPartId } : {}),
+    ...(part.removedPartCondition ? { removedPartCondition: part.removedPartCondition } : {}),
+    ...(part.removedPartWarehouseId ? { removedPartWarehouseId: part.removedPartWarehouseId } : {}),
+    ...(part.removedPartQuantity != null ? { removedPartQuantity: part.removedPartQuantity } : {}),
+    ...(part.noReturnReason ? { noReturnReason: part.noReturnReason } : {}),
+    ...(part.notes ? { notes: part.notes } : {}),
+  };
 }
 
 /** Clear every value derived from a previous scope before another scope is selected. */
