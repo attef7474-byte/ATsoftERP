@@ -52,3 +52,26 @@ export function executionWaitingForContinuation(execution: Pick<MaintenanceTask,
     && Array.isArray(execution.sessions)
     && execution.sessions.every((session) => !!session.endedAt);
 }
+
+/**
+ * A usage line is submittable only when it resolves to an inventory product.
+ * The product is either chosen directly or derived from the linked canonical
+ * spare part by the editor; an unlinked spare with no product cannot be issued.
+ */
+export function validateExecutionParts(parts: ExecutionPartInput[]) {
+  return parts.every((part) => !!part.productId
+    && !!part.warehouseId && Number.isFinite(part.quantity) && part.quantity >= 0.0001 && Number.isInteger(Number((part.quantity * 10000).toFixed(6)))
+    && (part.usageType !== 'REPLACED' || (!!part.oldInstalledPartId
+      && (part.replacementAction === 'NO_REMOVED_PART' ? !!part.noReturnReason?.trim()
+        : !!part.removedPartCondition && !!part.removedPartWarehouseId && (part.removedPartQuantity ?? 0) > 0))));
+}
+
+/**
+ * Canonical result payload for a checklist item pass/fail toggle. The API
+ * derives the item status ("COMPLETED") and the PASS_FAIL result token
+ * ("OK"/"NOT_OK") from `passed`; sending a literal status such as "COMPLETED"
+ * or "FAILED" is rejected by the checklist contract.
+ */
+export function checklistItemResultPayload(passed: boolean): { passed: boolean } {
+  return { passed };
+}

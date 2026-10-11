@@ -4,6 +4,7 @@ import { api } from '../../lib/api';
 import { useTranslation } from '../../lib/i18n/use-translation';
 import type { PaginatedResponse } from '../../lib/admin-types';
 import type { LookupAdapter } from './types';
+import { buildLookupQueryParams, lookupFilterKey } from './lookup-params';
 
 interface F9LookupModalProps<T extends Record<string, any>> {
   open: boolean;
@@ -33,7 +34,7 @@ export function F9LookupModal<T extends Record<string, any>>({
   const listRef = useRef<HTMLDivElement>(null);
   const requestVersion = useRef(0);
   const [failed, setFailed] = useState(false);
-  const filterKey = JSON.stringify(Object.entries(filters ?? {}).sort(([left], [right]) => left.localeCompare(right)));
+  const filterKey = lookupFilterKey(filters);
   const stableFilters = useMemo(() => JSON.parse(filterKey) as Record<string, string>, [filterKey]);
 
   const fetchData = useCallback(async (p: number, q: string) => {
@@ -41,11 +42,7 @@ export function F9LookupModal<T extends Record<string, any>>({
     setLoading(true);
     setFailed(false);
     try {
-      const params: Record<string, any> = { page: p, limit: 10 };
-      if (q) params.search = q;
-      if (stableFilters) {
-        Object.entries(stableFilters).forEach(([k, v]) => { if (v) params[k] = v; });
-      }
+      const params = buildLookupQueryParams(stableFilters, p, q);
       const res = await api.get<PaginatedResponse<T>>(adapter.endpoint, { params });
       if (version !== requestVersion.current) return;
       setData(res.data || []);

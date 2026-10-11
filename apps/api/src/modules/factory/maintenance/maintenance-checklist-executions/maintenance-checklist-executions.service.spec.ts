@@ -134,6 +134,51 @@ describe('MaintenanceChecklistExecutionsService', () => {
       });
     });
 
+    it('records PASS_FAIL passed=true from the canonical { passed } payload the UI sends', async () => {
+      prisma.maintenanceChecklistExecution.findUnique.mockResolvedValue(execution());
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      prisma.maintenanceChecklistExecutionItem.findUnique.mockResolvedValue({
+        id: 'i1', executionId: 'e1', resultTypeSnapshot: 'PASS_FAIL', minValueSnapshot: null, maxValueSnapshot: null, checklistItem: null,
+      });
+      prisma.maintenanceChecklistExecutionItem.update.mockResolvedValue({ id: 'i1' });
+
+      await service.updateItem('e1', 'i1', { passed: true } as any, 'u1', ctx);
+
+      expect(prisma.maintenanceChecklistExecutionItem.update).toHaveBeenCalledWith({
+        where: { id: 'i1' },
+        data: expect.objectContaining({ passed: true, resultValue: 'OK', status: 'COMPLETED', completedById: 'u1' }),
+      });
+    });
+
+    it('records PASS_FAIL passed=false from the canonical { passed } payload the UI sends', async () => {
+      prisma.maintenanceChecklistExecution.findUnique.mockResolvedValue(execution());
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      prisma.maintenanceChecklistExecutionItem.findUnique.mockResolvedValue({
+        id: 'i1', executionId: 'e1', resultTypeSnapshot: 'PASS_FAIL', minValueSnapshot: null, maxValueSnapshot: null, checklistItem: null,
+      });
+      prisma.maintenanceChecklistExecutionItem.update.mockResolvedValue({ id: 'i1' });
+
+      await service.updateItem('e1', 'i1', { passed: false } as any, 'u1', ctx);
+
+      expect(prisma.maintenanceChecklistExecutionItem.update).toHaveBeenCalledWith({
+        where: { id: 'i1' },
+        data: expect.objectContaining({ passed: false, resultValue: 'NOT_OK', status: 'COMPLETED', completedById: 'u1' }),
+      });
+    });
+
+    it('still rejects a literal item status such as COMPLETED for PASS_FAIL items', async () => {
+      prisma.maintenanceChecklistExecution.findUnique.mockResolvedValue(execution());
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      prisma.maintenanceChecklistExecutionItem.findUnique.mockResolvedValue({
+        id: 'i1', executionId: 'e1', resultTypeSnapshot: 'PASS_FAIL', minValueSnapshot: null, maxValueSnapshot: null, checklistItem: null,
+      });
+
+      const promise = service.updateItem('e1', 'i1', { passed: true, status: 'COMPLETED' } as any, 'u1', ctx);
+      await expect(promise).rejects.toThrow(BadRequestException);
+      const error: any = await promise.catch((e) => e);
+      expect(error.getResponse().messageKey).toBe('maintenance.invalidExecutionStatus');
+    });
+
     it('rejects a non-numeric result for NUMBER items', async () => {
       prisma.maintenanceChecklistExecution.findUnique.mockResolvedValue(execution());
       prisma.machine.findUnique.mockResolvedValue(ownedMachine);
@@ -264,6 +309,37 @@ describe('MaintenanceChecklistExecutionsService', () => {
       });
       expect(audit.log).toHaveBeenCalledWith('u1', 'COMPLETE', 'MaintenanceChecklistExecution', 'e1', expect.anything());
       expect(result.status).toBe('COMPLETED');
+    });
+
+    it('completes when mandatory PASS_FAIL items are done and only optional items are pending', async () => {
+      prisma.maintenanceChecklistExecution.findUnique.mockResolvedValue(
+        execution({
+          items: [
+            { id: 'i1', status: 'COMPLETED', resultValue: 'OK', itemTitleSnapshot: 'Leak check', itemMandatorySnapshot: true, resultTypeSnapshot: 'PASS_FAIL', minValueSnapshot: null, maxValueSnapshot: null, checklistItem: null },
+            { id: 'i2', status: 'PENDING', itemTitleSnapshot: 'Optional note', itemMandatorySnapshot: false, resultTypeSnapshot: 'PASS_FAIL', checklistItem: null },
+          ],
+        }),
+      );
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+      prisma.maintenanceChecklistExecution.update.mockResolvedValue({ id: 'e1', status: 'COMPLETED' });
+
+      const result = await service.complete('e1', 'u1', ctx);
+
+      expect(prisma.maintenanceChecklistExecution.update).toHaveBeenCalledWith({
+        where: { id: 'e1' },
+        data: expect.objectContaining({ status: 'COMPLETED', completedById: 'u1' }),
+      });
+      expect(result.status).toBe('COMPLETED');
+    });
+
+    it('does not mutate any execution row when a mandatory item is still pending', async () => {
+      prisma.maintenanceChecklistExecution.findUnique.mockResolvedValue(
+        execution({ items: [{ id: 'i2', status: 'PENDING', itemMandatorySnapshot: true, itemTitleSnapshot: 'Lube', resultTypeSnapshot: 'PASS_FAIL', checklistItem: null }] }),
+      );
+      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
+
+      await expect(service.complete('e1', 'u1', ctx)).rejects.toThrow(BadRequestException);
+      expect(prisma.maintenanceChecklistExecution.update).not.toHaveBeenCalled();
     });
   });
 

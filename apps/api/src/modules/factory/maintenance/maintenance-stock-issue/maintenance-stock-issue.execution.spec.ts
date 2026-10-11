@@ -285,3 +285,51 @@ describe('Maintenance execution canonical inventory orchestration', () => {
     expect((await validate(dto)).find(error => error.property === 'notes')).toBeUndefined();
   });
 });
+
+describe('execution part product identity resolution (Defect B regression)', () => {
+  it('B3 accepts an unlinked canonical spare part when an explicit inventory product is supplied', async () => {
+    const f = fixture();
+    (f.sparePart as any).productId = null;
+    const result = await f.run(input({ sparePartId: 'spare', productId: 'product' }));
+    expect(result.productId).toBe('product');
+    expect(result.sparePartId).toBe('spare');
+    expect(f.state().movements).toHaveLength(1);
+    expect(f.state().conditions).toHaveLength(1);
+  });
+
+  it('B4 rejects an unlinked canonical spare part that has no resolvable inventory product', async () => {
+    const f = fixture();
+    (f.sparePart as any).productId = null;
+    await expect(f.run(input({ sparePartId: 'spare', productId: undefined }))).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.executionProductMismatch' } });
+    expect(f.state().movements).toHaveLength(0);
+  });
+
+  it('B5 accepts a linked spare issued against its own matching product', async () => {
+    const f = fixture();
+    await f.run(input({ sparePartId: 'spare', productId: 'product' }));
+    expect(f.state().movements).toHaveLength(1);
+  });
+
+  it('B5b derives the product from a linked spare when the client supplies none', async () => {
+    const f = fixture();
+    const result = await f.run(input({ sparePartId: 'spare', productId: undefined }));
+    expect(result.productId).toBe('product');
+    expect(f.state().movements).toHaveLength(1);
+  });
+
+  it('B6 still rejects a product that conflicts with the linked spare product', async () => {
+    const f = fixture();
+    await expect(f.run(input({ sparePartId: 'spare', productId: 'other' }))).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.executionProductMismatch' } });
+    expect(f.state().movements).toHaveLength(0);
+  });
+
+  it('B7 preserves product-only issuance without a canonical spare part', async () => {
+    const f = fixture();
+    const result = await f.run(input({ productId: 'product', sparePartId: undefined }));
+    expect(result.productId).toBe('product');
+    expect(result.sparePartId).toBeNull();
+    expect(f.state().movements).toHaveLength(1);
+  });
+});

@@ -5,6 +5,7 @@ import ar from '../src/lib/i18n/locales/ar';
 import { resolveTranslation, TRANSLATION_FALLBACKS } from '../src/lib/i18n/translation-core';
 import {
   canInstallExecutionPart,
+  checklistItemResultPayload,
   emptyExecutionScope,
   executionSourceReference,
   executionWaitingForContinuation,
@@ -47,6 +48,22 @@ describe('canonical maintenance execution UI policy', () => {
     expect(executionWaitingForContinuation({ status: 'IN_PROGRESS', sessions: [] })).toBe(true);
     expect(executionWaitingForContinuation({ status: 'IN_PROGRESS', sessions: [{ id: 's', executionId: 'e', technicianUserId: 'u', startedAt: '2026-10-08T08:00Z' }] })).toBe(false);
     expect(executionWaitingForContinuation({ status: 'COMPLETED', sessions: [] })).toBe(false);
+  });
+});
+
+describe('checklist item completion payload (Defect C regression)', () => {
+  it('sends only the canonical { passed } field for a passed item', () => {
+    expect(checklistItemResultPayload(true)).toEqual({ passed: true });
+  });
+
+  it('sends only the canonical { passed } field for a failed item', () => {
+    expect(checklistItemResultPayload(false)).toEqual({ passed: false });
+  });
+
+  it('never sends a literal COMPLETED/FAILED status that the checklist contract rejects', () => {
+    const payload = checklistItemResultPayload(true) as Record<string, unknown>;
+    expect(payload.status).toBeUndefined();
+    expect(Object.keys(payload)).toEqual(['passed']);
   });
 });
 

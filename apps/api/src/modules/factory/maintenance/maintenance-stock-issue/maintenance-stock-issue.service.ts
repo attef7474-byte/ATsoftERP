@@ -691,7 +691,7 @@ export class MaintenanceStockIssueService {
       throw this.badRequest('maintenance.executionInstallationRequiresSparePart', 'Installed and replaced items require a canonical spare part');
     }
     const productId: string | null = sparePart?.productId ?? input.productId ?? null;
-    if (!productId || (sparePart && input.productId && sparePart.productId !== input.productId)) {
+    if (!productId || (sparePart?.productId && input.productId && sparePart.productId !== input.productId)) {
       throw this.badRequest('maintenance.executionProductMismatch', 'The stock product must match the canonical spare part');
     }
     const product = await tx.product.findUnique({ where: { id: productId } });

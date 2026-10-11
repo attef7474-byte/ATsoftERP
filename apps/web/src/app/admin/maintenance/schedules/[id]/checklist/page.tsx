@@ -5,6 +5,7 @@ import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../../components/admin/toast-provider';
 import { MaintenanceChecklistExecution, MaintenanceChecklistExecutionItem, MaintenanceSchedule } from '../../../../../../lib/admin-types';
+import { checklistItemResultPayload } from '../../../../../../lib/maintenance-execution';
 import { Card, CardContent, CardHeader, LoadingState, ErrorState, Button } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionStartIcon, ActionCompleteIcon } from '../../../../../../components/admin/admin-action-bar';
 import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
@@ -69,7 +70,7 @@ export default function ChecklistExecutionPage() {
   const updateItem = async (itemId: string, passed: boolean) => {
     if (!execution) return;
     try {
-      await api.patch(`/maintenance/checklist-executions/${execution.id}/items/${itemId}`, { passed, status: passed ? 'COMPLETED' : 'FAILED' });
+      await api.patch(`/maintenance/checklist-executions/${execution.id}/items/${itemId}`, checklistItemResultPayload(passed));
       showToast(t('maintenanceWorkflow.checklistItemUpdated'), 'success');
       const detail = await api.get<MaintenanceChecklistExecution>(`/maintenance/checklist-executions/${execution.id}`);
       setExecution(detail);

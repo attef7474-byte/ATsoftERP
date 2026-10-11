@@ -7,13 +7,7 @@ import { canInstallExecutionPart, type ExecutionPartInput, type ExecutionScopeTy
 import { Button, Input, Select, Textarea } from '../admin/ui';
 import { F9Lookup, machineInstalledPartAdapter, productAdapter, sparePartAdapter, warehouseAdapter, warehouseLocationAdapter } from '../f9';
 
-export function validateExecutionParts(parts: ExecutionPartInput[]) {
-  return parts.every((part) => !!(part.sparePartId || part.productId)
-    && !!part.warehouseId && Number.isFinite(part.quantity) && part.quantity >= 0.0001 && Number.isInteger(Number((part.quantity * 10000).toFixed(6)))
-    && (part.usageType !== 'REPLACED' || (!!part.oldInstalledPartId
-      && (part.replacementAction === 'NO_REMOVED_PART' ? !!part.noReturnReason?.trim()
-        : !!part.removedPartCondition && !!part.removedPartWarehouseId && (part.removedPartQuantity ?? 0) > 0))));
-}
+export { validateExecutionParts } from '../../lib/maintenance-execution';
 
 export function ExecutionPartsEditor({ parts, onChange, scopeType, machineId, sessions = [], disabled = false }: { parts: ExecutionPartInput[]; onChange: (parts: ExecutionPartInput[]) => void; scopeType: ExecutionScopeType; machineId?: string | null; sessions?: MaintenanceExecutionSession[]; disabled?: boolean }) {
   const { t } = useTranslation();
@@ -32,7 +26,7 @@ export function ExecutionPartsEditor({ parts, onChange, scopeType, machineId, se
       <legend className="px-1 text-sm font-medium">{t('maintenance.actualPart')} {index + 1}</legend>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <F9Lookup label={t('sparePartIssue.sparePart')} value={part.sparePartId || ''} adapter={sparePartAdapter} disabled={disabled} filters={{ status: 'ACTIVE' }} onChange={(sparePartId) => update(index, { sparePartId: sparePartId || undefined, productId: undefined })} onItemSelect={(item) => update(index, { sparePartId: item.id, productId: item.productId || undefined })} />
-        {!part.sparePartId && <F9Lookup label={t('maintenance.inventoryProduct')} value={part.productId || ''} adapter={productAdapter} disabled={disabled} filters={{ status: 'ACTIVE' }} onChange={(productId) => update(index, { productId: productId || undefined })} />}
+        {(!part.sparePartId || !part.productId) && <F9Lookup label={t('maintenance.inventoryProduct')} value={part.productId || ''} adapter={productAdapter} disabled={disabled} filters={{ status: 'ACTIVE' }} onChange={(productId) => update(index, { productId: productId || undefined })} />}
         <F9Lookup label={t('maintenance.workOrderWarehouse')} value={part.warehouseId} adapter={warehouseAdapter} disabled={disabled} onChange={(warehouseId) => update(index, { warehouseId, warehouseLocationId: undefined })} />
         <F9Lookup label={t('maintenance.warehouseLocation')} value={part.warehouseLocationId || ''} adapter={warehouseLocationAdapter} disabled={disabled || !part.warehouseId} filters={{ warehouseId: part.warehouseId }} onChange={(warehouseLocationId) => update(index, { warehouseLocationId: warehouseLocationId || undefined })} />
         <Input label={t('maintenance.quantity')} type="number" min="0.0001" step="0.0001" value={part.quantity} onChange={(event) => update(index, { quantity: Number(event.target.value) })} required />
