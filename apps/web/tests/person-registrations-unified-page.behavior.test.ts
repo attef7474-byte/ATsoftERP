@@ -172,8 +172,11 @@ const emptyForm = {
   branchId: '', administrationId: '', departmentId: '', jobTitleId: '',
   assignmentType: 'PRIMARY', effectiveFrom: '', assignmentNotes: '',
   enableMaintenance: false, maintenanceRole: '', maintenanceSpecialty: '', dailyCapacityMinutes: 480, maintenanceIsActive: true,
-  enableLogin: false, loginEmail: '', loginPassword: '', loginName: '', loginPhone: '', roleIds: [],
+  enableLogin: false, loginEmail: '', loginPassword: '', loginName: '', loginPhone: '', roleIds: [], rolesTouched: false,
 };
+
+const createContext = { mode: 'create' as const, record: null };
+const editContext = { mode: 'edit' as const, record: { id: 'p1' } };
 
 describe('Group 1 unified page — executed canonical API wiring', () => {
   it('listRequest calls GET /person-registrations with pagination params', async () => {
@@ -220,13 +223,13 @@ describe('Group 1 unified page — executed canonical API wiring', () => {
 });
 
 describe('Group 1 unified page — executed payload and validation logic', () => {
-  it('mapFormToPayload emits placement and omits optional blocks when toggles are off', () => {
+  it('mapFormToPayload (create) emits category and placement and omits optional blocks when toggles are off', () => {
     const h = harness();
     h.render(h.exported.default);
     const payload = h.options().mapFormToPayload({
       ...emptyForm, name: 'Ali', departmentId: 'dep1', branchId: 'br1',
       administrationId: 'adm1', jobTitleId: 'job1', assignmentType: 'PRIMARY', effectiveFrom: '2026-01-01',
-    });
+    }, createContext);
     expect(payload).toMatchObject({
       name: 'Ali',
       category: 'MAINTENANCE',
@@ -239,12 +242,12 @@ describe('Group 1 unified page — executed payload and validation logic', () =>
   it('mapFormToPayload sends a login block only when enableLogin is true, and never auth internals', () => {
     const h = harness();
     h.render(h.exported.default);
-    expect(h.options().mapFormToPayload({ ...emptyForm, name: 'A', departmentId: 'd' })).not.toHaveProperty('login');
+    expect(h.options().mapFormToPayload({ ...emptyForm, name: 'A', departmentId: 'd' }, createContext)).not.toHaveProperty('login');
 
     const on = h.options().mapFormToPayload({
       ...emptyForm, name: 'A', departmentId: 'd', enableLogin: true,
       loginEmail: 'a@b.com', loginPassword: 'S3cret!', loginName: 'A', loginPhone: '123', roleIds: ['r1'],
-    });
+    }, createContext);
     expect(on.login).toEqual({ email: 'a@b.com', password: 'S3cret!', name: 'A', phone: '123', roleIds: ['r1'] });
     const serialized = JSON.stringify(on);
     expect(serialized).not.toContain('passwordHash');
@@ -255,22 +258,22 @@ describe('Group 1 unified page — executed payload and validation logic', () =>
   it('mapFormToPayload sends a maintenance block only when enableMaintenance is true', () => {
     const h = harness();
     h.render(h.exported.default);
-    expect(h.options().mapFormToPayload({ ...emptyForm, name: 'A', departmentId: 'd' })).not.toHaveProperty('maintenance');
+    expect(h.options().mapFormToPayload({ ...emptyForm, name: 'A', departmentId: 'd' }, createContext)).not.toHaveProperty('maintenance');
 
     const on = h.options().mapFormToPayload({
       ...emptyForm, name: 'A', departmentId: 'd', enableMaintenance: true,
       maintenanceRole: 'TECH', maintenanceSpecialty: 'Mech', dailyCapacityMinutes: 300, maintenanceIsActive: true,
-    });
+    }, createContext);
     expect(on.maintenance).toEqual({ role: 'TECH', specialty: 'Mech', dailyCapacityMinutes: 300, isActive: true });
   });
 
   it('validate rejects a missing name, missing department, and toggle-required fields', () => {
     const h = harness();
     h.render(h.exported.default);
-    expect(h.options().validate({ ...emptyForm })).toEqual({ fieldErrors: { name: 'validation.requiredField', departmentId: 'validation.requiredField' } });
-    expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: 'd', enableLogin: true })).toEqual({ fieldErrors: { loginEmail: 'validation.requiredField' } });
-    expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: 'd', enableMaintenance: true })).toEqual({ fieldErrors: { maintenanceRole: 'validation.requiredField' } });
-    expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: 'd' })).toBeNull();
+    expect(h.options().validate({ ...emptyForm }, createContext)).toEqual({ fieldErrors: { name: 'validation.requiredField', departmentId: 'validation.requiredField' } });
+    expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: 'd', enableLogin: true }, createContext)).toEqual({ fieldErrors: { loginEmail: 'validation.requiredField' } });
+    expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: 'd', enableMaintenance: true }, createContext)).toEqual({ fieldErrors: { maintenanceRole: 'validation.requiredField' } });
+    expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: 'd' }, createContext)).toBeNull();
   });
 
   it('mapRecordToForm hydrates capabilities from the real API shape (login/maintenanceCapability) but never prefills role grants', () => {
@@ -287,7 +290,26 @@ describe('Group 1 unified page — executed payload and validation logic', () =>
     expect(form.loginEmail).toBe('a@b.com');
     expect(form.loginPassword).toBe('');
     expect(form.roleIds).toEqual([]);
+    expect(form.rolesTouched).toBe(false);
     expect(form.departmentId).toBe('d1');
+  });
+
+  it('mapRecordToForm hydrates the FLAT currentAssignment shape the API actually returns', () => {
+    const h = harness();
+    h.render(h.exported.default);
+    const form = h.options().mapRecordToForm({
+      id: 'p1', code: 'EMP-0000004', name: 'حنظل', category: 'MAINTENANCE', isActive: true,
+      currentAssignment: {
+        id: 'a1', branchId: 'br1', administrationId: 'adm1', departmentId: 'dep1', jobTitleId: null,
+        assignmentType: 'PRIMARY', status: 'ACTIVE',
+      },
+      login: null,
+      maintenanceCapability: null,
+    });
+    expect(form.departmentId).toBe('dep1');
+    expect(form.branchId).toBe('br1');
+    expect(form.administrationId).toBe('adm1');
+    expect(form.jobTitleId).toBe('');
   });
 
   it('mapRecordToForm ignores the legacy user/maintenancePersonnel keys', () => {
@@ -301,6 +323,76 @@ describe('Group 1 unified page — executed payload and validation logic', () =>
     });
     expect(form.enableLogin).toBe(false);
     expect(form.enableMaintenance).toBe(false);
+  });
+});
+
+describe('Group 1 unified page — update payload contract (edit mode)', () => {
+  it('edit payload omits the create-only `category` and `placement` fields (the 400 root cause)', () => {
+    const h = harness();
+    h.render(h.exported.default);
+    const payload = h.options().mapFormToPayload({
+      ...emptyForm, name: 'حنظل', code: 'EMP-0000004', phone: '0771749770', email: 'handhal@atsofterp.com',
+      departmentId: 'dep1', branchId: 'br1', administrationId: 'adm1', jobTitleId: 'job1',
+    }, editContext);
+    expect(payload).not.toHaveProperty('category');
+    expect(payload).not.toHaveProperty('placement');
+    expect(payload).not.toHaveProperty('departmentId');
+    expect(payload).not.toHaveProperty('branchId');
+    // The keys the API's `forbidNonWhitelisted` pipe rejects must never appear on a PATCH.
+    const serialized = JSON.stringify(payload);
+    expect(serialized).not.toContain('"category"');
+    expect(serialized).not.toContain('"placement"');
+  });
+
+  it('edit payload still sends every mutable field so an edit is not a no-op', () => {
+    const h = harness();
+    h.render(h.exported.default);
+    const payload = h.options().mapFormToPayload({
+      ...emptyForm, name: 'New Name', code: 'EMP-0000004', phone: '0771', email: 'x@y.z', notes: 'note', isActive: false,
+    }, editContext);
+    expect(payload).toMatchObject({
+      name: 'New Name',
+      code: 'EMP-0000004',
+      phone: '0771',
+      email: 'x@y.z',
+      notes: 'note',
+      isActive: false,
+    });
+  });
+
+  it('edit payload omits roleIds unless the operator explicitly touched the roles', () => {
+    const h = harness();
+    h.render(h.exported.default);
+    const untouched = h.options().mapFormToPayload({
+      ...emptyForm, name: 'A', enableLogin: true, loginEmail: 'a@b.com', roleIds: [], rolesTouched: false,
+    }, editContext);
+    expect(untouched.login).not.toHaveProperty('roleIds');
+
+    const touched = h.options().mapFormToPayload({
+      ...emptyForm, name: 'A', enableLogin: true, loginEmail: 'a@b.com', roleIds: ['r1'], rolesTouched: true,
+    }, editContext);
+    expect(touched.login.roleIds).toEqual(['r1']);
+  });
+
+  it('create payload (regression) still includes category, placement and roleIds', () => {
+    const h = harness();
+    h.render(h.exported.default);
+    const payload = h.options().mapFormToPayload({
+      ...emptyForm, name: 'A', departmentId: 'd', enableLogin: true, loginEmail: 'a@b.com', roleIds: ['r1'],
+    }, createContext);
+    expect(payload).toHaveProperty('category');
+    expect(payload).toHaveProperty('placement');
+    expect(payload.login.roleIds).toEqual(['r1']);
+  });
+
+  it('edit validation does not require a department (placement is preserved untouched)', () => {
+    const h = harness();
+    h.render(h.exported.default);
+    expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: '' }, editContext)).toBeNull();
+    // Create still requires it.
+    expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: '' }, createContext)).toEqual({
+      fieldErrors: { departmentId: 'validation.requiredField' },
+    });
   });
 });
 

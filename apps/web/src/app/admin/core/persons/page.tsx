@@ -46,6 +46,10 @@ import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/f
 
 interface PersonAssignmentView {
   id: string;
+  branchId?: string | null;
+  administrationId?: string | null;
+  departmentId?: string | null;
+  jobTitleId?: string | null;
   branch?: { id: string; name: string } | null;
   administration?: { id: string; name: string } | null;
   department?: { id: string; name: string } | null;
@@ -120,6 +124,9 @@ interface UnifiedForm {
   loginName: string;
   loginPhone: string;
   roleIds: string[];
+  // Role grants are never prefilled; this flag records that the operator explicitly
+  // changed the selection so an unrelated edit cannot silently reset grant state.
+  rolesTouched: boolean;
 }
 
 const EMPLOYEE_CATEGORIES = ['OPERATIONAL', 'MAINTENANCE'];
@@ -151,6 +158,7 @@ const EMPTY_FORM: UnifiedForm = {
   loginName: '',
   loginPhone: '',
   roleIds: [],
+  rolesTouched: false,
 };
 
 const INITIAL_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
@@ -248,10 +256,10 @@ const maintenance = detail.maintenanceCapability || null;
         email: safeString(detail.email),
         notes: safeString(detail.notes),
         isActive: detail.isActive !== false,
-        branchId: safeString(assignment?.branch?.id),
-        administrationId: safeString(assignment?.administration?.id),
-        departmentId: safeString(assignment?.department?.id),
-        jobTitleId: safeString(assignment?.jobTitle?.id),
+        branchId: safeString(assignment?.branchId ?? assignment?.branch?.id),
+        administrationId: safeString(assignment?.administrationId ?? assignment?.administration?.id),
+        departmentId: safeString(assignment?.departmentId ?? assignment?.department?.id),
+        jobTitleId: safeString(assignment?.jobTitleId ?? assignment?.jobTitle?.id),
         assignmentType: (assignment?.assignmentType as UnifiedForm['assignmentType']) || 'PRIMARY',
         effectiveFrom: '',
         assignmentNotes: '',
@@ -268,17 +276,26 @@ const maintenance = detail.maintenanceCapability || null;
         // Role selection is never prefilled: it is only sent when the operator explicitly
         // changes it, so an unrelated edit can never silently reset grant state.
         roleIds: [],
+        rolesTouched: false,
       };
     },
-    mapFormToPayload: (values) => {
+    mapFormToPayload: (values, context) => {
+      const isEdit = context?.mode === 'edit';
       const payload: Record<string, unknown> = {
         name: values.name,
-        category: values.category,
         phone: values.phone || null,
         email: values.email || null,
         notes: values.notes || null,
         isActive: values.isActive,
-        placement: {
+      };
+      if (values.code) payload.code = values.code;
+      // `category` and `placement` are create-only. The update contract deliberately does
+      // not accept them (moving a person between branches/departments is a temporal change
+      // owned by the transfer workflow), and the API runs its ValidationPipe with
+      // `forbidNonWhitelisted`, so sending them turns every edit into a 400.
+      if (!isEdit) {
+        payload.category = values.category;
+        payload.placement = {
           departmentId: values.departmentId,
           branchId: values.branchId || undefined,
           administrationId: values.administrationId || undefined,
@@ -286,9 +303,8 @@ const maintenance = detail.maintenanceCapability || null;
           assignmentType: values.assignmentType,
           effectiveFrom: values.effectiveFrom || undefined,
           notes: values.assignmentNotes || undefined,
-        },
-      };
-      if (values.code) payload.code = values.code;
+        };
+      }
       if (values.enableLogin) {
         // Only the contract fields are sent; credential and authentication metadata are
         // never part of the unified payload.
@@ -297,7 +313,9 @@ const maintenance = detail.maintenanceCapability || null;
           ...(values.loginPassword ? { password: values.loginPassword } : {}),
           name: values.loginName || values.name,
           phone: values.loginPhone || values.phone || null,
-          roleIds: values.roleIds,
+          // On edit, roles are only sent when the operator explicitly changed them, so an
+          // unrelated edit can never wipe existing grants (server treats omission as preserve).
+          ...(isEdit && !values.rolesTouched ? {} : { roleIds: values.roleIds }),
         };
       }
       if (values.enableMaintenance) {
@@ -310,10 +328,12 @@ const maintenance = detail.maintenanceCapability || null;
       }
       return payload;
     },
-    validate: (values) => {
+    validate: (values, context) => {
+      const isEdit = context?.mode === 'edit';
       const fieldErrors: Record<string, string> = {};
       if (!values.name?.trim()) fieldErrors.name = t('validation.requiredField');
-      if (!values.departmentId) fieldErrors.departmentId = t('validation.requiredField');
+      // Placement is create-only; on edit the current placement is preserved untouched.
+      if (!isEdit && !values.departmentId) fieldErrors.departmentId = t('validation.requiredField');
       if (values.enableMaintenance && !values.maintenanceRole?.trim()) {
         fieldErrors.maintenanceRole = t('validation.requiredField');
       }
@@ -356,6 +376,9 @@ const maintenance = detail.maintenanceCapability || null;
 
   const paginationMeta = meta ?? INITIAL_META;
   const selectedRecord = useMemo(() => data.find((d) => d.id === selectedId), [data, selectedId]);
+  // Category and placement are create-only (the update contract rejects them); on edit they
+  // are shown read-only so an operator cannot make a change that would silently not persist.
+  const placementLocked = Boolean(editItem);
 
   const { exec } = useStableHandlers({
     new: () => openCreate(),
@@ -523,8 +546,9 @@ const maintenance = detail.maintenanceCapability || null;
                   <label className="block text-sm font-medium mb-1">{t('core.personCategory')}</label>
                   <select
                     value={form.category}
+                    disabled={placementLocked}
                     onChange={(e) => setForm({ ...form, category: e.target.value as UnifiedForm['category'] })}
-                    className="w-full border rounded px-3 py-2 text-sm"
+                    className="w-full border rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
                   >
                     {EMPLOYEE_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
@@ -565,6 +589,7 @@ const maintenance = detail.maintenanceCapability || null;
                   onChange={(v) => setForm({ ...form, branchId: v })}
                   adapter={branchAdapter}
                   error={validationErrors.branchId}
+                  disabled={placementLocked}
                 />
                 <F9Lookup
                   label={t('core.administration')}
@@ -572,6 +597,7 @@ const maintenance = detail.maintenanceCapability || null;
                   onChange={(v) => setForm({ ...form, administrationId: v })}
                   adapter={administrationAdapter}
                   error={validationErrors.administrationId}
+                  disabled={placementLocked}
                 />
                 <F9Lookup
                   label={t('core.department')}
@@ -579,6 +605,7 @@ const maintenance = detail.maintenanceCapability || null;
                   onChange={(v) => setForm({ ...form, departmentId: v })}
                   adapter={departmentAdapter}
                   error={validationErrors.departmentId}
+                  disabled={placementLocked}
                 />
                 <F9Lookup
                   label={t('core.jobTitle')}
@@ -586,13 +613,15 @@ const maintenance = detail.maintenanceCapability || null;
                   onChange={(v) => setForm({ ...form, jobTitleId: v })}
                   adapter={jobTitleAdapter}
                   error={validationErrors.jobTitleId}
+                  disabled={placementLocked}
                 />
                 <div>
                   <label className="block text-sm font-medium mb-1">{t('core.assignmentType')}</label>
                   <select
                     value={form.assignmentType}
+                    disabled={placementLocked}
                     onChange={(e) => setForm({ ...form, assignmentType: e.target.value as UnifiedForm['assignmentType'] })}
-                    className="w-full border rounded px-3 py-2 text-sm"
+                    className="w-full border rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
                   >
                     {ASSIGNMENT_TYPES.map((a) => (
                       <option key={a} value={a}>
@@ -607,12 +636,14 @@ const maintenance = detail.maintenanceCapability || null;
                   value={form.effectiveFrom}
                   onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })}
                   error={validationErrors.effectiveFrom}
+                  disabled={placementLocked}
                 />
                 <Input
                   label={t('core.assignmentNotes')}
                   value={form.assignmentNotes}
                   onChange={(e) => setForm({ ...form, assignmentNotes: e.target.value })}
                   error={validationErrors.assignmentNotes}
+                  disabled={placementLocked}
                 />
               </div>
             </section>
@@ -707,6 +738,7 @@ const maintenance = detail.maintenanceCapability || null;
                               onChange={(e) => {
                                 setForm({
                                   ...form,
+                                  rolesTouched: true,
                                   roleIds: e.target.checked
                                     ? [...form.roleIds, role.id]
                                     : form.roleIds.filter((id) => id !== role.id),
