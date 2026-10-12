@@ -813,22 +813,51 @@ export class PersonRegistrationsService {
           effectiveTo: true,
           status: true,
           deletedAt: true,
+          // Human-readable organizational identity for the current placement. The list and
+          // detail read models are the same shape, so the persons table and the edit form
+          // resolve Branch/Administration/Department/Job Title from one canonical place
+          // instead of echoing raw foreign keys.
+          branch: { select: { id: true, code: true, name: true } },
+          administration: { select: { id: true, code: true, name: true } },
+          department: { select: { id: true, code: true, name: true } },
+          jobTitle: { select: { id: true, code: true, name: true } },
         },
       },
     } as const;
   }
 
+  /**
+   * The one canonical current placement.
+   *
+   * A person can accumulate historical, secondary, acting or closed assignment rows, so the
+   * "current" placement cannot be "the first one returned". It must be the active, non-deleted,
+   * PRIMARY assignment for the authorized company/branch whose effective window contains now.
+   * The result is deterministic: most recent `effectiveFrom` wins and `id` breaks ties, so the
+   * list and the edit form always agree on the same row.
+   */
+  private selectCurrentAssignment(assignments: any[], ctx: ActiveOperationalContext, now: Date) {
+    const candidates = (assignments ?? []).filter(
+      (assignment: any) =>
+        assignment.companyId === ctx.companyId &&
+        assignment.branchId === ctx.branchId &&
+        assignment.deletedAt === null &&
+        assignment.status === 'ACTIVE' &&
+        assignment.assignmentType === 'PRIMARY' &&
+        new Date(assignment.effectiveFrom) <= now &&
+        (!assignment.effectiveTo || new Date(assignment.effectiveTo) >= now),
+    );
+    if (candidates.length === 0) return null;
+    candidates.sort((a: any, b: any) => {
+      const diff = new Date(b.effectiveFrom).getTime() - new Date(a.effectiveFrom).getTime();
+      if (diff !== 0) return diff;
+      return String(a.id).localeCompare(String(b.id));
+    });
+    return candidates[0];
+  }
+
   private mapPerson(person: any, ctx: ActiveOperationalContext) {
     const now = new Date();
-    const currentAssignment =
-      person.assignments?.find(
-        (assignment: any) =>
-          assignment.companyId === ctx.companyId &&
-          assignment.branchId === ctx.branchId &&
-          assignment.deletedAt === null &&
-          new Date(assignment.effectiveFrom) <= now &&
-          (!assignment.effectiveTo || new Date(assignment.effectiveTo) >= now),
-      ) ?? null;
+    const currentAssignment = this.selectCurrentAssignment(person.assignments, ctx, now);
 
     return {
       id: person.id,

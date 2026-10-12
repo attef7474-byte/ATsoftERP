@@ -51,10 +51,10 @@ interface PersonAssignmentView {
   administrationId?: string | null;
   departmentId?: string | null;
   jobTitleId?: string | null;
-  branch?: { id: string; name: string } | null;
-  administration?: { id: string; name: string } | null;
-  department?: { id: string; name: string } | null;
-  jobTitle?: { id: string; name: string } | null;
+  branch?: { id: string; code?: string; name: string } | null;
+  administration?: { id: string; code?: string; name: string } | null;
+  department?: { id: string; code?: string; name: string } | null;
+  jobTitle?: { id: string; code?: string; name: string } | null;
   assignmentType?: string;
   status?: string;
 }
@@ -275,9 +275,10 @@ const maintenance = detail.maintenanceCapability || null;
         loginPassword: '',
         loginName: safeString(detail.name),
         loginPhone: safeString(detail.phone),
-        // Role selection is never prefilled: it is only sent when the operator explicitly
-        // changes it, so an unrelated edit can never silently reset grant state.
-        roleIds: [],
+        // Hydrate the CURRENT role selection so the edit form shows the persisted grants.
+        // `rolesTouched` stays false: display is decoupled from mutation intent, so an
+        // unrelated edit still omits `roleIds` and can never silently reset grant state.
+        roleIds: Array.isArray(user?.roleIds) ? user.roleIds : [],
         rolesTouched: false,
       };
     },
@@ -397,6 +398,16 @@ const maintenance = detail.maintenanceCapability || null;
   const baseColumns: GridColumn<PersonRegistrationRow>[] = [
     { key: 'code', header: t('common.code'), sortable: true },
     { key: 'name', header: t('common.name'), sortable: true },
+    {
+      key: 'branch',
+      header: t('core.branch'),
+      render: (d) => safeString(d.currentAssignment?.branch?.name) || '-',
+    },
+    {
+      key: 'administration',
+      header: t('core.administration'),
+      render: (d) => safeString(d.currentAssignment?.administration?.name) || '-',
+    },
     {
       key: 'department',
       header: t('core.department'),

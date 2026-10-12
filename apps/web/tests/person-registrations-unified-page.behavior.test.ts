@@ -284,20 +284,22 @@ describe('Group 1 unified page — executed payload and validation logic', () =>
     expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: 'd' }, createContext)).toBeNull();
   });
 
-  it('mapRecordToForm hydrates capabilities from the real API shape (login/maintenanceCapability) but never prefills role grants', () => {
+  it('mapRecordToForm hydrates capabilities AND the persisted role selection from the real API shape, keeping mutation intent untouched', () => {
     const h = harness();
     h.render(h.exported.default);
     const form = h.options().mapRecordToForm({
       id: 'p1', code: 'EMP-1', name: 'Ali', category: 'MAINTENANCE', phone: '1', email: 'a@b.com', isActive: true,
       assignments: [{ department: { id: 'd1' }, jobTitle: { id: 'j1' }, assignmentType: 'PRIMARY' }],
-      login: { id: 'u1', email: 'a@b.com', status: 'ACTIVE', roleIds: ['r-should-be-ignored'] },
+      login: { id: 'u1', email: 'a@b.com', status: 'ACTIVE', roleIds: ['r1', 'r2'] },
       maintenanceCapability: { id: 'm1', role: 'TECH', specialty: 'M', isActive: true, dailyCapacityMinutes: 480 },
     });
     expect(form.enableLogin).toBe(true);
     expect(form.enableMaintenance).toBe(true);
     expect(form.loginEmail).toBe('a@b.com');
     expect(form.loginPassword).toBe('');
-    expect(form.roleIds).toEqual([]);
+    // Hydration shows the persisted grants…
+    expect(form.roleIds).toEqual(['r1', 'r2']);
+    // …but the form is not considered "touched", so an unrelated edit still omits roleIds.
     expect(form.rolesTouched).toBe(false);
     expect(form.departmentId).toBe('d1');
   });
@@ -556,5 +558,159 @@ describe('Group 1 unified page — placement F9 cascade', () => {
     expect(h.setForm()).toHaveBeenCalledWith(expect.objectContaining({
       branchId: 'br1', administrationId: 'adm1', departmentId: 'dep9',
     }));
+  });
+});
+
+/**
+ * Persons table integrity — the list columns must project the canonical current assignment
+ * with the human-readable organization, not echo raw foreign keys. These tests read the real
+ * `columns` array the page hands to `EntityDataTable`, so removing a column or rebinding it
+ * to an unresolved key fails here.
+ */
+describe('Group 1 unified page — persons table organization projection', () => {
+  const tableRow = {
+    id: 'p1', code: 'EMP-0000005', name: 'سعيد', category: 'MAINTENANCE', isActive: true,
+    phone: null, email: null, notes: null,
+    currentAssignment: {
+      id: 'a1',
+      branch: { id: 'cuid-branch', code: 'BRN-000001', name: 'الفرع الرئيسي' },
+      administration: { id: 'cuid-admin', code: 'ADM-000008', name: 'إدارة الإنتاج' },
+      department: { id: 'cuid-dept', code: 'DEP-000021', name: 'قسم تصنيع الشبس' },
+      jobTitle: { id: 'cuid-job', code: 'N-000001', name: 'فني صيانة' },
+      assignmentType: 'PRIMARY', status: 'ACTIVE',
+    },
+    login: { id: 'u1', status: 'ACTIVE', roleIds: ['role-1'] },
+    maintenanceCapability: null,
+  };
+
+  const columns = (row: any): any[] => {
+    const h = harness({ data: [row] });
+    const tree = h.render(h.exported.default);
+    const table = elements(tree).find((n) => n.type === 'EntityDataTable');
+    return (table?.props?.columns ?? []) as any[];
+  };
+  const col = (row: any, key: string) => columns(row).find((c) => c.key === key);
+  const rendered = (row: any, key: string) => col(row, key)?.render?.(row);
+
+  it('renders Branch and Administration between Name and Department in the owner-approved order (T-W1, T-W2)', () => {
+    expect(columns(tableRow).map((c) => c.key)).toEqual([
+      'code', 'name', 'branch', 'administration', 'department', 'jobTitle',
+      'systemAccess', 'maintenanceCapability', 'isActive',
+    ]);
+  });
+
+  it('labels every organization column through an i18n key, never hard-coded text (T-W7, T-W8)', () => {
+    expect(col(tableRow, 'branch')?.header).toBe('core.branch');
+    expect(col(tableRow, 'administration')?.header).toBe('core.administration');
+    expect(col(tableRow, 'department')?.header).toBe('core.department');
+    expect(col(tableRow, 'jobTitle')?.header).toBe('core.jobTitle');
+  });
+
+  it('renders the resolved human-readable names bound to the current assignment (T-W3, T-W4)', () => {
+    expect(rendered(tableRow, 'branch')).toBe('الفرع الرئيسي');
+    expect(rendered(tableRow, 'administration')).toBe('إدارة الإنتاج');
+    expect(rendered(tableRow, 'department')).toBe('قسم تصنيع الشبس');
+    expect(rendered(tableRow, 'jobTitle')).toBe('فني صيانة');
+  });
+
+  it('never echoes a raw foreign key / CUID in an organization cell (T-W6)', () => {
+    for (const key of ['branch', 'administration', 'department', 'jobTitle']) {
+      expect(String(rendered(tableRow, key))).not.toContain('cuid-');
+    }
+  });
+
+  it('shows a placeholder instead of throwing when there is no eligible current assignment (T-W5)', () => {
+    const row = { ...tableRow, currentAssignment: null };
+    for (const key of ['branch', 'administration', 'department', 'jobTitle']) {
+      expect(rendered(row, key)).toBe('-');
+    }
+  });
+
+  it('is a pure projection of the row, so two people render their own organization (T-W9)', () => {
+    const other = {
+      ...tableRow,
+      currentAssignment: { ...tableRow.currentAssignment, branch: { id: 'cuid-b2', code: 'BRN-000002', name: 'فرع سيئون' } },
+    };
+    expect(rendered(tableRow, 'branch')).toBe('الفرع الرئيسي');
+    expect(rendered(other, 'branch')).toBe('فرع سيئون');
+  });
+
+  it('keeps code and name sortable so list/query behavior is preserved (T-W10)', () => {
+    expect(col(tableRow, 'code')?.sortable).toBe(true);
+    expect(col(tableRow, 'name')?.sortable).toBe(true);
+  });
+});
+
+/**
+ * Role edit integrity — the edit form must SHOW the persisted grant while never turning that
+ * display into an implicit mutation. The three contracts: persisted roles are hydrated, an
+ * untouched edit omits roleIds, and an explicit clear sends roleIds: [].
+ */
+describe('Group 1 unified page — role hydration vs mutation intent', () => {
+  const editRecord = { mode: 'edit' as const, record: { id: 'p1', login: { id: 'u1' } } };
+
+  it('hydrates the persisted role ids from the person detail while keeping intent untouched (R1, R2)', () => {
+    const h = harness(); h.render(h.exported.default);
+    const form = h.options().mapRecordToForm({
+      id: 'p1', name: 'Saeed', category: 'MAINTENANCE', isActive: true,
+      login: { id: 'u1', email: 's@s.test', status: 'ACTIVE', roleIds: ['role-1', 'role-2'] },
+    });
+    expect(form.roleIds).toEqual(['role-1', 'role-2']);
+    expect(form.rolesTouched).toBe(false);
+  });
+
+  it('treats a missing roleIds array as an empty selection without throwing (R3)', () => {
+    const h = harness(); h.render(h.exported.default);
+    const form = h.options().mapRecordToForm({
+      id: 'p1', name: 'S', category: 'MAINTENANCE', isActive: true,
+      login: { id: 'u1', email: 's@s.test', status: 'ACTIVE' },
+    });
+    expect(form.roleIds).toEqual([]);
+    expect(form.rolesTouched).toBe(false);
+  });
+
+  it('keeps the hydrated selection even when the selectable options load asynchronously (R12, R13)', () => {
+    const h = harness(); h.render(h.exported.default);
+    const form = h.options().mapRecordToForm({
+      id: 'p1', name: 'S', category: 'MAINTENANCE', isActive: true,
+      login: { id: 'u1', email: 's@s.test', status: 'ACTIVE', roleIds: ['role-not-in-options-yet'] },
+    });
+    // Hydration is not intersected with the options list, so an option that has not arrived
+    // yet cannot silently drop a persisted grant from form state.
+    expect(form.roleIds).toEqual(['role-not-in-options-yet']);
+    expect(form.rolesTouched).toBe(false);
+  });
+
+  it('omits roleIds on PATCH when the operator did not change roles — hydration is display-only (R6, R7)', () => {
+    const h = harness(); h.render(h.exported.default);
+    const payload = h.options().mapFormToPayload({
+      ...emptyForm, name: 'Saeed', enableLogin: true, loginEmail: 's@s.test', roleIds: ['role-1', 'role-2'], rolesTouched: false,
+    }, editRecord);
+    expect(payload.login).not.toHaveProperty('roleIds');
+  });
+
+  it('sends the complete role set when the operator changed roles (R8, R9)', () => {
+    const h = harness(); h.render(h.exported.default);
+    const payload = h.options().mapFormToPayload({
+      ...emptyForm, name: 'Saeed', enableLogin: true, loginEmail: 's@s.test', roleIds: ['role-2'], rolesTouched: true,
+    }, editRecord);
+    expect(payload.login.roleIds).toEqual(['role-2']);
+  });
+
+  it('sends roleIds: [] to represent an intentional clear (R10)', () => {
+    const h = harness(); h.render(h.exported.default);
+    const payload = h.options().mapFormToPayload({
+      ...emptyForm, name: 'Saeed', enableLogin: true, loginEmail: 's@s.test', roleIds: [], rolesTouched: true,
+    }, editRecord);
+    expect(payload.login).toHaveProperty('roleIds');
+    expect(payload.login.roleIds).toEqual([]);
+  });
+
+  it('never sends any login block (let alone roleIds) for a person without a login (R11, R14, R15)', () => {
+    const h = harness(); h.render(h.exported.default);
+    const payload = h.options().mapFormToPayload({
+      ...emptyForm, name: 'S', enableLogin: true, loginEmail: 's@s.test', roleIds: ['role-1'], rolesTouched: true,
+    }, { mode: 'edit', record: { id: 'p1', login: null } });
+    expect(payload).not.toHaveProperty('login');
   });
 });

@@ -845,5 +845,150 @@ describe('PersonRegistrationsService', () => {
       expect(result.data[0].currentAssignment.id).toBe('a1');
       expect(result.data[0].assignmentCount).toBe(2);
     });
+
+    /**
+     * The persons table reads Branch/Administration/Department/Job Title from
+     * `currentAssignment`, so the list projection must carry the human-readable identity of
+     * each related record, not just the foreign key. These tests bind to the projection the
+     * service actually emits, so dropping the nested `select` again fails here.
+     */
+    const assignment = (overrides: Record<string, any> = {}) => ({
+      id: 'a-base',
+      companyId: ctx.companyId,
+      branchId: ctx.branchId,
+      administrationId: 'adm-1',
+      departmentId: 'dep-1',
+      jobTitleId: 'job-1',
+      assignmentType: 'PRIMARY',
+      leadershipLevel: 'NONE',
+      status: 'ACTIVE',
+      deletedAt: null,
+      effectiveFrom: new Date('2024-10-12T00:00:00Z'),
+      effectiveTo: null,
+      branch: { id: ctx.branchId, code: 'BRN-000001', name: 'Main Branch' },
+      administration: { id: 'adm-1', code: 'ADM-000008', name: 'Production Administration' },
+      department: { id: 'dep-1', code: 'DEP-000021', name: 'Chips Department' },
+      jobTitle: { id: 'job-1', code: 'N-000001', name: 'Maintenance Technician' },
+      ...overrides,
+    });
+
+    const personWith = (assignments: any[], overrides: Record<string, any> = {}) => ({
+      id: 'person-1',
+      code: 'EMP-0000005',
+      name: 'Saeed',
+      category: 'MAINTENANCE',
+      isActive: true,
+      phone: null,
+      email: null,
+      notes: null,
+      userId: null,
+      user: null,
+      maintenancePersonnel: null,
+      assignments,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...overrides,
+    });
+
+    const stubList = (service: any, people: any[]) => {
+      (service['prisma'].operationalPerson as any).findMany = jest.fn().mockResolvedValue(people);
+    };
+
+    it('projects the canonical org identity (branch + administration + department + job title) of the current placement (T-A1..T-A4, T-A10)', async () => {
+      const { tx } = makeTx();
+      const { service } = makeService(tx);
+      stubList(service, [personWith([assignment()])]);
+
+      const result = await service.findAll({}, ctx);
+      const current = result.data[0].currentAssignment;
+      expect(current.branch).toEqual({ id: ctx.branchId, code: 'BRN-000001', name: 'Main Branch' });
+      expect(current.administration).toEqual({ id: 'adm-1', code: 'ADM-000008', name: 'Production Administration' });
+      expect(current.department).toEqual({ id: 'dep-1', code: 'DEP-000021', name: 'Chips Department' });
+      expect(current.jobTitle).toEqual({ id: 'job-1', code: 'N-000001', name: 'Maintenance Technician' });
+      // The names — never the raw foreign keys — are what the table renders.
+      expect(JSON.stringify(current)).toContain('Chips Department');
+    });
+
+    it('selects the active in-window PRIMARY assignment and ignores closed/secondary/deleted rows (T-A5, T-A9)', async () => {
+      const { tx } = makeTx();
+      const { service } = makeService(tx);
+      stubList(service, [
+        personWith([
+          assignment({ id: 'closed', status: 'CLOSED', effectiveTo: new Date('2025-01-01T00:00:00Z') }),
+          assignment({ id: 'secondary', assignmentType: 'SECONDARY' }),
+          assignment({ id: 'deleted', deletedAt: new Date('2025-01-01T00:00:00Z') }),
+          assignment({ id: 'current' }),
+        ]),
+      ]);
+
+      const result = await service.findAll({}, ctx);
+      expect(result.data[0].currentAssignment.id).toBe('current');
+    });
+
+    it('returns a null current placement when the person has no eligible active PRIMARY assignment (T-A6)', async () => {
+      const { tx } = makeTx();
+      const { service } = makeService(tx);
+      stubList(service, [personWith([assignment({ id: 'secondary', assignmentType: 'SECONDARY' })])]);
+
+      const result = await service.findAll({}, ctx);
+      expect(result.data[0].currentAssignment).toBeNull();
+    });
+
+    it('resolves deterministically to the most recent effectiveFrom and breaks ties by id (T-A7)', async () => {
+      const { tx } = makeTx();
+      const { service } = makeService(tx);
+      stubList(service, [
+        personWith([
+          assignment({ id: 'older', effectiveFrom: new Date('2024-01-01T00:00:00Z') }),
+          assignment({ id: 'newer', effectiveFrom: new Date('2026-01-01T00:00:00Z') }),
+        ]),
+      ]);
+      let result = await service.findAll({}, ctx);
+      expect(result.data[0].currentAssignment.id).toBe('newer');
+
+      stubList(service, [
+        personWith([
+          assignment({ id: 'zeta', effectiveFrom: new Date('2026-01-01T00:00:00Z') }),
+          assignment({ id: 'alpha', effectiveFrom: new Date('2026-01-01T00:00:00Z') }),
+        ]),
+      ]);
+      result = await service.findAll({}, ctx);
+      expect(result.data[0].currentAssignment.id).toBe('alpha');
+    });
+
+    it('never exposes an assignment owned by another company or branch (T-A8)', async () => {
+      const { tx } = makeTx();
+      const { service } = makeService(tx);
+      stubList(service, [
+        personWith([
+          assignment({ id: 'foreign-company', companyId: 'company-2' }),
+          assignment({ id: 'foreign-branch', branchId: 'branch-2' }),
+        ]),
+      ]);
+
+      const result = await service.findAll({}, ctx);
+      expect(result.data[0].currentAssignment).toBeNull();
+    });
+
+    it('exposes the persisted role ids on the login projection so the edit form can hydrate them (R2, R3)', async () => {
+      const { tx } = makeTx();
+      const { service } = makeService(tx);
+      stubList(service, [
+        personWith([assignment()], {
+          userId: 'user-1',
+          user: {
+            id: 'user-1',
+            email: 'saeed@atsofterp.com',
+            name: 'Saeed',
+            status: 'ACTIVE',
+            lastLoginAt: null,
+            roles: [{ roleId: 'role-1' }, { roleId: 'role-2' }],
+          },
+        }),
+      ]);
+
+      const result = await service.findAll({}, ctx);
+      expect(result.data[0].login?.roleIds).toEqual(['role-1', 'role-2']);
+    });
   });
 });
