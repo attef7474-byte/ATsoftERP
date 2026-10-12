@@ -588,7 +588,7 @@ const maintenance = detail.maintenanceCapability || null;
                 <F9Lookup
                   label={t('core.branch')}
                   value={form.branchId}
-                  onChange={(v) => setForm({ ...form, branchId: v })}
+                  onChange={(v) => setForm({ ...form, branchId: v, administrationId: '', departmentId: '' })}
                   adapter={branchAdapter}
                   error={validationErrors.branchId}
                   disabled={placementLocked}
@@ -596,8 +596,9 @@ const maintenance = detail.maintenanceCapability || null;
                 <F9Lookup
                   label={t('core.administration')}
                   value={form.administrationId}
-                  onChange={(v) => setForm({ ...form, administrationId: v })}
+                  onChange={(v) => setForm({ ...form, administrationId: v, departmentId: '' })}
                   adapter={administrationAdapter}
+                  filters={form.branchId ? { branchId: form.branchId } : undefined}
                   error={validationErrors.administrationId}
                   disabled={placementLocked}
                 />
@@ -606,6 +607,14 @@ const maintenance = detail.maintenanceCapability || null;
                   value={form.departmentId}
                   onChange={(v) => setForm({ ...form, departmentId: v })}
                   adapter={departmentAdapter}
+                  filters={
+                    form.branchId || form.administrationId
+                      ? {
+                          ...(form.branchId ? { branchId: form.branchId } : {}),
+                          ...(form.administrationId ? { administrationId: form.administrationId } : {}),
+                        }
+                      : undefined
+                  }
                   error={validationErrors.departmentId}
                   disabled={placementLocked}
                 />

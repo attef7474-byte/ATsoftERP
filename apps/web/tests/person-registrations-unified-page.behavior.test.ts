@@ -31,6 +31,7 @@ const compiled = ts.transpileModule(source, {
 
 let capturedOptions: any = null;
 let capturedActions: any[] = [];
+let capturedSetForm: jest.Mock = jest.fn();
 
 interface HarnessOverrides {
   permissions?: string[];
@@ -48,6 +49,7 @@ interface Harness {
   exported: any;
   options: () => any;
   actions: () => any[];
+  setForm: () => jest.Mock;
   render: (component: any, props?: any) => any;
 }
 
@@ -95,13 +97,14 @@ function harness(overrides: HarnessOverrides = {}): Harness {
   };
   const useCrudList = (options: any) => {
     capturedOptions = options;
+    capturedSetForm = jest.fn();
     return {
       data: overrides.data ?? [],
       meta: { page: 1, limit: 10, total: 0, totalPages: 0 },
       loading: false,
       error: '',
       form: overrides.form ?? options.initialForm,
-      setForm: jest.fn(),
+      setForm: capturedSetForm,
       modalOpen: overrides.modalOpen ?? false,
       editItem: overrides.editItem ?? null,
       detailLoading: false,
@@ -149,6 +152,7 @@ function harness(overrides: HarnessOverrides = {}): Harness {
     exported,
     options: () => capturedOptions,
     actions: () => capturedActions,
+    setForm: () => capturedSetForm,
     render: (component: any, props?: any) => {
       const tree = component(props);
       effects.splice(0).forEach((run) => run());
@@ -167,6 +171,9 @@ const checkboxDisabled = (tree: any): boolean[] =>
   elements(tree)
     .filter((n) => n.type === 'input' && n.props?.type === 'checkbox')
     .map((n) => Boolean(n.props.disabled));
+
+const f9ByLabel = (tree: any, label: string): any =>
+  elements(tree).find((n) => n.type === 'F9Lookup' && n.props?.label === label);
 
 const emptyForm = {
   code: '', name: '', category: 'MAINTENANCE', phone: '', email: '', notes: '', isActive: true,
@@ -470,5 +477,84 @@ describe('first-time system access separation', () => {
     const tree = h.render(h.exported.default);
     const section = elements(tree).find(n => n.props?.['data-section'] === 'system-login');
     expect(elements(section).some(n => n.props?.children?.includes('core.systemAccessNotProvisioned'))).toBe(false);
+  });
+});
+
+/**
+ * Placement cascade — the proven root cause of the New Person create 400.
+ *
+ * A real production submit failed with `placement.administrationId /
+ * validation.invalidReference` because the four F9 selectors were independent:
+ * the operator picked Administration ADM-000007 (which owns zero departments) and
+ * Department DEP-000021 (owned by ADM-000008). The server integrity check is
+ * correct; the UI must cascade so an inconsistent (administration, department)
+ * pair cannot be composed. These tests bind to the executed page callbacks.
+ */
+describe('Group 1 unified page — placement F9 cascade', () => {
+  const withPlacement = { ...emptyForm, branchId: 'br1', administrationId: 'adm1', departmentId: 'dep1', jobTitleId: 'job1' };
+
+  it('branch selector is not cascade-filtered (branch list is company-scoped)', () => {
+    const h = harness({ modalOpen: true, form: withPlacement });
+    const tree = h.render(h.exported.default);
+    expect(f9ByLabel(tree, 'core.branch')?.props.filters).toBeUndefined();
+  });
+
+  it('administration selector is filtered by the selected branch', () => {
+    const h = harness({ modalOpen: true, form: withPlacement });
+    const tree = h.render(h.exported.default);
+    expect(f9ByLabel(tree, 'core.administration')?.props.filters).toEqual({ branchId: 'br1' });
+  });
+
+  it('department selector is filtered by BOTH the selected branch and administration', () => {
+    const h = harness({ modalOpen: true, form: withPlacement });
+    const tree = h.render(h.exported.default);
+    expect(f9ByLabel(tree, 'core.department')?.props.filters).toEqual({ branchId: 'br1', administrationId: 'adm1' });
+  });
+
+  it('department selector filters by administration alone when no branch is selected', () => {
+    const h = harness({ modalOpen: true, form: { ...emptyForm, administrationId: 'adm1' } });
+    const tree = h.render(h.exported.default);
+    expect(f9ByLabel(tree, 'core.department')?.props.filters).toEqual({ administrationId: 'adm1' });
+    expect(f9ByLabel(tree, 'core.administration')?.props.filters).toBeUndefined();
+  });
+
+  it('no selector is filtered before any organization is chosen', () => {
+    const h = harness({ modalOpen: true, form: { ...emptyForm } });
+    const tree = h.render(h.exported.default);
+    expect(f9ByLabel(tree, 'core.administration')?.props.filters).toBeUndefined();
+    expect(f9ByLabel(tree, 'core.department')?.props.filters).toBeUndefined();
+  });
+
+  it('job title stays company-scoped (no cascade filter) because it is not department-owned', () => {
+    const h = harness({ modalOpen: true, form: withPlacement });
+    const tree = h.render(h.exported.default);
+    expect(f9ByLabel(tree, 'core.jobTitle')?.props.filters).toBeUndefined();
+  });
+
+  it('changing the branch clears the downstream administration and department (a stale pair cannot survive)', () => {
+    const h = harness({ modalOpen: true, form: withPlacement });
+    const tree = h.render(h.exported.default);
+    f9ByLabel(tree, 'core.branch').props.onChange('br2');
+    expect(h.setForm()).toHaveBeenCalledWith(expect.objectContaining({
+      branchId: 'br2', administrationId: '', departmentId: '',
+    }));
+  });
+
+  it('changing the administration clears the downstream department but keeps the branch', () => {
+    const h = harness({ modalOpen: true, form: withPlacement });
+    const tree = h.render(h.exported.default);
+    f9ByLabel(tree, 'core.administration').props.onChange('adm9');
+    expect(h.setForm()).toHaveBeenCalledWith(expect.objectContaining({
+      branchId: 'br1', administrationId: 'adm9', departmentId: '',
+    }));
+  });
+
+  it('changing the department preserves the upstream branch and administration', () => {
+    const h = harness({ modalOpen: true, form: withPlacement });
+    const tree = h.render(h.exported.default);
+    f9ByLabel(tree, 'core.department').props.onChange('dep9');
+    expect(h.setForm()).toHaveBeenCalledWith(expect.objectContaining({
+      branchId: 'br1', administrationId: 'adm1', departmentId: 'dep9',
+    }));
   });
 });

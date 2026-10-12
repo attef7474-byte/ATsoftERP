@@ -352,6 +352,44 @@ describe('PersonRegistrationsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    // Proven Workstream C defect: the New Person UI composed Administration ADM-000007
+    // (which owns no departments) with Department DEP-000021 (owned by ADM-000008). The
+    // server integrity check is correct and must keep rejecting this exact pair forever.
+    it('rejects a placement whose administration does not own the selected department (proven create defect)', async () => {
+      const tx = makeTx().tx;
+      tx.department.findFirst = jest.fn(async () => ({ id: 'dept-1', branchId: 'branch-1', administrationId: 'admin-owner' }));
+      tx.administration.findFirst = jest.fn(async () => ({ id: 'admin-other', branchId: 'branch-1' }));
+      const { service } = makeService(tx);
+
+      const error: any = await service
+        .create(
+          baseDto({ placement: { departmentId: 'dept-1', branchId: 'branch-1', administrationId: 'admin-other' } }),
+          ctx,
+          actorId,
+        )
+        .catch((e) => e);
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      const body = error.getResponse();
+      expect(body.messageKey).toBe('common.validationFailed');
+      expect(body.errors[0]).toMatchObject({ field: 'placement.administrationId', code: 'validation.invalidReference' });
+    });
+
+    it('accepts a placement whose department is owned by the selected administration', async () => {
+      const tx = makeTx().tx;
+      tx.department.findFirst = jest.fn(async () => ({ id: 'dept-1', branchId: 'branch-1', administrationId: 'admin-1' }));
+      tx.administration.findFirst = jest.fn(async () => ({ id: 'admin-1', branchId: 'branch-1' }));
+      const { service } = makeService(tx);
+
+      await expect(
+        service.create(
+          baseDto({ placement: { departmentId: 'dept-1', branchId: 'branch-1', administrationId: 'admin-1' } }),
+          ctx,
+          actorId,
+        ),
+      ).resolves.toBeDefined();
+    });
+
     it('requires a placement, because an OperationalPerson has no tenant columns of its own', async () => {
       const { tx } = makeTx();
       const { service } = makeService(tx);
