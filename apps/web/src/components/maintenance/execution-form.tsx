@@ -72,10 +72,17 @@ export function ExecutionCreateForm({ initialSourceType = 'WORK_ORDER', initialS
     setSource(null);
     if (!sourceId || sourceType === 'DIRECT') { setSourceLoading(false); return; }
     setSourceLoading(true);
-    const endpoint = sourceType === 'WORK_ORDER' ? '/maintenance-work-orders' : '/maintenance/requests';
-    void api.get(`${endpoint}/${sourceId}`).then((response) => {
-      if (current) setSource(unwrapApiData<MaintenanceRequest | MaintenanceWorkOrder>(response));
-    }).catch((error) => { if (current) handleApiError(error); }).finally(() => { if (current) setSourceLoading(false); });
+    // Two canonical static routes (rather than a computed prefix) keep runtime behavior identical
+    // and let the route-contract checker resolve each branch against its controller endpoint.
+    if (sourceType === 'WORK_ORDER') {
+      void api.get(`/maintenance-work-orders/${sourceId}`).then((response) => {
+        if (current) setSource(unwrapApiData<MaintenanceRequest | MaintenanceWorkOrder>(response));
+      }).catch((error) => { if (current) handleApiError(error); }).finally(() => { if (current) setSourceLoading(false); });
+    } else {
+      void api.get(`/maintenance/requests/${sourceId}`).then((response) => {
+        if (current) setSource(unwrapApiData<MaintenanceRequest | MaintenanceWorkOrder>(response));
+      }).catch((error) => { if (current) handleApiError(error); }).finally(() => { if (current) setSourceLoading(false); });
+    }
     return () => { current = false; };
   }, [sourceType, sourceId]);
 

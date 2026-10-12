@@ -144,7 +144,12 @@ export default function MaintenanceRequestsPage() {
         showToast(t('common.successUpdated'), 'success');
       } else {
         payload.type = form.type;
-        await api.post(form.type === 'EMERGENCY' ? '/maintenance/requests/emergency' : '/maintenance/requests', payload);
+        // Canonical static routes per emergency/standard branch (checker-analyzable, same runtime path).
+        if (form.type === 'EMERGENCY') {
+          await api.post('/maintenance/requests/emergency', payload);
+        } else {
+          await api.post('/maintenance/requests', payload);
+        }
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
