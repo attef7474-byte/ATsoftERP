@@ -135,7 +135,16 @@ export function ExecutionCreateForm({ initialSourceType = 'WORK_ORDER', initialS
         await api.patch(`/maintenance/tasks/${createdId.current}/start`, { participantUserIds, machineStopped });
         onCreated(createdId.current!);
       }
-    } catch (error) { handleApiError(error); }
+    } catch (error) {
+      // The server rejects a second ACTIVE execution for the same source. Rather than
+      // stranding the operator, open the execution that already exists so it can be
+      // started or completed instead of creating a duplicate.
+      const data = (error as { response?: { data?: { messageKey?: string; params?: { executionId?: string } } } })?.response?.data;
+      if (data?.messageKey === 'maintenance.executionActiveExists' && data.params?.executionId) {
+        onCreated(String(data.params.executionId));
+      }
+      handleApiError(error);
+    }
     finally { setSaving(false); }
   };
 

@@ -160,6 +160,7 @@ export default function MaintenanceTasksPage() {
           <div><dt>{t('maintenance.downtimeHours')}</dt><dd>{hours(selected.metrics?.downtimeMinutes)}</dd></div>
         </dl>
         {selected.metrics?.waitingForContinuation && <p role="status" className="rounded bg-amber-50 p-3">{t('maintenance.waitingForContinuation')}</p>}
+        {selected.status === 'PENDING' && <p role="status" className="rounded bg-amber-50 p-3">{t('maintenance.startRequiredForCompletion')}</p>}
         {selected.requestId && <Button variant="secondary" onClick={() => router.push('/admin/maintenance/requests/' + selected.requestId)}>{t('maintenance.maintenanceRequest')}</Button>}
         {selected.workOrderId && <Button variant="secondary" onClick={() => router.push('/admin/maintenance/work-orders/' + selected.workOrderId)}>{t('maintenance.workOrder')}</Button>}
         <h3 className="font-semibold">{t('maintenance.executionSessions')}</h3>

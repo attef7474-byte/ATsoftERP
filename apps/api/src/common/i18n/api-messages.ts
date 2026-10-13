@@ -45,6 +45,7 @@ const messages: Record<string, { ar: string; en: string }> = {
   'maintenance.executionSourceImmutable': { ar: "لا يمكن تغيير سياق العمل بعد تسجيل التنفيذ.", en: "Work context cannot change after execution has been recorded." },
   'maintenance.executionSourceInvalid': { ar: "مصدر الصنف لا يطابق التنفيذ.", en: "The item source does not match the execution." },
   'maintenance.executionSourceNotEligible': { ar: "لم يعد هذا المصدر متاحاً للتنفيذ.", en: "This source is no longer eligible for execution." },
+  'maintenance.executionActiveExists': { ar: "يوجد تنفيذ نشط بالفعل لهذا المصدر (المعرّف {executionId}). افتح التنفيذ النشط لإتمام العمل بدلاً من إنشاء تكرار.", en: "An active execution already exists for this source (id {executionId}). Open the active execution to complete the work instead of creating a duplicate." },
   'maintenance.executionWarehouseLocationMismatch': { ar: "الموقع لا يتبع المخزن المحدد.", en: "The location does not belong to the selected warehouse." },
   'maintenance.executionWarehouseNotFound': { ar: "مستودع الصيانة غير موجود.", en: "Maintenance warehouse not found." },
   'maintenance.executionWarehouseTypeInvalid': { ar: "المخزن المحدد لا يسمح باستهلاك الصيانة.", en: "The selected warehouse does not allow maintenance consumption." },

@@ -17,6 +17,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Internal server error';
     let messageKey: string | undefined;
+    let messageParams: Record<string, unknown> | undefined;
     let fieldErrors: ApiFieldError[] | string[] | undefined;
 
     if (exception instanceof HttpException) {
@@ -25,6 +26,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const resObj = typeof res === 'object' ? res as any : { message: res };
 
       messageKey = resObj.messageKey;
+      if (resObj.params && typeof resObj.params === 'object' && !Array.isArray(resObj.params)) {
+        messageParams = resObj.params as Record<string, unknown>;
+      }
       fieldErrors = resObj.errors;
 
       if (resObj.messageKey && resObj.messageKey !== resObj.message) {
@@ -55,6 +59,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     };
 
     if (messageKey) body.messageKey = messageKey;
+    // Forward structured params so a client can re-localize the message in its own
+    // locale and act on machine-readable values (e.g. the blocking execution id).
+    if (messageParams) body.params = messageParams;
 
     if (Array.isArray(fieldErrors)) {
       body.errors = fieldErrors.map((entry) => {

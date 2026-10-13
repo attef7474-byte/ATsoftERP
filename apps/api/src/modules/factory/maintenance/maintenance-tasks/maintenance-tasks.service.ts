@@ -165,9 +165,34 @@ export class MaintenanceTasksService {
       scopeType: request ? 'MACHINE' : record.scopeType };
   }
 
-  private async createInTx(tx: any, dto: CreateMaintenanceTaskDto, userId: string, ctx: ActiveOperationalContext) {
+  /**
+   * A canonical source (request or work order) may carry at most one ACTIVE
+   * (PENDING or IN_PROGRESS) execution at any moment. DONE and CANCELLED
+   * executions remain as immutable history and never block a new one.
+   *
+   * source() has already taken an UPDLOCK/HOLDLOCK on the source row, so two
+   * concurrent creates/starts serialize on that lock: the loser observes the
+   * winner's committed row and is rejected with the winner's execution id.
+   * DIRECT executions have no canonical source and are therefore exempt.
+   */
+  private async assertNoActiveExecution(tx: any, source: { sourceType: string; requestId?: string | null; workOrderId?: string | null }, ctx: ActiveOperationalContext, excludeTaskId?: string) {
+    if (source.sourceType === 'DIRECT') return;
+    const where: any = {
+      status: { in: ['PENDING', 'IN_PROGRESS'] },
+      ...this.scope(ctx),
+      ...(source.requestId ? { requestId: source.requestId } : { workOrderId: source.workOrderId }),
+    };
+    if (excludeTaskId) where.id = { not: excludeTaskId };
+    const active = await tx.maintenanceTask.findMany({ where, orderBy: { createdAt: 'asc' }, take: 1, select: { id: true } });
+    if (active.length) {
+      throw new ConflictException({ messageKey: 'maintenance.executionActiveExists', message: 'An active execution already exists for this source.', params: { executionId: active[0].id } });
+    }
+  }
+
+  private async createInTx(tx: any, dto: CreateMaintenanceTaskDto, userId: string, ctx: ActiveOperationalContext, enforceSingleActive = true) {
     const sourceType = dto.sourceType ?? (dto.requestId ? 'MAINTENANCE_REQUEST' : dto.workOrderId ? 'WORK_ORDER' : 'DIRECT');
     const source = await this.source(tx, { ...dto, sourceType }, ctx);
+    if (enforceSingleActive) await this.assertNoActiveExecution(tx, { sourceType, requestId: source.requestId, workOrderId: source.workOrderId }, ctx);
     if (sourceType !== 'DIRECT') {
       for (const key of ['scopeType', 'machineId', 'productionLineId', 'machineComponentId', 'costCenterId'] as const) {
         if (dto[key] && dto[key] !== source[key]) throw executionError('maintenance.executionSourceContextMismatch');
@@ -252,6 +277,7 @@ export class MaintenanceTasksService {
       const task = await this.owned(tx, id, ctx, true);
       if (task.status !== 'PENDING') throw executionError('maintenance.onlyPendingCanStart');
       await this.source(tx, task, ctx);
+      await this.assertNoActiveExecution(tx, task, ctx, task.id);
       const at = new Date();
       await this.beginSource(tx, task, userId, ctx, at);
       const participants = dto.participantUserIds?.length ? [...new Set(dto.participantUserIds)] : [task.assignedToId || userId];
@@ -400,7 +426,9 @@ export class MaintenanceTasksService {
       || downtimeAt && (!Number.isFinite(+downtimeAt) || +downtimeAt > +completedAt)
       || !dto.participantUserIds?.length || !dto.workPerformed?.trim()) throw executionError('maintenance.executionInvalidChronology');
     return this.transaction(async tx => {
-      const task = await this.createInTx(tx, dto, userId, ctx);
+      // Registering performed work records completed history, not a competing active
+      // execution: it is exempt from the single-active guard because it commits DONE.
+      const task = await this.createInTx(tx, dto, userId, ctx, false);
       await this.beginSource(tx, task, userId, ctx, startedAt);
       for (const technician of [...new Set(dto.participantUserIds)].sort()) await this.addSession(tx, task, technician, userId, ctx, startedAt, completedAt, dto.workPerformed.trim());
       if (downtimeAt) {

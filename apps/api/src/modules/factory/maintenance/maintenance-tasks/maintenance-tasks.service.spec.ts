@@ -202,3 +202,75 @@ describe('MaintenanceTasksService execution orchestration', () => {
     expect(result).toEqual({ elapsedMinutes: 120, totalLaborMinutes: 180, downtimeMinutes: 120, waitingForContinuation: false });
   });
 });
+
+describe('MaintenanceTasksService single-active-execution invariant', () => {
+  it('D1. rejects a second create while an active execution exists for the request', async () => {
+    const f = fixture({ sourceType: 'MAINTENANCE_REQUEST', requestId: 'r1' });
+    f.tx.maintenanceTask.findMany.mockResolvedValue([{ id: 'existing-active' }]);
+    await expect(f.service.create({ requestId: 'r1' }, actor, ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.executionActiveExists', params: { executionId: 'existing-active' } },
+    });
+    expect(f.tx.maintenanceTask.create).not.toHaveBeenCalled();
+  });
+
+  it('D2. guards only PENDING/IN_PROGRESS siblings within the tenant+source scope', async () => {
+    const f = fixture({ sourceType: 'WORK_ORDER', workOrderId: 'w1' });
+    await f.service.create({ workOrderId: 'w1' }, actor, ctx);
+    const where = f.tx.maintenanceTask.findMany.mock.calls[0][0].where;
+    expect(where.status).toEqual({ in: ['PENDING', 'IN_PROGRESS'] });
+    expect(where.workOrderId).toBe('w1');
+    expect(where.companyId).toBe('c1');
+    expect(where.OR).toEqual([{ branchId: 'b1' }, { branchId: null }]);
+  });
+
+  it('D3. allows a create once every sibling is terminal history', async () => {
+    const f = fixture({ sourceType: 'MAINTENANCE_REQUEST', requestId: 'r1' });
+    f.tx.maintenanceTask.findMany.mockResolvedValue([]);
+    await f.service.create({ requestId: 'r1' }, actor, ctx);
+    expect(f.tx.maintenanceTask.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('D4. DIRECT executions are exempt from the guard', async () => {
+    const f = fixture();
+    await f.service.create({ sourceType: 'DIRECT', scopeType: 'GENERAL', description: 'General repair' }, actor, ctx);
+    expect(f.tx.maintenanceTask.findMany).not.toHaveBeenCalled();
+    expect(f.tx.maintenanceTask.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('D5. start rejects a second active execution of the same source, excluding itself', async () => {
+    const f = fixture({ status: 'PENDING', sourceType: 'WORK_ORDER', workOrderId: 'w1' });
+    f.tx.maintenanceWorkOrder.findFirst.mockResolvedValue({ id: 'w1', status: 'PLANNED', scopeType: 'GENERAL', description: 'Order work' });
+    f.tx.maintenanceTask.findMany.mockResolvedValue([{ id: 'sibling-active' }]);
+    await expect(f.service.start('t1', actor, ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.executionActiveExists', params: { executionId: 'sibling-active' } },
+    });
+    expect(f.tx.maintenanceTask.findMany.mock.calls[0][0].where.id).toEqual({ not: 't1' });
+    expect(f.tx.maintenanceExecutionSession.create).not.toHaveBeenCalled();
+    expect(f.task().status).toBe('PENDING');
+  });
+
+  it('D6. start proceeds when no sibling is active', async () => {
+    const f = fixture({ status: 'PENDING', sourceType: 'WORK_ORDER', workOrderId: 'w1' });
+    f.tx.maintenanceWorkOrder.findFirst.mockResolvedValue({ id: 'w1', status: 'PLANNED', scopeType: 'GENERAL', description: 'Order work' });
+    f.tx.maintenanceTask.findMany.mockResolvedValue([]);
+    await f.service.start('t1', actor, ctx);
+    expect(f.task().status).toBe('IN_PROGRESS');
+  });
+
+  it('D7. the concurrent loser is rejected once the winner committed an active sibling', async () => {
+    const f = fixture({ sourceType: 'MAINTENANCE_REQUEST', requestId: 'r1' });
+    f.tx.maintenanceTask.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 'winner' }]);
+    await f.service.create({ requestId: 'r1' }, actor, ctx);
+    await expect(f.service.create({ requestId: 'r1' }, actor, ctx)).rejects.toMatchObject({
+      response: { messageKey: 'maintenance.executionActiveExists', params: { executionId: 'winner' } },
+    });
+    expect(f.tx.maintenanceTask.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('D8. registering historical performed work is exempt and records DONE history', async () => {
+    const f = fixture();
+    await f.service.registerHistorical({ sourceType: 'DIRECT', scopeType: 'GENERAL', description: 'work', startedAt: '2026-10-01T08:00Z', completedAt: '2026-10-01T09:00Z', participantUserIds: ['u1'], workPerformed: 'done' }, actor, ctx);
+    expect(f.task().status).toBe('DONE');
+    expect(f.tx.maintenanceTask.findMany).not.toHaveBeenCalled();
+  });
+});

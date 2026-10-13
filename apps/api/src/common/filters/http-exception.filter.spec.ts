@@ -224,4 +224,28 @@ describe('AllExceptionsFilter canonical error contract', () => {
     expect(body.message[0]).toBe('السبب مطلوب لهذا التغيير');
     expect(body.message[0]).not.toBe('costCenter.reasonRequired');
   });
+
+  it('forwards structured params and interpolates them into the localized message', () => {
+    const { json } = createHostFor(
+      new BadRequestException({
+        messageKey: 'maintenance.executionActiveExists',
+        message: 'An active execution already exists for this source.',
+        params: { executionId: 'exec-123' },
+      }),
+      'en',
+    );
+    const body = json.mock.calls[0][0];
+    expect(body.messageKey).toBe('maintenance.executionActiveExists');
+    expect(body.params).toEqual({ executionId: 'exec-123' });
+    expect(body.message[0]).toContain('exec-123');
+    expect(body.message[0]).not.toContain('{executionId}');
+  });
+
+  it('omits params when the exception carries none', () => {
+    const { json } = createHostFor(
+      new UnauthorizedException({ messageKey: 'auth.invalidCredentials', message: 'Invalid credentials' }),
+      'en',
+    );
+    expect(json.mock.calls[0][0].params).toBeUndefined();
+  });
 });
