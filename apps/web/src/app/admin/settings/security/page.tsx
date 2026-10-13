@@ -54,7 +54,7 @@ export default function SecuritySettingsPage() {
   const { exec } = useStableHandlers({ save: () => handleSave(), back: () => router.back() });
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
-    { id: 'save', labelKey: 'common.save', icon: <ActionSaveIcon />, onClick: () => exec('save') },
+    { id: 'save', labelKey: 'common.save', icon: <ActionSaveIcon />, permission: 'settings.security.manage', onClick: () => exec('save') },
   ]);
 
   if (loading) return <LoadingState message={t('settings.security.loading')} />;

@@ -57,13 +57,13 @@ export default function MaintenanceRequestsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new'), visible: can('maintenance-request:create') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'maintenance-request:create', onClick: () => exec('new'), visible: can('maintenance-request:create') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'maintenance-request:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'start', labelKey: 'common.start', icon: <ActionStartIcon />, onClick: () => exec('start'), enabled: !!(selectedId && selectedRecord?.status === 'OPEN') },
-    { id: 'complete', labelKey: 'maintenance.executeCompleteWork', icon: <ActionCompleteIcon />, onClick: () => exec('complete'),  enabled: !!(selectedId && selectedRecord?.status === 'IN_PROGRESS') },
-    { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(selectedId && (selectedRecord?.status === 'OPEN' || selectedRecord?.status === 'IN_PROGRESS')) },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger' as const, onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'start', labelKey: 'common.start', icon: <ActionStartIcon />, permission: 'maintenance-request:start', onClick: () => exec('start'), enabled: !!(selectedId && selectedRecord?.status === 'OPEN') },
+    { id: 'complete', labelKey: 'maintenance.executeCompleteWork', icon: <ActionCompleteIcon />, permission: 'maintenance-request:complete', onClick: () => exec('complete'),  enabled: !!(selectedId && selectedRecord?.status === 'IN_PROGRESS') },
+    { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, permission: 'maintenance-request:cancel', onClick: () => exec('cancel'), enabled: !!(selectedId && (selectedRecord?.status === 'OPEN' || selectedRecord?.status === 'IN_PROGRESS')) },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger' as const, permission: 'maintenance-request:delete', onClick: () => exec('delete'), enabled: !!selectedId },
   ].filter(item => item.id === 'new' ? can('maintenance-request:create') : item.id === 'complete' ? can('maintenance-task:create') : true));
 
   const fetchData = useCallback(async (page = 1) => {
@@ -234,11 +234,11 @@ export default function MaintenanceRequestsPage() {
 
   const gridActions: GridAction<MaintenanceRequest>[] = [
     { label: t('details.viewDetails'), onClick: (r: MaintenanceRequest) => router.push(`/admin/maintenance/requests/${r.id}`) },
-    { label: t('maintenance.start'), onClick: (r: MaintenanceRequest) => confirmAction(r.id, 'start'), enabled: (r: MaintenanceRequest) => r.status === 'OPEN' },
+    { label: t('maintenance.start'), permission: 'maintenance-request:start', onClick: (r: MaintenanceRequest) => confirmAction(r.id, 'start'), enabled: (r: MaintenanceRequest) => r.status === 'OPEN' },
     { label: t('maintenance.executeCompleteWork'), onClick: (r: MaintenanceRequest) => router.push(`/admin/maintenance/tasks?sourceType=MAINTENANCE_REQUEST&requestId=${r.id}`), enabled: (r: MaintenanceRequest) => r.status === 'IN_PROGRESS' },
-    { label: t('maintenance.cancel'), onClick: (r: MaintenanceRequest) => confirmAction(r.id, 'cancel'), enabled: (r: MaintenanceRequest) => r.status === 'OPEN' || r.status === 'IN_PROGRESS', variant: 'danger' },
-    { label: t('actions.edit'), onClick: (r: MaintenanceRequest) => openEdit(r.id) },
-    { label: t('common.delete'), onClick: (r: MaintenanceRequest) => confirmDelete(r.id), variant: 'danger' },
+    { label: t('maintenance.cancel'), permission: 'maintenance-request:cancel', onClick: (r: MaintenanceRequest) => confirmAction(r.id, 'cancel'), enabled: (r: MaintenanceRequest) => r.status === 'OPEN' || r.status === 'IN_PROGRESS', variant: 'danger' },
+    { label: t('actions.edit'), permission: 'maintenance-request:update', onClick: (r: MaintenanceRequest) => openEdit(r.id) },
+    { label: t('common.delete'), permission: 'maintenance-request:delete', onClick: (r: MaintenanceRequest) => confirmDelete(r.id), variant: 'danger' },
   ];
 
   return (

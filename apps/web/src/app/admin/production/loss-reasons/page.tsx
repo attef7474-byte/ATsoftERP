@@ -80,12 +80,12 @@ export default function ProductionLossReasonsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'production-loss-reason:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'production-loss-reason:update', onClick: () => exec('edit'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'production-loss-reason:activate', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'production-loss-reason:deactivate', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'production-loss-reason:delete', onClick: () => exec('delete'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -208,10 +208,10 @@ export default function ProductionLossReasonsPage() {
   ];
 
   const gridActions: GridAction<OperationalLossReason>[] = [
-    { label: t('actions.edit'), onClick: (r) => openEdit(r.id), enabled: (r) => r.status === 'DRAFT' },
-    { label: t('actions.activate'), onClick: (r) => { setSelectedId(r.id); setStatusAction('activate'); setConfirmStatusOpen(true); }, enabled: (r) => r.status !== 'ACTIVE' },
-    { label: t('actions.deactivate'), onClick: (r) => { setSelectedId(r.id); setStatusAction('deactivate'); setConfirmStatusOpen(true); }, enabled: (r) => r.status === 'ACTIVE', variant: 'danger' },
-    { label: t('common.delete'), onClick: (r) => { setSelectedId(r.id); setConfirmDeleteOpen(true); }, enabled: (r) => r.status === 'DRAFT', variant: 'danger' },
+    { label: t('actions.edit'), permission: 'production-loss-reason:update', onClick: (r) => openEdit(r.id), enabled: (r) => r.status === 'DRAFT' },
+    { label: t('actions.activate'), permission: 'production-loss-reason:activate', onClick: (r) => { setSelectedId(r.id); setStatusAction('activate'); setConfirmStatusOpen(true); }, enabled: (r) => r.status !== 'ACTIVE' },
+    { label: t('actions.deactivate'), permission: 'production-loss-reason:deactivate', onClick: (r) => { setSelectedId(r.id); setStatusAction('deactivate'); setConfirmStatusOpen(true); }, enabled: (r) => r.status === 'ACTIVE', variant: 'danger' },
+    { label: t('common.delete'), permission: 'production-loss-reason:delete', onClick: (r) => { setSelectedId(r.id); setConfirmDeleteOpen(true); }, enabled: (r) => r.status === 'DRAFT', variant: 'danger' },
   ];
 
   return (

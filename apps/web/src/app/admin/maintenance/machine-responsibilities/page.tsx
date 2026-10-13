@@ -142,10 +142,10 @@ export default function MachineResponsibilitiesPage() {
 
   const { exec } = useStableHandlers({ add: () => openNew(), edit: () => selectedRecord && openEdit(selectedRecord.id), refresh: () => fetchData(meta.page), delete: () => setConfirmDeleteOpen(true) });
   useRegisterAdminActions(useMemo(() => [
-    { id: 'add', labelKey: 'actions.add', icon: React.createElement(ActionAddIcon), onClick: () => exec('add') },
-    { id: 'edit', labelKey: 'common.edit', icon: React.createElement(ActionEditIcon), onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'add', labelKey: 'actions.add', icon: React.createElement(ActionAddIcon), permission: 'machine-responsibility:create', onClick: () => exec('add') },
+    { id: 'edit', labelKey: 'common.edit', icon: React.createElement(ActionEditIcon), permission: 'machine-responsibility:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: React.createElement(ActionRefreshIcon), onClick: () => exec('refresh') },
-    { id: 'delete', labelKey: 'common.delete', icon: React.createElement(ActionDeleteIcon), variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'delete', labelKey: 'common.delete', icon: React.createElement(ActionDeleteIcon), variant: 'danger', permission: 'machine-responsibility:delete', onClick: () => exec('delete'), enabled: !!selectedId },
   ], [exec, selectedId]));
 
   const columns: GridColumn<MachineResp>[] = [
@@ -180,9 +180,9 @@ export default function MachineResponsibilitiesPage() {
   ];
 
   const gridActions: GridAction<MachineResp>[] = [
-    { label: t('actions.edit'), onClick: (s) => openEdit(s.id) },
-    { label: t('common.delete'), onClick: (s) => { setSelectedId(s.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
-    { label: t('actions.deactivate'), onClick: (s) => setConfirmAction({ id: s.id }), enabled: (s) => s.status === 'ACTIVE' },
+    { label: t('actions.edit'), permission: 'machine-responsibility:update', onClick: (s) => openEdit(s.id) },
+    { label: t('common.delete'), permission: 'machine-responsibility:delete', onClick: (s) => { setSelectedId(s.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
+    { label: t('actions.deactivate'), permission: 'machine-responsibility:update', onClick: (s) => setConfirmAction({ id: s.id }), enabled: (s) => s.status === 'ACTIVE' },
   ];
 
   return (

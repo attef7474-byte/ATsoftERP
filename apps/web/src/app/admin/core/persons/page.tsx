@@ -390,8 +390,8 @@ const maintenance = detail.maintenanceCapability || null;
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new'), enabled: canCreatePersonnel },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId && canUpdatePersonnel },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'operational-person:create', onClick: () => exec('new'), enabled: canCreatePersonnel },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'operational-person:update', onClick: () => exec('edit'), enabled: !!selectedId && canUpdatePersonnel },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 
@@ -453,7 +453,7 @@ const maintenance = detail.maintenanceCapability || null;
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
       ),
-      onClick: (d) => openEdit(d),
+      permission: 'operational-person:update', onClick: (d) => openEdit(d),
       enabled: () => canUpdatePersonnel,
     },
   ];

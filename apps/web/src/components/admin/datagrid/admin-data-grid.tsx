@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../../../lib/i18n/use-translation';
+import { useOptionalAuth } from '../../../lib/auth-context';
+import { isPermissionGranted } from '../../../lib/permission-gate';
 import { ActionsFilterCell, FilterCell } from './filters';
 import { ActionsHeader } from './actions-menu';
 import { BodyRow } from './body-row';
@@ -38,6 +40,13 @@ export function AdminDataGrid<T>({
   refreshLoading,
 }: AdminDataGridProps<T>) {
   const { t } = useTranslation();
+  const auth = useOptionalAuth();
+  const grantedPermissions = auth?.permissions?.permissions ?? null;
+  const isSuperAdmin = auth?.isSuperAdmin ?? false;
+  const visibleActions = useMemo(
+    () => (actions ?? []).filter((action) => isPermissionGranted(action.permission, grantedPermissions, isSuperAdmin)),
+    [actions, grantedPermissions, isSuperAdmin],
+  );
   const rows = Array.isArray(data) ? data : [];
   const [openMenuRow, setOpenMenuRow] = useState<string | null>(null);
   const activeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -87,7 +96,7 @@ export function AdminDataGrid<T>({
 
   const hasActiveFilters = !!filters && Object.values(filters).some((value) => value !== '');
   const hasFilterableColumns = columns.some((column) => column.filterable);
-  const hasActions = !!actions?.length;
+  const hasActions = visibleActions.length > 0;
 
   if (error) {
     return <DataGridErrorState error={error} onRetry={onRetry} />;
@@ -165,7 +174,7 @@ export function AdminDataGrid<T>({
                   rowIndex={rowIndex}
                   rowKey={rowKey}
                   columns={columns}
-                  actions={actions}
+                  actions={visibleActions}
                   onRowClick={onRowClick}
                   selectedKey={selectedKey}
                   isRtl={isRtl}

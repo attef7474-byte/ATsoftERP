@@ -59,13 +59,13 @@ export default function ProductionShiftCalendarsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'production-shift-calendar:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'production-shift-calendar:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'view', labelKey: 'production.resolve', icon: <ActionViewIcon />, onClick: () => exec('view'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'production-shift-calendar:update', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'production-shift-calendar:update', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'production-shift-calendar:delete', onClick: () => exec('delete'), enabled: !!selectedId },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -217,11 +217,11 @@ export default function ProductionShiftCalendarsPage() {
   ];
 
   const gridActions: GridAction<ProductionShiftCalendar>[] = [
-    { label: t('actions.edit'), onClick: (c: ProductionShiftCalendar) => openEdit(c.id) },
+    { label: t('actions.edit'), permission: 'production-shift-calendar:update', onClick: (c: ProductionShiftCalendar) => openEdit(c.id) },
     { label: t('production.resolve'), onClick: (c: ProductionShiftCalendar) => openResolve(c.id) },
-    { label: t('common.delete'), onClick: (c: ProductionShiftCalendar) => { setSelectedId(c.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
-    { label: t('actions.deactivate'), onClick: (c: ProductionShiftCalendar) => confirmStatus(c.id), enabled: (c: ProductionShiftCalendar) => c.status === 'ACTIVE', variant: 'danger' },
-    { label: t('actions.activate'), onClick: (c: ProductionShiftCalendar) => confirmStatus(c.id), enabled: (c: ProductionShiftCalendar) => c.status !== 'ACTIVE' },
+    { label: t('common.delete'), permission: 'production-shift-calendar:delete', onClick: (c: ProductionShiftCalendar) => { setSelectedId(c.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
+    { label: t('actions.deactivate'), permission: 'production-shift-calendar:update', onClick: (c: ProductionShiftCalendar) => confirmStatus(c.id), enabled: (c: ProductionShiftCalendar) => c.status === 'ACTIVE', variant: 'danger' },
+    { label: t('actions.activate'), permission: 'production-shift-calendar:update', onClick: (c: ProductionShiftCalendar) => confirmStatus(c.id), enabled: (c: ProductionShiftCalendar) => c.status !== 'ACTIVE' },
   ];
 
   return (

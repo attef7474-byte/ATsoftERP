@@ -68,7 +68,7 @@ export default function MachinePartDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!data },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'machine-part:update', onClick: () => exec('edit'), enabled: !!data },
   ]);
 
   if (loading) return <LoadingState />;

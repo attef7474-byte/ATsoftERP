@@ -58,7 +58,7 @@ export default function MachineManufacturerPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, onClick: () => exec('save'), enabled: !saving },
+    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, permission: 'machine:update', onClick: () => exec('save'), enabled: !saving },
   ]);
 
   if (loading) return <LoadingState />;

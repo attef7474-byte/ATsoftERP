@@ -44,12 +44,12 @@ const { exec } = useStableHandlers({
 });
 
 useRegisterAdminActions([
-  { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-  { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
-  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+  { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'maintenance-schedule:create', onClick: () => exec('new') },
+  { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'maintenance-schedule:update', onClick: () => exec('edit'), enabled: !!selectedId },
+  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'maintenance-schedule:delete', onClick: () => exec('delete'), enabled: !!selectedId },
   { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-  { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-  { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+  { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'maintenance-schedule:activate', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
+  { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'maintenance-schedule:deactivate', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
 ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -163,10 +163,10 @@ useRegisterAdminActions([
   ];
 
   const gridActions: GridAction<MaintenanceSchedule>[] = [
-    { label: t('actions.edit'), onClick: (s: MaintenanceSchedule) => openEdit(s.id) },
-    { label: t('actions.delete'), onClick: (s: MaintenanceSchedule) => { setSelectedId(s.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
-    { label: t('actions.deactivate'), onClick: (s: MaintenanceSchedule) => confirmStatus(s.id), enabled: (s: MaintenanceSchedule) => s.status === 'ACTIVE', variant: 'danger' },
-    { label: t('actions.activate'), onClick: (s: MaintenanceSchedule) => confirmStatus(s.id), enabled: (s: MaintenanceSchedule) => s.status !== 'ACTIVE' },
+    { label: t('actions.edit'), permission: 'maintenance-schedule:update', onClick: (s: MaintenanceSchedule) => openEdit(s.id) },
+    { label: t('actions.delete'), permission: 'maintenance-schedule:delete', onClick: (s: MaintenanceSchedule) => { setSelectedId(s.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
+    { label: t('actions.deactivate'), permission: 'maintenance-schedule:deactivate', onClick: (s: MaintenanceSchedule) => confirmStatus(s.id), enabled: (s: MaintenanceSchedule) => s.status === 'ACTIVE', variant: 'danger' },
+    { label: t('actions.activate'), permission: 'maintenance-schedule:activate', onClick: (s: MaintenanceSchedule) => confirmStatus(s.id), enabled: (s: MaintenanceSchedule) => s.status !== 'ACTIVE' },
     { label: t('maintenanceWorkflow.scheduleChecklist'), onClick: (s: MaintenanceSchedule) => window.location.href = `/admin/maintenance/schedules/${s.id}/checklist` },
   ];
 

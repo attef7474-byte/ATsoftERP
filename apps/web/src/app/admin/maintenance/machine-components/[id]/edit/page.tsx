@@ -129,7 +129,7 @@ export default function EditMachineComponentPage() {
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
-    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, onClick: () => exec('save'), enabled: !saving && !isReadOnly },
+    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, permission: 'machine-component:update', onClick: () => exec('save'), enabled: !saving && !isReadOnly },
     { id: 'cancel', labelKey: 'actions.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel') },
   ]);
 

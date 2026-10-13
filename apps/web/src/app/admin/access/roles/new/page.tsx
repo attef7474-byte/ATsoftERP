@@ -64,7 +64,7 @@ export default function CreateRolePage() {
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'actions.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
-    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, onClick: () => exec('save'), enabled: !saving },
+    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, permission: 'roles:create', onClick: () => exec('save'), enabled: !saving },
     { id: 'cancel', labelKey: 'actions.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel') },
   ]);
 

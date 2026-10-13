@@ -104,8 +104,8 @@ export default function EditMachinePartPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, onClick: () => exec('save'), enabled: !saving },
-    { id: 'saveAndView', labelKey: 'complexForms.saveAndView', icon: <ActionViewIcon />, onClick: () => exec('saveAndView'), enabled: !saving },
+    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, permission: 'machine-part:update', onClick: () => exec('save'), enabled: !saving },
+    { id: 'saveAndView', labelKey: 'complexForms.saveAndView', icon: <ActionViewIcon />, permission: 'machine-part:update', onClick: () => exec('saveAndView'), enabled: !saving },
     { id: 'cancel', labelKey: 'actions.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel') },
   ]);
 

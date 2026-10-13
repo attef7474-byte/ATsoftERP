@@ -80,7 +80,7 @@ export default function EditRolePage() {
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'actions.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
-    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, onClick: () => exec('save'), enabled: !(saving || isSystem) },
+    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, permission: 'roles:update', onClick: () => exec('save'), enabled: !(saving || isSystem) },
     { id: 'cancel', labelKey: 'actions.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel') },
   ]);
 

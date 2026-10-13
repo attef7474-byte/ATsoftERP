@@ -6,6 +6,11 @@ export interface GridAction<T> {
   onClick: (item: T) => void;
   enabled?: boolean | ((item: T) => boolean);
   variant?: 'default' | 'danger';
+  /**
+   * Permission the action's API call requires. When set, the action (and the row action
+   * menu if it becomes empty) is hidden from any principal that does not hold it.
+   */
+  permission?: string;
 }
 
 export interface GridColumn<T> {

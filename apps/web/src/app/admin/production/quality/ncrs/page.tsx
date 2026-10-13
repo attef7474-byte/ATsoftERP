@@ -114,7 +114,7 @@ export default function ProductionNcrsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'production-ncr:create', onClick: () => exec('new') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 
@@ -287,7 +287,7 @@ export default function ProductionNcrsPage() {
 
   const gridActions: GridAction<ProductionNcr>[] = [
     { label: t('actions.view'), onClick: (r) => openDetail(r.id) },
-    { label: t('production.ncrs.transition'), onClick: (r) => openDetail(r.id).then(() => setDetailTab('transitions')), enabled: (r) => transitionOptionsFor(r.status).length > 0 },
+    { label: t('production.ncrs.transition'), permission: 'production-ncr:transition', onClick: (r) => openDetail(r.id).then(() => setDetailTab('transitions')), enabled: (r) => transitionOptionsFor(r.status).length > 0 },
   ];
 
   const options = detail ? transitionOptionsFor(detail.status) : [];

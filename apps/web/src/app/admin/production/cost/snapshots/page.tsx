@@ -85,12 +85,12 @@ export default function ProductionCostSnapshotsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'production-cost-snapshot:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'production-cost-snapshot:update', onClick: () => exec('edit'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'freeze', labelKey: 'production.costSnapshots.freeze', icon: <ActionEditIcon />, onClick: () => exec('freeze'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
-    { id: 'supersede', labelKey: 'production.costSnapshots.supersede', icon: <ActionEditIcon />, onClick: () => exec('supersede'), enabled: !!(selectedId && selectedRecord?.status === 'FROZEN') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'freeze', labelKey: 'production.costSnapshots.freeze', icon: <ActionEditIcon />, permission: 'production-cost-snapshot:freeze', onClick: () => exec('freeze'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'supersede', labelKey: 'production.costSnapshots.supersede', icon: <ActionEditIcon />, permission: 'production-cost-snapshot:supersede', onClick: () => exec('supersede'), enabled: !!(selectedId && selectedRecord?.status === 'FROZEN') },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'production-cost-snapshot:create', onClick: () => exec('delete'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -227,10 +227,10 @@ export default function ProductionCostSnapshotsPage() {
   ];
 
   const gridActions: GridAction<ProductionCostSnapshot>[] = [
-    { label: t('actions.edit'), onClick: (r) => openEdit(r.id), enabled: (r) => r.status === 'DRAFT' },
-    { label: t('production.costSnapshots.freeze'), onClick: (r) => { setSelectedId(r.id); setConfirmFreezeOpen(true); }, enabled: (r) => r.status === 'DRAFT' },
-    { label: t('production.costSnapshots.supersede'), onClick: (r) => { setSelectedId(r.id); setConfirmSupersedeOpen(true); }, enabled: (r) => r.status === 'FROZEN' },
-    { label: t('common.delete'), onClick: (r) => { setSelectedId(r.id); setConfirmDeleteOpen(true); }, enabled: (r) => r.status === 'DRAFT', variant: 'danger' },
+    { label: t('actions.edit'), permission: 'production-cost-snapshot:update', onClick: (r) => openEdit(r.id), enabled: (r) => r.status === 'DRAFT' },
+    { label: t('production.costSnapshots.freeze'), permission: 'production-cost-snapshot:freeze', onClick: (r) => { setSelectedId(r.id); setConfirmFreezeOpen(true); }, enabled: (r) => r.status === 'DRAFT' },
+    { label: t('production.costSnapshots.supersede'), permission: 'production-cost-snapshot:supersede', onClick: (r) => { setSelectedId(r.id); setConfirmSupersedeOpen(true); }, enabled: (r) => r.status === 'FROZEN' },
+    { label: t('common.delete'), permission: 'production-cost-snapshot:create', onClick: (r) => { setSelectedId(r.id); setConfirmDeleteOpen(true); }, enabled: (r) => r.status === 'DRAFT', variant: 'danger' },
   ];
 
   return (

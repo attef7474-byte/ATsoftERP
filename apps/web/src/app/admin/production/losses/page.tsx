@@ -79,7 +79,7 @@ export default function ProductionLossesPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'production.losses.recordLoss', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'new', labelKey: 'production.losses.recordLoss', icon: <ActionAddIcon />, permission: 'production-loss:record', onClick: () => exec('new') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 
@@ -186,7 +186,7 @@ export default function ProductionLossesPage() {
   const gridActions: GridAction<ProductionLossQuantityEvent>[] = [
     {
       label: t('production.losses.correctEvent'),
-      onClick: (e) => { setSelectedId(e.id); resetForm({ quantity: String(e.quantity), reasonId: e.reasonId || '', occurredAt: new Date().toISOString().slice(0, 16), notes: e.notes || '' }); setAction('correct'); },
+      permission: 'production-loss:correct', onClick: (e) => { setSelectedId(e.id); resetForm({ quantity: String(e.quantity), reasonId: e.reasonId || '', occurredAt: new Date().toISOString().slice(0, 16), notes: e.notes || '' }); setAction('correct'); },
       enabled: (e) => !e.correctsEvent,
     },
   ];

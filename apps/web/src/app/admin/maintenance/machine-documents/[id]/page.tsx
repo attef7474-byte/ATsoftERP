@@ -64,9 +64,9 @@ export default function MachineDocumentDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!data },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'machine-document:update', onClick: () => exec('edit'), enabled: !!data },
     { id: 'view', labelKey: 'common.view', icon: <ActionViewIcon />, onClick: () => exec('view'), enabled: !!data },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!data, variant: 'danger' },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, permission: 'machine-document:deactivate', onClick: () => exec('delete'), enabled: !!data, variant: 'danger' },
   ]);
 
   if (loading) return <LoadingState />;

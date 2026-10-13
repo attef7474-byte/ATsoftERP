@@ -49,8 +49,10 @@ describe('navigation permission filtering', () => {
 
     expect(declared.length).toBeGreaterThan(0);
     for (const permission of declared) {
-      // Seeded keys look like `spare-part:read` and `reports.operations:read`.
-      expect(permission).toMatch(/^[a-z0-9.-]+:[a-z0-9-]+$/);
+      // Seeded keys use `namespace:verb` (e.g. `spare-part:read`, `productionLines:read`)
+      // and some established keys use dotted segments (e.g.
+      // `maintenance.dashboard.accountabilityKpis.view`). Both are valid; a wildcard is not.
+      expect(permission).toMatch(/^[A-Za-z][A-Za-z0-9._-]*[.:][A-Za-z0-9._:-]+$/);
       // A wildcard can never satisfy the guard's exact Set.has comparison, so it must
       // not be used as a menu hint.
       expect(permission).not.toContain('*');
@@ -72,8 +74,13 @@ describe('navigation permission filtering', () => {
     expect(filterSidebarGroups(groups, [], true)).toHaveLength(1);
   });
 
-  it('an unresolved permission payload renders the full menu instead of hiding everything', () => {
+  it('an unresolved permission payload hides protected entries instead of flashing them', () => {
     const groups = [group({ route: '/x', permission: 'x:read' })];
+    expect(filterSidebarGroups(groups, null, false)).toHaveLength(0);
+  });
+
+  it('an entry with no declared permission stays visible while permissions load', () => {
+    const groups = [group({ route: '/x' })];
     expect(filterSidebarGroups(groups, null, false)).toHaveLength(1);
   });
 

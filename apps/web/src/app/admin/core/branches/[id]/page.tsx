@@ -180,9 +180,9 @@ export default function BranchDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!branch },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(branch && branch.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(branch && branch.status === 'ACTIVE') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'branches:update', onClick: () => exec('edit'), enabled: !!branch },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'branches:update', onClick: () => exec('activate'), enabled: !!(branch && branch.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'branches:update', onClick: () => exec('deactivate'), enabled: !!(branch && branch.status === 'ACTIVE') },
   ]);
 
   if (loading) return <LoadingState />;

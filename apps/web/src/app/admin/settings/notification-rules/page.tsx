@@ -130,10 +130,10 @@ export default function NotificationRulesPage() {
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
-    { id: 'add', labelKey: 'common.newItem', icon: <ActionAddIcon />, onClick: () => exec('add') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.enabled === false) },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.enabled === true) },
+    { id: 'add', labelKey: 'common.newItem', icon: <ActionAddIcon />, permission: 'settings.notifications.manage', onClick: () => exec('add') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'settings.notifications.manage', onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'settings.notifications.manage', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.enabled === false) },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'settings.notifications.manage', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.enabled === true) },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 
@@ -155,10 +155,10 @@ export default function NotificationRulesPage() {
   ];
 
   const gridActions: GridAction<any>[] = [
-    { label: t('common.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (item: any) => openEdit(item) },
-    { label: t('common.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (item: any) => { setSelectedId(item.id); void handleActivate(item.id); }, enabled: (item: any) => item.enabled === false },
-    { label: t('common.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, onClick: (item: any) => { setSelectedId(item.id); void handleDeactivate(item.id); }, enabled: (item: any) => item.enabled === true },
-    { label: t('common.delete'), variant: 'danger', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>, onClick: (item: any) => setConfirmDelete(item) },
+    { label: t('common.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, permission: 'settings.notifications.manage', onClick: (item: any) => openEdit(item) },
+    { label: t('common.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, permission: 'settings.notifications.manage', onClick: (item: any) => { setSelectedId(item.id); void handleActivate(item.id); }, enabled: (item: any) => item.enabled === false },
+    { label: t('common.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, permission: 'settings.notifications.manage', onClick: (item: any) => { setSelectedId(item.id); void handleDeactivate(item.id); }, enabled: (item: any) => item.enabled === true },
+    { label: t('common.delete'), variant: 'danger', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>, permission: 'settings.notifications.manage', onClick: (item: any) => setConfirmDelete(item) },
   ];
 
   return (

@@ -94,11 +94,11 @@ export default function DowntimeLogDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!data },
-    { id: 'end', labelKey: 'maintenance.endDowntime', icon: <ActionCompleteIcon />, onClick: () => exec('end'), enabled: !!(data && !data.endTime && data.status !== 'CANCELLED') },
-    { id: 'close', labelKey: 'maintenance.close', icon: <ActionStartIcon />, onClick: () => exec('close'), enabled: !!(data && data.endTime && data.status !== 'CLOSED' && data.status !== 'CANCELLED') },
-    { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(data && !data.endTime && data.status !== 'CANCELLED'), variant: 'danger' },
-    { id: 'classify', labelKey: 'maintenance.classify', icon: <ActionEditIcon />, onClick: () => exec('classify'), enabled: !!(data && data.endTime && data.status !== 'CANCELLED') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'downtime-log:update', onClick: () => exec('edit'), enabled: !!data },
+    { id: 'end', labelKey: 'maintenance.endDowntime', icon: <ActionCompleteIcon />, permission: 'downtime-log:end', onClick: () => exec('end'), enabled: !!(data && !data.endTime && data.status !== 'CANCELLED') },
+    { id: 'close', labelKey: 'maintenance.close', icon: <ActionStartIcon />, permission: 'downtime-log:close', onClick: () => exec('close'), enabled: !!(data && data.endTime && data.status !== 'CLOSED' && data.status !== 'CANCELLED') },
+    { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, permission: 'downtime-log:cancel', onClick: () => exec('cancel'), enabled: !!(data && !data.endTime && data.status !== 'CANCELLED'), variant: 'danger' },
+    { id: 'classify', labelKey: 'maintenance.classify', icon: <ActionEditIcon />, permission: 'downtime-log:classify', onClick: () => exec('classify'), enabled: !!(data && data.endTime && data.status !== 'CANCELLED') },
   ]);
 
   const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';

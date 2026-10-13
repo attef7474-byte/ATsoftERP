@@ -67,7 +67,7 @@ export default function CountApprovePage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'complete', labelKey: 'inventoryCountWorkflow.approve', icon: <ActionCompleteIcon />, onClick: () => exec('complete'), enabled: canComplete },
+    { id: 'complete', labelKey: 'inventoryCountWorkflow.approve', icon: <ActionCompleteIcon />, permission: 'inventory-count:complete', onClick: () => exec('complete'), enabled: canComplete },
   ]);
 
   if (loading) return <LoadingState />;

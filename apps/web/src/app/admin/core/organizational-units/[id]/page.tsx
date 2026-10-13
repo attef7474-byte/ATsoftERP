@@ -86,9 +86,9 @@ export default function OrganizationalUnitDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!data },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(data && data.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(data && data.status === 'ACTIVE') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'organizational-unit:update', onClick: () => exec('edit'), enabled: !!data },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'organizational-unit:update', onClick: () => exec('activate'), enabled: !!(data && data.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'organizational-unit:update', onClick: () => exec('deactivate'), enabled: !!(data && data.status === 'ACTIVE') },
   ]);
 
   const handleSave = async () => {

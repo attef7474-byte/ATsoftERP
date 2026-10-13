@@ -178,9 +178,9 @@ export default function CompanyDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!company },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(company && company.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(company && company.status === 'ACTIVE') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'companies:update', onClick: () => exec('edit'), enabled: !!company },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'companies:update', onClick: () => exec('activate'), enabled: !!(company && company.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'companies:update', onClick: () => exec('deactivate'), enabled: !!(company && company.status === 'ACTIVE') },
   ]);
 
   if (loading) return <LoadingState />;

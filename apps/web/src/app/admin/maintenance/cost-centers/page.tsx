@@ -131,14 +131,14 @@ export default function CostCentersPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new'), enabled: can('create') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!(selectedId && can('update')) },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'operational-cost-center:create', onClick: () => exec('new'), enabled: can('create') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'operational-cost-center:update', onClick: () => exec('edit'), enabled: !!(selectedId && can('update')) },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'assign', labelKey: 'maintenance.assignments', icon: <ActionActivateIcon />, onClick: () => exec('assign'), enabled: can('assign') },
+    { id: 'assign', labelKey: 'maintenance.assignments', icon: <ActionActivateIcon />, permission: 'operational-cost-center:assign', onClick: () => exec('assign'), enabled: can('assign') },
     { id: 'resolve', labelKey: 'maintenance.resolveCostCenter', icon: <ActionViewIcon />, onClick: () => exec('resolve'), enabled: can('read') },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE' && can('activate')) },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE' && can('deactivate')) },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!(selectedId && can('delete')) },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'operational-cost-center:activate', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE' && can('activate')) },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'operational-cost-center:deactivate', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE' && can('deactivate')) },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'operational-cost-center:delete', onClick: () => exec('delete'), enabled: !!(selectedId && can('delete')) },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -405,10 +405,10 @@ export default function CostCentersPage() {
   ];
 
   const gridActions: GridAction<CostCenter>[] = [
-    { label: t('actions.edit'), onClick: (p: CostCenter) => openEdit(p.id), enabled: (p: CostCenter) => can('update') },
-    { label: t('common.delete'), onClick: (p: CostCenter) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, variant: 'danger', enabled: (p: CostCenter) => can('delete') },
-    { label: t('actions.deactivate'), onClick: (p: CostCenter) => confirmStatus(p.id), enabled: (p: CostCenter) => p.status === 'ACTIVE' && can('deactivate'), variant: 'danger' },
-    { label: t('actions.activate'), onClick: (p: CostCenter) => confirmStatus(p.id), enabled: (p: CostCenter) => p.status !== 'ACTIVE' && can('activate') },
+    { label: t('actions.edit'), permission: 'operational-cost-center:update', onClick: (p: CostCenter) => openEdit(p.id), enabled: (p: CostCenter) => can('update') },
+    { label: t('common.delete'), permission: 'operational-cost-center:delete', onClick: (p: CostCenter) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, variant: 'danger', enabled: (p: CostCenter) => can('delete') },
+    { label: t('actions.deactivate'), permission: 'operational-cost-center:deactivate', onClick: (p: CostCenter) => confirmStatus(p.id), enabled: (p: CostCenter) => p.status === 'ACTIVE' && can('deactivate'), variant: 'danger' },
+    { label: t('actions.activate'), permission: 'operational-cost-center:activate', onClick: (p: CostCenter) => confirmStatus(p.id), enabled: (p: CostCenter) => p.status !== 'ACTIVE' && can('activate') },
   ];
 
   const assignColumns: GridColumn<OperationalCostCenterAssignment>[] = [

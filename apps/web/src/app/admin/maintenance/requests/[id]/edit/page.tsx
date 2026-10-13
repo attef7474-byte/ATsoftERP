@@ -112,8 +112,8 @@ export default function EditMaintenanceRequestPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, onClick: () => exec('save'), enabled: !saving && !isReadOnly },
-    { id: 'saveAndView', labelKey: 'complexForms.saveAndView', icon: <ActionViewIcon />, onClick: () => exec('saveAndView'), enabled: !saving && !isReadOnly },
+    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, permission: 'maintenance-request:update', onClick: () => exec('save'), enabled: !saving && !isReadOnly },
+    { id: 'saveAndView', labelKey: 'complexForms.saveAndView', icon: <ActionViewIcon />, permission: 'maintenance-request:update', onClick: () => exec('saveAndView'), enabled: !saving && !isReadOnly },
     { id: 'cancel', labelKey: 'actions.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel') },
   ]);
 

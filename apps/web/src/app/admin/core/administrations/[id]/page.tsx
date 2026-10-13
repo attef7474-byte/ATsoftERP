@@ -143,9 +143,9 @@ export default function AdministrationDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!administration },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(administration && administration.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(administration && administration.status === 'ACTIVE') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'administrations:update', onClick: () => exec('edit'), enabled: !!administration },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'administrations:update', onClick: () => exec('activate'), enabled: !!(administration && administration.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'administrations:update', onClick: () => exec('deactivate'), enabled: !!(administration && administration.status === 'ACTIVE') },
   ]);
 
   if (loading) return <LoadingState />;

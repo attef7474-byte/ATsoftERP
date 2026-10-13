@@ -260,9 +260,10 @@ costPurpose: MAINTENANCE_COST_PURPOSE as string,
 
   const gridActions: GridAction<IssuableRow>[] = useMemo(
     () => [
-      { label: t('sparePartIssue.issue'), onClick: (r) => openIssue(r), enabled: (r) => r.issuable },
+      { label: t('sparePartIssue.issue'), permission: 'maintenance-stock-issue:create', onClick: (r) => openIssue(r), enabled: (r) => r.issuable },
       {
         label: t('sparePartIssue.returnUnusedStock'),
+        permission: 'maintenance-stock-issue:create',
         onClick: (r) => openReturn(r),
         enabled: (r) => netIssuedQuantity(r) > 0,
       },
@@ -290,6 +291,7 @@ costPurpose: MAINTENANCE_COST_PURPOSE as string,
       id: 'issue',
       labelKey: 'sparePartIssue.issue',
       icon: <ActionAddIcon />,
+      permission: 'maintenance-stock-issue:create',
       onClick: () => exec('issue'),
       enabled: !!selectedRow?.issuable,
     },

@@ -46,12 +46,12 @@ export default function ProductionShiftAssignmentsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'production-shift-assignment:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'production-shift-assignment:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'production-shift-assignment:update', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'production-shift-assignment:update', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'production-shift-assignment:delete', onClick: () => exec('delete'), enabled: !!selectedId },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -159,10 +159,10 @@ export default function ProductionShiftAssignmentsPage() {
   ];
 
   const gridActions: GridAction<ProductionShiftAssignment>[] = [
-    { label: t('actions.edit'), onClick: (a: ProductionShiftAssignment) => openEdit(a.id) },
-    { label: t('common.delete'), onClick: (a: ProductionShiftAssignment) => { setSelectedId(a.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
-    { label: t('actions.deactivate'), onClick: (a: ProductionShiftAssignment) => confirmStatus(a.id), enabled: (a: ProductionShiftAssignment) => a.status === 'ACTIVE', variant: 'danger' },
-    { label: t('actions.activate'), onClick: (a: ProductionShiftAssignment) => confirmStatus(a.id), enabled: (a: ProductionShiftAssignment) => a.status !== 'ACTIVE' },
+    { label: t('actions.edit'), permission: 'production-shift-assignment:update', onClick: (a: ProductionShiftAssignment) => openEdit(a.id) },
+    { label: t('common.delete'), permission: 'production-shift-assignment:delete', onClick: (a: ProductionShiftAssignment) => { setSelectedId(a.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
+    { label: t('actions.deactivate'), permission: 'production-shift-assignment:update', onClick: (a: ProductionShiftAssignment) => confirmStatus(a.id), enabled: (a: ProductionShiftAssignment) => a.status === 'ACTIVE', variant: 'danger' },
+    { label: t('actions.activate'), permission: 'production-shift-assignment:update', onClick: (a: ProductionShiftAssignment) => confirmStatus(a.id), enabled: (a: ProductionShiftAssignment) => a.status !== 'ACTIVE' },
   ];
 
   return (

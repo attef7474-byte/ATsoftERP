@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../../../lib/auth-context';
+import { isPermissionGranted } from '../../../lib/permission-gate';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { AdminActionBarProvider, useAdminActionBar } from '../admin-action-bar';
 import { UnifiedSearchModal } from '../../f9/UnifiedSearchModal';
@@ -19,9 +20,14 @@ const MOBILE_BREAKPOINT = 1024;
 
 function AdminShellInner({ children }: { children: React.ReactNode }) {
   const { t, locale, setLocale } = useTranslation();
-  const { user: profile, logout } = useAuth();
+  const { user: profile, logout, permissions, isSuperAdmin } = useAuth();
   const pathname = usePathname();
   const { visible: actionBarVisible, actions } = useAdminActionBar();
+  const visibleActions = useMemo(
+    () => actions.filter((action) => isPermissionGranted(action.permission, permissions?.permissions ?? null, isSuperAdmin)),
+    [actions, permissions, isSuperAdmin],
+  );
+  const actionBarShown = actionBarVisible && visibleActions.length > 0;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
@@ -131,7 +137,7 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
       dir={isRtl ? 'rtl' : 'ltr'}
       {...sidebarDataAttrs}
       style={{
-        '--app-actionbar-active-height': actionBarVisible ? 'var(--app-actionbar-height)' : '0px',
+        '--app-actionbar-active-height': actionBarShown ? 'var(--app-actionbar-height)' : '0px',
         '--app-sidebar-collapsed': sidebarCollapsed ? '72px' : 'var(--app-sidebar-width)',
       } as React.CSSProperties}
     >
@@ -146,8 +152,8 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
         onLogout={handleLogout}
       />
 
-      <section className={`admin-actionbar ${actionBarVisible || actions.length > 0 ? '' : 'admin-actionbar-hidden'}`}>
-        {(actionBarVisible || actions.length > 0) && actions.map((action) => (
+      <section className={`admin-actionbar ${actionBarShown ? '' : 'admin-actionbar-hidden'}`}>
+        {actionBarShown && visibleActions.map((action) => (
           <button
             key={action.id}
             type="button"

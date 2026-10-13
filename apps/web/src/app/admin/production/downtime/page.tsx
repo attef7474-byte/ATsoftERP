@@ -90,7 +90,7 @@ export default function ProductionDowntimePage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'production.downtime.newSegment', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'new', labelKey: 'production.downtime.newSegment', icon: <ActionAddIcon />, permission: 'production-downtime:record', onClick: () => exec('new') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 
@@ -253,20 +253,20 @@ export default function ProductionDowntimePage() {
 
   const gridActions: GridAction<DowntimeSegment>[] = [
     {
-      label: t('production.downtime.close'), onClick: (s) => { setSelectedId(s.id); resetForm({ endedAt: new Date().toISOString().slice(0, 16) }); setAction('close'); },
+      label: t('production.downtime.close'), permission: 'production-downtime:close', onClick: (s) => { setSelectedId(s.id); resetForm({ endedAt: new Date().toISOString().slice(0, 16) }); setAction('close'); },
       enabled: (s) => s.status === 'OPEN',
     },
     {
-      label: t('production.downtime.correct'), onClick: (s) => { setSelectedId(s.id); resetForm({ startedAt: s.startedAt.slice(0, 16), endedAt: s.endedAt ? s.endedAt.slice(0, 16) : new Date().toISOString().slice(0, 16), reasonId: s.reasonId || '', planned: s.planned, severity: s.severity, ownerDomain: s.ownerDomain }); setAction('correct'); },
+      label: t('production.downtime.correct'), permission: 'production-downtime:correct', onClick: (s) => { setSelectedId(s.id); resetForm({ startedAt: s.startedAt.slice(0, 16), endedAt: s.endedAt ? s.endedAt.slice(0, 16) : new Date().toISOString().slice(0, 16), reasonId: s.reasonId || '', planned: s.planned, severity: s.severity, ownerDomain: s.ownerDomain }); setAction('correct'); },
       enabled: (s) => s.status === 'OPEN' || s.status === 'CLOSED',
     },
     {
-      label: t('production.downtime.cancel'), onClick: (s) => { setSelectedId(s.id); resetForm(); setAction('cancel'); },
+      label: t('production.downtime.cancel'), permission: 'production-downtime:correct', onClick: (s) => { setSelectedId(s.id); resetForm(); setAction('cancel'); },
       enabled: (s) => s.status === 'OPEN',
       variant: 'danger',
     },
     {
-      label: t('production.downtime.linkMaintenance'), onClick: (s) => { setSelectedId(s.id); resetForm(); setAction('link'); },
+      label: t('production.downtime.linkMaintenance'), permission: 'production-downtime:link-maintenance', onClick: (s) => { setSelectedId(s.id); resetForm(); setAction('link'); },
       enabled: (s) => s.status === 'OPEN' || s.status === 'CLOSED',
     },
   ];

@@ -56,10 +56,10 @@ const { exec } = useStableHandlers({
 });
 
 useRegisterAdminActions([
-  { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new'), enabled: canCreate },
-  { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId && canUpdate },
+  { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'machine-part:create', onClick: () => exec('new'), enabled: canCreate },
+  { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'machine-part:update', onClick: () => exec('edit'), enabled: !!selectedId && canUpdate },
   { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!selectedId && canDelete, variant: 'danger' },
+  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, permission: 'machine-part:delete', onClick: () => exec('delete'), enabled: !!selectedId && canDelete, variant: 'danger' },
 ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -158,8 +158,8 @@ useRegisterAdminActions([
   ];
 
   const gridActions: GridAction<MachinePart>[] = [
-    { label: t('actions.edit'), onClick: (p: MachinePart) => openEdit(p.id), enabled: () => canUpdate },
-    { label: t('common.delete'), onClick: (p: MachinePart) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, variant: 'danger', enabled: () => canDelete },
+    { label: t('actions.edit'), permission: 'machine-part:update', onClick: (p: MachinePart) => openEdit(p.id), enabled: () => canUpdate },
+    { label: t('common.delete'), permission: 'machine-part:delete', onClick: (p: MachinePart) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, variant: 'danger', enabled: () => canDelete },
   ];
 
   return (

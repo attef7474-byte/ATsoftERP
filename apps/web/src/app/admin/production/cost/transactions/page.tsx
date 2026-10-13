@@ -86,7 +86,7 @@ export default function ProductionCostTransactionsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'production-cost-transaction:post', onClick: () => exec('new') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 
@@ -209,7 +209,7 @@ export default function ProductionCostTransactionsPage() {
   ];
 
   const gridActions: GridAction<ProductionCostTransaction>[] = [
-    { label: t('production.costTransactions.reverse'), onClick: (r) => openReverse(r.id), enabled: (r) => r.status === 'POSTED', variant: 'danger' },
+    { label: t('production.costTransactions.reverse'), permission: 'production-cost-transaction:reverse', onClick: (r) => openReverse(r.id), enabled: (r) => r.status === 'POSTED', variant: 'danger' },
   ];
 
   return (

@@ -107,11 +107,11 @@ export default function OperationalReceiptDetailPage({ params }: { params: Promi
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'submit', labelKey: 'inventoryCounting.adjSubmit', icon: <ActionPostIcon />, onClick: () => exec('submit'), enabled: !!data && data.status === 'DRAFT' },
-    { id: 'approve', labelKey: 'inventoryCounting.adjApprove', icon: <ActionPostIcon />, onClick: () => exec('approve'), enabled: !!data && data.status === 'SUBMITTED' },
-    { id: 'reject', labelKey: 'inventoryCounting.adjReject', icon: <ActionPostIcon />, onClick: () => exec('reject'), enabled: !!data && data.status === 'SUBMITTED' },
-    { id: 'post', labelKey: 'inventoryCounting.adjPost', icon: <ActionPostIcon />, onClick: () => exec('post'), enabled: !!data && data.status === 'APPROVED' },
-    { id: 'cancel', labelKey: 'inventoryCounting.adjCancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!data && (data.status === 'DRAFT' || data.status === 'SUBMITTED'), variant: 'danger' },
+    { id: 'submit', labelKey: 'inventoryCounting.adjSubmit', icon: <ActionPostIcon />, permission: 'inventory:operational-receipt:submit', onClick: () => exec('submit'), enabled: !!data && data.status === 'DRAFT' },
+    { id: 'approve', labelKey: 'inventoryCounting.adjApprove', icon: <ActionPostIcon />, permission: 'inventory:operational-receipt:approve', onClick: () => exec('approve'), enabled: !!data && data.status === 'SUBMITTED' },
+    { id: 'reject', labelKey: 'inventoryCounting.adjReject', icon: <ActionPostIcon />, permission: 'inventory:operational-receipt:reject', onClick: () => exec('reject'), enabled: !!data && data.status === 'SUBMITTED' },
+    { id: 'post', labelKey: 'inventoryCounting.adjPost', icon: <ActionPostIcon />, permission: 'inventory:operational-receipt:post', onClick: () => exec('post'), enabled: !!data && data.status === 'APPROVED' },
+    { id: 'cancel', labelKey: 'inventoryCounting.adjCancel', icon: <ActionCancelIcon />, permission: 'inventory:operational-receipt:cancel', onClick: () => exec('cancel'), enabled: !!data && (data.status === 'DRAFT' || data.status === 'SUBMITTED'), variant: 'danger' },
   ]);
 
   if (loading) return <LoadingState />;

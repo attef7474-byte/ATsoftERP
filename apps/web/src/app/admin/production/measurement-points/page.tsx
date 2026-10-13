@@ -94,12 +94,12 @@ export default function ProductionMeasurementPointsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'production-measurement-point:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'production-measurement-point:update', onClick: () => exec('edit'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'production-measurement-point:activate', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'production-measurement-point:deactivate', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'production-measurement-point:delete', onClick: () => exec('delete'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -233,10 +233,10 @@ export default function ProductionMeasurementPointsPage() {
   ];
 
   const gridActions: GridAction<ProductionMeasurementPoint>[] = [
-    { label: t('actions.edit'), onClick: (p) => openEdit(p.id), enabled: (p) => p.status === 'DRAFT' },
-    { label: t('actions.activate'), onClick: (p) => { setSelectedId(p.id); setStatusAction('activate'); setConfirmStatusOpen(true); }, enabled: (p) => p.status !== 'ACTIVE' },
-    { label: t('actions.deactivate'), onClick: (p) => { setSelectedId(p.id); setStatusAction('deactivate'); setConfirmStatusOpen(true); }, enabled: (p) => p.status === 'ACTIVE', variant: 'danger' },
-    { label: t('common.delete'), onClick: (p) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, enabled: (p) => p.status === 'DRAFT', variant: 'danger' },
+    { label: t('actions.edit'), permission: 'production-measurement-point:update', onClick: (p) => openEdit(p.id), enabled: (p) => p.status === 'DRAFT' },
+    { label: t('actions.activate'), permission: 'production-measurement-point:activate', onClick: (p) => { setSelectedId(p.id); setStatusAction('activate'); setConfirmStatusOpen(true); }, enabled: (p) => p.status !== 'ACTIVE' },
+    { label: t('actions.deactivate'), permission: 'production-measurement-point:deactivate', onClick: (p) => { setSelectedId(p.id); setStatusAction('deactivate'); setConfirmStatusOpen(true); }, enabled: (p) => p.status === 'ACTIVE', variant: 'danger' },
+    { label: t('common.delete'), permission: 'production-measurement-point:delete', onClick: (p) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, enabled: (p) => p.status === 'DRAFT', variant: 'danger' },
   ];
 
   const isCounterSource = form.source === 'COUNTER';

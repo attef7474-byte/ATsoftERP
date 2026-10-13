@@ -57,10 +57,10 @@ export default function MaintenanceChecklistItemsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'maintenance-checklist:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'maintenance-checklist:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!selectedId, variant: 'danger' },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, permission: 'maintenance-checklist:delete', onClick: () => exec('delete'), enabled: !!selectedId, variant: 'danger' },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -156,8 +156,8 @@ export default function MaintenanceChecklistItemsPage() {
   ];
 
   const gridActions: GridAction<MaintenanceChecklistItem>[] = [
-    { label: t('actions.edit'), onClick: (c: MaintenanceChecklistItem) => openEdit(c.id) },
-    { label: t('common.delete'), onClick: (c: MaintenanceChecklistItem) => { setSelectedId(c.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
+    { label: t('actions.edit'), permission: 'maintenance-checklist:update', onClick: (c: MaintenanceChecklistItem) => openEdit(c.id) },
+    { label: t('common.delete'), permission: 'maintenance-checklist:delete', onClick: (c: MaintenanceChecklistItem) => { setSelectedId(c.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
   ];
 
   return (

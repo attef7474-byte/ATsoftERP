@@ -112,7 +112,7 @@ export default function MovementLinesPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'addLine', labelKey: 'inventoryCounting.addLine', icon: <ActionAddIcon />, onClick: () => exec('addLine'), enabled: !isReadOnly },
+    { id: 'addLine', labelKey: 'inventoryCounting.addLine', icon: <ActionAddIcon />, permission: 'inventory-movement:update', onClick: () => exec('addLine'), enabled: !isReadOnly },
   ]);
 
   if (loading) return <LoadingState />;

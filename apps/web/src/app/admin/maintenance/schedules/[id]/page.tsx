@@ -76,10 +76,10 @@ export default function MaintenanceScheduleDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!data },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(data && data.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(data && data.status === 'ACTIVE') },
-    { id: 'generateRequest', labelKey: 'maintenance.generateRequest', icon: <ActionAddIcon />, onClick: () => handleGenerateRequest(), enabled: !!(data && data.status === 'ACTIVE') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'maintenance-schedule:update', onClick: () => exec('edit'), enabled: !!data },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'maintenance-schedule:activate', onClick: () => exec('activate'), enabled: !!(data && data.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'maintenance-schedule:deactivate', onClick: () => exec('deactivate'), enabled: !!(data && data.status === 'ACTIVE') },
+    { id: 'generateRequest', labelKey: 'maintenance.generateRequest', icon: <ActionAddIcon />, permission: 'maintenance-schedule:generateRequest', onClick: () => handleGenerateRequest(), enabled: !!(data && data.status === 'ACTIVE') },
   ]);
 
   if (loading) return <LoadingState />;

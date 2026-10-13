@@ -60,7 +60,7 @@ export default function PhysicalCountsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'physicalCount.newPhysicalCount', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'new', labelKey: 'physicalCount.newPhysicalCount', icon: <ActionAddIcon />, permission: 'inventory:physical-count:create', onClick: () => exec('new') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
     { id: 'view', labelKey: 'common.view', icon: <ActionViewIcon />, onClick: () => exec('view'), enabled: !!selectedId },
   ]);

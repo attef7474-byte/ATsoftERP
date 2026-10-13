@@ -69,8 +69,8 @@ export default function EditInventoryAdjustmentPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, onClick: () => exec('save'), enabled: !saving && !isReadOnly },
-    { id: 'saveAndView', labelKey: 'complexForms.saveAndView', icon: <ActionViewIcon />, onClick: () => exec('saveAndView'), enabled: !saving && !isReadOnly },
+    { id: 'save', labelKey: 'actions.save', icon: <ActionSaveIcon />, permission: 'inventory-adjustment:update', onClick: () => exec('save'), enabled: !saving && !isReadOnly },
+    { id: 'saveAndView', labelKey: 'complexForms.saveAndView', icon: <ActionViewIcon />, permission: 'inventory-adjustment:update', onClick: () => exec('saveAndView'), enabled: !saving && !isReadOnly },
     { id: 'cancel', labelKey: 'actions.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel') },
   ]);
 

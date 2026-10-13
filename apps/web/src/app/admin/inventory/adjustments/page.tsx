@@ -55,11 +55,11 @@ export default function InventoryAdjustmentsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'inventory-adjustment:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'inventory-adjustment:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'post', labelKey: 'inventoryCounting.post', icon: <ActionPostIcon />, onClick: () => exec('post'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
-    { id: 'cancel', labelKey: 'inventoryCounting.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT'), variant: 'danger' },
+    { id: 'post', labelKey: 'inventoryCounting.post', icon: <ActionPostIcon />, permission: 'inventory-adjustment:post', onClick: () => exec('post'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'cancel', labelKey: 'inventoryCounting.cancel', icon: <ActionCancelIcon />, permission: 'inventory-adjustment:cancel', onClick: () => exec('cancel'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT'), variant: 'danger' },
   ]);
 
   const [pendingAction, setPendingAction] = useState('');
@@ -198,9 +198,9 @@ export default function InventoryAdjustmentsPage() {
 
   const gridActions: GridAction<InventoryAdjustment>[] = [
     { label: t('details.viewDetails'), onClick: (r: InventoryAdjustment) => router.push(`/admin/inventory/adjustments/${r.id}`) },
-    { label: t('inventoryCounting.post'), onClick: (r: InventoryAdjustment) => confirmAction(r.id, 'post'), enabled: (r: InventoryAdjustment) => r.status === 'DRAFT' },
-    { label: t('actions.edit'), onClick: (r: InventoryAdjustment) => openEdit(r), enabled: (r: InventoryAdjustment) => r.status === 'DRAFT' },
-    { label: t('inventoryCounting.cancel'), onClick: (r: InventoryAdjustment) => confirmAction(r.id, 'cancel'), enabled: (r: InventoryAdjustment) => r.status === 'DRAFT', variant: 'danger' },
+    { label: t('inventoryCounting.post'), permission: 'inventory-adjustment:post', onClick: (r: InventoryAdjustment) => confirmAction(r.id, 'post'), enabled: (r: InventoryAdjustment) => r.status === 'DRAFT' },
+    { label: t('actions.edit'), permission: 'inventory-adjustment:update', onClick: (r: InventoryAdjustment) => openEdit(r), enabled: (r: InventoryAdjustment) => r.status === 'DRAFT' },
+    { label: t('inventoryCounting.cancel'), permission: 'inventory-adjustment:cancel', onClick: (r: InventoryAdjustment) => confirmAction(r.id, 'cancel'), enabled: (r: InventoryAdjustment) => r.status === 'DRAFT', variant: 'danger' },
     { label: t('common.view'), onClick: (r: InventoryAdjustment) => openView(r) },
   ];
 

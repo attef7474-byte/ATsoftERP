@@ -111,7 +111,7 @@ export default function RolePermissionsPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'actions.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'actions.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'save', labelKey: 'access.saveChanges', icon: <ActionSaveIcon />, onClick: () => exec('save'), enabled: !saving && changed },
+    { id: 'save', labelKey: 'access.saveChanges', icon: <ActionSaveIcon />, permission: 'roles:update', onClick: () => exec('save'), enabled: !saving && changed },
   ]);
 
   const unitList = useMemo(() => {

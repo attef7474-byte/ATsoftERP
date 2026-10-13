@@ -76,7 +76,7 @@ export default function AttachmentsPage() {
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
-    { id: 'add', labelKey: 'attachments.upload', icon: <ActionAddIcon />, onClick: () => exec('add') },
+    { id: 'add', labelKey: 'attachments.upload', icon: <ActionAddIcon />, permission: 'attachments.create', onClick: () => exec('add') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 

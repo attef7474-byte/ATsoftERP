@@ -355,6 +355,15 @@ export function useAuth(): AuthContextValue {
   return context;
 }
 
+/**
+ * Read the auth context without throwing when no provider is mounted.
+ * Used by shared UI primitives (e.g. the data grid) that must stay renderable
+ * in isolation while still hiding permission-protected controls when auth is present.
+ */
+export function useOptionalAuth(): AuthContextValue | null {
+  return useContext(AuthContext);
+}
+
 export function useOperationalContext(): OperationalContextHookValue {
   const {
     allowedContexts,

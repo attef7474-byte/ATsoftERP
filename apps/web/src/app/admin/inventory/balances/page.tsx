@@ -30,7 +30,7 @@ export default function InventoryBalancesPage() {
 
   useRegisterAdminActions([
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'recalculate', labelKey: 'inventoryCounting.recalculateBalances', icon: <ActionRecalculateIcon />, onClick: () => exec('recalculate') },
+    { id: 'recalculate', labelKey: 'inventoryCounting.recalculateBalances', icon: <ActionRecalculateIcon />, permission: 'inventory-balance:recalculate', onClick: () => exec('recalculate') },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {

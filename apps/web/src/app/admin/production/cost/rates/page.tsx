@@ -69,10 +69,10 @@ export default function ProductionCostRatesPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'production-cost-rate:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'production-cost-rate:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'production-cost-rate:delete', onClick: () => exec('delete'), enabled: !!selectedId },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -192,8 +192,8 @@ export default function ProductionCostRatesPage() {
   ];
 
   const gridActions: GridAction<ProductionCostRate>[] = [
-    { label: t('actions.edit'), onClick: (r) => openEdit(r.id) },
-    { label: t('common.delete'), onClick: (r) => { setSelectedId(r.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
+    { label: t('actions.edit'), permission: 'production-cost-rate:update', onClick: (r) => openEdit(r.id) },
+    { label: t('common.delete'), permission: 'production-cost-rate:delete', onClick: (r) => { setSelectedId(r.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
   ];
 
   return (

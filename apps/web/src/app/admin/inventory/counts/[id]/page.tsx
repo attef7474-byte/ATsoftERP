@@ -70,11 +70,11 @@ export default function InventoryCountDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!data },
-    { id: 'start', labelKey: 'inventoryCounting.start', icon: <ActionStartIcon />, onClick: () => exec('start'), enabled: !!(data && data.status === 'DRAFT') },
-    { id: 'complete', labelKey: 'inventoryCounting.completeCount', icon: <ActionCompleteIcon />, onClick: () => exec('complete'), enabled: !!(data && data.status === 'IN_PROGRESS') },
-    { id: 'cancel', labelKey: 'inventoryCounting.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(data && (data.status === 'DRAFT' || data.status === 'IN_PROGRESS')), variant: 'danger' },
-    { id: 'generateAdjustment', labelKey: 'inventoryCounting.generateAdjustment', icon: <ActionGenerateIcon />, onClick: () => exec('generateAdjustment'), enabled: !!(data && data.status === 'COMPLETED') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'inventory-count:update', onClick: () => exec('edit'), enabled: !!data },
+    { id: 'start', labelKey: 'inventoryCounting.start', icon: <ActionStartIcon />, permission: 'inventory-count:start', onClick: () => exec('start'), enabled: !!(data && data.status === 'DRAFT') },
+    { id: 'complete', labelKey: 'inventoryCounting.completeCount', icon: <ActionCompleteIcon />, permission: 'inventory-count:complete', onClick: () => exec('complete'), enabled: !!(data && data.status === 'IN_PROGRESS') },
+    { id: 'cancel', labelKey: 'inventoryCounting.cancel', icon: <ActionCancelIcon />, permission: 'inventory-count:cancel', onClick: () => exec('cancel'), enabled: !!(data && (data.status === 'DRAFT' || data.status === 'IN_PROGRESS')), variant: 'danger' },
+    { id: 'generateAdjustment', labelKey: 'inventoryCounting.generateAdjustment', icon: <ActionGenerateIcon />, permission: 'inventory-count:generateAdjustment', onClick: () => exec('generateAdjustment'), enabled: !!(data && data.status === 'COMPLETED') },
   ]);
 
   if (loading) return <LoadingState />;

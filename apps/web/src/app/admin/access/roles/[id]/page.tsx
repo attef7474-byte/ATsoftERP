@@ -40,8 +40,8 @@ export default function RoleDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'actions.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'actions.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'actions.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !role?.isSystem },
-    { id: 'permissions', labelKey: 'access.managePermissions', icon: <ActionEditIcon />, onClick: () => exec('permissions') },
+    { id: 'edit', labelKey: 'actions.edit', icon: <ActionEditIcon />, permission: 'roles:update', onClick: () => exec('edit'), enabled: !role?.isSystem },
+    { id: 'permissions', labelKey: 'access.managePermissions', icon: <ActionEditIcon />, permission: 'roles:update', onClick: () => exec('permissions') },
   ]);
 
   if (loading) return <div className="p-6"><p>{t('common.loading')}</p></div>;

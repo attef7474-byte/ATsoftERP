@@ -38,7 +38,7 @@ export default function BomPage() {
 
   useRegisterAdminActions([
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'maintenance-bom:delete', onClick: () => exec('delete'), enabled: !!selectedId },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -80,7 +80,7 @@ export default function BomPage() {
   ];
 
   const gridActions: GridAction<BomItem>[] = [
-    { label: t('common.delete'), onClick: (b: BomItem) => { setSelectedId(b.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
+    { label: t('common.delete'), permission: 'maintenance-bom:delete', onClick: (b: BomItem) => { setSelectedId(b.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
   ];
 
   return (

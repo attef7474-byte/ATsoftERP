@@ -46,11 +46,11 @@ export default function DowntimeLogsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'downtime-log:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'downtime-log:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'close', labelKey: 'common.close', icon: <ActionCancelIcon />, onClick: () => exec('close'), enabled: !!(selectedId && !selectedRecord?.endTime) },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'close', labelKey: 'common.close', icon: <ActionCancelIcon />, permission: 'downtime-log:close', onClick: () => exec('close'), enabled: !!(selectedId && !selectedRecord?.endTime) },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'downtime-log:delete', onClick: () => exec('delete'), enabled: !!selectedId },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -147,9 +147,9 @@ export default function DowntimeLogsPage() {
   ];
 
   const gridActions: GridAction<DowntimeLog>[] = [
-    { label: t('maintenance.close'), onClick: (d: DowntimeLog) => confirmAction(d.id, 'close'), enabled: (d: DowntimeLog) => !d.endTime },
-    { label: t('actions.edit'), onClick: (d: DowntimeLog) => openEdit(d.id) },
-    { label: t('common.delete'), onClick: (d: DowntimeLog) => { setSelectedId(d.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
+    { label: t('maintenance.close'), permission: 'downtime-log:close', onClick: (d: DowntimeLog) => confirmAction(d.id, 'close'), enabled: (d: DowntimeLog) => !d.endTime },
+    { label: t('actions.edit'), permission: 'downtime-log:update', onClick: (d: DowntimeLog) => openEdit(d.id) },
+    { label: t('common.delete'), permission: 'downtime-log:delete', onClick: (d: DowntimeLog) => { setSelectedId(d.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
   ];
 
   return (

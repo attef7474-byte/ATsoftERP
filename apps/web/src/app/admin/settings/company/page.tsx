@@ -52,7 +52,7 @@ export default function CompanyProfilePage() {
   const { exec } = useStableHandlers({ save: () => handleSave(), back: () => router.back() });
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
-    { id: 'save', labelKey: 'common.save', icon: <ActionSaveIcon />, onClick: () => exec('save'), enabled: !!profile },
+    { id: 'save', labelKey: 'common.save', icon: <ActionSaveIcon />, permission: 'company:update', onClick: () => exec('save'), enabled: !!profile },
   ]);
 
   if (loading) return <LoadingState message={t('settings.company.loading')} />;

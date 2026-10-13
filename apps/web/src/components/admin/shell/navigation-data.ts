@@ -1,4 +1,5 @@
 import type { ShellIconName } from './shell-icons';
+import { isPermissionGranted } from '../../../lib/permission-gate';
 
 // Backward-compatible types
 export interface NavChild {
@@ -15,6 +16,25 @@ export interface NavItem {
   children?: NavChild[];
 }
 
+/**
+ * Navigation access classification.
+ *
+ * Every sidebar entry resolves to exactly one class:
+ * - `PUBLIC`          — reachable without an authenticated principal (none in the
+ *                       admin shell today; reserved, never inferred by accident).
+ * - `AUTHENTICATED`   — any signed-in principal may use it. Inferred when an entry
+ *                       declares no `permission`. The page must still be a screen the
+ *                       backend does not gate behind a specific grant.
+ * - `PERMISSION`      — requires the declared `permission`. Inferred when an entry
+ *                       declares `permission`. The key is the exact key the target API
+ *                       route enforces through `PermissionsGuard`.
+ * - `SUPER_ADMIN`     — reserved for entries that must never be grantable.
+ *
+ * Classification is derived, not hand-maintained, so it can never drift from the
+ * declared permission contract. `classifySidebarItem` is the single source of truth.
+ */
+export type NavigationAccessClass = 'PUBLIC' | 'AUTHENTICATED' | 'PERMISSION' | 'SUPER_ADMIN';
+
 // New types for restructured sidebar
 export interface SidebarItem {
   id: string;
@@ -30,23 +50,30 @@ export interface SidebarSection {
 }
 
 /**
- * R4R: an item is visible only when the signed-in principal holds its declared
- * permission key. SUPER_ADMIN bypasses the menu filter exactly like the API guard
- * does; the API still enforces independently of menu visibility.
+ * Resolve the access class of a sidebar entry. Presence of a `permission` key is the
+ * explicit contract; absence means the entry is available to every authenticated user.
+ */
+export function classifySidebarItem(item: { permission?: string }): NavigationAccessClass {
+  return item.permission ? 'PERMISSION' : 'AUTHENTICATED';
+}
+
+/**
+ * A sidebar entry is visible only to a principal that holds its declared permission.
  *
- * `permissions === null` means the permission payload has not been resolved yet
- * (still loading). In that state the full menu is rendered so a slow or failed
- * permission fetch can never hide the whole navigation; filtering starts as soon
- * as the real permission list arrives.
+ * - Entries without a permission are visible to every authenticated principal.
+ * - The canonical SUPER_ADMIN bypass mirrors the API guard exactly; the API still
+ *   enforces independently of menu visibility.
+ * - While the effective permission payload is still unresolved (`permissions === null`)
+ *   protected entries are hidden (deny-by-default) so an operator can never see a menu
+ *   entry they are not entitled to, even for a single render. Entries that are not
+ *   permission-protected remain visible because they are not authorization-sensitive.
  */
 export function isSidebarItemVisible(
   item: { permission?: string },
   permissions: string[] | null,
   isSuperAdmin: boolean,
 ): boolean {
-  if (!item.permission) return true;
-  if (permissions === null || isSuperAdmin) return true;
-  return permissions.includes(item.permission);
+  return isPermissionGranted(item.permission, permissions, isSuperAdmin);
 }
 
 const visibleItems = (
@@ -56,15 +83,18 @@ const visibleItems = (
 ): SidebarItem[] => items.filter((item) => isSidebarItemVisible(item, permissions, isSuperAdmin));
 
 /**
- * R4R: drop items the principal cannot access, then drop any section or group
- * that ends up empty so the menu never shows a heading with nothing under it.
+ * Drop entries the principal cannot access, then drop any section or group that ends up
+ * empty so the menu never shows a heading with nothing under it.
+ *
+ * Deny-by-default: an unresolved permission payload leaves only non-protected entries
+ * visible, so unauthorized entries are never flashed while the permissions load.
  */
 export function filterSidebarGroups(
   groups: SidebarGroup[],
   permissions: string[] | null,
   isSuperAdmin: boolean,
 ): SidebarGroup[] {
-  if (permissions === null || isSuperAdmin) return groups;
+  if (isSuperAdmin) return groups;
 
   return groups.reduce<SidebarGroup[]>((acc, group) => {
     const children = group.children
@@ -130,9 +160,9 @@ export const sidebarGroups: SidebarGroup[] = [
     id: 'organization', labelKey: 'navigation.organization', icon: 'core', children: [
       {
         id: 'org-structure', labelKey: 'navigation.navSection.orgStructure', items: [
-          { id: 'org-companies', labelKey: 'navigation.companies', route: '/admin/core/companies' },
-          { id: 'org-branches', labelKey: 'navigation.branches', route: '/admin/core/branches' },
-          { id: 'org-administrations', labelKey: 'navigation.administrations', route: '/admin/core/administrations' },
+          { id: 'org-companies', labelKey: 'navigation.companies', route: '/admin/core/companies', permission: 'companies:read' },
+          { id: 'org-branches', labelKey: 'navigation.branches', route: '/admin/core/branches', permission: 'branches:read' },
+          { id: 'org-administrations', labelKey: 'navigation.administrations', route: '/admin/core/administrations', permission: 'administrations:read' },
           { id: 'org-departments', labelKey: 'navigation.departments', route: '/admin/core/departments', permission: 'department:read' },
           { id: 'org-employees', labelKey: 'navigation.persons', route: '/admin/core/persons', permission: 'operational-person:read' },
           { id: 'org-job-titles', labelKey: 'navigation.jobTitles', route: '/admin/core/job-titles', permission: 'job-title:read' },
@@ -142,9 +172,9 @@ export const sidebarGroups: SidebarGroup[] = [
       },
       {
         id: 'org-operational', labelKey: 'navigation.navSection.operationalData', items: [
-          { id: 'org-production-lines', labelKey: 'navigation.productionLines', route: '/admin/maintenance/production-lines' },
+          { id: 'org-production-lines', labelKey: 'navigation.productionLines', route: '/admin/maintenance/production-lines', permission: 'productionLines:read' },
           { id: 'org-machine-categories', labelKey: 'navigation.machineCategories', route: '/admin/maintenance/machine-categories', permission: 'machine-category:read' },
-          { id: 'org-cost-centers', labelKey: 'navigation.costCenters', route: '/admin/maintenance/cost-centers' },
+          { id: 'org-cost-centers', labelKey: 'navigation.costCenters', route: '/admin/maintenance/cost-centers', permission: 'operational-cost-center:read' },
         ],
       },
     ],
@@ -155,8 +185,8 @@ export const sidebarGroups: SidebarGroup[] = [
     id: 'access', labelKey: 'navigation.accessControl', icon: 'access', children: [
       {
         id: 'access-users-section', labelKey: 'navigation.navSection.usersAndPermissions', items: [
-          { id: 'access-roles', labelKey: 'navigation.roles', route: '/admin/access/roles' },
-          { id: 'access-permissions', labelKey: 'navigation.permissions', route: '/admin/access/permissions' },
+          { id: 'access-roles', labelKey: 'navigation.roles', route: '/admin/access/roles', permission: 'roles:read' },
+          { id: 'access-permissions', labelKey: 'navigation.permissions', route: '/admin/access/permissions', permission: 'permissions:read' },
         ],
       },
     ],
@@ -167,13 +197,13 @@ export const sidebarGroups: SidebarGroup[] = [
     id: 'assets', labelKey: 'navigation.assetsEquipment', icon: 'settings', children: [
       {
         id: 'assets-assets', labelKey: 'navigation.navSection.assets', items: [
-          { id: 'assets-machines', labelKey: 'navigation.machines', route: '/admin/maintenance/machines' },
-          { id: 'assets-machine-documents', labelKey: 'navigation.machineDocuments', route: '/admin/maintenance/machine-documents' },
+          { id: 'assets-machines', labelKey: 'navigation.machines', route: '/admin/maintenance/machines', permission: 'machine:read' },
+          { id: 'assets-machine-documents', labelKey: 'navigation.machineDocuments', route: '/admin/maintenance/machine-documents', permission: 'machine-document:read' },
         ],
       },
       {
         id: 'assets-technical', labelKey: 'navigation.navSection.technicalStructure', items: [
-          { id: 'assets-machine-components', labelKey: 'navigation.machineComponents', route: '/admin/maintenance/machine-components' },
+          { id: 'assets-machine-components', labelKey: 'navigation.machineComponents', route: '/admin/maintenance/machine-components', permission: 'machine-component:read' },
         ],
       },
     ],
@@ -184,39 +214,39 @@ export const sidebarGroups: SidebarGroup[] = [
     id: 'maintenance', labelKey: 'navigation.maintenance', icon: 'maintenance', children: [
       {
         id: 'mnt-operations', labelKey: 'navigation.navSection.maintenanceOperations', items: [
-          { id: 'mnt-requests', labelKey: 'navigation.maintenanceRequests', route: '/admin/maintenance/requests' },
-          { id: 'mnt-work-orders', labelKey: 'navigation.maintenanceWorkOrders', route: '/admin/maintenance/work-orders' },
-          { id: 'mnt-tasks', labelKey: 'navigation.maintenanceTasks', route: '/admin/maintenance/tasks' },
-          { id: 'mnt-schedules', labelKey: 'navigation.maintenanceSchedules', route: '/admin/maintenance/schedules' },
-          { id: 'mnt-checklist-items', labelKey: 'navigation.checklistItems', route: '/admin/maintenance/checklist-items' },
-          { id: 'mnt-downtime-logs', labelKey: 'navigation.downtimeLogs', route: '/admin/maintenance/downtime-logs' },
+          { id: 'mnt-requests', labelKey: 'navigation.maintenanceRequests', route: '/admin/maintenance/requests', permission: 'maintenance-request:read' },
+          { id: 'mnt-work-orders', labelKey: 'navigation.maintenanceWorkOrders', route: '/admin/maintenance/work-orders', permission: 'maintenance-work-order:read' },
+          { id: 'mnt-tasks', labelKey: 'navigation.maintenanceTasks', route: '/admin/maintenance/tasks', permission: 'maintenance-task:read' },
+          { id: 'mnt-schedules', labelKey: 'navigation.maintenanceSchedules', route: '/admin/maintenance/schedules', permission: 'maintenance-schedule:read' },
+          { id: 'mnt-checklist-items', labelKey: 'navigation.checklistItems', route: '/admin/maintenance/checklist-items', permission: 'maintenance-checklist:read' },
+          { id: 'mnt-downtime-logs', labelKey: 'navigation.downtimeLogs', route: '/admin/maintenance/downtime-logs', permission: 'downtime-log:read' },
         ],
       },
       {
         id: 'mnt-planning', labelKey: 'navigation.navSection.maintenancePlanning', items: [
-          { id: 'mnt-calendar', labelKey: 'navigation.maintenanceCalendar', route: '/admin/maintenance/calendar' },
-          { id: 'mnt-workload', labelKey: 'navigation.maintenanceWorkload', route: '/admin/maintenance/workload' },
-          { id: 'mnt-sla', labelKey: 'navigation.sla', route: '/admin/maintenance/sla' },
-          { id: 'mnt-mttr', labelKey: 'navigation.mttr', route: '/admin/maintenance/reliability/mttr' },
+          { id: 'mnt-calendar', labelKey: 'navigation.maintenanceCalendar', route: '/admin/maintenance/calendar', permission: 'maintenance-calendar:read' },
+          { id: 'mnt-workload', labelKey: 'navigation.maintenanceWorkload', route: '/admin/maintenance/workload', permission: 'maintenance-workload:read' },
+          { id: 'mnt-sla', labelKey: 'navigation.sla', route: '/admin/maintenance/sla', permission: 'maintenance-request:read' },
+          { id: 'mnt-mttr', labelKey: 'navigation.mttr', route: '/admin/maintenance/reliability/mttr', permission: 'maintenance-reliability:read' },
         ],
       },
       {
         id: 'mnt-personnel-section', labelKey: 'navigation.navSection.maintenanceStaff', items: [
-          { id: 'mnt-machine-responsibilities', labelKey: 'navigation.machineResponsibilities', route: '/admin/maintenance/machine-responsibilities' },
-          { id: 'mnt-accountability', labelKey: 'navigation.maintenanceAccountability', route: '/admin/maintenance/accountability' },
+          { id: 'mnt-machine-responsibilities', labelKey: 'navigation.machineResponsibilities', route: '/admin/maintenance/machine-responsibilities', permission: 'machine-responsibility:read' },
+          { id: 'mnt-accountability', labelKey: 'navigation.maintenanceAccountability', route: '/admin/maintenance/accountability', permission: 'maintenance.dashboard.accountabilityKpis.view' },
         ],
       },
       {
         id: 'mnt-spare-parts-section', labelKey: 'navigation.navSection.maintenanceSpareParts', items: [
-          { id: 'mnt-machine-parts', labelKey: 'navigation.machineParts', route: '/admin/maintenance/machine-parts', permission: 'spare-part:read' },
+          { id: 'mnt-machine-parts', labelKey: 'navigation.machineParts', route: '/admin/maintenance/machine-parts', permission: 'machine-part:read' },
           { id: 'mnt-spare-parts', labelKey: 'navigation.spareParts', route: '/admin/maintenance/spare-parts', permission: 'spare-part:read' },
           { id: 'mnt-spare-part-issues', labelKey: 'navigation.sparePartIssues', route: '/admin/maintenance/spare-part-issues', permission: 'maintenance-stock-issue:read' },
-          { id: 'mnt-spare-part-conditions', labelKey: 'navigation.sparePartConditions', route: '/admin/spare-part-conditions' },
-          { id: 'mnt-installed-parts', labelKey: 'navigation.installedParts', route: '/admin/installed-parts' },
-          { id: 'mnt-repair-orders', labelKey: 'navigation.repairOrders', route: '/admin/maintenance/repair-orders' },
-          { id: 'mnt-repair-orders-queue', labelKey: 'navigation.repairablePartsQueue', route: '/admin/maintenance/repair-orders/queue' },
-          { id: 'mnt-bom', labelKey: 'navigation.bom', route: '/admin/maintenance/bom' },
-          { id: 'mnt-spare-part-plans', labelKey: 'navigation.sparePartPlans', route: '/admin/maintenance/spare-part-plans' },
+          { id: 'mnt-spare-part-conditions', labelKey: 'navigation.sparePartConditions', route: '/admin/spare-part-conditions', permission: 'spare-part-conditions:read' },
+          { id: 'mnt-installed-parts', labelKey: 'navigation.installedParts', route: '/admin/installed-parts', permission: 'installed-parts:read' },
+          { id: 'mnt-repair-orders', labelKey: 'navigation.repairOrders', route: '/admin/maintenance/repair-orders', permission: 'repair-orders:read' },
+          { id: 'mnt-repair-orders-queue', labelKey: 'navigation.repairablePartsQueue', route: '/admin/maintenance/repair-orders/queue', permission: 'repair-orders:read' },
+          { id: 'mnt-bom', labelKey: 'navigation.bom', route: '/admin/maintenance/bom', permission: 'maintenance-bom:read' },
+          { id: 'mnt-spare-part-plans', labelKey: 'navigation.sparePartPlans', route: '/admin/maintenance/spare-part-plans', permission: 'preventive-spare-part-plan:read' },
         ],
       },
     ],
@@ -227,28 +257,28 @@ export const sidebarGroups: SidebarGroup[] = [
     id: 'inventory', labelKey: 'navigation.inventory', icon: 'inventory', children: [
       {
         id: 'inv-definitions', labelKey: 'navigation.navSection.inventoryDefinitions', items: [
-          { id: 'inv-warehouses', labelKey: 'navigation.warehouses', route: '/admin/inventory/warehouses' },
-          { id: 'inv-locations', labelKey: 'navigation.warehouseLocations', route: '/admin/inventory/locations' },
-          { id: 'inv-product-categories', labelKey: 'navigation.productCategories', route: '/admin/inventory/product-categories' },
-          { id: 'inv-products', labelKey: 'navigation.products', route: '/admin/inventory/products' },
+          { id: 'inv-warehouses', labelKey: 'navigation.warehouses', route: '/admin/inventory/warehouses', permission: 'inventory:read' },
+          { id: 'inv-locations', labelKey: 'navigation.warehouseLocations', route: '/admin/inventory/locations', permission: 'inventory:read' },
+          { id: 'inv-product-categories', labelKey: 'navigation.productCategories', route: '/admin/inventory/product-categories', permission: 'products:read' },
+          { id: 'inv-products', labelKey: 'navigation.products', route: '/admin/inventory/products', permission: 'products:read' },
         ],
       },
       {
         id: 'inv-operations', labelKey: 'navigation.navSection.inventoryOperations', items: [
-          { id: 'inv-opening-balances', labelKey: 'navigation.openingBalances', route: '/admin/inventory/opening-balances' },
-          { id: 'inv-movements', labelKey: 'navigation.inventoryMovements', route: '/admin/inventory/movements' },
-          { id: 'inv-counts', labelKey: 'navigation.inventoryCounts', route: '/admin/inventory/counts' },
-          { id: 'inv-adjustments', labelKey: 'navigation.inventoryAdjustments', route: '/admin/inventory/adjustments' },
-          { id: 'inv-stock-adjustments', labelKey: 'navigation.stockAdjustments', route: '/admin/inventory/stock-adjustments' },
-          { id: 'inv-locks', labelKey: 'navigation.inventoryLocks', route: '/admin/inventory/locks' },
+          { id: 'inv-opening-balances', labelKey: 'navigation.openingBalances', route: '/admin/inventory/opening-balances', permission: 'inventory:opening-balance:read' },
+          { id: 'inv-movements', labelKey: 'navigation.inventoryMovements', route: '/admin/inventory/movements', permission: 'inventory-movement:read' },
+          { id: 'inv-counts', labelKey: 'navigation.inventoryCounts', route: '/admin/inventory/counts', permission: 'inventory-count:read' },
+          { id: 'inv-adjustments', labelKey: 'navigation.inventoryAdjustments', route: '/admin/inventory/adjustments', permission: 'inventory-adjustment:read' },
+          { id: 'inv-stock-adjustments', labelKey: 'navigation.stockAdjustments', route: '/admin/inventory/stock-adjustments', permission: 'inventory:stock-adjustment:read' },
+          { id: 'inv-locks', labelKey: 'navigation.inventoryLocks', route: '/admin/inventory/locks', permission: 'inventory:lock:read' },
         ],
       },
       {
         id: 'inv-monitoring', labelKey: 'navigation.navSection.inventoryMonitoring', items: [
-          { id: 'inv-balances', labelKey: 'navigation.inventoryBalances', route: '/admin/inventory/balances' },
-          { id: 'inv-ledger', labelKey: 'navigation.inventoryLedger', route: '/admin/inventory/ledger' },
-          { id: 'inv-reconciliation', labelKey: 'navigation.inventoryReconciliation', route: '/admin/inventory/reconciliation' },
-          { id: 'inv-governance-audit', labelKey: 'navigation.inventoryAudit', route: '/admin/inventory/governance-audit' },
+          { id: 'inv-balances', labelKey: 'navigation.inventoryBalances', route: '/admin/inventory/balances', permission: 'inventory-balance:read' },
+          { id: 'inv-ledger', labelKey: 'navigation.inventoryLedger', route: '/admin/inventory/ledger', permission: 'inventory-ledger:read' },
+          { id: 'inv-reconciliation', labelKey: 'navigation.inventoryReconciliation', route: '/admin/inventory/reconciliation', permission: 'inventory-reconciliation:read' },
+          { id: 'inv-governance-audit', labelKey: 'navigation.inventoryAudit', route: '/admin/inventory/governance-audit', permission: 'inventory:audit:read' },
           { id: 'inv-valuation', labelKey: 'navigation.inventoryValuation', route: '/admin/inventory/valuation', permission: 'inventory-valuation:read' },
         ],
       },
@@ -260,23 +290,23 @@ export const sidebarGroups: SidebarGroup[] = [
     id: 'production', labelKey: 'navigation.production', icon: 'production', children: [
       {
         id: 'prd-master-data', labelKey: 'navigation.navSection.productionMasterData', items: [
-          { id: 'prd-units', labelKey: 'navigation.productionUnits', route: '/admin/production/units' },
-          { id: 'prd-product-definitions', labelKey: 'navigation.productionProductDefinitions', route: '/admin/production/product-definitions' },
+          { id: 'prd-units', labelKey: 'navigation.productionUnits', route: '/admin/production/units', permission: 'production-unit:read' },
+          { id: 'prd-product-definitions', labelKey: 'navigation.productionProductDefinitions', route: '/admin/production/product-definitions', permission: 'production-product:read' },
         ],
       },
       {
         id: 'prd-shifts', labelKey: 'navigation.navSection.productionShifts', items: [
-          { id: 'prd-shifts-list', labelKey: 'navigation.productionShifts', route: '/admin/production/shifts' },
-          { id: 'prd-shift-templates', labelKey: 'navigation.productionShiftTemplates', route: '/admin/production/shift-templates' },
-          { id: 'prd-shift-calendars', labelKey: 'navigation.productionShiftCalendars', route: '/admin/production/shift-calendars' },
-          { id: 'prd-shift-assignments', labelKey: 'navigation.productionShiftAssignments', route: '/admin/production/shift-assignments' },
-          { id: 'prd-operational-assignments', labelKey: 'navigation.productionOperationalAssignments', route: '/admin/production/operational-assignments' },
+          { id: 'prd-shifts-list', labelKey: 'navigation.productionShifts', route: '/admin/production/shifts', permission: 'production-shift:read' },
+          { id: 'prd-shift-templates', labelKey: 'navigation.productionShiftTemplates', route: '/admin/production/shift-templates', permission: 'production-shift-template:read' },
+          { id: 'prd-shift-calendars', labelKey: 'navigation.productionShiftCalendars', route: '/admin/production/shift-calendars', permission: 'production-shift-calendar:read' },
+          { id: 'prd-shift-assignments', labelKey: 'navigation.productionShiftAssignments', route: '/admin/production/shift-assignments', permission: 'production-shift-assignment:read' },
+          { id: 'prd-operational-assignments', labelKey: 'navigation.productionOperationalAssignments', route: '/admin/production/operational-assignments', permission: 'production-operational-assignment:read' },
           { id: 'prd-shift-handovers', labelKey: 'navigation.productionShiftHandovers', route: '/admin/production/shift-handovers', permission: 'shift-handover:read' },
         ],
       },
       {
         id: 'prd-standards', labelKey: 'navigation.navSection.productionStandards', items: [
-          { id: 'prd-capacity-standards', labelKey: 'navigation.productionCapacityStandards', route: '/admin/production/capacity-standards' },
+          { id: 'prd-capacity-standards', labelKey: 'navigation.productionCapacityStandards', route: '/admin/production/capacity-standards', permission: 'production-capacity-standard:read' },
         ],
       },
       {
@@ -338,21 +368,21 @@ export const sidebarGroups: SidebarGroup[] = [
     id: 'barcode', labelKey: 'navigation.barcodes', icon: 'barcode', children: [
       {
         id: 'barcode-operations', labelKey: 'navigation.navSection.barcodeOperations', items: [
-          { id: 'barcode-overview', labelKey: 'navigation.barcodes', route: '/admin/barcodes' },
-          { id: 'barcode-generate', labelKey: 'navigation.generate', route: '/admin/barcodes/generate' },
-          { id: 'barcode-print', labelKey: 'navigation.print', route: '/admin/barcodes/print' },
-          { id: 'barcode-scan', labelKey: 'navigation.scan', route: '/admin/barcodes/scan' },
-          { id: 'barcode-preview', labelKey: 'navigation.preview', route: '/admin/barcodes/preview' },
+          { id: 'barcode-overview', labelKey: 'navigation.barcodes', route: '/admin/barcodes', permission: 'barcode-label:read' },
+          { id: 'barcode-generate', labelKey: 'navigation.generate', route: '/admin/barcodes/generate', permission: 'barcode-label:read' },
+          { id: 'barcode-print', labelKey: 'navigation.print', route: '/admin/barcodes/print', permission: 'barcode-label:read' },
+          { id: 'barcode-scan', labelKey: 'navigation.scan', route: '/admin/barcodes/scan', permission: 'barcode-scan:read' },
+          { id: 'barcode-preview', labelKey: 'navigation.preview', route: '/admin/barcodes/preview', permission: 'barcode-label:read' },
         ],
       },
       {
         id: 'barcode-admin', labelKey: 'navigation.navSection.barcodeAdmin', items: [
-          { id: 'barcode-records', labelKey: 'navigation.records', route: '/admin/barcodes/records' },
-          { id: 'barcode-templates', labelKey: 'navigation.templates', route: '/admin/barcodes/templates' },
-          { id: 'barcode-product-labels', labelKey: 'navigation.productLabels', route: '/admin/barcodes/product-labels' },
-          { id: 'barcode-machine-cards', labelKey: 'navigation.machineCards', route: '/admin/barcodes/machine-cards' },
-          { id: 'barcode-scans', labelKey: 'navigation.scans', route: '/admin/barcodes/scans' },
-          { id: 'barcode-print-jobs', labelKey: 'navigation.printJobs', route: '/admin/barcodes/print-jobs' },
+          { id: 'barcode-records', labelKey: 'navigation.records', route: '/admin/barcodes/records', permission: 'barcode-label:read' },
+          { id: 'barcode-templates', labelKey: 'navigation.templates', route: '/admin/barcodes/templates', permission: 'barcode-template:read' },
+          { id: 'barcode-product-labels', labelKey: 'navigation.productLabels', route: '/admin/barcodes/product-labels', permission: 'barcode-label:read' },
+          { id: 'barcode-machine-cards', labelKey: 'navigation.machineCards', route: '/admin/barcodes/machine-cards', permission: 'barcode-label:read' },
+          { id: 'barcode-scans', labelKey: 'navigation.scans', route: '/admin/barcodes/scans', permission: 'barcode-scan:read' },
+          { id: 'barcode-print-jobs', labelKey: 'navigation.printJobs', route: '/admin/barcodes/print-jobs', permission: 'barcode-printJobs:read' },
         ],
       },
     ],
@@ -369,42 +399,42 @@ export const sidebarGroups: SidebarGroup[] = [
       },
       {
         id: 'rpt-maintenance', labelKey: 'navigation.navSection.reportsMaintenance', items: [
-          { id: 'rpt-mnt-overview', labelKey: 'navigation.maintenanceOverview', route: '/admin/reports/maintenance' },
-          { id: 'rpt-mnt-kpis', labelKey: 'navigation.maintenanceKpisReport', route: '/admin/reports/maintenance/kpis' },
-          { id: 'rpt-mnt-requests', labelKey: 'navigation.maintenanceRequestsReport', route: '/admin/reports/maintenance/requests' },
-          { id: 'rpt-mnt-downtime', labelKey: 'navigation.downtimeReport', route: '/admin/reports/maintenance/downtime' },
-          { id: 'rpt-mnt-costs', labelKey: 'navigation.maintenanceCostsReport', route: '/admin/reports/maintenance/costs' },
-          { id: 'rpt-mnt-schedules', labelKey: 'navigation.maintenanceSchedulesReport', route: '/admin/reports/maintenance/schedules' },
-          { id: 'rpt-assets', labelKey: 'navigation.assetsReport', route: '/admin/reports/assets' },
-          { id: 'rpt-machine-log', labelKey: 'navigation.machineLogReport', route: '/admin/reports/machine-log' },
-          { id: 'rpt-parts-usage', labelKey: 'navigation.partsUsageReport', route: '/admin/reports/parts-usage' },
-          { id: 'rpt-upcoming-pm', labelKey: 'navigation.upcomingPreventiveReport', route: '/admin/reports/upcoming-preventive' },
-          { id: 'rpt-overdue-pm', labelKey: 'navigation.overduePreventiveReport', route: '/admin/reports/overdue-preventive' },
-          { id: 'rpt-parts', labelKey: 'navigation.partsReport', route: '/admin/reports/parts' },
-          { id: 'rpt-low-stock', labelKey: 'navigation.lowStockReport', route: '/admin/reports/low-stock' },
+          { id: 'rpt-mnt-overview', labelKey: 'navigation.maintenanceOverview', route: '/admin/reports/maintenance', permission: 'reports.maintenance:read' },
+          { id: 'rpt-mnt-kpis', labelKey: 'navigation.maintenanceKpisReport', route: '/admin/reports/maintenance/kpis', permission: 'reports.maintenance:read' },
+          { id: 'rpt-mnt-requests', labelKey: 'navigation.maintenanceRequestsReport', route: '/admin/reports/maintenance/requests', permission: 'reports.maintenance:read' },
+          { id: 'rpt-mnt-downtime', labelKey: 'navigation.downtimeReport', route: '/admin/reports/maintenance/downtime', permission: 'reports.maintenance:read' },
+          { id: 'rpt-mnt-costs', labelKey: 'navigation.maintenanceCostsReport', route: '/admin/reports/maintenance/costs', permission: 'reports.maintenance:read' },
+          { id: 'rpt-mnt-schedules', labelKey: 'navigation.maintenanceSchedulesReport', route: '/admin/reports/maintenance/schedules', permission: 'reports.maintenance:read' },
+          { id: 'rpt-assets', labelKey: 'navigation.assetsReport', route: '/admin/reports/assets', permission: 'reports.maintenance:read' },
+          { id: 'rpt-machine-log', labelKey: 'navigation.machineLogReport', route: '/admin/reports/machine-log', permission: 'reports.maintenance:read' },
+          { id: 'rpt-parts-usage', labelKey: 'navigation.partsUsageReport', route: '/admin/reports/parts-usage', permission: 'reports.maintenance:read' },
+          { id: 'rpt-upcoming-pm', labelKey: 'navigation.upcomingPreventiveReport', route: '/admin/reports/upcoming-preventive', permission: 'reports.maintenance:read' },
+          { id: 'rpt-overdue-pm', labelKey: 'navigation.overduePreventiveReport', route: '/admin/reports/overdue-preventive', permission: 'reports.maintenance:read' },
+          { id: 'rpt-parts', labelKey: 'navigation.partsReport', route: '/admin/reports/parts', permission: 'reports.maintenance:read' },
+          { id: 'rpt-low-stock', labelKey: 'navigation.lowStockReport', route: '/admin/reports/low-stock', permission: 'reports.inventory:read' },
         ],
       },
       {
         id: 'rpt-inventory', labelKey: 'navigation.navSection.reportsInventory', items: [
-          { id: 'rpt-inv-overview', labelKey: 'navigation.inventoryOverview', route: '/admin/reports/inventory' },
-          { id: 'rpt-inv-balances', labelKey: 'navigation.inventoryBalancesReport', route: '/admin/reports/inventory/balances' },
-          { id: 'rpt-inv-movements', labelKey: 'navigation.inventoryMovementsReport', route: '/admin/reports/inventory/movements' },
-          { id: 'rpt-inv-adjustments', labelKey: 'navigation.inventoryAdjustmentsReport', route: '/admin/reports/inventory/adjustments' },
-          { id: 'rpt-inv-count-variance', labelKey: 'navigation.countVarianceReport', route: '/admin/reports/inventory/count-variance' },
+          { id: 'rpt-inv-overview', labelKey: 'navigation.inventoryOverview', route: '/admin/reports/inventory', permission: 'reports.inventory:read' },
+          { id: 'rpt-inv-balances', labelKey: 'navigation.inventoryBalancesReport', route: '/admin/reports/inventory/balances', permission: 'reports.inventory:read' },
+          { id: 'rpt-inv-movements', labelKey: 'navigation.inventoryMovementsReport', route: '/admin/reports/inventory/movements', permission: 'reports.inventory:read' },
+          { id: 'rpt-inv-adjustments', labelKey: 'navigation.inventoryAdjustmentsReport', route: '/admin/reports/inventory/adjustments', permission: 'reports.inventory:read' },
+          { id: 'rpt-inv-count-variance', labelKey: 'navigation.countVarianceReport', route: '/admin/reports/inventory/count-variance', permission: 'reports.inventory:read' },
         ],
       },
       {
         id: 'rpt-barcode', labelKey: 'navigation.navSection.reportsBarcode', items: [
-          { id: 'rpt-barcode-scans', labelKey: 'navigation.barcodeScansReport', route: '/admin/reports/barcodes/scans' },
+          { id: 'rpt-barcode-scans', labelKey: 'navigation.barcodeScansReport', route: '/admin/reports/barcodes/scans', permission: 'reports.barcodes:read' },
         ],
       },
       {
         id: 'rpt-system', labelKey: 'navigation.navSection.reportsSystem', items: [
-          { id: 'rpt-audit', labelKey: 'navigation.auditTrailReport', route: '/admin/reports/audit' },
-          { id: 'rpt-user-activity', labelKey: 'navigation.userActivityReport', route: '/admin/reports/user-activity' },
-          { id: 'rpt-notifications', labelKey: 'navigation.notificationsReport', route: '/admin/reports/notifications' },
-          { id: 'rpt-attachments', labelKey: 'navigation.attachmentsReport', route: '/admin/reports/attachments' },
-          { id: 'rpt-partners', labelKey: 'navigation.partnersReport', route: '/admin/reports/partners' },
+          { id: 'rpt-audit', labelKey: 'navigation.auditTrailReport', route: '/admin/reports/audit', permission: 'reports.inventory:read' },
+          { id: 'rpt-user-activity', labelKey: 'navigation.userActivityReport', route: '/admin/reports/user-activity', permission: 'reports.inventory:read' },
+          { id: 'rpt-notifications', labelKey: 'navigation.notificationsReport', route: '/admin/reports/notifications', permission: 'reports.inventory:read' },
+          { id: 'rpt-attachments', labelKey: 'navigation.attachmentsReport', route: '/admin/reports/attachments', permission: 'reports.maintenance:read' },
+          { id: 'rpt-partners', labelKey: 'navigation.partnersReport', route: '/admin/reports/partners', permission: 'reports.inventory:read' },
         ],
       },
     ],
@@ -413,7 +443,7 @@ export const sidebarGroups: SidebarGroup[] = [
   // 9. Documents
   {
     id: 'documents', labelKey: 'navigation.documents', icon: 'document', items: [
-      { id: 'doc-attachments', labelKey: 'navigation.attachments', route: '/admin/documents/attachments' },
+      { id: 'doc-attachments', labelKey: 'navigation.attachments', route: '/admin/documents/attachments', permission: 'attachments.view' },
     ],
   },
 
@@ -422,26 +452,26 @@ export const sidebarGroups: SidebarGroup[] = [
     id: 'system', labelKey: 'navigation.system', icon: 'settings', children: [
       {
         id: 'sys-settings-section', labelKey: 'navigation.navSection.systemSettings', items: [
-          { id: 'sys-settings', labelKey: 'navigation.settingsList', route: '/admin/settings' },
-          { id: 'sys-company', labelKey: 'navigation.companyProfile', route: '/admin/settings/company' },
-          { id: 'sys-language', labelKey: 'navigation.language', route: '/admin/settings/language' },
-          { id: 'sys-appearance', labelKey: 'navigation.appearance', route: '/admin/settings/appearance' },
-          { id: 'sys-security', labelKey: 'navigation.security', route: '/admin/settings/security' },
-          { id: 'sys-numbering', labelKey: 'navigation.numberSequences', route: '/admin/settings/numbering' },
-          { id: 'sys-notification-rules', labelKey: 'navigation.notificationRules', route: '/admin/settings/notification-rules' },
+          { id: 'sys-settings', labelKey: 'navigation.settingsList', route: '/admin/settings', permission: 'settings:read' },
+          { id: 'sys-company', labelKey: 'navigation.companyProfile', route: '/admin/settings/company', permission: 'company:read' },
+          { id: 'sys-language', labelKey: 'navigation.language', route: '/admin/settings/language', permission: 'settings.language.view' },
+          { id: 'sys-appearance', labelKey: 'navigation.appearance', route: '/admin/settings/appearance', permission: 'settings.appearance.view' },
+          { id: 'sys-security', labelKey: 'navigation.security', route: '/admin/settings/security', permission: 'settings.security.view' },
+          { id: 'sys-numbering', labelKey: 'navigation.numberSequences', route: '/admin/settings/numbering', permission: 'numbering:read' },
+          { id: 'sys-notification-rules', labelKey: 'navigation.notificationRules', route: '/admin/settings/notification-rules', permission: 'settings.notifications.view' },
         ],
       },
       {
         id: 'sys-logs', labelKey: 'navigation.navSection.systemLogs', items: [
-          { id: 'sys-audit', labelKey: 'navigation.auditLog', route: '/admin/settings/audit' },
-          { id: 'sys-user-activity', labelKey: 'navigation.userActivity', route: '/admin/settings/audit/user-activity' },
-          { id: 'sys-login-history', labelKey: 'navigation.loginHistory', route: '/admin/settings/audit/login-history' },
+          { id: 'sys-audit', labelKey: 'navigation.auditLog', route: '/admin/settings/audit', permission: 'audit:read' },
+          { id: 'sys-user-activity', labelKey: 'navigation.userActivity', route: '/admin/settings/audit/user-activity', permission: 'audit:read' },
+          { id: 'sys-login-history', labelKey: 'navigation.loginHistory', route: '/admin/settings/audit/login-history', permission: 'audit:read' },
         ],
       },
       {
         id: 'sys-communication', labelKey: 'navigation.navSection.systemCommunication', items: [
-          { id: 'sys-notifications', labelKey: 'navigation.notifications', route: '/admin/notifications' },
-          { id: 'sys-messaging', labelKey: 'navigation.messaging', route: '/admin/messaging' },
+          { id: 'sys-notifications', labelKey: 'navigation.notifications', route: '/admin/notifications', permission: 'notifications:read' },
+          { id: 'sys-messaging', labelKey: 'navigation.messaging', route: '/admin/messaging', permission: 'messaging:read' },
         ],
       },
     ],

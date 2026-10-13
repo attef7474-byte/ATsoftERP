@@ -53,7 +53,7 @@ export default function StartCountPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'start', labelKey: 'inventoryCounting.startCount', icon: <ActionStartIcon />, onClick: () => exec('start'), enabled: !!(data && data.status === 'DRAFT') },
+    { id: 'start', labelKey: 'inventoryCounting.startCount', icon: <ActionStartIcon />, permission: 'inventory-count:start', onClick: () => exec('start'), enabled: !!(data && data.status === 'DRAFT') },
   ]);
 
   if (loading) return <LoadingState />;

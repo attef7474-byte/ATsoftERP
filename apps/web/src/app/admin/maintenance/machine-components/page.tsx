@@ -67,12 +67,12 @@ export default function MachineComponentsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'machine-component:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'machine-component:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'machine-component:activate', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'machine-component:deactivate', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'machine-component:delete', onClick: () => exec('delete'), enabled: !!selectedId },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -197,10 +197,10 @@ export default function MachineComponentsPage() {
   ];
 
   const gridActions: GridAction<MachineComponent>[] = [
-    { label: t('actions.edit'), onClick: (c: MachineComponent) => openEdit(c.id) },
-    { label: t('common.delete'), onClick: (c: MachineComponent) => { setSelectedId(c.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
-    { label: t('actions.deactivate'), onClick: (c: MachineComponent) => confirmStatus(c.id), enabled: (c: MachineComponent) => c.status === 'ACTIVE', variant: 'danger' },
-    { label: t('actions.activate'), onClick: (c: MachineComponent) => confirmStatus(c.id), enabled: (c: MachineComponent) => c.status !== 'ACTIVE' },
+    { label: t('actions.edit'), permission: 'machine-component:update', onClick: (c: MachineComponent) => openEdit(c.id) },
+    { label: t('common.delete'), permission: 'machine-component:delete', onClick: (c: MachineComponent) => { setSelectedId(c.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
+    { label: t('actions.deactivate'), permission: 'machine-component:deactivate', onClick: (c: MachineComponent) => confirmStatus(c.id), enabled: (c: MachineComponent) => c.status === 'ACTIVE', variant: 'danger' },
+    { label: t('actions.activate'), permission: 'machine-component:activate', onClick: (c: MachineComponent) => confirmStatus(c.id), enabled: (c: MachineComponent) => c.status !== 'ACTIVE' },
   ];
 
   return (

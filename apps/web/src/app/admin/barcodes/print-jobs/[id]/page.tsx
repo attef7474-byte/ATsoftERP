@@ -63,7 +63,7 @@ export default function PrintJobDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: job?.status === 'PENDING' },
+    { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, permission: 'barcode-printJobs:update', onClick: () => exec('cancel'), enabled: job?.status === 'PENDING' },
   ]);
 
   if (loading) return <LoadingState />;

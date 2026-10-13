@@ -10,6 +10,7 @@ import { LifeStatusBadge } from '../../../components/maintenance/life-status-bad
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon, ActionRecalculateIcon } from '../../../components/admin/admin-action-bar';
 import { useApiErrorHandler } from '../../../components/admin/error-handler';
 import { MachineInstalledPart } from '../../../lib/admin-types';
+import { PERMISSION_KEYS } from '../../../lib/permission-keys';
 
 export default function InstalledPartsPage() {
   const { t, dir } = useTranslation();
@@ -26,7 +27,7 @@ export default function InstalledPartsPage() {
 
   useRegisterAdminActions([
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'evaluate', labelKey: 'maintenance.evaluateAllParts', icon: <ActionRecalculateIcon />, onClick: () => exec('evaluate'), enabled: !evaluating },
+    { id: 'evaluate', labelKey: 'maintenance.evaluateAllParts', icon: <ActionRecalculateIcon />, permission: PERMISSION_KEYS.INSTALLED_PARTS_READ, onClick: () => exec('evaluate'), enabled: !evaluating },
   ]);
 
   const fetchData = useCallback(async () => {

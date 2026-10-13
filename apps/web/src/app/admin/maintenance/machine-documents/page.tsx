@@ -40,9 +40,9 @@ const { exec } = useStableHandlers({
 });
 
 useRegisterAdminActions([
-  { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-  { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
-  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, onClick: () => exec('delete'), enabled: !!selectedId, variant: 'danger' },
+  { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'machine-document:create', onClick: () => exec('new') },
+  { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'machine-document:update', onClick: () => exec('edit'), enabled: !!selectedId },
+  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, permission: 'machine-document:deactivate', onClick: () => exec('delete'), enabled: !!selectedId, variant: 'danger' },
   { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
 ]);
 
@@ -128,8 +128,8 @@ useRegisterAdminActions([
   ];
 
   const gridActions: GridAction<MachineDocument>[] = [
-    { label: t('actions.edit'), onClick: (d: MachineDocument) => openEdit(d) },
-    { label: t('actions.delete'), onClick: (d: MachineDocument) => confirmDelete(d.id), variant: 'danger' },
+    { label: t('actions.edit'), permission: 'machine-document:update', onClick: (d: MachineDocument) => openEdit(d) },
+    { label: t('actions.delete'), permission: 'machine-document:deactivate', onClick: (d: MachineDocument) => confirmDelete(d.id), variant: 'danger' },
   ];
 
   return (

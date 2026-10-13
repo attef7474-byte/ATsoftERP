@@ -108,7 +108,7 @@ export default function ProductionFinishedGoodsReceiptsPage() {
       id: 'new',
       labelKey: 'production.finishedGoodsReceipts.newReceipt',
       icon: <ActionAddIcon />,
-      onClick: () => exec('new'),
+      permission: 'production-finished-goods-receipt:create', onClick: () => exec('new'),
       enabled: can('create'),
     },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
@@ -353,10 +353,10 @@ export default function ProductionFinishedGoodsReceiptsPage() {
 
   const gridActions: GridAction<ProductionFinishedGoodsReceipt>[] = [
     { label: t('common.view'), onClick: (r) => void openView(r), enabled: (r) => can('read') },
-    { label: t('common.edit'), onClick: (r) => void openEdit(r), enabled: (r) => can('update') && r.status === 'DRAFT' },
-    { label: t('production.finishedGoodsReceipts.post'), onClick: (r) => openPost(r), enabled: (r) => can('post') && r.status === 'DRAFT' },
-    { label: t('production.finishedGoodsReceipts.cancel'), onClick: (r) => openCancel(r), enabled: (r) => can('cancel') && r.status === 'DRAFT', variant: 'danger' },
-    { label: t('production.finishedGoodsReceipts.reverse'), onClick: (r) => openReverse(r), enabled: (r) => can('reverse') && r.status === 'POSTED' },
+    { label: t('common.edit'), permission: 'production-finished-goods-receipt:update', onClick: (r) => void openEdit(r), enabled: (r) => can('update') && r.status === 'DRAFT' },
+    { label: t('production.finishedGoodsReceipts.post'), permission: 'production-finished-goods-receipt:post', onClick: (r) => openPost(r), enabled: (r) => can('post') && r.status === 'DRAFT' },
+    { label: t('production.finishedGoodsReceipts.cancel'), permission: 'production-finished-goods-receipt:cancel', onClick: (r) => openCancel(r), enabled: (r) => can('cancel') && r.status === 'DRAFT', variant: 'danger' },
+    { label: t('production.finishedGoodsReceipts.reverse'), permission: 'production-finished-goods-receipt:reverse', onClick: (r) => openReverse(r), enabled: (r) => can('reverse') && r.status === 'POSTED' },
   ];
 
   const performAction = async () => {

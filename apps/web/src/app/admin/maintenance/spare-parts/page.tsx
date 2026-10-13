@@ -143,9 +143,9 @@ export default function SparePartsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'add', labelKey: 'actions.add', icon: <ActionAddIcon />, onClick: () => exec('add'), enabled: canCreate },
+    { id: 'add', labelKey: 'actions.add', icon: <ActionAddIcon />, permission: 'spare-part:create', onClick: () => exec('add'), enabled: canCreate },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId && canDelete },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'spare-part:delete', onClick: () => exec('delete'), enabled: !!selectedId && canDelete },
   ]);
 
   const columns: GridColumn<SparePart>[] = [
@@ -165,10 +165,10 @@ export default function SparePartsPage() {
 
   const gridActions: GridAction<SparePart>[] = [
     { label: t('actions.view'), onClick: (s) => router.push(`/admin/maintenance/spare-parts/${s.id}`) },
-    { label: t('actions.edit'), onClick: (s) => openEdit(s.id), enabled: () => canUpdate },
-    { label: t('common.delete'), onClick: (s) => { setSelectedId(s.id); setConfirmDeleteOpen(true); }, variant: 'danger', enabled: () => canDelete },
-    { label: t('actions.deactivate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'deactivate' }), enabled: (s) => s.status === 'ACTIVE' && canDeactivate },
-    { label: t('actions.activate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'activate' }), enabled: (s) => s.status !== 'ACTIVE' && canActivate },
+    { label: t('actions.edit'), permission: 'spare-part:update', onClick: (s) => openEdit(s.id), enabled: () => canUpdate },
+    { label: t('common.delete'), permission: 'spare-part:delete', onClick: (s) => { setSelectedId(s.id); setConfirmDeleteOpen(true); }, variant: 'danger', enabled: () => canDelete },
+    { label: t('actions.deactivate'), permission: 'spare-part:deactivate', onClick: (s) => setConfirmAction({ id: s.id, action: 'deactivate' }), enabled: (s) => s.status === 'ACTIVE' && canDeactivate },
+    { label: t('actions.activate'), permission: 'spare-part:activate', onClick: (s) => setConfirmAction({ id: s.id, action: 'activate' }), enabled: (s) => s.status !== 'ACTIVE' && canActivate },
   ];
 
   return (

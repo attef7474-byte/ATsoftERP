@@ -83,7 +83,7 @@ export default function ShiftHandoversPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'shift-handover:create', onClick: () => exec('new') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 

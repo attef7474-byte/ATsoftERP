@@ -113,14 +113,14 @@ export default function ProductionQualityPlansPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'production-quality-plan:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'production-quality-plan:update', onClick: () => exec('edit'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'submit', labelKey: 'production.qualityPlans.submit', icon: <ActionEditIcon />, onClick: () => exec('submit'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
-    { id: 'approve', labelKey: 'production.qualityPlans.approve', icon: <ActionEditIcon />, onClick: () => exec('approve'), enabled: !!(selectedId && selectedRecord?.status === 'PENDING') },
-    { id: 'reject', labelKey: 'production.qualityPlans.reject', icon: <ActionEditIcon />, onClick: () => exec('reject'), enabled: !!(selectedId && selectedRecord?.status === 'PENDING') },
-    { id: 'deactivate', labelKey: 'production.qualityPlans.deactivate', icon: <ActionEditIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'APPROVED') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'submit', labelKey: 'production.qualityPlans.submit', icon: <ActionEditIcon />, permission: 'production-quality-plan:submit', onClick: () => exec('submit'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'approve', labelKey: 'production.qualityPlans.approve', icon: <ActionEditIcon />, permission: 'production-quality-plan:approve', onClick: () => exec('approve'), enabled: !!(selectedId && selectedRecord?.status === 'PENDING') },
+    { id: 'reject', labelKey: 'production.qualityPlans.reject', icon: <ActionEditIcon />, permission: 'production-quality-plan:reject', onClick: () => exec('reject'), enabled: !!(selectedId && selectedRecord?.status === 'PENDING') },
+    { id: 'deactivate', labelKey: 'production.qualityPlans.deactivate', icon: <ActionEditIcon />, permission: 'production-quality-plan:deactivate', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'APPROVED') },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'production-quality-plan:delete', onClick: () => exec('delete'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -391,12 +391,12 @@ export default function ProductionQualityPlansPage() {
   ];
 
   const gridActions: GridAction<ProductionQualityPlan>[] = [
-    { label: t('actions.edit'), onClick: (r) => openEdit(r.id), enabled: (r) => r.status === 'DRAFT' },
-    { label: t('production.qualityPlans.submit'), onClick: (r) => { setSelectedId(r.id); setConfirmAction({ kind: 'submit', id: r.id }); }, enabled: (r) => r.status === 'DRAFT' },
-    { label: t('production.qualityPlans.approve'), onClick: (r) => { setSelectedId(r.id); setConfirmAction({ kind: 'approve', id: r.id }); }, enabled: (r) => r.status === 'PENDING' },
-    { label: t('production.qualityPlans.reject'), onClick: (r) => { setSelectedId(r.id); setReason(''); setConfirmAction({ kind: 'reject', id: r.id }); }, enabled: (r) => r.status === 'PENDING' },
-    { label: t('production.qualityPlans.deactivate'), onClick: (r) => { setSelectedId(r.id); setReason(''); setConfirmAction({ kind: 'deactivate', id: r.id }); }, enabled: (r) => r.status === 'APPROVED', variant: 'danger' },
-    { label: t('common.delete'), onClick: (r) => { setSelectedId(r.id); setConfirmAction({ kind: 'delete', id: r.id }); }, enabled: (r) => r.status === 'DRAFT', variant: 'danger' },
+    { label: t('actions.edit'), permission: 'production-quality-plan:update', onClick: (r) => openEdit(r.id), enabled: (r) => r.status === 'DRAFT' },
+    { label: t('production.qualityPlans.submit'), permission: 'production-quality-plan:submit', onClick: (r) => { setSelectedId(r.id); setConfirmAction({ kind: 'submit', id: r.id }); }, enabled: (r) => r.status === 'DRAFT' },
+    { label: t('production.qualityPlans.approve'), permission: 'production-quality-plan:approve', onClick: (r) => { setSelectedId(r.id); setConfirmAction({ kind: 'approve', id: r.id }); }, enabled: (r) => r.status === 'PENDING' },
+    { label: t('production.qualityPlans.reject'), permission: 'production-quality-plan:reject', onClick: (r) => { setSelectedId(r.id); setReason(''); setConfirmAction({ kind: 'reject', id: r.id }); }, enabled: (r) => r.status === 'PENDING' },
+    { label: t('production.qualityPlans.deactivate'), permission: 'production-quality-plan:deactivate', onClick: (r) => { setSelectedId(r.id); setReason(''); setConfirmAction({ kind: 'deactivate', id: r.id }); }, enabled: (r) => r.status === 'APPROVED', variant: 'danger' },
+    { label: t('common.delete'), permission: 'production-quality-plan:delete', onClick: (r) => { setSelectedId(r.id); setConfirmAction({ kind: 'delete', id: r.id }); }, enabled: (r) => r.status === 'DRAFT', variant: 'danger' },
   ];
 
   const canManageChildren = !!editItem && (editItem.status === 'DRAFT' || editItem.status === 'PENDING');

@@ -59,7 +59,7 @@ export default function AssignTechnicianPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'save', labelKey: 'common.save', icon: <ActionSaveIcon />, onClick: () => exec('save'), enabled: !!assignedToId },
+    { id: 'save', labelKey: 'common.save', icon: <ActionSaveIcon />, permission: 'maintenance-request:assign', onClick: () => exec('save'), enabled: !!assignedToId },
   ]);
 
   if (loading) return <LoadingState />;

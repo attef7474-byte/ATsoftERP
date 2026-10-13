@@ -37,11 +37,11 @@ export default function ProductCategoriesPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'products:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'products:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'products:update', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'products:update', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -124,9 +124,9 @@ export default function ProductCategoriesPage() {
   ];
 
   const gridActions: GridAction<ProductCategory>[] = [
-    { label: t('actions.edit'), onClick: (c: ProductCategory) => openEdit(c) },
-    { label: t('actions.deactivate'), onClick: (c: ProductCategory) => confirmStatus(c.id), enabled: (c: ProductCategory) => c.status === 'ACTIVE', variant: 'danger' },
-    { label: t('actions.activate'), onClick: (c: ProductCategory) => confirmStatus(c.id), enabled: (c: ProductCategory) => c.status !== 'ACTIVE' },
+    { label: t('actions.edit'), permission: 'products:update', onClick: (c: ProductCategory) => openEdit(c) },
+    { label: t('actions.deactivate'), permission: 'products:update', onClick: (c: ProductCategory) => confirmStatus(c.id), enabled: (c: ProductCategory) => c.status === 'ACTIVE', variant: 'danger' },
+    { label: t('actions.activate'), permission: 'products:update', onClick: (c: ProductCategory) => confirmStatus(c.id), enabled: (c: ProductCategory) => c.status !== 'ACTIVE' },
   ];
 
   return (

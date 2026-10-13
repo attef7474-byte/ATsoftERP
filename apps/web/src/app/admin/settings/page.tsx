@@ -125,9 +125,9 @@ export default function SettingsPage() {
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!(selectedId && selectedRecord && !isSecret(selectedRecord.key) && !selectedRecord.isSystem) },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord && selectedRecord.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord && selectedRecord.status === 'ACTIVE' && !selectedRecord.isSystem) },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'settings:update', onClick: () => exec('edit'), enabled: !!(selectedId && selectedRecord && !isSecret(selectedRecord.key) && !selectedRecord.isSystem) },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'settings:update', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord && selectedRecord.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'settings:update', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord && selectedRecord.status === 'ACTIVE' && !selectedRecord.isSystem) },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 

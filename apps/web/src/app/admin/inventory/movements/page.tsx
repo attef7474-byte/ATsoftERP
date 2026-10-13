@@ -50,11 +50,11 @@ export default function InventoryMovementsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'inventory-movement:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'inventory-movement:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'post', labelKey: 'inventoryCounting.post', icon: <ActionPostIcon />, onClick: () => exec('post'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
-    { id: 'cancel', labelKey: 'inventoryCounting.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT'), variant: 'danger' },
+    { id: 'post', labelKey: 'inventoryCounting.post', icon: <ActionPostIcon />, permission: 'inventory-movement:post', onClick: () => exec('post'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'cancel', labelKey: 'inventoryCounting.cancel', icon: <ActionCancelIcon />, permission: 'inventory-movement:cancel', onClick: () => exec('cancel'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT'), variant: 'danger' },
   ]);
 
   const [pendingAction, setPendingAction] = useState('');
@@ -173,9 +173,9 @@ export default function InventoryMovementsPage() {
 
   const gridActions: GridAction<InventoryMovement>[] = [
     { label: t('details.viewDetails'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>, onClick: (r: InventoryMovement) => router.push(`/admin/inventory/movements/${r.id}`) },
-    { label: t('actions.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, onClick: (r: InventoryMovement) => openEdit(r), enabled: false },
-    { label: t('inventoryCounting.post'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>, onClick: (r: InventoryMovement) => confirmAction(r.id, 'post'), enabled: false },
-    { label: t('inventoryCounting.cancel'), variant: 'danger', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>, onClick: (r: InventoryMovement) => confirmAction(r.id, 'cancel'), enabled: false },
+    { label: t('actions.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, permission: 'inventory-movement:update', onClick: (r: InventoryMovement) => openEdit(r), enabled: false },
+    { label: t('inventoryCounting.post'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>, permission: 'inventory-movement:post', onClick: (r: InventoryMovement) => confirmAction(r.id, 'post'), enabled: false },
+    { label: t('inventoryCounting.cancel'), variant: 'danger', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>, permission: 'inventory-movement:cancel', onClick: (r: InventoryMovement) => confirmAction(r.id, 'cancel'), enabled: false },
   ];
 
   return (

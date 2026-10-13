@@ -54,12 +54,12 @@ export default function ProductionShiftTemplatesPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'production-shift-template:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'production-shift-template:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'production-shift-template:update', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'production-shift-template:update', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'production-shift-template:delete', onClick: () => exec('delete'), enabled: !!selectedId },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -179,10 +179,10 @@ export default function ProductionShiftTemplatesPage() {
   ];
 
   const gridActions: GridAction<ProductionShiftTemplate>[] = [
-    { label: t('actions.edit'), onClick: (x: ProductionShiftTemplate) => openEdit(x.id) },
-    { label: t('common.delete'), onClick: (x: ProductionShiftTemplate) => { setSelectedId(x.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
-    { label: t('actions.deactivate'), onClick: (x: ProductionShiftTemplate) => confirmStatus(x.id), enabled: (x: ProductionShiftTemplate) => x.status === 'ACTIVE', variant: 'danger' },
-    { label: t('actions.activate'), onClick: (x: ProductionShiftTemplate) => confirmStatus(x.id), enabled: (x: ProductionShiftTemplate) => x.status !== 'ACTIVE' },
+    { label: t('actions.edit'), permission: 'production-shift-template:update', onClick: (x: ProductionShiftTemplate) => openEdit(x.id) },
+    { label: t('common.delete'), permission: 'production-shift-template:delete', onClick: (x: ProductionShiftTemplate) => { setSelectedId(x.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
+    { label: t('actions.deactivate'), permission: 'production-shift-template:update', onClick: (x: ProductionShiftTemplate) => confirmStatus(x.id), enabled: (x: ProductionShiftTemplate) => x.status === 'ACTIVE', variant: 'danger' },
+    { label: t('actions.activate'), permission: 'production-shift-template:update', onClick: (x: ProductionShiftTemplate) => confirmStatus(x.id), enabled: (x: ProductionShiftTemplate) => x.status !== 'ACTIVE' },
   ];
 
   return (

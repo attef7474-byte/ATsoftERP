@@ -54,7 +54,7 @@ export default function ExecuteSchedulePage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'execute', labelKey: 'maintenance.execute', icon: <ActionStartIcon />, onClick: () => exec('execute'), enabled: !executing && !executionResult },
+    { id: 'execute', labelKey: 'maintenance.execute', icon: <ActionStartIcon />, permission: 'maintenance-schedule:execute', onClick: () => exec('execute'), enabled: !executing && !executionResult },
   ]);
 
   if (loading) return <LoadingState />;

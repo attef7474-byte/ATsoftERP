@@ -126,7 +126,7 @@ export default function ProductionMaterialDocumentsPage() {
       id: 'new',
       labelKey: 'production.materialDocuments.newDocument',
       icon: <ActionAddIcon />,
-      onClick: () => exec('new'),
+      permission: 'production-material-document:create', onClick: () => exec('new'),
       enabled: can('create'),
     },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
@@ -396,10 +396,10 @@ export default function ProductionMaterialDocumentsPage() {
 
   const gridActions: GridAction<ProductionMaterialDocument>[] = [
     { label: t('common.view'), onClick: (d) => void openView(d), enabled: (d) => can('read') },
-    { label: t('common.edit'), onClick: (d) => void openEdit(d), enabled: (d) => can('update') && d.status === 'DRAFT' },
-    { label: t('production.materialDocuments.post'), onClick: (d) => openPost(d), enabled: (d) => can('post') && d.status === 'DRAFT' },
-    { label: t('production.materialDocuments.cancel'), onClick: (d) => openCancel(d), enabled: (d) => can('cancel') && d.status === 'DRAFT', variant: 'danger' },
-    { label: t('production.materialDocuments.reverse'), onClick: (d) => openReverse(d), enabled: (d) => can('reverse') && d.status === 'POSTED' },
+    { label: t('common.edit'), permission: 'production-material-document:update', onClick: (d) => void openEdit(d), enabled: (d) => can('update') && d.status === 'DRAFT' },
+    { label: t('production.materialDocuments.post'), permission: 'production-material-document:post', onClick: (d) => openPost(d), enabled: (d) => can('post') && d.status === 'DRAFT' },
+    { label: t('production.materialDocuments.cancel'), permission: 'production-material-document:cancel', onClick: (d) => openCancel(d), enabled: (d) => can('cancel') && d.status === 'DRAFT', variant: 'danger' },
+    { label: t('production.materialDocuments.reverse'), permission: 'production-material-document:reverse', onClick: (d) => openReverse(d), enabled: (d) => can('reverse') && d.status === 'POSTED' },
   ];
 
   const performAction = async () => {

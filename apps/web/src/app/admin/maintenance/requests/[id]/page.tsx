@@ -156,12 +156,12 @@ export default function MaintenanceRequestDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!data },
-    { id: 'start', labelKey: 'common.start', icon: <ActionStartIcon />, onClick: () => exec('start'), enabled: !!(data && data.status === 'OPEN') },
-    { id: 'complete', labelKey: 'maintenance.executeCompleteWork', icon: <ActionCompleteIcon />, onClick: () => exec('complete'), enabled: !!(data && data.status === 'IN_PROGRESS') },
-    { id: 'close', labelKey: 'common.close', icon: <ActionCompleteIcon />, onClick: () => exec('close'), enabled: !!(data && data.status === 'COMPLETED') },
-    { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(data && (data.status === 'OPEN' || data.status === 'IN_PROGRESS')), variant: 'danger' },
-    { id: 'reopen', labelKey: 'common.reopen', icon: <ActionRefreshIcon />, onClick: () => exec('reopen'), enabled: !!(data && (data.status === 'COMPLETED' || data.status === 'CANCELLED' || data.status === 'CLOSED')) },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'maintenance-request:update', onClick: () => exec('edit'), enabled: !!data },
+    { id: 'start', labelKey: 'common.start', icon: <ActionStartIcon />, permission: 'maintenance-request:start', onClick: () => exec('start'), enabled: !!(data && data.status === 'OPEN') },
+    { id: 'complete', labelKey: 'maintenance.executeCompleteWork', icon: <ActionCompleteIcon />, permission: 'maintenance-request:complete', onClick: () => exec('complete'), enabled: !!(data && data.status === 'IN_PROGRESS') },
+    { id: 'close', labelKey: 'common.close', icon: <ActionCompleteIcon />, permission: 'maintenance-request:close', onClick: () => exec('close'), enabled: !!(data && data.status === 'COMPLETED') },
+    { id: 'cancel', labelKey: 'common.cancel', icon: <ActionCancelIcon />, permission: 'maintenance-request:cancel', onClick: () => exec('cancel'), enabled: !!(data && (data.status === 'OPEN' || data.status === 'IN_PROGRESS')), variant: 'danger' },
+    { id: 'reopen', labelKey: 'common.reopen', icon: <ActionRefreshIcon />, permission: 'maintenance-request:reopen', onClick: () => exec('reopen'), enabled: !!(data && (data.status === 'COMPLETED' || data.status === 'CANCELLED' || data.status === 'CLOSED')) },
   ]);
 
   useEffect(() => {

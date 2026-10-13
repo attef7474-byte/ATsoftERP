@@ -192,12 +192,12 @@ export default function StockTransfersPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedRecord && selectedRecord.status === 'DRAFT' },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'inventory:stock-transfer:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'inventory:stock-transfer:update', onClick: () => exec('edit'), enabled: !!selectedRecord && selectedRecord.status === 'DRAFT' },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'submit', labelKey: 'inventoryCounting.adjSubmit', icon: <ActionPostIcon />, onClick: () => exec('submit'), enabled: !!selectedRecord && selectedRecord.status === 'DRAFT' },
-    { id: 'post', labelKey: 'inventoryCounting.adjPost', icon: <ActionPostIcon />, onClick: () => exec('post'), enabled: !!selectedRecord && selectedRecord.status === 'APPROVED' },
-    { id: 'cancel', labelKey: 'inventoryCounting.adjCancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!selectedRecord && (selectedRecord.status === 'DRAFT' || selectedRecord.status === 'SUBMITTED'), variant: 'danger' },
+    { id: 'submit', labelKey: 'inventoryCounting.adjSubmit', icon: <ActionPostIcon />, permission: 'inventory:stock-transfer:submit', onClick: () => exec('submit'), enabled: !!selectedRecord && selectedRecord.status === 'DRAFT' },
+    { id: 'post', labelKey: 'inventoryCounting.adjPost', icon: <ActionPostIcon />, permission: 'inventory:stock-transfer:post', onClick: () => exec('post'), enabled: !!selectedRecord && selectedRecord.status === 'APPROVED' },
+    { id: 'cancel', labelKey: 'inventoryCounting.adjCancel', icon: <ActionCancelIcon />, permission: 'inventory:stock-transfer:cancel', onClick: () => exec('cancel'), enabled: !!selectedRecord && (selectedRecord.status === 'DRAFT' || selectedRecord.status === 'SUBMITTED'), variant: 'danger' },
   ]);
 
   const columns: GridColumn<StockTransfer>[] = [
@@ -212,12 +212,12 @@ export default function StockTransfersPage() {
   ];
 
   const gridActions: GridAction<StockTransfer>[] = [
-    { label: t('common.edit'), onClick: (r) => openEdit(r), enabled: (r) => canAction(r.status, 'edit') },
-    { label: t('actions.submit'), onClick: (r) => confirmAction(r.id, 'submit'), enabled: (r) => canAction(r.status, 'submit') },
-    { label: t('status.APPROVED'), onClick: (r) => confirmAction(r.id, 'approve'), enabled: (r) => canAction(r.status, 'approve') },
-    { label: t('status.REJECTED'), onClick: (r) => confirmAction(r.id, 'reject'), enabled: (r) => canAction(r.status, 'reject') },
-    { label: t('common.post'), onClick: (r) => confirmAction(r.id, 'post'), enabled: (r) => canAction(r.status, 'post') },
-    { label: t('common.cancel'), onClick: (r) => confirmAction(r.id, 'cancel'), enabled: (r) => canAction(r.status, 'cancel'), variant: 'danger' },
+    { label: t('common.edit'), permission: 'inventory:stock-transfer:update', onClick: (r) => openEdit(r), enabled: (r) => canAction(r.status, 'edit') },
+    { label: t('actions.submit'), permission: 'inventory:stock-transfer:submit', onClick: (r) => confirmAction(r.id, 'submit'), enabled: (r) => canAction(r.status, 'submit') },
+    { label: t('status.APPROVED'), permission: 'inventory:stock-transfer:approve', onClick: (r) => confirmAction(r.id, 'approve'), enabled: (r) => canAction(r.status, 'approve') },
+    { label: t('status.REJECTED'), permission: 'inventory:stock-transfer:reject', onClick: (r) => confirmAction(r.id, 'reject'), enabled: (r) => canAction(r.status, 'reject') },
+    { label: t('common.post'), permission: 'inventory:stock-transfer:post', onClick: (r) => confirmAction(r.id, 'post'), enabled: (r) => canAction(r.status, 'post') },
+    { label: t('common.cancel'), permission: 'inventory:stock-transfer:cancel', onClick: (r) => confirmAction(r.id, 'cancel'), enabled: (r) => canAction(r.status, 'cancel'), variant: 'danger' },
   ];
 
   const actionLabels: Record<string, string> = {

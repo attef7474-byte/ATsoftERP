@@ -168,9 +168,9 @@ export default function MaintenancePersonnelPage() {
   // from here.
   const { exec } = useStableHandlers({ add: () => router.push('/admin/core/persons'), refresh: () => fetchData(meta.page), delete: () => setConfirmDeleteOpen(true) });
   useRegisterAdminActions(useMemo(() => [
-    { id: 'add', labelKey: 'core.registerPerson', icon: React.createElement(ActionAddIcon), onClick: () => exec('add') },
+    { id: 'add', labelKey: 'core.registerPerson', icon: React.createElement(ActionAddIcon), permission: 'maintenance-personnel:create', onClick: () => exec('add') },
     { id: 'refresh', labelKey: 'common.refresh', icon: React.createElement(ActionRefreshIcon), onClick: () => exec('refresh') },
-    { id: 'delete', labelKey: 'common.delete', icon: React.createElement(ActionDeleteIcon), variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'delete', labelKey: 'common.delete', icon: React.createElement(ActionDeleteIcon), variant: 'danger', permission: 'maintenance-personnel:delete', onClick: () => exec('delete'), enabled: !!selectedId },
   ], [exec, selectedId, router]));
 
   const handleRowClick = useCallback((item: MaintenancePersonnel) => {
@@ -189,10 +189,10 @@ export default function MaintenancePersonnelPage() {
   ];
 
   const gridActions: GridAction<MaintenancePersonnel>[] = [
-    { label: t('actions.edit'), onClick: (s) => openEdit(s.id), enabled: () => canUpdate },
-    { label: t('actions.delete'), onClick: (s) => { setSelectedId(s.id); setConfirmDeleteOpen(true); }, enabled: () => canDelete },
-    { label: t('actions.deactivate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'deactivate' }), enabled: (s) => s.isActive && canDeactivate },
-    { label: t('actions.activate'), onClick: (s) => setConfirmAction({ id: s.id, action: 'activate' }), enabled: (s) => !s.isActive && canActivate },
+    { label: t('actions.edit'), permission: 'maintenance-personnel:update', onClick: (s) => openEdit(s.id), enabled: () => canUpdate },
+    { label: t('actions.delete'), permission: 'maintenance-personnel:delete', onClick: (s) => { setSelectedId(s.id); setConfirmDeleteOpen(true); }, enabled: () => canDelete },
+    { label: t('actions.deactivate'), permission: 'maintenance-personnel:deactivate', onClick: (s) => setConfirmAction({ id: s.id, action: 'deactivate' }), enabled: (s) => s.isActive && canDeactivate },
+    { label: t('actions.activate'), permission: 'maintenance-personnel:activate', onClick: (s) => setConfirmAction({ id: s.id, action: 'activate' }), enabled: (s) => !s.isActive && canActivate },
   ];
 
   return (

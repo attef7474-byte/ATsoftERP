@@ -174,13 +174,13 @@ export default function MaintenanceWorkOrderDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!data && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' },
-    { id: 'plan', labelKey: 'maintenance.planWorkOrder', icon: <ActionEditIcon />, onClick: () => exec('plan'), enabled: !!(data && data.status === 'DRAFT') },
-    { id: 'start', labelKey: 'maintenance.startWorkOrder', icon: <ActionEditIcon />, onClick: () => exec('start'), enabled: !!(data && data.status === 'PLANNED') },
-    { id: 'complete', labelKey: 'maintenance.executeCompleteWork', icon: <ActionEditIcon />, onClick: () => exec('complete'), enabled: !!(data && data.status === 'IN_PROGRESS') },
-    { id: 'cancel', labelKey: 'maintenance.cancelWorkOrder', icon: <ActionDeleteIcon />, onClick: () => exec('cancel'), enabled: !!(data && (data.status === 'DRAFT' || data.status === 'PLANNED')) },
-    { id: 'addPart', labelKey: 'maintenance.addPart', icon: <ActionAddIcon />, onClick: () => exec('addPart'), enabled: !!data && !data.requestId && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' },
-    { id: 'addCost', labelKey: 'maintenance.addCostEntry', icon: <ActionAddIcon />, onClick: () => exec('addCost'), enabled: !!data && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'maintenance-work-order:update', onClick: () => exec('edit'), enabled: !!data && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' },
+    { id: 'plan', labelKey: 'maintenance.planWorkOrder', icon: <ActionEditIcon />, permission: 'maintenance-work-order:update', onClick: () => exec('plan'), enabled: !!(data && data.status === 'DRAFT') },
+    { id: 'start', labelKey: 'maintenance.startWorkOrder', icon: <ActionEditIcon />, permission: 'maintenance-work-order:update', onClick: () => exec('start'), enabled: !!(data && data.status === 'PLANNED') },
+    { id: 'complete', labelKey: 'maintenance.executeCompleteWork', icon: <ActionEditIcon />, permission: 'maintenance-work-order:update', onClick: () => exec('complete'), enabled: !!(data && data.status === 'IN_PROGRESS') },
+    { id: 'cancel', labelKey: 'maintenance.cancelWorkOrder', icon: <ActionDeleteIcon />, permission: 'maintenance-work-order:update', onClick: () => exec('cancel'), enabled: !!(data && (data.status === 'DRAFT' || data.status === 'PLANNED')) },
+    { id: 'addPart', labelKey: 'maintenance.addPart', icon: <ActionAddIcon />, permission: 'maintenance-work-order-part:create', onClick: () => exec('addPart'), enabled: !!data && !data.requestId && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' },
+    { id: 'addCost', labelKey: 'maintenance.addCostEntry', icon: <ActionAddIcon />, permission: 'maintenance-work-order-cost:create', onClick: () => exec('addCost'), enabled: !!data && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' },
   ]);
 
   const handleHeaderSave = async () => {

@@ -135,8 +135,8 @@ export default function CountExecutePage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'scan', labelKey: 'inventoryCountWorkflow.scanBarcode', icon: <ActionBarcodeIcon />, onClick: () => exec('scan'), enabled: !!scanValue.trim() },
-    { id: 'addLine', labelKey: 'inventoryCountWorkflow.executeActionAddLine', icon: <ActionAddIcon />, onClick: () => exec('addLine') },
+    { id: 'scan', labelKey: 'inventoryCountWorkflow.scanBarcode', icon: <ActionBarcodeIcon />, permission: 'barcode-scan:create', onClick: () => exec('scan'), enabled: !!scanValue.trim() },
+    { id: 'addLine', labelKey: 'inventoryCountWorkflow.executeActionAddLine', icon: <ActionAddIcon />, permission: 'inventory-count-line:create', onClick: () => exec('addLine') },
   ]);
 
   if (loading) return <LoadingState />;

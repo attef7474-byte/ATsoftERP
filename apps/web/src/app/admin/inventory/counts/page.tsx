@@ -55,14 +55,14 @@ export default function InventoryCountsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'inventory-count:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'inventory-count:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'start', labelKey: 'inventoryCounting.start', icon: <ActionStartIcon />, onClick: () => exec('start'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
-    { id: 'complete', labelKey: 'inventoryCounting.complete', icon: <ActionCompleteIcon />, onClick: () => exec('complete'), enabled: !!(selectedId && selectedRecord?.status === 'IN_PROGRESS') },
-    { id: 'cancel', labelKey: 'inventoryCounting.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(selectedId && (selectedRecord?.status === 'DRAFT' || selectedRecord?.status === 'IN_PROGRESS')), variant: 'danger' },
+    { id: 'start', labelKey: 'inventoryCounting.start', icon: <ActionStartIcon />, permission: 'inventory-count:start', onClick: () => exec('start'), enabled: !!(selectedId && selectedRecord?.status === 'DRAFT') },
+    { id: 'complete', labelKey: 'inventoryCounting.complete', icon: <ActionCompleteIcon />, permission: 'inventory-count:complete', onClick: () => exec('complete'), enabled: !!(selectedId && selectedRecord?.status === 'IN_PROGRESS') },
+    { id: 'cancel', labelKey: 'inventoryCounting.cancel', icon: <ActionCancelIcon />, permission: 'inventory-count:cancel', onClick: () => exec('cancel'), enabled: !!(selectedId && (selectedRecord?.status === 'DRAFT' || selectedRecord?.status === 'IN_PROGRESS')), variant: 'danger' },
     { id: 'viewLines', labelKey: 'inventoryCounting.viewLines', icon: <ActionViewIcon />, onClick: () => exec('viewLines'), enabled: !!selectedId },
-    { id: 'generateAdjustment', labelKey: 'inventoryCounting.generateAdjustment', icon: <ActionGenerateIcon />, onClick: () => exec('generateAdjustment'), enabled: !!(selectedId && selectedRecord?.status === 'COMPLETED') },
+    { id: 'generateAdjustment', labelKey: 'inventoryCounting.generateAdjustment', icon: <ActionGenerateIcon />, permission: 'inventory-count:generateAdjustment', onClick: () => exec('generateAdjustment'), enabled: !!(selectedId && selectedRecord?.status === 'COMPLETED') },
   ]);
 
   const [pendingAction, setPendingAction] = useState('');
@@ -195,13 +195,13 @@ export default function InventoryCountsPage() {
 
   const gridActions: GridAction<InventoryCount>[] = [
     { label: t('details.viewDetails'), onClick: (r: InventoryCount) => router.push(`/admin/inventory/counts/${r.id}`) },
-    { label: t('inventoryCounting.start'), onClick: (r: InventoryCount) => confirmAction(r.id, 'start'), enabled: (r: InventoryCount) => r.status === 'DRAFT' },
+    { label: t('inventoryCounting.start'), permission: 'inventory-count:start', onClick: (r: InventoryCount) => confirmAction(r.id, 'start'), enabled: (r: InventoryCount) => r.status === 'DRAFT' },
     { label: t('inventoryCountWorkflow.execute'), onClick: (r: InventoryCount) => router.push(`/admin/inventory/counts/${r.id}/execute`), enabled: (r: InventoryCount) => r.status === 'IN_PROGRESS' },
     { label: t('inventoryCountWorkflow.approve'), onClick: (r: InventoryCount) => router.push(`/admin/inventory/counts/${r.id}/approve`), enabled: (r: InventoryCount) => r.status === 'IN_PROGRESS' },
-    { label: t('inventoryCounting.cancel'), onClick: (r: InventoryCount) => confirmAction(r.id, 'cancel'), enabled: (r: InventoryCount) => r.status === 'DRAFT' || r.status === 'IN_PROGRESS', variant: 'danger' },
+    { label: t('inventoryCounting.cancel'), permission: 'inventory-count:cancel', onClick: (r: InventoryCount) => confirmAction(r.id, 'cancel'), enabled: (r: InventoryCount) => r.status === 'DRAFT' || r.status === 'IN_PROGRESS', variant: 'danger' },
     { label: t('inventoryCountWorkflow.adjust'), onClick: (r: InventoryCount) => router.push(`/admin/inventory/counts/${r.id}/adjust`), enabled: (r: InventoryCount) => r.status === 'COMPLETED' },
     { label: t('inventoryCountWorkflow.review'), onClick: (r: InventoryCount) => router.push(`/admin/inventory/counts/${r.id}/review`), enabled: (r: InventoryCount) => r.status === 'COMPLETED' },
-    { label: t('actions.edit'), onClick: (r: InventoryCount) => openEdit(r), enabled: (r: InventoryCount) => r.status === 'DRAFT' },
+    { label: t('actions.edit'), permission: 'inventory-count:update', onClick: (r: InventoryCount) => openEdit(r), enabled: (r: InventoryCount) => r.status === 'DRAFT' },
     { label: t('inventoryCounting.viewLines'), onClick: (r: InventoryCount) => openLinesPanel(r.id) },
   ];
 

@@ -59,13 +59,13 @@ export default function ProductionProductDefinitionsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'production-product:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'production-product:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'view', labelKey: 'common.view', icon: <ActionViewIcon />, onClick: () => exec('view'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'production-product:update', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'production-product:update', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'production-product:delete', onClick: () => exec('delete'), enabled: !!selectedId },
   ]);
 
   const fetchData = useCallback(async (page = 1) => {
@@ -260,10 +260,10 @@ export default function ProductionProductDefinitionsPage() {
 
   const gridActions: GridAction<ProductionProductDefinition>[] = [
     { label: t('common.view'), onClick: (p: ProductionProductDefinition) => openDetail(p.id) },
-    { label: t('actions.edit'), onClick: (p: ProductionProductDefinition) => openEdit(p.id) },
-    { label: t('common.delete'), onClick: (p: ProductionProductDefinition) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
-    { label: t('actions.deactivate'), onClick: (p: ProductionProductDefinition) => confirmStatus(p.id), enabled: (p: ProductionProductDefinition) => p.status === 'ACTIVE', variant: 'danger' },
-    { label: t('actions.activate'), onClick: (p: ProductionProductDefinition) => confirmStatus(p.id), enabled: (p: ProductionProductDefinition) => p.status !== 'ACTIVE' },
+    { label: t('actions.edit'), permission: 'production-product:update', onClick: (p: ProductionProductDefinition) => openEdit(p.id) },
+    { label: t('common.delete'), permission: 'production-product:delete', onClick: (p: ProductionProductDefinition) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
+    { label: t('actions.deactivate'), permission: 'production-product:update', onClick: (p: ProductionProductDefinition) => confirmStatus(p.id), enabled: (p: ProductionProductDefinition) => p.status === 'ACTIVE', variant: 'danger' },
+    { label: t('actions.activate'), permission: 'production-product:update', onClick: (p: ProductionProductDefinition) => confirmStatus(p.id), enabled: (p: ProductionProductDefinition) => p.status !== 'ACTIVE' },
   ];
 
   const childTabs: { id: ChildTab; label: string }[] = [

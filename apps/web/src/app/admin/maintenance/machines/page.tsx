@@ -150,12 +150,12 @@ export default function MachinesPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'machine:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'machine:update', onClick: () => exec('edit'), enabled: !!selectedId },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
-    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'machine:update', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'machine:update', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'machine:delete', onClick: () => exec('delete'), enabled: !!selectedId },
   ]);
 
   const confirmStatus = (id: string, action: 'activate' | 'deactivate') => {
@@ -205,10 +205,10 @@ export default function MachinesPage() {
 
   const gridActions: GridAction<Machine>[] = [
     { label: t('details.viewDetails'), onClick: (m: Machine) => router.push(`/admin/maintenance/machines/${m.id}`) },
-    { label: t('actions.edit'), onClick: (m: Machine) => openEdit(m) },
-    { label: t('actions.deactivate'), onClick: (m: Machine) => confirmStatus(m.id, 'deactivate'), enabled: (m: Machine) => m.status === 'ACTIVE', variant: 'danger' },
-    { label: t('actions.activate'), onClick: (m: Machine) => confirmStatus(m.id, 'activate'), enabled: (m: Machine) => m.status !== 'ACTIVE' },
-    { label: t('common.delete'), onClick: (m: Machine) => { setSelectedId(m.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
+    { label: t('actions.edit'), permission: 'machine:update', onClick: (m: Machine) => openEdit(m) },
+    { label: t('actions.deactivate'), permission: 'machine:update', onClick: (m: Machine) => confirmStatus(m.id, 'deactivate'), enabled: (m: Machine) => m.status === 'ACTIVE', variant: 'danger' },
+    { label: t('actions.activate'), permission: 'machine:update', onClick: (m: Machine) => confirmStatus(m.id, 'activate'), enabled: (m: Machine) => m.status !== 'ACTIVE' },
+    { label: t('common.delete'), permission: 'machine:delete', onClick: (m: Machine) => { setSelectedId(m.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
   ];
 
   const editRecord = editItem as Machine | null;

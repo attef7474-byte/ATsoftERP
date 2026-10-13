@@ -45,7 +45,7 @@ export default function LanguageSettingsPage() {
   const { exec } = useStableHandlers({ save: () => handleSave(), back: () => router.back() });
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
-    { id: 'save', labelKey: 'common.save', icon: <ActionSaveIcon />, onClick: () => exec('save') },
+    { id: 'save', labelKey: 'common.save', icon: <ActionSaveIcon />, permission: 'settings.language.manage', onClick: () => exec('save') },
   ]);
 
   if (loading) return <LoadingState />;

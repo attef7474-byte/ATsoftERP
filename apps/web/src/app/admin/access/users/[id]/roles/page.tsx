@@ -74,7 +74,7 @@ export default function UserRolesPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'actions.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'actions.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'save', labelKey: 'access.saveChanges', icon: <ActionSaveIcon />, onClick: () => exec('save'), enabled: !saving && changed },
+    { id: 'save', labelKey: 'access.saveChanges', icon: <ActionSaveIcon />, permission: 'user:update', onClick: () => exec('save'), enabled: !saving && changed },
     { id: 'cancel', labelKey: 'actions.cancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel') },
   ]);
 

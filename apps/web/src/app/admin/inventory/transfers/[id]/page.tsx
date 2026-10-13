@@ -73,12 +73,12 @@ export default function StockTransferDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!(data && data.status === 'DRAFT') },
-    { id: 'submit', labelKey: 'inventoryCounting.adjSubmit', icon: <ActionPostIcon />, onClick: () => exec('submit'), enabled: !!(data && data.status === 'DRAFT') },
-    { id: 'approve', labelKey: 'inventoryCounting.adjApprove', icon: <ActionPostIcon />, onClick: () => exec('approve'), enabled: !!(data && data.status === 'SUBMITTED') },
-    { id: 'reject', labelKey: 'inventoryCounting.adjReject', icon: <ActionCancelIcon />, onClick: () => exec('reject'), enabled: !!(data && data.status === 'SUBMITTED'), variant: 'danger' },
-    { id: 'post', labelKey: 'inventoryCounting.adjPost', icon: <ActionPostIcon />, onClick: () => exec('post'), enabled: !!(data && data.status === 'APPROVED') },
-    { id: 'cancel', labelKey: 'inventoryCounting.adjCancel', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(data && (data.status === 'DRAFT' || data.status === 'SUBMITTED')), variant: 'danger' },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'inventory:stock-transfer:update', onClick: () => exec('edit'), enabled: !!(data && data.status === 'DRAFT') },
+    { id: 'submit', labelKey: 'inventoryCounting.adjSubmit', icon: <ActionPostIcon />, permission: 'inventory:stock-transfer:submit', onClick: () => exec('submit'), enabled: !!(data && data.status === 'DRAFT') },
+    { id: 'approve', labelKey: 'inventoryCounting.adjApprove', icon: <ActionPostIcon />, permission: 'inventory:stock-transfer:approve', onClick: () => exec('approve'), enabled: !!(data && data.status === 'SUBMITTED') },
+    { id: 'reject', labelKey: 'inventoryCounting.adjReject', icon: <ActionCancelIcon />, permission: 'inventory:stock-transfer:reject', onClick: () => exec('reject'), enabled: !!(data && data.status === 'SUBMITTED'), variant: 'danger' },
+    { id: 'post', labelKey: 'inventoryCounting.adjPost', icon: <ActionPostIcon />, permission: 'inventory:stock-transfer:post', onClick: () => exec('post'), enabled: !!(data && data.status === 'APPROVED') },
+    { id: 'cancel', labelKey: 'inventoryCounting.adjCancel', icon: <ActionCancelIcon />, permission: 'inventory:stock-transfer:cancel', onClick: () => exec('cancel'), enabled: !!(data && (data.status === 'DRAFT' || data.status === 'SUBMITTED')), variant: 'danger' },
   ]);
 
   if (loading) return <LoadingState />;

@@ -87,8 +87,8 @@ export default function ChecklistExecutionPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'start', labelKey: 'maintenanceWorkflow.startChecklist', icon: <ActionStartIcon />, onClick: () => exec('start'), enabled: !execution || execution.status === 'COMPLETED' },
-    { id: 'complete', labelKey: 'maintenanceWorkflow.completeChecklist', icon: <ActionCompleteIcon />, onClick: () => exec('complete'), enabled: !!(execution && execution.status === 'IN_PROGRESS') },
+    { id: 'start', labelKey: 'maintenanceWorkflow.startChecklist', icon: <ActionStartIcon />, permission: 'maintenance-checklist-execution:create', onClick: () => exec('start'), enabled: !execution || execution.status === 'COMPLETED' },
+    { id: 'complete', labelKey: 'maintenanceWorkflow.completeChecklist', icon: <ActionCompleteIcon />, permission: 'maintenance-checklist-execution:complete', onClick: () => exec('complete'), enabled: !!(execution && execution.status === 'IN_PROGRESS') },
   ]);
 
   if (loading) return <LoadingState />;

@@ -66,9 +66,9 @@ export default function InventoryMovementDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!data },
-    { id: 'post', labelKey: 'inventoryCounting.post', icon: <ActionPostIcon />, onClick: () => exec('post'), enabled: !!(data && data.status === 'DRAFT') },
-    { id: 'cancel', labelKey: 'inventoryCounting.cancelMovement', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(data && data.status === 'DRAFT'), variant: 'danger' },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'inventory-movement:update', onClick: () => exec('edit'), enabled: !!data },
+    { id: 'post', labelKey: 'inventoryCounting.post', icon: <ActionPostIcon />, permission: 'inventory-movement:post', onClick: () => exec('post'), enabled: !!(data && data.status === 'DRAFT') },
+    { id: 'cancel', labelKey: 'inventoryCounting.cancelMovement', icon: <ActionCancelIcon />, permission: 'inventory-movement:cancel', onClick: () => exec('cancel'), enabled: !!(data && data.status === 'DRAFT'), variant: 'danger' },
   ]);
 
   if (loading) return <LoadingState />;

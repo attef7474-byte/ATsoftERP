@@ -90,8 +90,8 @@ export default function CountAdjustPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'generate', labelKey: 'inventoryCounting.generateAdjustment', icon: <ActionGenerateIcon />, onClick: () => exec('generate'), enabled: canGenerate },
-    { id: 'post', labelKey: 'inventoryCounting.postAdjustment', icon: <ActionPostIcon />, onClick: () => exec('post'), enabled: !!draftAdjustment },
+    { id: 'generate', labelKey: 'inventoryCounting.generateAdjustment', icon: <ActionGenerateIcon />, permission: 'inventory-count:generateAdjustment', onClick: () => exec('generate'), enabled: canGenerate },
+    { id: 'post', labelKey: 'inventoryCounting.postAdjustment', icon: <ActionPostIcon />, permission: 'inventory-adjustment:post', onClick: () => exec('post'), enabled: !!draftAdjustment },
   ]);
 
   if (loading) return <LoadingState />;

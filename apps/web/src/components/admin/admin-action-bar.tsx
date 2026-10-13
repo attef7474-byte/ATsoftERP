@@ -8,6 +8,12 @@ export interface AdminAction {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
   enabled?: boolean;
   tooltipKey?: string;
+  /**
+   * Permission the action's API call requires. When set, the action is hidden from any
+   * principal that does not hold it (deny-by-default while permissions load). Omit for
+   * actions every authenticated user may perform.
+   */
+  permission?: string;
   onClick: () => void | Promise<void>;
 }
 

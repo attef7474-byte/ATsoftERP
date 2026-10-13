@@ -97,7 +97,7 @@ export default function ProductLabelPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'generate', labelKey: 'barcodes.generateLabel', icon: <ActionAddIcon />, onClick: () => exec('generate'), enabled: !!product },
+    { id: 'generate', labelKey: 'barcodes.generateLabel', icon: <ActionAddIcon />, permission: 'barcode-label:create', onClick: () => exec('generate'), enabled: !!product },
   ]);
 
   if (loading) return <LoadingState />;

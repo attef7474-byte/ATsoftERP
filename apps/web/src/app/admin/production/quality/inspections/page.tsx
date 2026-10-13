@@ -107,7 +107,7 @@ export default function ProductionInspectionsPage() {
   });
 
   useRegisterAdminActions([
-    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, onClick: () => exec('new') },
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'production-inspection:create', onClick: () => exec('new') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 
@@ -422,7 +422,7 @@ export default function ProductionInspectionsPage() {
 
   const gridActions: GridAction<ProductionInspection>[] = [
     { label: t('actions.view'), onClick: (r) => openDetail(r.id) },
-    { label: t('production.inspections.recordResults'), onClick: (r) => openDetail(r.id).then(() => setDetailTab('results')), enabled: (r) => r.status === 'OPEN' },
+    { label: t('production.inspections.recordResults'), permission: 'production-inspection:complete', onClick: (r) => openDetail(r.id).then(() => setDetailTab('results')), enabled: (r) => r.status === 'OPEN' },
   ];
 
   return (

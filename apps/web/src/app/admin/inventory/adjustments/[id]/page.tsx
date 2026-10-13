@@ -66,9 +66,9 @@ export default function InventoryAdjustmentDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, onClick: () => exec('edit'), enabled: !!data },
-    { id: 'post', labelKey: 'inventoryCounting.postAdjustment', icon: <ActionPostIcon />, onClick: () => exec('post'), enabled: !!(data && data.status === 'DRAFT') },
-    { id: 'cancel', labelKey: 'inventoryCounting.cancelAdjustment', icon: <ActionCancelIcon />, onClick: () => exec('cancel'), enabled: !!(data && data.status === 'DRAFT'), variant: 'danger' },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'inventory-adjustment:update', onClick: () => exec('edit'), enabled: !!data },
+    { id: 'post', labelKey: 'inventoryCounting.postAdjustment', icon: <ActionPostIcon />, permission: 'inventory-adjustment:post', onClick: () => exec('post'), enabled: !!(data && data.status === 'DRAFT') },
+    { id: 'cancel', labelKey: 'inventoryCounting.cancelAdjustment', icon: <ActionCancelIcon />, permission: 'inventory-adjustment:cancel', onClick: () => exec('cancel'), enabled: !!(data && data.status === 'DRAFT'), variant: 'danger' },
   ]);
 
   if (loading) return <LoadingState />;
