@@ -79,6 +79,8 @@ export const CMMS_EXTRA_PERMISSIONS: { key: string; module: string; action: stri
   { key: "maintenance-request:print", module: "maintenance-request", action: "print" },
   // installed-parts (critical permission alignment)
   { key: "installed-parts:read", module: "installed-parts", action: "read" },
+  { key: "installed-parts:create", module: "installed-parts", action: "create" },
+  { key: "installed-parts:update", module: "installed-parts", action: "update" },
   { key: "maintenance-request:checklist.view", module: "maintenance-request", action: "checklist.view" },
   { key: "maintenance-request:checklist.manage", module: "maintenance-request", action: "checklist.manage" },
   { key: "maintenance-request:summary", module: "maintenance-request", action: "summary" },

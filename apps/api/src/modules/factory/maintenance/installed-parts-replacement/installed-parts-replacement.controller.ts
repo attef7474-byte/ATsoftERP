@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { InstalledPartsReplacementService } from './installed-parts-replacement.service';
-import { QueryInstalledPartDto, QueryInstalledPartLookupDto, QueryReplacementHistoryDto, SetExpectedLifeDto, RecordInstalledPartReadingDto } from './dto/installed-parts-replacement.dto';
+import { QueryInstalledPartDto, QueryInstalledPartLookupDto, QueryReplacementHistoryDto, SetExpectedLifeDto, RecordInstalledPartReadingDto, RegisterInstalledPartDto, RemoveInstalledPartDto } from './dto/installed-parts-replacement.dto';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../auth/guards/permissions.guard';
 import { Permissions } from '../../../auth/decorators/permissions.decorator';
@@ -110,6 +110,20 @@ export class InstalledPartsReplacementController {
   @ApiOperation({ summary: 'Record a reading for an installed part' })
   recordReading(@Param('id') id: string, @Body() dto: RecordInstalledPartReadingDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.recordReading(id, dto, userId, ctx);
+  }
+
+  @Post()
+  @Permissions('installed-parts:create')
+  @ApiOperation({ summary: 'Register an already-physically-installed part (no stock issue)' })
+  registerExistingInstallation(@Body() dto: RegisterInstalledPartDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.registerExistingInstallation(dto, userId, ctx);
+  }
+
+  @Post(':id/remove')
+  @Permissions('installed-parts:update')
+  @ApiOperation({ summary: 'Remove/decommission an installed part (state only, no stock move)' })
+  removeInstalledPart(@Param('id') id: string, @Body() dto: RemoveInstalledPartDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.removeInstalledPart(id, dto, userId, ctx);
   }
 
   @Get(':id')

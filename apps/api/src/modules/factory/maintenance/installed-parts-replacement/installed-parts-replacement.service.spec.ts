@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { NumberingService } from '../../../numbering/numbering.service';
 import { AuditService } from '../../../../common/audit/audit.service';
@@ -484,3 +484,167 @@ describe('InstalledPartsReplacementService (installed-part component/machine inv
 // boundary. That boundary is covered by
 // maintenance-spare-part-request-lines/tenant-spare-part-request-lines.spec.ts
 // ("rejects create when a client-supplied component is outside the active context").
+
+const ownedInstalledPartMachine = { id: 'm1', companyId: 'c1', branchId: 'b1' };
+
+const installableSparePart = {
+  id: 'sp1',
+  code: 'SKF-6205',
+  name: 'Bearing 6205',
+  productId: 'prod1',
+  status: 'ACTIVE',
+  deletedAt: null,
+};
+
+const activeInstalledPartRecord = {
+  id: 'ip1',
+  machineId: 'm1',
+  machineComponentId: null,
+  sparePartId: 'sp1',
+  productId: 'prod1',
+  status: 'ACTIVE',
+  installedQuantity: 1,
+  installedCondition: 'NEW',
+  sourceType: 'MANUAL_REGISTRATION',
+  sourceId: 'req-1',
+  installedAt: new Date('2026-03-01T00:00:00.000Z'),
+  serialNumber: null,
+  batchNumber: null,
+  notes: null,
+  expectedLifeValue: null,
+  expectedLifeUnit: null,
+  lifeStartDate: null,
+  lifeStartReading: null,
+  currentReading: null,
+  warningThresholdPercent: 80,
+  alertThresholdReached: 'NONE',
+  lastEvaluatedAt: null,
+  expectedExpiryDate: null,
+  expectedExpiryReading: null,
+  expectedLifeAlertAt: null,
+  machine: ownedInstalledPartMachine,
+  machineComponent: null,
+  sparePart: { id: 'sp1', code: 'SKF-6205', name: 'Bearing 6205', unit: 'PCS' },
+  maintenanceRequest: null,
+};
+
+describe('InstalledPartsReplacementService (manual register & removal)', () => {
+  let service: InstalledPartsReplacementService;
+  let prisma: any;
+  let audit: any;
+
+  const dto = () => ({
+    machineId: 'm1',
+    sparePartId: 'sp1',
+    installedQuantity: 1,
+    installedCondition: 'NEW',
+    clientRequestId: 'req-1',
+  });
+
+  beforeEach(() => {
+    prisma = {
+      machine: { findUnique: jest.fn().mockResolvedValue(ownedInstalledPartMachine) },
+      sparePart: { findUnique: jest.fn().mockResolvedValue(installableSparePart) },
+      machineSparePart: { findFirst: jest.fn().mockResolvedValue(null) },
+      componentSparePart: { findFirst: jest.fn().mockResolvedValue(null) },
+      machineComponent: { findUnique: jest.fn() },
+      machineInstalledPart: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findUnique: jest.fn().mockResolvedValue(activeInstalledPartRecord),
+        create: jest.fn().mockResolvedValue(activeInstalledPartRecord),
+        update: jest.fn().mockResolvedValue({ ...activeInstalledPartRecord, status: 'REMOVED' }),
+      },
+      $transaction: jest.fn((fn: any) => fn(prisma)),
+    };
+    audit = { log: jest.fn() };
+    service = new InstalledPartsReplacementService(prisma as PrismaService, {} as NumberingService, audit as AuditService);
+  });
+
+  // A1 — register ACTIVE on machine, product derived, NO inventory movement.
+  it('registers an already-installed part, derives the product, and never touches inventory', async () => {
+    const result = await service.registerExistingInstallation(dto() as any, 'u1', ctx);
+
+    expect(prisma.machineInstalledPart.create).toHaveBeenCalledTimes(1);
+    const data = prisma.machineInstalledPart.create.mock.calls[0][0].data;
+    expect(data).toMatchObject({
+      machineId: 'm1',
+      sparePartId: 'sp1',
+      productId: 'prod1',
+      status: 'ACTIVE',
+      sourceType: 'MANUAL_REGISTRATION',
+      sourceId: 'req-1',
+      inventoryMovementId: null,
+    });
+    expect(result.id).toBe('ip1');
+    expect(audit.log).toHaveBeenCalledWith('u1', 'INSTALLED_PART_REGISTERED', 'MachineInstalledPart', 'ip1', expect.any(Object));
+  });
+
+  // A7 — SOFT applicability: no catalog link still registers, reported as not applicable.
+  it('preserves SOFT applicability: registers even when no catalog link exists', async () => {
+    const result = await service.registerExistingInstallation(dto() as any, 'u1', ctx);
+    expect(result.applicability.applicable).toBe(false);
+    expect(prisma.machineInstalledPart.create).toHaveBeenCalledTimes(1);
+  });
+
+  // A-soft-true — catalog link present reports applicable + machineApplicable.
+  it('reports applicability true when a machine catalog link exists', async () => {
+    prisma.machineSparePart.findFirst.mockResolvedValue({ id: 'link1' });
+    const result = await service.registerExistingInstallation(dto() as any, 'u1', ctx);
+    expect(result.applicability.applicable).toBe(true);
+    expect(result.applicability.machineApplicable).toBe(true);
+  });
+
+  // A4/A5 — wrong-machine component rejected with canonical 400 mismatch.
+  it('rejects registration when the component belongs to another machine', async () => {
+    prisma.machineComponent.findUnique.mockResolvedValue({ id: 'mc1', machineId: 'm2', machine: { companyId: 'c1', branchId: 'b1' } });
+
+    const promise = service.registerExistingInstallation({ ...dto(), machineComponentId: 'mc1' } as any, 'u1', ctx);
+    await expect(promise).rejects.toThrow(BadRequestException);
+    const error: any = await promise.catch((e) => e);
+    expect(error.getResponse().messageKey).toBe('maintenance.machineComponentMachineMismatch');
+    expect(prisma.machineInstalledPart.create).not.toHaveBeenCalled();
+  });
+
+  // A6 — cross-tenant machine rejected as 404.
+  it('rejects registration for a machine outside the active context', async () => {
+    prisma.machine.findUnique.mockResolvedValue({ id: 'm1', companyId: 'other', branchId: 'b1' });
+    await expect(service.registerExistingInstallation(dto() as any, 'u1', ctx)).rejects.toThrow(NotFoundException);
+    expect(prisma.machineInstalledPart.create).not.toHaveBeenCalled();
+  });
+
+  // A11 — idempotent on clientRequestId: no duplicate row.
+  it('returns the existing record when the same clientRequestId is replayed', async () => {
+    prisma.machineInstalledPart.findFirst.mockResolvedValue(activeInstalledPartRecord);
+    const result = await service.registerExistingInstallation(dto() as any, 'u1', ctx);
+    expect(prisma.machineInstalledPart.create).not.toHaveBeenCalled();
+    expect(result.id).toBe('ip1');
+  });
+
+  // A12 — duplicate ACTIVE serial guard.
+  it('rejects a duplicate active serial for the same spare part', async () => {
+    prisma.machineInstalledPart.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'dup' });
+
+    const promise = service.registerExistingInstallation({ ...dto(), serialNumber: 'SN-1' } as any, 'u1', ctx);
+    await expect(promise).rejects.toThrow(ConflictException);
+    expect(prisma.machineInstalledPart.create).not.toHaveBeenCalled();
+  });
+
+  // A8/A20 — removal transitions ACTIVE -> REMOVED, no inventory effect, audited.
+  it('removes an active installed part without touching inventory and audits it', async () => {
+    const result = await service.removeInstalledPart('ip1', { newStatus: 'REMOVED' } as any, 'u1', ctx);
+
+    expect(prisma.machineInstalledPart.update).toHaveBeenCalledTimes(1);
+    const data = prisma.machineInstalledPart.update.mock.calls[0][0].data;
+    expect(data.status).toBe('REMOVED');
+    expect(result.id).toBe('ip1');
+    expect(audit.log).toHaveBeenCalledWith('u1', 'INSTALLED_PART_REMOVED', 'MachineInstalledPart', 'ip1', expect.any(Object));
+  });
+
+  it('rejects removal of an installed part that is not active', async () => {
+    prisma.machineInstalledPart.findUnique.mockResolvedValue({ ...activeInstalledPartRecord, status: 'REMOVED' });
+    await expect(service.removeInstalledPart('ip1', { newStatus: 'REMOVED' } as any, 'u1', ctx)).rejects.toThrow(BadRequestException);
+    expect(prisma.machineInstalledPart.update).not.toHaveBeenCalled();
+  });
+});

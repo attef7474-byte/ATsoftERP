@@ -4,10 +4,13 @@ import { useParams } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Button, Card, CardHeader, CardContent, Input, Select, LoadingState, ErrorState, LocalizedValue } from '../../../../components/admin/ui';
+import { Button, Card, CardHeader, CardContent, Input, Select, LoadingState, ErrorState, LocalizedValue, ConfirmDialog } from '../../../../components/admin/ui';
 import { LifeStatusBadge } from '../../../../components/maintenance/life-status-badge';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { MachineInstalledPart, MachineInstalledPartReading } from '../../../../lib/admin-types';
+import { useAuth } from '../../../../lib/auth-context';
+import { hasPermission } from '../../../../lib/access-control';
+import { PERMISSION_KEYS } from '../../../../lib/permission-keys';
 
 export default function InstalledPartDetailPage() {
   const params = useParams<{ id: string }>();
@@ -20,6 +23,10 @@ export default function InstalledPartDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const { permissions } = useAuth();
+  const canRemove = Boolean(permissions?.isSuperAdmin) || hasPermission(permissions?.permissions ?? [], PERMISSION_KEYS.INSTALLED_PARTS_UPDATE);
 
   const [lifeForm, setLifeForm] = useState({ expectedLifeValue: '', expectedLifeUnit: 'DAYS', lifeStartDate: '', lifeStartReading: '', currentReading: '', warningThresholdPercent: '80' });
   const [readingForm, setReadingForm] = useState({ readingType: 'HOURS', readingValue: '', isReset: false, notes: '' });
@@ -99,6 +106,17 @@ export default function InstalledPartDetailPage() {
     finally { setSaving(false); }
   };
 
+  const handleRemove = async () => {
+    setConfirmRemove(false);
+    setRemoving(true);
+    try {
+      await api.post(`/installed-parts/${params.id}/remove`, { newStatus: 'REMOVED' });
+      showToast(t('maintenance.installedPartRemoved'), 'success');
+      fetchData();
+    } catch (err: any) { handleApiError(err); }
+    finally { setRemoving(false); }
+  };
+
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
   if (!part) return <ErrorState message={t('common.noData')} onRetry={fetchData} />;
@@ -121,7 +139,14 @@ export default function InstalledPartDetailPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">{t('maintenance.installedPart')}</h3>
-            <LifeStatusBadge status={life?.lifeStatus || part.lifeStatus} />
+            <div className="flex items-center gap-2">
+              <LifeStatusBadge status={life?.lifeStatus || part.lifeStatus} />
+              {canRemove && part.status === 'ACTIVE' && (
+                <Button variant="danger" onClick={() => setConfirmRemove(true)} loading={removing} disabled={removing}>
+                  {t('maintenance.removeInstalledPart')}
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -252,6 +277,15 @@ export default function InstalledPartDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={confirmRemove}
+        onClose={() => setConfirmRemove(false)}
+        onConfirm={handleRemove}
+        title={t('maintenance.removeInstalledPart')}
+        message={t('maintenance.confirmRemoveInstalledPart')}
+        variant="danger"
+      />
     </div>
   );
 }

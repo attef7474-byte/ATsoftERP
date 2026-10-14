@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { NumberingService } from '../../../../modules/numbering/numbering.service';
 import { AuditService } from '../../../../common/audit/audit.service';
-import { QueryInstalledPartDto, QueryInstalledPartLookupDto, QueryReplacementHistoryDto, SetExpectedLifeDto, RecordInstalledPartReadingDto } from './dto/installed-parts-replacement.dto';
+import { QueryInstalledPartDto, QueryInstalledPartLookupDto, QueryReplacementHistoryDto, SetExpectedLifeDto, RecordInstalledPartReadingDto, RegisterInstalledPartDto, RemoveInstalledPartDto } from './dto/installed-parts-replacement.dto';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 import { assertMachineComponentBelongsToMachine } from '../../../../common/operational-context/tenant-guards';
 
@@ -131,7 +131,7 @@ export class InstalledPartsReplacementService {
       productId?: string | null;
       maintenanceRequestId?: string | null;
       requiredPartId?: string | null;
-      inventoryMovementId: string;
+      inventoryMovementId?: string | null;
       conditionMovementId?: string | null;
       installedQuantity: number;
       installedCondition: string;
@@ -159,7 +159,7 @@ export class InstalledPartsReplacementService {
         productId: data.productId || null,
         maintenanceRequestId: data.maintenanceRequestId,
         requiredPartId: data.requiredPartId,
-        inventoryMovementId: data.inventoryMovementId,
+        inventoryMovementId: data.inventoryMovementId || null,
         conditionMovementId: data.conditionMovementId || null,
         installedQuantity: data.installedQuantity,
         installedCondition: data.installedCondition || 'NEW',
@@ -267,6 +267,158 @@ export class InstalledPartsReplacementService {
         removedReason: data.removedReason || null,
       },
     });
+  }
+
+  /**
+   * Applicability check (SOFT mode). MachineSparePart / ComponentSparePart define
+   * whether a spare part is *allowed* on a machine/component; a physical
+   * installation may still be registered even when the catalog link is missing,
+   * because the applicability catalog is still being completed. The result is
+   * reported (and audited) but never blocks registration.
+   */
+  private async checkApplicability(machineId: string, machineComponentId: string | null, sparePartId: string) {
+    const [machineLink, componentLink] = await Promise.all([
+      this.prisma.machineSparePart.findFirst({ where: { machineId, sparePartId, status: 'ACTIVE' }, select: { id: true } }),
+      machineComponentId
+        ? this.prisma.componentSparePart.findFirst({ where: { componentId: machineComponentId, sparePartId, status: 'ACTIVE' }, select: { id: true } })
+        : Promise.resolve(null),
+    ]);
+    return {
+      mode: 'SOFT' as const,
+      machineApplicable: !!machineLink,
+      componentApplicable: machineComponentId ? !!componentLink : null,
+      applicable: !!machineLink || !!componentLink,
+    };
+  }
+
+  /**
+   * REGISTER_EXISTING_INSTALLATION — records a part that is already physically
+   * installed on a machine (or a component of it). This is a master/state
+   * registration: it does NOT issue stock, does NOT create an inventory movement,
+   * and derives the inventory product from the canonical SparePart link (never
+   * from client input). Idempotent on `clientRequestId`.
+   */
+  async registerExistingInstallation(dto: RegisterInstalledPartDto, userId: string, ctx: ActiveOperationalContext) {
+    await this.machineAccess(dto.machineId, ctx);
+
+    if (dto.installedAt) {
+      const at = new Date(dto.installedAt);
+      if (!Number.isFinite(at.getTime()) || at.getTime() > Date.now()) {
+        throw this.badRequest('maintenance.installedAtInvalid', 'Installation time must be valid and cannot be in the future');
+      }
+    }
+
+    const sparePart = await this.prisma.sparePart.findUnique({ where: { id: dto.sparePartId } });
+    if (!sparePart || sparePart.deletedAt || sparePart.status !== 'ACTIVE') {
+      throw this.notFound('maintenance.installedPartSparePartInvalid', 'Active canonical spare part not found');
+    }
+
+    const applicability = await this.checkApplicability(dto.machineId, dto.machineComponentId || null, dto.sparePartId);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      if (dto.machineComponentId) {
+        await assertMachineComponentBelongsToMachine(tx, dto.machineComponentId, dto.machineId);
+      }
+
+      // Idempotency — a resubmitted registration (same submission key) returns
+      // the original record instead of creating a duplicate installation.
+      const existing = await tx.machineInstalledPart.findFirst({
+        where: { sourceType: 'MANUAL_REGISTRATION', sourceId: dto.clientRequestId },
+      });
+      if (existing) return { part: existing, idempotent: true };
+
+      // Duplicate-active safety — an identical serialized instance already
+      // installed on the same machine/component is rejected. Non-serialized
+      // spare parts intentionally allow multiple concurrent units.
+      if (dto.serialNumber) {
+        const dup = await tx.machineInstalledPart.findFirst({
+          where: {
+            machineId: dto.machineId,
+            machineComponentId: dto.machineComponentId || null,
+            sparePartId: dto.sparePartId,
+            serialNumber: dto.serialNumber,
+            status: 'ACTIVE',
+          },
+        });
+        if (dup) {
+          throw new ConflictException({
+            messageKey: 'maintenance.installedPartDuplicateActive',
+            message: 'An active installed part with the same serial number already exists on this machine/component',
+          });
+        }
+      }
+
+      const part = await this.recordInstalledPartInTx(tx, {
+        machineId: dto.machineId,
+        machineComponentId: dto.machineComponentId || null,
+        sparePartId: dto.sparePartId,
+        productId: sparePart.productId || null,
+        installedQuantity: dto.installedQuantity ?? 1,
+        installedCondition: dto.installedCondition || 'NEW',
+        installedByUserId: userId,
+        installedAt: dto.installedAt ? new Date(dto.installedAt) : undefined,
+        sourceType: 'MANUAL_REGISTRATION',
+        sourceId: dto.clientRequestId,
+        serialNumber: dto.serialNumber || null,
+        batchNumber: dto.batchNumber || null,
+        notes: dto.notes || null,
+      });
+      return { part, idempotent: false };
+    });
+
+    if (!result.idempotent) {
+      await this.audit.log(userId, 'INSTALLED_PART_REGISTERED', 'MachineInstalledPart', result.part.id, {
+        machineId: dto.machineId,
+        machineComponentId: dto.machineComponentId || null,
+        sparePartId: dto.sparePartId,
+        productId: sparePart.productId || null,
+        installedQuantity: dto.installedQuantity ?? 1,
+        installedCondition: dto.installedCondition || 'NEW',
+        serialNumber: dto.serialNumber || null,
+        source: 'MANUAL_REGISTRATION',
+        applicability,
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+      });
+    }
+
+    const detail = await this.getInstalledPartById(result.part.id, ctx);
+    return { ...detail, idempotent: result.idempotent, applicability };
+  }
+
+  /**
+   * Authorized removal/decommission of an installed part. This is a state
+   * transition only — it never moves stock. Stocked replacements are handled by
+   * the maintenance execution flow (maintenance-stock-issue).
+   */
+  async removeInstalledPart(id: string, dto: RemoveInstalledPartDto, userId: string, ctx: ActiveOperationalContext) {
+    const part = await this.partAccess(id, ctx);
+    if (part.status !== 'ACTIVE') {
+      throw this.badRequest('maintenance.partNotActive', 'Only an ACTIVE installed part can be removed');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      return this.markInstalledPartRemovedInTx(tx, id, {
+        removedByUserId: userId,
+        removedCondition: dto.removedCondition || null,
+        removedQuantity: dto.removedQuantity ?? part.installedQuantity,
+        removedReason: dto.removedReason || null,
+        newStatus: dto.newStatus || 'REMOVED',
+      });
+    });
+
+    await this.audit.log(userId, 'INSTALLED_PART_REMOVED', 'MachineInstalledPart', id, {
+      machineId: part.machineId,
+      machineComponentId: part.machineComponentId || null,
+      sparePartId: part.sparePartId,
+      newStatus: dto.newStatus || 'REMOVED',
+      removedCondition: dto.removedCondition || null,
+      removedReason: dto.removedReason || null,
+      companyId: ctx.companyId,
+      branchId: ctx.branchId,
+    });
+
+    return updated;
   }
 
   async getInstalledParts(query: QueryInstalledPartDto, ctx: ActiveOperationalContext) {

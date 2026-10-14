@@ -1,6 +1,9 @@
-import { IsString, IsNumber, IsOptional, Min, IsBooleanString, IsIn, IsBoolean, Max, IsDateString, ValidateIf } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Min, IsBooleanString, IsIn, IsBoolean, Max, IsDateString, ValidateIf, IsNotEmpty, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+
+export const INSTALLED_PART_CONDITIONS = ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'] as const;
+export const INSTALLED_PART_REMOVAL_STATUSES = ['REMOVED', 'REPLACED', 'FAILED', 'RETIRED', 'DECOMMISSIONED'] as const;
 
 export class QueryInstalledPartDto {
   @ApiPropertyOptional()
@@ -175,4 +178,98 @@ export class RecordInstalledPartReadingDto {
   @IsOptional()
   @IsString()
   notes?: string;
+}
+
+/**
+ * Manual registration of an already-physically-installed part
+ * (REGISTER_EXISTING_INSTALLATION). This is a master/state registration only:
+ * it NEVER issues stock and NEVER creates an inventory movement. Product is
+ * derived server-side from the canonical SparePart link, never submitted.
+ */
+export class RegisterInstalledPartDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  machineId: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  machineComponentId?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  sparePartId: string;
+
+  @ApiPropertyOptional({ default: 1, description: 'Number of identical units represented by this installation' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.0001)
+  installedQuantity?: number;
+
+  @ApiPropertyOptional({ enum: INSTALLED_PART_CONDITIONS, default: 'NEW' })
+  @IsOptional()
+  @IsIn([...INSTALLED_PART_CONDITIONS])
+  installedCondition?: string;
+
+  @ApiPropertyOptional({ description: 'ISO installation date; defaults to now; may not be in the future' })
+  @IsOptional()
+  @IsDateString()
+  installedAt?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  serialNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  batchNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  notes?: string;
+
+  @ApiProperty({ description: 'Idempotency key for the registration submission (double-submit protection)' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  clientRequestId: string;
+}
+
+/**
+ * Authorized removal/decommission of an installed part. State-only transition:
+ * it does not move stock. Used for RETIRED/FAILED removals that are not a
+ * stocked replacement (which is served by the maintenance execution flow).
+ */
+export class RemoveInstalledPartDto {
+  @ApiPropertyOptional({ enum: INSTALLED_PART_REMOVAL_STATUSES, default: 'REMOVED' })
+  @IsOptional()
+  @IsIn([...INSTALLED_PART_REMOVAL_STATUSES])
+  newStatus?: string;
+
+  @ApiPropertyOptional({ enum: INSTALLED_PART_CONDITIONS })
+  @IsOptional()
+  @IsIn([...INSTALLED_PART_CONDITIONS])
+  removedCondition?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  removedQuantity?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  removedReason?: string;
 }
