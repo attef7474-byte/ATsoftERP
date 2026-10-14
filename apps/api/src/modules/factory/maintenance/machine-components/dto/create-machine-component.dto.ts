@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsOptional, IsIn, IsArray, ArrayNotEmpty } from 'class-validator';
 
 const COMPONENT_TYPES = ['MECHANICAL', 'ELECTRICAL', 'CONTROL', 'PNEUMATIC', 'HYDRAULIC', 'HEATING', 'COOLING', 'SENSOR', 'SAFETY', 'CONVEYOR', 'FRAME', 'UTILITY', 'OTHER'];
 const CRITICALITY_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
@@ -100,6 +100,66 @@ export class UpdateMachineComponentDto {
   criticality?: string;
 
   @ApiPropertyOptional()
+  @IsString() @IsOptional() @IsIn(['ACTIVE', 'INACTIVE'])
+  status?: string;
+}
+
+/**
+ * Multi-machine batch create (§7). Creates ONE independent MachineComponent row per
+ * unique selected machine in a single atomic transaction. Shared fields (code, name,
+ * componentType, criticality, description, locationInMachine, manufacturer, model) are
+ * copied per row. serialNumber / parentComponentId are single-machine only because they
+ * are physically machine-specific (a serial cannot be duplicated, a parent must belong
+ * to the same machine).
+ */
+export class BatchCreateMachineComponentDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  machineIds: string[];
+
+  @ApiProperty()
+  @IsString()
+  code: string;
+
+  @ApiProperty()
+  @IsString()
+  name: string;
+
+  @ApiProperty({ enum: COMPONENT_TYPES })
+  @IsString() @IsIn(COMPONENT_TYPES)
+  componentType: string;
+
+  @ApiPropertyOptional()
+  @IsString() @IsOptional()
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsString() @IsOptional()
+  locationInMachine?: string;
+
+  @ApiPropertyOptional()
+  @IsString() @IsOptional()
+  manufacturer?: string;
+
+  @ApiPropertyOptional()
+  @IsString() @IsOptional()
+  model?: string;
+
+  @ApiPropertyOptional()
+  @IsString() @IsOptional()
+  serialNumber?: string;
+
+  @ApiPropertyOptional({ enum: CRITICALITY_LEVELS, default: 'MEDIUM' })
+  @IsString() @IsOptional() @IsIn(CRITICALITY_LEVELS)
+  criticality?: string;
+
+  @ApiPropertyOptional()
+  @IsString() @IsOptional()
+  parentComponentId?: string;
+
+  @ApiPropertyOptional({ default: 'ACTIVE' })
   @IsString() @IsOptional() @IsIn(['ACTIVE', 'INACTIVE'])
   status?: string;
 }

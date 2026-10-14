@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
-import { CreateMachineComponentDto, UpdateMachineComponentDto } from './dto/create-machine-component.dto';
+import { CreateMachineComponentDto, UpdateMachineComponentDto, BatchCreateMachineComponentDto } from './dto/create-machine-component.dto';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 const COMPONENT_TYPES = ['MECHANICAL', 'ELECTRICAL', 'CONTROL', 'PNEUMATIC', 'HYDRAULIC', 'HEATING', 'COOLING', 'SENSOR', 'SAFETY', 'CONVEYOR', 'FRAME', 'UTILITY', 'OTHER'];
@@ -71,6 +71,125 @@ export class MachineComponentsService {
     const component = await this.prisma.machineComponent.create({ data: dto });
     await this.auditService.log(userId, 'CREATE', 'MachineComponent', component.id, { message: `Created machine component: ${component.code}` });
     return component;
+  }
+
+  /**
+   * Multi-machine batch create (§7). One independent MachineComponent row per unique
+   * selected machine, created in a single atomic transaction. Nothing is persisted if
+   * any validation fails (all-or-nothing, §21).
+   */
+  async createBatch(dto: BatchCreateMachineComponentDto, userId: string, ctx: ActiveOperationalContext) {
+    const machineIds = Array.from(
+      new Set((dto.machineIds ?? []).filter((id): id is string => typeof id === 'string' && id.length > 0)),
+    );
+    if (machineIds.length === 0) {
+      throw this.validationError('machineIds', 'validation.required', 'At least one machine must be selected');
+    }
+    const isMulti = machineIds.length > 1;
+    if (isMulti && dto.serialNumber && dto.serialNumber.trim().length > 0) {
+      throw this.validationError('serialNumber', 'maintenance.batchSerialPerMachineRequired', 'Serial number must be entered separately for each machine when required');
+    }
+    if (isMulti && dto.parentComponentId) {
+      throw this.validationError('parentComponentId', 'maintenance.batchParentPerMachineRequired', 'Parent component must be assigned independently for each machine');
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const machines = await tx.machine.findMany({
+          where: { id: { in: machineIds } },
+          select: { id: true, code: true, name: true, companyId: true, branchId: true, status: true, deletedAt: true },
+        });
+        const byId = new Map(machines.map((m) => [m.id, m]));
+        const ordered: typeof machines = [];
+        for (const id of machineIds) {
+          const machine = byId.get(id);
+          if (!machine || machine.deletedAt || !this.machineOwns(machine, ctx)) {
+            throw this.validationError('machineIds', 'validation.invalidReference', 'Machine not found');
+          }
+          if (machine.status !== 'ACTIVE') {
+            throw this.validationError('machineIds', 'maintenance.machineInactive', 'The selected machine is inactive');
+          }
+          ordered.push(machine);
+        }
+
+        let parentComponentId: string | null = null;
+        if (dto.parentComponentId) {
+          const parent = await tx.machineComponent.findUnique({
+            where: { id: dto.parentComponentId },
+            include: { machine: { select: { companyId: true, branchId: true } } },
+          });
+          if (!parent || !parent.machine || !this.machineOwns(parent.machine, ctx)) {
+            throw this.validationError('parentComponentId', 'validation.invalidReference', 'Parent component not found');
+          }
+          if (parent.machineId !== ordered[0].id) {
+            throw this.validationError('parentComponentId', 'validation.invalidValue', 'Parent component must belong to the same machine');
+          }
+          parentComponentId = parent.id;
+        }
+
+        const conflict = await tx.machineComponent.findFirst({
+          where: { machineId: { in: machineIds }, code: dto.code },
+          select: { machineId: true },
+        });
+        if (conflict) {
+          throw this.validationError('code', 'validation.duplicateValue', 'Component code already exists for this machine');
+        }
+
+        const batchCorrelationId = `mcbatch:${userId}:${Date.now()}`;
+        const createdComponents: {
+          id: string; code: string; name: string; machineId: string; machineCode: string; machineName: string;
+        }[] = [];
+
+        for (const machine of ordered) {
+          const component = await tx.machineComponent.create({
+            data: {
+              machineId: machine.id,
+              parentComponentId,
+              code: dto.code,
+              name: dto.name,
+              componentType: dto.componentType,
+              description: dto.description ?? null,
+              locationInMachine: dto.locationInMachine ?? null,
+              manufacturer: dto.manufacturer ?? null,
+              model: dto.model ?? null,
+              serialNumber: isMulti ? null : (dto.serialNumber ?? null),
+              criticality: dto.criticality ?? 'MEDIUM',
+              status: dto.status ?? 'ACTIVE',
+            },
+          });
+          await this.auditService.logWithClient(tx, {
+            userId,
+            action: 'CREATE',
+            entity: 'MachineComponent',
+            entityId: component.id,
+            details: JSON.stringify({
+              companyId: ctx.companyId,
+              branchId: ctx.branchId,
+              machineId: machine.id,
+              code: component.code,
+              batch: true,
+              batchCorrelationId,
+              batchSize: ordered.length,
+            }),
+          });
+          createdComponents.push({
+            id: component.id,
+            code: component.code,
+            name: component.name,
+            machineId: machine.id,
+            machineCode: machine.code,
+            machineName: machine.name,
+          });
+        }
+
+        return { createdCount: createdComponents.length, createdComponents };
+      });
+    } catch (err: any) {
+      if (err && err.code === 'P2002') {
+        throw this.validationError('code', 'validation.duplicateValue', 'Component code already exists for this machine');
+      }
+      throw err;
+    }
   }
 
   async findAll(query: {

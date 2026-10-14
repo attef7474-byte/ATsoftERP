@@ -8,7 +8,7 @@ import { Button, Input, Select, Pagination, PageHeader, Modal, ConfirmDialog } f
 import { CmmsStatusBadge } from '../../../../components/maintenance';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
-import { F9Lookup, machineComponentAdapter, machineAdapter } from '../../../../components/f9';
+import { F9Lookup, F9MultiLookup, machineComponentAdapter, machineAdapter } from '../../../../components/f9';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
 
@@ -47,13 +47,16 @@ export default function MachineComponentsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MachineComponent | null>(null);
-  const [form, setForm] = useState({ code: '', name: '', description: '', componentType: '', criticality: '', locationInMachine: '', manufacturer: '', model: '', serialNumber: '', parentComponentId: '', machineId: '' });
+  const [form, setForm] = useState({ code: '', name: '', description: '', componentType: '', criticality: '', locationInMachine: '', manufacturer: '', model: '', serialNumber: '', parentComponentId: '', machineId: '', machineIds: [] as string[] });
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [confirmStatusOpen, setConfirmStatusOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmBatchOpen, setConfirmBatchOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+
+  const isMultiMachine = !editItem && form.machineIds.length > 1;
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
 
@@ -90,7 +93,7 @@ export default function MachineComponentsPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ code: '', name: '', description: '', componentType: '', criticality: '', locationInMachine: '', manufacturer: '', model: '', serialNumber: '', parentComponentId: '', machineId: '' });
+    setForm({ code: '', name: '', description: '', componentType: '', criticality: '', locationInMachine: '', manufacturer: '', model: '', serialNumber: '', parentComponentId: '', machineId: '', machineIds: [] });
     setValidationErrors({});
     setModalOpen(true);
   };
@@ -112,6 +115,7 @@ export default function MachineComponentsPage() {
         serialNumber: item.serialNumber || '',
         parentComponentId: item.parentComponentId || '',
         machineId: item.machineId || '',
+        machineIds: [],
       });
     } catch (err: any) {
       handleApiError(err);
@@ -125,30 +129,49 @@ export default function MachineComponentsPage() {
     if (!editItem && !form.code.trim()) errors.code = t('validation.required');
     if (!form.name.trim()) errors.name = t('validation.required');
     if (!form.componentType) errors.componentType = t('validation.required');
-    if (!form.machineId) errors.machineId = t('validation.required');
+    if (editItem) {
+      if (!form.machineId) errors.machineId = t('validation.required');
+    } else if (form.machineIds.length === 0) {
+      errors.machineIds = t('validation.required');
+    }
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) {
       focusFirstInvalidField(Object.entries(errors).map(([field, message]) => ({ field, code: 'validation.required', message })));
       return;
     }
+    if (isMultiMachine) { setConfirmBatchOpen(true); return; }
+    await doSave();
+  };
+
+  const doSave = async () => {
     setSaving(true);
     try {
-      const payload: any = { name: form.name.trim(), componentType: form.componentType, machineId: form.machineId };
-      if (!editItem) payload.code = form.code.trim();
-      if (form.criticality) payload.criticality = form.criticality;
-      if (form.description) payload.description = form.description;
-      if (form.locationInMachine) payload.locationInMachine = form.locationInMachine;
-      if (form.manufacturer) payload.manufacturer = form.manufacturer;
-      if (form.model) payload.model = form.model;
-      if (form.serialNumber) payload.serialNumber = form.serialNumber;
-      if (form.parentComponentId) payload.parentComponentId = form.parentComponentId;
       if (editItem) {
+        const payload: any = { name: form.name.trim(), componentType: form.componentType, machineId: form.machineId };
+        if (form.criticality) payload.criticality = form.criticality;
+        if (form.description) payload.description = form.description;
+        if (form.locationInMachine) payload.locationInMachine = form.locationInMachine;
+        if (form.manufacturer) payload.manufacturer = form.manufacturer;
+        if (form.model) payload.model = form.model;
+        if (form.serialNumber) payload.serialNumber = form.serialNumber;
+        if (form.parentComponentId) payload.parentComponentId = form.parentComponentId;
         await api.patch(`/maintenance/machine-components/${editItem.id}`, payload);
         showToast(t('common.successUpdated'), 'success');
       } else {
-        await api.post('/maintenance/machine-components', payload);
-        showToast(t('common.successCreated'), 'success');
+        const single = form.machineIds.length === 1;
+        const payload: any = { machineIds: form.machineIds, name: form.name.trim(), componentType: form.componentType, code: form.code.trim() };
+        if (form.criticality) payload.criticality = form.criticality;
+        if (form.description) payload.description = form.description;
+        if (form.locationInMachine) payload.locationInMachine = form.locationInMachine;
+        if (form.manufacturer) payload.manufacturer = form.manufacturer;
+        if (form.model) payload.model = form.model;
+        if (single && form.serialNumber) payload.serialNumber = form.serialNumber;
+        if (single && form.parentComponentId) payload.parentComponentId = form.parentComponentId;
+        const res = await api.post<{ createdCount: number }>('/maintenance/machine-components/batch', payload);
+        const count = res?.createdCount ?? form.machineIds.length;
+        showToast(count > 1 ? t('maintenance.batchCreateSuccess', undefined, { count }) : t('maintenance.batchCreateSuccessOne'), 'success');
       }
+      setConfirmBatchOpen(false);
       setModalOpen(false); fetchData(meta.page);
     } catch (err: any) {
       const config = handleApiError(err);
@@ -257,17 +280,36 @@ export default function MachineComponentsPage() {
             <Select label={t('maintenance.criticality')} value={form.criticality} onChange={(e) => setForm({ ...form, criticality: e.target.value })} options={CRITICALITY_OPTIONS.map(o => ({ value: o.value, label: t(o.labelKey) }))} placeholder={t('common.select')} />
           </div>
           <div>
-            <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => { setForm({ ...form, machineId: v }); setValidationErrors(prev => ({ ...prev, machineId: '' })); }} adapter={machineAdapter} />
-            {validationErrors.machineId && <p className="text-red-500 text-sm mt-1">{validationErrors.machineId}</p>}
+            {editItem ? (
+              <>
+                <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => { setForm({ ...form, machineId: v }); setValidationErrors(prev => ({ ...prev, machineId: '' })); }} adapter={machineAdapter} />
+                {validationErrors.machineId && <p className="text-red-500 text-sm mt-1">{validationErrors.machineId}</p>}
+              </>
+            ) : (
+              <>
+                <F9MultiLookup label={t('maintenance.machinesLabel')} value={form.machineIds} onChange={(ids) => { setForm({ ...form, machineIds: ids }); setValidationErrors(prev => ({ ...prev, machineIds: '' })); }} adapter={machineAdapter} />
+                {validationErrors.machineIds && <p className="text-red-500 text-sm mt-1">{validationErrors.machineIds}</p>}
+                <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-600">
+                  <span>{t('maintenance.selectedMachines')}: <strong data-testid="selected-machines-count">{form.machineIds.length}</strong></span>
+                  <span>{t('maintenance.componentsToCreate')}: <strong data-testid="components-to-create-count">{form.machineIds.length}</strong></span>
+                </div>
+              </>
+            )}
           </div>
           <Input label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <Input label={t('maintenance.locationInMachine')} value={form.locationInMachine} onChange={(e) => setForm({ ...form, locationInMachine: e.target.value })} />
           <div className="grid grid-cols-3 gap-4">
             <Input label={t('maintenance.manufacturer')} value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })} />
             <Input label={t('maintenance.model')} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
-            <Input label={t('maintenance.serialNumber')} value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} />
+            <div>
+              <Input label={t('maintenance.serialNumber')} value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} disabled={isMultiMachine} />
+              {isMultiMachine && <p className="text-xs text-gray-500 mt-1">{t('maintenance.serialNotSharedPerMachine')}</p>}
+            </div>
           </div>
-          <F9Lookup label={t('maintenance.parentComponent')} value={form.parentComponentId} onChange={(v) => setForm({ ...form, parentComponentId: v })} adapter={machineComponentAdapter} />
+          <div>
+            <F9Lookup label={t('maintenance.parentComponent')} value={form.parentComponentId} onChange={(v) => setForm({ ...form, parentComponentId: v })} adapter={machineComponentAdapter} disabled={isMultiMachine} />
+            {isMultiMachine && <p className="text-xs text-gray-500 mt-1">{t('maintenance.parentNotSharedPerMachine')}</p>}
+          </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
@@ -279,6 +321,8 @@ export default function MachineComponentsPage() {
         title={t('common.confirmDeactivateTitle')} message={t('common.confirmDeactivateMessage')} variant="danger" loading={saving} />
       <ConfirmDialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} onConfirm={handleDelete}
         title={t('common.confirmDeleteTitle')} message={t('common.confirmDeleteMessage')} variant="danger" loading={saving} />
+      <ConfirmDialog open={confirmBatchOpen} onClose={() => setConfirmBatchOpen(false)} onConfirm={doSave}
+        title={t('maintenance.batchCreateOnMultipleMachines')} message={t('maintenance.batchCreateConfirm', undefined, { count: form.machineIds.length })} loading={saving} />
     </div>
   );
 }

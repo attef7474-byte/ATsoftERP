@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MachineComponentsService } from './machine-components.service';
-import { CreateMachineComponentDto, UpdateMachineComponentDto } from './dto/create-machine-component.dto';
+import { CreateMachineComponentDto, UpdateMachineComponentDto, BatchCreateMachineComponentDto } from './dto/create-machine-component.dto';
 import { JwtAuthGuard } from '../../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
@@ -15,6 +15,13 @@ import { ActiveOperationalContext } from '../../../../common/operational-context
 @Controller({ path: 'maintenance/machine-components', version: '1' })
 export class MachineComponentsController {
   constructor(private service: MachineComponentsService) {}
+
+  @Post('batch')
+  @Permissions('machine-component:create')
+  @ApiOperation({ summary: 'Create one independent machine component per selected machine (atomic batch)' })
+  createBatch(@Body() dto: BatchCreateMachineComponentDto, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.createBatch(dto, userId, ctx);
+  }
 
   @Post()
   @Permissions('machine-component:create')
