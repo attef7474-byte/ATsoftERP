@@ -10,6 +10,7 @@ export const PERMISSION_KEYS = {
   INSTALLED_PARTS_READ: 'installed-parts:read',
   INSTALLED_PARTS_CREATE: 'installed-parts:create',
   INSTALLED_PARTS_UPDATE: 'installed-parts:update',
+  MAINTENANCE_RELIABILITY_READ: 'maintenance-reliability:read',
 } as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[keyof typeof PERMISSION_KEYS];

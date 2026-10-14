@@ -228,6 +228,7 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'mnt-workload', labelKey: 'navigation.maintenanceWorkload', route: '/admin/maintenance/workload', permission: 'maintenance-workload:read' },
           { id: 'mnt-sla', labelKey: 'navigation.sla', route: '/admin/maintenance/sla', permission: 'maintenance-request:read' },
           { id: 'mnt-mttr', labelKey: 'navigation.mttr', route: '/admin/maintenance/reliability/mttr', permission: 'maintenance-reliability:read' },
+          { id: 'mnt-installed-part-reliability', labelKey: 'navigation.installedPartReliability', route: '/admin/maintenance/reliability/installed-parts', permission: 'maintenance-reliability:read' },
         ],
       },
       {

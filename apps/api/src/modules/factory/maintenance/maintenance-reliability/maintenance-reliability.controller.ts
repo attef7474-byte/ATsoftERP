@@ -1,6 +1,8 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceReliabilityService } from './maintenance-reliability.service';
+import { InstalledPartReliabilityService } from './installed-part-reliability.service';
+import { QueryInstalledPartReliabilityDto } from './dto/installed-part-reliability.dto';
 import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 import { JwtAuthGuard } from '../../../../modules/auth/guards/jwt-auth.guard';
@@ -12,7 +14,10 @@ import { Permissions } from '../../../../modules/auth/decorators/permissions.dec
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller({ path: 'maintenance/reliability', version: '1' })
 export class MaintenanceReliabilityController {
-  constructor(private service: MaintenanceReliabilityService) {}
+  constructor(
+    private service: MaintenanceReliabilityService,
+    private installedPartReliability: InstalledPartReliabilityService,
+  ) {}
 
   @Get('mttr')
   @Permissions('maintenance-reliability:read')
@@ -114,5 +119,39 @@ export class MaintenanceReliabilityController {
   @ApiOperation({ summary: 'Get average SLA response and repair times' })
   getSlaTimes(@Query() query: { dateFrom?: string; dateTo?: string; machineId?: string; productionLineId?: string; operationTypeId?: string; costCenterId?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.getSlaTimes(query, ctx);
+  }
+
+  // ─────────────── Installed Part Lifecycle & Reliability (read-only analytics) ───────────────
+
+  @Get('installed-parts')
+  @Permissions('maintenance-reliability:read')
+  @ApiOperation({ summary: 'List installed-part reliability by machine and spare part' })
+  listInstalledPartReliability(@Query() query: QueryInstalledPartReliabilityDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.installedPartReliability.listReliability(query, ctx);
+  }
+
+  @Get('installed-parts/summary')
+  @Permissions('maintenance-reliability:read')
+  @ApiOperation({ summary: 'Installed-part reliability dashboard summary' })
+  getInstalledPartReliabilitySummary(@Query() query: QueryInstalledPartReliabilityDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.installedPartReliability.getSummary(query, ctx);
+  }
+
+  @Get('installed-parts/data-quality')
+  @Permissions('maintenance-reliability:read')
+  @ApiOperation({ summary: 'Installed-part reliability data-quality report' })
+  getInstalledPartReliabilityDataQuality(@Query() query: QueryInstalledPartReliabilityDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.installedPartReliability.getDataQuality(query, ctx);
+  }
+
+  @Get('installed-parts/:machineId/:sparePartId')
+  @Permissions('maintenance-reliability:read')
+  @ApiOperation({ summary: 'Installed-part reliability timeline for a machine + spare part' })
+  getInstalledPartReliabilityDetail(
+    @Param('machineId') machineId: string,
+    @Param('sparePartId') sparePartId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.installedPartReliability.getPopulationDetail(machineId, sparePartId, ctx);
   }
 }

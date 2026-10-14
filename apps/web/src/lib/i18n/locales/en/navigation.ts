@@ -58,6 +58,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         installedParts: 'Installed Parts & Condition',
         sparePartConditions: 'Spare Part Conditions',
         mttr: 'MTTR',
+        installedPartReliability: 'Installed Part Reliability',
         sla: 'SLA',
         reportsHome: 'Reports Home',
         settings: 'Settings',
