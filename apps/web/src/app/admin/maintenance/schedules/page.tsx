@@ -5,6 +5,7 @@ import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
+import { normalizeApiError } from '../../../../lib/error-utils';
 import { MaintenanceSchedule } from '../../../../lib/admin-types';
 import { Button, Input, Select, Textarea, Pagination, PageHeader, Modal, ConfirmDialog } from '../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../components/maintenance';
@@ -33,6 +34,8 @@ export default function MaintenanceSchedulesPage() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [fromAlert, setFromAlert] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [duplicateConflict, setDuplicateConflict] = useState<{ id: string; title: string } | null>(null);
   const searchParams = useSearchParams();
   const planPrefillRef = React.useRef(false);
 
@@ -101,11 +104,15 @@ useRegisterAdminActions([
 
   const openCreate = () => {
     setEditItem(null);
+    setSaveError('');
+    setDuplicateConflict(null);
     setForm({ machineId: '', title: '', description: '', type: 'PREVENTIVE', frequency: 'MONTHLY', intervalDays: 0, startDate: '', endDate: '', code: '' });
     setModalOpen(true);
   };
   const openEdit = async (id: string) => {
     setFromAlert(false);
+    setSaveError('');
+    setDuplicateConflict(null);
     setLoadingDetail(true);
     setModalOpen(true);
     try {
@@ -128,6 +135,8 @@ useRegisterAdminActions([
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
+    setSaveError('');
+    setDuplicateConflict(null);
     try {
       const payload: any = { machineId: form.machineId, title: form.title, type: form.type, frequency: form.frequency, startDate: form.startDate };
       if (form.description) payload.description = form.description;
@@ -141,7 +150,16 @@ useRegisterAdminActions([
         showToast(t('common.successCreated'), 'success');
       }
       setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { handleApiError(err); }
+    } catch (err: any) {
+      const config = normalizeApiError(err, t as any);
+      if (config.messageKey === 'maintenance.preventiveScheduleDuplicateActive') {
+        const params = (err?.params || err?.response?.data?.params || {}) as { existingScheduleId?: string; existingScheduleTitle?: string };
+        setSaveError(t('maintenance.preventiveScheduleDuplicateActive'));
+        setDuplicateConflict(params.existingScheduleId ? { id: params.existingScheduleId, title: params.existingScheduleTitle || '' } : null);
+      } else {
+        handleApiError(err);
+      }
+    }
     finally { setSaving(false); }
   };
 
@@ -239,6 +257,21 @@ useRegisterAdminActions([
             {fromAlert && !editItem && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
                 {t('maintenance.scheduleFromAlertBanner')}
+              </div>
+            )}
+            {saveError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                <div>{saveError}</div>
+                {duplicateConflict && (
+                  <button
+                    type="button"
+                    className="mt-2 font-medium text-red-900 underline underline-offset-2 hover:text-red-700"
+                    onClick={() => openEdit(duplicateConflict.id)}
+                  >
+                    {t('maintenance.openExistingSchedule')}
+                    {duplicateConflict.title ? ` (${duplicateConflict.title})` : ''}
+                  </button>
+                )}
               </div>
             )}
             {editItem ? (

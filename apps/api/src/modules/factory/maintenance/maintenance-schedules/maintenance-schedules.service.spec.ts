@@ -46,6 +46,7 @@ describe('MaintenanceSchedulesService', () => {
   let prisma: any;
   let audit: any;
   let numbering: any;
+  let duplicateGuard: any;
   let service: MaintenanceSchedulesService;
 
   beforeEach(() => {
@@ -62,7 +63,18 @@ describe('MaintenanceSchedulesService', () => {
       generateNumberAtomic: jest.fn().mockResolvedValue('REQ-0001'),
       generateNumberAtomicWithClient: jest.fn().mockResolvedValue('REQ-0001'),
     };
-    service = new MaintenanceSchedulesService(prisma as PrismaService, audit as AuditService, numbering as NumberingService);
+    duplicateGuard = {
+      fingerprint: jest.fn(),
+      acquireLock: jest.fn().mockResolvedValue(undefined),
+      findEquivalentActive: jest.fn().mockResolvedValue(null),
+      assertNoEquivalentActive: jest.fn().mockResolvedValue(null),
+    };
+    service = new MaintenanceSchedulesService(
+      prisma as PrismaService,
+      audit as AuditService,
+      numbering as NumberingService,
+      duplicateGuard,
+    );
   });
 
   describe('execute', () => {

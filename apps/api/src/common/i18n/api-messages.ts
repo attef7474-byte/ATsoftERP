@@ -329,6 +329,7 @@ const messages: Record<string, { ar: string; en: string }> = {
   'maintenance.cannotModifyPlanItemsInCurrentStatus': { ar: 'لا يمكن تعديل عناصر الخطة في الحالة الحالية', en: 'Cannot modify plan items in current status' },
   'maintenance.scheduleNotFound': { ar: 'جدول الصيانة غير موجود', en: 'Schedule not found' },
   'maintenance.scheduleMachineMismatch': { ar: 'الماكينة لا تطابق جدول الصيانة', en: 'Machine does not match the schedule' },
+  'maintenance.preventiveScheduleDuplicateActive': { ar: 'يوجد بالفعل جدول صيانة وقائية نشط مكافئ لنفس الماكينة ونمط التكرار. افتح الجدول الموجود بدلاً من إنشاء جدول مكرر.', en: 'An equivalent active preventive maintenance schedule already exists for this machine and recurrence. Open the existing schedule instead of creating a duplicate.' },
   'maintenance.noItemsToCopy': { ar: 'لا توجد عناصر لنسخها', en: 'No items to copy' },
 
   'permissions.permissionDenied': { ar: 'تم رفض الإذن', en: 'Permission denied' },

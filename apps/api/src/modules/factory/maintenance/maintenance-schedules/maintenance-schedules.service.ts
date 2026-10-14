@@ -5,6 +5,7 @@ import { NumberingService } from '../../../../modules/numbering/numbering.servic
 import { CreateMaintenanceScheduleDto } from './dto/create-maintenance-schedule.dto';
 import { UpdateMaintenanceScheduleDto } from './dto/update-maintenance-schedule.dto';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { PreventiveScheduleDuplicateGuard } from './preventive-schedule-duplicate.guard';
 
 @Injectable()
 export class MaintenanceSchedulesService {
@@ -12,6 +13,7 @@ export class MaintenanceSchedulesService {
     private prisma: PrismaService,
     private audit: AuditService,
     private numberingService: NumberingService,
+    private duplicateGuard: PreventiveScheduleDuplicateGuard,
   ) {}
 
   private notFound(key: string, message: string): NotFoundException {
@@ -71,7 +73,20 @@ export class MaintenanceSchedulesService {
     data.startDate = new Date(dto.startDate);
     if (dto.endDate) data.endDate = new Date(dto.endDate);
     data.nextDueDate = data.startDate;
-    const schedule = await this.prisma.maintenanceSchedule.create({ data });
+
+    const identity = {
+      machineId: dto.machineId,
+      type: dto.type,
+      frequency: dto.frequency,
+      intervalDays: dto.intervalDays ?? null,
+    };
+
+    const schedule = await this.prisma.$transaction(async (tx) => {
+      await this.duplicateGuard.acquireLock(tx as any, identity);
+      await this.duplicateGuard.assertNoEquivalentActive(tx as any, identity);
+      return tx.maintenanceSchedule.create({ data });
+    }, { maxWait: 5000, timeout: 10000 });
+
     await this.audit.log(userId, 'CREATE', 'MaintenanceSchedule', schedule.id,
       { machineId: dto.machineId });
     return schedule;
@@ -152,7 +167,22 @@ export class MaintenanceSchedulesService {
     const data: any = { ...dto };
     if (dto.startDate) data.startDate = new Date(dto.startDate);
     if (dto.endDate) data.endDate = new Date(dto.endDate);
-    const updated = await this.prisma.maintenanceSchedule.update({ where: { id }, data });
+
+    const identity = {
+      machineId: dto.machineId ?? schedule.machineId,
+      type: dto.type ?? schedule.type,
+      frequency: dto.frequency ?? schedule.frequency,
+      intervalDays: dto.intervalDays !== undefined ? dto.intervalDays : (schedule.intervalDays ?? null),
+    };
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (schedule.status === 'ACTIVE') {
+        await this.duplicateGuard.acquireLock(tx as any, identity);
+        await this.duplicateGuard.assertNoEquivalentActive(tx as any, identity, id);
+      }
+      return tx.maintenanceSchedule.update({ where: { id }, data });
+    }, { maxWait: 5000, timeout: 10000 });
+
     await this.audit.log(userId, 'UPDATE', 'MaintenanceSchedule', id,
       { oldStatus: schedule.status, dto });
     return updated;
@@ -160,7 +190,17 @@ export class MaintenanceSchedulesService {
 
   async activate(id: string, userId: string, ctx: ActiveOperationalContext) {
     const schedule = await this.findOne(id, ctx);
-    await this.prisma.maintenanceSchedule.update({ where: { id }, data: { status: 'ACTIVE' } });
+    const identity = {
+      machineId: schedule.machineId,
+      type: schedule.type,
+      frequency: schedule.frequency,
+      intervalDays: schedule.intervalDays ?? null,
+    };
+    await this.prisma.$transaction(async (tx) => {
+      await this.duplicateGuard.acquireLock(tx as any, identity);
+      await this.duplicateGuard.assertNoEquivalentActive(tx as any, identity, id);
+      await tx.maintenanceSchedule.update({ where: { id }, data: { status: 'ACTIVE' } });
+    }, { maxWait: 5000, timeout: 10000 });
     await this.audit.log(userId, 'ACTIVATE', 'MaintenanceSchedule', id,
       { oldStatus: schedule.status, newStatus: 'ACTIVE' });
     return this.findOne(id, ctx);
