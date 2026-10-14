@@ -1,6 +1,6 @@
 import { LookupAdapter } from './types';
 import { getClientLocale } from '../../lib/i18n/locale-shared';
-import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionRun, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionMeasurementPoint, ProductionMaterialDocument, ProductionFinishedGoodsReceipt, ProductionInspection, ProductionQualityPlan, ProductionCostRate, ProductionCostSnapshot, JobTitle, OperationalPersonAssignment, MachineInstalledPart } from '../../lib/admin-types';
+import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, Unit, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionRun, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionMeasurementPoint, ProductionMaterialDocument, ProductionFinishedGoodsReceipt, ProductionInspection, ProductionQualityPlan, ProductionCostRate, ProductionCostSnapshot, JobTitle, OperationalPersonAssignment, MachineInstalledPart } from '../../lib/admin-types';
 
 const COST_CENTER_TYPE_LABELS: Record<'ar' | 'en', Record<string, string>> = {
   ar: {
@@ -116,6 +116,27 @@ export const productAdapter: LookupAdapter<Product> = {
     { key: 'category', header: 'Category', render: (p) => p.category?.name || '-' },
     { key: 'unit', header: 'Unit' },
     { key: 'status', header: 'Status', render: (p) => p.status },
+  ],
+};
+
+/**
+ * Canonical GLOBAL unit master lookup (`/units`). The unit master is a
+ * company-wide authority and is deliberately NOT bound to an operational
+ * context, so no `contextField` is declared (the adapter therefore resolves the
+ * selected record through `detailEndpoint`, `/units/:id`, independent of the
+ * active company/branch). Callers should pass `clearOnContextChange={false}` so
+ * a selected unit survives an operational-context switch.
+ */
+export const unitAdapter: LookupAdapter<Unit> = {
+  endpoint: '/units',
+  detailEndpoint: '/units',
+  displayLabel: (u) => `[${u.code}] ${u.nameEn || u.nameAr}`,
+  searchFields: ['code', 'nameAr', 'nameEn'],
+  columns: [
+    { key: 'code', header: 'Code' },
+    { key: 'nameEn', header: 'Name (EN)' },
+    { key: 'nameAr', header: 'Name (AR)' },
+    { key: 'symbol', header: 'Symbol', render: (u) => u.symbol || '-' },
   ],
 };
 

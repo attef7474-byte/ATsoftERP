@@ -150,6 +150,21 @@ function extractLiteralTKeys(filePath) {
 }
 
 const WEB_SRC = new URL('../apps/web/src/', import.meta.url);
+
+/**
+ * Product multi-UOM task-owned surfaces. For these files the registered-namespace
+ * bypass below is DISABLED: every literal t() key must resolve exactly against the
+ * EN dictionary. This closes the loophole for the task-owned feature without
+ * failing the pre-existing, unrelated static-missing-key debt elsewhere.
+ */
+const STRICT_TASK_FILES = [
+  'app/admin/inventory/products/page.tsx',
+  'app/admin/inventory/products/product-form.tsx',
+  'app/admin/inventory/products/new/page.tsx',
+  'app/admin/inventory/products/[id]/page.tsx',
+  'app/admin/inventory/products/[id]/edit/page.tsx',
+];
+
 const REGISTERED_NAMESPACE_PREFIXES = new Set([
   'common', 'auth', 'dashboard', 'navigation', 'actions', 'status', 'validation',
   'errors', 'core', 'access', 'inventory', 'maintenance', 'cmms', 'f9',
@@ -188,6 +203,8 @@ const dynamicT = [];
 
 for (const file of webFiles) {
   const content = readFileSync(file, 'utf-8');
+  const normalizedPath = file.replace(/\\/g, '/');
+  const isStrictTaskFile = STRICT_TASK_FILES.some((marker) => normalizedPath.endsWith(marker));
   const keyRe = /\bt\s*\(\s*['"]([^'"]+)['"]/g;
   let match;
   while ((match = keyRe.exec(content)) !== null) {
@@ -198,9 +215,12 @@ for (const file of webFiles) {
     }
     literalTCount += 1;
     const ns = key.substring(0, key.indexOf('.'));
-    if (!enResult.keys.has(key) && !REGISTERED_NAMESPACE_PREFIXES.has(ns)) {
+    // Task-owned files must resolve exactly; other files keep the registered
+    // namespace bypass so unrelated pre-existing debt is not surfaced here.
+    const namespaceBypass = !isStrictTaskFile && REGISTERED_NAMESPACE_PREFIXES.has(ns);
+    if (!enResult.keys.has(key) && !namespaceBypass) {
       literalTErrors += 1;
-      fail(`Literal t() key not in EN dictionary and unknown namespace: "${key}" in ${file.replace(WEB_SRC.pathname, '')}`);
+      fail(`Literal t() key not in EN dictionary${isStrictTaskFile ? ' (strict task file)' : ' and unknown namespace'}: "${key}" in ${file.replace(WEB_SRC.pathname, '')}`);
     }
   }
 }

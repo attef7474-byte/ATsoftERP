@@ -166,6 +166,19 @@ const messages: Record<string, { ar: string; en: string }> = {
   'inventory.movementOnlyPostedCanReverse': { ar: 'يمكن عكس حركات المخزون المرحّلة فقط', en: 'Only POSTED movements can be reversed' },
   'inventory.movementReversalCannotReverse': { ar: 'لا يمكن عكس حركة عكسية', en: 'A reversal movement cannot be reversed' },
 
+  // Product multi-UOM / packaging (base inventory unit authority).
+  'products.uomInvalidBaseUnit': { ar: 'يجب اختيار وحدة المخزون الأساسية من دليل الوحدات العام', en: 'The base inventory unit must be selected from the global unit master' },
+  'products.uomBaseMismatch': { ar: 'يجب أن تطابق وحدة التعبئة الأساسية وحدة المخزون الأساسية للمنتج', en: 'The packaging base unit must match the product base inventory unit' },
+  'products.uomMultipleBase': { ar: 'يُسمح بوحدة أساسية واحدة فقط لكل منتج', en: 'A product may have only one base unit' },
+  'products.uomDuplicateUnit': { ar: 'لا يمكن تكرار نفس الوحدة أكثر من مرة للمنتج', en: 'A unit may only appear once per product' },
+  'products.uomSelfParent': { ar: 'لا يمكن أن تكون الوحدة أباً لنفسها', en: 'A unit cannot be its own parent' },
+  'products.uomUnknownParent': { ar: 'يجب أن تنتمي وحدة الأب إلى نفس المنتج', en: 'Parent unit must belong to the same product' },
+  'products.uomCycle': { ar: 'لا يجوز أن تشكّل وحدات التعبئة حلقة مغلقة', en: 'Packaging units must not form a cycle' },
+  'products.uomParentConversionRequired': { ar: 'يجب تحديد كمية موجبة لكل وحدة أب، وربط وحدة الأب', en: 'A packaging unit must define a parent unit and a positive quantity per parent' },
+  'products.uomInvalidReference': { ar: 'وحدة التعبئة المحددة لا تصلح لهذا المنتج', en: 'The selected packaging unit is not usable for this product' },
+  'products.uomInactive': { ar: 'وحدة التعبئة المحددة غير نشطة', en: 'The selected packaging unit is inactive' },
+  'products.uomBaseUnitLocked': { ar: 'لا يمكن تغيير وحدة المخزون الأساسية بعد وجود حركات أو أرصدة مخزنية للمنتج', en: 'The base inventory unit cannot be changed after inventory history exists for this product' },
+
   'maintenance.requestNotFound': { ar: 'طلب الصيانة غير موجود', en: 'Maintenance request not found' },
   'maintenance.workOrderNotFound': { ar: 'أمر الصيانة غير موجود', en: 'Maintenance work order not found' },
   'maintenance.taskNotFound': { ar: 'مهمة الصيانة غير موجودة', en: 'Maintenance task not found' },

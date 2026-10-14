@@ -48,6 +48,7 @@ export interface Product {
   description?: string | null;
   categoryId?: string | null;
   unit: string;
+  unitId?: string | null;
   barcode?: string | null;
   qrCode?: string | null;
   image?: string | null;
@@ -57,6 +58,32 @@ export interface Product {
   createdAt: string;
   updatedAt: string;
   category?: { id: string; name: string; code: string };
+  unitRef?: { id: string; code: string; nameAr: string; nameEn: string; symbol?: string | null } | null;
+  uoms?: ProductUom[];
+}
+
+/**
+ * A product packaging / selling unit. Exactly one row per product has
+ * `isBase === true` (the base inventory unit). Non-base rows express a packaging
+ * level such as `PACKAGE -> BAG -> BALE` through `parentProductUomId`, and carry
+ * `quantityPerParent` / `conversionToBase` in DECIMAL.
+ *
+ * Prisma Decimal fields serialize to JSON as strings, so the quantities are typed
+ * as `string | number`.
+ */
+export interface ProductUom {
+  id: string;
+  productId: string;
+  unitId: string;
+  isBase: boolean;
+  parentProductUomId?: string | null;
+  quantityPerParent: string | number;
+  conversionToBase: string | number;
+  barcode?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  unit?: { id: string; code: string; nameAr: string; nameEn: string; symbol?: string | null } | null;
 }
 
 export interface Unit {

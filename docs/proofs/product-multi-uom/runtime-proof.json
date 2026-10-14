@@ -1,0 +1,186 @@
+{
+  "status": "PASS",
+  "productionMutations": "NONE",
+  "runtimeDatabase": "ATsoftERP_UOM_RUNTIME_20261014163800",
+  "runtimeDatabaseId": 48,
+  "sourceBackupFinishedAt": "2026-10-14T15:21:24.000Z",
+  "observedAtUtc": "2026-10-14T16:38:11.303Z",
+  "observedRoutes": [
+    {
+      "method": "POST",
+      "route": "/products",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/products",
+      "status": 400
+    },
+    {
+      "method": "POST",
+      "route": "/products",
+      "status": 400
+    },
+    {
+      "method": "POST",
+      "route": "/inventory/movements",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/inventory/movements",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/inventory/movements",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "route": "/products/cmv8c3260000084956ia6wlh7",
+      "status": 400
+    },
+    {
+      "method": "GET",
+      "route": "/products/cmv8c3260000084956ia6wlh7",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/products",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/inventory/movements",
+      "status": 400
+    },
+    {
+      "method": "POST",
+      "route": "/inventory/movements",
+      "status": 400
+    },
+    {
+      "method": "POST",
+      "route": "/inventory/movements",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/inventory/movements",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "route": "/products",
+      "status": 403
+    },
+    {
+      "method": "POST",
+      "route": "/inventory/movements",
+      "status": 403
+    },
+    {
+      "method": "POST",
+      "route": "/inventory/movements",
+      "status": 403
+    },
+    {
+      "method": "POST",
+      "route": "/inventory/movements",
+      "status": 400
+    },
+    {
+      "method": "GET",
+      "route": "/inventory/movements/cmv8c32ee0005849593kflggi",
+      "status": 404
+    },
+    {
+      "method": "POST",
+      "route": "/inventory/movements",
+      "status": 400
+    },
+    {
+      "method": "GET",
+      "route": "/inventory/movements?limit=100",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "route": "/inventory/movements",
+      "status": 401,
+      "authentication": "NONE"
+    },
+    {
+      "method": "POST",
+      "route": "/inventory/movements",
+      "status": 400
+    }
+  ],
+  "checks": [
+    {
+      "name": "product_multi_uom_create_persists_base_and_hierarchy",
+      "result": "PASS"
+    },
+    {
+      "name": "product_create_requires_global_base_unit",
+      "result": "PASS"
+    },
+    {
+      "name": "product_unknown_field_rejected",
+      "result": "PASS"
+    },
+    {
+      "name": "movement_entered_alternate_unit_converts_to_base_and_snapshots",
+      "result": "PASS"
+    },
+    {
+      "name": "movement_product_uom_selection_converts_to_base",
+      "result": "PASS"
+    },
+    {
+      "name": "movement_base_unit_defaults_to_factor_one",
+      "result": "PASS"
+    },
+    {
+      "name": "base_unit_lock_blocks_repointing",
+      "result": "PASS"
+    },
+    {
+      "name": "movement_foreign_packaging_reference_rejected",
+      "result": "PASS"
+    },
+    {
+      "name": "movement_requestId_idempotency",
+      "result": "PASS"
+    },
+    {
+      "name": "permission_denied_without_keys",
+      "result": "PASS"
+    },
+    {
+      "name": "tenant_reference_isolation_on_movement",
+      "result": "PASS"
+    },
+    {
+      "name": "unauthenticated_movement_write_rejected",
+      "result": "PASS"
+    },
+    {
+      "name": "packaging_proof_not_persisted_on_failure",
+      "result": "PASS"
+    }
+  ],
+  "fixtures": {
+    "prefix": "PUM_1791995885197",
+    "productId": "cmv8c3260000084956ia6wlh7",
+    "baseRowId": "cmv8c326c00018495djpppirt",
+    "bagRowId": "cmv8c326n000284951dwfwk23",
+    "baleRowId": "cmv8c326w00038495hqqjgcu9",
+    "warehouseAId": "cmv8c31zm000f4k95nam190o2",
+    "companyAId": "cmv8c31ss00004k958y3qp8rg",
+    "companyBId": "cmv8c31tm00024k95wbq2n3vm"
+  },
+  "cleanup": "Fixtures retained only in the disposable runtime database; production is untouched."
+}

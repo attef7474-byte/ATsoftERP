@@ -167,6 +167,7 @@ describe('InventoryMovementsService', () => {
       numbering as NumberingService,
       valuationEngine,
       productionCost,
+      { convert: jest.fn(), resolveFactor: jest.fn() } as any,
     );
 
     // Convenience defaults; individual tests override for hostile scenarios.
@@ -919,6 +920,10 @@ describe('InventoryMovementsService', () => {
         direction: 'OUT',
         unit: 'kg',
         notes: 'n',
+        productUomId: null,
+        enteredUnitId: null,
+        enteredQuantity: null,
+        conversionApplied: null,
       });
       expect(updateCall.data).not.toHaveProperty('evil');
       expect(audit.logWithClient).toHaveBeenCalledWith(

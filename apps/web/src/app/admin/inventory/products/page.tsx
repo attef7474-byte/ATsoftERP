@@ -6,10 +6,10 @@ import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Product } from '../../../../lib/admin-types';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Card, Pagination, PageHeader, LoadingState, Modal, ConfirmDialog } from '../../../../components/admin/ui';
+import { Pagination, PageHeader, LoadingState, ConfirmDialog } from '../../../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { F9Lookup, productCategoryAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
+import { ProductForm } from './product-form';
 
 export default function ProductsPage() {
   const router = useRouter();
@@ -21,10 +21,8 @@ export default function ProductsPage() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<Product | null>(null);
-  const [form, setForm] = useState({ code: '', name: '', description: '', categoryId: '', unit: '', barcode: '', minStock: '0', maxStock: '0' });
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [formOpen, setFormOpen] = useState(false);
+  const [formProductId, setFormProductId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
@@ -64,37 +62,23 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const openCreate = () => { router.push('/admin/inventory/products/new'); };
-  const openEdit = (item: Product) => { router.push(`/admin/inventory/products/${item.id}/edit`); };
+  // Deep links from the (now redirecting) legacy routes and from bookmarks:
+  // `/admin/inventory/products?create=1` and `?edit=<id>` open the same modal
+  // above this list, then clean the URL so a refresh never reopens it.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const create = params.get('create');
+    const edit = params.get('edit');
+    if (create === '1' || edit) {
+      setFormProductId(edit || null);
+      setFormOpen(true);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
 
-  const handleSave = async () => {
-    const errs: Record<string, string> = {};
-    if (!form.code) errs.code = t('validation.required');
-    if (!form.name) errs.name = t('validation.required');
-    if (!form.unit) errs.unit = t('validation.required');
-    if (Object.keys(errs).length) { setValidationErrors(errs); return; }
-    setValidationErrors({});
-    setSaving(true);
-    try {
-      const payload: any = {
-        code: form.code, name: form.name, unit: form.unit,
-        description: form.description || undefined, barcode: form.barcode || undefined,
-        categoryId: form.categoryId || undefined,
-        minStock: Number(form.minStock) || 0, maxStock: Number(form.maxStock) || 0,
-      };
-      if (editItem) {
-        await api.patch(`/products/${editItem.id}`, payload);
-        showToast(t('common.successUpdated'), 'success');
-      } else {
-        await api.post('/products', payload);
-        showToast(t('common.successCreated'), 'success');
-      }
-      setModalOpen(false);
-      fetchData(meta.page);
-    } catch (err: any) {
-      showToast(err?.message || t('errors.createFailed'), 'error');
-    } finally { setSaving(false); }
-  };
+  const openCreate = () => { setFormProductId(null); setFormOpen(true); };
+  const openEdit = (item: Product) => { setFormProductId(item.id); setFormOpen(true); };
 
   const confirmStatus = (id: string) => { setSelectedId(id); setConfirmOpen(true); };
   const handleStatusChange = async () => {
@@ -115,7 +99,7 @@ export default function ProductsPage() {
     { key: 'code', header: t('common.code'), sortable: true, filterable: true },
     { key: 'name', header: t('common.name'), sortable: true, filterable: true },
     { key: 'category', header: t('inventory.productCategory'), sortable: true, render: (p: Product) => p.category?.name || '-' },
-    { key: 'unit', header: t('inventory.unit'), sortable: true, filterable: true },
+    { key: 'unit', header: t('inventory.unit'), sortable: true, filterable: true, render: (p: Product) => p.unitRef?.code || p.unit || '-' },
     { key: 'barcode', header: t('inventory.barcode'), render: (p: Product) => p.barcode || '-' },
     { key: 'minStock', header: t('inventory.minStock'), align: 'center', render: (p: Product) => p.minStock },
     { key: 'maxStock', header: t('inventory.maxStock'), align: 'center', render: (p: Product) => p.maxStock },
@@ -128,9 +112,9 @@ export default function ProductsPage() {
 
   const gridActions: GridAction<Product>[] = [
     { label: t('details.viewDetails'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>, onClick: (p: Product) => router.push(`/admin/inventory/products/${p.id}`) },
-    { label: t('actions.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, permission: 'products:update', onClick: (p: Product) => openEdit(p) },
-    { label: t('actions.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, permission: 'products:update', onClick: (p: Product) => confirmStatus(p.id), enabled: (p: Product) => p.status !== 'ACTIVE' },
-    { label: t('actions.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, permission: 'products:update', onClick: (p: Product) => confirmStatus(p.id), enabled: (p: Product) => p.status === 'ACTIVE' },
+    { label: t('common.edit'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, permission: 'products:update', onClick: (p: Product) => openEdit(p) },
+    { label: t('common.activate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, permission: 'products:update', onClick: (p: Product) => confirmStatus(p.id), enabled: (p: Product) => p.status !== 'ACTIVE' },
+    { label: t('common.deactivate'), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, permission: 'products:update', onClick: (p: Product) => confirmStatus(p.id), enabled: (p: Product) => p.status === 'ACTIVE' },
   ];
 
   return (
@@ -171,39 +155,22 @@ export default function ProductsPage() {
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
         </div>
       )}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('inventory.editProduct') : t('inventory.newProduct')} size="lg">
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Input label={t('common.code')} value={form.code} onChange={(e) => { setForm({ ...form, code: e.target.value }); setValidationErrors(p => ({ ...p, code: '' })); }} required />
-              {validationErrors.code && <p className="text-red-500 text-sm mt-1">{validationErrors.code}</p>}
-            </div>
-            <div>
-              <Input label={t('common.name')} value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(p => ({ ...p, name: '' })); }} required />
-              {validationErrors.name && <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>}
-            </div>
-          </div>
-          <Input label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <div className="grid grid-cols-2 gap-4">
-            <F9Lookup label={t('inventory.productCategory')} value={form.categoryId} onChange={(v) => setForm({ ...form, categoryId: v })} adapter={productCategoryAdapter} />
-            <div>
-              <Input label={t('inventory.unit')} value={form.unit} onChange={(e) => { setForm({ ...form, unit: e.target.value }); setValidationErrors(p => ({ ...p, unit: '' })); }} required />
-              {validationErrors.unit && <p className="text-red-500 text-sm mt-1">{validationErrors.unit}</p>}
-            </div>
-          </div>
-          <Input label={t('inventory.barcode')} value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label={t('inventory.minStock')} type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
-            <Input label={t('inventory.maxStock')} type="number" value={form.maxStock} onChange={(e) => setForm({ ...form, maxStock: e.target.value })} />
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
-            <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
-          </div>
-        </div>
-      </Modal>
-      <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleStatusChange}
-        title={t('common.confirmDeactivateTitle')} message={t('common.confirmDeactivateMessage')} variant="danger" loading={saving} />
+
+      <ProductForm
+        open={formOpen}
+        productId={formProductId}
+        onClose={() => setFormOpen(false)}
+        onSaved={() => fetchData(formProductId ? meta.page : 1)}
+      />
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleStatusChange}
+        title={selectedRecord?.status === 'ACTIVE' ? t('common.confirmDeactivateTitle') : t('common.confirmActivateTitle')}
+        message={selectedRecord?.status === 'ACTIVE' ? t('common.confirmDeactivateMessage') : t('common.confirmActivateMessage')}
+        loading={saving}
+      />
     </div>
   );
 }

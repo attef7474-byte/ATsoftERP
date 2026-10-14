@@ -1,0 +1,166 @@
+{
+  "status": "PASS",
+  "productionMutations": "NONE",
+  "sourceDatabase": "ATsoftERP_DB",
+  "server": "DESKTOP-HJALRR4\\WINCC",
+  "sourceDatabaseId": 8,
+  "proofDatabase": "ATsoftERP_UOM_PROOF_20261014161817",
+  "rollbackDatabase": "ATsoftERP_UOM_ROLLBACK_20261014161817",
+  "observedAtUtc": "2026-10-14T16:18:19.142Z",
+  "migration": {
+    "name": "20261014120000_add_product_uom_packaging",
+    "bytes": 4361,
+    "sha256": "151e4a92edebdf0d4a7c5546ceb169259f884e9fd493e25893946dd26152a341",
+    "lineEndings": "LF"
+  },
+  "invariants": {
+    "PRODUCT_IDS_CHANGED": 0,
+    "EXISTING_BALANCE_VALUE_CHANGES": 0,
+    "EXISTING_MOVEMENT_MEANING_CHANGES": 0,
+    "ORPHAN_PRODUCT_UOM": 0,
+    "DUPLICATE_GLOBAL_UNITS_CREATED": 0
+  },
+  "baseline": {
+    "products": {
+      "count": 13,
+      "sha256": "39a7629e4303f97bccfb6f8ed8c28057eadeca0c6bd27041795b12558c4a1592"
+    },
+    "balances": {
+      "count": 11,
+      "sha256": "78a067bba9ab85fae6614b7c3bee501de9f6274011d597fba4e3e94a409c0d1b"
+    },
+    "movements": {
+      "count": 68,
+      "sha256": "cd40daed9b52ecb397501277d72c1c58ce85baa0b3dcb51e8a822da0f6cf2f7f"
+    },
+    "units": {
+      "count": 11,
+      "sha256": "819d6102cb9bbc47d4cd7108f346276f6f541f8ec4a9d276a1049f10ced3e3ab"
+    },
+    "productIds": [
+      "cmrlb0uf40002gg956cmv26mu",
+      "cmrlb1j7q00027k95vaqth3xt",
+      "cmrlb2yfj0002m0950hk8v7a2",
+      "cmrvb4coj0001no95rd2e7kep",
+      "cmt77oqyw002nc895nadenmez",
+      "cmt77p2eh002pc89565ytdriv",
+      "cmt77zwhh003zc89537wive6b",
+      "cmt7862ue005cc895qcafwnu7",
+      "cmt786dwk005ec895b6k9dg9z",
+      "cmt78n4gn007jc895fjk4bw3h",
+      "cmt78npfk007lc8952fs1sn0j",
+      "cmt7ccm27009oc8954kif6kjc",
+      "cmt7cczk2009qc895ujf0pvhi"
+    ],
+    "productBarcodes": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "results": [
+    {
+      "name": "candidate_migration_applies",
+      "result": "PASS"
+    },
+    {
+      "name": "product_ids_preserved",
+      "result": "PASS"
+    },
+    {
+      "name": "inventory_balances_unchanged",
+      "result": "PASS"
+    },
+    {
+      "name": "inventory_movement_lines_preserved",
+      "result": "PASS"
+    },
+    {
+      "name": "units_and_barcodes_preserved_no_duplicates",
+      "result": "PASS"
+    },
+    {
+      "name": "base_product_uom_backfill_one_per_product",
+      "result": "PASS"
+    },
+    {
+      "name": "no_orphan_product_uom",
+      "result": "PASS"
+    },
+    {
+      "name": "one_base_per_product_filtered_unique_enforced",
+      "result": "PASS"
+    },
+    {
+      "name": "product_unit_pair_unique",
+      "result": "PASS"
+    },
+    {
+      "name": "invalid_references_reject",
+      "result": "PASS"
+    },
+    {
+      "name": "multi_level_packaging_hierarchy_conversion",
+      "result": "PASS"
+    },
+    {
+      "name": "orphan_product_uom_after_hierarchy",
+      "result": "PASS"
+    },
+    {
+      "name": "trusted_enabled_index_and_fk_metadata",
+      "result": "PASS"
+    },
+    {
+      "name": "ATOMIC_ROLLBACK",
+      "result": "PASS"
+    }
+  ],
+  "metadata": [
+    [
+      {
+        "name": "product_uoms_one_base_per_product",
+        "is_unique": true,
+        "has_filter": true,
+        "filter_definition": "([isBase]=(1))"
+      },
+      {
+        "name": "product_uoms_productId_unitId_key",
+        "is_unique": true,
+        "has_filter": false,
+        "filter_definition": null
+      }
+    ],
+    [
+      {
+        "name": "product_uoms_parentProductUomId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false
+      },
+      {
+        "name": "product_uoms_productId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false
+      },
+      {
+        "name": "product_uoms_unitId_fkey",
+        "is_disabled": false,
+        "is_not_trusted": false
+      }
+    ]
+  ],
+  "limitations": [
+    "This proves the additive migration, base backfill, uniqueness/FK constraints, hierarchy conversion factors and atomic rollback at the SQL layer.",
+    "HTTP/API behaviour is proven separately by the disposable runtime proof. InventoryMovement fixture copies are confined to disposable databases."
+  ]
+}

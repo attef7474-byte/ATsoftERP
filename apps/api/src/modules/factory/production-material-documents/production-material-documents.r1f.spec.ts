@@ -221,7 +221,7 @@ function makeHarness(options: HarnessOptions = {}) {
     postLedgerEntryWithinTransaction: jest.fn().mockResolvedValue({}),
     reverseLedgerEntry: jest.fn().mockResolvedValue({}),
   };
-  const service = new InventoryMovementsService(prisma, audit, {} as any, engine, productionCost);
+  const service = new InventoryMovementsService(prisma, audit, {} as any, engine, productionCost, { convert: jest.fn(), resolveFactor: jest.fn() } as any);
 
   const post = () => service.postProductionMaterialMovementWithinTransaction(tx, 'doc1', 'mov1', 'u1', ctx);
   const postGeneric = () => service.postMovementWithinTransaction(tx, 'mov1', 'u1', ctx);

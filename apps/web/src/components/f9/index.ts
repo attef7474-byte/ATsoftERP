@@ -14,6 +14,7 @@ export {
   warehouseAdapter,
   productCategoryAdapter,
   productAdapter,
+  unitAdapter,
   machineCategoryAdapter,
   machineAdapter,
   userAdapter,

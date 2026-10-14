@@ -43,6 +43,16 @@ export class CreateInventoryMovementLineDto {
   @IsString()
   unit?: string;
 
+  @ApiPropertyOptional({ description: 'Selected packaging UOM row id; the backend converts quantity to the base unit' })
+  @IsOptional()
+  @IsString()
+  productUomId?: string;
+
+  @ApiPropertyOptional({ description: 'Selected unit id; the backend converts quantity to the product base unit' })
+  @IsOptional()
+  @IsString()
+  enteredUnitId?: string;
+
   @ApiProperty({ enum: ['IN', 'OUT'] })
   @IsIn(['IN', 'OUT'])
   direction: string;

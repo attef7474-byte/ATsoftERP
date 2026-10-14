@@ -5,9 +5,10 @@ import { AuditModule } from '../../../common/audit/audit.module';
 import { InventoryValuationModule } from '../inventory-valuation/inventory-valuation.module';
 import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
 import { ProductionCostModule } from '../production-cost/production-cost.module';
+import { ProductsModule } from '../products/products.module';
 
 @Module({
-  imports: [AuditModule, InventoryValuationModule, ProductionCostModule],
+  imports: [AuditModule, InventoryValuationModule, ProductionCostModule, ProductsModule],
   controllers: [InventoryMovementsController],
   providers: [InventoryMovementsService, InventoryValuationEngineService],
   exports: [InventoryMovementsService],

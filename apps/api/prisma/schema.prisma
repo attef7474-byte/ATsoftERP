@@ -1625,6 +1625,7 @@ model Unit {
   products     Product[]
   spareParts   SparePart[]
   machineParts MachinePart[]
+  productUoms  ProductUom[]
 
   @@index([isActive])
   @@map("units")
@@ -1651,6 +1652,7 @@ model Product {
   deletedAt   DateTime?
 
   balances                  InventoryBalance[]
+  uoms                      ProductUom[]
   parts                     MachinePart[]
   countLines                InventoryCountLine[]
   movementLines             InventoryMovementLine[]
@@ -1686,6 +1688,37 @@ model Product {
   @@index([status, createdAt])
   @@index([unitId])
   @@map("products")
+}
+
+// Product multi-UOM / packaging hierarchy (one base inventory unit + ordered
+// packaging levels, e.g. PACKAGE -> BAG -> BALE). `conversionToBase` is derived
+// and stored so an alternate unit always resolves deterministically to the base.
+// Base row invariant: isBase=true, parentProductUomId=null, conversionToBase=1.
+// Exactly one active base row per product is enforced by a filtered unique index
+// added in the migration (Prisma cannot express filtered unique indexes).
+model ProductUom {
+  id                 String       @id @default(cuid())
+  productId          String
+  product            Product      @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  unitId             String
+  unit               Unit         @relation(fields: [unitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  isBase             Boolean      @default(false)
+  parentProductUomId String?
+  parent             ProductUom?  @relation("ProductUomHierarchy", fields: [parentProductUomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children           ProductUom[] @relation("ProductUomHierarchy")
+  quantityPerParent  Decimal      @default(1) @db.Decimal(18, 6)
+  conversionToBase   Decimal      @db.Decimal(18, 6)
+  barcode            String?
+  isActive           Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@unique([productId, unitId])
+  @@index([productId])
+  @@index([unitId])
+  @@index([parentProductUomId])
+  @@index([barcode])
+  @@map("product_uoms")
 }
 
 model InventoryBalance {
@@ -1929,6 +1962,14 @@ model InventoryMovementLine {
   serialNumber        String?
   expiryDate          DateTime?
   unit                String?
+  /// Historical transaction-UOM snapshot (multi-UOM). Null for legacy/base-only
+  /// rows: the entered quantity equals the base quantity and the conversion is 1.
+  /// Scalar on purpose (not FKs) so a historical movement keeps its original
+  /// evidence even if the ProductUom/Unit later changes or is deactivated.
+  enteredUnitId       String?
+  productUomId        String?
+  enteredQuantity     Decimal?           @db.Decimal(18, 4)
+  conversionApplied   Decimal?           @db.Decimal(18, 6)
   direction           String
   notes               String?
   // VAL-R1A: nullable monetary snapshot foundation (no valuation posting yet)
@@ -1943,6 +1984,7 @@ model InventoryMovementLine {
   @@index([productId])
   @@index([warehouseLocationId])
   @@index([movementId, productId])
+  @@index([productUomId])
   @@map("inventory_movement_lines")
 }
 

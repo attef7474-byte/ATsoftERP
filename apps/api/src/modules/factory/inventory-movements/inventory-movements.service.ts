@@ -16,6 +16,7 @@ import {
 import { ProductionCostService } from '../production-cost/production-cost.service';
 import { ENTRY_ROLE_PRIMARY_COST, MATERIAL_EVENT_TYPE, canonicalLedgerUnit } from '../production-cost/production-cost.constants';
 import { PRODUCTION_COST_PURPOSE } from '../../../common/cost-purpose/cost-purpose.constants';
+import { ProductUomConversionService } from '../products/product-uom-conversion.service';
 
 const MOVEMENT_REVERSAL_SOURCE_TYPE = 'INVENTORY_MOVEMENT_REVERSAL';
 const MOVEMENT_REVERSAL_TOKEN_PREFIX = 'REVERSAL:';
@@ -42,7 +43,46 @@ export class InventoryMovementsService {
     private numberingService: NumberingService,
     private valuationEngine: InventoryValuationEngineService,
     private productionCostService: ProductionCostService,
+    private productUomConversion: ProductUomConversionService,
   ) {}
+
+  /**
+   * Canonical transaction-to-base conversion for a movement line. When the line
+   * selects a packaging UOM (productUomId) or an alternate unit (enteredUnitId),
+   * the authoritative base quantity and the immutable conversion snapshot are
+   * produced by the single conversion authority. Legacy callers without a
+   * selected unit keep the previous behaviour (quantityBase ?? quantity).
+   */
+  private async resolveMovementLine(
+    tx: any,
+    line: { productId: string; quantity: number; quantityBase?: number; unit?: string | null; productUomId?: string | null; enteredUnitId?: string | null },
+  ) {
+    if (line.productUomId || line.enteredUnitId) {
+      const result = await this.productUomConversion.convert(tx, line.productId, {
+        quantity: line.quantity,
+        productUomId: line.productUomId,
+        unitId: line.enteredUnitId,
+      });
+      return {
+        quantity: line.quantity,
+        quantityBase: result.baseQuantity,
+        unit: line.unit,
+        productUomId: result.productUomId,
+        enteredUnitId: result.enteredUnitId,
+        enteredQuantity: result.enteredQuantity,
+        conversionApplied: result.conversionToBase,
+      };
+    }
+    return {
+      quantity: line.quantity,
+      quantityBase: line.quantityBase ?? line.quantity,
+      unit: line.unit,
+      productUomId: line.productUomId ?? null,
+      enteredUnitId: line.enteredUnitId ?? null,
+      enteredQuantity: null,
+      conversionApplied: null,
+    };
+  }
 
   private validationError(field: string, code: string, message: string): BadRequestException {
     return new BadRequestException({
@@ -294,6 +334,27 @@ export class InventoryMovementsService {
 
         const { lines, ...rest } = dto;
 
+        const resolvedLines: any[] = [];
+        for (const l of lines) {
+          const resolved = await this.resolveMovementLine(tx, l);
+          resolvedLines.push({
+            productId: l.productId,
+            warehouseLocationId: l.warehouseLocationId,
+            quantity: resolved.quantity,
+            quantityBase: resolved.quantityBase,
+            batchNumber: l.batchNumber,
+            serialNumber: l.serialNumber,
+            expiryDate: this.toDateOrThrow(l.expiryDate, 'lines.expiryDate'),
+            unit: resolved.unit,
+            productUomId: resolved.productUomId,
+            enteredUnitId: resolved.enteredUnitId,
+            enteredQuantity: resolved.enteredQuantity,
+            conversionApplied: resolved.conversionApplied,
+            direction: l.direction,
+            notes: l.notes,
+          });
+        }
+
         const movement = await tx.inventoryMovement.create({
           data: {
             ...rest,
@@ -302,20 +363,7 @@ export class InventoryMovementsService {
             movementNumber,
             status: 'DRAFT',
             createdById: userId,
-            lines: {
-              create: lines.map((l) => ({
-                productId: l.productId,
-                warehouseLocationId: l.warehouseLocationId,
-                quantity: l.quantity,
-                quantityBase: l.quantityBase ?? l.quantity,
-                batchNumber: l.batchNumber,
-                serialNumber: l.serialNumber,
-                expiryDate: this.toDateOrThrow(l.expiryDate, 'lines.expiryDate'),
-                unit: l.unit,
-                direction: l.direction,
-                notes: l.notes,
-              })),
-            },
+            lines: { create: resolvedLines },
           },
           include: { lines: true },
         });
@@ -1316,6 +1364,10 @@ export class InventoryMovementsService {
                 serialNumber: l.serialNumber,
                 expiryDate: l.expiryDate,
                 unit: l.unit,
+                productUomId: l.productUomId,
+                enteredUnitId: l.enteredUnitId,
+                enteredQuantity: l.enteredQuantity,
+                conversionApplied: l.conversionApplied,
                 direction: l.direction === 'IN' ? 'OUT' : 'IN',
                 notes: l.notes ?? `Reverses line of movement ${current.movementNumber}`,
               })),
@@ -1405,17 +1457,22 @@ export class InventoryMovementsService {
         await this.assertLocationInWarehouseWithClient(tx, dto.warehouseLocationId, current.warehouseId, 'warehouseLocationId');
       }
 
+      const resolved = await this.resolveMovementLine(tx, dto);
       const line = await tx.inventoryMovementLine.create({
         data: {
           movementId: id,
           productId: dto.productId,
           warehouseLocationId: dto.warehouseLocationId,
-          quantity: dto.quantity,
-          quantityBase: dto.quantityBase ?? dto.quantity,
+          quantity: resolved.quantity,
+          quantityBase: resolved.quantityBase,
           batchNumber: dto.batchNumber,
           serialNumber: dto.serialNumber,
           expiryDate: this.toDateOrThrow(dto.expiryDate, 'expiryDate'),
-          unit: dto.unit,
+          unit: resolved.unit,
+          productUomId: resolved.productUomId,
+          enteredUnitId: resolved.enteredUnitId,
+          enteredQuantity: resolved.enteredQuantity,
+          conversionApplied: resolved.conversionApplied,
           direction: dto.direction,
           notes: dto.notes,
         },
@@ -1476,6 +1533,29 @@ export class InventoryMovementsService {
       if (dto.expiryDate !== undefined) data.expiryDate = this.toDateOrThrow(dto.expiryDate, 'expiryDate');
       if (dto.unit !== undefined) data.unit = dto.unit;
       if (dto.notes !== undefined) data.notes = dto.notes;
+
+      const selectionChanged =
+        dto.productId !== undefined ||
+        dto.quantity !== undefined ||
+        dto.productUomId !== undefined ||
+        dto.enteredUnitId !== undefined;
+      if (selectionChanged) {
+        const resolved = await this.resolveMovementLine(tx, {
+          productId: data.productId ?? line.productId,
+          quantity: data.quantity ?? line.quantity,
+          quantityBase: data.quantityBase,
+          unit: data.unit ?? line.unit,
+          productUomId: dto.productUomId !== undefined ? dto.productUomId : line.productUomId,
+          enteredUnitId: dto.enteredUnitId !== undefined ? dto.enteredUnitId : line.enteredUnitId,
+        });
+        data.quantity = resolved.quantity;
+        data.quantityBase = resolved.quantityBase;
+        data.productUomId = resolved.productUomId;
+        data.enteredUnitId = resolved.enteredUnitId;
+        data.enteredQuantity = resolved.enteredQuantity;
+        data.conversionApplied = resolved.conversionApplied;
+        if (dto.unit === undefined) data.unit = resolved.unit;
+      }
 
       const updated = await tx.inventoryMovementLine.update({
         where: { id: lineId },

@@ -1,14 +1,18 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductUomInputDto } from './dto/product-uom.dto';
+import { ProductUomValidationError, buildProductUomPlan, ProductUomRowInput } from './product-uom.domain';
 import {
   PRODUCT_VERDICT_EXACT_DUPLICATE,
   PRODUCT_VERDICT_REVIEW_REQUIRED,
   evaluateProductCanonicalIdentity,
 } from '../../../common/canonical-identity/canonical-product-identity';
+
+const PRODUCT_UNIT_SELECT = { id: true, code: true, nameAr: true, nameEn: true, symbol: true } as const;
 
 @Injectable()
 export class ProductsService {
@@ -21,31 +25,51 @@ export class ProductsService {
   /**
    * R4P TASK 5 + TASK 16: existing-Product duplicate control and audit coverage.
    *
-   * Previously create() compared only the code and wrote no audit event at all,
-   * so a duplicate inventory item could be created silently and a new Product was
-   * the one catalog mutation with no accountability trail. Both are corrected here.
-   *
-   * Duplicate detection runs BEFORE the row is written and reuses the existing
-   * Product instead of creating a second representation of one inventory item.
+   * Multi-UOM: a Product carries exactly one base inventory unit (resolved from
+   * the global Unit master) plus optional packaging UOMs that resolve to that
+   * base. The base inventory unit is the sole quantity authority.
    */
   async create(dto: CreateProductDto, userId?: string) {
     const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('PRODUCT');
     const existing = await this.prisma.product.findUnique({ where: { code } });
     if (existing) throw new ConflictException('Product code already exists');
 
-    return this.prisma.$transaction(async (tx) => {
-      await this.assertNoProductDuplicate(tx, { code, barcode: dto.barcode });
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await this.assertNoProductDuplicate(tx, { code, barcode: dto.barcode });
 
-      const product = await tx.product.create({ data: { ...dto, code } });
-      await this.auditService.logWithClient(tx, {
-        userId,
-        action: 'CREATE',
-        entity: 'Product',
-        entityId: product.id,
-        details: { message: `Created product: ${product.code}`, code: product.code },
+        const base = await this.resolveBaseUnit(tx, { unitId: dto.unitId, unit: dto.unit });
+        const rows = this.normalizeUomInput(dto.uoms, null);
+        const plan = base.unitId ? buildProductUomPlan(rows, base.unitId) : [];
+        if (plan.length) await this.assertUnitsExist(tx, plan.map((row) => row.unitId));
+
+        const { uoms, unitId, ...scalars } = dto;
+        const product = await tx.product.create({
+          data: { ...scalars, code, unit: base.unitCode, unitId: base.unitId },
+        });
+
+        if (plan.length) await this.persistUomPlan(tx, product.id, plan);
+
+        await this.auditService.logWithClient(tx, {
+          userId,
+          action: 'CREATE',
+          entity: 'Product',
+          entityId: product.id,
+          details: {
+            message: `Created product: ${product.code}`,
+            code: product.code,
+            baseUnitId: base.unitId,
+            packagingUomCount: Math.max(plan.length - 1, 0),
+          },
+        });
+        return tx.product.findUnique({
+          where: { id: product.id },
+          include: { category: { select: { id: true, name: true, code: true } }, unitRef: { select: PRODUCT_UNIT_SELECT }, uoms: { include: { unit: { select: PRODUCT_UNIT_SELECT } }, orderBy: { createdAt: 'asc' } } },
+        });
       });
-      return product;
-    });
+    } catch (error) {
+      throw this.rethrowUomError(error);
+    }
   }
 
   private async assertNoProductDuplicate(tx: any, identity: { code?: string | null; barcode?: string | null; qrCode?: string | null }, excludeProductId?: string) {
@@ -86,6 +110,107 @@ export class ProductsService {
     }
   }
 
+  /**
+   * Resolves the Product base inventory unit from the global Unit master. A
+   * free-text unit is accepted only when it exactly matches a Unit code; the
+   * base unit may never be an unknown string.
+   */
+  private async resolveBaseUnit(tx: any, input: { unitId?: string; unit?: string }): Promise<{ unitId: string | null; unitCode: string }> {
+    if (input.unitId) {
+      const unit = await tx.unit.findUnique({ where: { id: input.unitId } });
+      if (!unit) {
+        throw new ProductUomValidationError('unitId', 'products.uomInvalidBaseUnit', 'The selected base unit does not exist in the global unit master.');
+      }
+      return { unitId: unit.id, unitCode: unit.code };
+    }
+    if (input.unit) {
+      const code = input.unit.trim().toUpperCase();
+      const unit = await tx.unit.findUnique({ where: { code } });
+      if (!unit) {
+        throw new ProductUomValidationError('unit', 'products.uomInvalidBaseUnit', 'The base unit must be selected from the global unit master.');
+      }
+      return { unitId: unit.id, unitCode: unit.code };
+    }
+    throw new ProductUomValidationError('unit', 'products.uomInvalidBaseUnit', 'A base inventory unit is required.');
+  }
+
+  private normalizeUomInput(
+    rows: ProductUomInputDto[] | undefined,
+    existingUnitByUomId: Map<string, string> | null,
+  ): ProductUomRowInput[] {
+    if (!rows || rows.length === 0) return [];
+    return rows.map((row) => {
+      let parentUnitId = row.parentUnitId ?? null;
+      if (!parentUnitId && row.parentProductUomId) {
+        if (!existingUnitByUomId || !existingUnitByUomId.has(row.parentProductUomId)) {
+          throw new ProductUomValidationError('uoms', 'products.uomUnknownParent', 'Parent packaging unit must belong to the same product.');
+        }
+        parentUnitId = existingUnitByUomId.get(row.parentProductUomId)!;
+      }
+      return {
+        unitId: row.unitId ?? '',
+        isBase: row.isBase,
+        parentUnitId,
+        quantityPerParent: row.quantityPerParent ?? null,
+        barcode: row.barcode ?? null,
+        isActive: row.isActive ?? true,
+      };
+    });
+  }
+
+  private async assertUnitsExist(tx: any, unitIds: string[]) {
+    const unique = [...new Set(unitIds)];
+    const found = await tx.unit.findMany({ where: { id: { in: unique } }, select: { id: true } });
+    if (found.length !== unique.length) {
+      throw new ProductUomValidationError('uoms', 'validation.invalidReference', 'One or more units do not exist in the global unit master.');
+    }
+  }
+
+  /**
+   * Persists an ordered (parents-before-children) UOM plan. The best-effort
+   * `@@unique([productId, unitId])` guard plus this ordering keeps parent linkage
+   * consistent without needing a second pass.
+   */
+  private async persistUomPlan(tx: any, productId: string, plan: ReturnType<typeof buildProductUomPlan>) {
+    const idByUnit = new Map<string, string>();
+    for (const row of plan) {
+      const parentId = row.parentUnitId ? idByUnit.get(row.parentUnitId) ?? null : null;
+      const created = await tx.productUom.create({
+        data: {
+          productId,
+          unitId: row.unitId,
+          isBase: row.isBase,
+          parentProductUomId: parentId,
+          quantityPerParent: row.quantityPerParent,
+          conversionToBase: row.conversionToBase,
+          barcode: row.barcode || null,
+          isActive: row.isActive,
+        },
+      });
+      idByUnit.set(row.unitId, created.id);
+    }
+  }
+
+  private async hasInventoryHistory(tx: any, productId: string): Promise<boolean> {
+    const [movementLines, balances, countLines] = await Promise.all([
+      tx.inventoryMovementLine.count({ where: { productId } }),
+      tx.inventoryBalance.count({ where: { productId, OR: [{ quantity: { not: 0 } }, { quantityBase: { not: 0 } }] } }),
+      tx.inventoryCountLine.count({ where: { productId } }),
+    ]);
+    return movementLines > 0 || balances > 0 || countLines > 0;
+  }
+
+  private rethrowUomError(error: unknown): never {
+    if (error instanceof ProductUomValidationError) {
+      throw new BadRequestException({
+        messageKey: error.messageKey,
+        message: error.message,
+        errors: [{ field: error.field, code: error.messageKey, message: error.message }],
+      });
+    }
+    throw error as Error;
+  }
+
   async findAll(query: { page?: number; limit?: number; search?: string; categoryId?: string; status?: string }) {
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -105,7 +230,11 @@ export class ProductsService {
     const [data, total] = await Promise.all([
       this.prisma.product.findMany({
         where, skip, take: limit, orderBy: { createdAt: 'desc' },
-        include: { category: { select: { id: true, name: true, code: true } } },
+        include: {
+          category: { select: { id: true, name: true, code: true } },
+          unitRef: { select: PRODUCT_UNIT_SELECT },
+          uoms: { include: { unit: { select: PRODUCT_UNIT_SELECT } }, orderBy: { createdAt: 'asc' } },
+        },
       }),
       this.prisma.product.count({ where }),
     ]);
@@ -116,7 +245,11 @@ export class ProductsService {
   async findOne(id: string) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: { category: { select: { id: true, name: true, code: true } } },
+      include: {
+        category: { select: { id: true, name: true, code: true } },
+        unitRef: { select: PRODUCT_UNIT_SELECT },
+        uoms: { include: { unit: { select: PRODUCT_UNIT_SELECT } }, orderBy: { createdAt: 'asc' } },
+      },
     });
     if (!product) throw new NotFoundException('Product not found');
     return product;
@@ -124,26 +257,125 @@ export class ProductsService {
 
   async update(id: string, dto: UpdateProductDto, userId?: string) {
     const existing = await this.findOne(id);
-    return this.prisma.$transaction(async (tx) => {
-      // Re-check identity against the merged state so a partial edit cannot
-      // introduce a second representation of the same inventory item.
-      await this.assertNoProductDuplicate(
-        tx,
-        {
-          code: existing.code,
-          barcode: 'barcode' in dto ? (dto.barcode ?? null) : ((existing.barcode as string | null) ?? null),
-        },
-        id,
-      );
-      const product = await tx.product.update({ where: { id }, data: dto });
-      await this.auditService.logWithClient(tx, {
-        userId,
-        action: 'UPDATE',
-        entity: 'Product',
-        entityId: id,
-        details: { message: `Updated product: ${product.code}`, code: product.code },
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await this.assertNoProductDuplicate(
+          tx,
+          {
+            code: existing.code,
+            barcode: 'barcode' in dto ? (dto.barcode ?? null) : ((existing.barcode as string | null) ?? null),
+          },
+          id,
+        );
+
+        // Resolve the (possibly new) base unit and enforce the base-unit lock.
+        const nextBase =
+          dto.unitId !== undefined || dto.unit !== undefined
+            ? await this.resolveBaseUnit(tx, { unitId: dto.unitId, unit: dto.unit })
+            : { unitId: existing.unitId, unitCode: existing.unit };
+        const baseChanged = (nextBase.unitId ?? null) !== ((existing.unitId as string | null) ?? null);
+
+        if (baseChanged && await this.hasInventoryHistory(tx, id)) {
+          throw new ProductUomValidationError(
+            'unitId',
+            'products.uomBaseUnitLocked',
+            'The base inventory unit cannot be changed after inventory history exists for this product.',
+          );
+        }
+
+        const existingUoms = await tx.productUom.findMany({ where: { productId: id } });
+        const existingUnitByUomId = new Map<string, string>(existingUoms.map((row: any) => [row.id, row.unitId]));
+
+        const { uoms, unitId, ...scalars } = dto;
+        const data: any = { ...scalars };
+        if (dto.unitId !== undefined || dto.unit !== undefined) {
+          data.unit = nextBase.unitCode;
+          data.unitId = nextBase.unitId;
+        }
+
+        const product = await tx.product.update({ where: { id }, data });
+
+        if (baseChanged) {
+          // Pre-history base change: rebuild the packaging set from the payload.
+          await tx.productUom.deleteMany({ where: { productId: id } });
+          const rows = this.normalizeUomInput(uoms, null);
+          const plan = nextBase.unitId ? buildProductUomPlan(rows, nextBase.unitId) : [];
+          if (plan.length) {
+            await this.assertUnitsExist(tx, plan.map((row) => row.unitId));
+            await this.persistUomPlan(tx, id, plan);
+          }
+        } else if (uoms !== undefined && nextBase.unitId) {
+          await this.syncUomSet(tx, id, nextBase.unitId, this.normalizeUomInput(uoms, existingUnitByUomId));
+        } else if (nextBase.unitId) {
+          await this.ensureBaseUomRow(tx, id, nextBase.unitId);
+        }
+
+        await this.auditService.logWithClient(tx, {
+          userId,
+          action: 'UPDATE',
+          entity: 'Product',
+          entityId: id,
+          details: { message: `Updated product: ${product.code}`, code: product.code, baseUnitChanged: baseChanged },
+        });
+        return tx.product.findUnique({
+          where: { id },
+          include: { category: { select: { id: true, name: true, code: true } }, unitRef: { select: PRODUCT_UNIT_SELECT }, uoms: { include: { unit: { select: PRODUCT_UNIT_SELECT } }, orderBy: { createdAt: 'asc' } } },
+        });
       });
-      return product;
+    } catch (error) {
+      throw this.rethrowUomError(error);
+    }
+  }
+
+  /**
+   * Upsert-by-(productId, unitId) sync that preserves row ids and parent
+   * linkage: removes packaging rows no longer present, then writes the plan in
+   * parents-before-children order.
+   */
+  private async syncUomSet(tx: any, productId: string, baseUnitId: string, rows: ProductUomRowInput[]) {
+    const plan = buildProductUomPlan(rows, baseUnitId);
+    await this.assertUnitsExist(tx, plan.map((row) => row.unitId));
+    const keepUnits = new Set(plan.map((row) => row.unitId));
+    const existing = await tx.productUom.findMany({ where: { productId } });
+    const removable = existing.filter((row: any) => !keepUnits.has(row.unitId)).map((row: any) => row.id);
+    if (removable.length) await tx.productUom.deleteMany({ where: { id: { in: removable } } });
+
+    const idByUnit = new Map<string, string>(existing.filter((row: any) => keepUnits.has(row.unitId)).map((row: any) => [row.unitId, row.id]));
+    for (const row of plan) {
+      const parentId = row.parentUnitId ? idByUnit.get(row.parentUnitId) ?? null : null;
+      const payload = {
+        isBase: row.isBase,
+        parentProductUomId: parentId,
+        quantityPerParent: row.quantityPerParent,
+        conversionToBase: row.conversionToBase,
+        barcode: row.barcode || null,
+        isActive: row.isActive,
+      };
+      const existingId = idByUnit.get(row.unitId);
+      if (existingId) {
+        await tx.productUom.update({ where: { id: existingId }, data: payload });
+      } else {
+        const created = await tx.productUom.create({ data: { productId, unitId: row.unitId, ...payload } });
+        idByUnit.set(row.unitId, created.id);
+      }
+    }
+  }
+
+  private async ensureBaseUomRow(tx: any, productId: string, baseUnitId: string) {
+    const baseRow = await tx.productUom.findFirst({ where: { productId, isBase: true } });
+    if (baseRow) {
+      if (baseRow.unitId !== baseUnitId) {
+        await tx.productUom.update({ where: { id: baseRow.id }, data: { unitId: baseUnitId } });
+      }
+      return;
+    }
+    const byUnit = await tx.productUom.findFirst({ where: { productId, unitId: baseUnitId } });
+    if (byUnit) {
+      await tx.productUom.update({ where: { id: byUnit.id }, data: { isBase: true, parentProductUomId: null, quantityPerParent: 1, conversionToBase: 1 } });
+      return;
+    }
+    await tx.productUom.create({
+      data: { productId, unitId: baseUnitId, isBase: true, parentProductUomId: null, quantityPerParent: 1, conversionToBase: 1, isActive: true },
     });
   }
 
