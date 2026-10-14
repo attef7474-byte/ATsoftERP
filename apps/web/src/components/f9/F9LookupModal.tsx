@@ -183,7 +183,7 @@ export function F9LookupModal<T extends Record<string, any>>({
               onClick={onClose}
               className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
             >
-              {t('common.apply')}
+              {t('actions.apply')}
             </button>
           </div>
         )}
