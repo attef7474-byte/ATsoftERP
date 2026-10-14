@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
@@ -31,11 +32,14 @@ export default function MaintenanceSchedulesPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
+  const [fromAlert, setFromAlert] = useState(false);
+  const searchParams = useSearchParams();
+  const planPrefillRef = React.useRef(false);
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
 
 const { exec } = useStableHandlers({
-  new: () => openCreate(),
+  new: () => { setFromAlert(false); openCreate(); },
   edit: () => selectedId && openEdit(selectedId),
   refresh: () => fetchData(meta.page),
   activate: () => confirmStatus(selectedId),
@@ -65,12 +69,43 @@ useRegisterAdminActions([
 
   useEffect(() => { fetchData(); }, []);
 
+  useEffect(() => {
+    if (planPrefillRef.current) return;
+    if (searchParams.get('planSource') !== 'reliability') return;
+    const mid = searchParams.get('planMachineId');
+    const spid = searchParams.get('planSparePartId');
+    if (!mid || !spid) return;
+    planPrefillRef.current = true;
+    openCreate();
+    setFromAlert(true);
+    const q: Record<string, string> = { machineId: mid, sparePartId: spid };
+    const comp = searchParams.get('planComponentId');
+    const at = searchParams.get('planAlertType');
+    const ip = searchParams.get('planInstalledPartId');
+    if (comp) q.machineComponentId = comp;
+    if (at) q.alertType = at;
+    if (ip) q.installedPartId = ip;
+    api.get<any>('/maintenance/reliability/alerts/planning-candidate', { params: q })
+      .then((cand) => {
+        setForm((f) => ({
+          ...f,
+          machineId: cand?.prefill?.machineId || mid,
+          title: cand?.prefill?.title || f.title,
+          description: cand?.prefill?.description || f.description,
+          type: 'PREVENTIVE',
+          startDate: cand?.prefill?.startDate || f.startDate,
+        }));
+      })
+      .catch(() => showToast(t('maintenance.scheduleFromAlertLoadFailed'), 'error'));
+  }, [searchParams]);
+
   const openCreate = () => {
     setEditItem(null);
     setForm({ machineId: '', title: '', description: '', type: 'PREVENTIVE', frequency: 'MONTHLY', intervalDays: 0, startDate: '', endDate: '', code: '' });
     setModalOpen(true);
   };
   const openEdit = async (id: string) => {
+    setFromAlert(false);
     setLoadingDetail(true);
     setModalOpen(true);
     try {
@@ -201,6 +236,11 @@ useRegisterAdminActions([
           </div>
         ) : (
           <div className="space-y-4">
+            {fromAlert && !editItem && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                {t('maintenance.scheduleFromAlertBanner')}
+              </div>
+            )}
             {editItem ? (
               <>
                 <Input label={t('common.code')} value={form.code} disabled />

@@ -59,6 +59,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         sparePartConditions: 'حالات قطع الغيار',
         mttr: 'متوسط وقت الإصلاح',
         installedPartReliability: 'اعتمادية وعمر القطع',
+        reliabilityAlerts: 'تنبيهات الاعتمادية والصيانة الوقائية',
         sla: 'مستوى الخدمة',
         reportsHome: 'الصفحة الرئيسية للتقارير',
         settings: 'الإعدادات',

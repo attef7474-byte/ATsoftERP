@@ -36,6 +36,8 @@ export interface ReliabilityRow {
   } | null;
   lastFailureAt: Date | null;
   replacementCount: number;
+  /** Timestamps of replacement events for this (machine, sparePart) population. */
+  replacementDates: Date[];
   failureEventCount: number;
   prematureFailureCount: number;
   repeatedEarlyFailure: boolean;
@@ -336,6 +338,10 @@ export class InstalledPartReliabilityService {
       const replacementCount = (replacements as any[]).filter(
         (r) => r.machineId === machineId && (r.newSparePartId === sparePartId || r.oldSparePartId === sparePartId),
       ).length;
+      const replacementDates = (replacements as any[])
+        .filter((r) => r.machineId === machineId && (r.newSparePartId === sparePartId || r.oldSparePartId === sparePartId))
+        .map((r) => r.replacedAt)
+        .filter((d): d is Date => d instanceof Date);
 
       const component = instances.find((i) => i.machineComponent)?.machineComponent ?? null;
 
@@ -356,6 +362,7 @@ export class InstalledPartReliabilityService {
         current,
         lastFailureAt,
         replacementCount,
+        replacementDates,
         failureEventCount,
         prematureFailureCount,
         repeatedEarlyFailure: isRepeatedEarlyFailure(failureEventCount, prematureFailureCount),
