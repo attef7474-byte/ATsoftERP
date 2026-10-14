@@ -22,6 +22,8 @@ interface ApprovedModule {
   maintenanceKey: string;
   ar: string;
   en: string;
+  /** Retired from the primary navigation; still reachable as a read-only legacy page. */
+  legacyReadOnly?: boolean;
 }
 
 const APPROVED_MODULES: ApprovedModule[] = [
@@ -60,6 +62,7 @@ const APPROVED_MODULES: ApprovedModule[] = [
     maintenanceKey: 'machineParts',
     ar: 'قوائم قطع الآلات',
     en: 'Machine Part Lists',
+    legacyReadOnly: true,
   },
   {
     entity: 'SparePart',
@@ -183,9 +186,20 @@ describe('maintenance module terminology (owner-approved)', () => {
 
       it('uses the approved name as the sidebar label for every module destination', () => {
         for (const m of APPROVED_MODULES) {
+          if (m.legacyReadOnly) continue;
           const labelKey = labelKeyFor(navigationSource, `navigation.${m.navigationKey}`, m.route);
           expect(labelKey).toBeTruthy();
           expect(read(dictionaries[locale], labelKey as string)).toBe(approvedFor(locale)(m));
+        }
+      });
+
+      it('retires the legacy machine-parts module from primary navigation while keeping its approved labels', () => {
+        const legacy = APPROVED_MODULES.filter((m) => m.legacyReadOnly);
+        expect(legacy.map((m) => m.entity)).toEqual(['MachinePart']);
+        for (const m of legacy) {
+          expect(labelKeyFor(navigationSource, `navigation.${m.navigationKey}`, m.route)).toBeUndefined();
+          expect(read(dictionaries[locale], `navigation.${m.navigationKey}`)).toBe(approvedFor(locale)(m));
+          expect(read(dictionaries[locale], `maintenance.${m.maintenanceKey}`)).toBe(approvedFor(locale)(m));
         }
       });
     });

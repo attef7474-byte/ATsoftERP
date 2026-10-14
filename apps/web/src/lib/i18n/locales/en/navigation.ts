@@ -25,6 +25,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         warehouses: 'Warehouses',
         productCategories: 'Product Categories',
         products: 'Products',
+        unitsOfMeasure: 'Units of Measure',
         inventoryCounts: 'Inventory Counts',
         inventoryMovements: 'Inventory Movements',
         inventoryAdjustments: 'Inventory Count Adjustments',

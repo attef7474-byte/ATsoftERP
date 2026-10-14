@@ -1,11 +1,14 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { SparePartsService } from './spare-parts.service';
 import { CreateSparePartDto, UpdateSparePartDto } from './dto/create-spare-part.dto';
+import { SetMachineLinksDto } from './dto/set-machine-links.dto';
 import { JwtAuthGuard } from '../../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @ApiTags('Spare Parts')
 @ApiBearerAuth()
@@ -37,6 +40,16 @@ export class SparePartsController {
   @Permissions('spare-part:read')
   @ApiOperation({ summary: 'Get spare part by ID' })
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
+
+  @Get(':id/machines')
+  @Permissions('machine-spare-part:read')
+  @ApiOperation({ summary: 'List machines linked to a spare part' })
+  getMachines(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.getMachineLinks(id, ctx); }
+
+  @Put(':id/machines')
+  @Permissions('spare-part:update')
+  @ApiOperation({ summary: 'Set the machine applicability set for a spare part (batch, atomic)' })
+  setMachines(@Param('id') id: string, @Body() dto: SetMachineLinksDto, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.setMachineLinks(id, dto.machineIds, userId, ctx); }
 
   @Patch(':id')
   @Permissions('spare-part:update')

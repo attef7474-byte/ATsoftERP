@@ -8,6 +8,7 @@ export class CreateSparePartDto {
   @ApiPropertyOptional() @IsString() @IsOptional() category?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() specification?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() unit?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() unitId?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() manufacturer?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() model?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() partNumber?: string;
@@ -31,6 +32,7 @@ export class UpdateSparePartDto {
   @ApiPropertyOptional() @IsString() @IsOptional() category?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() specification?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() unit?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() unitId?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() manufacturer?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() model?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() partNumber?: string;

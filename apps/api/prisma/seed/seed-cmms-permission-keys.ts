@@ -217,4 +217,11 @@ export const CMMS_EXTRA_PERMISSIONS: { key: string; module: string; action: stri
   { key: "maintenance-task:registerHistorical", module: "maintenance-task", action: "registerHistorical" },
   { key: "maintenance-task:parts.issue", module: "maintenance-task", action: "parts.issue" },
   { key: "maintenance-task:downtime.close", module: "maintenance-task", action: "downtime.close" },
+  // unit (global unit-of-measure master, ERP-wide reference data)
+  { key: "unit:create", module: "unit", action: "create" },
+  { key: "unit:read", module: "unit", action: "read" },
+  { key: "unit:update", module: "unit", action: "update" },
+  { key: "unit:delete", module: "unit", action: "delete" },
+  { key: "unit:activate", module: "unit", action: "activate" },
+  { key: "unit:deactivate", module: "unit", action: "deactivate" },
 ];

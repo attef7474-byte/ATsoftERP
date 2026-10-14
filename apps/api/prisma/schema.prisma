@@ -1611,6 +1611,25 @@ model ProductCategory {
   @@map("product_categories")
 }
 
+// Global canonical Unit / Unit-of-Measure master (ERP-wide reference data).
+model Unit {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  nameAr    String
+  nameEn    String
+  symbol    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products     Product[]
+  spareParts   SparePart[]
+  machineParts MachinePart[]
+
+  @@index([isActive])
+  @@map("units")
+}
+
 model Product {
   id          String           @id @default(cuid())
   code        String           @unique
@@ -1619,6 +1638,8 @@ model Product {
   categoryId  String?
   category    ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   unit        String
+  unitId      String?
+  unitRef     Unit?            @relation(fields: [unitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   barcode     String?
   qrCode      String?
   image       String?
@@ -1663,6 +1684,7 @@ model Product {
   @@index([createdAt])
   @@index([categoryId, status])
   @@index([status, createdAt])
+  @@index([unitId])
   @@map("products")
 }
 
@@ -2512,6 +2534,8 @@ model MachinePart {
   quantity    Float      @default(0)
   minStock    Float      @default(0)
   unit        String
+  unitId      String?
+  unitRef     Unit?      @relation(fields: [unitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -2521,6 +2545,7 @@ model MachinePart {
   @@index([companyId, branchId])
   @@index([code])
   @@index([name])
+  @@index([unitId])
   @@map("machine_parts")
 }
 
@@ -2590,6 +2615,8 @@ model SparePart {
   category                String?
   specification           String?
   unit                    String?
+  unitId                  String?
+  unitRef                 Unit?     @relation(fields: [unitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   manufacturer            String?
   model                   String?
   partNumber              String?
@@ -2639,6 +2666,7 @@ model SparePart {
   @@index([nature])
   @@index([importance])
   @@index([productId])
+  @@index([unitId])
   @@map("spare_parts")
 }
 

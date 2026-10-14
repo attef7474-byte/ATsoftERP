@@ -516,6 +516,8 @@ export interface SparePart {
   category?: string | null;
   specification?: string | null;
   unit?: string | null;
+  unitId?: string | null;
+  unitRef?: { id: string; code: string; nameAr: string; nameEn: string; symbol?: string | null } | null;
   manufacturer?: string | null;
   model?: string | null;
   partNumber?: string | null;
@@ -530,7 +532,9 @@ export interface SparePart {
   nature?: string | null;
   importance?: string | null;
   productId?: string | null;
-  product?: { id: string; name: string; code: string };
+  product?: { id: string; name: string; code: string; unit?: string | null } | null;
+  linkedMachineCount?: number;
+  _count?: { machineLinks: number };
   componentLinks?: ComponentSparePart[];
   machineLinks?: MachineSparePart[];
   createdAt: string;

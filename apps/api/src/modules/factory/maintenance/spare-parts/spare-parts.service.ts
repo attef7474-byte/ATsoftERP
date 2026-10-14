@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../numbering/numbering.service';
 import { CreateSparePartDto, UpdateSparePartDto } from './dto/create-spare-part.dto';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 import {
   CANONICAL_VERDICT_EXACT_DUPLICATE,
   CANONICAL_VERDICT_REVIEW_REQUIRED,
@@ -22,6 +23,7 @@ export class SparePartsService {
 
     return this.prisma.$transaction(async (tx) => {
       await this.assertProductLinkIsUsable(tx, dto.productId, undefined);
+      await this.assertUnitIsUsable(tx, dto.unitId);
       await this.assertNoCanonicalDuplicate(tx, dto, code);
 
       const part = await tx.sparePart.create({ data: { ...dto, code } });
@@ -130,7 +132,14 @@ export class SparePartsService {
     if (query.nature) where.nature = query.nature;
     if (query.importance) where.importance = query.importance;
     const [data, total] = await Promise.all([
-      this.prisma.sparePart.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+      this.prisma.sparePart.findMany({
+        where, skip, take: limit, orderBy: { createdAt: 'desc' },
+        include: {
+          product: { select: { id: true, name: true, code: true, unit: true } },
+          unitRef: { select: { id: true, code: true, nameAr: true, nameEn: true, symbol: true } },
+          _count: { select: { machineLinks: true } },
+        },
+      }),
       this.prisma.sparePart.count({ where }),
     ]);
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
@@ -139,7 +148,13 @@ export class SparePartsService {
   async findOne(id: string) {
     const part = await this.prisma.sparePart.findUnique({
       where: { id },
-      include: { product: { select: { id: true, name: true, code: true } }, componentLinks: { include: { component: { select: { id: true, name: true, code: true } } } }, machineLinks: { include: { machine: { select: { id: true, name: true, code: true } } } } },
+      include: {
+        product: { select: { id: true, name: true, code: true, unit: true } },
+        unitRef: { select: { id: true, code: true, nameAr: true, nameEn: true, symbol: true } },
+        componentLinks: { include: { component: { select: { id: true, name: true, code: true } } } },
+        machineLinks: { where: { status: 'ACTIVE' }, include: { machine: { select: { id: true, name: true, code: true } } } },
+        _count: { select: { machineLinks: true } },
+      },
     });
     if (!part) throw new NotFoundException('Spare part not found');
     return part;
@@ -157,6 +172,9 @@ export class SparePartsService {
       // validation as on create, so an edit cannot bypass the create-time rules.
       if ('productId' in updateDto) {
         await this.assertProductLinkIsUsable(tx, updateDto.productId ?? null, id);
+      }
+      if ('unitId' in updateDto) {
+        await this.assertUnitIsUsable(tx, updateDto.unitId ?? null);
       }
 
       // Identity is re-evaluated against the merged state: a partial edit that
@@ -224,5 +242,101 @@ export class SparePartsService {
     await this.prisma.sparePart.update({ where: { id }, data: { deletedAt: new Date() } });
     await this.auditService.log(userId, 'DELETE', 'SparePart', id, { message: `Deleted spare part: ${id}` });
     return { message: 'Spare part deleted successfully' };
+  }
+
+  /**
+   * The canonical unit of a spare part, when provided, must reference an existing,
+   * active Unit master row. Free text is never accepted as the canonical unit.
+   */
+  private async assertUnitIsUsable(tx: any, unitId: string | null | undefined) {
+    if (!unitId) return;
+    const unit = await tx.unit.findFirst({ where: { id: unitId }, select: { id: true, isActive: true } });
+    if (!unit) throw new BadRequestException('Linked unit was not found');
+    if (!unit.isActive) throw new BadRequestException('Linked unit is not active');
+  }
+
+  private machineScope(ctx: ActiveOperationalContext) {
+    return { companyId: ctx.companyId, deletedAt: null, OR: [{ branchId: ctx.branchId }, { branchId: null }] };
+  }
+
+  /** Linked machines (active applicability) for a spare part. */
+  async getMachineLinks(sparePartId: string, ctx: ActiveOperationalContext) {
+    await this.findOne(sparePartId);
+    const links = await this.prisma.machineSparePart.findMany({
+      where: { sparePartId, status: 'ACTIVE', machine: this.machineScope(ctx) },
+      orderBy: { createdAt: 'asc' },
+      include: { machine: { select: { id: true, name: true, code: true } } },
+    });
+    return links.map((l) => ({ id: l.id, machineId: l.machineId, machine: l.machine, quantity: l.quantity, isPrimary: l.isPrimary, usageNote: l.usageNote }));
+  }
+
+  /**
+   * UNIFIED MULTI-MACHINE APPLICABILITY (batch).
+   *
+   * Replaces the entire active machine-applicability set of one spare part in a
+   * single atomic operation: machines in `machineIds` are added (or reactivated),
+   * machines no longer present are deactivated. Rows are never deleted, so
+   * applicability history is preserved. Every machine id is validated against the
+   * caller's operational context; an invalid or foreign id rejects the whole
+   * transaction. Duplicate pairs are impossible (unique machineId+sparePartId).
+   */
+  async setMachineLinks(sparePartId: string, machineIds: string[], userId: string, ctx: ActiveOperationalContext) {
+    const uniqueIds = Array.from(new Set((machineIds || []).filter((m) => typeof m === 'string' && m.trim().length > 0)));
+
+    return this.prisma.$transaction(async (tx) => {
+      const sparePart = await tx.sparePart.findFirst({ where: { id: sparePartId, deletedAt: null }, select: { id: true, code: true, unit: true, unitId: true } });
+      if (!sparePart) throw new NotFoundException('Spare part not found');
+
+      if (uniqueIds.length > 0) {
+        const machines = await tx.machine.findMany({ where: { id: { in: uniqueIds }, ...this.machineScope(ctx) }, select: { id: true } });
+        if (machines.length !== uniqueIds.length) {
+          throw new BadRequestException('One or more machines were not found or are outside the active context');
+        }
+      }
+
+      const existing = await tx.machineSparePart.findMany({ where: { sparePartId }, select: { id: true, machineId: true, status: true } });
+      const existingByMachine = new Map(existing.map((e) => [e.machineId, e]));
+      const wanted = new Set(uniqueIds);
+
+      let added = 0;
+      let reactivated = 0;
+      let deactivated = 0;
+
+      const unitCode = sparePart.unitId ? (await tx.unit.findUnique({ where: { id: sparePart.unitId }, select: { code: true } }))?.code : undefined;
+      const legacyUnit = unitCode ?? sparePart.unit ?? undefined;
+
+      for (const machineId of uniqueIds) {
+        const current = existingByMachine.get(machineId);
+        if (!current) {
+          await tx.machineSparePart.create({ data: { machineId, sparePartId, quantity: 1, unit: legacyUnit } });
+          added += 1;
+        } else if (current.status !== 'ACTIVE') {
+          await tx.machineSparePart.update({ where: { id: current.id }, data: { status: 'ACTIVE' } });
+          reactivated += 1;
+        }
+      }
+
+      for (const row of existing) {
+        if (!wanted.has(row.machineId) && row.status === 'ACTIVE') {
+          await tx.machineSparePart.update({ where: { id: row.id }, data: { status: 'INACTIVE' } });
+          deactivated += 1;
+        }
+      }
+
+      await this.auditService.logWithClient(tx, {
+        userId,
+        action: 'SET_MACHINE_APPLICABILITY',
+        entity: 'SparePart',
+        entityId: sparePartId,
+        details: { companyId: ctx.companyId, branchId: ctx.branchId, added, reactivated, deactivated, machineIds: uniqueIds },
+      });
+
+      const links = await tx.machineSparePart.findMany({
+        where: { sparePartId, status: 'ACTIVE', machine: this.machineScope(ctx) },
+        orderBy: { createdAt: 'asc' },
+        include: { machine: { select: { id: true, name: true, code: true } } },
+      });
+      return { added, reactivated, deactivated, linkedMachines: links.length, machines: links.map((l) => ({ id: l.id, machineId: l.machineId, machine: l.machine })) };
+    });
   }
 }

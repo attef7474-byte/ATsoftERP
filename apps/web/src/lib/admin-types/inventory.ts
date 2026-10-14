@@ -59,6 +59,18 @@ export interface Product {
   category?: { id: string; name: string; code: string };
 }
 
+export interface Unit {
+  id: string;
+  code: string;
+  nameAr: string;
+  nameEn: string;
+  symbol?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { products: number; spareParts: number; machineParts: number };
+}
+
 export type InventoryCountStatus = 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 export type InventoryCountLineStatus = 'PENDING' | 'COUNTED' | 'VERIFIED';
 export type InventoryAdjustmentStatus = 'DRAFT' | 'POSTED' | 'CANCELLED';

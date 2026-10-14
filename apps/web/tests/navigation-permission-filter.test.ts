@@ -142,16 +142,23 @@ describe('navigation permission filtering', () => {
     // `organizational-unit-retirement` pin these route paths and their approved labels,
     // so the unified page is built at the existing approved route and the redundant
     // sibling pages redirect to it.
+    //
+    // Exception: the legacy Machine Part Lists UI is retired from the primary navigation
+    // (unified spare-part catalog work). Its approved route still resolves to a
+    // read-only history page, but it is intentionally no longer a sidebar destination.
     const routes = allEntries(sidebarGroups).map((e) => e.route);
     for (const route of [
       '/admin/core/persons',
       '/admin/maintenance/machine-categories',
-      '/admin/maintenance/machine-parts',
       '/admin/maintenance/spare-parts',
       '/admin/maintenance/spare-part-issues',
     ]) {
       expect(routes).toContain(route);
     }
+    expect(routes).not.toContain('/admin/maintenance/machine-parts');
+    expect(
+      fs.existsSync(path.join(webRoot, 'src/app/admin/maintenance/machine-parts/page.tsx')),
+    ).toBe(true);
     for (const removed of ['/admin/employees', '/admin/maintenance/category-operations', '/admin/maintenance/parts-catalog']) {
       expect(routes).not.toContain(removed);
     }

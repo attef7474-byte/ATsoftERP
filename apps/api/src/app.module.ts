@@ -17,6 +17,7 @@ import { OrganizationalUnitsModule } from './modules/admin/organizational-units/
 import { CompaniesModule } from './modules/companies/companies.module'
 import { ProductsModule } from './modules/factory/products/products.module'
 import { ProductCategoriesModule } from './modules/factory/product-categories/product-categories.module'
+import { UnitsModule } from './modules/factory/units/units.module'
 import { InventoryModule } from './modules/factory/inventory/inventory.module'
 import { MaintenanceModule } from './modules/factory/maintenance/maintenance.module'
 import { AuditModule } from './modules/audit/audit.module'
@@ -109,7 +110,7 @@ import { OverheadAllocationModule } from './modules/factory/overhead-allocation/
   imports: [
     PrismaModule, HealthModule, AuthModule,
     UsersModule, RolesModule, PermissionsModule, BranchesModule, AdministrationsModule, DepartmentsModule, JobTitlesModule, PersonAssignmentsModule, SupervisorAssignmentsModule, OrganizationalUnitsModule, CompaniesModule, EmployeesModule, PersonRegistrationsModule,
-    ProductsModule, ProductCategoriesModule, InventoryModule, MaintenanceModule,
+    ProductsModule, ProductCategoriesModule, UnitsModule, InventoryModule, MaintenanceModule,
     AuditModule,
     MachineCategoriesModule, MachinePartsModule, MachineDocumentsModule,
     MaintenanceRequestsModule, MaintenanceTasksModule, MaintenanceSchedulesModule,

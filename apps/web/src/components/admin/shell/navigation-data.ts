@@ -238,7 +238,6 @@ export const sidebarGroups: SidebarGroup[] = [
       },
       {
         id: 'mnt-spare-parts-section', labelKey: 'navigation.navSection.maintenanceSpareParts', items: [
-          { id: 'mnt-machine-parts', labelKey: 'navigation.machineParts', route: '/admin/maintenance/machine-parts', permission: 'machine-part:read' },
           { id: 'mnt-spare-parts', labelKey: 'navigation.spareParts', route: '/admin/maintenance/spare-parts', permission: 'spare-part:read' },
           { id: 'mnt-spare-part-issues', labelKey: 'navigation.sparePartIssues', route: '/admin/maintenance/spare-part-issues', permission: 'maintenance-stock-issue:read' },
           { id: 'mnt-spare-part-conditions', labelKey: 'navigation.sparePartConditions', route: '/admin/spare-part-conditions', permission: 'spare-part-conditions:read' },
@@ -261,6 +260,7 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'inv-locations', labelKey: 'navigation.warehouseLocations', route: '/admin/inventory/locations', permission: 'inventory:read' },
           { id: 'inv-product-categories', labelKey: 'navigation.productCategories', route: '/admin/inventory/product-categories', permission: 'products:read' },
           { id: 'inv-products', labelKey: 'navigation.products', route: '/admin/inventory/products', permission: 'products:read' },
+          { id: 'inv-units', labelKey: 'navigation.unitsOfMeasure', route: '/admin/inventory/units', permission: 'unit:read' },
         ],
       },
       {
