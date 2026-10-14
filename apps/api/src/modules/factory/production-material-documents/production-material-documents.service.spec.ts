@@ -127,6 +127,16 @@ function makeService(overrides: Record<string, any> = {}) {
   const movements: any = {
     postMovementWithinTransaction: jest.fn().mockResolvedValue({}),
     postProductionMaterialMovementWithinTransaction: jest.fn().mockResolvedValue({}),
+    resolveMovementLines: jest.fn(async (_tx: any, lines: any[]) =>
+      lines.map((l) => ({
+        ...l,
+        quantityBase: l.quantity,
+        productUomId: l.productUomId ?? null,
+        enteredUnitId: l.enteredUnitId ?? null,
+        enteredQuantity: null,
+        conversionApplied: null,
+      })),
+    ),
   };
   const sourceChanges: any = { recordChange: jest.fn(), summaryForScope: jest.fn(), findByWindow: jest.fn(), findOne: jest.fn() };
   const service = new ProductionMaterialDocumentsService(prisma, audit, numbering, movements, sourceChanges);
@@ -197,6 +207,51 @@ describe('ProductionMaterialDocumentsService', () => {
       expect(docData.status).toBe('DRAFT');
       expect(docData.movementId).toBe('mov1');
       expect(docData.movementNumber).toBe('IM-000001');
+    });
+
+    it('converts a selected packaging UOM through the canonical authority and posts the returned base quantity', async () => {
+      const { prisma, service, movements } = makeService();
+      movements.resolveMovementLines.mockImplementationOnce(async (_tx: any, lines: any[]) =>
+        lines.map((l) => ({
+          ...l,
+          quantityBase: l.productUomId ? 75 : l.quantity,
+          productUomId: l.productUomId ?? null,
+          enteredUnitId: l.enteredUnitId ?? null,
+          enteredQuantity: l.productUomId ? 3 : null,
+          conversionApplied: l.productUomId ? 25 : null,
+        })),
+      );
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(run());
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov1', movementNumber: 'IM-000001' });
+      prisma.productionMaterialDocument.create.mockResolvedValue(document());
+      prisma.productionMaterialDocument.update.mockResolvedValue(document());
+
+      const result = await service.create(
+        baseDto({ lines: [{ productId: 'prod1', quantity: 3, unit: 'BAG', productUomId: 'uom-bag', enteredUnitId: 'unit-bag' }] }),
+        'u1',
+        ctxA,
+      );
+
+      expect(result.id).toBe('doc1');
+      // The base quantity must come from the single conversion authority, not from
+      // production-local arithmetic (3 BAG x 25 = 75 base is supplied by the engine).
+      expect(movements.resolveMovementLines).toHaveBeenCalledWith(
+        prisma,
+        expect.arrayContaining([
+          expect.objectContaining({ productId: 'prod1', quantity: 3, productUomId: 'uom-bag', enteredUnitId: 'unit-bag' }),
+        ]),
+      );
+      const movementLine = prisma.inventoryMovement.create.mock.calls[0][0].data.lines.create[0];
+      expect(movementLine.quantity).toBe(3);
+      expect(movementLine.quantityBase).toBe(75);
+      expect(movementLine.productUomId).toBe('uom-bag');
+      expect(movementLine.enteredUnitId).toBe('unit-bag');
+      expect(movementLine.enteredQuantity).toBe(3);
+      expect(movementLine.conversionApplied).toBe(25);
     });
 
     it('creates an IN movement for a RETURN document', async () => {

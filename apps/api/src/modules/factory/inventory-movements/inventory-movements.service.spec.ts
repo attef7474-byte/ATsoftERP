@@ -85,6 +85,7 @@ describe('InventoryMovementsService', () => {
   let audit: any;
   let valuationEngine: any;
   let productionCost: any;
+  let productUomConversion: any;
   let service: InventoryMovementsService;
   let txOptions: any;
 
@@ -161,13 +162,14 @@ describe('InventoryMovementsService', () => {
       postLedgerEntryWithinTransaction: jest.fn().mockResolvedValue({}),
       reverseLedgerEntry: jest.fn().mockResolvedValue({}),
     } as any;
+    productUomConversion = { convert: jest.fn(), resolveFactor: jest.fn() } as any;
     service = new InventoryMovementsService(
       prisma as PrismaService,
       audit as AuditService,
       numbering as NumberingService,
       valuationEngine,
       productionCost,
-      { convert: jest.fn(), resolveFactor: jest.fn() } as any,
+      productUomConversion,
     );
 
     // Convenience defaults; individual tests override for hostile scenarios.
@@ -1285,6 +1287,64 @@ describe('InventoryMovementsService', () => {
         reason: 'PRODUCTION_MATERIAL_RETURN',
         createdById: 'u1',
         ctx: { companyId: 'c1', branchId: 'b1' },
+      });
+    });
+  });
+
+  describe('resolveMovementLines (single transaction-UOM authority)', () => {
+    it('delegates selected-UOM lines to the ProductUom conversion authority and snapshots the result', async () => {
+      productUomConversion.convert.mockResolvedValue({
+        productUomId: 'uom-bag',
+        enteredUnitId: 'unit-bag',
+        enteredQuantity: 3,
+        conversionToBase: 25,
+        baseQuantity: 75,
+      });
+
+      const resolved = await service.resolveMovementLines(prisma, [
+        {
+          productId: 'prd1',
+          quantity: 3,
+          unit: 'BAG',
+          productUomId: 'uom-bag',
+          enteredUnitId: 'unit-bag',
+          direction: 'OUT',
+          batchNumber: 'B1',
+        },
+      ]);
+
+      expect(productUomConversion.convert).toHaveBeenCalledWith(prisma, 'prd1', {
+        quantity: 3,
+        productUomId: 'uom-bag',
+        unitId: 'unit-bag',
+      });
+      expect(resolved[0]).toMatchObject({
+        productId: 'prd1',
+        quantity: 3,
+        quantityBase: 75,
+        productUomId: 'uom-bag',
+        enteredUnitId: 'unit-bag',
+        enteredQuantity: 3,
+        conversionApplied: 25,
+        direction: 'OUT',
+        batchNumber: 'B1',
+      });
+    });
+
+    it('passes through legacy lines without a selected UOM (base = quantity) and never calls conversion', async () => {
+      const resolved = await service.resolveMovementLines(prisma, [
+        { productId: 'prd1', quantity: 7, unit: 'EA', direction: 'IN' },
+      ]);
+
+      expect(productUomConversion.convert).not.toHaveBeenCalled();
+      expect(resolved[0]).toMatchObject({
+        productId: 'prd1',
+        quantity: 7,
+        quantityBase: 7,
+        productUomId: null,
+        enteredUnitId: null,
+        enteredQuantity: null,
+        conversionApplied: null,
       });
     });
   });

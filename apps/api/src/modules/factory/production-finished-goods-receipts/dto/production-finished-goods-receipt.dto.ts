@@ -26,6 +26,18 @@ export class CreateFgReceiptLineDto {
   @MaxLength(50)
   unit!: string;
 
+  // Canonical transaction unit selection. When set, the base quantity and the
+  // conversion snapshot are produced by the single ProductUom conversion
+  // authority (never by production-local arithmetic). Left unset, the movement
+  // line keeps the legacy pass-through behaviour (base = quantity).
+  @IsOptional()
+  @IsString()
+  productUomId?: string;
+
+  @IsOptional()
+  @IsString()
+  enteredUnitId?: string;
+
   @IsOptional()
   @IsString()
   warehouseLocationId?: string;

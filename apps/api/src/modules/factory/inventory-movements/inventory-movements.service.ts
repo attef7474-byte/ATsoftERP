@@ -84,6 +84,29 @@ export class InventoryMovementsService {
     };
   }
 
+  /**
+   * Public batch wrapper around the single transaction-to-base conversion
+   * authority. Production and other non-inventory services that own their own
+   * InventoryMovement lines MUST build those lines through this method so the
+   * base quantity and conversion snapshot are produced by exactly one authority
+   * (never re-implemented locally). Lines without a selected UOM keep the
+   * legacy pass-through behaviour (quantityBase ?? quantity).
+   */
+  async resolveMovementLines<T extends {
+    productId: string;
+    quantity: number;
+    quantityBase?: number;
+    unit?: string | null;
+    productUomId?: string | null;
+    enteredUnitId?: string | null;
+  }>(tx: any, lines: T[]): Promise<any[]> {
+    const resolved: any[] = [];
+    for (const line of lines) {
+      resolved.push({ ...line, ...(await this.resolveMovementLine(tx, line)) });
+    }
+    return resolved;
+  }
+
   private validationError(field: string, code: string, message: string): BadRequestException {
     return new BadRequestException({
       messageKey: 'common.validationFailed',

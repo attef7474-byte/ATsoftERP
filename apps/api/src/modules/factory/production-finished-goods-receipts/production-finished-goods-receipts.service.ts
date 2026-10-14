@@ -186,11 +186,12 @@ export class ProductionFinishedGoodsReceiptsService {
       productId: line.productId,
       warehouseLocationId: line.warehouseLocationId ?? null,
       quantity: line.quantity,
-      quantityBase: line.quantity,
       batchNumber: line.batchNumber ?? null,
       serialNumber: line.serialNumber ?? null,
       expiryDate: line.expiryDate ? new Date(line.expiryDate) : null,
       unit: line.unit,
+      productUomId: line.productUomId ?? null,
+      enteredUnitId: line.enteredUnitId ?? null,
       direction,
       notes: line.notes ?? null,
     }));
@@ -211,7 +212,7 @@ export class ProductionFinishedGoodsReceiptsService {
     const movementNumber = await this.numberingService.generateNumberAtomicWithClient('INVENTORY_MOVEMENT', client);
     const receiptDate = dto.receiptDate ? new Date(dto.receiptDate) : new Date();
 
-    const movementLines = this.lineToMovementLines(direction, dto.lines);
+    const movementLines = await this.movementsService.resolveMovementLines(client, this.lineToMovementLines(direction, dto.lines));
     const movement = await client.inventoryMovement.create({
       data: {
         movementNumber,
@@ -404,8 +405,12 @@ export class ProductionFinishedGoodsReceiptsService {
           })),
         });
         await tx.inventoryMovementLine.deleteMany({ where: { movementId: receipt.movementId! } });
+        const rebuiltMovementLines = await this.movementsService.resolveMovementLines(
+          tx,
+          this.lineToMovementLines('IN', dto.lines),
+        );
         await tx.inventoryMovementLine.createMany({
-          data: this.lineToMovementLines('IN', dto.lines).map((l) => ({ ...l, movementId: receipt.movementId! })),
+          data: rebuiltMovementLines.map((l) => ({ ...l, movementId: receipt.movementId! })),
         });
       }
 

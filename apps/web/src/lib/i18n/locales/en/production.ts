@@ -3,6 +3,15 @@ import type { LocaleTranslations } from '../../types';
 const production: Pick<LocaleTranslations, 'production'> = {
     production: {
         production: 'Production',
+        uom: {
+            label: 'Unit of Measure',
+            placeholder: 'Select unit',
+            selectProductFirst: 'Select a product first',
+            none: 'No units defined for this product',
+            loading: 'Loading units...',
+            loadFailed: 'Failed to load units',
+            base: 'Base',
+        },
         units: 'Production Units',
         productDefinitions: 'Production Product Definitions',
         newUnit: 'New Production Unit',

@@ -198,7 +198,7 @@ export default function ProductionFinishedGoodsReceiptsPage() {
     form.lines.forEach((line) => {
       if (!line.productId) lineErrors.push(t('production.finishedGoodsReceipts.errors.productRequired'));
       if (!line.quantity || toNumber(line.quantity) <= 0) lineErrors.push(t('production.finishedGoodsReceipts.errors.quantityPositive'));
-      if (!line.unit.trim()) lineErrors.push(t('production.finishedGoodsReceipts.errors.unitRequired'));
+      if (!line.productUomId) lineErrors.push(t('production.finishedGoodsReceipts.errors.unitRequired'));
     });
     if (lineErrors.length > 0 && !errors.lines) errors.lines = lineErrors[0];
     setValidationErrors(errors);
@@ -209,6 +209,7 @@ export default function ProductionFinishedGoodsReceiptsPage() {
     productId: line.productId,
     quantity: toNumber(line.quantity),
     unit: line.unit.trim(),
+    productUomId: line.productUomId || undefined,
     warehouseLocationId: line.warehouseLocationId || undefined,
     batchNumber: line.batchNumber.trim() || undefined,
     serialNumber: line.serialNumber.trim() || undefined,
@@ -312,6 +313,7 @@ export default function ProductionFinishedGoodsReceiptsPage() {
         productId: line.productId,
         quantity: String(line.quantity),
         unit: line.unit,
+        productUomId: (line as any).productUomId || '',
         warehouseLocationId: line.warehouseLocationId || '',
         batchNumber: line.batchNumber || '',
         serialNumber: line.serialNumber || '',

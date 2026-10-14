@@ -368,11 +368,12 @@ export class ProductionMaterialDocumentsService {
       productId: string;
       warehouseLocationId: string | null;
       quantity: number;
-      quantityBase: number;
       batchNumber: string | null;
       serialNumber: string | null;
       expiryDate: Date | null;
       unit: string | null;
+      productUomId: string | null;
+      enteredUnitId: string | null;
       direction: string;
       notes: string | null;
     }> = [];
@@ -382,11 +383,12 @@ export class ProductionMaterialDocumentsService {
         productId: line.productId,
         warehouseLocationId: line.warehouseLocationId ?? null,
         quantity: line.quantity,
-        quantityBase: line.quantity,
         batchNumber: line.batchNumber ?? null,
         serialNumber: line.serialNumber ?? null,
         expiryDate: line.expiryDate ? new Date(line.expiryDate) : null,
         unit: line.unit,
+        productUomId: line.productUomId ?? null,
+        enteredUnitId: line.enteredUnitId ?? null,
         direction,
         notes: line.notes ?? null,
       });
@@ -395,13 +397,14 @@ export class ProductionMaterialDocumentsService {
           productId: line.substitutedProductId,
           warehouseLocationId: line.warehouseLocationId ?? null,
           quantity: line.quantity,
-          quantityBase: line.quantity,
           batchNumber: line.batchNumber ?? null,
           serialNumber: line.serialNumber ?? null,
           expiryDate: line.expiryDate ? new Date(line.expiryDate) : null,
           unit: line.unit,
+          productUomId: line.productUomId ?? null,
+          enteredUnitId: line.enteredUnitId ?? null,
           direction: 'IN',
-          notes: `Substitutes ${line.substitutedProductId} for ${line.productId}`,
+          notes: line.notes ?? null,
         });
       }
     }
@@ -519,7 +522,10 @@ export class ProductionMaterialDocumentsService {
 
     if (!warehouse) throw this.badRequest('productionMaterial.warehouseRequired');
 
-    const movementLines = this.documentLinesToMovementLines(documentType, dto.lines);
+    const movementLines = await this.movementsService.resolveMovementLines(
+      client,
+      this.documentLinesToMovementLines(documentType, dto.lines),
+    );
     const movement = await client.inventoryMovement.create({
       data: {
         movementNumber,
@@ -729,8 +735,12 @@ export class ProductionMaterialDocumentsService {
 
         // Rebuild the linked DRAFT movement lines to stay in sync with the document.
         await tx.inventoryMovementLine.deleteMany({ where: { movementId: doc.movementId! } });
+        const rebuiltMovementLines = await this.movementsService.resolveMovementLines(
+          tx,
+          this.documentLinesToMovementLines(doc.documentType, dto.lines),
+        );
         await tx.inventoryMovementLine.createMany({
-          data: this.documentLinesToMovementLines(doc.documentType, dto.lines).map((l) => ({
+          data: rebuiltMovementLines.map((l) => ({
             ...l,
             movementId: doc.movementId!,
           })),

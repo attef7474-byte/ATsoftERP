@@ -105,7 +105,19 @@ function makeService(overrides: Record<string, any> = {}) {
   const numbering: any = {
     generateNumberAtomicWithClient: jest.fn().mockResolvedValue('SEQ-000001'),
   };
-  const movements: any = { postProductionFinishedGoodsMovementWithinTransaction: jest.fn().mockResolvedValue({}) };
+  const movements: any = {
+    postProductionFinishedGoodsMovementWithinTransaction: jest.fn().mockResolvedValue({}),
+    resolveMovementLines: jest.fn(async (_tx: any, lines: any[]) =>
+      lines.map((l) => ({
+        ...l,
+        quantityBase: l.quantity,
+        productUomId: l.productUomId ?? null,
+        enteredUnitId: l.enteredUnitId ?? null,
+        enteredQuantity: null,
+        conversionApplied: null,
+      })),
+    ),
+  };
   const productionRuns: any = { acquireRunCostBoundaryLock: jest.fn().mockResolvedValue(undefined) };
   const valuationEngine: any = { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) };
   const service = new ProductionFinishedGoodsReceiptsService(

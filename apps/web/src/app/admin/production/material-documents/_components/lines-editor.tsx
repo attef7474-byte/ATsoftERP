@@ -5,6 +5,7 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { Button, Input, Select } from '../../../../../components/admin/ui';
 import { F9Lookup } from '../../../../../components/f9/F9Lookup';
 import { productAdapter, warehouseLocationAdapter } from '../../../../../components/f9/lookup-adapters';
+import { ProductUomSelect } from '../../../../../components/factory/ProductUomSelect';
 import { COST_PURPOSE_VALUES, PRODUCTION_COST_PURPOSE } from '../../../../../lib/cost-purpose';
 
 export interface MaterialLineDraft {
@@ -12,6 +13,7 @@ export interface MaterialLineDraft {
   productId: string;
   quantity: string;
   unit: string;
+  productUomId: string;
   warehouseLocationId: string;
   batchNumber: string;
   serialNumber: string;
@@ -29,6 +31,7 @@ export function createEmptyMaterialLine(): MaterialLineDraft {
     productId: '',
     quantity: '',
     unit: '',
+    productUomId: '',
     warehouseLocationId: '',
     batchNumber: '',
     serialNumber: '',
@@ -95,7 +98,7 @@ export function MaterialLinesEditor({ lines, onChange, showSubstitution, allowOv
                 label={t('production.materialDocuments.product')}
                 value={line.productId}
                 adapter={productAdapter}
-                onChange={(v) => updateLine(line.key, { productId: v })}
+                onChange={(v) => updateLine(line.key, { productId: v, productUomId: '', unit: '' })}
               />
             </div>
             <div>
@@ -109,10 +112,11 @@ export function MaterialLinesEditor({ lines, onChange, showSubstitution, allowOv
               />
             </div>
             <div>
-              <Input
+              <ProductUomSelect
                 label={t('production.materialDocuments.unit')}
-                value={line.unit}
-                onChange={(e) => updateLine(line.key, { unit: e.target.value })}
+                productId={line.productId}
+                value={line.productUomId}
+                onSelect={(selection) => updateLine(line.key, { productUomId: selection.productUomId, unit: selection.unitCode })}
               />
             </div>
             <div className="col-span-2">
