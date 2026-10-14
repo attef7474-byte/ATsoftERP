@@ -199,6 +199,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         clear: 'مسح',
         page: 'صفحة',
         of: 'من',
+        selected: 'محدد',
     },
     workspace: {
         topBar: 'الشريط العلوي',

@@ -1,5 +1,7 @@
 export { F9Lookup } from './F9Lookup';
 export { F9LookupModal } from './F9LookupModal';
+export { F9MultiLookup } from './F9MultiLookup';
+export type { MultiLookupItem } from './F9MultiLookup';
 export { UnifiedSearchModal } from './UnifiedSearchModal';
 export { getUnifiedSearchRegistry } from './adapter-registry';
 export type { LookupAdapter, F9Column } from './types';

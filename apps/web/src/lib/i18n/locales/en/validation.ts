@@ -33,6 +33,7 @@ const validation: Pick<LocaleTranslations, 'validation' | 'errors' | 'complexFor
         passwordLowercase: 'Password must contain at least one lowercase letter.',
         passwordNumber: 'Password must contain at least one number.',
         passwordSymbol: 'Password must contain at least one symbol.',
+        endDateBeforeStart: 'End date must be on or after the start date.',
     },
     errors: {
         loadFailed: 'Failed to load data. Please try again.',

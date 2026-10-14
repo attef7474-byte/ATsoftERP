@@ -13,6 +13,9 @@ interface F9LookupModalProps<T extends Record<string, any>> {
   adapter: LookupAdapter<T>;
   filters?: Record<string, string>;
   contextVersion?: number;
+  multiSelect?: boolean;
+  selectedIds?: string[];
+  onToggle?: (item: T) => void;
 }
 
 export function F9LookupModal<T extends Record<string, any>>({
@@ -22,6 +25,9 @@ export function F9LookupModal<T extends Record<string, any>>({
   adapter,
   filters,
   contextVersion = 0,
+  multiSelect = false,
+  selectedIds = [],
+  onToggle,
 }: F9LookupModalProps<T>) {
   const { t } = useTranslation();
   const [data, setData] = useState<T[]>([]);
@@ -36,6 +42,7 @@ export function F9LookupModal<T extends Record<string, any>>({
   const [failed, setFailed] = useState(false);
   const filterKey = lookupFilterKey(filters);
   const stableFilters = useMemo(() => JSON.parse(filterKey) as Record<string, string>, [filterKey]);
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   const fetchData = useCallback(async (p: number, q: string) => {
     const version = ++requestVersion.current;
@@ -87,8 +94,12 @@ export function F9LookupModal<T extends Record<string, any>>({
       case 'Enter':
         e.preventDefault();
         if (highlightedIndex >= 0 && data[highlightedIndex]) {
-          onSelect(data[highlightedIndex]);
-          onClose();
+          if (multiSelect) {
+            onToggle?.(data[highlightedIndex]);
+          } else {
+            onSelect(data[highlightedIndex]);
+            onClose();
+          }
         }
         break;
       case 'Escape':
@@ -128,6 +139,7 @@ export function F9LookupModal<T extends Record<string, any>>({
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  {multiSelect && <th className="px-3 py-2 w-8" aria-hidden="true" />}
                   {adapter.columns.map((col) => (
                     <th key={col.key} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {col.headerKey ? t(col.headerKey) : col.header}
@@ -136,24 +148,45 @@ export function F9LookupModal<T extends Record<string, any>>({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {data.map((item, idx) => (
+                {data.map((item, idx) => {
+                  const isSelected = multiSelect && selectedSet.has(String(item.id));
+                  return (
                   <tr
                     key={item.id ?? idx}
-                    onClick={() => { onSelect(item); onClose(); }}
+                    onClick={() => { if (multiSelect) { onToggle?.(item); } else { onSelect(item); onClose(); } }}
                     onMouseEnter={() => setHighlightedIndex(idx)}
-                    className={`cursor-pointer transition-colors ${highlightedIndex === idx ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                    aria-selected={multiSelect ? isSelected : undefined}
+                    className={`cursor-pointer transition-colors ${highlightedIndex === idx ? 'bg-blue-50' : 'hover:bg-gray-50'} ${isSelected ? 'bg-blue-100' : ''}`}
                   >
+                    {multiSelect && (
+                      <td className="px-3 py-2 w-8">
+                        <input type="checkbox" readOnly checked={isSelected} aria-label={adapter.displayLabel(item)} className="rounded" tabIndex={-1} />
+                      </td>
+                    )}
                     {adapter.columns.map((col) => (
                       <td key={col.key} className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
                         {col.render ? col.render(item) : String(item[col.key] ?? '-')}
                       </td>
                     ))}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
         </div>
+        {multiSelect && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+            <div className="text-sm text-gray-600">{selectedIds.length} {t('f9.selected')}</div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
+            >
+              {t('common.apply')}
+            </button>
+          </div>
+        )}
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
             <div className="text-sm text-gray-600">{t('f9.page')} {page} {t('f9.of')} {totalPages}</div>

@@ -33,6 +33,7 @@ const validation: Pick<LocaleTranslations, 'validation' | 'errors' | 'complexFor
         passwordLowercase: 'يجب أن تحتوي كلمة المرور على حرف صغير واحد على الأقل.',
         passwordNumber: 'يجب أن تحتوي كلمة المرور على رقم واحد على الأقل.',
         passwordSymbol: 'يجب أن تحتوي كلمة المرور على رمز واحد على الأقل.',
+        endDateBeforeStart: 'يجب أن يكون تاريخ الانتهاء في تاريخ بدء السريان أو بعده.',
     },
     errors: {
         loadFailed: 'فشل تحميل البيانات. يرجى المحاولة مرة أخرى.',

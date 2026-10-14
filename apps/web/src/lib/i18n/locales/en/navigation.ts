@@ -199,6 +199,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         clear: 'Clear',
         page: 'Page',
         of: 'of',
+        selected: 'selected',
     },
     workspace: {
         topBar: 'Top Bar',
