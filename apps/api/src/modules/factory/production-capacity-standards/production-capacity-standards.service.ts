@@ -4,7 +4,7 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
-import { CreateProductionCapacityStandardDto } from './dto/create-production-capacity-standard.dto';
+import { CreateProductionCapacityStandardDto, BatchCreateCapacityStandardsDto } from './dto/create-production-capacity-standard.dto';
 import { UpdateProductionCapacityStandardDto } from './dto/update-production-capacity-standard.dto';
 import { ProductionCapacityStandardQueryDto } from './dto/production-capacity-standard-query.dto';
 import { ResolveProductionCapacityStandardDto } from './dto/resolve-production-capacity-standard.dto';
@@ -49,6 +49,113 @@ export class ProductionCapacityStandardsService {
     });
     await this.log(userId, 'CREATE', created, ctx);
     return created;
+  }
+
+  /**
+   * Batch (multi-select) create: one canonical DRAFT row per selected target, all-or-nothing.
+   *
+   * - Deduplicates target ids (a repeated id never yields two rows).
+   * - Validates every target's references (product/version/packaging/line/machine/eligibility)
+   *   before any row is written, inside one Serializable transaction.
+   * - Never auto-approves: lifecycle stays DRAFT, so approval-time overlap protection remains
+   *   the single duplicate guard (identical to single-record create).
+   * - No unit conversion is performed here; rate/unit/packaging are persisted verbatim and the
+   *   canonical ProductUom conversion service owns any conversion math.
+   */
+  async createBatch(dto: BatchCreateCapacityStandardsDto, userId: string, ctx: ActiveOperationalContext) {
+    const targets = this.resolveBatchTargets(dto);
+    const overridesByTarget = new Map<string, any>();
+    for (const override of dto.overrides || []) {
+      if (overridesByTarget.has(override.targetId)) {
+        this.invalid('overrides', 'capacityStandard.duplicateOverride', 'Duplicate override for the same target');
+      }
+      overridesByTarget.set(override.targetId, override);
+    }
+    const shared = this.sharedBatchFields(dto);
+    const perTargetDtos = targets.map((target) => ({
+      ...shared,
+      productionLineId: target.productionLineId,
+      machineId: target.machineId,
+      ...this.overrideFields(overridesByTarget.get(target.targetId)),
+    }));
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const normalized: any[] = [];
+      for (const perTarget of perTargetDtos) {
+        normalized.push(await this.normalizeAndValidate(perTarget, ctx, tx));
+      }
+      const rows: any[] = [];
+      for (const data of normalized) {
+        const code = await this.numbering.generateNumberAtomicWithClient(CAPACITY_NUMBER_SEQUENCE, tx);
+        const row = await (tx as any).productionCapacityStandard.create({
+          data: {
+            ...data,
+            code,
+            revision: 1,
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+            status: 'DRAFT',
+            createdById: userId,
+            updatedById: userId,
+            lastMateriallyEditedById: userId,
+          },
+          include: includeReferences,
+        });
+        await this.audit.logWithClient(tx, { userId, action: 'CREATE', entity: CAPACITY_AUDIT_ENTITY, entityId: row.id, details: { companyId: ctx.companyId, branchId: ctx.branchId, code: row.code, revision: row.revision, batch: true } });
+        rows.push(row);
+      }
+      return rows;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    return { data: created, count: created.length };
+  }
+
+  private resolveBatchTargets(dto: BatchCreateCapacityStandardsDto) {
+    if (dto.scope === 'LINE') {
+      if (dto.machineIds?.length) this.invalid('machineIds', 'capacityStandard.scopeMismatch', 'Machine ids are not allowed for LINE scope');
+      const lineIds = Array.from(new Set(dto.lineIds || []));
+      if (lineIds.length === 0) this.invalid('lineIds', 'capacityStandard.targetsRequired', 'At least one production line is required');
+      return lineIds.map((lineId) => ({ targetId: lineId, productionLineId: lineId, machineId: null as string | null }));
+    }
+    if (dto.lineIds?.length) this.invalid('lineIds', 'capacityStandard.scopeMismatch', 'Line ids are not allowed for MACHINE scope');
+    if (!dto.productionLineId) this.invalid('productionLineId', 'capacityStandard.lineRequired', 'A production line is required for MACHINE scope');
+    const machineIds = Array.from(new Set(dto.machineIds || []));
+    if (machineIds.length === 0) this.invalid('machineIds', 'capacityStandard.targetsRequired', 'At least one machine is required');
+    return machineIds.map((machineId) => ({ targetId: machineId, productionLineId: dto.productionLineId as string, machineId }));
+  }
+
+  private sharedBatchFields(dto: BatchCreateCapacityStandardsDto) {
+    return {
+      productionProductId: dto.productionProductId,
+      productionVersionId: dto.productionVersionId || undefined,
+      productionPackagingId: dto.productionPackagingId || undefined,
+      standardRate: dto.standardRate,
+      outputUnit: dto.outputUnit,
+      timeBasis: dto.timeBasis,
+      standardCycleTimeMinutes: dto.standardCycleTimeMinutes,
+      setupMinutes: dto.setupMinutes,
+      changeoverMinutes: dto.changeoverMinutes,
+      cleaningMinutes: dto.cleaningMinutes,
+      startupAllowanceMinutes: dto.startupAllowanceMinutes,
+      shutdownAllowanceMinutes: dto.shutdownAllowanceMinutes,
+      targetEfficiencyPercent: dto.targetEfficiencyPercent,
+      expectedYieldPercent: dto.expectedYieldPercent,
+      sourceType: dto.sourceType,
+      sourceReference: dto.sourceReference,
+      notes: dto.notes,
+      effectiveFrom: dto.effectiveFrom,
+      effectiveTo: dto.effectiveTo,
+    };
+  }
+
+  private overrideFields(override: any) {
+    if (!override) return {};
+    const fields = ['standardRate', 'standardCycleTimeMinutes', 'setupMinutes', 'changeoverMinutes', 'cleaningMinutes', 'startupAllowanceMinutes', 'shutdownAllowanceMinutes', 'targetEfficiencyPercent', 'expectedYieldPercent'];
+    const result: Record<string, any> = {};
+    for (const field of fields) {
+      if (override[field] !== undefined && override[field] !== null && override[field] !== '') result[field] = override[field];
+    }
+    return result;
   }
 
   async findAll(query: ProductionCapacityStandardQueryDto, ctx: ActiveOperationalContext) {
@@ -227,8 +334,8 @@ export class ProductionCapacityStandardsService {
     return record;
   }
 
-  private async normalizeAndValidate(dto: any, ctx: ActiveOperationalContext) {
-    await this.validateReferences(dto, ctx);
+  private async normalizeAndValidate(dto: any, ctx: ActiveOperationalContext, client: any = this.prisma) {
+    await this.validateReferences(dto, ctx, client);
     const effectiveFrom = dto.effectiveFrom instanceof Date ? dto.effectiveFrom : new Date(dto.effectiveFrom);
     const effectiveTo = dto.effectiveTo ? (dto.effectiveTo instanceof Date ? dto.effectiveTo : new Date(dto.effectiveTo)) : null;
     if (effectiveTo && effectiveTo <= effectiveFrom) this.invalid('effectiveTo', 'capacityStandard.invalidEffectiveRange', 'Effective-to must be later than effective-from');

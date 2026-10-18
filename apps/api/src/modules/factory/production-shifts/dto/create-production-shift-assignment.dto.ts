@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsDateString, IsBoolean, IsNumber, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsDateString, IsBoolean, IsNumber, Min, IsArray, ArrayNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -12,6 +12,24 @@ export class CreateProductionShiftAssignmentDto {
 
   @ApiProperty({ description: 'Operational person (employee/technician)' })
   @IsString() @IsNotEmpty() operationalPersonId: string;
+
+  @ApiProperty() @IsDateString() effectiveFrom: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsDateString() effectiveTo?: string;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional() @IsBoolean() isPrimary?: boolean;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+}
+
+export class BatchCreateShiftAssignmentDto {
+  @ApiProperty() @IsString() @IsNotEmpty() shiftId: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() calendarId?: string;
+
+  @ApiProperty({ description: 'Operational persons to assign — one canonical assignment row is created per person', type: [String] })
+  @IsArray() @ArrayNotEmpty() @IsString({ each: true }) operationalPersonIds: string[];
 
   @ApiProperty() @IsDateString() effectiveFrom: string;
 

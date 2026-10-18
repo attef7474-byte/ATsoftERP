@@ -182,6 +182,35 @@ describe('ProductionFinishedGoodsReceiptsService', () => {
       expect(movementData.lines.create[0].quantityBase).toBe(10);
     });
 
+    it('delegates the transaction-to-base conversion to the single authority (no local conversion)', async () => {
+      const { prisma, service, movements } = makeService();
+      prisma.productionFinishedGoodsReceipt.findFirst.mockResolvedValue(null);
+      prisma.productionRun.findFirst.mockResolvedValue(run());
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.productionProductDefinition.findFirst.mockResolvedValue({ id: 'def1', productId: 'prod1' });
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov1', movementNumber: 'IM-000001' });
+      prisma.productionFinishedGoodsReceipt.create.mockResolvedValue(receipt());
+      prisma.productionFinishedGoodsReceipt.update.mockResolvedValue(receipt());
+
+      await service.create(
+        baseDto({ lines: [{ productId: 'prod1', quantity: 2, unit: 'BALE', productUomId: 'puom-bale' }] }),
+        'u1',
+        ctxA,
+      );
+
+      expect(movements.resolveMovementLines).toHaveBeenCalledTimes(1);
+      const delegated = movements.resolveMovementLines.mock.calls[0][1];
+      expect(delegated[0].productUomId).toBe('puom-bale');
+      expect(delegated[0].enteredUnitId).toBeNull();
+      expect(delegated[0].quantity).toBe(2);
+      // The service must not compute base quantity itself — it consumes whatever
+      // the single conversion authority returns.
+      const movementData = prisma.inventoryMovement.create.mock.calls[0][0].data;
+      expect(movementData.lines.create[0].productUomId).toBe('puom-bale');
+    });
+
     it('rejects a warehouse from another company', async () => {
       const { prisma, service } = makeService();
       prisma.productionFinishedGoodsReceipt.findFirst.mockResolvedValue(null);

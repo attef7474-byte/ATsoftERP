@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { Button, Input } from '../../../../../components/admin/ui';
 import { F9Lookup } from '../../../../../components/f9/F9Lookup';
+import { F9MultiLookup } from '../../../../../components/f9/F9MultiLookup';
 import { productAdapter, warehouseLocationAdapter } from '../../../../../components/f9/lookup-adapters';
 import { ProductUomSelect } from '../../../../../components/factory/ProductUomSelect';
 
@@ -43,6 +44,7 @@ interface LinesEditorProps {
 
 export function ReceiptLinesEditor({ lines, onChange, error }: LinesEditorProps) {
   const { t } = useTranslation();
+  const [multiSelection, setMultiSelection] = useState<string[]>([]);
 
   const updateLine = (key: string, patch: Partial<ReceiptLineDraft>) => {
     onChange(lines.map((line) => (line.key === key ? { ...line, ...patch } : line)));
@@ -57,6 +59,19 @@ export function ReceiptLinesEditor({ lines, onChange, error }: LinesEditorProps)
     onChange([...lines, createEmptyReceiptLine()]);
   };
 
+  // Multi-select: one independent row per selected product. Quantity, unit and
+  // warehouse location are never copied between rows — each selection starts as
+  // an empty, independent line.
+  const handleMultiSelect = (ids: string[]) => {
+    const added = ids.filter((id) => !lines.some((line) => line.productId === id));
+    if (added.length > 0) {
+      onChange([...lines, ...added.map((id) => ({ ...createEmptyReceiptLine(), productId: id }))]);
+      setMultiSelection([]);
+      return;
+    }
+    setMultiSelection(ids);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -65,6 +80,14 @@ export function ReceiptLinesEditor({ lines, onChange, error }: LinesEditorProps)
           {t('production.finishedGoodsReceipts.addLine')}
         </Button>
       </div>
+      <F9MultiLookup
+        label={t('production.finishedGoodsReceipts.addMultiple')}
+        description={t('production.finishedGoodsReceipts.addMultipleHint')}
+        value={multiSelection}
+        onChange={handleMultiSelect}
+        adapter={productAdapter}
+        placeholder={t('production.finishedGoodsReceipts.selectProducts')}
+      />
       {error && <p className="text-sm text-red-600">{error}</p>}
       {lines.map((line, index) => (
         <div key={line.key} className="rounded-lg border border-gray-200 bg-gray-50 p-3">

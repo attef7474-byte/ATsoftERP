@@ -11,6 +11,7 @@ import {
   CreateVersionDto,
   CreatePackagingDto,
   CreateEligibilityDto,
+  BatchCreateEligibilityDto,
 } from './dto/create-production-child.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
@@ -519,31 +520,174 @@ export class ProductionProductDefinitionsService {
     });
     if (duplicate) throw this.validationError('resourceType', 'production.eligibilityExists', 'Eligibility for this resource already exists');
 
-    const eligibility = await this.prisma.$transaction(async (tx) => {
-      if (dto.isDefault) {
-        await tx.productionEligibility.updateMany({
-          where: { productionProductId: parentId, resourceType },
-          data: { isDefault: false },
+    let eligibility: any;
+    try {
+      eligibility = await this.prisma.$transaction(async (tx) => {
+        if (dto.isDefault) {
+          await tx.productionEligibility.updateMany({
+            where: { productionProductId: parentId, resourceType },
+            data: { isDefault: false },
+          });
+        }
+        return tx.productionEligibility.create({
+          data: {
+            productionProductId: parentId,
+            resourceType,
+            machineId,
+            productionLineId,
+            priority: dto.priority ?? 0,
+            isDefault: dto.isDefault ?? false,
+            notes: dto.notes ?? null,
+          },
+          include: {
+            machine: { select: { id: true, code: true, name: true } },
+            productionLine: { select: { id: true, code: true, name: true } },
+          },
+        });
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException({
+          messageKey: 'production.eligibilityExists',
+          message: 'Eligibility already exists for this resource',
         });
       }
-      return tx.productionEligibility.create({
-        data: {
-          productionProductId: parentId,
-          resourceType,
-          machineId,
-          productionLineId,
-          priority: dto.priority ?? 0,
-          isDefault: dto.isDefault ?? false,
-          notes: dto.notes ?? null,
-        },
-        include: {
-          machine: { select: { id: true, code: true, name: true } },
-          productionLine: { select: { id: true, code: true, name: true } },
-        },
-      });
-    });
+      throw error;
+    }
     await this.audit.log(userId, 'CREATE', 'ProductionEligibility', eligibility.id, { productionProductId: parentId, resourceType });
     return eligibility;
+  }
+
+  async addEligibilitiesBatch(parentId: string, dto: BatchCreateEligibilityDto, userId: string, ctx: ActiveOperationalContext) {
+    await this.findOwnedChild(parentId, ctx);
+
+    const resourceType = (dto.resourceType ?? '').toUpperCase();
+    if (!['MACHINE', 'LINE'].includes(resourceType)) {
+      throw this.validationError('resourceType', 'production.invalidResourceType', 'resourceType must be MACHINE or LINE');
+    }
+
+    const requested = (dto.resourceIds ?? []).map((id) => (id ?? '').trim()).filter((id) => id.length > 0);
+    if (requested.length === 0) {
+      throw this.validationError('resourceIds', 'validation.required', 'At least one resource is required');
+    }
+
+    const seen = new Set<string>();
+    const inRequestDuplicates = new Set<string>();
+    for (const id of requested) {
+      if (seen.has(id)) inRequestDuplicates.add(id);
+      seen.add(id);
+    }
+    if (inRequestDuplicates.size > 0) {
+      throw this.validationError('resourceIds', 'production.eligibilityDuplicateInRequest', 'Duplicate resources in the same request');
+    }
+
+    const uniqueIds = Array.from(seen);
+    if (dto.isDefault && uniqueIds.length > 1) {
+      throw this.validationError('isDefault', 'production.eligibilityMultipleDefaults', 'Only a single resource can be marked as default');
+    }
+
+    const invalid = await this.collectInvalidEligibilityResourceIds(resourceType, uniqueIds, ctx);
+    if (invalid.length > 0) {
+      throw new BadRequestException({
+        messageKey: 'production.eligibilityResourceNotFound',
+        message: 'One or more resources were not found in the active company/branch',
+        errors: invalid.map((id) => ({
+          field: 'resourceIds',
+          code: 'validation.invalidReference',
+          value: id,
+          message: 'Resource not found in tenant context',
+        })),
+      });
+    }
+
+    const resourceFilter = resourceType === 'MACHINE'
+      ? { machineId: { in: uniqueIds } }
+      : { productionLineId: { in: uniqueIds } };
+    const existing = await this.prisma.productionEligibility.findMany({
+      where: { productionProductId: parentId, resourceType, ...resourceFilter },
+      select: { machineId: true, productionLineId: true },
+    });
+    if (existing.length > 0) {
+      const conflicting = existing.map((row) => (resourceType === 'MACHINE' ? row.machineId : row.productionLineId)).filter(Boolean) as string[];
+      throw new ConflictException({
+        messageKey: 'production.eligibilityExists',
+        message: 'Eligibility already exists for one or more resources',
+        errors: conflicting.map((id) => ({
+          field: 'resourceIds',
+          code: 'production.eligibilityExists',
+          value: id,
+          message: 'Eligibility already exists for this resource',
+        })),
+      });
+    }
+
+    let created: any[];
+    try {
+      created = await this.prisma.$transaction(async (tx) => {
+        if (dto.isDefault) {
+          await tx.productionEligibility.updateMany({
+            where: { productionProductId: parentId, resourceType },
+            data: { isDefault: false },
+          });
+        }
+        const rows: any[] = [];
+        for (const resourceId of uniqueIds) {
+          rows.push(await tx.productionEligibility.create({
+            data: {
+              productionProductId: parentId,
+              resourceType,
+              machineId: resourceType === 'MACHINE' ? resourceId : null,
+              productionLineId: resourceType === 'LINE' ? resourceId : null,
+              priority: dto.priority ?? 0,
+              isDefault: dto.isDefault ?? false,
+              notes: dto.notes ?? null,
+            },
+            include: {
+              machine: { select: { id: true, code: true, name: true } },
+              productionLine: { select: { id: true, code: true, name: true } },
+            },
+          }));
+        }
+        return rows;
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException({
+          messageKey: 'production.eligibilityExists',
+          message: 'Eligibility already exists for one or more resources',
+        });
+      }
+      throw error;
+    }
+
+    for (const row of created) {
+      await this.audit.log(userId, 'CREATE', 'ProductionEligibility', row.id, { productionProductId: parentId, resourceType, batch: true });
+    }
+
+    return { created: created.length, data: created };
+  }
+
+  private async collectInvalidEligibilityResourceIds(resourceType: string, ids: string[], ctx: ActiveOperationalContext): Promise<string[]> {
+    if (resourceType === 'MACHINE') {
+      const machines = await this.prisma.machine.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, companyId: true, branchId: true },
+      });
+      const byId = new Map(machines.map((m) => [m.id, m]));
+      return ids.filter((id) => {
+        const machine = byId.get(id);
+        if (!machine) return true;
+        if (machine.companyId && machine.companyId !== ctx.companyId) return true;
+        if (machine.branchId && machine.branchId !== ctx.branchId) return true;
+        return false;
+      });
+    }
+    const lines = await this.prisma.productionLine.findMany({
+      where: { id: { in: ids }, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
+      select: { id: true },
+    });
+    const found = new Set(lines.map((l) => l.id));
+    return ids.filter((id) => !found.has(id));
   }
 
   async updateEligibility(parentId: string, childId: string, dto: any, userId: string, ctx: ActiveOperationalContext) {

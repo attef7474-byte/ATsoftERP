@@ -39,6 +39,26 @@ describe('ProductUomConversionService', () => {
     expect(result.baseQuantity.toString()).toBe('150');
   });
 
+  it('converts a multi-unit packaging selection to the correct base quantity (2 BALE x 144 = 288)', async () => {
+    const prisma = prismaWith({
+      productUom: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'puom-bale',
+          productId: 'prd1',
+          unitId: 'u-bale',
+          isActive: true,
+          conversionToBase: new Prisma.Decimal('144'),
+        }),
+      },
+    });
+    const service = build(prisma);
+    const result = await service.convert(prisma, 'prd1', { quantity: 2, productUomId: 'puom-bale' });
+    expect(result.conversionToBase.toString()).toBe('144');
+    expect(result.baseQuantity.toString()).toBe('288');
+    expect(result.productUomId).toBe('puom-bale');
+    expect(result.enteredUnitId).toBe('u-bale');
+  });
+
   it('resolves a unit by unitId and applies its factor', async () => {
     const prisma = prismaWith({
       productUom: {

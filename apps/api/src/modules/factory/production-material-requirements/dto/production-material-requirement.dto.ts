@@ -74,6 +74,17 @@ export class CreateRequirementLineDto extends PrepareRequirementLineDto {
   @IsString()
   @IsNotEmpty()
   productId!: string;
+
+  // Canonical transaction-unit selection (optional). When set, the backend
+  // validates it belongs to the selected product and is active, and derives the
+  // persisted `issueUnit` from it (the client-supplied issueUnit is not trusted
+  // as authority). It is NOT persisted as a column (no schema change) — only the
+  // existing issueUnit representation is stored. Left unset, the legacy
+  // free-text issueUnit behaviour is preserved so historical clients/rows keep
+  // working.
+  @IsOptional()
+  @IsString()
+  productUomId?: string;
 }
 
 export class PrepareMaterialRequirementDto {

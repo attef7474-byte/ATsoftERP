@@ -8,7 +8,7 @@ import {
   PERFORMANCE_TARGET_AUDIT_ENTITY,
   PERFORMANCE_TARGET_NUMBER_SEQUENCE,
 } from './production-analytics.constants';
-import { CreatePerformanceTargetDto, UpdatePerformanceTargetDto } from './dto/performance-target.dto';
+import { CreatePerformanceTargetDto, UpdatePerformanceTargetDto, BatchCreatePerformanceTargetsDto } from './dto/performance-target.dto';
 import { PerformanceTargetQueryDto } from './dto/analytics-query.dto';
 import { stripUndefined } from '../../../common/helpers/strip-undefined';
 
@@ -69,6 +69,78 @@ export class ProductionPerformanceTargetsService {
       include: includeReferences,
     });
     await this.log(userId, 'CREATE', created, ctx);
+    return created;
+  }
+
+  /**
+   * Batch (multi-select) create: one canonical DRAFT PerformanceTarget per selected
+   * target resource, all-or-nothing. The scope type, numeric target values, and the
+   * effective period are shared; each target item carries only the dimension ids for
+   * that scope. Mirrors the capacity-standards batch contract:
+   * - Deduplicates target dimension tuples (a repeated selection never yields two rows).
+   * - Validates every target's scope + references before any row is written, inside one
+   *   Serializable transaction.
+   * - Never auto-approves: lifecycle stays DRAFT, so approval-time overlap protection
+   *   remains the single duplicate guard (identical to single-record create).
+   */
+  async createBatch(dto: BatchCreatePerformanceTargetsDto, userId: string, ctx: ActiveOperationalContext) {
+    const perTargetDtos = (dto.targets || []).map((target) => ({
+      scopeType: dto.scopeType,
+      productionUnitId: target.productionUnitId,
+      productionLineId: target.productionLineId,
+      machineId: target.machineId,
+      productionProductDefinitionId: target.productionProductDefinitionId,
+      availabilityTarget: dto.availabilityTarget,
+      performanceTarget: dto.performanceTarget,
+      qualityTarget: dto.qualityTarget,
+      oeeTarget: dto.oeeTarget,
+      effectiveFrom: dto.effectiveFrom,
+      effectiveTo: dto.effectiveTo,
+      approvalNote: dto.approvalNote,
+      notes: dto.notes,
+    }));
+    if (perTargetDtos.length === 0) this.invalid('targets', 'common.validationFailed', 'At least one target is required');
+
+    const seen = new Set<string>();
+    for (const perTarget of perTargetDtos) {
+      const key = [perTarget.scopeType, perTarget.productionUnitId, perTarget.productionLineId, perTarget.machineId, perTarget.productionProductDefinitionId].join('|');
+      if (seen.has(key)) this.invalid('targets', 'performanceTarget.duplicateTargetInRequest', 'Duplicate target in the same request');
+      seen.add(key);
+    }
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const normalized: any[] = [];
+      for (const perTarget of perTargetDtos) {
+        normalized.push(await this.normalizeAndValidate(perTarget, ctx, tx));
+      }
+      const rows: any[] = [];
+      for (const data of normalized) {
+        const code = await this.numbering.generateNumberAtomicWithClient(PERFORMANCE_TARGET_NUMBER_SEQUENCE, tx);
+        const row = await (tx as any).productionPerformanceTarget.create({
+          data: {
+            ...data,
+            code,
+            revision: 1,
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+            status: 'DRAFT',
+            createdById: userId,
+            updatedById: userId,
+          },
+          include: includeReferences,
+        });
+        await this.audit.logWithClient(tx, {
+          userId,
+          action: 'CREATE',
+          entity: PERFORMANCE_TARGET_AUDIT_ENTITY,
+          entityId: row.id,
+          details: { companyId: ctx.companyId, branchId: ctx.branchId, code: row.code, revision: row.revision, batch: true },
+        });
+        rows.push(row);
+      }
+      return rows;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
     return created;
   }
 
@@ -379,9 +451,9 @@ export class ProductionPerformanceTargetsService {
     return record;
   }
 
-  private async normalizeAndValidate(dto: any, ctx: ActiveOperationalContext) {
+  private async normalizeAndValidate(dto: any, ctx: ActiveOperationalContext, client: any = this.prisma) {
     this.assertScope(dto);
-    await this.validateReferences(dto, ctx);
+    await this.validateReferences(dto, ctx, client);
     const effectiveFrom = dto.effectiveFrom instanceof Date ? dto.effectiveFrom : new Date(dto.effectiveFrom);
     const effectiveTo = dto.effectiveTo ? (dto.effectiveTo instanceof Date ? dto.effectiveTo : new Date(dto.effectiveTo)) : null;
     if (effectiveTo && effectiveTo <= effectiveFrom) this.invalid('effectiveTo', 'performanceTarget.invalidEffectiveRange', 'Effective-to must be later than effective-from');

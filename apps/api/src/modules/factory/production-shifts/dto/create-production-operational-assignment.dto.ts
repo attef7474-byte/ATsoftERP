@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsDateString, IsBoolean, IsNumber, Min, Max, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsDateString, IsBoolean, IsNumber, Min, Max, IsIn, IsArray, ArrayNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -20,6 +20,28 @@ export class CreateProductionOperationalAssignmentDto {
   @ApiPropertyOptional() @IsOptional() @IsString() shiftId?: string;
 
   @ApiPropertyOptional({ description: 'Capacity per shift (pieces/hours/etc.)' })
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) capacityPerShift?: number;
+
+  @ApiProperty() @IsDateString() effectiveFrom: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsDateString() effectiveTo?: string;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional() @IsBoolean() isPrimary?: boolean;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+}
+
+export class BatchCreateOperationalAssignmentDto {
+  @ApiProperty({ enum: OPERATIONAL_RESOURCE_TYPES })
+  @IsIn(OPERATIONAL_RESOURCE_TYPES) resourceType: string;
+
+  @ApiProperty({ description: 'Resource ids of the requested resourceType — one canonical assignment row is created per target', type: [String] })
+  @IsArray() @ArrayNotEmpty() @IsString({ each: true }) resourceIds: string[];
+
+  @ApiPropertyOptional() @IsOptional() @IsString() shiftId?: string;
+
+  @ApiPropertyOptional({ description: 'Shared capacity per shift applied to every created row when explicitly provided' })
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) capacityPerShift?: number;
 
   @ApiProperty() @IsDateString() effectiveFrom: string;

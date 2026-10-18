@@ -101,15 +101,29 @@ export class ProductionMaterialRequirementsService {
     });
   }
 
-  private async validateRequirementLines(dtoLines: any[], ctx: ActiveOperationalContext, client: any) {
+  private async validateRequirementLines(dtoLines: any[], ctx: ActiveOperationalContext, client: any): Promise<Map<string, string>> {
     if (!dtoLines || dtoLines.length === 0) throw this.badRequest('productionMaterialRequirement.linesRequired');
     const seen = new Set<string>();
+    const derivedIssueUnit = new Map<string, string>();
     for (const line of dtoLines) {
       if (!line.productId) throw this.badRequest('productionMaterialRequirement.productRequired');
       if (seen.has(line.productId)) throw this.badRequest('productionMaterialRequirement.duplicateProduct');
       seen.add(line.productId);
       const product = await client.product.findUnique({ where: { id: line.productId } });
       if (!product) throw this.notFound('productionMaterialRequirement.productNotFound');
+      // Canonical ProductUom selection: when supplied it must belong to the
+      // selected product and be active, and it becomes the authority for the
+      // persisted issueUnit representation. conversionFactor keeps its existing
+      // business-planning meaning and is never used as an inventory conversion
+      // authority.
+      if (line.productUomId) {
+        const uom = await client.productUom.findUnique({ where: { id: line.productUomId }, include: { unit: true } });
+        if (!uom) throw this.badRequest('productionMaterialRequirement.productUomNotFound');
+        if (uom.productId !== line.productId) throw this.badRequest('productionMaterialRequirement.productUomMismatch');
+        if (uom.isActive === false) throw this.badRequest('productionMaterialRequirement.productUomInactive');
+        const code = uom.unit?.code ?? uom.unit?.symbol;
+        if (code) derivedIssueUnit.set(line.productId, code);
+      }
       const role = line.componentRole || 'RAW_MATERIAL';
       if (!isComponentRole(role)) throw this.badRequest('productionMaterialRequirement.invalidRole');
       const policy = line.overIssuePolicy || 'NOT_ALLOWED';
@@ -127,10 +141,11 @@ export class ProductionMaterialRequirementsService {
       }
       positiveDecimal(line.plannedQuantityPerUnit);
     }
+    return derivedIssueUnit;
   }
 
   private async buildRequirementData(dto: PrepareMaterialRequirementDto, order: any, ctx: ActiveOperationalContext, client: any) {
-    await this.validateRequirementLines(dto.lines, ctx, client);
+    const derivedIssueUnit = await this.validateRequirementLines(dto.lines, ctx, client);
     const definition = order.productionProductDefinitionId
       ? await client.productionProductDefinition.findUnique({ where: { id: order.productionProductDefinitionId } })
       : null;
@@ -155,7 +170,7 @@ export class ProductionMaterialRequirementsService {
         plannedQuantityPerUnit: new Prisma.Decimal(Number(line.plannedQuantityPerUnit.toFixed(4))),
         plannedQuantity,
         baseUnit: line.baseUnit,
-        issueUnit: line.issueUnit,
+        issueUnit: derivedIssueUnit.get(line.productId) ?? line.issueUnit,
         conversionFactor: new Prisma.Decimal(Number(conversionFactor.toFixed(4))),
         warehouseId: line.warehouseId ?? null,
         productionStage: line.productionStage ?? null,

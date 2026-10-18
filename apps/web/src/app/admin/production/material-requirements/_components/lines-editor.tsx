@@ -1,14 +1,17 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { Button, Input, Select } from '../../../../../components/admin/ui';
 import { F9Lookup } from '../../../../../components/f9/F9Lookup';
+import { F9MultiLookup } from '../../../../../components/f9/F9MultiLookup';
 import { productAdapter, warehouseAdapter } from '../../../../../components/f9/lookup-adapters';
+import { ProductUomSelect } from '../../../../../components/factory/ProductUomSelect';
 
 export interface RequirementLineDraft {
   key: string;
   productId: string;
+  productUomId: string;
   plannedQuantityPerUnit: string;
   baseUnit: string;
   issueUnit: string;
@@ -26,6 +29,7 @@ export function createEmptyRequirementLine(): RequirementLineDraft {
   return {
     key: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
     productId: '',
+    productUomId: '',
     plannedQuantityPerUnit: '',
     baseUnit: '',
     issueUnit: '',
@@ -51,6 +55,7 @@ interface LinesEditorProps {
 
 export function RequirementLinesEditor({ lines, onChange, error }: LinesEditorProps) {
   const { t } = useTranslation();
+  const [multiSelection, setMultiSelection] = useState<string[]>([]);
 
   const updateLine = (key: string, patch: Partial<RequirementLineDraft>) => {
     onChange(lines.map((line) => (line.key === key ? { ...line, ...patch } : line)));
@@ -65,6 +70,19 @@ export function RequirementLinesEditor({ lines, onChange, error }: LinesEditorPr
     onChange([...lines, createEmptyRequirementLine()]);
   };
 
+  // Multi-select: one independent row per selected material product. Rows are
+  // never pre-filled with a shared quantity/UOM — each selected product starts
+  // as an empty, independent line.
+  const handleMultiSelect = (ids: string[]) => {
+    const added = ids.filter((id) => !lines.some((line) => line.productId === id));
+    if (added.length > 0) {
+      onChange([...lines, ...added.map((id) => ({ ...createEmptyRequirementLine(), productId: id }))]);
+      setMultiSelection([]);
+      return;
+    }
+    setMultiSelection(ids);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -73,6 +91,14 @@ export function RequirementLinesEditor({ lines, onChange, error }: LinesEditorPr
           {t('production.materialRequirements.addLine')}
         </Button>
       </div>
+      <F9MultiLookup
+        label={t('production.materialRequirements.addMultiple')}
+        description={t('production.materialRequirements.addMultipleHint')}
+        value={multiSelection}
+        onChange={handleMultiSelect}
+        adapter={productAdapter}
+        placeholder={t('production.materialRequirements.selectMaterials')}
+      />
       {error && <p className="text-sm text-red-600">{error}</p>}
       {lines.map((line, index) => (
         <div key={line.key} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
@@ -95,7 +121,7 @@ export function RequirementLinesEditor({ lines, onChange, error }: LinesEditorPr
                 label={t('production.materialRequirements.product')}
                 value={line.productId}
                 adapter={productAdapter}
-                onChange={(v) => updateLine(line.key, { productId: v })}
+                onChange={(v: string) => updateLine(line.key, { productId: v, productUomId: '', issueUnit: '' })}
               />
             </div>
             <div>
@@ -117,11 +143,11 @@ export function RequirementLinesEditor({ lines, onChange, error }: LinesEditorPr
               />
             </div>
             <div>
-              <Input
+              <ProductUomSelect
                 label={t('production.materialRequirements.issueUnit')}
-                maxLength={50}
-                value={line.issueUnit}
-                onChange={(e) => updateLine(line.key, { issueUnit: e.target.value })}
+                productId={line.productId}
+                value={line.productUomId}
+                onSelect={(selection) => updateLine(line.key, { productUomId: selection.productUomId, issueUnit: selection.unitCode })}
               />
             </div>
             <div>
@@ -168,7 +194,7 @@ export function RequirementLinesEditor({ lines, onChange, error }: LinesEditorPr
                 label={t('production.materialRequirements.warehouse')}
                 value={line.warehouseId}
                 adapter={warehouseAdapter}
-                onChange={(v) => updateLine(line.key, { warehouseId: v })}
+                onChange={(v: string) => updateLine(line.key, { warehouseId: v })}
               />
             </div>
             <div className="col-span-2">

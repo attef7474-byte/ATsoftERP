@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { NumberingService } from '../../numbering/numbering.service';
-import { CreateProductionShiftAssignmentDto, UpdateProductionShiftAssignmentDto, ProductionShiftAssignmentQueryDto } from './dto/create-production-shift-assignment.dto';
+import { CreateProductionShiftAssignmentDto, BatchCreateShiftAssignmentDto, UpdateProductionShiftAssignmentDto, ProductionShiftAssignmentQueryDto } from './dto/create-production-shift-assignment.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
@@ -33,24 +34,24 @@ export class ProductionShiftAssignmentsService {
     return assignment;
   }
 
-  private async validateShift(shiftId: string, ctx: ActiveOperationalContext): Promise<void> {
-    const shift = await this.prisma.productionShift.findFirst({
+  private async validateShift(shiftId: string, ctx: ActiveOperationalContext, client: any = this.prisma): Promise<void> {
+    const shift = await client.productionShift.findFirst({
       where: { id: shiftId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
     });
     if (!shift) throw this.validationError('shiftId', 'validation.invalidReference', 'Production shift not found in tenant context');
     if (shift.status !== 'ACTIVE') throw this.validationError('shiftId', 'validation.invalidReference', 'Production shift is inactive');
   }
 
-  private async validateCalendar(calendarId: string | undefined, ctx: ActiveOperationalContext): Promise<void> {
+  private async validateCalendar(calendarId: string | undefined, ctx: ActiveOperationalContext, client: any = this.prisma): Promise<void> {
     if (!calendarId) return;
-    const calendar = await this.prisma.productionShiftCalendar.findFirst({
+    const calendar = await client.productionShiftCalendar.findFirst({
       where: { id: calendarId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
     });
     if (!calendar) throw this.validationError('calendarId', 'validation.invalidReference', 'Calendar not found in tenant context');
   }
 
-  private async validatePerson(operationalPersonId: string): Promise<void> {
-    const person = await this.prisma.operationalPerson.findUnique({ where: { id: operationalPersonId } });
+  private async validatePerson(operationalPersonId: string, client: any = this.prisma): Promise<void> {
+    const person = await client.operationalPerson.findUnique({ where: { id: operationalPersonId } });
     if (!person) throw this.validationError('operationalPersonId', 'validation.invalidReference', 'Operational person not found');
     if (!person.isActive) throw this.validationError('operationalPersonId', 'validation.invalidReference', 'Operational person is inactive');
   }
@@ -125,6 +126,87 @@ export class ProductionShiftAssignmentsService {
     });
     await this.audit.log(userId, 'CREATE', 'ProductionShiftAssignment', assignment.id, { code: assignment.code });
     return assignment;
+  }
+
+  /**
+   * Atomically assigns one shared shift/calendar/period to several operational persons.
+   *
+   * Each person becomes its own canonical ProductionShiftAssignment row — this is a batch
+   * INPUT, not a many-to-many. The whole request is all-or-nothing: if any person fails
+   * validation or overlaps an existing active assignment, nothing is written. Runs at
+   * Serializable isolation so two concurrent identical batches cannot both commit.
+   */
+  async createBatch(dto: BatchCreateShiftAssignmentDto, userId: string, ctx: ActiveOperationalContext) {
+    const company = await this.prisma.company.findUnique({ where: { id: ctx.companyId } });
+    if (!company) throw new NotFoundException({ messageKey: 'organization.companyNotFound', message: 'Company not found' });
+
+    const personIds = Array.from(new Set((dto.operationalPersonIds ?? []).map((id) => id?.trim()).filter((id): id is string => !!id)));
+    if (personIds.length === 0) {
+      throw this.validationError('operationalPersonIds', 'validation.required', 'At least one operational person is required');
+    }
+    const dates = this.parseDates(dto.effectiveFrom, dto.effectiveTo);
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      await this.validateShift(dto.shiftId, ctx, tx);
+      await this.validateCalendar(dto.calendarId, ctx, tx);
+      for (const personId of personIds) {
+        await this.validatePerson(personId, tx);
+      }
+
+      for (const personId of personIds) {
+        const conflict = await tx.productionShiftAssignment.findFirst({
+          where: {
+            operationalPersonId: personId,
+            deletedAt: null,
+            status: 'ACTIVE',
+            effectiveFrom: { lte: dates.effectiveTo ?? dates.effectiveFrom },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: dates.effectiveFrom } }],
+          },
+        });
+        if (conflict) {
+          throw new BadRequestException({
+            messageKey: 'production.shiftAssignmentConflict',
+            message: 'Operational person already has an overlapping shift assignment for this period',
+            errors: [{ field: 'operationalPersonIds', code: 'production.shiftAssignmentConflict', message: `Overlapping shift assignment detected for operational person ${personId}` }],
+          });
+        }
+      }
+
+      const rows: any[] = [];
+      for (const personId of personIds) {
+        const code = await this.numberingService.generateNumberAtomicWithClient('PRODUCTION_SHIFT_ASSIGNMENT', tx);
+        const codeExists = await tx.productionShiftAssignment.findUnique({ where: { code } });
+        if (codeExists) throw this.validationError('code', 'production.codeExists', 'Assignment code already exists');
+
+        const assignment = await tx.productionShiftAssignment.create({
+          data: {
+            code,
+            shiftId: dto.shiftId,
+            calendarId: dto.calendarId ?? null,
+            operationalPersonId: personId,
+            effectiveFrom: dates.effectiveFrom,
+            effectiveTo: dates.effectiveTo,
+            isPrimary: dto.isPrimary ?? false,
+            notes: dto.notes ?? null,
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+            status: 'ACTIVE',
+          },
+          include: this.assignmentIncludes(),
+        });
+        await this.audit.logWithClient(tx, {
+          userId,
+          action: 'CREATE',
+          entity: 'ProductionShiftAssignment',
+          entityId: assignment.id,
+          details: { code: assignment.code, batch: true, operationalPersonId: personId },
+        });
+        rows.push(assignment);
+      }
+      return rows;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    return { data: created, count: created.length };
   }
 
   async findAll(query: ProductionShiftAssignmentQueryDto, ctx: ActiveOperationalContext) {

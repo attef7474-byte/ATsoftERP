@@ -69,9 +69,13 @@ describe('ProductionShiftAssignmentsService', () => {
         update: jest.fn(),
         count: jest.fn(),
       },
+      $transaction: jest.fn((fn: any, _opts?: any) => fn(prisma)),
     };
-    audit = { log: jest.fn().mockResolvedValue(undefined) };
-    numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('PSA-000001') };
+    audit = { log: jest.fn().mockResolvedValue(undefined), logWithClient: jest.fn().mockResolvedValue(undefined) };
+    numbering = {
+      generateNumberAtomic: jest.fn().mockResolvedValue('PSA-000001'),
+      generateNumberAtomicWithClient: jest.fn().mockResolvedValue('PSA-000001'),
+    };
     service = new ProductionShiftAssignmentsService(prisma, audit, numbering);
   });
 
@@ -264,6 +268,102 @@ describe('ProductionShiftAssignmentsService', () => {
         }),
       );
       expect(result.meta.total).toBe(1);
+    });
+  });
+
+  describe('createBatch', () => {
+    const validBatch = { shiftId: 's1', operationalPersonIds: ['p1', 'p2', 'p3'], effectiveFrom: '2026-01-01' };
+
+    const primeHappyPath = () => {
+      prisma.company.findUnique.mockResolvedValue({ id: 'c1' });
+      prisma.productionShift.findFirst.mockResolvedValue({ id: 's1', status: 'ACTIVE' });
+      prisma.operationalPerson.findUnique.mockImplementation(({ where }: any) => Promise.resolve({ id: where.id, isActive: true }));
+      prisma.productionShiftAssignment.findUnique.mockResolvedValue(null);
+      prisma.productionShiftAssignment.findFirst.mockResolvedValue(null);
+      prisma.productionShiftAssignment.create.mockImplementation(({ data }: any) =>
+        Promise.resolve(assignment({ ...data, id: `a-${data.operationalPersonId}` })),
+      );
+    };
+
+    it('S1/S2 creates one canonical row per operational person', async () => {
+      primeHappyPath();
+      const res = await service.createBatch(validBatch, 'u1', ctxA);
+      expect(res.count).toBe(3);
+      expect(prisma.productionShiftAssignment.create).toHaveBeenCalledTimes(3);
+    });
+
+    it('S3 dedupes repeated person ids', async () => {
+      primeHappyPath();
+      const res = await service.createBatch({ ...validBatch, operationalPersonIds: ['p1', 'p1', 'p2'] }, 'u1', ctxA);
+      expect(res.count).toBe(2);
+      expect(prisma.productionShiftAssignment.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('S4 rolls back everything when any person is invalid', async () => {
+      primeHappyPath();
+      prisma.operationalPerson.findUnique.mockImplementation(({ where }: any) =>
+        Promise.resolve(where.id === 'p2' ? null : { id: where.id, isActive: true }),
+      );
+      await expect(service.createBatch(validBatch, 'u1', ctxA)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.productionShiftAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('S5 rejects an inactive operational person (global catalog has no tenant)', async () => {
+      primeHappyPath();
+      prisma.operationalPerson.findUnique.mockImplementation(({ where }: any) =>
+        Promise.resolve(where.id === 'p2' ? { id: where.id, isActive: false } : { id: where.id, isActive: true }),
+      );
+      await expect(service.createBatch(validBatch, 'u1', ctxA)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.productionShiftAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('S6 rolls back all when any person overlaps an existing active assignment', async () => {
+      primeHappyPath();
+      prisma.productionShiftAssignment.findFirst.mockImplementation(({ where }: any) =>
+        Promise.resolve(where.operationalPersonId === 'p2' ? assignment({ id: 'a-existing' }) : null),
+      );
+      await expect(service.createBatch(validBatch, 'u1', ctxA)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.productionShiftAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('S7 propagates the shared isPrimary flag to every row without inventing uniqueness', async () => {
+      primeHappyPath();
+      await service.createBatch({ ...validBatch, isPrimary: true }, 'u1', ctxA);
+      expect(prisma.productionShiftAssignment.create).toHaveBeenCalledTimes(3);
+      for (const call of prisma.productionShiftAssignment.create.mock.calls) {
+        expect(call[0].data.isPrimary).toBe(true);
+      }
+    });
+
+    it('S8 runs the batch at Serializable isolation for concurrent-duplicate safety', async () => {
+      primeHappyPath();
+      await service.createBatch(validBatch, 'u1', ctxA);
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.$transaction.mock.calls[0][1]).toEqual(expect.objectContaining({ isolationLevel: 'Serializable' }));
+    });
+
+    it('S9 writes one audit event per created row', async () => {
+      primeHappyPath();
+      await service.createBatch(validBatch, 'u1', ctxA);
+      expect(audit.logWithClient).toHaveBeenCalledTimes(3);
+    });
+
+    it('S10 pre-checks overlap per ACTIVE person and writes tenant-scoped rows', async () => {
+      primeHappyPath();
+      await service.createBatch(validBatch, 'u1', ctxA);
+      expect(prisma.productionShiftAssignment.findFirst).toHaveBeenCalledTimes(3);
+      for (const call of prisma.productionShiftAssignment.findFirst.mock.calls) {
+        expect(call[0].where).toEqual(expect.objectContaining({ status: 'ACTIVE', deletedAt: null }));
+      }
+      expect(prisma.productionShiftAssignment.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ companyId: 'c1', branchId: 'b1', status: 'ACTIVE' }) }),
+      );
+    });
+
+    it('rejects an empty person list', async () => {
+      primeHappyPath();
+      await expect(service.createBatch({ ...validBatch, operationalPersonIds: [] }, 'u1', ctxA)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.productionShiftAssignment.create).not.toHaveBeenCalled();
     });
   });
 });

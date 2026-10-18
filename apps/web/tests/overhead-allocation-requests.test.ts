@@ -5,8 +5,8 @@ import ts from 'typescript';
 import { api as realApi } from '../src/lib/api';
 
 const ROOT = '/production/overhead-allocations';
-const source = fs.readFileSync(path.join(__dirname, '../src/app/admin/production/cost/overhead-allocations/page.tsx'), 'utf8');
-const compiled = ts.transpileModule(source + '\nexport { useRead, Workspace, CreateDraft, AllocationDetails };', {
+const source = fs.readFileSync(path.join(__dirname, '../src/components/factory/unified-production/overhead-allocations-panel.tsx'), 'utf8');
+const compiled = ts.transpileModule(source + '\nexport { useRead, Workspace, CreateDraft, AllocationDetails, OverheadAllocationsPanel };', {
   compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, esModuleInterop: true },
 }).outputText;
 const tick = async () => { for (let n = 0; n < 12; n++) await Promise.resolve(); };
@@ -211,7 +211,7 @@ describe('B2 page actual request callbacks and async contract', () => {
   });
 
   it('permission-denied page makes no request and update action remains hidden', async () => {
-    const h = harness(), tree = h.render(h.exports.default);
+    const h = harness(), tree = h.render(h.exports.OverheadAllocationsPanel);
     expect(tree.props.role).toBe('alert'); expect(tree.props.children).toContain('errors.forbidden');
     expect(h.api.get).not.toHaveBeenCalled();
     const d = await details(() => false); expect(button(d.render(), 'common.save')).toBeUndefined();
@@ -219,7 +219,7 @@ describe('B2 page actual request callbacks and async contract', () => {
 
   it('context-missing allowed user makes no request', () => {
     const h = harness(); h.auth.permissions.permissions = ['production-cost-overhead-allocation:read']; h.auth.contextReady = false;
-    expect(h.render(h.exports.default).props.children).toContain('overheadAllocation.contextRequired');
+    expect(h.render(h.exports.OverheadAllocationsPanel).props.children).toContain('overheadAllocation.contextRequired');
     expect(h.api.get).not.toHaveBeenCalled();
   });
 

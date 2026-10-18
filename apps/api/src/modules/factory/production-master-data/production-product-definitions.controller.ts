@@ -17,6 +17,7 @@ import {
   CreateVersionDto,
   CreatePackagingDto,
   CreateEligibilityDto,
+  BatchCreateEligibilityDto,
 } from './dto/create-production-child.dto';
 
 @ApiTags('production-product-definitions')
@@ -161,6 +162,13 @@ export class ProductionProductDefinitionsController {
   @ApiOperation({ summary: 'Add a production eligibility (MACHINE or LINE)' })
   addEligibility(@Param('id') id: string, @Body() dto: CreateEligibilityDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.definitionsService.addEligibility(id, dto, userId, ctx);
+  }
+
+  @Post(':id/eligibilities/batch')
+  @Permissions('production-product:update')
+  @ApiOperation({ summary: 'Batch add production eligibilities for multiple machines or lines (atomic)' })
+  addEligibilitiesBatch(@Param('id') id: string, @Body() dto: BatchCreateEligibilityDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.definitionsService.addEligibilitiesBatch(id, dto, userId, ctx);
   }
 
   @Patch(':id/eligibilities/:childId')

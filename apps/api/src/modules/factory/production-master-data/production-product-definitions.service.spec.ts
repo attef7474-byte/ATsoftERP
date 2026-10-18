@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ProductionProductDefinitionsService } from './production-product-definitions.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
@@ -52,10 +53,10 @@ describe('ProductionProductDefinitionsService', () => {
       company: { findUnique: jest.fn() },
       product: { findUnique: jest.fn() },
       productionUnit: { findFirst: jest.fn() },
-      productionLine: { findFirst: jest.fn() },
+      productionLine: { findFirst: jest.fn(), findMany: jest.fn() },
       warehouse: { findUnique: jest.fn() },
       costCenter: { findUnique: jest.fn() },
-      machine: { findUnique: jest.fn() },
+      machine: { findUnique: jest.fn(), findMany: jest.fn() },
       productionProductDefinition: {
         findFirst: jest.fn(),
         findMany: jest.fn(),
@@ -85,6 +86,7 @@ describe('ProductionProductDefinitionsService', () => {
       },
       productionEligibility: {
         findFirst: jest.fn(),
+        findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
@@ -211,6 +213,95 @@ describe('ProductionProductDefinitionsService', () => {
 
       expect(result.id).toBe('e1');
       expect(audit.log).toHaveBeenCalledWith('u1', 'CREATE', 'ProductionEligibility', 'e1', expect.anything());
+    });
+
+    it('maps a concurrent duplicate P2002 to ConflictException on the single path', async () => {
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(definition());
+      prisma.machine.findUnique.mockResolvedValue({ id: 'm1', companyId: 'c1', branchId: 'b1' });
+      prisma.productionEligibility.findFirst.mockResolvedValue(null);
+      prisma.productionEligibility.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: '7.8.0',
+          meta: { target: ['productionProductId', 'machineId'] },
+        }),
+      );
+
+      await expect(
+        service.addEligibility('d1', { resourceType: 'MACHINE', machineId: 'm1' }, 'u1', ctxA),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('eligibility batch children', () => {
+    it('is atomic: one invalid machine rolls back the whole batch', async () => {
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(definition());
+      prisma.machine.findMany.mockResolvedValue([{ id: 'm1', companyId: 'c1', branchId: 'b1' }]);
+
+      await expect(
+        service.addEligibilitiesBatch('d1', { resourceType: 'MACHINE', resourceIds: ['m1', 'm2'] }, 'u1', ctxA),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(prisma.productionEligibility.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects duplicate resources within the same request', async () => {
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(definition());
+
+      await expect(
+        service.addEligibilitiesBatch('d1', { resourceType: 'MACHINE', resourceIds: ['m1', 'm1'] }, 'u1', ctxA),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.productionEligibility.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects isDefault when more than one resource is selected', async () => {
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(definition());
+      prisma.machine.findMany.mockResolvedValue([
+        { id: 'm1', companyId: 'c1', branchId: 'b1' },
+        { id: 'm2', companyId: 'c1', branchId: 'b1' },
+      ]);
+
+      await expect(
+        service.addEligibilitiesBatch('d1', { resourceType: 'MACHINE', resourceIds: ['m1', 'm2'], isDefault: true }, 'u1', ctxA),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.productionEligibility.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects when an eligibility already exists for a selected resource', async () => {
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(definition());
+      prisma.machine.findMany.mockResolvedValue([
+        { id: 'm1', companyId: 'c1', branchId: 'b1' },
+        { id: 'm2', companyId: 'c1', branchId: 'b1' },
+      ]);
+      prisma.productionEligibility.findMany.mockResolvedValue([{ machineId: 'm2', productionLineId: null }]);
+
+      await expect(
+        service.addEligibilitiesBatch('d1', { resourceType: 'MACHINE', resourceIds: ['m1', 'm2'] }, 'u1', ctxA),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.productionEligibility.create).not.toHaveBeenCalled();
+    });
+
+    it('creates one canonical row per resource and audits each', async () => {
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(definition());
+      prisma.machine.findMany.mockResolvedValue([
+        { id: 'm1', companyId: 'c1', branchId: 'b1' },
+        { id: 'm2', companyId: 'c1', branchId: 'b1' },
+      ]);
+      prisma.productionEligibility.findMany.mockResolvedValue([]);
+      prisma.productionEligibility.create
+        .mockImplementationOnce(({ data }: any) => Promise.resolve({ id: 'e1', ...data }))
+        .mockImplementationOnce(({ data }: any) => Promise.resolve({ id: 'e2', ...data }));
+
+      const result = await service.addEligibilitiesBatch('d1', { resourceType: 'MACHINE', resourceIds: ['m1', 'm2'] }, 'u1', ctxA);
+
+      expect(result.created).toBe(2);
+      expect(prisma.productionEligibility.create).toHaveBeenCalledTimes(2);
+      expect(prisma.productionEligibility.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ machineId: 'm1', productionLineId: null, resourceType: 'MACHINE' }) }),
+      );
+      expect(audit.log).toHaveBeenCalledWith('u1', 'CREATE', 'ProductionEligibility', 'e1', expect.objectContaining({ batch: true }));
+      expect(audit.log).toHaveBeenCalledWith('u1', 'CREATE', 'ProductionEligibility', 'e2', expect.objectContaining({ batch: true }));
     });
   });
 

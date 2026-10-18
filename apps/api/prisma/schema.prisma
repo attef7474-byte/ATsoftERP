@@ -726,8 +726,15 @@ model ProductionEligibility {
   createdAt           DateTime                    @default(now())
   updatedAt           DateTime                    @updatedAt
 
-  @@unique([productionProductId, resourceType, machineId])
-  @@unique([productionProductId, resourceType, productionLineId])
+  // DB-enforced invariants (created by migration
+  // 20261018120000_fix_production_eligibility_uniqueness; filtered unique
+  // indexes are not representable in this schema, so they are intentionally
+  // NOT declared here as @@unique):
+  //   UNIQUE ([productionProductId],[machineId])        WHERE [machineId] IS NOT NULL
+  //   UNIQUE ([productionProductId],[productionLineId]) WHERE [productionLineId] IS NOT NULL
+  // Server-side duplicate pre-check + P2002 -> 409 guard live in
+  // production-product-definitions.service (APP_GUARD); the filtered indexes
+  // are the DB_GUARD concurrency safety net.
   @@index([productionProductId])
   @@index([machineId])
   @@index([productionLineId])

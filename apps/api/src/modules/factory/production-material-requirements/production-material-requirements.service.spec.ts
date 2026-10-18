@@ -135,6 +135,7 @@ function makeService(overrides: Record<string, any> = {}) {
     productionOrder: { findFirst: jest.fn() },
     productionRun: { findFirst: jest.fn() },
     product: { findUnique: jest.fn() },
+    productUom: { findUnique: jest.fn() },
     warehouse: { findUnique: jest.fn() },
     productionProductDefinition: { findUnique: jest.fn() },
     productionVersion: { findUnique: jest.fn() },
@@ -313,6 +314,81 @@ describe('ProductionMaterialRequirementsService', () => {
           { productId: 'prod1', plannedQuantityPerUnit: 1, baseUnit: 'KG', issueUnit: 'KG' },
         ] }), 'u1', ctxA),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('productUom selection (canonical issue-unit snapshot, no schema change)', () => {
+    const uomLine = (overrides: Record<string, any> = {}) => ({
+      productId: 'prod1',
+      productUomId: 'uom1',
+      plannedQuantityPerUnit: 2.5,
+      baseUnit: 'KG',
+      issueUnit: 'IGNORED-BY-CLIENT',
+      ...overrides,
+    });
+
+    it('derives the persisted issueUnit from the canonical ProductUom unit code', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(null);
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.productUom.findUnique.mockResolvedValue({ id: 'uom1', productId: 'prod1', isActive: true, unit: { code: 'BALE', symbol: 'BAL' } });
+      prisma.productionProductDefinition.findUnique.mockResolvedValue({ id: 'def1', code: 'DEF1', name: 'Def' });
+      prisma.productionMaterialRequirement.create.mockResolvedValue(draftRequirement());
+
+      await service.prepare('po1', prepareDto({ lines: [uomLine()] }), 'u1', ctxA);
+
+      const line = prisma.productionMaterialRequirement.create.mock.calls[0][0].data.lines.create[0];
+      expect(line.issueUnit).toBe('BALE');
+      expect(prisma.productUom.findUnique).toHaveBeenCalledWith({ where: { id: 'uom1' }, include: { unit: true } });
+    });
+
+    it('rejects a productUom that does not exist', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(null);
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.productUom.findUnique.mockResolvedValue(null);
+      await expect(
+        service.prepare('po1', prepareDto({ lines: [uomLine()] }), 'u1', ctxA),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a productUom that belongs to a different product (no cross-product reference)', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(null);
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.productUom.findUnique.mockResolvedValue({ id: 'uom1', productId: 'other-product', isActive: true, unit: { code: 'BALE' } });
+      await expect(
+        service.prepare('po1', prepareDto({ lines: [uomLine()] }), 'u1', ctxA),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects an inactive productUom', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(null);
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.productUom.findUnique.mockResolvedValue({ id: 'uom1', productId: 'prod1', isActive: false, unit: { code: 'BALE' } });
+      await expect(
+        service.prepare('po1', prepareDto({ lines: [uomLine()] }), 'u1', ctxA),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('keeps the legacy free-text issueUnit when no productUom is supplied', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialRequirement.findFirst.mockResolvedValue(null);
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.product.findUnique.mockResolvedValue(product());
+      prisma.productionProductDefinition.findUnique.mockResolvedValue({ id: 'def1', code: 'DEF1', name: 'Def' });
+      prisma.productionMaterialRequirement.create.mockResolvedValue(draftRequirement());
+
+      await service.prepare('po1', prepareDto(), 'u1', ctxA);
+
+      expect(prisma.productUom.findUnique).not.toHaveBeenCalled();
+      const line = prisma.productionMaterialRequirement.create.mock.calls[0][0].data.lines.create[0];
+      expect(line.issueUnit).toBe('KG');
     });
   });
 

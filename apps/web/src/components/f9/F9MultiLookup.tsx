@@ -21,6 +21,7 @@ interface F9MultiLookupProps<T extends Record<string, any>> {
   error?: string;
   disabled?: boolean;
   description?: string;
+  onItemsChange?: (items: MultiLookupItem[]) => void;
 }
 
 export function F9MultiLookup<T extends Record<string, any>>({
@@ -34,6 +35,7 @@ export function F9MultiLookup<T extends Record<string, any>>({
   error,
   disabled,
   description,
+  onItemsChange,
 }: F9MultiLookupProps<T>) {
   const { t } = useTranslation();
   const { contextVersion } = useOperationalContext();
@@ -54,6 +56,11 @@ export function F9MultiLookup<T extends Record<string, any>>({
       return changed ? next : prev;
     });
   }, [items]);
+
+  useEffect(() => {
+    if (!onItemsChange) return;
+    onItemsChange(value.map((id) => ({ id, label: cache.get(id) ?? id })));
+  }, [value, cache, onItemsChange]);
 
   const labelFor = (id: string) => cache.get(id) ?? id;
 

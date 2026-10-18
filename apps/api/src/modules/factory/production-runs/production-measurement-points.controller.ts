@@ -7,7 +7,7 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { ProductionMeasurementPointsService } from './production-measurement-points.service';
-import { CreateMeasurementPointDto } from './dto/create-measurement-point.dto';
+import { CreateMeasurementPointDto, BatchCreateMeasurementPointsDto } from './dto/create-measurement-point.dto';
 import { UpdateMeasurementPointDto } from './dto/update-measurement-point.dto';
 import { MeasurementPointQueryDto } from './dto/measurement-point-query.dto';
 
@@ -22,6 +22,13 @@ export class ProductionMeasurementPointsController {
   @Permissions('production-measurement-point:create')
   create(@Body() dto: CreateMeasurementPointDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.create(dto, userId, ctx);
+  }
+
+  @Post('batch')
+  @Permissions('production-measurement-point:create')
+  @ApiOperation({ summary: 'Atomically create one measurement point per selected machine (all-or-nothing)' })
+  createBatch(@Body() dto: BatchCreateMeasurementPointsDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.createBatch(dto, userId, ctx);
   }
 
   @Get()

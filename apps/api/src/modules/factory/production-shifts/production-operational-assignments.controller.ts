@@ -9,7 +9,7 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { ProductionOperationalAssignmentsService } from './production-operational-assignments.service';
-import { CreateProductionOperationalAssignmentDto, UpdateProductionOperationalAssignmentDto, ProductionOperationalAssignmentQueryDto } from './dto/create-production-operational-assignment.dto';
+import { CreateProductionOperationalAssignmentDto, BatchCreateOperationalAssignmentDto, UpdateProductionOperationalAssignmentDto, ProductionOperationalAssignmentQueryDto } from './dto/create-production-operational-assignment.dto';
 
 @ApiTags('production-operational-assignments')
 @ApiBearerAuth()
@@ -23,6 +23,13 @@ export class ProductionOperationalAssignmentsController {
   @ApiOperation({ summary: 'Create a resource (machine/line/unit) -> shift assignment' })
   create(@Body() dto: CreateProductionOperationalAssignmentDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.assignmentsService.create(dto, userId, ctx);
+  }
+
+  @Post('batch')
+  @Permissions('production-operational-assignment:create')
+  @ApiOperation({ summary: 'Atomically create one operational assignment per target of a single resourceType (all-or-nothing)' })
+  createBatch(@Body() dto: BatchCreateOperationalAssignmentDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.assignmentsService.createBatch(dto, userId, ctx);
   }
 
   @Get()

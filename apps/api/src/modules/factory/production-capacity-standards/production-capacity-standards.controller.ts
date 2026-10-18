@@ -7,7 +7,7 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { ProductionCapacityStandardsService } from './production-capacity-standards.service';
-import { CreateProductionCapacityStandardDto } from './dto/create-production-capacity-standard.dto';
+import { CreateProductionCapacityStandardDto, BatchCreateCapacityStandardsDto } from './dto/create-production-capacity-standard.dto';
 import { UpdateProductionCapacityStandardDto } from './dto/update-production-capacity-standard.dto';
 import { ProductionCapacityStandardQueryDto } from './dto/production-capacity-standard-query.dto';
 import { ResolveProductionCapacityStandardDto } from './dto/resolve-production-capacity-standard.dto';
@@ -25,6 +25,13 @@ export class ProductionCapacityStandardsController {
   @ApiOperation({ summary: 'Create a draft product capacity standard' })
   create(@Body() dto: CreateProductionCapacityStandardDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.create(dto, userId, ctx);
+  }
+
+  @Post('batch')
+  @Permissions('production-capacity-standard:create')
+  @ApiOperation({ summary: 'Batch create draft capacity standards for multiple lines or machines (atomic)' })
+  createBatch(@Body() dto: BatchCreateCapacityStandardsDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.createBatch(dto, userId, ctx);
   }
 
   @Get()

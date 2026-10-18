@@ -4,7 +4,7 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { AuditService } from '../../audit/audit.service';
 import { NumberingService } from '../../numbering/numbering.service';
-import { CreateMeasurementPointDto } from './dto/create-measurement-point.dto';
+import { CreateMeasurementPointDto, BatchCreateMeasurementPointsDto } from './dto/create-measurement-point.dto';
 import { UpdateMeasurementPointDto } from './dto/update-measurement-point.dto';
 import { MeasurementPointQueryDto } from './dto/measurement-point-query.dto';
 import { PRODUCTION_MEASUREMENT_POINT_AUDIT_ENTITY, PRODUCTION_MEASUREMENT_POINT_NUMBER_SEQUENCE } from './production-runs.constants';
@@ -69,6 +69,102 @@ export class ProductionMeasurementPointsService {
       });
       return created;
     });
+  }
+
+  /**
+   * Atomically create one ProductionMeasurementPoint row per unique selected machine in
+   * a single all-or-nothing transaction. Every machine shares the requested line, unit,
+   * role, source, output unit and effective window, but receives its own canonical row
+   * with an auto-generated tenant-scoped code. Runs at Serializable isolation so two
+   * concurrent equivalent batches cannot both commit.
+   *
+   * Guarded invariants:
+   * - The line, unit and every machine must be ACTIVE and belong to the active
+   *   company/branch, and each machine must belong to the requested line.
+   * - A component physically belongs to one machine, so machineComponentId is only
+   *   allowed when a single machine is selected.
+   * - A line may have at most one authoritative final-output point at a time, so a
+   *   multi-machine batch cannot mark several rows authoritative.
+   */
+  async createBatch(dto: BatchCreateMeasurementPointsDto, userId: string, ctx: ActiveOperationalContext) {
+    const machineIds = Array.from(new Set((dto.machineIds ?? []).map((id) => id?.trim()).filter((id): id is string => !!id)));
+    if (machineIds.length === 0) throw new BadRequestException({ messageKey: 'production.measurementPoints.machinesRequired' });
+
+    const isMulti = machineIds.length > 1;
+    if (isMulti && dto.machineComponentId) {
+      throw new BadRequestException({ messageKey: 'production.measurementPoints.batchComponentPerMachine' });
+    }
+    if (isMulti && dto.isAuthoritativeFinal) {
+      throw new BadRequestException({ messageKey: 'production.measurementPoints.batchAuthoritativeSingleTarget' });
+    }
+
+    const effectiveFrom = dto.effectiveFrom ? new Date(dto.effectiveFrom) : new Date();
+    const effectiveTo = dto.effectiveTo ? new Date(dto.effectiveTo) : null;
+    if (!Number.isFinite(effectiveFrom.getTime()) || (effectiveTo && (!Number.isFinite(effectiveTo.getTime()) || effectiveTo < effectiveFrom))) {
+      throw new BadRequestException({ messageKey: 'productionMeasurementPoint.invalidEffectiveRange' });
+    }
+    const modulus = dto.counterModulus !== undefined && dto.counterModulus !== null ? new Prisma.Decimal(dto.counterModulus) : null;
+    if (modulus && modulus.lessThanOrEqualTo(0)) throw new BadRequestException({ messageKey: 'productionMeasurementPoint.invalidModulus' });
+    if (dto.source === 'COUNTER' && !modulus) throw new BadRequestException({ messageKey: 'productionMeasurementPoint.counterModulusRequired' });
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const resolved: Array<{ productionLineId: string; machineId: string | null; machineComponentId: string | null; productionUnitId: string }> = [];
+      for (const machineId of machineIds) {
+        const references = await this.validateReferences(
+          {
+            productionLineId: dto.productionLineId,
+            machineId,
+            machineComponentId: isMulti ? undefined : dto.machineComponentId,
+            productionUnitId: dto.productionUnitId,
+            source: dto.source,
+            counterModulus: dto.counterModulus,
+          },
+          ctx,
+          tx,
+        );
+        resolved.push(references);
+      }
+
+      const rows: any[] = [];
+      for (const references of resolved) {
+        const code = await this.numbering.generateNumberAtomicWithClient(PRODUCTION_MEASUREMENT_POINT_NUMBER_SEQUENCE, tx);
+        const codeExists = await tx.productionMeasurementPoint.findFirst({ where: { companyId: ctx.companyId, branchId: ctx.branchId, code, deletedAt: null } });
+        if (codeExists) throw new BadRequestException({ messageKey: 'productionMeasurementPoint.codeExists' });
+
+        const point = await tx.productionMeasurementPoint.create({
+          data: {
+            ...references,
+            code,
+            name: dto.name,
+            description: dto.description || null,
+            role: dto.role,
+            source: dto.source,
+            unit: dto.unit,
+            isAuthoritativeFinal: dto.isAuthoritativeFinal ?? false,
+            counterModulus: modulus,
+            effectiveFrom,
+            effectiveTo,
+            status: 'DRAFT',
+            createdById: userId,
+            updatedById: userId,
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+          },
+          include: pointInclude,
+        });
+        await this.audit.logWithClient(tx, {
+          userId,
+          action: 'CREATE',
+          entity: PRODUCTION_MEASUREMENT_POINT_AUDIT_ENTITY,
+          entityId: point.id,
+          details: { companyId: ctx.companyId, branchId: ctx.branchId, code: point.code, role: point.role, source: point.source, isAuthoritativeFinal: point.isAuthoritativeFinal, batch: true },
+        });
+        rows.push(point);
+      }
+      return rows;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    return { data: created, count: created.length };
   }
 
   async findAll(query: MeasurementPointQueryDto, ctx: ActiveOperationalContext) {

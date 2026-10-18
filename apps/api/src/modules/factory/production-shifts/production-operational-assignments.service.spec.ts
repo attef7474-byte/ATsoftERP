@@ -74,9 +74,13 @@ describe('ProductionOperationalAssignmentsService', () => {
         update: jest.fn(),
         count: jest.fn(),
       },
+      $transaction: jest.fn((fn: any, _opts?: any) => fn(prisma)),
     };
-    audit = { log: jest.fn().mockResolvedValue(undefined) };
-    numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('POA-000001') };
+    audit = { log: jest.fn().mockResolvedValue(undefined), logWithClient: jest.fn().mockResolvedValue(undefined) };
+    numbering = {
+      generateNumberAtomic: jest.fn().mockResolvedValue('POA-000001'),
+      generateNumberAtomicWithClient: jest.fn().mockResolvedValue('POA-000001'),
+    };
     service = new ProductionOperationalAssignmentsService(prisma, audit, numbering);
   });
 
@@ -282,6 +286,138 @@ describe('ProductionOperationalAssignmentsService', () => {
         }),
       );
       expect(result.meta.total).toBe(1);
+    });
+  });
+
+  describe('createBatch', () => {
+    const primeHappyPath = () => {
+      prisma.company.findUnique.mockResolvedValue({ id: 'c1' });
+      prisma.productionShift.findFirst.mockResolvedValue({ id: 's1', status: 'ACTIVE' });
+      prisma.machine.findUnique.mockImplementation(({ where }: any) => Promise.resolve({ id: where.id, companyId: 'c1', branchId: 'b1' }));
+      prisma.productionLine.findFirst.mockImplementation(({ where }: any) => Promise.resolve({ id: where.id, companyId: 'c1', branchId: 'b1' }));
+      prisma.productionUnit.findFirst.mockImplementation(({ where }: any) => Promise.resolve({ id: where.id, companyId: 'c1', branchId: 'b1' }));
+      prisma.productionOperationalAssignment.findUnique.mockResolvedValue(null);
+      prisma.productionOperationalAssignment.findFirst.mockResolvedValue(null);
+      prisma.productionOperationalAssignment.create.mockImplementation(({ data }: any) =>
+        Promise.resolve(assignment({ ...data, id: `oa-${data.machineId || data.productionLineId || data.productionUnitId}` })),
+      );
+    };
+
+    it('O1 creates one canonical row per machine', async () => {
+      primeHappyPath();
+      const res = await service.createBatch({ resourceType: 'MACHINE', resourceIds: ['m1', 'm2', 'm3'], effectiveFrom: '2026-01-01' }, 'u1', ctxA);
+      expect(res.count).toBe(3);
+      expect(prisma.productionOperationalAssignment.create).toHaveBeenCalledTimes(3);
+      expect(prisma.machine.findUnique).toHaveBeenCalledTimes(3);
+    });
+
+    it('O2 creates one canonical row per line (LINE stays at LINE scope)', async () => {
+      primeHappyPath();
+      const res = await service.createBatch({ resourceType: 'LINE', resourceIds: ['l1', 'l2'], effectiveFrom: '2026-01-01' }, 'u1', ctxA);
+      expect(res.count).toBe(2);
+      for (const call of prisma.productionOperationalAssignment.create.mock.calls) {
+        expect(call[0].data.productionLineId).toBeTruthy();
+        expect(call[0].data.machineId).toBeNull();
+        expect(call[0].data.productionUnitId).toBeNull();
+      }
+      expect(prisma.machine.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('O3 creates one canonical row per ProductionUnit', async () => {
+      primeHappyPath();
+      const res = await service.createBatch({ resourceType: 'UNIT', resourceIds: ['u1', 'u2'], effectiveFrom: '2026-01-01' }, 'u1', ctxA);
+      expect(res.count).toBe(2);
+      for (const call of prisma.productionOperationalAssignment.create.mock.calls) {
+        expect(call[0].data.productionUnitId).toBeTruthy();
+      }
+      expect(prisma.productionUnit.findFirst).toHaveBeenCalledTimes(2);
+    });
+
+    it('O4 rejects an unknown / mixed resource type', async () => {
+      primeHappyPath();
+      await expect(
+        service.createBatch({ resourceType: 'ROBOT', resourceIds: ['x'], effectiveFrom: '2026-01-01' }, 'u1', ctxA),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.productionOperationalAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('O5 dedupes repeated target ids', async () => {
+      primeHappyPath();
+      const res = await service.createBatch({ resourceType: 'MACHINE', resourceIds: ['m1', 'm1', 'm2'], effectiveFrom: '2026-01-01' }, 'u1', ctxA);
+      expect(res.count).toBe(2);
+      expect(prisma.productionOperationalAssignment.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('O6 rolls back all when any target is invalid', async () => {
+      primeHappyPath();
+      prisma.machine.findUnique.mockImplementation(({ where }: any) =>
+        Promise.resolve(where.id === 'm2' ? null : { id: where.id, companyId: 'c1', branchId: 'b1' }),
+      );
+      await expect(
+        service.createBatch({ resourceType: 'MACHINE', resourceIds: ['m1', 'm2', 'm3'], effectiveFrom: '2026-01-01' }, 'u1', ctxA),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.productionOperationalAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('O7 enforces tenant scope of every target', async () => {
+      primeHappyPath();
+      prisma.machine.findUnique.mockImplementation(({ where }: any) =>
+        Promise.resolve({ id: where.id, companyId: where.id === 'm2' ? 'c2' : 'c1', branchId: 'b1' }),
+      );
+      await expect(
+        service.createBatch({ resourceType: 'MACHINE', resourceIds: ['m1', 'm2'], effectiveFrom: '2026-01-01' }, 'u1', ctxA),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.productionOperationalAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('O8 propagates the shared isPrimary flag to every row', async () => {
+      primeHappyPath();
+      await service.createBatch({ resourceType: 'MACHINE', resourceIds: ['m1', 'm2'], effectiveFrom: '2026-01-01', isPrimary: true }, 'u1', ctxA);
+      for (const call of prisma.productionOperationalAssignment.create.mock.calls) {
+        expect(call[0].data.isPrimary).toBe(true);
+      }
+    });
+
+    it('O9 applies the shared capacityPerShift to every created row', async () => {
+      primeHappyPath();
+      await service.createBatch({ resourceType: 'MACHINE', resourceIds: ['m1', 'm2'], effectiveFrom: '2026-01-01', capacityPerShift: 250 }, 'u1', ctxA);
+      for (const call of prisma.productionOperationalAssignment.create.mock.calls) {
+        expect(call[0].data.capacityPerShift).toBe(250);
+      }
+    });
+
+    it('O10 runs the batch at Serializable isolation for concurrent-duplicate safety', async () => {
+      primeHappyPath();
+      await service.createBatch({ resourceType: 'MACHINE', resourceIds: ['m1', 'm2'], effectiveFrom: '2026-01-01' }, 'u1', ctxA);
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.$transaction.mock.calls[0][1]).toEqual(expect.objectContaining({ isolationLevel: 'Serializable' }));
+    });
+
+    it('O11 writes one audit event per created row', async () => {
+      primeHappyPath();
+      await service.createBatch({ resourceType: 'MACHINE', resourceIds: ['m1', 'm2', 'm3'], effectiveFrom: '2026-01-01' }, 'u1', ctxA);
+      expect(audit.logWithClient).toHaveBeenCalledTimes(3);
+    });
+
+    it('O12 rolls back all when any target overlaps and writes tenant-scoped rows', async () => {
+      primeHappyPath();
+      await service.createBatch({ resourceType: 'MACHINE', resourceIds: ['m1', 'm2'], effectiveFrom: '2026-01-01' }, 'u1', ctxA);
+      expect(prisma.productionOperationalAssignment.findFirst).toHaveBeenCalledTimes(2);
+      expect(prisma.productionOperationalAssignment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ companyId: 'c1', branchId: 'b1', resourceType: 'MACHINE' }),
+        }),
+      );
+
+      prisma.productionOperationalAssignment.create.mockClear();
+      prisma.productionOperationalAssignment.findFirst.mockReset();
+      prisma.productionOperationalAssignment.findFirst.mockImplementation(({ where }: any) =>
+        Promise.resolve(where.machineId === 'm2' ? assignment({ id: 'oa-existing', machineId: 'm2' }) : null),
+      );
+      await expect(
+        service.createBatch({ resourceType: 'MACHINE', resourceIds: ['m1', 'm2'], effectiveFrom: '2026-01-01' }, 'u1', ctxA),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.productionOperationalAssignment.create).not.toHaveBeenCalled();
     });
   });
 });

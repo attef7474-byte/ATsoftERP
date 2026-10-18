@@ -9,7 +9,7 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { ProductionShiftAssignmentsService } from './production-shift-assignments.service';
-import { CreateProductionShiftAssignmentDto, UpdateProductionShiftAssignmentDto, ProductionShiftAssignmentQueryDto } from './dto/create-production-shift-assignment.dto';
+import { CreateProductionShiftAssignmentDto, BatchCreateShiftAssignmentDto, UpdateProductionShiftAssignmentDto, ProductionShiftAssignmentQueryDto } from './dto/create-production-shift-assignment.dto';
 
 @ApiTags('production-shift-assignments')
 @ApiBearerAuth()
@@ -20,9 +20,16 @@ export class ProductionShiftAssignmentsController {
 
   @Post()
   @Permissions('production-shift-assignment:create')
-  @ApiOperation({ summary: 'Create a person->shift assignment' })
+  @ApiOperation({ summary: 'Create a shift assignment' })
   create(@Body() dto: CreateProductionShiftAssignmentDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.assignmentsService.create(dto, userId, ctx);
+  }
+
+  @Post('batch')
+  @Permissions('production-shift-assignment:create')
+  @ApiOperation({ summary: 'Atomically create one shift assignment per operational person (all-or-nothing)' })
+  createBatch(@Body() dto: BatchCreateShiftAssignmentDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.assignmentsService.createBatch(dto, userId, ctx);
   }
 
   @Get()

@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
 import { NumberingService } from '../../numbering/numbering.service';
 import {
   CreateProductionOperationalAssignmentDto,
+  BatchCreateOperationalAssignmentDto,
   UpdateProductionOperationalAssignmentDto,
   ProductionOperationalAssignmentQueryDto,
 } from './dto/create-production-operational-assignment.dto';
@@ -55,13 +57,14 @@ export class ProductionOperationalAssignmentsService {
     productionLineId: string | undefined,
     productionUnitId: string | undefined,
     ctx: ActiveOperationalContext,
+    client: any = this.prisma,
   ): Promise<{ machineId: string | null; productionLineId: string | null; productionUnitId: string | null }> {
     const type = resourceType.toUpperCase();
     if (type === 'MACHINE') {
       if (!machineId || productionLineId || productionUnitId) {
         throw this.validationError('machineId', 'production.resourceConflict', 'MACHINE assignment requires machineId and no line/unit');
       }
-      const machine = await this.prisma.machine.findUnique({ where: { id: machineId } });
+      const machine = await client.machine.findUnique({ where: { id: machineId } });
       if (!machine) throw this.validationError('machineId', 'validation.invalidReference', 'Machine not found');
       if (machine.companyId && machine.companyId !== ctx.companyId) {
         throw this.validationError('machineId', 'validation.invalidReference', 'Machine belongs to another company');
@@ -75,7 +78,7 @@ export class ProductionOperationalAssignmentsService {
       if (!productionLineId || machineId || productionUnitId) {
         throw this.validationError('productionLineId', 'production.resourceConflict', 'LINE assignment requires productionLineId and no machine/unit');
       }
-      const line = await this.prisma.productionLine.findFirst({
+      const line = await client.productionLine.findFirst({
         where: { id: productionLineId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
       });
       if (!line) throw this.validationError('productionLineId', 'validation.invalidReference', 'Production line not found in tenant context');
@@ -85,7 +88,7 @@ export class ProductionOperationalAssignmentsService {
       if (!productionUnitId || machineId || productionLineId) {
         throw this.validationError('productionUnitId', 'production.resourceConflict', 'UNIT assignment requires productionUnitId and no machine/line');
       }
-      const unit = await this.prisma.productionUnit.findFirst({
+      const unit = await client.productionUnit.findFirst({
         where: { id: productionUnitId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
       });
       if (!unit) throw this.validationError('productionUnitId', 'validation.invalidReference', 'Production unit not found in tenant context');
@@ -94,12 +97,20 @@ export class ProductionOperationalAssignmentsService {
     throw this.validationError('resourceType', 'production.invalidResourceType', 'resourceType must be MACHINE, LINE or UNIT');
   }
 
-  private async validateShift(shiftId: string | undefined, ctx: ActiveOperationalContext): Promise<void> {
+  private async validateShift(shiftId: string | undefined, ctx: ActiveOperationalContext, client: any = this.prisma): Promise<void> {
     if (!shiftId) return;
-    const shift = await this.prisma.productionShift.findFirst({
+    const shift = await client.productionShift.findFirst({
       where: { id: shiftId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
     });
     if (!shift) throw this.validationError('shiftId', 'validation.invalidReference', 'Production shift not found in tenant context');
+  }
+
+  private resourceArgFor(resourceType: string, id: string): { machineId?: string; productionLineId?: string; productionUnitId?: string } {
+    const type = resourceType.toUpperCase();
+    if (type === 'MACHINE') return { machineId: id };
+    if (type === 'LINE') return { productionLineId: id };
+    if (type === 'UNIT') return { productionUnitId: id };
+    throw this.validationError('resourceType', 'production.invalidResourceType', 'resourceType must be MACHINE, LINE or UNIT');
   }
 
   private assignmentIncludes() {
@@ -169,6 +180,101 @@ export class ProductionOperationalAssignmentsService {
     });
     await this.audit.log(userId, 'CREATE', 'ProductionOperationalAssignment', assignment.id, { code: assignment.code, resourceType: assignment.resourceType });
     return assignment;
+  }
+
+  /**
+   * Atomically assigns one shared shift/period to several targets of a SINGLE resourceType
+   * (MACHINE, LINE or UNIT). Each target becomes its own canonical
+   * ProductionOperationalAssignment row — the batch is an input convenience, never a
+   * many-to-many column. Lines stay at LINE scope; units stay ProductionUnit-scoped. The
+   * whole request is all-or-nothing and runs at Serializable isolation so two concurrent
+   * equivalent batches cannot both commit.
+   */
+  async createBatch(dto: BatchCreateOperationalAssignmentDto, userId: string, ctx: ActiveOperationalContext) {
+    const company = await this.prisma.company.findUnique({ where: { id: ctx.companyId } });
+    if (!company) throw new NotFoundException({ messageKey: 'organization.companyNotFound', message: 'Company not found' });
+
+    const type = dto.resourceType.toUpperCase();
+    if (!['MACHINE', 'LINE', 'UNIT'].includes(type)) {
+      throw this.validationError('resourceType', 'production.invalidResourceType', 'resourceType must be MACHINE, LINE or UNIT');
+    }
+
+    const resourceIds = Array.from(new Set((dto.resourceIds ?? []).map((id) => id?.trim()).filter((id): id is string => !!id)));
+    if (resourceIds.length === 0) {
+      throw this.validationError('resourceIds', 'validation.required', 'At least one resource is required');
+    }
+    const dates = this.parseDates(dto.effectiveFrom, dto.effectiveTo);
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      await this.validateShift(dto.shiftId, ctx, tx);
+
+      const resolved: Array<{ machineId: string | null; productionLineId: string | null; productionUnitId: string | null }> = [];
+      for (const id of resourceIds) {
+        const arg = this.resourceArgFor(type, id);
+        const resource = await this.validateResources(type, arg.machineId, arg.productionLineId, arg.productionUnitId, ctx, tx);
+        resolved.push(resource);
+      }
+
+      for (const resource of resolved) {
+        const conflict = await tx.productionOperationalAssignment.findFirst({
+          where: {
+            resourceType: type,
+            machineId: resource.machineId,
+            productionLineId: resource.productionLineId,
+            productionUnitId: resource.productionUnitId,
+            deletedAt: null,
+            status: 'ACTIVE',
+            effectiveFrom: { lte: dates.effectiveTo ?? dates.effectiveFrom },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: dates.effectiveFrom } }],
+          },
+        });
+        if (conflict) {
+          throw new BadRequestException({
+            messageKey: 'production.operationalAssignmentConflict',
+            message: 'Resource already has an overlapping operational assignment for this period',
+            errors: [{ field: 'resourceIds', code: 'production.operationalAssignmentConflict', message: `Overlapping operational assignment detected for one of the requested resources` }],
+          });
+        }
+      }
+
+      const rows: any[] = [];
+      for (const item of resolved) {
+        const code = await this.numberingService.generateNumberAtomicWithClient('PRODUCTION_OPERATIONAL_ASSIGNMENT', tx);
+        const codeExists = await tx.productionOperationalAssignment.findUnique({ where: { code } });
+        if (codeExists) throw this.validationError('code', 'production.codeExists', 'Assignment code already exists');
+
+        const assignment = await tx.productionOperationalAssignment.create({
+          data: {
+            code,
+            resourceType: type,
+            machineId: item.machineId,
+            productionLineId: item.productionLineId,
+            productionUnitId: item.productionUnitId,
+            shiftId: dto.shiftId ?? null,
+            capacityPerShift: dto.capacityPerShift ?? null,
+            effectiveFrom: dates.effectiveFrom,
+            effectiveTo: dates.effectiveTo,
+            isPrimary: dto.isPrimary ?? false,
+            notes: dto.notes ?? null,
+            createdById: userId,
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+          },
+          include: this.assignmentIncludes(),
+        });
+        await this.audit.logWithClient(tx, {
+          userId,
+          action: 'CREATE',
+          entity: 'ProductionOperationalAssignment',
+          entityId: assignment.id,
+          details: { code: assignment.code, resourceType: type, batch: true },
+        });
+        rows.push(assignment);
+      }
+      return rows;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    return { data: created, count: created.length };
   }
 
   async findAll(query: ProductionOperationalAssignmentQueryDto, ctx: ActiveOperationalContext) {

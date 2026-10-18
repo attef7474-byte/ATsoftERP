@@ -10,6 +10,7 @@ import { ProductionPerformanceTargetsService } from './production-performance-ta
 import { PerformanceTargetQueryDto } from './dto/analytics-query.dto';
 import {
   ApprovePerformanceTargetDto,
+  BatchCreatePerformanceTargetsDto,
   CreatePerformanceTargetDto,
   DeactivatePerformanceTargetDto,
   DeletePerformanceTargetDto,
@@ -29,6 +30,13 @@ export class ProductionPerformanceTargetsController {
   @ApiOperation({ summary: 'Create a draft OEE performance target' })
   create(@Body() dto: CreatePerformanceTargetDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.create(dto, userId, ctx);
+  }
+
+  @Post('batch')
+  @Permissions('production-performance-target:create')
+  @ApiOperation({ summary: 'Batch create draft OEE performance targets (one row per selected target, all-or-nothing)' })
+  createBatch(@Body() dto: BatchCreatePerformanceTargetsDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.createBatch(dto, userId, ctx);
   }
 
   @Get()

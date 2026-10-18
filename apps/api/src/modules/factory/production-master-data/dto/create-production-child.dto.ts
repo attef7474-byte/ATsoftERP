@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber, IsInt, IsDecimal } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber, IsInt, IsDecimal, IsIn, IsArray, ArrayNotEmpty, ArrayMaxSize, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -62,4 +62,27 @@ export class CreateEligibilityDto {
   @IsOptional() @IsBoolean() isDefault?: boolean;
 
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+}
+
+/**
+ * Batch (multi-select) eligibility creation for ONE product definition.
+ *
+ * Multi-select is an input convenience only: each selected resource produces exactly one
+ * canonical ProductionEligibility row. The whole request is atomic — if any resource is
+ * invalid or already present, nothing is written.
+ */
+export class BatchCreateEligibilityDto {
+  @ApiProperty({ enum: ['MACHINE', 'LINE'] })
+  @IsIn(['MACHINE', 'LINE']) resourceType!: string;
+
+  @ApiProperty({ type: [String], description: 'Machine or production-line ids (one per eligibility row)' })
+  @IsArray() @ArrayNotEmpty() @ArrayMaxSize(200) @IsString({ each: true }) resourceIds!: string[];
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional() @Type(() => Number) @IsNumber() @IsInt() priority?: number;
+
+  @ApiPropertyOptional({ default: false, description: 'Only allowed when a single resource is selected' })
+  @IsOptional() @IsBoolean() isDefault?: boolean;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(1000) notes?: string;
 }
