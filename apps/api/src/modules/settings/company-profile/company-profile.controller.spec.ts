@@ -1,7 +1,7 @@
 import { ForbiddenException } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import { Reflector } from '@nestjs/core'
-import { PermissionsGuard } from '../../../common/guards/permissions.guard'
+import { PermissionsGuard } from '../../auth/guards/permissions.guard'
 import { PrismaService } from '../../../common/prisma/prisma.service'
 import { CompanyProfileController } from './company-profile.controller'
 

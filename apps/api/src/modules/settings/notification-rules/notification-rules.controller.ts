@@ -2,7 +2,7 @@ import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } f
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger'
 import { NotificationRulesService } from './notification-rules.service'
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
-import { PermissionsGuard } from '../../../common/guards/permissions.guard'
+import { PermissionsGuard } from '../../auth/guards/permissions.guard'
 import { Permissions } from '../../../common/decorators/permissions.decorator'
 import { CreateNotificationRuleDto } from './dto/create-notification-rule.dto'
 import { UpdateNotificationRuleDto } from './dto/update-notification-rule.dto'

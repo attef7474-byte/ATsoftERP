@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../../../../common/guards/permissions.guard';
+import { PermissionsGuard } from '../../../auth/guards/permissions.guard';
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
 import { MaintenanceSlaService } from './maintenance-sla.service';
 import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';

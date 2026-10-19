@@ -2,7 +2,7 @@ import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
 import { LanguageService } from './language.service'
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
-import { PermissionsGuard } from '../../../common/guards/permissions.guard'
+import { PermissionsGuard } from '../../auth/guards/permissions.guard'
 import { Permissions } from '../../../common/decorators/permissions.decorator'
 import { UpdateLanguageSettingsDto } from '../dto/update-language-settings.dto'
 

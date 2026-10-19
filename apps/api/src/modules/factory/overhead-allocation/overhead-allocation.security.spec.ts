@@ -3,7 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { Reflector } from '@nestjs/core';
 import { ForbiddenException } from '@nestjs/common';
-import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PERMISSIONS_KEY } from '../../../common/decorators/permissions.decorator';
 import { OverheadAllocationController } from './overhead-allocation.controller';
 import { AllocationActionDto, AllocationNotesDto, AllocationPageDto, CreateOverheadAllocationDto } from './overhead-allocation.dto';

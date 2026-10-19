@@ -9,7 +9,7 @@ import { OverheadPeriodQueryDto } from './dto/overhead-period.dto';
 import { isOverheadAmount } from './dto/overhead-amount.validator';
 import { OperationalOverheadController } from './operational-overhead.controller';
 import { OperationalOverheadService } from './operational-overhead.service';
-import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PERMISSIONS_KEY } from '../../../common/decorators/permissions.decorator';
 import { OVERHEAD_PERMISSION_KEYS } from './operational-overhead.constants';
 

@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagg
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Permissions } from '../../../common/decorators/permissions.decorator';
 import { ArchiveReadable } from '../../../common/decorators/archive-readable.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';

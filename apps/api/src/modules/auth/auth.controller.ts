@@ -8,7 +8,7 @@ import { LoginRateLimitGuard } from './guards/login-rate-limit.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
-import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
 import { CurrentUserType } from './types/current-user.type';
 import { ValidateOperationalContextDto } from './dto/validate-operational-context.dto';
 import { OperationalContextOptional } from '../../common/operational-context/operational-context-optional.decorator';
