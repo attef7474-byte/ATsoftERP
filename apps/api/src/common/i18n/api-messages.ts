@@ -178,6 +178,9 @@ const messages: Record<string, { ar: string; en: string }> = {
   'products.uomInvalidReference': { ar: 'وحدة التعبئة المحددة لا تصلح لهذا المنتج', en: 'The selected packaging unit is not usable for this product' },
   'products.uomInactive': { ar: 'وحدة التعبئة المحددة غير نشطة', en: 'The selected packaging unit is inactive' },
   'products.uomBaseUnitLocked': { ar: 'لا يمكن تغيير وحدة المخزون الأساسية بعد وجود حركات أو أرصدة مخزنية للمنتج', en: 'The base inventory unit cannot be changed after inventory history exists for this product' },
+  'products.codeExists': { ar: 'كود المنتج موجود مسبقاً', en: 'Product code already exists' },
+  'production.codeExists': { ar: 'المرجع الإنتاجي للمنتج موجود مسبقاً', en: 'Production product reference already exists' },
+  'production.codeRequired': { ar: 'تعذّر توليد المرجع الإنتاجي للمنتج', en: 'A production reference could not be generated' },
 
   'maintenance.requestNotFound': { ar: 'طلب الصيانة غير موجود', en: 'Maintenance request not found' },
   'maintenance.workOrderNotFound': { ar: 'أمر الصيانة غير موجود', en: 'Maintenance work order not found' },

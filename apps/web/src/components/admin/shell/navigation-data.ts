@@ -315,8 +315,8 @@ export const sidebarGroups: SidebarGroup[] = [
   {
     id: 'production', labelKey: 'navigation.production', icon: 'production', items: [
       {
-        id: 'prd-ws-products', labelKey: 'production.productsWorkspace', route: '/admin/production/product-definitions',
-        permissions: ['production-product:read', 'production-unit:read', 'production-capacity-standard:read'],
+      id: 'prd-ws-products', labelKey: 'production.productsWorkspace', route: '/admin/production/product-definitions',
+      permissions: ['products:read', 'production-product:read', 'production-unit:read', 'production-capacity-standard:read'],
       },
       {
         id: 'prd-ws-shifts', labelKey: 'production.shiftsWorkspace', route: '/admin/production/shifts',

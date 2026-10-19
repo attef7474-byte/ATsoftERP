@@ -43,8 +43,8 @@ export class ProductionProductDefinitionsService {
     return definition;
   }
 
-  private async validateProduct(productId: string) {
-    const product = await this.prisma.product.findUnique({ where: { id: productId } });
+  private async validateProduct(productId: string, client: any = this.prisma) {
+    const product = await client.product.findUnique({ where: { id: productId } });
     if (!product) throw this.validationError('productId', 'validation.invalidReference', 'Product not found');
     if (product.status === 'INACTIVE') {
       throw this.validationError('productId', 'validation.invalidReference', 'Product is inactive');
@@ -52,25 +52,25 @@ export class ProductionProductDefinitionsService {
     return product;
   }
 
-  private async validateUnit(unitId: string | undefined, field: string, ctx: ActiveOperationalContext) {
+  private async validateUnit(unitId: string | undefined, field: string, ctx: ActiveOperationalContext, client: any = this.prisma) {
     if (!unitId) return;
-    const unit = await this.prisma.productionUnit.findFirst({
+    const unit = await client.productionUnit.findFirst({
       where: { id: unitId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
     });
     if (!unit) throw this.validationError(field, 'validation.invalidReference', 'Production unit not found in tenant context');
   }
 
-  private async validateLine(lineId: string | undefined, field: string, ctx: ActiveOperationalContext) {
+  private async validateLine(lineId: string | undefined, field: string, ctx: ActiveOperationalContext, client: any = this.prisma) {
     if (!lineId) return;
-    const line = await this.prisma.productionLine.findFirst({
+    const line = await client.productionLine.findFirst({
       where: { id: lineId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
     });
     if (!line) throw this.validationError(field, 'validation.invalidReference', 'Production line not found in tenant context');
   }
 
-  private async validateWarehouse(warehouseId: string | undefined, field: string, ctx: ActiveOperationalContext) {
+  private async validateWarehouse(warehouseId: string | undefined, field: string, ctx: ActiveOperationalContext, client: any = this.prisma) {
     if (!warehouseId) return;
-    const warehouse = await this.prisma.warehouse.findUnique({ where: { id: warehouseId } });
+    const warehouse = await client.warehouse.findUnique({ where: { id: warehouseId } });
     if (!warehouse) throw this.validationError(field, 'validation.invalidReference', 'Warehouse not found');
     if (warehouse.companyId !== ctx.companyId) {
       throw this.validationError(field, 'validation.invalidReference', 'Warehouse belongs to another company');
@@ -80,15 +80,145 @@ export class ProductionProductDefinitionsService {
     }
   }
 
-  private async validateCostCenter(costCenterId: string | undefined, field: string, ctx: ActiveOperationalContext) {
+  private async validateCostCenter(costCenterId: string | undefined, field: string, ctx: ActiveOperationalContext, client: any = this.prisma) {
     if (!costCenterId) return;
-    const costCenter = await this.prisma.costCenter.findUnique({ where: { id: costCenterId } });
+    const costCenter = await client.costCenter.findUnique({ where: { id: costCenterId } });
     if (!costCenter) throw this.validationError(field, 'validation.invalidReference', 'Cost center not found');
     if (costCenter.companyId && costCenter.companyId !== ctx.companyId) {
       throw this.validationError(field, 'validation.invalidReference', 'Cost center belongs to another company');
     }
     if (costCenter.branchId && costCenter.branchId !== ctx.branchId) {
       throw this.validationError(field, 'validation.invalidReference', 'Cost center belongs to another branch');
+    }
+  }
+
+  /** Auto-generated production-internal reference (never the SKU code). */
+  async generateDefinitionCode(): Promise<string> {
+    return this.numberingService.generateNumberAtomic('PRODUCTION_PRODUCT');
+  }
+
+  /** Whether the product already has a production configuration in this tenant context. */
+  async hasDefinitionFor(productId: string, ctx: ActiveOperationalContext): Promise<boolean> {
+    const found = await this.prisma.productionProductDefinition.findFirst({
+      where: { productId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
+      select: { id: true },
+    });
+    return !!found;
+  }
+
+  /**
+   * Canonical production configuration write used by the unified Product
+   * create/update transaction. The definition never carries its own product
+   * identity: `name` is always mirrored from the authoritative Product name and
+   * the code is an internally generated reference.
+   */
+  async applyForProductInTx(
+    tx: any,
+    input: {
+      productId: string;
+      productName: string;
+      productStatus?: string;
+      enabled: boolean;
+      code?: string | null;
+      notes?: string;
+      defaultUnitId?: string;
+      defaultLineId?: string;
+      defaultWarehouseId?: string;
+      defaultCostCenterId?: string;
+    },
+    userId: string,
+    ctx: ActiveOperationalContext,
+  ) {
+    const existing = await tx.productionProductDefinition.findFirst({
+      where: { productId: input.productId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (!input.enabled) {
+      if (!existing) return null;
+      const deactivated = await tx.productionProductDefinition.update({
+        where: { id: existing.id },
+        data: { status: 'INACTIVE', name: input.productName },
+      });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'DEACTIVATE',
+        entity: 'ProductionProductDefinition',
+        entityId: existing.id,
+        details: { productId: input.productId, via: 'product-form' },
+      });
+      return deactivated;
+    }
+
+    if (input.productStatus === 'INACTIVE') {
+      throw this.validationError('productId', 'validation.invalidReference', 'Product is inactive');
+    }
+
+    await this.validateUnit(input.defaultUnitId, 'defaultUnitId', ctx, tx);
+    await this.validateLine(input.defaultLineId, 'defaultLineId', ctx, tx);
+    await this.validateWarehouse(input.defaultWarehouseId, 'defaultWarehouseId', ctx, tx);
+    await this.validateCostCenter(input.defaultCostCenterId, 'defaultCostCenterId', ctx, tx);
+
+    if (existing) {
+      const updated = await tx.productionProductDefinition.update({
+        where: { id: existing.id },
+        data: {
+          name: input.productName,
+          status: 'ACTIVE',
+          ...(input.notes !== undefined ? { description: input.notes || null } : {}),
+          ...(input.defaultUnitId !== undefined ? { defaultUnitId: input.defaultUnitId || null } : {}),
+          ...(input.defaultLineId !== undefined ? { defaultLineId: input.defaultLineId || null } : {}),
+          ...(input.defaultWarehouseId !== undefined ? { defaultWarehouseId: input.defaultWarehouseId || null } : {}),
+          ...(input.defaultCostCenterId !== undefined ? { defaultCostCenterId: input.defaultCostCenterId || null } : {}),
+        },
+      });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'UPDATE',
+        entity: 'ProductionProductDefinition',
+        entityId: existing.id,
+        details: { productId: input.productId, via: 'product-form' },
+      });
+      return updated;
+    }
+
+    const code = input.code?.trim();
+    if (!code) {
+      throw this.validationError('code', 'production.codeRequired', 'A production reference could not be generated');
+    }
+
+    try {
+      const created = await tx.productionProductDefinition.create({
+        data: {
+          code,
+          name: input.productName,
+          description: input.notes ?? null,
+          productId: input.productId,
+          defaultUnitId: input.defaultUnitId ?? null,
+          defaultLineId: input.defaultLineId ?? null,
+          defaultWarehouseId: input.defaultWarehouseId ?? null,
+          defaultCostCenterId: input.defaultCostCenterId ?? null,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          createdById: userId,
+        },
+      });
+      await this.audit.logWithClient(tx, {
+        userId,
+        action: 'CREATE',
+        entity: 'ProductionProductDefinition',
+        entityId: created.id,
+        details: { productId: input.productId, code: created.code, via: 'product-form' },
+      });
+      return created;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException({
+          messageKey: 'production.codeExists',
+          message: 'Production product code already exists',
+        });
+      }
+      throw error;
     }
   }
 
@@ -109,7 +239,7 @@ export class ProductionProductDefinitionsService {
     const definition = await this.prisma.productionProductDefinition.create({
       data: {
         code,
-        name: dto.name?.trim() || product.name,
+        name: product.name,
         description: dto.description ?? null,
         productId: dto.productId,
         defaultUnitId: dto.defaultUnitId ?? null,
@@ -200,8 +330,10 @@ export class ProductionProductDefinitionsService {
   }
 
   async update(id: string, dto: UpdateProductionProductDefinitionDto, userId: string, ctx: ActiveOperationalContext) {
-    await this.findOwned(id, ctx);
-    if (dto.productId) await this.validateProduct(dto.productId);
+    const current = await this.findOwned(id, ctx);
+    const product = dto.productId
+      ? await this.validateProduct(dto.productId)
+      : await this.prisma.product.findUnique({ where: { id: current.productId } });
     await this.validateUnit(dto.defaultUnitId, 'defaultUnitId', ctx);
     await this.validateLine(dto.defaultLineId, 'defaultLineId', ctx);
     await this.validateWarehouse(dto.defaultWarehouseId, 'defaultWarehouseId', ctx);
@@ -210,7 +342,9 @@ export class ProductionProductDefinitionsService {
     const definition = await this.prisma.productionProductDefinition.update({
       where: { id },
       data: {
-        name: dto.name !== undefined ? dto.name.trim() : undefined,
+        // Identity mirror: the definition name always follows the authoritative Product name.
+        // A client-supplied `name` is intentionally ignored so a second product identity can never be created.
+        name: product?.name ?? undefined,
         description: dto.description !== undefined ? dto.description : undefined,
         productId: dto.productId !== undefined ? dto.productId : undefined,
         defaultUnitId: dto.defaultUnitId !== undefined ? (dto.defaultUnitId || null) : undefined,

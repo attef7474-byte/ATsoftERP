@@ -4,14 +4,16 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useAuthorizedTabs, resolveActiveTab } from '../../../../lib/use-authorized-tabs';
 import { PageHeader, Tabs, TabPanel } from '../../../../components/admin/ui';
+import { ProductsWorkspace } from '../../../../components/inventory/products/products-workspace';
 import { ProductDefinitionsPanel } from '../../../../components/factory/unified-production/product-definitions-panel';
 import { UnitsPanel } from '../../../../components/factory/unified-production/units-panel';
 import { CapacityStandardsPanel } from '../../../../components/factory/unified-production/capacity-standards-panel';
 
-type UnifiedTab = 'product-definitions' | 'units' | 'capacity-standards';
+type UnifiedTab = 'products' | 'product-definitions' | 'units' | 'capacity-standards';
 
-const TAB_ORDER = ['product-definitions', 'units', 'capacity-standards'] as const;
+const TAB_ORDER = ['products', 'product-definitions', 'units', 'capacity-standards'] as const;
 const TAB_PERMISSIONS: Record<UnifiedTab, string> = {
+  products: 'products:read',
   'product-definitions': 'production-product:read',
   units: 'production-unit:read',
   'capacity-standards': 'production-capacity-standard:read',
@@ -20,11 +22,14 @@ const TAB_PERMISSIONS: Record<UnifiedTab, string> = {
 /**
  * Unified Products workspace.
  *
- * Product definitions and their production units are the same daily setup task (defining
- * what the factory makes and in which counting units), so they share one workspace instead
- * of two competing sidebar screens. The former standalone /admin/production/units route is
- * preserved as a redirect stub so bookmarks keep working. Tabs the operator is not
- * authorized for are hidden and never become the landing tab.
+ * Products and their production configuration are one daily setup task (defining
+ * what the factory makes, in which units, and how it is produced). The products tab
+ * renders the SAME canonical product workspace as /admin/inventory/products so the
+ * product identity is created and edited in exactly one place; the production-configuration
+ * tab is a read/list view of the tenant-scoped production definitions and their process
+ * children (specifications, versions, packaging, eligibility). The former standalone
+ * /admin/production/units route is preserved as a redirect stub so bookmarks keep working.
+ * Tabs the operator lacks permission for are hidden and never become the landing tab.
  */
 export default function ProductionProductsWorkspacePage() {
   const { t } = useTranslation();
@@ -35,10 +40,10 @@ export default function ProductionProductsWorkspacePage() {
   });
 
   const requested = searchParams?.get('tab');
-  const [tab, setTab] = useState<UnifiedTab>('product-definitions');
+  const [tab, setTab] = useState<UnifiedTab>('products');
 
   useEffect(() => {
-    setTab(resolveActiveTab<UnifiedTab>(requested, visibleTabs, 'product-definitions'));
+    setTab(resolveActiveTab<UnifiedTab>(requested, visibleTabs, 'products'));
   }, [requested, visibleTabs]);
 
   const selectTab = useCallback((next: string) => {
@@ -74,11 +79,16 @@ export default function ProductionProductsWorkspacePage() {
         activeId={tab}
         onChange={selectTab}
         items={[
-          { id: 'product-definitions', label: t('production.productDefinitions') },
+          { id: 'products', label: t('inventory.products') },
+          { id: 'product-definitions', label: t('production.settings') },
           { id: 'units', label: t('production.units') },
           { id: 'capacity-standards', label: t('production.capacityStandards') },
         ].filter((item) => isVisible(item.id))}
       />
+
+      <TabPanel id="products" activeId={tab}>
+        <ProductsWorkspace showHeader={false} defaultSection="production" />
+      </TabPanel>
 
       <TabPanel id="product-definitions" activeId={tab}>
         <ProductDefinitionsPanel />

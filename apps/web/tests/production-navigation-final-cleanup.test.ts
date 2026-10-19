@@ -21,7 +21,7 @@ const CANONICAL: Array<{ id: string; route: string; labelKey: string; page: stri
     route: '/admin/production/product-definitions',
     labelKey: 'production.productsWorkspace',
     page: 'src/app/admin/production/product-definitions/page.tsx',
-    permissions: ['production-product:read', 'production-unit:read', 'production-capacity-standard:read'],
+    permissions: ['products:read', 'production-product:read', 'production-unit:read', 'production-capacity-standard:read'],
   },
   {
     id: 'prd-ws-shifts',

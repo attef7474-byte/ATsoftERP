@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '../../../lib/api';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { useToast } from '../../admin/toast-provider';
@@ -9,20 +10,22 @@ import { Button, Input, Pagination, Modal, ConfirmDialog, Select, Textarea } fro
 import { CmmsStatusBadge } from '../../maintenance';
 import { AdminDataGrid, GridColumn, GridAction } from '../../admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon, ActionViewIcon } from '../../admin/admin-action-bar';
-import { F9Lookup, F9MultiLookup, productAdapter, productionUnitAdapter, productionLineAdapter, warehouseAdapter, costCenterAdapter, machineAdapter } from '../../f9';
+import { F9Lookup, F9MultiLookup, productionUnitAdapter, productionLineAdapter, machineAdapter } from '../../f9';
 
 type ChildTab = 'specifications' | 'versions' | 'packagings' | 'eligibilities';
 
 /**
- * Unified Products workspace — product definitions panel.
+ * Unified Products workspace — production configuration panel.
  *
- * Extracted verbatim from the former standalone /admin/production/product-definitions
- * screen so the unified workspace page owns the layout/header while this panel owns the
- * product-definition grid and its child tabs. Behaviour is unchanged; the only addition is
- * a batch ("Add multiple") affordance on the eligibilities tab which posts to the atomic
- * `POST /production/product-definitions/:id/eligibilities/batch` endpoint.
+ * The single canonical Product create/edit form lives on the inventory Products
+ * page and owns the whole product identity (code, name, general description) plus
+ * its production configuration. This panel is therefore a READ/list view of the
+ * production configuration and its process children (specifications, versions,
+ * packagings, eligibilities); creating or editing a product/configuration opens
+ * the canonical form instead of a second competing identity form.
  */
 export function ProductDefinitionsPanel() {
+  const router = useRouter();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
@@ -32,14 +35,7 @@ export function ProductDefinitionsPanel() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<ProductionProductDefinition | null>(null);
-  const [form, setForm] = useState({
-    code: '', name: '', description: '', productId: '',
-    defaultUnitId: '', defaultLineId: '', defaultWarehouseId: '', defaultCostCenterId: '',
-  });
   const [saving, setSaving] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmStatusOpen, setConfirmStatusOpen] = useState(false);
@@ -64,9 +60,19 @@ export function ProductDefinitionsPanel() {
 
   const selectedRecord = useMemo(() => data.find((d) => d.id === selectedId), [data, selectedId]);
 
+  // Single canonical Product form: production configuration is created/edited
+  // there, never in a second product identity form.
+  const openCreateProduct = () => {
+    router.push('/admin/inventory/products?create=1&section=production');
+  };
+  const openEditProduct = (productId?: string | null) => {
+    if (!productId) return;
+    router.push(`/admin/inventory/products?edit=${productId}&section=production`);
+  };
+
   const { exec } = useStableHandlers({
-    new: () => openCreate(),
-    edit: () => selectedRecord && openEdit(selectedRecord.id),
+    new: () => openCreateProduct(),
+    edit: () => selectedRecord && openEditProduct(selectedRecord.productId),
     refresh: () => fetchData(meta.page),
     activate: () => confirmStatus(selectedId),
     deactivate: () => confirmStatus(selectedId),
@@ -96,62 +102,6 @@ export function ProductDefinitionsPanel() {
   }, [search, t]);
 
   useEffect(() => { fetchData(); }, []);
-
-  const openCreate = () => {
-    setChildEditItem(null);
-    setSelectedId('');
-    setChildTab('specifications');
-    setEditItem(null);
-    setForm({ code: '', name: '', description: '', productId: '', defaultUnitId: '', defaultLineId: '', defaultWarehouseId: '', defaultCostCenterId: '' });
-    setModalOpen(true);
-  };
-
-  const openEdit = async (id: string) => {
-    setLoadingDetail(true);
-    setModalOpen(true);
-    try {
-      const item = await api.get<ProductionProductDefinition>(`/production/product-definitions/${id}`);
-      setChildEditItem(null);
-      setEditItem(item);
-      setForm({
-        code: item.code, name: item.name, description: item.description || '', productId: item.productId,
-        defaultUnitId: item.defaultUnitId || '', defaultLineId: item.defaultLineId || '',
-        defaultWarehouseId: item.defaultWarehouseId || '', defaultCostCenterId: item.defaultCostCenterId || '',
-      });
-    } catch (err: any) {
-      showToast(err?.message || t('errors.loadFailed'), 'error');
-      setModalOpen(false);
-    }
-    finally { setLoadingDetail(false); }
-  };
-
-  const handleSave = async () => {
-    const errors: Record<string, string> = {};
-    if (!form.productId) errors.productId = t('validation.required');
-    setValidationErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-    setSaving(true);
-    try {
-      const payload: any = {
-        name: form.name || undefined,
-        description: form.description || undefined,
-        productId: form.productId,
-        defaultUnitId: form.defaultUnitId || undefined,
-        defaultLineId: form.defaultLineId || undefined,
-        defaultWarehouseId: form.defaultWarehouseId || undefined,
-        defaultCostCenterId: form.defaultCostCenterId || undefined,
-      };
-      if (editItem) {
-        await api.patch(`/production/product-definitions/${editItem.id}`, payload);
-        showToast(t('common.successUpdated'), 'success');
-      } else {
-        await api.post('/production/product-definitions', { ...payload, code: form.code || undefined });
-        showToast(t('common.successCreated'), 'success');
-      }
-      setModalOpen(false); fetchData(meta.page);
-    } catch (err: any) { handleApiError(err); }
-    finally { setSaving(false); }
-  };
 
   const confirmStatus = (id: string) => { setSelectedId(id); setConfirmStatusOpen(true); };
   const handleStatusChange = async () => {
@@ -295,9 +245,8 @@ export function ProductDefinitionsPanel() {
   };
 
   const columns: GridColumn<ProductionProductDefinition>[] = [
-    { key: 'code', header: t('common.code') },
-    { key: 'name', header: t('common.name') },
     { key: 'product', header: t('production.product'), render: (p) => (p.product ? `[${p.product.code}] ${p.product.name}` : '-') },
+    { key: 'code', header: t('production.productionReference'), render: (p) => p.code },
     { key: 'defaultUnit', header: t('production.defaultUnit'), render: (p) => p.defaultUnit?.name || '-' },
     { key: 'defaultLine', header: t('production.defaultLine'), render: (p) => p.defaultLine?.name || '-' },
     { key: 'defaultWarehouse', header: t('production.defaultWarehouse'), render: (p) => p.defaultWarehouse?.name || '-' },
@@ -306,7 +255,7 @@ export function ProductDefinitionsPanel() {
 
   const gridActions: GridAction<ProductionProductDefinition>[] = [
     { label: t('common.view'), onClick: (p) => openDetail(p.id) },
-    { label: t('actions.edit'), permission: 'production-product:update', onClick: (p) => openEdit(p.id) },
+    { label: t('actions.edit'), permission: 'production-product:update', onClick: (p) => openEditProduct(p.productId) },
     { label: t('common.delete'), permission: 'production-product:delete', onClick: (p) => { setSelectedId(p.id); setConfirmDeleteOpen(true); }, variant: 'danger' },
     { label: t('actions.deactivate'), permission: 'production-product:update', onClick: (p) => confirmStatus(p.id), enabled: (p) => p.status === 'ACTIVE', variant: 'danger' },
     { label: t('actions.activate'), permission: 'production-product:update', onClick: (p) => confirmStatus(p.id), enabled: (p) => p.status !== 'ACTIVE' },
@@ -584,47 +533,7 @@ export function ProductDefinitionsPanel() {
         <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={fetchData} />
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? t('production.editDefinition') : t('production.newDefinition')} size="lg">
-        {loadingDetail ? (
-          <div className="text-center py-8">{t('common.loading')}</div>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              {editItem ? (
-                <div>
-                  <Input label={t('common.code')} value={form.code} disabled />
-                  <p className="text-xs text-gray-500 mt-1">{t('production.codeImmutableHint')}</p>
-                </div>
-              ) : (
-                <div>
-                  <Input label={t('common.code')} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-                  <p className="text-xs text-gray-500 mt-1">{t('production.codeHint')}</p>
-                </div>
-              )}
-              <Input label={t('common.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </div>
-            <div>
-              <F9Lookup label={t('production.product')} value={form.productId} onChange={(v) => { setForm({ ...form, productId: v }); setValidationErrors((prev) => ({ ...prev, productId: '' })); }} adapter={productAdapter} />
-              {validationErrors.productId && <p className="text-red-500 text-sm mt-1">{validationErrors.productId}</p>}
-            </div>
-            <Textarea label={t('production.definitionDescription')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-            <div className="grid grid-cols-2 gap-4">
-              <F9Lookup label={t('production.defaultUnit')} value={form.defaultUnitId} onChange={(v) => setForm({ ...form, defaultUnitId: v })} adapter={productionUnitAdapter} />
-              <F9Lookup label={t('production.defaultLine')} value={form.defaultLineId} onChange={(v) => setForm({ ...form, defaultLineId: v })} adapter={productionLineAdapter} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <F9Lookup label={t('production.defaultWarehouse')} value={form.defaultWarehouseId} onChange={(v) => setForm({ ...form, defaultWarehouseId: v })} adapter={warehouseAdapter} />
-              <F9Lookup label={t('production.defaultCostCenter')} value={form.defaultCostCenterId} onChange={(v) => setForm({ ...form, defaultCostCenterId: v })} adapter={costCenterAdapter} />
-            </div>
-            <div className="flex justify-end gap-3 pt-4">
-              <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
-              <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      <Modal open={detailOpen} onClose={() => setDetailOpen(false)} title={detail ? `${detail.code} — ${detail.name}` : ''} size="lg">
+      <Modal open={detailOpen} onClose={() => setDetailOpen(false)} title={detail ? `${detail.product?.code ?? detail.code} — ${detail.product?.name ?? detail.name}` : ''} size="lg">
         {loadingDetail ? (
           <div className="text-center py-8">{t('common.loading')}</div>
         ) : (

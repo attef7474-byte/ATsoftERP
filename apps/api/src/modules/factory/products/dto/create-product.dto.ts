@@ -2,6 +2,7 @@ import { IsString, IsOptional, IsNumber, Min, IsArray, ValidateNested } from 'cl
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ProductUomInputDto } from './product-uom.dto';
+import { UnifiedProductionConfigDto } from './unified-production-config.dto';
 
 export class CreateProductDto {
   @ApiPropertyOptional({ example: 'RM001' })
@@ -58,4 +59,13 @@ export class CreateProductDto {
   @IsNumber()
   @Min(0)
   maxStock?: number;
+
+  @ApiPropertyOptional({
+    type: UnifiedProductionConfigDto,
+    description: 'Optional production configuration for the same product. Presence requires the production-product permission for the action.',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UnifiedProductionConfigDto)
+  production?: UnifiedProductionConfigDto;
 }

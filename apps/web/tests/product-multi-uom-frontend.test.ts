@@ -6,7 +6,7 @@ const read = (rel: string) => fs.readFileSync(path.resolve(base, rel), 'utf8');
 
 const PRODUCTS_DIR = 'src/app/admin/inventory/products';
 const FORM = `${PRODUCTS_DIR}/product-form.tsx`;
-const LIST = `${PRODUCTS_DIR}/page.tsx`;
+const LIST = 'src/components/inventory/products/products-workspace.tsx';
 const NEW_ROUTE = `${PRODUCTS_DIR}/new/page.tsx`;
 const EDIT_ROUTE = `${PRODUCTS_DIR}/[id]/edit/page.tsx`;
 const DETAIL = `${PRODUCTS_DIR}/[id]/page.tsx`;
@@ -84,7 +84,7 @@ describe('Product multi-UOM frontend contract', () => {
     const list = read(LIST);
 
     it('opens the same ProductForm for create and edit instead of navigating away', () => {
-      expect(list).toContain("from './product-form'");
+      expect(list).toContain("from '../../../app/admin/inventory/products/product-form'");
       expect(list).toContain('<ProductForm');
       expect(list).toContain('setFormProductId(null)');
       expect(list).toContain('setFormOpen(true)');

@@ -60,6 +60,27 @@ export interface Product {
   category?: { id: string; name: string; code: string };
   unitRef?: { id: string; code: string; nameAr: string; nameEn: string; symbol?: string | null } | null;
   uoms?: ProductUom[];
+  productionDefinitions?: ProductionDefinitionSummary[];
+}
+
+/**
+ * Tenant/branch-scoped production configuration of a Product. It carries NO
+ * product identity of its own: `name` mirrors the Product name and `code` is an
+ * internal production reference. A product is "produced" when at least one
+ * definition exists for the active company/branch.
+ */
+export interface ProductionDefinitionSummary {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  status: string;
+  companyId: string;
+  branchId: string;
+  defaultUnitId?: string | null;
+  defaultLineId?: string | null;
+  defaultWarehouseId?: string | null;
+  defaultCostCenterId?: string | null;
 }
 
 /**

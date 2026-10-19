@@ -6,11 +6,24 @@ import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { Product, Unit } from '../../../../lib/admin-types';
 import { Button, Input, Textarea, Modal, LoadingState, ErrorState, Select } from '../../../../components/admin/ui';
-import { F9Lookup, productCategoryAdapter, unitAdapter } from '../../../../components/f9';
+import {
+  F9Lookup,
+  productCategoryAdapter,
+  unitAdapter,
+  productionUnitAdapter,
+  productionLineAdapter,
+  warehouseAdapter,
+  costCenterAdapter,
+} from '../../../../components/f9';
+import { useAuth } from '../../../../lib/auth-context';
+import { ProductionDefinitionSummary } from '../../../../lib/admin-types';
+
+export type ProductFormSection = 'inventory' | 'production';
 
 export interface ProductFormProps {
   open: boolean;
   productId?: string | null;
+  section?: ProductFormSection;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -90,9 +103,10 @@ function toUomRows(item: Product): UomRow[] {
  * hierarchy (single base, no cycles, no self parent, positive quantities) and
  * rejects any payload that breaks it.
  */
-export function ProductForm({ open, productId, onClose, onSaved }: ProductFormProps) {
+export function ProductForm({ open, productId, section, onClose, onSaved }: ProductFormProps) {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { permissions, isSuperAdmin, isArchivedContext } = useAuth();
 
   const isEdit = Boolean(productId);
   const [loading, setLoading] = useState(false);
@@ -104,10 +118,40 @@ export function ProductForm({ open, productId, onClose, onSaved }: ProductFormPr
   const [errors, setErrors] = useState<Record<string, string>>({});
   const loadedForRef = useRef<string | null>(null);
 
+  // Production configuration lives on the same product record (one identity, one
+  // form). `productionConfigured` mirrors whether a definition already exists for
+  // the active company/branch; the toggle drives create/update/deactivate.
+  const [productionReference, setProductionReference] = useState('');
+  const [productionConfigured, setProductionConfigured] = useState(false);
+  const [productionEnabled, setProductionEnabled] = useState(false);
+  const [productionNotes, setProductionNotes] = useState('');
+  const [productionUnitId, setProductionUnitId] = useState('');
+  const [productionLineId, setProductionLineId] = useState('');
+  const [productionWarehouseId, setProductionWarehouseId] = useState('');
+  const [productionCostCenterId, setProductionCostCenterId] = useState('');
+  const productionSectionRef = useRef<HTMLDivElement | null>(null);
+
+  const productionPermissionKey = isEdit ? 'production-product:update' : 'production-product:create';
+  const canManageProduction =
+    !isArchivedContext && (isSuperAdmin || Boolean(permissions?.permissions.includes(productionPermissionKey)));
+  const productionReadOnly = saving || !canManageProduction;
+  const productionTouched = productionEnabled || productionConfigured;
+
   const setField = (field: keyof typeof EMPTY_FORM, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => (prev[field] ? { ...prev, [field]: '' } : prev));
   };
+
+  const applyProductionDefinition = useCallback((def?: ProductionDefinitionSummary) => {
+    setProductionReference(def?.code ?? '');
+    setProductionConfigured(Boolean(def));
+    setProductionEnabled(Boolean(def) || section === 'production');
+    setProductionNotes(def?.description ?? '');
+    setProductionUnitId(def?.defaultUnitId ?? '');
+    setProductionLineId(def?.defaultLineId ?? '');
+    setProductionWarehouseId(def?.defaultWarehouseId ?? '');
+    setProductionCostCenterId(def?.defaultCostCenterId ?? '');
+  }, [section]);
 
   const resetToBlank = useCallback(() => {
     setForm({ ...EMPTY_FORM });
@@ -116,7 +160,8 @@ export function ProductForm({ open, productId, onClose, onSaved }: ProductFormPr
     setErrors({});
     setError('');
     setSaving(false);
-  }, []);
+    applyProductionDefinition(undefined);
+  }, [applyProductionDefinition]);
 
   const loadProduct = useCallback(
     async (id: string) => {
@@ -139,6 +184,7 @@ export function ProductForm({ open, productId, onClose, onSaved }: ProductFormPr
         });
         setBaseUnitLabel(unitLabelOf(item.unitRef));
         setUoms(toUomRows(item));
+        applyProductionDefinition((item.productionDefinitions ?? [])[0]);
         setErrors({});
         loadedForRef.current = id;
       } catch (err: any) {
@@ -147,7 +193,7 @@ export function ProductForm({ open, productId, onClose, onSaved }: ProductFormPr
         setLoading(false);
       }
     },
-    [t],
+    [t, applyProductionDefinition],
   );
 
   useEffect(() => {
@@ -164,6 +210,15 @@ export function ProductForm({ open, productId, onClose, onSaved }: ProductFormPr
       resetToBlank();
     }
   }, [open, productId, loadProduct, resetToBlank]);
+
+  useEffect(() => {
+    if (open && section === 'production' && !loading) {
+      const handle = window.setTimeout(() => {
+        productionSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+      return () => window.clearTimeout(handle);
+    }
+  }, [open, section, loading]);
 
   const updateRow = (key: string, patch: Partial<UomRow>) => {
     setUoms((prev) => prev.map((row) => (row.key === key ? { ...row, ...patch } : row)));
@@ -276,6 +331,17 @@ export function ProductForm({ open, productId, onClose, onSaved }: ProductFormPr
           })),
         ],
       };
+
+      if (canManageProduction && productionTouched) {
+        payload.production = {
+          enabled: productionEnabled,
+          notes: productionNotes.trim() || undefined,
+          defaultUnitId: productionUnitId || undefined,
+          defaultLineId: productionLineId || undefined,
+          defaultWarehouseId: productionWarehouseId || undefined,
+          defaultCostCenterId: productionCostCenterId || undefined,
+        };
+      }
 
       if (productId) {
         await api.patch(`/products/${productId}`, payload);
@@ -484,6 +550,89 @@ export function ProductForm({ open, productId, onClose, onSaved }: ProductFormPr
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          <div ref={productionSectionRef} id="product-production-section" className="border-t pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700">{t('production.settings')}</h3>
+              {productionConfigured ? (
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700">
+                  {t('production.configured')}
+                </span>
+              ) : (
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                  {t('production.notConfigured')}
+                </span>
+              )}
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300"
+                checked={productionEnabled}
+                disabled={productionReadOnly}
+                onChange={(e) => setProductionEnabled(e.target.checked)}
+              />
+              {t('production.producedInternally')}
+            </label>
+
+            {productionConfigured && productionReference && (
+              <p className="mt-2 text-xs text-gray-500">
+                {t('production.productionReference')}: <span className="font-medium">{productionReference}</span>
+              </p>
+            )}
+
+            {!canManageProduction && (
+              <p className="mt-2 text-xs text-gray-500">{t('production.settingsReadOnly')}</p>
+            )}
+
+            {productionEnabled && (
+              <div className="space-y-4 mt-4">
+                <Textarea
+                  label={t('production.productionNotes')}
+                  value={productionNotes}
+                  onChange={(e) => setProductionNotes(e.target.value)}
+                  disabled={productionReadOnly}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <F9Lookup
+                    label={t('production.defaultUnit')}
+                    value={productionUnitId}
+                    onChange={setProductionUnitId}
+                    adapter={productionUnitAdapter}
+                    clearOnContextChange={false}
+                    disabled={productionReadOnly}
+                  />
+                  <F9Lookup
+                    label={t('production.defaultLine')}
+                    value={productionLineId}
+                    onChange={setProductionLineId}
+                    adapter={productionLineAdapter}
+                    clearOnContextChange={false}
+                    disabled={productionReadOnly}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <F9Lookup
+                    label={t('production.defaultWarehouse')}
+                    value={productionWarehouseId}
+                    onChange={setProductionWarehouseId}
+                    adapter={warehouseAdapter}
+                    clearOnContextChange={false}
+                    disabled={productionReadOnly}
+                  />
+                  <F9Lookup
+                    label={t('production.defaultCostCenter')}
+                    value={productionCostCenterId}
+                    onChange={setProductionCostCenterId}
+                    adapter={costCenterAdapter}
+                    clearOnContextChange={false}
+                    disabled={productionReadOnly}
+                  />
+                </div>
               </div>
             )}
           </div>

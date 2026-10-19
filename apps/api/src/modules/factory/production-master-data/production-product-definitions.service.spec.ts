@@ -93,7 +93,7 @@ describe('ProductionProductDefinitionsService', () => {
       },
       $transaction: jest.fn((fn: any) => fn(prisma)),
     };
-    audit = { log: jest.fn().mockResolvedValue(undefined) };
+    audit = { log: jest.fn().mockResolvedValue(undefined), logWithClient: jest.fn().mockResolvedValue(undefined) };
     numbering = { generateNumberAtomic: jest.fn().mockResolvedValue('PP-000042') };
     service = new ProductionProductDefinitionsService(prisma, audit, numbering);
   });
@@ -360,6 +360,115 @@ describe('ProductionProductDefinitionsService', () => {
         expect.objectContaining({ data: expect.objectContaining({ deletedAt: expect.any(Date) }) }),
       );
       expect(audit.log).toHaveBeenCalledWith('u1', 'DELETE', 'ProductionProductDefinition', 'd1');
+    });
+  });
+
+  describe('applyForProductInTx (unified product form)', () => {
+    const input = (overrides: Record<string, any> = {}) => ({
+      productId: 'prd1',
+      productName: 'Soda Bottle',
+      productStatus: 'ACTIVE',
+      enabled: true,
+      code: 'PP-000042',
+      ...overrides,
+    });
+
+    it('P01: creates the configuration with the mirrored product name and audits inside the transaction', async () => {
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(null);
+      prisma.productionProductDefinition.create.mockImplementation(({ data }: any) => Promise.resolve(definition(data)));
+
+      const result = await service.applyForProductInTx(prisma, input({ notes: 'fill at 4C' }), 'u1', ctxA);
+
+      expect(prisma.productionProductDefinition.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            code: 'PP-000042',
+            name: 'Soda Bottle',
+            description: 'fill at 4C',
+            companyId: 'c1',
+            branchId: 'b1',
+          }),
+        }),
+      );
+      expect(result.name).toBe('Soda Bottle');
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ action: 'CREATE', entity: 'ProductionProductDefinition', entityId: 'd1' }),
+      );
+    });
+
+    it('P02: updates the existing configuration (mirror name) without creating a second definition', async () => {
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(definition({ name: 'Stale Name' }));
+      prisma.productionProductDefinition.update.mockImplementation(({ data }: any) => Promise.resolve({ ...definition(), ...data }));
+
+      await service.applyForProductInTx(prisma, input({ code: null, notes: 'new note' }), 'u1', ctxA);
+
+      expect(prisma.productionProductDefinition.create).not.toHaveBeenCalled();
+      expect(prisma.productionProductDefinition.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'd1' },
+          data: expect.objectContaining({ name: 'Soda Bottle', status: 'ACTIVE', description: 'new note' }),
+        }),
+      );
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ action: 'UPDATE', entityId: 'd1' }),
+      );
+    });
+
+    it('P03: enabled=false de-activates the existing configuration (never deletes the product)', async () => {
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(definition());
+      prisma.productionProductDefinition.update.mockImplementation(({ data }: any) => Promise.resolve({ ...definition(), ...data }));
+
+      await service.applyForProductInTx(prisma, input({ enabled: false, code: null }), 'u1', ctxA);
+
+      expect(prisma.productionProductDefinition.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'INACTIVE' }) }),
+      );
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({ action: 'DEACTIVATE', entityId: 'd1' }),
+      );
+    });
+
+    it('P04: enabled=false with no existing configuration is a safe no-op', async () => {
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(null);
+
+      const result = await service.applyForProductInTx(prisma, input({ enabled: false, code: null }), 'u1', ctxA);
+
+      expect(result).toBeNull();
+      expect(prisma.productionProductDefinition.create).not.toHaveBeenCalled();
+      expect(prisma.productionProductDefinition.update).not.toHaveBeenCalled();
+    });
+
+    it('P05: rejects enabling production for an inactive product', async () => {
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.applyForProductInTx(prisma, input({ productStatus: 'INACTIVE' }), 'u1', ctxA),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.productionProductDefinition.create).not.toHaveBeenCalled();
+    });
+
+    it('P06: rejects a default unit that is not in the tenant context and writes nothing', async () => {
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(null);
+      prisma.productionUnit.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.applyForProductInTx(prisma, input({ defaultUnitId: 'foreign-unit' }), 'u1', ctxA),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.productionProductDefinition.create).not.toHaveBeenCalled();
+    });
+
+    it('P07: maps a concurrent reference collision (P2002) to a stable ConflictException', async () => {
+      prisma.productionProductDefinition.findFirst.mockResolvedValue(null);
+      prisma.productionProductDefinition.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: 'x', meta: { target: ['code'] } }),
+      );
+
+      await expect(
+        service.applyForProductInTx(prisma, input(), 'u1', ctxA),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
   });
 });
