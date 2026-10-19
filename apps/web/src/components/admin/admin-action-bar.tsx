@@ -14,6 +14,12 @@ export interface AdminAction {
    * actions every authenticated user may perform.
    */
   permission?: string;
+  /**
+   * Marks an action that only reads (print, export, refresh, view). While an
+   * archived organizational context is selected every action that is not
+   * marked read-only is hidden, so no mutation control remains reachable.
+   */
+  readOnly?: boolean;
   onClick: () => void | Promise<void>;
 }
 

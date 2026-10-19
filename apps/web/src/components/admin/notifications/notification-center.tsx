@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../lib/i18n/use-translation';
+import { useAuth } from '../../../lib/auth-context';
 import { useToast } from '../toast-provider';
 import { api } from '../../../lib/api';
 import { useApiErrorHandler } from '../error-handler';
@@ -10,6 +11,7 @@ import { Button, Pagination, Card, LoadingState, EmptyState } from '../ui';
 
 export function NotificationCenter() {
   const { t } = useTranslation();
+  const { isArchivedContext } = useAuth();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
   const [items, setItems] = useState<NotificationItemData[]>([]);
@@ -70,7 +72,9 @@ export function NotificationCenter() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <NotificationFilters type={type} read={read} onTypeChange={(v) => { setType(v); setPage(1); }} onReadChange={(v) => { setRead(v); setPage(1); }} />
-        <Button variant="secondary" onClick={handleMarkAllRead}>{t('notifications.markAllRead')}</Button>
+        {!isArchivedContext && (
+          <Button variant="secondary" onClick={handleMarkAllRead}>{t('notifications.markAllRead')}</Button>
+        )}
       </div>
 
       {loading ? (
@@ -81,7 +85,12 @@ export function NotificationCenter() {
         <Card>
           <div className="divide-y divide-gray-100">
             {items.map((item) => (
-              <NotificationItem key={item.id} item={item} onMarkRead={handleMarkRead} onDelete={handleDelete} />
+              <NotificationItem
+                key={item.id}
+                item={item}
+                onMarkRead={isArchivedContext ? undefined : handleMarkRead}
+                onDelete={isArchivedContext ? undefined : handleDelete}
+              />
             ))}
           </div>
         </Card>

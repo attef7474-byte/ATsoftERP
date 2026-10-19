@@ -1,8 +1,10 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { ActiveContextValidator } from './active-context.validator';
 import { AllowedContextResolver } from './allowed-context.resolver';
+import { ArchivedContextValidation, ArchivedContextValidator } from './archived-context.validator';
 import {
   ActiveOperationalContext,
+  OperationalContextMode,
   OperationalContextSelection,
   OperationalContextsResult,
   UserAuthorizationSnapshot,
@@ -22,10 +24,15 @@ export class ActiveContextService {
   constructor(
     private readonly resolver: AllowedContextResolver,
     private readonly validator: ActiveContextValidator,
+    private readonly archivedValidator: ArchivedContextValidator,
   ) {}
 
   getAllowedContexts(userId: string): Promise<OperationalContextsResult> {
     return this.resolver.getContexts(userId);
+  }
+
+  getArchivedContexts(userId: string): Promise<OperationalContextsResult> {
+    return this.resolver.getArchivedContexts(userId);
   }
 
   getAuthorization(userId: string): Promise<UserAuthorizationSnapshot> {
@@ -39,11 +46,19 @@ export class ActiveContextService {
     return this.validator.validate(userId, selection);
   }
 
+  validateArchived(
+    userId: string,
+    selection: OperationalContextSelection,
+  ): Promise<ArchivedContextValidation> {
+    return this.archivedValidator.validate(userId, selection);
+  }
+
   async assertRequestMatches(
     userId: string,
     activeContext: ActiveOperationalContext,
     body: unknown,
     query: unknown,
+    mode: OperationalContextMode = 'active',
   ): Promise<void> {
     for (const container of [body, query]) {
       if (!this.isRecord(container)) continue;
@@ -75,13 +90,18 @@ export class ActiveContextService {
         (values.administrationId && !activeContext.administrationId) ||
         (values.departmentId && !activeContext.departmentId)
       ) {
-        await this.validator.validate(userId, {
+        const expanded: OperationalContextSelection = {
           companyId: activeContext.companyId,
           branchId: activeContext.branchId,
           administrationId:
             values.administrationId || activeContext.administrationId,
           departmentId: values.departmentId || activeContext.departmentId,
-        });
+        };
+        if (mode === 'archived') {
+          await this.archivedValidator.validate(userId, expanded);
+        } else {
+          await this.validator.validate(userId, expanded);
+        }
       }
     }
   }

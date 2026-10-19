@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../auth/guards/permissions.guard';
 import { Permissions } from '../../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { ArchiveReadable } from '../../../../common/decorators/archive-readable.decorator';
 import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
@@ -32,6 +33,7 @@ export class OperationalReliabilityController {
   }
 
   @Post('export')
+  @ArchiveReadable()
   @Permissions(OPERATIONAL_RELIABILITY_PERMISSION_KEYS.export)
   @ApiOperation({ summary: 'Export operational reliability summary as CSV (audited)' })
   export(@Body() dto: OperationalReliabilityExportDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext): Promise<any> {

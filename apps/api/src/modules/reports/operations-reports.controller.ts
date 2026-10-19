@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ArchiveReadable } from '../../common/decorators/archive-readable.decorator';
 import { CurrentActiveContext } from '../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -32,6 +33,7 @@ export class OperationsReportsController {
   }
 
   @Post('export')
+  @ArchiveReadable()
   @Permissions(OPERATIONS_REPORT_PERMISSION_KEYS.export)
   @ApiOperation({ summary: 'Bounded audited operations report CSV export' })
   export(@Body() dto: OperationsReportExportDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {

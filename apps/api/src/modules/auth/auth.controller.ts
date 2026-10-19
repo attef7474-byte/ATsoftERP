@@ -7,9 +7,12 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LoginRateLimitGuard } from './guards/login-rate-limit.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CurrentUserType } from './types/current-user.type';
 import { ValidateOperationalContextDto } from './dto/validate-operational-context.dto';
 import { OperationalContextOptional } from '../../common/operational-context/operational-context-optional.decorator';
+import { ARCHIVE_READ_PERMISSION } from '../../common/operational-context/archive-context.constants';
 
 @ApiTags('Auth')
 @Controller({ path: 'auth', version: '1' })
@@ -40,6 +43,16 @@ export class AuthController {
   @ApiOperation({ summary: 'Get allowed operational contexts' })
   async getContexts(@CurrentUser() user: CurrentUserType) {
     return this.authService.getAllowedContexts(user.id);
+  }
+
+  @Get('contexts/archived')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(ARCHIVE_READ_PERMISSION)
+  @OperationalContextOptional()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List archived organizational contexts for read-only browsing' })
+  async getArchivedContexts(@CurrentUser() user: CurrentUserType) {
+    return this.authService.getArchivedContexts(user.id);
   }
 
   @Post('context/validate')

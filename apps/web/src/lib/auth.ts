@@ -1,9 +1,11 @@
 import { api } from './api';
 import {
+  clearStoredArchivedContext,
   clearStoredOperationalContext,
   normalizeOperationalContext,
   normalizeOperationalContextsResponse,
 } from './operational-context';
+import { canBrowseArchivedContexts } from './archived-context';
 import type {
   OperationalContext,
   OperationalContextIdentity,
@@ -58,6 +60,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
   const result = await api.post<LoginResponse>('/auth/login', { email, password });
   if (result.accessToken) {
     clearStoredOperationalContext();
+    clearStoredArchivedContext();
     localStorage.setItem('accessToken', result.accessToken);
   }
   return result;
@@ -80,6 +83,28 @@ export async function getPasswordPolicy(): Promise<PasswordPolicy> {
 export async function getOperationalContexts(): Promise<OperationalContextsResult> {
   const response = await api.get<unknown>('/auth/contexts', { skipOperationalContext: true });
   return normalizeOperationalContextsResponse(response);
+}
+
+/**
+ * Archived organizational discovery. Requires `company:readArchive`; callers
+ * that are not allowed to browse archives get an empty result instead of an
+ * error state, because archive browsing is an optional, read-only capability.
+ */
+export async function getArchivedOperationalContexts(
+  permissions: string[] | null,
+  isSuperAdmin: boolean,
+): Promise<OperationalContextsResult> {
+  if (!canBrowseArchivedContexts(permissions, isSuperAdmin)) {
+    return { contexts: [], defaultContext: null };
+  }
+  try {
+    const response = await api.get<unknown>('/auth/contexts/archived', {
+      skipOperationalContext: true,
+    });
+    return normalizeOperationalContextsResponse(response);
+  } catch {
+    return { contexts: [], defaultContext: null };
+  }
 }
 
 export async function validateOperationalContext(
@@ -112,6 +137,7 @@ export async function validateOperationalContext(
 export function clearLocalSession(userId?: string): void {
   localStorage.removeItem('accessToken');
   clearStoredOperationalContext(userId);
+  clearStoredArchivedContext(userId);
 }
 
 export async function logout(userId?: string): Promise<void> {

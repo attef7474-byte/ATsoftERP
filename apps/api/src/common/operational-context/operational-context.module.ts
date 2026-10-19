@@ -4,12 +4,14 @@ import { ActiveContextInterceptor } from './active-context.interceptor';
 import { ActiveContextService } from './active-context.service';
 import { ActiveContextValidator } from './active-context.validator';
 import { AllowedContextResolver } from './allowed-context.resolver';
+import { ArchivedContextValidator } from './archived-context.validator';
 
 @Global()
 @Module({
   providers: [
     AllowedContextResolver,
     ActiveContextValidator,
+    ArchivedContextValidator,
     ActiveContextService,
     {
       provide: APP_INTERCEPTOR,
@@ -19,6 +21,7 @@ import { AllowedContextResolver } from './allowed-context.resolver';
   exports: [
     AllowedContextResolver,
     ActiveContextValidator,
+    ArchivedContextValidator,
     ActiveContextService,
   ],
 })

@@ -199,6 +199,10 @@ export class AuthService {
     return this.activeContextService.getAllowedContexts(userId);
   }
 
+  async getArchivedContexts(userId: string) {
+    return this.activeContextService.getArchivedContexts(userId);
+  }
+
   async validateOperationalContext(
     userId: string,
     dto: ValidateOperationalContextDto,

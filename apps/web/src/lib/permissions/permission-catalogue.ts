@@ -220,6 +220,8 @@ const A: Record<string, ActionDef> = {
 
   create: { ar: 'إنشاء', en: 'Create' },
   read: { ar: 'عرض', en: 'View' },
+  readArchive: { ar: 'تصفح الأرشيف', en: 'Browse archive' },
+  'read-archive': { ar: 'تصفح الأرشيف', en: 'Browse archive' },
   view: { ar: 'عرض', en: 'View' },
   update: { ar: 'تحديث', en: 'Update' },
   delete: { ar: 'حذف', en: 'Delete' },

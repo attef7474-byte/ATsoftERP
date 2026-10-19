@@ -24,6 +24,16 @@ export interface OperationalContext extends OperationalContextIdentity {
   departmentNameAr?: string | null;
   departmentNameEn?: string | null;
   isDefault?: boolean;
+  isArchived?: boolean;
+  archivedAncestors?: ArchivedAncestor[];
+}
+
+export interface ArchivedAncestor {
+  level: 'company' | 'branch' | 'administration' | 'department';
+  id: string;
+  code?: string | null;
+  name?: string | null;
+  deletedAt?: string | null;
 }
 
 export interface OperationalContextsResult {
@@ -37,12 +47,24 @@ interface StoredOperationalContext {
   context: OperationalContextIdentity;
 }
 
+interface StoredArchivedContext {
+  version: 1;
+  userId: string;
+  context: OperationalContextIdentity;
+}
+
 type UnknownRecord = Record<string, unknown>;
 
 export const OPERATIONAL_CONTEXT_CHANGED_EVENT = 'atsoft:operational-context-changed';
+export const ARCHIVED_CONTEXT_CHANGED_EVENT = 'atsoft:archived-context-changed';
+
+export const ARCHIVED_CONTEXT_MODE_HEADER = 'x-active-context-mode';
+export const ARCHIVED_CONTEXT_MODE_VALUE = 'archived';
 
 const ACTIVE_CONTEXT_USER_KEY = 'atsoft.erp.operational-context.current-user';
 const ACTIVE_CONTEXT_KEY_PREFIX = 'atsoft.erp.operational-context.user.';
+const ARCHIVED_CONTEXT_USER_KEY = 'atsoft.erp.archived-context.current-user';
+const ARCHIVED_CONTEXT_KEY_PREFIX = 'atsoft.erp.archived-context.user.';
 
 function asRecord(value: unknown): UnknownRecord | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -71,6 +93,29 @@ function getStorage(): Storage | null {
 
 function getStorageKey(userId: string): string {
   return `${ACTIVE_CONTEXT_KEY_PREFIX}${encodeURIComponent(userId)}`;
+}
+
+function normalizeAncestor(value: unknown): ArchivedAncestor | null {
+  const source = asRecord(value);
+  if (!source) return null;
+  const id = stringValue(source.id);
+  if (!id) return null;
+  const level = stringValue(source.level);
+  if (
+    level !== 'company' &&
+    level !== 'branch' &&
+    level !== 'administration' &&
+    level !== 'department'
+  ) {
+    return null;
+  }
+  return {
+    level,
+    id,
+    code: stringValue(source.code),
+    name: stringValue(source.name),
+    deletedAt: stringValue(source.deletedAt),
+  };
 }
 
 export function normalizeOperationalContext(value: unknown): OperationalContext | null {
@@ -115,6 +160,15 @@ export function normalizeOperationalContext(value: unknown): OperationalContext 
     departmentNameAr: stringValue(source.departmentNameAr, department.nameAr, department.arabicName),
     departmentNameEn: stringValue(source.departmentNameEn, department.nameEn, department.englishName),
     isDefault: booleanValue(source.isDefault),
+    ...(source.isArchived === true ? { isArchived: true } : {}),
+    ...(Array.isArray(source.archivedAncestors)
+      ? (() => {
+          const ancestors = source.archivedAncestors
+            .map(normalizeAncestor)
+            .filter((ancestor): ancestor is ArchivedAncestor => ancestor !== null);
+          return ancestors.length > 0 ? { archivedAncestors: ancestors } : {};
+        })()
+      : {}),
   };
 }
 
@@ -221,16 +275,79 @@ export function clearStoredOperationalContext(userId?: string): void {
   if (!userId || currentUserId === userId) storage.removeItem(ACTIVE_CONTEXT_USER_KEY);
 }
 
-export function getOperationalContextHeaders(
-  context: OperationalContextIdentity | null | undefined = getStoredOperationalContext(),
-): Record<string, string> {
-  if (!context) return {};
-  const headers: Record<string, string> = {
-    'x-active-company-id': context.companyId,
+/**
+ * Archive browsing selection.
+ *
+ * It is stored under a dedicated per-user key so that entering or leaving an
+ * archived context NEVER modifies the stored active context: the active
+ * company/branch selection is untouched by archive browsing.
+ */
+export function getArchivedStorageKey(userId: string): string {
+  return `${ARCHIVED_CONTEXT_KEY_PREFIX}${encodeURIComponent(userId)}`;
+}
+
+export function setStoredArchivedContext(
+  userId: string,
+  context: OperationalContextIdentity,
+): void {
+  const storage = getStorage();
+  if (!storage || !userId) return;
+  const stored: StoredArchivedContext = {
+    version: 1,
+    userId,
+    context: getOperationalContextIdentity(context),
   };
-  if (context.branchId) headers['x-active-branch-id'] = context.branchId;
-  if (context.administrationId) headers['x-active-administration-id'] = context.administrationId;
-  if (context.departmentId) headers['x-active-department-id'] = context.departmentId;
+  storage.setItem(getArchivedStorageKey(userId), JSON.stringify(stored));
+  storage.setItem(ARCHIVED_CONTEXT_USER_KEY, userId);
+}
+
+export function getStoredArchivedContext(
+  userId?: string,
+): OperationalContextIdentity | null {
+  const storage = getStorage();
+  if (!storage) return null;
+  const resolvedUserId = userId || storage.getItem(ARCHIVED_CONTEXT_USER_KEY);
+  if (!resolvedUserId) return null;
+
+  try {
+    const raw = storage.getItem(getArchivedStorageKey(resolvedUserId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredArchivedContext>;
+    const context = normalizeOperationalContext(parsed.context);
+    if (parsed.version !== 1 || parsed.userId !== resolvedUserId || !context) return null;
+    return getOperationalContextIdentity(context);
+  } catch {
+    return null;
+  }
+}
+
+export function clearStoredArchivedContext(userId?: string): void {
+  const storage = getStorage();
+  if (!storage) return;
+  const currentUserId = storage.getItem(ARCHIVED_CONTEXT_USER_KEY);
+  const resolvedUserId = userId || currentUserId;
+  if (resolvedUserId) storage.removeItem(getArchivedStorageKey(resolvedUserId));
+  if (!userId || currentUserId === userId) storage.removeItem(ARCHIVED_CONTEXT_USER_KEY);
+}
+
+/** Archive browsing is active exactly while an archived selection exists. */
+export function isArchivedContextActive(userId?: string): boolean {
+  return getStoredArchivedContext(userId) !== null;
+}
+
+export function getOperationalContextHeaders(
+  context?: OperationalContextIdentity | null,
+): Record<string, string> {
+  const archived = context ? null : getStoredArchivedContext();
+  const resolved = archived ?? context ?? getStoredOperationalContext();
+  if (!resolved) return {};
+  const headers: Record<string, string> = {
+    'x-active-company-id': resolved.companyId,
+  };
+  if (resolved.branchId) headers['x-active-branch-id'] = resolved.branchId;
+  if (resolved.administrationId) headers['x-active-administration-id'] = resolved.administrationId;
+  if (resolved.departmentId) headers['x-active-department-id'] = resolved.departmentId;
+  if (archived) headers[ARCHIVED_CONTEXT_MODE_HEADER] = ARCHIVED_CONTEXT_MODE_VALUE;
   return headers;
 }
 

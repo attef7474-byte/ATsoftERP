@@ -368,6 +368,10 @@ const messages: Record<string, { ar: string; en: string }> = {
   'organization.companyNotAllowed': { ar: 'الشركة غير مسموح بها', en: 'Company not allowed' },
   'organization.branchNotAllowed': { ar: 'الفرع غير مسموح به', en: 'Branch not allowed' },
 
+  'archiveContext.readOnly': { ar: 'وضع الأرشيف للقراءة فقط: لا يمكن إنشاء أو تعديل أو حذف أو تغيير حالة السجلات من هذا السياق', en: 'Archived context is read-only: records cannot be created, edited, deleted, or transitioned from this context' },
+  'archiveContext.notArchived': { ar: 'السياق المحدد ليس مؤرشفاً. استخدم السياق النشط بدلاً من ذلك', en: 'The selected context is not archived. Use the active context instead' },
+  'archiveContext.permissionRequired': { ar: 'لا تملك صلاحية تصفح السياق التنظيمي المؤرشف', en: 'You do not hold the archived organizational context permission' },
+
   'operationalContext.headersRequired': { ar: 'يجب تحديد الشركة والفرع في سياق العمل النشط', en: 'Active company and branch context headers are required' },
   'operationalContext.companyRequired': { ar: 'الشركة مطلوبة لسياق العمل', en: 'Company is required for the operational context' },
   'operationalContext.branchRequired': { ar: 'الفرع مطلوب لسياق العمل', en: 'Branch is required for the operational context' },

@@ -10,6 +10,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import {
+  getArchivedOperationalContexts,
   getOperationalContexts,
   clearLocalSession,
   getProfile,
@@ -20,18 +21,27 @@ import {
   validateOperationalContext,
 } from './auth';
 import type { UserPermissions, UserProfile } from './auth';
+import { canBrowseArchivedContexts, filterArchivePermissions } from './archived-context';
 import {
+  ARCHIVED_CONTEXT_CHANGED_EVENT,
+  clearStoredArchivedContext,
   clearStoredOperationalContext,
   findMatchingOperationalContext,
   getOperationalContextIdentity,
   getOperationalContextKey,
+  getStoredArchivedContext,
   getStoredOperationalContext,
   OPERATIONAL_CONTEXT_CHANGED_EVENT,
+  setStoredArchivedContext,
   setStoredOperationalContext,
 } from './operational-context';
 import type { OperationalContext } from './operational-context';
 
 export interface SelectOperationalContextOptions {
+  reload?: boolean;
+}
+
+export interface ArchivedContextOptions {
   reload?: boolean;
 }
 
@@ -58,6 +68,17 @@ export interface AuthContextValue {
     options?: SelectOperationalContextOptions,
   ) => Promise<void>;
   refreshContexts: () => Promise<void>;
+  archivedContexts: OperationalContext[];
+  archivedContext: OperationalContext | null;
+  archivedContextsLoading: boolean;
+  isArchivedContext: boolean;
+  canArchiveBrowse: boolean;
+  enterArchiveMode: (
+    context: OperationalContext,
+    options?: ArchivedContextOptions,
+  ) => Promise<void>;
+  exitArchiveMode: (options?: ArchivedContextOptions) => Promise<void>;
+  refreshArchivedContexts: () => Promise<void>;
 }
 
 export interface OperationalContextHookValue {
@@ -71,6 +92,14 @@ export interface OperationalContextHookValue {
   contextVersion: number;
   selectContext: AuthContextValue['selectContext'];
   refreshContexts: AuthContextValue['refreshContexts'];
+  archivedContexts: OperationalContext[];
+  archivedContext: OperationalContext | null;
+  archivedContextsLoading: boolean;
+  isArchivedContext: boolean;
+  canArchiveBrowse: boolean;
+  enterArchiveMode: AuthContextValue['enterArchiveMode'];
+  exitArchiveMode: AuthContextValue['exitArchiveMode'];
+  refreshArchivedContexts: AuthContextValue['refreshArchivedContexts'];
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -92,6 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [contextLoading, setContextLoading] = useState(false);
   const [contextError, setContextError] = useState<string | null>(null);
   const [contextVersion, setContextVersion] = useState(0);
+  const [archivedContexts, setArchivedContexts] = useState<OperationalContext[]>([]);
+  const [archivedContext, setArchivedContext] = useState<OperationalContext | null>(null);
+  const [archivedContextsLoading, setArchivedContextsLoading] = useState(false);
 
   const persistActiveContext = useCallback((
     profile: UserProfile,
@@ -183,6 +215,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /**
+   * Archive discovery + restoration of a previously selected archived context.
+   * The ACTIVE stored context is never read, written, or cleared here.
+   */
+  const loadArchivedContexts = useCallback(async () => {
+    if (!user) {
+      setArchivedContexts([]);
+      setArchivedContext(null);
+      return;
+    }
+    const rawPermissions = permissions?.permissions ?? null;
+    const rawIsSuperAdmin = permissions?.isSuperAdmin ?? false;
+    if (!canBrowseArchivedContexts(rawPermissions, rawIsSuperAdmin)) {
+      clearStoredArchivedContext(user.id);
+      setArchivedContexts([]);
+      setArchivedContext(null);
+      return;
+    }
+    setArchivedContextsLoading(true);
+    try {
+      const result = await getArchivedOperationalContexts(rawPermissions, rawIsSuperAdmin);
+      setArchivedContexts(result.contexts);
+
+      const stored = getStoredArchivedContext(user.id);
+      if (stored) {
+        const match = findMatchingOperationalContext(result.contexts, stored);
+        if (match) {
+          setArchivedContext(match);
+        } else {
+          clearStoredArchivedContext(user.id);
+          setArchivedContext(null);
+        }
+      } else {
+        setArchivedContext(null);
+      }
+    } finally {
+      setArchivedContextsLoading(false);
+    }
+  }, [permissions, user]);
+
+  useEffect(() => {
+    if (!user || !permissions || loading) return;
+    void loadArchivedContexts();
+  }, [loadArchivedContexts, loading, permissions, user]);
+
   useEffect(() => {
     let cancelled = false;
     const bootstrap = async () => {
@@ -240,6 +317,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAllowedContexts([]);
       setDefaultContext(null);
       setActiveContext(null);
+      setArchivedContexts([]);
+      setArchivedContext(null);
       setContextError(null);
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
@@ -267,6 +346,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const changed = !activeContext
         || getOperationalContextKey(activeContext) !== getOperationalContextKey(resolvedContext);
       persistActiveContext(user, resolvedContext);
+      // Choosing an active context always leaves archive browsing behind,
+      // while the active selection itself stays authoritative.
+      if (archivedContext) {
+        clearStoredArchivedContext(user.id);
+        setArchivedContext(null);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent(ARCHIVED_CONTEXT_CHANGED_EVENT, {
+            detail: { active: false },
+          }));
+        }
+      }
 
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(OPERATIONAL_CONTEXT_CHANGED_EVENT, {
@@ -289,7 +379,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setContextLoading(false);
     }
-  }, [activeContext, allowedContexts, persistActiveContext, user]);
+  }, [activeContext, allowedContexts, archivedContext, persistActiveContext, user]);
+
+  /**
+   * Enter read-only archive browsing. The stored ACTIVE context is left
+   * untouched: archive browsing never rewrites the active selection.
+   */
+  const enterArchiveMode = useCallback(async (
+    context: OperationalContext,
+    options: ArchivedContextOptions = {},
+  ) => {
+    if (!user) throw emptyContextError('AUTHENTICATION_REQUIRED');
+    const allowedContext = findMatchingOperationalContext(archivedContexts, context);
+    if (!allowedContext) throw emptyContextError('ARCHIVED_CONTEXT_NOT_ALLOWED');
+
+    setStoredArchivedContext(user.id, allowedContext);
+    setArchivedContext(allowedContext);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(ARCHIVED_CONTEXT_CHANGED_EVENT, {
+        detail: { context: getOperationalContextIdentity(allowedContext), active: true },
+      }));
+      if (options.reload) window.setTimeout(() => window.location.reload(), 0);
+    }
+  }, [archivedContexts, user]);
+
+  const exitArchiveMode = useCallback(async (
+    options: ArchivedContextOptions = {},
+  ) => {
+    if (user) clearStoredArchivedContext(user.id);
+    setArchivedContext(null);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(ARCHIVED_CONTEXT_CHANGED_EVENT, {
+        detail: { active: false },
+      }));
+      if (options.reload) window.setTimeout(() => window.location.reload(), 0);
+    }
+  }, [user]);
+
+  const refreshArchivedContexts = useCallback(async () => {
+    await loadArchivedContexts();
+  }, [loadArchivedContexts]);
 
   const refreshContexts = useCallback(async () => {
     if (user) await loadContextsForUser(user);
@@ -303,16 +434,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     && allowedContexts.length > 0
   );
 
+  const isArchivedContext = !!archivedContext;
+  const canArchiveBrowse = canBrowseArchivedContexts(
+    permissions?.permissions ?? null,
+    permissions?.isSuperAdmin ?? false,
+  );
+
+  /**
+   * While an archived context is selected the effective permission snapshot is
+   * read-only: mutating keys are dropped and the SUPER_ADMIN UI bypass is
+   * disabled for this projection, so mutation controls disappear everywhere.
+   * The backend still applies its own canonical authorization.
+   */
+  const effectivePermissions = useMemo<UserPermissions | null>(() => {
+    if (!permissions || !isArchivedContext) return permissions;
+    return {
+      ...permissions,
+      permissions: filterArchivePermissions(permissions.permissions),
+      isSuperAdmin: false,
+    };
+  }, [isArchivedContext, permissions]);
+
   const value = useMemo<AuthContextValue>(() => ({
     user,
-    permissions,
+    permissions: effectivePermissions,
     loading,
     error,
     login,
     logout,
     refreshProfile,
     refreshPermissions,
-    isSuperAdmin: permissions?.isSuperAdmin ?? false,
+    isSuperAdmin: effectivePermissions?.isSuperAdmin ?? false,
     allowedContexts,
     defaultContext,
     activeContext,
@@ -323,20 +475,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     contextVersion,
     selectContext,
     refreshContexts,
+    archivedContexts,
+    archivedContext,
+    archivedContextsLoading,
+    isArchivedContext,
+    canArchiveBrowse,
+    enterArchiveMode,
+    exitArchiveMode,
+    refreshArchivedContexts,
   }), [
     activeContext,
     allowedContexts,
+    archivedContext,
+    archivedContexts,
+    archivedContextsLoading,
+    canArchiveBrowse,
     contextError,
     contextLoading,
     contextReady,
     contextSelectionRequired,
     contextVersion,
     defaultContext,
+    effectivePermissions,
+    enterArchiveMode,
     error,
+    exitArchiveMode,
+    isArchivedContext,
     loading,
     login,
     logout,
-    permissions,
+    refreshArchivedContexts,
     refreshContexts,
     refreshPermissions,
     refreshProfile,
@@ -376,6 +544,14 @@ export function useOperationalContext(): OperationalContextHookValue {
     contextVersion,
     selectContext,
     refreshContexts,
+    archivedContexts,
+    archivedContext,
+    archivedContextsLoading,
+    isArchivedContext,
+    canArchiveBrowse,
+    enterArchiveMode,
+    exitArchiveMode,
+    refreshArchivedContexts,
   } = useAuth();
 
   return {
@@ -389,6 +565,14 @@ export function useOperationalContext(): OperationalContextHookValue {
     contextVersion,
     selectContext,
     refreshContexts,
+    archivedContexts,
+    archivedContext,
+    archivedContextsLoading,
+    isArchivedContext,
+    canArchiveBrowse,
+    enterArchiveMode,
+    exitArchiveMode,
+    refreshArchivedContexts,
   };
 }
 

@@ -10,6 +10,20 @@ export interface OperationalContextSelection {
   departmentId?: string | null;
 }
 
+export type OrganizationalLevel =
+  | 'company'
+  | 'branch'
+  | 'administration'
+  | 'department';
+
+export interface ArchivedOrganizationalAncestor {
+  level: OrganizationalLevel;
+  id: string;
+  code: string;
+  name: string;
+  deletedAt: string;
+}
+
 export interface ActiveOperationalContext {
   contextKey: string;
   scopeId: string | null;
@@ -27,7 +41,18 @@ export interface ActiveOperationalContext {
   departmentCode: string | null;
   isDefault: boolean;
   source: OperationalContextSource;
+  /** Archive browsing only. Active contexts never set this flag. */
+  isArchived?: boolean;
+  /** Archive browsing only. Soft-deleted organizational ancestors of this context. */
+  archivedAncestors?: ArchivedOrganizationalAncestor[];
 }
+
+export interface ArchivedOperationalContext extends ActiveOperationalContext {
+  isArchived: true;
+  archivedAncestors: ArchivedOrganizationalAncestor[];
+}
+
+export type OperationalContextMode = 'active' | 'archived';
 
 export interface OperationalContextsResult {
   contexts: ActiveOperationalContext[];

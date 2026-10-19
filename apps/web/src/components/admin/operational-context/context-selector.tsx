@@ -17,6 +17,12 @@ interface ContextSelectorProps {
   onClose?: () => void;
 }
 
+const ARCHIVED_KEY_PREFIX = 'archived::';
+
+function archivedKey(context: Parameters<typeof getOperationalContextKey>[0]): string {
+  return `${ARCHIVED_KEY_PREFIX}${getOperationalContextKey(context)}`;
+}
+
 export function ContextSelector({
   open,
   required = false,
@@ -30,6 +36,12 @@ export function ContextSelector({
     contextLoading,
     contextError,
     selectContext,
+    archivedContexts,
+    archivedContext,
+    isArchivedContext,
+    canArchiveBrowse,
+    enterArchiveMode,
+    exitArchiveMode,
   } = useOperationalContext();
   const initialKey = useMemo(
     () => activeContext ? getOperationalContextKey(activeContext) : '',
@@ -41,6 +53,10 @@ export function ContextSelector({
   useEffect(() => {
     if (!open) return;
     setSelectionFailed(false);
+    if (isArchivedContext && archivedContext) {
+      setSelectedKey(archivedKey(archivedContext));
+      return;
+    }
     setSelectedKey(
       activeContext
         ? getOperationalContextKey(activeContext)
@@ -48,7 +64,7 @@ export function ContextSelector({
           ? getOperationalContextKey(allowedContexts[0])
           : '',
     );
-  }, [activeContext, allowedContexts, open]);
+  }, [activeContext, allowedContexts, archivedContext, isArchivedContext, open]);
 
   useEffect(() => {
     if (!open || required) return;
@@ -64,8 +80,20 @@ export function ContextSelector({
   const selectedContext = allowedContexts.find(
     (context) => getOperationalContextKey(context) === selectedKey,
   );
+  const selectedArchivedContext = archivedContexts.find(
+    (context) => archivedKey(context) === selectedKey,
+  );
 
   const handleConfirm = async () => {
+    if (selectedArchivedContext) {
+      setSelectionFailed(false);
+      try {
+        await enterArchiveMode(selectedArchivedContext, { reload: true });
+      } catch {
+        setSelectionFailed(true);
+      }
+      return;
+    }
     if (!selectedContext) return;
     setSelectionFailed(false);
     try {
@@ -150,6 +178,73 @@ export function ContextSelector({
             })}
           </div>
 
+          {canArchiveBrowse && (
+            <div className="mt-6 border-t border-dashed border-amber-300 pt-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-amber-900">
+                    {t('auth.context.archivedTitle')}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-amber-800">
+                    {t('auth.context.archivedHint')}
+                  </p>
+                </div>
+                {isArchivedContext && (
+                  <span className="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-900">
+                    {t('auth.context.archivedCurrent')}
+                  </span>
+                )}
+              </div>
+
+              <div
+                className="mt-3 grid gap-3 sm:grid-cols-2"
+                role="radiogroup"
+                aria-label={t('auth.context.archivedTitle')}
+              >
+                {archivedContexts.length === 0 && (
+                  <p className="text-sm text-amber-800 sm:col-span-2">
+                    {t('auth.context.archivedEmpty')}
+                  </p>
+                )}
+                {archivedContexts.map((context) => {
+                  const key = archivedKey(context);
+                  const selected = selectedKey === key;
+                  const current = isArchivedContext && isSameOperationalContext(archivedContext, context);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setSelectedKey(key)}
+                      className={[
+                        'flex min-h-20 items-start justify-between gap-3 rounded-lg border px-4 py-3 text-start transition-colors',
+                        selected
+                          ? 'border-amber-500 bg-amber-50 text-amber-950'
+                          : 'border-amber-200 bg-white text-gray-800 hover:border-amber-300 hover:bg-amber-50/50',
+                      ].join(' ')}
+                    >
+                      <ContextChip context={context} />
+                      <span className="flex shrink-0 flex-col items-end gap-1">
+                        <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-900">
+                          {t('auth.context.archivedBadge')}
+                        </span>
+                        <span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-700">
+                          {t('auth.context.archivedReadOnlyBadge')}
+                        </span>
+                        {current && (
+                          <span className="rounded-full bg-amber-500 px-2 py-1 text-[11px] font-medium text-white">
+                            {t('auth.context.archivedCurrent')}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {(selectionFailed || contextError) && (
             <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {t('auth.context.validationError')}
@@ -158,6 +253,18 @@ export function ContextSelector({
         </div>
 
         <footer className="flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-5 py-4">
+          {isArchivedContext && (
+            <>
+              <button
+                type="button"
+                onClick={() => void exitArchiveMode({ reload: true })}
+                className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100"
+              >
+                {t('auth.context.exitArchived')}
+              </button>
+              <div className="flex-1" />
+            </>
+          )}
           {!required && (
             <button
               type="button"
@@ -169,11 +276,15 @@ export function ContextSelector({
           )}
           <button
             type="button"
-            disabled={!selectedContext || contextLoading}
+            disabled={(!selectedContext && !selectedArchivedContext) || contextLoading}
             onClick={() => void handleConfirm()}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {contextLoading ? t('common.loading') : t('auth.context.confirm')}
+            {contextLoading
+              ? t('common.loading')
+              : selectedArchivedContext
+                ? t('auth.context.enterArchived')
+                : t('auth.context.confirm')}
           </button>
         </footer>
       </section>

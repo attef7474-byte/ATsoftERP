@@ -5,6 +5,7 @@ import { Response } from 'express';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { Permissions } from '../../../common/decorators/permissions.decorator';
+import { ArchiveReadable } from '../../../common/decorators/archive-readable.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CurrentActiveContext } from '../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
@@ -35,6 +36,7 @@ export class ProductionOrdersController {
   }
 
   @Post('preview')
+  @ArchiveReadable()
   @Permissions('production-order:readiness')
   @ApiOperation({ summary: 'Validate references and preview the capacity snapshot and planned duration' })
   preview(@Body() dto: CreateProductionOrderDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {

@@ -1,7 +1,9 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ARCHIVED_CONTEXT_DISCOVERY_LIMIT } from './archive-context.constants';
 import {
   ActiveOperationalContext,
+  ArchivedOrganizationalAncestor,
   OperationalAccessGrant,
   OperationalContextsResult,
   ResolvedOperationalAccess,
@@ -204,6 +206,225 @@ export class AllowedContextResolver {
 
   async getAuthorization(userId: string): Promise<UserAuthorizationSnapshot> {
     return (await this.resolve(userId)).authorization;
+  }
+
+  /**
+   * Archive browsing discovery: soft-deleted company/branch/administration/
+   * department contexts this principal may still read, in read-only form.
+   * Never returns a default context and never clears any archival marker.
+   */
+  async getArchivedContexts(userId: string): Promise<OperationalContextsResult> {
+    const access = await this.resolve(userId);
+    const isSuperAdmin = access.authorization.isSuperAdmin;
+
+    const ownedPairs = new Set<string>();
+    const ownedBranchIds: string[] | null = isSuperAdmin ? null : [];
+    if (!isSuperAdmin) {
+      const scopes = await this.prisma.userOperationalScope.findMany({
+        where: { userId, status: 'ACTIVE', deletedAt: null },
+        select: { companyId: true, branchId: true },
+      });
+      for (const scope of scopes) {
+        ownedPairs.add(`${scope.companyId}:${scope.branchId}`);
+        ownedBranchIds!.push(scope.branchId);
+      }
+      if (access.legacyCompanyId && access.legacyBranchId) {
+        ownedPairs.add(`${access.legacyCompanyId}:${access.legacyBranchId}`);
+        ownedBranchIds!.push(access.legacyBranchId);
+      }
+      if (ownedPairs.size === 0) return { contexts: [], defaultContext: null };
+    }
+
+    const owns = (companyId: string, branchId: string): boolean =>
+      isSuperAdmin || ownedPairs.has(`${companyId}:${branchId}`);
+
+    const branchIds = ownedBranchIds ? Array.from(new Set(ownedBranchIds)) : null;
+
+    const limit = ARCHIVED_CONTEXT_DISCOVERY_LIMIT;
+    const contexts: ActiveOperationalContext[] = [];
+
+    const archivedBranches = await this.prisma.branch.findMany({
+      where: {
+        ...(branchIds ? { id: { in: branchIds } } : {}),
+        OR: [
+          { deletedAt: { not: null } },
+          { company: { deletedAt: { not: null } } },
+        ],
+      },
+      include: { company: true },
+      orderBy: [{ company: { code: 'asc' } }, { code: 'asc' }],
+      take: limit,
+    });
+
+    for (const branch of archivedBranches) {
+      if (!owns(branch.companyId, branch.id)) continue;
+      contexts.push(
+        this.toArchivedContext(
+          {
+            scopeId: null,
+            companyId: branch.companyId,
+            branchId: branch.id,
+            administrationId: null,
+            departmentId: null,
+            isDefault: false,
+            source: isSuperAdmin ? 'SUPER_ADMIN' : 'EXPLICIT_SCOPE',
+          },
+          {
+            company: branch.company,
+            branch,
+            administration: null,
+            department: null,
+          },
+          [
+            ...this.archivedAncestor('company', branch.company),
+            ...this.archivedAncestor('branch', branch),
+          ],
+        ),
+      );
+    }
+
+    const archivedAdministrations = await this.prisma.administration.findMany({
+      where: {
+        deletedAt: { not: null },
+        ...(branchIds ? { branchId: { in: branchIds } } : {}),
+      },
+      include: { branch: { include: { company: true } } },
+      orderBy: [{ branch: { company: { code: 'asc' } } }, { code: 'asc' }],
+      take: limit,
+    });
+    for (const administration of archivedAdministrations) {
+      const branch = administration.branch;
+      if (!branch || !owns(branch.companyId, branch.id)) continue;
+      contexts.push(
+        this.toArchivedContext(
+          {
+            scopeId: null,
+            companyId: branch.companyId,
+            branchId: branch.id,
+            administrationId: administration.id,
+            departmentId: null,
+            isDefault: false,
+            source: isSuperAdmin ? 'SUPER_ADMIN' : 'EXPLICIT_SCOPE',
+          },
+          {
+            company: branch.company,
+            branch,
+            administration,
+            department: null,
+          },
+          [
+            ...this.archivedAncestor('company', branch.company),
+            ...this.archivedAncestor('branch', branch),
+            ...this.archivedAncestor('administration', administration),
+          ],
+        ),
+      );
+    }
+
+    const archivedDepartments = await this.prisma.department.findMany({
+      where: {
+        deletedAt: { not: null },
+        ...(branchIds ? { branchId: { in: branchIds } } : {}),
+      },
+      include: {
+        administration: true,
+        branch: { include: { company: true } },
+      },
+      orderBy: [{ company: { code: 'asc' } }, { code: 'asc' }],
+      take: limit,
+    });
+    for (const department of archivedDepartments) {
+      const branch = department.branch;
+      if (!branch || !owns(branch.companyId, branch.id)) continue;
+      const administration = department.administration;
+      contexts.push(
+        this.toArchivedContext(
+          {
+            scopeId: null,
+            companyId: branch.companyId,
+            branchId: branch.id,
+            administrationId: department.administrationId,
+            departmentId: department.id,
+            isDefault: false,
+            source: isSuperAdmin ? 'SUPER_ADMIN' : 'EXPLICIT_SCOPE',
+          },
+          {
+            company: branch.company,
+            branch,
+            administration,
+            department,
+          },
+          [
+            ...this.archivedAncestor('company', branch.company),
+            ...this.archivedAncestor('branch', branch),
+            ...this.archivedAncestor('administration', administration),
+            ...this.archivedAncestor('department', department),
+          ],
+        ),
+      );
+    }
+
+    const deduped = this.deduplicateContexts(contexts).slice(
+      0,
+      ARCHIVED_CONTEXT_DISCOVERY_LIMIT,
+    );
+    const levelRank: Record<string, number> = {
+      company: 0,
+      branch: 0,
+      administration: 1,
+      department: 2,
+    };
+    deduped.sort((a, b) => {
+      const byCompany = a.companyCode.localeCompare(b.companyCode);
+      if (byCompany !== 0) return byCompany;
+      const byBranch = a.branchCode.localeCompare(b.branchCode);
+      if (byBranch !== 0) return byBranch;
+      const aLevel = a.departmentId
+        ? levelRank.department
+        : a.administrationId
+          ? levelRank.administration
+          : levelRank.company;
+      const bLevel = b.departmentId
+        ? levelRank.department
+        : b.administrationId
+          ? levelRank.administration
+          : levelRank.company;
+      if (aLevel !== bLevel) return aLevel - bLevel;
+      return (a.departmentName || a.administrationName || '').localeCompare(
+        b.departmentName || b.administrationName || '',
+      );
+    });
+
+    return { contexts: deduped, defaultContext: null };
+  }
+
+  private archivedAncestor(
+    level: ArchivedOrganizationalAncestor['level'],
+    record: { id: string; code?: string | null; name: string; deletedAt: Date | null } | null,
+  ): ArchivedOrganizationalAncestor[] {
+    if (!record || record.deletedAt === null) return [];
+    return [
+      {
+        level,
+        id: record.id,
+        code: record.code || '',
+        name: record.name,
+        deletedAt: record.deletedAt.toISOString(),
+      },
+    ];
+  }
+
+  private toArchivedContext(
+    grant: OperationalAccessGrant,
+    relations: ContextRelations,
+    archivedAncestors: ArchivedOrganizationalAncestor[],
+  ): ActiveOperationalContext {
+    return {
+      ...this.toContext(grant, relations),
+      isDefault: false,
+      isArchived: true,
+      archivedAncestors,
+    };
   }
 
   private async resolveLegacyContext(

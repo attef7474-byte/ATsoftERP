@@ -6,6 +6,7 @@ import { useAuth } from '../../../lib/auth-context';
 import { isPermissionGranted } from '../../../lib/permission-gate';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { AdminActionBarProvider, useAdminActionBar } from '../admin-action-bar';
+import { ArchivedContextBanner } from '../operational-context';
 import { UnifiedSearchModal } from '../../f9/UnifiedSearchModal';
 import { useAppearance } from '../theme/appearance-provider';
 import { Breadcrumb } from './breadcrumb';
@@ -20,12 +21,14 @@ const MOBILE_BREAKPOINT = 1024;
 
 function AdminShellInner({ children }: { children: React.ReactNode }) {
   const { t, locale, setLocale } = useTranslation();
-  const { user: profile, logout, permissions, isSuperAdmin } = useAuth();
+  const { user: profile, logout, permissions, isSuperAdmin, isArchivedContext } = useAuth();
   const pathname = usePathname();
   const { visible: actionBarVisible, actions } = useAdminActionBar();
   const visibleActions = useMemo(
-    () => actions.filter((action) => isPermissionGranted(action.permission, permissions?.permissions ?? null, isSuperAdmin)),
-    [actions, permissions, isSuperAdmin],
+    () => actions
+      .filter((action) => isPermissionGranted(action.permission, permissions?.permissions ?? null, isSuperAdmin))
+      .filter((action) => !isArchivedContext || action.readOnly === true),
+    [actions, permissions, isSuperAdmin, isArchivedContext],
   );
   const actionBarShown = actionBarVisible && visibleActions.length > 0;
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -189,6 +192,7 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
       />
 
       <main className="admin-main">
+        <ArchivedContextBanner />
         <div className="admin-main-inner">{children}</div>
       </main>
 

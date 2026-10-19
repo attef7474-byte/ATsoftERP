@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../../../lib/i18n/use-translation';
+import { useAuth } from '../../../lib/auth-context';
 import { api } from '../../../lib/api';
 import { NotificationItem, NotificationItemData } from './notification-item';
 
@@ -11,6 +12,7 @@ interface NotificationDropdownProps {
 
 export function NotificationDropdown({ onClose, onViewAll }: NotificationDropdownProps) {
   const { t } = useTranslation();
+  const { isArchivedContext } = useAuth();
   const [items, setItems] = useState<NotificationItemData[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -63,9 +65,11 @@ export function NotificationDropdown({ onClose, onViewAll }: NotificationDropdow
     <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
         <h3 className="text-sm font-semibold text-gray-800">{t('notifications.title')}</h3>
-        <button onClick={handleMarkAllRead} disabled={actionLoading} className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50">
-          {t('notifications.markAllRead')}
-        </button>
+        {!isArchivedContext && (
+          <button onClick={handleMarkAllRead} disabled={actionLoading} className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50">
+            {t('notifications.markAllRead')}
+          </button>
+        )}
       </div>
       <div className="max-h-80 overflow-y-auto">
         {loading ? (
@@ -77,7 +81,12 @@ export function NotificationDropdown({ onClose, onViewAll }: NotificationDropdow
         ) : (
           <div className="divide-y divide-gray-50">
             {items.map((item) => (
-              <NotificationItem key={item.id} item={item} onMarkRead={handleMarkRead} onDelete={handleDelete} />
+              <NotificationItem
+                key={item.id}
+                item={item}
+                onMarkRead={isArchivedContext ? undefined : handleMarkRead}
+                onDelete={isArchivedContext ? undefined : handleDelete}
+              />
             ))}
           </div>
         )}
