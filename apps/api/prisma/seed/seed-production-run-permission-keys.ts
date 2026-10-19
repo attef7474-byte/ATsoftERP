@@ -5,6 +5,7 @@ export const PRODUCTION_RUN_PERMISSION_KEYS = [
   'production-run:resume',
   'production-run:complete',
   'production-run:abort',
+  'production-run:close-valuation',
 ] as const;
 
 export const PRODUCTION_OUTPUT_PERMISSION_KEYS = [

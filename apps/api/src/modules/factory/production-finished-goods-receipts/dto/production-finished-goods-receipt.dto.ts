@@ -38,6 +38,18 @@ export class CreateFgReceiptLineDto {
   @IsString()
   enteredUnitId?: string;
 
+  // INTERNAL ONLY — never accepted from clients (no class-validator decorator:
+  // the global whitelist strips it from any request payload). Declared with the
+  // TS `declare` modifier so it is type-only and never emitted as a runtime class
+  // field: under `useDefineForClassFields` (ES2022) an ordinary declaration becomes
+  // an own `undefined` property, which the global `forbidNonWhitelisted` pipe then
+  // reports as an unknown field and rejects EVERY create. The reversal flow still
+  // assigns it dynamically from the source receipt's immutable InventoryMovementLine
+  // so a reversal replays the exact historical base quantity instead of
+  // re-converting the entered quantity with the CURRENT ProductUom factor
+  // (historical reversal drift = 0).
+  declare historicalQuantityBase?: number;
+
   @IsOptional()
   @IsString()
   warehouseLocationId?: string;

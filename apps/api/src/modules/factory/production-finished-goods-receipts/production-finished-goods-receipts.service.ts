@@ -192,6 +192,9 @@ export class ProductionFinishedGoodsReceiptsService {
       unit: line.unit,
       productUomId: line.productUomId ?? null,
       enteredUnitId: line.enteredUnitId ?? null,
+      // Historical replay path (internal reversal only) — see
+      // CreateFgReceiptLineDto.historicalQuantityBase.
+      quantityBase: line.historicalQuantityBase,
       direction,
       notes: line.notes ?? null,
     }));
@@ -532,15 +535,44 @@ export class ProductionFinishedGoodsReceiptsService {
         if (source.status !== 'POSTED') throw this.badRequest('productionFgReceipt.reverseOnlyPosted');
         if (source.sourceType === 'REVERSE') throw this.badRequest('productionFgReceipt.cannotReverseReversal');
 
-        const reverseLines: CreateFgReceiptLineDto[] = source.lines.map((line: any) => ({
-          productId: line.productId,
-          quantity: Number(line.quantity),
-          unit: line.unit,
-          warehouseLocationId: line.warehouseLocationId ?? undefined,
-          batchNumber: line.batchNumber ?? undefined,
-          serialNumber: line.serialNumber ?? undefined,
-          expiryDate: line.expiryDate ? line.expiryDate.toISOString() : undefined,
-        }));
+        // Historical conversion replay: pair each source receipt line with its
+        // immutable InventoryMovementLine (product + entered quantity + IN
+        // direction) so the OUT reversal movement replays the exact historical
+        // base quantity instead of re-converting with the CURRENT ProductUom
+        // factor (historical reversal drift = 0).
+        const sourceMovementLines: Array<{ productId: string; quantity: any; direction: string; quantityBase: any }> =
+          source.movementId
+            ? await tx.inventoryMovementLine.findMany({
+                where: { movementId: source.movementId, direction: 'IN' },
+                select: { productId: true, quantity: true, direction: true, quantityBase: true },
+              })
+            : [];
+        const usedMovementLines = new Set<number>();
+        const takeMovementEvidence = (productId: string, quantity: Prisma.Decimal) => {
+          for (let index = 0; index < sourceMovementLines.length; index++) {
+            if (usedMovementLines.has(index)) continue;
+            const candidate = sourceMovementLines[index];
+            if (candidate.productId !== productId) continue;
+            if (!new Prisma.Decimal(candidate.quantity).equals(quantity)) continue;
+            usedMovementLines.add(index);
+            return candidate;
+          }
+          return null;
+        };
+        const reverseLines: CreateFgReceiptLineDto[] = source.lines.map((line: any) => {
+          const evidence = takeMovementEvidence(line.productId, new Prisma.Decimal(line.quantity));
+          const reversed: CreateFgReceiptLineDto = {
+            productId: line.productId,
+            quantity: Number(line.quantity),
+            unit: line.unit,
+            warehouseLocationId: line.warehouseLocationId ?? undefined,
+            batchNumber: line.batchNumber ?? undefined,
+            serialNumber: line.serialNumber ?? undefined,
+            expiryDate: line.expiryDate ? line.expiryDate.toISOString() : undefined,
+          };
+          if (evidence?.quantityBase) reversed.historicalQuantityBase = Number(evidence.quantityBase);
+          return reversed;
+        });
 
         const run = await tx.productionRun.findFirst({ where: { id: source.productionRunId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } });
         const order = await tx.productionOrder.findFirst({ where: { id: source.productionOrderId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } });

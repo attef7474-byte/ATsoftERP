@@ -108,7 +108,7 @@ function makeService(overrides: Record<string, any> = {}) {
     },
     productionMaterialDocumentLine: { deleteMany: jest.fn(), createMany: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
     inventoryMovement: { create: jest.fn(), update: jest.fn(), findUnique: jest.fn() },
-    inventoryMovementLine: { deleteMany: jest.fn(), createMany: jest.fn() },
+    inventoryMovementLine: { deleteMany: jest.fn(), createMany: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
     productionRun: { findFirst: jest.fn() },
     productionOrder: { findFirst: jest.fn() },
     productionMaterialRequirement: { findFirst: jest.fn() },
@@ -130,7 +130,10 @@ function makeService(overrides: Record<string, any> = {}) {
     resolveMovementLines: jest.fn(async (_tx: any, lines: any[]) =>
       lines.map((l) => ({
         ...l,
-        quantityBase: l.quantity,
+        // Mirrors the real converter's legacy branch: an internally supplied
+        // historical base (reversal replay) passes through untouched; lines
+        // without one fall back to the entered quantity.
+        quantityBase: l.quantityBase ?? l.quantity,
         productUomId: l.productUomId ?? null,
         enteredUnitId: l.enteredUnitId ?? null,
         enteredQuantity: null,
@@ -728,6 +731,71 @@ describe('ProductionMaterialDocumentsService', () => {
       expect(docData.lines.create[0].productId).toBe('prod1');
       const movementData = prisma.inventoryMovement.create.mock.calls[0][0].data;
       expect(movementData.lines.create[0].direction).toBe('IN');
+    });
+
+    it('replays the historical base quantity from the source movement line (historical reversal drift = 0)', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id) return Promise.resolve(document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
+        return Promise.resolve(null); // no existing requestId
+      });
+      // The original movement converted 5 KG entered into 125 base (factor 25).
+      prisma.inventoryMovementLine.findMany.mockResolvedValue([
+        { productId: 'prod1', quantity: 5, direction: 'OUT', quantityBase: 125 },
+      ]);
+      prisma.productionRun.findFirst.mockResolvedValue(run());
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov2', movementNumber: 'IM-000002' });
+      prisma.productionMaterialDocument.create.mockResolvedValue(document({ id: 'doc2', documentNumber: 'PMD-000002', documentType: 'RETURN' }));
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({ id: 'doc2', documentType: 'RETURN' }));
+
+      await service.reverse('doc1', { requestId: 'req-rev-hist-1' }, 'u1', ctxA);
+
+      // The reversing IN movement must return the exact 125 base that originally
+      // left stock, not 5 (which would re-convert the entered quantity with the
+      // CURRENT ProductUom factor — historical reversal drift).
+      const movementLine = prisma.inventoryMovement.create.mock.calls[0][0].data.lines.create[0];
+      expect(movementLine.quantity).toBe(5);
+      expect(movementLine.quantityBase).toBe(125);
+      // Replay uses the legacy path (no conversion snapshot on the reversal).
+      expect(movementLine.productUomId).toBeNull();
+    });
+
+    it('pairs each SUBSTITUTION reversal line with the historical base of the SAME product (swapped lines)', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id) return Promise.resolve(
+          document({
+            status: 'POSTED', postedAt: new Date(), postedById: 'u1',
+            documentType: 'SUBSTITUTION',
+            lines: [{ id: 'line1', productId: 'prod-out', quantity: 2, unit: 'KG', substitutedProductId: 'prod-in' }],
+          }),
+        );
+        return Promise.resolve(null);
+      });
+      prisma.inventoryMovementLine.findMany.mockResolvedValue([
+        { productId: 'prod-out', quantity: 2, direction: 'OUT', quantityBase: 10 },
+        { productId: 'prod-in', quantity: 2, direction: 'IN', quantityBase: 50 },
+      ]);
+      prisma.productionRun.findFirst.mockResolvedValue(run());
+      prisma.productionOrder.findFirst.mockResolvedValue(order());
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov2', movementNumber: 'IM-000002' });
+      prisma.productionMaterialDocument.create.mockResolvedValue(document({ id: 'doc2', documentNumber: 'PMD-000002', documentType: 'SUBSTITUTION' }));
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({ id: 'doc2', documentType: 'SUBSTITUTION' }));
+
+      await service.reverse('doc1', { requestId: 'req-rev-hist-sub' }, 'u1', ctxA);
+
+      const movementLines = prisma.inventoryMovement.create.mock.calls[0][0].data.lines.create;
+      // Reversal swaps: prod-in is re-issued OUT with its historical 50 base;
+      // prod-out comes back IN with its historical 10 base.
+      const outLine = movementLines.find((l: any) => l.productId === 'prod-in');
+      const inLine = movementLines.find((l: any) => l.productId === 'prod-out');
+      expect(outLine.direction).toBe('OUT');
+      expect(outLine.quantityBase).toBe(50);
+      expect(inLine.direction).toBe('IN');
+      expect(inLine.quantityBase).toBe(10);
     });
 
     it('carries the source line Cost Purpose onto reversal lines (inheritance, no override re-check)', async () => {

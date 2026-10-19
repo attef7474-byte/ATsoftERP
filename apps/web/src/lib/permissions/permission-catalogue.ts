@@ -233,6 +233,7 @@ const A: Record<string, ActionDef> = {
   cancel: { ar: 'إلغاء', en: 'Cancel' },
   complete: { ar: 'إكمال', en: 'Complete' },
   close: { ar: 'إغلاق', en: 'Close' },
+  'close-valuation': { ar: 'إغلاق التقييم', en: 'Close Valuation' },
   assign: { ar: 'تعيين', en: 'Assign' },
   accept: { ar: 'قبول', en: 'Accept' },
   reopen: { ar: 'إعادة فتح', en: 'Reopen' },

@@ -374,6 +374,7 @@ export class ProductionMaterialDocumentsService {
       unit: string | null;
       productUomId: string | null;
       enteredUnitId: string | null;
+      quantityBase: number | undefined;
       direction: string;
       notes: string | null;
     }> = [];
@@ -389,6 +390,13 @@ export class ProductionMaterialDocumentsService {
         unit: line.unit,
         productUomId: line.productUomId ?? null,
         enteredUnitId: line.enteredUnitId ?? null,
+        // Historical replay path (internal reversal only): when the reversal
+        // supplies the source movement line's immutable base quantity, the
+        // canonical converter passes it through untouched (no productUomId on
+        // the line) so the reversing movement returns the exact base quantity
+        // that originally left stock — regardless of any later ProductUom
+        // factor change.
+        quantityBase: line.historicalQuantityBase,
         direction,
         notes: line.notes ?? null,
       });
@@ -403,6 +411,7 @@ export class ProductionMaterialDocumentsService {
           unit: line.unit,
           productUomId: line.productUomId ?? null,
           enteredUnitId: line.enteredUnitId ?? null,
+          quantityBase: line.swappedHistoricalQuantityBase ?? line.historicalQuantityBase,
           direction: 'IN',
           notes: line.notes ?? null,
         });
@@ -943,7 +952,33 @@ export class ProductionMaterialDocumentsService {
         if (raced) return this.resolveIdempotentReverse(raced, source, dto);
 
         const reverseType = materialReverseType(source.documentType as any);
+        // Historical conversion replay: the source's immutable InventoryMovementLines
+        // carry the exact base quantities that were posted. Each reversal line is
+        // paired with its original movement line (product + entered quantity +
+        // direction) so the reversing movement replays the historical base
+        // quantity instead of re-converting with the CURRENT ProductUom factor.
+        const sourceMovementLines: Array<{ productId: string; quantity: any; direction: string; quantityBase: any }> =
+          source.movementId
+            ? await tx.inventoryMovementLine.findMany({
+                where: { movementId: source.movementId },
+                select: { productId: true, quantity: true, direction: true, quantityBase: true },
+              })
+            : [];
+        const usedMovementLines = new Set<number>();
+        const takeMovementEvidence = (productId: string, quantity: Prisma.Decimal, direction: string) => {
+          for (let index = 0; index < sourceMovementLines.length; index++) {
+            if (usedMovementLines.has(index)) continue;
+            const candidate = sourceMovementLines[index];
+            if (candidate.productId !== productId || candidate.direction !== direction) continue;
+            if (!new Prisma.Decimal(candidate.quantity).equals(quantity)) continue;
+            usedMovementLines.add(index);
+            return candidate;
+          }
+          return null;
+        };
+        const sourceDirection = materialDocumentDirection(source.documentType as any);
         const reverseLines: CreateMaterialDocumentLineDto[] = source.lines.map((line: any) => {
+          const lineQuantity = new Prisma.Decimal(line.quantity);
           const base: CreateMaterialDocumentLineDto = {
             productId: reverseType === 'SUBSTITUTION' && line.substitutedProductId ? line.substitutedProductId : line.productId,
             quantity: Number(line.quantity),
@@ -959,8 +994,18 @@ export class ProductionMaterialDocumentsService {
             costPurposeOverrideReason: line.costPurposeOverrideReason ?? undefined,
           };
           if (reverseType === 'SUBSTITUTION' && line.substitutedProductId) {
+            // Original SUBSTITUTION posted OUT for productId and IN for the
+            // substitute; the reversal swaps them, so each reversal line
+            // replays the historical base of the SAME product's original line.
+            const substituteEvidence = takeMovementEvidence(line.productId, lineQuantity, 'OUT');
+            const mainEvidence = takeMovementEvidence(line.substitutedProductId, lineQuantity, 'IN');
+            if (mainEvidence?.quantityBase) base.historicalQuantityBase = Number(mainEvidence.quantityBase);
+            if (substituteEvidence?.quantityBase) base.swappedHistoricalQuantityBase = Number(substituteEvidence.quantityBase);
             base.substitutedProductId = line.productId;
             base.substitutionReason = line.substitutionReason ?? 'Reverse substitution';
+          } else {
+            const evidence = takeMovementEvidence(base.productId, lineQuantity, sourceDirection);
+            if (evidence?.quantityBase) base.historicalQuantityBase = Number(evidence.quantityBase);
           }
           return base;
         });

@@ -80,12 +80,6 @@ const KNOWN_UNSEEDED_LEGACY_KEYS = new Set<string>([
   'maintenance.dashboard.upcomingPreventive.view',
   'maintenance.dashboard.recentGeneratedPreventive.view',
   'maintenance.dashboard.recentEmergency.view',
-  // -- production module naming mismatch (pre-existing, outside the R4R groups) --
-  // seed-production-permission-keys.ts declares `production-run:close-valuation`
-  // while production-runs.controller.ts enforces `production-run:close-for-valuation`.
-  // Fixing it requires an owner decision because the correct key must also be granted
-  // to the roles that legitimately close a run for valuation.
-  'production-run:close-for-valuation',
 ]);
 
 function collectSeededPermissionKeys(): Set<string> {

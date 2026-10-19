@@ -817,7 +817,12 @@ export class InventoryMovementsService {
 
   private productionMaterialLineKey(line: any): string {
     const expiry = line.expiryDate ? new Date(line.expiryDate).toISOString() : '';
-    const quantity = new Prisma.Decimal(line.quantityBase ?? line.quantity).toDecimalPlaces(4).toFixed(4);
+    // Pairing basis is the ENTERED quantity on both sides: document lines only
+    // persist the entered quantity, and movement lines keep the entered
+    // quantity in `quantity` while `quantityBase` carries the converted base.
+    // Using quantityBase here would make every ProductUom-converted line fail
+    // to pair (document key != movement key) under an ACTIVE valuation policy.
+    const quantity = new Prisma.Decimal(line.quantity).toDecimalPlaces(4).toFixed(4);
     return [
       line.productId,
       line.warehouseLocationId ?? '',
@@ -922,7 +927,11 @@ export class InventoryMovementsService {
         throw this.badRequest('inventoryValuation.productionReturnOriginalCostMissing');
       }
       const originalUnitCost = new Prisma.Decimal(originalMovementLine.unitCost);
-      const expectedOriginalTotal = new Prisma.Decimal(original.quantity).mul(originalUnitCost).toDecimalPlaces(4);
+      // unitCost is per BASE unit; the immutable movement line carries the
+      // converted base quantity, so the cost-consistency check must multiply
+      // quantityBase (falling back to the entered quantity for legacy lines).
+      const originalBaseQuantity = new Prisma.Decimal(originalMovementLine.quantityBase ?? originalMovementLine.quantity);
+      const expectedOriginalTotal = originalBaseQuantity.mul(originalUnitCost).toDecimalPlaces(4);
       if (!expectedOriginalTotal.equals(new Prisma.Decimal(originalMovementLine.totalCost))) {
         throw this.badRequest('inventoryValuation.productionReturnOriginalCostInvalid');
       }
@@ -959,9 +968,10 @@ export class InventoryMovementsService {
         previouslyReturnedValue = previouslyReturnedValue.plus(new Prisma.Decimal(candidates[0].totalCost));
       }
       const isFinalRemainder = previouslyReturned.plus(currentReturnQuantity).eq(originalQuantity);
+      const currentReturnBase = new Prisma.Decimal(movementLine.quantityBase ?? movementLine.quantity);
       const originalEventValue = isFinalRemainder
         ? new Prisma.Decimal(originalMovementLine.totalCost).minus(previouslyReturnedValue)
-        : currentReturnQuantity.mul(originalUnitCost);
+        : currentReturnBase.mul(originalUnitCost);
       if (originalEventValue.isNegative()) {
         throw this.badRequest('inventoryValuation.productionReturnPriorEvidenceInvalid');
       }
@@ -983,7 +993,8 @@ export class InventoryMovementsService {
 
   private finishedGoodsLineKey(line: any): string {
     const expiry = line.expiryDate ? new Date(line.expiryDate).toISOString() : '';
-    const quantity = new Prisma.Decimal(line.quantityBase ?? line.quantity).toDecimalPlaces(4).toFixed(4);
+    // Entered-quantity pairing basis — see productionMaterialLineKey above.
+    const quantity = new Prisma.Decimal(line.quantity).toDecimalPlaces(4).toFixed(4);
     return [
       line.productId,
       line.warehouseLocationId ?? '',
@@ -1245,8 +1256,13 @@ export class InventoryMovementsService {
       return plan;
     }
 
-    const receiptQty = receipt.lines.reduce(
-      (sum: Prisma.Decimal, line: any) => sum.plus(new Prisma.Decimal(line.quantity)),
+    // Receipt quantity for the frozen-quantity ceiling and value allocation is
+    // the CONVERTED BASE quantity (movement-line basis), matching how
+    // alreadyCapitalizedQty is tracked above. Document lines only carry the
+    // entered quantity, which is a different unit basis when ProductUom
+    // conversion applied.
+    const receiptQty = currentPairs.reduce(
+      (sum: Prisma.Decimal, pair: any) => sum.plus(new Prisma.Decimal(pair.movementLine.quantityBase ?? pair.movementLine.quantity)),
       new Prisma.Decimal(0),
     );
     const remainingQty = totalFrozenQty.minus(alreadyCapitalizedQty);
@@ -1266,7 +1282,7 @@ export class InventoryMovementsService {
     const frozenUnitCost = totalFrozenValue.div(totalFrozenQty);
     for (let index = 0; index < currentPairs.length; index++) {
       const pair = currentPairs[index];
-      const quantity = new Prisma.Decimal(pair.sourceLine.quantity);
+      const quantity = new Prisma.Decimal(pair.movementLine.quantityBase ?? pair.movementLine.quantity);
       const eventValue = index === currentPairs.length - 1
         ? receiptValue.minus(allocated)
         : receiptValue.mul(quantity).div(receiptQty).toDecimalPlaces(4);

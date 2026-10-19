@@ -98,7 +98,7 @@ export class ProductionRunsController {
   }
 
   @Post(':id/close-for-valuation')
-  @Permissions('production-run:close-for-valuation')
+  @Permissions('production-run:close-valuation')
   closeForValuation(@Param('id') id: string, @Body() dto: CloseForValuationDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.closeForValuation(id, dto, userId, ctx);
   }

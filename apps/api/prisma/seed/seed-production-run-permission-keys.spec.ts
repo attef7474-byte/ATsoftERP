@@ -3,7 +3,7 @@ import { PRODUCTION_RUN_PERMISSION_KEYS, PRODUCTION_OUTPUT_PERMISSION_KEYS, PROD
 describe('Phase 1.5 permission keys', () => {
   it('exactly matches the run lifecycle actions', () => {
     expect([...PRODUCTION_RUN_PERMISSION_KEYS].sort()).toEqual([
-      'production-run:abort', 'production-run:complete', 'production-run:pause',
+      'production-run:abort', 'production-run:close-valuation', 'production-run:complete', 'production-run:pause',
       'production-run:read', 'production-run:resume', 'production-run:start',
     ].sort());
     expect([...PRODUCTION_OUTPUT_PERMISSION_KEYS].sort()).toEqual(['production-output:correct', 'production-output:record'].sort());
