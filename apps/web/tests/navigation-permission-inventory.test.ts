@@ -58,7 +58,13 @@ function apiPermissionKeys(): Set<string> {
 
 describe('navigation permission inventory coverage', () => {
   const declared = allEntries(sidebarGroups);
-  const declaredKeys = [...new Set(declared.map((e) => e.permission).filter((p): p is string => Boolean(p)))];
+  const declaredKeys = [
+    ...new Set(
+      declared
+        .flatMap((e) => [e.permission, ...(e.permissions ?? [])])
+        .filter((p): p is string => Boolean(p)),
+    ),
+  ];
   const catalogue = new Set(AUTHORITATIVE_PERMISSION_KEYS);
   const api = apiPermissionKeys();
 

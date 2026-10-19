@@ -1,5 +1,5 @@
 import type { ShellIconName } from './shell-icons';
-import { isPermissionGranted } from '../../../lib/permission-gate';
+import { isPermissionGranted, canAny } from '../../../lib/permission-gate';
 
 // Backward-compatible types
 export interface NavChild {
@@ -40,7 +40,19 @@ export interface SidebarItem {
   id: string;
   labelKey: string;
   route: string;
+  /**
+   * Single required permission. Used by leaf screens that map 1:1 to one grant.
+   * Mutually exclusive with `permissions`.
+   */
   permission?: string;
+  /**
+   * Any-of permission set. Used by consolidated workspace roots whose screen
+   * contains several permission-gated functions/tabs: the workspace is visible
+   * when the principal holds at least one of its tab permissions, and the page
+   * itself hides the individual unauthorized tabs. This never broadens access —
+   * the backend guards stay authoritative.
+   */
+  permissions?: string[];
 }
 
 export interface SidebarSection {
@@ -53,8 +65,10 @@ export interface SidebarSection {
  * Resolve the access class of a sidebar entry. Presence of a `permission` key is the
  * explicit contract; absence means the entry is available to every authenticated user.
  */
-export function classifySidebarItem(item: { permission?: string }): NavigationAccessClass {
-  return item.permission ? 'PERMISSION' : 'AUTHENTICATED';
+export function classifySidebarItem(item: { permission?: string; permissions?: string[] }): NavigationAccessClass {
+  if (item.permission) return 'PERMISSION';
+  if (item.permissions && item.permissions.length > 0) return 'PERMISSION';
+  return 'AUTHENTICATED';
 }
 
 /**
@@ -69,10 +83,13 @@ export function classifySidebarItem(item: { permission?: string }): NavigationAc
  *   permission-protected remain visible because they are not authorization-sensitive.
  */
 export function isSidebarItemVisible(
-  item: { permission?: string },
+  item: { permission?: string; permissions?: string[] },
   permissions: string[] | null,
   isSuperAdmin: boolean,
 ): boolean {
+  if (item.permissions && item.permissions.length > 0) {
+    return canAny(permissions, item.permissions, isSuperAdmin);
+  }
   return isPermissionGranted(item.permission, permissions, isSuperAdmin);
 }
 
@@ -287,80 +304,47 @@ export const sidebarGroups: SidebarGroup[] = [
     ],
   },
 
-  // 7. Production
+  // 7. Production — consolidated into 8 canonical workspaces.
+  //
+  // The domain was consolidated onto 8 host pages (each hosting the former standalone
+  // screens as permission-gated tabs). Individual legacy pages are retired from the
+  // sidebar but remain reachable as redirect stubs under src/app/admin/production/**,
+  // so bookmarks and saved links never 404. Each workspace root declares the any-of
+  // permission set of its tabs: the entry is shown when the principal can use at least
+  // one tab, and the page hides the tabs they cannot. Backend guards stay authoritative.
   {
-    id: 'production', labelKey: 'navigation.production', icon: 'production', children: [
+    id: 'production', labelKey: 'navigation.production', icon: 'production', items: [
       {
-        id: 'prd-master-data', labelKey: 'navigation.navSection.productionMasterData', items: [
-          { id: 'prd-units', labelKey: 'navigation.productionUnits', route: '/admin/production/units', permission: 'production-unit:read' },
-          { id: 'prd-product-definitions', labelKey: 'navigation.productionProductDefinitions', route: '/admin/production/product-definitions', permission: 'production-product:read' },
-        ],
+        id: 'prd-ws-products', labelKey: 'production.productsWorkspace', route: '/admin/production/product-definitions',
+        permissions: ['production-product:read', 'production-unit:read', 'production-capacity-standard:read'],
       },
       {
-        id: 'prd-shifts', labelKey: 'navigation.navSection.productionShifts', items: [
-          { id: 'prd-shifts-list', labelKey: 'navigation.productionShifts', route: '/admin/production/shifts', permission: 'production-shift:read' },
-          { id: 'prd-shift-templates', labelKey: 'navigation.productionShiftTemplates', route: '/admin/production/shift-templates', permission: 'production-shift-template:read' },
-          { id: 'prd-shift-calendars', labelKey: 'navigation.productionShiftCalendars', route: '/admin/production/shift-calendars', permission: 'production-shift-calendar:read' },
-          { id: 'prd-shift-assignments', labelKey: 'navigation.productionShiftAssignments', route: '/admin/production/shift-assignments', permission: 'production-shift-assignment:read' },
-          { id: 'prd-operational-assignments', labelKey: 'navigation.productionOperationalAssignments', route: '/admin/production/operational-assignments', permission: 'production-operational-assignment:read' },
-          { id: 'prd-shift-handovers', labelKey: 'navigation.productionShiftHandovers', route: '/admin/production/shift-handovers', permission: 'shift-handover:read' },
-        ],
+        id: 'prd-ws-shifts', labelKey: 'production.shiftsWorkspace', route: '/admin/production/shifts',
+        permissions: ['production-shift:read', 'production-shift-template:read', 'production-shift-calendar:read', 'production-shift-assignment:read', 'production-operational-assignment:read', 'shift-handover:read'],
       },
       {
-        id: 'prd-standards', labelKey: 'navigation.navSection.productionStandards', items: [
-          { id: 'prd-capacity-standards', labelKey: 'navigation.productionCapacityStandards', route: '/admin/production/capacity-standards', permission: 'production-capacity-standard:read' },
-        ],
+        id: 'prd-ws-planning', labelKey: 'production.ordersWorkspace', route: '/admin/production/orders',
+        permissions: ['production-order:read', 'production-run:read', 'production-measurement-point:read'],
       },
       {
-        id: 'prd-orders', labelKey: 'navigation.navSection.productionOrders', items: [
-          { id: 'prd-orders-list', labelKey: 'navigation.productionOrders', route: '/admin/production/orders', permission: 'production-order:read' },
-        ],
+        id: 'prd-ws-materials', labelKey: 'production.materialDocumentsWorkspace', route: '/admin/production/material-documents',
+        permissions: ['production-material-document:read', 'production-material-requirement:read', 'production-finished-goods-receipt:read'],
       },
       {
-        id: 'prd-execution', labelKey: 'navigation.navSection.productionExecution', items: [
-          { id: 'prd-runs', labelKey: 'navigation.productionRuns', route: '/admin/production/runs', permission: 'production-run:read' },
-        ],
+        id: 'prd-ws-downtime', labelKey: 'production.downtimeLossesWorkspace', route: '/admin/production/downtime',
+        permissions: ['production-downtime:read', 'production-loss:read', 'production-loss-reason:read'],
       },
       {
-        id: 'prd-points', labelKey: 'navigation.navSection.productionPoints', items: [
-          { id: 'prd-measurement-points', labelKey: 'navigation.productionMeasurementPoints', route: '/admin/production/measurement-points', permission: 'production-measurement-point:read' },
-        ],
+        id: 'prd-ws-quality', labelKey: 'production.qualityWorkspace', route: '/admin/production/quality/plans',
+        permissions: ['production-quality-plan:read', 'production-inspection:read', 'production-ncr:read'],
       },
       {
-        id: 'prd-losses', labelKey: 'navigation.navSection.productionLosses', items: [
-          { id: 'prd-loss-reasons', labelKey: 'navigation.productionLossReasons', route: '/admin/production/loss-reasons', permission: 'production-loss-reason:read' },
-          { id: 'prd-downtime', labelKey: 'navigation.productionDowntime', route: '/admin/production/downtime', permission: 'production-downtime:read' },
-          { id: 'prd-losses-list', labelKey: 'navigation.productionLosses', route: '/admin/production/losses', permission: 'production-loss:read' },
-        ],
+        id: 'prd-ws-cost', labelKey: 'production.costWorkspace', route: '/admin/production/cost/rates',
+        permissions: ['production-cost-rate:read', 'production-cost-snapshot:read', 'production-cost-transaction:read', 'production-cost-overhead-allocation:read'],
       },
       {
-        id: 'prd-materials', labelKey: 'navigation.navSection.productionMaterials', items: [
-          { id: 'prd-material-documents', labelKey: 'navigation.productionMaterialDocuments', route: '/admin/production/material-documents', permission: 'production-material-document:read' },
-          { id: 'prd-material-requirements', labelKey: 'navigation.productionMaterialRequirements', route: '/admin/production/material-requirements', permission: 'production-material-requirement:read' },
-          { id: 'prd-fg-receipts', labelKey: 'navigation.productionFinishedGoodsReceipts', route: '/admin/production/finished-goods-receipts', permission: 'production-finished-goods-receipt:read' },
-        ],
-      },
-      {
-        id: 'prd-quality', labelKey: 'navigation.navSection.productionQuality', items: [
-          { id: 'prd-quality-plans', labelKey: 'navigation.productionQualityPlans', route: '/admin/production/quality/plans', permission: 'production-quality-plan:read' },
-          { id: 'prd-inspections', labelKey: 'navigation.productionInspections', route: '/admin/production/quality/inspections', permission: 'production-inspection:read' },
-          { id: 'prd-ncrs', labelKey: 'navigation.productionNcrs', route: '/admin/production/quality/ncrs', permission: 'production-ncr:read' },
-        ],
-      },
-      {
-        id: 'prd-cost', labelKey: 'navigation.navSection.productionCost', items: [
-          { id: 'prd-cost-rates', labelKey: 'navigation.productionCostRates', route: '/admin/production/cost/rates', permission: 'production-cost-rate:read' },
-          { id: 'prd-cost-snapshots', labelKey: 'navigation.productionCostSnapshots', route: '/admin/production/cost/snapshots', permission: 'production-cost-snapshot:read' },
-          { id: 'prd-cost-transactions', labelKey: 'navigation.productionCostTransactions', route: '/admin/production/cost/transactions', permission: 'production-cost-transaction:read' },
-          { id: 'prd-overhead-allocations', labelKey: 'overheadAllocation.title', route: '/admin/production/cost/overhead-allocations', permission: 'production-cost-overhead-allocation:read' },
-        ],
-      },
-      {
-        id: 'prd-analytics', labelKey: 'navigation.navSection.productionAnalytics', items: [
-          { id: 'prd-performance-targets', labelKey: 'navigation.productionPerformanceTargets', route: '/admin/production/performance-targets', permission: 'production-performance-target:read' },
-          { id: 'prd-analytics', labelKey: 'navigation.productionAnalytics', route: '/admin/production/analytics', permission: 'production-analytics:read' },
-          { id: 'prd-reliability', labelKey: 'navigation.productionReliability', route: '/admin/production/reliability', permission: 'operational-reliability:read' },
-        ],
+        id: 'prd-ws-analytics', labelKey: 'production.analyticsWorkspace', route: '/admin/production/analytics',
+        permissions: ['production-analytics:read', 'production-performance-target:read', 'operational-reliability:read'],
       },
     ],
   },

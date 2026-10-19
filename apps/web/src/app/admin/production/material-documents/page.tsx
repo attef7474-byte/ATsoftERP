@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
+import { useAuthorizedTabs, resolveActiveTab } from '../../../../lib/use-authorized-tabs';
 import { PageHeader, Tabs, TabPanel } from '../../../../components/admin/ui';
 import { MaterialRequirementsPanel } from '../../../../components/factory/unified-production/material-requirements-panel';
 import { MaterialDocumentsPanel } from '../../../../components/factory/unified-production/material-documents-panel';
@@ -9,22 +10,51 @@ import { FinishedGoodsReceiptsPanel } from '../../../../components/factory/unifi
 
 type UnifiedTab = 'requirements' | 'documents' | 'finished-goods';
 
+const TAB_ORDER = ['requirements', 'documents', 'finished-goods'] as const;
+const TAB_PERMISSIONS: Record<UnifiedTab, string> = {
+  requirements: 'production-material-requirement:read',
+  documents: 'production-material-document:read',
+  'finished-goods': 'production-finished-goods-receipt:read',
+};
+
 export default function MaterialDocumentsWorkspacePage() {
   const { t } = useTranslation();
   const searchParams = useSearchParams();
-  const initial = searchParams?.get('tab') as UnifiedTab | null;
-  const [tab, setTab] = useState<UnifiedTab>(
-    initial === 'documents' ? 'documents' : initial === 'finished-goods' ? 'finished-goods' : 'requirements',
-  );
+  const { loading, forbidden, visibleTabs, isVisible } = useAuthorizedTabs<UnifiedTab>({
+    order: TAB_ORDER,
+    permissions: TAB_PERMISSIONS,
+  });
+
+  const requested = searchParams?.get('tab');
+  const [tab, setTab] = useState<UnifiedTab>('requirements');
+
   useEffect(() => {
-    const requested = searchParams?.get('tab') as UnifiedTab | null;
-    if (requested === 'documents' || requested === 'finished-goods' || requested === 'requirements') {
-      setTab(requested);
-    }
-  }, [searchParams]);
+    setTab(resolveActiveTab<UnifiedTab>(requested, visibleTabs, 'requirements'));
+  }, [requested, visibleTabs]);
+
   const selectTab = useCallback((next: string) => {
+    if (!isVisible(next)) return;
     setTab(next as UnifiedTab);
-  }, []);
+  }, [isVisible]);
+
+  if (loading) {
+    return (
+      <div>
+        <PageHeader title={t('production.materialDocumentsWorkspace')} />
+        <p className="text-sm text-gray-500">{t('common.loading')}</p>
+      </div>
+    );
+  }
+
+  if (forbidden || !visibleTabs.includes(tab)) {
+    return (
+      <div>
+        <PageHeader title={t('production.materialDocumentsWorkspace')} />
+        <p className="text-sm text-gray-500">{forbidden ? t('errors.forbidden') : t('common.loading')}</p>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader title={t('production.materialDocumentsWorkspace')} />
@@ -37,7 +67,7 @@ export default function MaterialDocumentsWorkspacePage() {
           { id: 'requirements', label: t('production.materialRequirements') },
           { id: 'documents', label: t('production.materialDocuments') },
           { id: 'finished-goods', label: t('production.finishedGoodsReceipts') },
-        ]}
+        ].filter((item) => isVisible(item.id))}
       />
       <TabPanel id="requirements" activeId={tab}>
         <MaterialRequirementsPanel />

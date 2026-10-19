@@ -44,7 +44,7 @@ describe('navigation permission filtering', () => {
   it('every declared navigation permission uses the seeded namespace:verb key form', () => {
     const declared = [
       ...sidebarGroups.map((g) => g.permission),
-      ...allEntries(sidebarGroups).map((e) => e.permission),
+      ...allEntries(sidebarGroups).flatMap((e) => [e.permission, ...(e.permissions ?? [])]),
     ].filter((p): p is string => Boolean(p));
 
     expect(declared.length).toBeGreaterThan(0);
