@@ -10,6 +10,7 @@ import {
   filterArchivePermissions,
   getPermissionAction,
   isArchiveReadOnlyPermission,
+  superAdminArchiveReadPermissions,
 } from '../src/lib/archived-context';
 import {
   clearStoredArchivedContext,
@@ -98,6 +99,29 @@ describe('archive read-only action classification (fail-closed)', () => {
       'inventory:stock-card',
     ]);
     expect(projected).toHaveLength(5);
+  });
+  it('expands the SUPER_ADMIN bypass into read-only keys only', () => {
+    const projected = superAdminArchiveReadPermissions();
+
+    expect(projected).toContain('production-order:read');
+    expect(projected).toContain('production-order:view');
+    expect(projected).toContain('company:readArchive');
+    expect(projected.every(isArchiveReadOnlyPermission)).toBe(true);
+    expect(projected.some((key) => /:(create|update|delete|release|plan|close|archive)$/.test(key))).toBe(false);
+    expect(projected.length).toBeGreaterThan(100);
+  });
+
+  it('keeps reads and drops mutations for a super admin projection in archive mode', () => {
+    const effective = filterArchivePermissions([
+      'production-order:plan',
+      'company:create',
+      ...superAdminArchiveReadPermissions(),
+    ]);
+
+    expect(effective).toContain('production-order:read');
+    expect(effective).toContain('production-order:print');
+    expect(effective).not.toContain('production-order:plan');
+    expect(effective).not.toContain('company:create');
   });
 });
 

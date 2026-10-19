@@ -18,6 +18,7 @@ export const ARCHIVED_CONTEXT_MODE_VALUE = 'archived';
  * archived context and is therefore dropped from the effective permission
  * snapshot (fail-closed).
  */
+import { knownResourceKeys } from './permissions/permission-catalogue';
 export const ARCHIVE_READ_ONLY_ACTIONS: ReadonlySet<string> = new Set([
   'read',
   'view',
@@ -165,6 +166,21 @@ export function getPermissionAction(permissionKey: string): string {
 
 export function isArchiveReadOnlyPermission(permissionKey: string): boolean {
   return ARCHIVE_READ_ONLY_ACTIONS.has(getPermissionAction(permissionKey));
+}
+
+/**
+ * Canonical SUPER_ADMIN bypass, projected into its read-only form.
+ *
+ * Super administrators normally satisfy every `can()` check through the
+ * `isSuperAdmin` bypass rather than through explicit keys, so simply disabling
+ * the bypass in archived mode would also hide read pages. Instead the bypass is
+ * expanded into `<every known resource>:<every read-only action>` keys, which
+ * keeps reads working while every mutating check stays false.
+ */
+export function superAdminArchiveReadPermissions(): string[] {
+  return knownResourceKeys().flatMap((resource) =>
+    [...ARCHIVE_READ_ONLY_ACTIONS].map((action) => `${resource}:${action}`),
+  );
 }
 
 /**

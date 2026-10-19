@@ -21,7 +21,11 @@ import {
   validateOperationalContext,
 } from './auth';
 import type { UserPermissions, UserProfile } from './auth';
-import { canBrowseArchivedContexts, filterArchivePermissions } from './archived-context';
+import {
+  canBrowseArchivedContexts,
+  filterArchivePermissions,
+  superAdminArchiveReadPermissions,
+} from './archived-context';
 import {
   ARCHIVED_CONTEXT_CHANGED_EVENT,
   clearStoredArchivedContext,
@@ -444,13 +448,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * While an archived context is selected the effective permission snapshot is
    * read-only: mutating keys are dropped and the SUPER_ADMIN UI bypass is
    * disabled for this projection, so mutation controls disappear everywhere.
-   * The backend still applies its own canonical authorization.
+   * For super administrators the bypass is expanded into read-only keys first,
+   * otherwise read pages that rely on the bypass would disappear too. The
+   * backend still applies its own canonical authorization.
    */
   const effectivePermissions = useMemo<UserPermissions | null>(() => {
     if (!permissions || !isArchivedContext) return permissions;
+    const base = permissions.isSuperAdmin
+      ? [...permissions.permissions, ...superAdminArchiveReadPermissions()]
+      : permissions.permissions;
     return {
       ...permissions,
-      permissions: filterArchivePermissions(permissions.permissions),
+      permissions: filterArchivePermissions(base),
       isSuperAdmin: false,
     };
   }, [isArchivedContext, permissions]);

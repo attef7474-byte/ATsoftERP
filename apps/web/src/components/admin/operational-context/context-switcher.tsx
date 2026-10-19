@@ -8,12 +8,15 @@ import { ContextSelector } from './context-selector';
 
 export function ContextSwitcher() {
   const { t } = useTranslation();
-  const { activeContext, allowedContexts } = useOperationalContext();
+  const { activeContext, allowedContexts, canArchiveBrowse } = useOperationalContext();
   const [open, setOpen] = useState(false);
 
   if (!activeContext) return null;
 
-  const canSwitch = allowedContexts.length > 1;
+  // The selector must stay reachable when only one active context exists but
+  // archived contexts are browsable; otherwise archive governance would be
+  // unreachable for single-context accounts.
+  const canSwitch = allowedContexts.length > 1 || canArchiveBrowse;
   return (
     <>
       <button
