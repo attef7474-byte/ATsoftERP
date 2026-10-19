@@ -28,6 +28,7 @@ import { OVERHEAD_PERMISSIONS } from "./seed-overhead-permission-keys";
 import { OVERHEAD_ALLOCATION_PERMISSIONS } from "./seed-overhead-allocation-permission-keys";
 import { BATCH_A_PERMISSIONS } from "./seed-batch-a-permission-keys";
 import { BATCH_B_PERMISSIONS } from "./seed-batch-b-permission-keys";
+import { PRODUCT_PERMISSIONS } from "./seed-product-permission-keys";
 import { INVENTORY_VALUATION_PERMISSIONS } from "./seed-inventory-valuation-permission-keys";
 import { seedDefaultLossReasons } from "./seed-production-loss-reasons";
 
@@ -192,6 +193,7 @@ async function main() {
     ...OVERHEAD_ALLOCATION_PERMISSIONS,
     ...BATCH_A_PERMISSIONS,
     ...BATCH_B_PERMISSIONS,
+    ...PRODUCT_PERMISSIONS,
     ...INVENTORY_VALUATION_PERMISSIONS,
     { key: "user:reset-password", module: "user", action: "reset-password" },
     // R4R: UserActivityController enforces `users.loginHistory.view` on two routes, but the

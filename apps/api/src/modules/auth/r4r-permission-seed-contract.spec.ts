@@ -44,7 +44,7 @@ const API_SRC = join(__dirname, '..', '..');
  *
  * Two categories remain, and both are pre-existing and outside the R4R groups:
  *  1. Plural/singular typos of the same family as `machines:*`
- *     (companies/branches/administrations/roles/products/permissions/productionLines).
+ *     (companies/branches/administrations/roles/permissions/productionLines).
  *  2. Whole feature families whose permission family was never seeded
  *     (dashboard, alerts, audit, attachments, notifications, settings,
  *     maintenance dashboard, downtime-log, maintenance-task, shift-handover).
@@ -55,7 +55,6 @@ const KNOWN_UNSEEDED_LEGACY_KEYS = new Set<string>([
   'branches:create', 'branches:read', 'branches:update', 'branches:delete',
   'companies:create', 'companies:read', 'companies:update', 'companies:delete',
   'roles:create', 'roles:read', 'roles:update', 'roles:delete',
-  'products:create', 'products:read', 'products:update', 'products:delete',
   'permissions:read',
   'productionLines:create', 'productionLines:read', 'productionLines:update',
   'productionLines:delete', 'productionLines:activate', 'productionLines:deactivate',
@@ -198,6 +197,19 @@ describe('R4R permission-seed contract', () => {
     }
     expect(seeded.has('machine:read')).toBe(true);
     expect(seeded.has('machine:create')).toBe(true);
+  });
+
+  it('seeds the canonical plural products:* keys enforced by the product controllers', () => {
+    // Direct regression pin for the product permission-catalog gap. ProductsController and
+    // ProductCategoriesController enforce the plural `products:*` family, so it must be
+    // declared, while the unused singular `product:*` matrix keys remain seeded.
+    expect(seeded.has('products:read')).toBe(true);
+    expect(seeded.has('products:create')).toBe(true);
+    expect(seeded.has('products:update')).toBe(true);
+    expect(seeded.has('products:delete')).toBe(true);
+    for (const [key] of enforced) {
+      if (key.startsWith('products:')) expect(seeded.has(key)).toBe(true);
+    }
   });
 
   it('seeds every permission key enforced by the maintenance and installed-parts controllers', () => {
