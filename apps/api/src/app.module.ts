@@ -91,6 +91,7 @@ import { ProductionMasterDataModule } from './modules/factory/production-master-
 import { ProductionShiftsModule } from './modules/factory/production-shifts/production-shifts.module'
 import { ProductionCapacityStandardsModule } from './modules/factory/production-capacity-standards/production-capacity-standards.module'
 import { ProductionOrdersModule } from './modules/factory/production-orders/production-orders.module'
+import { ProductionPlanningModule } from './modules/factory/production-planning/production-planning.module';
 import { ProductionRunsModule } from './modules/factory/production-runs/production-runs.module';
 import { ProductionLossReasonsModule } from './modules/factory/production-loss-reasons/production-loss-reasons.module';
 import { ProductionDowntimeModule } from './modules/factory/production-downtime/production-downtime.module';
@@ -153,6 +154,7 @@ import { OverheadAllocationModule } from './modules/factory/overhead-allocation/
     ProductionShiftsModule,
     ProductionCapacityStandardsModule,
     ProductionOrdersModule,
+    ProductionPlanningModule,
     ProductionRunsModule,
     ProductionLossReasonsModule,
     ProductionDowntimeModule,

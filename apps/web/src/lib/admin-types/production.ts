@@ -336,6 +336,83 @@ export interface ProductionShiftCalendar {
   _count?: { entries: number; shiftAssignments: number };
 }
 
+export interface PlanningWorkingInterval {
+  start: string;
+  end: string;
+  minutes: number;
+  source: 'ENTRY' | 'TEMPLATE';
+  shiftId: string | null;
+  shiftCode: string | null;
+}
+
+export interface ScheduledOperation {
+  orderId: string;
+  orderNumber: string;
+  priority: string;
+  originalStartAt: string;
+  originalEndAt: string;
+  scheduledStartAt: string;
+  scheduledEndAt: string;
+  productionLineId: string;
+  machineId: string | null;
+  capacityStandardId: string;
+  capacityStandardCode: string;
+  plannedDurationMinutes: string;
+  sequenceOnResource: number;
+  latenessMinutes: string;
+  latenessState: 'ON_TIME' | 'LATE';
+  materialState: 'READY' | 'SHORTAGE' | 'UNKNOWN';
+  materialWarnings: string[];
+  changed: boolean;
+}
+
+export interface UnscheduledOperation {
+  orderId: string;
+  orderNumber: string;
+  priority: string;
+  reasons: string[];
+  reasonKeys: string[];
+  details?: Record<string, unknown>;
+}
+
+export interface PlanningResourceLoad {
+  productionLineId: string;
+  machineId: string | null;
+  label: string;
+  usedMinutes: string;
+  availableMinutes: string;
+  utilizationPercent: string;
+  operationCount: number;
+}
+
+export interface PlanningDraftResult {
+  companyId: string;
+  branchId: string;
+  horizonFrom: string;
+  horizonTo: string;
+  calendarId: string;
+  generatedAt: string;
+  engineVersion: string;
+  scheduled: ScheduledOperation[];
+  unscheduled: UnscheduledOperation[];
+  resourceLoad: PlanningResourceLoad[];
+  totals: {
+    requested: number;
+    scheduled: number;
+    unscheduled: number;
+    late: number;
+    shortageRisk: number;
+  };
+}
+
+export interface ApplyPlanningResult {
+  applied: number;
+  rejected: number;
+  operations: ScheduledOperation[];
+  rejections: Array<{ orderId: string; reasons: string[]; reasonKeys: string[] }>;
+  engineVersion: string;
+}
+
 export interface OperationalPerson {
   id: string;
   code: string;

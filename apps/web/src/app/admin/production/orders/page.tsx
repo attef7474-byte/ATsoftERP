@@ -7,14 +7,16 @@ import { PageHeader, Tabs, TabPanel } from '../../../../components/admin/ui';
 import { ProductionOrdersPanel } from '../../../../components/factory/unified-production/production-orders-panel';
 import { ProductionRunsPanel } from '../../../../components/factory/unified-production/production-runs-panel';
 import { MeasurementPointsPanel } from '../../../../components/factory/unified-production/measurement-points-panel';
+import { ProductionSchedulingPanel } from '../../../../components/factory/unified-production/production-scheduling-panel';
 
-type UnifiedTab = 'orders' | 'runs' | 'measurement-points';
+type UnifiedTab = 'orders' | 'runs' | 'measurement-points' | 'scheduling';
 
-const TAB_ORDER = ['orders', 'runs', 'measurement-points'] as const;
+const TAB_ORDER = ['orders', 'runs', 'measurement-points', 'scheduling'] as const;
 const TAB_PERMISSIONS: Record<UnifiedTab, string> = {
   orders: 'production-order:read',
   runs: 'production-run:read',
   'measurement-points': 'production-measurement-point:read',
+  scheduling: 'production-order:readiness',
 };
 
 export default function ProductionOrdersWorkspacePage() {
@@ -68,11 +70,13 @@ export default function ProductionOrdersWorkspacePage() {
           { id: 'orders', label: t('production.productionOrders') },
           { id: 'runs', label: t('production.runs') },
           { id: 'measurement-points', label: t('production.measurementPoints') },
+          { id: 'scheduling', label: t('production.planning.tab') },
         ].filter((item) => isVisible(item.id))}
       />
       <TabPanel id="orders" activeId={tab}><ProductionOrdersPanel /></TabPanel>
       <TabPanel id="runs" activeId={tab}><ProductionRunsPanel /></TabPanel>
       <TabPanel id="measurement-points" activeId={tab}><MeasurementPointsPanel /></TabPanel>
+      <TabPanel id="scheduling" activeId={tab}><ProductionSchedulingPanel /></TabPanel>
     </div>
   );
 }
