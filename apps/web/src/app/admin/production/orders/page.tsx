@@ -67,9 +67,9 @@ export default function ProductionOrdersWorkspacePage() {
         activeId={tab}
         onChange={selectTab}
         items={[
-          { id: 'orders', label: t('production.productionOrders') },
-          { id: 'runs', label: t('production.runs') },
-          { id: 'measurement-points', label: t('production.measurementPoints') },
+          { id: 'orders', label: t('production.orders.title') },
+          { id: 'runs', label: t('production.runs.title') },
+          { id: 'measurement-points', label: t('production.measurementPoints.title') },
           { id: 'scheduling', label: t('production.planning.tab') },
         ].filter((item) => isVisible(item.id))}
       />

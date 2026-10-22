@@ -7,6 +7,7 @@ import { useAuth } from '../../../../../lib/auth-context';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
+import { resolveApiErrorMessage } from '../../../../../lib/error-utils';
 import { Button, Input, Modal, PageHeader, Textarea } from '../../../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../../../components/maintenance';
 import type { ProductionOrder, ProductionOrderAttachment, ProductionOrderReadiness } from '../../../../../lib/admin-types';
@@ -94,7 +95,8 @@ export default function ProductionOrderDetailPage() {
 
   const handleSaveError = (err: any) => {
     const key = orderErrorMessageKey(err);
-    handleApiError(err, key ? { message: t(key) } : undefined);
+    const message = resolveApiErrorMessage(t, key);
+    handleApiError(err, message ? { message } : undefined);
   };
 
   const runTransition = async () => {

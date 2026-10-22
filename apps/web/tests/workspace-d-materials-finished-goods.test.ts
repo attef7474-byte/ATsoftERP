@@ -40,10 +40,22 @@ describe('Workspace D — Materials & Finished Goods consolidation', () => {
       expect(page).toContain("import { MaterialRequirementsPanel }");
       expect(page).toContain("import { MaterialDocumentsPanel }");
       expect(page).toContain("import { FinishedGoodsReceiptsPanel }");
-      expect(page).toContain("{ id: 'requirements', label: t('production.materialRequirements') }");
-      expect(page).toContain("{ id: 'documents', label: t('production.materialDocuments') }");
-      expect(page).toContain("{ id: 'finished-goods', label: t('production.finishedGoodsReceipts') }");
+      expect(page).toContain("{ id: 'requirements', label: t('production.materialRequirements.title') }");
+      expect(page).toContain("{ id: 'documents', label: t('production.materialDocuments.title') }");
+      expect(page).toContain("{ id: 'finished-goods', label: t('production.finishedGoodsReceipts.title') }");
       expect(page).toContain("'requirements' | 'documents' | 'finished-goods'");
+    });
+
+    it('labels the tabs with translatable keys, never with a namespace object', () => {
+      const page = read(WORKSPACE_PAGE);
+      // `production.materialRequirements` is a namespace object, not a string:
+      // using it as a label resolved to the generic "text could not be displayed"
+      // fallback. The tab labels must point at the translated titles.
+      expect(page).not.toContain("t('production.materialRequirements')");
+      expect(page).not.toContain("t('production.materialDocuments')");
+      expect(page).not.toContain("t('production.finishedGoodsReceipts')");
+      expect(read(EN_PROD)).toContain('materialRequirements: {');
+      expect(read(AR_PROD)).toContain('materialRequirements: {');
     });
   });
 

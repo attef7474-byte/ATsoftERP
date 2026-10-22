@@ -159,7 +159,10 @@ export class AttachmentsService {
         owned = await this.prisma.productionNonconformance.findFirst({ where: { id: entityId, companyId: ctx.companyId, branchId: ctx.branchId }, select: { id: true } })
         break
       case 'SHIFT_HANDOVER':
-        owned = await this.prisma.shiftHandover.findFirst({ where: { id: entityId, companyId: ctx.companyId, branchId: { in: [ctx.branchId, null] as any }, deletedAt: null }, select: { id: true } })
+        // Prisma rejects `in: [branchId, null]` for a nullable field
+        // (PrismaClientValidationError), so the branch-or-null scope must be
+        // expressed as an explicit OR (same shape as `machineScope`).
+        owned = await this.prisma.shiftHandover.findFirst({ where: { id: entityId, companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }], deletedAt: null }, select: { id: true } })
         break
       default:
         throw new BadRequestException({ messageKey: 'attachments.unsupportedEntityType' })

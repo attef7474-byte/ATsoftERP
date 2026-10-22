@@ -1,5 +1,8 @@
 'use client';
 
+import { isResolvedTranslation } from './i18n/translation-core';
+import type { TranslationNamespace, TranslationParams } from './i18n/types';
+
 export interface ApiFieldError {
   field?: string;
   code?: string;
@@ -85,6 +88,28 @@ function detailFromBody(body: CanonicalErrorBody | undefined): string | undefine
   return JSON.stringify(body.details, null, 2);
 }
 
+/**
+ * Resolves the message of an API failure against the localizable web dictionary.
+ *
+ * The API already answers with a localized `message` (see the API exception
+ * filter and the API message catalog). Panels that keep a curated web key for
+ * a specific error must therefore only override that server message when the
+ * web key really resolves; otherwise the user would see the generic
+ * "the requested text could not be displayed" fallback instead of the precise,
+ * localized server message.
+ *
+ * Returns `undefined` when no curated web text is available, so the caller can
+ * keep the resolution performed by `normalizeApiError`.
+ */
+export function resolveApiErrorMessage(
+  t: (key: string, ns?: TranslationNamespace, params?: TranslationParams) => string,
+  webKey?: string,
+): string | undefined {
+  if (!webKey) return undefined;
+  const webText = t(webKey);
+  return isResolvedTranslation(webText, webKey) ? webText : undefined;
+}
+
 export function normalizeApiError(err: unknown, t: (key: string, ns?: string, params?: Record<string, unknown>) => string): ErrorConfig {
   const config: ErrorConfig = { message: t('errors.generalError', 'errors') };
 
@@ -131,7 +156,7 @@ export function normalizeApiError(err: unknown, t: (key: string, ns?: string, pa
       const webLocalized = t(body.messageKey, undefined, body.params);
       if (serverMessage && serverMessage !== body.messageKey) {
         config.message = serverMessage;
-      } else if (webLocalized && webLocalized !== body.messageKey) {
+      } else if (isResolvedTranslation(webLocalized, body.messageKey)) {
         config.message = webLocalized;
       } else if (status !== undefined && STATUS_FALLBACKS[status]) {
         config.message = t(STATUS_FALLBACKS[status], 'errors');

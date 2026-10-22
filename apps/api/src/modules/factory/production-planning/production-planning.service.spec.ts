@@ -568,4 +568,112 @@ describe('ProductionPlanningService (finite capacity)', () => {
     prisma.$transaction = jest.fn().mockRejectedValue(boom);
     await expect(service.apply({ calendarId: 'cal1', horizonFrom: '2026-02-02T00:00:00.000Z', horizonTo: '2026-02-04T00:00:00.000Z', plans: [{ orderId: 'po1', lockVersion: 0, scheduledStartAt: '2026-02-02T08:00:00.000Z', scheduledEndAt: '2026-02-02T10:00:00.000Z' }] }, 'user1', ctxA)).rejects.toBe(boom);
   });
+
+  // ---------------------------------------------------------------------------
+  // Cross-line occupancy isolation (regression for the global-assignment bug)
+  //
+  // The engine used to keep ONE global list of the slots it had already
+  // assigned and added it to the occupied set of EVERY order, so a slot booked
+  // on one production line blocked the same wall-clock window on every other
+  // line. Occupancy must be scoped to the line that owns the slot.
+  // ---------------------------------------------------------------------------
+  describe('cross-line occupancy isolation', () => {
+    const HORIZON = { calendarId: 'cal1', horizonFrom: '2026-02-02T00:00:00.000Z', horizonTo: '2026-02-04T00:00:00.000Z' };
+
+    it('schedules two independent lines in the same window', async () => {
+      const { service, setOrders } = build();
+      setOrders([
+        order({ id: 'po-l1', orderNumber: 'PO-L1', productionLineId: 'l1', plannedQuantity: '400.0000' }),
+        order({ id: 'po-l2', orderNumber: 'PO-L2', productionLineId: 'l2', plannedQuantity: '400.0000' }),
+      ]);
+      const result = await service.preview(HORIZON, ctxA);
+      expect(result.scheduled).toHaveLength(2);
+      const [a, b] = result.scheduled;
+      expect(a.productionLineId).not.toBe(b.productionLineId);
+      // Independent lines may run in parallel: identical start instant.
+      expect(new Date(a.scheduledStartAt).getTime()).toBe(new Date(b.scheduledStartAt).getTime());
+    });
+
+    it('keeps a single line strictly sequential', async () => {
+      const { service, setOrders } = build();
+      setOrders([
+        order({ id: 'po-l1-a', orderNumber: 'PO-L1A', productionLineId: 'l1', plannedQuantity: '400.0000' }),
+        order({ id: 'po-l1-b', orderNumber: 'PO-L1B', productionLineId: 'l1', plannedQuantity: '400.0000' }),
+      ]);
+      const result = await service.preview(HORIZON, ctxA);
+      expect(result.scheduled).toHaveLength(2);
+      const [a, b] = result.scheduled;
+      expect(new Date(a.scheduledEndAt).getTime()).toBeLessThanOrEqual(new Date(b.scheduledStartAt).getTime());
+    });
+
+    it('blocks only the line that owns an existing released-order fact', async () => {
+      const { service, setOrders } = build();
+      setOrders([
+        order({ id: 'po-l1', orderNumber: 'PO-L1', productionLineId: 'l1', plannedQuantity: '400.0000' }),
+        order({ id: 'po-l2', orderNumber: 'PO-L2', productionLineId: 'l2', plannedQuantity: '400.0000' }),
+        order({ id: 'rel-l1', orderNumber: 'PO-REL-L1', productionLineId: 'l1', status: 'RELEASED', plannedStartAt: local(2026, 2, 2, 8, 0), plannedEndAt: local(2026, 2, 2, 12, 0) }),
+      ]);
+      const result = await service.preview(HORIZON, ctxA);
+      expect(result.scheduled).toHaveLength(2);
+      const onL1 = result.scheduled.find((s) => s.productionLineId === 'l1');
+      const onL2 = result.scheduled.find((s) => s.productionLineId === 'l2');
+      expect(new Date(onL1!.scheduledStartAt).getTime()).toBeGreaterThanOrEqual(local(2026, 2, 2, 12, 0).getTime());
+      expect(new Date(onL2!.scheduledStartAt).getTime()).toBeLessThan(local(2026, 2, 2, 12, 0).getTime());
+    });
+
+    it('blocks only the line that owns a running production run', async () => {
+      const { service, prisma, setOrders } = build();
+      setOrders([
+        order({ id: 'po-l1', orderNumber: 'PO-L1', productionLineId: 'l1', plannedQuantity: '400.0000' }),
+        order({ id: 'po-l2', orderNumber: 'PO-L2', productionLineId: 'l2', plannedQuantity: '400.0000' }),
+      ]);
+      prisma.productionRun.findMany.mockResolvedValue([{ productionLineId: 'l1', startedAt: local(2026, 2, 2, 8, 0), endedAt: local(2026, 2, 2, 14, 0), status: 'RUNNING' }]);
+      const result = await service.preview(HORIZON, ctxA);
+      expect(result.scheduled).toHaveLength(2);
+      const onL1 = result.scheduled.find((s) => s.productionLineId === 'l1');
+      const onL2 = result.scheduled.find((s) => s.productionLineId === 'l2');
+      expect(new Date(onL1!.scheduledStartAt).getTime()).toBeGreaterThanOrEqual(local(2026, 2, 2, 14, 0).getTime());
+      expect(new Date(onL2!.scheduledStartAt).getTime()).toBeLessThan(local(2026, 2, 2, 14, 0).getTime());
+    });
+
+    it('produces the same schedule regardless of the input order', async () => {
+      const rows = [
+        order({ id: 'po-a', orderNumber: 'PO-A', productionLineId: 'l1', priority: 'LOW', plannedQuantity: '200.0000' }),
+        order({ id: 'po-b', orderNumber: 'PO-B', productionLineId: 'l2', priority: 'URGENT', plannedQuantity: '200.0000' }),
+        order({ id: 'po-c', orderNumber: 'PO-C', productionLineId: 'l1', priority: 'NORMAL', plannedQuantity: '200.0000' }),
+      ];
+      const first = build();
+      first.setOrders(rows);
+      const second = build();
+      second.setOrders([...rows].reverse());
+      const a = await first.service.preview(HORIZON, ctxA);
+      const b = await second.service.preview(HORIZON, ctxA);
+      const shape = (r: any) => r.scheduled.map((s: any) => `${s.orderId}:${s.scheduledStartAt}:${s.scheduledEndAt}:${s.productionLineId}`).sort();
+      expect(shape(a)).toEqual(shape(b));
+      expect(a.totals).toEqual(b.totals);
+    });
+
+    it('never assigns two operations of the same line to an overlapping window', async () => {
+      const { service, setOrders } = build();
+      setOrders([
+        order({ id: 'po-1', orderNumber: 'PO-1', productionLineId: 'l1', plannedQuantity: '300.0000' }),
+        order({ id: 'po-2', orderNumber: 'PO-2', productionLineId: 'l1', plannedQuantity: '300.0000' }),
+        order({ id: 'po-3', orderNumber: 'PO-3', productionLineId: 'l1', plannedQuantity: '300.0000' }),
+        order({ id: 'po-4', orderNumber: 'PO-4', productionLineId: 'l2', plannedQuantity: '300.0000' }),
+      ]);
+      const result = await service.preview(HORIZON, ctxA);
+      const byLine = new Map<string, any[]>();
+      for (const s of result.scheduled) {
+        const list = byLine.get(s.productionLineId) ?? [];
+        list.push(s);
+        byLine.set(s.productionLineId, list);
+      }
+      for (const [, list] of byLine) {
+        const sorted = [...list].sort((a, b) => new Date(a.scheduledStartAt).getTime() - new Date(b.scheduledStartAt).getTime());
+        for (let i = 1; i < sorted.length; i += 1) {
+          expect(new Date(sorted[i - 1].scheduledEndAt).getTime()).toBeLessThanOrEqual(new Date(sorted[i].scheduledStartAt).getTime());
+        }
+      }
+    });
+  });
 });

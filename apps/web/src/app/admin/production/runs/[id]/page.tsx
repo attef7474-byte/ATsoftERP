@@ -7,6 +7,7 @@ import { useAuth } from '../../../../../lib/auth-context';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
+import { resolveApiErrorMessage } from '../../../../../lib/error-utils';
 import { Button, Modal, PageHeader, Pagination, Textarea } from '../../../../../components/admin/ui';
 import type {
   ProductionMeasurementPoint,
@@ -216,7 +217,8 @@ export default function ProductionRunDetailPage() {
   const handleSaveError = (err: any) => {
     const key = (err as any)?.messageKey;
     if (key && key.startsWith('productionRun.')) {
-      handleApiError(err, { message: t('production.runs.' + key.slice('productionRun.'.length)) });
+      const message = resolveApiErrorMessage(t, 'production.runs.' + key.slice('productionRun.'.length));
+      handleApiError(err, message ? { message } : undefined);
       return;
     }
     handleApiError(err);

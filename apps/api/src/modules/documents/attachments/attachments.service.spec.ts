@@ -33,6 +33,7 @@ describe('AttachmentsService tenant ownership', () => {
       maintenanceRequest: { findFirst: jest.fn() },
       productionOrder: { findFirst: jest.fn() },
       productionNonconformance: { findFirst: jest.fn() },
+      shiftHandover: { findFirst: jest.fn() },
     }
     service = new AttachmentsService(prisma)
   })
@@ -77,6 +78,30 @@ describe('AttachmentsService tenant ownership', () => {
     const file = { originalname: 'manual.pdf', buffer: Buffer.from('x'), mimetype: 'application/pdf', size: 1 } as any
 
     await expect(service.create(file, 'MACHINE', 'foreign-machine', undefined, 'user-a', ctx)).rejects.toBeInstanceOf(BadRequestException)
+    expect(writeFileSync).not.toHaveBeenCalled()
+    expect(prisma.attachment.create).not.toHaveBeenCalled()
+  })
+
+  it('resolves a shift handover entity with a branch-or-null scope that Prisma accepts', async () => {
+    prisma.shiftHandover.findFirst.mockResolvedValue({ id: 'ho-a' })
+    prisma.attachment.create.mockResolvedValue({ id: 'attachment-a' })
+    const file = { originalname: 'handover.pdf', buffer: Buffer.from('x'), mimetype: 'application/pdf', size: 1 } as any
+
+    await service.create(file, 'SHIFT_HANDOVER', 'ho-a', undefined, 'user-a', ctx)
+
+    const call = prisma.shiftHandover.findFirst.mock.calls[0][0]
+    // Regression: `in: [branchId, null]` is rejected by Prisma for a nullable
+    // field (PrismaClientValidationError); the scope must be an explicit OR.
+    expect(call.where.branchId).toBeUndefined()
+    expect(call.where.OR).toEqual([{ branchId: 'branch-a' }, { branchId: null }])
+    expect(call.where).toMatchObject({ id: 'ho-a', companyId: 'company-a', deletedAt: null })
+  })
+
+  it('rejects an attachment to a shift handover of another company or branch', async () => {
+    prisma.shiftHandover.findFirst.mockResolvedValue(null)
+    const file = { originalname: 'handover.pdf', buffer: Buffer.from('x'), mimetype: 'application/pdf', size: 1 } as any
+
+    await expect(service.create(file, 'SHIFT_HANDOVER', 'ho-foreign', undefined, 'user-a', ctx)).rejects.toBeInstanceOf(BadRequestException)
     expect(writeFileSync).not.toHaveBeenCalled()
     expect(prisma.attachment.create).not.toHaveBeenCalled()
   })

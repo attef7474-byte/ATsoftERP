@@ -5,6 +5,7 @@ import { api } from '../../../lib/api';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { useToast } from '../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../components/admin/error-handler';
+import { resolveApiErrorMessage } from '../../../lib/error-utils';
 import { useAuth } from '../../../lib/auth-context';
 import {
   ProductionMaterialRequirement,
@@ -167,15 +168,18 @@ export function MaterialRequirementsPanel() {
   const handleSaveError = (err: any) => {
     const key = (err as any)?.messageKey;
     if (key && key.startsWith('productionMaterialRequirement.')) {
-      handleApiError(err, { message: t('production.materialRequirements.errors.' + key.slice('productionMaterialRequirement.'.length)) });
+      const message = resolveApiErrorMessage(t, 'production.materialRequirements.errors.' + key.slice('productionMaterialRequirement.'.length));
+      handleApiError(err, message ? { message } : undefined);
       return;
     }
     if (key && key.startsWith('productionMaterial.')) {
-      handleApiError(err, { message: t('production.materialRequirements.errors.' + key.slice('productionMaterial.'.length)) });
+      const message = resolveApiErrorMessage(t, 'production.materialRequirements.errors.' + key.slice('productionMaterial.'.length));
+      handleApiError(err, message ? { message } : undefined);
       return;
     }
     if (key && key.startsWith('productionTraceability.')) {
-      handleApiError(err, { message: t('production.materialRequirements.errors.' + key.slice('productionTraceability.'.length)) });
+      const message = resolveApiErrorMessage(t, 'production.materialRequirements.errors.' + key.slice('productionTraceability.'.length));
+      handleApiError(err, message ? { message } : undefined);
       return;
     }
     handleApiError(err);
@@ -388,14 +392,16 @@ export function MaterialRequirementsPanel() {
 
   const blockReason = (code: string) => {
     if (code.startsWith('productionMaterialRequirement.')) {
-      return t('production.materialRequirements.errors.' + code.slice('productionMaterialRequirement.'.length));
+      return resolveApiErrorMessage(t, 'production.materialRequirements.errors.' + code.slice('productionMaterialRequirement.'.length))
+        ?? code;
     }
     return code;
   };
 
   const warningLabel = (code: string) => {
     if (code.startsWith('productionMaterialRequirement.')) {
-      return t('production.materialRequirements.errors.' + code.slice('productionMaterialRequirement.'.length));
+      return resolveApiErrorMessage(t, 'production.materialRequirements.errors.' + code.slice('productionMaterialRequirement.'.length))
+        ?? code;
     }
     return code;
   };

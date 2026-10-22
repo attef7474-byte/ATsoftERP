@@ -247,7 +247,7 @@ export function CapacityStandardsPanel() {
     { label: t('production.capacityHistory'), onClick: (item) => showHistory(item.id) },
   ];
 
-  if (!can('read')) return <div><div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-800">{t('validation.forbidden')}</div></div>;
+  if (!can('read')) return <div><div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-800">{t('errors.forbidden')}</div></div>;
 
   const referenceFields = (state: any, setState: (value: any) => void, resolving = false) => (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

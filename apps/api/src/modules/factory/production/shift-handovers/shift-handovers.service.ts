@@ -18,13 +18,23 @@ export class ShiftHandoversService {
     const shift = await this.prisma.productionShift.findFirst({
       where: { id: shiftId, companyId: ctx.companyId, deletedAt: null },
     });
-    if (!shift) throw new BadRequestException(`Production shift ${shiftId} not found or not in active company`);
+    if (!shift) {
+      throw new BadRequestException({
+        messageKey: 'productionShiftHandover.shiftNotFound',
+        params: { shiftId },
+      });
+    }
     return shift;
   }
 
   private async validatePerson(personId: string, ctx: ActiveOperationalContext) {
     const person = await this.prisma.operationalPerson.findUnique({ where: { id: personId } });
-    if (!person) throw new BadRequestException(`Operational person ${personId} not found`);
+    if (!person) {
+      throw new BadRequestException({
+        messageKey: 'productionShiftHandover.personNotFound',
+        params: { personId },
+      });
+    }
 
     const hasValidAssignment = await this.prisma.operationalPersonAssignment.findFirst({
       where: {
@@ -35,7 +45,10 @@ export class ShiftHandoversService {
       },
     });
     if (!hasValidAssignment) {
-      throw new BadRequestException(`Person ${personId} does not have a valid current assignment compatible with the active company`);
+      throw new BadRequestException({
+        messageKey: 'productionShiftHandover.personAssignmentInvalid',
+        params: { personId },
+      });
     }
     return person;
   }
@@ -87,7 +100,7 @@ export class ShiftHandoversService {
 
   async create(dto: CreateShiftHandoverDto, userId: string, ctx: ActiveOperationalContext) {
     if (dto.outgoingShiftId === dto.incomingShiftId) {
-      throw new BadRequestException('Outgoing and incoming shifts must be different');
+      throw new BadRequestException({ messageKey: 'productionShiftHandover.sameShift' });
     }
 
     await this.validateShift(dto.outgoingShiftId, ctx);
@@ -95,19 +108,19 @@ export class ShiftHandoversService {
 
     if (dto.branchId) {
       if (dto.branchId !== ctx.branchId) {
-        throw new BadRequestException('Shift handover branch must match the active branch');
+        throw new BadRequestException({ messageKey: 'productionShiftHandover.branchMismatch' });
       }
       const branch = await this.prisma.branch.findFirst({
         where: { id: dto.branchId, companyId: ctx.companyId, deletedAt: null },
       });
-      if (!branch) throw new BadRequestException('Branch not found or not in active company');
+      if (!branch) throw new BadRequestException({ messageKey: 'productionShiftHandover.branchNotFound' });
     }
 
     if (dto.departmentId) {
       const dept = await this.prisma.department.findFirst({
         where: { id: dto.departmentId, companyId: ctx.companyId, deletedAt: null },
       });
-      if (!dept) throw new BadRequestException('Department not found or not in active company');
+      if (!dept) throw new BadRequestException({ messageKey: 'productionShiftHandover.departmentNotFound' });
     }
 
     if (dto.outgoingPersonId) await this.validatePerson(dto.outgoingPersonId, ctx);
@@ -157,7 +170,11 @@ export class ShiftHandoversService {
   async findAll(query: { page?: number; limit?: number; status?: string; departmentId?: string; handoverDateFrom?: string; handoverDateTo?: string }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
-    const where: any = { companyId: ctx.companyId, deletedAt: null, branchId: { in: [ctx.branchId, null] } };
+    const where: any = {
+      companyId: ctx.companyId,
+      deletedAt: null,
+      OR: ctx.branchId ? [{ branchId: ctx.branchId }, { branchId: null }] : [{ branchId: null }],
+    };
 
     if (query.status) where.status = query.status;
     if (query.departmentId) where.departmentId = query.departmentId;
@@ -190,7 +207,12 @@ export class ShiftHandoversService {
 
   async findOne(id: string, ctx: ActiveOperationalContext) {
     const handover = await this.prisma.shiftHandover.findFirst({
-      where: { id, companyId: ctx.companyId, deletedAt: null, branchId: { in: [ctx.branchId, null] as any } },
+      where: {
+        id,
+        companyId: ctx.companyId,
+        deletedAt: null,
+        OR: ctx.branchId ? [{ branchId: ctx.branchId }, { branchId: null }] : [{ branchId: null }],
+      },
       include: {
         outgoingShift: { select: { id: true, code: true, name: true, startTime: true, endTime: true } },
         incomingShift: { select: { id: true, code: true, name: true, startTime: true, endTime: true } },
@@ -200,14 +222,14 @@ export class ShiftHandoversService {
         items: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } },
       },
     });
-    if (!handover) throw new NotFoundException('Shift handover not found');
+    if (!handover) throw new NotFoundException({ messageKey: 'productionShiftHandover.notFound' });
     return handover;
   }
 
   async update(id: string, dto: UpdateShiftHandoverDto, userId: string, ctx: ActiveOperationalContext) {
     const handover = await this.findOne(id, ctx);
     if (handover.status !== 'DRAFT') {
-      throw new BadRequestException('Only DRAFT handovers can be edited');
+      throw new BadRequestException({ messageKey: 'productionShiftHandover.editDraftOnly' });
     }
 
     const result = await this.prisma.shiftHandover.update({
@@ -237,7 +259,7 @@ export class ShiftHandoversService {
   async submit(id: string, userId: string, ctx: ActiveOperationalContext) {
     const handover = await this.findOne(id, ctx);
     if (handover.status !== 'DRAFT') {
-      throw new BadRequestException('Only DRAFT handovers can be submitted');
+      throw new BadRequestException({ messageKey: 'productionShiftHandover.submitDraftOnly' });
     }
 
     const now = new Date();
@@ -270,7 +292,7 @@ export class ShiftHandoversService {
   async acknowledge(id: string, userId: string, ctx: ActiveOperationalContext) {
     const handover = await this.findOne(id, ctx);
     if (handover.status !== 'SUBMITTED') {
-      throw new BadRequestException('Only SUBMITTED handovers can be acknowledged');
+      throw new BadRequestException({ messageKey: 'productionShiftHandover.acknowledgeSubmittedOnly' });
     }
 
     const now = new Date();
@@ -303,7 +325,7 @@ export class ShiftHandoversService {
   async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
     const handover = await this.findOne(id, ctx);
     if (handover.status !== 'DRAFT') {
-      throw new BadRequestException('Only DRAFT handovers can be deleted');
+      throw new BadRequestException({ messageKey: 'productionShiftHandover.deleteDraftOnly' });
     }
 
     await this.prisma.shiftHandover.update({
@@ -325,7 +347,7 @@ export class ShiftHandoversService {
   async addItem(handoverId: string, dto: CreateShiftHandoverItemDto, userId: string, ctx: ActiveOperationalContext) {
     const handover = await this.findOne(handoverId, ctx);
     if (handover.status !== 'DRAFT') {
-      throw new BadRequestException('Items can only be added to DRAFT handovers');
+      throw new BadRequestException({ messageKey: 'productionShiftHandover.itemAddDraftOnly' });
     }
 
     await this.validateItemEntity(dto.entityType, dto.entityId, ctx);
@@ -361,9 +383,9 @@ export class ShiftHandoversService {
       where: { id: itemId, companyId: ctx.companyId, deletedAt: null },
       include: { handover: { select: { id: true, status: true } } },
     });
-    if (!item) throw new NotFoundException('Shift handover item not found');
+    if (!item) throw new NotFoundException({ messageKey: 'productionShiftHandover.itemNotFound' });
     if (item.handover.status !== 'DRAFT') {
-      throw new BadRequestException('Items can only be removed from DRAFT handovers');
+      throw new BadRequestException({ messageKey: 'productionShiftHandover.itemRemoveDraftOnly' });
     }
 
     await this.prisma.shiftHandoverItem.update({
@@ -392,7 +414,10 @@ export class ShiftHandoversService {
 
   private async validateItemEntity(entityType: string, entityId: string, ctx: ActiveOperationalContext) {
     if (!HANDOVER_ITEM_ENTITY_TYPES.includes(entityType as any)) {
-      throw new BadRequestException(`Invalid entityType: ${entityType}`);
+      throw new BadRequestException({
+        messageKey: 'productionShiftHandover.invalidEntityType',
+        params: { entityType },
+      });
     }
 
     let found = false;
@@ -440,7 +465,10 @@ export class ShiftHandoversService {
     }
 
     if (!found) {
-      throw new BadRequestException(`${entityType} entity ${entityId} not found or not compatible with handover tenant scope`);
+      throw new BadRequestException({
+        messageKey: 'productionShiftHandover.entityNotFound',
+        params: { entityType, entityId },
+      });
     }
   }
 

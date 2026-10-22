@@ -5,6 +5,7 @@ import { api } from '../../../lib/api';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { useToast } from '../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../components/admin/error-handler';
+import { resolveApiErrorMessage } from '../../../lib/error-utils';
 import { DowntimeSegment } from '../../../lib/admin-types';
 import { Button, Input, Select, Pagination, Modal, ConfirmDialog, Textarea } from '../../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../components/admin/admin-data-grid';
@@ -112,7 +113,8 @@ export function DowntimePanel() {
   const handleSaveError = (err: any) => {
     const key = (err as any)?.messageKey;
     if (key && key.startsWith('productionDowntime.')) {
-      handleApiError(err, { message: t('production.downtime.' + key.slice('productionDowntime.'.length)) });
+      const message = resolveApiErrorMessage(t, 'production.downtime.' + key.slice('productionDowntime.'.length));
+      handleApiError(err, message ? { message } : undefined);
       return;
     }
     handleApiError(err);

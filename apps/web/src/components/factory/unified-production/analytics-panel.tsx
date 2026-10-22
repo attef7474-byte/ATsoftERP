@@ -308,7 +308,7 @@ export function AnalyticsPanel() {
     const noTarget = runs.filter((run) => run.targetStatus === 'NO_TARGET').length;
     return { meeting, below, blocked, noTarget };
   }, [oee]);
-  if (!canRead) return <div><div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-800">{t('validation.forbidden')}</div></div>;
+  if (!canRead) return <div><div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-800">{t('errors.forbidden')}</div></div>;
   return <div>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap items-center gap-2">

@@ -5,6 +5,7 @@ import { api } from '../../../lib/api';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { useToast } from '../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../components/admin/error-handler';
+import { resolveApiErrorMessage } from '../../../lib/error-utils';
 import { useAuth } from '../../../lib/auth-context';
 import { ProductionMaterialDocument, ProductionMaterialDocumentLine } from '../../../lib/admin-types';
 import { Button, Input, Select, Pagination, Modal, ConfirmDialog, Textarea } from '../../../components/admin/ui';
@@ -213,7 +214,8 @@ export function MaterialDocumentsPanel() {
   const handleSaveError = (err: any) => {
     const key = (err as any)?.messageKey;
     if (key && key.startsWith('productionMaterial.')) {
-      handleApiError(err, { message: t('production.materialDocuments.errors.' + key.slice('productionMaterial.'.length)) });
+      const message = resolveApiErrorMessage(t, 'production.materialDocuments.errors.' + key.slice('productionMaterial.'.length));
+      handleApiError(err, message ? { message } : undefined);
       return;
     }
     handleApiError(err);

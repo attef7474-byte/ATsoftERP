@@ -119,7 +119,32 @@ describe('ShiftHandoversService', () => {
       await service.findAll({ page: 1, limit: 10 }, ctx);
 
       const call = prisma.shiftHandover.findMany.mock.calls[0][0];
-      expect(call.where).toMatchObject({ companyId: 'company-a', branchId: { in: ['branch-a', null] } });
+      expect(call.where).toMatchObject({ companyId: 'company-a', deletedAt: null });
+      expect(call.where.OR).toEqual([{ branchId: 'branch-a' }, { branchId: null }]);
+    });
+
+    it('findAll never puts null inside an `in` filter (Prisma validation regression)', async () => {
+      prisma.shiftHandover.findMany.mockResolvedValue([]);
+      prisma.shiftHandover.count.mockResolvedValue(0);
+
+      await service.findAll({ page: 1, limit: 10 }, ctx);
+
+      const call = prisma.shiftHandover.findMany.mock.calls[0][0];
+      // Regression: Prisma rejects `in: [branchId, null]` for a nullable field
+      // (PrismaClientValidationError) which surfaced as HTTP 500 on
+      // GET /production/shift-handovers.
+      expect(call.where.branchId).toBeUndefined();
+      expect(JSON.stringify(call.where)).not.toContain('"in"');
+    });
+
+    it('findAll narrows to null-branch records only when no branch is active', async () => {
+      prisma.shiftHandover.findMany.mockResolvedValue([]);
+      prisma.shiftHandover.count.mockResolvedValue(0);
+
+      await service.findAll({ page: 1, limit: 10 }, { ...ctx, branchId: null as any });
+
+      const call = prisma.shiftHandover.findMany.mock.calls[0][0];
+      expect(call.where.OR).toEqual([{ branchId: null }]);
     });
 
     it('findOne restricts to the active branch plus shared null-branch records', async () => {
@@ -129,7 +154,8 @@ describe('ShiftHandoversService', () => {
       await expect(promise).rejects.toThrow(NotFoundException);
 
       const call = prisma.shiftHandover.findFirst.mock.calls[0][0];
-      expect(call.where).toMatchObject({ branchId: { in: ['branch-a', null] } });
+      expect(call.where).toMatchObject({ id: 'ho-other-branch', companyId: 'company-a' });
+      expect(call.where.OR).toEqual([{ branchId: 'branch-a' }, { branchId: null }]);
     });
   });
 

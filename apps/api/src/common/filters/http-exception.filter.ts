@@ -31,8 +31,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
       fieldErrors = resObj.errors;
 
-      if (resObj.messageKey && resObj.messageKey !== resObj.message) {
-        message = getApiMessage(resObj.messageKey, locale, resObj.params);
+      if (resObj.messageKey) {
+        // The API message catalog owns the localized text for every key it
+        // knows. Some call sites raise `{ messageKey, message: <the key> }`,
+        // which used to reach the client as a raw translation key. When the
+        // key is unknown to the catalog, keep the raised message instead of
+        // leaking the key.
+        const localized = getApiMessage(resObj.messageKey, locale, resObj.params);
+        if (localized !== resObj.messageKey) {
+          message = localized;
+        } else if (Array.isArray(resObj.message)) {
+          message = resObj.message;
+        } else if (typeof resObj.message === 'string') {
+          message = resObj.message;
+        } else {
+          message = exception.message;
+        }
       } else if (Array.isArray(resObj.message)) {
         message = resObj.message;
       } else if (typeof resObj.message === 'string') {

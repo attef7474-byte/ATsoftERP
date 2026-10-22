@@ -2,6 +2,7 @@ import type { LocaleTranslations } from '../../types';
 
 const production: Pick<LocaleTranslations, 'production'> = {
     production: {
+        runNumber: 'رقم الجولة',
         production: 'الإنتاج',
         uom: {
             label: 'وحدة القياس',
@@ -240,6 +241,7 @@ const production: Pick<LocaleTranslations, 'production'> = {
         capacityPerTargetOverrides: 'تجاوزات لكل هدف (اختياري)',
         capacityTarget: 'الهدف',
         orders: {
+            snapshot: 'لقطة الطلب',
             title: 'أوامر الإنتاج',
             newOrder: 'أمر إنتاج جديد',
             editOrder: 'تعديل أمر الإنتاج',
@@ -336,6 +338,9 @@ const production: Pick<LocaleTranslations, 'production'> = {
         },
 
         runs: {
+            assignmentAmbiguous: 'تعيين خط الإنتاج ملتبس. يرجى تحديد خط الإنتاج بشكل صريح.',
+            assignmentInvalid: 'تعيين خط الإنتاج غير صالح لهذه الجولة.',
+            orderStateChanged: 'تم تغيير حالة أمر الإنتاج. يرجى تحديث الصفحة والمحاولة مرة أخرى.',
             title: 'جولات الإنتاج',
             newRun: 'بدء جولة إنتاج',
             runNumber: 'رقم الجولة',
@@ -728,6 +733,7 @@ const production: Pick<LocaleTranslations, 'production'> = {
             linkCompleted: 'تم ربط الصيانة.',
         },
         losses: {
+            quantityMustBePositive: 'يجب أن تكون كمية الفاقد أكبر من صفر.',
             title: 'خسائر الإنتاج',
             recordLoss: 'تسجيل خسارة',
             correctEvent: 'تصحيح حدث',
@@ -844,6 +850,8 @@ const production: Pick<LocaleTranslations, 'production'> = {
             materialHistory: 'سجل المستند',
             noHistory: 'لا يوجد سجل مسجل.',
             errors: {
+                concurrencyConflict: 'تم تعديل مستند المواد بواسطة مستخدم آخر. يرجى تحديث الصفحة والمحاولة مرة أخرى.',
+                runValuationClosed: 'تقييم تكلفة جولة الإنتاج مغلق ولا يمكن تعديله.',
                 notFound: 'مستند المواد غير موجود.',
                 loadFailed: 'تعذر تحميل مستندات المواد.',
                 invalidType: 'نوع المستند المحدد غير صالح.',
@@ -1084,6 +1092,10 @@ const production: Pick<LocaleTranslations, 'production'> = {
             historyEmpty: 'لا توجد سجلات استهلاك صريحة.',
             noHistory: 'لا يوجد سجل مسجل.',
             errors: {
+                concurrencyConflict: 'تم تعديل متطلبات المواد بواسطة مستخدم آخر. يرجى تحديث الصفحة والمحاولة مرة أخرى.',
+                costPurposeInvalid: 'غرض التكلفة المحدد غير صالح.',
+                costPurposeOverrideReasonRequired: 'سبب تجاوز غرض التكلفة مطلوب.',
+                runValuationClosed: 'تقييم تكلفة جولة الإنتاج مغلق ولا يمكن تعديله.',
                 notFound: 'متطلبات المواد غير موجودة.',
                 orderNotFound: 'أمر الإنتاج غير موجود.',
                 runNotFound: 'تشغيلة الإنتاج غير موجودة.',
@@ -1213,6 +1225,7 @@ const production: Pick<LocaleTranslations, 'production'> = {
             },
         },
         inspections: {
+            status: 'الحالة',
             title: 'فحوصات الجودة',
             newInspection: 'فحص جديد',
             inspectionNumber: 'رقم الفحص',
@@ -1296,6 +1309,8 @@ const production: Pick<LocaleTranslations, 'production'> = {
             },
         },
         ncrs: {
+            details: 'التفاصيل',
+            transitions: 'الانتقالات',
             title: 'تقارير عدم المطابقة',
             newNcr: 'تقرير عدم مطابقة جديد',
             ncrNumber: 'رقم تقرير عدم المطابقة',
@@ -1651,6 +1666,7 @@ const production: Pick<LocaleTranslations, 'production'> = {
             },
         },
         analytics: {
+            invalidWindow: 'الفترة المحددة قصيرة جدًا لعرض هذا التقرير.',
             title: 'تحليلات الإنتاج',
             subtitle: 'الكفاءة الكلية OEE وأداء الإنتاج خلال فترة محددة',
             dateFrom: 'من',
@@ -1777,6 +1793,14 @@ const production: Pick<LocaleTranslations, 'production'> = {
             unknownValue: 'غير معروف',
         },
         shiftHandovers: {
+            catMAINTENANCE_REQUEST: 'طلب صيانة',
+            catSTOPPED_MACHINE: 'آلة متوقفة',
+            catPRODUCTION_ORDER: 'أمر إنتاج',
+            catQUALITY_ISSUE: 'مشكلة جودة',
+            catMATERIAL_SHORTAGE: 'نقص مواد',
+            catSAFETY_OBSERVATION: 'ملاحظة سلامة',
+            catGENERAL: 'عام',
+            entityPRODUCTION_NONCONFORMANCE: 'عدم مطابقة الإنتاج',
             label: 'تسليم المناوبات',
             newShiftHandover: 'تسليم مناوبة جديد',
             newHandover: 'تسليم مناوبة جديد',

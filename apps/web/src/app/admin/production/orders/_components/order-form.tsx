@@ -5,6 +5,7 @@ import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
+import { resolveApiErrorMessage } from '../../../../../lib/error-utils';
 import { Button, Input, Select, Textarea } from '../../../../../components/admin/ui';
 import { F9Lookup } from '../../../../../components/f9/F9Lookup';
 import {
@@ -184,7 +185,8 @@ export function OrderForm({ initial, onSaved, onCancel }: OrderFormProps) {
 
   const handleSaveError = (err: any) => {
     const key = orderErrorMessageKey(err);
-    handleApiError(err, key ? { message: t(key) } : undefined);
+    const message = resolveApiErrorMessage(t, key);
+    handleApiError(err, message ? { message } : undefined);
   };
 
   const runPreview = async () => {

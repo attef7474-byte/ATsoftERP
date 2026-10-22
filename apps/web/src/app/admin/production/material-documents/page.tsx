@@ -64,9 +64,9 @@ export default function MaterialDocumentsWorkspacePage() {
         activeId={tab}
         onChange={selectTab}
         items={[
-          { id: 'requirements', label: t('production.materialRequirements') },
-          { id: 'documents', label: t('production.materialDocuments') },
-          { id: 'finished-goods', label: t('production.finishedGoodsReceipts') },
+          { id: 'requirements', label: t('production.materialRequirements.title') },
+          { id: 'documents', label: t('production.materialDocuments.title') },
+          { id: 'finished-goods', label: t('production.finishedGoodsReceipts.title') },
         ].filter((item) => isVisible(item.id))}
       />
       <TabPanel id="requirements" activeId={tab}>

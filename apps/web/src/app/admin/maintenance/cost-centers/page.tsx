@@ -430,7 +430,7 @@ export default function CostCentersPage() {
   ];
 
   if (!can('read')) {
-    return <div><PageHeader title={t('maintenance.costCenters')} /><div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-800">{t('validation.forbidden')}</div></div>;
+    return <div><PageHeader title={t('maintenance.costCenters')} /><div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-800">{t('errors.forbidden')}</div></div>;
   }
 
   return (

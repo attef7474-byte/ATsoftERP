@@ -220,19 +220,23 @@ export class ProductionPlanningService {
     const scheduled: ScheduledOperation[] = [];
     const unscheduled: UnscheduledOperation[] = [];
     const lineLoad = new Map<string, { used: number; count: number; label: string; machineId: string | null }>();
-    const lineAssigned: OccupiedInterval[] = [];
+    const lineAssignedByLine = new Map<string, OccupiedInterval[]>();
 
     for (const order of ordered) {
-      const result = await this.scheduleOrder(order, ctx, client, calendar, intervalsByDate, occupiedByLine, lineAssigned, horizon);
+      const assignedForLine = lineAssignedByLine.get(order.productionLineId) ?? [];
+      const result = await this.scheduleOrder(order, ctx, client, calendar, intervalsByDate, occupiedByLine, assignedForLine, horizon);
       if ('reasons' in result) {
         unscheduled.push(this.buildUnscheduled(order, result.reasons, result.details));
         continue;
       }
       scheduled.push(result.operation);
       const list = occupiedByLine.get(result.operation.productionLineId) ?? [];
-      list.push({ start: new Date(result.operation.scheduledStartAt).getTime(), end: new Date(result.operation.scheduledEndAt).getTime() });
+      const slot = { start: new Date(result.operation.scheduledStartAt).getTime(), end: new Date(result.operation.scheduledEndAt).getTime() };
+      list.push(slot);
       occupiedByLine.set(result.operation.productionLineId, list);
-      lineAssigned.push({ start: new Date(result.operation.scheduledStartAt).getTime(), end: new Date(result.operation.scheduledEndAt).getTime() });
+      const assignedList = lineAssignedByLine.get(result.operation.productionLineId) ?? [];
+      assignedList.push(slot);
+      lineAssignedByLine.set(result.operation.productionLineId, assignedList);
       const load = lineLoad.get(order.productionLineId) ?? { used: 0, count: 0, label: order.productionLineId, machineId: order.machineId };
       load.used += result.durationMinutes;
       load.count += 1;

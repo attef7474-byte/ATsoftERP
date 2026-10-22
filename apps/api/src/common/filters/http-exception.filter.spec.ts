@@ -248,4 +248,26 @@ describe('AllExceptionsFilter canonical error contract', () => {
     );
     expect(json.mock.calls[0][0].params).toBeUndefined();
   });
+
+  it('localizes a messageKey whose raised message is the key itself', () => {
+    const { json } = createHostFor(
+      new BadRequestException({ messageKey: 'operationalContext.headersRequired', message: 'operationalContext.headersRequired' }),
+      'ar',
+    );
+    const body = json.mock.calls[0][0];
+    expect(body.messageKey).toBe('operationalContext.headersRequired');
+    expect(body.message[0]).toBe('يجب تحديد الشركة والفرع في سياق العمل النشط');
+    expect(body.message[0]).not.toBe('operationalContext.headersRequired');
+  });
+
+  it('never returns a raw key when the catalog does not know the messageKey', () => {
+    const { json } = createHostFor(
+      new BadRequestException({ messageKey: 'not.in.catalog.key', message: 'A human readable message' }),
+      'en',
+    );
+    const body = json.mock.calls[0][0];
+    expect(body.messageKey).toBe('not.in.catalog.key');
+    expect(body.message[0]).toBe('A human readable message');
+    expect(body.message[0]).not.toBe('not.in.catalog.key');
+  });
 });

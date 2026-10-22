@@ -5,6 +5,7 @@ import { useAuth } from '../../../lib/auth-context';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { useToast } from '../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../components/admin/error-handler';
+import { resolveApiErrorMessage } from '../../../lib/error-utils';
 import { AdminDataGrid, GridAction, GridColumn } from '../../../components/admin/admin-data-grid';
 import { Button, Input, Modal, Pagination, Select, Textarea } from '../../../components/admin/ui';
 import { CmmsStatusBadge } from '../../../components/maintenance';
@@ -141,7 +142,8 @@ export function PerformanceTargetsPanel() {
         const suffix = code.replace('performanceTarget.', '');
         if (TARGET_ERROR_SUFFIXES.includes(suffix)) {
           const localKey = 'production.performanceTargets.' + (suffix === 'invalidEffectiveRange' ? 'invalidEffectiveRange' : 'errors.' + suffix);
-          showToast(t(localKey), 'error');
+          const message = resolveApiErrorMessage(t, localKey);
+          showToast(message ?? t('errors.generalError'), 'error');
           return;
         }
       }
@@ -335,7 +337,7 @@ export function PerformanceTargetsPanel() {
     };
     return t(keys[transition.action] || 'production.performanceTargets.actionCompleted');
   }, [transition, t]);
-  if (!can('read')) return <div><div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-800">{t('validation.forbidden')}</div></div>;
+  if (!can('read')) return <div><div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-800">{t('errors.forbidden')}</div></div>;
   const dimensionField = () => {
     switch (form.scopeType) {
       case 'UNIT':

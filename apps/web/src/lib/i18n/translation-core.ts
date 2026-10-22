@@ -7,8 +7,31 @@ export const TRANSLATION_FALLBACKS: Record<Locale, string> = {
 
 const reportedMissingKeys = new Set<string>();
 
+const FALLBACK_TEXTS = new Set<string>(Object.values(TRANSLATION_FALLBACKS));
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * Tells whether a translated string actually came from the locale dictionary.
+ *
+ * `resolveTranslation` never returns the raw key: an unknown key resolves to the
+ * localized fallback sentence. Callers that compose a message from several
+ * candidates (for example an API error that already carries a server-side
+ * localized message) need to know whether a candidate really resolved, so they
+ * can fall back to the next candidate instead of surfacing the fallback text.
+ *
+ * When the requested key is known, a translation that is identical to that key
+ * is also treated as unresolved: a dictionary entry never repeats its own key.
+ */
+export function isResolvedTranslation(value: unknown, key?: string): value is string {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return false;
+  if (FALLBACK_TEXTS.has(value)) return false;
+  if (key !== undefined && value === key) return false;
+  return true;
 }
 
 export function getNestedTranslationValue(
