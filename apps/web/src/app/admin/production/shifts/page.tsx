@@ -28,7 +28,7 @@ const TAB_LABELS: Record<UnifiedTab, string> = {
   calendars: 'production.shiftCalendars',
   assignments: 'production.shiftAssignments',
   'operational-assignments': 'production.operationalAssignments',
-  handovers: 'production.shiftHandovers',
+  handovers: 'production.shiftHandovers.label',
 };
 
 /**

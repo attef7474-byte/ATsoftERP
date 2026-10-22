@@ -28,6 +28,8 @@ const production: Pick<LocaleTranslations, 'production'> = {
         costWorkspaceDescription: 'Maintain cost rates, review run cost snapshots and cost transactions, and allocate overheads.',
         analyticsWorkspace: 'Performance & Analytics',
         analyticsWorkspaceDescription: 'Monitor OEE and operational analytics, maintain performance targets, and review reliability.',
+        shiftHandoversWorkspace: 'Shift Handovers',
+        shiftsWorkspaceDescription: 'Manage shifts, templates, calendars, assignments, operational assignments and handovers.',
         newUnit: 'New Production Unit',
         editUnit: 'Edit Production Unit',
         unitCode: 'Unit Code',
