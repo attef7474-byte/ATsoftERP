@@ -46,6 +46,8 @@ export interface ScheduledOperation {
   scheduledStartAt: string;
   scheduledEndAt: string;
   productionLineId: string;
+  productionLineCode?: string | null;
+  productionLineName?: string | null;
   machineId: string | null;
   capacityStandardId: string;
   capacityStandardCode: string;

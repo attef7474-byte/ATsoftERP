@@ -197,7 +197,10 @@ export class ProductionPlanningService {
         ...(input.orderIds && input.orderIds.length ? { id: { in: input.orderIds } } : {}),
         ...(input.productionLineId ? { productionLineId: input.productionLineId } : {}),
       },
-      include: { capacityStandard: { select: { id: true, code: true } } },
+      include: {
+        capacityStandard: { select: { id: true, code: true } },
+        productionLine: { select: { id: true, code: true, name: true } },
+      },
     });
 
     const blocking = await this.collectOccupied(ctx, client, horizon);
@@ -237,7 +240,9 @@ export class ProductionPlanningService {
       const assignedList = lineAssignedByLine.get(result.operation.productionLineId) ?? [];
       assignedList.push(slot);
       lineAssignedByLine.set(result.operation.productionLineId, assignedList);
-      const load = lineLoad.get(order.productionLineId) ?? { used: 0, count: 0, label: order.productionLineId, machineId: order.machineId };
+      const lineLabel = order.productionLine?.name || order.productionLine?.code || order.productionLineId;
+      const load = lineLoad.get(order.productionLineId) ?? { used: 0, count: 0, label: lineLabel, machineId: order.machineId };
+      load.label = load.label || lineLabel;
       load.used += result.durationMinutes;
       load.count += 1;
       lineLoad.set(order.productionLineId, load);
@@ -251,7 +256,7 @@ export class ProductionPlanningService {
       return {
         productionLineId,
         machineId: agg.machineId,
-        label: agg.label,
+        label: agg.label || productionLineId,
         usedMinutes: used.toDecimalPlaces(4).toString(),
         availableMinutes: available.toDecimalPlaces(4).toString(),
         utilizationPercent: util.toString(),
@@ -351,6 +356,8 @@ export class ProductionPlanningService {
       scheduledStartAt: new Date(placement.start).toISOString(),
       scheduledEndAt: new Date(placement.end).toISOString(),
       productionLineId: order.productionLineId,
+      productionLineCode: order.productionLine?.code || null,
+      productionLineName: order.productionLine?.name || null,
       machineId: order.machineId || null,
       capacityStandardId: capacity.id,
       capacityStandardCode: capacity.code,

@@ -160,7 +160,18 @@ export function ProductionSchedulingPanel() {
       header: t('production.planning.scheduledWindow'),
       render: (row) => `${formatInstant(row.scheduledStartAt, locale)} → ${formatInstant(row.scheduledEndAt, locale)}`,
     },
-    { key: 'productionLineId', header: t('production.planning.line') },
+    {
+      key: 'productionLineId',
+      header: t('production.planning.line'),
+      render: (row: any) => {
+        const name = row.productionLineName || row.productionLine?.name;
+        const code = row.productionLineCode || row.productionLine?.code;
+        if (name && code) return `${name} — ${code}`;
+        if (name) return name;
+        if (code) return code;
+        return row.productionLineId;
+      },
+    },
     { key: 'plannedDurationMinutes', header: t('production.planning.duration') },
     {
       key: 'latenessState',
