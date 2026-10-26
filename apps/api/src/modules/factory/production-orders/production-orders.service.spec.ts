@@ -1,5 +1,10 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { Prisma } from '@prisma/client';
 import { ProductionOrdersService } from './production-orders.service';
+import { ProductionOrdersController } from './production-orders.controller';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { ActiveContextInterceptor } from '../../../common/operational-context/active-context.interceptor';
 
 const ctxA: any = { companyId: 'c1', branchId: 'b1' };
 const ctxB: any = { companyId: 'c2', branchId: 'b2' };
@@ -235,6 +240,105 @@ describe('ProductionOrdersService', () => {
     expect(planned.status).toBe('PLANNED');
     expect(model.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: 'DRAFT' }) }));
     expect(prisma.productionOrderTransition.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ fromStatus: 'DRAFT', toStatus: 'PLANNED', action: 'PLAN', requestId: 'req-p' }) }));
+  });
+
+  describe('PLAN concurrency error contract', () => {
+    it('C01 maps the observed Prisma P2034 to one controlled conflict without retrying', async () => {
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Transaction failed due to a write conflict or a deadlock. Please retry your transaction',
+        { code: 'P2034', clientVersion: '7.8.0' },
+      );
+      prisma.$transaction.mockRejectedValueOnce(error);
+      const result = await service.plan('po1', { requestId: 'req-p', lockVersion: 0 }, 'u2', ctxA).catch((e) => e);
+      expect(result).toBeInstanceOf(ConflictException);
+      expect(result.getStatus()).toBe(409);
+      expect(result.getResponse()).toEqual({ messageKey: 'productionOrder.staleVersion', details: { reason: 'concurrentPlan' } });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('C02 preserves the existing stale lockVersion error and performs no write', async () => {
+      model.findFirst.mockResolvedValue(record({ lockVersion: 1 }));
+      const result = await service.plan('po1', { requestId: 'req-p', lockVersion: 0 }, 'u2', ctxA).catch((e) => e);
+      expect(result).toBeInstanceOf(ConflictException);
+      expect(result.getResponse()).toEqual({ messageKey: 'productionOrder.staleVersion' });
+      expect(model.updateMany).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it.each(['P2002', 'P2028'])('C03 rethrows unexpected Prisma %s unchanged', async (code) => {
+      const error = new Prisma.PrismaClientKnownRequestError('Unexpected database failure', { code, clientVersion: '7.8.0' });
+      prisma.$transaction.mockRejectedValueOnce(error);
+      await expect(service.plan('po1', { requestId: 'req-p', lockVersion: 0 }, 'u2', ctxA)).rejects.toBe(error);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('C03 does not classify arbitrary error messages or a code lookalike as a known concurrency exception', async () => {
+      const error = Object.assign(new Error('Unexpected serialization module failure'), { code: 'P2034' });
+      prisma.$transaction.mockRejectedValueOnce(error);
+      await expect(service.plan('po1', { requestId: 'req-p', lockVersion: 0 }, 'u2', ctxA)).rejects.toBe(error);
+    });
+
+    it('C04/C09/C10 preserves success, Serializable isolation, tenant CAS, version increment and atomic audit/history', async () => {
+      model.findFirst.mockResolvedValueOnce(record()).mockResolvedValueOnce(record({ status: 'PLANNED', lockVersion: 1 }));
+      model.updateMany.mockResolvedValue({ count: 1 });
+      const planned = await service.plan('po1', { requestId: 'req-p', lockVersion: 0 }, 'u2', ctxA);
+      expect(planned.status).toBe('PLANNED');
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      expect(model.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'po1', companyId: 'c1', branchId: 'b1', status: 'DRAFT', lockVersion: 0, deletedAt: null },
+        data: expect.objectContaining({ status: 'PLANNED', plannedById: 'u2', plannedAt: expect.any(Date), lockVersion: { increment: 1 } }),
+      }));
+      expect(prisma.productionOrderTransition.create).toHaveBeenCalledTimes(1);
+      expect(audit.logWithClient).toHaveBeenCalledWith(prisma, expect.objectContaining({ action: 'PLAN', entityId: 'po1' }));
+      expect(materialRequirements.freezeForRelease).not.toHaveBeenCalled();
+    });
+
+    it('C05 preserves successful requestId replay without a second mutation, history or audit', async () => {
+      prisma.productionOrderTransition.findFirst.mockResolvedValue({ id: 't1', action: 'PLAN' });
+      model.findFirst.mockResolvedValue(record({ status: 'PLANNED', lockVersion: 1 }));
+      const result = await service.plan('po1', { requestId: 'req-p', lockVersion: 0 }, 'u2', ctxA);
+      expect(result.status).toBe('PLANNED');
+      expect(model.updateMany).not.toHaveBeenCalled();
+      expect(prisma.productionOrderTransition.create).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('C06 retains the actual PLAN permission metadata and denies a normal role without it', async () => {
+      prisma.userRole = { findMany: jest.fn().mockResolvedValue([{ role: { code: 'OPERATOR', status: 'ACTIVE', permissions: [] } }]) };
+      const guard = new PermissionsGuard(new Reflector(), prisma);
+      const context: any = {
+        getHandler: () => ProductionOrdersController.prototype.plan,
+        getClass: () => ProductionOrdersController,
+        switchToHttp: () => ({ getRequest: () => ({ user: { id: 'operator' } }) }),
+      };
+      await expect(guard.canActivate(context)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('C07 retains archive-context denial before the PLAN handler or transaction runs', async () => {
+      const activeContext: any = {
+        validateArchived: jest.fn().mockResolvedValue({ context: ctxA, authorization: { isSuperAdmin: false, permissions: ['company:readArchive'] } }),
+      };
+      const request = { method: 'POST', user: { id: 'operator' }, headers: { 'x-active-company-id': 'c1', 'x-active-branch-id': 'b1', 'x-active-context-mode': 'archived' }, body: {}, query: {} };
+      const context: any = {
+        getType: () => 'http', getHandler: () => ProductionOrdersController.prototype.plan,
+        getClass: () => ProductionOrdersController, switchToHttp: () => ({ getRequest: () => request }),
+      };
+      const next = { handle: jest.fn() };
+      const result = await new ActiveContextInterceptor(new Reflector(), activeContext).intercept(context, next).catch((e) => e);
+      expect(result).toBeInstanceOf(ForbiddenException);
+      expect(result.getResponse()).toEqual({ messageKey: 'archiveContext.readOnly' });
+      expect(next.handle).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it.each(['PLANNED', 'RELEASED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'])('C08 preserves invalid source-state rejection for %s', async (status) => {
+      model.findFirst.mockResolvedValue(record({ status }));
+      const result = await service.plan('po1', { requestId: 'req-p', lockVersion: 0 }, 'u2', ctxA).catch((e) => e);
+      expect(result).toBeInstanceOf(ConflictException);
+      expect(result.getResponse()).toEqual({ messageKey: 'productionOrder.planStateInvalid' });
+      expect(model.updateMany).not.toHaveBeenCalled();
+    });
   });
 
   it('rejects planning an order that is not DRAFT', async () => {

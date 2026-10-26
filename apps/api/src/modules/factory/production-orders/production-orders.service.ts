@@ -202,6 +202,19 @@ export class ProductionOrdersService {
   }
 
   async plan(id: string, dto: ProductionOrderActionDto, userId: string, ctx: ActiveOperationalContext) {
+    try {
+      return await this.planInternal(id, dto, userId, ctx);
+    } catch (error) {
+      // P2034 is Prisma's transaction write-conflict/deadlock classification.
+      // Keep unrelated failures visible and let the caller refresh before retrying.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+        throw new ConflictException({ messageKey: 'productionOrder.staleVersion', details: { reason: 'concurrentPlan' } });
+      }
+      throw error;
+    }
+  }
+
+  private async planInternal(id: string, dto: ProductionOrderActionDto, userId: string, ctx: ActiveOperationalContext) {
     return this.prisma.$transaction(async (tx) => {
       const duplicate = await this.findDuplicateAction(tx, id, dto.requestId, 'PLAN', ctx);
       if (duplicate) return duplicate;
