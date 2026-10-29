@@ -5,6 +5,7 @@ import { ProductionOrdersService } from './production-orders.service';
 import { ProductionOrdersController } from './production-orders.controller';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { ActiveContextInterceptor } from '../../../common/operational-context/active-context.interceptor';
+import { AllExceptionsFilter } from '../../../common/filters/http-exception.filter';
 
 const ctxA: any = { companyId: 'c1', branchId: 'b1' };
 const ctxB: any = { companyId: 'c2', branchId: 'b2' };
@@ -358,6 +359,129 @@ describe('ProductionOrdersService', () => {
     prisma.productionOrderTransition.findFirst.mockResolvedValue({ id: 't1', action: 'RELEASE' });
     model.findFirst.mockResolvedValue(record());
     await expect(service.plan('po1', { requestId: 'req-p', lockVersion: 0 }, 'u2', ctxA)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  describe('RELEASE concurrency error contract', () => {
+    const action = { requestId: 'req-r', lockVersion: 2 };
+
+    it('REL-C01 maps the observed P2034 to a localized controlled conflict without retrying', async () => {
+      const error = new Prisma.PrismaClientKnownRequestError('Transaction write conflict', { code: 'P2034', clientVersion: '7.8.0' });
+      prisma.$transaction.mockRejectedValueOnce(error);
+      const result = await service.release('po1', action, 'u2', ctxA).catch((e) => e);
+      expect(result).toBeInstanceOf(ConflictException);
+      expect(result.getStatus()).toBe(409);
+      expect(result.getResponse()).toEqual({ messageKey: 'productionOrder.staleVersion', details: { reason: 'concurrentRelease' } });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('REL-C02 preserves stale-version rejection before any write or freeze', async () => {
+      model.findFirst.mockResolvedValue(record({ status: 'PLANNED', lockVersion: 3 }));
+      const result = await service.release('po1', action, 'u2', ctxA).catch((e) => e);
+      expect(result.getResponse()).toEqual({ messageKey: 'productionOrder.staleVersion' });
+      expect(model.updateMany).not.toHaveBeenCalled();
+      expect(materialRequirements.freezeForRelease).not.toHaveBeenCalled();
+    });
+
+    it.each(['P2002', 'P2028'])('REL-C03 preserves unexpected Prisma %s and the HTTP 500 contract', async (code) => {
+      const error = new Prisma.PrismaClientKnownRequestError('Unexpected database failure', { code, clientVersion: '7.8.0' });
+      prisma.$transaction.mockRejectedValueOnce(error);
+      const result = await service.release('po1', action, 'u2', ctxA).catch((e) => e);
+      expect(result).toBe(error);
+      const response = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+      const host: any = { switchToHttp: () => ({ getResponse: () => response, getRequest: () => ({ method: 'POST', originalUrl: '/api/v1/production/orders/po1/release', headers: {} }) }) };
+      const log = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      try { new AllExceptionsFilter().catch(result, host); } finally { log.mockRestore(); }
+      expect(response.status).toHaveBeenCalledWith(500);
+      expect(response.json).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 500, messageKey: 'common.internalError' }));
+      expect(JSON.stringify(response.json.mock.calls)).not.toMatch(/Prisma|P2002|P2028|Unexpected database failure/);
+    });
+
+    it('REL-C03 does not classify a lookalike error code or message as a Prisma conflict', async () => {
+      const error = Object.assign(new Error('deadlock serialization failure'), { code: 'P2034' });
+      prisma.$transaction.mockRejectedValueOnce(error);
+      await expect(service.release('po1', action, 'u2', ctxA)).rejects.toBe(error);
+    });
+
+    it('REL-C04/C10/C11/C12 preserves success, Serializable, scoped CAS, freeze and one history/audit', async () => {
+      model.findFirst.mockResolvedValueOnce(record({ status: 'PLANNED', lockVersion: 2 })).mockResolvedValueOnce(record({ status: 'RELEASED', lockVersion: 3, snapshotFrozenAt: new Date() }));
+      model.findMany.mockResolvedValue([]);
+      model.updateMany.mockResolvedValue({ count: 1 });
+      const result = await service.release('po1', action, 'u2', ctxA);
+      expect(result.status).toBe('RELEASED');
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      expect(model.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'po1', companyId: 'c1', branchId: 'b1', status: 'PLANNED', lockVersion: 2, deletedAt: null }, data: expect.objectContaining({ status: 'RELEASED', releasedById: 'u2', releasedAt: expect.any(Date), snapshotFrozenAt: expect.any(Date), lockVersion: { increment: 1 } }) }));
+      expect(materialRequirements.freezeForRelease).toHaveBeenCalledTimes(1);
+      expect(materialRequirements.freezeForRelease).toHaveBeenCalledWith('po1', 'u2', ctxA, prisma);
+      expect(prisma.productionOrderTransition.create).toHaveBeenCalledTimes(1);
+      expect(audit.logWithClient).toHaveBeenCalledTimes(1);
+      expect(audit.logWithClient).toHaveBeenCalledWith(prisma, expect.objectContaining({ action: 'RELEASE', entityId: 'po1' }));
+    });
+
+    it('REL-C05 replays a successful requestId without any further mutation or freeze', async () => {
+      prisma.productionOrderTransition.findFirst.mockResolvedValue({ id: 't1', action: 'RELEASE' });
+      model.findFirst.mockResolvedValue(record({ status: 'RELEASED', lockVersion: 3 }));
+      expect((await service.release('po1', action, 'u2', ctxA)).status).toBe('RELEASED');
+      expect(model.updateMany).not.toHaveBeenCalled();
+      expect(materialRequirements.freezeForRelease).not.toHaveBeenCalled();
+      expect(prisma.productionOrderTransition.create).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('REL-C06 rejects an already RELEASED order with a new requestId', async () => {
+      model.findFirst.mockResolvedValue(record({ status: 'RELEASED', lockVersion: 3 }));
+      const result = await service.release('po1', { ...action, requestId: 'different' }, 'u2', ctxA).catch((e) => e);
+      expect(result.getStatus()).toBe(409);
+      expect(result.getResponse()).toEqual({ messageKey: 'productionOrder.releaseStateInvalid' });
+      expect(model.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('REL-C07 uses the actual Release permission metadata and denies a normal role without it', async () => {
+      prisma.userRole = { findMany: jest.fn().mockResolvedValue([{ role: { code: 'OPERATOR', status: 'ACTIVE', permissions: [] } }]) };
+      const context: any = { getHandler: () => ProductionOrdersController.prototype.release, getClass: () => ProductionOrdersController, switchToHttp: () => ({ getRequest: () => ({ user: { id: 'operator' } }) }) };
+      await expect(new PermissionsGuard(new Reflector(), prisma).canActivate(context)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('REL-C08 rejects archived Release before invoking the handler or transaction', async () => {
+      const activeContext: any = { validateArchived: jest.fn().mockResolvedValue({ context: ctxA, authorization: { isSuperAdmin: false, permissions: ['company:readArchive'] } }) };
+      const request = { method: 'POST', user: { id: 'operator' }, headers: { 'x-active-company-id': 'c1', 'x-active-branch-id': 'b1', 'x-active-context-mode': 'archived' }, body: {}, query: {} };
+      const context: any = { getType: () => 'http', getHandler: () => ProductionOrdersController.prototype.release, getClass: () => ProductionOrdersController, switchToHttp: () => ({ getRequest: () => request }) };
+      const next = { handle: jest.fn() };
+      const result = await new ActiveContextInterceptor(new Reflector(), activeContext).intercept(context, next).catch((e) => e);
+      expect(result.getResponse()).toEqual({ messageKey: 'archiveContext.readOnly' });
+      expect(next.handle).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it.each(['DRAFT', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'])('REL-C09 preserves invalid lifecycle rejection for %s', async (status) => {
+      model.findFirst.mockResolvedValue(record({ status, lockVersion: 2 }));
+      const result = await service.release('po1', action, 'u2', ctxA).catch((e) => e);
+      expect(result.getResponse()).toEqual({ messageKey: 'productionOrder.releaseStateInvalid' });
+      expect(model.updateMany).not.toHaveBeenCalled();
+      expect(materialRequirements.freezeForRelease).not.toHaveBeenCalled();
+    });
+
+    it('REL-C11 rejects a lost CAS before freeze/history/audit', async () => {
+      model.findFirst.mockResolvedValue(record({ status: 'PLANNED', lockVersion: 2 }));
+      model.findMany.mockResolvedValue([]);
+      model.updateMany.mockResolvedValue({ count: 0 });
+      const result = await service.release('po1', action, 'u2', ctxA).catch((e) => e);
+      expect(result.getResponse()).toEqual({ messageKey: 'productionOrder.staleVersion' });
+      expect(materialRequirements.freezeForRelease).not.toHaveBeenCalled();
+      expect(prisma.productionOrderTransition.create).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
+
+    it('REL-C12 propagates an unexpected freeze failure from inside the transaction', async () => {
+      model.findFirst.mockResolvedValue(record({ status: 'PLANNED', lockVersion: 2 }));
+      model.findMany.mockResolvedValue([]);
+      model.updateMany.mockResolvedValue({ count: 1 });
+      const error = new Error('freeze storage failure');
+      materialRequirements.freezeForRelease.mockRejectedValueOnce(error);
+      await expect(service.release('po1', action, 'u2', ctxA)).rejects.toBe(error);
+      expect(prisma.productionOrderTransition.create).not.toHaveBeenCalled();
+      expect(audit.logWithClient).not.toHaveBeenCalled();
+    });
   });
 
   it('releases a PLANNED order when readiness passes', async () => {

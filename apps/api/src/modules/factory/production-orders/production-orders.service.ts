@@ -202,13 +202,17 @@ export class ProductionOrdersService {
   }
 
   async plan(id: string, dto: ProductionOrderActionDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.withConcurrencyConflict(() => this.planInternal(id, dto, userId, ctx), 'concurrentPlan');
+  }
+
+  private async withConcurrencyConflict<T>(operation: () => Promise<T>, reason: 'concurrentPlan' | 'concurrentRelease'): Promise<T> {
     try {
-      return await this.planInternal(id, dto, userId, ctx);
+      return await operation();
     } catch (error) {
       // P2034 is Prisma's transaction write-conflict/deadlock classification.
       // Keep unrelated failures visible and let the caller refresh before retrying.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
-        throw new ConflictException({ messageKey: 'productionOrder.staleVersion', details: { reason: 'concurrentPlan' } });
+        throw new ConflictException({ messageKey: 'productionOrder.staleVersion', details: { reason } });
       }
       throw error;
     }
@@ -241,6 +245,10 @@ export class ProductionOrdersService {
   }
 
   async release(id: string, dto: ProductionOrderActionDto, userId: string, ctx: ActiveOperationalContext) {
+    return this.withConcurrencyConflict(() => this.releaseInternal(id, dto, userId, ctx), 'concurrentRelease');
+  }
+
+  private async releaseInternal(id: string, dto: ProductionOrderActionDto, userId: string, ctx: ActiveOperationalContext) {
     return this.prisma.$transaction(async (tx) => {
       const duplicate = await this.findDuplicateAction(tx, id, dto.requestId, 'RELEASE', ctx);
       if (duplicate) return duplicate;
