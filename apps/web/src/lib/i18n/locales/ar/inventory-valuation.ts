@@ -46,6 +46,7 @@ const inventoryValuation: Pick<LocaleTranslations, 'inventoryValuation'> = {
         negativeCost: 'لا يمكن أن تكون تكلفة الوحدة سالبة',
         zeroCostHint: 'تتطلب تكلفة الوحدة الصفرية سبباً صريحاً',
         reason: 'السبب',
+        valuationReason: 'سبب التقييم',
         reasonRequiredForZero: 'السبب مطلوب عند تكلفة الوحدة الصفرية',
         totalValue: 'القيمة الإجمالية',
         history: 'سجل التهيئة',

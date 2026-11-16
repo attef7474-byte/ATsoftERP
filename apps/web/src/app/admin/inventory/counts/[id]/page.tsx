@@ -7,13 +7,16 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { InventoryCount, InventoryCountLine } from '../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '../../../../../components/admin/ui';
-import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionGenerateIcon, ActionViewIcon } from '../../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionGenerateIcon, ActionViewIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
+import { usePrintDocument } from '../../../../../components/print/use-print-document';
+import { inventoryCountDocumentModel, type InventoryCountDocumentSource } from '../../../../../components/print/inventory-count-document-print';
 
 export default function InventoryCountDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const { print, printing, scopeKey } = usePrintDocument();
   const id = params.id as string;
   if (isReservedDetailRouteIdFor(id, 'inventory-counts')) {
     notFound();
@@ -57,6 +60,19 @@ export default function InventoryCountDetailPage() {
     setConfirmOpen(true);
   };
 
+  const handlePrint = useCallback(() => {
+    if (!id || isReservedDetailRouteIdFor(id, 'inventory-counts')) return;
+    return print(scopeKey, async (assertScope) => {
+      // Print re-reads the count-scoped document source instead of printing the
+      // possibly stale React state. The read delegates to the canonical count
+      // detail scope and is the only authorized read that also returns the
+      // recorded product unit. A denied read aborts before a document opens.
+      const fresh = await api.get<InventoryCountDocumentSource>(`/inventory/counts/${id}/results`);
+      assertScope();
+      return inventoryCountDocumentModel(fresh, t, locale);
+    });
+  }, [id, locale, print, scopeKey, t]);
+
   const { exec } = useStableHandlers({
     back: () => router.back(),
     refresh: () => fetchData(),
@@ -65,12 +81,14 @@ export default function InventoryCountDetailPage() {
     complete: () => confirmAndExec('complete'),
     cancel: () => confirmAndExec('cancel'),
     generateAdjustment: () => confirmAndExec('generateAdjustment'),
+    print: () => handlePrint(),
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
     { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'inventory-count:update', onClick: () => exec('edit'), enabled: !!data },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, permission: 'inventory-count:read', onClick: () => exec('print'), enabled: !!data && !printing },
     { id: 'start', labelKey: 'inventoryCounting.start', icon: <ActionStartIcon />, permission: 'inventory-count:start', onClick: () => exec('start'), enabled: !!(data && data.status === 'DRAFT') },
     { id: 'complete', labelKey: 'inventoryCounting.completeCount', icon: <ActionCompleteIcon />, permission: 'inventory-count:complete', onClick: () => exec('complete'), enabled: !!(data && data.status === 'IN_PROGRESS') },
     { id: 'cancel', labelKey: 'inventoryCounting.cancel', icon: <ActionCancelIcon />, permission: 'inventory-count:cancel', onClick: () => exec('cancel'), enabled: !!(data && (data.status === 'DRAFT' || data.status === 'IN_PROGRESS')), variant: 'danger' },

@@ -1,0 +1,220 @@
+أتسوفت إلدارة الموارد
+تقرير سجل التدقيق
+الشركة
+شركة رينجو
+الفرع
+فرع صنعاء
+تاريخ الطباعة12/11/2026وقت الطباعة02:56:55
+طُبع بواسطةAdministrator
+.) صف500 جميع قيود التدقيق المطابقة للشركة والفرع الحاليين مرتبة من األحدث (بحد أقصى
+إجمالي إدخاالت التدقيق
+36
+إجراءات فريدة
+8
+كيانات فريدة
+7
+اإلجراء
+حسب نوع الكيان
+إنشاء بواسطة
+تاريخ اإلنشاء
+الوصف
+LOGOUT
+Authentication
+Session
+وجدان الحكيمي10/11/2026، 03:11
+—
+LOGIN
+Authentication
+Session
+وجدان الحكيمي10/11/2026، 03:03
+—
+LOGIN
+Authentication
+Session
+معاذ الشرعبي14/10/2026، 08:27
+—
+LOGIN
+Authentication
+Session
+محمد مانع14/10/2026، 05:18
+—
+إكمالMaintenance
+Checklist Execution
+محمد مانع14/10/2026، 04:52
+—
+تحديثMaintenance
+Checklist Execution
+Item
+محمد مانع14/10/2026، 04:52نعم
+إكمالMaintenance Taskمحمد مانع14/10/2026، 04:52وزن السلسلة
+إكمالMaintenance
+Request
+محمد مانع14/10/2026، 04:52
+0.041 · قيد التنفيذ · مكتمل
+RETURN TO
+SERVICE
+Downtime Logمحمد مانع14/10/2026، 04:52
+2.438
+بدءMaintenance Taskمحمد مانع14/10/2026، 04:51
+—
+LINK EXECUTION
+Downtime Logمحمد مانع14/10/2026، 04:51
+—
+إنشاءMaintenance Taskمحمد مانع14/10/2026، 04:51
+—
+بدءMaintenance
+Request
+محمد مانع14/10/2026، 04:50مفتوح · قيد التنفيذ
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:55
+اإلجراء
+حسب نوع الكيان
+إنشاء بواسطة
+تاريخ اإلنشاء
+الوصف
+LOGIN
+Authentication
+Session
+محمد مانع14/10/2026، 04:49
+—
+LOGOUT
+Authentication
+Session
+محمد مانع14/10/2026، 04:40
+—
+LOGIN
+Authentication
+Session
+محمد مانع14/10/2026، 04:39
+—
+LOGOUT
+Authentication
+Session
+محمد مانع14/10/2026، 04:39
+—
+LOGIN
+Authentication
+Session
+محمد مانع14/10/2026، 04:39
+—
+LOGOUT
+Authentication
+Session
+محمد مانع14/10/2026، 04:36
+—
+LOGIN
+Authentication
+Session
+محمد مانع14/10/2026، 04:36
+—
+LOGOUT
+Authentication
+Session
+اركان حميد الحكيمي14/10/2026، 00:17
+—
+LOGIN
+Authentication
+Session
+اركان حميد الحكيمي14/10/2026، 00:17
+—
+LOGIN
+Authentication
+Session
+اركان حميد الحكيمي13/10/2026، 07:20
+—
+LOGOUT
+Authentication
+Session
+اركان حميد الحكيمي13/10/2026، 07:18
+—
+LOGIN
+Authentication
+Session
+اركان حميد الحكيمي13/10/2026، 07:18
+—
+LOGIN
+Authentication
+Session
+سعيد13/10/2026، 07:13
+—
+LOGIN
+Authentication
+Session
+سعيد13/10/2026، 07:11
+—
+LOGOUT
+Authentication
+Session
+سعيد13/10/2026، 01:57
+—
+LOGIN
+Authentication
+Session
+سعيد13/10/2026، 01:42
+—
+LOGOUT
+Authentication
+Session
+حنظل12/10/2026، 02:52
+—
+إكمالMaintenance Taskحنظل12/10/2026، 02:51اصالح
+بدءMaintenance Taskحنظل12/10/2026، 02:50
+—
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:55
+اإلجراء
+حسب نوع الكيان
+إنشاء بواسطة
+تاريخ اإلنشاء
+الوصف
+LOGIN
+Authentication
+Session
+حنظل12/10/2026، 02:50
+—
+LOGOUT
+Authentication
+Session
+حنظل12/10/2026، 02:18
+—
+تحديثCost Centerحنظل12/10/2026، 02:17
+Updated cost center: CC-000033
+LOGIN
+Authentication
+Session
+حنظل12/10/2026، 02:17
+—
+قيود التدقيق حسب اإلجراء
+اإلجراء
+اإلجمالي
+إكمال4
+إنشاء1
+LINK EXECUTION
+1
+LOGIN
+15
+LOGOUT
+9
+RETURN TO SERVICE
+1
+بدء3
+تحديث2
+حسب نوع الكيان
+حسب نوع الكيان
+اإلجمالي
+Authentication Session
+24
+Cost Center
+1
+Downtime Log
+2
+Maintenance Checklist Execution
+1
+Maintenance Checklist Execution Item
+1
+Maintenance Request
+2
+Maintenance Task
+5
+مالحظات
+تتضمن هذه الوثيقة تفاصيل تدقيق مسجلة ضمن نطاق الشركة والفرع المصرح. تعامل مع النسخة المطبوعة كمعلومة تشغيلية حساسة. تظهر أسماء المنفذين كما هي
+مسجلة، وتُحذف المعرفات الداخلية ومعرفات المستخدمين.
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:55

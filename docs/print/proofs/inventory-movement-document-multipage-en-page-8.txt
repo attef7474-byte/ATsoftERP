@@ -1,0 +1,108 @@
+#
+Product
+Code
+Product Name
+Quanti
+ty
+Unit
+Dire
+ction
+Batch /
+Lot
+Unit
+cost
+Total
+Cost
+Curr
+ency
+Notes
+1
+1
+5
+ITEM-115
+Raw material 115
+115
+KG
+Out
+—
+7.75
+891.25
+USD
+—
+1
+1
+6
+ITEM-116
+Packing material 116
+116
+PCS
+Out
+—
+—
+—
+—
+Line note 116
+1
+1
+7
+ITEM-117
+Raw material 117
+117
+KG
+In
+—
+—
+—
+—
+—
+1
+1
+8
+ITEM-118
+Packing material 118
+118
+PCS
+Out
+—
+7.75
+914.5
+USD
+—
+1
+1
+9
+ITEM-119
+Raw material 119
+119
+KG
+Out
+—
+—
+—
+—
+—
+1
+2
+0
+ITEM-120
+Packing material 120
+120
+PCS
+Out
+LOT-120
+—
+—
+—
+—
+Notes
+The movement is single-warehouse: one warehouse and a per-line IN/OUT direction, with no source/destination
+warehouse pair. Quantities are the recorded transaction quantities in the movement line unit; quantities with different or
+missing units are never summed and no document quantity total is computed. The canonical detail exposes a source
+type but not the referenced business document number, so the reference is identified by type only. Warehouse-location
+names, lot/serial labels and readable user names are not supplied by the movement detail contract, so they are omitted
+rather than replaced with identifiers. Unit cost, line cost and currency are printed only when recorded; this document is
+not a valuation or ledger reconciliation.
+Approved issue memo, first line.
+Approved issue memo, second line.
+ATsoft ERP
+13/11/2026 · 16:45:00

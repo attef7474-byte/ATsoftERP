@@ -127,10 +127,10 @@ export class InventoryAdjustmentsService {
         inventoryCount: true,
         lines: {
           include: {
-            product: { select: { id: true, name: true, code: true } },
+            product: { select: { id: true, name: true, code: true, unit: true } },
+            warehouseLocation: { select: { id: true, code: true, name: true } },
           },
         },
-
       },
     });
     if (!adjustment || adjustment.deletedAt) throw new NotFoundException('Inventory adjustment not found');

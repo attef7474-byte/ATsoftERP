@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
@@ -9,8 +9,13 @@ import { F9Lookup, productionLineAdapter, machineAdapter, machineComponentAdapte
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../../components/reports';
 
+import { useReportPrintSnapshot } from '../../../../../components/print/use-report-print-snapshot';
+import { maintenanceCostsPrintModel, type MaintenanceCostsPrintData } from '../../../../../components/print/maintenance-costs-print';
+
 export default function CostsReportPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const { capture, invalidate, rememberLookup, printSnapshot, canPrint } = useReportPrintSnapshot<MaintenanceCostsPrintData>();
+  const fetchSequence = useRef(0);
   const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<any>(null);
@@ -25,6 +30,7 @@ export default function CostsReportPage() {
   const [sparePartId, setSparePartId] = useState('');
 
   const fetchData = useCallback(async () => {
+    const sequence = ++fetchSequence.current;
     setLoading(true); setError('');
     try {
       const params: any = { ...filters };
@@ -35,24 +41,28 @@ export default function CostsReportPage() {
       if (costCenterId) params.costCenterId = costCenterId;
       if (sparePartId) params.sparePartId = sparePartId;
       const res = await api.get<any>('/reports/maintenance/costs', { params });
-      setData(res);
+      if (sequence !== fetchSequence.current) return;
+      setData(res); capture(res, params);
     } catch (err: any) {
-      setError(err?.message || t('reports.loadFailed'));
-    } finally { setLoading(false); }
-  }, [filters, productionLineId, machineId, machineComponentId, operationTypeId, costCenterId, sparePartId, t]);
+      if (sequence !== fetchSequence.current) return;
+      invalidate(); setError(err?.message || t('reports.loadFailed'));
+    } finally { if (sequence === fetchSequence.current) setLoading(false); }
+  }, [filters, productionLineId, machineId, machineComponentId, operationTypeId, costCenterId, sparePartId, t, capture, invalidate]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); return () => { fetchSequence.current++; }; }, [fetchData]);
+
+  const handlePrint = () => printSnapshot(!loading && !error && !!data, async snapshot => maintenanceCostsPrintModel(snapshot, t, locale));
 
   const clearFilters = () => { setFilters({ page: 1, pageSize: 20 }); setProductionLineId(''); setMachineId(''); setMachineComponentId(''); setOperationTypeId(''); setCostCenterId(''); setSparePartId(''); };
 
   const { exec } = useStableHandlers({
-    back: () => router.back(), refresh: () => fetchData(), print: () => window.print(),
+    back: () => router.back(), refresh: () => fetchData(), print: handlePrint,
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), readOnly: true, enabled: canPrint && !loading && !error },
   ]);
 
   const columns = [
@@ -68,12 +78,12 @@ export default function CostsReportPage() {
     <ReportPageShell title={t('reports.costsReport')} loading={loading} error={error} onRetry={fetchData}
       filters={
         <div className="flex flex-wrap gap-4 items-end">
-          <div className="w-48"><F9Lookup adapter={productionLineAdapter} value={productionLineId} onChange={setProductionLineId} placeholder={t('maintenance.productionLine')} /></div>
-          <div className="w-48"><F9Lookup adapter={machineAdapter} value={machineId} onChange={setMachineId} placeholder={t('reports.machine')} /></div>
-          <div className="w-48"><F9Lookup adapter={machineComponentAdapter} value={machineComponentId} onChange={setMachineComponentId} placeholder={t('maintenance.machineComponent')} /></div>
-          <div className="w-48"><F9Lookup adapter={operationTypeAdapter} value={operationTypeId} onChange={setOperationTypeId} placeholder={t('maintenance.operationType')} /></div>
-          <div className="w-48"><F9Lookup adapter={costCenterAdapter} value={costCenterId} onChange={setCostCenterId} placeholder={t('maintenance.costCenter')} /></div>
-          <div className="w-48"><F9Lookup adapter={sparePartAdapter} value={sparePartId} onChange={setSparePartId} placeholder={t('maintenance.sparePartLabel')} /></div>
+          <div className="w-48"><F9Lookup adapter={productionLineAdapter} value={productionLineId} onChange={setProductionLineId} onItemSelect={item => rememberLookup('productionLineId', item)} placeholder={t('maintenance.productionLine')} /></div>
+          <div className="w-48"><F9Lookup adapter={machineAdapter} value={machineId} onChange={setMachineId} onItemSelect={item => rememberLookup('machineId', item)} placeholder={t('reports.machine')} /></div>
+          <div className="w-48"><F9Lookup adapter={machineComponentAdapter} value={machineComponentId} onChange={setMachineComponentId} onItemSelect={item => rememberLookup('machineComponentId', item)} placeholder={t('maintenance.machineComponent')} /></div>
+          <div className="w-48"><F9Lookup adapter={operationTypeAdapter} value={operationTypeId} onChange={setOperationTypeId} onItemSelect={item => rememberLookup('operationTypeId', item)} placeholder={t('maintenance.operationType')} /></div>
+          <div className="w-48"><F9Lookup adapter={costCenterAdapter} value={costCenterId} onChange={setCostCenterId} onItemSelect={item => rememberLookup('costCenterId', item)} placeholder={t('maintenance.costCenter')} /></div>
+          <div className="w-48"><F9Lookup adapter={sparePartAdapter} value={sparePartId} onChange={setSparePartId} onItemSelect={item => rememberLookup('sparePartId', item)} placeholder={t('maintenance.sparePartLabel')} /></div>
           <div className="w-36"><Input type="date" value={filters.dateFrom || ''} onChange={e => setFilters((f: any) => ({ ...f, dateFrom: e.target.value || undefined, page: 1 }))} placeholder={t('reports.dateFrom')} /></div>
           <div className="w-36"><Input type="date" value={filters.dateTo || ''} onChange={e => setFilters((f: any) => ({ ...f, dateTo: e.target.value || undefined, page: 1 }))} placeholder={t('reports.dateTo')} /></div>
           <Button variant="ghost" onClick={clearFilters}>{t('reports.clearFilters')}</Button>
@@ -85,7 +95,7 @@ export default function CostsReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton filename="maintenance-costs" headers={['Type', 'Request', 'Description', 'Qty', 'Amount', 'Date']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="maintenance-costs" headers={['Type', 'Request', 'Description', 'Qty', 'Amount', 'Date']} rows={data.rows}
                 mapRow={(r) => [r._type === 'cost' ? 'Other Cost' : 'Parts', r.request?.requestNumber || '', r.description || r.product?.name || '', String(r.quantity ?? ''), String(r.amount ?? r.totalCost ?? ''), r.incurredAt ? new Date(r.incurredAt).toLocaleDateString() : '']} />
             </div>
           )}

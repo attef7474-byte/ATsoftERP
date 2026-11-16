@@ -1,0 +1,24 @@
+ATsoft ERP
+Business Partners Report
+In-memory test fixture; not recorded in the application
+Companyشركة رينجوBranchفرع صنعاء
+Print date 12/11/2026
+Print time 02:56:14
+Printed by Administrator
+All matching business partners for the current company and branch (maximum 500 rows).
+Total Partners
+0
+Active Suppliers
+0
+Active Customers
+0
+Blocked Partners
+0
+No data matches the applied filters.
+Partners by type
+No data matches the applied filters.
+Notes
+This document contains business contact information from the authorized scope. Handle it as business data; no bank,
+tax or personal identity numbers are included.
+ATsoft ERP
+12/11/2026 · 02:56:14

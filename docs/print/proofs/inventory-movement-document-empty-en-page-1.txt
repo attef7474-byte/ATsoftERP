@@ -1,0 +1,29 @@
+ATsoft ERP
+Inventory Movement
+IM-000231
+Company ATsoft Manufacturing
+Branch Main Plant
+Print date 13/11/2026
+Print time 16:45:00
+Printed by Print Reviewer
+Single inventory movement document for the current company and branch.
+Movement Type Manual
+Status Draft
+Movement Date 13/11/2026
+Warehouse [WH-JOB-RAW-001] Raw Materials Store
+Created At 13/11/2026, 10:00
+Updated At 13/11/2026, 10:00
+Line Count
+0
+Lines
+No data matches the applied filters.
+Notes
+The movement is single-warehouse: one warehouse and a per-line IN/OUT direction, with no source/destination
+warehouse pair. Quantities are the recorded transaction quantities in the movement line unit; quantities with different or
+missing units are never summed and no document quantity total is computed. The canonical detail exposes a source
+type but not the referenced business document number, so the reference is identified by type only. Warehouse-location
+names, lot/serial labels and readable user names are not supplied by the movement detail contract, so they are omitted
+rather than replaced with identifiers. Unit cost, line cost and currency are printed only when recorded; this document is
+not a valuation or ledger reconciliation.
+ATsoft ERP
+13/11/2026 · 16:45:00

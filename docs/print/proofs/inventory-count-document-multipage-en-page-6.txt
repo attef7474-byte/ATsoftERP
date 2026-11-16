@@ -1,0 +1,251 @@
+#
+Product
+Code
+Product Name
+System
+Qty
+Counte
+d Qty
+Differen
+ce
+Unit
+Location
+Statu
+s
+Notes
+8
+1
+ITEM-081
+Raw material 81
+81
+81
+0
+KG
+[L-081] Rack
+081
+Count
+ed
+Line note 81
+8
+2
+ITEM-082
+Packing material 82
+82
+82
+0
+PCS
+[L-082] Rack
+082
+Verifie
+d
+—
+8
+3
+ITEM-083
+Raw material 83
+83
+83
+0
+KG
+[L-083] Rack
+083
+Count
+ed
+—
+8
+4
+ITEM-084
+Packing material 84
+84
+84
+0
+PCS
+[L-084] Rack
+084
+Count
+ed
+—
+8
+5
+ITEM-085
+Raw material 85
+85
+85
+0
+KG
+[L-085] Rack
+085
+Verifie
+d
+—
+8
+6
+ITEM-086
+Packing material 86
+86
+86
+0
+PCS
+[L-086] Rack
+086
+Count
+ed
+Line note 86
+8
+7
+ITEM-087
+Raw material 87
+87
+87
+0
+KG
+[L-087] Rack
+087
+Count
+ed
+—
+8
+8
+ITEM-088
+Packing material 88
+88
+88
+0
+PCS
+[L-088] Rack
+088
+Verifie
+d
+—
+8
+9
+ITEM-089
+Raw material 89
+89
+89
+0
+KG
+[L-089] Rack
+089
+Count
+ed
+—
+9
+0
+ITEM-090
+Packing material 90
+90
+90
+0
+PCS
+[L-090] Rack
+090
+Count
+ed
+—
+9
+1
+ITEM-091
+Raw material 91
+91
+91
+0
+KG
+[L-091] Rack
+091
+Verifie
+d
+Line note 91
+9
+2
+ITEM-092
+Packing material 92
+92
+92
+0
+PCS
+[L-092] Rack
+092
+Count
+ed
+—
+9
+3
+ITEM-093
+Raw material 93
+93
+93
+0
+KG
+[L-093] Rack
+093
+Count
+ed
+—
+9
+4
+ITEM-094
+Packing material 94
+94
+94
+0
+PCS
+[L-094] Rack
+094
+Verifie
+d
+—
+9
+5
+ITEM-095
+Raw material 95
+95
+95
+0
+KG
+[L-095] Rack
+095
+Count
+ed
+—
+9
+6
+ITEM-096
+Packing material 96
+96
+96
+0
+PCS
+[L-096] Rack
+096
+Count
+ed
+Line note 96
+9
+7
+ITEM-097
+Raw material 97
+97
+97
+0
+KG
+[L-097] Rack
+097
+Verifie
+d
+—
+9
+8
+ITEM-098
+Packing material 98
+98
+98
+0
+PCS
+[L-098] Rack
+098
+Count
+ed
+—
+ATsoft ERP
+13/11/2026 · 16:45:00

@@ -1,0 +1,99 @@
+ATsoft ERP
+Inventory Count
+IC-000145
+Company ATsoft Manufacturing
+Branch Main Plant
+Print date 13/11/2026
+Print time 16:45:00
+Printed by Print Reviewer
+Single inventory count document for the current company and branch.
+Status Completed
+Count Date 12/11/2026
+Warehouse [WH-JOB-RAW-001] Raw Materials Store
+Started At 12/11/2026, 10:30
+Completed At 12/11/2026, 18:45
+Created At 11/11/2026, 19:00
+Updated At 12/11/2026, 18:45
+Line Count
+4
+Counted
+4
+Verified
+1
+Lines
+#
+Product
+Code
+Product Name
+System
+Qty
+Counte
+d Qty
+Differen
+ce
+Unit
+Location
+Statu
+s
+Notes
+1
+ITEM-001
+Item 1
+25
+20
+-5
+PCS
+[L-001] Rack
+001
+Verifie
+d
+First shelf
+recount.
+2
+ITEM-002
+Raw resin
+4
+6
+2
+KG
+[L-002] Rack
+002
+Count
+ed
+—
+3
+ITEM-003
+Machine oil
+1.5
+1.5
+0
+L
+[L-003] Rack
+003
+Count
+ed
+—
+4
+ITEM-004
+Sealing gasket
+8
+0
+-8
+PCS
+[L-004] Rack
+004
+Count
+ed
+—
+Notes
+Quantities are recorded count values in the source product unit. System quantity is the stored count-time snapshot
+captured on the count line, never the current inventory balance. Difference is the recorded count value calculated by
+the system as counted quantity minus system quantity; it is not recalculated from current stock. The current count
+workflow has no blind-count mode, so the document shows the same system, counted and difference values the
+authorized count screen already shows. Quantities with different or missing units are never summed and no document
+quantity total or valuation is computed. Counter and verifier display names are not supplied by the count contract, so
+those identities are omitted rather than replaced with identifiers. This document is not a ledger reconciliation.
+Monthly cycle count of the raw materials store.
+Second line of the count note.
+ATsoft ERP
+13/11/2026 · 16:45:00

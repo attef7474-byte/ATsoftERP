@@ -1,0 +1,227 @@
+#
+Product Code
+Product Name
+Quantity
+Unit
+Unit cost
+Curren
+cy
+Notes
+68
+ITEM-068
+Packing material 68
+68
+PCS
+—
+—
+—
+69
+ITEM-069
+Raw material 69
+69
+KG
+—
+—
+—
+70
+ITEM-070
+Packing material 70
+70
+PCS
+7.75
+USD
+—
+71
+ITEM-071
+Raw material 71
+71
+KG
+—
+—
+Batch note 71
+72
+ITEM-072
+Packing material 72
+72
+PCS
+—
+—
+—
+73
+ITEM-073
+Raw material 73
+73
+KG
+7.75
+USD
+—
+74
+ITEM-074
+Packing material 74
+74
+PCS
+—
+—
+—
+75
+ITEM-075
+Raw material 75
+75
+KG
+—
+—
+—
+76
+ITEM-076
+Packing material 76
+76
+PCS
+7.75
+USD
+Batch note 76
+77
+ITEM-077
+Raw material 77
+77
+KG
+—
+—
+—
+78
+ITEM-078
+Packing material 78
+78
+PCS
+—
+—
+—
+79
+ITEM-079
+Raw material 79
+79
+KG
+7.75
+USD
+—
+80
+ITEM-080
+Packing material 80
+80
+PCS
+—
+—
+—
+81
+ITEM-081
+Raw material 81
+81
+KG
+—
+—
+Batch note 81
+82
+ITEM-082
+Packing material 82
+82
+PCS
+7.75
+USD
+—
+83
+ITEM-083
+Raw material 83
+83
+KG
+—
+—
+—
+84
+ITEM-084
+Packing material 84
+84
+PCS
+—
+—
+—
+85
+ITEM-085
+Raw material 85
+85
+KG
+7.75
+USD
+—
+86
+ITEM-086
+Packing material 86
+86
+PCS
+—
+—
+Batch note 86
+87
+ITEM-087
+Raw material 87
+87
+KG
+—
+—
+—
+88
+ITEM-088
+Packing material 88
+88
+PCS
+7.75
+USD
+—
+89
+ITEM-089
+Raw material 89
+89
+KG
+—
+—
+—
+90
+ITEM-090
+Packing material 90
+90
+PCS
+—
+—
+—
+91
+ITEM-091
+Raw material 91
+91
+KG
+7.75
+USD
+Batch note 91
+92
+ITEM-092
+Packing material 92
+92
+PCS
+—
+—
+—
+93
+ITEM-093
+Raw material 93
+93
+KG
+—
+—
+—
+94
+ITEM-094
+Packing material 94
+94
+PCS
+7.75
+USD
+—
+ATsoft ERP
+13/11/2026 · 16:45:00

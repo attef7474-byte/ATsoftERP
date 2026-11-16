@@ -1,0 +1,133 @@
+#
+Product
+Code
+Product Name
+System
+Qty
+Counted
+Qty
+Differenc
+e
+Unit
+Location
+Notes
+1
+1
+2
+ITEM-112
+Packing material 112
+112
+112
+0
+PCS
+[L-112] Rack
+112
+—
+1
+1
+3
+ITEM-113
+Raw material 113
+113
+113
+0
+KG
+[L-113] Rack
+113
+—
+1
+1
+4
+ITEM-114
+Packing material 114
+114
+114
+0
+PCS
+[L-114] Rack
+114
+—
+1
+1
+5
+ITEM-115
+Raw material 115
+115
+115
+0
+KG
+[L-115] Rack
+115
+—
+1
+1
+6
+ITEM-116
+Packing material 116
+116
+116
+0
+PCS
+[L-116] Rack
+116
+Line note 116
+1
+1
+7
+ITEM-117
+Raw material 117
+117
+117
+0
+KG
+[L-117] Rack
+117
+—
+1
+1
+8
+ITEM-118
+Packing material 118
+118
+118
+0
+PCS
+[L-118] Rack
+118
+—
+1
+1
+9
+ITEM-119
+Raw material 119
+119
+119
+0
+KG
+[L-119] Rack
+119
+—
+1
+2
+0
+ITEM-120
+Packing material 120
+120
+120
+0
+PCS
+[L-120] Rack
+120
+—
+Notes
+Quantities are the recorded adjustment values in the source product unit. System quantity is the stored count-time
+snapshot captured on the adjustment line, never the current inventory balance. Counted quantity and difference are the
+recorded adjustment values; difference keeps the stored sign (counted quantity minus system quantity) and is not
+recalculated from current stock. No after quantity is stored and none is derived. Legacy adjustment posting creates no
+inventory movement, so no movement reference is printed. The adjustment has no type/method field and none is
+invented. Quantities with different or missing units are never summed and no document quantity total, cost, value or
+valuation is computed. Readable user names, lot/batch/serial data and cost are not supplied by the adjustment detail
+contract, so they are omitted rather than replaced with identifiers. This document is not a ledger reconciliation.
+Annual full adjustment of the spare parts store.
+ATsoft ERP
+13/11/2026 · 16:45:00

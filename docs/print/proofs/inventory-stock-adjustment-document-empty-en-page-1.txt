@@ -1,0 +1,31 @@
+ATsoft ERP
+Stock Adjustment
+SA-000146
+Company ATsoft Manufacturing
+Branch Main Plant
+Print date 13/11/2026
+Print time 16:45:00
+Printed by Print Reviewer
+Single inventory stock adjustment document for the current company and branch.
+Status Draft
+Document Date 13/11/2026
+Warehouse [WH-JOB-RAW-001] Raw Materials Store
+Created At 13/11/2026, 10:00
+Updated At 13/11/2026, 10:00
+Line Count
+0
+Lines
+No data matches the applied filters.
+Notes
+Quantities are the recorded stock-adjustment values in the source product unit. The stored adjustment type
+(Adjustment In / Adjustment Out) carries the direction, and the recorded quantity is always positive; the direction is
+never inferred from the quantity sign and the quantity is never negated or absolute-valued. The stock-adjustment detail
+contract stores no before or after quantity and no live inventory balance, so none is printed or derived. Location names
+and movement business references are not supplied by the stock-adjustment detail contract, so they are omitted rather
+than replaced with identifiers. Unit cost and currency are printed only when recorded on the line (typically Adjustment
+In); no line value, document total, cross-currency total or valuation is computed. Workflow submission, approval,
+rejection, posting and cancellation timestamps are printed only when stored; workflow actor identities are internal ids
+and are omitted. Quantities with different or missing units are never summed. This document is not a ledger
+reconciliation.
+ATsoft ERP
+13/11/2026 · 16:45:00

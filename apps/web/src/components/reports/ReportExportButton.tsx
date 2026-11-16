@@ -8,9 +8,11 @@ interface ReportExportButtonProps {
   headers: string[];
   rows: Record<string, any>[];
   mapRow: (row: Record<string, any>) => string[];
+  onPrint?: () => void | Promise<void>;
+  printDisabled?: boolean;
 }
 
-export function ReportExportButton({ filename = 'report', headers, rows, mapRow }: ReportExportButtonProps) {
+export function ReportExportButton({ filename = 'report', headers, rows, mapRow, onPrint, printDisabled }: ReportExportButtonProps) {
   const { t } = useTranslation();
 
   const handleExportCsv = () => {
@@ -28,7 +30,8 @@ export function ReportExportButton({ filename = 'report', headers, rows, mapRow 
   };
 
   const handlePrintPdf = () => {
-    window.print();
+    if (onPrint) void onPrint();
+    else window.print();
   };
 
   return (
@@ -36,7 +39,7 @@ export function ReportExportButton({ filename = 'report', headers, rows, mapRow 
       <Button variant="secondary" onClick={handleExportCsv}>
         {t('reports.exportCsv')}
       </Button>
-      <Button variant="secondary" onClick={handlePrintPdf}>
+      <Button variant="secondary" onClick={handlePrintPdf} disabled={printDisabled}>
         {t('reports.exportPdf')}
       </Button>
     </div>

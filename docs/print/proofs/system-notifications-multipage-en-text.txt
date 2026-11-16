@@ -1,0 +1,376 @@
+ATsoft ERP
+Notifications Report
+In-memory test fixture; not recorded in the application
+Companyشركة رينجوBranchفرع صنعاء
+Print date 12/11/2026
+Print time 02:57:09
+Printed by Administrator
+All matching notifications for the current company and branch, newest first (maximum 500 rows).
+Applied filters
+Search TEST
+Total Notifications
+0
+Unread
+0
+Categories
+0
+Name
+Created At
+Category
+Read
+TEST-NOTIF-001: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-002: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-003: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-004: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-005: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-006: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-007: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-008: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-009: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-010: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+ATsoft ERP
+12/11/2026 · 02:57:09
+Name
+Created At
+Category
+Read
+TEST-NOTIF-011: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-012: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-013: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-014: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-015: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-016: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-017: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-018: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-019: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-020: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-021: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-022: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-023: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-024: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-025: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-026: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-027: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-028: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+ATsoft ERP
+12/11/2026 · 02:57:09
+Name
+Created At
+Category
+Read
+TEST-NOTIF-029: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-030: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-031: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-032: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-033: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-034: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-035: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-036: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-037: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-038: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-039: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-040: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-041: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-042: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-043: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-044: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-045: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-046: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+ATsoft ERP
+12/11/2026 · 02:57:09
+Name
+Created At
+Category
+Read
+TEST-NOTIF-047: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-048: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-049: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-050: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-051: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-052: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-053: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-054: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-055: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-056: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-057: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-058: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-059: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-060: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-061: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-062: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+TEST-NOTIF-063: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+TEST-NOTIF-064: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Info
+Unread
+ATsoft ERP
+12/11/2026 · 02:57:09
+Name
+Created At
+Category
+Read
+TEST-NOTIF-065: / إشعار صيانة وقائية طويل العنوان لمراجعة االلتفاف
+Long preventive maintenance notification title
+12/11/2026, 03:00
+Warning
+Read
+Notifications by type
+No data matches the applied filters.
+Notes
+This document lists notification titles and types only. Message bodies and links are not included. Notifications are user-
+scoped; handle the output as internal information.
+ATsoft ERP
+12/11/2026 · 02:57:09

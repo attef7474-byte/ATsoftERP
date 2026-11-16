@@ -1,0 +1,587 @@
+أتسوفت إلدارة الموارد
+تقرير شركاء األعمال
+بيانات اختبار في الذاكرة؛ لم تُسجل في النظام
+الشركة
+شركة رينجو
+الفرع
+فرع صنعاء
+تاريخ الطباعة12/11/2026وقت الطباعة02:56:12
+طُبع بواسطةAdministrator
+.) صف500 جميع شركاء األعمال المطابقين للشركة والفرع الحاليين (بحد أقصى
+الفالتر المستخدمة
+النوع
+مورد
+إجمالي الشركاء
+0
+الموردون النشطاء
+0
+العمالء النشطاء
+0
+الشركاء المحظورون
+0
+الكود
+االسم
+النوع
+البريد اإللكتروني
+الهاتف
+الحالة
+TEST-SUP-001: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner0@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-002: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner1@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-003: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner2@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-004: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner3@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-005: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner4@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-006: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner5@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-007: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner6@example.co
+m
++96770000000
+0
+غير نشط
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:12
+الكود
+االسم
+النوع
+البريد اإللكتروني
+الهاتف
+الحالة
+TEST-SUP-008: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner7@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-009: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner8@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-010: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner9@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-011: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner10@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-012: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner11@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-013: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner12@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-014: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner13@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-015: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner14@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-016: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner15@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-017: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner16@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-018: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner17@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-019: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner18@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-020: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner19@example.co
+m
++96770000000
+0
+نشط
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:12
+الكود
+االسم
+النوع
+البريد اإللكتروني
+الهاتف
+الحالة
+TEST-SUP-021: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner20@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-022: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner21@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-023: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner22@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-024: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner23@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-025: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner24@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-026: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner25@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-027: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner26@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-028: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner27@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-029: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner28@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-030: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner29@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-031: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner30@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-032: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner31@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-033: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner32@example.co
+m
++96770000000
+0
+نشط
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:12
+الكود
+االسم
+النوع
+البريد اإللكتروني
+الهاتف
+الحالة
+TEST-SUP-034: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner33@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-035: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner34@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-036: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner35@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-037: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner36@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-038: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner37@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-039: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner38@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-040: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner39@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-041: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner40@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-042: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner41@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-043: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner42@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-044: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner43@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-045: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner44@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-046: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner45@example.co
+m
++96770000000
+0
+غير نشط
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:12
+الكود
+االسم
+النوع
+البريد اإللكتروني
+الهاتف
+الحالة
+TEST-SUP-047: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner46@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-048: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner47@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-049: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner48@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-050: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner49@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-051: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner50@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-052: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner51@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-053: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner52@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-054: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner53@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-055: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner54@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-056: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner55@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-057: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner56@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-058: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner57@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-059: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner58@example.co
+m
++96770000000
+0
+نشط
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:12
+الكود
+االسم
+النوع
+البريد اإللكتروني
+الهاتف
+الحالة
+TEST-SUP-060: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner59@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-061: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner60@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-062: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner61@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-063: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner62@example.co
+m
++96770000000
+0
+نشط
+TEST-SUP-064: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+موردpartner63@example.co
+m
++96770000000
+0
+غير نشط
+TEST-SUP-065: مورد قطع غيار ومراجعة تفاصيلTEST
+Long spare parts supplier / طويلة
+name
+عميلpartner64@example.co
+m
++96770000000
+0
+نشط
+شركاء األعمال حسب النوع
+ال توجد بيانات مطابقة للفالتر.
+مالحظات
+تتضمن هذه الوثيقة بيانات االتصال التجارية ضمن النطاق المصرح. تعامل معها كبيانات أعمال؛ ال تتضمن أرقام الحسابات البنكية أو الضريبية أو الهوية الشخصية.
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:12

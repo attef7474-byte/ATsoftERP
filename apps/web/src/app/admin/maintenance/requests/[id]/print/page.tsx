@@ -1,36 +1,28 @@
 'use client';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
-import { useToast } from '../../../../../../components/admin/toast-provider';
-import { MaintenanceRequest, MaintenanceTask, DowntimeLog, MaintenanceRequestPartUsage, MaintenanceRequestCostEntry } from '../../../../../../lib/admin-types';
-import { Card, CardContent, CardHeader, LoadingState, ErrorState, StatusBadge, Button } from '../../../../../../components/admin/ui';
+import { LoadingState, ErrorState, StatusBadge, Button } from '../../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../../../components/admin/admin-action-bar';
-
-interface PrintData extends MaintenanceRequest {
-  tasks?: MaintenanceTask[];
-  downtimeLogs?: DowntimeLog[];
-  partsUsed?: MaintenanceRequestPartUsage[];
-  costEntries?: MaintenanceRequestCostEntry[];
-}
+import { usePrintDocument } from '../../../../../../components/print/use-print-document';
+import { maintenanceRequestDocumentModel, type MaintenanceRequestDocumentData } from '../../../../../../components/print/maintenance-request-document-print';
 
 export default function RequestPrintPage() {
   const params = useParams();
   const router = useRouter();
   const { t, locale } = useTranslation();
-  const { showToast } = useToast();
   const id = params.id as string;
-  const printRef = useRef<HTMLDivElement>(null);
+  const { print, printing, scopeKey } = usePrintDocument();
 
-  const [data, setData] = useState<PrintData | null>(null);
+  const [data, setData] = useState<MaintenanceRequestDocumentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get<PrintData>(`/maintenance/requests/${id}/print`);
+      const res = await api.get<MaintenanceRequestDocumentData>(`/maintenance/requests/${id}/print`);
       setData(res);
     } catch (err: any) {
       setError(err?.message || t('errors.loadFailed'));
@@ -39,9 +31,14 @@ export default function RequestPrintPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = useCallback(() => {
+    if (!id) return;
+    return print(scopeKey, async (assertScope) => {
+      const fresh = await api.get<MaintenanceRequestDocumentData>(`/maintenance/requests/${id}/print`);
+      assertScope();
+      return maintenanceRequestDocumentModel(fresh, t, locale);
+    });
+  }, [id, locale, print, scopeKey, t]);
 
   const { exec } = useStableHandlers({
     back: () => router.back(),
@@ -52,7 +49,7 @@ export default function RequestPrintPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), enabled: !!data },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), enabled: !!data && !printing },
   ]);
 
   const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
@@ -64,10 +61,10 @@ export default function RequestPrintPage() {
   return (
     <div>
       <div className="mb-4 print:hidden">
-        <Button onClick={handlePrint}>{t('common.print')}</Button>
+        <Button onClick={handlePrint} loading={printing} disabled={!data || printing}>{t('common.print')}</Button>
       </div>
 
-      <div ref={printRef} className="bg-white print:bg-white" style={{ fontFamily: 'Arial, sans-serif' }}>
+      <div className="bg-white print:bg-white" style={{ fontFamily: 'Arial, sans-serif' }}>
         <div className="text-center mb-8 border-b pb-4 print:border-gray-300">
           <h1 className="text-2xl font-bold text-gray-900">{t('maintenance.maintenanceRequest')}</h1>
           <p className="text-lg text-gray-600 mt-1">{data.requestNumber}</p>
@@ -133,8 +130,8 @@ export default function RequestPrintPage() {
                 <tr className="bg-gray-50 print:bg-gray-100">
                   <th className="border border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('common.name')}</th>
                   <th className="border border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('maintenance.quantity')}</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('maintenance.unitCost')}</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('maintenance.totalCost')}</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('maintenance.partUnitCost')}</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('maintenance.partTotalCost')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,8 +156,8 @@ export default function RequestPrintPage() {
                 <tr className="bg-gray-50 print:bg-gray-100">
                   <th className="border border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('maintenance.type')}</th>
                   <th className="border border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('common.description')}</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('maintenance.amount')}</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('maintenance.incurredAt')}</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('maintenance.costAmount')}</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{t('maintenance.costIncurredAt')}</th>
                 </tr>
               </thead>
               <tbody>

@@ -1,0 +1,34 @@
+ATsoft ERP
+Cross-domain Operations Report
+In-memory test fixture; not recorded in the application
+Companyشركة رينجوBranchفرع صنعاء
+Date From 13/11/2025
+Date To 12/11/2026
+Print date 12/11/2026
+Print time 03:41:29
+Printed by Administrator
+All matching production runs for the current company and branch in the applied window (maximum 500 rows), with authoritative OEE, reliability and operational-cost sections.
+Report contract PHASE_2_OPERATIONS_V1
+OEE formula PHASE_1_9_OEE_V1
+Production runs
+0
+MTBF
+— h
+Total downtime
+0 h · 0 Events
+Operational cost
+US$0.00 · 0 Transactions
+Production run drilldown
+No data matches the applied filters.
+ATsoft ERP
+12/11/2026 · 03:41:29
+Cost by event type
+No data matches the applied filters.
+Maintenance downtime by machine
+No data matches the applied filters.
+Notes
+Maintenance downtime, production runs and operational-cost transactions are separate authoritative fact sets. Counts and amounts are not added across those sets. Values
+are live tenant-scoped reads with no shared cache; factor percentages are shown as recorded.
+Maintenance events, production runs, and cost transactions stay in separate authoritative sections and are never multiplied through a cross-fact join.
+ATsoft ERP
+12/11/2026 · 03:41:29

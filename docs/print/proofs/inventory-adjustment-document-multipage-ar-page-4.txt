@@ -1,0 +1,208 @@
+#كود المنتج
+اسم المنتج
+كمية النظام
+الكمية
+المعدودة
+الفرق
+الوحدة
+الموقع
+مالحظات
+4
+5
+ITEM-045
+Raw material 45
+45
+45
+0
+KG
+Rack ]L-045[
+045
+—
+4
+6
+ITEM-046
+Packing material 46
+46
+46
+0
+PCS
+Rack ]L-046[
+046
+Line note 46
+4
+7
+ITEM-047
+Raw material 47
+47
+47
+0
+KG
+Rack ]L-047[
+047
+—
+4
+8
+ITEM-048
+Packing material 48
+48
+48
+0
+PCS
+Rack ]L-048[
+048
+—
+4
+9
+ITEM-049
+Raw material 49
+49
+49
+0
+KG
+Rack ]L-049[
+049
+—
+5
+0
+ITEM-050
+Packing material 50
+50
+50
+0
+PCS
+Rack ]L-050[
+050
+—
+5
+1
+ITEM-051
+Raw material 51
+51
+51
+0
+KG
+Rack ]L-051[
+051
+Line note 51
+5
+2
+ITEM-052
+Packing material 52
+52
+52
+0
+PCS
+Rack ]L-052[
+052
+—
+5
+3
+ITEM-053
+Raw material 53
+53
+53
+0
+KG
+Rack ]L-053[
+053
+—
+5
+4
+ITEM-054
+Packing material 54
+54
+54
+0
+PCS
+Rack ]L-054[
+054
+—
+5
+5
+ITEM-055
+Raw material 55
+55
+55
+0
+KG
+Rack ]L-055[
+055
+—
+5
+6
+ITEM-056
+Packing material 56
+56
+56
+0
+PCS
+Rack ]L-056[
+056
+Line note 56
+5
+7
+ITEM-057
+Raw material 57
+57
+57
+0
+KG
+Rack ]L-057[
+057
+—
+5
+8
+ITEM-058
+Packing material 58
+58
+58
+0
+PCS
+Rack ]L-058[
+058
+—
+5
+9
+ITEM-059
+Raw material 59
+59
+59
+0
+KG
+Rack ]L-059[
+059
+—
+6
+0
+ITEM-060
+Packing material 60
+60
+60
+0
+PCS
+Rack ]L-060[
+060
+—
+6
+1
+ITEM-061
+Raw material 61
+61
+61
+0
+KG
+Rack ]L-061[
+061
+Line note 61
+6
+2
+ITEM-062
+Packing material 62
+62
+62
+0
+PCS
+Rack ]L-062[
+062
+—
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00

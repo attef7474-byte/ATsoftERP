@@ -1,0 +1,86 @@
+ATsoft ERP
+Inventory Adjustment
+ADJ-000145
+Company ATsoft Manufacturing
+Branch Main Plant
+Print date 13/11/2026
+Print time 16:45:00
+Printed by Print Reviewer
+Single inventory adjustment document for the current company and branch.
+Status Posted
+Adjustment Date 12/11/2026
+Warehouse [WH-JOB-RAW-001] Raw Materials Store
+Reason Cycle count variance correction
+Inventory Count IC-000145
+Posted At 12/11/2026, 18:45
+Created At 11/11/2026, 19:00
+Updated At 12/11/2026, 18:45
+Line Count
+4
+Adjustment Lines
+#
+Product
+Code
+Product Name
+System
+Qty
+Counted
+Qty
+Differenc
+e
+Unit
+Location
+Notes
+1
+ITEM-001
+Item 1
+100
+92
+-8
+PCS
+[L-001] Rack
+001
+First shelf recount
+adjustment.
+2
+ITEM-002
+Raw resin
+4
+6
+2
+KG
+[L-002] Rack
+002
+—
+3
+ITEM-003
+Machine oil
+1.5
+1.5
+0
+L
+[L-003] Rack
+003
+—
+4
+ITEM-004
+Sealing gasket
+8
+0
+-8
+PCS
+[L-004] Rack
+004
+—
+Notes
+Quantities are the recorded adjustment values in the source product unit. System quantity is the stored count-time
+snapshot captured on the adjustment line, never the current inventory balance. Counted quantity and difference are the
+recorded adjustment values; difference keeps the stored sign (counted quantity minus system quantity) and is not
+recalculated from current stock. No after quantity is stored and none is derived. Legacy adjustment posting creates no
+inventory movement, so no movement reference is printed. The adjustment has no type/method field and none is
+invented. Quantities with different or missing units are never summed and no document quantity total, cost, value or
+valuation is computed. Readable user names, lot/batch/serial data and cost are not supplied by the adjustment detail
+contract, so they are omitted rather than replaced with identifiers. This document is not a ledger reconciliation.
+Monthly adjustment of the raw materials store.
+ATsoft ERP
+13/11/2026 · 16:45:00

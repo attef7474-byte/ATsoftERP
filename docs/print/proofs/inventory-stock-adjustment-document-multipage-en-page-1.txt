@@ -1,0 +1,109 @@
+ATsoft ERP
+Stock Adjustment
+SA-000145
+Company ATsoft Manufacturing
+Branch Main Plant
+Print date 13/11/2026
+Print time 16:45:00
+Printed by Print Reviewer
+Single inventory stock adjustment document for the current company and branch.
+Status Posted
+Document Date 12/11/2026
+Warehouse [WH-JOB-RAW-001] Raw Materials Store
+Reason Authorized stock correction for the raw materials
+store
+Submitted At 12/11/2026, 12:00
+Approved At 12/11/2026, 13:00
+Posted At 12/11/2026, 18:45
+Created At 11/11/2026, 19:00
+Updated At 12/11/2026, 18:45
+Line Count
+120
+Lines
+#
+Product Code
+Product Name
+Type
+Quantity
+Unit
+Unit cost
+Currenc
+y
+1
+ITEM-001
+Raw material 1
+Adjustment In
+1
+KG
+5.5
+USD
+2
+ITEM-002
+Packing material 2
+Adjustment
+Out
+2
+PCS
+—
+—
+3
+ITEM-003
+Raw material 3
+Adjustment In
+3
+KG
+5.5
+USD
+4
+ITEM-004
+Packing material 4
+Adjustment
+Out
+4
+PCS
+—
+—
+5
+ITEM-005
+Raw material 5
+Adjustment In
+5
+KG
+5.5
+USD
+6
+ITEM-006
+Packing material 6
+Adjustment
+Out
+6
+PCS
+—
+—
+7
+ITEM-007
+Raw material 7
+Adjustment In
+7
+KG
+5.5
+USD
+8
+ITEM-008
+Packing material 8
+Adjustment
+Out
+8
+PCS
+—
+—
+9
+ITEM-009
+Raw material 9
+Adjustment In
+9
+KG
+5.5
+USD
+ATsoft ERP
+13/11/2026 · 16:45:00

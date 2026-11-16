@@ -1,0 +1,114 @@
+ATsoft ERP
+Inventory Ledger
+Company ATsoft Manufacturing
+Branch Main Plant
+Date From 01/11/2026
+Date To 12/11/2026
+Print date 13/11/2026
+Print time 12:30:00
+Printed by Print Reviewer
+All filtered results (maximum 500 rows)
+Applied filters
+Date From 01/11/2026
+Date To 12/11/2026
+Total Movements
+65
+Movement
+Number
+Date
+Movement Type
+Warehouse
+Status
+Notes
+TEST-IM-001
+12/11/2026
+Adjustment In
+Main Warehouse
+Posted
+Note 1
+TEST-IM-002
+12/11/2026
+Opening Balance
+Main Warehouse
+Posted
+Note 2
+TEST-IM-003
+12/11/2026
+Adjustment In
+Main Warehouse
+Draft
+Note 3
+TEST-IM-004
+12/11/2026
+Opening Balance
+Main Warehouse
+Posted
+Note 4
+TEST-IM-005
+12/11/2026
+Adjustment In
+Main Warehouse
+Posted
+Note 5
+TEST-IM-006
+12/11/2026
+Opening Balance
+Main Warehouse
+Draft
+Note 6
+TEST-IM-007
+12/11/2026
+Adjustment In
+Main Warehouse
+Posted
+Note 7
+TEST-IM-008
+12/11/2026
+Opening Balance
+Main Warehouse
+Posted
+Note 8
+TEST-IM-009
+12/11/2026
+Adjustment In
+Main Warehouse
+Draft
+Note 9
+TEST-IM-010
+12/11/2026
+Opening Balance
+Main Warehouse
+Posted
+Note 10
+TEST-IM-011
+12/11/2026
+Adjustment In
+Main Warehouse
+Posted
+Note 11
+TEST-IM-012
+12/11/2026
+Opening Balance
+Main Warehouse
+Draft
+Note 12
+TEST-IM-013
+12/11/2026
+Adjustment In
+Main Warehouse
+Posted
+Note 13
+TEST-IM-014
+12/11/2026
+Opening Balance
+Main Warehouse
+Posted
+Note 14
+TEST-IM-015
+12/11/2026
+Adjustment In
+Main Warehouse
+Draft
+Note 15
+ATsoft ERP
+13/11/2026 · 12:30:00

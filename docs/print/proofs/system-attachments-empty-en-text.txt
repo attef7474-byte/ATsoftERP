@@ -1,0 +1,22 @@
+ATsoft ERP
+Attachments & Documents Report
+In-memory test fixture; not recorded in the application
+Companyشركة رينجوBranchفرع صنعاء
+Print date 12/11/2026
+Print time 02:56:06
+Printed by Administrator
+All matching attachment records for the current company and branch, newest first (maximum 500 rows).
+Total Attachments
+0
+Total Size
+0 B
+Entity Types
+0
+No data matches the applied filters.
+Attachments by entity type
+No data matches the applied filters.
+Notes
+This document lists attachment metadata only. File contents and download links are not included. File names may
+reveal document context; handle the output securely.
+ATsoft ERP
+12/11/2026 · 02:56:06

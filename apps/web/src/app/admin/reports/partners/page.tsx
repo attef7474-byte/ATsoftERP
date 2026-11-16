@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
@@ -7,9 +7,14 @@ import { useRouter } from 'next/navigation';
 import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../components/reports';
+import { useReportPrintSnapshot } from '../../../../components/print/use-report-print-snapshot';
+import { systemPartnersPrintModel, type PartnersPrintData } from '../../../../components/print/system-partners-print';
+import { collectPrintRows } from '../../../../lib/print';
 
 export default function PartnersReportPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const { capture, invalidate, printSnapshot, canPrint } = useReportPrintSnapshot<PartnersPrintData>();
+  const fetchSequence = useRef(0);
   const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<any>(null);
@@ -18,27 +23,40 @@ export default function PartnersReportPage() {
   const [filters, setFilters] = useState<any>({ page: 1, pageSize: 20 });
 
   const fetchData = useCallback(async () => {
+    const generation = ++fetchSequence.current;
     setLoading(true); setError('');
     try {
       const res = await api.get<any>('/reports/partners', { params: filters });
+      if (generation !== fetchSequence.current) return;
       setData(res);
+      capture(res, filters);
     } catch (err: any) {
+      if (generation !== fetchSequence.current) return;
       setError(err?.message || t('reports.loadFailed'));
-    } finally { setLoading(false); }
-  }, [filters, t]);
+      invalidate();
+    } finally { if (generation === fetchSequence.current) setLoading(false); }
+  }, [filters, t, capture, invalidate]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); return () => { fetchSequence.current++; }; }, [fetchData]);
+
+  const handlePrint = () => printSnapshot(!loading && !error && !!data, async (snapshot, assertScope) => {
+    const result = await collectPrintRows(
+      (page, pageSize) => api.get<PartnersPrintData>('/reports/partners', { params: { ...snapshot.params, page, pageSize } }),
+      assertScope, row => row.id,
+    );
+    return systemPartnersPrintModel({ ...snapshot, data: { ...result.first as PartnersPrintData, rows: result.rows } }, t, locale);
+  });
 
   const clearFilters = () => { setFilters({ page: 1, pageSize: 20 }); };
 
   const { exec } = useStableHandlers({
-    back: () => router.back(), refresh: () => fetchData(), print: () => window.print(),
+    back: () => router.back(), refresh: () => fetchData(), print: handlePrint,
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), readOnly: true, enabled: canPrint && !loading && !error },
   ]);
 
   const columns = [
@@ -78,7 +96,7 @@ export default function PartnersReportPage() {
           )}
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton filename="business-partners" headers={['Code', 'Name', 'Type', 'Email', 'Phone', 'Status']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="business-partners" headers={['Code', 'Name', 'Type', 'Email', 'Phone', 'Status']} rows={data.rows}
                 mapRow={(r) => [r.code, r.name, r.type, r.email || '', r.phone || '', r.isBlocked ? 'Inactive' : 'Active']} />
             </div>
           )}

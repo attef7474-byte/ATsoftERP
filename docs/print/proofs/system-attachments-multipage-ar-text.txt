@@ -1,0 +1,558 @@
+أتسوفت إلدارة الموارد
+تقرير المرفقات
+بيانات اختبار في الذاكرة؛ لم تُسجل في النظام
+الشركة
+شركة رينجو
+الفرع
+فرع صنعاء
+تاريخ الطباعة12/11/2026وقت الطباعة02:56:03
+طُبع بواسطةAdministrator
+.) صف500 جميع سجالت المرفقات المطابقة للشركة والفرع الحاليين مرتبة من األحدث (بحد أقصى
+الفالتر المستخدمة
+بحثTEST
+إجمالي المرفقات
+0
+الحجم اإلجمالي
+B 0
+أنواع الكيانات
+0
+االسم
+حسب نوع الكيان
+النوع
+الحجم
+اإلجمالي
+إنشاء بواسطة
+تاريخ اإلنشاء
+TEST-document-001.pdf
+Spare Part
+application/pdf
+2 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-002.pdf
+Maintenance
+Request
+application/pdf
+4 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-003.pdf
+Spare Part
+application/pdf
+6 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-004.pdf
+Maintenance
+Request
+application/pdf
+8 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-005.pdf
+Spare Part
+application/pdf
+10 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-006.pdf
+Maintenance
+Request
+application/pdf
+12 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-007.pdf
+Spare Part
+application/pdf
+14 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:03
+االسم
+حسب نوع الكيان
+النوع
+الحجم
+اإلجمالي
+إنشاء بواسطة
+تاريخ اإلنشاء
+TEST-document-008.pdf
+Maintenance
+Request
+application/pdf
+16 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-009.pdf
+Spare Part
+application/pdf
+18 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-010.pdf
+Maintenance
+Request
+application/pdf
+20 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-011.pdf
+Spare Part
+application/pdf
+22 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-012.pdf
+Maintenance
+Request
+application/pdf
+24 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-013.pdf
+Spare Part
+application/pdf
+26 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-014.pdf
+Maintenance
+Request
+application/pdf
+28 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-015.pdf
+Spare Part
+application/pdf
+30 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-016.pdf
+Maintenance
+Request
+application/pdf
+32 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-017.pdf
+Spare Part
+application/pdf
+34 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-018.pdf
+Maintenance
+Request
+application/pdf
+36 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-019.pdf
+Spare Part
+application/pdf
+38 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-020.pdf
+Maintenance
+Request
+application/pdf
+40 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:03
+االسم
+حسب نوع الكيان
+النوع
+الحجم
+اإلجمالي
+إنشاء بواسطة
+تاريخ اإلنشاء
+TEST-document-021.pdf
+Spare Part
+application/pdf
+42 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-022.pdf
+Maintenance
+Request
+application/pdf
+44 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-023.pdf
+Spare Part
+application/pdf
+46 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-024.pdf
+Maintenance
+Request
+application/pdf
+48 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-025.pdf
+Spare Part
+application/pdf
+50 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-026.pdf
+Maintenance
+Request
+application/pdf
+52 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-027.pdf
+Spare Part
+application/pdf
+54 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-028.pdf
+Maintenance
+Request
+application/pdf
+56 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-029.pdf
+Spare Part
+application/pdf
+58 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-030.pdf
+Maintenance
+Request
+application/pdf
+60 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-031.pdf
+Spare Part
+application/pdf
+62 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-032.pdf
+Maintenance
+Request
+application/pdf
+64 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-033.pdf
+Spare Part
+application/pdf
+66 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:03
+االسم
+حسب نوع الكيان
+النوع
+الحجم
+اإلجمالي
+إنشاء بواسطة
+تاريخ اإلنشاء
+TEST-document-034.pdf
+Maintenance
+Request
+application/pdf
+68 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-035.pdf
+Spare Part
+application/pdf
+70 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-036.pdf
+Maintenance
+Request
+application/pdf
+72 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-037.pdf
+Spare Part
+application/pdf
+74 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-038.pdf
+Maintenance
+Request
+application/pdf
+76 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-039.pdf
+Spare Part
+application/pdf
+78 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-040.pdf
+Maintenance
+Request
+application/pdf
+80 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-041.pdf
+Spare Part
+application/pdf
+82 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-042.pdf
+Maintenance
+Request
+application/pdf
+84 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-043.pdf
+Spare Part
+application/pdf
+86 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-044.pdf
+Maintenance
+Request
+application/pdf
+88 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-045.pdf
+Spare Part
+application/pdf
+90 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-046.pdf
+Maintenance
+Request
+application/pdf
+92 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:03
+االسم
+حسب نوع الكيان
+النوع
+الحجم
+اإلجمالي
+إنشاء بواسطة
+تاريخ اإلنشاء
+TEST-document-047.pdf
+Spare Part
+application/pdf
+94 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-048.pdf
+Maintenance
+Request
+application/pdf
+96 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-049.pdf
+Spare Part
+application/pdf
+98 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-050.pdf
+Maintenance
+Request
+application/pdf
+100 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-051.pdf
+Spare Part
+application/pdf
+102 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-052.pdf
+Maintenance
+Request
+application/pdf
+104 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-053.pdf
+Spare Part
+application/pdf
+106 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-054.pdf
+Maintenance
+Request
+application/pdf
+108 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-055.pdf
+Spare Part
+application/pdf
+110 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-056.pdf
+Maintenance
+Request
+application/pdf
+112 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-057.pdf
+Spare Part
+application/pdf
+114 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-058.pdf
+Maintenance
+Request
+application/pdf
+116 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-059.pdf
+Spare Part
+application/pdf
+118 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:03
+االسم
+حسب نوع الكيان
+النوع
+الحجم
+اإلجمالي
+إنشاء بواسطة
+تاريخ اإلنشاء
+TEST-document-060.pdf
+Maintenance
+Request
+application/pdf
+120 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-061.pdf
+Spare Part
+application/pdf
+122 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-062.pdf
+Maintenance
+Request
+application/pdf
+124 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-063.pdf
+Spare Part
+application/pdf
+126 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-064.pdf
+Maintenance
+Request
+application/pdf
+128 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+TEST-document-065.pdf
+Spare Part
+application/pdf
+130 KB: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026
+المرفقات حسب نوع الكيان
+ال توجد بيانات مطابقة للفالتر.
+مالحظات
+تعرض هذه الوثيقة بيانات وصفية للمرفقات فقط. ال تتضمن محتويات الملفات أو روابط التنزيل. قد تكشف أسماء الملفات عن سياق المستند؛ تعامل مع النسخة المطبوعة
+بأمان.
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:03

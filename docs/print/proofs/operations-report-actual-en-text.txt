@@ -1,0 +1,42 @@
+ATsoft ERP
+Cross-domain Operations Report
+One bounded view of authoritative OEE, maintenance reliability, and atomic operational cost
+Companyشركة رينجوBranchفرع صنعاء
+Date From 13/11/2025
+Date To 12/11/2026
+Print date 12/11/2026
+Print time 03:41:28
+Printed by Administrator
+All matching production runs for the current company and branch in the applied window (maximum 500 rows), with authoritative OEE, reliability and operational-cost sections.
+Report contract PHASE_2_OPERATIONS_V1
+OEE formula PHASE_1_9_OEE_V1
+Production runs
+0
+MTBF
+74.722 h
+Total downtime
+0.07 h · 2 Events
+Operational cost
+US$0.00 · 0 Transactions
+Production run drilldown
+No data matches the applied filters.
+ATsoft ERP
+12/11/2026 · 03:41:28
+Cost by event type
+No data matches the applied filters.
+Maintenance downtime by machine
+Machine
+Total downtime
+Events
+MCH-000028
+0.041 h
+1
+MCH-000026
+0.03 h
+1
+Notes
+Maintenance downtime, production runs and operational-cost transactions are separate authoritative fact sets. Counts and amounts are not added across those sets. Values
+are live tenant-scoped reads with no shared cache; factor percentages are shown as recorded.
+Maintenance events, production runs, and cost transactions stay in separate authoritative sections and are never multiplied through a cross-fact join.
+ATsoft ERP
+12/11/2026 · 03:41:28

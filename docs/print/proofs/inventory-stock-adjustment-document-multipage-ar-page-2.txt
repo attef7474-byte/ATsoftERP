@@ -1,0 +1,176 @@
+#كود المنتج
+اسم المنتج
+النوع
+الكمية
+الوحدة
+تكلفة الوحدة
+العملة
+13
+ITEM-013
+Raw material 13تسوية إضافة13
+KG
+5.5
+USD
+14
+ITEM-014
+Packing material 14تسوية خصم14
+PCS
+—
+—
+15
+ITEM-015
+Raw material 15تسوية إضافة15
+KG
+5.5
+USD
+16
+ITEM-016
+Packing material 16تسوية خصم16
+PCS
+—
+—
+17
+ITEM-017
+Raw material 17تسوية إضافة17
+KG
+5.5
+USD
+18
+ITEM-018
+Packing material 18تسوية خصم18
+PCS
+—
+—
+19
+ITEM-019
+Raw material 19تسوية إضافة19
+KG
+5.5
+USD
+20
+ITEM-020
+Packing material 20تسوية خصم20
+PCS
+—
+—
+21
+ITEM-021
+Raw material 21تسوية إضافة21
+KG
+5.5
+USD
+22
+ITEM-022
+Packing material 22تسوية خصم22
+PCS
+—
+—
+23
+ITEM-023
+Raw material 23تسوية إضافة23
+KG
+5.5
+USD
+24
+ITEM-024
+Packing material 24تسوية خصم24
+PCS
+—
+—
+25
+ITEM-025
+Raw material 25تسوية إضافة25
+KG
+5.5
+USD
+26
+ITEM-026
+Packing material 26تسوية خصم26
+PCS
+—
+—
+27
+ITEM-027
+Raw material 27تسوية إضافة27
+KG
+5.5
+USD
+28
+ITEM-028
+Packing material 28تسوية خصم28
+PCS
+—
+—
+29
+ITEM-029
+Raw material 29تسوية إضافة29
+KG
+5.5
+USD
+30
+ITEM-030
+Packing material 30تسوية خصم30
+PCS
+—
+—
+31
+ITEM-031
+Raw material 31تسوية إضافة31
+KG
+5.5
+USD
+32
+ITEM-032
+Packing material 32تسوية خصم32
+PCS
+—
+—
+33
+ITEM-033
+Raw material 33تسوية إضافة33
+KG
+5.5
+USD
+34
+ITEM-034
+Packing material 34تسوية خصم34
+PCS
+—
+—
+35
+ITEM-035
+Raw material 35تسوية إضافة35
+KG
+5.5
+USD
+36
+ITEM-036
+Packing material 36تسوية خصم36
+PCS
+—
+—
+37
+ITEM-037
+Raw material 37تسوية إضافة37
+KG
+5.5
+USD
+38
+ITEM-038
+Packing material 38تسوية خصم38
+PCS
+—
+—
+39
+ITEM-039
+Raw material 39تسوية إضافة39
+KG
+5.5
+USD
+40
+ITEM-040
+Packing material 40تسوية خصم40
+PCS
+—
+—
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00

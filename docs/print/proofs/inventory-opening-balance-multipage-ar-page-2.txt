@@ -1,0 +1,232 @@
+#كود المنتج
+اسم المنتج
+الكمية
+الوحدة
+تكلفة الوحدة
+العملة
+مالحظات
+14
+ITEM-014
+Packing material 14
+14
+PCS
+—
+—
+—
+15
+ITEM-015
+Raw material 15
+15
+KG
+—
+—
+—
+16
+ITEM-016
+Packing material 16
+16
+PCS
+7.75
+USD
+Batch note 16
+17
+ITEM-017
+Raw material 17
+17
+KG
+—
+—
+—
+18
+ITEM-018
+Packing material 18
+18
+PCS
+—
+—
+—
+19
+ITEM-019
+Raw material 19
+19
+KG
+7.75
+USD
+—
+20
+ITEM-020
+Packing material 20
+20
+PCS
+—
+—
+—
+21
+ITEM-021
+Raw material 21
+21
+KG
+—
+—
+Batch note 21
+22
+ITEM-022
+Packing material 22
+22
+PCS
+7.75
+USD
+—
+23
+ITEM-023
+Raw material 23
+23
+KG
+—
+—
+—
+24
+ITEM-024
+Packing material 24
+24
+PCS
+—
+—
+—
+25
+ITEM-025
+Raw material 25
+25
+KG
+7.75
+USD
+—
+26
+ITEM-026
+Packing material 26
+26
+PCS
+—
+—
+Batch note 26
+27
+ITEM-027
+Raw material 27
+27
+KG
+—
+—
+—
+28
+ITEM-028
+Packing material 28
+28
+PCS
+7.75
+USD
+—
+29
+ITEM-029
+Raw material 29
+29
+KG
+—
+—
+—
+30
+ITEM-030
+Packing material 30
+30
+PCS
+—
+—
+—
+31
+ITEM-031
+Raw material 31
+31
+KG
+7.75
+USD
+Batch note 31
+32
+ITEM-032
+Packing material 32
+32
+PCS
+—
+—
+—
+33
+ITEM-033
+Raw material 33
+33
+KG
+—
+—
+—
+34
+ITEM-034
+Packing material 34
+34
+PCS
+7.75
+USD
+—
+35
+ITEM-035
+Raw material 35
+35
+KG
+—
+—
+—
+36
+ITEM-036
+Packing material 36
+36
+PCS
+—
+—
+Batch note 36
+37
+ITEM-037
+Raw material 37
+37
+KG
+7.75
+USD
+—
+38
+ITEM-038
+Packing material 38
+38
+PCS
+—
+—
+—
+39
+ITEM-039
+Raw material 39
+39
+KG
+—
+—
+—
+40
+ITEM-040
+Packing material 40
+40
+PCS
+7.75
+USD
+—
+41
+ITEM-041
+Raw material 41
+41
+KG
+—
+—
+Batch note 41
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00

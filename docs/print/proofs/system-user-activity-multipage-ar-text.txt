@@ -1,0 +1,312 @@
+أتسوفت إلدارة الموارد
+تقرير نشاط المستخدمين
+بيانات اختبار في الذاكرة؛ لم تُسجل في النظام
+الشركة
+شركة رينجو
+الفرع
+فرع صنعاء
+تاريخ الطباعة12/11/2026وقت الطباعة02:55:47
+طُبع بواسطةAdministrator
+.) صف500 جميع حسابات المستخدمين المطابقة للشركة والفرع الحاليين (بحد أقصى
+الفالتر المستخدمة
+الحالة
+نشط
+إجمالي المستخدمين
+10
+المستخدمون النشطاء
+10
+المستخدمون غير النشطاء
+0
+االسم
+البريد اإللكتروني
+الحالة
+آخر تسجيل دخول
+تاريخ اإلنشاء
+: مستخدم مراجعة النظام /TEST
+System reviewer 0
+reviewer0@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 1
+reviewer1@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 2
+reviewer2@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 3
+reviewer3@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 4
+reviewer4@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 5
+reviewer5@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 6
+reviewer6@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 7
+reviewer7@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 8
+reviewer8@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 9
+reviewer9@example.comنشط12/11/2026، 03:00
+01/01/2026
+أتسوفت إلدارة الموارد12/11/2026 · 02:55:47
+االسم
+البريد اإللكتروني
+الحالة
+آخر تسجيل دخول
+تاريخ اإلنشاء
+: مستخدم مراجعة النظام /TEST
+System reviewer 10
+reviewer10@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 11
+reviewer11@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 12
+reviewer12@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 13
+reviewer13@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 14
+reviewer14@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 15
+reviewer15@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 16
+reviewer16@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 17
+reviewer17@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 18
+reviewer18@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 19
+reviewer19@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 20
+reviewer20@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 21
+reviewer21@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 22
+reviewer22@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 23
+reviewer23@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 24
+reviewer24@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 25
+reviewer25@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 26
+reviewer26@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 27
+reviewer27@example.comنشط12/11/2026، 03:00
+01/01/2026
+أتسوفت إلدارة الموارد12/11/2026 · 02:55:47
+االسم
+البريد اإللكتروني
+الحالة
+آخر تسجيل دخول
+تاريخ اإلنشاء
+: مستخدم مراجعة النظام /TEST
+System reviewer 28
+reviewer28@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 29
+reviewer29@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 30
+reviewer30@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 31
+reviewer31@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 32
+reviewer32@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 33
+reviewer33@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 34
+reviewer34@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 35
+reviewer35@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 36
+reviewer36@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 37
+reviewer37@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 38
+reviewer38@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 39
+reviewer39@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 40
+reviewer40@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 41
+reviewer41@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 42
+reviewer42@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 43
+reviewer43@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 44
+reviewer44@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 45
+reviewer45@example.comنشط12/11/2026، 03:00
+01/01/2026
+أتسوفت إلدارة الموارد12/11/2026 · 02:55:47
+االسم
+البريد اإللكتروني
+الحالة
+آخر تسجيل دخول
+تاريخ اإلنشاء
+: مستخدم مراجعة النظام /TEST
+System reviewer 46
+reviewer46@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 47
+reviewer47@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 48
+reviewer48@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 49
+reviewer49@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 50
+reviewer50@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 51
+reviewer51@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 52
+reviewer52@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 53
+reviewer53@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 54
+reviewer54@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 55
+reviewer55@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 56
+reviewer56@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 57
+reviewer57@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 58
+reviewer58@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 59
+reviewer59@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 60
+reviewer60@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 61
+reviewer61@example.comنشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 62
+reviewer62@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+/ : مستخدم مراجعة النظامTEST
+System reviewer 63
+reviewer63@example.comنشط12/11/2026، 03:00
+01/01/2026
+أتسوفت إلدارة الموارد12/11/2026 · 02:55:47
+االسم
+البريد اإللكتروني
+الحالة
+آخر تسجيل دخول
+تاريخ اإلنشاء
+: مستخدم مراجعة النظام /TEST
+System reviewer 64
+reviewer64@example.comغير نشط12/11/2026، 03:00
+01/01/2026
+مالحظات
+تتضمن هذه الوثيقة معلومات حسابات المستخدمين وبيانات االتصال ضمن النطاق المصرح. تعامل معها كبيانات شخصية. ال تتضمن كلمات المرور أو الرموز أو بيانات
+الجلسات.
+أتسوفت إلدارة الموارد12/11/2026 · 02:55:47

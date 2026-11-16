@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
@@ -8,8 +8,14 @@ import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '..
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../components/reports';
 
+import { useReportPrintSnapshot } from '../../../../components/print/use-report-print-snapshot';
+import { maintenancePartsPrintModel, type MachinePartsPrintData } from '../../../../components/print/maintenance-machine-parts-print';
+import { collectPrintRows } from '../../../../lib/print';
+
 export default function PartsReportPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const { capture, invalidate, printSnapshot, canPrint } = useReportPrintSnapshot<MachinePartsPrintData>();
+  const fetchSequence = useRef(0);
   const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<any>(null);
@@ -18,27 +24,38 @@ export default function PartsReportPage() {
   const [filters, setFilters] = useState<any>({ page: 1, pageSize: 20 });
 
   const fetchData = useCallback(async () => {
+    const sequence = ++fetchSequence.current;
     setLoading(true); setError('');
     try {
       const res = await api.get<any>('/reports/parts', { params: filters });
-      setData(res);
+      if (sequence !== fetchSequence.current) return;
+      setData(res); capture(res, filters);
     } catch (err: any) {
-      setError(err?.message || t('reports.loadFailed'));
-    } finally { setLoading(false); }
-  }, [filters, t]);
+      if (sequence !== fetchSequence.current) return;
+      invalidate(); setError(err?.message || t('reports.loadFailed'));
+    } finally { if (sequence === fetchSequence.current) setLoading(false); }
+  }, [filters, t, capture, invalidate]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); return () => { fetchSequence.current++; }; }, [fetchData]);
+
+  const handlePrint = () => printSnapshot(!loading && !error && !!data, async (snapshot, assertScope) => {
+    const result = await collectPrintRows(
+      (page, pageSize) => api.get<MachinePartsPrintData>('/reports/parts', { params: { ...snapshot.params, page, pageSize } }),
+      assertScope, row => row.id,
+    );
+    return maintenancePartsPrintModel({ ...snapshot, data: { ...result.first as MachinePartsPrintData, rows: result.rows } }, t, locale);
+  });
 
   const clearFilters = () => { setFilters({ page: 1, pageSize: 20 }); };
 
   const { exec } = useStableHandlers({
-    back: () => router.back(), refresh: () => fetchData(), print: () => window.print(),
+    back: () => router.back(), refresh: () => fetchData(), print: handlePrint,
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), readOnly: true, enabled: canPrint && !loading && !error },
   ]);
 
   const columns = [
@@ -70,7 +87,7 @@ export default function PartsReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton filename="parts-inventory" headers={['Code', 'Name', 'Part #', 'Stock Qty', 'Unit', 'Status']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="parts-inventory" headers={['Code', 'Name', 'Part #', 'Stock Qty', 'Unit', 'Status']} rows={data.rows}
                 mapRow={(r) => [r.code, r.name, r.partNumber || '', String(r.stockQuantity ?? 0), r.unit || '', r.status]} />
             </div>
           )}

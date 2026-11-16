@@ -1,0 +1,202 @@
+#كود المنتج
+اسم المنتج
+الكمية
+الوحدة
+االتجاه
+الدفعة /
+التشغيلة
+تكلفة الوحدة
+التكلفة
+اإلجمالية
+العملة
+مالحظات
+6
+7
+ITEM-067
+Raw material 67
+67
+KGصادر
+—7.75
+519.25
+USD
+—
+6
+8
+ITEM-068
+Packing material 68
+68
+PCSصادر
+—
+—
+—
+—
+—
+6
+9
+ITEM-069
+Raw material 69
+69
+KGوارد
+—
+—
+—
+—
+—
+7
+0
+ITEM-070
+Packing material 70
+70
+PCSصادر
+—7.75
+542.5
+USD
+—
+7
+1
+ITEM-071
+Raw material 71
+71
+KGصادرLOT-071
+—
+—
+—
+Line note 71
+7
+2
+ITEM-072
+Packing material 72
+72
+PCSصادر
+—
+—
+—
+—
+—
+7
+3
+ITEM-073
+Raw material 73
+73
+KGوارد
+—7.75
+565.75
+USD
+—
+7
+4
+ITEM-074
+Packing material 74
+74
+PCSصادر
+—
+—
+—
+—
+—
+7
+5
+ITEM-075
+Raw material 75
+75
+KGصادر
+—
+—
+—
+—
+—
+7
+6
+ITEM-076
+Packing material 76
+76
+PCSصادر
+—7.75
+589
+USD
+Line note 76
+7
+7
+ITEM-077
+Raw material 77
+77
+KGوارد
+—
+—
+—
+—
+—
+7
+8
+ITEM-078
+Packing material 78
+78
+PCSصادرLOT-078
+—
+—
+—
+—
+7
+9
+ITEM-079
+Raw material 79
+79
+KGصادر
+—7.75
+612.25
+USD
+—
+8
+0
+ITEM-080
+Packing material 80
+80
+PCSصادر
+—
+—
+—
+—
+—
+8
+1
+ITEM-081
+Raw material 81
+81
+KGوارد
+—
+—
+—
+—Line note 81
+8
+2
+ITEM-082
+Packing material 82
+82
+PCSصادر
+—7.75
+635.5
+USD
+—
+8
+3
+ITEM-083
+Raw material 83
+83
+KGصادر
+—
+—
+—
+—
+—
+8
+4
+ITEM-084
+Packing material 84
+84
+PCSصادر
+—
+—
+—
+—
+—
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00

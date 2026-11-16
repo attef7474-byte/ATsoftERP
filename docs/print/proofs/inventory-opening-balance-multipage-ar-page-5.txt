@@ -1,0 +1,177 @@
+#كود المنتج
+اسم المنتج
+الكمية
+الوحدة
+تكلفة الوحدة
+العملة
+مالحظات
+98
+ITEM-098
+Packing material 98
+98
+PCS
+—
+—
+—
+99
+ITEM-099
+Raw material 99
+99
+KG
+—
+—
+—
+10
+0
+ITEM-100
+Packing material 100
+100
+PCS
+7.75
+USD
+—
+10
+1
+ITEM-101
+Raw material 101
+101
+KG
+—
+—
+Batch note 101
+10
+2
+ITEM-102
+Packing material 102
+102
+PCS
+—
+—
+—
+10
+3
+ITEM-103
+Raw material 103
+103
+KG
+7.75
+USD
+—
+10
+4
+ITEM-104
+Packing material 104
+104
+PCS
+—
+—
+—
+10
+5
+ITEM-105
+Raw material 105
+105
+KG
+—
+—
+—
+10
+6
+ITEM-106
+Packing material 106
+106
+PCS
+7.75
+USD
+Batch note 106
+10
+7
+ITEM-107
+Raw material 107
+107
+KG
+—
+—
+—
+10
+8
+ITEM-108
+Packing material 108
+108
+PCS
+—
+—
+—
+10
+9
+ITEM-109
+Raw material 109
+109
+KG
+7.75
+USD
+—
+11
+0
+ITEM-110
+Packing material 110
+110
+PCS
+—
+—
+—
+11
+1
+ITEM-111
+Raw material 111
+111
+KG
+—
+—
+Batch note 111
+11
+2
+ITEM-112
+Packing material 112
+112
+PCS
+7.75
+USD
+—
+11
+3
+ITEM-113
+Raw material 113
+113
+KG
+—
+—
+—
+11
+4
+ITEM-114
+Packing material 114
+114
+PCS
+—
+—
+—
+11
+5
+ITEM-115
+Raw material 115
+115
+KG
+7.75
+USD
+—
+11
+6
+ITEM-116
+Packing material 116
+116
+PCS
+—
+—
+Batch note 116
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00

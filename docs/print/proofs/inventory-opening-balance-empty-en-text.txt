@@ -1,0 +1,27 @@
+ATsoft ERP
+Opening Balance
+OB-000036
+Company ATsoft Manufacturing
+Branch Main Plant
+Print date 13/11/2026
+Print time 16:45:00
+Printed by Print Reviewer
+Single inventory opening balance document for the current company and branch.
+Status Draft
+Document Date 13/11/2026
+Warehouse [WH-RAW-001] Raw Materials Store
+Reason Reason recorded for an unexpected legacy
+document without lines.
+Created At 13/11/2026, 10:00
+Updated At 13/11/2026, 10:00
+Line Count
+0
+Lines
+No data matches the applied filters.
+Notes
+Quantities are recorded opening-balance values in the source product unit. Quantities with different or missing units
+are never summed. Unit cost and currency are printed only when recorded; no line value, document total or valuation is
+computed. Location, lot/batch and user display names are not supplied by the opening-balance detail contract, so they
+are omitted rather than replaced with identifiers. This document is not a ledger reconciliation.
+ATsoft ERP
+13/11/2026 · 16:45:00

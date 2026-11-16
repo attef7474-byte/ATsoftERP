@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
@@ -7,9 +7,13 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, DataTable, LocalizedValue } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards } from '../../../../components/reports';
+import { useReportPrintSnapshot } from '../../../../components/print/use-report-print-snapshot';
+import { inventoryOverviewPrintModel, type InventoryOverviewPrintData } from '../../../../components/print/inventory-overview-print';
 
 export default function InventoryOverviewReportPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const { capture, invalidate, printSnapshot, canPrint } = useReportPrintSnapshot<InventoryOverviewPrintData>();
+  const sequence = useRef(0);
   const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<any>(null);
@@ -17,25 +21,32 @@ export default function InventoryOverviewReportPage() {
   const [error, setError] = useState('');
 
   const fetchData = useCallback(async () => {
+    const generation = ++sequence.current;
     setLoading(true); setError('');
     try {
       const res = await api.get<any>('/reports/inventory/overview');
+      if (generation !== sequence.current) return;
       setData(res);
+      capture(res, {});
     } catch (err: any) {
+      if (generation !== sequence.current) return;
       setError(err?.message || t('reports.loadFailed'));
-    } finally { setLoading(false); }
-  }, [t]);
+      invalidate();
+    } finally { if (generation === sequence.current) setLoading(false); }
+  }, [t, capture, invalidate]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); return () => { sequence.current++; }; }, [fetchData]);
+
+  const handlePrint = () => printSnapshot(!loading && !error, async snapshot => inventoryOverviewPrintModel(snapshot, t, locale));
 
   const { exec } = useStableHandlers({
-    back: () => router.back(), refresh: () => fetchData(), print: () => window.print(),
+    back: () => router.back(), refresh: () => fetchData(), print: handlePrint,
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), readOnly: true, enabled: canPrint && !loading && !error },
   ]);
 
   const whColumns = [

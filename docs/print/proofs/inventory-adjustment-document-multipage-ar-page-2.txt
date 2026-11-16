@@ -1,0 +1,207 @@
+#كود المنتج
+اسم المنتج
+كمية النظام
+الكمية
+المعدودة
+الفرق
+الوحدة
+الموقع
+مالحظات
+9
+ITEM-009
+Raw material 9
+9
+9
+0
+KG
+Rack ]L-009[
+009
+—
+1
+0
+ITEM-010
+Packing material 10
+10
+10
+0
+PCS
+Rack ]L-010[
+010
+—
+1
+1
+ITEM-011
+Raw material 11
+11
+11
+0
+KG
+Rack ]L-011[
+011
+Line note 11
+1
+2
+ITEM-012
+Packing material 12
+12
+12
+0
+PCS
+Rack ]L-012[
+012
+—
+1
+3
+ITEM-013
+Raw material 13
+13
+13
+0
+KG
+Rack ]L-013[
+013
+—
+1
+4
+ITEM-014
+Packing material 14
+14
+14
+0
+PCS
+Rack ]L-014[
+014
+—
+1
+5
+ITEM-015
+Raw material 15
+15
+15
+0
+KG
+Rack ]L-015[
+015
+—
+1
+6
+ITEM-016
+Packing material 16
+16
+16
+0
+PCS
+Rack ]L-016[
+016
+Line note 16
+1
+7
+ITEM-017
+Raw material 17
+17
+17
+0
+KG
+Rack ]L-017[
+017
+—
+1
+8
+ITEM-018
+Packing material 18
+18
+18
+0
+PCS
+Rack ]L-018[
+018
+—
+1
+9
+ITEM-019
+Raw material 19
+19
+19
+0
+KG
+Rack ]L-019[
+019
+—
+2
+0
+ITEM-020
+Packing material 20
+20
+20
+0
+PCS
+Rack ]L-020[
+020
+—
+2
+1
+ITEM-021
+Raw material 21
+21
+21
+0
+KG
+Rack ]L-021[
+021
+Line note 21
+2
+2
+ITEM-022
+Packing material 22
+22
+22
+0
+PCS
+Rack ]L-022[
+022
+—
+2
+3
+ITEM-023
+Raw material 23
+23
+23
+0
+KG
+Rack ]L-023[
+023
+—
+2
+4
+ITEM-024
+Packing material 24
+24
+24
+0
+PCS
+Rack ]L-024[
+024
+—
+2
+5
+ITEM-025
+Raw material 25
+25
+25
+0
+KG
+Rack ]L-025[
+025
+—
+2
+6
+ITEM-026
+Packing material 26
+26
+26
+0
+PCS
+Rack ]L-026[
+026
+Line note 26
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00

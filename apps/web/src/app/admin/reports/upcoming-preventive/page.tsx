@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
@@ -9,8 +9,14 @@ import { F9Lookup, machineAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../components/reports';
 
+import { useReportPrintSnapshot } from '../../../../components/print/use-report-print-snapshot';
+import { maintenanceUpcomingPrintModel, type PreventivePrintData } from '../../../../components/print/maintenance-preventive-print';
+import { collectPrintRows } from '../../../../lib/print';
+
 export default function UpcomingPreventiveReportPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const { capture, invalidate, rememberLookup, printSnapshot, canPrint } = useReportPrintSnapshot<PreventivePrintData>();
+  const fetchSequence = useRef(0);
   const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<any>(null);
@@ -20,29 +26,40 @@ export default function UpcomingPreventiveReportPage() {
   const [machineId, setMachineId] = useState('');
 
   const fetchData = useCallback(async () => {
+    const sequence = ++fetchSequence.current;
     setLoading(true); setError('');
     try {
       const params: any = { ...filters };
       if (machineId) params.machineId = machineId;
       const res = await api.get<any>('/reports/upcoming-preventive', { params });
-      setData(res);
+      if (sequence !== fetchSequence.current) return;
+      setData(res); capture(res, params);
     } catch (err: any) {
-      setError(err?.message || t('reports.loadFailed'));
-    } finally { setLoading(false); }
-  }, [filters, machineId, t]);
+      if (sequence !== fetchSequence.current) return;
+      invalidate(); setError(err?.message || t('reports.loadFailed'));
+    } finally { if (sequence === fetchSequence.current) setLoading(false); }
+  }, [filters, machineId, t, capture, invalidate]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); return () => { fetchSequence.current++; }; }, [fetchData]);
+
+  const handlePrint = () => printSnapshot(!loading && !error && !!data, async (snapshot, assertScope) => {
+    const result = await collectPrintRows(
+      (page, pageSize) => api.get<PreventivePrintData>('/reports/upcoming-preventive', { params: { ...snapshot.params, page, pageSize } }),
+      assertScope, row => row.id,
+    );
+    return maintenanceUpcomingPrintModel({ ...snapshot, data: { ...result.first as PreventivePrintData, rows: result.rows } }, t, locale);
+  });
 
   const clearFilters = () => { setFilters({ page: 1, pageSize: 20 }); setMachineId(''); };
 
   const { exec } = useStableHandlers({
-    back: () => router.back(), refresh: () => fetchData(), print: () => window.print(),
+    back: () => router.back(), refresh: () => fetchData(), print: handlePrint,
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), readOnly: true, enabled: canPrint && !loading && !error },
   ]);
 
   const columns = [
@@ -58,7 +75,7 @@ export default function UpcomingPreventiveReportPage() {
     <ReportPageShell title={t('reports.upcomingPreventiveReport')} loading={loading} error={error} onRetry={fetchData}
       filters={
         <div className="flex flex-wrap gap-4 items-end">
-          <div className="w-48"><F9Lookup adapter={machineAdapter} value={machineId} onChange={setMachineId} placeholder={t('reports.machine')} /></div>
+          <div className="w-48"><F9Lookup adapter={machineAdapter} value={machineId} onChange={setMachineId} onItemSelect={item => rememberLookup('machineId', item)} placeholder={t('reports.machine')} /></div>
           <Button variant="ghost" onClick={clearFilters}>{t('reports.clearFilters')}</Button>
         </div>
       }
@@ -68,7 +85,7 @@ export default function UpcomingPreventiveReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton filename="upcoming-preventive" headers={['Title', 'Machine', 'Type', 'Frequency', 'Due', 'Status']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="upcoming-preventive" headers={['Title', 'Machine', 'Type', 'Frequency', 'Due', 'Status']} rows={data.rows}
                 mapRow={(r) => [r.title, r.machine?.name || '', r.type, r.frequency, r.endDate ? new Date(r.endDate).toLocaleDateString() : '', r.status]} />
             </div>
           )}

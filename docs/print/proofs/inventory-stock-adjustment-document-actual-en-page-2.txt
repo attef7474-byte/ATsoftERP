@@ -1,0 +1,6 @@
+and are omitted. Quantities with different or missing units are never summed. This document is not a ledger
+reconciliation.
+Monthly stock correction of the raw materials store.
+Second line of the adjustment note.
+ATsoft ERP
+13/11/2026 · 16:45:00

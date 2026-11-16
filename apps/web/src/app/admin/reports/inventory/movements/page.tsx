@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
@@ -9,8 +9,14 @@ import { F9Lookup, warehouseAdapter, productAdapter } from '../../../../../compo
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../../components/reports';
 
+import { useReportPrintSnapshot } from '../../../../../components/print/use-report-print-snapshot';
+import { inventoryMovementsPrintModel, type MovementsPrintData } from '../../../../../components/print/inventory-movements-print';
+import { collectPrintRows } from '../../../../../lib/print';
+
 export default function MovementsReportPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const { capture, invalidate, rememberLookup, printSnapshot, canPrint } = useReportPrintSnapshot<MovementsPrintData>();
+  const fetchSequence = useRef(0);
   const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<any>(null);
@@ -20,29 +26,42 @@ export default function MovementsReportPage() {
   const [warehouseId, setWarehouseId] = useState('');
 
   const fetchData = useCallback(async () => {
+    const generation = ++fetchSequence.current;
     setLoading(true); setError('');
     try {
       const params: any = { ...filters };
       if (warehouseId) params.warehouseId = warehouseId;
       const res = await api.get<any>('/reports/inventory/movements', { params });
+      if (generation !== fetchSequence.current) return;
       setData(res);
+      capture(res, params);
     } catch (err: any) {
+      if (generation !== fetchSequence.current) return;
       setError(err?.message || t('reports.loadFailed'));
-    } finally { setLoading(false); }
-  }, [filters, warehouseId, t]);
+      invalidate();
+    } finally { if (generation === fetchSequence.current) setLoading(false); }
+  }, [filters, warehouseId, t, capture, invalidate]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); return () => { fetchSequence.current++; }; }, [fetchData]);
+
+  const handlePrint = () => printSnapshot(!loading && !error && !!data, async (snapshot, assertScope) => {
+    const result = await collectPrintRows(
+      (page, pageSize) => api.get<MovementsPrintData>('/reports/inventory/movements', { params: { ...snapshot.params, page, pageSize } }),
+      assertScope, row => row.id,
+    );
+    return inventoryMovementsPrintModel({ ...snapshot, data: { ...result.first as MovementsPrintData, rows: result.rows } }, t, locale);
+  });
 
   const clearFilters = () => { setFilters({ page: 1, pageSize: 20 }); setWarehouseId(''); };
 
   const { exec } = useStableHandlers({
-    back: () => router.back(), refresh: () => fetchData(), print: () => window.print(),
+    back: () => router.back(), refresh: () => fetchData(), print: handlePrint,
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), readOnly: true, enabled: canPrint && !loading && !error },
   ]);
 
   const columns = [
@@ -58,7 +77,7 @@ export default function MovementsReportPage() {
     <ReportPageShell title={t('reports.movementsReport')} loading={loading} error={error} onRetry={fetchData}
       filters={
         <div className="flex flex-wrap gap-4 items-end">
-          <div className="w-48"><F9Lookup adapter={warehouseAdapter} value={warehouseId} onChange={setWarehouseId} placeholder={t('reports.warehouse')} /></div>
+          <div className="w-48"><F9Lookup adapter={warehouseAdapter} value={warehouseId} onChange={setWarehouseId} onItemSelect={item => rememberLookup('warehouseId', item)} placeholder={t('reports.warehouse')} /></div>
           <div className="w-40">
             <Select value={filters.countStatus || ''} onChange={e => setFilters((f: any) => ({ ...f, countStatus: e.target.value || undefined, page: 1 }))} placeholder={t('reports.status')} options={[
               { value: 'DRAFT', label: t('reports.draft') },
@@ -77,7 +96,7 @@ export default function MovementsReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton filename="inventory-movements" headers={['Number', 'Type', 'Warehouse', 'Status', 'Date', 'Notes']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="inventory-movements" headers={['Number', 'Type', 'Warehouse', 'Status', 'Date', 'Notes']} rows={data.rows}
                 mapRow={(r) => [r.movementNumber, r.movementType, r.warehouse?.name || '', r.status, r.movementDate ? new Date(r.movementDate).toLocaleDateString() : '', r.notes || '']} />
             </div>
           )}

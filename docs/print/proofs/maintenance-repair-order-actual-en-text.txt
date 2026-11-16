@@ -1,0 +1,83 @@
+===== PAGE 1 =====
+ATsoft ERP
+Repair Order
+[BRG-77]  / محمل صندوق التروسGearbox bearing
+TEST-RO-000321
+Company ATsoft Manufacturing
+Branch Main Plant
+Print date 12/11/2026
+Print time 17:05:00
+Printed by Print Reviewer
+Single spare-part repair order document for the current company and branch.
+Status Under Repair
+Condition Damaged - Repairable
+Target Condition Used - Serviceable
+Source Quantity 8
+Reserved Quantity 8
+Repaired Quantity 3
+Scrapped Qty 1
+Remaining Quantity 4
+Warehouse [WH-SP]  / مخزن قطع الغيارSpare Parts Store
+Machine [MC-9]  / ناقل الحركة الرئيسيMain Conveyor
+Component [CMP-2]  / طرف اإلدارةDrive end
+Request [TEST-MR-000456]  / ضوضاء المحملBearing noise
+External Repair Yes
+External Provider / ورشة المعالجة الحراريةHeat Treatment
+Workshop
+Opened At 09/11/2026, 11:00
+Inspection Started At 09/11/2026, 12:00
+Repair Started 10/11/2026, 13:00
+Created At 09/11/2026, 10:30
+Updated At 11/11/2026, 15:00
+Estimated Repair Cost
+450
+Actual Repair Cost
+320
+Repair Actions
+2
+Repair Record
+Field
+Value
+Inspection Result .قابل لإلصالح بعد استبدال الحلقةRepairable after race replacement.
+Failure Description .تآكل في الحلقة الخارجية اكتُشف أثناء الفحصOuter race pitting found during inspection.
+Repair Description .تم استبدال الحلقة الخارجية وإعادة التشحيمReplaced the outer race and re-greased the bearing.
+Test Result .اجتاز اختبار التشغيلPassed the run-in test.
+Test Notes .درجة الحرارة مستقرةTemperature stable during the run.
+ATsoft ERP
+12/11/2026 · 17:05:00
+
+===== PAGE 2 =====
+Repair Actions
+Action Type
+Description
+Action
+Status
+Result
+Performed At
+Duration
+(min)
+Inspection مع وصف طويل1 إجراء إصالح تشغيلي رقم
+ / الختبار التفاف النصOperational repair
+action 1 with a long description to
+exercise wrapping
+Done
+1  / النتيجة المسجلةRecorded
+result 1
+11/11/2026, 14:00
+16
+Repair مع وصف طويل2 إجراء إصالح تشغيلي رقم
+ / الختبار التفاف النصOperational repair
+action 2 with a long description to
+exercise wrapping
+Done
+2  / النتيجة المسجلةRecorded
+result 2
+11/11/2026, 14:00
+17
+Notes
+Quantities are recorded repair-order values in the source part unit. Estimated and actual repair costs are printed only
+when recorded, and amounts are printed as numbers because the repair-order contract does not supply a currency.
+Performer identity and internal references are omitted. This document is not a ledger reconciliation.
+ .تم عزل الماكينة قبل الفكMachine isolated before removal.
+ATsoft ERP
+12/11/2026 · 17:05:00

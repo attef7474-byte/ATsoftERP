@@ -1,0 +1,19 @@
+ATsoft ERP
+Inventory Ledger
+Company ATsoft Manufacturing
+Branch Main Plant
+Print date 13/11/2026
+Print time 12:30:00
+Printed by Print Reviewer
+All filtered results (maximum 500 rows)
+Total Movements
+0
+No data matches the applied filters.
+Notes
+Movement register: one row per document, filtered by movement date. The source supplies headers only, without item
+lines, quantities, units, readable source references or user names. A single document warehouse is shown; a transfer
+direction is not inferred.
+Quantities with different or unavailable units are not summed. This report does not establish available-to-promise,
+reservations or valuation.
+ATsoft ERP
+13/11/2026 · 12:30:00

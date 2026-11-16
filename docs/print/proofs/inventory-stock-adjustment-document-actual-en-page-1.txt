@@ -1,0 +1,85 @@
+ATsoft ERP
+Stock Adjustment
+SA-000145
+Company ATsoft Manufacturing
+Branch Main Plant
+Print date 13/11/2026
+Print time 16:45:00
+Printed by Print Reviewer
+Single inventory stock adjustment document for the current company and branch.
+Status Posted
+Document Date 12/11/2026
+Warehouse [WH-JOB-RAW-001] Raw Materials Store
+Reason Authorized stock correction for the raw materials
+store
+Submitted At 12/11/2026, 12:00
+Approved At 12/11/2026, 13:00
+Posted At 12/11/2026, 18:45
+Created At 11/11/2026, 19:00
+Updated At 12/11/2026, 18:45
+Line Count
+4
+Lines
+#
+Product
+Code
+Product Name
+Type
+Quantity
+Unit
+Unit cost
+Curre
+ncy
+Notes
+1
+ITEM-001
+Item 1
+Adjustment
+In
+120
+PCS
+12.5
+USD
+First shelf
+correction.
+2
+ITEM-002
+Item 2
+Adjustment
+Out
+8
+KG
+—
+—
+—
+3
+ITEM-003
+Machine oil
+Adjustment
+In
+3.5
+L
+47.25
+USD
+—
+4
+ITEM-004
+Sealing gasket
+Adjustment
+Out
+2
+PCS
+—
+—
+—
+Notes
+Quantities are the recorded stock-adjustment values in the source product unit. The stored adjustment type
+(Adjustment In / Adjustment Out) carries the direction, and the recorded quantity is always positive; the direction is
+never inferred from the quantity sign and the quantity is never negated or absolute-valued. The stock-adjustment detail
+contract stores no before or after quantity and no live inventory balance, so none is printed or derived. Location names
+and movement business references are not supplied by the stock-adjustment detail contract, so they are omitted rather
+than replaced with identifiers. Unit cost and currency are printed only when recorded on the line (typically Adjustment
+In); no line value, document total, cross-currency total or valuation is computed. Workflow submission, approval,
+rejection, posting and cancellation timestamps are printed only when stored; workflow actor identities are internal ids
+ATsoft ERP
+13/11/2026 · 16:45:00

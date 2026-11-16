@@ -7,7 +7,9 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { InventoryAdjustment, InventoryAdjustmentLine } from '../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '../../../../../components/admin/ui';
-import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionPostIcon, ActionCancelIcon, ActionViewIcon } from '../../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionPostIcon, ActionCancelIcon, ActionViewIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
+import { usePrintDocument } from '../../../../../components/print/use-print-document';
+import { inventoryAdjustmentDocumentModel } from '../../../../../components/print/inventory-adjustment-document-print';
 
 export default function InventoryAdjustmentDetailPage() {
   const params = useParams();
@@ -25,6 +27,7 @@ export default function InventoryAdjustmentDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const { print, printing, scopeKey } = usePrintDocument();
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -55,17 +58,27 @@ export default function InventoryAdjustmentDetailPage() {
     setConfirmOpen(true);
   };
 
+  const handlePrint = useCallback(async () => {
+    await print(scopeKey, async (assertScope) => {
+      const fresh = await api.get<InventoryAdjustment>(`/inventory/adjustments/${id}`);
+      assertScope();
+      return inventoryAdjustmentDocumentModel(fresh, t, locale);
+    });
+  }, [id, locale, print, scopeKey, t]);
+
   const { exec } = useStableHandlers({
     back: () => router.back(),
     refresh: () => fetchData(),
     edit: () => router.push('/admin/inventory/adjustments'),
     post: () => confirmAndExec('post'),
     cancel: () => confirmAndExec('cancel'),
+    print: handlePrint,
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, permission: 'inventory-adjustment:read', onClick: () => exec('print'), enabled: !!data && !printing },
     { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'inventory-adjustment:update', onClick: () => exec('edit'), enabled: !!data },
     { id: 'post', labelKey: 'inventoryCounting.postAdjustment', icon: <ActionPostIcon />, permission: 'inventory-adjustment:post', onClick: () => exec('post'), enabled: !!(data && data.status === 'DRAFT') },
     { id: 'cancel', labelKey: 'inventoryCounting.cancelAdjustment', icon: <ActionCancelIcon />, permission: 'inventory-adjustment:cancel', onClick: () => exec('cancel'), enabled: !!(data && data.status === 'DRAFT'), variant: 'danger' },

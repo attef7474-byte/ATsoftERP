@@ -1,0 +1,165 @@
+#كود المنتج
+اسم المنتج
+كمية النظام
+الكمية
+المعدودة
+الفرق
+الوحدة
+الموقع
+مالحظات
+9
+9
+ITEM-099
+Raw material 99
+99
+99
+0
+KG
+Rack ]L-099[
+099
+—
+1
+0
+0
+ITEM-100
+Packing material 100
+100
+100
+0
+PCS
+Rack ]L-100[
+100
+—
+1
+0
+1
+ITEM-101
+Raw material 101
+101
+101
+0
+KG
+Rack ]L-101[
+101
+Line note 101
+1
+0
+2
+ITEM-102
+Packing material 102
+102
+102
+0
+PCS
+Rack ]L-102[
+102
+—
+1
+0
+3
+ITEM-103
+Raw material 103
+103
+103
+0
+KG
+Rack ]L-103[
+103
+—
+1
+0
+4
+ITEM-104
+Packing material 104
+104
+104
+0
+PCS
+Rack ]L-104[
+104
+—
+1
+0
+5
+ITEM-105
+Raw material 105
+105
+105
+0
+KG
+Rack ]L-105[
+105
+—
+1
+0
+6
+ITEM-106
+Packing material 106
+106
+106
+0
+PCS
+Rack ]L-106[
+106
+Line note 106
+1
+0
+7
+ITEM-107
+Raw material 107
+107
+107
+0
+KG
+Rack ]L-107[
+107
+—
+1
+0
+8
+ITEM-108
+Packing material 108
+108
+108
+0
+PCS
+Rack ]L-108[
+108
+—
+1
+0
+9
+ITEM-109
+Raw material 109
+109
+109
+0
+KG
+Rack ]L-109[
+109
+—
+1
+1
+0
+ITEM-110
+Packing material 110
+110
+110
+0
+PCS
+Rack ]L-110[
+110
+—
+1
+1
+1
+ITEM-111
+Raw material 111
+111
+111
+0
+KG
+Rack ]L-111[
+111
+Line note 111
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00

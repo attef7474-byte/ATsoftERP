@@ -1,0 +1,71 @@
+#
+Product Code
+Product Name
+Type
+Quantity
+Unit
+Unit cost
+Currenc
+y
+11
+6
+ITEM-116
+Packing material 116
+Adjustment
+Out
+116
+PCS
+—
+—
+11
+7
+ITEM-117
+Raw material 117
+Adjustment In
+117
+KG
+5.5
+USD
+11
+8
+ITEM-118
+Packing material 118
+Adjustment
+Out
+118
+PCS
+—
+—
+11
+9
+ITEM-119
+Raw material 119
+Adjustment In
+119
+KG
+5.5
+USD
+12
+0
+ITEM-120
+Packing material 120
+Adjustment
+Out
+120
+PCS
+—
+—
+Notes
+Quantities are the recorded stock-adjustment values in the source product unit. The stored adjustment type
+(Adjustment In / Adjustment Out) carries the direction, and the recorded quantity is always positive; the direction is
+never inferred from the quantity sign and the quantity is never negated or absolute-valued. The stock-adjustment detail
+contract stores no before or after quantity and no live inventory balance, so none is printed or derived. Location names
+and movement business references are not supplied by the stock-adjustment detail contract, so they are omitted rather
+than replaced with identifiers. Unit cost and currency are printed only when recorded on the line (typically Adjustment
+In); no line value, document total, cross-currency total or valuation is computed. Workflow submission, approval,
+rejection, posting and cancellation timestamps are printed only when stored; workflow actor identities are internal ids
+and are omitted. Quantities with different or missing units are never summed. This document is not a ledger
+reconciliation.
+Annual full stock adjustment of the spare parts store.
+ATsoft ERP
+13/11/2026 · 16:45:00

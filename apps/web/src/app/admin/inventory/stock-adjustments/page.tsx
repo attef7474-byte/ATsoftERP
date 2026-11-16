@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { useOperationalContext } from '../../../../lib/auth-context';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
@@ -49,6 +50,7 @@ interface StockAdjustment {
 
 export default function StockAdjustmentsPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
   const { activeContext } = useOperationalContext();
@@ -227,6 +229,7 @@ export default function StockAdjustmentsPage() {
   ];
 
   const gridActions: GridAction<StockAdjustment>[] = [
+    { label: t('inventory.viewAction'), onClick: (r) => router.push(`/admin/inventory/stock-adjustments/${r.id}`) },
     { label: t('common.edit'), onClick: (r) => openEdit(r), enabled: (r) => canAction(r.status, 'edit') },
     { label: t('actions.submit'), onClick: (r) => confirmAction(r.id, 'submit'), enabled: (r) => canAction(r.status, 'submit') },
     { label: t('status.APPROVED'), onClick: (r) => confirmAction(r.id, 'approve'), enabled: (r) => canAction(r.status, 'approve') },

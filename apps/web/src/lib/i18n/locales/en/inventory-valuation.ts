@@ -46,6 +46,7 @@ const inventoryValuation: Pick<LocaleTranslations, 'inventoryValuation'> = {
         negativeCost: 'Unit cost cannot be negative',
         zeroCostHint: 'A zero unit cost requires an explicit reason',
         reason: 'Reason',
+        valuationReason: 'Valuation reason',
         reasonRequiredForZero: 'A reason is required for a zero unit cost',
         totalValue: 'Total value',
         history: 'Initialization History',

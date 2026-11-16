@@ -1,5 +1,5 @@
 export type InventoryMovementStatus = 'DRAFT' | 'POSTED' | 'CANCELLED';
-export type InventoryMovementType = 'OPENING' | 'PURCHASE_RECEIPT' | 'SALES_ISSUE' | 'PRODUCTION_RECEIPT' | 'PRODUCTION_ISSUE' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT' | 'COUNT_ADJUSTMENT' | 'MAINTENANCE_ISSUE' | 'MAINTENANCE_RETURN' | 'COUNT_VARIANCE_IN' | 'COUNT_VARIANCE_OUT';
+export type InventoryMovementType = 'OPENING' | 'PURCHASE_RECEIPT' | 'SALES_ISSUE' | 'PRODUCTION_RECEIPT' | 'PRODUCTION_ISSUE' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT' | 'COUNT_ADJUSTMENT' | 'MAINTENANCE_ISSUE' | 'MAINTENANCE_RETURN' | 'COUNT_VARIANCE_IN' | 'COUNT_VARIANCE_OUT' | 'OPENING_BALANCE' | 'STOCK_RECEIVING' | 'STOCK_TRANSFER_IN' | 'STOCK_TRANSFER_OUT' | 'STOCK_ADJUSTMENT_IN' | 'STOCK_ADJUSTMENT_OUT' | 'PRODUCTION_RETURN' | 'PRODUCTION_MATERIAL_ISSUE' | 'PRODUCTION_CONSUMPTION' | 'PRODUCTION_FG_RECEIPT' | 'PRODUCTION_FG_RECEIPT_REVERSAL' | 'MANUAL';
 export type InventoryMovementDirection = 'IN' | 'OUT';
 
 export interface InventoryMovement {
@@ -33,10 +33,17 @@ export interface InventoryMovementLine {
   productId: string;
   warehouseLocationId?: string | null;
   quantity: number;
+  quantityBase?: string | number | null;
   direction: InventoryMovementDirection;
   unit?: string | null;
+  batchNumber?: string | null;
+  serialNumber?: string | null;
+  expiryDate?: string | null;
+  unitCost?: string | number | null;
+  totalCost?: string | number | null;
+  currencyCode?: string | null;
   notes?: string | null;
-  product?: { id: string; name: string; code: string; unit: string };
+  product?: { id: string; name: string; code: string; unit?: string };
   warehouseLocation?: { id: string; name: string; code: string };
 }
 

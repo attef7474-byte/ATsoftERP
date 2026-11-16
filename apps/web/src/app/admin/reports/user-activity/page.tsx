@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
@@ -7,9 +7,14 @@ import { useRouter } from 'next/navigation';
 import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../components/reports';
+import { useReportPrintSnapshot } from '../../../../components/print/use-report-print-snapshot';
+import { systemUserActivityPrintModel, type UserActivityPrintData } from '../../../../components/print/system-user-activity-print';
+import { collectPrintRows } from '../../../../lib/print';
 
 export default function UserActivityReportPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const { capture, invalidate, printSnapshot, canPrint } = useReportPrintSnapshot<UserActivityPrintData>();
+  const fetchSequence = useRef(0);
   const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<any>(null);
@@ -18,27 +23,40 @@ export default function UserActivityReportPage() {
   const [filters, setFilters] = useState<any>({ page: 1, pageSize: 20 });
 
   const fetchData = useCallback(async () => {
+    const generation = ++fetchSequence.current;
     setLoading(true); setError('');
     try {
       const res = await api.get<any>('/reports/user-activity', { params: filters });
+      if (generation !== fetchSequence.current) return;
       setData(res);
+      capture(res, filters);
     } catch (err: any) {
+      if (generation !== fetchSequence.current) return;
       setError(err?.message || t('reports.loadFailed'));
-    } finally { setLoading(false); }
-  }, [filters, t]);
+      invalidate();
+    } finally { if (generation === fetchSequence.current) setLoading(false); }
+  }, [filters, t, capture, invalidate]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); return () => { fetchSequence.current++; }; }, [fetchData]);
+
+  const handlePrint = () => printSnapshot(!loading && !error && !!data, async (snapshot, assertScope) => {
+    const result = await collectPrintRows(
+      (page, pageSize) => api.get<UserActivityPrintData>('/reports/user-activity', { params: { ...snapshot.params, page, pageSize } }),
+      assertScope, row => row.id,
+    );
+    return systemUserActivityPrintModel({ ...snapshot, data: { ...result.first as UserActivityPrintData, rows: result.rows } }, t, locale);
+  });
 
   const clearFilters = () => { setFilters({ page: 1, pageSize: 20 }); };
 
   const { exec } = useStableHandlers({
-    back: () => router.back(), refresh: () => fetchData(), print: () => window.print(),
+    back: () => router.back(), refresh: () => fetchData(), print: handlePrint,
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), readOnly: true, enabled: canPrint && !loading && !error },
   ]);
 
   const columns = [
@@ -69,7 +87,7 @@ export default function UserActivityReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton filename="user-activity" headers={['Name', 'Email', 'Status', 'Last Login', 'Created']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="user-activity" headers={['Name', 'Email', 'Status', 'Last Login', 'Created']} rows={data.rows}
                 mapRow={(r) => [r.name, r.email, r.status, r.lastLoginAt ? new Date(r.lastLoginAt).toLocaleString() : '', r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '']} />
             </div>
           )}

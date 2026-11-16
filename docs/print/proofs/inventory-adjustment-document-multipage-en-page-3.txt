@@ -1,0 +1,213 @@
+#
+Product
+Code
+Product Name
+System
+Qty
+Counted
+Qty
+Differenc
+e
+Unit
+Location
+Notes
+2
+7
+ITEM-027
+Raw material 27
+27
+27
+0
+KG
+[L-027] Rack
+027
+—
+2
+8
+ITEM-028
+Packing material 28
+28
+28
+0
+PCS
+[L-028] Rack
+028
+—
+2
+9
+ITEM-029
+Raw material 29
+29
+29
+0
+KG
+[L-029] Rack
+029
+—
+3
+0
+ITEM-030
+Packing material 30
+30
+30
+0
+PCS
+[L-030] Rack
+030
+—
+3
+1
+ITEM-031
+Raw material 31
+31
+31
+0
+KG
+[L-031] Rack
+031
+Line note 31
+3
+2
+ITEM-032
+Packing material 32
+32
+32
+0
+PCS
+[L-032] Rack
+032
+—
+3
+3
+ITEM-033
+Raw material 33
+33
+33
+0
+KG
+[L-033] Rack
+033
+—
+3
+4
+ITEM-034
+Packing material 34
+34
+34
+0
+PCS
+[L-034] Rack
+034
+—
+3
+5
+ITEM-035
+Raw material 35
+35
+35
+0
+KG
+[L-035] Rack
+035
+—
+3
+6
+ITEM-036
+Packing material 36
+36
+36
+0
+PCS
+[L-036] Rack
+036
+Line note 36
+3
+7
+ITEM-037
+Raw material 37
+37
+37
+0
+KG
+[L-037] Rack
+037
+—
+3
+8
+ITEM-038
+Packing material 38
+38
+38
+0
+PCS
+[L-038] Rack
+038
+—
+3
+9
+ITEM-039
+Raw material 39
+39
+39
+0
+KG
+[L-039] Rack
+039
+—
+4
+0
+ITEM-040
+Packing material 40
+40
+40
+0
+PCS
+[L-040] Rack
+040
+—
+4
+1
+ITEM-041
+Raw material 41
+41
+41
+0
+KG
+[L-041] Rack
+041
+Line note 41
+4
+2
+ITEM-042
+Packing material 42
+42
+42
+0
+PCS
+[L-042] Rack
+042
+—
+4
+3
+ITEM-043
+Raw material 43
+43
+43
+0
+KG
+[L-043] Rack
+043
+—
+4
+4
+ITEM-044
+Packing material 44
+44
+44
+0
+PCS
+[L-044] Rack
+044
+—
+ATsoft ERP
+13/11/2026 · 16:45:00

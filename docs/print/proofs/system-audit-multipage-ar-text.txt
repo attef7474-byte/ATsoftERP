@@ -1,0 +1,617 @@
+أتسوفت إلدارة الموارد
+تقرير سجل التدقيق
+بيانات اختبار في الذاكرة؛ لم تُسجل في النظام
+الشركة
+شركة رينجو
+الفرع
+فرع صنعاء
+تاريخ الطباعة12/11/2026وقت الطباعة02:56:57
+طُبع بواسطةAdministrator
+.) صف500 جميع قيود التدقيق المطابقة للشركة والفرع الحاليين مرتبة من األحدث (بحد أقصى
+الفالتر المستخدمة
+بحثTEST
+إجمالي إدخاالت التدقيق
+36
+إجراءات فريدة
+8
+كيانات فريدة
+7
+اإلجراء
+حسب نوع الكيان
+إنشاء بواسطة
+تاريخ اإلنشاء
+الوصف
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-001
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-002
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-003
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-004
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-005
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-006
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:57
+اإلجراء
+حسب نوع الكيان
+إنشاء بواسطة
+تاريخ اإلنشاء
+الوصف
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-007
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-008
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-009
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-010
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-011
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-012
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-013
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-014
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-015
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-016
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-017
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:57
+اإلجراء
+حسب نوع الكيان
+إنشاء بواسطة
+تاريخ اإلنشاء
+الوصف
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-018
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-019
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-020
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-021
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-022
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-023
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-024
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-025
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-026
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-027
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-028
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:57
+اإلجراء
+حسب نوع الكيان
+إنشاء بواسطة
+تاريخ اإلنشاء
+الوصف
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-029
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-030
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-031
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-032
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-033
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-034
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-035
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-036
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-037
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-038
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-039
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:57
+اإلجراء
+حسب نوع الكيان
+إنشاء بواسطة
+تاريخ اإلنشاء
+الوصف
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-040
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-041
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-042
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-043
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-044
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-045
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-046
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-047
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-048
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-049
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-050
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:57
+اإلجراء
+حسب نوع الكيان
+إنشاء بواسطة
+تاريخ اإلنشاء
+الوصف
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-051
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-052
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-053
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-054
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-055
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-056
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-057
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-058
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-059
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-060
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-061
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:57
+اإلجراء
+حسب نوع الكيان
+إنشاء بواسطة
+تاريخ اإلنشاء
+الوصف
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-062
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-063
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+تحديثMaintenance
+Request
+: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-064
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+إنشاءSpare Part: مستخدم مراجعةTEST
+System / النظام
+reviewer
+12/11/2026، 03:00: تفاصيل تدقيق تشغيليةTEST-AUDIT-065
+Long / طويلة لمراجعة االلتفاف والطباعة
+operational audit detail for
+wrapping review
+قيود التدقيق حسب اإلجراء
+اإلجراء
+اإلجمالي
+إكمال4
+إنشاء1
+LINK EXECUTION
+1
+LOGIN
+15
+LOGOUT
+9
+RETURN TO SERVICE
+1
+بدء3
+تحديث2
+حسب نوع الكيان
+حسب نوع الكيان
+اإلجمالي
+Authentication Session
+24
+Cost Center
+1
+Downtime Log
+2
+Maintenance Checklist Execution
+1
+Maintenance Checklist Execution Item
+1
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:57
+حسب نوع الكيان
+اإلجمالي
+Maintenance Request
+2
+Maintenance Task
+5
+مالحظات
+تتضمن هذه الوثيقة تفاصيل تدقيق مسجلة ضمن نطاق الشركة والفرع المصرح. تعامل مع النسخة المطبوعة كمعلومة تشغيلية حساسة. تظهر أسماء المنفذين كما هي
+مسجلة، وتُحذف المعرفات الداخلية ومعرفات المستخدمين.
+أتسوفت إلدارة الموارد12/11/2026 · 02:56:57

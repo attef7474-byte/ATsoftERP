@@ -1,0 +1,3 @@
+# Unified print evidence artifacts are binary; never diff or EOL-convert them.
+docs/print/proofs/*.pdf binary
+docs/print/proofs/*.png binary

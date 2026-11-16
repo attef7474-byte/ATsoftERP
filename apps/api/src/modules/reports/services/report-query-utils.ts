@@ -1,3 +1,8 @@
+import {
+  buildDateRange,
+  DateRangeFilter,
+} from '../../../common/helpers/date-range.util';
+
 export interface ReportQuery {
   dateFrom?: string;
   dateTo?: string;
@@ -43,24 +48,18 @@ export interface ReportQuery {
   userId?: string;
 }
 
-type DateRangeFilter = {
-  gte?: Date;
-  lte?: Date;
-};
+type DateRangeFieldFilter = DateRangeFilter;
 
 export function buildDateFilter<TField extends string = 'createdAt'>(
   dateFrom?: string,
   dateTo?: string,
   field?: TField,
-): Partial<Record<TField, DateRangeFilter>> {
-  if (!dateFrom && !dateTo) return {};
-
-  const range: DateRangeFilter = {};
-  if (dateFrom) range.gte = new Date(dateFrom);
-  if (dateTo) range.lte = new Date(dateTo);
+): Partial<Record<TField, DateRangeFieldFilter>> {
+  const range = buildDateRange(dateFrom, dateTo);
+  if (!range) return {};
 
   const key = (field ?? 'createdAt') as TField;
-  return { [key]: range } as Partial<Record<TField, DateRangeFilter>>;
+  return { [key]: range } as Partial<Record<TField, DateRangeFieldFilter>>;
 }
 
 export function paginate(page = 1, pageSize = 20) {

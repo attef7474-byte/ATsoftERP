@@ -6,7 +6,7 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { MaintenanceWorkOrder } from '../../../../../lib/admin-types';
 import { Button, Card, CardHeader, CardContent, DataTable, LoadingState, EmptyState, ErrorState, Modal, Input, ConfirmDialog, Select, Textarea, StatusBadge } from '../../../../../components/admin/ui';
-import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionAddIcon, ActionDeleteIcon } from '../../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionAddIcon, ActionDeleteIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
 import { F9Lookup, machineAdapter, machineComponentAdapter, maintenanceRequestAdapter, warehouseAdapter, userAdapter, sparePartAdapter, productAdapter } from '../../../../../components/f9';
 import { CmmsStatusBadge } from '../../../../../components/maintenance/CmmsStatusBadge';
 import { CmmsPriorityBadge } from '../../../../../components/maintenance/CmmsPriorityBadge';
@@ -16,6 +16,8 @@ import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../../li
 import { formatDateTime } from '../../../../../lib/i18n/literals';
 import { CanonicalCostSummary } from '../../../../../lib/canonical-cost-types';
 import { canonicalCostEventLabel } from '../../../../../lib/maintenance-labels';
+import { usePrintDocument } from '../../../../../components/print/use-print-document';
+import { maintenanceWorkOrderDocumentModel } from '../../../../../components/print/maintenance-work-order-document-print';
 
 const WORK_ORDER_TYPES = ['CORRECTIVE', 'PREVENTIVE', 'PREDICTIVE', 'OVERHAUL', 'OTHER'];
 const WORK_ORDER_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
@@ -74,6 +76,7 @@ export default function MaintenanceWorkOrderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
+  const { print, printing, scopeKey } = usePrintDocument();
 
   const [data, setData] = useState<MaintenanceWorkOrder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,7 +112,10 @@ export default function MaintenanceWorkOrderDetailPage() {
     [t],
   );
   const costTypeOptions = useMemo(
-    () => COST_ENTRY_TYPES.map((type) => ({ value: type, label: t(`maintenance.costType${type}`) })),
+    () => COST_ENTRY_TYPES.map((type) => ({
+      value: type,
+      label: t(`maintenance.costType${type.charAt(0)}${type.slice(1).toLowerCase()}`),
+    })),
     [t],
   );
 
@@ -142,6 +148,7 @@ export default function MaintenanceWorkOrderDetailPage() {
   const { exec } = useStableHandlers({
     back: () => router.push('/admin/maintenance/work-orders'),
     refresh: () => fetchData(),
+    print: () => handlePrint(),
     edit: () => {
       if (!data) return;
       setHeaderForm({
@@ -174,6 +181,7 @@ export default function MaintenanceWorkOrderDetailPage() {
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), enabled: !!data && !printing },
     { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'maintenance-work-order:update', onClick: () => exec('edit'), enabled: !!data && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' },
     { id: 'plan', labelKey: 'maintenance.planWorkOrder', icon: <ActionEditIcon />, permission: 'maintenance-work-order:update', onClick: () => exec('plan'), enabled: !!(data && data.status === 'DRAFT') },
     { id: 'start', labelKey: 'maintenance.startWorkOrder', icon: <ActionEditIcon />, permission: 'maintenance-work-order:update', onClick: () => exec('start'), enabled: !!(data && data.status === 'PLANNED') },
@@ -224,6 +232,15 @@ export default function MaintenanceWorkOrderDetailPage() {
       setSaving(false);
     }
   };
+
+  const handlePrint = useCallback(() => {
+    if (!id) return;
+    return print(scopeKey, async (assertScope) => {
+      const fresh = await api.get<MaintenanceWorkOrder>(`/maintenance-work-orders/${id}`);
+      assertScope();
+      return maintenanceWorkOrderDocumentModel(fresh, t, locale);
+    });
+  }, [id, locale, print, scopeKey, t]);
 
   const handleStatusChange = async () => {
     setSaving(true);

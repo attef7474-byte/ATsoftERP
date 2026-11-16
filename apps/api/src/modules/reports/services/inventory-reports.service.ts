@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { InventoryReportFilterDto } from '../dto/report-filter.dto';
 import { buildDateFilter, paginate } from './report-query-utils';
+import { assertValidDateRange } from '../../../common/helpers/date-range.util';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
 @Injectable()
@@ -58,6 +59,7 @@ export class InventoryReportsService {
   }
 
   async getInventoryMovementsReport(filters: InventoryReportFilterDto, ctx: ActiveOperationalContext) {
+    assertValidDateRange(filters.dateFrom, filters.dateTo);
     const where: any = { ...this.operationalScope(ctx), ...buildDateFilter(filters.dateFrom, filters.dateTo, 'movementDate') };
     if (filters.warehouseId) where.warehouseId = filters.warehouseId;
     if (filters.productId) where.lines = { some: { productId: filters.productId } };
@@ -68,7 +70,7 @@ export class InventoryReportsService {
     if (filters.search) where.movementNumber = { contains: filters.search };
     const [total, rows, draftCount, postedCount, cancelledCount, totalQtyAgg] = await Promise.all([
       this.prisma.inventoryMovement.count({ where }),
-      this.prisma.inventoryMovement.findMany({ where, ...paginate(filters.page, filters.pageSize), orderBy: { movementDate: 'desc' }, include: { warehouse: { select: { id: true, code: true, name: true } } } }),
+      this.prisma.inventoryMovement.findMany({ where, ...paginate(filters.page, filters.pageSize), orderBy: [{ movementDate: 'desc' }, { id: 'desc' }], include: { warehouse: { select: { id: true, code: true, name: true } } } }),
       this.prisma.inventoryMovement.count({ where: { ...where, status: 'DRAFT' } }), this.prisma.inventoryMovement.count({ where: { ...where, status: 'POSTED' } }), this.prisma.inventoryMovement.count({ where: { ...where, status: 'CANCELLED' } }),
       this.prisma.inventoryMovementLine.aggregate({ where: { movement: where }, _sum: { quantity: true } }),
     ]);

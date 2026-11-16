@@ -97,6 +97,12 @@ export function translateMovementType(value: string, locale: Locale): string {
   return translateFromNamespaces(value, locale, ['status', 'inventoryCounting', 'inventory']) || humanize(value);
 }
 
+export function translateMovementSourceType(value: string, locale: Locale): string {
+  if (!value) return '-';
+  const translations = allTranslations[locale] as Record<string, unknown>;
+  return getNestedValue(translations.inventoryCounting, `movementSourceTypes.${value}`) || humanize(value);
+}
+
 export function translatePermissionKey(key: string, locale: Locale): string {
   if (!key) return '-';
 

@@ -1,0 +1,721 @@
+ATsoft ERP
+Business Partners Report
+In-memory test fixture; not recorded in the application
+Companyشركة رينجوBranchفرع صنعاء
+Print date 12/11/2026
+Print time 02:56:15
+Printed by Administrator
+All matching business partners for the current company and branch (maximum 500 rows).
+Applied filters
+Type Supplier
+Total Partners
+0
+Active Suppliers
+0
+Active Customers
+0
+Blocked Partners
+0
+Code
+Name
+Type
+Email
+Phone
+Status
+TEST-SUP-001
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner0@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-002
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner1@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-003
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner2@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-004
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner3@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-005
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner4@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-006
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner5@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-007
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner6@example.co
+m
++96770000000
+0
+Inactive
+ATsoft ERP
+12/11/2026 · 02:56:15
+Code
+Name
+Type
+Email
+Phone
+Status
+TEST-SUP-008
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner7@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-009
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner8@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-010
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner9@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-011
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner10@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-012
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner11@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-013
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner12@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-014
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner13@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-015
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner14@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-016
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner15@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-017
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner16@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-018
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner17@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-019
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner18@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-020
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner19@example.co
+m
++96770000000
+0
+Active
+ATsoft ERP
+12/11/2026 · 02:56:15
+Code
+Name
+Type
+Email
+Phone
+Status
+TEST-SUP-021
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner20@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-022
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner21@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-023
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner22@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-024
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner23@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-025
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner24@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-026
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner25@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-027
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner26@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-028
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner27@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-029
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner28@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-030
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner29@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-031
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner30@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-032
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner31@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-033
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner32@example.co
+m
++96770000000
+0
+Active
+ATsoft ERP
+12/11/2026 · 02:56:15
+Code
+Name
+Type
+Email
+Phone
+Status
+TEST-SUP-034
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner33@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-035
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner34@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-036
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner35@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-037
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner36@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-038
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner37@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-039
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner38@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-040
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner39@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-041
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner40@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-042
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner41@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-043
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner42@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-044
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner43@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-045
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner44@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-046
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner45@example.co
+m
++96770000000
+0
+Inactive
+ATsoft ERP
+12/11/2026 · 02:56:15
+Code
+Name
+Type
+Email
+Phone
+Status
+TEST-SUP-047
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner46@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-048
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner47@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-049
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner48@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-050
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner49@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-051
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner50@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-052
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner51@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-053
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner52@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-054
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner53@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-055
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner54@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-056
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner55@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-057
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner56@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-058
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner57@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-059
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner58@example.co
+m
++96770000000
+0
+Active
+ATsoft ERP
+12/11/2026 · 02:56:15
+Code
+Name
+Type
+Email
+Phone
+Status
+TEST-SUP-060
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner59@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-061
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner60@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-062
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner61@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-063
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner62@example.co
+m
++96770000000
+0
+Active
+TEST-SUP-064
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Supplier
+partner63@example.co
+m
++96770000000
+0
+Inactive
+TEST-SUP-065
+TEST: مورد قطع غيار ومراجعة تفاصيل
+ / طويلةLong spare parts supplier
+name
+Customer
+partner64@example.co
+m
++96770000000
+0
+Active
+Partners by type
+No data matches the applied filters.
+Notes
+This document contains business contact information from the authorized scope. Handle it as business data; no bank,
+tax or personal identity numbers are included.
+ATsoft ERP
+12/11/2026 · 02:56:15

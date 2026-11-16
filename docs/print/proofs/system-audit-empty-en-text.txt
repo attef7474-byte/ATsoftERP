@@ -1,0 +1,60 @@
+ATsoft ERP
+Audit Trail Report
+In-memory test fixture; not recorded in the application
+Companyشركة رينجوBranchفرع صنعاء
+Print date 12/11/2026
+Print time 02:57:00
+Printed by Administrator
+All matching audit entries for the current company and branch, newest first (maximum 500 rows).
+Total Audit Entries
+36
+Unique Actions
+8
+Unique Entities
+7
+No data matches the applied filters.
+Audit entries by action
+Action
+Total
+Complete
+4
+Create
+1
+LINK EXECUTION
+1
+LOGIN
+15
+LOGOUT
+9
+RETURN TO SERVICE
+1
+Start
+3
+Update
+2
+By Entity Type
+By Entity Type
+Total
+Authentication Session
+24
+Cost Center
+1
+Downtime Log
+2
+Maintenance Checklist Execution
+1
+Maintenance Checklist Execution Item
+1
+ATsoft ERP
+12/11/2026 · 02:57:00
+By Entity Type
+Total
+Maintenance Request
+2
+Maintenance Task
+5
+Notes
+This document contains recorded audit details from the authorized company/branch scope. Handle the printed output
+as sensitive operational information. Actor names are shown as recorded; internal identifiers and user IDs are omitted.
+ATsoft ERP
+12/11/2026 · 02:57:00

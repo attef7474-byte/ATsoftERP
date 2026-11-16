@@ -1,8 +1,22 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import {
+  assertValidDateRange,
+  buildDateRange,
+} from '../../../common/helpers/date-range.util';
 
 type PagingQuery = { page?: number; limit?: number };
+
+/**
+ * Deterministic register ordering. `movementDate` alone is not unique, so
+ * `id` is the stable secondary key that keeps offset pagination free of
+ * duplicates/missing rows when several movements share a timestamp.
+ */
+const LEDGER_ORDER_BY = [
+  { movementDate: 'desc' as const },
+  { id: 'desc' as const },
+];
 
 @Injectable()
 export class InventoryLedgerReconciliationService {
@@ -129,6 +143,7 @@ export class InventoryLedgerReconciliationService {
     ctx: ActiveOperationalContext,
   ) {
     const { page, limit, skip } = this.paging(query);
+    assertValidDateRange(query.dateFrom, query.dateTo);
     const where: any = { ...this.movementScope(ctx) };
     const additionalAnd: any[] = [...where.AND];
 
@@ -169,9 +184,8 @@ export class InventoryLedgerReconciliationService {
     if (Object.keys(lineSome).length > 0) where.lines = { some: lineSome };
 
     if (query.dateFrom || query.dateTo) {
-      where.movementDate = {};
-      if (query.dateFrom) where.movementDate.gte = new Date(query.dateFrom);
-      if (query.dateTo) where.movementDate.lte = new Date(query.dateTo);
+      const dateRange = buildDateRange(query.dateFrom, query.dateTo);
+      if (dateRange) where.movementDate = dateRange;
     }
 
     const [data, total] = await Promise.all([
@@ -179,7 +193,7 @@ export class InventoryLedgerReconciliationService {
         where,
         skip,
         take: limit,
-        orderBy: { movementDate: 'desc' },
+        orderBy: LEDGER_ORDER_BY,
         include: {
           warehouse: { select: { id: true, code: true, name: true } },
           company: { select: { id: true, name: true } },
@@ -238,7 +252,7 @@ export class InventoryLedgerReconciliationService {
         where,
         skip,
         take: limit,
-        orderBy: { movementDate: 'desc' },
+        orderBy: LEDGER_ORDER_BY,
         include: {
           warehouse: { select: { id: true, code: true, name: true } },
           lines: {
@@ -274,7 +288,7 @@ export class InventoryLedgerReconciliationService {
           where,
           skip,
           take: limit,
-          orderBy: { movementDate: 'desc' },
+          orderBy: LEDGER_ORDER_BY,
           include: {
             lines: {
               include: {
@@ -337,7 +351,7 @@ export class InventoryLedgerReconciliationService {
     };
     const movements = await this.prisma.inventoryMovement.findMany({
       where,
-      orderBy: { movementDate: 'desc' },
+      orderBy: LEDGER_ORDER_BY,
       include: {
         warehouse: { select: { id: true, code: true, name: true } },
         lines: {
@@ -365,7 +379,7 @@ export class InventoryLedgerReconciliationService {
     };
     const movements = await this.prisma.inventoryMovement.findMany({
       where,
-      orderBy: { movementDate: 'desc' },
+      orderBy: LEDGER_ORDER_BY,
       include: {
         warehouse: { select: { id: true, code: true, name: true } },
         lines: {

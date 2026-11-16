@@ -24,7 +24,7 @@ import { useToast } from '../../../../../components/admin/toast-provider';
 import { useAuth } from '../../../../../lib/auth-context';
 import { useApiErrorHandler } from '../../../../../components/admin/error-handler';
 import {
-  useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon,
+  useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon,
 } from '../../../../../components/admin/admin-action-bar';
 import {
   Button, Card, CardHeader, CardContent, DataTable, LoadingState, EmptyState,
@@ -41,6 +41,8 @@ import {
   REPAIR_ACTION_TYPES, REPAIR_ACTION_STATUSES, fetchRepairOrder, fetchRepairWorkflow,
   fetchRepairActions, submitWorkflowAction, createRepairAction,
 } from '../repair-order-api';
+import { usePrintDocument } from '../../../../../components/print/use-print-document';
+import { maintenanceRepairOrderDocumentModel } from '../../../../../components/print/maintenance-repair-order-document-print';
 
 type Tab = 'overview' | 'source' | 'history' | 'workflow';
 
@@ -59,6 +61,7 @@ export default function RepairOrderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
+  const { print, printing, scopeKey } = usePrintDocument();
 
   const [order, setOrder] = useState<RepairOrderDetail | null>(null);
   const [workflow, setWorkflow] = useState<RepairWorkflow | null>(null);
@@ -203,15 +206,29 @@ export default function RepairOrderDetailPage() {
     }
   }, [id, noteForm, showToast, t, load, handleApiError]);
 
+  const handlePrint = useCallback(() => {
+    if (!id) return;
+    return print(scopeKey, async (assertScope) => {
+      // Print re-reads the canonical detail endpoint with the same read
+      // permission as the page. It never prints the possibly stale state held in
+      // React and never widens access: a denied read aborts before a document opens.
+      const fresh = await fetchRepairOrder(id);
+      assertScope();
+      return maintenanceRepairOrderDocumentModel(fresh, t, locale);
+    });
+  }, [id, locale, print, scopeKey, t]);
+
   const handlers = useMemo(() => ({
     refresh: () => load(),
     back: () => router.push('/admin/maintenance/repair-orders'),
-  }), [load, router]);
+    print: () => handlePrint(),
+  }), [load, router, handlePrint]);
   const { exec } = useStableHandlers(handlers);
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, permission: 'repair-orders:read', onClick: () => exec('print'), enabled: !!order && !printing },
   ]);
 
   const actionColumns = useMemo(() => ([

@@ -1,0 +1,444 @@
+ATsoft ERP
+User Activity Report
+In-memory test fixture; not recorded in the application
+Companyشركة رينجوBranchفرع صنعاء
+Print date 12/11/2026
+Print time 02:55:50
+Printed by Administrator
+All matching user accounts for the current company and branch (maximum 500 rows).
+Applied filters
+Status Active
+Total Users
+10
+Active Users
+10
+Inactive Users
+0
+Name
+Email
+Status
+Last Login
+Created At
+TEST: / مستخدم مراجعة النظام
+System reviewer 0
+reviewer0@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 1
+reviewer1@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 2
+reviewer2@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 3
+reviewer3@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 4
+reviewer4@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 5
+reviewer5@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 6
+reviewer6@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 7
+reviewer7@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 8
+reviewer8@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 9
+reviewer9@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+ATsoft ERP
+12/11/2026 · 02:55:50
+Name
+Email
+Status
+Last Login
+Created At
+TEST: / مستخدم مراجعة النظام
+System reviewer 10
+reviewer10@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 11
+reviewer11@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 12
+reviewer12@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 13
+reviewer13@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 14
+reviewer14@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 15
+reviewer15@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 16
+reviewer16@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 17
+reviewer17@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 18
+reviewer18@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 19
+reviewer19@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 20
+reviewer20@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 21
+reviewer21@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 22
+reviewer22@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 23
+reviewer23@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 24
+reviewer24@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 25
+reviewer25@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 26
+reviewer26@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 27
+reviewer27@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+ATsoft ERP
+12/11/2026 · 02:55:50
+Name
+Email
+Status
+Last Login
+Created At
+TEST: / مستخدم مراجعة النظام
+System reviewer 28
+reviewer28@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 29
+reviewer29@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 30
+reviewer30@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 31
+reviewer31@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 32
+reviewer32@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 33
+reviewer33@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 34
+reviewer34@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 35
+reviewer35@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 36
+reviewer36@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 37
+reviewer37@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 38
+reviewer38@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 39
+reviewer39@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 40
+reviewer40@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 41
+reviewer41@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 42
+reviewer42@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 43
+reviewer43@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 44
+reviewer44@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 45
+reviewer45@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+ATsoft ERP
+12/11/2026 · 02:55:50
+Name
+Email
+Status
+Last Login
+Created At
+TEST: / مستخدم مراجعة النظام
+System reviewer 46
+reviewer46@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 47
+reviewer47@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 48
+reviewer48@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 49
+reviewer49@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 50
+reviewer50@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 51
+reviewer51@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 52
+reviewer52@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 53
+reviewer53@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 54
+reviewer54@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 55
+reviewer55@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 56
+reviewer56@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 57
+reviewer57@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 58
+reviewer58@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 59
+reviewer59@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 60
+reviewer60@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 61
+reviewer61@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 62
+reviewer62@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+TEST: / مستخدم مراجعة النظام
+System reviewer 63
+reviewer63@example.com
+Active
+12/11/2026, 03:00
+01/01/2026
+ATsoft ERP
+12/11/2026 · 02:55:50
+Name
+Email
+Status
+Last Login
+Created At
+TEST: / مستخدم مراجعة النظام
+System reviewer 64
+reviewer64@example.com
+Inactive
+12/11/2026, 03:00
+01/01/2026
+Notes
+This document contains user account and contact information from the authorized scope. Handle it as personal data.
+No password, token or session data is included.
+ATsoft ERP
+12/11/2026 · 02:55:50

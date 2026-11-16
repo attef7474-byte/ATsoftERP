@@ -222,6 +222,7 @@ export interface OpeningBalance {
   companyId: string;
   branchId: string;
   warehouseId: string;
+  locationId?: string | null;
   status: OpeningBalanceStatus;
   documentDate: string;
   reason?: string | null;
@@ -249,9 +250,17 @@ export interface OpeningBalanceLine {
   id: string;
   openingBalanceId: string;
   productId: string;
+  locationId?: string | null;
   quantity: number;
+  quantityBase?: string | number | null;
+  unitCost?: string | number | null;
+  currencyCode?: string | null;
+  valuationReason?: string | null;
+  movementId?: string | null;
   unit?: string | null;
   notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   product?: { id: string; name: string; code: string; unit: string };
 }
 
@@ -350,4 +359,66 @@ export interface StockTransferLine {
   createdAt: string;
   updatedAt: string;
   product?: { id: string; name: string; code: string; unit: string };
+}
+
+export type InventoryStockAdjustmentStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'POSTED' | 'CANCELLED';
+
+/**
+ * Canonical `InventoryStockAdjustment` business document.
+ *
+ * Mirrors `GET /inventory/stock-adjustments/:id`, which includes company,
+ * branch, warehouse and lines with `product { id, name, code, unit }`. The
+ * detail contract does not include the warehouse-location relation or the
+ * movement relation: `locationId`/`movementId` are internal ids only and are
+ * never printed.
+ */
+export interface InventoryStockAdjustment {
+  id: string;
+  code: string;
+  companyId: string;
+  company?: { id: string; name: string };
+  branchId?: string | null;
+  branch?: { id: string; name: string };
+  warehouseId: string;
+  warehouse?: { id: string; name: string; code: string };
+  locationId?: string | null;
+  status: InventoryStockAdjustmentStatus;
+  documentDate: string;
+  reason: string;
+  notes?: string | null;
+  submittedAt?: string | null;
+  submittedById?: string | null;
+  approvedAt?: string | null;
+  approvedById?: string | null;
+  rejectedAt?: string | null;
+  rejectedById?: string | null;
+  postedAt?: string | null;
+  postedById?: string | null;
+  cancelledAt?: string | null;
+  cancelledById?: string | null;
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lines?: InventoryStockAdjustmentLine[];
+  _count?: { lines: number };
+}
+
+export interface InventoryStockAdjustmentLine {
+  id: string;
+  adjustmentId: string;
+  productId: string;
+  product?: { id: string; name: string; code: string; unit: string };
+  locationId?: string | null;
+  /** Authoritative direction. Quantity on the line is always positive. */
+  adjustmentType: 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT' | string;
+  quantity: number;
+  movementId?: string | null;
+  /** Recorded historical unit cost. Typically populated for ADJUSTMENT_IN only. */
+  unitCost?: string | number | null;
+  currencyCode?: string | null;
+  valuationReason?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }

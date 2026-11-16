@@ -1,0 +1,138 @@
+#كود المنتج
+اسم المنتج
+النوع
+الكمية
+الوحدة
+تكلفة الوحدة
+العملة
+97
+ITEM-097
+Raw material 97تسوية إضافة97
+KG
+5.5
+USD
+98
+ITEM-098
+Packing material 98تسوية خصم98
+PCS
+—
+—
+99
+ITEM-099
+Raw material 99تسوية إضافة99
+KG
+5.5
+USD
+10
+0
+ITEM-100
+Packing material 100تسوية خصم100
+PCS
+—
+—
+10
+1
+ITEM-101
+Raw material 101تسوية إضافة101
+KG
+5.5
+USD
+10
+2
+ITEM-102
+Packing material 102تسوية خصم102
+PCS
+—
+—
+10
+3
+ITEM-103
+Raw material 103تسوية إضافة103
+KG
+5.5
+USD
+10
+4
+ITEM-104
+Packing material 104تسوية خصم104
+PCS
+—
+—
+10
+5
+ITEM-105
+Raw material 105تسوية إضافة105
+KG
+5.5
+USD
+10
+6
+ITEM-106
+Packing material 106تسوية خصم106
+PCS
+—
+—
+10
+7
+ITEM-107
+Raw material 107تسوية إضافة107
+KG
+5.5
+USD
+10
+8
+ITEM-108
+Packing material 108تسوية خصم108
+PCS
+—
+—
+10
+9
+ITEM-109
+Raw material 109تسوية إضافة109
+KG
+5.5
+USD
+11
+0
+ITEM-110
+Packing material 110تسوية خصم110
+PCS
+—
+—
+11
+1
+ITEM-111
+Raw material 111تسوية إضافة111
+KG
+5.5
+USD
+11
+2
+ITEM-112
+Packing material 112تسوية خصم112
+PCS
+—
+—
+11
+3
+ITEM-113
+Raw material 113تسوية إضافة113
+KG
+5.5
+USD
+11
+4
+ITEM-114
+Packing material 114تسوية خصم114
+PCS
+—
+—
+11
+5
+ITEM-115
+Raw material 115تسوية إضافة115
+KG
+5.5
+USD
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00

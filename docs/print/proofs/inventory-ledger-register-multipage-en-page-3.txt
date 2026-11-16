@@ -1,0 +1,153 @@
+Movement
+Number
+Date
+Movement Type
+Warehouse
+Status
+Notes
+TEST-IM-043
+12/11/2026
+Adjustment In
+Main Warehouse
+Posted
+Note 43
+TEST-IM-044
+12/11/2026
+Opening Balance
+Main Warehouse
+Posted
+Note 44
+TEST-IM-045
+12/11/2026
+Adjustment In
+Main Warehouse
+Draft
+Note 45
+TEST-IM-046
+12/11/2026
+Opening Balance
+Main Warehouse
+Posted
+Note 46
+TEST-IM-047
+12/11/2026
+Adjustment In
+Main Warehouse
+Posted
+Note 47
+TEST-IM-048
+12/11/2026
+Opening Balance
+Main Warehouse
+Draft
+Note 48
+TEST-IM-049
+12/11/2026
+Adjustment In
+Main Warehouse
+Posted
+Note 49
+TEST-IM-050
+12/11/2026
+Opening Balance
+Main Warehouse
+Posted
+Note 50
+TEST-IM-051
+12/11/2026
+Adjustment In
+Main Warehouse
+Draft
+Note 51
+TEST-IM-052
+12/11/2026
+Opening Balance
+Main Warehouse
+Posted
+Note 52
+TEST-IM-053
+12/11/2026
+Adjustment In
+Main Warehouse
+Posted
+Note 53
+TEST-IM-054
+12/11/2026
+Opening Balance
+Main Warehouse
+Draft
+Note 54
+TEST-IM-055
+12/11/2026
+Adjustment In
+Main Warehouse
+Posted
+Note 55
+TEST-IM-056
+12/11/2026
+Opening Balance
+Main Warehouse
+Posted
+Note 56
+TEST-IM-057
+12/11/2026
+Adjustment In
+Main Warehouse
+Draft
+Note 57
+TEST-IM-058
+12/11/2026
+Opening Balance
+Main Warehouse
+Posted
+Note 58
+TEST-IM-059
+12/11/2026
+Adjustment In
+Main Warehouse
+Posted
+Note 59
+TEST-IM-060
+12/11/2026
+Opening Balance
+Main Warehouse
+Draft
+Note 60
+TEST-IM-061
+12/11/2026
+Adjustment In
+Main Warehouse
+Posted
+Note 61
+TEST-IM-062
+12/11/2026
+Opening Balance
+Main Warehouse
+Posted
+Note 62
+TEST-IM-063
+12/11/2026
+Adjustment In
+Main Warehouse
+Draft
+Note 63
+TEST-IM-064
+12/11/2026
+Opening Balance
+Main Warehouse
+Posted
+Note 64
+TEST-IM-065
+12/11/2026
+Adjustment In
+Main Warehouse
+Posted
+Note 65
+Notes
+Movement register: one row per document, filtered by movement date. The source supplies headers only, without item
+lines, quantities, units, readable source references or user names. A single document warehouse is shown; a transfer
+direction is not inferred.
+Quantities with different or unavailable units are not summed. This report does not establish available-to-promise,
+reservations or valuation.
+ATsoft ERP
+13/11/2026 · 12:30:00

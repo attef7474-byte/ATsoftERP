@@ -1,0 +1,198 @@
+#
+Product Code
+Product Name
+Type
+Quantity
+Unit
+Unit cost
+Currenc
+y
+10
+ITEM-010
+Packing material 10
+Adjustment
+Out
+10
+PCS
+—
+—
+11
+ITEM-011
+Raw material 11
+Adjustment In
+11
+KG
+5.5
+USD
+12
+ITEM-012
+Packing material 12
+Adjustment
+Out
+12
+PCS
+—
+—
+13
+ITEM-013
+Raw material 13
+Adjustment In
+13
+KG
+5.5
+USD
+14
+ITEM-014
+Packing material 14
+Adjustment
+Out
+14
+PCS
+—
+—
+15
+ITEM-015
+Raw material 15
+Adjustment In
+15
+KG
+5.5
+USD
+16
+ITEM-016
+Packing material 16
+Adjustment
+Out
+16
+PCS
+—
+—
+17
+ITEM-017
+Raw material 17
+Adjustment In
+17
+KG
+5.5
+USD
+18
+ITEM-018
+Packing material 18
+Adjustment
+Out
+18
+PCS
+—
+—
+19
+ITEM-019
+Raw material 19
+Adjustment In
+19
+KG
+5.5
+USD
+20
+ITEM-020
+Packing material 20
+Adjustment
+Out
+20
+PCS
+—
+—
+21
+ITEM-021
+Raw material 21
+Adjustment In
+21
+KG
+5.5
+USD
+22
+ITEM-022
+Packing material 22
+Adjustment
+Out
+22
+PCS
+—
+—
+23
+ITEM-023
+Raw material 23
+Adjustment In
+23
+KG
+5.5
+USD
+24
+ITEM-024
+Packing material 24
+Adjustment
+Out
+24
+PCS
+—
+—
+25
+ITEM-025
+Raw material 25
+Adjustment In
+25
+KG
+5.5
+USD
+26
+ITEM-026
+Packing material 26
+Adjustment
+Out
+26
+PCS
+—
+—
+27
+ITEM-027
+Raw material 27
+Adjustment In
+27
+KG
+5.5
+USD
+28
+ITEM-028
+Packing material 28
+Adjustment
+Out
+28
+PCS
+—
+—
+29
+ITEM-029
+Raw material 29
+Adjustment In
+29
+KG
+5.5
+USD
+30
+ITEM-030
+Packing material 30
+Adjustment
+Out
+30
+PCS
+—
+—
+31
+ITEM-031
+Raw material 31
+Adjustment In
+31
+KG
+5.5
+USD
+ATsoft ERP
+13/11/2026 · 16:45:00

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
@@ -7,9 +7,14 @@ import { useRouter } from 'next/navigation';
 import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../components/reports';
+import { useReportPrintSnapshot } from '../../../../components/print/use-report-print-snapshot';
+import { systemAuditPrintModel, type AuditPrintData } from '../../../../components/print/system-audit-print';
+import { collectPrintRows } from '../../../../lib/print';
 
 export default function AuditTrailReportPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const { capture, invalidate, printSnapshot, canPrint } = useReportPrintSnapshot<AuditPrintData>();
+  const fetchSequence = useRef(0);
   const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<any>(null);
@@ -18,27 +23,40 @@ export default function AuditTrailReportPage() {
   const [filters, setFilters] = useState<any>({ page: 1, pageSize: 20 });
 
   const fetchData = useCallback(async () => {
+    const generation = ++fetchSequence.current;
     setLoading(true); setError('');
     try {
       const res = await api.get<any>('/reports/audit', { params: filters });
+      if (generation !== fetchSequence.current) return;
       setData(res);
+      capture(res, filters);
     } catch (err: any) {
+      if (generation !== fetchSequence.current) return;
       setError(err?.message || t('reports.loadFailed'));
-    } finally { setLoading(false); }
-  }, [filters, t]);
+      invalidate();
+    } finally { if (generation === fetchSequence.current) setLoading(false); }
+  }, [filters, t, capture, invalidate]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); return () => { fetchSequence.current++; }; }, [fetchData]);
+
+  const handlePrint = () => printSnapshot(!loading && !error && !!data, async (snapshot, assertScope) => {
+    const result = await collectPrintRows(
+      (page, pageSize) => api.get<AuditPrintData>('/reports/audit', { params: { ...snapshot.params, page, pageSize } }),
+      assertScope, row => row.id,
+    );
+    return systemAuditPrintModel({ ...snapshot, data: { ...result.first as AuditPrintData, rows: result.rows } }, t, locale);
+  });
 
   const clearFilters = () => { setFilters({ page: 1, pageSize: 20 }); };
 
   const { exec } = useStableHandlers({
-    back: () => router.back(), refresh: () => fetchData(), print: () => window.print(),
+    back: () => router.back(), refresh: () => fetchData(), print: handlePrint,
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), readOnly: true, enabled: canPrint && !loading && !error },
   ]);
 
   const columns = [
@@ -72,7 +90,7 @@ export default function AuditTrailReportPage() {
           )}
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton filename="audit-trail" headers={['Action', 'Entity', 'User', 'Details', 'Date']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="audit-trail" headers={['Action', 'Entity', 'User', 'Details', 'Date']} rows={data.rows}
                 mapRow={(r) => [r.action, r.entity, r.user?.name || '', r.details || '', r.createdAt ? new Date(r.createdAt).toLocaleString() : '']} />
             </div>
           )}

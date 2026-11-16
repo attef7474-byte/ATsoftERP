@@ -1,0 +1,175 @@
+ATsoft ERP
+Inventory Movement
+IM-000230
+Company ATsoft Manufacturing
+Branch Main Plant
+Print date 13/11/2026
+Print time 16:45:00
+Printed by Print Reviewer
+Single inventory movement document for the current company and branch.
+Movement Type Maintenance Issue
+Status Posted
+Movement Date 05/11/2026
+Warehouse [WH-JOB-RAW-001] Raw Materials Store
+Source Type Maintenance Work Order
+Posted At 05/11/2026, 13:15
+Created At 04/11/2026, 10:00
+Updated At 05/11/2026, 13:15
+Line Count
+120
+Lines
+#
+Product
+Code
+Product Name
+Quanti
+ty
+Unit
+Dire
+ction
+Batch /
+Lot
+Unit
+cost
+Total
+Cost
+Curr
+ency
+Notes
+1
+ITEM-001
+Raw material 1
+1
+KG
+In
+LOT-001
+7.75
+7.75
+USD
+Line note 1
+2
+ITEM-002
+Packing material 2
+2
+PCS
+Out
+—
+—
+—
+—
+—
+3
+ITEM-003
+Raw material 3
+3
+KG
+Out
+—
+—
+—
+—
+—
+4
+ITEM-004
+Packing material 4
+4
+PCS
+Out
+—
+7.75
+31
+USD
+—
+5
+ITEM-005
+Raw material 5
+5
+KG
+In
+—
+—
+—
+—
+—
+6
+ITEM-006
+Packing material 6
+6
+PCS
+Out
+—
+—
+—
+—
+Line note 6
+7
+ITEM-007
+Raw material 7
+7
+KG
+Out
+—
+7.75
+54.25
+USD
+—
+8
+ITEM-008
+Packing material 8
+8
+PCS
+Out
+LOT-008
+—
+—
+—
+—
+9
+ITEM-009
+Raw material 9
+9
+KG
+In
+—
+—
+—
+—
+—
+1
+0
+ITEM-010
+Packing material 10
+10
+PCS
+Out
+—
+7.75
+77.5
+USD
+—
+1
+1
+ITEM-011
+Raw material 11
+11
+KG
+Out
+—
+—
+—
+—
+Line note 11
+1
+2
+ITEM-012
+Packing material 12
+12
+PCS
+Out
+—
+—
+—
+—
+—
+ATsoft ERP
+13/11/2026 · 16:45:00

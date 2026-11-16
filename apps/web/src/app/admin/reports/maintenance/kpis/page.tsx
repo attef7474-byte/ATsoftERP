@@ -1,15 +1,19 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useRouter } from 'next/navigation';
 import { Input, Button, Card, CardHeader, CardContent, DataTable, LoadingState, ErrorState, PageHeader } from '../../../../../components/admin/ui';
 import { F9Lookup, productionLineAdapter, machineAdapter, operationTypeAdapter, costCenterAdapter } from '../../../../../components/f9';
-import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon } from '../../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
 import { translateEnum } from '../../../../../lib/i18n/literals';
+import { useReportPrintSnapshot } from '../../../../../components/print/use-report-print-snapshot';
+import { maintenanceKpisPrintModel, type MaintenanceKpisPrintData } from '../../../../../components/print/maintenance-kpis-print';
 
 export default function MaintenanceKpisPage() {
   const { t, locale } = useTranslation();
+  const { capture, invalidate, rememberLookup, printSnapshot, canPrint } = useReportPrintSnapshot<MaintenanceKpisPrintData>();
+  const sequence = useRef(0);
   const router = useRouter();
   const [kpiData, setKpiData] = useState<any>(null);
   const [reliabilityData, setReliabilityData] = useState<any>(null);
@@ -24,6 +28,7 @@ export default function MaintenanceKpisPage() {
   const [costCenterId, setCostCenterId] = useState('');
 
   const fetchData = useCallback(async () => {
+    const generation = ++sequence.current;
     setLoading(true); setError('');
     try {
       const params: any = {};
@@ -39,25 +44,31 @@ export default function MaintenanceKpisPage() {
         api.get<any>('/maintenance/reliability/repeat-failure-rate', { params }),
         api.get<any>('/reports/maintenance/schedule-compliance', { params }),
       ]);
+      if (generation !== sequence.current) return;
       setKpiData(kpi);
       setReliabilityData(reliability);
       setComplianceData(compliance);
+      capture({ kpi, reliability, compliance }, params);
     } catch (err: any) {
+      if (generation !== sequence.current) return;
       setError(err?.message || t('errors.loadFailed'));
-    } finally { setLoading(false); }
-  }, [dateFrom, dateTo, productionLineId, machineId, operationTypeId, costCenterId, t]);
+      invalidate();
+    } finally { if (generation === sequence.current) setLoading(false); }
+  }, [dateFrom, dateTo, productionLineId, machineId, operationTypeId, costCenterId, t, capture, invalidate]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); return () => { sequence.current++; }; }, [fetchData]);
+  const handlePrint = () => printSnapshot(!loading && !error, async snapshot => maintenanceKpisPrintModel(snapshot, t, locale));
 
   const clearFilters = () => { setDateFrom(''); setDateTo(''); setProductionLineId(''); setMachineId(''); setOperationTypeId(''); setCostCenterId(''); };
 
   const { exec } = useStableHandlers({
-    back: () => router.back(), refresh: () => fetchData(),
+    back: () => router.back(), refresh: () => fetchData(), print: handlePrint,
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), readOnly: true, enabled: canPrint && !loading && !error },
   ]);
 
   if (loading) return <LoadingState />;
@@ -80,10 +91,10 @@ export default function MaintenanceKpisPage() {
       <div className="flex flex-wrap gap-4 items-end bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
         <div className="w-44"><Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder={t('reports.dateFrom')} /></div>
         <div className="w-44"><Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder={t('reports.dateTo')} /></div>
-        <div className="w-48"><F9Lookup adapter={productionLineAdapter} value={productionLineId} onChange={setProductionLineId} placeholder={t('maintenance.productionLine')} /></div>
-        <div className="w-48"><F9Lookup adapter={machineAdapter} value={machineId} onChange={setMachineId} placeholder={t('reports.machine')} /></div>
-        <div className="w-48"><F9Lookup adapter={operationTypeAdapter} value={operationTypeId} onChange={setOperationTypeId} placeholder={t('maintenance.operationType')} /></div>
-        <div className="w-48"><F9Lookup adapter={costCenterAdapter} value={costCenterId} onChange={setCostCenterId} placeholder={t('maintenance.costCenter')} /></div>
+        <div className="w-48"><F9Lookup adapter={productionLineAdapter} value={productionLineId} onChange={setProductionLineId} onItemSelect={item => rememberLookup('productionLineId', item)} placeholder={t('maintenance.productionLine')} /></div>
+        <div className="w-48"><F9Lookup adapter={machineAdapter} value={machineId} onChange={setMachineId} onItemSelect={item => rememberLookup('machineId', item)} placeholder={t('reports.machine')} /></div>
+        <div className="w-48"><F9Lookup adapter={operationTypeAdapter} value={operationTypeId} onChange={setOperationTypeId} onItemSelect={item => rememberLookup('operationTypeId', item)} placeholder={t('maintenance.operationType')} /></div>
+        <div className="w-48"><F9Lookup adapter={costCenterAdapter} value={costCenterId} onChange={setCostCenterId} onItemSelect={item => rememberLookup('costCenterId', item)} placeholder={t('maintenance.costCenter')} /></div>
         <Button variant="ghost" onClick={clearFilters}>{t('reports.clearFilters')}</Button>
       </div>
 

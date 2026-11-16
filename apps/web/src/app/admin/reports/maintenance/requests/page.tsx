@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
@@ -8,9 +8,18 @@ import { Input, Select, Button, DataTable, Pagination, LocalizedValue } from '..
 import { F9Lookup, productionLineAdapter, machineAdapter, machineComponentAdapter, operationTypeAdapter, costCenterAdapter, sparePartAdapter, userAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../../components/reports';
+import { usePrintDocument } from '../../../../../components/print/use-print-document';
+import { maintenanceRequestsPrintModel, type LookupPrintLabels, type RequestPrintFilters } from '../../../../../components/print/maintenance-requests-print';
+import { collectPrintRows, PrintPreparationError, type PrintPage } from '../../../../../lib/print';
+import type { MaintenanceRequestPrintRow } from '../../../../../components/print/maintenance-requests-print';
 
 export default function MaintenanceRequestsReportPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const { print, printing, scopeKey } = usePrintDocument();
+  const [lookupLabels, setLookupLabels] = useState<LookupPrintLabels>({});
+  const [applied, setApplied] = useState<{ params: RequestPrintFilters; labels: LookupPrintLabels; scopeKey: string } | null>(null);
+  const fetchSequence = useRef(0);
+  const rememberLookup = (key: string, item: { code?: string; name?: string }) => setLookupLabels(previous => ({ ...previous, [key]: item.name || item.code || '' }));
   const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<any>(null);
@@ -25,6 +34,7 @@ export default function MaintenanceRequestsReportPage() {
   const [sparePartId, setSparePartId] = useState('');
 
   const fetchData = useCallback(async () => {
+    const sequence = ++fetchSequence.current;
     setLoading(true); setError('');
     try {
       const params: any = { ...filters };
@@ -35,26 +45,39 @@ export default function MaintenanceRequestsReportPage() {
       if (costCenterId) params.costCenterId = costCenterId;
       if (sparePartId) params.sparePartId = sparePartId;
       const res = await api.get<any>('/reports/maintenance/requests', { params });
+      if (sequence !== fetchSequence.current) return;
       setData(res);
+      setApplied({ params: { ...params }, labels: { ...lookupLabels }, scopeKey });
     } catch (err: any) {
+      if (sequence !== fetchSequence.current) return;
       setError(err?.message || t('reports.loadFailed'));
-    } finally { setLoading(false); }
-  }, [filters, productionLineId, machineId, machineComponentId, operationTypeId, costCenterId, sparePartId, t]);
+      setApplied(null);
+    } finally { if (sequence === fetchSequence.current) setLoading(false); }
+  }, [filters, productionLineId, machineId, machineComponentId, operationTypeId, costCenterId, sparePartId, lookupLabels, scopeKey, t]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); return () => { fetchSequence.current++; }; }, [fetchData]);
+
+  const handlePrint = () => print(applied?.scopeKey || '', async assertScope => {
+    if (!applied || loading || error || !data) throw new PrintPreparationError('unavailable');
+    const result = await collectPrintRows<MaintenanceRequestPrintRow>(
+      (page, pageSize) => api.get<PrintPage<MaintenanceRequestPrintRow> & { cards: Array<{ label: string; value: number }> }>('/reports/maintenance/requests', { params: { ...applied.params, page, pageSize } }),
+      assertScope, row => row.id,
+    );
+    return maintenanceRequestsPrintModel({ ...result.first, rows: result.rows }, applied.params, applied.labels, t, locale);
+  });
 
   const clearFilters = () => { setFilters({ page: 1, pageSize: 20 }); setProductionLineId(''); setMachineId(''); setMachineComponentId(''); setOperationTypeId(''); setCostCenterId(''); setSparePartId(''); };
 
   const { exec } = useStableHandlers({
     back: () => router.back(),
     refresh: () => fetchData(),
-    print: () => window.print(),
+    print: handlePrint,
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), readOnly: true, enabled: !loading && !error && !!applied && applied.scopeKey === scopeKey && !printing },
   ]);
 
   const columns = [
@@ -75,12 +98,12 @@ export default function MaintenanceRequestsReportPage() {
       onRetry={fetchData}
       filters={
         <div className="flex flex-wrap gap-4 items-end">
-          <div className="w-48"><F9Lookup adapter={productionLineAdapter} value={productionLineId} onChange={setProductionLineId} placeholder={t('maintenance.productionLine')} /></div>
-          <div className="w-48"><F9Lookup adapter={machineAdapter} value={machineId} onChange={setMachineId} placeholder={t('reports.machine')} /></div>
-          <div className="w-48"><F9Lookup adapter={machineComponentAdapter} value={machineComponentId} onChange={setMachineComponentId} placeholder={t('maintenance.machineComponent')} /></div>
-          <div className="w-48"><F9Lookup adapter={operationTypeAdapter} value={operationTypeId} onChange={setOperationTypeId} placeholder={t('maintenance.operationType')} /></div>
-          <div className="w-48"><F9Lookup adapter={costCenterAdapter} value={costCenterId} onChange={setCostCenterId} placeholder={t('maintenance.costCenter')} /></div>
-          <div className="w-48"><F9Lookup adapter={sparePartAdapter} value={sparePartId} onChange={setSparePartId} placeholder={t('maintenance.sparePartLabel')} /></div>
+          <div className="w-48"><F9Lookup adapter={productionLineAdapter} value={productionLineId} onChange={setProductionLineId} onItemSelect={item => rememberLookup('productionLineId', item)} placeholder={t('maintenance.productionLine')} /></div>
+          <div className="w-48"><F9Lookup adapter={machineAdapter} value={machineId} onChange={setMachineId} onItemSelect={item => rememberLookup('machineId', item)} placeholder={t('reports.machine')} /></div>
+          <div className="w-48"><F9Lookup adapter={machineComponentAdapter} value={machineComponentId} onChange={setMachineComponentId} onItemSelect={item => rememberLookup('machineComponentId', item)} placeholder={t('maintenance.machineComponent')} /></div>
+          <div className="w-48"><F9Lookup adapter={operationTypeAdapter} value={operationTypeId} onChange={setOperationTypeId} onItemSelect={item => rememberLookup('operationTypeId', item)} placeholder={t('maintenance.operationType')} /></div>
+          <div className="w-48"><F9Lookup adapter={costCenterAdapter} value={costCenterId} onChange={setCostCenterId} onItemSelect={item => rememberLookup('costCenterId', item)} placeholder={t('maintenance.costCenter')} /></div>
+          <div className="w-48"><F9Lookup adapter={sparePartAdapter} value={sparePartId} onChange={setSparePartId} onItemSelect={item => rememberLookup('sparePartId', item)} placeholder={t('maintenance.sparePartLabel')} /></div>
           <div className="w-40">
             <Select value={filters.requestStatus || ''} onChange={e => setFilters((f: any) => ({ ...f, requestStatus: e.target.value || undefined, page: 1 }))} placeholder={t('reports.status')} options={[
               { value: 'OPEN', label: t('reports.open') },
@@ -120,6 +143,8 @@ export default function MaintenanceRequestsReportPage() {
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
               <ReportExportButton
+                onPrint={handlePrint}
+                printDisabled={loading || !!error || !applied || applied.scopeKey !== scopeKey || printing}
                 filename="maintenance-requests"
                 headers={['Request', 'Title', 'Machine', 'Type', 'Priority', 'Status', 'Date']}
                 rows={data.rows}

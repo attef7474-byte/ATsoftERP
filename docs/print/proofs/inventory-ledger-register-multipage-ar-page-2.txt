@@ -1,0 +1,63 @@
+رقم الحركة
+التاريخ
+نوع الحركة
+المستودع
+الحالة
+مالحظات
+TEST-IM-016
+12/11/2026رصيد افتتاحيMain Warehouseتم الترحيلNote 16
+TEST-IM-017
+12/11/2026تسوية إضافةMain Warehouseتم الترحيلNote 17
+TEST-IM-018
+12/11/2026رصيد افتتاحيMain WarehouseمسودةNote 18
+TEST-IM-019
+12/11/2026تسوية إضافةMain Warehouseتم الترحيلNote 19
+TEST-IM-020
+12/11/2026رصيد افتتاحيMain Warehouseتم الترحيلNote 20
+TEST-IM-021
+12/11/2026تسوية إضافةMain WarehouseمسودةNote 21
+TEST-IM-022
+12/11/2026رصيد افتتاحيMain Warehouseتم الترحيلNote 22
+TEST-IM-023
+12/11/2026تسوية إضافةMain Warehouseتم الترحيلNote 23
+TEST-IM-024
+12/11/2026رصيد افتتاحيMain WarehouseمسودةNote 24
+TEST-IM-025
+12/11/2026تسوية إضافةMain Warehouseتم الترحيلNote 25
+TEST-IM-026
+12/11/2026رصيد افتتاحيMain Warehouseتم الترحيلNote 26
+TEST-IM-027
+12/11/2026تسوية إضافةMain WarehouseمسودةNote 27
+TEST-IM-028
+12/11/2026رصيد افتتاحيMain Warehouseتم الترحيلNote 28
+TEST-IM-029
+12/11/2026تسوية إضافةMain Warehouseتم الترحيلNote 29
+TEST-IM-030
+12/11/2026رصيد افتتاحيMain WarehouseمسودةNote 30
+TEST-IM-031
+12/11/2026تسوية إضافةMain Warehouseتم الترحيلNote 31
+TEST-IM-032
+12/11/2026رصيد افتتاحيMain Warehouseتم الترحيلNote 32
+TEST-IM-033
+12/11/2026تسوية إضافةMain WarehouseمسودةNote 33
+TEST-IM-034
+12/11/2026رصيد افتتاحيMain Warehouseتم الترحيلNote 34
+TEST-IM-035
+12/11/2026تسوية إضافةMain Warehouseتم الترحيلNote 35
+TEST-IM-036
+12/11/2026رصيد افتتاحيMain WarehouseمسودةNote 36
+TEST-IM-037
+12/11/2026تسوية إضافةMain Warehouseتم الترحيلNote 37
+TEST-IM-038
+12/11/2026رصيد افتتاحيMain Warehouseتم الترحيلNote 38
+TEST-IM-039
+12/11/2026تسوية إضافةMain WarehouseمسودةNote 39
+TEST-IM-040
+12/11/2026رصيد افتتاحيMain Warehouseتم الترحيلNote 40
+TEST-IM-041
+12/11/2026تسوية إضافةMain Warehouseتم الترحيلNote 41
+TEST-IM-042
+12/11/2026رصيد افتتاحيMain WarehouseمسودةNote 42
+TEST-IM-043
+12/11/2026تسوية إضافةMain Warehouseتم الترحيلNote 43
+أتسوفت إلدارة الموارد13/11/2026 · 12:30:00

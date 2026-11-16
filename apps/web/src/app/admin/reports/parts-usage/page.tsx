@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
@@ -9,8 +9,14 @@ import { F9Lookup, machineAdapter, productAdapter } from '../../../../components
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
 import { ReportPageShell, ReportSummaryCards, ReportExportButton } from '../../../../components/reports';
 
+import { useReportPrintSnapshot } from '../../../../components/print/use-report-print-snapshot';
+import { maintenancePartsUsagePrintModel, type PartsUsagePrintData } from '../../../../components/print/maintenance-parts-usage-print';
+import { collectPrintRows } from '../../../../lib/print';
+
 export default function PartsUsageReportPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const { capture, invalidate, rememberLookup, printSnapshot, canPrint } = useReportPrintSnapshot<PartsUsagePrintData>();
+  const fetchSequence = useRef(0);
   const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<any>(null);
@@ -21,30 +27,41 @@ export default function PartsUsageReportPage() {
   const [productId, setProductId] = useState('');
 
   const fetchData = useCallback(async () => {
+    const sequence = ++fetchSequence.current;
     setLoading(true); setError('');
     try {
       const params: any = { ...filters };
       if (machineId) params.machineId = machineId;
       if (productId) params.productId = productId;
       const res = await api.get<any>('/reports/parts-usage', { params });
-      setData(res);
+      if (sequence !== fetchSequence.current) return;
+      setData(res); capture(res, params);
     } catch (err: any) {
-      setError(err?.message || t('reports.loadFailed'));
-    } finally { setLoading(false); }
-  }, [filters, machineId, productId, t]);
+      if (sequence !== fetchSequence.current) return;
+      invalidate(); setError(err?.message || t('reports.loadFailed'));
+    } finally { if (sequence === fetchSequence.current) setLoading(false); }
+  }, [filters, machineId, productId, t, capture, invalidate]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); return () => { fetchSequence.current++; }; }, [fetchData]);
+
+  const handlePrint = () => printSnapshot(!loading && !error && !!data, async (snapshot, assertScope) => {
+    const result = await collectPrintRows(
+      (page, pageSize) => api.get<PartsUsagePrintData>('/reports/parts-usage', { params: { ...snapshot.params, page, pageSize } }),
+      assertScope, row => row.id,
+    );
+    return maintenancePartsUsagePrintModel({ ...snapshot, data: { ...result.first as PartsUsagePrintData, rows: result.rows } }, t, locale);
+  });
 
   const clearFilters = () => { setFilters({ page: 1, pageSize: 20 }); setMachineId(''); setProductId(''); };
 
   const { exec } = useStableHandlers({
-    back: () => router.back(), refresh: () => fetchData(), print: () => window.print(),
+    back: () => router.back(), refresh: () => fetchData(), print: handlePrint,
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print') },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, onClick: () => exec('print'), readOnly: true, enabled: canPrint && !loading && !error },
   ]);
 
   const columns = [
@@ -59,8 +76,8 @@ export default function PartsUsageReportPage() {
     <ReportPageShell title={t('reports.partsUsageReport')} loading={loading} error={error} onRetry={fetchData}
       filters={
         <div className="flex flex-wrap gap-4 items-end">
-          <div className="w-48"><F9Lookup adapter={machineAdapter} value={machineId} onChange={setMachineId} placeholder={t('reports.machine')} /></div>
-          <div className="w-48"><F9Lookup adapter={productAdapter} value={productId} onChange={setProductId} placeholder={t('reports.product')} /></div>
+          <div className="w-48"><F9Lookup adapter={machineAdapter} value={machineId} onChange={setMachineId} onItemSelect={item => rememberLookup('machineId', item)} placeholder={t('reports.machine')} /></div>
+          <div className="w-48"><F9Lookup adapter={productAdapter} value={productId} onChange={setProductId} onItemSelect={item => rememberLookup('productId', item)} placeholder={t('reports.product')} /></div>
           <div className="w-36"><Input type="date" value={filters.dateFrom || ''} onChange={e => setFilters((f: any) => ({ ...f, dateFrom: e.target.value || undefined, page: 1 }))} placeholder={t('reports.dateFrom')} /></div>
           <div className="w-36"><Input type="date" value={filters.dateTo || ''} onChange={e => setFilters((f: any) => ({ ...f, dateTo: e.target.value || undefined, page: 1 }))} placeholder={t('reports.dateTo')} /></div>
           <Button variant="ghost" onClick={clearFilters}>{t('reports.clearFilters')}</Button>
@@ -72,7 +89,7 @@ export default function PartsUsageReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton filename="parts-usage" headers={['Request', 'Product', 'Qty', 'Cost', 'Date']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="parts-usage" headers={['Request', 'Product', 'Qty', 'Cost', 'Date']} rows={data.rows}
                 mapRow={(r) => [r.request?.requestNumber || '', r.product?.name || '', String(r.quantity ?? 0), String(r.totalCost ?? 0), r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '']} />
             </div>
           )}

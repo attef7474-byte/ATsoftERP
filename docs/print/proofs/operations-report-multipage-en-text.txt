@@ -1,0 +1,853 @@
+ATsoft ERP
+Cross-domain Operations Report
+In-memory test fixture; not recorded in the application
+Companyشركة رينجوBranchفرع صنعاء
+Date From 13/11/2025
+Date To 12/11/2026
+Print date 12/11/2026
+Print time 03:41:30
+Printed by Administrator
+All matching production runs for the current company and branch in the applied window (maximum 500 rows), with authoritative OEE, reliability and operational-cost sections.
+Report contract PHASE_2_OPERATIONS_V1
+OEE formula PHASE_1_9_OEE_V1
+OEE
+76.8%
+Availability
+83.33%
+Performance
+96%
+Quality
+96%
+Production runs
+65
+MTBF
+120 h
+Total downtime
+12 h · 8 Events
+Operational cost
+US$98,765.43 · 42
+Transactions
+Production run drilldown
+Run
+Status
+Production
+line
+Machine
+Product
+Started
+Planned
+min.
+Operating
+min.
+Output
+Good
+output
+OEE
+RUN-001
+Completed
+LINE-1
+MC-01
+PROD-1
+01/01/2026, 11:00
+60
+50
+250
+240
+80%
+RUN-002
+Running
+LINE-1
+MC-01
+PROD-1
+01/01/2026, 12:00
+60
+50
+250
+240
+80%
+RUN-003
+Paused
+LINE-1
+MC-01
+PROD-1
+01/01/2026, 13:00
+60
+50
+250
+240
+80%
+RUN-004
+Completed
+LINE-1
+MC-01
+PROD-1
+01/01/2026, 14:00
+60
+50
+250
+240
+80%
+ATsoft ERP
+12/11/2026 · 03:41:30
+Run
+Status
+Production
+line
+Machine
+Product
+Started
+Planned
+min.
+Operating
+min.
+Output
+Good
+output
+OEE
+RUN-005
+Running
+LINE-1
+MC-01
+PROD-1
+01/01/2026, 15:00
+60
+50
+250
+240
+80%
+RUN-006
+Paused
+LINE-1
+MC-01
+PROD-1
+01/01/2026, 16:00
+60
+50
+250
+240
+80%
+RUN-007
+Completed
+LINE-1
+MC-01
+PROD-1
+01/01/2026, 17:00
+60
+50
+250
+240
+80%
+RUN-008
+Running
+LINE-1
+MC-01
+PROD-1
+01/01/2026, 18:00
+60
+50
+250
+240
+80%
+RUN-009
+Paused
+LINE-1
+MC-01
+PROD-1
+01/01/2026, 19:00
+60
+50
+250
+240
+80%
+RUN-010
+Completed
+LINE-1
+MC-01
+PROD-1
+01/01/2026, 20:00
+60
+50
+250
+240
+80%
+RUN-011
+Running
+LINE-1
+MC-01
+PROD-1
+01/01/2026, 21:00
+60
+50
+250
+240
+80%
+RUN-012
+Paused
+LINE-1
+MC-01
+PROD-1
+01/01/2026, 22:00
+60
+50
+250
+240
+80%
+RUN-013
+Completed
+LINE-1
+MC-01
+PROD-1
+01/01/2026, 23:00
+60
+50
+250
+240
+80%
+RUN-014
+Running
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 00:00
+60
+50
+250
+240
+80%
+RUN-015
+Paused
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 01:00
+60
+50
+250
+240
+80%
+RUN-016
+Completed
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 02:00
+60
+50
+250
+240
+80%
+RUN-017
+Running
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 03:00
+60
+50
+250
+240
+80%
+RUN-018
+Paused
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 04:00
+60
+50
+250
+240
+80%
+RUN-019
+Completed
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 05:00
+60
+50
+250
+240
+80%
+RUN-020
+Running
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 06:00
+60
+50
+250
+240
+80%
+RUN-021
+Paused
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 07:00
+60
+50
+250
+240
+80%
+RUN-022
+Completed
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 08:00
+60
+50
+250
+240
+80%
+ATsoft ERP
+12/11/2026 · 03:41:30
+Run
+Status
+Production
+line
+Machine
+Product
+Started
+Planned
+min.
+Operating
+min.
+Output
+Good
+output
+OEE
+RUN-023
+Running
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 09:00
+60
+50
+250
+240
+80%
+RUN-024
+Paused
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 10:00
+60
+50
+250
+240
+80%
+RUN-025
+Completed
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 11:00
+60
+50
+250
+240
+80%
+RUN-026
+Running
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 12:00
+60
+50
+250
+240
+80%
+RUN-027
+Paused
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 13:00
+60
+50
+250
+240
+80%
+RUN-028
+Completed
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 14:00
+60
+50
+250
+240
+80%
+RUN-029
+Running
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 15:00
+60
+50
+250
+240
+80%
+RUN-030
+Paused
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 16:00
+60
+50
+250
+240
+80%
+RUN-031
+Completed
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 17:00
+60
+50
+250
+240
+80%
+RUN-032
+Running
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 18:00
+60
+50
+250
+240
+80%
+RUN-033
+Paused
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 19:00
+60
+50
+250
+240
+80%
+RUN-034
+Completed
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 20:00
+60
+50
+250
+240
+80%
+RUN-035
+Running
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 21:00
+60
+50
+250
+240
+80%
+RUN-036
+Paused
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 22:00
+60
+50
+250
+240
+80%
+RUN-037
+Completed
+LINE-1
+MC-01
+PROD-1
+02/01/2026, 23:00
+60
+50
+250
+240
+80%
+RUN-038
+Running
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 00:00
+60
+50
+250
+240
+80%
+RUN-039
+Paused
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 01:00
+60
+50
+250
+240
+80%
+RUN-040
+Completed
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 02:00
+60
+50
+250
+240
+80%
+ATsoft ERP
+12/11/2026 · 03:41:30
+Run
+Status
+Production
+line
+Machine
+Product
+Started
+Planned
+min.
+Operating
+min.
+Output
+Good
+output
+OEE
+RUN-041
+Running
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 03:00
+60
+50
+250
+240
+80%
+RUN-042
+Paused
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 04:00
+60
+50
+250
+240
+80%
+RUN-043
+Completed
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 05:00
+60
+50
+250
+240
+80%
+RUN-044
+Running
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 06:00
+60
+50
+250
+240
+80%
+RUN-045
+Paused
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 07:00
+60
+50
+250
+240
+80%
+RUN-046
+Completed
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 08:00
+60
+50
+250
+240
+80%
+RUN-047
+Running
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 09:00
+60
+50
+250
+240
+80%
+RUN-048
+Paused
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 10:00
+60
+50
+250
+240
+80%
+RUN-049
+Completed
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 11:00
+60
+50
+250
+240
+80%
+RUN-050
+Running
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 12:00
+60
+50
+250
+240
+80%
+RUN-051
+Paused
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 13:00
+60
+50
+250
+240
+80%
+RUN-052
+Completed
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 14:00
+60
+50
+250
+240
+80%
+RUN-053
+Running
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 15:00
+60
+50
+250
+240
+80%
+RUN-054
+Paused
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 16:00
+60
+50
+250
+240
+80%
+RUN-055
+Completed
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 17:00
+60
+50
+250
+240
+80%
+RUN-056
+Running
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 18:00
+60
+50
+250
+240
+80%
+RUN-057
+Paused
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 19:00
+60
+50
+250
+240
+80%
+RUN-058
+Completed
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 20:00
+60
+50
+250
+240
+80%
+ATsoft ERP
+12/11/2026 · 03:41:30
+Run
+Status
+Production
+line
+Machine
+Product
+Started
+Planned
+min.
+Operating
+min.
+Output
+Good
+output
+OEE
+RUN-059
+Running
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 21:00
+60
+50
+250
+240
+80%
+RUN-060
+Paused
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 22:00
+60
+50
+250
+240
+80%
+RUN-061
+Completed
+LINE-1
+MC-01
+PROD-1
+03/01/2026, 23:00
+60
+50
+250
+240
+80%
+RUN-062
+Running
+LINE-1
+MC-01
+PROD-1
+04/01/2026, 00:00
+60
+50
+250
+240
+80%
+RUN-063
+Paused
+LINE-1
+MC-01
+PROD-1
+04/01/2026, 01:00
+60
+50
+250
+240
+80%
+RUN-064
+Completed
+LINE-1
+MC-01
+PROD-1
+04/01/2026, 02:00
+60
+50
+250
+240
+80%
+RUN-065
+Running
+LINE-1
+MC-01
+PROD-1
+04/01/2026, 03:00
+60
+50
+250
+240
+80%
+ATsoft ERP
+12/11/2026 · 03:41:30
+Cost by event type
+Event type
+Amount
+Transactions
+Downtime
+US$1,200.00
+3
+Labor
+US$97,565.43
+39
+Maintenance downtime by machine
+Machine
+Total downtime
+Events
+MC-01
+7.5 h
+5
+Notes
+Maintenance downtime, production runs and operational-cost transactions are separate authoritative fact sets. Counts and amounts are not added across those sets. Values
+are live tenant-scoped reads with no shared cache; factor percentages are shown as recorded.
+Maintenance events, production runs, and cost transactions stay in separate authoritative sections and are never multiplied through a cross-fact join.
+ATsoft ERP
+12/11/2026 · 03:41:30

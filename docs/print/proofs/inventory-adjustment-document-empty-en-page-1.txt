@@ -1,0 +1,29 @@
+ATsoft ERP
+Inventory Adjustment
+ADJ-000146
+Company ATsoft Manufacturing
+Branch Main Plant
+Print date 13/11/2026
+Print time 16:45:00
+Printed by Print Reviewer
+Single inventory adjustment document for the current company and branch.
+Status Draft
+Adjustment Date 13/11/2026
+Warehouse [WH-JOB-RAW-001] Raw Materials Store
+Created At 13/11/2026, 10:00
+Updated At 13/11/2026, 10:00
+Line Count
+0
+Adjustment Lines
+No data matches the applied filters.
+Notes
+Quantities are the recorded adjustment values in the source product unit. System quantity is the stored count-time
+snapshot captured on the adjustment line, never the current inventory balance. Counted quantity and difference are the
+recorded adjustment values; difference keeps the stored sign (counted quantity minus system quantity) and is not
+recalculated from current stock. No after quantity is stored and none is derived. Legacy adjustment posting creates no
+inventory movement, so no movement reference is printed. The adjustment has no type/method field and none is
+invented. Quantities with different or missing units are never summed and no document quantity total, cost, value or
+valuation is computed. Readable user names, lot/batch/serial data and cost are not supplied by the adjustment detail
+contract, so they are omitted rather than replaced with identifiers. This document is not a ledger reconciliation.
+ATsoft ERP
+13/11/2026 · 16:45:00

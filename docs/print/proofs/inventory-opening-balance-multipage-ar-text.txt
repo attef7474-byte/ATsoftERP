@@ -1,0 +1,1056 @@
+أتسوفت إلدارة الموارد
+رصيد افتتاحي
+OB-000035
+الشركة
+شركة أتسوفت للتصنيع
+الفرع
+المصنع الرئيسي
+تاريخ الطباعة13/11/2026وقت الطباعة16:45:00
+طُبع بواسطة
+مدقق الطباعة
+.مستند رصيد افتتاحي واحد للمخزون للشركة والفرع الحاليين
+الحالة
+تم الترحيل
+تاريخ المستند01/11/2026
+المستودعRaw Materials Store ]WH-RAW-001[السبب-Authorized stock initialization for the new raw
+.material store
+تاريخ الترحيل12:30 ،02/11/2026تاريخ اإلنشاء10:00 ،31/10/2026
+آخر تحديث12:30 ،02/11/2026
+عدد البنود
+120
+البنود
+#كود المنتج
+اسم المنتج
+الكمية
+الوحدة
+تكلفة الوحدة
+العملة
+مالحظات
+1
+ITEM-001
+Raw material 1
+1
+KG
+7.75
+USD
+Batch note 1
+2
+ITEM-002
+Packing material 2
+2
+PCS
+—
+—
+—
+3
+ITEM-003
+Raw material 3
+3
+KG
+—
+—
+—
+4
+ITEM-004
+Packing material 4
+4
+PCS
+7.75
+USD
+—
+5
+ITEM-005
+Raw material 5
+5
+KG
+—
+—
+—
+6
+ITEM-006
+Packing material 6
+6
+PCS
+—
+—
+Batch note 6
+7
+ITEM-007
+Raw material 7
+7
+KG
+7.75
+USD
+—
+8
+ITEM-008
+Packing material 8
+8
+PCS
+—
+—
+—
+9
+ITEM-009
+Raw material 9
+9
+KG
+—
+—
+—
+10
+ITEM-010
+Packing material 10
+10
+PCS
+7.75
+USD
+—
+11
+ITEM-011
+Raw material 11
+11
+KG
+—
+—
+Batch note 11
+12
+ITEM-012
+Packing material 12
+12
+PCS
+—
+—
+—
+13
+ITEM-013
+Raw material 13
+13
+KG
+7.75
+USD
+—
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00
+#كود المنتج
+اسم المنتج
+الكمية
+الوحدة
+تكلفة الوحدة
+العملة
+مالحظات
+14
+ITEM-014
+Packing material 14
+14
+PCS
+—
+—
+—
+15
+ITEM-015
+Raw material 15
+15
+KG
+—
+—
+—
+16
+ITEM-016
+Packing material 16
+16
+PCS
+7.75
+USD
+Batch note 16
+17
+ITEM-017
+Raw material 17
+17
+KG
+—
+—
+—
+18
+ITEM-018
+Packing material 18
+18
+PCS
+—
+—
+—
+19
+ITEM-019
+Raw material 19
+19
+KG
+7.75
+USD
+—
+20
+ITEM-020
+Packing material 20
+20
+PCS
+—
+—
+—
+21
+ITEM-021
+Raw material 21
+21
+KG
+—
+—
+Batch note 21
+22
+ITEM-022
+Packing material 22
+22
+PCS
+7.75
+USD
+—
+23
+ITEM-023
+Raw material 23
+23
+KG
+—
+—
+—
+24
+ITEM-024
+Packing material 24
+24
+PCS
+—
+—
+—
+25
+ITEM-025
+Raw material 25
+25
+KG
+7.75
+USD
+—
+26
+ITEM-026
+Packing material 26
+26
+PCS
+—
+—
+Batch note 26
+27
+ITEM-027
+Raw material 27
+27
+KG
+—
+—
+—
+28
+ITEM-028
+Packing material 28
+28
+PCS
+7.75
+USD
+—
+29
+ITEM-029
+Raw material 29
+29
+KG
+—
+—
+—
+30
+ITEM-030
+Packing material 30
+30
+PCS
+—
+—
+—
+31
+ITEM-031
+Raw material 31
+31
+KG
+7.75
+USD
+Batch note 31
+32
+ITEM-032
+Packing material 32
+32
+PCS
+—
+—
+—
+33
+ITEM-033
+Raw material 33
+33
+KG
+—
+—
+—
+34
+ITEM-034
+Packing material 34
+34
+PCS
+7.75
+USD
+—
+35
+ITEM-035
+Raw material 35
+35
+KG
+—
+—
+—
+36
+ITEM-036
+Packing material 36
+36
+PCS
+—
+—
+Batch note 36
+37
+ITEM-037
+Raw material 37
+37
+KG
+7.75
+USD
+—
+38
+ITEM-038
+Packing material 38
+38
+PCS
+—
+—
+—
+39
+ITEM-039
+Raw material 39
+39
+KG
+—
+—
+—
+40
+ITEM-040
+Packing material 40
+40
+PCS
+7.75
+USD
+—
+41
+ITEM-041
+Raw material 41
+41
+KG
+—
+—
+Batch note 41
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00
+#كود المنتج
+اسم المنتج
+الكمية
+الوحدة
+تكلفة الوحدة
+العملة
+مالحظات
+42
+ITEM-042
+Packing material 42
+42
+PCS
+—
+—
+—
+43
+ITEM-043
+Raw material 43
+43
+KG
+7.75
+USD
+—
+44
+ITEM-044
+Packing material 44
+44
+PCS
+—
+—
+—
+45
+ITEM-045
+Raw material 45
+45
+KG
+—
+—
+—
+46
+ITEM-046
+Packing material 46
+46
+PCS
+7.75
+USD
+Batch note 46
+47
+ITEM-047
+Raw material 47
+47
+KG
+—
+—
+—
+48
+ITEM-048
+Packing material 48
+48
+PCS
+—
+—
+—
+49
+ITEM-049
+Raw material 49
+49
+KG
+7.75
+USD
+—
+50
+ITEM-050
+Packing material 50
+50
+PCS
+—
+—
+—
+51
+ITEM-051
+Raw material 51
+51
+KG
+—
+—
+Batch note 51
+52
+ITEM-052
+Packing material 52
+52
+PCS
+7.75
+USD
+—
+53
+ITEM-053
+Raw material 53
+53
+KG
+—
+—
+—
+54
+ITEM-054
+Packing material 54
+54
+PCS
+—
+—
+—
+55
+ITEM-055
+Raw material 55
+55
+KG
+7.75
+USD
+—
+56
+ITEM-056
+Packing material 56
+56
+PCS
+—
+—
+Batch note 56
+57
+ITEM-057
+Raw material 57
+57
+KG
+—
+—
+—
+58
+ITEM-058
+Packing material 58
+58
+PCS
+7.75
+USD
+—
+59
+ITEM-059
+Raw material 59
+59
+KG
+—
+—
+—
+60
+ITEM-060
+Packing material 60
+60
+PCS
+—
+—
+—
+61
+ITEM-061
+Raw material 61
+61
+KG
+7.75
+USD
+Batch note 61
+62
+ITEM-062
+Packing material 62
+62
+PCS
+—
+—
+—
+63
+ITEM-063
+Raw material 63
+63
+KG
+—
+—
+—
+64
+ITEM-064
+Packing material 64
+64
+PCS
+7.75
+USD
+—
+65
+ITEM-065
+Raw material 65
+65
+KG
+—
+—
+—
+66
+ITEM-066
+Packing material 66
+66
+PCS
+—
+—
+Batch note 66
+67
+ITEM-067
+Raw material 67
+67
+KG
+7.75
+USD
+—
+68
+ITEM-068
+Packing material 68
+68
+PCS
+—
+—
+—
+69
+ITEM-069
+Raw material 69
+69
+KG
+—
+—
+—
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00
+#كود المنتج
+اسم المنتج
+الكمية
+الوحدة
+تكلفة الوحدة
+العملة
+مالحظات
+70
+ITEM-070
+Packing material 70
+70
+PCS
+7.75
+USD
+—
+71
+ITEM-071
+Raw material 71
+71
+KG
+—
+—
+Batch note 71
+72
+ITEM-072
+Packing material 72
+72
+PCS
+—
+—
+—
+73
+ITEM-073
+Raw material 73
+73
+KG
+7.75
+USD
+—
+74
+ITEM-074
+Packing material 74
+74
+PCS
+—
+—
+—
+75
+ITEM-075
+Raw material 75
+75
+KG
+—
+—
+—
+76
+ITEM-076
+Packing material 76
+76
+PCS
+7.75
+USD
+Batch note 76
+77
+ITEM-077
+Raw material 77
+77
+KG
+—
+—
+—
+78
+ITEM-078
+Packing material 78
+78
+PCS
+—
+—
+—
+79
+ITEM-079
+Raw material 79
+79
+KG
+7.75
+USD
+—
+80
+ITEM-080
+Packing material 80
+80
+PCS
+—
+—
+—
+81
+ITEM-081
+Raw material 81
+81
+KG
+—
+—
+Batch note 81
+82
+ITEM-082
+Packing material 82
+82
+PCS
+7.75
+USD
+—
+83
+ITEM-083
+Raw material 83
+83
+KG
+—
+—
+—
+84
+ITEM-084
+Packing material 84
+84
+PCS
+—
+—
+—
+85
+ITEM-085
+Raw material 85
+85
+KG
+7.75
+USD
+—
+86
+ITEM-086
+Packing material 86
+86
+PCS
+—
+—
+Batch note 86
+87
+ITEM-087
+Raw material 87
+87
+KG
+—
+—
+—
+88
+ITEM-088
+Packing material 88
+88
+PCS
+7.75
+USD
+—
+89
+ITEM-089
+Raw material 89
+89
+KG
+—
+—
+—
+90
+ITEM-090
+Packing material 90
+90
+PCS
+—
+—
+—
+91
+ITEM-091
+Raw material 91
+91
+KG
+7.75
+USD
+Batch note 91
+92
+ITEM-092
+Packing material 92
+92
+PCS
+—
+—
+—
+93
+ITEM-093
+Raw material 93
+93
+KG
+—
+—
+—
+94
+ITEM-094
+Packing material 94
+94
+PCS
+7.75
+USD
+—
+95
+ITEM-095
+Raw material 95
+95
+KG
+—
+—
+—
+96
+ITEM-096
+Packing material 96
+96
+PCS
+—
+—
+Batch note 96
+97
+ITEM-097
+Raw material 97
+97
+KG
+7.75
+USD
+—
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00
+#كود المنتج
+اسم المنتج
+الكمية
+الوحدة
+تكلفة الوحدة
+العملة
+مالحظات
+98
+ITEM-098
+Packing material 98
+98
+PCS
+—
+—
+—
+99
+ITEM-099
+Raw material 99
+99
+KG
+—
+—
+—
+10
+0
+ITEM-100
+Packing material 100
+100
+PCS
+7.75
+USD
+—
+10
+1
+ITEM-101
+Raw material 101
+101
+KG
+—
+—
+Batch note 101
+10
+2
+ITEM-102
+Packing material 102
+102
+PCS
+—
+—
+—
+10
+3
+ITEM-103
+Raw material 103
+103
+KG
+7.75
+USD
+—
+10
+4
+ITEM-104
+Packing material 104
+104
+PCS
+—
+—
+—
+10
+5
+ITEM-105
+Raw material 105
+105
+KG
+—
+—
+—
+10
+6
+ITEM-106
+Packing material 106
+106
+PCS
+7.75
+USD
+Batch note 106
+10
+7
+ITEM-107
+Raw material 107
+107
+KG
+—
+—
+—
+10
+8
+ITEM-108
+Packing material 108
+108
+PCS
+—
+—
+—
+10
+9
+ITEM-109
+Raw material 109
+109
+KG
+7.75
+USD
+—
+11
+0
+ITEM-110
+Packing material 110
+110
+PCS
+—
+—
+—
+11
+1
+ITEM-111
+Raw material 111
+111
+KG
+—
+—
+Batch note 111
+11
+2
+ITEM-112
+Packing material 112
+112
+PCS
+7.75
+USD
+—
+11
+3
+ITEM-113
+Raw material 113
+113
+KG
+—
+—
+—
+11
+4
+ITEM-114
+Packing material 114
+114
+PCS
+—
+—
+—
+11
+5
+ITEM-115
+Raw material 115
+115
+KG
+7.75
+USD
+—
+11
+6
+ITEM-116
+Packing material 116
+116
+PCS
+—
+—
+Batch note 116
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00
+#كود المنتج
+اسم المنتج
+الكمية
+الوحدة
+تكلفة الوحدة
+العملة
+مالحظات
+11
+7
+ITEM-117
+Raw material 117
+117
+KG
+—
+—
+—
+11
+8
+ITEM-118
+Packing material 118
+118
+PCS
+7.75
+USD
+—
+11
+9
+ITEM-119
+Raw material 119
+119
+KG
+—
+—
+—
+12
+0
+ITEM-120
+Packing material 120
+120
+PCS
+—
+—
+—
+مالحظات
+الكميات هي قيم مسجلة في الرصيد االفتتاحي بوحدة الصنف المصدر. ال تُجمع الكميات عند اختالف الوحدات أو غيابها. تُطبع تكلفة الوحدة والعملة فقط عند تسجيلهما،
+وال تُحتسب قيمة سطر أو إجمالي مستند أو تقييم. ال يوفر عقد تفاصيل الرصيد االفتتاحي أسماء المواقع أو التشغيالت أو أسماء المستخدمين، لذا تُحذف بدالً من استبدالها
+بمعرّفات. هذا المستند ليس مطابقة دفترية.
+.Approved initialization memo, first line
+.Approved initialization memo, second line
+أتسوفت إلدارة الموارد13/11/2026 · 16:45:00

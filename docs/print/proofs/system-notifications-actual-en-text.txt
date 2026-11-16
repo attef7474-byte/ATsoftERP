@@ -1,0 +1,21 @@
+ATsoft ERP
+Notifications Report
+Companyشركة رينجوBranchفرع صنعاء
+Print date 12/11/2026
+Print time 02:57:08
+Printed by Administrator
+All matching notifications for the current company and branch, newest first (maximum 500 rows).
+Total Notifications
+0
+Unread
+0
+Categories
+0
+No data matches the applied filters.
+Notifications by type
+No data matches the applied filters.
+Notes
+This document lists notification titles and types only. Message bodies and links are not included. Notifications are user-
+scoped; handle the output as internal information.
+ATsoft ERP
+12/11/2026 · 02:57:08

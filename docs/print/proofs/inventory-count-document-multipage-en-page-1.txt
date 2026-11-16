@@ -1,0 +1,136 @@
+ATsoft ERP
+Inventory Count
+IC-000145
+Company ATsoft Manufacturing
+Branch Main Plant
+Print date 13/11/2026
+Print time 16:45:00
+Printed by Print Reviewer
+Single inventory count document for the current company and branch.
+Status Completed
+Count Date 12/11/2026
+Warehouse [WH-JOB-RAW-001] Raw Materials Store
+Started At 12/11/2026, 10:30
+Completed At 12/11/2026, 18:45
+Created At 11/11/2026, 19:00
+Updated At 12/11/2026, 18:45
+Line Count
+120
+Counted
+120
+Verified
+40
+Lines
+#
+Product
+Code
+Product Name
+System
+Qty
+Counte
+d Qty
+Differen
+ce
+Unit
+Location
+Statu
+s
+Notes
+1
+ITEM-001
+Raw material 1
+1
+1
+0
+KG
+[L-001] Rack
+001
+Verifie
+d
+Line note 1
+2
+ITEM-002
+Packing material 2
+2
+2
+0
+PCS
+[L-002] Rack
+002
+Count
+ed
+—
+3
+ITEM-003
+Raw material 3
+3
+3
+0
+KG
+[L-003] Rack
+003
+Count
+ed
+—
+4
+ITEM-004
+Packing material 4
+4
+4
+0
+PCS
+[L-004] Rack
+004
+Verifie
+d
+—
+5
+ITEM-005
+Raw material 5
+5
+5
+0
+KG
+[L-005] Rack
+005
+Count
+ed
+—
+6
+ITEM-006
+Packing material 6
+6
+6
+0
+PCS
+[L-006] Rack
+006
+Count
+ed
+Line note 6
+7
+ITEM-007
+Raw material 7
+7
+7
+0
+KG
+[L-007] Rack
+007
+Verifie
+d
+—
+8
+ITEM-008
+Packing material 8
+8
+8
+0
+PCS
+[L-008] Rack
+008
+Count
+ed
+—
+ATsoft ERP
+13/11/2026 · 16:45:00

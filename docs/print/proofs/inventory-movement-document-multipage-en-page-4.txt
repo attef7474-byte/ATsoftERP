@@ -1,0 +1,236 @@
+#
+Product
+Code
+Product Name
+Quanti
+ty
+Unit
+Dire
+ction
+Batch /
+Lot
+Unit
+cost
+Total
+Cost
+Curr
+ency
+Notes
+4
+9
+ITEM-049
+Raw material 49
+49
+KG
+In
+—
+7.75
+379.75
+USD
+—
+5
+0
+ITEM-050
+Packing material 50
+50
+PCS
+Out
+LOT-050
+—
+—
+—
+—
+5
+1
+ITEM-051
+Raw material 51
+51
+KG
+Out
+—
+—
+—
+—
+Line note 51
+5
+2
+ITEM-052
+Packing material 52
+52
+PCS
+Out
+—
+7.75
+403
+USD
+—
+5
+3
+ITEM-053
+Raw material 53
+53
+KG
+In
+—
+—
+—
+—
+—
+5
+4
+ITEM-054
+Packing material 54
+54
+PCS
+Out
+—
+—
+—
+—
+—
+5
+5
+ITEM-055
+Raw material 55
+55
+KG
+Out
+—
+7.75
+426.25
+USD
+—
+5
+6
+ITEM-056
+Packing material 56
+56
+PCS
+Out
+—
+—
+—
+—
+Line note 56
+5
+7
+ITEM-057
+Raw material 57
+57
+KG
+In
+LOT-057
+—
+—
+—
+—
+5
+8
+ITEM-058
+Packing material 58
+58
+PCS
+Out
+—
+7.75
+449.5
+USD
+—
+5
+9
+ITEM-059
+Raw material 59
+59
+KG
+Out
+—
+—
+—
+—
+—
+6
+0
+ITEM-060
+Packing material 60
+60
+PCS
+Out
+—
+—
+—
+—
+—
+6
+1
+ITEM-061
+Raw material 61
+61
+KG
+In
+—
+7.75
+472.75
+USD
+Line note 61
+6
+2
+ITEM-062
+Packing material 62
+62
+PCS
+Out
+—
+—
+—
+—
+—
+6
+3
+ITEM-063
+Raw material 63
+63
+KG
+Out
+—
+—
+—
+—
+—
+6
+4
+ITEM-064
+Packing material 64
+64
+PCS
+Out
+LOT-064
+7.75
+496
+USD
+—
+6
+5
+ITEM-065
+Raw material 65
+65
+KG
+In
+—
+—
+—
+—
+—
+6
+6
+ITEM-066
+Packing material 66
+66
+PCS
+Out
+—
+—
+—
+—
+Line note 66
+ATsoft ERP
+13/11/2026 · 16:45:00

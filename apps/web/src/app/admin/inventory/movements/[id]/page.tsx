@@ -7,13 +7,16 @@ import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../components/admin/toast-provider';
 import { InventoryMovement, InventoryMovementLine } from '../../../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, StatusBadge, ConfirmDialog } from '../../../../../components/admin/ui';
-import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionPostIcon, ActionCancelIcon } from '../../../../../components/admin/admin-action-bar';
+import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionPostIcon, ActionCancelIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
+import { usePrintDocument } from '../../../../../components/print/use-print-document';
+import { inventoryMovementDocumentModel } from '../../../../../components/print/inventory-movement-document-print';
 
 export default function InventoryMovementDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { showToast } = useToast();
+  const { print, printing, scopeKey } = usePrintDocument();
   const id = params.id as string;
   if (isReservedDetailRouteId(id)) {
     notFound();
@@ -55,18 +58,31 @@ export default function InventoryMovementDetailPage() {
     setConfirmOpen(true);
   };
 
+  const handlePrint = useCallback(() => {
+    if (!id || isReservedDetailRouteId(id)) return;
+    return print(scopeKey, async (assertScope) => {
+      // Print re-reads the canonical detail endpoint instead of printing the
+      // possibly stale React state. A denied read aborts before a document opens.
+      const fresh = await api.get<InventoryMovement>(`/inventory/movements/${id}`);
+      assertScope();
+      return inventoryMovementDocumentModel(fresh, t, locale);
+    });
+  }, [id, locale, print, scopeKey, t]);
+
   const { exec } = useStableHandlers({
     back: () => router.back(),
     refresh: () => fetchData(),
     edit: () => router.push('/admin/inventory/movements'),
     post: () => confirmAndExec('post'),
     cancel: () => confirmAndExec('cancel'),
+    print: () => handlePrint(),
   });
 
   useRegisterAdminActions([
     { id: 'back', labelKey: 'common.back', icon: <ActionBackIcon />, onClick: () => exec('back') },
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
     { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'inventory-movement:update', onClick: () => exec('edit'), enabled: !!data },
+    { id: 'print', labelKey: 'common.print', icon: <ActionPrintIcon />, permission: 'inventory-movement:read', onClick: () => exec('print'), enabled: !!data && !printing },
     { id: 'post', labelKey: 'inventoryCounting.post', icon: <ActionPostIcon />, permission: 'inventory-movement:post', onClick: () => exec('post'), enabled: !!(data && data.status === 'DRAFT') },
     { id: 'cancel', labelKey: 'inventoryCounting.cancelMovement', icon: <ActionCancelIcon />, permission: 'inventory-movement:cancel', onClick: () => exec('cancel'), enabled: !!(data && data.status === 'DRAFT'), variant: 'danger' },
   ]);
@@ -90,7 +106,7 @@ export default function InventoryMovementDetailPage() {
             <div><dt className="text-sm font-medium text-gray-500">{t('details.inventoryMovement.movementNumber')}</dt><dd className="mt-1 text-sm text-gray-900 font-semibold">{data.movementNumber}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('common.status')}</dt><dd className="mt-1"><StatusBadge status={data.status} /></dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('details.inventoryMovement.type')}</dt><dd className="mt-1 text-sm text-gray-900">{t('status.' + data.movementType)}</dd></div>
-            <div><dt className="text-sm font-medium text-gray-500">{t('details.inventoryMovement.direction')}</dt><dd className="mt-1 text-sm text-gray-900">{t('status.' + data.direction)}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('details.inventoryMovement.direction')}</dt><dd className="mt-1 text-sm text-gray-900">{data.direction ? t('status.' + data.direction) : '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('inventory.warehouse')}</dt><dd className="mt-1 text-sm text-gray-900">{data.warehouse?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('inventoryCounting.company')}</dt><dd className="mt-1 text-sm text-gray-900">{data.company?.name || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('inventoryCounting.branch')}</dt><dd className="mt-1 text-sm text-gray-900">{data.branch?.name || '-'}</dd></div>

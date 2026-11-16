@@ -1,0 +1,63 @@
+ATsoft ERP
+User Activity Report
+Companyشركة رينجوBranchفرع صنعاء
+Print date 12/11/2026
+Print time 02:55:48
+Printed by Administrator
+All matching user accounts for the current company and branch (maximum 500 rows).
+Total Users
+10
+Active Users
+10
+Inactive Users
+0
+Name
+Email
+Status
+Last Login
+Created At
+وجدان الحكيميwegdan@atsofterp.com
+Active
+10/11/2026, 03:03
+10/11/2026
+معاذ الشرعبيmoath@atsofterp.com
+Active
+14/10/2026, 08:27
+14/10/2026
+محمد مانعmohammed@atsofterp.com
+Active
+14/10/2026, 05:18
+14/10/2026
+اركان حميد الحكيميarkan@atsofterp.com
+Active
+14/10/2026, 00:17
+13/10/2026
+سعيدsaeed@atsofterp.com
+Active
+13/10/2026, 07:13
+13/10/2026
+حنظلhandhal@atsofterp.com
+Active
+12/10/2026, 02:50
+12/10/2026
+عبدالوهاب الجباريabdo@atsofterp.com
+Active
+—
+14/10/2026
+فهمي العزعزيfahmi@atsofterp.com
+Active
+—
+14/10/2026
+طه سعدالدينtaha@atsofterp.com
+Active
+—
+14/10/2026
+ياسر الجراديyasser@atsofterp.com
+Active
+—
+14/10/2026
+Notes
+This document contains user account and contact information from the authorized scope. Handle it as personal data.
+No password, token or session data is included.
+ATsoft ERP
+12/11/2026 · 02:55:48

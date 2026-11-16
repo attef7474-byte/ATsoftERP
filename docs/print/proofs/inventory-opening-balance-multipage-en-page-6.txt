@@ -1,0 +1,72 @@
+#
+Product Code
+Product Name
+Quantity
+Unit
+Unit cost
+Curren
+cy
+Notes
+11
+5
+ITEM-115
+Raw material 115
+115
+KG
+7.75
+USD
+—
+11
+6
+ITEM-116
+Packing material 116
+116
+PCS
+—
+—
+Batch note 116
+11
+7
+ITEM-117
+Raw material 117
+117
+KG
+—
+—
+—
+11
+8
+ITEM-118
+Packing material 118
+118
+PCS
+7.75
+USD
+—
+11
+9
+ITEM-119
+Raw material 119
+119
+KG
+—
+—
+—
+12
+0
+ITEM-120
+Packing material 120
+120
+PCS
+—
+—
+—
+Notes
+Quantities are recorded opening-balance values in the source product unit. Quantities with different or missing units
+are never summed. Unit cost and currency are printed only when recorded; no line value, document total or valuation is
+computed. Location, lot/batch and user display names are not supplied by the opening-balance detail contract, so they
+are omitted rather than replaced with identifiers. This document is not a ledger reconciliation.
+Approved initialization memo, first line.
+Approved initialization memo, second line.
+ATsoft ERP
+13/11/2026 · 16:45:00

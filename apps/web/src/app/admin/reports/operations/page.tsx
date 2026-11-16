@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { api } from '../../../../lib/api';
 import { useAuth } from '../../../../lib/auth-context';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
@@ -10,6 +10,9 @@ import { Button, Input, PageHeader } from '../../../../components/admin/ui';
 import { ChartCard } from '../../../../components/admin/charts/chart-card';
 import { F9Lookup } from '../../../../components/f9/F9Lookup';
 import { machineAdapter, productionLineAdapter } from '../../../../components/f9/lookup-adapters';
+import { useReportPrintSnapshot, type ReportPrintParams } from '../../../../components/print/use-report-print-snapshot';
+import { operationsPrintModel, type OperationsPrintData } from '../../../../components/print/operations-print';
+import { collectPrintRows } from '../../../../lib/print';
 
 type Filters = { dateFrom: string; dateTo: string; productionLineId: string; machineId: string };
 type Query = { dateFrom: string; dateTo: string; productionLineId?: string; machineId?: string };
@@ -109,6 +112,8 @@ export default function OperationsReportPage() {
   const { permissions, isSuperAdmin } = useAuth();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
+  const { capture, invalidate, rememberLookup, printSnapshot, printing, canPrint } = useReportPrintSnapshot<OperationsPrintData>();
+  const requestSequence = useRef(0);
   const canRead = isSuperAdmin || Boolean(permissions?.permissions.includes('reports.operations:read'));
   const canExport = isSuperAdmin || Boolean(permissions?.permissions.includes('reports.operations:export'));
 
@@ -120,8 +125,7 @@ export default function OperationsReportPage() {
   const [exporting, setExporting] = useState(false);
 
   const loadPage = useCallback(async (base: Query, page: number) => {
-    const result = await api.get<OperationsDrilldown>('/reports/operations/drilldown', { params: { ...base, page, limit: 20 } });
-    setDrilldown(result);
+    return api.get<OperationsDrilldown>('/reports/operations/drilldown', { params: { ...base, page, limit: 20 } });
   }, []);
 
   const apply = useCallback(async () => {
@@ -136,38 +140,82 @@ export default function OperationsReportPage() {
       showToast(t('operationsReports.windowTooLarge'), 'error');
       return;
     }
+    const generation = ++requestSequence.current;
     setLoading(true);
     try {
       const [summary, details] = await Promise.all([
         api.get<OperationsOverview>('/reports/operations/overview', { params: next }),
         api.get<OperationsDrilldown>('/reports/operations/drilldown', { params: { ...next, page: 1, limit: 20 } }),
       ]);
+      if (generation !== requestSequence.current) return;
       setApplied(next);
       setOverview(summary);
       setDrilldown(details);
+      capture({ overview: summary, drilldown: details }, next as ReportPrintParams);
     } catch (error) {
+      if (generation !== requestSequence.current) return;
       setOverview(null);
       setDrilldown(null);
+      invalidate();
       handleApiError(error);
     } finally {
-      setLoading(false);
+      if (generation === requestSequence.current) setLoading(false);
     }
-  }, [filters, handleApiError, showToast, t]);
+  }, [capture, filters, handleApiError, invalidate, showToast, t]);
 
   const reset = useCallback(() => {
+    requestSequence.current++;
+    setLoading(false);
     setFilters(initialFilters());
     setApplied(null);
     setOverview(null);
     setDrilldown(null);
-  }, []);
+    invalidate();
+  }, [invalidate]);
 
   const changePage = useCallback(async (page: number) => {
     if (!applied) return;
+    const generation = ++requestSequence.current;
     setLoading(true);
-    try { await loadPage(applied, page); }
-    catch (error) { handleApiError(error); }
-    finally { setLoading(false); }
+    try {
+      const result = await loadPage(applied, page);
+      if (generation === requestSequence.current) setDrilldown(result);
+    } catch (error) {
+      if (generation === requestSequence.current) handleApiError(error);
+    } finally {
+      if (generation === requestSequence.current) setLoading(false);
+    }
   }, [applied, handleApiError, loadPage]);
+
+  const handlePrint = useCallback(() => printSnapshot(
+    Boolean(overview && drilldown && applied && !loading),
+    async (snapshot, assertScope) => {
+      const result = await collectPrintRows(
+        async (page, pageSize) => {
+          const response = await api.get<OperationsDrilldown>('/reports/operations/drilldown', {
+            params: { ...snapshot.params, page, limit: pageSize },
+          });
+          return { rows: response.data, total: response.meta.total, page: response.meta.page, pageSize: response.meta.limit, totalPages: response.meta.totalPages };
+        },
+        assertScope, row => row.productionRunId, 50,
+      );
+      return operationsPrintModel({
+        ...snapshot,
+        data: {
+          overview: snapshot.data.overview,
+          drilldown: {
+            ...snapshot.data.drilldown,
+            data: result.rows,
+            meta: {
+              ...snapshot.data.drilldown.meta,
+              page: result.first.page, limit: result.first.pageSize,
+              total: result.first.total, totalPages: result.first.totalPages,
+            },
+          },
+        },
+      }, t, locale);
+    },
+  ), [applied, drilldown, loading, locale, overview, printSnapshot, t]);
 
   const exportCsv = useCallback(async () => {
     if (!applied) {
@@ -206,15 +254,18 @@ export default function OperationsReportPage() {
   return <div className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <PageHeader title={t('operationsReports.title')} subtitle={t('operationsReports.subtitle')} />
-      <Button variant="secondary" onClick={exportCsv} loading={exporting} disabled={!canExport || !applied}>{t('operationsReports.export')}</Button>
+      <div className="flex gap-2">
+        <Button variant="secondary" onClick={handlePrint} loading={printing} disabled={!canPrint || loading}>{t('common.print')}</Button>
+        <Button variant="secondary" onClick={exportCsv} loading={exporting} disabled={!canExport || !applied}>{t('operationsReports.export')}</Button>
+      </div>
     </div>
 
     <ChartCard title={t('operationsReports.filters')}>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Input type="date" label={t('operationsReports.dateFrom')} value={filters.dateFrom} onChange={(event) => setFilters({ ...filters, dateFrom: event.target.value })} />
         <Input type="date" label={t('operationsReports.dateTo')} value={filters.dateTo} onChange={(event) => setFilters({ ...filters, dateTo: event.target.value })} />
-        <F9Lookup label={t('operationsReports.productionLine')} value={filters.productionLineId} adapter={productionLineAdapter} onChange={(value) => setFilters({ ...filters, productionLineId: value, machineId: '' })} />
-        <F9Lookup label={t('operationsReports.machine')} value={filters.machineId} adapter={machineAdapter} filters={filters.productionLineId ? { productionLineId: filters.productionLineId } : undefined} onChange={(value) => setFilters({ ...filters, machineId: value })} />
+        <F9Lookup label={t('operationsReports.productionLine')} value={filters.productionLineId} adapter={productionLineAdapter} onChange={(value) => setFilters({ ...filters, productionLineId: value, machineId: '' })} onItemSelect={(item) => rememberLookup('productionLineId', item)} />
+        <F9Lookup label={t('operationsReports.machine')} value={filters.machineId} adapter={machineAdapter} filters={filters.productionLineId ? { productionLineId: filters.productionLineId } : undefined} onChange={(value) => setFilters({ ...filters, machineId: value })} onItemSelect={(item) => rememberLookup('machineId', item)} />
         <div className="flex items-end gap-2">
           <Button onClick={apply} loading={loading}>{t('operationsReports.apply')}</Button>
           <Button variant="secondary" onClick={reset}>{t('operationsReports.reset')}</Button>

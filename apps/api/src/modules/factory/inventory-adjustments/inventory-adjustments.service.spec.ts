@@ -1,4 +1,4 @@
-import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InventoryAdjustmentsService } from './inventory-adjustments.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
@@ -209,6 +209,131 @@ describe('InventoryAdjustmentsService tenant isolation', () => {
 
       await expect(service.post('a1', 'u1', ctx)).rejects.toThrow(ForbiddenException);
       expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findOne read contract enrichment', () => {
+    const enrichedLine = (overrides: Record<string, any> = {}) => ({
+      ...line({
+        product: { id: 'prd1', name: 'Widget', code: 'PRD-001', unit: 'pc' },
+        warehouseLocation: { id: 'loc1', code: 'L1', name: 'Aisle 1' },
+      }),
+      ...overrides,
+    });
+
+    const enrichedAdjustment = (overrides: Record<string, any> = {}) => adjustment({
+      lines: [enrichedLine()],
+      company: { id: 'c1', name: 'Company A' },
+      branch: { id: 'b1', name: 'HQ' },
+      warehouse: warehouse(),
+      inventoryCount: { id: 'ic1', countNumber: 'IC-0001', status: 'COMPLETED' },
+      ...overrides,
+    });
+
+    it('IAR-P01: authorized detail read returns product.unit from the canonical Prisma selection', async () => {
+      prisma.inventoryAdjustment.findUnique.mockResolvedValue(enrichedAdjustment());
+
+      const result = await service.findOne('a1', ctx);
+
+      expect(result.lines[0].product).toEqual({
+        id: 'prd1',
+        name: 'Widget',
+        code: 'PRD-001',
+        unit: 'pc',
+      });
+      // Regression guard: the Prisma selection itself must request the unit.
+      // Removing `unit: true` from the service must fail this assertion.
+      const query = prisma.inventoryAdjustment.findUnique.mock.calls[0][0];
+      expect(query.where).toEqual({ id: 'a1' });
+      expect(query.include.lines.include.product.select).toEqual({
+        id: true,
+        name: true,
+        code: true,
+        unit: true,
+      });
+    });
+
+    it('IAR-P02: product code and name remain unchanged', async () => {
+      prisma.inventoryAdjustment.findUnique.mockResolvedValue(enrichedAdjustment());
+
+      const result = await service.findOne('a1', ctx);
+
+      expect(result.lines[0].product.code).toBe('PRD-001');
+      expect(result.lines[0].product.name).toBe('Widget');
+    });
+
+    it('IAR-P03/P04/P05: systemQty, countedQty and differenceQty are unchanged', async () => {
+      prisma.inventoryAdjustment.findUnique.mockResolvedValue(enrichedAdjustment());
+
+      const result = await service.findOne('a1', ctx);
+
+      expect(result.lines[0].systemQty).toBe(10);
+      expect(result.lines[0].countedQty).toBe(8);
+      expect(result.lines[0].differenceQty).toBe(-2);
+    });
+
+    it('IAR-P06: optional inventoryCount.countNumber remains unchanged', async () => {
+      prisma.inventoryAdjustment.findUnique.mockResolvedValue(enrichedAdjustment());
+
+      const result = await service.findOne('a1', ctx);
+
+      expect(result.inventoryCount).toEqual({ id: 'ic1', countNumber: 'IC-0001', status: 'COMPLETED' });
+    });
+
+    it('IAR-P07: a cross-company record remains denied', async () => {
+      prisma.inventoryAdjustment.findUnique.mockResolvedValue(enrichedAdjustment({ companyId: 'c2' }));
+
+      await expect(service.findOne('a1', ctx)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('IAR-P08: a cross-branch record remains denied', async () => {
+      prisma.inventoryAdjustment.findUnique.mockResolvedValue(enrichedAdjustment({ branchId: 'b2' }));
+
+      await expect(service.findOne('a1', ctx)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('IAR-P09: a soft-deleted record remains unavailable', async () => {
+      prisma.inventoryAdjustment.findUnique.mockResolvedValue(enrichedAdjustment({ deletedAt: new Date() }));
+
+      await expect(service.findOne('a1', ctx)).rejects.toThrow(NotFoundException);
+    });
+
+    it('IAR-P11: readable warehouse location code and name are returned from the canonical selection', async () => {
+      prisma.inventoryAdjustment.findUnique.mockResolvedValue(enrichedAdjustment());
+
+      const result = await service.findOne('a1', ctx);
+
+      expect(result.lines[0].warehouseLocation).toEqual({ id: 'loc1', code: 'L1', name: 'Aisle 1' });
+      const query = prisma.inventoryAdjustment.findUnique.mock.calls[0][0];
+      expect(query.include.lines.include.warehouseLocation.select).toEqual({
+        id: true,
+        code: true,
+        name: true,
+      });
+    });
+
+    it('IAR-P12: a line without a location stays null and does not throw', async () => {
+      prisma.inventoryAdjustment.findUnique.mockResolvedValue(enrichedAdjustment({
+        lines: [enrichedLine({ warehouseLocationId: null, warehouseLocation: null })],
+      }));
+
+      const result = await service.findOne('a1', ctx);
+
+      expect(result.lines[0].warehouseLocation).toBeNull();
+    });
+
+    it('findOne performs no business writes', async () => {
+      prisma.inventoryAdjustment.findUnique.mockResolvedValue(enrichedAdjustment());
+
+      await service.findOne('a1', ctx);
+
+      expect(prisma.inventoryAdjustment.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryAdjustment.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryAdjustmentLine.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryAdjustmentLine.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryAdjustmentLine.delete).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
     });
   });
 

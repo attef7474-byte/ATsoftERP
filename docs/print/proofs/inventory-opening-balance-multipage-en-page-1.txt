@@ -1,0 +1,135 @@
+ATsoft ERP
+Opening Balance
+OB-000035
+Company ATsoft Manufacturing
+Branch Main Plant
+Print date 13/11/2026
+Print time 16:45:00
+Printed by Print Reviewer
+Single inventory opening balance document for the current company and branch.
+Status Posted
+Document Date 01/11/2026
+Warehouse [WH-RAW-001] Raw Materials Store
+Reason Authorized stock initialization for the new raw-
+material store.
+Posted At 02/11/2026, 12:30
+Created At 31/10/2026, 10:00
+Updated At 02/11/2026, 12:30
+Line Count
+120
+Lines
+#
+Product Code
+Product Name
+Quantity
+Unit
+Unit cost
+Curren
+cy
+Notes
+1
+ITEM-001
+Raw material 1
+1
+KG
+7.75
+USD
+Batch note 1
+2
+ITEM-002
+Packing material 2
+2
+PCS
+—
+—
+—
+3
+ITEM-003
+Raw material 3
+3
+KG
+—
+—
+—
+4
+ITEM-004
+Packing material 4
+4
+PCS
+7.75
+USD
+—
+5
+ITEM-005
+Raw material 5
+5
+KG
+—
+—
+—
+6
+ITEM-006
+Packing material 6
+6
+PCS
+—
+—
+Batch note 6
+7
+ITEM-007
+Raw material 7
+7
+KG
+7.75
+USD
+—
+8
+ITEM-008
+Packing material 8
+8
+PCS
+—
+—
+—
+9
+ITEM-009
+Raw material 9
+9
+KG
+—
+—
+—
+10
+ITEM-010
+Packing material 10
+10
+PCS
+7.75
+USD
+—
+11
+ITEM-011
+Raw material 11
+11
+KG
+—
+—
+Batch note 11
+12
+ITEM-012
+Packing material 12
+12
+PCS
+—
+—
+—
+13
+ITEM-013
+Raw material 13
+13
+KG
+7.75
+USD
+—
+ATsoft ERP
+13/11/2026 · 16:45:00
