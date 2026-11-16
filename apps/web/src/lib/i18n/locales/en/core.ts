@@ -2,6 +2,7 @@ import type { LocaleTranslations } from '../../types';
 
 const core: Pick<LocaleTranslations, 'core' | 'details' | 'companyProfile' | 'attachments'> = {
     core: {
+        personRegistrationContextMismatch: 'The selected branch does not match the active operational context. Select the intended company and branch before saving.',
         companies: 'Companies',
         branches: 'Branches',
         departments: 'Departments',

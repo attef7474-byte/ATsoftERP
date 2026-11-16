@@ -10,6 +10,7 @@ import type { LookupAdapter } from './types';
 
 interface F9LookupProps<T extends Record<string, any>> {
   label?: string;
+  required?: boolean;
   name?: string;
   id?: string;
   value: string;
@@ -28,6 +29,7 @@ interface F9LookupProps<T extends Record<string, any>> {
 
 export function F9Lookup<T extends Record<string, any>>({
   label,
+  required,
   name,
   id,
   value,
@@ -161,12 +163,13 @@ export function F9Lookup<T extends Record<string, any>>({
 
   return (
     <div className="w-full" data-field={name}>
-      {label && <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
+      {label && <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1">{label}{required && <span aria-hidden="true" className="text-red-600 ms-1">*</span>}</label>}
       <div
         tabIndex={effectiveDisabled ? -1 : 0}
         role="button"
         id={inputId}
         aria-invalid={error ? true : undefined}
+        aria-required={required || undefined}
         aria-describedby={describedBy}
         aria-haspopup="dialog"
         onClick={() => { if (!effectiveDisabled) setModalOpen(true); }}

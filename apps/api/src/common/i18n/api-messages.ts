@@ -97,6 +97,7 @@ const messages: Record<string, { ar: string; en: string }> = {
 
   'validation.required': { ar: 'هذا الحقل مطلوب', en: 'This field is required' },
   'validation.duplicateValue': { ar: 'قيمة مكررة، يرجى اختيار قيمة مختلفة', en: 'Duplicate value, please choose a different one' },
+  'validation.emailAlreadyUsed': { ar: 'البريد الإلكتروني مستخدم بالفعل.', en: 'This email address is already in use.' },
   'validation.invalidReference': { ar: 'المرجع المحدد غير صالح أو غير موجود', en: 'The selected reference is invalid or does not exist' },
   'validation.invalidEnum': { ar: 'قيمة غير صالحة للتعداد', en: 'Invalid enum value' },
   'validation.invalidQuantity': { ar: 'الكمية غير صالحة', en: 'Invalid quantity' },

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import EnableLoginDialog from './enable-login-dialog';
 import { api } from '../../../../lib/api';
 import { safeString } from '../../../../lib/form-utils';
@@ -30,7 +30,8 @@ import {
   administrationAdapter,
 } from '../../../../components/f9';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
-import { adaptFieldErrorsToMap, focusFirstInvalidField } from '../../../../lib/form-validation';
+import { focusFirstInvalidField } from '../../../../lib/form-validation';
+import { personRegistrationErrors } from '../../../../lib/person-registration-validation';
 
 /**
  * UNIFIED GROUP 1 WORKSPACE.
@@ -186,7 +187,9 @@ export default function UnifiedPersonsPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
-  const { permissions, isSuperAdmin } = useAuth();
+  const { permissions, isSuperAdmin, activeContext } = useAuth();
+  const saveInFlight = useRef(false);
+  const initialForm = useMemo(() => ({ ...EMPTY_FORM, branchId: activeContext?.branchId || '' }), [activeContext?.branchId]);
 
   // Group 1 permission segmentation. Each control family is gated by its OWN domain; a
   // single broad "canEdit" flag would let personnel administration imply access control.
@@ -228,7 +231,7 @@ export default function UnifiedPersonsPage() {
     closeFormModal,
     handleSave,
   } = useCrudList<PersonRegistrationRow, UnifiedForm, Record<string, unknown>, PaginationMeta, [page?: number]>({
-    initialForm: EMPTY_FORM,
+    initialForm,
     initialMeta: INITIAL_META,
     initialListArgs: [1],
     listRequest: (page = 1) => {
@@ -285,9 +288,9 @@ const maintenance = detail.maintenanceCapability || null;
     mapFormToPayload: (values, context) => {
       const isEdit = context?.mode === 'edit';
       const payload: Record<string, unknown> = {
-        name: values.name,
+        name: values.name.trim(),
         phone: values.phone || null,
-        email: values.email || null,
+        email: values.email.trim() || null,
         notes: values.notes || null,
         isActive: values.isActive,
       };
@@ -312,7 +315,7 @@ const maintenance = detail.maintenanceCapability || null;
         // Only the contract fields are sent; credential and authentication metadata are
         // never part of the unified payload.
         payload.login = {
-          email: values.loginEmail,
+          email: values.loginEmail.trim(),
           ...(values.loginPassword ? { password: values.loginPassword } : {}),
           name: values.loginName || values.name,
           phone: values.loginPhone || values.phone || null,
@@ -337,20 +340,29 @@ const maintenance = detail.maintenanceCapability || null;
       if (!values.name?.trim()) fieldErrors.name = t('validation.requiredField');
       // Placement is create-only; on edit the current placement is preserved untouched.
       if (!isEdit && !values.departmentId) fieldErrors.departmentId = t('validation.requiredField');
+      if (!isEdit && (!activeContext?.companyId || !activeContext.branchId || values.branchId !== activeContext.branchId)) {
+        fieldErrors.branchId = t('core.personRegistrationContextMismatch');
+      }
       if (values.enableMaintenance && !values.maintenanceRole?.trim()) {
         fieldErrors.maintenanceRole = t('validation.requiredField');
       }
       if (values.enableLogin && (!isEdit || context?.record?.login) && !values.loginEmail?.trim()) {
         fieldErrors.loginEmail = t('validation.requiredField');
       }
+      if (values.enableLogin && !isEdit && !values.loginPassword) {
+        fieldErrors.loginPassword = t('validation.requiredField');
+      }
       return Object.keys(fieldErrors).length > 0 ? { fieldErrors } : null;
     },
-    onError: (message) => {
+    onError: (_message, _operation, error) => {
+      const { message } = handleApiError(error);
       setValidationErrors({ form: message });
     },
     onFieldErrors: (errors) => {
-      setValidationErrors(adaptFieldErrorsToMap(errors));
-      focusFirstInvalidField(errors);
+      const { fields, summary } = personRegistrationErrors(errors, t('errors.validationFailed'));
+      setValidationErrors((previous) => ({ ...previous, ...fields, form: summary }));
+      showToast(summary, 'error');
+      focusFirstInvalidField(Object.entries(fields).map(([field, message]) => ({ field, message })));
     },
     onSuccess: (operation) => {
       const message =
@@ -360,7 +372,19 @@ const maintenance = detail.maintenanceCapability || null;
     },
   });
 
+  const submit = async () => {
+    if (saveInFlight.current) return;
+    saveInFlight.current = true;
+    setValidationErrors({});
+    try {
+      await handleSave();
+    } finally {
+      saveInFlight.current = false;
+    }
+  };
+
   useEffect(() => {
+    if (!canUpdateUser) return;
     let cancelled = false;
     api
       .get('/roles', { params: { limit: 200 } })
@@ -369,13 +393,13 @@ const maintenance = detail.maintenanceCapability || null;
         const list = res?.data?.data || res?.data || [];
         setRoles(Array.isArray(list) ? list.map((r: any) => ({ id: r.id, name: r.name })) : []);
       })
-      .catch(() => {
-        // Role list is supplemental; failure must not block person administration.
+      .catch((error) => {
+        handleApiError(error);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [canUpdateUser, handleApiError]);
 
   const paginationMeta = meta ?? INITIAL_META;
   const selectedRecord = useMemo(() => data.find((d) => d.id === selectedId), [data, selectedId]);
@@ -522,6 +546,7 @@ const maintenance = detail.maintenanceCapability || null;
       <Modal
         open={modalOpen}
         onClose={() => {
+          if (saving) return;
           closeFormModal();
           setValidationErrors({});
         }}
@@ -533,7 +558,7 @@ const maintenance = detail.maintenanceCapability || null;
         ) : (
           <div className="space-y-6 max-h-[70vh] overflow-y-auto">
             {validationErrors.form && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              <div role="alert" aria-live="assertive" className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                 {validationErrors.form}
               </div>
             )}
@@ -543,12 +568,15 @@ const maintenance = detail.maintenanceCapability || null;
               <h3 className="text-lg font-medium border-b pb-2">{t('core.personalInformation')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
+                  id="code" name="code"
                   label={t('common.code')}
+                  description={!editItem ? t('common.codeAutoGenerated') : undefined}
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value })}
                   error={validationErrors.code}
                 />
                 <Input
+                  id="name" name="name"
                   label={t('common.name')}
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -571,12 +599,14 @@ const maintenance = detail.maintenanceCapability || null;
                   </select>
                 </div>
                 <Input
+                  id="phone" name="phone"
                   label={t('common.phone')}
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   error={validationErrors.phone}
                 />
                 <Input
+                  id="email" name="email"
                   label={t('common.email')}
                   type="email"
                   value={form.email}
@@ -584,6 +614,7 @@ const maintenance = detail.maintenanceCapability || null;
                   error={validationErrors.email}
                 />
                 <Input
+                  id="notes" name="notes"
                   label={t('common.notes')}
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
@@ -595,8 +626,10 @@ const maintenance = detail.maintenanceCapability || null;
             {/* B. ORGANIZATION / ASSIGNMENT */}
             <section className="space-y-4" data-section="organization-assignment">
               <h3 className="text-lg font-medium border-b pb-2">{t('core.organizationAssignment')}</h3>
+              <p className="text-sm">{[activeContext?.companyName, activeContext?.branchName].filter(Boolean).join(' / ')}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <F9Lookup
+                  id="branchId" name="branchId"
                   label={t('core.branch')}
                   value={form.branchId}
                   onChange={(v) => setForm({ ...form, branchId: v, administrationId: '', departmentId: '' })}
@@ -605,6 +638,7 @@ const maintenance = detail.maintenanceCapability || null;
                   disabled={placementLocked}
                 />
                 <F9Lookup
+                  id="administrationId" name="administrationId"
                   label={t('core.administration')}
                   value={form.administrationId}
                   onChange={(v) => setForm({ ...form, administrationId: v, departmentId: '' })}
@@ -614,7 +648,10 @@ const maintenance = detail.maintenanceCapability || null;
                   disabled={placementLocked}
                 />
                 <F9Lookup
+                  id="departmentId" name="departmentId"
                   label={t('core.department')}
+                  required={!editItem}
+                  description={!editItem ? t('validation.requiredField') : undefined}
                   value={form.departmentId}
                   onChange={(v) => setForm({ ...form, departmentId: v })}
                   adapter={departmentAdapter}
@@ -630,6 +667,7 @@ const maintenance = detail.maintenanceCapability || null;
                   disabled={placementLocked}
                 />
                 <F9Lookup
+                  id="jobTitleId" name="jobTitleId"
                   label={t('core.jobTitle')}
                   value={form.jobTitleId}
                   onChange={(v) => setForm({ ...form, jobTitleId: v })}
@@ -640,6 +678,7 @@ const maintenance = detail.maintenanceCapability || null;
                 <div>
                   <label className="block text-sm font-medium mb-1">{t('core.assignmentType')}</label>
                   <select
+                    id="assignmentType" name="assignmentType"
                     value={form.assignmentType}
                     disabled={placementLocked}
                     onChange={(e) => setForm({ ...form, assignmentType: e.target.value as UnifiedForm['assignmentType'] })}
@@ -653,6 +692,7 @@ const maintenance = detail.maintenanceCapability || null;
                   </select>
                 </div>
                 <Input
+                  id="effectiveFrom" name="effectiveFrom"
                   label={t('core.effectiveFrom')}
                   type="date"
                   value={form.effectiveFrom}
@@ -661,6 +701,7 @@ const maintenance = detail.maintenanceCapability || null;
                   disabled={placementLocked}
                 />
                 <Input
+                  id="assignmentNotes" name="assignmentNotes"
                   label={t('core.assignmentNotes')}
                   value={form.assignmentNotes}
                   onChange={(e) => setForm({ ...form, assignmentNotes: e.target.value })}
@@ -685,18 +726,21 @@ const maintenance = detail.maintenanceCapability || null;
               {form.enableMaintenance && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input
+                    id="maintenanceRole" name="maintenanceRole"
                     label={t('maintenance.role')}
                     value={form.maintenanceRole}
                     onChange={(e) => setForm({ ...form, maintenanceRole: e.target.value })}
                     error={validationErrors.maintenanceRole}
                   />
                   <Input
+                    id="maintenanceSpecialty" name="maintenanceSpecialty"
                     label={t('maintenance.specialty')}
                     value={form.maintenanceSpecialty}
                     onChange={(e) => setForm({ ...form, maintenanceSpecialty: e.target.value })}
                     error={validationErrors.maintenanceSpecialty}
                   />
                   <Input
+                    id="dailyCapacityMinutes" name="dailyCapacityMinutes"
                     label={t('core.dailyCapacityMinutes')}
                     type="number"
                     value={String(form.dailyCapacityMinutes)}
@@ -742,16 +786,21 @@ const maintenance = detail.maintenanceCapability || null;
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input
+                      id="loginEmail" name="loginEmail"
                       label={t('common.email')}
                       type="email"
+                      required
                       value={form.loginEmail}
                       onChange={(e) => setForm({ ...form, loginEmail: e.target.value })}
                       error={validationErrors.loginEmail}
                     />
                     {!editItem && (
                       <Input
+                        id="loginPassword" name="loginPassword"
                         label={t('access.password')}
                         type="password"
+                        autoComplete="new-password"
+                        required
                         value={form.loginPassword}
                         onChange={(e) => setForm({ ...form, loginPassword: e.target.value })}
                         error={validationErrors.loginPassword}
@@ -782,6 +831,7 @@ const maintenance = detail.maintenanceCapability || null;
                           </label>
                         ))}
                       </div>
+                      {validationErrors.roleIds && <p role="alert" className="text-sm text-red-600">{validationErrors.roleIds}</p>}
                     </div>
                   )}
                 </>
@@ -791,6 +841,7 @@ const maintenance = detail.maintenanceCapability || null;
             <div className="flex justify-end gap-3 pt-4">
               <Button
                 variant="secondary"
+                disabled={saving}
                 onClick={() => {
                   closeFormModal();
                   setValidationErrors({});
@@ -798,7 +849,7 @@ const maintenance = detail.maintenanceCapability || null;
               >
                 {t('actions.cancel')}
               </Button>
-              <Button onClick={handleSave} loading={saving}>
+              <Button onClick={submit} loading={saving}>
                 {t('actions.save')}
               </Button>
             </div>

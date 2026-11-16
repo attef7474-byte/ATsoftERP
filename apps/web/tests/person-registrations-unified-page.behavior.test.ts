@@ -69,6 +69,7 @@ function harness(overrides: HarnessOverrides = {}): Harness {
   capturedActions = [];
   const auth = {
     loading: false,
+    activeContext: { companyId: 'company-1', branchId: 'branch-default' },
     isSuperAdmin: overrides.isSuperAdmin ?? false,
     permissions: { permissions: overrides.permissions ?? [] },
   };
@@ -278,10 +279,11 @@ describe('Group 1 unified page — executed payload and validation logic', () =>
   it('validate rejects a missing name, missing department, and toggle-required fields', () => {
     const h = harness();
     h.render(h.exported.default);
-    expect(h.options().validate({ ...emptyForm }, createContext)).toEqual({ fieldErrors: { name: 'validation.requiredField', departmentId: 'validation.requiredField' } });
-    expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: 'd', enableLogin: true }, createContext)).toEqual({ fieldErrors: { loginEmail: 'validation.requiredField' } });
-    expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: 'd', enableMaintenance: true }, createContext)).toEqual({ fieldErrors: { maintenanceRole: 'validation.requiredField' } });
-    expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: 'd' }, createContext)).toBeNull();
+    const scopedForm = { ...emptyForm, branchId: 'branch-default' };
+    expect(h.options().validate(scopedForm, createContext)).toEqual({ fieldErrors: { name: 'validation.requiredField', departmentId: 'validation.requiredField' } });
+    expect(h.options().validate({ ...scopedForm, name: 'A', departmentId: 'd', enableLogin: true }, createContext)).toEqual({ fieldErrors: { loginEmail: 'validation.requiredField', loginPassword: 'validation.requiredField' } });
+    expect(h.options().validate({ ...scopedForm, name: 'A', departmentId: 'd', enableMaintenance: true }, createContext)).toEqual({ fieldErrors: { maintenanceRole: 'validation.requiredField' } });
+    expect(h.options().validate({ ...scopedForm, name: 'A', departmentId: 'd' }, createContext)).toBeNull();
   });
 
   it('mapRecordToForm hydrates capabilities AND the persisted role selection from the real API shape, keeping mutation intent untouched', () => {
@@ -400,7 +402,7 @@ describe('Group 1 unified page — update payload contract (edit mode)', () => {
     h.render(h.exported.default);
     expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: '' }, editContext)).toBeNull();
     // Create still requires it.
-    expect(h.options().validate({ ...emptyForm, name: 'A', departmentId: '' }, createContext)).toEqual({
+    expect(h.options().validate({ ...emptyForm, branchId: 'branch-default', name: 'A', departmentId: '' }, createContext)).toEqual({
       fieldErrors: { departmentId: 'validation.requiredField' },
     });
   });

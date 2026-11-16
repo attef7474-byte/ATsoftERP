@@ -12,6 +12,7 @@ const validation: Pick<LocaleTranslations, 'validation' | 'errors' | 'complexFor
         pattern: 'Invalid format.',
         unique: 'This value must be unique.',
         duplicateValue: 'Duplicate value, please choose a different one.',
+        emailAlreadyUsed: 'This email address is already in use.',
         invalidReference: 'The selected reference is invalid or does not exist.',
         invalidEnum: 'Invalid value for this field.',
         invalidDate: 'Invalid date.',

@@ -2,6 +2,7 @@ import type { LocaleTranslations } from '../../types';
 
 const core: Pick<LocaleTranslations, 'core' | 'details' | 'companyProfile' | 'attachments'> = {
     core: {
+        personRegistrationContextMismatch: 'الفرع المحدد لا يطابق السياق التشغيلي النشط. اختر الشركة والفرع المقصودين قبل الحفظ.',
         companies: 'الشركات',
         branches: 'الفروع',
         departments: 'الأقسام',

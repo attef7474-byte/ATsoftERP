@@ -352,6 +352,24 @@ describe('PersonRegistrationsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('rejects a different placement branch even when it could be in the same company', async () => {
+      const { tx, calls } = makeTx();
+      const { service } = makeService(tx);
+      await expect(service.create(baseDto({ placement: { departmentId: 'dept-1', branchId: 'branch-other' } }), ctx, actorId))
+        .rejects.toMatchObject({ response: { errors: [expect.objectContaining({ field: 'placement.branchId', code: 'validation.invalidBranchHierarchy' })] } });
+      expect(calls.created).toEqual([]);
+      expect(tx.department.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('reports credential-policy errors at the nested login field without requiring maintenance capability', async () => {
+      const { tx, calls } = makeTx();
+      const { service, passwordCredentials } = makeService(tx);
+      await service.create(baseDto({ login: { email: 'employee@example.test', password: require('crypto').randomBytes(24).toString('base64') } }), ctx, actorId);
+      expect(passwordCredentials.preparePassword).toHaveBeenCalledWith(expect.any(String), expect.any(String), { passwordField: 'login.password', confirmationField: 'login.password', client: tx });
+      expect(calls.created.map((c: any) => c.table)).toContain('user');
+      expect(calls.created.map((c: any) => c.table)).not.toContain('maintenance');
+    });
+
     // Proven Workstream C defect: the New Person UI composed Administration ADM-000007
     // (which owns no departments) with Department DEP-000021 (owned by ADM-000008). The
     // server integrity check is correct and must keep rejecting this exact pair forever.
@@ -433,7 +451,7 @@ describe('PersonRegistrationsService', () => {
 
       await expect(
         service.create(baseDto({ login: { email: 'taken@example.com', password: 'Str0ng!Pass' } as any }), ctx, actorId),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toMatchObject({ response: { errors: [expect.objectContaining({ field: 'login.email', code: 'validation.emailAlreadyUsed' })] } });
     });
 
     it('refuses to link a user that already belongs to another person', async () => {

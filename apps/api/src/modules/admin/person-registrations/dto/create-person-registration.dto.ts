@@ -5,15 +5,18 @@ import {
 import {
   IsArray,
   IsBoolean,
+  IsDefined,
   IsEmail,
   IsIn,
   IsInt,
+  IsISO8601,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Min,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 /**
  * Canonical person registration DTOs.
@@ -37,6 +40,7 @@ export class PersonPlacementDto {
 
   @ApiProperty({ description: 'Department of the initial placement. Must belong to the active company.' })
   @IsString()
+  @IsNotEmpty()
   departmentId: string;
 
   @ApiPropertyOptional({ description: 'Job title. Must belong to the active company.' })
@@ -59,6 +63,7 @@ export class PersonPlacementDto {
   })
   @IsOptional()
   @IsString()
+  @IsISO8601({ strict: true })
   effectiveFrom?: string;
 
   @ApiPropertyOptional()
@@ -78,6 +83,7 @@ export class PersonLoginDto {
 
   @ApiPropertyOptional({ description: 'Required when creating a new login (omit when linking userId).' })
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsEmail()
   email?: string;
 
@@ -139,7 +145,9 @@ export class CreatePersonRegistrationDto {
   code?: string;
 
   @ApiProperty({ example: 'Ahmed Hassan' })
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
+  @IsNotEmpty()
   name: string;
 
   @ApiPropertyOptional({ example: 'MAINTENANCE', enum: ['OPERATIONAL', 'MAINTENANCE'] })
@@ -154,7 +162,8 @@ export class CreatePersonRegistrationDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsEmail()
   email?: string;
 
   @ApiPropertyOptional()
@@ -172,6 +181,7 @@ export class CreatePersonRegistrationDto {
     description:
       'Required. The placement is what anchors the person to a company/branch, because an OperationalPerson carries no tenant columns of its own.',
   })
+  @IsDefined()
   @ValidateNested()
   @Type(() => PersonPlacementDto)
   placement: PersonPlacementDto;

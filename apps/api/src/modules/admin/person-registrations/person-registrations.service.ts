@@ -111,6 +111,10 @@ export class PersonRegistrationsService {
 
     const branchId = placement.branchId ?? ctx.branchId;
 
+    if (branchId !== ctx.branchId) {
+      throw this.validationError('placement.branchId', 'validation.invalidBranchHierarchy', 'Placement must use the active authorized branch');
+    }
+
     const department = await c.department.findFirst({
       where: { id: placement.departmentId, companyId: ctx.companyId, deletedAt: null },
       select: { id: true, branchId: true, administrationId: true },
@@ -266,7 +270,7 @@ export class PersonRegistrationsService {
             if (existingUser) {
               throw this.validationError(
                 'login.email',
-                'validation.duplicateValue',
+                'validation.emailAlreadyUsed',
                 'Email already in use',
               );
             }
@@ -473,7 +477,7 @@ export class PersonRegistrationsService {
     const { passwordHash } = await this.passwordCredentials.preparePassword(
       login.password,
       login.password,
-      { passwordField: 'password', confirmationField: 'password', client: tx },
+      { passwordField: 'login.password', confirmationField: 'login.password', client: tx },
     );
 
     return tx.user.create({
@@ -599,7 +603,7 @@ export class PersonRegistrationsService {
         }
         const existing = await tx.user.findUnique({ where: { email: dto.email }, select: { id: true } });
         if (existing) {
-          throw this.validationError('email', 'validation.duplicateValue', 'Email already in use');
+          throw this.validationError('email', 'validation.emailAlreadyUsed', 'Email already in use');
         }
         const user = await this.createLinkedUser(tx, {
           email: dto.email,
@@ -625,7 +629,7 @@ export class PersonRegistrationsService {
     } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
-          throw this.validationError('email', 'validation.duplicateValue', 'Email already in use');
+          throw this.validationError('email', 'validation.emailAlreadyUsed', 'Email already in use');
         }
         if (error.code === 'P2034') {
           throw new ConflictException({ messageKey: 'organization.personRegistrationConflict' });
@@ -698,7 +702,7 @@ export class PersonRegistrationsService {
           if (existingUser && existingUser.id !== person.userId) {
             throw this.validationError(
               'login.email',
-              'validation.duplicateValue',
+              'validation.emailAlreadyUsed',
               'Email already in use',
             );
           }
