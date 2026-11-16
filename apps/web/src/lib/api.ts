@@ -6,13 +6,9 @@ export const getApiBaseUrl = (): string => {
     return process.env.NEXT_PUBLIC_API_URL;
   }
   if (typeof window !== 'undefined') {
-    if (window.location.protocol === 'https:') {
-      return '/api/v1';
-    }
-    const hostname = window.location.hostname;
-    if (hostname) {
-      return `${window.location.protocol}//${hostname}:4000/api/v1`;
-    }
+    // Caddy serves HTTPS, and Next rewrites serve direct LAN/development access.
+    // Keep browser calls on the page's origin rather than requiring cross-port CORS.
+    return '/api/v1';
   }
   return 'http://localhost:4000/api/v1';
 };
