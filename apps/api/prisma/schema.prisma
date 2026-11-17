@@ -265,6 +265,8 @@ model Company {
   materialConsumptions             ProductionMaterialConsumption[]
   materialDocumentLines            ProductionMaterialDocumentLine[]
   fgReceiptLines                   ProductionFinishedGoodsReceiptLine[]
+  finishedGoodsIssues              FinishedGoodsIssue[]
+  finishedGoodsIssueLines          FinishedGoodsIssueLine[]
   requirementLines                 ProductionMaterialRequirementLine[]
   consumptionCorrections           ProductionMaterialConsumptionCorrection[]
   qualityPlans                     ProductionQualityPlan[]
@@ -367,6 +369,8 @@ model Branch {
   materialConsumptions             ProductionMaterialConsumption[]
   materialDocumentLines            ProductionMaterialDocumentLine[]
   fgReceiptLines                   ProductionFinishedGoodsReceiptLine[]
+  finishedGoodsIssues              FinishedGoodsIssue[]
+  finishedGoodsIssueLines          FinishedGoodsIssueLine[]
   requirementLines                 ProductionMaterialRequirementLine[]
   consumptionCorrections           ProductionMaterialConsumptionCorrection[]
   qualityPlans                     ProductionQualityPlan[]
@@ -1553,6 +1557,7 @@ model Warehouse {
   productionOrderReceiptWarehouses ProductionOrder[]                   @relation("ProductionOrderReceiptWarehouse")
   materialDocuments                ProductionMaterialDocument[]
   fgReceiptDestinations            ProductionFinishedGoodsReceipt[]    @relation("FGReceiptWarehouse")
+  fgIssueSources                   FinishedGoodsIssue[]                @relation("FGIssueWarehouse")
   requirementLines                 ProductionMaterialRequirementLine[]
   valuationPolicies                InventoryValuationPolicy[]
   valuationBalances                InventoryValuationBalance[]
@@ -1591,6 +1596,7 @@ model WarehouseLocation {
   physicalCountLines    InventoryPhysicalCountLine[]
   materialDocumentLines ProductionMaterialDocumentLine[]
   fgReceiptLines        ProductionFinishedGoodsReceiptLine[]
+  fgIssueLines          FinishedGoodsIssueLine[]
 
   @@unique([warehouseId, code])
   @@index([status])
@@ -1676,6 +1682,7 @@ model Product {
   materialDocumentLines     ProductionMaterialDocumentLine[]
   materialSubstituteLines   ProductionMaterialDocumentLine[]     @relation("MaterialSubstituteProduct")
   fgReceiptLines            ProductionFinishedGoodsReceiptLine[]
+  finishedGoodsIssueLines   FinishedGoodsIssueLine[]
   requirementLines          ProductionMaterialRequirementLine[]
   materialConsumptions      ProductionMaterialConsumption[]
   inspections               ProductionInspection[]
@@ -1933,6 +1940,7 @@ model InventoryMovement {
   replacementOutHistories SparePartReplacementHistory[]    @relation("ReplacementOutMovement")
   materialDocuments       ProductionMaterialDocument[]
   finishedGoodsReceipts   ProductionFinishedGoodsReceipt[]
+  finishedGoodsIssues     FinishedGoodsIssue[]
 
   // NOTE: non-null uniqueness on (companyId, branchId, requestId) is enforced by a
   // SQL Server filtered unique index in migration 20260806200000 (WHERE [requestId]
@@ -4912,6 +4920,22 @@ model ProductionMaterialDocument {
   createdAt         DateTime                       @default(now())
   updatedAt         DateTime                       @updatedAt
 
+  // Unified Issue Requests & Warehouse Approvals - requester submission and the
+  // separate warehouse decision. All nullable additive columns; historical rows
+  // keep their existing status and no synthetic approval data is backfilled.
+  submittedAt                DateTime?
+  submittedById              String?
+  approvedAt                 DateTime?
+  approvedById               String?
+  rejectedAt                 DateTime?
+  rejectedById               String?
+  rejectionReason            String?
+  withdrawnAt                DateTime?
+  withdrawnById              String?
+  approvalCancelledAt        DateTime?
+  approvalCancelledById      String?
+  approvalCancellationReason String?
+
   lines               ProductionMaterialDocumentLine[]
   qualityDispositions ProductionQualityDisposition[]
 
@@ -5079,6 +5103,108 @@ model ProductionFinishedGoodsReceiptLine {
   @@index([warehouseLocationId])
   @@index([receiptId, productId])
   @@map("production_finished_goods_receipt_lines")
+}
+
+/// Unified Issue Requests & Warehouse Approvals - canonical finished-goods OUT
+/// transaction. This is deliberately a NEW authority: `ProductionFinishedGoodsReceipt`
+/// is an IN receipt and is never reused for an outbound issue. Lines debit the
+/// issue warehouse through the canonical InventoryMovement posting contract.
+model FinishedGoodsIssue {
+  id               String             @id @default(cuid())
+  companyId        String
+  company          Company            @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId         String
+  branch           Branch             @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  issueNumber      String
+  issueWarehouseId String
+  issueWarehouse   Warehouse          @relation("FGIssueWarehouse", fields: [issueWarehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Business reason for leaving the finished-goods warehouse (free text).
+  purpose          String?
+  status           String             @default("DRAFT")
+  movementId       String?
+  movement         InventoryMovement? @relation(fields: [movementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  movementNumber   String?
+  sourceType       String             @default("MANUAL")
+  requestId        String?
+  notes            String?
+  issueDate        DateTime           @default(now())
+
+  // Requester submission and the separate warehouse decision. All nullable so
+  // historical rows keep their status and no synthetic approval data is invented.
+  submittedAt                DateTime?
+  submittedById              String?
+  approvedAt                 DateTime?
+  approvedById               String?
+  rejectedAt                 DateTime?
+  rejectedById               String?
+  rejectionReason            String?
+  withdrawnAt                DateTime?
+  withdrawnById              String?
+  approvalCancelledAt        DateTime?
+  approvalCancelledById      String?
+  approvalCancellationReason String?
+
+  postedAt      DateTime?
+  cancelledAt   DateTime?
+  createdById   String
+  postedById    String?
+  cancelledById String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  /// Set on a compensating reversal issue (sourceType REVERSE) that offsets a
+  /// POSTED issue. Immutable once created; the original issue is never mutated.
+  reversesIssueId String?
+  reversesIssue   FinishedGoodsIssue?  @relation("FGIssueReversal", fields: [reversesIssueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reversalIssues  FinishedGoodsIssue[] @relation("FGIssueReversal")
+
+  lines FinishedGoodsIssueLine[]
+
+  @@unique([companyId, branchId, issueNumber])
+  @@unique([companyId, branchId, movementId])
+  // NOTE: non-null uniqueness on (companyId, branchId, requestId) is enforced by a
+  // SQL Server filtered unique index in the accompanying migration (WHERE
+  // [requestId] IS NOT NULL). SQL Server treats NULLs as equal inside a UNIQUE
+  // constraint, so a plain @@unique would allow only one requestId-less issue.
+  // That filtered unique index also serves requestId lookups, so no separate
+  // non-unique index is declared (schema stays drift-free against the migration).
+  @@index([companyId, branchId, status])
+  @@index([companyId, branchId, issueDate])
+  @@index([companyId, branchId, issueWarehouseId])
+  @@index([movementId])
+  @@index([reversesIssueId])
+  @@map("finished_goods_issues")
+}
+
+model FinishedGoodsIssueLine {
+  id                  String             @id @default(cuid())
+  companyId           String
+  company             Company            @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId            String
+  branch              Branch             @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  issueId             String
+  issue               FinishedGoodsIssue @relation(fields: [issueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId           String
+  product             Product            @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productCodeSnapshot String
+  productNameSnapshot String
+  unit                String
+  quantity            Decimal            @db.Decimal(18, 4)
+  warehouseLocationId String?
+  warehouseLocation   WarehouseLocation? @relation(fields: [warehouseLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  batchNumber         String?
+  serialNumber        String?
+  expiryDate          DateTime?
+  lineNumber          Int                @default(1)
+  notes               String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([issueId])
+  @@index([productId])
+  @@index([warehouseLocationId])
+  @@index([issueId, productId])
+  @@map("finished_goods_issue_lines")
 }
 
 model ProductionMaterialRequirement {

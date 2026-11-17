@@ -99,6 +99,8 @@ import { ProductionLossQuantityEventsModule } from './modules/factory/production
 import { ProductionMaterialDocumentsModule } from './modules/factory/production-material-documents/production-material-documents.module';
 import { ProductionMaterialRequirementsModule } from './modules/factory/production-material-requirements/production-material-requirements.module';
 import { ProductionFinishedGoodsReceiptsModule } from './modules/factory/production-finished-goods-receipts/production-finished-goods-receipts.module';
+import { FinishedGoodsIssuesModule } from './modules/factory/finished-goods-issues/finished-goods-issues.module';
+import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { ProductionQualityModule } from './modules/factory/production-quality/production-quality.module';
 import { ProductionCostModule } from './modules/factory/production-cost/production-cost.module';
 import { ProductionAnalyticsModule } from './modules/factory/production-analytics/production-analytics.module';
@@ -163,6 +165,8 @@ import { MasterDataExcelModule } from './modules/factory/master-data-excel/maste
     ProductionMaterialDocumentsModule,
     ProductionMaterialRequirementsModule,
     ProductionFinishedGoodsReceiptsModule,
+    FinishedGoodsIssuesModule,
+    ApprovalsModule,
     ProductionQualityModule,
     ProductionCostModule,
     ProductionAnalyticsModule,

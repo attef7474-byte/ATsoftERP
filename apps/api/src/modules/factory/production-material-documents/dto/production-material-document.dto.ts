@@ -181,6 +181,27 @@ export class CancelMaterialDocumentDto {
   reason!: string;
 }
 
+export class RejectMaterialDocumentDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  reason!: string;
+}
+
+export class CancelMaterialDocumentApprovalDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  reason!: string;
+}
+
+export class WithdrawMaterialDocumentDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  reason?: string;
+}
+
 export class MaterialDocumentQueryDto {
   @IsOptional()
   @Type(() => Number)

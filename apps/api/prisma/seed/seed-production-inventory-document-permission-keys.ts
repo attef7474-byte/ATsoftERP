@@ -6,6 +6,27 @@ export const PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS = [
   'production-material-document:post',
   'production-material-document:cancel',
   'production-material-document:reverse',
+  // Unified Issue Requests & Warehouse Approvals lifecycle.
+  'production-material-document:submit',
+  'production-material-document:withdraw',
+  'production-material-document:approve',
+  'production-material-document:reject',
+  'production-material-document:cancel-approval',
+] as const;
+
+export const FINISHED_GOODS_ISSUE_PERMISSION_KEYS = [
+  'finished-goods-issue:create',
+  'finished-goods-issue:read',
+  'finished-goods-issue:update',
+  'finished-goods-issue:delete',
+  'finished-goods-issue:post',
+  'finished-goods-issue:cancel',
+  'finished-goods-issue:reverse',
+  'finished-goods-issue:submit',
+  'finished-goods-issue:withdraw',
+  'finished-goods-issue:approve',
+  'finished-goods-issue:reject',
+  'finished-goods-issue:cancel-approval',
 ] as const;
 
 export const PRODUCTION_FG_RECEIPT_PERMISSION_KEYS = [
@@ -39,6 +60,7 @@ export const PRODUCTION_TRACEABILITY_PERMISSION_KEYS = [
 export const PRODUCTION_INVENTORY_DOCUMENT_PERMISSIONS = [
   ...PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS,
   ...PRODUCTION_FG_RECEIPT_PERMISSION_KEYS,
+  ...FINISHED_GOODS_ISSUE_PERMISSION_KEYS,
   ...PRODUCTION_MATERIAL_REQUIREMENT_PERMISSION_KEYS,
   ...PRODUCTION_MATERIAL_CONSUMPTION_PERMISSION_KEYS,
   ...PRODUCTION_TRACEABILITY_PERMISSION_KEYS,

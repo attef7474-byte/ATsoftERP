@@ -413,6 +413,8 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         PRODUCTION_CONSUMPTION: 'استهلاك إنتاج',
         PRODUCTION_FG_RECEIPT: 'استلام إنتاج تام',
         PRODUCTION_FG_RECEIPT_REVERSAL: 'عكس استلام إنتاج تام',
+        FINISHED_GOODS_ISSUE: 'صرف إنتاج تام',
+        FINISHED_GOODS_ISSUE_REVERSAL: 'عكس صرف إنتاج تام',
         MANUAL: 'يدوي',
         IN: 'وارد',
         OUT: 'صادر',

@@ -26,8 +26,21 @@ export const PRODUCTION_FG_RECEIPT_NUMBER_SEQUENCE = {
   status: 'ACTIVE',
 };
 
+export const FINISHED_GOODS_ISSUE_NUMBER_SEQUENCE = {
+  code: 'FINISHED_GOODS_ISSUE',
+  name: 'Finished-Goods Issue',
+  operationName: 'Finished-Goods Issue',
+  modelName: 'FinishedGoodsIssue',
+  domain: 'inventory',
+  prefix: 'FGI-',
+  padding: 6,
+  scope: 'GLOBAL',
+  resetPolicy: 'NEVER',
+  status: 'ACTIVE',
+};
+
 export async function seedProductionInventoryDocumentNumbering(prisma: PrismaClient): Promise<void> {
-  for (const sequence of [PRODUCTION_MATERIAL_DOCUMENT_NUMBER_SEQUENCE, PRODUCTION_FG_RECEIPT_NUMBER_SEQUENCE]) {
+  for (const sequence of [PRODUCTION_MATERIAL_DOCUMENT_NUMBER_SEQUENCE, PRODUCTION_FG_RECEIPT_NUMBER_SEQUENCE, FINISHED_GOODS_ISSUE_NUMBER_SEQUENCE]) {
     const existing = await prisma.numberSequence.findUnique({ where: { code: sequence.code } });
     if (!existing) await prisma.numberSequence.create({ data: sequence });
   }

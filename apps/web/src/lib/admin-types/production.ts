@@ -804,7 +804,7 @@ export interface RunLossesView {
 }
 
 export type ProductionMaterialDocumentType = 'ISSUE' | 'CONSUMPTION' | 'RETURN' | 'SUBSTITUTION';
-export type ProductionDocumentStatus = 'DRAFT' | 'POSTED' | 'CANCELLED';
+export type ProductionDocumentStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'POSTED' | 'CANCELLED';
 
 export interface ProductionMaterialDocumentLine {
   id: string;
@@ -864,6 +864,21 @@ export interface ProductionMaterialDocument {
   createdById: string;
   postedById?: string | null;
   cancelledById?: string | null;
+  // Issue-request approval lifecycle (requester vs warehouse separation of duties).
+  submittedAt?: string | null;
+  submittedById?: string | null;
+  approvedAt?: string | null;
+  approvedById?: string | null;
+  rejectedAt?: string | null;
+  rejectedById?: string | null;
+  rejectionReason?: string | null;
+  withdrawnAt?: string | null;
+  withdrawnById?: string | null;
+  approvalCancelledAt?: string | null;
+  approvalCancelledById?: string | null;
+  approvalCancellationReason?: string | null;
+  /** Actor-id → display-name map resolved by the detail endpoint. */
+  actorNames?: Record<string, string>;
   createdAt: string;
   updatedAt: string;
   lines: ProductionMaterialDocumentLine[];
@@ -1156,6 +1171,105 @@ export interface ProductionFinishedGoodsReceipt {
   createdAt: string;
   updatedAt: string;
   lines: ProductionFinishedGoodsReceiptLine[];
+}
+
+// ── Finished-Goods Issue (outbound authority) ────────────────────────────────
+
+export interface FinishedGoodsIssueLine {
+  id: string;
+  companyId: string;
+  branchId: string;
+  issueId: string;
+  productId: string;
+  product?: { id: string; code: string; name: string } | null;
+  productCodeSnapshot: string;
+  productNameSnapshot: string;
+  unit: string;
+  quantity: string | number;
+  warehouseLocationId?: string | null;
+  warehouseLocation?: { id: string; code: string; name: string } | null;
+  batchNumber?: string | null;
+  serialNumber?: string | null;
+  expiryDate?: string | null;
+  lineNumber: number;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinishedGoodsIssue {
+  id: string;
+  companyId: string;
+  branchId: string;
+  issueNumber: string;
+  issueWarehouseId: string;
+  issueWarehouse?: { id: string; code: string; name: string } | null;
+  purpose?: string | null;
+  status: ProductionDocumentStatus;
+  movementId?: string | null;
+  movement?: { id: string; movementNumber: string; movementType: string; status: string } | null;
+  movementNumber?: string | null;
+  sourceType: string;
+  requestId?: string | null;
+  notes?: string | null;
+  issueDate: string;
+  submittedAt?: string | null;
+  submittedById?: string | null;
+  approvedAt?: string | null;
+  approvedById?: string | null;
+  rejectedAt?: string | null;
+  rejectedById?: string | null;
+  rejectionReason?: string | null;
+  withdrawnAt?: string | null;
+  withdrawnById?: string | null;
+  approvalCancelledAt?: string | null;
+  approvalCancelledById?: string | null;
+  approvalCancellationReason?: string | null;
+  postedAt?: string | null;
+  postedById?: string | null;
+  cancelledAt?: string | null;
+  cancelledById?: string | null;
+  reversesIssueId?: string | null;
+  reversesIssue?: { id: string; issueNumber: string; status: string } | null;
+  createdById: string;
+  /** Actor-id → display-name map resolved by the detail endpoint. */
+  actorNames?: Record<string, string>;
+  createdAt: string;
+  updatedAt: string;
+  lines: FinishedGoodsIssueLine[];
+}
+
+// ── Unified Warehouse Approvals (read-only aggregation rows) ────────────────
+
+export type WarehouseApprovalType = 'SPARE_PART' | 'RAW_MATERIAL' | 'FINISHED_GOODS';
+
+export interface WarehouseApprovalRow {
+  key: string;
+  type: WarehouseApprovalType;
+  entityId: string;
+  parentEntityId: string | null;
+  reference: string;
+  title: string | null;
+  status: string;
+  requestedAt: string | null;
+  requestedById: string | null;
+  requestedByName: string | null;
+  warehouse: { id: string; code: string; name: string } | null;
+  lineCount: number;
+  totalQuantity: number;
+  createdAt: string;
+}
+
+export interface WarehouseApprovalsResponse {
+  data: WarehouseApprovalRow[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    counts: Record<WarehouseApprovalType, number>;
+  };
+  permissions: string[];
 }
 
 // ── Phase 1.8: Production Quality ────────────────────────────────────────────

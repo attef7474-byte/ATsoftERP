@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { NumberingService } from '../../numbering/numbering.service';
@@ -21,12 +21,15 @@ import { isWithinTolerance } from '../production-material-requirements/productio
 import { PRODUCTION_COST_PURPOSE, isCostPurpose } from '../../../common/cost-purpose/cost-purpose.constants';
 import { assertCostPurposeOverrideAllowed } from '../../../common/cost-purpose/cost-purpose-permission';
 import {
+  CancelMaterialDocumentApprovalDto,
   CancelMaterialDocumentDto,
   CreateMaterialDocumentDto,
   CreateMaterialDocumentLineDto,
   MaterialDocumentQueryDto,
+  RejectMaterialDocumentDto,
   ReverseMaterialDocumentDto,
   UpdateMaterialDocumentDto,
+  WithdrawMaterialDocumentDto,
 } from './dto/production-material-document.dto';
 
 const MATERIAL_SOURCE_TYPE = 'PRODUCTION_MATERIAL_DOCUMENT';
@@ -51,6 +54,10 @@ export class ProductionMaterialDocumentsService {
 
   private conflict(key: string): ConflictException {
     return new ConflictException({ messageKey: key, message: key });
+  }
+
+  private forbidden(key: string): ForbiddenException {
+    return new ForbiddenException({ messageKey: key, message: key });
   }
 
   private writeAudit(client: any, userId: string, action: string, entityId: string, ctx: ActiveOperationalContext, details: Record<string, any>) {
@@ -691,7 +698,39 @@ export class ProductionMaterialDocumentsService {
   }
 
   async findOne(id: string, ctx: ActiveOperationalContext) {
-    return this.findDocument(id, ctx);
+    const doc = await this.findDocument(id, ctx);
+    return this.withActorNames(doc);
+  }
+
+  /**
+   * Resolves the scalar actor ids kept on the document to display names so the
+   * UI never has to render a raw user id.
+   */
+  private async withActorNames<T extends Record<string, any>>(
+    record: T,
+    client: any = this.prisma,
+  ): Promise<T & { actorNames: Record<string, string> }> {
+    const ids = [
+      'createdById',
+      'submittedById',
+      'approvedById',
+      'rejectedById',
+      'withdrawnById',
+      'postedById',
+      'cancelledById',
+    ]
+      .map((field) => record[field])
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return { ...record, actorNames: {} };
+    const users = await client.user.findMany({
+      where: { id: { in: unique } },
+      select: { id: true, name: true },
+    });
+    return {
+      ...record,
+      actorNames: Object.fromEntries(users.map((user: any) => [user.id, user.name])),
+    };
   }
 
   async update(id: string, dto: UpdateMaterialDocumentDto, userId: string, ctx: ActiveOperationalContext) {
@@ -771,10 +810,144 @@ export class ProductionMaterialDocumentsService {
     });
   }
 
+  /**
+   * Unified request lifecycle transition helper. The guarded `updateMany` is the
+   * single atomic claim: only the caller that observes the expected current
+   * status can move the document, so two concurrent decisions can never both
+   * succeed. The audit record always carries the previous/new status and the
+   * acting user (so the requester and the warehouse decider remain distinct,
+   * auditable actors).
+   */
+  private async transitionStatus(
+    id: string,
+    ctx: ActiveOperationalContext,
+    userId: string,
+    action: string,
+    fromStatuses: string[],
+    data: Record<string, any>,
+    auditDetails: Record<string, any> = {},
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const doc = await this.findDocument(id, ctx, tx);
+      if (!fromStatuses.includes(doc.status)) throw this.badRequest('productionMaterial.invalidTransition');
+
+      const claim = await tx.productionMaterialDocument.updateMany({
+        where: { id, companyId: ctx.companyId, branchId: ctx.branchId, status: { in: fromStatuses } },
+        data,
+      });
+      if (claim.count !== 1) throw this.conflict('productionMaterial.invalidTransition');
+
+      const updated = await tx.productionMaterialDocument.findFirst({
+        where: { id, companyId: ctx.companyId, branchId: ctx.branchId },
+        include: PRODUCTION_MATERIAL_DOCUMENT_INCLUDE,
+      });
+      if (!updated) throw this.notFound('productionMaterial.notFound');
+
+      await this.writeAudit(tx, userId, action, id, ctx, {
+        documentNumber: doc.documentNumber,
+        oldStatus: doc.status,
+        newStatus: data.status,
+        ...auditDetails,
+      });
+      return updated;
+    });
+  }
+
+  /** Requester submits a DRAFT raw-material issue request to the warehouse. */
+  async submit(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findDocument(id, ctx);
+    if (doc.status !== 'DRAFT') throw this.badRequest('productionMaterial.notDraft');
+    return this.transitionStatus(
+      id,
+      ctx,
+      userId,
+      'SUBMIT',
+      ['DRAFT'],
+      { status: 'SUBMITTED', submittedAt: new Date(), submittedById: userId },
+      { requesterId: userId },
+    );
+  }
+
+  /** Requester withdraws a SUBMITTED request before the warehouse decides on it. */
+  async withdraw(id: string, dto: WithdrawMaterialDocumentDto, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findDocument(id, ctx);
+    if (doc.status !== 'SUBMITTED') throw this.badRequest('productionMaterial.notSubmitted');
+    if (doc.submittedById && doc.submittedById !== userId) {
+      throw this.forbidden('productionMaterial.onlyRequesterCanWithdraw');
+    }
+    return this.transitionStatus(
+      id,
+      ctx,
+      userId,
+      'WITHDRAW',
+      ['SUBMITTED'],
+      {
+        status: 'DRAFT',
+        withdrawnAt: new Date(),
+        withdrawnById: userId,
+        submittedAt: null,
+        submittedById: null,
+      },
+      { requesterId: userId, reason: dto.reason ?? null },
+    );
+  }
+
+  /** Warehouse approval. The decider must be a different actor from the requester. */
+  async approve(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findDocument(id, ctx);
+    if (doc.status !== 'SUBMITTED') throw this.badRequest('productionMaterial.notSubmitted');
+    if (doc.submittedById && doc.submittedById === userId) throw this.badRequest('productionMaterial.cannotApproveOwnRequest');
+    return this.transitionStatus(
+      id,
+      ctx,
+      userId,
+      'APPROVE',
+      ['SUBMITTED'],
+      { status: 'APPROVED', approvedAt: new Date(), approvedById: userId },
+      { requesterId: doc.submittedById ?? null },
+    );
+  }
+
+  /** Warehouse rejection: terminal for this request, with a mandatory reason. */
+  async reject(id: string, dto: RejectMaterialDocumentDto, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findDocument(id, ctx);
+    if (doc.status !== 'SUBMITTED') throw this.badRequest('productionMaterial.notSubmitted');
+    if (doc.submittedById && doc.submittedById === userId) throw this.badRequest('productionMaterial.cannotApproveOwnRequest');
+    return this.transitionStatus(
+      id,
+      ctx,
+      userId,
+      'REJECT',
+      ['SUBMITTED'],
+      { status: 'REJECTED', rejectedAt: new Date(), rejectedById: userId, rejectionReason: dto.reason },
+      { requesterId: doc.submittedById ?? null, reason: dto.reason },
+    );
+  }
+
+  /** Warehouse cancels a prior approval before posting, returning it to SUBMITTED. */
+  async cancelApproval(id: string, dto: CancelMaterialDocumentApprovalDto, userId: string, ctx: ActiveOperationalContext) {
+    const doc = await this.findDocument(id, ctx);
+    if (doc.status !== 'APPROVED') throw this.badRequest('productionMaterial.notApproved');
+    return this.transitionStatus(
+      id,
+      ctx,
+      userId,
+      'CANCEL_APPROVAL',
+      ['APPROVED'],
+      {
+        status: 'SUBMITTED',
+        approvalCancelledAt: new Date(),
+        approvalCancelledById: userId,
+        approvalCancellationReason: dto.reason,
+      },
+      { reason: dto.reason, previousApprovedById: doc.approvedById ?? null },
+    );
+  }
+
   async post(id: string, userId: string, ctx: ActiveOperationalContext) {
     return this.withTransientTransactionRetry(() => this.prisma.$transaction(async (tx) => {
       const doc = await this.findDocument(id, ctx, tx);
-      if (doc.status !== 'DRAFT') throw this.badRequest('productionMaterial.notDraft');
+      if (doc.status !== 'APPROVED') throw this.badRequest('productionMaterial.notApproved');
       if (!doc.movementId) throw this.badRequest('productionMaterial.movementMissing');
 
       // VAL-R1G-A: acquire the run cost boundary lock to serialize posting
@@ -886,7 +1059,12 @@ export class ProductionMaterialDocumentsService {
   async cancel(id: string, dto: CancelMaterialDocumentDto, userId: string, ctx: ActiveOperationalContext) {
     return this.prisma.$transaction(async (tx) => {
       const doc = await this.findDocument(id, ctx, tx);
-      if (doc.status !== 'DRAFT') throw this.badRequest('productionMaterial.notDraft');
+      // A request can be cancelled by its requester while it is still a DRAFT, while
+      // it awaits a warehouse decision (SUBMITTED) or after it was rejected. APPROVED
+      // and POSTED documents can only be corrected through cancel-approval/reversal.
+      if (!['DRAFT', 'SUBMITTED', 'REJECTED'].includes(doc.status)) {
+        throw this.badRequest('productionMaterial.invalidTransition');
+      }
 
       if (doc.movementId) {
         const movement = await tx.inventoryMovement.findUnique({ where: { id: doc.movementId } });
@@ -899,14 +1077,27 @@ export class ProductionMaterialDocumentsService {
         }
       }
 
-      const cancelled = await tx.productionMaterialDocument.update({
-        where: { id },
+      const claim = await tx.productionMaterialDocument.updateMany({
+        where: {
+          id,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          status: { in: ['DRAFT', 'SUBMITTED', 'REJECTED'] },
+        },
         data: { status: 'CANCELLED', cancelledAt: new Date(), cancelledById: userId, notes: dto.reason },
+      });
+      if (claim.count !== 1) throw this.conflict('productionMaterial.invalidTransition');
+
+      const cancelled = await tx.productionMaterialDocument.findFirst({
+        where: { id, companyId: ctx.companyId, branchId: ctx.branchId },
         include: PRODUCTION_MATERIAL_DOCUMENT_INCLUDE,
       });
+      if (!cancelled) throw this.notFound('productionMaterial.notFound');
 
       await this.writeAudit(tx, userId, 'CANCEL', id, ctx, {
         documentNumber: doc.documentNumber,
+        oldStatus: doc.status,
+        newStatus: 'CANCELLED',
         reason: dto.reason,
       });
       return cancelled;

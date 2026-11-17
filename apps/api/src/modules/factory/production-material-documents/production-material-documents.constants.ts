@@ -10,7 +10,31 @@ export const PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS = {
   post: 'production-material-document:post',
   cancel: 'production-material-document:cancel',
   reverse: 'production-material-document:reverse',
+  // Unified Issue Requests & Warehouse Approvals — raw-material issue requests
+  // follow DRAFT -> SUBMITTED -> APPROVED -> POSTED. The requester submits and
+  // withdraws; the warehouse (a separate actor) approves, rejects or cancels an
+  // approval. Posting still uses the existing `post` permission.
+  submit: 'production-material-document:submit',
+  withdraw: 'production-material-document:withdraw',
+  approve: 'production-material-document:approve',
+  reject: 'production-material-document:reject',
+  cancelApproval: 'production-material-document:cancel-approval',
 } as const;
+
+/**
+ * Statuses a material document can be in. DRAFT/SUBMITTED are editable/withdrawable
+ * by the requester; APPROVED is the only status that can be posted; POSTED is
+ * immutable and can only be corrected through a reversal. REJECTED/CANCELLED are
+ * terminal for the request lifecycle.
+ */
+export const PRODUCTION_MATERIAL_DOCUMENT_STATUSES = [
+  'DRAFT',
+  'SUBMITTED',
+  'APPROVED',
+  'REJECTED',
+  'POSTED',
+  'CANCELLED',
+] as const;
 
 export const PRODUCTION_MATERIAL_DOCUMENT_INCLUDE = {
   productionOrder: { select: { id: true, orderNumber: true, status: true } },

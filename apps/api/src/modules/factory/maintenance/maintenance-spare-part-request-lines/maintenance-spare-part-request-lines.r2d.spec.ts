@@ -16,6 +16,7 @@ describe('maintenance-spare-part-request-lines R2-D lifecycle normalization', ()
         findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
     return tx;
@@ -179,5 +180,120 @@ describe('maintenance-spare-part-request-lines R2-D lifecycle normalization', ()
     expect(db.maintenanceRequestRequiredPart.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELLED', cancelledByUserId: 'user-1' }) }),
     );
+  });
+
+  describe('requester withdrawal (before warehouse approval)', () => {
+    it('lets the recorded requester withdraw a REQUESTED line back to DRAFT', async () => {
+      const db = buildDb();
+      db.maintenanceRequest.findUnique.mockResolvedValue(requestOf());
+      db.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(
+        partLine({ status: 'REQUESTED', requestedByUserId: 'user-1' }),
+      );
+      db.maintenanceRequestRequiredPart.updateMany.mockResolvedValue({ count: 1 });
+      db.maintenanceRequestRequiredPart.findUnique
+        .mockResolvedValueOnce(partLine({ status: 'REQUESTED', requestedByUserId: 'user-1' }))
+        .mockResolvedValueOnce({ id: 'line-1', status: 'DRAFT' });
+      const service = serviceOf(db);
+
+      const result = await service.withdraw('req-1', 'line-1', 'user-1', ctx);
+
+      expect(result).toMatchObject({ status: 'DRAFT' });
+      expect(db.maintenanceRequestRequiredPart.updateMany).toHaveBeenCalledWith({
+        where: { id: 'line-1', status: 'REQUESTED' },
+        data: { status: 'DRAFT' },
+      });
+      expect(audit.log).toHaveBeenCalledWith(
+        'user-1',
+        'WITHDRAW',
+        'MaintenanceRequestRequiredPart',
+        'line-1',
+        expect.objectContaining({ oldStatus: 'REQUESTED', newStatus: 'DRAFT' }),
+      );
+    });
+
+    it('blocks another user from withdrawing the request', async () => {
+      const db = buildDb();
+      db.maintenanceRequest.findUnique.mockResolvedValue(requestOf());
+      db.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(
+        partLine({ status: 'REQUESTED', requestedByUserId: 'user-1' }),
+      );
+      const service = serviceOf(db);
+
+      await expect(service.withdraw('req-1', 'line-1', 'user-2', ctx)).rejects.toMatchObject({
+        response: { messageKey: 'maintenance.onlyRequesterCanWithdrawPart' },
+      });
+      expect(db.maintenanceRequestRequiredPart.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('only withdraws a REQUESTED line', async () => {
+      const db = buildDb();
+      db.maintenanceRequest.findUnique.mockResolvedValue(requestOf());
+      db.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(
+        partLine({ status: 'APPROVED', requestedByUserId: 'user-1' }),
+      );
+      const service = serviceOf(db);
+
+      await expect(service.withdraw('req-1', 'line-1', 'user-1', ctx)).rejects.toMatchObject({
+        response: { messageKey: 'maintenance.partWithdrawOnlyRequested' },
+      });
+    });
+
+    it('refuses when a concurrent decision already moved the line', async () => {
+      const db = buildDb();
+      db.maintenanceRequest.findUnique.mockResolvedValue(requestOf());
+      db.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(
+        partLine({ status: 'REQUESTED', requestedByUserId: 'user-1' }),
+      );
+      db.maintenanceRequestRequiredPart.updateMany.mockResolvedValue({ count: 0 });
+      const service = serviceOf(db);
+
+      await expect(service.withdraw('req-1', 'line-1', 'user-1', ctx)).rejects.toBeInstanceOf(BadRequestException);
+      expect(db.maintenanceRequestRequiredPart.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('separation of duties', () => {
+    it('blocks the requester from approving their own part request', async () => {
+      const db = buildDb();
+      db.maintenanceRequest.findUnique.mockResolvedValue(requestOf());
+      db.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(
+        partLine({ status: 'REQUESTED', requestedByUserId: 'user-1' }),
+      );
+      const service = serviceOf(db);
+
+      await expect(service.approve('req-1', 'line-1', 'user-1', ctx)).rejects.toMatchObject({
+        response: { messageKey: 'maintenance.cannotApproveOwnPartRequest' },
+      });
+      expect(db.maintenanceRequestRequiredPart.update).not.toHaveBeenCalled();
+    });
+
+    it('blocks the requester from rejecting their own part request', async () => {
+      const db = buildDb();
+      db.maintenanceRequest.findUnique.mockResolvedValue(requestOf());
+      db.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(
+        partLine({ status: 'REQUESTED', requestedByUserId: 'user-1' }),
+      );
+      const service = serviceOf(db);
+
+      await expect(service.reject('req-1', 'line-1', 'user-1', ctx)).rejects.toMatchObject({
+        response: { messageKey: 'maintenance.cannotApproveOwnPartRequest' },
+      });
+      expect(db.maintenanceRequestRequiredPart.update).not.toHaveBeenCalled();
+    });
+
+    it('keeps legacy REQUESTED lines without a recorded requester approvable', async () => {
+      const db = buildDb();
+      db.maintenanceRequest.findUnique.mockResolvedValue(requestOf());
+      db.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(
+        partLine({ status: 'REQUESTED', requestedByUserId: null }),
+      );
+      db.maintenanceRequestRequiredPart.update.mockResolvedValue({ id: 'line-1', status: 'APPROVED' });
+      const service = serviceOf(db);
+
+      await service.approve('req-1', 'line-1', 'user-1', ctx);
+      expect(db.maintenanceRequestRequiredPart.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'APPROVED' }) }),
+      );
+    });
   });
 });
