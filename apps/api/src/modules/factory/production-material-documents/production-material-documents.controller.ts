@@ -3,11 +3,14 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ProductionMaterialDocumentsService } from './production-material-documents.service';
 import { PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS } from './production-material-documents.constants';
 import {
+  CancelMaterialDocumentApprovalDto,
   CancelMaterialDocumentDto,
   CreateMaterialDocumentDto,
   MaterialDocumentQueryDto,
+  RejectMaterialDocumentDto,
   ReverseMaterialDocumentDto,
   UpdateMaterialDocumentDto,
+  WithdrawMaterialDocumentDto,
 } from './dto/production-material-document.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
@@ -60,14 +63,49 @@ export class ProductionMaterialDocumentsController {
 
   @Patch(':id/post')
   @Permissions(PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS.post)
-  @ApiOperation({ summary: 'Post the document and its inventory movement atomically (one ledger effect)' })
+  @ApiOperation({ summary: 'Post an APPROVED document and its inventory movement atomically (one ledger effect)' })
   post(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.post(id, userId, ctx);
   }
 
+  @Patch(':id/submit')
+  @Permissions(PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS.submit)
+  @ApiOperation({ summary: 'Requester submits a DRAFT raw-material issue request to the warehouse' })
+  submit(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.submit(id, userId, ctx);
+  }
+
+  @Patch(':id/withdraw')
+  @Permissions(PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS.withdraw)
+  @ApiOperation({ summary: 'Requester withdraws a SUBMITTED request back to DRAFT before the warehouse decides' })
+  withdraw(@Param('id') id: string, @Body() dto: WithdrawMaterialDocumentDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.withdraw(id, dto, userId, ctx);
+  }
+
+  @Patch(':id/approve')
+  @Permissions(PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS.approve)
+  @ApiOperation({ summary: 'Warehouse approves a SUBMITTED request (separate actor from the requester)' })
+  approve(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.approve(id, userId, ctx);
+  }
+
+  @Patch(':id/reject')
+  @Permissions(PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS.reject)
+  @ApiOperation({ summary: 'Warehouse rejects a SUBMITTED request with a mandatory reason' })
+  reject(@Param('id') id: string, @Body() dto: RejectMaterialDocumentDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.reject(id, dto, userId, ctx);
+  }
+
+  @Patch(':id/cancel-approval')
+  @Permissions(PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS.cancelApproval)
+  @ApiOperation({ summary: 'Warehouse cancels a prior approval before posting and returns the request to SUBMITTED' })
+  cancelApproval(@Param('id') id: string, @Body() dto: CancelMaterialDocumentApprovalDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.cancelApproval(id, dto, userId, ctx);
+  }
+
   @Patch(':id/cancel')
   @Permissions(PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS.cancel)
-  @ApiOperation({ summary: 'Cancel a DRAFT production material document and its DRAFT movement' })
+  @ApiOperation({ summary: 'Cancel a DRAFT, SUBMITTED or REJECTED production material document and its DRAFT movement' })
   cancel(@Param('id') id: string, @Body() dto: CancelMaterialDocumentDto, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.cancel(id, dto, userId, ctx);
   }

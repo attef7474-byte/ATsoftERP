@@ -17,7 +17,7 @@ import { MaterialLinesEditor, MaterialLineDraft, createEmptyMaterialLine } from 
 import { COST_PURPOSE_OVERRIDE_PERMISSION, PRODUCTION_COST_PURPOSE } from '../../../lib/cost-purpose';
 
 const DOCUMENT_TYPES = ['ISSUE', 'CONSUMPTION', 'RETURN', 'SUBSTITUTION'];
-const DOCUMENT_STATUSES = ['DRAFT', 'POSTED', 'CANCELLED'];
+const DOCUMENT_STATUSES = ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'POSTED', 'CANCELLED'];
 
 function typeLabelKey(value: string): string {
   return 'production.materialDocuments.type' + value;
@@ -35,7 +35,12 @@ function toNumber(value: string | number | null | undefined): number {
   return value === null || value === undefined ? 0 : Number(value);
 }
 
-type ActionType = 'create' | 'edit' | 'view' | 'post' | 'cancel' | 'reverse';
+/** Resolve a scalar actor id to its display name; never render a raw id. */
+function actorName(record: { actorNames?: Record<string, string> }, id?: string | null): string | null {
+  return (id ? record.actorNames?.[id] : null) ?? null;
+}
+
+type ActionType = 'create' | 'edit' | 'view' | 'submit' | 'withdraw' | 'approve' | 'reject' | 'cancelApproval' | 'post' | 'cancel' | 'reverse';
 
 interface MaterialForm {
   documentType: string;
@@ -294,8 +299,70 @@ export function MaterialDocumentsPanel() {
     finally { setSaving(false); }
   };
 
-  const handlePost = async () => {
+  const handleSubmit = async () => {
     if (!selectedId) return;
+    setSaving(true);
+    try {
+      await api.patch(`/production/material-documents/${selectedId}/submit`);
+      showToast(t('common.saved'), 'success');
+      setAction(null); resetForm(); setSelectedId(''); fetchData(meta.page); fetchSummary();
+    } catch (err: any) { handleSaveError(err); }
+    finally { setSaving(false); }
+  };
+
+  const handleWithdraw = async () => {
+    if (!selectedId) return;
+    setSaving(true);
+    try {
+      await api.patch(`/production/material-documents/${selectedId}/withdraw`, { reason: form.notes.trim() || undefined });
+      showToast(t('common.saved'), 'success');
+      setAction(null); resetForm(); setSelectedId(''); fetchData(meta.page); fetchSummary();
+    } catch (err: any) { handleSaveError(err); }
+    finally { setSaving(false); }
+  };
+
+  const handleApprove = async () => {
+    if (!selectedId) return;
+    setSaving(true);
+    try {
+      await api.patch(`/production/material-documents/${selectedId}/approve`);
+      showToast(t('common.saved'), 'success');
+      setAction(null); resetForm(); setSelectedId(''); fetchData(meta.page); fetchSummary();
+    } catch (err: any) { handleSaveError(err); }
+    finally { setSaving(false); }
+  };
+
+  const handleReject = async () => {
+    if (!selectedId) return;
+    const errors: Record<string, string> = {};
+    if (!form.notes.trim()) errors.rejectReason = t('production.materialDocuments.errors.reasonRequired');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    setSaving(true);
+    try {
+      await api.patch(`/production/material-documents/${selectedId}/reject`, { reason: form.notes.trim() });
+      showToast(t('common.saved'), 'success');
+      setAction(null); resetForm(); setSelectedId(''); fetchData(meta.page); fetchSummary();
+    } catch (err: any) { handleSaveError(err); }
+    finally { setSaving(false); }
+  };
+
+  const handleCancelApproval = async () => {
+    if (!selectedId) return;
+    const errors: Record<string, string> = {};
+    if (!form.notes.trim()) errors.cancelApprovalReason = t('production.materialDocuments.errors.reasonRequired');
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    setSaving(true);
+    try {
+      await api.patch(`/production/material-documents/${selectedId}/cancel-approval`, { reason: form.notes.trim() });
+      showToast(t('common.saved'), 'success');
+      setAction(null); resetForm(); setSelectedId(''); fetchData(meta.page); fetchSummary();
+    } catch (err: any) { handleSaveError(err); }
+    finally { setSaving(false); }
+  };
+
+  const handlePost = async () => {    if (!selectedId) return;
     setSaving(true);
     try {
       await api.patch(`/production/material-documents/${selectedId}/post`);
@@ -378,6 +445,12 @@ export function MaterialDocumentsPanel() {
 
   const openPost = (doc: ProductionMaterialDocument) => { setSelectedId(doc.id); resetForm(); setAction('post'); };
 
+  const openSubmit = (doc: ProductionMaterialDocument) => { setSelectedId(doc.id); resetForm(); setAction('submit'); };
+  const openWithdraw = (doc: ProductionMaterialDocument) => { setSelectedId(doc.id); resetForm(); setAction('withdraw'); };
+  const openApprove = (doc: ProductionMaterialDocument) => { setSelectedId(doc.id); resetForm(); setAction('approve'); };
+  const openReject = (doc: ProductionMaterialDocument) => { setSelectedId(doc.id); resetForm(); setAction('reject'); };
+  const openCancelApproval = (doc: ProductionMaterialDocument) => { setSelectedId(doc.id); resetForm(); setAction('cancelApproval'); };
+
   const openCancel = (doc: ProductionMaterialDocument) => { setSelectedId(doc.id); resetForm(); setAction('cancel'); };
 
   const openReverse = (doc: ProductionMaterialDocument) => {
@@ -401,14 +474,24 @@ export function MaterialDocumentsPanel() {
   const gridActions: GridAction<ProductionMaterialDocument>[] = [
     { label: t('common.view'), onClick: (d) => void openView(d), enabled: (d) => can('read') },
     { label: t('common.edit'), permission: 'production-material-document:update', onClick: (d) => void openEdit(d), enabled: (d) => can('update') && d.status === 'DRAFT' },
-    { label: t('production.materialDocuments.post'), permission: 'production-material-document:post', onClick: (d) => openPost(d), enabled: (d) => can('post') && d.status === 'DRAFT' },
-    { label: t('production.materialDocuments.cancel'), permission: 'production-material-document:cancel', onClick: (d) => openCancel(d), enabled: (d) => can('cancel') && d.status === 'DRAFT', variant: 'danger' },
+    { label: t('production.materialDocuments.submit'), permission: 'production-material-document:submit', onClick: (d) => openSubmit(d), enabled: (d) => can('submit') && d.status === 'DRAFT' },
+    { label: t('production.materialDocuments.withdraw'), permission: 'production-material-document:withdraw', onClick: (d) => openWithdraw(d), enabled: (d) => can('withdraw') && d.status === 'SUBMITTED' },
+    { label: t('production.materialDocuments.approve'), permission: 'production-material-document:approve', onClick: (d) => openApprove(d), enabled: (d) => can('approve') && d.status === 'SUBMITTED' },
+    { label: t('production.materialDocuments.reject'), permission: 'production-material-document:reject', onClick: (d) => openReject(d), enabled: (d) => can('reject') && d.status === 'SUBMITTED', variant: 'danger' },
+    { label: t('production.materialDocuments.cancelApproval'), permission: 'production-material-document:cancel-approval', onClick: (d) => openCancelApproval(d), enabled: (d) => can('cancel-approval') && d.status === 'APPROVED', variant: 'danger' },
+    { label: t('production.materialDocuments.post'), permission: 'production-material-document:post', onClick: (d) => openPost(d), enabled: (d) => can('post') && d.status === 'APPROVED' },
+    { label: t('production.materialDocuments.cancel'), permission: 'production-material-document:cancel', onClick: (d) => openCancel(d), enabled: (d) => can('cancel') && ['DRAFT', 'SUBMITTED', 'REJECTED'].includes(d.status), variant: 'danger' },
     { label: t('production.materialDocuments.reverse'), permission: 'production-material-document:reverse', onClick: (d) => openReverse(d), enabled: (d) => can('reverse') && d.status === 'POSTED' },
   ];
 
   const performAction = async () => {
     if (action === 'create') await handleCreate();
     if (action === 'edit') await handleUpdate();
+    if (action === 'submit') await handleSubmit();
+    if (action === 'withdraw') await handleWithdraw();
+    if (action === 'approve') await handleApprove();
+    if (action === 'reject') await handleReject();
+    if (action === 'cancelApproval') await handleCancelApproval();
     if (action === 'post') await handlePost();
     if (action === 'cancel') await handleCancel();
     if (action === 'reverse') await handleReverse();
@@ -589,11 +672,18 @@ export function MaterialDocumentsPanel() {
               <div><span className="text-gray-500">{t('production.materialDocuments.status')}: </span>{t(statusLabelKey(viewRecord.status))}</div>
               <div><span className="text-gray-500">{t('production.materialDocuments.documentDate')}: </span>{new Date(viewRecord.documentDate).toLocaleDateString()}</div>
               <div><span className="text-gray-500">{t('production.materialDocuments.source')}: </span>{t(sourceLabelKey(viewRecord.sourceType || 'MANUAL'))}</div>
-              <div><span className="text-gray-500">{t('production.materialDocuments.createdBy')}: </span><span dir="ltr">{viewRecord.createdById || '-'}</span></div>
-              <div><span className="text-gray-500">{t('production.materialDocuments.postedBy')}: </span><span dir="ltr">{viewRecord.postedById || '-'}</span></div>
+              {actorName(viewRecord, viewRecord.createdById) && <div><span className="text-gray-500">{t('production.materialDocuments.createdBy')}: </span>{actorName(viewRecord, viewRecord.createdById)}</div>}
+              {actorName(viewRecord, viewRecord.postedById) && <div><span className="text-gray-500">{t('production.materialDocuments.postedBy')}: </span>{actorName(viewRecord, viewRecord.postedById)}</div>}
               {viewRecord.postedAt && <div><span className="text-gray-500">{t('production.materialDocuments.postedAt')}: </span>{new Date(viewRecord.postedAt).toLocaleString()}</div>}
-              {viewRecord.cancelledById && <div><span className="text-gray-500">{t('production.materialDocuments.cancelledBy')}: </span><span dir="ltr">{viewRecord.cancelledById}</span></div>}
+              {actorName(viewRecord, viewRecord.cancelledById) && <div><span className="text-gray-500">{t('production.materialDocuments.cancelledBy')}: </span>{actorName(viewRecord, viewRecord.cancelledById)}</div>}
               {viewRecord.cancelledAt && <div><span className="text-gray-500">{t('production.materialDocuments.cancelledAt')}: </span>{new Date(viewRecord.cancelledAt).toLocaleString()}</div>}
+              {actorName(viewRecord, viewRecord.submittedById) && <div><span className="text-gray-500">{t('production.materialDocuments.submittedBy')}: </span>{actorName(viewRecord, viewRecord.submittedById)}</div>}
+              {viewRecord.submittedAt && <div><span className="text-gray-500">{t('production.materialDocuments.submittedAt')}: </span>{new Date(viewRecord.submittedAt).toLocaleString()}</div>}
+              {actorName(viewRecord, viewRecord.approvedById) && <div><span className="text-gray-500">{t('production.materialDocuments.approvedBy')}: </span>{actorName(viewRecord, viewRecord.approvedById)}</div>}
+              {viewRecord.approvedAt && <div><span className="text-gray-500">{t('production.materialDocuments.approvedAt')}: </span>{new Date(viewRecord.approvedAt).toLocaleString()}</div>}
+              {actorName(viewRecord, viewRecord.rejectedById) && <div><span className="text-gray-500">{t('production.materialDocuments.rejectedBy')}: </span>{actorName(viewRecord, viewRecord.rejectedById)}</div>}
+              {viewRecord.rejectedAt && <div><span className="text-gray-500">{t('production.materialDocuments.rejectedAt')}: </span>{new Date(viewRecord.rejectedAt).toLocaleString()}</div>}
+              {viewRecord.rejectionReason && <div className="col-span-2"><span className="text-gray-500">{t('production.materialDocuments.rejectionReason')}: </span>{viewRecord.rejectionReason}</div>}
             </div>
             {viewRecord.notes && <p className="text-sm text-gray-600"><span className="text-gray-500">{t('production.materialDocuments.notes')}: </span>{viewRecord.notes}</p>}
             <div>
@@ -655,6 +745,84 @@ export function MaterialDocumentsPanel() {
       </Modal>
 
       {/* Post / Cancel / Reverse confirmations */}
+      <ConfirmDialog
+        open={action === 'submit'}
+        onClose={() => { setAction(null); resetForm(); }}
+        onConfirm={handleSubmit}
+        title={t('production.materialDocuments.submit')}
+        message={t('production.materialDocuments.submitConfirmation')}
+        variant="primary"
+        loading={saving}
+      />
+
+      <ConfirmDialog
+        open={action === 'approve'}
+        onClose={() => { setAction(null); resetForm(); }}
+        onConfirm={handleApprove}
+        title={t('production.materialDocuments.approve')}
+        message={t('production.materialDocuments.approveConfirmation')}
+        variant="primary"
+        loading={saving}
+      />
+
+      <ConfirmDialog
+        open={action === 'withdraw'}
+        onClose={() => { setAction(null); resetForm(); }}
+        onConfirm={handleWithdraw}
+        title={t('production.materialDocuments.withdraw')}
+        message={t('production.materialDocuments.withdrawConfirmation')}
+        variant="primary"
+        loading={saving}
+      >
+        <div className="pt-3">
+          <Textarea
+            label={t('production.materialDocuments.withdrawReason')}
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          />
+        </div>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={action === 'reject'}
+        onClose={() => { setAction(null); resetForm(); }}
+        onConfirm={handleReject}
+        title={t('production.materialDocuments.reject')}
+        message={t('production.materialDocuments.rejectReason')}
+        variant="danger"
+        loading={saving}
+      >
+        <div className="pt-3">
+          <Textarea
+            label={t('production.materialDocuments.rejectReason')}
+            value={form.notes}
+            onChange={(e) => { setForm({ ...form, notes: e.target.value }); setValidationErrors(prev => ({ ...prev, rejectReason: '' })); }}
+            required
+          />
+          {validationErrors.rejectReason && <p className="mt-1 text-sm text-red-600">{validationErrors.rejectReason}</p>}
+        </div>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={action === 'cancelApproval'}
+        onClose={() => { setAction(null); resetForm(); }}
+        onConfirm={handleCancelApproval}
+        title={t('production.materialDocuments.cancelApproval')}
+        message={t('production.materialDocuments.cancelApprovalReason')}
+        variant="danger"
+        loading={saving}
+      >
+        <div className="pt-3">
+          <Textarea
+            label={t('production.materialDocuments.cancelApprovalReason')}
+            value={form.notes}
+            onChange={(e) => { setForm({ ...form, notes: e.target.value }); setValidationErrors(prev => ({ ...prev, cancelApprovalReason: '' })); }}
+            required
+          />
+          {validationErrors.cancelApprovalReason && <p className="mt-1 text-sm text-red-600">{validationErrors.cancelApprovalReason}</p>}
+        </div>
+      </ConfirmDialog>
+
       <ConfirmDialog
         open={action === 'post'}
         onClose={() => { setAction(null); resetForm(); }}

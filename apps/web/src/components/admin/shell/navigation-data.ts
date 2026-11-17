@@ -286,6 +286,13 @@ export const sidebarGroups: SidebarGroup[] = [
         id: 'inv-operations', labelKey: 'navigation.navSection.inventoryOperations', items: [
           { id: 'inv-opening-balances', labelKey: 'navigation.openingBalances', route: '/admin/inventory/opening-balances', permission: 'inventory:opening-balance:read' },
           { id: 'inv-movements', labelKey: 'navigation.inventoryMovements', route: '/admin/inventory/movements', permission: 'inventory-movement:read' },
+          {
+            id: 'inv-approvals',
+            labelKey: 'navigation.warehouseApprovals',
+            route: '/admin/inventory/approvals',
+            permissions: ['maintenance-request-parts:read', 'production-material-document:read', 'finished-goods-issue:read'],
+          },
+          { id: 'inv-finished-goods-issues', labelKey: 'navigation.finishedGoodsIssues', route: '/admin/inventory/finished-goods-issues', permission: 'finished-goods-issue:read' },
           { id: 'inv-counts', labelKey: 'navigation.inventoryCounts', route: '/admin/inventory/counts', permission: 'inventory-count:read' },
           { id: 'inv-adjustments', labelKey: 'navigation.inventoryAdjustments', route: '/admin/inventory/adjustments', permission: 'inventory-adjustment:read' },
           { id: 'inv-stock-adjustments', labelKey: 'navigation.stockAdjustments', route: '/admin/inventory/stock-adjustments', permission: 'inventory:stock-adjustment:read' },

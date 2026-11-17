@@ -1541,6 +1541,7 @@ const maintenance: Pick<LocaleTranslations, 'maintenance' | 'cmms' | 'maintenanc
         requestedParts: 'قطع الغيار المطلوبة',
         addSparePart: 'إضافة قطعة غيار',
         requestSparePart: 'طلب قطعة غيار',
+        withdrawSparePart: 'سحب الطلب',
         approveSparePart: 'اعتماد قطعة الغيار',
         rejectSparePart: 'رفض قطعة الغيار',
         operationalReservation: 'حجز تشغيلي',

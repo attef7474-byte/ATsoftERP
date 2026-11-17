@@ -74,6 +74,8 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         inventoryLocks: 'Inventory Locks',
         inventoryAudit: 'Inventory Audit (Governance)',
         inventoryValuation: 'Inventory Valuation',
+        warehouseApprovals: 'Warehouse Approvals',
+        finishedGoodsIssues: 'Finished-Goods Issues',
         production: 'Production',
         productionUnits: 'Production Units',
         productionProductDefinitions: 'Production Product Definitions',

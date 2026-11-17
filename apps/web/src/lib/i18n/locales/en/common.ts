@@ -418,6 +418,8 @@ const common: Pick<LocaleTranslations, 'common' | 'auth' | 'dashboard' | 'action
         PRODUCTION_CONSUMPTION: 'Production Consumption',
         PRODUCTION_FG_RECEIPT: 'Finished Goods Receipt',
         PRODUCTION_FG_RECEIPT_REVERSAL: 'Finished Goods Receipt Reversal',
+        FINISHED_GOODS_ISSUE: 'Finished Goods Issue',
+        FINISHED_GOODS_ISSUE_REVERSAL: 'Finished Goods Issue Reversal',
         MANUAL: 'Manual',
         IN: 'In',
         OUT: 'Out',

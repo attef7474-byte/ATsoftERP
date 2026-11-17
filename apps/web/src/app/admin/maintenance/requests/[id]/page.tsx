@@ -253,6 +253,7 @@ export default function MaintenanceRequestDetailPage() {
     const hasIssues = stockIssueStatus != null && stockIssueStatus !== '' && stockIssueStatus !== 'NOT_ISSUED';
     return {
       request: status === 'DRAFT',
+      withdraw: status === 'REQUESTED',
       approve: status === 'REQUESTED',
       reject: status === 'REQUESTED',
       reserve: status === 'APPROVED',
@@ -534,6 +535,9 @@ export default function MaintenanceRequestDetailPage() {
                             <div className="flex flex-wrap gap-1">
                               {actions.request && (
                                 <button onClick={() => execPartAction(line.id, 'request')} disabled={partLineActionLoading === `${line.id}_request`} className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-50">{t('sparePartRequest.requestSparePart')}</button>
+                              )}
+                              {actions.withdraw && (
+                                <button onClick={() => execPartAction(line.id, 'withdraw')} disabled={partLineActionLoading === `${line.id}_withdraw`} className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded hover:bg-amber-200 disabled:opacity-50">{t('sparePartRequest.withdrawSparePart')}</button>
                               )}
                               {actions.approve && (
                                 <button onClick={() => execPartAction(line.id, 'approve')} disabled={partLineActionLoading === `${line.id}_approve`} className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50">{t('sparePartRequest.approveSparePart')}</button>

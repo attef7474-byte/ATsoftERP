@@ -1543,6 +1543,7 @@ quantityExceedsApproved: 'Issued quantity cannot exceed the remaining approved q
         requestedParts: 'Requested Spare Parts',
         addSparePart: 'Add Spare Part',
         requestSparePart: 'Request Spare Part',
+        withdrawSparePart: 'Withdraw Request',
         approveSparePart: 'Approve Spare Part',
         rejectSparePart: 'Reject Spare Part',
         operationalReservation: 'Operational Reservation',

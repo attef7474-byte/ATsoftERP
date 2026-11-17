@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { MaintenanceNotificationService } from '../maintenance-notification/maintenance-notification.service';
@@ -259,11 +259,64 @@ export class MaintenanceSparePartRequestLinesService {
     return updated;
   }
 
+  async withdraw(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
+    const req = await this.findRequestOrFail(requestId, ctx);
+    this.assertRequestNotTerminal(req);
+    const part = await this.findPartOrFail(lineId, requestId);
+    if (part.status !== 'REQUESTED') {
+      throw new BadRequestException({
+        messageKey: 'maintenance.partWithdrawOnlyRequested',
+        message: 'Only a submitted (REQUESTED) spare-part request can be withdrawn',
+      });
+    }
+    if (part.requestedByUserId && part.requestedByUserId !== userId) {
+      throw new ForbiddenException({
+        messageKey: 'maintenance.onlyRequesterCanWithdrawPart',
+        message: 'Only the requester can withdraw this spare-part request',
+      });
+    }
+
+    // Guarded claim: a concurrent warehouse decision can never be combined with a
+    // stale REQUESTED read. The withdraw actor/time/reason live in the audit log.
+    const claim = await this.prisma.maintenanceRequestRequiredPart.updateMany({
+      where: { id: lineId, status: 'REQUESTED' },
+      data: { status: 'DRAFT' },
+    });
+    if (claim.count !== 1) {
+      throw new BadRequestException({
+        messageKey: 'maintenance.partWithdrawOnlyRequested',
+        message: 'Only a submitted (REQUESTED) spare-part request can be withdrawn',
+      });
+    }
+
+    await this.audit.log(userId, 'WITHDRAW', 'MaintenanceRequestRequiredPart', lineId, {
+      oldStatus: 'REQUESTED',
+      newStatus: 'DRAFT',
+      withdrawnAt: new Date().toISOString(),
+      companyId: ctx.companyId,
+      branchId: ctx.branchId,
+    });
+
+    return this.prisma.maintenanceRequestRequiredPart.findUnique({
+      where: { id: lineId },
+      include: { sparePart: true },
+    });
+  }
+
   async approve(requestId: string, lineId: string, userId: string, ctx: ActiveOperationalContext) {
     const req = await this.findRequestOrFail(requestId, ctx);
     this.assertRequestNotTerminal(req);
     const part = await this.findPartOrFail(lineId, requestId);
     if (part.status !== 'REQUESTED') throw new BadRequestException(`Cannot approve part in status '${part.status}'`);
+
+    // Separation of duties: the requester cannot approve their own request. Legacy
+    // rows without a recorded requester remain approvable.
+    if (part.requestedByUserId && part.requestedByUserId === userId) {
+      throw new BadRequestException({
+        messageKey: 'maintenance.cannotApproveOwnPartRequest',
+        message: 'The requester cannot approve their own spare-part request',
+      });
+    }
 
     // R2-D invariant: approvedQuantity can never exceed requestedQuantity. The
     // submitted requested quantity is the approval ceiling; legacy REQUESTED lines
@@ -297,6 +350,13 @@ export class MaintenanceSparePartRequestLinesService {
     this.assertRequestNotTerminal(req);
     const part = await this.findPartOrFail(lineId, requestId);
     if (part.status !== 'REQUESTED') throw new BadRequestException(`Cannot reject part in status '${part.status}'`);
+
+    if (part.requestedByUserId && part.requestedByUserId === userId) {
+      throw new BadRequestException({
+        messageKey: 'maintenance.cannotApproveOwnPartRequest',
+        message: 'The requester cannot reject their own spare-part request',
+      });
+    }
 
     const updated = await this.prisma.maintenanceRequestRequiredPart.update({
       where: { id: lineId },

@@ -104,6 +104,7 @@ function makeService(overrides: Record<string, any> = {}) {
       findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       count: jest.fn(),
     },
     productionMaterialDocumentLine: { deleteMany: jest.fn(), createMany: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
@@ -116,6 +117,7 @@ function makeService(overrides: Record<string, any> = {}) {
     product: { findUnique: jest.fn() },
     warehouseLocation: { findUnique: jest.fn() },
     userRole: { findMany: jest.fn() },
+    user: { findMany: jest.fn().mockResolvedValue([]) },
     ...overrides,
   };
   prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
@@ -161,6 +163,24 @@ describe('ProductionMaterialDocumentsService', () => {
       const { prisma, service } = makeService();
       prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
       await expect(service.findOne('doc1', ctxA)).resolves.toMatchObject({ id: 'doc1' });
+    });
+
+    it('resolves scalar actor ids to display names for the detail view', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(
+        document({ status: 'APPROVED', submittedById: 'u-requester', approvedById: 'u-warehouse' }),
+      );
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'u-requester', name: 'Requester' },
+        { id: 'u-warehouse', name: 'Warehouse Keeper' },
+      ]);
+
+      const detail = await service.findOne('doc1', ctxA);
+
+      expect(detail.actorNames).toEqual({
+        'u-requester': 'Requester',
+        'u-warehouse': 'Warehouse Keeper',
+      });
     });
   });
 
@@ -466,12 +486,12 @@ describe('ProductionMaterialDocumentsService', () => {
   describe('post', () => {
     it('posts through the shared movement transaction and marks the document POSTED', async () => {
       const { prisma, service, movements } = makeService();
-      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({  status: 'APPROVED' }));
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
       prisma.productionOrder.findFirst.mockResolvedValue(order({ productionLine: { departmentId: 'dept1' }, productionLineId: 'l1', machineId: 'm1', costCenterId: 'cc1' }));
       prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
       prisma.productionMaterialDocumentLine.updateMany.mockResolvedValue({ count: 1 });
-      prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({  status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
 
       const result = await service.post('doc1', 'u1', ctxA);
 
@@ -490,7 +510,7 @@ describe('ProductionMaterialDocumentsService', () => {
 
     it('D5 atomicity: a canonical-ledger failure aborts posting before document status and audit commit', async () => {
       const { prisma, service, movements, audit } = makeService();
-      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({  status: 'APPROVED' }));
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
       prisma.productionOrder.findFirst.mockResolvedValue(order({ productionLine: { departmentId: 'dept1' } }));
       prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
@@ -509,11 +529,11 @@ describe('ProductionMaterialDocumentsService', () => {
       const { prisma, service, movements } = makeService();
       const transient = new Prisma.PrismaClientKnownRequestError('write conflict', { code: 'P2034', clientVersion: '7.8.0' });
       prisma.$transaction.mockRejectedValueOnce(transient).mockImplementation(async (cb: any) => cb(prisma));
-      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({  status: 'APPROVED' }));
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
       prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
       prisma.productionOrder.findFirst.mockResolvedValue(order({ productionLine: { departmentId: 'dept1' } }));
-      prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'POSTED' }));
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({  status: 'POSTED' }));
 
       await expect(service.post('doc1', 'u1', ctxA)).resolves.toMatchObject({ status: 'POSTED' });
       expect(prisma.$transaction).toHaveBeenCalledTimes(2);
@@ -532,11 +552,11 @@ describe('ProductionMaterialDocumentsService', () => {
 
     it('writes the authoritative attribution snapshot (machine NULL when the parent order has none) at posting time', async () => {
       const { prisma, service, movements } = makeService();
-      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({  status: 'APPROVED' }));
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
       prisma.productionOrder.findFirst.mockResolvedValue(order({ productionLine: { departmentId: 'dept1' }, productionLineId: null, machineId: null, costCenterId: 'cc1' }));
       prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
-      prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({  status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
 
       await service.post('doc1', 'u1', ctxA);
 
@@ -551,13 +571,13 @@ describe('ProductionMaterialDocumentsService', () => {
 
     it('rejects posting a non-DRAFT document', async () => {
       const { prisma, service } = makeService();
-      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ status: 'POSTED' }));
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({  status: 'POSTED' }));
       await expect(service.post('doc1', 'u1', ctxA)).rejects.toThrow(BadRequestException);
     });
 
     it('blocks posting an OUT document when the order has no approved (FROZEN) material snapshot', async () => {
       const { prisma, service, movements } = makeService();
-      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({  status: 'APPROVED' }));
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(null);
       await expect(service.post('doc1', 'u1', ctxA)).rejects.toThrow(BadRequestException);
       expect(movements.postMovementWithinTransaction).not.toHaveBeenCalled();
@@ -566,7 +586,7 @@ describe('ProductionMaterialDocumentsService', () => {
     it('blocks posting a line that is not in the frozen material snapshot', async () => {
       const { prisma, service } = makeService();
       prisma.productionMaterialDocument.findFirst.mockResolvedValue(
-        document({ lines: [{ id: 'line1', productId: 'prod-other', quantity: 5, unit: 'KG', substitutedProductId: null }] }),
+        document({ status: 'APPROVED', lines: [{ id: 'line1', productId: 'prod-other', quantity: 5, unit: 'KG', substitutedProductId: null }] }),
       );
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
       prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
@@ -576,7 +596,7 @@ describe('ProductionMaterialDocumentsService', () => {
     it('blocks over-issue beyond the planned quantity under the NOT_ALLOWED policy', async () => {
       const { prisma, service } = makeService();
       prisma.productionMaterialDocument.findFirst.mockResolvedValue(
-        document({ lines: [{ id: 'line1', productId: 'prod1', quantity: 11, unit: 'KG', substitutedProductId: null }] }),
+        document({ status: 'APPROVED', lines: [{ id: 'line1', productId: 'prod1', quantity: 11, unit: 'KG', substitutedProductId: null }] }),
       );
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
       prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
@@ -586,8 +606,7 @@ describe('ProductionMaterialDocumentsService', () => {
     it('allows over-issue with a reason under the WITH_REASON policy', async () => {
       const { prisma, service, movements } = makeService();
       prisma.productionMaterialDocument.findFirst.mockResolvedValue(
-        document({
-          lines: [{ id: 'line1', productId: 'prod1', quantity: 12, unit: 'KG', substitutedProductId: null, notes: 'Scrap during setup' }],
+        document({ status: 'APPROVED', lines: [{ id: 'line1', productId: 'prod1', quantity: 12, unit: 'KG', substitutedProductId: null, notes: 'Scrap during setup' }],
         }),
       );
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(
@@ -595,7 +614,7 @@ describe('ProductionMaterialDocumentsService', () => {
       );
       prisma.productionOrder.findFirst.mockResolvedValue(order());
       prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
-      prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({  status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
 
       const result = await service.post('doc1', 'u1', ctxA);
       expect(result.status).toBe('POSTED');
@@ -605,14 +624,14 @@ describe('ProductionMaterialDocumentsService', () => {
     it('allows over-issue within the tolerance percent under the TOLERANCE policy', async () => {
       const { prisma, service, movements } = makeService();
       prisma.productionMaterialDocument.findFirst.mockResolvedValue(
-        document({ lines: [{ id: 'line1', productId: 'prod1', quantity: 10.5, unit: 'KG', substitutedProductId: null }] }),
+        document({ status: 'APPROVED', lines: [{ id: 'line1', productId: 'prod1', quantity: 10.5, unit: 'KG', substitutedProductId: null }] }),
       );
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(
         frozenRequirement({ lines: [{ id: 'rline1', productId: 'prod1', plannedQuantity: 10, overIssuePolicy: 'TOLERANCE', tolerancePercent: 10 }] }),
       );
       prisma.productionOrder.findFirst.mockResolvedValue(order());
       prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
-      prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
+      prisma.productionMaterialDocument.update.mockResolvedValue(document({  status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
 
       const result = await service.post('doc1', 'u1', ctxA);
       expect(result.status).toBe('POSTED');
@@ -622,7 +641,7 @@ describe('ProductionMaterialDocumentsService', () => {
     it('blocks over-issue beyond the tolerance percent under the TOLERANCE policy', async () => {
       const { prisma, service } = makeService();
       prisma.productionMaterialDocument.findFirst.mockResolvedValue(
-        document({ lines: [{ id: 'line1', productId: 'prod1', quantity: 11.5, unit: 'KG', substitutedProductId: null }] }),
+        document({ status: 'APPROVED', lines: [{ id: 'line1', productId: 'prod1', quantity: 11.5, unit: 'KG', substitutedProductId: null }] }),
       );
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(
         frozenRequirement({ lines: [{ id: 'rline1', productId: 'prod1', plannedQuantity: 10, overIssuePolicy: 'TOLERANCE', tolerancePercent: 10 }] }),
@@ -633,7 +652,7 @@ describe('ProductionMaterialDocumentsService', () => {
 
     it('allows posting a RETURN document without a frozen snapshot (returns are IN, no consumption)', async () => {
       const { prisma, service, movements } = makeService();
-      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ documentType: 'RETURN' }));
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ status: 'APPROVED', documentType: 'RETURN' }));
       prisma.productionOrder.findFirst.mockResolvedValue(order());
       prisma.productionMaterialDocument.update.mockResolvedValue(document({ documentType: 'RETURN', status: 'POSTED', postedAt: new Date(), postedById: 'u1' }));
 
@@ -646,11 +665,9 @@ describe('ProductionMaterialDocumentsService', () => {
     it('R2: a REVERSE return inherits the ORIGINAL posted line attribution (Line A), not current master data (Line B)', async () => {
       const { prisma, service, movements } = makeService();
       prisma.productionMaterialDocument.findFirst.mockResolvedValue(
-        document({
-          documentType: 'RETURN',
+        document({ status: 'APPROVED', documentType: 'RETURN',
           sourceType: 'REVERSE',
           reversesDocumentId: 'issue1',
-          status: 'DRAFT',
           lines: [
             {
               id: 'retline1',
@@ -689,7 +706,7 @@ describe('ProductionMaterialDocumentsService', () => {
     it('R2: a non-REVERSE RETURN keeps parent-order snapshot resolution (no original reference to inherit)', async () => {
       const { prisma, service, movements } = makeService();
       prisma.productionMaterialDocument.findFirst.mockResolvedValue(
-        document({ documentType: 'RETURN', lines: [{ id: 'retline1', originalIssueLineId: null, productId: 'prod1', quantity: 5, unit: 'KG', substitutedProductId: null }] }),
+        document({ status: 'APPROVED', documentType: 'RETURN', lines: [{ id: 'retline1', originalIssueLineId: null, productId: 'prod1', quantity: 5, unit: 'KG', substitutedProductId: null }] }),
       );
       prisma.productionOrder.findFirst.mockResolvedValue(
         order({ productionLineId: 'lineB', productionLine: { departmentId: 'deptB' }, machineId: 'machineB', costCenterId: 'ccB' }),
@@ -982,14 +999,146 @@ describe('ProductionMaterialDocumentsService', () => {
       const { prisma, service } = makeService();
       prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
       prisma.inventoryMovement.findUnique.mockResolvedValue({ id: 'mov1', status: 'DRAFT' });
-      prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'CANCELLED', cancelledAt: new Date(), cancelledById: 'u1' }));
+      prisma.productionMaterialDocument.updateMany.mockResolvedValue({ count: 1 });
+      prisma.productionMaterialDocument.findFirst
+        .mockResolvedValueOnce(document())
+        .mockResolvedValueOnce(document({ status: 'CANCELLED', cancelledAt: new Date(), cancelledById: 'u1' }));
 
       const result = await service.cancel('doc1', { reason: 'Wrong data' }, 'u1', ctxA);
 
       expect(prisma.inventoryMovement.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'mov1' }, data: expect.objectContaining({ status: 'CANCELLED' }) }),
       );
+      expect(prisma.productionMaterialDocument.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: { in: ['DRAFT', 'SUBMITTED', 'REJECTED'] } }),
+          data: expect.objectContaining({ status: 'CANCELLED' }),
+        }),
+      );
       expect(result.status).toBe('CANCELLED');
+    });
+  });
+
+  describe('request lifecycle (submit / withdraw / approve / reject / cancel-approval)', () => {
+    it('submits a DRAFT request to the warehouse and records the requester', async () => {
+      const { prisma, service, audit } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ status: 'DRAFT' }));
+      prisma.productionMaterialDocument.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.submit('doc1', 'u1', ctxA);
+
+      expect(prisma.productionMaterialDocument.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: { in: ['DRAFT'] } }),
+          data: expect.objectContaining({ status: 'SUBMITTED', submittedById: 'u1' }),
+        }),
+      );
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ action: 'SUBMIT' }),
+      );
+    });
+
+    it('rejects submitting a non-DRAFT request', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ status: 'SUBMITTED' }));
+      await expect(service.submit('doc1', 'u1', ctxA)).rejects.toThrow(BadRequestException);
+      expect(prisma.productionMaterialDocument.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('withdraws a SUBMITTED request back to DRAFT', async () => {
+      const { prisma, service, audit } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ status: 'SUBMITTED', submittedById: 'u1' }));
+      prisma.productionMaterialDocument.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.withdraw('doc1', { reason: 'Wrong warehouse' }, 'u1', ctxA);
+
+      expect(prisma.productionMaterialDocument.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: { in: ['SUBMITTED'] } }),
+          data: expect.objectContaining({ status: 'DRAFT', withdrawnById: 'u1', submittedById: null }),
+        }),
+      );
+      expect(audit.logWithClient).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ action: 'WITHDRAW' }),
+      );
+    });
+
+    it('blocks a non-requester from withdrawing the request', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ status: 'SUBMITTED', submittedById: 'u1' }));
+
+      await expect(service.withdraw('doc1', { reason: 'Not mine' }, 'someone-else', ctxA)).rejects.toThrow(
+        'productionMaterial.onlyRequesterCanWithdraw',
+      );
+      expect(prisma.productionMaterialDocument.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('blocks a requester from approving their own request', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ status: 'SUBMITTED', submittedById: 'u1' }));
+
+      await expect(service.approve('doc1', 'u1', ctxA)).rejects.toThrow('productionMaterial.cannotApproveOwnRequest');
+      expect(prisma.productionMaterialDocument.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('allows a separate warehouse actor to approve a SUBMITTED request', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ status: 'SUBMITTED', submittedById: 'u1' }));
+      prisma.productionMaterialDocument.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.approve('doc1', 'warehouse-user', ctxA);
+
+      expect(prisma.productionMaterialDocument.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: { in: ['SUBMITTED'] } }),
+          data: expect.objectContaining({ status: 'APPROVED', approvedById: 'warehouse-user' }),
+        }),
+      );
+    });
+
+    it('rejects with a mandatory reason and records the decider', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ status: 'SUBMITTED', submittedById: 'u1' }));
+      prisma.productionMaterialDocument.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.reject('doc1', { reason: 'No stock' }, 'warehouse-user', ctxA);
+
+      expect(prisma.productionMaterialDocument.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'REJECTED', rejectedById: 'warehouse-user', rejectionReason: 'No stock' }),
+        }),
+      );
+    });
+
+    it('cancels a prior approval back to SUBMITTED (APPROVED only)', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ status: 'APPROVED', approvedById: 'warehouse-user' }));
+      prisma.productionMaterialDocument.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.cancelApproval('doc1', { reason: 'Approved by mistake' }, 'warehouse-user', ctxA);
+
+      expect(prisma.productionMaterialDocument.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: { in: ['APPROVED'] } }),
+          data: expect.objectContaining({ status: 'SUBMITTED', approvalCancellationReason: 'Approved by mistake' }),
+        }),
+      );
+    });
+
+    it('blocks posting a SUBMITTED (not yet approved) request', async () => {
+      const { prisma, service, movements } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ status: 'SUBMITTED' }));
+      await expect(service.post('doc1', 'u1', ctxA)).rejects.toThrow('productionMaterial.notApproved');
+      expect(movements.postProductionMaterialMovementWithinTransaction).not.toHaveBeenCalled();
+    });
+
+    it('fails closed when a concurrent decision already moved the document', async () => {
+      const { prisma, service } = makeService();
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ status: 'DRAFT' }));
+      prisma.productionMaterialDocument.updateMany.mockResolvedValue({ count: 0 });
+      await expect(service.submit('doc1', 'u1', ctxA)).rejects.toThrow(ConflictException);
     });
   });
 
@@ -1065,7 +1214,7 @@ describe('ProductionMaterialDocumentsService', () => {
 
     it('posting continues to set the scalar postedById actor on the document', async () => {
       const { prisma, service } = makeService();
-      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document({ status: 'APPROVED' }));
       prisma.productionMaterialRequirement.findFirst.mockResolvedValue(frozenRequirement());
       prisma.productionOrder.findFirst.mockResolvedValue(order());
       prisma.productionMaterialDocument.findMany.mockResolvedValue([]);
@@ -1078,11 +1227,13 @@ describe('ProductionMaterialDocumentsService', () => {
 
     it('cancelling continues to set the scalar cancelledById actor on the document', async () => {
       const { prisma, service } = makeService();
-      prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+      prisma.productionMaterialDocument.findFirst
+        .mockResolvedValueOnce(document())
+        .mockResolvedValueOnce(document({ status: 'CANCELLED', cancelledAt: new Date(), cancelledById: 'u1' }));
       prisma.inventoryMovement.findUnique.mockResolvedValue({ id: 'mov1', status: 'DRAFT' });
-      prisma.productionMaterialDocument.update.mockResolvedValue(document({ status: 'CANCELLED', cancelledAt: new Date(), cancelledById: 'u1' }));
+      prisma.productionMaterialDocument.updateMany.mockResolvedValue({ count: 1 });
       await service.cancel('doc1', { reason: 'Wrong data' }, 'u1', ctxA);
-      expect(prisma.productionMaterialDocument.update).toHaveBeenCalledWith(
+      expect(prisma.productionMaterialDocument.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELLED', cancelledById: 'u1' }) }),
       );
     });

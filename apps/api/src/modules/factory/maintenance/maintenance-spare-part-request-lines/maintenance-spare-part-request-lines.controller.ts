@@ -67,6 +67,18 @@ export class MaintenanceSparePartRequestLinesController {
     return this.service.submit(requestId, lineId, userId, ctx);
   }
 
+  @Patch(':lineId/withdraw')
+  @Permissions('maintenance-request-parts:request')
+  @ApiOperation({ summary: 'Withdraw a submitted spare-part request back to draft before warehouse approval' })
+  withdraw(
+    @Param('requestId') requestId: string,
+    @Param('lineId') lineId: string,
+    @CurrentUser('id') userId: string,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+  ) {
+    return this.service.withdraw(requestId, lineId, userId, ctx);
+  }
+
   @Patch(':lineId/approve')
   @Permissions('maintenance-request-parts:approve')
   @ApiOperation({ summary: 'Approve spare part request' })
