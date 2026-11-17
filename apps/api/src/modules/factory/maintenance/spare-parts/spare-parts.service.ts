@@ -22,14 +22,34 @@ export class SparePartsService {
     if (existing) throw new ConflictException('Spare part code already exists');
 
     return this.prisma.$transaction(async (tx) => {
-      await this.assertProductLinkIsUsable(tx, dto.productId, undefined);
-      await this.assertUnitIsUsable(tx, dto.unitId);
-      await this.assertNoCanonicalDuplicate(tx, dto, code);
-
-      const part = await tx.sparePart.create({ data: { ...dto, code } });
-      await this.auditService.logWithClient(tx, { userId, action: 'CREATE', entity: 'SparePart', entityId: part.id, details: { message: `Created spare part: ${part.code}`, code: part.code } });
-      return part;
+      return this.createInTx(tx, { ...dto, code }, userId);
     });
+  }
+
+  async validateMasterInTx(tx: any, dto: CreateSparePartDto | UpdateSparePartDto, existing?: any) {
+    if (!existing || 'productId' in dto) await this.assertProductLinkIsUsable(tx, dto.productId, existing?.id);
+    if (!existing || 'unitId' in dto) await this.assertUnitIsUsable(tx, dto.unitId);
+    const merged = existing ? {
+      manufacturer: dto.manufacturer ?? existing.manufacturer, partNumber: dto.partNumber ?? existing.partNumber,
+      productId: 'productId' in dto ? dto.productId : existing.productId, model: dto.model ?? existing.model, specification: dto.specification ?? existing.specification,
+    } : dto;
+    await this.assertNoCanonicalDuplicate(tx, merged, existing?.code || dto.code || '', existing?.id);
+  }
+
+  async createInTx(tx: any, dto: CreateSparePartDto, userId: string) {
+    await this.validateMasterInTx(tx, dto);
+    const part = await tx.sparePart.create({ data: dto });
+    await this.auditService.logWithClient(tx, { userId, action: 'CREATE', entity: 'SparePart', entityId: part.id, details: { message: `Created spare part: ${part.code}`, code: part.code } });
+    return part;
+  }
+
+  async updateInTx(tx: any, id: string, dto: UpdateSparePartDto, existing: any, userId: string) {
+    if (dto.code && dto.code !== existing.code) throw new BadRequestException('Code cannot be changed after creation');
+    const { code, ...data } = dto;
+    await this.validateMasterInTx(tx, data, existing);
+    const part = await tx.sparePart.update({ where: { id }, data });
+    await this.auditService.logWithClient(tx, { userId, action: 'UPDATE', entity: 'SparePart', entityId: id, details: { message: `Updated spare part: ${part.code}`, code: part.code } });
+    return part;
   }
 
   /**
@@ -167,32 +187,7 @@ export class SparePartsService {
     }
     const { code, ...updateDto } = dto;
 
-    return this.prisma.$transaction(async (tx) => {
-      // A product link may only be introduced or changed through the same
-      // validation as on create, so an edit cannot bypass the create-time rules.
-      if ('productId' in updateDto) {
-        await this.assertProductLinkIsUsable(tx, updateDto.productId ?? null, id);
-      }
-      if ('unitId' in updateDto) {
-        await this.assertUnitIsUsable(tx, updateDto.unitId ?? null);
-      }
-
-      // Identity is re-evaluated against the merged state: a partial edit that
-      // changes only the manufacturer must not be able to collide with, or escape,
-      // an existing canonical row.
-      const merged = {
-        manufacturer: updateDto.manufacturer ?? existing.manufacturer,
-        partNumber: updateDto.partNumber ?? existing.partNumber,
-        productId: 'productId' in updateDto ? (updateDto.productId ?? null) : existing.productId,
-        model: updateDto.model ?? existing.model,
-        specification: updateDto.specification ?? existing.specification,
-      };
-      await this.assertNoCanonicalDuplicate(tx, merged, existing.code, id);
-
-      const part = await tx.sparePart.update({ where: { id }, data: updateDto });
-      await this.auditService.logWithClient(tx, { userId, action: 'UPDATE', entity: 'SparePart', entityId: id, details: { message: `Updated spare part: ${part.code}`, code: part.code } });
-      return part;
-    });
+    return this.prisma.$transaction((tx) => this.updateInTx(tx, id, updateDto, existing, userId));
   }
 
   async activate(id: string, userId: string) {

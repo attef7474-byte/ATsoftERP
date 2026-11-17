@@ -1,4 +1,5 @@
 'use client';
+import { ExcelMasterDataActions } from '../../../../components/admin/excel-master-data-actions';
 import React, { useState, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { useCrudList, CrudOperation } from '../../../../hooks/useCrudList';
@@ -217,6 +218,7 @@ export default function MachinesPage() {
   return (
     <div>
       <PageHeader title={t('maintenance.machines')} />
+      <ExcelMasterDataActions entity="machines" search={search} disabled={loading || !!error} onImported={() => fetchData(1)} />
       <AdminDataGrid
         columns={columns}
         data={data}

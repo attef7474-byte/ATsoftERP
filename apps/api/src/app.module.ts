@@ -106,6 +106,7 @@ import { OperationalReliabilityModule } from './modules/factory/operational-anal
 import { ShiftHandoversModule } from './modules/factory/production/shift-handovers/shift-handovers.module';
 import { OperationalOverheadModule } from './modules/factory/operational-overhead/operational-overhead.module';
 import { OverheadAllocationModule } from './modules/factory/overhead-allocation/overhead-allocation.module';
+import { MasterDataExcelModule } from './modules/factory/master-data-excel/master-data-excel.module';
 
 @Module({
   imports: [
@@ -169,6 +170,7 @@ import { OverheadAllocationModule } from './modules/factory/overhead-allocation/
     ShiftHandoversModule,
     OperationalOverheadModule,
     OverheadAllocationModule,
+    MasterDataExcelModule,
   ],
 })
 export class AppModule {}

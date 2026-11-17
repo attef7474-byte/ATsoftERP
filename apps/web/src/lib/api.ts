@@ -121,6 +121,13 @@ function requestBody(body: unknown): BodyInit | undefined {
 }
 
 export const api = {
+  download: async (path: string, body?: FormData, options?: RequestOptions): Promise<Blob> => {
+    const res = await fetch(buildUrl(`${getApiBaseUrl()}${path}`, options?.params), {
+      method: body ? 'POST' : 'GET', headers: requestHeaders(options, !!body), body, signal: options?.signal,
+    });
+    if (!res.ok) await handleResponse(res);
+    return res.blob();
+  },
   get: async <T>(path: string, options?: RequestOptions): Promise<T> => {
     const url = buildUrl(`${getApiBaseUrl()}${path}`, options?.params);
     const res = await fetch(url, {

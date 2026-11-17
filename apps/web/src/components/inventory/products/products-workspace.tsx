@@ -1,4 +1,5 @@
 'use client';
+import { ExcelMasterDataActions } from '../../admin/excel-master-data-actions';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../lib/api';
 import { unwrapApiList } from '../../../lib/form-utils';
@@ -17,6 +18,7 @@ export interface ProductsWorkspaceProps {
    * this component under its own workspace header, so it passes `false`.
    */
   showHeader?: boolean;
+  excelEnabled?: boolean;
   /**
    * Section the create form opens focused on. The production workspace passes
    * 'production' so a new product opens with its production configuration ready.
@@ -32,7 +34,7 @@ export interface ProductsWorkspaceProps {
  * component in its products tab so both domains create/edit the same record
  * through the same form and the same API (one identity, one create, one save).
  */
-export function ProductsWorkspace({ showHeader = true, defaultSection }: ProductsWorkspaceProps) {
+export function ProductsWorkspace({ showHeader = true, defaultSection, excelEnabled = false }: ProductsWorkspaceProps) {
   const router = useRouter();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
@@ -153,6 +155,7 @@ export function ProductsWorkspace({ showHeader = true, defaultSection }: Product
   return (
     <div>
       {showHeader && <PageHeader title={t('inventory.products')} />}
+      {excelEnabled && <ExcelMasterDataActions entity="products" search={search} disabled={loading || !!error} onImported={() => fetchData(1)} />}
       {error && (
         <div className="text-center py-12">
           <p className="text-red-500 mb-4">{error}</p>

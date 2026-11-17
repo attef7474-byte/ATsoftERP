@@ -1,4 +1,5 @@
 'use client';
+import { ExcelMasterDataActions } from '../../../../components/admin/excel-master-data-actions';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
@@ -250,6 +251,7 @@ export default function SparePartsPage() {
   return (
     <div className="p-6">
       <PageHeader title={t('maintenance.sparePartsUnifiedTitle')} />
+      <ExcelMasterDataActions entity="spare-parts" search={search} disabled={loading || !!error} onImported={() => fetchData(1)} />
       {error && <div className="bg-red-50 text-red-700 p-3 rounded mb-4">{error}</div>}
       <AdminDataGrid<SparePart>
         columns={columns}

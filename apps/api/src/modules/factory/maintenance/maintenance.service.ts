@@ -251,6 +251,33 @@ export class MaintenanceService {
     return machine;
   }
 
+  /** Batch caller owns the transaction; preserves the machine + dedicated cost-center invariant. */
+  async createMachineInTx(client: any, dto: CreateMachineDto, userId: string, ctx: ActiveOperationalContext) {
+    const { dedicatedCostCenter, ...payload } = dto as any;
+    if (!dedicatedCostCenter) throw this.validationError('dedicatedCostCenter', 'validation.required', 'A dedicated cost center is required to create a machine');
+    if (payload.defaultCostCenterId) throw this.validationError('defaultCostCenterId', 'validation.invalidValue', 'An existing cost center cannot replace the dedicated cost center');
+    const center = await this.costCenters.createDedicatedCostCenter(client, dedicatedCostCenter, ctx, userId);
+    const machine = await this.createMachineRecord(client, payload, ctx, center.id);
+    await this.auditService.logWithClient(client, { userId, action: 'CREATE', entity: 'Machine', entityId: machine.id, details: { code: machine.code, companyId: ctx.companyId, branchId: ctx.branchId } });
+    return machine;
+  }
+
+  /** Explicit transaction-aware master edit; no lifecycle/context or cost-center reassignment. */
+  async updateMachineInTx(client: any, id: string, dto: UpdateMachineDto, userId: string, ctx: ActiveOperationalContext) {
+    const existing = await client.machine.findFirst({ where: { id, deletedAt: null, ...this.machineScope(ctx) } });
+    if (!existing) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
+    const { code, companyId, branchId, defaultCostCenterId, dedicatedCostCenter, ...payload } = dto as any;
+    if (code !== undefined && code !== existing.code) throw this.validationError('code', 'validation.invalidValue', 'Code cannot be changed');
+    if (companyId !== undefined || branchId !== undefined || defaultCostCenterId !== undefined || dedicatedCostCenter !== undefined) throw this.validationError('companyId', 'validation.invalidValue', 'Scope and cost-center changes require their canonical workflow');
+    await this.validateMachineReferences(payload, existing, ctx, client);
+    const { purchaseDate, warrantyEnd, ...data } = payload;
+    if (purchaseDate !== undefined) data.purchaseDate = new Date(purchaseDate);
+    if (warrantyEnd !== undefined) data.warrantyEnd = new Date(warrantyEnd);
+    const machine = await client.machine.update({ where: { id }, data, include: this.machineInclude() });
+    await this.auditService.logWithClient(client, { userId, action: 'UPDATE', entity: 'Machine', entityId: id, details: { code: existing.code, companyId: ctx.companyId, branchId: ctx.branchId } });
+    return machine;
+  }
+
   async removeMachine(id: string, userId: string, ctx: ActiveOperationalContext) {
     const existing = await this.findOneMachine(id, ctx);
     const componentCount = await this.prisma.machineComponent.count({ where: { machineId: id, deletedAt: null } });

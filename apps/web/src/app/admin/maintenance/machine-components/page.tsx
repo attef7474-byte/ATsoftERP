@@ -1,4 +1,5 @@
 'use client';
+import { ExcelMasterDataActions } from '../../../../components/admin/excel-master-data-actions';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
@@ -229,6 +230,7 @@ export default function MachineComponentsPage() {
   return (
     <div>
       <PageHeader title={t('maintenance.machineComponents')} />
+      <ExcelMasterDataActions entity="machine-components" search={search} disabled={loading || !!error} onImported={() => fetchData(1)} />
       <AdminDataGrid
         columns={columns}
         data={data}

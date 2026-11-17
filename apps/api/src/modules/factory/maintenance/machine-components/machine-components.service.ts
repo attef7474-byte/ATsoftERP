@@ -275,6 +275,29 @@ export class MachineComponentsService {
     return component;
   }
 
+  /** Reuses this aggregate's contracts inside a caller-owned all-row transaction. */
+  async saveInTx(client: any, dto: CreateMachineComponentDto | UpdateMachineComponentDto, userId: string, ctx: ActiveOperationalContext, existingId?: string) {
+    const machine = await client.machine.findFirst({ where: { id: dto.machineId, deletedAt: null, ...this.machineScope(ctx) } });
+    if (!machine) throw this.validationError('machineId', 'validation.invalidReference', 'Machine not found');
+    const existing = existingId ? await client.machineComponent.findFirst({ where: { id: existingId, deletedAt: null, machine: this.machineScope(ctx) } }) : null;
+    if (existingId && !existing) throw this.notFound('maintenance.componentNotFound', 'Machine component not found');
+    if (existing && (existing.machineId !== machine.id || dto.code !== existing.code)) throw this.validationError('code', 'validation.invalidValue', 'Component identity cannot be changed');
+    if (dto.parentComponentId) {
+      const parent = await client.machineComponent.findFirst({ where: { id: dto.parentComponentId, machineId: machine.id, deletedAt: null, machine: this.machineScope(ctx) } });
+      if (!parent) throw this.validationError('parentComponentId', 'validation.invalidReference', 'Parent component not found');
+      const seen = new Set<string>(); let current: any = parent;
+      while (current) {
+        if (current.id === existingId || seen.has(current.id)) throw this.validationError('parentComponentId', 'validation.invalidValue', 'Circular component hierarchy');
+        seen.add(current.id);
+        current = current.parentComponentId ? await client.machineComponent.findFirst({ where: { id: current.parentComponentId, machineId: machine.id, deletedAt: null, machine: this.machineScope(ctx) } }) : null;
+      }
+    }
+    const { code, machineId, ...attributes } = dto;
+    const component = existing ? await client.machineComponent.update({ where: { id: existing.id }, data: attributes }) : await client.machineComponent.create({ data: { ...attributes, code, machineId: machine.id } });
+    await this.auditService.logWithClient(client, { userId, action: existing ? 'UPDATE' : 'CREATE', entity: 'MachineComponent', entityId: component.id, details: { code: component.code, machineCode: machine.code, companyId: ctx.companyId, branchId: ctx.branchId } });
+    return component;
+  }
+
   async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
     await this.componentAccess(id, ctx);
     const childCount = await this.prisma.machineComponent.count({ where: { parentComponentId: id, deletedAt: null } });
