@@ -12,6 +12,8 @@ export interface ExcelPlan { rows: PlannedExcelRow[]; ordered: PlannedExcelRow[]
 export const businessKey = (value: unknown) => String(value ?? '').trim().normalize('NFC').toUpperCase();
 const composite = (machine: unknown, code: unknown) => JSON.stringify([businessKey(machine), businessKey(code)]);
 export const tenantMachineScope = (ctx: ActiveOperationalContext) => ({ companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] });
+/** `ProductionLine.branchId` is a required FK, so Prisma rejects `branchId: null` inside a filter. */
+export const tenantRequiredBranchScope = (ctx: ActiveOperationalContext) => ({ companyId: ctx.companyId, branchId: ctx.branchId });
 export function digest(value: unknown): string { return createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
 const includes = (def: ExcelDefinition): any => def.model === 'machine' ? { category: true, department: true, productionLine: true, operationType: true, defaultCostCenter: true } : def.model === 'machineComponent' ? { machine: { select: { id: true, code: true, companyId: true, branchId: true } }, parentComponent: { select: { code: true } } } : def.model === 'product' ? { category: true, unitRef: true } : { product: true, unitRef: true };
 export { includes as excelIncludes };
@@ -39,7 +41,7 @@ export async function buildExcelPlan(db: any, def: ExcelDefinition, parsed: Pars
     if (!wanted.length) { refs.set(column.header, new Map()); continue; }
     const model = column.reference;
     const referenceWhere: any = { code: { in: wanted }, ...(model === 'unit' ? { isActive: true } : { deletedAt: null, status: 'ACTIVE' }) };
-    if (['machine', 'department', 'productionLine'].includes(model)) referenceWhere.AND = [scope];
+    if (['machine', 'department', 'productionLine'].includes(model)) referenceWhere.AND = [model === 'productionLine' ? tenantRequiredBranchScope(ctx) : scope];
     const matches: any[] = await db[model].findMany({ where: referenceWhere, take: EXCEL_LIMITS.exportRows + 1, orderBy: { id: 'asc' } });
     if (matches.length > EXCEL_LIMITS.exportRows) throw excelFailure('excelReferenceLimit');
     const index = new Map<string, any>();
