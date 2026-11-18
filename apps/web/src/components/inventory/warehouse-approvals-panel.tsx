@@ -11,7 +11,7 @@ import { Select, Pagination, ConfirmDialog, Textarea } from '../../components/ad
 import { AdminDataGrid, GridColumn, GridAction } from '../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon } from '../../components/admin/admin-action-bar';
 
-type ApprovalAction = 'approve' | 'reject' | 'withdraw' | 'cancelApproval';
+export type ApprovalAction = 'approve' | 'reject' | 'withdraw' | 'cancelApproval';
 
 interface PendingAction {
   row: WarehouseApprovalRow;
@@ -38,7 +38,11 @@ function toNumber(value: number | null | undefined): number {
  * that owns the row. This page is a read-only aggregation plus navigation layer;
  * it never posts stock or bypasses the native permission/status guards.
  */
-function nativeActionPath(row: WarehouseApprovalRow, action: ApprovalAction): string {
+export function nativeActionPath(row: WarehouseApprovalRow, action: ApprovalAction): string {
+  if (row.authority === 'SPARE_PART_ISSUE') {
+    const suffix = action === 'cancelApproval' ? 'cancel-approval' : action;
+    return `/inventory/spare-part-issues/${row.entityId}/${suffix}`;
+  }
   if (row.type === 'SPARE_PART') {
     const parentId = row.parentEntityId || row.entityId;
     return `/maintenance/requests/${parentId}/parts/${row.entityId}/${action}`;
@@ -51,7 +55,21 @@ function nativeActionPath(row: WarehouseApprovalRow, action: ApprovalAction): st
   return `/inventory/finished-goods-issues/${row.entityId}/${suffix}`;
 }
 
-function requiredPermission(row: WarehouseApprovalRow, action: ApprovalAction): string {
+/** Maintenance-linked spare lines have no reason field in their native DTO. */
+export function approvalRequiresReason(row: WarehouseApprovalRow, action: ApprovalAction): boolean {
+  const linkedSpare = row.type === 'SPARE_PART' && row.authority !== 'SPARE_PART_ISSUE';
+  if (linkedSpare) return false;
+  return action === 'reject' || action === 'cancelApproval';
+}
+
+export function requiredPermission(row: WarehouseApprovalRow, action: ApprovalAction): string {
+  if (row.authority === 'SPARE_PART_ISSUE') {
+    if (action === 'approve') return 'spare-part-issue:approve';
+    if (action === 'reject') return 'spare-part-issue:reject';
+    if (action === 'withdraw') return 'spare-part-issue:withdraw';
+    if (action === 'cancelApproval') return 'spare-part-issue:cancel-approval';
+    return '';
+  }
   if (row.type === 'SPARE_PART') {
     if (action === 'approve') return 'maintenance-request-parts:approve';
     if (action === 'reject') return 'maintenance-request-parts:reject';
@@ -77,8 +95,11 @@ function actionAllowedInStatus(row: WarehouseApprovalRow, action: ApprovalAction
   // warehouse decision"; the flat authorities use SUBMITTED.
   const awaitingDecision = row.status === 'SUBMITTED' || (row.type === 'SPARE_PART' && row.status === 'REQUESTED');
   if (action === 'approve' || action === 'reject' || action === 'withdraw') return awaitingDecision;
-  // A prior approval can only be cancelled for the flat authorities that model it.
-  if (action === 'cancelApproval') return row.status === 'APPROVED' && row.type !== 'SPARE_PART';
+  // A prior approval can only be cancelled for the flat authorities and for
+  // standalone spare-part issues; maintenance request lines do not model it.
+  if (action === 'cancelApproval') {
+    return row.status === 'APPROVED' && (row.authority === 'SPARE_PART_ISSUE' || row.type !== 'SPARE_PART');
+  }
   return false;
 }
 
@@ -165,15 +186,15 @@ export function WarehouseApprovalsPanel() {
 
   const handleConfirm = async () => {
     if (!pending) return;
-    const requiresReason = pending.action === 'reject' || pending.action === 'cancelApproval';
-    if (requiresReason && !reason.trim()) {
+    if (approvalRequiresReason(pending.row, pending.action) && !reason.trim()) {
       setValidationError(t('inventory.warehouseApprovals.reasonRequired'));
       return;
     }
     setSaving(true);
     try {
       const body: Record<string, unknown> = {};
-      if (reason.trim()) body.reason = reason.trim();
+      const linkedSpare = pending.row.type === 'SPARE_PART' && pending.row.authority !== 'SPARE_PART_ISSUE';
+      if (!linkedSpare && reason.trim()) body.reason = reason.trim();
       await api.patch(nativeActionPath(pending.row, pending.action), Object.keys(body).length > 0 ? body : undefined);
       const successKey =
         pending.action === 'approve' ? 'approveSuccess'
@@ -208,7 +229,7 @@ export function WarehouseApprovalsPanel() {
   ];
 
   const counts = meta.counts || { SPARE_PART: 0, RAW_MATERIAL: 0, FINISHED_GOODS: 0 };
-  const requiresReason = pending?.action === 'reject' || pending?.action === 'cancelApproval';
+  const requiresReason = pending ? approvalRequiresReason(pending.row, pending.action) : false;
   const dialogTitle = pending
     ? t('inventory.warehouseApprovals.' + (pending.action === 'cancelApproval' ? 'cancelApproval' : pending.action))
     : '';

@@ -89,7 +89,14 @@ function makeService(overrides: Record<string, any> = {}) {
       createMany: jest.fn(),
       findMany: jest.fn().mockResolvedValue([]),
     },
-    inventoryBalance: { findFirst: jest.fn().mockResolvedValue({ id: 'balance-wh1-prod1' }) },
+    // Balance mocks exist so tests can prove no code path writes stock directly.
+    inventoryBalance: {
+      findFirst: jest.fn().mockResolvedValue({ id: 'balance-wh1-prod1' }),
+      create: jest.fn(),
+      update: jest.fn(),
+      upsert: jest.fn(),
+      deleteMany: jest.fn(),
+    },
     warehouse: { findUnique: jest.fn() },
     warehouseLocation: { findUnique: jest.fn() },
     product: { findMany: jest.fn() },
@@ -464,14 +471,27 @@ describe('FinishedGoodsIssuesService', () => {
 });
 
 
-describe('Finished goods issue warehouse selection regression', () => {
-  it('rejects a valid finished product whose stock exists only in another warehouse', async () => {
-    const { prisma, service } = makeService();
+describe('Finished goods issue catalog eligibility and warehouse-scoped stock', () => {
+  it('allows an eligible finished product with no balance row in a DRAFT and never writes a balance', async () => {
+    const { prisma, service, movements } = makeService();
     primeCreate(prisma);
     prisma.inventoryBalance.findFirst.mockResolvedValue(null);
-    await expect(service.create(baseDto(), 'u1', ctxA)).rejects.toMatchObject({ response: { messageKey: 'inventory.issueVoucher.invalidSelection' } });
-    expect(prisma.inventoryBalance.findFirst.mock.calls[0][0].where).toMatchObject({ productId: 'prod1', warehouseId: 'wh1', warehouse: { companyId: 'c1' } });
-    expect(prisma.finishedGoodsIssue.create).not.toHaveBeenCalled();
+
+    const result = await service.create(baseDto(), 'u1', ctxA);
+
+    expect(result.status).toBe('DRAFT');
+    expect(prisma.inventoryBalance.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.inventoryBalance.findFirst.mock.calls[0][0].where).toMatchObject({
+      productId: 'prod1',
+      warehouseId: 'wh1',
+      warehouse: { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] },
+    });
+    expect(prisma.finishedGoodsIssue.create).toHaveBeenCalled();
+    expect(prisma.inventoryBalance.create).not.toHaveBeenCalled();
+    expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    expect(prisma.inventoryBalance.upsert).not.toHaveBeenCalled();
+    expect(prisma.inventoryBalance.deleteMany).not.toHaveBeenCalled();
+    expect(movements.postMovementWithinTransaction).not.toHaveBeenCalled();
   });
 
   it('rejects a raw material passed directly to the finished-goods API', async () => {
@@ -482,12 +502,28 @@ describe('Finished goods issue warehouse selection regression', () => {
     expect(prisma.finishedGoodsIssue.create).not.toHaveBeenCalled();
   });
 
-  it('rejects a manipulated warehouse on a draft update before line replacement', async () => {
+  it('allows a zero-stock catalog item on a DRAFT update without direct balance writes', async () => {
     const { prisma, service } = makeService();
     primeCreate(prisma);
     prisma.finishedGoodsIssue.findFirst.mockResolvedValue(issue());
     prisma.inventoryBalance.findFirst.mockResolvedValue(null);
-    await expect(service.update('fgi1', { lines: [{ productId: 'prod1', quantity: 5, unit: 'PC' }] }, 'u1', ctxA)).rejects.toThrow(BadRequestException);
-    expect(prisma.finishedGoodsIssueLine.deleteMany).not.toHaveBeenCalled();
+
+    const result = await service.update('fgi1', { lines: [{ productId: 'prod1', quantity: 5, unit: 'PC' }] }, 'u1', ctxA);
+
+    expect(result.status).toBe('DRAFT');
+    expect(prisma.inventoryBalance.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.inventoryBalance.findFirst.mock.calls[0][0].where).toMatchObject({
+      productId: 'prod1',
+      warehouseId: 'wh1',
+      warehouse: { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] },
+    });
+    expect(prisma.finishedGoodsIssueLine.deleteMany).toHaveBeenCalled();
+    expect(prisma.finishedGoodsIssueLine.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: [expect.objectContaining({ issueId: 'fgi1', productId: 'prod1' })] }),
+    );
+    expect(prisma.inventoryBalance.create).not.toHaveBeenCalled();
+    expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    expect(prisma.inventoryBalance.upsert).not.toHaveBeenCalled();
+    expect(prisma.inventoryBalance.deleteMany).not.toHaveBeenCalled();
   });
 });

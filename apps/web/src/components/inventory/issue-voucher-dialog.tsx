@@ -37,11 +37,14 @@ export function IssueVoucherDialog({
   }), []);
   const [pending, setPending] = useState<IssueVoucherForm | null>(null);
   const [invalid, setInvalid] = useState(false);
+  const linesEntered = (candidate: IssueVoucherForm) => candidate.lines.some(line => line.productId || line.sparePartId || line.quantity || line.warehouseLocationId || line.batchNumber || line.serialNumber || line.expiryDate);
   const dependentChange = (next: IssueVoucherForm) => {
-    if (form.lines.some(line => line.productId || line.quantity || line.warehouseLocationId)) setPending(next);else onChange(next);
+    if (linesEntered(form)) setPending(next);else onChange(next);
   };
   const save = async () => {
-    const valid = form.issueType && form.warehouseId && (form.issueType !== 'SPARE_PART' || form.maintenanceRequestId) && (form.issueType !== 'RAW_MATERIAL' || form.productionOrderId && form.productionRunId) && form.lines.length && form.lines.every(line => line.productId && line.unit && Number.isFinite(Number(line.quantity)) && Number(line.quantity) > 0 && (form.issueType !== 'SPARE_PART' || Number(line.quantity) >= 0.01) && Number(Number(line.quantity).toFixed(4)) === Number(line.quantity));
+    // A maintenance request is optional for spare parts: the native endpoint is
+    // chosen from its presence, never required as a validation condition.
+    const valid = Boolean(form.issueType && form.warehouseId && form.lines.length && (form.issueType !== 'RAW_MATERIAL' || form.productionOrderId && form.productionRunId) && form.lines.every(line => (line.productId || line.sparePartId) && line.unit && Number.isFinite(Number(line.quantity)) && Number(line.quantity) > 0 && (form.issueType !== 'SPARE_PART' || Number(line.quantity) >= 0.01) && Number(Number(line.quantity).toFixed(4)) === Number(line.quantity)));
     setInvalid(!valid);
     if (valid) await onSave();
   };
@@ -60,7 +63,7 @@ export function IssueVoucherDialog({
           }} value={form.warehouseId} disabled={saving || edit} onChange={id => dependentChange(changeIssueWarehouse(form, id))} />
           {form.warehouseId && <>
             {form.issueType === 'SPARE_PART' && <>
-              <F9Lookup label={t('inventory.issueVoucher.maintenanceRequest')} required adapter={maintenanceRequestAdapter} value={form.maintenanceRequestId} disabled={saving || edit} onChange={id => dependentChange(changeMaintenanceRequest(form, id))} onItemSelect={request => dependentChange(changeMaintenanceRequest(form, request.id, request.machine?.name || ''))} />
+              <F9Lookup label={t('inventory.issueVoucher.maintenanceRequestOptional')} adapter={maintenanceRequestAdapter} value={form.maintenanceRequestId} disabled={saving || edit} onChange={id => dependentChange(changeMaintenanceRequest(form, id))} onItemSelect={request => dependentChange(changeMaintenanceRequest(form, request.id, request.machine?.name || ''))} />
               {form.machineName && <Input label={t('inventory.issueVoucher.machine')} value={form.machineName} disabled />}
               <p className="text-sm text-gray-500">{t('inventory.issueVoucher.spareWorkflow')}</p>
             </>}
@@ -79,7 +82,7 @@ export function IssueVoucherDialog({
               ...form,
               purpose: event.target.value
             })} />}
-            <IssueLinesEditor lines={form.lines} issueType={form.issueType} warehouseId={form.warehouseId} productionOrderId={form.productionOrderId} productionRunId={form.productionRunId} disabled={saving} lockItem={edit && form.issueType === 'SPARE_PART'} onChange={lines => onChange({
+            <IssueLinesEditor lines={form.lines} issueType={form.issueType} warehouseId={form.warehouseId} productionOrderId={form.productionOrderId} productionRunId={form.productionRunId} disabled={saving} lockItem={edit && form.issueType === 'SPARE_PART' && Boolean(form.maintenanceRequestId)} onChange={lines => onChange({
               ...form,
               lines
             })} />

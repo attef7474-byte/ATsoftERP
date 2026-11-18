@@ -115,7 +115,14 @@ function makeService(overrides: Record<string, any> = {}) {
     productionMaterialRequirement: { findFirst: jest.fn() },
     warehouse: { findUnique: jest.fn().mockResolvedValue(warehouse()) },
     product: { findUnique: jest.fn(), findFirst: jest.fn().mockResolvedValue({ id: 'prod1' }) },
-    inventoryBalance: { findFirst: jest.fn().mockResolvedValue({ id: 'balance-wh1-prod1' }) },
+    // Balance mocks exist so tests can prove no code path writes stock directly.
+    inventoryBalance: {
+      findFirst: jest.fn().mockResolvedValue({ id: 'balance-wh1-prod1' }),
+      create: jest.fn(),
+      update: jest.fn(),
+      upsert: jest.fn(),
+      deleteMany: jest.fn(),
+    },
     warehouseLocation: { findUnique: jest.fn() },
     userRole: { findMany: jest.fn() },
     user: { findMany: jest.fn().mockResolvedValue([]) },
@@ -1242,18 +1249,43 @@ describe('ProductionMaterialDocumentsService', () => {
 });
 
 
-describe('Raw-material issue warehouse selection regression', () => {
+describe('Raw-material issue catalog eligibility and warehouse-scoped stock', () => {
   function prime(prisma: any) {
     prisma.productionMaterialDocument.findFirst.mockResolvedValue(null);
     prisma.product.findUnique.mockResolvedValue(product());
   }
 
-  it('rejects a raw material with stock only in another warehouse', async () => {
-    const { prisma, service } = makeService();
+  function primeWrite(prisma: any) {
+    prisma.inventoryMovement.create.mockResolvedValue({ id: 'mov1', movementNumber: 'IM-000001' });
+    prisma.productionMaterialDocument.create.mockResolvedValue(document());
+    prisma.productionMaterialDocument.update.mockResolvedValue(document());
+  }
+
+  function expectNoDirectBalanceWrites(prisma: any) {
+    expect(prisma.inventoryBalance.create).not.toHaveBeenCalled();
+    expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    expect(prisma.inventoryBalance.upsert).not.toHaveBeenCalled();
+    expect(prisma.inventoryBalance.deleteMany).not.toHaveBeenCalled();
+  }
+
+  it('allows an eligible raw material with no balance row in a DRAFT', async () => {
+    const { prisma, service, movements } = makeService();
     prime(prisma);
+    primeWrite(prisma);
     prisma.inventoryBalance.findFirst.mockResolvedValue(null);
-    await expect(service.create(baseDto(), 'u1', ctxA)).rejects.toMatchObject({ response: { messageKey: 'inventory.issueVoucher.invalidSelection' } });
-    expect(prisma.productionMaterialDocument.create).not.toHaveBeenCalled();
+
+    const result = await service.create(baseDto(), 'u1', ctxA);
+
+    expect(result.status).toBe('DRAFT');
+    expect(prisma.inventoryBalance.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.inventoryBalance.findFirst.mock.calls[0][0].where).toMatchObject({
+      productId: 'prod1',
+      warehouseId: 'wh1',
+      warehouse: { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] },
+    });
+    expect(prisma.productionMaterialDocument.create).toHaveBeenCalled();
+    expectNoDirectBalanceWrites(prisma);
+    expect(movements.postProductionMaterialMovementWithinTransaction).not.toHaveBeenCalled();
   });
 
   it('rejects a finished good unrelated to the selected order material requirement', async () => {
@@ -1265,12 +1297,26 @@ describe('Raw-material issue warehouse selection regression', () => {
     expect(prisma.productionMaterialDocument.create).not.toHaveBeenCalled();
   });
 
-  it('rejects cross-warehouse stock on PATCH before rebuilding the same document', async () => {
+  it('allows a zero-stock raw material on a DRAFT PATCH before rebuilding the same document', async () => {
     const { prisma, service } = makeService();
     prime(prisma);
+    primeWrite(prisma);
     prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
     prisma.inventoryBalance.findFirst.mockResolvedValue(null);
-    await expect(service.update('doc1', { lines: baseDto().lines }, 'u1', ctxA)).rejects.toThrow(BadRequestException);
-    expect(prisma.productionMaterialDocumentLine.deleteMany).not.toHaveBeenCalled();
+
+    const result = await service.update('doc1', { lines: baseDto().lines }, 'u1', ctxA);
+
+    expect(result.status).toBe('DRAFT');
+    expect(prisma.inventoryBalance.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.inventoryBalance.findFirst.mock.calls[0][0].where).toMatchObject({
+      productId: 'prod1',
+      warehouseId: 'wh1',
+      warehouse: { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] },
+    });
+    expect(prisma.productionMaterialDocumentLine.deleteMany).toHaveBeenCalled();
+    expect(prisma.productionMaterialDocumentLine.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: [expect.objectContaining({ documentId: 'doc1', productId: 'prod1' })] }),
+    );
+    expectNoDirectBalanceWrites(prisma);
   });
 });

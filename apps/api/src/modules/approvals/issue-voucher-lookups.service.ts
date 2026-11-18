@@ -5,7 +5,14 @@ import { ActiveOperationalContext } from '../../common/operational-context/opera
 import { IssueCandidateQueryDto, IssueWarehouseQueryDto } from './dto/issue-voucher-query.dto';
 import { issueProductScope, issueSelectionError, issueWarehouseScope } from './issue-selection.policy';
 const PERMISSIONS = {
-  SPARE_PART: ['maintenance-request-parts:read', 'maintenance-request-parts:create', 'maintenance-request-parts:update'],
+  SPARE_PART: [
+    'maintenance-request-parts:read',
+    'maintenance-request-parts:create',
+    'maintenance-request-parts:update',
+    'spare-part-issue:read',
+    'spare-part-issue:create',
+    'spare-part-issue:update'
+  ],
   RAW_MATERIAL: ['production-material-document:read', 'production-material-document:create', 'production-material-document:update'],
   FINISHED_GOODS: ['finished-goods-issue:read', 'finished-goods-issue:create', 'finished-goods-issue:update']
 };

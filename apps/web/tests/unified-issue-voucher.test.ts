@@ -100,10 +100,15 @@ jest.mock('../src/components/admin/admin-data-grid', () => ({
 jest.mock('../src/components/admin/datagrid/actions-menu', () => ({
   ActionsMenu: (props: any) => React.createElement('row-actions', props)
 }));
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({ children, ...props }: any) => React.createElement('a', props, children)
+}));
 import { IssueVoucherDialog } from '../src/components/inventory/issue-voucher-dialog';
-import { IssueVouchersPanel } from '../src/components/inventory/issue-vouchers-panel';
-import { emptyIssueVoucher, changeIssueType, changeIssueWarehouse, changeMaintenanceRequest, changeProductionOrder, changeProductionRun, issuePayload, formFromIssue, ISSUE_TYPES, IssueType } from '../src/components/inventory/issue-voucher-form';
-import { newIssueClientId } from '../src/app/admin/inventory/finished-goods-issues/_components/lines-editor';
+import { IssueVouchersPanel, reasonRequired } from '../src/components/inventory/issue-vouchers-panel';
+import { approvalRequiresReason, nativeActionPath, requiredPermission } from '../src/components/inventory/warehouse-approvals-panel';
+import { emptyIssueVoucher, changeIssueType, changeIssueWarehouse, changeMaintenanceRequest, changeProductionOrder, changeProductionRun, issueEndpoint, issuePayload, issuePermissionPrefix, formFromIssue, ISSUE_TYPES, IssueType } from '../src/components/inventory/issue-voucher-form';
+import { createEmptyIssueLine, issueLineIdentity, mergeDuplicateIssueLines, newIssueClientId } from '../src/app/admin/inventory/finished-goods-issues/_components/lines-editor';
 let tree: any;
 function filled(type: IssueType) {
   const form = changeIssueType(emptyIssueVoucher(), type);
@@ -129,11 +134,51 @@ function filled(type: IssueType) {
     }]
   };
 }
+function standaloneSpare(extraLines: any[] = []) {
+  const form = changeIssueType(emptyIssueVoucher(), 'SPARE_PART');
+  const first = {
+    ...form.lines[0],
+    productId: 'pa',
+    sparePartId: 'sa',
+    quantity: '2',
+    unit: 'KG',
+    productUomId: 'uom-a',
+    warehouseLocationId: 'la',
+    batchNumber: 'lot-a',
+    serialNumber: 'serial-a',
+    expiryDate: '2027-01-01',
+    notes: 'line note'
+  };
+  return {
+    ...form,
+    warehouseId: 'wa',
+    maintenanceRequestId: '',
+    purpose: 'purpose',
+    notes: 'notes',
+    lines: [first, ...extraLines]
+  };
+}
+function secondSpareLine() {
+  return {
+    ...createEmptyIssueLine(),
+    productId: 'pb',
+    sparePartId: 'sb',
+    quantity: '3',
+    unit: 'KG',
+    warehouseLocationId: 'lb',
+    batchNumber: 'lot-b',
+    serialNumber: 'serial-b',
+    expiryDate: '2027-02-02',
+    notes: 'second line'
+  };
+}
 function Harness({
   initial,
   edit = false,
   saving = false,
-  types = ISSUE_TYPES
+  types = ISSUE_TYPES,
+  onSave = jest.fn(),
+  onClose = jest.fn()
 }: any) {
   const [form, setForm] = useState(initial || emptyIssueVoucher());
   return React.createElement(IssueVoucherDialog, {
@@ -142,8 +187,8 @@ function Harness({
     types,
     edit,
     saving,
-    onSave: jest.fn(),
-    onClose: jest.fn()
+    onSave,
+    onClose
   });
 }
 async function mount(element: any) {
@@ -159,6 +204,9 @@ function selectType() {
 }
 function button(key: string) {
   return tree.root.findAllByType('button').find((node: any) => node.props.children === mockT(key));
+}
+function buttonsByText(text: string) {
+  return tree.root.findAllByType('button').filter((node: any) => node.props.children === text);
 }
 async function tick() {
   await act(async () => {
@@ -293,6 +341,145 @@ describe('unified issue voucher dependencies and native payloads', () => {
     }
     expect(issuePayload(form, true).requestId).toBeUndefined();
   });
+  it('routes standalone spare parts to the native multi-line endpoint and keeps linked spares single-line', () => {
+    const standalone = standaloneSpare([secondSpareLine()]);
+    const payload: any = issuePayload(standalone);
+    expect(issueEndpoint('SPARE_PART', '')).toBe('/inventory/spare-part-issues');
+    expect(issueEndpoint('SPARE_PART', undefined)).toBe('/inventory/spare-part-issues');
+    expect(issueEndpoint('SPARE_PART', 'ma')).toBe('/maintenance/requests/ma/parts');
+    expect(payload).toMatchObject({
+      issueWarehouseId: 'wa',
+      issueDate: standalone.date,
+      purpose: 'purpose',
+      notes: 'notes',
+      requestId: standalone.requestId
+    });
+    expect(payload.lines).toHaveLength(2);
+    expect(payload.lines[0]).toMatchObject({
+      sparePartId: 'sa',
+      productId: 'pa',
+      quantity: 2,
+      unit: 'KG',
+      productUomId: 'uom-a',
+      warehouseLocationId: 'la',
+      batchNumber: 'lot-a',
+      serialNumber: 'serial-a',
+      expiryDate: '2027-01-01',
+      notes: 'line note'
+    });
+    expect(payload.lines[1]).toMatchObject({ sparePartId: 'sb', productId: 'pb', quantity: 3 });
+    const editPayload: any = issuePayload(standalone, true);
+    expect(editPayload.requestId).toBeUndefined();
+    expect(editPayload.lines).toHaveLength(2);
+    const linked: any = issuePayload(filled('SPARE_PART'));
+    expect(linked.lines).toBeUndefined();
+    expect(linked).toMatchObject({ sparePartId: 'sa', warehouseId: 'wa', quantity: 2 });
+  });
+  it('never builds a nested maintenance URL with an empty request id', () => {
+    for (const requestId of ['', undefined]) expect(issueEndpoint('SPARE_PART', requestId)).not.toContain('/maintenance/requests//parts');
+    expect(issueEndpoint('SPARE_PART', '')).toBe('/inventory/spare-part-issues');
+  });
+  it('serializes finished goods as a multi-line native document', () => {
+    const form = { ...filled('FINISHED_GOODS'), lines: [filled('FINISHED_GOODS').lines[0], secondSpareLine()] };
+    const payload: any = issuePayload(form);
+    expect(payload.lines).toHaveLength(2);
+    expect(payload.lines.map((line: any) => line.quantity)).toEqual([2, 3]);
+    expect(payload).toMatchObject({ issueWarehouseId: 'wa', requestId: form.requestId, issueDate: form.date });
+    expect(issuePayload(form, true).lines).toHaveLength(2);
+  });
+  it('reconstructs standalone spare lines and linked spare legacy records', () => {
+    const standalone = formFromIssue('SPARE_PART', {
+      issueWarehouseId: 'wa',
+      issueDate: '2026-11-18',
+      lines: [
+        { sparePartId: 'sa', productId: 'pa', quantity: 2, unit: 'KG', warehouseLocationId: 'la', batchNumber: 'b1' },
+        { sparePartId: 'sb', productId: 'pb', quantity: 3, unit: 'KG', warehouseLocationId: 'lb', serialNumber: 's2' }
+      ]
+    });
+    expect(standalone.maintenanceRequestId).toBe('');
+    expect(standalone.lines).toHaveLength(2);
+    expect(standalone.lines[1]).toMatchObject({ sparePartId: 'sb', quantity: '3', serialNumber: 's2' });
+    const linked = formFromIssue('SPARE_PART', { warehouseId: 'wa', sparePartId: 'sa', sparePart: { productId: 'pa' }, quantity: 4, unit: 'KG', reason: 'r' }, 'ma');
+    expect(linked.maintenanceRequestId).toBe('ma');
+    expect(linked.lines).toHaveLength(1);
+    expect(linked.lines[0]).toMatchObject({ sparePartId: 'sa', productId: 'pa', quantity: '4' });
+  });
+  it('resolves the effective permission prefix per authority', () => {
+    expect(issuePermissionPrefix('SPARE_PART', 'SPARE_PART_ISSUE')).toBe('spare-part-issue');
+    expect(issuePermissionPrefix('SPARE_PART', 'MAINTENANCE_REQUEST_PART')).toBe('maintenance-request-parts');
+    expect(issuePermissionPrefix('FINISHED_GOODS', 'FLAT')).toBe('finished-goods-issue');
+  });
+  it('requires a reason only for native transitions whose DTO requires one', () => {
+    const standalone = { type: 'SPARE_PART' as IssueType, authority: 'SPARE_PART_ISSUE' as const };
+    const linked = { type: 'SPARE_PART' as IssueType, authority: 'MAINTENANCE_REQUEST_PART' as const };
+    expect(reasonRequired('cancel-approval', standalone)).toBe(true);
+    expect(reasonRequired('cancel', standalone)).toBe(true);
+    expect(reasonRequired('reject', standalone)).toBe(true);
+    expect(reasonRequired('withdraw', standalone)).toBe(false);
+    expect(reasonRequired('cancel-approval', linked)).toBe(false);
+    expect(approvalRequiresReason(standalone as any, 'reject')).toBe(true);
+    expect(approvalRequiresReason(standalone as any, 'cancelApproval')).toBe(true);
+    expect(approvalRequiresReason(linked as any, 'reject')).toBe(false);
+  });
+  it('routes shared approval actions to each native endpoint and permission', () => {
+    const standalone: any = { type: 'SPARE_PART', authority: 'SPARE_PART_ISSUE', entityId: 'issue-1', parentEntityId: null };
+    const linked: any = { type: 'SPARE_PART', authority: 'MAINTENANCE_REQUEST_PART', entityId: 'line-1', parentEntityId: 'req-1' };
+    const raw: any = { type: 'RAW_MATERIAL', authority: 'FLAT', entityId: 'doc-1', parentEntityId: null };
+    const finished: any = { type: 'FINISHED_GOODS', authority: 'FLAT', entityId: 'fgi-1', parentEntityId: null };
+    expect(nativeActionPath(standalone, 'approve')).toBe('/inventory/spare-part-issues/issue-1/approve');
+    expect(nativeActionPath(standalone, 'cancelApproval')).toBe('/inventory/spare-part-issues/issue-1/cancel-approval');
+    expect(nativeActionPath(linked, 'approve')).toBe('/maintenance/requests/req-1/parts/line-1/approve');
+    expect(nativeActionPath(raw, 'reject')).toBe('/production/material-documents/doc-1/reject');
+    expect(nativeActionPath(finished, 'cancelApproval')).toBe('/inventory/finished-goods-issues/fgi-1/cancel-approval');
+    expect(requiredPermission(standalone, 'approve')).toBe('spare-part-issue:approve');
+    expect(requiredPermission(standalone, 'cancelApproval')).toBe('spare-part-issue:cancel-approval');
+    expect(requiredPermission(linked, 'approve')).toBe('maintenance-request-parts:approve');
+    expect(requiredPermission(raw, 'reject')).toBe('production-material-document:reject');
+    expect(requiredPermission(finished, 'cancelApproval')).toBe('finished-goods-issue:cancel-approval');
+  });
+  it('merges duplicate stock identities deterministically', () => {
+    const first = { ...standaloneSpare().lines[0], quantity: '2', warehouseLocationId: 'la', batchNumber: 'b1', serialNumber: '' };
+    const duplicate = { ...createEmptyIssueLine(), sparePartId: 'sa', productId: 'pa', quantity: '3', unit: 'KG', productUomId: 'uom-a', warehouseLocationId: 'la', batchNumber: 'b1', serialNumber: '', expiryDate: '2027-01-01' };
+    const other = { ...secondSpareLine(), sparePartId: 'sx', productId: 'px', warehouseLocationId: 'la', batchNumber: 'b1', serialNumber: '' };
+    const merged = mergeDuplicateIssueLines([first, duplicate, other]);
+    expect(merged.mergedCount).toBe(1);
+    expect(merged.lines).toHaveLength(2);
+    expect(merged.lines[0].quantity).toBe('5');
+    expect(merged.lines[1].quantity).toBe('3');
+  });
+  it('rounds merged quantities to the four-decimal API contract', () => {
+    const first = { ...createEmptyIssueLine(), sparePartId: 'sa', productId: 'pa', quantity: '0.1', unit: 'KG', productUomId: 'uom-a', warehouseLocationId: 'la', batchNumber: 'b1', expiryDate: '2027-01-01' };
+    const duplicate = { ...first, quantity: '0.2' };
+    const merged = mergeDuplicateIssueLines([first, duplicate]);
+    expect(merged.mergedCount).toBe(1);
+    expect(merged.lines).toHaveLength(1);
+    expect(merged.lines[0].quantity).toBe('0.3');
+  });
+  it('does not merge lines that differ by UOM or expiry', () => {
+    const first = { ...createEmptyIssueLine(), sparePartId: 'sa', productId: 'pa', quantity: '1', unit: 'KG', productUomId: 'uom-a', warehouseLocationId: 'la', batchNumber: 'b1', expiryDate: '2027-01-01' };
+    const otherUom = { ...first, unit: 'BOX', productUomId: 'uom-b', quantity: '2' };
+    const otherExpiry = { ...first, expiryDate: '2027-02-01', quantity: '3' };
+    expect(issueLineIdentity(first)).not.toBe(issueLineIdentity(otherUom));
+    expect(issueLineIdentity(first)).not.toBe(issueLineIdentity(otherExpiry));
+    const merged = mergeDuplicateIssueLines([first, otherUom, otherExpiry]);
+    expect(merged.mergedCount).toBe(0);
+    expect(merged.lines.map(line => line.quantity)).toEqual(['1', '2', '3']);
+  });
+  it('uses the exact type labels in both languages', () => {
+    expect(mockT('inventory.issueVoucher.itemSparePart')).toBe('Spare Part');
+    expect(mockT('inventory.issueVoucher.itemFinishedProduct')).toBe('Finished Product');
+    expect(mockT('inventory.issueVoucher.itemRawMaterial')).toBe('Raw Material');
+    expect(mockT('inventory.warehouseApprovals.typeSPARE_PART')).toBe('Spare Part');
+    expect(mockT('inventory.warehouseApprovals.typeFINISHED_GOODS')).toBe('Finished Product');
+    mockLocale = 'ar';
+    expect(mockT('inventory.issueVoucher.itemSparePart')).toBe('قطعة الغيار');
+    expect(mockT('inventory.issueVoucher.itemFinishedProduct')).toBe('المنتج التام');
+    expect(mockT('inventory.issueVoucher.itemRawMaterial')).toBe('المادة الخام');
+    expect(mockT('inventory.issueVoucher.maintenanceRequestOptional')).toBe('طلب الصيانة (اختياري)');
+    expect(mockT('inventory.warehouseApprovals.typeSPARE_PART')).toBe('قطعة الغيار');
+    expect(mockT('inventory.warehouseApprovals.typeFINISHED_GOODS')).toBe('المنتج التام');
+    mockLocale = 'en';
+  });
   it('restores the existing movement ProductUom snapshot during edit', () => {
     const form = formFromIssue('FINISHED_GOODS', {
       issueWarehouseId: 'wa',
@@ -339,7 +526,7 @@ describe('dynamic issue form interaction', () => {
     await mount(React.createElement(Harness, {
       initial: filled(type)
     }));
-    expect(Boolean(lookup('inventory.issueVoucher.maintenanceRequest'))).toBe(type === 'SPARE_PART');
+    expect(Boolean(lookup('inventory.issueVoucher.maintenanceRequestOptional'))).toBe(type === 'SPARE_PART');
     expect(Boolean(lookup('production.materialDocuments.order'))).toBe(type === 'RAW_MATERIAL');
     const item = tree.root.findAllByType('lookup').find((node: any) => node.props.adapter.endpoint === '/inventory/issues/candidates');
     expect(item.props.filters).toMatchObject({
@@ -349,9 +536,14 @@ describe('dynamic issue form interaction', () => {
     if (type === 'RAW_MATERIAL') expect(lookup('production.materialDocuments.run').props.filters).toEqual({
       productionOrderId: 'oa'
     });
-    if (type !== 'SPARE_PART') expect(lookup('inventory.finishedGoodsIssue.warehouseLocation').props.filters).toMatchObject({
+    expect(lookup('inventory.finishedGoodsIssue.warehouseLocation').props.filters).toMatchObject({
       warehouseId: 'wa',
       type
+    });
+    expect(lookup('inventory.issueVoucher.stockIdentity').props.filters).toMatchObject({
+      warehouseId: 'wa',
+      type,
+      productId: 'pa'
     });
   });
   it('confirms warehouse clearing and removes the old item immediately on confirmation', async () => {
@@ -371,10 +563,10 @@ describe('dynamic issue form interaction', () => {
     await mount(React.createElement(Harness, {
       initial: filled('SPARE_PART')
     }));
-    await act(async () => lookup('inventory.issueVoucher.maintenanceRequest').props.onChange('mb'));
-    expect(lookup('inventory.issueVoucher.maintenanceRequest').props.value).toBe('ma');
+    await act(async () => lookup('inventory.issueVoucher.maintenanceRequestOptional').props.onChange('mb'));
+    expect(lookup('inventory.issueVoucher.maintenanceRequestOptional').props.value).toBe('ma');
     await act(async () => tree.root.findAllByType('button').find((node: any) => node.props.children === 'CONFIRM').props.onClick());
-    expect(lookup('inventory.issueVoucher.maintenanceRequest').props.value).toBe('mb');
+    expect(lookup('inventory.issueVoucher.maintenanceRequestOptional').props.value).toBe('mb');
     expect(tree.root.findAllByType('lookup').find((node: any) => node.props.adapter.endpoint === '/inventory/issues/candidates').props.value).toBe('');
   });
   it('confirms production-run change before clearing the selected material', async () => {
@@ -397,7 +589,7 @@ describe('dynamic issue form interaction', () => {
       }
     }));
     await act(async () => tree.root.findAllByType('button').find((node: any) => node.props.children === 'CONFIRM').props.onClick());
-    expect(lookup('inventory.issueVoucher.maintenanceRequest')).toBeUndefined();
+    expect(lookup('inventory.issueVoucher.maintenanceRequestOptional')).toBeUndefined();
     expect(lookup('inventory.finishedGoodsIssue.issueWarehouse').props.value).toBe('');
     expect(tree.root.findAllByType('lookup').some((node: any) => node.props.adapter.endpoint === '/inventory/issues/candidates')).toBe(false);
   });
@@ -412,6 +604,91 @@ describe('dynamic issue form interaction', () => {
     expect(lookup('production.materialDocuments.order').props.disabled).toBe(true);
     expect(button('actions.save').props.disabled).toBe(true);
   });
+  it('saves a standalone spare voucher without any maintenance request', async () => {
+    const onSave = jest.fn().mockResolvedValue(undefined);
+    await mount(React.createElement(Harness, {
+      initial: standaloneSpare(),
+      onSave
+    }));
+    expect(lookup('inventory.issueVoucher.maintenanceRequestOptional').props.value).toBe('');
+    expect(lookup('inventory.issueVoucher.maintenanceRequestOptional').props.required).toBeUndefined();
+    await act(async () => button('actions.save').props.onClick());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(tree.root.findAll((node: any) => node.props && node.props.role === 'alert')).toHaveLength(0);
+  });
+  it('adds and removes lines for spare parts as well as finished goods', async () => {
+    await mount(React.createElement(Harness, {
+      initial: standaloneSpare()
+    }));
+    const addLabel = mockT('inventory.finishedGoodsIssue.addLine');
+    expect(addLabel).toBe('+ Add Item');
+    expect(buttonsByText(addLabel)).toHaveLength(1);
+    await act(async () => buttonsByText(addLabel)[0].props.onClick());
+    expect(tree.root.findByType(IssueVoucherDialog).props.form.lines).toHaveLength(2);
+    const removeLabel = mockT('inventory.finishedGoodsIssue.removeLine');
+    expect(buttonsByText(removeLabel)).toHaveLength(2);
+    await act(async () => buttonsByText(removeLabel)[0].props.onClick());
+    expect(tree.root.findByType(IssueVoucherDialog).props.form.lines).toHaveLength(1);
+  });
+  it('uses the exact Arabic add-item label in RTL', async () => {
+    mockLocale = 'ar';
+    await mount(React.createElement(Harness, {
+      initial: standaloneSpare()
+    }));
+    const addLabel = mockT('inventory.finishedGoodsIssue.addLine');
+    expect(addLabel).toBe('+ إضافة بند');
+    expect(buttonsByText(addLabel)).toHaveLength(1);
+    expect(tree.root.findByType(IssueVoucherDialog).props.form.lines).toHaveLength(1);
+    await act(async () => buttonsByText(addLabel)[0].props.onClick());
+    expect(tree.root.findByType(IssueVoucherDialog).props.form.lines).toHaveLength(2);
+    mockLocale = 'en';
+  });
+  it('merges duplicate lines in the editor and shows the translated notice', async () => {
+    const first = { ...standaloneSpare().lines[0], quantity: '2', warehouseLocationId: 'la', batchNumber: 'b1', serialNumber: '' };
+    const duplicate = { ...createEmptyIssueLine(), sparePartId: 'sa', productId: 'pa', quantity: '3', unit: 'KG', productUomId: 'uom-a', warehouseLocationId: 'la', batchNumber: 'b1', serialNumber: '', expiryDate: '2027-01-01' };
+    await mount(React.createElement(Harness, {
+      initial: { ...standaloneSpare(), lines: [first, duplicate] }
+    }));
+    const quantityInputs = tree.root.findAllByType('input').filter((node: any) => node.props.label === mockT('inventory.finishedGoodsIssue.quantity') && node.props.type === 'number');
+    expect(quantityInputs).toHaveLength(2);
+    await act(async () => quantityInputs[0].props.onChange({
+      target: {
+        value: '2'
+      }
+    }));
+    const lines = tree.root.findByType(IssueVoucherDialog).props.form.lines;
+    expect(lines).toHaveLength(1);
+    expect(lines[0].quantity).toBe('5');
+    expect(tree.root.findAllByType('p').some((node: any) => node.props.children === mockT('inventory.issueVoucher.duplicateMerged'))).toBe(true);
+  });
+  it('opens candidate, location and stock lookups without prior search text', async () => {
+    await mount(React.createElement(Harness, {
+      initial: standaloneSpare()
+    }));
+    const item = tree.root.findAllByType('lookup').find((node: any) => node.props.adapter.endpoint === '/inventory/issues/candidates');
+    expect(item.props.adapter.detailFilters).toBe(true);
+    expect(item.props.adapter.searchFields).toEqual(expect.arrayContaining(['code', 'name']));
+    expect(item.props.filters).toEqual({ type: 'SPARE_PART', warehouseId: 'wa' });
+    expect(item.props.filters.search).toBeUndefined();
+    const stock = lookup('inventory.issueVoucher.stockIdentity');
+    expect(stock.props.adapter.endpoint).toBe('/inventory/issues/stock');
+    expect(stock.props.adapter.detailFilters).toBe(true);
+    expect(stock.props.filters).toMatchObject({ type: 'SPARE_PART', warehouseId: 'wa', productId: 'pa', locationId: 'la' });
+    expect(lookup('inventory.finishedGoodsIssue.warehouseLocation').props.adapter.endpoint).toBe('/inventory/issues/locations');
+  });
+  it('keeps the voucher context when the maintenance request changes', async () => {
+    await mount(React.createElement(Harness, {
+      initial: filled('SPARE_PART')
+    }));
+    await act(async () => lookup('inventory.issueVoucher.maintenanceRequestOptional').props.onChange('mb'));
+    await act(async () => tree.root.findAllByType('button').find((node: any) => node.props.children === 'CONFIRM').props.onClick());
+    const form = tree.root.findByType(IssueVoucherDialog).props.form;
+    expect(form).toMatchObject({ warehouseId: 'wa', issueType: 'SPARE_PART', purpose: 'purpose', notes: 'notes', maintenanceRequestId: 'mb' });
+    expect(form.lines[0].sparePartId).toBeFalsy();
+  });
 });
 describe('unified page native API routing', () => {
   it.each(ISSUE_TYPES)('POSTs %s through its existing canonical endpoint', async type => {
@@ -424,6 +701,91 @@ describe('unified page native API routing', () => {
     const path = type === 'SPARE_PART' ? '/maintenance/requests/ma/parts' : type === 'RAW_MATERIAL' ? '/production/material-documents' : '/inventory/finished-goods-issues';
     expect(mockPost).toHaveBeenCalledWith(path, expect.any(Object));
     expect(mockPost).toHaveBeenCalledTimes(1);
+  });
+  it('POSTs standalone spare parts to the native spare-part issue endpoint', async () => {
+    await mount(React.createElement(IssueVouchersPanel));
+    await tick();
+    await act(async () => mockActions.find(action => action.id === 'new').onClick());
+    await act(async () => tree.root.findByType(IssueVoucherDialog).props.onChange(standaloneSpare([secondSpareLine()])));
+    await act(async () => tree.root.findByType(IssueVoucherDialog).props.onSave());
+    expect(mockPost).toHaveBeenCalledWith('/inventory/spare-part-issues', expect.objectContaining({
+      issueWarehouseId: 'wa',
+      lines: expect.arrayContaining([expect.objectContaining({ sparePartId: 'sa' }), expect.objectContaining({ sparePartId: 'sb' })])
+    }));
+    expect(mockPost).not.toHaveBeenCalledWith(expect.stringContaining('/maintenance/requests//'), expect.anything());
+  });
+  it('reads and edits a standalone spare row through its native endpoint with SparePartIssue audit', async () => {
+    const row = {
+      key: 'SPARE_PART:issue-1', type: 'SPARE_PART', authority: 'SPARE_PART_ISSUE', entityId: 'issue-1', parentEntityId: null,
+      reference: 'SPI-1', title: 'purpose', status: 'DRAFT', createdAt: '2026-11-18', documentDate: '2026-11-18',
+      warehouse: { id: 'wa', name: 'Warehouse A', code: 'WA' }
+    };
+    mockAuth = { isSuperAdmin: false, permissions: { permissions: ['spare-part-issue:read', 'spare-part-issue:update', 'audit:read'] } };
+    mockGet.mockImplementation(async (path: string) => {
+      if (path === '/inventory/issues') return { data: [row], meta: { page: 1, total: 1, totalPages: 1 } };
+      if (path === '/inventory/spare-part-issues/issue-1') return { data: { id: 'issue-1', status: 'DRAFT', issueWarehouseId: 'wa', issueDate: '2026-11-18', lines: [{ sparePartId: 'sa', productId: 'pa', quantity: 2, unit: 'KG' }, { sparePartId: 'sb', productId: 'pb', quantity: 3, unit: 'KG' }] } };
+      if (path === '/audit-logs') return { data: [] };
+      return { data: [], meta: { page: 1, total: 0, totalPages: 0 } };
+    });
+    await mount(React.createElement(IssueVouchersPanel));
+    await tick();
+    await act(async () => button('common.actions').props.onClick());
+    const menu = tree.root.findByType('row-actions');
+    await act(async () => menu.props.actions.find((action: any) => action.label === mockT('inventory.finishedGoodsIssue.view')).onClick(row));
+    expect(mockGet).toHaveBeenCalledWith('/inventory/spare-part-issues/issue-1');
+    expect(mockGet).toHaveBeenCalledWith('/audit-logs', expect.objectContaining({ params: expect.objectContaining({ entity: 'SparePartIssue' }) }));
+    expect(tree.root.findAllByType('tr')).toHaveLength(3);
+    expect(tree.root.findAllByType('a').some((node: any) => node.props.href === '/admin/maintenance/spare-part-issues')).toBe(false);
+    await act(async () => tree.root.findByType('row-actions').props.actions.find((action: any) => action.label === mockT('inventory.finishedGoodsIssue.edit')).onClick(row));
+    const dialog = tree.root.findByType(IssueVoucherDialog);
+    expect(dialog.props.form.lines).toHaveLength(2);
+    await act(async () => tree.root.findByType(IssueVoucherDialog).props.onSave());
+    expect(mockPatch).toHaveBeenCalledWith('/inventory/spare-part-issues/issue-1', expect.objectContaining({ lines: expect.any(Array) }));
+  });
+  it('uses native transition suffixes for standalone spare rows and keeps the maintenance request suffix for linked spares', async () => {
+    const standaloneRow = {
+      key: 'SPARE_PART:issue-2', type: 'SPARE_PART', authority: 'SPARE_PART_ISSUE', entityId: 'issue-2', parentEntityId: null,
+      reference: 'SPI-2', title: null, status: 'DRAFT', createdAt: '2026-11-18', documentDate: '2026-11-18', warehouse: null
+    };
+    const linkedRow = {
+      key: 'SPARE_PART:line-1', type: 'SPARE_PART', authority: 'MAINTENANCE_REQUEST_PART', entityId: 'line-1', parentEntityId: 'req-1',
+      reference: 'MR-1', title: null, status: 'DRAFT', createdAt: '2026-11-18', documentDate: '2026-11-18', warehouse: null
+    };
+    mockAuth = { isSuperAdmin: false, permissions: { permissions: ['spare-part-issue:read', 'spare-part-issue:submit', 'maintenance-request-parts:read', 'maintenance-request-parts:request'] } };
+    mockGet.mockImplementation(async (path: string) => path === '/inventory/issues'
+      ? { data: [standaloneRow, linkedRow], meta: { page: 1, total: 2, totalPages: 1 } }
+      : { data: [], meta: { page: 1, total: 0, totalPages: 0 } });
+    await mount(React.createElement(IssueVouchersPanel));
+    await tick();
+    await act(async () => button('common.actions').props.onClick());
+    await act(async () => tree.root.findByType('row-actions').props.actions.find((action: any) => action.label === mockT('inventory.finishedGoodsIssue.submit')).onClick(standaloneRow));
+    await act(async () => tree.root.findAllByType('button').find((node: any) => node.props.children === 'CONFIRM').props.onClick());
+    expect(mockPatch).toHaveBeenCalledWith('/inventory/spare-part-issues/issue-2/submit', expect.any(Object));
+    await act(async () => tree.root.findByType('row-actions').props.actions.find((action: any) => action.label === mockT('inventory.finishedGoodsIssue.submit')).onClick(linkedRow));
+    await act(async () => tree.root.findAllByType('button').find((node: any) => node.props.children === 'CONFIRM').props.onClick());
+    expect(mockPatch).toHaveBeenCalledWith('/maintenance/requests/req-1/parts/line-1/request', undefined);
+  });
+  it('requires and sends a trimmed reason for standalone cancel-approval', async () => {
+    const row = {
+      key: 'SPARE_PART:issue-3', type: 'SPARE_PART', authority: 'SPARE_PART_ISSUE', entityId: 'issue-3', parentEntityId: null,
+      reference: 'SPI-3', title: null, status: 'APPROVED', createdAt: '2026-11-18', documentDate: '2026-11-18', warehouse: null
+    };
+    mockAuth = { isSuperAdmin: false, permissions: { permissions: ['spare-part-issue:read', 'spare-part-issue:cancel-approval'] } };
+    mockGet.mockImplementation(async (path: string) => path === '/inventory/issues'
+      ? { data: [row], meta: { page: 1, total: 1, totalPages: 1 } }
+      : { data: [], meta: { page: 1, total: 0, totalPages: 0 } });
+    await mount(React.createElement(IssueVouchersPanel));
+    await tick();
+    await act(async () => button('common.actions').props.onClick());
+    await act(async () => tree.root.findByType('row-actions').props.actions.find((action: any) => action.label === mockT('inventory.finishedGoodsIssue.cancelApproval')).onClick(row));
+    const textarea = tree.root.findByType('textarea');
+    expect(textarea.props.required).toBe(true);
+    await act(async () => tree.root.findAllByType('button').find((node: any) => node.props.children === 'CONFIRM').props.onClick());
+    expect(mockPatch).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith(expect.any(String), 'error');
+    await act(async () => textarea.props.onChange({ target: { value: '  approval superseded  ' } }));
+    await act(async () => tree.root.findAllByType('button').find((node: any) => node.props.children === 'CONFIRM').props.onClick());
+    expect(mockPatch).toHaveBeenCalledWith('/inventory/spare-part-issues/issue-3/cancel-approval', { reason: 'approval superseded' });
   });
   it('offers only create modes granted by the native permission', async () => {
     mockAuth = {

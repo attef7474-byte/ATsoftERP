@@ -14,12 +14,13 @@ import { AdminDataGrid, GridAction, GridColumn } from '../admin/admin-data-grid'
 import { ActionAddIcon, ActionRefreshIcon, useRegisterAdminActions, useStableHandlers } from '../admin/admin-action-bar';
 import { F9Lookup } from '../f9/F9Lookup';
 import { warehouseAdapter } from '../f9/lookup-adapters';
-import { emptyIssueVoucher, formFromIssue, issueEndpoint, issuePayload, ISSUE_PERMISSION, ISSUE_TYPES, IssueType, IssueVoucherForm } from './issue-voucher-form';
+import { emptyIssueVoucher, formFromIssue, issueEndpoint, issuePayload, issuePermissionPrefix, ISSUE_TYPES, IssueAuthority, IssueType, IssueVoucherForm } from './issue-voucher-form';
 import { IssueVoucherDialog } from './issue-voucher-dialog';
 import { newIssueClientId } from '../../app/admin/inventory/finished-goods-issues/_components/lines-editor';
 interface IssueRow {
   key: string;
   type: IssueType;
+  authority: IssueAuthority;
   entityId: string;
   parentEntityId: string | null;
   reference: string;
@@ -37,9 +38,26 @@ interface IssueRow {
   sourceType: string | null;
 }
 const STATUSES = ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'POSTED', 'CANCELLED', 'RESERVED', 'USED'];
-type Transition = 'submit' | 'withdraw' | 'cancel' | 'post' | 'reverse';
-function nativePath(row: IssueRow) {
+type Transition = 'submit' | 'withdraw' | 'cancel-approval' | 'cancel' | 'post' | 'reverse';
+function isStandaloneSpare(row: Pick<IssueRow, 'type' | 'authority'>): boolean {
+  return row.type === 'SPARE_PART' && row.authority === 'SPARE_PART_ISSUE';
+}
+function isLinkedSpare(row: Pick<IssueRow, 'type' | 'authority'>): boolean {
+  return row.type === 'SPARE_PART' && !isStandaloneSpare(row);
+}
+/** Native flat-authority DTOs require a reason for these transitions. */
+export function reasonRequired(action: string, row: Pick<IssueRow, 'type' | 'authority'>): boolean {
+  if (isLinkedSpare(row)) return false;
+  return ['cancel', 'reject', 'cancel-approval'].includes(action);
+}
+function nativePath(row: IssueRow): string {
+  if (row.authority === 'SPARE_PART_ISSUE') return `/inventory/spare-part-issues/${row.entityId}`;
   return `${issueEndpoint(row.type, row.parentEntityId || '')}/${row.entityId}`;
+}
+function auditEntity(row: IssueRow): string {
+  if (row.authority === 'SPARE_PART_ISSUE') return 'SparePartIssue';
+  if (row.type === 'SPARE_PART') return 'MaintenanceRequestRequiredPart';
+  return row.type === 'RAW_MATERIAL' ? 'ProductionMaterialDocument' : 'FinishedGoodsIssue';
 }
 export function IssueVouchersPanel() {
   const {
@@ -58,7 +76,16 @@ export function IssueVouchersPanel() {
   const {
     showToast
   } = useToast();
-  const can = useCallback((type: IssueType, action: string) => isSuperAdmin || Boolean(permissions?.permissions.includes(`${ISSUE_PERMISSION[type]}:${action}`)), [isSuperAdmin, permissions]);
+  const can = useCallback((type: IssueType, action: string, authority?: IssueAuthority) => {
+    if (isSuperAdmin) return true;
+    const granted = (prefix: string) => Boolean(permissions?.permissions.includes(`${prefix}:${action}`));
+    if (authority === 'SPARE_PART_ISSUE' || authority === 'MAINTENANCE_REQUEST_PART') return granted(issuePermissionPrefix(type, authority));
+    // Creation and list filters run before a row (and therefore its authority)
+    // exists. With no maintenance request, spare parts can be created through
+    // either the linked or the standalone authority; the backend decides.
+    if (type === 'SPARE_PART' && !authority) return granted('maintenance-request-parts') || granted('spare-part-issue');
+    return granted(issuePermissionPrefix(type, authority));
+  }, [isSuperAdmin, permissions]);
   const scopedWarehouseAdapter = {
     ...warehouseAdapter,
     endpoint: '/inventory/issues/warehouses',
@@ -192,6 +219,8 @@ export function IssueVouchersPanel() {
     savingRef.current = true;
     setSaving(true);
     try {
+      // issueEndpoint never emits an empty maintenanceRequestId: without one,
+      // spare parts are created through the native standalone endpoint.
       const path = issueEndpoint(form.issueType, form.maintenanceRequestId);
       if (editing) await api.patch(`${path}/${editing.entityId}`, issuePayload(form, true));else await api.post(path, issuePayload(form));
       showToast(t('common.saved'), 'success');
@@ -220,7 +249,7 @@ export function IssueVouchersPanel() {
           return;
         }
         setEditing(row);
-        setForm(formFromIssue(row.type, record, row.parentEntityId || ''));
+        setForm(formFromIssue(row.type, record, isLinkedSpare(row) ? row.parentEntityId || undefined : undefined));
       } else {
         setDetail({
           row,
@@ -228,12 +257,11 @@ export function IssueVouchersPanel() {
           history: []
         });
         if (isSuperAdmin || permissions?.permissions.includes('audit:read')) {
-          const entity = row.type === 'SPARE_PART' ? 'MaintenanceRequestRequiredPart' : row.type === 'RAW_MATERIAL' ? 'ProductionMaterialDocument' : 'FinishedGoodsIssue';
           const logs = await api.get<{
             data: any[];
           }>('/audit-logs', {
             params: {
-              entity,
+              entity: auditEntity(row),
               search: row.entityId,
               limit: 20
             }
@@ -253,7 +281,7 @@ export function IssueVouchersPanel() {
   };
   const performTransition = async () => {
     if (!transition || savingRef.current) return;
-    if (transition.action === 'cancel' && transition.row.type !== 'SPARE_PART' && !reason.trim()) {
+    if (reasonRequired(transition.action, transition.row) && !reason.trim()) {
       showToast(t('inventory.finishedGoodsIssue.errors.reasonRequired'), 'error');
       return;
     }
@@ -264,13 +292,16 @@ export function IssueVouchersPanel() {
         row,
         action
       } = transition;
-      const suffix = row.type === 'SPARE_PART' && action === 'submit' ? 'request' : action;
+      // The maintenance 'request' suffix is exclusive to linked spare-part
+      // lines. Every other authority uses its native workflow suffix.
+      const suffix = isLinkedSpare(row) && action === 'submit' ? 'request' : action;
+      const trimmedReason = reason.trim();
       if (action === 'reverse') await api.post(`${nativePath(row)}/reverse`, {
         requestId: transition.requestId,
-        notes: reason || undefined
-      });else await api.patch(`${nativePath(row)}/${suffix}`, row.type === 'SPARE_PART' ? undefined : {
-        ...(reason ? {
-          reason
+        notes: trimmedReason || undefined
+      });else await api.patch(`${nativePath(row)}/${suffix}`, isLinkedSpare(row) ? undefined : {
+        ...(trimmedReason ? {
+          reason: trimmedReason
         } : {})
       });
       showToast(t('common.saved'), 'success');
@@ -324,32 +355,36 @@ export function IssueVouchersPanel() {
   const actions: GridAction<IssueRow>[] = [{
     label: t('inventory.finishedGoodsIssue.view'),
     onClick: row => void load(row, false),
-    enabled: row => can(row.type, 'read')
+    enabled: row => can(row.type, 'read', row.authority)
   }, {
     label: t('inventory.finishedGoodsIssue.edit'),
     onClick: row => void load(row, true),
-    enabled: row => can(row.type, 'update') && row.status === 'DRAFT' && row.sourceType !== 'REVERSE'
+    enabled: row => can(row.type, 'update', row.authority) && row.status === 'DRAFT' && row.sourceType !== 'REVERSE'
   }, {
     label: t('inventory.finishedGoodsIssue.submit'),
     onClick: row => beginTransition(row, 'submit'),
-    enabled: row => can(row.type, row.type === 'SPARE_PART' ? 'request' : 'submit') && row.status === 'DRAFT'
+    enabled: row => can(row.type, isLinkedSpare(row) ? 'request' : 'submit', row.authority) && row.status === 'DRAFT'
   }, {
     label: t('inventory.finishedGoodsIssue.withdraw'),
     onClick: row => beginTransition(row, 'withdraw'),
-    enabled: row => can(row.type, row.type === 'SPARE_PART' ? 'request' : 'withdraw') && ['SUBMITTED', 'REQUESTED'].includes(row.status)
+    enabled: row => can(row.type, isLinkedSpare(row) ? 'request' : 'withdraw', row.authority) && ['SUBMITTED', 'REQUESTED'].includes(row.status)
+  }, {
+    label: t('inventory.finishedGoodsIssue.cancelApproval'),
+    onClick: row => beginTransition(row, 'cancel-approval'),
+    enabled: row => !isLinkedSpare(row) && can(row.type, 'cancel-approval', row.authority) && row.status === 'APPROVED'
   }, {
     label: t('inventory.finishedGoodsIssue.post'),
     onClick: row => beginTransition(row, 'post'),
-    enabled: row => row.type !== 'SPARE_PART' && can(row.type, 'post') && row.status === 'APPROVED'
+    enabled: row => !isLinkedSpare(row) && can(row.type, 'post', row.authority) && row.status === 'APPROVED'
   }, {
     label: t('inventory.finishedGoodsIssue.cancel'),
     onClick: row => beginTransition(row, 'cancel'),
-    enabled: row => can(row.type, 'cancel') && ['DRAFT', 'SUBMITTED', 'REQUESTED', 'REJECTED'].includes(row.status),
+    enabled: row => can(row.type, 'cancel', row.authority) && ['DRAFT', 'SUBMITTED', 'REQUESTED', 'REJECTED'].includes(row.status),
     variant: 'danger'
   }, {
     label: t('inventory.finishedGoodsIssue.reverse'),
     onClick: row => beginTransition(row, 'reverse'),
-    enabled: row => row.type !== 'SPARE_PART' && can(row.type, 'reverse') && row.status === 'POSTED' && row.sourceType !== 'REVERSE'
+    enabled: row => row.type !== 'SPARE_PART' && can(row.type, 'reverse', row.authority) && row.status === 'POSTED' && row.sourceType !== 'REVERSE'
   }];
   return <div className="space-y-4">
     {!readable && <p role="status">{t('inventory.issueVoucher.noReadPermission')}</p>}
@@ -414,17 +449,17 @@ export function IssueVouchersPanel() {
         <p>{detail.record.issueWarehouse?.name || detail.row.warehouse?.name || '-'}</p>
         <p>{detail.record.purpose || detail.record.reason || detail.record.notes || detail.record.usageNote || ''}</p>
         <div className="overflow-x-auto"><table className="w-full text-start text-sm"><thead><tr><th>{t('inventory.finishedGoodsIssue.product')}</th><th>{t('inventory.finishedGoodsIssue.quantity')}</th><th>{t('inventory.finishedGoodsIssue.unit')}</th><th>{t('inventory.finishedGoodsIssue.warehouseLocation')}</th><th>{t('inventory.issueVoucher.stockIdentity')}</th></tr></thead><tbody>
-          {(detail.row.type === 'SPARE_PART' ? [detail.record] : detail.record.lines || []).map((line: any) => <tr key={line.id}><td>{line.product?.name || line.sparePart?.name || line.productNameSnapshot || '-'}</td><td>{String(line.quantity)}</td><td>{line.unit}</td><td>{line.warehouseLocation?.name || '-'}</td><td>{[line.batchNumber, line.serialNumber, line.expiryDate?.slice(0, 10)].filter(Boolean).join(' · ') || '-'}</td></tr>)}
+          {(isStandaloneSpare(detail.row) || detail.row.type !== 'SPARE_PART' ? detail.record.lines || [] : [detail.record]).map((line: any) => <tr key={line.id || line.sparePartId || line.productId}><td>{line.product?.name || line.sparePart?.name || line.productNameSnapshot || '-'}</td><td>{String(line.quantity)}</td><td>{line.unit}</td><td>{line.warehouseLocation?.name || '-'}</td><td>{[line.batchNumber, line.serialNumber, line.expiryDate?.slice(0, 10)].filter(Boolean).join(' · ') || '-'}</td></tr>)}
         </tbody></table></div>
-        {detail.row.type === 'SPARE_PART' && <Link className="text-blue-600 underline" href="/admin/maintenance/spare-part-issues">{t('inventory.issueVoucher.spareActions')}</Link>}
+        {isLinkedSpare(detail.row) && <Link className="text-blue-600 underline" href="/admin/maintenance/spare-part-issues">{t('inventory.issueVoucher.spareActions')}</Link>}
         <h3 className="font-medium">{t('inventory.finishedGoodsIssue.history')}</h3>
         {detail.history.map(log => <p key={log.id} className="text-sm">{translateAuditAction(log.action, locale)} · {log.user?.name || '-'} · {new Date(log.createdAt).toLocaleString()}</p>)}
       </div>}
     </Modal>
-    <ConfirmDialog open={Boolean(transition)} title={t(`inventory.finishedGoodsIssue.${transition?.action || 'submit'}`)} message={t('inventory.issueVoucher.confirmTransition')} loading={saving} onClose={() => {
+    <ConfirmDialog open={Boolean(transition)} title={t(`inventory.finishedGoodsIssue.${transition?.action === 'cancel-approval' ? 'cancelApproval' : transition?.action || 'submit'}`)} message={t('inventory.issueVoucher.confirmTransition')} loading={saving} onClose={() => {
       if (!saving) setTransition(null);
     }} onConfirm={performTransition}>
-      {transition && ['cancel', 'withdraw', 'reverse'].includes(transition.action) && transition.row.type !== 'SPARE_PART' && <Textarea label={t('inventory.finishedGoodsIssue.reason')} required={transition.action === 'cancel'} value={reason} onChange={event => setReason(event.target.value)} />}
+      {transition && ['cancel', 'reject', 'withdraw', 'reverse', 'cancel-approval'].includes(transition.action) && !isLinkedSpare(transition.row) && <Textarea label={t('inventory.finishedGoodsIssue.reason')} required={reasonRequired(transition.action, transition.row)} value={reason} onChange={event => setReason(event.target.value)} />}
     </ConfirmDialog>
   </div>;
 }

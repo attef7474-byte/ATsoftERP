@@ -298,6 +298,8 @@ model Company {
   productionRunCostSnapshots       ProductionRunCostSnapshot[]
 
   maintenanceExecutions MaintenanceTask[]
+  sparePartIssues SparePartIssue[]
+  sparePartIssueLines SparePartIssueLine[]
 
   @@index([status])
   @@index([code])
@@ -396,6 +398,8 @@ model Branch {
   productionRunCostSnapshots       ProductionRunCostSnapshot[]
 
   maintenanceExecutions MaintenanceTask[]
+  sparePartIssues SparePartIssue[]
+  sparePartIssueLines SparePartIssueLine[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -1558,6 +1562,7 @@ model Warehouse {
   materialDocuments                ProductionMaterialDocument[]
   fgReceiptDestinations            ProductionFinishedGoodsReceipt[]    @relation("FGReceiptWarehouse")
   fgIssueSources                   FinishedGoodsIssue[]                @relation("FGIssueWarehouse")
+  sparePartIssues                  SparePartIssue[]                    @relation("SPIssueWarehouse")
   requirementLines                 ProductionMaterialRequirementLine[]
   valuationPolicies                InventoryValuationPolicy[]
   valuationBalances                InventoryValuationBalance[]
@@ -1597,6 +1602,7 @@ model WarehouseLocation {
   materialDocumentLines ProductionMaterialDocumentLine[]
   fgReceiptLines        ProductionFinishedGoodsReceiptLine[]
   fgIssueLines          FinishedGoodsIssueLine[]
+  sparePartIssueLines   SparePartIssueLine[]
 
   @@unique([warehouseId, code])
   @@index([status])
@@ -1683,6 +1689,7 @@ model Product {
   materialSubstituteLines   ProductionMaterialDocumentLine[]     @relation("MaterialSubstituteProduct")
   fgReceiptLines            ProductionFinishedGoodsReceiptLine[]
   finishedGoodsIssueLines   FinishedGoodsIssueLine[]
+  sparePartIssueLines       SparePartIssueLine[]
   requirementLines          ProductionMaterialRequirementLine[]
   materialConsumptions      ProductionMaterialConsumption[]
   inspections               ProductionInspection[]
@@ -1941,6 +1948,7 @@ model InventoryMovement {
   materialDocuments       ProductionMaterialDocument[]
   finishedGoodsReceipts   ProductionFinishedGoodsReceipt[]
   finishedGoodsIssues     FinishedGoodsIssue[]
+  sparePartIssues         SparePartIssue[]
 
   // NOTE: non-null uniqueness on (companyId, branchId, requestId) is enforced by a
   // SQL Server filtered unique index in migration 20260806200000 (WHERE [requestId]
@@ -2708,6 +2716,7 @@ model SparePart {
   repairOrders              SparePartRepairOrder[]
   bomItems                  MaintenanceBomItem[]
   planItems                 PreventiveSparePartPlanItem[]
+  sparePartIssueLines       SparePartIssueLine[]
 
   executionPartUsages MaintenanceExecutionPartUsage[]
 
@@ -5205,6 +5214,111 @@ model FinishedGoodsIssueLine {
   @@index([warehouseLocationId])
   @@index([issueId, productId])
   @@map("finished_goods_issue_lines")
+}
+
+/// Standalone spare-part issue voucher. It is intentionally independent of any
+/// MaintenanceRequest / ProductionOrder so a real spare part can be issued
+/// without fabricating unrelated domain records. InventoryMovement remains the
+/// sole physical stock authority; posting happens through that service.
+model SparePartIssue {
+  id               String             @id @default(cuid())
+  companyId        String
+  company          Company            @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId         String
+  branch           Branch             @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  issueNumber      String
+  issueWarehouseId String
+  issueWarehouse   Warehouse          @relation("SPIssueWarehouse", fields: [issueWarehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Business reason for leaving the issue warehouse (free text).
+  purpose          String?
+  status           String             @default("DRAFT")
+  movementId       String?
+  movement         InventoryMovement? @relation(fields: [movementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  movementNumber   String?
+  sourceType       String             @default("MANUAL")
+  requestId        String?
+  notes            String?
+  issueDate        DateTime           @default(now())
+
+  // Requester submission and the separate warehouse decision. Nullable so no
+  // synthetic approval state is invented for historical or manually created rows.
+  submittedAt                DateTime?
+  submittedById              String?
+  approvedAt                 DateTime?
+  approvedById               String?
+  rejectedAt                 DateTime?
+  rejectedById               String?
+  rejectionReason            String?
+  withdrawnAt                DateTime?
+  withdrawnById              String?
+  approvalCancelledAt        DateTime?
+  approvalCancelledById      String?
+  approvalCancellationReason String?
+
+  postedAt      DateTime?
+  cancelledAt   DateTime?
+  createdById   String
+  postedById    String?
+  cancelledById String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  lines SparePartIssueLine[]
+
+  @@unique([companyId, branchId, issueNumber])
+  @@unique([companyId, branchId, movementId])
+  // NOTE: non-null uniqueness on (companyId, branchId, requestId) is enforced by
+  // a SQL Server filtered unique index in migration 20261118120000 (WHERE
+  // [requestId] IS NOT NULL). Prisma cannot express filtered unique indexes, so
+  // this is only a lookup index here; the filtered index is the real idempotency
+  // authority. SQL Server treats NULLs as equal in a plain UNIQUE index.
+  @@index([companyId, branchId, status])
+  @@index([companyId, branchId, issueDate])
+  @@index([companyId, branchId, issueWarehouseId])
+  @@index([movementId])
+  @@index([companyId, branchId, requestId])
+  @@map("spare_part_issues")
+}
+
+/// Immutable-per-document line snapshots for the canonical spare part and its
+/// linked product. `productUomId` is a scalar historical snapshot on purpose.
+model SparePartIssueLine {
+  id                    String             @id @default(cuid())
+  companyId             String
+  company               Company            @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId              String
+  branch                Branch             @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  issueId               String
+  issue                 SparePartIssue     @relation(fields: [issueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sparePartId           String
+  sparePart             SparePart          @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId             String
+  product               Product            @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sparePartCodeSnapshot String
+  sparePartNameSnapshot String
+  productCodeSnapshot   String
+  productNameSnapshot   String
+  unit                  String
+  quantity              Decimal            @db.Decimal(18, 4)
+  /// Historical transaction-UOM snapshot. Scalar on purpose (no FK) so a line
+  /// keeps its original evidence if the ProductUom master later changes.
+  productUomId          String?
+  warehouseLocationId   String?
+  warehouseLocation     WarehouseLocation? @relation(fields: [warehouseLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  batchNumber           String?
+  serialNumber          String?
+  expiryDate            DateTime?
+  lineNumber            Int                @default(1)
+  notes                 String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  @@index([issueId])
+  @@index([sparePartId])
+  @@index([productId])
+  @@index([warehouseLocationId])
+  @@index([issueId, sparePartId])
+  @@map("spare_part_issue_lines")
 }
 
 model ProductionMaterialRequirement {

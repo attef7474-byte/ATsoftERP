@@ -1246,6 +1246,7 @@ export type WarehouseApprovalType = 'SPARE_PART' | 'RAW_MATERIAL' | 'FINISHED_GO
 export interface WarehouseApprovalRow {
   key: string;
   type: WarehouseApprovalType;
+  authority: 'MAINTENANCE_REQUEST_PART' | 'SPARE_PART_ISSUE' | 'FLAT';
   entityId: string;
   parentEntityId: string | null;
   reference: string;

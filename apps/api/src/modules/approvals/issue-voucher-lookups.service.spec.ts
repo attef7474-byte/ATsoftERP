@@ -87,7 +87,7 @@ function fixture(type: IssueType = 'FINISHED_GOODS') {
   };
 }
 describe('issue voucher scoped lookups', () => {
-  it.each(['SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOODS'] as IssueType[])('%s requires a selected warehouse and embeds company/branch in its stock relationship', async type => {
+  it.each(['SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOODS'] as IssueType[])('%s requires a selected warehouse without requiring a balance row', async type => {
     const {
       prisma,
       service,
@@ -97,19 +97,9 @@ describe('issue voucher scoped lookups', () => {
     const model = type === 'SPARE_PART' ? prisma.sparePart : prisma.product;
     const where = model.findMany.mock.calls[0][0].where;
     const product = type === 'SPARE_PART' ? where.product : where;
-    expect(product.balances.some).toEqual({
-      warehouseId: 'warehouse-a',
-      warehouse: {
-        companyId: 'company-a',
-        OR: [{
-          branchId: 'branch-a'
-        }, {
-          branchId: null
-        }],
-        status: 'ACTIVE',
-        deletedAt: null
-      }
-    });
+    // Catalog eligibility is no longer an EXISTS-over-balances predicate.
+    expect(product.balances).toBeUndefined();
+    expect(prisma.inventoryBalance.findMany).not.toHaveBeenCalled();
     expect(prisma.warehouse.findFirst).toHaveBeenCalledWith({
       where: expect.objectContaining({
         id: 'warehouse-a',
@@ -127,10 +117,6 @@ describe('issue voucher scoped lookups', () => {
     });
     expect(product.status).toBe('ACTIVE');
     expect(product.deletedAt).toBeNull();
-    // A B-only product cannot satisfy this EXISTS predicate. No browser-side filtering is involved.
-    expect([{
-      warehouseId: 'warehouse-b'
-    }].some(balance => balance.warehouseId === product.balances.some.warehouseId)).toBe(false);
   });
   it('uses canonical spare-part / finished-product / order requirement relationships', () => {
     expect(issueProductScope('SPARE_PART', 'w', ctx)).toMatchObject({
@@ -165,6 +151,88 @@ describe('issue voucher scoped lookups', () => {
         }
       }
     });
+  });
+  it('returns a spare-part catalog candidate even when no inventory balance row exists', async () => {
+    const {
+      prisma,
+      service,
+      query
+    } = fixture('SPARE_PART');
+    const candidate = { id: 'sp1', code: 'SP001', name: 'Bearing', unit: 'PCS', productId: 'product-a', product: { unit: 'PCS' } };
+    prisma.sparePart.findMany.mockResolvedValue([candidate]);
+    prisma.sparePart.count.mockResolvedValue(1);
+    prisma.inventoryBalance.findMany.mockResolvedValue([]);
+    prisma.inventoryBalance.count.mockResolvedValue(0);
+
+    const result = await service.candidates(query, 'operator', ctx);
+
+    expect(result.data).toEqual([candidate]);
+    expect(result.meta.total).toBe(1);
+    const where = prisma.sparePart.findMany.mock.calls[0][0].where;
+    expect(where.product.balances).toBeUndefined();
+    expect(where.product.spareParts).toMatchObject({ some: { status: 'ACTIVE', deletedAt: null } });
+  });
+  it('returns a finished-goods catalog candidate even when no inventory balance row exists', async () => {
+    const {
+      prisma,
+      service,
+      query
+    } = fixture('FINISHED_GOODS');
+    const candidate = { id: 'product-a', code: 'FG001', name: 'Carton', unit: 'PCS', uoms: [] };
+    prisma.product.findMany.mockResolvedValue([candidate]);
+    prisma.product.count.mockResolvedValue(1);
+    prisma.inventoryBalance.findMany.mockResolvedValue([]);
+    prisma.inventoryBalance.count.mockResolvedValue(0);
+
+    const result = await service.candidates(query, 'operator', ctx);
+
+    expect(result.data).toEqual([candidate]);
+    expect(result.meta.total).toBe(1);
+    const where = prisma.product.findMany.mock.calls[0][0].where;
+    expect(where.balances).toBeUndefined();
+    expect(where.productionDefinitions).toMatchObject({
+      some: { companyId: 'company-a', branchId: 'branch-a', status: 'ACTIVE', deletedAt: null }
+    });
+  });
+  it('excludes cross-tenant and cross-branch candidates from the catalog scope', async () => {
+    const {
+      prisma,
+      service,
+      query
+    } = fixture('FINISHED_GOODS');
+    await service.candidates(query, 'operator', ctx);
+    const where = prisma.product.findMany.mock.calls[0][0].where;
+    expect(where.productionDefinitions.some).toMatchObject({ companyId: 'company-a', branchId: 'branch-a' });
+    expect(JSON.stringify(where)).not.toContain('company-b');
+    expect(JSON.stringify(where)).not.toContain('branch-b');
+    expect(prisma.warehouse.findFirst.mock.calls[0][0].where).toMatchObject({ companyId: 'company-a' });
+  });
+  it('still requires a production order for raw materials', async () => {
+    expect(() => issueProductScope('RAW_MATERIAL', 'w', ctx)).toThrow(BadRequestException);
+    const {
+      prisma,
+      service,
+      query
+    } = fixture('RAW_MATERIAL');
+    prisma.productionOrder.findFirst.mockResolvedValue(null);
+    await expect(service.candidates(query, 'operator', ctx)).rejects.toThrow(BadRequestException);
+    expect(prisma.product.findMany).not.toHaveBeenCalled();
+  });
+  it('accepts spare-part-issue permissions for spare-part lookups', async () => {
+    const {
+      prisma,
+      service,
+      query
+    } = fixture('SPARE_PART');
+    prisma.userRole.findMany.mockResolvedValue([{
+      role: {
+        status: 'ACTIVE',
+        code: 'WAREHOUSE',
+        permissions: [{ permission: { status: 'ACTIVE', key: 'spare-part-issue:read' } }]
+      }
+    }]);
+    await expect(service.candidates(query, 'operator', ctx)).resolves.toBeDefined();
+    expect(prisma.sparePart.findMany).toHaveBeenCalled();
   });
   it.each(['SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOODS'] as IssueType[])('%s denies another domain permission', async type => {
     const {
@@ -254,6 +322,23 @@ describe('issue voucher scoped lookups', () => {
     }, 'operator', ctx);
     expect(result.available).toBe('15.75');
   });
+  it('reports available 0 with no balance rows while still enforcing active catalog eligibility', async () => {
+    const {
+      prisma,
+      service,
+      query
+    } = fixture();
+    prisma.inventoryBalance.findMany.mockResolvedValue([]);
+    prisma.inventoryBalance.count.mockResolvedValue(0);
+
+    const result = await service.stock({ ...query, productId: 'product-a' }, 'operator', ctx);
+    expect(result.available).toBe('0');
+    expect(result.data).toEqual([]);
+    expect(result.meta.total).toBe(0);
+
+    prisma.product.findFirst.mockResolvedValue(null);
+    await expect(service.stock({ ...query, productId: 'product-a' }, 'operator', ctx)).rejects.toThrow(BadRequestException);
+  });
   it('queries stock identities by warehouse, product, location and batch and excludes consumed serials', async () => {
     const {
       prisma,
@@ -336,22 +421,28 @@ describe('issue voucher scoped lookups', () => {
       id: 'balance-a'
     });
   });
-  it('permits zero-stock planning but rejects a serial whose stock has been issued', async () => {
+  it('accepts a missing balance row and still rejects an issued serial', async () => {
     const {
       prisma
     } = fixture();
-    await assertIssueStockSelection(prisma, 'warehouse-a', 'product-a', ctx);
-    expect(prisma.inventoryBalance.findFirst.mock.calls[0][0].where.quantity).toBeUndefined();
     prisma.inventoryBalance.findFirst.mockResolvedValue(null);
+    await expect(assertIssueStockSelection(prisma, 'warehouse-a', 'product-a', ctx, {
+      serialNumber: 'unseen-serial'
+    })).resolves.toBeUndefined();
+    expect(prisma.inventoryBalance.findFirst.mock.calls[0][0].where).toMatchObject({
+      warehouseId: 'warehouse-a',
+      productId: 'product-a',
+      serialNumber: 'unseen-serial'
+    });
+    expect(prisma.inventoryBalance.findFirst.mock.calls[0][0].where.quantity).toBeUndefined();
+    prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'balance-a', serialNumber: 'issued-serial', quantity: 0 });
     await expect(assertIssueStockSelection(prisma, 'warehouse-a', 'product-a', ctx, {
       serialNumber: 'issued-serial'
     })).rejects.toThrow(BadRequestException);
-    expect(prisma.inventoryBalance.findFirst.mock.calls[1][0].where).toMatchObject({
-      serialNumber: 'issued-serial',
-      quantity: {
-        gt: 0
-      }
-    });
+    prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'balance-a', serialNumber: 'available-serial', quantity: 1 });
+    await expect(assertIssueStockSelection(prisma, 'warehouse-a', 'product-a', ctx, {
+      serialNumber: 'available-serial'
+    })).resolves.toBeUndefined();
   });
   it('fails closed without active tenant context', async () => {
     const {

@@ -5,10 +5,13 @@ import { ActiveOperationalContext } from '../../common/operational-context/opera
 import { WarehouseApprovalsQueryDto } from './dto/warehouse-approvals-query.dto';
 
 export type WarehouseApprovalType = 'SPARE_PART' | 'RAW_MATERIAL' | 'FINISHED_GOODS';
+export type WarehouseApprovalAuthority = 'MAINTENANCE_REQUEST_PART' | 'SPARE_PART_ISSUE' | 'FLAT';
 
 export interface WarehouseApprovalRow {
   key: string;
   type: WarehouseApprovalType;
+  /** Native authority that owns the row and therefore its action endpoints. */
+  authority: WarehouseApprovalAuthority;
   entityId: string;
   /**
    * Id of the owning parent record when the actionable endpoint is nested under
@@ -32,6 +35,7 @@ export interface WarehouseApprovalRow {
 }
 
 const SPARE_PART_READ = 'maintenance-request-parts:read';
+const SPARE_PART_ISSUE_READ = 'spare-part-issue:read';
 const RAW_MATERIAL_READ = 'production-material-document:read';
 const FINISHED_GOODS_READ = 'finished-goods-issue:read';
 
@@ -46,6 +50,11 @@ const REPORTABLE_PERMISSION_KEYS = [
   'maintenance-request-parts:approve',
   'maintenance-request-parts:reject',
   'maintenance-request-parts:request',
+  SPARE_PART_ISSUE_READ,
+  'spare-part-issue:approve',
+  'spare-part-issue:reject',
+  'spare-part-issue:withdraw',
+  'spare-part-issue:cancel-approval',
   RAW_MATERIAL_READ,
   'production-material-document:approve',
   'production-material-document:reject',
@@ -59,10 +68,11 @@ const REPORTABLE_PERMISSION_KEYS = [
 ];
 
 /**
- * Read-only aggregation over the three native issue-request authorities. It is a
- * compatibility/inbox view, never a second source of truth: every row is read
- * from its own tenant-scoped model and every action is performed through that
- * model's native endpoint.
+ * Read-only aggregation over the native issue-request authorities (maintenance
+ * request lines, standalone spare-part issues, raw materials and finished
+ * goods). It is a compatibility/inbox view, never a second source of truth:
+ * every row is read from its own tenant-scoped model and every action is
+ * performed through that model's native endpoint.
  */
 @Injectable()
 export class ApprovalsService {
@@ -108,7 +118,10 @@ export class ApprovalsService {
 
   async list(query: WarehouseApprovalsQueryDto | IssueVoucherQueryDto, userId: string, ctx: ActiveOperationalContext, issues = false) {
     const grant = await this.resolveGrantedPermissions(userId);
-    const readableSpareParts = this.can(grant, SPARE_PART_READ);
+    const readableMaintenanceParts = this.can(grant, SPARE_PART_READ);
+    const readableSparePartIssues = this.can(grant, SPARE_PART_ISSUE_READ);
+    // Either native spare-part read permission opens the unified inbox.
+    const readableSpareParts = readableMaintenanceParts || readableSparePartIssues;
     const readableRawMaterials = this.can(grant, RAW_MATERIAL_READ);
     const readableFinishedGoods = this.can(grant, FINISHED_GOODS_READ);
     if (!readableSpareParts && !readableRawMaterials && !readableFinishedGoods) {
@@ -135,7 +148,7 @@ export class ApprovalsService {
     const counts: Record<WarehouseApprovalType, number> = { SPARE_PART: 0, RAW_MATERIAL: 0, FINISHED_GOODS: 0 };
     const rows: WarehouseApprovalRow[] = [];
 
-    if (readableSpareParts) {
+    if (readableMaintenanceParts) {
       const sparePartWhere: any = {
         ...(status ? { status: this.sparePartStatus(status) } : {}),
         ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}),
@@ -181,12 +194,13 @@ export class ApprovalsService {
           : Promise.resolve([]),
         (this.prisma as any).maintenanceRequestRequiredPart.count({ where: sparePartWhere }),
       ]);
-      counts.SPARE_PART = count;
+      counts.SPARE_PART += count;
       for (const part of items) {
         const request = part.maintenanceRequest;
         rows.push({
           key: `SPARE_PART:${part.id}`,
           type: 'SPARE_PART',
+          authority: 'MAINTENANCE_REQUEST_PART',
           entityId: part.id,
           parentEntityId: request?.id ?? null,
           reference: `${request?.requestNumber ?? '-'} · ${part.sparePart?.code ?? '-'}`,
@@ -201,6 +215,66 @@ export class ApprovalsService {
           createdAt: part.createdAt,
           documentDate: part.createdAt,
           sourceType: null,
+        });
+      }
+    }
+
+    // Standalone spare-part issues are a second native SPARE_PART authority.
+    // They are tenant/branch scoped directly, unlike maintenance lines whose
+    // scope comes from the owning machine.
+    if (readableSparePartIssues) {
+      const spareIssueWhere: any = {
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+        ...(status ? { status } : {}),
+        ...(filters.warehouseId ? { issueWarehouseId: filters.warehouseId } : {}),
+        ...(filters.requesterId ? { AND: [{ OR: [{ createdById: filters.requesterId }, { submittedById: filters.requesterId }] }] } : {}),
+      };
+      if (search) {
+        spareIssueWhere.OR = [
+          { issueNumber: { contains: search } },
+          { purpose: { contains: search } },
+          { notes: { contains: search } },
+        ];
+      }
+      if (dateFilter) spareIssueWhere.issueDate = dateFilter;
+
+      const [items, count] = await Promise.all([
+        !type || type === 'SPARE_PART'
+          ? (this.prisma as any).sparePartIssue.findMany({
+              where: spareIssueWhere,
+              take: takePerFamily,
+              orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+              include: {
+                issueWarehouse: { select: { id: true, code: true, name: true } },
+                lines: { select: { quantity: true } },
+              },
+            })
+          : Promise.resolve([]),
+        (this.prisma as any).sparePartIssue.count({ where: spareIssueWhere }),
+      ]);
+      counts.SPARE_PART += count;
+      const requestedByIds = [...new Set(items.map((item: any) => (item.submittedById || item.createdById)).filter(Boolean))] as string[];
+      const users = await this.loadUserNames(requestedByIds);
+      for (const issue of items) {
+        rows.push({
+          key: `SPARE_PART_ISSUE:${issue.id}`,
+          type: 'SPARE_PART',
+          authority: 'SPARE_PART_ISSUE',
+          entityId: issue.id,
+          parentEntityId: issue.id,
+          reference: issue.issueNumber,
+          title: issue.purpose ?? null,
+          status: issue.status,
+          requestedAt: issue.submittedAt ?? null,
+          requestedById: issue.submittedById ?? issue.createdById ?? null,
+          requestedByName: users.get(issue.submittedById || issue.createdById) ?? null,
+          warehouse: issue.issueWarehouse ?? null,
+          lineCount: issue.lines.length,
+          totalQuantity: issue.lines.reduce((sum: number, line: any) => sum + Number(line.quantity ?? 0), 0),
+          createdAt: issue.createdAt,
+          documentDate: issue.issueDate,
+          sourceType: issue.sourceType ?? null,
         });
       }
     }
@@ -244,6 +318,7 @@ export class ApprovalsService {
         rows.push({
           key: `RAW_MATERIAL:${doc.id}`,
           type: 'RAW_MATERIAL',
+          authority: 'FLAT',
           entityId: doc.id,
           parentEntityId: doc.id,
           reference: doc.documentNumber,
@@ -299,6 +374,7 @@ export class ApprovalsService {
         rows.push({
           key: `FINISHED_GOODS:${issue.id}`,
           type: 'FINISHED_GOODS',
+          authority: 'FLAT',
           entityId: issue.id,
           parentEntityId: issue.id,
           reference: issue.issueNumber,

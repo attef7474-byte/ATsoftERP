@@ -1,3 +1,5 @@
+import { SPARE_PART_ISSUE_PERMISSION_KEYS } from '../../src/modules/factory/spare-part-issues/spare-part-issues.constants';
+
 export const PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS = [
   'production-material-document:create',
   'production-material-document:read',
@@ -57,10 +59,15 @@ export const PRODUCTION_TRACEABILITY_PERMISSION_KEYS = [
   'production-traceability:read',
 ] as const;
 
+// The module constants export may be a keyed record or a flat array; Object.values
+// accepts both and keeps the seed tied to the single canonical permission family.
+export const SPARE_PART_ISSUE_DOCUMENT_PERMISSION_KEYS: readonly string[] = Object.values(SPARE_PART_ISSUE_PERMISSION_KEYS);
+
 export const PRODUCTION_INVENTORY_DOCUMENT_PERMISSIONS = [
   ...PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS,
   ...PRODUCTION_FG_RECEIPT_PERMISSION_KEYS,
   ...FINISHED_GOODS_ISSUE_PERMISSION_KEYS,
+  ...SPARE_PART_ISSUE_DOCUMENT_PERMISSION_KEYS,
   ...PRODUCTION_MATERIAL_REQUIREMENT_PERMISSION_KEYS,
   ...PRODUCTION_MATERIAL_CONSUMPTION_PERMISSION_KEYS,
   ...PRODUCTION_TRACEABILITY_PERMISSION_KEYS,

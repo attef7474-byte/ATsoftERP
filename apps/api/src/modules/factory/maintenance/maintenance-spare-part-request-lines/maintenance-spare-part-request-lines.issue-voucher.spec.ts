@@ -39,7 +39,12 @@ function fixture() {
     inventoryBalance: {
       findFirst: jest.fn().mockResolvedValue({
         id: 'balance-a'
-      })
+      }),
+      // Present so the zero-stock test can prove no direct balance write occurs.
+      create: jest.fn(),
+      update: jest.fn(),
+      upsert: jest.fn(),
+      deleteMany: jest.fn()
     },
     maintenanceRequestRequiredPart: {
       findUnique: jest.fn().mockResolvedValue(null),
@@ -94,22 +99,35 @@ describe('spare-part issue voucher native persistence', () => {
     }));
     expect(prisma.warehouse.findFirst).toHaveBeenCalledTimes(2);
   });
-  it('rejects a spare part whose stock exists only in Warehouse B', async () => {
+  it('allows a spare part with no balance row in a DRAFT while scoping stock lookup to the selected warehouse', async () => {
     const {
       prisma,
       service,
       dto
     } = fixture();
     prisma.inventoryBalance.findFirst.mockResolvedValue(null);
-    await expect(service.create('request-a', dto, 'operator', ctx)).rejects.toThrow(BadRequestException);
-    expect(prisma.inventoryBalance.findFirst.mock.calls[0][0].where).toMatchObject({
-      warehouseId: 'warehouse-a',
-      productId: 'product-a',
-      warehouse: {
-        companyId: 'a'
-      }
-    });
-    expect(prisma.maintenanceRequestRequiredPart.create).not.toHaveBeenCalled();
+
+    const result = await service.create('request-a', dto, 'operator', ctx);
+
+    expect(result).toMatchObject({ id: 'line-a', status: 'DRAFT' });
+    // The service validates once before and once inside the transaction; both
+    // stock lookups must remain scoped to the selected warehouse and tenant.
+    expect(prisma.inventoryBalance.findFirst).toHaveBeenCalledTimes(2);
+    for (const [args] of prisma.inventoryBalance.findFirst.mock.calls) {
+      expect(args.where).toMatchObject({
+        warehouseId: 'warehouse-a',
+        productId: 'product-a',
+        warehouse: {
+          companyId: 'a',
+          OR: [{ branchId: 'a1' }, { branchId: null }]
+        }
+      });
+    }
+    expect(prisma.maintenanceRequestRequiredPart.create).toHaveBeenCalled();
+    expect(prisma.inventoryBalance.create).not.toHaveBeenCalled();
+    expect(prisma.inventoryBalance.update).not.toHaveBeenCalled();
+    expect(prisma.inventoryBalance.upsert).not.toHaveBeenCalled();
+    expect(prisma.inventoryBalance.deleteMany).not.toHaveBeenCalled();
   });
   it('rejects a finished-good product ID passed to the spare-part endpoint', async () => {
     const {

@@ -15,6 +15,7 @@ function makeService(overrides: Record<string, any> = {}) {
   const prisma: any = {
     userRole: { findMany: jest.fn().mockResolvedValue([]) },
     maintenanceRequestRequiredPart: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+    sparePartIssue: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
     productionMaterialDocument: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
     finishedGoodsIssue: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
     user: { findMany: jest.fn().mockResolvedValue([]) },
@@ -83,6 +84,7 @@ describe('ApprovalsService', () => {
     const result = await service.list(baseQuery, 'root', ctxA);
 
     expect(prisma.maintenanceRequestRequiredPart.findMany).toHaveBeenCalled();
+    expect(prisma.sparePartIssue.findMany).toHaveBeenCalled();
     expect(prisma.productionMaterialDocument.findMany).toHaveBeenCalled();
     expect(prisma.finishedGoodsIssue.findMany).toHaveBeenCalled();
     expect(result.meta.total).toBe(0);
@@ -93,6 +95,7 @@ describe('ApprovalsService', () => {
     prisma.userRole.findMany.mockResolvedValue([
       userRole([
         'maintenance-request-parts:read',
+        'spare-part-issue:read',
         'production-material-document:read',
         'finished-goods-issue:read',
       ]),
@@ -113,6 +116,9 @@ describe('ApprovalsService', () => {
         }),
       }),
     );
+    expect(prisma.sparePartIssue.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ companyId: 'c1', branchId: 'b1' }) }),
+    );
     expect(prisma.productionMaterialDocument.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ companyId: 'c1', branchId: 'b1' }) }),
     );
@@ -127,6 +133,7 @@ describe('ApprovalsService', () => {
     prisma.userRole.findMany.mockResolvedValue([
       userRole([
         'maintenance-request-parts:read',
+        'spare-part-issue:read',
         'production-material-document:read',
         'finished-goods-issue:read',
       ]),
@@ -136,6 +143,7 @@ describe('ApprovalsService', () => {
 
     for (const model of [
       prisma.maintenanceRequestRequiredPart,
+      prisma.sparePartIssue,
       prisma.productionMaterialDocument,
       prisma.finishedGoodsIssue,
     ]) {
@@ -143,6 +151,10 @@ describe('ApprovalsService', () => {
       expect(JSON.stringify(where)).not.toContain('c1');
       expect(JSON.stringify(where)).not.toContain('b1');
     }
+    expect(prisma.sparePartIssue.findMany.mock.calls[0][0].where).toMatchObject({
+      companyId: 'c2',
+      branchId: 'b2',
+    });
     expect(prisma.productionMaterialDocument.findMany.mock.calls[0][0].where).toMatchObject({
       companyId: 'c2',
       branchId: 'b2',
@@ -212,6 +224,121 @@ describe('ApprovalsService', () => {
 
     expect(prisma.maintenanceRequestRequiredPart.findMany.mock.calls[0][0].where.status).toBe('APPROVED');
     expect(prisma.maintenanceRequestRequiredPart.count.mock.calls[0][0].where.status).toBe('APPROVED');
+  });
+
+  it('opens the inbox with only the standalone spare-part-issue read permission', async () => {
+    const { prisma, service } = makeService();
+    prisma.userRole.findMany.mockResolvedValue([userRole([
+      'spare-part-issue:read',
+      'spare-part-issue:approve',
+      'spare-part-issue:reject',
+      'spare-part-issue:withdraw',
+      'spare-part-issue:cancel-approval',
+    ])]);
+
+    const result = await service.list(baseQuery, 'u1', ctxA);
+
+    expect(prisma.maintenanceRequestRequiredPart.findMany).not.toHaveBeenCalled();
+    expect(prisma.sparePartIssue.findMany).toHaveBeenCalled();
+    expect(prisma.productionMaterialDocument.findMany).not.toHaveBeenCalled();
+    expect(prisma.finishedGoodsIssue.findMany).not.toHaveBeenCalled();
+    expect(result.permissions).toEqual(expect.arrayContaining([
+      'spare-part-issue:read',
+      'spare-part-issue:approve',
+      'spare-part-issue:reject',
+      'spare-part-issue:withdraw',
+      'spare-part-issue:cancel-approval',
+    ]));
+  });
+
+  it('aggregates standalone spare-part issues into counts.SPARE_PART with their own authority and requester name', async () => {
+    const { prisma, service } = makeService();
+    prisma.userRole.findMany.mockResolvedValue([
+      userRole(['maintenance-request-parts:read', 'spare-part-issue:read']),
+    ]);
+    prisma.maintenanceRequestRequiredPart.count.mockResolvedValue(2);
+    prisma.sparePartIssue.count.mockResolvedValue(3);
+    prisma.sparePartIssue.findMany.mockResolvedValue([
+      {
+        id: 'spi1',
+        issueNumber: 'SPI-000001',
+        purpose: 'Manual issue',
+        status: 'SUBMITTED',
+        submittedAt: new Date('2026-03-02T10:00:00Z'),
+        submittedById: 'u2',
+        issueWarehouse: { id: 'wh1', code: 'SP', name: 'Spare Store' },
+        lines: [{ quantity: 4 }, { quantity: 1.5 }],
+        createdAt: new Date('2026-03-02T09:00:00Z'),
+        issueDate: new Date('2026-03-02T09:00:00Z'),
+        sourceType: 'MANUAL',
+      },
+    ]);
+    prisma.user.findMany.mockResolvedValue([{ id: 'u2', name: 'Requester Two' }]);
+
+    const result = await service.list(baseQuery, 'u1', ctxA);
+
+    expect(result.meta.counts.SPARE_PART).toBe(5);
+    expect(result.meta.total).toBe(5);
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]).toMatchObject({
+      key: 'SPARE_PART_ISSUE:spi1',
+      type: 'SPARE_PART',
+      authority: 'SPARE_PART_ISSUE',
+      entityId: 'spi1',
+      parentEntityId: 'spi1',
+      reference: 'SPI-000001',
+      status: 'SUBMITTED',
+      requestedById: 'u2',
+      requestedByName: 'Requester Two',
+      lineCount: 2,
+      totalQuantity: 5.5,
+    });
+    expect(prisma.sparePartIssue.findMany.mock.calls[0][0]).toMatchObject({
+      take: 20,
+      include: {
+        issueWarehouse: { select: { id: true, code: true, name: true } },
+        lines: { select: { quantity: true } },
+      },
+    });
+  });
+
+  it('keeps the shared SUBMITTED/APPROVED/REJECTED vocabulary for standalone spare issues', async () => {
+    const { prisma, service } = makeService();
+    prisma.userRole.findMany.mockResolvedValue([userRole(['spare-part-issue:read'])]);
+
+    await service.list({ page: 1, limit: 20, status: 'APPROVED' } as any, 'u1', ctxA);
+
+    expect(prisma.sparePartIssue.findMany.mock.calls[0][0].where.status).toBe('APPROVED');
+  });
+
+  it('tags maintenance lines and flat authorities with their native authority', async () => {
+    const { prisma, service } = makeService();
+    prisma.userRole.findMany.mockResolvedValue([userRole([], 'SUPER_ADMIN')]);
+    prisma.maintenanceRequestRequiredPart.findMany.mockResolvedValue([{
+      id: 'part1', status: 'REQUESTED', requestedQuantity: 1,
+      requestedByUserId: 'u1', requestedBy: { id: 'u1', name: 'R' },
+      warehouse: { id: 'wh1', code: 'SP', name: 'Spare' },
+      sparePart: { id: 'sp1', code: 'SP001', name: 'Bearing' },
+      maintenanceRequest: { id: 'mr1', requestNumber: 'MR-1', title: null, machine: null },
+      createdAt: new Date('2026-03-01T10:00:00Z'),
+    }]);
+    prisma.productionMaterialDocument.findMany.mockResolvedValue([{
+      id: 'doc1', documentNumber: 'PMD-1', status: 'SUBMITTED',
+      submittedById: 'u1', issueWarehouse: null, lines: [{ quantity: 2 }],
+      createdAt: new Date('2026-03-01T08:00:00Z'), documentDate: new Date('2026-03-01T08:00:00Z'),
+    }]);
+    prisma.finishedGoodsIssue.findMany.mockResolvedValue([{
+      id: 'fgi1', issueNumber: 'FGI-1', status: 'SUBMITTED',
+      submittedById: 'u1', issueWarehouse: null, lines: [],
+      createdAt: new Date('2026-03-01T09:00:00Z'), issueDate: new Date('2026-03-01T09:00:00Z'),
+    }]);
+
+    const result = await service.list(baseQuery, 'u1', ctxA);
+    const byKey = new Map(result.data.map((row: any) => [row.key, row]));
+
+    expect(byKey.get('SPARE_PART:part1')?.authority).toBe('MAINTENANCE_REQUEST_PART');
+    expect(byKey.get('RAW_MATERIAL:doc1')?.authority).toBe('FLAT');
+    expect(byKey.get('FINISHED_GOODS:fgi1')?.authority).toBe('FLAT');
   });
 
   it('returns a globally ordered, bounded page across families', async () => {

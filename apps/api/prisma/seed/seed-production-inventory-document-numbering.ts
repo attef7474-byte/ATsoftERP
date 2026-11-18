@@ -39,8 +39,21 @@ export const FINISHED_GOODS_ISSUE_NUMBER_SEQUENCE = {
   status: 'ACTIVE',
 };
 
+export const SPARE_PART_ISSUE_NUMBER_SEQUENCE = {
+  code: 'SPARE_PART_ISSUE',
+  name: 'Spare-Part Issue',
+  operationName: 'Spare-Part Issue',
+  modelName: 'SparePartIssue',
+  domain: 'inventory',
+  prefix: 'SPI-',
+  padding: 6,
+  scope: 'GLOBAL',
+  resetPolicy: 'NEVER',
+  status: 'ACTIVE',
+};
+
 export async function seedProductionInventoryDocumentNumbering(prisma: PrismaClient): Promise<void> {
-  for (const sequence of [PRODUCTION_MATERIAL_DOCUMENT_NUMBER_SEQUENCE, PRODUCTION_FG_RECEIPT_NUMBER_SEQUENCE, FINISHED_GOODS_ISSUE_NUMBER_SEQUENCE]) {
+  for (const sequence of [PRODUCTION_MATERIAL_DOCUMENT_NUMBER_SEQUENCE, PRODUCTION_FG_RECEIPT_NUMBER_SEQUENCE, FINISHED_GOODS_ISSUE_NUMBER_SEQUENCE, SPARE_PART_ISSUE_NUMBER_SEQUENCE]) {
     const existing = await prisma.numberSequence.findUnique({ where: { code: sequence.code } });
     if (!existing) await prisma.numberSequence.create({ data: sequence });
   }
