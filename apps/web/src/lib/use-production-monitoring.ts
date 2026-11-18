@@ -40,14 +40,12 @@ export function useProductionMonitoring(allowed: boolean, contextVersion: number
       pending = request;
       setLoading(true);
       try {
-        const response = await api.get<{
-          data: ProductionMonitoringResponse;
-        }>('/reports/production/monitoring', {
+        const response = await api.get<ProductionMonitoringResponse>('/reports/production/monitoring', {
           signal: request.controller.signal,
           params: scope
         });
         if (disposed || request.generation !== generation) return;
-        setData(response.data);
+        setData(response);
         setError('');
       } catch (err: any) {
         if (disposed || request.generation !== generation || request.controller.signal.aborted) return;

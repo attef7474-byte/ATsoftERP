@@ -38,9 +38,7 @@ function Harness({
   return null;
 }
 const response = (generatedAt = '2026-11-19T12:00:00Z') => ({
-  data: {
-    generatedAt
-  }
+  generatedAt
 });
 async function mount(props: any = {}) {
   await act(async () => {
@@ -80,6 +78,20 @@ afterEach(async () => {
   jest.useRealTimers();
 });
 describe('production monitoring refresh lifecycle', () => {
+  it('consumes the unwrapped response body returned by the shared API client', async () => {
+    const payload = {
+      timezone: 'UTC',
+      generatedAt: '2026-11-19T13:00:00Z',
+      windows: {},
+      summary: [],
+      lines: [],
+      machines: [],
+      dataQuality: {}
+    };
+    mockGet.mockResolvedValueOnce(payload);
+    await mount();
+    expect(state.data).toEqual(payload);
+  });
   it('fetches immediately and automatically every five seconds', async () => {
     await mount();
     expect(mockGet).toHaveBeenCalledTimes(1);
