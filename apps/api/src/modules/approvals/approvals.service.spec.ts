@@ -134,6 +134,51 @@ describe('ApprovalsService', () => {
     expect(call.take).toBe(100);
   });
 
+  it('maps the inbox pending vocabulary to the spare-part native REQUESTED status', async () => {
+    const { prisma, service } = makeService();
+    prisma.userRole.findMany.mockResolvedValue([userRole(['maintenance-request-parts:read'])]);
+    prisma.maintenanceRequestRequiredPart.count.mockResolvedValue(1);
+    prisma.maintenanceRequestRequiredPart.findMany.mockResolvedValue([
+      {
+        id: 'part1',
+        status: 'REQUESTED',
+        requestedQuantity: 4,
+        quantity: 4,
+        requestedByUserId: 'u1',
+        requestedBy: { id: 'u1', name: 'Requester' },
+        warehouse: { id: 'wh1', code: 'SP', name: 'Spare Store' },
+        sparePart: { id: 'sp1', code: 'SP001', name: 'Bearing' },
+        maintenanceRequest: { id: 'mr1', requestNumber: 'MR-000001', title: 'Line stop', machine: null },
+        createdAt: new Date('2026-03-01T10:00:00Z'),
+      },
+    ]);
+
+    const result = await service.list(baseQuery, 'u1', ctxA);
+
+    expect(prisma.maintenanceRequestRequiredPart.findMany.mock.calls[0][0].where.status).toBe('REQUESTED');
+    expect(prisma.maintenanceRequestRequiredPart.count.mock.calls[0][0].where.status).toBe('REQUESTED');
+    expect(result.meta.counts.SPARE_PART).toBe(1);
+    expect(result.meta.total).toBe(1);
+    expect(result.data[0]).toMatchObject({
+      type: 'SPARE_PART',
+      entityId: 'part1',
+      parentEntityId: 'mr1',
+      status: 'REQUESTED',
+      reference: 'MR-000001 · SP001',
+      totalQuantity: 4,
+    });
+  });
+
+  it('keeps explicit APPROVED/REJECTED decisions in the spare-part family native status', async () => {
+    const { prisma, service } = makeService();
+    prisma.userRole.findMany.mockResolvedValue([userRole(['maintenance-request-parts:read'])]);
+
+    await service.list({ page: 1, limit: 20, status: 'APPROVED' } as any, 'u1', ctxA);
+
+    expect(prisma.maintenanceRequestRequiredPart.findMany.mock.calls[0][0].where.status).toBe('APPROVED');
+    expect(prisma.maintenanceRequestRequiredPart.count.mock.calls[0][0].where.status).toBe('APPROVED');
+  });
+
   it('returns a globally ordered, bounded page across families', async () => {
     const { prisma, service } = makeService();
     prisma.userRole.findMany.mockResolvedValue([

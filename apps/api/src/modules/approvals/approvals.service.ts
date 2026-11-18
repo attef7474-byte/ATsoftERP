@@ -93,6 +93,16 @@ export class ApprovalsService {
     return status && ['SUBMITTED', 'APPROVED', 'REJECTED'].includes(status) ? status : 'SUBMITTED';
   }
 
+  /**
+   * Spare-part request lines use REQUESTED as their native "awaiting warehouse
+   * decision" status, while the flat authorities use SUBMITTED. The inbox keeps
+   * one API vocabulary (SUBMITTED/APPROVED/REJECTED) and translates it per
+   * family, so a row always carries its own native status.
+   */
+  private sparePartStatus(status: string): string {
+    return status === 'SUBMITTED' ? 'REQUESTED' : status;
+  }
+
   async list(query: WarehouseApprovalsQueryDto, userId: string, ctx: ActiveOperationalContext) {
     const grant = await this.resolveGrantedPermissions(userId);
     const readableSpareParts = this.can(grant, SPARE_PART_READ);
@@ -122,7 +132,7 @@ export class ApprovalsService {
 
     if (readableSpareParts) {
       const sparePartWhere: any = {
-        status,
+        status: this.sparePartStatus(status),
         maintenanceRequest: {
           deletedAt: null,
           machine: {
