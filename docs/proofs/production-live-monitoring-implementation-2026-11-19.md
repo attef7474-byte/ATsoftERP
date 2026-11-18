@@ -54,9 +54,9 @@ Route `/admin/production/monitoring` renders a factory summary plus manufacturin
 | Gate | Result |
 | --- | --- |
 | Focused API tests (monitoring, analytics, runs util, shift calendars) | **4 suites, 86 tests passed** |
-| Focused Web tests (`production-monitoring*`) | **2 suites, 20 tests passed** |
+| Focused Web tests (`production-monitoring*`) | **2 suites, 21 tests passed** |
 | Full API regression | **229 suites, 4954 tests passed** |
-| Full Web regression | **129 suites, 2412 tests passed** |
+| Full Web regression | **129 suites, 2413 tests passed** |
 | API typecheck | PASS (`tsc --noEmit`) |
 | Web typecheck | PASS (`tsc --noEmit`) |
 | API isolated build | PASS (`tsc`) |
@@ -69,6 +69,8 @@ Route `/admin/production/monitoring` renders a factory summary plus manufacturin
 
 The earlier `P1011 TLS` failure was caused by invoking Prisma from the wrong working directory without the root `.env`; rerunning with the deployment's own config mechanism succeeded without schema changes.
 
+The Web counts above are the final post-fix results after commit `98040b8cdd369fdafb85bd21222a9015e5091869`. The API code and API test results are unchanged from the feature commit `8d361b2b0cd58968e2fce5db965808b6c65ab856`. The post-fix Web gates re-run cleanly: focused Web 2 suites / 21 tests, full Web 129 suites / 2413 tests, Web typecheck PASS, Web build PASS (`FpwTzGnSPacuyQbSCc9GB`), i18n PASS, UI baseline PASS, and `git diff --check` PASS.
+
 ## 10. SQL read proof and live-data limitation
 
 `sql-proof.ts` (gitignored temp proof harness) was rerun against the actual SQL Server database in read-only mode at closeout. Result: **PASS**, 11 active branch contexts, `businessWrites = 0`, `dashboardWrites = 0` for every context, 0 foreign-company/branch leaks, and independent SQL reconciliations matched the service projection for every resource/window/unit. 15 physical SQL reads per context; no write statement was emitted.
@@ -80,11 +82,40 @@ LIVE_NONZERO_OUTPUT_PROOF=NOT_AVAILABLE
 LIVE_NONZERO_NOW_RECONCILIATION=NOT_PROVABLE_FROM_CURRENT_PRODUCTION_DATA
 REASON=NO_CANONICAL_PRODUCTION_OUTPUT_EVENTS
 AUTOMATED_FIXTURE_RECONCILIATION=PASS
-LIVE_EMPTY_STATE_BROWSER_PROOF=PENDING_FINAL_DEPLOYMENT
+LIVE_EMPTY_STATE_BROWSER_PROOF=PASS
 ```
 
 No synthetic production events were created. Nonzero behaviour (windows, multiple runs, corrections, resets, authoritative points, machine/line attribution, mixed units) is proven by the automated fixtures, not by live production data.
 
 ## 11. Deployment and browser proof
 
-PENDING_FINAL_DEPLOYMENT — to be replaced with exact merged SHA, service health, Arabic/RTL, English/LTR, 5-second refresh, console and network evidence after the release is deployed from `main`.
+`DEPLOYMENT_STATUS=COMPLETE`
+`FEATURE_SHA=8d361b2b0cd58968e2fce5db965808b6c65ab856`
+`FINAL_FIX_SHA=98040b8cdd369fdafb85bd21222a9015e5091869`
+`DEPLOYED_SHA=98040b8cdd369fdafb85bd21222a9015e5091869`
+`DEPLOYED_SOURCE=main`
+`HEAD=origin/main=98040b8cdd369fdafb85bd21222a9015e5091869`, divergence `0/0`
+`WEB_BUILD_ID=FpwTzGnSPacuyQbSCc9GB`
+`DATABASE_WRITES=0`, `MIGRATION=NONE`
+
+The exact final `main` SHA was deployed with the staged artifact-swap script `.tmp/production-monitoring-20261119/deploy-main-98040b8c.ps1`. State: `.tmp/production-monitoring-20261119/deployment-state-main-98040b8c.json`. Log: `.tmp/production-monitoring-20261119/deployment-main-98040b8c.log`. The previous deployed release (`8d361b2b…`) and its rollback artifacts were preserved under `.tmp/production-monitoring-20261119/release-main-98040b8c/rollback/`; the earlier release directory was not deleted. Services `ATsoftERP_API` and `ATsoftERP_Web` are Running. Health proof: `http://localhost:4000/api/v1/health` 200, `http://localhost:3000/api/v1/health` 200, `http://localhost:3000/admin/production/monitoring` 200, unauthenticated `http://localhost:4000/api/v1/reports/production/monitoring` 401.
+
+Browser authentication used the already-valid local session JWT present in the browser profile (`sub` matched the displayed administrator, `exp` still valid). No password, token value, secret, or credential file was read into or emitted by this proof; no credential was disclosed and no database write was performed. UI credential re-entry was not repeated because a valid deployed-app session was already available.
+
+`BROWSER_PROOF=PASS`
+
+* Arabic/RTL: `/admin/production/monitoring` rendered with `lang="ar"`, `dir="rtl"`, Arabic labels including `مراقبة الإنتاج`, `ملخص المصنع`, `الإنتاج الآن`, `الوردية الحالية`, `إنتاج اليوم`, `إنتاج الشهر`, `خطوط التغليف`, `ماكينات التغليف`, `غير منسوب لماكينة`. Live empty-state data rendered as four unit-safe zeros with no synthetic events.
+* English/LTR: the in-page language toggle produced `lang="en"`, `dir="ltr"` and English labels `Production Monitoring`, `Factory Summary`, `Now`, `Current Shift`, `Today`, `Month to Date`, `Packaging Lines`, `Packaging Machines`, `Unassigned to Machine`, with the same zero output.
+* Five-second polling: 35 monitoring `GET /api/v1/reports/production/monitoring` requests were observed. Consecutive intervals were `4991–5009 ms` for 14 steady cycles; the two non-5-second deltas were an immediate refresh caused by the locale change and a manual refresh, both expected.
+* Manual refresh: clicking the visible `Refresh` control emitted one additional monitoring `GET` which completed 200.
+* Suspend/resume: with `document.hidden` forced true and `visibilitychange` dispatched, 0 monitoring requests occurred during a 12-second observation; restoring `document.hidden=false` and dispatching `visibilitychange` produced exactly one immediate 200 response.
+* Read-only behavior: every monitoring request was HTTP `GET`; no POST/PATCH/DELETE write was emitted by the monitoring page. The only non-GET request in the whole page capture was the pre-existing `POST /api/v1/auth/context/validate` (201).
+* Console: 0 error messages and 0 warning messages.
+* Network: 0 failed requests, 0 unexpected 4xx/5xx responses, 0 failed chunks; captured requests were not truncated and none were dropped. The monitoring response body matched the service projection with `timezone: "UTC"`, one active `SHIFT-04` window, 4 lines, 4 machines, empty summary, and 0 events.
+* Live nonzero output remains unavailable because the canonical `ProductionOutputEvent` table has 0 rows; no fake output was created. `LIVE_NONZERO_OUTPUT_PROOF=NOT_AVAILABLE`.
+
+## 12. Browser-detected response-shape defect and fix
+
+The first deployed browser proof exposed a real frontend defect: `useProductionMonitoring` typed the shared API client result as `{ data: ProductionMonitoringResponse }`, but `apps/web/src/lib/api.ts` returns the unwrapped JSON body. The HTTP requests were 200 and the SQL/service projection was correct, but `setData(response.data)` stored `undefined`, leaving the page permanently at `Loading...`. This was not visible in the earlier unit tests because the hook test mock incorrectly returned the same wrapper.
+
+Fix in `apps/web/src/lib/use-production-monitoring.ts`: request `api.get<ProductionMonitoringResponse>` directly and call `setData(response)`. The hook test mock was corrected to the real unwrapped envelope and a dedicated regression test `consumes the unwrapped response body returned by the shared API client` was added. After this fix the real browser rendered the complete Arabic and English monitoring workspace. No API, schema, permission, audit, migration, or business-rule code changed.
