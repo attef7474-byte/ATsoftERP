@@ -873,6 +873,7 @@ export class ProductionAnalyticsService {
     const idealOutput = rate.mul(operatingMinutes.div(60)).toDecimalPlaces(4);
     const events: TotalsInputEvent[] = (run.outputEvents || []).map((event: any) => ({
       id: event.id,
+      occurredAt: event.occurredAt,
       eventType: event.eventType,
       classification: event.classification,
       quantity: event.quantity,
@@ -882,7 +883,7 @@ export class ProductionAnalyticsService {
       measurementPointId: event.measurementPointId,
       measurementPoint: event.measurementPoint ? { isAuthoritativeFinal: Boolean(event.measurementPoint.isAuthoritativeFinal) } : null,
     }));
-    const totals = deriveRunTotals(events);
+    const totals = deriveRunTotals(events, window);
     const totalOutput = new Prisma.Decimal(totals.finalOutputTotal);
     const goodOutput = new Prisma.Decimal(totals.finalOutputGood);
     const rejectOutput = new Prisma.Decimal(totals.finalOutputReject);

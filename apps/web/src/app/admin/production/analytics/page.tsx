@@ -70,7 +70,7 @@ export default function PerformanceAnalyticsWorkspacePage() {
         ].filter((item) => isVisible(item.id))}
       />
       <TabPanel id="analytics" activeId={tab}>
-        <AnalyticsPanel />
+        <AnalyticsPanel key={`${searchParams?.get('productionLineId') || ''}:${searchParams?.get('machineId') || ''}`} initialResourceFilters={{ productionLineId: searchParams?.get('productionLineId') || '', machineId: searchParams?.get('machineId') || '' }} />
       </TabPanel>
       <TabPanel id="performance-targets" activeId={tab}>
         <PerformanceTargetsPanel />

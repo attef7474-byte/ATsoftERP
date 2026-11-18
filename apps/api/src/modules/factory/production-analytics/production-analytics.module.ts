@@ -1,3 +1,4 @@
+import { ProductionMonitoringService } from './production-monitoring.service';
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../../audit/audit.module';
 import { NumberingModule } from '../../numbering/numbering.module';
@@ -10,7 +11,7 @@ import { ProductionAnalyticsService } from './production-analytics.service';
 @Module({
   imports: [AuditModule, NumberingModule, OperationalSourceChangesModule],
   controllers: [ProductionPerformanceTargetsController, ProductionAnalyticsController],
-  providers: [ProductionPerformanceTargetsService, ProductionAnalyticsService],
+  providers: [ProductionPerformanceTargetsService, ProductionAnalyticsService, ProductionMonitoringService],
   exports: [ProductionPerformanceTargetsService, ProductionAnalyticsService],
 })
 export class ProductionAnalyticsModule {}

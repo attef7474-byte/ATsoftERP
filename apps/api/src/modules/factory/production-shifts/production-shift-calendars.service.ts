@@ -1,3 +1,4 @@
+import { resolveCalendarDay } from './calendar-day.util';
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
@@ -242,11 +243,11 @@ export class ProductionShiftCalendarsService {
     });
     if (entry) {
       await this.audit.log(userId, 'RESOLVE', 'ProductionShiftCalendar', id, { date: on.toISOString(), via: 'entry' });
-      return { date: on.toISOString(), source: 'ENTRY', isWorkDay: entry.isWorkDay, shift: entry.shiftId ? entry.shift : null };
+      return { date: on.toISOString(), ...resolveCalendarDay(entry, null, Boolean(calendar.templateId)) };
     }
 
     if (!calendar.templateId) {
-      return { date: on.toISOString(), source: 'NONE', isWorkDay: false, shift: null };
+      return { date: on.toISOString(), ...resolveCalendarDay(null, null, false) };
     }
 
     const dayOfWeek = on.getDay();
@@ -255,14 +256,12 @@ export class ProductionShiftCalendarsService {
       include: { shift: { select: { id: true, code: true, name: true, startTime: true, endTime: true } } },
     });
     if (!templateDay) {
-      return { date: on.toISOString(), source: 'TEMPLATE', isWorkDay: false, shift: null };
+      return { date: on.toISOString(), ...resolveCalendarDay(null, null, true) };
     }
     await this.audit.log(userId, 'RESOLVE', 'ProductionShiftCalendar', id, { date: on.toISOString(), via: 'template day', dayOfWeek });
     return {
       date: on.toISOString(),
-      source: 'TEMPLATE',
-      isWorkDay: templateDay.isWorkDay,
-      shift: templateDay.isWorkDay && templateDay.shift ? templateDay.shift : null,
+      ...resolveCalendarDay(null, templateDay, true),
     };
   }
 

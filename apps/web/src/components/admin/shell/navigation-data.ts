@@ -350,6 +350,9 @@ export const sidebarGroups: SidebarGroup[] = [
         permissions: ['production-cost-rate:read', 'production-cost-snapshot:read', 'production-cost-transaction:read', 'production-cost-overhead-allocation:read'],
       },
       {
+        id: 'prd-monitoring', labelKey: 'production.monitoringWorkspace', route: '/admin/production/monitoring', permissions: ['production-analytics:read'],
+      },
+      {
         id: 'prd-ws-analytics', labelKey: 'production.analyticsWorkspace', route: '/admin/production/analytics',
         permissions: ['production-analytics:read', 'production-performance-target:read', 'operational-reliability:read'],
       },

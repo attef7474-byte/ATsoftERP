@@ -1,3 +1,5 @@
+import { ProductionMonitoringService } from './production-monitoring.service';
+import { MonitoringQueryDto } from './dto/monitoring-query.dto';
 import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ProductionAnalyticsService } from './production-analytics.service';
@@ -16,7 +18,14 @@ import { ActiveOperationalContext } from '../../../common/operational-context/op
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller({ path: 'reports/production', version: '1' })
 export class ProductionAnalyticsController {
-  constructor(private readonly service: ProductionAnalyticsService) {}
+  constructor(private readonly service: ProductionAnalyticsService, private readonly monitoringService: ProductionMonitoringService) {}
+
+  @Get('monitoring')
+  @Permissions(ANALYTICS_PERMISSION_KEYS.analyticsRead)
+  @ApiOperation({ summary: 'Read current, shift, day and month production from canonical output evidence' })
+  monitoring(@Query() query: MonitoringQueryDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.monitoringService.monitoring(query, ctx);
+  }
 
   @Get('oee')
   @Permissions(ANALYTICS_PERMISSION_KEYS.analyticsRead)

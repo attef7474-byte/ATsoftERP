@@ -33,7 +33,7 @@ const ctx: ActiveOperationalContext = {
 function runRecord(overrides: Record<string, any> = {}) {
   const startedAt = new Date('2026-08-05T12:00:00.000Z');
   const endedAt = new Date('2026-08-05T20:00:00.000Z');
-  return {
+  const record = {
     id: 'run-1',
     runNumber: 'PRUN-0001',
     status: 'COMPLETED',
@@ -76,6 +76,8 @@ function runRecord(overrides: Record<string, any> = {}) {
     downtimeSegments: [],
     ...overrides,
   };
+  record.outputEvents = record.outputEvents.map((event: any) => ({ occurredAt: new Date('2026-08-05T16:00:00Z'), ...event }));
+  return record;
 }
 
 function companyTarget(id = 't-company', overrides: Record<string, any> = {}) {
@@ -299,6 +301,21 @@ describe('ProductionAnalyticsService bulk target resolution', () => {
   });
 
   describe('capacityVariance()', () => {
+    it('reuses the canonical output window and attributes corrections to original production', async () => {
+      prisma.productionPerformanceTarget.findMany.mockResolvedValue([]);
+      const original = runRecord().outputEvents[0];
+      prisma.productionRun.findMany.mockResolvedValue([runRecord({
+        outputEvents: [
+          { ...original, id: 'before', occurredAt: new Date('2026-08-04T23:59:59Z') },
+          { ...original, id: 'inside', occurredAt: new Date('2026-08-05T00:00:00Z') },
+          { ...original, id: 'after', occurredAt: new Date('2026-08-06T00:00:00Z') },
+          { ...original, id: 'correction', eventType: 'CORRECTION', correctsEventId: 'inside', quantity: '5', goodQuantity: '5', rejectQuantity: '0', occurredAt: new Date('2026-08-06T01:00:00Z') },
+        ],
+      })]);
+      const report = await service.capacityVariance({ dateFrom: '2026-08-05', dateTo: '2026-08-05' } as any, ctx);
+      expect(report.rows[0].actualOutput).toBe('75');
+    });
+
     it('computes variance = actualOutput - idealOutput and utilizationPercent = actual / planned', async () => {
       prisma.productionPerformanceTarget.findMany.mockResolvedValue([companyTarget()]);
       const report = await service.capacityVariance({ dateFrom: '2026-08-05', dateTo: '2026-08-05' } as any, ctx);

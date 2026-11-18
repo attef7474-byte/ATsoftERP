@@ -22,7 +22,11 @@ export interface TotalsInputEvent {
   correctsEventId: string | null;
   measurementPointId: string;
   measurementPoint?: { isAuthoritativeFinal?: boolean } | null;
+  occurredAt?: Date;
 }
+
+export interface OutputWindow { from: Date; to: Date }
+export interface UnitOutput { unit: string; quantity: string; goodQuantity: string; rejectQuantity: string }
 
 export interface DerivedTotals {
   byClassification: Record<string, { quantity: string; goodQuantity: string; rejectQuantity: string; eventCount: number }>;
@@ -98,7 +102,7 @@ export function netEventQuantities(events: TotalsInputEvent[]): Map<string, NetE
  * headline final output; INPUT/INTERMEDIATE/WASTE/REWORK stay traceability records.
  * Resets and corrections never create standalone positive totals.
  */
-export function deriveRunTotals(events: TotalsInputEvent[]): DerivedTotals {
+export function deriveRunTotals(events: TotalsInputEvent[], window?: OutputWindow): DerivedTotals {
   const net = netEventQuantities(events);
   const byClassification: Record<string, { quantity: Prisma.Decimal; good: Prisma.Decimal; reject: Prisma.Decimal; eventCount: number }> = {};
   let finalOutputTotal = new Prisma.Decimal(0);
@@ -109,6 +113,9 @@ export function deriveRunTotals(events: TotalsInputEvent[]): DerivedTotals {
 
   for (const event of events) {
     if (event.eventType !== 'PRODUCTION') continue;
+    // Corrections adjust the original production timestamp. They do not create
+    // output in the correction's own shift/day/month.
+    if (window && (!event.occurredAt || event.occurredAt < window.from || event.occurredAt > window.to)) continue;
     totalEvents += 1;
     const row = net.get(event.id);
     if (!row) continue;
@@ -139,8 +146,11 @@ export function deriveRunTotals(events: TotalsInputEvent[]): DerivedTotals {
   }
   const toDecimal = (value: Prisma.Decimal): string => value.toDecimalPlaces(4).toString();
   let correctionsTotal = new Prisma.Decimal(0);
+  const originalTimes = new Map(events.filter((event) => event.eventType === 'PRODUCTION').map((event) => [event.id, event.occurredAt]));
   for (const event of events) {
     if (event.eventType !== 'CORRECTION') continue;
+    const originalTime = event.correctsEventId ? originalTimes.get(event.correctsEventId) : undefined;
+    if (window && (!originalTime || originalTime < window.from || originalTime > window.to)) continue;
     correctionsTotal = correctionsTotal.plus(new Prisma.Decimal(event.quantity));
   }
   return {
@@ -154,6 +164,22 @@ export function deriveRunTotals(events: TotalsInputEvent[]): DerivedTotals {
     reworkTotal: byClassification['REWORK'] ? toDecimal(byClassification['REWORK'].quantity) : '0',
     correctionsTotal: toDecimal(correctionsTotal),
   };
+}
+
+/** Unit-safe projection of the same immutable output authority. */
+export function deriveRunOutputByUnit(events: Array<TotalsInputEvent & { unit: string }>, window?: OutputWindow): UnitOutput[] {
+  const originals = new Map(events.filter((event) => event.eventType === 'PRODUCTION').map((event) => [event.id, event.unit]));
+  const groups = new Map<string, Array<TotalsInputEvent & { unit: string }>>();
+  for (const event of events) {
+    const unit = event.correctsEventId ? originals.get(event.correctsEventId) ?? event.unit : event.unit;
+    const group = groups.get(unit) ?? [];
+    group.push(event);
+    groups.set(unit, group);
+  }
+  return [...groups.entries()].map(([unit, group]) => {
+    const totals = deriveRunTotals(group, window);
+    return { unit, quantity: totals.finalOutputTotal, goodQuantity: totals.finalOutputGood, rejectQuantity: totals.finalOutputReject, eventCount: totals.finalOutputEventCount };
+  }).filter((row) => row.eventCount > 0).map(({ eventCount, ...row }) => row).sort((a, b) => a.unit.localeCompare(b.unit));
 }
 
 export function progressPercent(finalOutputTotal: Prisma.Decimal.Value, plannedQuantity: Prisma.Decimal.Value): string {

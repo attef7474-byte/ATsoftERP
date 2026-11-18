@@ -82,6 +82,13 @@ const CANONICAL: Array<{ id: string; route: string; labelKey: string; page: stri
     ],
   },
   {
+    id: 'prd-monitoring',
+    route: '/admin/production/monitoring',
+    labelKey: 'production.monitoringWorkspace',
+    page: 'src/app/admin/production/monitoring/page.tsx',
+    permissions: ['production-analytics:read'],
+  },
+  {
     id: 'prd-ws-analytics',
     route: '/admin/production/analytics',
     labelKey: 'production.analyticsWorkspace',
@@ -132,8 +139,8 @@ describe('Production navigation final cleanup', () => {
     expect(productionGroup.children).toBeUndefined();
   });
 
-  it('NAV03 exposes exactly the 8 canonical workspaces', () => {
-    expect(productionItems).toHaveLength(8);
+  it('NAV03 exposes the 8 canonical workspaces and monitoring', () => {
+    expect(productionItems).toHaveLength(9);
   });
 
   it('NAV04 lists the workspaces in the mandated canonical order', () => {
@@ -252,7 +259,9 @@ describe('Production navigation final cleanup', () => {
     expect(source).toContain('permissions');
   });
 
-  for (const c of CANONICAL) {
+  // Monitoring is a permission-gated single screen; the existing eight
+  // workspaces continue to enforce their individual tab permissions.
+  for (const c of CANONICAL.filter((workspace) => workspace.id !== 'prd-monitoring')) {
     it(`NAV20:${c.id} the host page gates every tab with a permission map`, () => {
       const source = read(c.page);
       expect(source).toContain('useAuthorizedTabs');
@@ -279,12 +288,12 @@ describe('Production navigation final cleanup', () => {
     for (const c of CANONICAL) {
       const source = read(c.page);
       expect(source).toContain('PageHeader');
-      expect(source).toContain('<TabPanel');
+      expect(source).toContain(c.id === 'prd-monitoring' ? '<ProductionMonitoringPanel' : '<TabPanel');
     }
   });
 
   it('NAV24 landing selects the first authorized tab, never an unconditional default', () => {
-    for (const c of CANONICAL) {
+    for (const c of CANONICAL.filter((workspace) => workspace.id !== 'prd-monitoring')) {
       const source = read(c.page);
       expect(source).toContain('resolveActiveTab');
       expect(source).toContain('visibleTabs');

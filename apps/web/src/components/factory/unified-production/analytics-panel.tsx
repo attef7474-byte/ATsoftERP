@@ -148,14 +148,14 @@ function TableCard<T>({ title, columns, rows, keyExtractor, emptyMessage }: {
     </ChartCard>
   );
 }
-export function AnalyticsPanel() {
+export function AnalyticsPanel({ initialResourceFilters }: { initialResourceFilters?: { productionLineId?: string; machineId?: string } } = {}) {
   const { t, dir } = useTranslation();
   const { permissions, isSuperAdmin } = useAuth();
   const { showToast } = useToast();
   const handleApiError = useApiErrorHandler();
   const canRead = isSuperAdmin || Boolean(permissions?.permissions.includes('production-analytics:read'));
   const canExport = isSuperAdmin || Boolean(permissions?.permissions.includes('production-analytics:export'));
-  const [filters, setFilters] = useState<FilterState>(defaultFilters());
+  const [filters, setFilters] = useState<FilterState>(() => ({ ...defaultFilters(), ...initialResourceFilters }));
   const [applied, setApplied] = useState<ProductionAnalyticsQuery | null>(null);
   const [exportReport, setExportReport] = useState<ProductionAnalyticsReportName>('oee');
   const [loading, setLoading] = useState(false);
