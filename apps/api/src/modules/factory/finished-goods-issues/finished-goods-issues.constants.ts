@@ -45,11 +45,11 @@ export const FINISHED_GOODS_ISSUE_PERMISSION_KEYS = {
 
 export const FINISHED_GOODS_ISSUE_INCLUDE = {
   issueWarehouse: { select: { id: true, code: true, name: true } },
-  movement: { select: { id: true, movementNumber: true, movementType: true, status: true } },
+  movement: { select: { id: true, movementNumber: true, movementType: true, status: true, lines: { select: { productId: true, quantity: true, unit: true, productUomId: true } } } },
   reversesIssue: { select: { id: true, issueNumber: true, status: true } },
   lines: {
     include: {
-      product: { select: { id: true, code: true, name: true } },
+      product: { select: { id: true, code: true, name: true, uoms: { where: { isActive: true }, include: { unit: true } } } },
       warehouseLocation: { select: { id: true, code: true, name: true } },
     },
   },

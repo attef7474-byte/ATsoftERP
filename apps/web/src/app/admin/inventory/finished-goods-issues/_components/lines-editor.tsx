@@ -1,16 +1,20 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { Button, Input } from '../../../../../components/admin/ui';
 import { F9Lookup } from '../../../../../components/f9/F9Lookup';
-import { F9MultiLookup } from '../../../../../components/f9/F9MultiLookup';
-import { productAdapter, warehouseLocationAdapter } from '../../../../../components/f9/lookup-adapters';
+import { productAdapter, sparePartAdapter, warehouseLocationAdapter } from '../../../../../components/f9/lookup-adapters';
+import type { ProductUom } from '../../../../../lib/admin-types';
+import type { LookupAdapter } from '../../../../../components/f9/types';
 import { ProductUomSelect } from '../../../../../components/factory/ProductUomSelect';
-
+import type { IssueType } from '../../../../../components/inventory/issue-voucher-form';
 export interface IssueLineDraft {
   key: string;
   productId: string;
+  sparePartId?: string;
+  uoms?: ProductUom[];
   quantity: string;
   unit: string;
   productUomId: string;
@@ -18,12 +22,15 @@ export interface IssueLineDraft {
   batchNumber: string;
   serialNumber: string;
   expiryDate: string;
+  stockId?: string;
   notes: string;
 }
-
+export function newIssueClientId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+}
 export function createEmptyIssueLine(): IssueLineDraft {
   return {
-    key: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+    key: newIssueClientId(),
     productId: '',
     quantity: '',
     unit: '',
@@ -32,153 +39,191 @@ export function createEmptyIssueLine(): IssueLineDraft {
     batchNumber: '',
     serialNumber: '',
     expiryDate: '',
-    notes: '',
+    notes: ''
   };
 }
-
 interface IssueLinesEditorProps {
   lines: IssueLineDraft[];
   onChange: (lines: IssueLineDraft[]) => void;
+  warehouseId: string;
+  issueType?: IssueType;
+  productionOrderId?: string;
+  productionRunId?: string;
   disabled?: boolean;
+  lockItem?: boolean;
   error?: string;
 }
-
-export function IssueLinesEditor({ lines, onChange, disabled = false, error }: IssueLinesEditorProps) {
-  const { t } = useTranslation();
-
-  const updateLine = (key: string, patch: Partial<IssueLineDraft>) => {
-    onChange(lines.map((line) => (line.key === key ? { ...line, ...patch } : line)));
-  };
-
-  const removeLine = (key: string) => {
-    if (lines.length <= 1) return;
-    onChange(lines.filter((line) => line.key !== key));
-  };
-
-  const addLine = () => onChange([...lines, createEmptyIssueLine()]);
-
-  // One independent row per selected product. Quantity, unit and location are
-  // never copied between rows.
-  const handleMultiSelect = (ids: string[]) => {
-    const added = ids.filter((id) => !lines.some((line) => line.productId === id));
-    if (added.length === 0) return;
-    onChange([...lines, ...added.map((id) => ({ ...createEmptyIssueLine(), productId: id }))]);
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-700">{t('inventory.finishedGoodsIssue.lines')}</span>
-        {!disabled && (
-          <Button type="button" variant="secondary" size="sm" onClick={addLine}>
-            {t('inventory.finishedGoodsIssue.addLine')}
-          </Button>
-        )}
-      </div>
-      {!disabled && (
-        <F9MultiLookup
-          label={t('inventory.finishedGoodsIssue.selectProduct')}
-          value={[]}
-          onChange={handleMultiSelect}
-          adapter={productAdapter}
-          placeholder={t('inventory.finishedGoodsIssue.selectProduct')}
-        />
-      )}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {lines.map((line, index) => (
-        <div key={line.key} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500">
-              {t('inventory.finishedGoodsIssue.lines')} #{index + 1}
-            </span>
-            {!disabled && (
-              <button
-                type="button"
-                onClick={() => removeLine(line.key)}
-                disabled={lines.length <= 1}
-                className="text-xs text-red-500 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {t('inventory.finishedGoodsIssue.removeLine')}
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <F9Lookup
-                label={t('inventory.finishedGoodsIssue.product')}
-                value={line.productId}
-                adapter={productAdapter}
-                onChange={(v) => updateLine(line.key, { productId: v, productUomId: '', unit: '' })}
-                disabled={disabled}
-              />
-            </div>
-            <div>
-              <Input
-                label={t('inventory.finishedGoodsIssue.quantity')}
-                type="number"
-                min="0"
-                step="any"
-                value={line.quantity}
-                onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
-                disabled={disabled}
-              />
-            </div>
-            <div>
-              <ProductUomSelect
-                label={t('inventory.finishedGoodsIssue.unit')}
-                productId={line.productId}
-                value={line.productUomId}
-                onSelect={(selection) => updateLine(line.key, { productUomId: selection.productUomId, unit: selection.unitCode })}
-              />
-            </div>
-            <div className="col-span-2">
-              <F9Lookup
-                label={t('inventory.finishedGoodsIssue.warehouseLocation')}
-                value={line.warehouseLocationId}
-                adapter={warehouseLocationAdapter}
-                onChange={(v) => updateLine(line.key, { warehouseLocationId: v })}
-                disabled={disabled}
-              />
-            </div>
-            <div>
-              <Input
-                label={t('inventory.finishedGoodsIssue.batchNumber')}
-                maxLength={100}
-                value={line.batchNumber}
-                onChange={(e) => updateLine(line.key, { batchNumber: e.target.value })}
-                disabled={disabled}
-              />
-            </div>
-            <div>
-              <Input
-                label={t('inventory.finishedGoodsIssue.serialNumber')}
-                maxLength={100}
-                value={line.serialNumber}
-                onChange={(e) => updateLine(line.key, { serialNumber: e.target.value })}
-                disabled={disabled}
-              />
-            </div>
-            <div className="col-span-2">
-              <Input
-                label={t('inventory.finishedGoodsIssue.expiryDate')}
-                type="date"
-                value={line.expiryDate}
-                onChange={(e) => updateLine(line.key, { expiryDate: e.target.value })}
-                disabled={disabled}
-              />
-            </div>
-            <div className="col-span-2">
-              <Input
-                label={t('inventory.finishedGoodsIssue.lineNotes')}
-                maxLength={2000}
-                value={line.notes}
-                onChange={(e) => updateLine(line.key, { notes: e.target.value })}
-                disabled={disabled}
-              />
-            </div>
-          </div>
-        </div>
-      ))}
+function IssueLineRow({
+  line,
+  update,
+  warehouseId,
+  issueType = 'FINISHED_GOODS',
+  productionOrderId,
+  productionRunId,
+  disabled,
+  lockItem
+}: Omit<IssueLinesEditorProps, 'lines' | 'onChange'> & {
+  line: IssueLineDraft;
+  update: (patch: Partial<IssueLineDraft>) => void;
+}) {
+  const {
+    t
+  } = useTranslation();
+  const [balance, setBalance] = useState<{
+    available: string;
+    unit: string;
+  } | null>(null);
+  const [balanceError, setBalanceError] = useState(false);
+  const filters = useMemo(() => ({
+    type: issueType,
+    warehouseId,
+    ...(productionOrderId ? {
+      productionOrderId
+    } : {}),
+    ...(productionRunId ? {
+      productionRunId
+    } : {})
+  }), [issueType, warehouseId, productionOrderId, productionRunId]);
+  const stockFilters = useMemo(() => ({
+    ...filters,
+    productId: line.productId,
+    ...(line.warehouseLocationId ? {
+      locationId: line.warehouseLocationId
+    } : {})
+  }), [filters, line.productId, line.warehouseLocationId]);
+  const itemAdapter = useMemo<LookupAdapter<any>>(() => ({
+    ...(issueType === 'SPARE_PART' ? sparePartAdapter : productAdapter),
+    endpoint: '/inventory/issues/candidates',
+    detailEndpoint: '/inventory/issues/candidates',
+    detailFilters: true
+  }), [issueType]);
+  const locationAdapter = useMemo(() => ({
+    ...warehouseLocationAdapter,
+    endpoint: '/inventory/issues/locations',
+    detailFilters: true
+  }), []);
+  const stockAdapter = useMemo<LookupAdapter<any>>(() => ({
+    endpoint: '/inventory/issues/stock',
+    detailEndpoint: '/inventory/issues/stock',
+    detailFilters: true,
+    searchFields: ['batchNumber', 'serialNumber'],
+    displayLabel: stock => [stock.location?.name, stock.batchNumber, stock.serialNumber, stock.expiryDate?.slice(0, 10), String(stock.quantityBase ?? stock.quantity)].filter(Boolean).join(' · '),
+    columns: [{
+      key: 'batchNumber',
+      header: t('inventory.finishedGoodsIssue.batchNumber')
+    }, {
+      key: 'serialNumber',
+      header: t('inventory.finishedGoodsIssue.serialNumber')
+    }, {
+      key: 'location',
+      header: t('inventory.finishedGoodsIssue.warehouseLocation'),
+      render: stock => stock.location?.name || '-'
+    }, {
+      key: 'quantity',
+      header: t('inventory.issueVoucher.available'),
+      render: stock => String(stock.quantityBase ?? stock.quantity)
+    }]
+  }), [t]);
+  const ready = Boolean(warehouseId && (issueType !== 'RAW_MATERIAL' || productionOrderId && productionRunId));
+  useEffect(() => {
+    let cancelled = false;
+    setBalance(null);
+    setBalanceError(false);
+    if (ready && line.productId) {
+      api.get<{
+        available: string;
+        unit: string;
+      }>('/inventory/issues/stock', {
+        params: {
+          ...stockFilters,
+          ...(line.batchNumber ? {
+            batchNumber: line.batchNumber
+          } : {}),
+          ...(line.serialNumber ? {
+            serialNumber: line.serialNumber
+          } : {})
+        }
+      }).then(result => {
+        if (!cancelled) setBalance(result);
+      }).catch(() => {
+        if (!cancelled) setBalanceError(true);
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, stockFilters, line.batchNumber, line.serialNumber]);
+  return <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+    <div className="md:col-span-2"><F9Lookup label={t(issueType === 'SPARE_PART' ? 'inventory.warehouseApprovals.typeSPARE_PART' : 'inventory.finishedGoodsIssue.product')} value={issueType === 'SPARE_PART' ? line.sparePartId || '' : line.productId} adapter={itemAdapter} filters={filters} disabled={disabled || !ready || lockItem} onChange={id => {
+        if (!id) update({
+          ...createEmptyIssueLine(),
+          key: line.key
+        });
+      }} onItemSelect={item => update({
+        ...createEmptyIssueLine(),
+        key: line.key,
+        productId: issueType === 'SPARE_PART' ? item.productId : item.id,
+        sparePartId: issueType === 'SPARE_PART' ? item.id : undefined,
+        unit: item.unit || item.product?.unit || '',
+        uoms: item.uoms || []
+      })} /></div>
+    {issueType === 'SPARE_PART' ? <Input label={t('inventory.finishedGoodsIssue.unit')} value={line.unit} disabled /> : <ProductUomSelect label={t('inventory.finishedGoodsIssue.unit')} productId={line.productId} value={line.productUomId} providedUoms={line.uoms} disabled={disabled || !ready} onSelect={uom => update({
+      productUomId: uom.productUomId,
+      unit: uom.unitCode
+    })} />}
+    {issueType !== 'SPARE_PART' && <F9Lookup label={t('inventory.finishedGoodsIssue.warehouseLocation')} value={line.warehouseLocationId} adapter={locationAdapter} filters={filters} disabled={disabled || !ready || !line.productId} onChange={id => update({
+      warehouseLocationId: id,
+      stockId: '',
+      batchNumber: '',
+      serialNumber: '',
+      expiryDate: ''
+    })} />}
+    {issueType !== 'SPARE_PART' && <div className="md:col-span-2"><F9Lookup label={t('inventory.issueVoucher.stockIdentity')} value={line.stockId || ''} adapter={stockAdapter} filters={stockFilters} clearOnFilterChange={false} disabled={disabled || !ready || !line.productId} onChange={id => {
+        if (!id) update({
+          stockId: '',
+          batchNumber: '',
+          serialNumber: '',
+          expiryDate: ''
+        });
+      }} onItemSelect={stock => update({
+        stockId: stock.id,
+        warehouseLocationId: stock.locationId || '',
+        batchNumber: stock.batchNumber || '',
+        serialNumber: stock.serialNumber || '',
+        expiryDate: stock.expiryDate?.slice(0, 10) || ''
+      })} /></div>}
+    {issueType !== 'SPARE_PART' && (line.batchNumber || line.serialNumber || line.expiryDate) && <p className="text-sm md:col-span-2">{[line.batchNumber, line.serialNumber, line.expiryDate].filter(Boolean).join(' · ')}</p>}
+    {line.productId && <p className="text-sm md:col-span-2" role="status">{balanceError ? t('inventory.issueVoucher.balanceError') : balance ? `${t('inventory.issueVoucher.available')} ${balance.available} ${balance.unit}` : t('common.loading')}</p>}
+    <Input label={t('inventory.finishedGoodsIssue.quantity')} type="number" min={issueType === 'SPARE_PART' ? '0.01' : '0.0001'} step="0.0001" value={line.quantity} disabled={disabled || !ready || !line.productId} onChange={event => update({
+      quantity: event.target.value
+    })} />
+    {issueType !== 'SPARE_PART' && <Input label={t('inventory.finishedGoodsIssue.lineNotes')} value={line.notes} maxLength={2000} disabled={disabled} onChange={event => update({
+      notes: event.target.value
+    })} />}
+  </div>;
+}
+export function IssueLinesEditor({
+  lines,
+  onChange,
+  disabled = false,
+  error,
+  issueType = 'FINISHED_GOODS',
+  ...context
+}: IssueLinesEditorProps) {
+  const {
+    t
+  } = useTranslation();
+  return <div className="space-y-3">
+    <div className="flex items-center justify-between"><span className="text-sm font-medium">{t('inventory.finishedGoodsIssue.lines')}</span>
+      {!disabled && issueType !== 'SPARE_PART' && <Button type="button" variant="secondary" size="sm" onClick={() => onChange([...lines, createEmptyIssueLine()])}>{t('inventory.finishedGoodsIssue.addLine')}</Button>}
     </div>
-  );
+    {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+    {lines.map(line => <div key={line.key} className="space-y-3 rounded-lg border bg-gray-50 p-3">
+      <IssueLineRow {...context} issueType={issueType} line={line} disabled={disabled} update={patch => onChange(lines.map(current => current.key === line.key ? {
+        ...current,
+        ...patch
+      } : current))} />
+      {!disabled && lines.length > 1 && <Button type="button" variant="secondary" size="sm" onClick={() => onChange(lines.filter(current => current.key !== line.key))}>{t('inventory.finishedGoodsIssue.removeLine')}</Button>}
+    </div>)}
+  </div>;
 }

@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  ArrayMinSize,
   IsDateString,
   IsEnum,
   IsNotEmpty,
@@ -137,6 +138,7 @@ export class CreateMaterialDocumentDto {
   notes?: string;
 
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateMaterialDocumentLineDto)
   lines!: CreateMaterialDocumentLineDto[];
@@ -154,6 +156,7 @@ export class UpdateMaterialDocumentDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateMaterialDocumentLineDto)
   lines?: CreateMaterialDocumentLineDto[];

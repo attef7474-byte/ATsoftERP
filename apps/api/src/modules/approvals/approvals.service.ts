@@ -1,3 +1,4 @@
+import { IssueVoucherQueryDto } from './dto/issue-voucher-query.dto';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types';
@@ -26,6 +27,8 @@ export interface WarehouseApprovalRow {
   lineCount: number;
   totalQuantity: number;
   createdAt: Date;
+  documentDate: Date;
+  sourceType: string | null;
 }
 
 const SPARE_PART_READ = 'maintenance-request-parts:read';
@@ -103,7 +106,7 @@ export class ApprovalsService {
     return status === 'SUBMITTED' ? 'REQUESTED' : status;
   }
 
-  async list(query: WarehouseApprovalsQueryDto, userId: string, ctx: ActiveOperationalContext) {
+  async list(query: WarehouseApprovalsQueryDto | IssueVoucherQueryDto, userId: string, ctx: ActiveOperationalContext, issues = false) {
     const grant = await this.resolveGrantedPermissions(userId);
     const readableSpareParts = this.can(grant, SPARE_PART_READ);
     const readableRawMaterials = this.can(grant, RAW_MATERIAL_READ);
@@ -114,7 +117,9 @@ export class ApprovalsService {
 
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(Math.max(query.limit || 20, 1), 100);
-    const status = this.pendingStatus(query.status);
+    if (!ctx?.companyId || !ctx?.branchId) throw new ForbiddenException({ messageKey: 'auth.insufficientPermissions' });
+    const filters = query as IssueVoucherQueryDto;
+    const status = issues ? query.status : this.pendingStatus(query.status);
     const type = query.type;
     // Bounded cross-model page: each family contributes at most page*limit rows,
     // which is enough to build the requested global page without unbounded reads.
@@ -123,7 +128,7 @@ export class ApprovalsService {
     const dateFilter = query.dateFrom || query.dateTo
       ? {
           ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-          ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
+          ...(query.dateTo ? { lte: new Date(query.dateTo.length === 10 ? `${query.dateTo}T23:59:59.999Z` : query.dateTo) } : {}),
         }
       : undefined;
 
@@ -132,7 +137,9 @@ export class ApprovalsService {
 
     if (readableSpareParts) {
       const sparePartWhere: any = {
-        status: this.sparePartStatus(status),
+        ...(status ? { status: this.sparePartStatus(status) } : {}),
+        ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}),
+        ...(filters.requesterId ? { requestedByUserId: filters.requesterId } : {}),
         maintenanceRequest: {
           deletedAt: null,
           machine: {
@@ -156,7 +163,7 @@ export class ApprovalsService {
           ? (this.prisma as any).maintenanceRequestRequiredPart.findMany({
               where: sparePartWhere,
               take: takePerFamily,
-              orderBy: { createdAt: 'desc' },
+              orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
               include: {
                 sparePart: { select: { id: true, code: true, name: true } },
                 requestedBy: { select: { id: true, name: true } },
@@ -192,12 +199,18 @@ export class ApprovalsService {
           lineCount: 1,
           totalQuantity: Number(part.requestedQuantity ?? part.quantity ?? 0),
           createdAt: part.createdAt,
+          documentDate: part.createdAt,
+          sourceType: null,
         });
       }
     }
 
     if (readableRawMaterials) {
-      const rawWhere: any = { companyId: ctx.companyId, branchId: ctx.branchId, status };
+      const rawWhere: any = { companyId: ctx.companyId, branchId: ctx.branchId, ...(status ? { status: status === 'REQUESTED' ? 'SUBMITTED' : status } : {}),
+        ...(issues ? { documentType: 'ISSUE' } : {}),
+        ...(filters.warehouseId ? { issueWarehouseId: filters.warehouseId } : {}),
+        ...(filters.requesterId ? { AND: [{ OR: [{ createdById: filters.requesterId }, { submittedById: filters.requesterId }] }] } : {}),
+      };
       if (search) {
         rawWhere.OR = [
           { documentNumber: { contains: search } },
@@ -213,7 +226,7 @@ export class ApprovalsService {
           ? (this.prisma as any).productionMaterialDocument.findMany({
               where: rawWhere,
               take: takePerFamily,
-              orderBy: { createdAt: 'desc' },
+              orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
               include: {
                 productionOrder: { select: { id: true, orderNumber: true } },
                 productionRun: { select: { id: true, runNumber: true } },
@@ -225,7 +238,7 @@ export class ApprovalsService {
         (this.prisma as any).productionMaterialDocument.count({ where: rawWhere }),
       ]);
       counts.RAW_MATERIAL = count;
-      const requestedByIds = [...new Set(items.map((item: any) => item.submittedById).filter(Boolean))] as string[];
+      const requestedByIds = [...new Set(items.map((item: any) => (item.submittedById || item.createdById)).filter(Boolean))] as string[];
       const users = await this.loadUserNames(requestedByIds);
       for (const doc of items) {
         rows.push({
@@ -239,18 +252,23 @@ export class ApprovalsService {
             : null,
           status: doc.status,
           requestedAt: doc.submittedAt ?? null,
-          requestedById: doc.submittedById ?? null,
-          requestedByName: doc.submittedById ? users.get(doc.submittedById) ?? null : null,
+          requestedById: doc.submittedById ?? doc.createdById ?? null,
+          requestedByName: users.get(doc.submittedById || doc.createdById) ?? null,
           warehouse: doc.issueWarehouse ?? null,
           lineCount: doc.lines.length,
           totalQuantity: doc.lines.reduce((sum: number, line: any) => sum + Number(line.quantity ?? 0), 0),
           createdAt: doc.createdAt,
+          documentDate: doc.documentDate,
+          sourceType: doc.sourceType ?? null,
         });
       }
     }
 
     if (readableFinishedGoods) {
-      const fgWhere: any = { companyId: ctx.companyId, branchId: ctx.branchId, status };
+      const fgWhere: any = { companyId: ctx.companyId, branchId: ctx.branchId, ...(status ? { status: status === 'REQUESTED' ? 'SUBMITTED' : status } : {}),
+        ...(filters.warehouseId ? { issueWarehouseId: filters.warehouseId } : {}),
+        ...(filters.requesterId ? { AND: [{ OR: [{ createdById: filters.requesterId }, { submittedById: filters.requesterId }] }] } : {}),
+      };
       if (search) {
         fgWhere.OR = [
           { issueNumber: { contains: search } },
@@ -265,7 +283,7 @@ export class ApprovalsService {
           ? (this.prisma as any).finishedGoodsIssue.findMany({
               where: fgWhere,
               take: takePerFamily,
-              orderBy: { createdAt: 'desc' },
+              orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
               include: {
                 issueWarehouse: { select: { id: true, code: true, name: true } },
                 lines: { select: { quantity: true } },
@@ -275,7 +293,7 @@ export class ApprovalsService {
         (this.prisma as any).finishedGoodsIssue.count({ where: fgWhere }),
       ]);
       counts.FINISHED_GOODS = count;
-      const requestedByIds = [...new Set(items.map((item: any) => item.submittedById).filter(Boolean))] as string[];
+      const requestedByIds = [...new Set(items.map((item: any) => (item.submittedById || item.createdById)).filter(Boolean))] as string[];
       const users = await this.loadUserNames(requestedByIds);
       for (const issue of items) {
         rows.push({
@@ -287,17 +305,19 @@ export class ApprovalsService {
           title: issue.purpose ?? null,
           status: issue.status,
           requestedAt: issue.submittedAt ?? null,
-          requestedById: issue.submittedById ?? null,
-          requestedByName: issue.submittedById ? users.get(issue.submittedById) ?? null : null,
+          requestedById: issue.submittedById ?? issue.createdById ?? null,
+          requestedByName: users.get(issue.submittedById || issue.createdById) ?? null,
           warehouse: issue.issueWarehouse ?? null,
           lineCount: issue.lines.length,
           totalQuantity: issue.lines.reduce((sum: number, line: any) => sum + Number(line.quantity ?? 0), 0),
           createdAt: issue.createdAt,
+          documentDate: issue.issueDate,
+          sourceType: issue.sourceType ?? null,
         });
       }
     }
 
-    rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.key.localeCompare(a.key));
     // Counts always describe all readable families so the inbox cards stay
     // stable while a type filter narrows the rows. Pagination totals must match
     // the rows actually being filtered.

@@ -449,7 +449,7 @@ export function FinishedGoodsIssuesPanel() {
                 label={t('inventory.finishedGoodsIssue.issueWarehouse')}
                 value={form.issueWarehouseId}
                 adapter={warehouseAdapter}
-                onChange={(v) => { setForm({ ...form, issueWarehouseId: v }); setValidationErrors(prev => ({ ...prev, issueWarehouseId: '' })); }}
+                onChange={(v) => { setForm({ ...form, issueWarehouseId: v, lines: [createEmptyIssueLine()] }); setValidationErrors(prev => ({ ...prev, issueWarehouseId: '' })); }}
                 disabled={action === 'edit'}
               />
               {validationErrors.issueWarehouseId && <p className="mt-1 text-sm text-red-600">{validationErrors.issueWarehouseId}</p>}
@@ -461,6 +461,7 @@ export function FinishedGoodsIssuesPanel() {
           <Input label={t('inventory.finishedGoodsIssue.purpose')} maxLength={500} value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })} />
 
           <IssueLinesEditor
+            warehouseId={form.issueWarehouseId}
             lines={form.lines}
             onChange={(lines) => { setForm({ ...form, lines }); setValidationErrors(prev => ({ ...prev, lines: '' })); }}
             error={validationErrors.lines}

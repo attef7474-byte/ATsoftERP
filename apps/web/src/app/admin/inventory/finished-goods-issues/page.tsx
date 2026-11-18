@@ -1,20 +1,5 @@
-'use client';
-
-import React from 'react';
-import { useTranslation } from '../../../../lib/i18n/use-translation';
-import { PageHeader } from '../../../../components/admin/ui';
-import { FinishedGoodsIssuesPanel } from '../../../../components/factory/unified-production/finished-goods-issues-panel';
+import { redirect } from 'next/navigation';
 
 export default function FinishedGoodsIssuesPage() {
-  const { t } = useTranslation();
-
-  return (
-    <div>
-      <PageHeader
-        title={t('inventory.finishedGoodsIssue.title')}
-        subtitle={t('inventory.finishedGoodsIssue.subtitle')}
-      />
-      <FinishedGoodsIssuesPanel />
-    </div>
-  );
+  redirect('/admin/inventory/issues');
 }

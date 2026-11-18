@@ -1,3 +1,4 @@
+import { assertIssueStockSelection } from '../../approvals/issue-selection.policy';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
@@ -92,7 +93,7 @@ export class FinishedGoodsIssuesService {
 
     const productIds = [...new Set(dto.lines.map((line) => line.productId))];
     const products = await client.product.findMany({
-      where: { id: { in: productIds } },
+      where: { id: { in: productIds }, status: 'ACTIVE', deletedAt: null },
       select: { id: true },
     });
     const foundProducts = new Set(products.map((product: any) => product.id));
@@ -130,6 +131,9 @@ export class FinishedGoodsIssuesService {
       }
     }
 
+    for (const line of dto.lines) {
+      await assertIssueStockSelection(client, warehouse.id, line.productId, ctx, line);
+    }
     return { warehouse };
   }
 

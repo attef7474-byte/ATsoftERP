@@ -20,6 +20,7 @@ interface ProductUomSelectProps {
   label: string;
   disabled?: boolean;
   error?: string;
+  providedUoms?: ProductUom[];
 }
 
 /**
@@ -29,7 +30,7 @@ interface ProductUomSelectProps {
  * selected packaging unit is never interpreted locally — the base quantity is
  * always produced by the backend conversion authority.
  */
-export function ProductUomSelect({ productId, value, onSelect, label, disabled, error }: ProductUomSelectProps) {
+export function ProductUomSelect({ productId, value, onSelect, label, disabled, error, providedUoms }: ProductUomSelectProps) {
   const { t } = useTranslation();
   const [uoms, setUoms] = useState<ProductUom[]>([]);
   const [loading, setLoading] = useState(false);
@@ -37,6 +38,12 @@ export function ProductUomSelect({ productId, value, onSelect, label, disabled, 
 
   useEffect(() => {
     let cancelled = false;
+    if (providedUoms) {
+      setUoms(providedUoms.filter((uom) => uom.isActive));
+      setLoading(false);
+      setFailed(false);
+      return;
+    }
     if (!productId) {
       setUoms([]);
       setFailed(false);
@@ -63,7 +70,7 @@ export function ProductUomSelect({ productId, value, onSelect, label, disabled, 
     return () => {
       cancelled = true;
     };
-  }, [productId]);
+  }, [productId, providedUoms]);
 
   const options = uoms.map((u) => ({
     value: u.id,

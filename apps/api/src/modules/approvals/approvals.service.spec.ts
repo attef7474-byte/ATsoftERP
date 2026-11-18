@@ -121,6 +121,41 @@ describe('ApprovalsService', () => {
     );
   });
 
+  it('never returns another tenant\'s vouchers when the active context is Company B', async () => {
+    const ctxB: any = { companyId: 'c2', branchId: 'b2' };
+    const { prisma, service } = makeService();
+    prisma.userRole.findMany.mockResolvedValue([
+      userRole([
+        'maintenance-request-parts:read',
+        'production-material-document:read',
+        'finished-goods-issue:read',
+      ]),
+    ]);
+
+    await service.list(baseQuery, 'u1', ctxB);
+
+    for (const model of [
+      prisma.maintenanceRequestRequiredPart,
+      prisma.productionMaterialDocument,
+      prisma.finishedGoodsIssue,
+    ]) {
+      const where = model.findMany.mock.calls[0][0].where;
+      expect(JSON.stringify(where)).not.toContain('c1');
+      expect(JSON.stringify(where)).not.toContain('b1');
+    }
+    expect(prisma.productionMaterialDocument.findMany.mock.calls[0][0].where).toMatchObject({
+      companyId: 'c2',
+      branchId: 'b2',
+    });
+    expect(prisma.finishedGoodsIssue.findMany.mock.calls[0][0].where).toMatchObject({
+      companyId: 'c2',
+      branchId: 'b2',
+    });
+    expect(prisma.maintenanceRequestRequiredPart.findMany.mock.calls[0][0].where).toMatchObject({
+      maintenanceRequest: { machine: { companyId: 'c2', OR: [{ branchId: 'b2' }, { branchId: null }] } },
+    });
+  });
+
   it('defaults to SUBMITTED and only accepts pending-decision statuses', async () => {
     const { prisma, service } = makeService();
     prisma.userRole.findMany.mockResolvedValue([userRole(['finished-goods-issue:read'])]);
@@ -219,5 +254,37 @@ describe('ApprovalsService', () => {
     expect(result.meta.total).toBe(2);
     expect(result.data.map((row: any) => row.type)).toEqual(['FINISHED_GOODS', 'RAW_MATERIAL']);
     expect(prisma.productionMaterialDocument.findMany.mock.calls[0][0].take).toBe(20);
+  });
+});
+
+
+describe('unified issue tracking query', () => {
+  it('reads every native lifecycle status while preserving pending-only approval defaults', async () => {
+    const { prisma, service } = makeService();
+    prisma.userRole.findMany.mockResolvedValue([userRole([], 'SUPER_ADMIN')]);
+    await service.list({ page: 1, limit: 20 } as any, 'root', ctxA, true);
+    expect(prisma.finishedGoodsIssue.findMany.mock.calls[0][0].where).toEqual({ companyId: 'c1', branchId: 'b1' });
+    expect(prisma.productionMaterialDocument.findMany.mock.calls[0][0].where).toEqual({ companyId: 'c1', branchId: 'b1', documentType: 'ISSUE' });
+    expect(prisma.maintenanceRequestRequiredPart.findMany.mock.calls[0][0].where.status).toBeUndefined();
+    await service.list(baseQuery, 'root', ctxA);
+    expect(prisma.finishedGoodsIssue.findMany.mock.calls[1][0].where.status).toBe('SUBMITTED');
+    expect(prisma.maintenanceRequestRequiredPart.findMany.mock.calls[1][0].where.status).toBe('REQUESTED');
+  });
+  it('scopes type/status/warehouse/requester/date/search filters without replacing tenant predicates', async () => {
+    const { prisma, service } = makeService();
+    prisma.userRole.findMany.mockResolvedValue([userRole(['finished-goods-issue:read'])]);
+    await service.list({ page: 1, limit: 20, status: 'DRAFT', warehouseId: 'wa', requesterId: 'requester', search: 'FGI', dateTo: '2026-11-18' } as any, 'root', ctxA, true);
+    const where = prisma.finishedGoodsIssue.findMany.mock.calls[0][0].where;
+    expect(where).toMatchObject({ companyId: 'c1', branchId: 'b1', status: 'DRAFT', issueWarehouseId: 'wa', AND: [{ OR: [{ createdById: 'requester' }, { submittedById: 'requester' }] }] });
+    expect(where.OR).toContainEqual({ issueNumber: { contains: 'FGI' } });
+    expect(where.issueDate.lte.toISOString()).toBe('2026-11-18T23:59:59.999Z');
+    expect(prisma.productionMaterialDocument.findMany).not.toHaveBeenCalled();
+    expect(prisma.maintenanceRequestRequiredPart.findMany).not.toHaveBeenCalled();
+  });
+  it('fails closed when active company/branch is absent', async () => {
+    const { prisma, service } = makeService();
+    prisma.userRole.findMany.mockResolvedValue([userRole([], 'SUPER_ADMIN')]);
+    await expect(service.list(baseQuery, 'root', {} as any, true)).rejects.toThrow(ForbiddenException);
+    expect(prisma.finishedGoodsIssue.findMany).not.toHaveBeenCalled();
   });
 });

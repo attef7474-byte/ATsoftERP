@@ -110,11 +110,12 @@ function makeService(overrides: Record<string, any> = {}) {
     productionMaterialDocumentLine: { deleteMany: jest.fn(), createMany: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
     inventoryMovement: { create: jest.fn(), update: jest.fn(), findUnique: jest.fn() },
     inventoryMovementLine: { deleteMany: jest.fn(), createMany: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
-    productionRun: { findFirst: jest.fn() },
-    productionOrder: { findFirst: jest.fn() },
+    productionRun: { findFirst: jest.fn().mockResolvedValue(run()) },
+    productionOrder: { findFirst: jest.fn().mockResolvedValue(order()) },
     productionMaterialRequirement: { findFirst: jest.fn() },
-    warehouse: { findUnique: jest.fn() },
-    product: { findUnique: jest.fn() },
+    warehouse: { findUnique: jest.fn().mockResolvedValue(warehouse()) },
+    product: { findUnique: jest.fn(), findFirst: jest.fn().mockResolvedValue({ id: 'prod1' }) },
+    inventoryBalance: { findFirst: jest.fn().mockResolvedValue({ id: 'balance-wh1-prod1' }) },
     warehouseLocation: { findUnique: jest.fn() },
     userRole: { findMany: jest.fn() },
     user: { findMany: jest.fn().mockResolvedValue([]) },
@@ -1237,5 +1238,39 @@ describe('ProductionMaterialDocumentsService', () => {
         expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELLED', cancelledById: 'u1' }) }),
       );
     });
+  });
+});
+
+
+describe('Raw-material issue warehouse selection regression', () => {
+  function prime(prisma: any) {
+    prisma.productionMaterialDocument.findFirst.mockResolvedValue(null);
+    prisma.product.findUnique.mockResolvedValue(product());
+  }
+
+  it('rejects a raw material with stock only in another warehouse', async () => {
+    const { prisma, service } = makeService();
+    prime(prisma);
+    prisma.inventoryBalance.findFirst.mockResolvedValue(null);
+    await expect(service.create(baseDto(), 'u1', ctxA)).rejects.toMatchObject({ response: { messageKey: 'inventory.issueVoucher.invalidSelection' } });
+    expect(prisma.productionMaterialDocument.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a finished good unrelated to the selected order material requirement', async () => {
+    const { prisma, service } = makeService();
+    prime(prisma);
+    prisma.product.findFirst.mockResolvedValue(null);
+    await expect(service.create(baseDto(), 'u1', ctxA)).rejects.toThrow(BadRequestException);
+    expect(prisma.product.findFirst.mock.calls[0][0].where).toMatchObject({ requirementLines: { some: { requirement: { productionOrderId: 'po1' } } } });
+    expect(prisma.productionMaterialDocument.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects cross-warehouse stock on PATCH before rebuilding the same document', async () => {
+    const { prisma, service } = makeService();
+    prime(prisma);
+    prisma.productionMaterialDocument.findFirst.mockResolvedValue(document());
+    prisma.inventoryBalance.findFirst.mockResolvedValue(null);
+    await expect(service.update('doc1', { lines: baseDto().lines }, 'u1', ctxA)).rejects.toThrow(BadRequestException);
+    expect(prisma.productionMaterialDocumentLine.deleteMany).not.toHaveBeenCalled();
   });
 });

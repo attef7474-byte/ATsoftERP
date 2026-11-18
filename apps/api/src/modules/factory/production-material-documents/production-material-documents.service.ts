@@ -1,3 +1,4 @@
+import { assertIssueStockSelection, issueProductScope, issueSelectionError } from '../../approvals/issue-selection.policy';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
@@ -242,6 +243,13 @@ export class ProductionMaterialDocumentsService {
       }
     }
 
+    if (dto.documentType === 'ISSUE' && warehouse) {
+      for (const line of dto.lines) {
+        const eligible = await client.product.findFirst({ where: { id: line.productId, ...issueProductScope('RAW_MATERIAL', warehouse.id, ctx, order.id) }, select: { id: true } });
+        if (!eligible) throw issueSelectionError();
+        await assertIssueStockSelection(client, warehouse.id, line.productId, ctx, line);
+      }
+    }
     return { run, order, warehouse, products };
   }
 
@@ -740,6 +748,7 @@ export class ProductionMaterialDocumentsService {
 
       let purposeOverrides: Awaited<ReturnType<typeof this.resolveLineCostPurposes>> = [];
       if (dto.lines && dto.lines.length > 0) {
+        await this.resolveContext({ documentType: doc.documentType, productionOrderId: doc.productionOrderId, productionRunId: doc.productionRunId, issueWarehouseId: doc.issueWarehouseId, lines: dto.lines }, ctx, tx);
         for (const line of dto.lines) {
           const product = await tx.product.findUnique({ where: { id: line.productId } });
           if (!product) throw this.notFound('productionMaterial.productNotFound');

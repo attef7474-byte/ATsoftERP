@@ -63,6 +63,7 @@ export function F9Lookup<T extends Record<string, any>>({
   );
   const previousContextKeyRef = useRef<string | undefined>(undefined);
   const previousFilterKeyRef = useRef<string | undefined>(undefined);
+  const detailVersionRef = useRef(0);
   const operationalRoute = /^\/admin\/(inventory|maintenance|barcodes|reports)(\/|$)/.test(pathname || '');
   const contextBinding = useMemo(() => {
     if (!operationalRoute || !bindToActiveContext || !adapter.contextField || !activeContext) return null;
@@ -82,36 +83,44 @@ export function F9Lookup<T extends Record<string, any>>({
   }, [activeContext, adapter.contextField, bindToActiveContext, operationalRoute]);
   const effectiveDisabled = Boolean(disabled || contextBinding);
 
-  const fetchItem = useCallback(async (id: string) => {
+  const fetchItem = useCallback(async (id: string, version: number) => {
     if (dataCache.has(id)) {
       setDisplayText(adapter.displayLabel(dataCache.get(id)!));
       return;
     }
+    if (adapter.detailFilters) setDisplayText('');
     try {
       const detailEndpoint = adapter.detailEndpoint ?? adapter.endpoint;
-      const res = await api.get<unknown>(`${detailEndpoint}/${id}`);
+      const res = await api.get<unknown>(`${detailEndpoint}/${id}`, adapter.detailFilters ? { params: filters } : undefined);
       const item = unwrapApiData<T>(res);
+      if (version !== detailVersionRef.current) return;
       if (item) {
         setDataCache((prev) => new Map(prev).set(id, item));
         setDisplayText(adapter.displayLabel(item));
       }
     } catch {
-      setDisplayText(id);
+      if (version === detailVersionRef.current) setDisplayText(adapter.detailFilters ? t('errors.loadFailed') : id);
     }
-  }, [adapter, dataCache]);
+  }, [adapter, dataCache, filterKey, t]);
 
   useEffect(() => {
+    const version = ++detailVersionRef.current;
     if (contextBinding) {
       setDisplayText(contextBinding.label);
       if (value !== contextBinding.id) onChange(contextBinding.id);
       return;
     }
     if (value) {
-      fetchItem(value);
+      void fetchItem(value, version);
     } else {
       setDisplayText('');
     }
-  }, [contextBinding, value, fetchItem, onChange]);
+    return () => { detailVersionRef.current += 1; };
+  }, [contextBinding, value, fetchItem, onChange, contextKey, filterKey]);
+
+  useEffect(() => {
+    if (adapter.detailFilters) setDataCache(new Map());
+  }, [adapter.detailFilters, filterKey]);
 
   useEffect(() => {
     const previous = previousContextKeyRef.current;

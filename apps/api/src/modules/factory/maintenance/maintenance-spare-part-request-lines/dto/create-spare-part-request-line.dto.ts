@@ -2,6 +2,10 @@ import { IsString, IsOptional, IsNumber, IsPositive, IsBoolean, Min } from 'clas
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateSparePartRequestLineDto {
+  @IsOptional()
+  @IsString()
+  warehouseId?: string;
+
   @ApiPropertyOptional()
   @IsString()
   sparePartId: string;
@@ -49,6 +53,10 @@ export class CreateSparePartRequestLineDto {
 }
 
 export class UpdateSparePartRequestLineDto {
+  @IsOptional()
+  @IsString()
+  warehouseId?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()

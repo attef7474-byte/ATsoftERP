@@ -48,10 +48,10 @@ export const PRODUCTION_MATERIAL_DOCUMENT_INCLUDE = {
     },
   },
   issueWarehouse: { select: { id: true, code: true, name: true } },
-  movement: { select: { id: true, movementNumber: true, movementType: true, status: true } },
+  movement: { select: { id: true, movementNumber: true, movementType: true, status: true, lines: { select: { productId: true, quantity: true, unit: true, productUomId: true } } } },
   lines: {
     include: {
-      product: { select: { id: true, code: true, name: true } },
+      product: { select: { id: true, code: true, name: true, uoms: { where: { isActive: true }, include: { unit: true } } } },
       substitutedProduct: { select: { id: true, code: true, name: true } },
       warehouseLocation: { select: { id: true, code: true, name: true } },
     },

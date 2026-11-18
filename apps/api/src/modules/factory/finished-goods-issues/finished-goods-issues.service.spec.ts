@@ -89,6 +89,7 @@ function makeService(overrides: Record<string, any> = {}) {
       createMany: jest.fn(),
       findMany: jest.fn().mockResolvedValue([]),
     },
+    inventoryBalance: { findFirst: jest.fn().mockResolvedValue({ id: 'balance-wh1-prod1' }) },
     warehouse: { findUnique: jest.fn() },
     warehouseLocation: { findUnique: jest.fn() },
     product: { findMany: jest.fn() },
@@ -459,5 +460,34 @@ describe('FinishedGoodsIssuesService', () => {
       });
       expect(movementData.lines.create[0]).toMatchObject({ productId: 'prod1', direction: 'IN' });
     });
+  });
+});
+
+
+describe('Finished goods issue warehouse selection regression', () => {
+  it('rejects a valid finished product whose stock exists only in another warehouse', async () => {
+    const { prisma, service } = makeService();
+    primeCreate(prisma);
+    prisma.inventoryBalance.findFirst.mockResolvedValue(null);
+    await expect(service.create(baseDto(), 'u1', ctxA)).rejects.toMatchObject({ response: { messageKey: 'inventory.issueVoucher.invalidSelection' } });
+    expect(prisma.inventoryBalance.findFirst.mock.calls[0][0].where).toMatchObject({ productId: 'prod1', warehouseId: 'wh1', warehouse: { companyId: 'c1' } });
+    expect(prisma.finishedGoodsIssue.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a raw material passed directly to the finished-goods API', async () => {
+    const { prisma, service } = makeService();
+    primeCreate(prisma);
+    prisma.productionProductDefinition.findMany.mockResolvedValue([]);
+    await expect(service.create(baseDto(), 'u1', ctxA)).rejects.toMatchObject({ response: { messageKey: 'finishedGoodsIssue.productNotEligible' } });
+    expect(prisma.finishedGoodsIssue.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a manipulated warehouse on a draft update before line replacement', async () => {
+    const { prisma, service } = makeService();
+    primeCreate(prisma);
+    prisma.finishedGoodsIssue.findFirst.mockResolvedValue(issue());
+    prisma.inventoryBalance.findFirst.mockResolvedValue(null);
+    await expect(service.update('fgi1', { lines: [{ productId: 'prod1', quantity: 5, unit: 'PC' }] }, 'u1', ctxA)).rejects.toThrow(BadRequestException);
+    expect(prisma.finishedGoodsIssueLine.deleteMany).not.toHaveBeenCalled();
   });
 });

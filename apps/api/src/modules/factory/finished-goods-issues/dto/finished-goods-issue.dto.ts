@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  ArrayMinSize,
   IsDateString,
   IsNotEmpty,
   IsNumber,
@@ -93,6 +94,7 @@ export class CreateFinishedGoodsIssueDto {
   notes?: string;
 
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateFinishedGoodsIssueLineDto)
   lines!: CreateFinishedGoodsIssueLineDto[];
@@ -115,6 +117,7 @@ export class UpdateFinishedGoodsIssueDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateFinishedGoodsIssueLineDto)
   lines?: CreateFinishedGoodsIssueLineDto[];

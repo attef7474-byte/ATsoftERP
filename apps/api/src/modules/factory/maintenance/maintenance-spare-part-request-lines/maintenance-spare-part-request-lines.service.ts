@@ -1,3 +1,4 @@
+import { assertIssueStockSelection, issueSelectionError, issueWarehouseScope } from '../../../approvals/issue-selection.policy';
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
@@ -13,6 +14,13 @@ export class MaintenanceSparePartRequestLinesService {
     private audit: AuditService,
     private notificationService: MaintenanceNotificationService,
   ) {}
+
+  private async validateWarehouse(warehouseId: string | null | undefined, sparePart: any, ctx: ActiveOperationalContext, client: any = this.prisma) {
+    if (!warehouseId) return;
+    const warehouse = await client.warehouse.findFirst({ where: { id: warehouseId, ...issueWarehouseScope(ctx) } });
+    if (!warehouse || ['PRODUCT', 'RAW_MATERIAL'].includes(warehouse.warehouseType ?? '') || !sparePart.productId) throw issueSelectionError();
+    await assertIssueStockSelection(client, warehouseId, sparePart.productId, ctx);
+  }
 
   private machineScope(ctx: ActiveOperationalContext) {
     return {
@@ -95,6 +103,7 @@ export class MaintenanceSparePartRequestLinesService {
       });
     }
 
+    await this.validateWarehouse(dto.warehouseId, sparePart, ctx);
     const effectiveMachineId = dto.machineId || req.machineId;
     if (dto.machineId) {
       await this.assertMachineInContext(dto.machineId, ctx);
@@ -115,12 +124,18 @@ export class MaintenanceSparePartRequestLinesService {
       }
     }
 
-    let part: any;
-    try {
-      part = await this.prisma.maintenanceRequestRequiredPart.create({
+    const persist = async (client: any) => {
+      await this.validateWarehouse(dto.warehouseId, sparePart, ctx, client);
+      if (dto.warehouseId) {
+        const request = await client.maintenanceRequest.findFirst({ where: { id: requestId, deletedAt: null, status: { notIn: ['COMPLETED', 'CANCELLED', 'CLOSED'] }, machine: this.machineScope(ctx) }, select: { id: true } });
+        const currentSpare = await client.sparePart.findFirst({ where: { id: dto.sparePartId, status: 'ACTIVE', deletedAt: null, product: { id: sparePart.productId, status: 'ACTIVE', deletedAt: null } }, select: { id: true } });
+        if (!request || !currentSpare) throw issueSelectionError();
+      }
+      const created = await client.maintenanceRequestRequiredPart.create({
         data: {
           maintenanceRequestId: requestId,
           sparePartId: dto.sparePartId,
+          warehouseId: dto.warehouseId,
           machineComponentId: dto.machineComponentId,
           machineId: dto.machineId || req.machineId,
           quantity: dto.quantity,
@@ -129,23 +144,23 @@ export class MaintenanceSparePartRequestLinesService {
           isPrimary: dto.isPrimary,
           reason: dto.reason,
           status: 'DRAFT',
+          requestedByUserId: dto.warehouseId ? userId : undefined,
         },
         include: { sparePart: true },
       });
-    } catch (e: any) {
-      // R2-D: a unique-constraint duplicate must surface as a canonical 400,
-      // never as a user-visible 500.
-      if (e?.code === 'P2002') {
-        throw new BadRequestException({
-          messageKey: 'maintenance.sparePartAlreadyAddedToRequest',
-          message: 'This spare part is already added to the request',
-        });
-      }
-      throw e;
+      const details = { requestId, sparePartId: dto.sparePartId, warehouseId: dto.warehouseId, status: 'DRAFT', companyId: ctx.companyId, branchId: ctx.branchId };
+      if (dto.warehouseId) await this.audit.logWithClient(client, { userId, action: 'CREATE', entity: 'MaintenanceRequestRequiredPart', entityId: created.id, details });
+      else await this.audit.log(userId, 'CREATE', 'MaintenanceRequestRequiredPart', created.id, details);
+      return created;
+    };
+    let part: any;
+    try {
+      part = dto.warehouseId ? await this.prisma.$transaction(persist) : await persist(this.prisma);
+    } catch (error: any) {
+      if (error?.code === 'P2002') throw new BadRequestException({ messageKey: 'maintenance.sparePartAlreadyAddedToRequest' });
+      throw error;
     }
 
-    await this.audit.log(userId, 'CREATE', 'MaintenanceRequestRequiredPart', part.id,
-      { requestId, sparePartId: dto.sparePartId, status: 'DRAFT', companyId: ctx.companyId, branchId: ctx.branchId });
     return part;
   }
 
@@ -196,6 +211,7 @@ export class MaintenanceSparePartRequestLinesService {
     }
 
     const part = await this.findPartOrFail(lineId, requestId);
+    await this.validateWarehouse(dto.warehouseId ?? part.warehouseId, part.sparePart, ctx);
     if (this.isTerminalStatus(part.status) || part.status === 'REQUESTED' || part.status === 'APPROVED' || part.status === 'RESERVED' || part.status === 'USED') {
       throw new BadRequestException(`Cannot update part in status '${part.status}'`);
     }
@@ -214,6 +230,7 @@ export class MaintenanceSparePartRequestLinesService {
     }
 
     const data: any = {};
+    if (dto.warehouseId !== undefined) data.warehouseId = dto.warehouseId;
     if (dto.quantity !== undefined) data.quantity = dto.quantity;
     if (dto.reason !== undefined) data.reason = dto.reason;
     if (dto.unit !== undefined) data.unit = dto.unit;
@@ -221,6 +238,19 @@ export class MaintenanceSparePartRequestLinesService {
     if (dto.isPrimary !== undefined) data.isPrimary = dto.isPrimary;
     if (dto.machineComponentId !== undefined) data.machineComponentId = dto.machineComponentId;
     if (dto.machineId !== undefined) data.machineId = dto.machineId;
+
+    if (dto.warehouseId || part.warehouseId) {
+      return this.prisma.$transaction(async (tx) => {
+        await this.validateWarehouse(dto.warehouseId ?? part.warehouseId, part.sparePart, ctx, tx);
+        const claim = await tx.maintenanceRequestRequiredPart.updateMany({
+          where: { id: lineId, status: 'DRAFT', maintenanceRequest: { machine: this.machineScope(ctx) } }, data,
+        });
+        if (claim.count !== 1) throw issueSelectionError();
+        await this.audit.logWithClient(tx, { userId, action: 'UPDATE', entity: 'MaintenanceRequestRequiredPart', entityId: lineId,
+          details: { previousWarehouseId: part.warehouseId, ...dto, companyId: ctx.companyId, branchId: ctx.branchId } });
+        return tx.maintenanceRequestRequiredPart.findFirst({ where: { id: lineId, maintenanceRequest: { machine: this.machineScope(ctx) } }, include: { sparePart: true } });
+      });
+    }
 
     const updated = await this.prisma.maintenanceRequestRequiredPart.update({
       where: { id: lineId },
