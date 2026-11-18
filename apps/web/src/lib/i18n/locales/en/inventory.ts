@@ -788,6 +788,7 @@ const inventory: Pick<LocaleTranslations, 'inventory' | 'inventoryCounting' | 'i
             totalQuantity: 'Quantity',
             status: 'Status',
             statusSUBMITTED: 'Awaiting Approval',
+            statusREQUESTED: 'Awaiting Approval',
             statusAPPROVED: 'Approved',
             statusREJECTED: 'Rejected',
             approve: 'Approve',

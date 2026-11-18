@@ -73,7 +73,10 @@ function requiredPermission(row: WarehouseApprovalRow, action: ApprovalAction): 
 }
 
 function actionAllowedInStatus(row: WarehouseApprovalRow, action: ApprovalAction): boolean {
-  if (action === 'approve' || action === 'reject' || action === 'withdraw') return row.status === 'SUBMITTED';
+  // Spare-part lines keep their native REQUESTED status for "awaiting a
+  // warehouse decision"; the flat authorities use SUBMITTED.
+  const awaitingDecision = row.status === 'SUBMITTED' || (row.type === 'SPARE_PART' && row.status === 'REQUESTED');
+  if (action === 'approve' || action === 'reject' || action === 'withdraw') return awaitingDecision;
   // A prior approval can only be cancelled for the flat authorities that model it.
   if (action === 'cancelApproval') return row.status === 'APPROVED' && row.type !== 'SPARE_PART';
   return false;
