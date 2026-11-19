@@ -1,6 +1,8 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { NumberingService } from '../../../numbering/numbering.service';
 import { AuditService } from '../../../../common/audit/audit.service';
@@ -386,5 +388,24 @@ describe('Phase 3 — limited Excel round-trip columns', () => {
     const column = EXCEL_DEFINITIONS['spare-parts'].columns.find((c) => c.field === 'defaultExpectedLifeUnit')!;
     expect(column.type).toBe('enum');
     expect(column.values).toEqual(['DAYS', 'HOURS', 'CYCLES']);
+  });
+});
+
+describe('Phase 3 — reading history schema alignment', () => {
+  it('maps MachineInstalledPartReading.createdAt to the migrated createdAt column', () => {
+    const apiRoot = join(__dirname, '..', '..', '..', '..', '..');
+    const schema = readFileSync(join(apiRoot, 'prisma', 'schema.prisma'), 'utf8');
+    const readingModel = schema.slice(
+      schema.indexOf('model MachineInstalledPartReading {'),
+      schema.indexOf('\n}', schema.indexOf('model MachineInstalledPartReading {')),
+    );
+    expect(readingModel).toContain('createdAt        DateTime             @default(now())');
+    expect(readingModel).not.toContain('@map("created_at")');
+
+    const readingMigration = readFileSync(
+      join(apiRoot, 'prisma', 'migrations', '20260801120000_ux1b2c_expected_life_checklist_snapshot', 'migration.sql'),
+      'utf8',
+    );
+    expect(readingMigration).toContain('[createdAt] DATETIME2 NOT NULL');
   });
 });

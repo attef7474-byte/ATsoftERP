@@ -46,6 +46,8 @@ Entries are append-only. A status may change to `RESOLVED` only with evidence. A
 | P16 | Pre-existing non-blockers recur: global F9 `cost-snapshots` 500, Jest worker teardown warning, dynamic `t()` warnings. | Classify these as pre-existing and report them separately from new failures. Do not delete tests or weaken assertions to make them disappear. | PRE-EXISTING / WATCH |
 | P17 | `sqlcmd -E -S` failed with named-pipes error `[53]` when given the Prisma URL server `localhost:50079`. | For SQL Server `sqlcmd`, normalize Prisma `host:port` to `host,port` (or `tcp:host,port`). Parse only server/database from `DATABASE_URL`; never print credentials. | ACTIVE CHECK |
 | P18 | A migration verification script asserted a rigid padded `sqlcmd -h -1 -W` output shape and failed although the migration had applied correctly. | Assert semantic values (for example `1 1 1` for three verified columns) and make guarded re-runs idempotent when a prior attempt already applied DDL but did not record migration history. | ACTIVE CHECK |
+| P19 | `POST /installed-parts/:id/readings` returned 500 because `MachineInstalledPartReading.createdAt` was mapped to `created_at` while the dated migration and production table use `createdAt`. | Before any runtime proof that writes readings, assert the Prisma `@map` matches the dated migration/DB column, then run `prisma validate`, `prisma generate`, and a read-only `createdAt` probe against the target DB. Keep a static regression test that locks schema/migration alignment. | ACTIVE CHECK — fixed by Phase 3 schema mapping correction |
+| P20 | Browser-proof password credentials were unavailable, which made a normal login proof impossible without inventing credentials. | When explicitly authorized by the task, derive an env-only HS256 JWT from root `.env` `JWT_SECRET` plus DB-queried `id`, `email`, `authVersion`; load the operational context from `/auth/contexts`, keep API calls same-origin, and print only `REDACTED`. Never hard-code or print secrets. | ACTIVE CHECK / SECURITY |
 
 ## 4. Related standing guards from Phase 2
 
@@ -76,6 +78,7 @@ Copy mentally at the start of every prompt:
 - [ ] Regex env parsing; credentials `REDACTED`; never `[Uri]` on `DATABASE_URL`.
 - [ ] Normalize Prisma `host:port` to `host,port` for `sqlcmd`; assert semantic `sqlcmd` output.
 - [ ] Separate pre-existing failures from new failures.
+- [ ] Before writing readings, verify Prisma `@map` matches the dated migration/DB column.
 - [ ] Append new findings here and mention applied checks in the final report.
 
 ## 6. Append template for new problems
@@ -91,3 +94,4 @@ Use `ACTIVE CHECK` until the preventive step is verified in a later task. Use `R
 | Date | Task | Checks applied | New entries |
 | --- | --- | --- | --- |
 | 2026-11-20 | Created this register and added `AGENTS.md` pointer | Documentation-only task; no code/build/runtime checks invoked | P01–P16 seeded from Phase 2 closeout |
+| 2026-11-20 | Phase 3 browser-proof remediation | P01, P05, P06, P09, P10, P11, P12, P13, P16, P17, P18 applied; schema/migration alignment, `prisma validate`, `prisma generate`, focused Jest, API typecheck/build, same-origin API, env-only auth, guarded cleanup applied | P19 added for the pre-existing reading `createdAt` mapping drift; P20 added for env-derived JWT browser auth |
