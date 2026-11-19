@@ -222,6 +222,12 @@ Report at the end of an implementation task: 1) task status, 2) exact scope comp
 
 Do not use vague statements such as "everything should work", "likely complete", "tests appear fine", or "production ready" without evidence.
 
+---
+
+## 20. Cross-Prompt Inspection Pitfalls Register
+
+Before every implementation, inspection, debugging, migration, deployment, or validation prompt, read `docs/governance/inspection-pitfalls-register.md`. It is the permanent append-only record of previously encountered problems and their mandatory preventive checks. Apply every `ACTIVE CHECK` relevant to the task, append newly discovered problems to the register while working, and state in the final response which checks were applied. Do not rely on conversation memory, and do not delete or weaken register entries.
+
 <!-- BEGIN:turborepo-agent-rules -->
 
 # This is NOT the Turborepo you know
