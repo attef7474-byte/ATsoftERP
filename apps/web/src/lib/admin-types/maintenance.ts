@@ -416,23 +416,46 @@ export interface OperationType {
   updatedAt: string;
 }
 
+export interface MachineComponentMachine {
+  id?: string;
+  associationId?: string;
+  machineId: string;
+  status: string;
+  linkedAt?: string;
+  unlinkedAt?: string | null;
+  locationInMachine?: string | null;
+  serialNumber?: string | null;
+  /** Flattened machine display fields returned by some list/detail projections. */
+  code?: string;
+  name?: string;
+  /** Nested machine projection returned by the aggregate detail endpoint. */
+  machine?: { id: string; name: string; code: string } | null;
+}
+
 export interface MachineComponent {
   id: string;
-  machineId: string;
+  /** Deprecated legacy pointer. Canonical membership is machines/machineLinks. */
+  machineId?: string;
+  companyId?: string | null;
+  branchId?: string | null;
   parentComponentId?: string | null;
   code: string;
   name: string;
   componentType: string;
   description?: string | null;
+  /** Deprecated component-level value; use machines[].locationInMachine. */
   locationInMachine?: string | null;
   manufacturer?: string | null;
   model?: string | null;
+  /** Deprecated component-level value; use machines[].serialNumber. */
   serialNumber?: string | null;
   criticality: string;
   status: string;
   createdAt: string;
   updatedAt: string;
   machine?: { id: string; name: string; code: string };
+  machineLinks?: MachineComponentMachine[];
+  machines?: Array<MachineComponentMachine & { code?: string; name?: string; associationId?: string }>;
   parentComponent?: { id: string; name: string; code: string } | null;
   children?: { id: string; name: string; code: string }[];
   _count?: { children: number };

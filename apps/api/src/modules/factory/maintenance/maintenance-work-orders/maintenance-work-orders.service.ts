@@ -23,6 +23,7 @@ import {
   MANUAL_AMOUNT_UNIT,
 } from '../../production-cost/production-cost.constants';
 import { OperationalCostCenterResolver } from '../cost-centers/operational-cost-center-resolver.service';
+import { assertMachineComponentBelongsToMachine } from '../../../../common/operational-context/tenant-guards';
 
 const FORBIDDEN_WAREHOUSE_TYPES = ['PRODUCT', 'RAW_MATERIAL'];
 
@@ -372,15 +373,10 @@ export class MaintenanceWorkOrdersService {
       }
     }
 
-    // General integrity: a component must belong to the effective machine.
+    // General integrity: the component must have an ACTIVE association to the
+    // effective machine. Legacy machineId is not authoritative.
     if (machineComponentId && machineId) {
-      const component = await this.prisma.machineComponent.findUnique({ where: { id: machineComponentId } });
-      if (!component) {
-        throw this.validationError('machineComponentId', 'validation.invalidReference', 'Referenced machine component not found');
-      }
-      if (component.machineId && component.machineId !== machineId) {
-        throw this.validationError('machineComponentId', 'workOrderComponentMachineMismatch', 'Work order component does not belong to the work order machine');
-      }
+      await assertMachineComponentBelongsToMachine(this.prisma, machineComponentId, machineId, ctx);
     }
 
     return { requestId, machineId, machineComponentId };
@@ -638,15 +634,10 @@ export class MaintenanceWorkOrdersService {
         )
       : { requestId: null, machineId: effectiveMachineId, machineComponentId: effectiveMachineComponentId };
 
-    // Unlinked work orders still bind a component to its machine.
+    // Unlinked work orders still bind a component to its machine through an
+    // ACTIVE MachineComponentMachine association.
     if (!effectiveRequestId && effectiveMachineComponentId && effectiveMachineId) {
-      const component = await this.prisma.machineComponent.findUnique({ where: { id: effectiveMachineComponentId } });
-      if (!component) {
-        throw this.validationError('machineComponentId', 'validation.invalidReference', 'Referenced machine component not found');
-      }
-      if (component.machineId && component.machineId !== effectiveMachineId) {
-        throw this.validationError('machineComponentId', 'workOrderComponentMachineMismatch', 'Work order component does not belong to the work order machine');
-      }
+      await assertMachineComponentBelongsToMachine(this.prisma, effectiveMachineComponentId, effectiveMachineId, ctx);
     }
 
     await Promise.all([

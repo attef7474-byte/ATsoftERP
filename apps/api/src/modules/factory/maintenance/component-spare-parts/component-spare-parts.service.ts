@@ -78,7 +78,16 @@ export class ComponentSparePartsService {
    */
   private async assertReferences(tx: any, componentId: string, sparePartId: string, ctx: ActiveOperationalContext) {
     const [component, sparePart] = await Promise.all([
-      tx.machineComponent.findFirst({ where: { id: componentId, deletedAt: null, machine: this.machineScope(ctx) }, select: { id: true } }),
+      tx.machineComponent.findFirst({
+        where: {
+          id: componentId,
+          deletedAt: null,
+          status: 'ACTIVE',
+          companyId: ctx.companyId,
+          OR: [{ branchId: ctx.branchId }, { branchId: null }],
+        },
+        select: { id: true },
+      }),
       tx.sparePart.findFirst({ where: { id: sparePartId, deletedAt: null, status: 'ACTIVE' }, select: { id: true } }),
     ]);
     if (!component) throw new BadRequestException('Component not found');

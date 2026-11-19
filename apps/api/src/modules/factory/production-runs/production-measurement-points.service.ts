@@ -8,6 +8,7 @@ import { CreateMeasurementPointDto, BatchCreateMeasurementPointsDto } from './dt
 import { UpdateMeasurementPointDto } from './dto/update-measurement-point.dto';
 import { MeasurementPointQueryDto } from './dto/measurement-point-query.dto';
 import { PRODUCTION_MEASUREMENT_POINT_AUDIT_ENTITY, PRODUCTION_MEASUREMENT_POINT_NUMBER_SEQUENCE } from './production-runs.constants';
+import { assertMachineComponentBelongsToMachine } from '../../../common/operational-context/tenant-guards';
 
 const pointInclude = {
   productionLine: { select: { id: true, code: true, name: true } },
@@ -284,8 +285,12 @@ export class ProductionMeasurementPointsService {
       if (!machine) throw new BadRequestException({ messageKey: 'productionMeasurementPoint.machineInvalid' });
     }
     if (input.machineComponentId) {
-      const component = await client.machineComponent.findFirst({ where: { id: input.machineComponentId, companyId: ctx.companyId, branchId: ctx.branchId, ...(input.machineId ? { machineId: input.machineId } : {}), status: 'ACTIVE', deletedAt: null } });
-      if (!component) throw new BadRequestException({ messageKey: 'productionMeasurementPoint.componentInvalid' });
+      if (input.machineId) {
+        await assertMachineComponentBelongsToMachine(client, input.machineComponentId, input.machineId, ctx);
+      } else {
+        const component = await client.machineComponent.findFirst({ where: { id: input.machineComponentId, companyId: ctx.companyId, branchId: ctx.branchId, status: 'ACTIVE', deletedAt: null } });
+        if (!component) throw new BadRequestException({ messageKey: 'productionMeasurementPoint.componentInvalid' });
+      }
     }
     const unit = await client.productionUnit.findFirst({ where: { id: input.productionUnitId, companyId: ctx.companyId, branchId: ctx.branchId, status: 'ACTIVE', deletedAt: null } });
     if (!unit) throw new BadRequestException({ messageKey: 'productionMeasurementPoint.unitInvalid' });

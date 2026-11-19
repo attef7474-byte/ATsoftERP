@@ -45,8 +45,10 @@ function seed() {
     defaultCostCenterId: null, defaultCostCenter: null, manufacturer: null, model: null, serialNumber: null,
     purchaseDate: null, warrantyEnd: null, location: null, notes: null, status: 'ACTIVE', deletedAt: null,
   };
-  const parentComponent = { id: 'c-1', machineId: 'm-1', machine: machineA, parentComponentId: null, parentComponent: null, code: 'CMP-0001', name: 'Parent', componentType: 'MECHANICAL', criticality: 'HIGH', status: 'ACTIVE', deletedAt: null };
-  const childComponent = { id: 'c-2', machineId: 'm-1', machine: machineA, parentComponentId: 'c-1', parentComponent: parentComponent, code: 'CMP-0002', name: 'Child', componentType: 'ELECTRICAL', criticality: 'MEDIUM', description: 'desc', locationInMachine: 'inside', manufacturer: 'ACME', model: 'M1', serialNumber: 'S-1', status: 'ACTIVE', deletedAt: null };
+  const parentLink = { id: 'link-1', componentId: 'c-1', machineId: 'm-1', machine: { id: 'm-1', code: machineA.code }, status: 'ACTIVE', locationInMachine: null, serialNumber: null };
+  const childLink = { id: 'link-2', componentId: 'c-2', machineId: 'm-1', machine: { id: 'm-1', code: machineA.code }, status: 'ACTIVE', locationInMachine: 'inside', serialNumber: 'S-1' };
+  const parentComponent = { id: 'c-1', machineId: 'm-1', machine: machineA, machineLinks: [parentLink], parentComponentId: null, parentComponent: null, companyId: 'A', branchId: 'A1', code: 'CMP-0001', name: 'Parent', componentType: 'MECHANICAL', criticality: 'HIGH', status: 'ACTIVE', deletedAt: null };
+  const childComponent = { id: 'c-2', machineId: 'm-1', machine: machineA, machineLinks: [childLink], parentComponentId: 'c-1', parentComponent: parentComponent, companyId: 'A', branchId: 'A1', code: 'CMP-0002', name: 'Child', componentType: 'ELECTRICAL', criticality: 'MEDIUM', description: 'desc', locationInMachine: 'inside', manufacturer: 'ACME', model: 'M1', serialNumber: 'S-1', status: 'ACTIVE', deletedAt: null };
   const sparePart = {
     id: 'sp-1', code: 'SP-0001', name: 'Bearing', description: 'desc', category: 'Mechanical', specification: '6204', unit: 'PCS', unitId: null, unitRef: null,
     manufacturer: 'SKF', model: '6204-2RS', partNumber: '0007', barcode: '0000123456789', minRecommendedStock: 5, maxRecommendedStock: 20,
@@ -96,6 +98,7 @@ function fixture(mutate?: (data: Record<string, Row[]>) => void) {
   const db: any = {
     userRole: { findMany: jest.fn(async () => [{ role: { code: 'CATALOG', status: 'ACTIVE', permissions: keys.map(key => ({ permission: { key, status: 'ACTIVE' } })) } }]) },
     user: { findUnique: jest.fn(async () => ({ name: 'Owner' })) },
+    $transaction: jest.fn(async (callback: any) => callback(db)),
   };
   for (const [model, records] of Object.entries(data)) {
     db[model] = {
@@ -108,11 +111,20 @@ function fixture(mutate?: (data: Record<string, Row[]>) => void) {
       }),
     };
   }
-  const service = new MasterDataExcelService(db, new PermissionCheckService(db), {} as any, {} as any, {} as any, {} as any, {} as any);
-  return { service, db, calls };
+  const audit = { logWithClient: jest.fn(async () => undefined) };
+  const components = { saveInTx: jest.fn(async (_tx: any, _dto: any, _user: string, _ctx: any, existingId?: string) => ({ id: existingId ?? 'new-component-id' })) };
+  const service = new MasterDataExcelService(db, new PermissionCheckService(db), audit as any, {} as any, components as any, {} as any, {} as any);
+  return { service, db, calls, audit, components };
 }
 
 const upload = (buffer: Buffer) => ({ buffer, originalname: 'machines-export.xlsx', mimetype: 'application/octet-stream', size: buffer.length });
+async function sheetBuffer(headers: string[], rows: any[][]): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Data');
+  sheet.addRow(headers);
+  for (const row of rows) sheet.addRow(row);
+  return Buffer.from(await workbook.xlsx.writeBuffer() as any);
+}
 
 describe('generated export to validate round trip (Production regression)', () => {
   it('accepts the exported Machines workbook in CREATE_AND_UPDATE without the Production 500', async () => {
@@ -126,7 +138,7 @@ describe('generated export to validate round trip (Production regression)', () =
     expect(preview.summary.errors).toEqual([]);
     expect(preview.rows.flatMap(row => row.errors)).toEqual([]);
     expect(preview.canImport).toBe(true);
-    expect(f.db.$transaction).toBeUndefined();
+    expect(f.db.$transaction).not.toHaveBeenCalled();
   });
 
   it('scopes ProductionLine by its required branch and keeps the optional-branch scope for Machine', async () => {
@@ -181,5 +193,101 @@ describe('generated export to validate round trip (Production regression)', () =
     expect(formulas).toEqual([]);
     expect(text.join('\n')).toContain('PL-0001');
     for (const internalId of ['line-1', 'dep-1', 'cat-1', 'cc-1', 'op-1']) expect(text.join('\n')).not.toContain(internalId);
+  });
+
+  it('exports one row per logical component with MachineCodes and aligned per-machine fields', async () => {
+    const f = fixture();
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(await f.service.export('machine-components', 'u', ctx, 'en') as any);
+    const data = workbook.getWorksheet('Data')!;
+    const headers = (data.getRow(1).values as any[]).slice(1);
+    expect(headers).toContain('MachineCodes');
+    expect(headers).toContain('LocationsInMachine');
+    expect(headers).toContain('SerialNumbers');
+    expect(headers).not.toContain('MachineCode');
+    expect(headers).not.toContain('LocationInMachine');
+    expect(headers).not.toContain('SerialNumber');
+    const codeColumn = headers.indexOf('Code') + 1, machineCodesColumn = headers.indexOf('MachineCodes') + 1;
+    const body = data.getRows(2, data.rowCount - 1) ?? [];
+    expect(body.map(row => row.getCell(codeColumn).value)).toEqual(['CMP-0001', 'CMP-0002']);
+    expect(body.map(row => String(row.getCell(machineCodesColumn).value))).toEqual(['MCH-000001', 'MCH-000001']);
+  });
+
+  it('imports MachineCodes into ONE component with N links and per-machine data', async () => {
+    const f = fixture();
+    const buffer = await sheetBuffer(
+      ['Code', 'MachineCodes', 'Name', 'ComponentType', 'LocationsInMachine', 'SerialNumbers'],
+      [['CMP-0003', 'MCH-000001;MCH-000002', 'Shared part', 'MECHANICAL', 'Upper;Lower', 'S-01;S-02']],
+    );
+    const preview = await f.service.validate('machine-components', upload(buffer), 'CREATE_AND_UPDATE', 'u', ctx);
+    expect(preview.summary.errors).toEqual([]);
+    expect(preview.rows.flatMap(row => row.errors)).toEqual([]);
+    expect(preview.canImport).toBe(true);
+
+    const result = await f.service.import('machine-components', upload(buffer), 'CREATE_AND_UPDATE', preview.token, 'u', ctx);
+    expect(result).toMatchObject({ created: 1, updated: 0, failed: 0 });
+    expect(f.components.saveInTx).toHaveBeenCalledTimes(1);
+    const [tx, dto, user, activeCtx, existingId] = (f.components.saveInTx as jest.Mock).mock.calls[0];
+    expect(tx).toBe(f.db);
+    expect(user).toBe('u');
+    expect(activeCtx).toBe(ctx);
+    expect(existingId).toBeUndefined();
+    expect(dto.machineIds).toEqual(['m-1', 'm-2']);
+    expect(dto.machineData).toEqual([
+      { machineId: 'm-1', locationInMachine: 'Upper', serialNumber: 'S-01' },
+      { machineId: 'm-2', locationInMachine: 'Lower', serialNumber: 'S-02' },
+    ]);
+    expect(dto.locationInMachine).toBeUndefined();
+    expect(dto.serialNumber).toBeUndefined();
+    expect(f.audit.logWithClient).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a foreign machine code inside MachineCodes with a row error', async () => {
+    const f = fixture();
+    const buffer = await sheetBuffer(
+      ['Code', 'MachineCodes', 'Name', 'ComponentType'],
+      [['CMP-0003', 'MCH-000001;FOREIGN', 'Shared part', 'MECHANICAL']],
+    );
+    const preview = await f.service.validate('machine-components', upload(buffer), 'CREATE_AND_UPDATE', 'u', ctx);
+    expect(preview.canImport).toBe(false);
+    expect(preview.rows[0].errors.map(error => error.code)).toContain('validation.excelReference');
+    expect(preview.rows[0].errors.some(error => error.column === 'MachineCodes')).toBe(true);
+    expect(preview.summary.failed).toBe(1);
+  });
+
+  it('accepts a legacy MachineCode file and normalizes it to a single machine id', async () => {
+    const f = fixture();
+    const buffer = await sheetBuffer(
+      ['Code', 'MachineCode', 'Name', 'ComponentType', 'LocationInMachine', 'SerialNumber'],
+      [['CMP-0003', 'MCH-000001', 'Legacy part', 'MECHANICAL', 'inside', 'S-L']],
+    );
+    const preview = await f.service.validate('machine-components', upload(buffer), 'CREATE_AND_UPDATE', 'u', ctx);
+    expect(preview.summary.errors).toEqual([]);
+    expect(preview.rows[0].errors).toEqual([]);
+    expect(preview.rows[0].action).toBe('NEW');
+    expect(preview.canImport).toBe(true);
+    const result = await f.service.import('machine-components', upload(buffer), 'CREATE_AND_UPDATE', preview.token, 'u', ctx);
+    expect(result.created).toBe(1);
+    const dto = (f.components.saveInTx as jest.Mock).mock.calls[0][1];
+    expect(dto.machineIds).toEqual(['m-1']);
+    expect(dto.machineData).toEqual([{ machineId: 'm-1', locationInMachine: 'inside', serialNumber: 'S-L' }]);
+  });
+
+  it('updates the existing component to the final machine set without creating a second component', async () => {
+    const f = fixture();
+    const buffer = await sheetBuffer(
+      ['Code', 'MachineCodes', 'Name', 'ComponentType'],
+      [['CMP-0001', 'MCH-000001;MCH-000002', 'Parent', 'MECHANICAL']],
+    );
+    const preview = await f.service.validate('machine-components', upload(buffer), 'CREATE_AND_UPDATE', 'u', ctx);
+    expect(preview.rows[0].action).toBe('UPDATE');
+    expect(preview.canImport).toBe(true);
+    const result = await f.service.import('machine-components', upload(buffer), 'CREATE_AND_UPDATE', preview.token, 'u', ctx);
+    expect(result).toMatchObject({ created: 0, updated: 1, failed: 0 });
+    expect(f.components.saveInTx).toHaveBeenCalledTimes(1);
+    const [tx, dto, , , existingId] = (f.components.saveInTx as jest.Mock).mock.calls[0];
+    expect(tx).toBe(f.db);
+    expect(existingId).toBe('c-1');
+    expect(dto.machineIds).toEqual(['m-1', 'm-2']);
   });
 });

@@ -22,12 +22,22 @@ export const EXCEL_DEFINITIONS: Record<ExcelEntity, ExcelDefinition> = {
     text('CostCenterName', 'costCenterName', 'maintenance.costCenter', { update: false, example: 'اسم الآلة / Machine name' }),
     text('CostCenterType', 'costCenterType', 'common.type', { type: 'enum', values: CC_TYPES, required: 'create', update: false, example: 'PRODUCTION' }),
   ] },
-  'machine-components': { entity: 'machine-components', model: 'machineComponent', permission: 'machine-component', shared: false, keyHeaders: ['MachineCode', 'Code'], columns: [
-    ref('MachineCode', 'machineId', 'maintenance.machine', 'machine', { required: 'identity', update: false }), identity(), name(),
+  // ONE logical component per row. `Code` is the immutable identity; machines
+  // are a delimited multi-value attribute resolved to machineIds/machineData in
+  // the planner. Legacy single-machine headers stay importable for old files.
+  'machine-components': { entity: 'machine-components', model: 'machineComponent', permission: 'machine-component', shared: false, keyHeaders: ['Code'], columns: [
+    identity(),
+    text('MachineCodes', 'machineCodes', 'maintenance.machine', { maxLength: 1000, example: 'M01;M02;M03', width: 34 }),
+    name(),
+    text('LocationsInMachine', 'locationsInMachine', 'common.location', { maxLength: 1000, example: 'Upper;Lower;Frame', width: 34 }),
+    text('SerialNumbers', 'serialNumbers', 'maintenance.serialNumber', { maxLength: 1000, example: 'S-01;S-02;S-03', width: 34 }),
+    text('MachineCode', 'machineCode', 'maintenance.machine', { importable: true, export: false, update: false, example: 'M01', width: 24 }),
+    text('LocationInMachine', 'legacyLocationInMachine', 'common.location', { importable: true, export: false, update: false, width: 24 }),
+    text('SerialNumber', 'legacySerialNumber', 'maintenance.serialNumber', { importable: true, export: false, update: false, width: 24 }),
     ref('ParentComponentCode', 'parentComponentId', 'maintenance.parentComponent', 'parentComponent'),
     text('ComponentType', 'componentType', 'maintenance.componentType', { type: 'enum', values: COMPONENT_TYPES, required: 'create', example: 'MECHANICAL' }),
     text('Criticality', 'criticality', 'maintenance.criticality', { type: 'enum', values: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], example: 'MEDIUM' }),
-    description(), text('LocationInMachine', 'locationInMachine', 'common.location'), ...technical(), text('SerialNumber', 'serialNumber', 'maintenance.serialNumber'),
+    description(), ...technical(),
   ] },
   'spare-parts': { entity: 'spare-parts', model: 'sparePart', permission: 'spare-part', shared: true, keyHeaders: ['Code'], columns: [
     identity(), name(), description(), text('Category', 'category', 'maintenance.category'), text('Specification', 'specification', 'maintenance.specification'),

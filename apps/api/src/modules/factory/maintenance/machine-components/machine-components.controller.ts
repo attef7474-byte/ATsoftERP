@@ -18,21 +18,21 @@ export class MachineComponentsController {
 
   @Post('batch')
   @Permissions('machine-component:create')
-  @ApiOperation({ summary: 'Create one independent machine component per selected machine (atomic batch)' })
+  @ApiOperation({ summary: 'Create one shared machine component with associations for all selected machines (atomic)' })
   createBatch(@Body() dto: BatchCreateMachineComponentDto, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.createBatch(dto, userId, ctx);
   }
 
   @Post()
   @Permissions('machine-component:create')
-  @ApiOperation({ summary: 'Create machine component' })
+  @ApiOperation({ summary: 'Create one machine component with N active machine associations' })
   create(@Body() dto: CreateMachineComponentDto, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.create(dto, userId, ctx);
   }
 
   @Get()
   @Permissions('machine-component:read')
-  @ApiOperation({ summary: 'List machine components' })
+  @ApiOperation({ summary: 'List one row per machine component; ?machineId= filters by active association' })
   findAll(@Query() query: {
     page?: string; limit?: string; search?: string;
     machineId?: string; parentComponentId?: string;
@@ -57,7 +57,7 @@ export class MachineComponentsController {
 
   @Patch(':id')
   @Permissions('machine-component:update')
-  @ApiOperation({ summary: 'Update machine component' })
+  @ApiOperation({ summary: 'Update one machine component and reconcile its active machine association set' })
   update(@Param('id') id: string, @Body() dto: UpdateMachineComponentDto, @CurrentUser('sub') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.update(id, dto, userId, ctx);
   }

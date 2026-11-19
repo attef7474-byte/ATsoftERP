@@ -29,7 +29,20 @@ const ctx: ActiveOperationalContext = {
   isDefault: true,
   source: 'EXPLICIT_SCOPE',
 };
-const ownedMachine = { id: 'm1', code: 'M-001', name: 'Lathe', companyId: 'c1', branchId: 'b1' };
+const ownedMachine = { id: 'm1', code: 'M-001', name: 'Lathe', companyId: 'c1', branchId: 'b1', status: 'ACTIVE', deletedAt: null };
+
+/** Component with canonical ACTIVE membership on the owned machine. */
+const ownedComponent = (over: Record<string, unknown> = {}) => ({
+  id: 'x1',
+  code: 'GB-1',
+  status: 'ACTIVE',
+  deletedAt: null,
+  companyId: 'c1',
+  branchId: 'b1',
+  machine: ownedMachine,
+  machineLinks: [{ id: 'link-x1-m1', status: 'ACTIVE', machineId: 'm1' }],
+  ...over,
+});
 
 /**
  * R4O: a MachinePart row whose tenant ownership is PROVEN for the active context
@@ -254,34 +267,41 @@ describe('Machine assets canonical error contracts', () => {
 
     beforeEach(() => {
       prisma = {
-        machine: { findUnique: jest.fn() },
+        machine: { findUnique: jest.fn(), findMany: jest.fn() },
         machineComponent: {
           findUnique: jest.fn(),
+          findFirst: jest.fn(),
           create: jest.fn(),
           update: jest.fn(),
           findMany: jest.fn(),
           count: jest.fn(),
         },
+        machineComponentMachine: { createMany: jest.fn(), updateMany: jest.fn(), upsert: jest.fn() },
         componentSparePart: { count: jest.fn() },
+        $transaction: jest.fn((fn: any) => fn(prisma)),
       };
-      audit = { log: jest.fn().mockResolvedValue(undefined) };
+      audit = { log: jest.fn().mockResolvedValue(undefined), logWithClient: jest.fn().mockResolvedValue(undefined) };
       service = new MachineComponentsService(prisma as PrismaService, audit as AuditService);
     });
 
     it('rejects an unknown machine with a canonical field error', async () => {
-      prisma.machine.findUnique.mockResolvedValue(null);
-      await expectValidationError(service.create({ name: 'Gearbox', componentType: 'MECHANICAL', machineId: 'ghost' } as any, 'u1', ctx), 'machineId', 'validation.invalidReference');
+      prisma.machine.findMany.mockResolvedValue([]);
+      await expectValidationError(service.create({ name: 'Gearbox', componentType: 'MECHANICAL', machineId: 'ghost' } as any, 'u1', ctx), 'machineIds', 'validation.invalidReference');
     });
 
     it('rejects a machine from another company with a canonical field error', async () => {
-      prisma.machine.findUnique.mockResolvedValue({ ...ownedMachine, id: 'mX', companyId: 'c2' });
-      await expectValidationError(service.create({ name: 'Gearbox', componentType: 'MECHANICAL', machineId: 'mX' } as any, 'u1', ctx), 'machineId', 'validation.invalidReference');
+      prisma.machine.findMany.mockResolvedValue([{ ...ownedMachine, id: 'mX', companyId: 'c2' }]);
+      await expectValidationError(service.create({ name: 'Gearbox', componentType: 'MECHANICAL', machineId: 'mX' } as any, 'u1', ctx), 'machineIds', 'validation.invalidReference');
     });
 
-    it('rejects a duplicate component code within the machine', async () => {
-      prisma.machine.findUnique.mockResolvedValue(ownedMachine);
-      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'x1', code: 'GB-1' });
+    it('rejects a duplicate component code within the company and branch', async () => {
+      prisma.machine.findMany.mockResolvedValue([ownedMachine]);
+      prisma.machineComponent.findFirst.mockResolvedValue({ id: 'x1' });
       await expectValidationError(service.create({ code: 'GB-1', name: 'Gearbox', componentType: 'MECHANICAL', machineId: 'm1' } as any, 'u1', ctx), 'code', 'validation.duplicateValue');
+      // Uniqueness is now an aggregate/company-branch rule, not a per-machine one.
+      expect(prisma.machineComponent.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ companyId: 'c1', branchId: 'b1', code: 'GB-1', deletedAt: null }),
+      }));
     });
 
     it('throws a messageKey not-found when the component does not exist', async () => {
@@ -290,29 +310,37 @@ describe('Machine assets canonical error contracts', () => {
     });
 
     it('throws a messageKey not-found when the component belongs to another company', async () => {
-      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'xX', code: 'GB-2', machineId: 'mX', machine: { id: 'mX', companyId: 'c2', branchId: 'b1' } });
+      prisma.machineComponent.findUnique.mockResolvedValue(ownedComponent({
+        id: 'xX',
+        code: 'GB-2',
+        companyId: 'c2',
+        machine: { id: 'mX', companyId: 'c2', branchId: 'b1' },
+        machineLinks: [{ id: 'link-xX-mX', status: 'ACTIVE', machineId: 'mX' }],
+      }));
       await expectMessageKeyNotFound(service.findOne('xX', ctx), 'maintenance.componentNotFound');
     });
 
     it('rejects changing the code after creation', async () => {
-      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'x1', code: 'GB-1', machineId: 'm1', machine: ownedMachine });
+      prisma.machineComponent.findUnique.mockResolvedValue(ownedComponent());
       await expectValidationError(service.update('x1', { code: 'GB-2' } as any, 'u1', ctx), 'code', 'validation.invalidValue');
     });
 
     it('soft-deletes the component and audits DELETE with the userId', async () => {
-      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'x1', code: 'GB-1', machineId: 'm1', machine: ownedMachine });
+      prisma.machineComponent.findUnique.mockResolvedValue(ownedComponent());
       prisma.machineComponent.count.mockResolvedValue(0);
       prisma.componentSparePart.count.mockResolvedValue(0);
       prisma.machineComponent.update.mockResolvedValue({ id: 'x1', deletedAt: new Date() });
 
       const result = await service.remove('x1', 'u1', ctx);
       expect(prisma.machineComponent.update).toHaveBeenCalledWith({ where: { id: 'x1' }, data: expect.objectContaining({ deletedAt: expect.any(Date) }) });
-      expect(audit.log).toHaveBeenCalledWith('u1', 'DELETE', 'MachineComponent', 'x1', expect.anything());
+      expect(audit.logWithClient).toHaveBeenCalledWith(prisma, expect.objectContaining({
+        userId: 'u1', action: 'DELETE', entity: 'MachineComponent', entityId: 'x1',
+      }));
       expect(result.message).toBe('Machine component deleted successfully');
     });
 
     it('blocks deleting a component with child components', async () => {
-      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'x1', code: 'GB-1', machineId: 'm1', machine: ownedMachine });
+      prisma.machineComponent.findUnique.mockResolvedValue(ownedComponent());
       prisma.machineComponent.count.mockResolvedValue(1);
 
       await expect(service.remove('x1', 'u1', ctx)).rejects.toThrow(ConflictException);

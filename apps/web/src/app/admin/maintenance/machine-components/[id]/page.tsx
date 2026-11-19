@@ -137,6 +137,8 @@ export default function MachineComponentDetailPage() {
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
   if (!data) return <ErrorState message={t('details.notFound')} onRetry={() => router.back()} />;
 
+  const activeMachineLinks = (data.machines ?? data.machineLinks ?? []).filter((m) => m.status === 'ACTIVE');
+
   return (
     <div className="space-y-6">
       <PageHeader title={data.name} subtitle={`[${data.code}]`} />
@@ -156,11 +158,23 @@ export default function MachineComponentDetailPage() {
         <CardHeader><h3 className="text-sm font-semibold text-gray-700">{t('maintenance.details')}</h3></CardHeader>
         <CardContent>
           <dl className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.locationInMachine')}</dt><dd className="mt-1 text-sm text-gray-900">{data.locationInMachine || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.manufacturer')}</dt><dd className="mt-1 text-sm text-gray-900">{data.manufacturer || '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.model')}</dt><dd className="mt-1 text-sm text-gray-900">{data.model || '-'}</dd></div>
-            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.serialNumber')}</dt><dd className="mt-1 text-sm text-gray-900">{data.serialNumber || '-'}</dd></div>
           </dl>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><h3 className="text-sm font-semibold text-gray-700">{t('maintenance.machineSpecificAttributes')}</h3></CardHeader>
+        <CardContent>
+          {activeMachineLinks.length === 0 ? (
+            <p className="text-sm text-gray-500 py-4">{t('common.noData')}</p>
+          ) : (
+            <DataTable columns={[
+              { key: 'machine', header: t('maintenance.machinesLabel'), render: (m: any) => m.machine?.name || m.name || m.machine?.code || m.code || m.machineId },
+              { key: 'locationInMachine', header: t('maintenance.locationInMachine'), render: (m: any) => m.locationInMachine || '-' },
+              { key: 'serialNumber', header: t('maintenance.serialNumber'), render: (m: any) => m.serialNumber || '-' },
+            ]} data={activeMachineLinks} keyExtractor={(m: any) => m.associationId || m.id || m.machineId} />
+          )}
         </CardContent>
       </Card>
       {data.parentComponent && (

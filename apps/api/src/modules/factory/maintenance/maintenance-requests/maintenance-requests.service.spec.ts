@@ -357,7 +357,23 @@ describe('MaintenanceRequestsService canonical errors and contract fixes', () =>
 
   it('create rejects a machine component from another machine', async () => {
     prisma.machine.findUnique.mockResolvedValue(ownedMachine);
-    prisma.machineComponent.findUnique.mockResolvedValue({ id: 'comp9', machineId: 'm9', machine: ownedMachine, status: 'ACTIVE', deletedAt: null });
+    // The guard filters links with `select.machineLinks.where.machineId`; mirror that
+    // filter so comp9 resolves as associated only for m9, never for the requested m1.
+    prisma.machineComponent.findUnique.mockImplementation((args: any) => {
+      const queriedMachineId = args?.select?.machineLinks?.where?.machineId;
+      const machineLinks = [{ id: 'link-comp9-m9', status: 'ACTIVE', machineId: 'm9' }];
+      return {
+        id: 'comp9',
+        status: 'ACTIVE',
+        deletedAt: null,
+        companyId: 'c1',
+        branchId: 'b1',
+        machine: ownedMachine,
+        machineLinks: queriedMachineId === undefined
+          ? machineLinks
+          : machineLinks.filter((link: any) => link.machineId === queriedMachineId),
+      };
+    });
     await expect(
       service.create({ machineId: 'm1', title: 't', machineComponentId: 'comp9' } as any, { id: 'u1' } as any, ctx),
     ).rejects.toMatchObject({ response: { messageKey: 'maintenance.machineComponentMachineMismatch' } });

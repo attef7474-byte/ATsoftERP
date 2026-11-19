@@ -10,6 +10,7 @@ import {
   OpenRepairOrderDto, RecordInspectionResultDto, WaitForPartsDto, ResumeFromPartsWaitDto,
 } from './dto/repair-order.dto';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { assertMachineComponentBelongsToMachine } from '../../../../common/operational-context/tenant-guards';
 
 const VALID_SOURCE_CONDITIONS = ['USED_REPAIRABLE', 'DAMAGED_REPAIRABLE'];
 const VALID_TARGET_CONDITIONS = ['USED_SERVICEABLE', 'USED_REPAIRABLE'];
@@ -568,11 +569,7 @@ export class RepairOrdersService {
     // fails the operation loudly rather than allowing a negative balance.
     if (dto.machineId) await this.machineAccess(dto.machineId, ctx);
     if (dto.machineComponentId && dto.machineId) {
-      const comp = await this.prisma.machineComponent.findUnique({ where: { id: dto.machineComponentId } });
-      if (!comp) throw this.notFound('maintenance.componentNotFound', 'Machine component not found');
-      if (comp.machineId !== dto.machineId) {
-        throw this.badRequest('maintenance.componentMachineMismatch', 'Component does not belong to the selected machine');
-      }
+      await assertMachineComponentBelongsToMachine(this.prisma, dto.machineComponentId, dto.machineId, ctx);
     }
     if (dto.maintenanceRequestId) await this.requestAccess(dto.maintenanceRequestId, ctx);
 

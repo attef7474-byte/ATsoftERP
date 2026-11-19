@@ -30,6 +30,26 @@ const ctx: ActiveOperationalContext = {
 
 const ownedMachine = { id: 'm1', companyId: 'c1', branchId: 'b1' };
 
+// Canonical membership is an ACTIVE MachineComponentMachine link. The guard's
+// Prisma query applies the machine/status filter in the `where`; a mock must
+// therefore return no links at all for a machine the component is not mounted on.
+const componentOnMachine = (
+  machineId: string | null,
+  id = 'mc1',
+  companyId = 'c1',
+  branchId = 'b1',
+) => ({
+  id,
+  status: 'ACTIVE',
+  deletedAt: null,
+  companyId,
+  branchId,
+  machine: { companyId, branchId },
+  machineLinks: machineId
+    ? [{ id: `link-${id}-${machineId}`, status: 'ACTIVE', machineId }]
+    : [],
+});
+
 describe('computeExpectedLifeState (pure)', () => {
   const NOW = new Date('2026-03-01T00:00:00.000Z');
 
@@ -403,7 +423,7 @@ describe('InstalledPartsReplacementService (installed-part component/machine inv
   });
 
   it('records the installed part when the component belongs to the machine', async () => {
-    tx.machineComponent.findUnique.mockResolvedValue({ id: 'mc1', machineId: 'm1', machine: { companyId: null, branchId: null } });
+    tx.machineComponent.findUnique.mockResolvedValue(componentOnMachine('m1'));
 
     await service.recordInstalledPartInTx(tx, baseData);
 
@@ -411,7 +431,7 @@ describe('InstalledPartsReplacementService (installed-part component/machine inv
   });
 
   it('rejects an installed part whose component belongs to another machine', async () => {
-    tx.machineComponent.findUnique.mockResolvedValue({ id: 'mc1', machineId: 'm2', machine: { companyId: null, branchId: null } });
+    tx.machineComponent.findUnique.mockResolvedValue(componentOnMachine(null));
 
     const promise = service.recordInstalledPartInTx(tx, baseData);
     await expect(promise).rejects.toThrow(BadRequestException);
@@ -436,7 +456,7 @@ describe('InstalledPartsReplacementService (installed-part component/machine inv
 
   // TEST A — valid machine/component pair.
   it('records the replacement history when the component belongs to the machine', async () => {
-    tx.machineComponent.findUnique.mockResolvedValue({ id: 'mc1', machineId: 'm1', machine: { companyId: null, branchId: null } });
+    tx.machineComponent.findUnique.mockResolvedValue(componentOnMachine('m1'));
 
     const result = await service.recordReplacementInTx(tx, replacementData);
 
@@ -447,7 +467,7 @@ describe('InstalledPartsReplacementService (installed-part component/machine inv
 
   // TEST B — same-tenant component that belongs to a DIFFERENT machine.
   it('rejects a replacement whose component belongs to another machine (400)', async () => {
-    tx.machineComponent.findUnique.mockResolvedValue({ id: 'mc1', machineId: 'm2', machine: { companyId: null, branchId: null } });
+    tx.machineComponent.findUnique.mockResolvedValue(componentOnMachine(null));
 
     const promise = service.recordReplacementInTx(tx, replacementData);
     await expect(promise).rejects.toThrow(BadRequestException);
@@ -596,7 +616,7 @@ describe('InstalledPartsReplacementService (manual register & removal)', () => {
 
   // A4/A5 — wrong-machine component rejected with canonical 400 mismatch.
   it('rejects registration when the component belongs to another machine', async () => {
-    prisma.machineComponent.findUnique.mockResolvedValue({ id: 'mc1', machineId: 'm2', machine: { companyId: 'c1', branchId: 'b1' } });
+    prisma.machineComponent.findUnique.mockResolvedValue(componentOnMachine(null));
 
     const promise = service.registerExistingInstallation({ ...dto(), machineComponentId: 'mc1' } as any, 'u1', ctx);
     await expect(promise).rejects.toThrow(BadRequestException);

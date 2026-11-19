@@ -430,9 +430,16 @@ export class MaintenanceService {
   async getMachineComponents(id: string, ctx: ActiveOperationalContext) {
     await this.findOneMachine(id, ctx);
     return this.prisma.machineComponent.findMany({
-      where: { machineId: id, deletedAt: null },
+      where: {
+        deletedAt: null,
+        machineLinks: { some: { machineId: id, status: 'ACTIVE' } },
+      },
       include: {
         parentComponent: { select: { id: true, name: true, code: true } },
+        machineLinks: {
+          where: { status: 'ACTIVE' },
+          select: { machineId: true, locationInMachine: true, serialNumber: true, status: true },
+        },
         _count: { select: { children: true } },
       },
       orderBy: { name: 'asc' },

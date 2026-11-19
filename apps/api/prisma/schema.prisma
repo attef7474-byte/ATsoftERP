@@ -229,6 +229,8 @@ model Company {
   warehouses                       Warehouse[]
   machines                         Machine[]
   machineParts                     MachinePart[]
+  machineComponents                MachineComponent[]
+  machineComponentLinks            MachineComponentMachine[]
   counts                           InventoryCount[]
   movements                        InventoryMovement[]
   adjustments                      InventoryAdjustment[]
@@ -334,6 +336,8 @@ model Branch {
   warehouses                       Warehouse[]
   machines                         Machine[]
   machineParts                     MachinePart[]
+  machineComponents                MachineComponent[]
+  machineComponentLinks            MachineComponentMachine[]
   numberSeqs                       NumberSequence[]
   counts                           InventoryCount[]
   movements                        InventoryMovement[]
@@ -2520,6 +2524,7 @@ model Machine {
   deletedAt                 DateTime?
 
   components                       MachineComponent[]
+  machineComponentLinks            MachineComponentMachine[]
   parts                            MachinePart[]
   documents                        MachineDocument[]
   maintenanceReqs                  MaintenanceRequest[]
@@ -2630,25 +2635,43 @@ model MachineDocument {
 }
 
 model MachineComponent {
-  id                String             @id @default(cuid())
-  machineId         String
-  machine           Machine            @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id        String  @id @default(cuid())
+  // LEGACY (deprecated, NOT canonical). Retained nullable-safe for backward
+  // compatibility only. Canonical machine membership is machineLinks below.
+  machineId String
+  machine   Machine @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // DIRECT AUTHORITATIVE TENANT OWNERSHIP. Derived from the authenticated
+  // operational context / validated machines; never accepted from the client.
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   parentComponentId String?
   parentComponent   MachineComponent?  @relation("MachineComponentHierarchy", fields: [parentComponentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children          MachineComponent[] @relation("MachineComponentHierarchy")
-  code              String
-  name              String
-  componentType     String
-  description       String?
+
+  // COMPONENT-LEVEL attributes (identical on every machine).
+  code          String
+  name          String
+  componentType String
+  description   String?
+  manufacturer  String?
+  model         String?
+  criticality   String    @default("MEDIUM")
+  status        String    @default("ACTIVE")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  // LEGACY machine-specific fields, deprecated. The authoritative per-machine
+  // values live on MachineComponentMachine.
   locationInMachine String?
-  manufacturer      String?
-  model             String?
   serialNumber      String?
-  criticality       String             @default("MEDIUM")
-  status            String             @default("ACTIVE")
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  deletedAt         DateTime?
+
+  // CANONICAL machine membership (one row per active machine association).
+  machineLinks MachineComponentMachine[]
 
   spareParts                  ComponentSparePart[]
   maintenanceRequests         MaintenanceRequest[]
@@ -2663,13 +2686,48 @@ model MachineComponent {
 
   maintenanceExecutions MaintenanceTask[]
 
+  // Legacy identity constraint kept for historical row compatibility only.
+  // Canonical active-code uniqueness is scoped by (companyId, branchId, code)
+  // with deletedAt filtering, enforced by the application and a filtered index.
   @@unique([machineId, code])
   @@index([machineId])
+  @@index([companyId, branchId, code])
+  @@index([companyId, branchId, deletedAt])
   @@index([parentComponentId])
   @@index([componentType])
   @@index([criticality])
   @@index([status])
   @@map("machine_components")
+}
+
+model MachineComponentMachine {
+  id          String           @id @default(cuid())
+  componentId String
+  component   MachineComponent @relation(fields: [componentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId   String
+  machine     Machine          @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  status     String    @default("ACTIVE") // ACTIVE | INACTIVE
+  linkedAt   DateTime  @default(now())
+  unlinkedAt DateTime?
+
+  // MACHINE-ASSOCIATION-LEVEL physical attributes.
+  locationInMachine String?
+  serialNumber      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([componentId, machineId])
+  @@index([machineId, status])
+  @@index([componentId, status])
+  @@index([companyId, branchId])
+  @@map("machine_component_machines")
 }
 
 model SparePart {

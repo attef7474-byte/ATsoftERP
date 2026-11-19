@@ -4,6 +4,36 @@ import { ProductionMeasurementPointsService } from './production-measurement-poi
 const ctxA: any = { companyId: 'c1', branchId: 'b1' };
 const ctxB: any = { companyId: 'c2', branchId: 'b2' };
 
+// Canonical membership requires an ACTIVE MachineComponentMachine link for the
+// selected machine; the legacy machineId pointer is not authority. The fixture
+// models the full set of links a component has; the lookup below emulates
+// Prisma's `select.machineLinks.where` filtering so only associations for the
+// machine requested by the guard are returned.
+const activeComponentOnMachines = (componentId: string, machineIds: string[]) => ({
+  id: componentId,
+  status: 'ACTIVE',
+  deletedAt: null,
+  companyId: 'c1',
+  branchId: 'b1',
+  machine: { companyId: 'c1', branchId: 'b1' },
+  machineLinks: machineIds.map((machineId) => ({
+    id: `link-${componentId}-${machineId}`,
+    status: 'ACTIVE',
+    machineId,
+  })),
+});
+
+const componentLookup = (component: ReturnType<typeof activeComponentOnMachines>) =>
+  jest.fn().mockImplementation((args: any) => {
+    const filter = args?.select?.machineLinks?.where ?? {};
+    return Promise.resolve({
+      ...component,
+      machineLinks: component.machineLinks.filter(
+        (link) => link.machineId === filter.machineId && (filter.status === undefined || link.status === filter.status),
+      ),
+    });
+  });
+
 const baseDto = {
   machineIds: ['m1', 'm2'],
   productionLineId: 'l1',
@@ -52,7 +82,7 @@ describe('ProductionMeasurementPointsService.createBatch', () => {
     prisma = {
       productionLine: { findFirst: jest.fn().mockResolvedValue({ id: 'l1' }) },
       machine: { findFirst: jest.fn().mockImplementation(({ where }: any) => Promise.resolve({ id: where.id })) },
-      machineComponent: { findFirst: jest.fn() },
+      machineComponent: { findFirst: jest.fn(), findUnique: jest.fn() },
       productionUnit: { findFirst: jest.fn().mockResolvedValue({ id: 'u1' }) },
       productionMeasurementPoint: {
         findFirst: jest.fn().mockResolvedValue(null),
@@ -150,7 +180,7 @@ describe('ProductionMeasurementPointsService.createBatch', () => {
   });
 
   it('allows machineComponentId for a single machine and persists it', async () => {
-    prisma.machineComponent.findFirst.mockResolvedValue({ id: 'mc1', machineId: 'm1' });
+    prisma.machineComponent.findUnique = componentLookup(activeComponentOnMachines('mc1', ['m1']));
 
     const result = await service.createBatch({ ...baseDto, machineIds: ['m1'], machineComponentId: 'mc1' } as any, 'u1', ctxA);
 
@@ -159,9 +189,14 @@ describe('ProductionMeasurementPointsService.createBatch', () => {
   });
 
   it('rejects a component that does not belong to the selected machine', async () => {
-    prisma.machineComponent.findFirst.mockResolvedValue(null);
+    // Component mc9 is linked only to m9, so the guard's ACTIVE-link filter for
+    // the requested machine m1 returns no association and must be rejected.
+    prisma.machineComponent.findUnique = componentLookup(activeComponentOnMachines('mc9', ['m9']));
 
-    await expect(service.createBatch({ ...baseDto, machineIds: ['m1'], machineComponentId: 'mc9' } as any, 'u1', ctxA)).rejects.toBeInstanceOf(BadRequestException);
+    const promise = service.createBatch({ ...baseDto, machineIds: ['m1'], machineComponentId: 'mc9' } as any, 'u1', ctxA);
+    await expect(promise).rejects.toBeInstanceOf(BadRequestException);
+    const error: any = await promise.catch((e) => e);
+    expect(error.getResponse().messageKey).toBe('maintenance.machineComponentMachineMismatch');
     expect(prisma.productionMeasurementPoint.create).not.toHaveBeenCalled();
   });
 

@@ -33,10 +33,15 @@ export class MaintenanceBomService {
   }
 
   private isBomInScope(
-    bom: { machine?: { companyId?: string | null; branchId?: string | null } | null; component?: { machine?: { companyId?: string | null; branchId?: string | null } | null } | null },
+    bom: {
+      machine?: { companyId?: string | null; branchId?: string | null } | null;
+      component?: { companyId?: string | null; branchId?: string | null; machine?: { companyId?: string | null; branchId?: string | null } | null } | null;
+    },
     ctx: ActiveOperationalContext,
   ): boolean {
     if (bom.machine && this.isMachineInScope(bom.machine, ctx)) return true;
+    if (bom.component?.companyId === ctx.companyId
+      && (!bom.component.branchId || bom.component.branchId === ctx.branchId)) return true;
     if (bom.component?.machine && this.isMachineInScope(bom.component.machine, ctx)) return true;
     return false;
   }
@@ -51,7 +56,13 @@ export class MaintenanceBomService {
 
   private async assertComponentInContext(componentId: string, ctx: ActiveOperationalContext) {
     const component = await this.prisma.machineComponent.findFirst({
-      where: { id: componentId, machine: this.machineScope(ctx) },
+      where: {
+        id: componentId,
+        deletedAt: null,
+        status: 'ACTIVE',
+        companyId: ctx.companyId,
+        OR: [{ branchId: ctx.branchId }, { branchId: null }],
+      },
     });
     if (!component) throw new BadRequestException('Component not found or not in the active company/branch');
     return component;
@@ -64,7 +75,7 @@ export class MaintenanceBomService {
         id: true,
         deletedAt: true,
         machine: { select: { id: true, companyId: true, branchId: true } },
-        component: { select: { id: true, machine: { select: { id: true, companyId: true, branchId: true } } } },
+        component: { select: { id: true, companyId: true, branchId: true, machine: { select: { id: true, companyId: true, branchId: true } } } },
       },
     });
     if (!bom || bom.deletedAt || !this.isBomInScope(bom, ctx)) {
@@ -117,6 +128,7 @@ export class MaintenanceBomService {
       deletedAt: null,
       OR: [
         { machine: this.machineScope(ctx) },
+        { component: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] } },
         { component: { machine: this.machineScope(ctx) } },
       ],
     };

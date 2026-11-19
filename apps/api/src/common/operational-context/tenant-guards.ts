@@ -78,43 +78,53 @@ export function assertMaintenanceRequestInContext(
 }
 
 /**
- * Invariant A — a MachineComponent is physically mounted on exactly one Machine
- * (`MachineComponent.machineId` is required). Any operation that pairs a
- * component with a machine (installed parts, required-part lines) must prove
- * `component.machineId === machineId`; the individual foreign keys only prove
- * each side exists, never that they belong together.
+ * Canonical membership invariant — one logical MachineComponent may be mounted
+ * on many Machines through `MachineComponentMachine`. Any operation that pairs a
+ * component with a machine must prove there is an ACTIVE association row, and
+ * that the component itself is active and inside the tenant/branch context.
+ * The legacy `MachineComponent.machineId` pointer is deliberately NOT authority.
  *
- * Runs on the SAME client that performs the write so the check and the mutation
- * cannot diverge. When `ctx` is supplied the component's owning machine is also
- * proven to belong to the active company/branch (defense in depth against a
- * cross-tenant component whose machine would otherwise never be loaded).
+ * Runs on the SAME client that performs the write so the check and mutation
+ * cannot diverge.
  */
-export function assertMachineComponentBelongsToMachine(
+export async function assertMachineComponentBelongsToMachine(
   client: TenantGuardClient,
   machineComponentId: string,
   machineId: string,
   ctx?: ActiveOperationalContext,
 ): Promise<void> {
-  return client.machineComponent
-    .findUnique({
-      where: { id: machineComponentId },
-      select: {
-        id: true,
-        machineId: true,
-        machine: { select: { companyId: true, branchId: true } },
+  const component: any = await client.machineComponent.findUnique({
+    where: { id: machineComponentId },
+    select: {
+      id: true,
+      status: true,
+      deletedAt: true,
+      companyId: true,
+      branchId: true,
+      machine: { select: { companyId: true, branchId: true } },
+      machineLinks: {
+        where: { machineId, status: 'ACTIVE' },
+        select: { id: true },
       },
-    })
-    .then((component) => {
-      if (!component || (ctx && !rowInContext(component.machine.companyId, component.machine.branchId, ctx))) {
-        throw new NotFoundException('Machine component not found or not in the active company/branch');
-      }
-      if (component.machineId !== machineId) {
-        throw new BadRequestException({
-          messageKey: 'maintenance.machineComponentMachineMismatch',
-          message: 'The machine component does not belong to the selected machine',
-        });
-      }
+    },
+  });
+
+  if (!component || component.deletedAt || component.status !== 'ACTIVE') {
+    throw new NotFoundException('Machine component not found or not active');
+  }
+  if (ctx) {
+    const companyId = component.companyId ?? component.machine?.companyId ?? null;
+    const branchId = component.branchId ?? component.machine?.branchId ?? null;
+    if (!rowInContext(companyId, branchId, ctx)) {
+      throw new NotFoundException('Machine component not found or not in the active company/branch');
+    }
+  }
+  if (!component.machineLinks?.length) {
+    throw new BadRequestException({
+      messageKey: 'maintenance.machineComponentMachineMismatch',
+      message: 'The machine component is not actively associated with the selected machine',
     });
+  }
 }
 
 export function assertInventoryCountInContext(

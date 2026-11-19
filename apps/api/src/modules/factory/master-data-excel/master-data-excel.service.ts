@@ -53,7 +53,9 @@ export class MasterDataExcelService {
   async export(entity: string, user: string, ctx: ActiveOperationalContext, locale: 'ar' | 'en', search = '') {
     const def = await this.authorize(entity, user, ctx), clauses: any[] = [{ deletedAt: null }];
     if (def.model === 'machine') clauses.push(tenantMachineScope(ctx));
-    if (def.model === 'machineComponent') clauses.push({ machine: { ...tenantMachineScope(ctx), deletedAt: null } });
+    // Components are directly tenant-owned logical records. Scope by their own
+    // ownership fields so a shared component is exported exactly once.
+    if (def.model === 'machineComponent') clauses.push(tenantMachineScope(ctx));
     const searchFields = ['code', 'name', ...(def.model === 'machine' ? ['serialNumber'] : def.model === 'sparePart' ? ['partNumber'] : def.model === 'product' ? ['barcode'] : [])];
     if (search) clauses.push({ OR: searchFields.map(field => ({ [field]: { contains: search } })) });
     const records = await (this.db[def.model] as any).findMany({ where: { AND: clauses }, include: excelIncludes(def), orderBy: { code: 'asc' }, take: EXCEL_LIMITS.exportRows + 1 });
@@ -66,6 +68,16 @@ export class MasterDataExcelService {
       }
       if (c.field === 'costCenterName') value = record.defaultCostCenter?.name;
       if (c.field === 'costCenterType') value = record.defaultCostCenter?.type;
+      if (def.model === 'machineComponent') {
+        // One logical row per component. Machine codes and their physical
+        // attributes come from ACTIVE associations, positionally aligned.
+        // Historic rows without links fall back to the legacy primary pointer.
+        const activeLinks: any[] = (record.machineLinks ?? []).filter((link: any) => link.status === 'ACTIVE');
+        const entries = activeLinks.length ? activeLinks : (record.machine?.code ? [{ machine: record.machine, locationInMachine: record.locationInMachine, serialNumber: record.serialNumber }] : []);
+        if (c.field === 'machineCodes') value = entries.map((entry: any) => entry.machine?.code).filter(Boolean).join(';');
+        if (c.field === 'locationsInMachine') value = entries.map((entry: any) => entry.locationInMachine ?? '').join(';');
+        if (c.field === 'serialNumbers') value = entries.map((entry: any) => entry.serialNumber ?? '').join(';');
+      }
       if (c.type === 'date' && value) value = canonicalDate(value);
       if (c.type === 'number' && value != null) value = Number(value);
       return [c.header, value ?? ''];

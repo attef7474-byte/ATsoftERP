@@ -5,7 +5,7 @@ import { api } from '../../../../../../lib/api';
 import { useTranslation } from '../../../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../../../components/admin/toast-provider';
 import { Input, Card, CardContent, Select, LoadingState, ErrorState } from '../../../../../../components/admin/ui';
-import { F9Lookup, machineComponentAdapter, machineAdapter } from '../../../../../../components/f9';
+import { F9Lookup, F9MultiLookup, machineComponentAdapter, machineAdapter, type MultiLookupItem } from '../../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionSaveIcon, ActionCancelIcon, ActionBackIcon } from '../../../../../../components/admin/admin-action-bar';
 import type { MachineComponent } from '../../../../../../lib/admin-types';
 import { useApiErrorHandler } from '../../../../../../components/admin/error-handler';
@@ -34,6 +34,8 @@ const CRITICALITY_KEYS: { value: string; labelKey: string }[] = [
   { value: 'CRITICAL', labelKey: 'maintenance.criticalityOptions.CRITICAL' },
 ];
 
+type MachineDatum = { locationInMachine: string; serialNumber: string };
+
 export default function EditMachineComponentPage() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -42,7 +44,8 @@ export default function EditMachineComponentPage() {
   const handleApiError = useApiErrorHandler();
   const id = params?.id as string;
   const [data, setData] = useState<MachineComponent | null>(null);
-  const [form, setForm] = useState({ code: '', name: '', description: '', componentType: '', criticality: '', locationInMachine: '', manufacturer: '', model: '', serialNumber: '', parentComponentId: '', machineId: '' });
+  const [form, setForm] = useState({ code: '', name: '', description: '', componentType: '', criticality: '', manufacturer: '', model: '', parentComponentId: '', machineIds: [] as string[], machineData: {} as Record<string, MachineDatum> });
+  const [machineItems, setMachineItems] = useState<MultiLookupItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -55,6 +58,15 @@ export default function EditMachineComponentPage() {
     setLoading(true); setError('');
     try {
       const item = await api.get<MachineComponent>(`/maintenance/machine-components/${id}`);
+      const machines = item.machines ?? item.machineLinks ?? [];
+      const machineIds = machines.filter((m) => m.status === 'ACTIVE').map((m) => m.machineId);
+      const machineData: Record<string, MachineDatum> = {};
+      for (const machine of machines) {
+        machineData[machine.machineId] = {
+          locationInMachine: machine.locationInMachine ?? '',
+          serialNumber: machine.serialNumber ?? '',
+        };
+      }
       setData(item);
       setForm({
         code: item.code || '',
@@ -62,13 +74,16 @@ export default function EditMachineComponentPage() {
         description: item.description || '',
         componentType: item.componentType || '',
         criticality: item.criticality || '',
-        locationInMachine: item.locationInMachine || '',
         manufacturer: item.manufacturer || '',
         model: item.model || '',
-        serialNumber: item.serialNumber || '',
         parentComponentId: item.parentComponentId || '',
-        machineId: item.machineId || '',
+        machineIds,
+        machineData,
       });
+      setMachineItems(machineIds.map((machineId) => {
+        const machine: any = machines.find((m) => m.machineId === machineId);
+        return { id: machineId, label: machine?.name || machine?.code || machine?.machine?.name || machine?.machine?.code || machineId };
+      }));
     } catch (err: any) {
       const config = handleApiError(err);
       setError(config.message || err?.message || t('complexForms.loadFailed'));
@@ -84,30 +99,56 @@ export default function EditMachineComponentPage() {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
+  const handleMachinesChange = (ids: string[]) => {
+    if (isReadOnly) return;
+    setForm((prev) => {
+      const machineData: Record<string, MachineDatum> = {};
+      for (const machineId of ids) machineData[machineId] = prev.machineData[machineId] ?? { locationInMachine: '', serialNumber: '' };
+      return { ...prev, machineIds: ids, machineData };
+    });
+    setDirty(true);
+    setErrors((prev) => ({ ...prev, machineIds: '' }));
+  };
+
+  const handleMachineItemsChange = useCallback((items: MultiLookupItem[]) => setMachineItems(items), []);
+
+  const handleMachineDataChange = (machineId: string, field: keyof MachineDatum, value: string) => {
+    if (isReadOnly) return;
+    setForm((prev) => ({
+      ...prev,
+      machineData: {
+        ...prev.machineData,
+        [machineId]: { ...(prev.machineData[machineId] ?? { locationInMachine: '', serialNumber: '' }), [field]: value },
+      },
+    }));
+    setDirty(true);
+  };
+
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!form.name.trim()) errs.name = t('validation.required');
     if (!form.componentType) errs.componentType = t('validation.required');
-    if (!form.machineId) errs.machineId = t('validation.required');
+    if (form.machineIds.length === 0) errs.machineIds = t('validation.required');
     setErrors(errs);
     focusFirstInvalidField(Object.entries(errs).map(([field, message]) => ({ field, code: 'validation.required', message })));
     return Object.keys(errs).length === 0;
   };
 
   const handleSave = async () => {
-    if (isReadOnly || !validate()) return;
+    if (saving || isReadOnly || !validate()) return;
     setSaving(true);
     try {
-      const payload: Record<string, any> = {};
+      const machineData = form.machineIds.map((machineId) => ({
+        machineId,
+        ...(form.machineData[machineId] ?? { locationInMachine: '', serialNumber: '' }),
+      }));
+      const payload: Record<string, any> = { machineIds: form.machineIds, machineData };
       if (form.name.trim() !== data?.name) payload.name = form.name.trim();
       if (form.description !== data?.description) payload.description = form.description.trim() || null;
       if (form.componentType !== data?.componentType) payload.componentType = form.componentType;
       if (form.criticality !== data?.criticality) payload.criticality = form.criticality;
-      if (form.machineId !== data?.machineId) payload.machineId = form.machineId;
-      if (form.locationInMachine !== data?.locationInMachine) payload.locationInMachine = form.locationInMachine.trim() || null;
       if (form.manufacturer !== data?.manufacturer) payload.manufacturer = form.manufacturer.trim() || null;
       if (form.model !== data?.model) payload.model = form.model.trim() || null;
-      if (form.serialNumber !== data?.serialNumber) payload.serialNumber = form.serialNumber.trim() || null;
       if (form.parentComponentId !== data?.parentComponentId) payload.parentComponentId = form.parentComponentId || null;
       await api.patch(`/maintenance/machine-components/${id}`, payload);
       showToast(t('complexForms.recordUpdated'), 'success');
@@ -164,16 +205,41 @@ export default function EditMachineComponentPage() {
                 {errors.componentType && <p className="text-red-500 text-sm mt-1">{errors.componentType}</p>}
               </div>
               <div>
-                <F9Lookup label={t('maintenance.machine')} value={form.machineId} onChange={(v) => setField('machineId', v)} adapter={machineAdapter} disabled={isReadOnly} />
-                {errors.machineId && <p className="text-red-500 text-sm mt-1">{errors.machineId}</p>}
+                <F9MultiLookup
+                  label={t('maintenance.machinesLabel')}
+                  value={form.machineIds}
+                  onChange={handleMachinesChange}
+                  adapter={machineAdapter}
+                  items={machineItems}
+                  onItemsChange={handleMachineItemsChange}
+                  disabled={isReadOnly}
+                />
+                {errors.machineIds && <p className="text-red-500 text-sm mt-1">{errors.machineIds}</p>}
               </div>
               <Select label={t('maintenance.components.form.criticality')} value={form.criticality} onChange={(e) => setField('criticality', e.target.value)} options={CRITICALITY_KEYS.map(o => ({ value: o.value, label: t(o.labelKey) }))} placeholder={t('common.select')} error={errors.criticality} disabled={isReadOnly} />
-              <Input label={t('maintenance.components.form.locationInMachine')} value={form.locationInMachine} onChange={(e) => setField('locationInMachine', e.target.value)} disabled={isReadOnly} />
               <Input label={t('maintenance.components.form.manufacturer')} value={form.manufacturer} onChange={(e) => setField('manufacturer', e.target.value)} disabled={isReadOnly} />
               <Input label={t('maintenance.components.form.model')} value={form.model} onChange={(e) => setField('model', e.target.value)} disabled={isReadOnly} />
-              <Input label={t('maintenance.components.form.serialNumber')} value={form.serialNumber} onChange={(e) => setField('serialNumber', e.target.value)} disabled={isReadOnly} />
             </div>
-            <F9Lookup label={t('maintenance.parentComponent')} value={form.parentComponentId} onChange={(v) => setField('parentComponentId', v)} adapter={machineComponentAdapter} disabled={isReadOnly} />
+            {form.machineIds.length > 0 && (
+              <div className="border rounded-lg p-3 space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700">{t('maintenance.machineSpecificAttributes')}</h3>
+                {form.machineIds.map((machineId) => {
+                  const datum = form.machineData[machineId] ?? { locationInMachine: '', serialNumber: '' };
+                  const label = machineItems.find((item) => item.id === machineId)?.label || machineId;
+                  return (
+                    <div key={machineId} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                      <div className="text-sm font-medium text-gray-700 truncate" title={label}>{label}</div>
+                      <Input label={t('maintenance.locationInMachine')} value={datum.locationInMachine} onChange={(e) => handleMachineDataChange(machineId, 'locationInMachine', e.target.value)} disabled={isReadOnly} />
+                      <Input label={t('maintenance.serialNumber')} value={datum.serialNumber} onChange={(e) => handleMachineDataChange(machineId, 'serialNumber', e.target.value)} disabled={isReadOnly} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div>
+              <F9Lookup label={t('maintenance.parentComponent')} value={form.parentComponentId} onChange={(v) => setField('parentComponentId', v)} adapter={machineComponentAdapter} disabled={isReadOnly} />
+              <p className="text-xs text-gray-500 mt-1">{t('maintenance.parentSubsetHint')}</p>
+            </div>
             <Input label={t('maintenance.components.form.description')} value={form.description} onChange={(e) => setField('description', e.target.value)} disabled={isReadOnly} />
           </div>
         </CardContent>

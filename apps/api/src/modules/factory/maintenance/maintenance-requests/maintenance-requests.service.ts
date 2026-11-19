@@ -82,14 +82,6 @@ export class MaintenanceRequestsService {
 
     if (dto.machineComponentId) {
       await assertMachineComponentBelongsToMachine(this.prisma, dto.machineComponentId, dto.machineId, ctx);
-      const comp = await this.prisma.machineComponent.findUnique({ where: { id: dto.machineComponentId } });
-      if (!comp) throw this.notFound('maintenance.componentNotFound', 'Machine component not found');
-      if (comp.machineId !== dto.machineId) {
-        throw this.badRequest('maintenance.componentMachineMismatch', 'Component does not belong to selected machine');
-      }
-      if (comp.status !== 'ACTIVE' || comp.deletedAt) {
-        throw this.badRequest('maintenance.inactiveMachineComponent', 'Inactive machine component cannot be referenced by a request');
-      }
     }
     if (dto.operationTypeId) {
       const ot = await this.prisma.operationType.findUnique({ where: { id: dto.operationTypeId } });
@@ -445,9 +437,7 @@ export class MaintenanceRequestsService {
     }
 
     if (dto.machineComponentId) {
-      const comp = await this.prisma.machineComponent.findUnique({ where: { id: dto.machineComponentId } });
-      if (!comp) throw this.notFound('maintenance.componentNotFound', 'Machine component not found');
-      if (comp.machineId !== req.machineId) throw this.badRequest('maintenance.componentMachineMismatch', 'Component does not belong to selected machine');
+      await assertMachineComponentBelongsToMachine(this.prisma, dto.machineComponentId, req.machineId, ctx);
     }
     if (dto.machineId && dto.machineId !== req.machineId) {
       throw this.badRequest('maintenance.machineRequestMismatch', 'Machine does not match request machine');

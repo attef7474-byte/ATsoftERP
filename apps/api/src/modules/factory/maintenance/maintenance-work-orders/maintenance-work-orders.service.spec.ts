@@ -29,6 +29,28 @@ const ctx: ActiveOperationalContext = {
 
 const user: CurrentUserType = { id: 'u1', sub: 'u1', email: 'u@a.com', name: 'U' };
 
+// A component is paired with a machine only through an ACTIVE machineLinks row;
+// the legacy machineId pointer is not authoritative. The shared guard resolves the
+// links with `select.machineLinks.where.machineId`, so the mock mirrors that filter:
+// the component resolves as actively associated only for the machine it is truly
+// linked to. A mismatched machine yields no links and the guard rejects the pair.
+const activeComponentOnMachine = (componentId: string, machineId: string) =>
+  jest.fn().mockImplementation((args: any) => {
+    const queriedMachineId = args?.select?.machineLinks?.where?.machineId;
+    const machineLinks = [{ id: `link-${componentId}-${machineId}`, status: 'ACTIVE', machineId }];
+    return {
+      id: componentId,
+      status: 'ACTIVE',
+      deletedAt: null,
+      companyId: 'c1',
+      branchId: 'b1',
+      machine: { companyId: 'c1', branchId: 'b1' },
+      machineLinks: queriedMachineId === undefined
+        ? machineLinks
+        : machineLinks.filter((link: any) => link.machineId === queriedMachineId),
+    };
+  });
+
 const wo = (overrides: Record<string, any> = {}) => ({
   id: 'wo1',
   companyId: 'c1',
@@ -1088,7 +1110,7 @@ describe('MaintenanceWorkOrdersService', () => {
     it('defaults machineComponentId from the request when omitted', async () => {
       prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord({ machineComponentId: 'comp1' }));
       prisma.machine.findUnique.mockResolvedValue(ownedMachine);
-      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'comp1', machineId: 'm1', machine: { companyId: 'c1', branchId: 'b1' } });
+      prisma.machineComponent.findUnique.mockImplementation(activeComponentOnMachine('comp1', 'm1'));
       prisma.maintenanceWorkOrder.create.mockResolvedValue(
         wo({ requestId: 'r1', machineId: 'm1', machineComponentId: 'comp1' }),
       );
@@ -1109,11 +1131,12 @@ describe('MaintenanceWorkOrdersService', () => {
 
     it('rejects a component override that belongs to another machine', async () => {
       prisma.maintenanceRequest.findUnique.mockResolvedValue(requestRecord());
-      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'comp9', machineId: 'm9' });
+      prisma.machineComponent.findUnique.mockImplementation(activeComponentOnMachine('comp9', 'm9'));
       const promise = service.createFromRequest('r1', { title: 'x', machineComponentId: 'comp9' } as any, user, ctx);
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
-      expect(response.errors[0]).toMatchObject({ field: 'machineComponentId', code: 'workOrderComponentMachineMismatch' });
+      expect(response.messageKey).toBe('maintenance.machineComponentMachineMismatch');
+      expect(prisma.maintenanceWorkOrder.create).not.toHaveBeenCalled();
     });
 
     it('rejects a supervisor from another branch (tenant isolation on assignment)', async () => {
@@ -1180,12 +1203,13 @@ describe('MaintenanceWorkOrdersService', () => {
     });
 
     it('rejects a component that belongs to another machine', async () => {
-      prisma.machineComponent.findUnique.mockResolvedValue({ id: 'comp9', machineId: 'm9' });
+      prisma.machineComponent.findUnique.mockImplementation(activeComponentOnMachine('comp9', 'm9'));
       prisma.machine.findUnique.mockResolvedValue(ownedMachine);
       const promise = service.create({ title: 'x', machineId: 'm1', machineComponentId: 'comp9' }, user, ctx);
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
-      expect(response.errors[0]).toMatchObject({ field: 'machineComponentId', code: 'workOrderComponentMachineMismatch' });
+      expect(response.messageKey).toBe('maintenance.machineComponentMachineMismatch');
+      expect(prisma.maintenanceWorkOrder.create).not.toHaveBeenCalled();
     });
 
     it('rejects a foreign warehouse on create', async () => {

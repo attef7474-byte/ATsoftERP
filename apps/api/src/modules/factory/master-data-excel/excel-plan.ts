@@ -10,30 +10,85 @@ export type ExcelImportMode = 'CREATE_ONLY' | 'UPDATE_EXISTING' | 'CREATE_AND_UP
 export interface PlannedExcelRow extends ExcelPreviewRow { key: string; dto: Record<string, any>; existing?: any; parentKey?: string; fingerprint: string; }
 export interface ExcelPlan { rows: PlannedExcelRow[]; ordered: PlannedExcelRow[]; fingerprint: string; errors: ExcelRowError[]; existingIds: Map<string, string>; }
 export const businessKey = (value: unknown) => String(value ?? '').trim().normalize('NFC').toUpperCase();
-const composite = (machine: unknown, code: unknown) => JSON.stringify([businessKey(machine), businessKey(code)]);
 export const tenantMachineScope = (ctx: ActiveOperationalContext) => ({ companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] });
 /** `ProductionLine.branchId` is a required FK, so Prisma rejects `branchId: null` inside a filter. */
 export const tenantRequiredBranchScope = (ctx: ActiveOperationalContext) => ({ companyId: ctx.companyId, branchId: ctx.branchId });
 export function digest(value: unknown): string { return createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
-const includes = (def: ExcelDefinition): any => def.model === 'machine' ? { category: true, department: true, productionLine: true, operationType: true, defaultCostCenter: true } : def.model === 'machineComponent' ? { machine: { select: { id: true, code: true, companyId: true, branchId: true } }, parentComponent: { select: { code: true } } } : def.model === 'product' ? { category: true, unitRef: true } : { product: true, unitRef: true };
+
+const MULTI_DELIMITER = ';';
+/** Flat-sheet attributes resolved explicitly into machineIds/machineData; never forwarded to the DTO. */
+const COMPONENT_VIRTUAL_FIELDS = new Set(['machineCodes', 'machineCode', 'locationsInMachine', 'serialNumbers', 'legacyLocationInMachine', 'legacySerialNumber']);
+
+function splitDelimited(value: unknown): string[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value);
+  if (!text.trim()) return undefined;
+  return text.split(MULTI_DELIMITER).map(part => part.trim());
+}
+
+const includes = (def: ExcelDefinition): any => def.model === 'machine' ? { category: true, department: true, productionLine: true, operationType: true, defaultCostCenter: true } : def.model === 'machineComponent' ? {
+  // Legacy primary pointer is kept only for historic single-machine rows.
+  machine: { select: { id: true, code: true, companyId: true, branchId: true } },
+  machineLinks: {
+    where: { status: 'ACTIVE' },
+    select: { machineId: true, status: true, locationInMachine: true, serialNumber: true, machine: { select: { id: true, code: true } } },
+  },
+  parentComponent: { select: { code: true } },
+} : def.model === 'product' ? { category: true, unitRef: true } : { product: true, unitRef: true };
 export { includes as excelIncludes };
 
 /** Pure read planning. The same function runs again on the Serializable transaction client. */
 export async function buildExcelPlan(db: any, def: ExcelDefinition, parsed: ParsedExcel, mode: ExcelImportMode, ctx: ActiveOperationalContext): Promise<ExcelPlan> {
+  const isComponent = def.model === 'machineComponent';
   const codes = [...new Set(parsed.rows.map(r => String(r.values.Code || '')).filter(Boolean))];
-  const machineCodes = [...new Set(parsed.rows.map(r => String(r.values.MachineCode || '')).filter(Boolean))];
   const scope = tenantMachineScope(ctx);
   const where: any = { code: { in: codes } };
   if (def.model === 'machine') where.AND = [scope];
-  if (def.model === 'machineComponent') where.machine = { AND: [scope, { code: { in: machineCodes } }] };
+  // Components are now tenant-owned logical records; never resolve them by a
+  // composite machine+code key and never fetch a foreign record by code alone.
+  if (isComponent) where.AND = [scope];
   const records: any[] = codes.length ? await db[def.model].findMany({ where, include: includes(def), take: EXCEL_LIMITS.exportRows + 1, orderBy: { id: 'asc' } }) : [];
   if (records.length > EXCEL_LIMITS.exportRows) throw excelFailure('excelReferenceLimit');
   // Machine codes have a global DB constraint. Probe only caller-supplied codes,
   // never foreign names/IDs, so unavailable identities cannot become accidental creates.
   const foreign: any[] = def.model === 'machine' && codes.length ? await db.machine.findMany({ where: { code: { in: codes }, NOT: scope }, select: { code: true }, take: EXCEL_LIMITS.importRows + 1 }) : [];
   const foreignCodes = new Set(foreign.map(r => businessKey(r.code)));
-  const key = (r: any) => def.model === 'machineComponent' ? composite(r.machine.code, r.code) : businessKey(r.code);
+  const key = (r: any) => businessKey(r.code);
   const byKey = new Map(records.map(r => [key(r), r]));
+
+  // Resolve MachineCodes (or legacy MachineCode) only inside the active tenant
+  // and branch. Unknown, inactive, soft-deleted and foreign codes are rejected.
+  const machineIndex = new Map<string, any>();
+  let machineState: any[] = [];
+  if (isComponent) {
+    const wanted: string[] = [], seenWanted = new Set<string>();
+    for (const row of parsed.rows) {
+      const supplied = splitDelimited(row.values.MachineCodes)
+        ?? (row.values.MachineCode !== undefined ? [String(row.values.MachineCode)] : undefined);
+      for (const code of supplied ?? []) {
+        const trimmed = code.trim();
+        if (!trimmed) continue;
+        const normalized = businessKey(trimmed);
+        if (seenWanted.has(normalized)) continue;
+        seenWanted.add(normalized);
+        wanted.push(trimmed);
+      }
+    }
+    if (wanted.length) {
+      machineState = await db.machine.findMany({
+        where: { code: { in: wanted }, AND: [scope], deletedAt: null, status: 'ACTIVE' },
+        select: { id: true, code: true },
+        take: EXCEL_LIMITS.exportRows + 1,
+        orderBy: { id: 'asc' },
+      });
+      if (machineState.length > EXCEL_LIMITS.exportRows) throw excelFailure('excelReferenceLimit');
+      for (const match of machineState) {
+        const normalized = businessKey(match.code);
+        machineIndex.set(normalized, machineIndex.has(normalized) ? null : match);
+      }
+    }
+  }
+
   const refs = new Map<string, Map<string, any>>(), refState: unknown[] = [];
   for (const column of def.columns) {
     if (!column.reference || column.reference === 'parentComponent') continue;
@@ -48,12 +103,17 @@ export async function buildExcelPlan(db: any, def: ExcelDefinition, parsed: Pars
     for (const match of matches) { const k = businessKey(match.code); index.set(k, index.has(k) ? null : match); }
     refs.set(column.header, index); refState.push([column.header, matches]);
   }
-  const graphRecords: any[] = def.model === 'machineComponent' && machineCodes.length ? await db.machineComponent.findMany({
-    where: { deletedAt: null, machine: { AND: [scope, { code: { in: machineCodes } }] } }, include: includes(def), take: EXCEL_LIMITS.exportRows + 1, orderBy: { id: 'asc' },
+  refState.push(['machineCodes', machineState]);
+
+  const parentCodes = [...new Set(parsed.rows.map(r => String(r.values.ParentComponentCode || '')).filter(Boolean))];
+  const graphCodes = [...new Set([...codes, ...parentCodes])];
+  const graphRecords: any[] = isComponent && graphCodes.length ? await db.machineComponent.findMany({
+    where: { deletedAt: null, code: { in: graphCodes }, AND: [scope] }, include: includes(def), take: EXCEL_LIMITS.exportRows + 1, orderBy: { id: 'asc' },
   }) : [];
   if (graphRecords.length > EXCEL_LIMITS.exportRows) throw excelFailure('excelReferenceLimit');
+
   const rows: PlannedExcelRow[] = parsed.rows.map(input => {
-    const values = { ...input.values }, k = def.model === 'machineComponent' ? composite(values.MachineCode, values.Code) : businessKey(values.Code), existing = byKey.get(k);
+    const values = { ...input.values }, k = businessKey(values.Code), existing = byKey.get(k);
     const row: PlannedExcelRow = { row: input.row, values, code: String(existing?.code || values.Code || ''), name: String(values.Name || existing?.name || ''), key: k, dto: {}, existing, errors: [...input.errors], action: existing ? 'UPDATE' : 'NEW', fingerprint: '' };
     const error = (column: string, code: string) => row.errors.push({ row: row.row, column, code: `validation.${code}`, value: String(values[column] ?? '').slice(0, 100) });
     if (existing?.deletedAt || foreignCodes.has(k)) { error('Code', 'excelKeyUnavailable'); row.action = 'CONFLICT_EXISTING'; }
@@ -61,13 +121,13 @@ export async function buildExcelPlan(db: any, def: ExcelDefinition, parsed: Pars
     if (mode === 'UPDATE_EXISTING' && !existing) error('Code', 'excelUnknownKey');
     let changed = false;
     for (const column of def.columns) {
-      if (!column.importable) continue;
+      if (!column.importable || (isComponent && COMPONENT_VIRTUAL_FIELDS.has(column.field))) continue;
       const value = values[column.header];
       if (value === undefined) {
         if (column.required === 'identity' || (!existing && column.required === 'create')) error(column.header, 'excelRequired');
         continue;
       }
-      if (column.reference === 'parentComponent') { row.parentKey = composite(values.MachineCode, value); continue; }
+      if (column.reference === 'parentComponent') { row.parentKey = businessKey(value); continue; }
       let resolved: any = value;
       if (column.reference) {
         let reference = refs.get(column.header)?.get(businessKey(value));
@@ -88,6 +148,56 @@ export async function buildExcelPlan(db: any, def: ExcelDefinition, parsed: Pars
       if (!existing || column.required === 'identity' || (previous ?? null) !== resolved) row.dto[column.field] = resolved;
       if (existing && column.update && (previous ?? null) !== resolved) changed = true;
     }
+
+    if (isComponent) {
+      const hasMulti = values.MachineCodes !== undefined && String(values.MachineCodes).trim().length > 0;
+      const sourceHeader = hasMulti ? 'MachineCodes' : 'MachineCode';
+      const rawParts = hasMulti ? splitDelimited(values.MachineCodes) : (values.MachineCode !== undefined ? splitDelimited(values.MachineCode) : undefined);
+      if (!rawParts?.length) error(sourceHeader, 'excelRequired');
+      const codeParts = rawParts ?? [];
+      const seen = new Set<string>();
+      const selected: Array<{ index: number; key: string }> = [];
+      codeParts.forEach((code, index) => {
+        const normalized = businessKey(code);
+        if (!normalized || seen.has(normalized)) return;
+        seen.add(normalized);
+        selected.push({ index, key: normalized });
+      });
+      const locParts = splitDelimited(values.LocationsInMachine);
+      const serParts = splitDelimited(values.SerialNumbers);
+      if (locParts && locParts.length !== codeParts.length) error('LocationsInMachine', 'excelReference');
+      if (serParts && serParts.length !== codeParts.length) error('SerialNumbers', 'excelReference');
+      // Legacy headers are keyed by header name in parsed values, not by virtual field name.
+      const legacyLoc = values.LocationInMachine, legacySer = values.SerialNumber;
+      if (selected.length > 1 && (legacyLoc !== undefined || legacySer !== undefined) && (!locParts || !serParts)) {
+        if (legacyLoc !== undefined) error('LocationInMachine', 'excelReference');
+        if (legacySer !== undefined) error('SerialNumber', 'excelReference');
+      }
+      const machineIds: string[] = [];
+      const machineData: Array<{ machineId: string; locationInMachine: string | null; serialNumber: string | null }> = [];
+      for (const entry of selected) {
+        const machine = machineIndex.get(entry.key);
+        if (!machine) { error(sourceHeader, 'excelReference'); continue; }
+        if (!machineIds.includes(machine.id)) machineIds.push(machine.id);
+        if (machineData.some(data => data.machineId === machine.id)) continue;
+        const location = locParts?.[entry.index] ?? (selected.length === 1 && legacyLoc !== undefined ? String(legacyLoc) : '');
+        const serial = serParts?.[entry.index] ?? (selected.length === 1 && legacySer !== undefined ? String(legacySer) : '');
+        machineData.push({ machineId: machine.id, locationInMachine: location || null, serialNumber: serial || null });
+      }
+      row.dto.machineIds = machineIds;
+      if (machineData.length) row.dto.machineData = machineData;
+      if (!existing && !machineIds.length) error(sourceHeader, 'excelRequired');
+      const links: any[] = (existing?.machineLinks ?? []).filter((link: any) => link.status === 'ACTIVE');
+      const currentIds = links.map(link => link.machineId);
+      const sameSet = currentIds.length === machineIds.length && machineIds.every(id => currentIds.includes(id));
+      const sameData = sameSet && machineIds.every(id => {
+        const before = links.find(link => link.machineId === id);
+        const after = machineData.find(data => data.machineId === id);
+        return (before?.locationInMachine ?? null) === (after?.locationInMachine ?? null) && (before?.serialNumber ?? null) === (after?.serialNumber ?? null);
+      });
+      if (existing && !sameData) changed = true;
+    }
+
     if (!existing && def.model === 'machine') row.dto.dedicatedCostCenter = { name: row.dto.costCenterName || row.dto.name, type: row.dto.costCenterType };
     delete row.dto.costCenterName; delete row.dto.costCenterType;
     if (def.model === 'machine' && (row.dto.productionLineId || row.dto.departmentId)) {
@@ -103,18 +213,28 @@ export async function buildExcelPlan(db: any, def: ExcelDefinition, parsed: Pars
   for (const row of rows) { const list = duplicates.get(row.key) || []; list.push(row); duplicates.set(row.key, list); }
   for (const list of duplicates.values()) if (list.length > 1) for (const row of list) { row.action = 'DUPLICATE_IN_FILE'; row.errors.push({ row: row.row, column: 'Code', code: 'validation.excelDuplicate' }); }
 
+  const machinesUnchanged = (row: PlannedExcelRow) => {
+    const links: any[] = (row.existing?.machineLinks ?? []).filter((link: any) => link.status === 'ACTIVE');
+    const ids = links.map(link => link.machineId), desired: string[] = row.dto.machineIds ?? [];
+    return ids.length === desired.length && desired.every(id => {
+      const before = links.find(link => link.machineId === id);
+      const after = (row.dto.machineData ?? []).find((data: any) => data.machineId === id);
+      return !!before && !!after && (before.locationInMachine ?? null) === (after.locationInMachine ?? null) && (before.serialNumber ?? null) === (after.serialNumber ?? null);
+    });
+  };
   const graph = new Map<string, string | undefined>(), graphById = new Map(graphRecords.map(r => [r.id, r]));
   for (const r of graphRecords) graph.set(key(r), r.parentComponentId ? (graphById.has(r.parentComponentId) ? key(graphById.get(r.parentComponentId)) : '__invalid_parent__') : undefined);
-  for (const row of rows) if (def.model === 'machineComponent') {
+  for (const row of rows) if (isComponent) {
     if (row.parentKey !== undefined) {
       if (row.parentKey === row.key) row.errors.push({ row: row.row, column: 'ParentComponentCode', code: 'validation.excelCycle' });
       if (!graph.has(row.parentKey) && !rows.some(r => r.key === row.parentKey)) row.errors.push({ row: row.row, column: 'ParentComponentCode', code: 'validation.excelReference' });
       const existingParent = row.existing?.parentComponentId ? graphById.get(row.existing.parentComponentId) : undefined;
-      if (row.action === 'UPDATE' && existingParent && key(existingParent) === row.parentKey && !Object.entries(row.dto).some(([field, value]) => !['code', 'machineId'].includes(field) && row.existing[field] !== value)) row.action = 'UNCHANGED';
+      if (row.action === 'UPDATE' && existingParent && key(existingParent) === row.parentKey && machinesUnchanged(row)
+        && !Object.entries(row.dto).some(([field, value]) => !['code', 'machineIds', 'machineData'].includes(field) && row.existing[field] !== value)) row.action = 'UNCHANGED';
       graph.set(row.key, row.parentKey);
     } else if (!graph.has(row.key)) graph.set(row.key, undefined);
   }
-  for (const row of rows) if (def.model === 'machineComponent') {
+  for (const row of rows) if (isComponent) {
     const seen = new Set<string>(); let current: string | undefined = row.key;
     while (current) { if (seen.has(current)) { row.errors.push({ row: row.row, column: 'ParentComponentCode', code: 'validation.excelCycle' }); break; } seen.add(current); if (current === '__invalid_parent__') { row.errors.push({ row: row.row, column: 'ParentComponentCode', code: 'validation.excelReference' }); break; } current = graph.get(current); }
   }

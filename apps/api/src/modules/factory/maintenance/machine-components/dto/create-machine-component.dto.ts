@@ -1,13 +1,51 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsIn, IsArray, ArrayNotEmpty } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsIn,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 
 const COMPONENT_TYPES = ['MECHANICAL', 'ELECTRICAL', 'CONTROL', 'PNEUMATIC', 'HYDRAULIC', 'HEATING', 'COOLING', 'SENSOR', 'SAFETY', 'CONVEYOR', 'FRAME', 'UTILITY', 'OTHER'];
 const CRITICALITY_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
-export class CreateMachineComponentDto {
+/**
+ * Machine-specific physical attributes. These live on the association row,
+ * never on the shared logical component.
+ */
+export class MachineComponentMachineInputDto {
   @ApiProperty()
   @IsString()
   machineId: string;
+
+  @ApiPropertyOptional()
+  @IsString() @IsOptional()
+  locationInMachine?: string;
+
+  @ApiPropertyOptional()
+  @IsString() @IsOptional()
+  serialNumber?: string;
+}
+
+/**
+ * Canonical create contract: ONE logical component with N active machine
+ * associations. `machineId` is retained only for legacy single-machine callers;
+ * the backend normalizes it into `machineIds` and never treats it as authority.
+ */
+export class CreateMachineComponentDto {
+  @ApiPropertyOptional({ type: [String], description: 'Canonical set of machine ids to associate' })
+  @IsArray() @IsOptional() @IsString({ each: true })
+  machineIds?: string[];
+
+  @ApiPropertyOptional({ description: 'Legacy single-machine compatibility field' })
+  @IsString() @IsOptional()
+  machineId?: string;
+
+  @ApiPropertyOptional({ type: [MachineComponentMachineInputDto] })
+  @IsArray() @IsOptional() @ValidateNested({ each: true }) @Type(() => MachineComponentMachineInputDto)
+  machineData?: MachineComponentMachineInputDto[];
 
   @ApiPropertyOptional()
   @IsString() @IsOptional()
@@ -31,19 +69,11 @@ export class CreateMachineComponentDto {
 
   @ApiPropertyOptional()
   @IsString() @IsOptional()
-  locationInMachine?: string;
-
-  @ApiPropertyOptional()
-  @IsString() @IsOptional()
   manufacturer?: string;
 
   @ApiPropertyOptional()
   @IsString() @IsOptional()
   model?: string;
-
-  @ApiPropertyOptional()
-  @IsString() @IsOptional()
-  serialNumber?: string;
 
   @ApiPropertyOptional({ enum: CRITICALITY_LEVELS, default: 'MEDIUM' })
   @IsString() @IsOptional() @IsIn(CRITICALITY_LEVELS)
@@ -52,10 +82,46 @@ export class CreateMachineComponentDto {
   @ApiPropertyOptional({ default: 'ACTIVE' })
   @IsString() @IsOptional() @IsIn(['ACTIVE', 'INACTIVE'])
   status?: string;
+
+  /** Deprecated single-machine value, normalized onto the first association. */
+  @ApiPropertyOptional({ deprecated: true })
+  @IsString() @IsOptional()
+  locationInMachine?: string;
+
+  /** Deprecated shared serial, only accepted for a single-machine create. */
+  @ApiPropertyOptional({ deprecated: true })
+  @IsString() @IsOptional()
+  serialNumber?: string;
 }
 
+/**
+ * Edit contract. `machineIds` expresses the desired final ACTIVE set.
+ * `toAdd` / `toKeep` / `toRemove` express the same change as an explicit
+ * set-based delta; both are reconciled in one atomic transaction and never
+ * create a new MachineComponent row.
+ */
 export class UpdateMachineComponentDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: [String], description: 'Desired final active machine set' })
+  @IsArray() @IsOptional() @IsString({ each: true })
+  machineIds?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsArray() @IsOptional() @IsString({ each: true })
+  toAdd?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsArray() @IsOptional() @IsString({ each: true })
+  toKeep?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsArray() @IsOptional() @IsString({ each: true })
+  toRemove?: string[];
+
+  @ApiPropertyOptional({ type: [MachineComponentMachineInputDto] })
+  @IsArray() @IsOptional() @ValidateNested({ each: true }) @Type(() => MachineComponentMachineInputDto)
+  machineData?: MachineComponentMachineInputDto[];
+
+  @ApiPropertyOptional({ description: 'Legacy compatibility field; cannot change component identity' })
   @IsString() @IsOptional()
   machineId?: string;
 
@@ -63,7 +129,7 @@ export class UpdateMachineComponentDto {
   @IsString() @IsOptional()
   parentComponentId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Identity is immutable; supplying the current code is allowed.' })
   @IsString() @IsOptional()
   code?: string;
 
@@ -81,19 +147,11 @@ export class UpdateMachineComponentDto {
 
   @ApiPropertyOptional()
   @IsString() @IsOptional()
-  locationInMachine?: string;
-
-  @ApiPropertyOptional()
-  @IsString() @IsOptional()
   manufacturer?: string;
 
   @ApiPropertyOptional()
   @IsString() @IsOptional()
   model?: string;
-
-  @ApiPropertyOptional()
-  @IsString() @IsOptional()
-  serialNumber?: string;
 
   @ApiPropertyOptional({ enum: CRITICALITY_LEVELS })
   @IsString() @IsOptional() @IsIn(CRITICALITY_LEVELS)
@@ -102,22 +160,33 @@ export class UpdateMachineComponentDto {
   @ApiPropertyOptional()
   @IsString() @IsOptional() @IsIn(['ACTIVE', 'INACTIVE'])
   status?: string;
+
+  @ApiPropertyOptional({ deprecated: true })
+  @IsString() @IsOptional()
+  locationInMachine?: string;
+
+  @ApiPropertyOptional({ deprecated: true })
+  @IsString() @IsOptional()
+  serialNumber?: string;
 }
 
 /**
- * Multi-machine batch create (§7). Creates ONE independent MachineComponent row per
- * unique selected machine in a single atomic transaction. Shared fields (code, name,
- * componentType, criticality, description, locationInMachine, manufacturer, model) are
- * copied per row. serialNumber / parentComponentId are single-machine only because they
- * are physically machine-specific (a serial cannot be duplicated, a parent must belong
- * to the same machine).
+ * Compatibility endpoint. It now creates ONE component and N associations,
+ * never one component row per machine.
  */
 export class BatchCreateMachineComponentDto {
   @ApiProperty({ type: [String] })
   @IsArray()
-  @ArrayNotEmpty()
   @IsString({ each: true })
   machineIds: string[];
+
+  @ApiPropertyOptional({ type: [MachineComponentMachineInputDto] })
+  @IsArray() @IsOptional() @ValidateNested({ each: true }) @Type(() => MachineComponentMachineInputDto)
+  machineData?: MachineComponentMachineInputDto[];
+
+  @ApiPropertyOptional()
+  @IsString() @IsOptional()
+  parentComponentId?: string;
 
   @ApiProperty()
   @IsString()
@@ -137,29 +206,25 @@ export class BatchCreateMachineComponentDto {
 
   @ApiPropertyOptional()
   @IsString() @IsOptional()
-  locationInMachine?: string;
-
-  @ApiPropertyOptional()
-  @IsString() @IsOptional()
   manufacturer?: string;
 
   @ApiPropertyOptional()
   @IsString() @IsOptional()
   model?: string;
 
-  @ApiPropertyOptional()
-  @IsString() @IsOptional()
-  serialNumber?: string;
-
   @ApiPropertyOptional({ enum: CRITICALITY_LEVELS, default: 'MEDIUM' })
   @IsString() @IsOptional() @IsIn(CRITICALITY_LEVELS)
   criticality?: string;
 
-  @ApiPropertyOptional()
-  @IsString() @IsOptional()
-  parentComponentId?: string;
-
   @ApiPropertyOptional({ default: 'ACTIVE' })
   @IsString() @IsOptional() @IsIn(['ACTIVE', 'INACTIVE'])
   status?: string;
+
+  @ApiPropertyOptional({ deprecated: true })
+  @IsString() @IsOptional()
+  locationInMachine?: string;
+
+  @ApiPropertyOptional({ deprecated: true })
+  @IsString() @IsOptional()
+  serialNumber?: string;
 }

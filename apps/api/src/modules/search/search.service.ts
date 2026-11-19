@@ -930,16 +930,18 @@ export class SearchService {
     filters: SearchEntityFilters,
   ): SearchDefinition {
     const componentId = filters.machineComponentId || filters.componentId;
+    const activeLinkFilter = {
+      status: 'ACTIVE',
+      machine: this.machineScope(context),
+      ...(filters.machineId ? { machineId: filters.machineId } : {}),
+    };
     return {
       delegate: this.delegate(this.prisma.machineComponent),
       where: this.and(
         {
           status: 'ACTIVE',
           deletedAt: null,
-          machine: this.and(
-            this.machineScope(context),
-            filters.machineId ? { id: filters.machineId } : undefined,
-          ),
+          machineLinks: { some: activeLinkFilter },
         },
         componentId ? { id: componentId } : undefined,
         this.textSearch(q, [
@@ -953,26 +955,41 @@ export class SearchService {
       ),
       orderBy: { name: 'asc' },
       query: {
-        include: { machine: { select: { id: true, code: true, name: true } } },
-      },
-      map: (component) => ({
-        id: component.id,
-        entityType: EntityType.MACHINE_COMPONENT,
-        code: component.code,
-        title: component.name,
-        subtitle: component.machine?.name || component.componentType,
-        description: component.description || '',
-        status: component.status,
-        route: `/admin/maintenance/machine-components/${component.id}`,
-        metadata: {
-          code: component.code,
-          componentType: component.componentType,
-          criticality: component.criticality,
-          machineId: component.machineId,
-          machineCode: component.machine?.code,
-          machineName: component.machine?.name,
+        include: {
+          machineLinks: {
+            where: activeLinkFilter,
+            select: {
+              machineId: true,
+              locationInMachine: true,
+              serialNumber: true,
+              machine: { select: { id: true, code: true, name: true } },
+            },
+          },
         },
-      }),
+      },
+      map: (component) => {
+        const links = component.machineLinks || [];
+        const primary = links[0]?.machine;
+        return {
+          id: component.id,
+          entityType: EntityType.MACHINE_COMPONENT,
+          code: component.code,
+          title: component.name,
+          subtitle: primary?.name || component.componentType,
+          description: component.description || '',
+          status: component.status,
+          route: `/admin/maintenance/machine-components/${component.id}`,
+          metadata: {
+            code: component.code,
+            componentType: component.componentType,
+            criticality: component.criticality,
+            machineIds: links.map((link: any) => link.machineId),
+            machineId: primary?.id || null,
+            machineCode: primary?.code || null,
+            machineName: primary?.name || null,
+          },
+        };
+      },
     };
   }
 

@@ -61,6 +61,7 @@ describe('maintenance-bom tenant isolation', () => {
     const where = db.maintenanceBom.findMany.mock.calls[0][0].where
     expect(where.OR).toEqual([
       { machine: { companyId: 'company-a', OR: [{ branchId: 'branch-a' }, { branchId: null }] } },
+      { component: { companyId: 'company-a', OR: [{ branchId: 'branch-a' }, { branchId: null }] } },
       { component: { machine: { companyId: 'company-a', OR: [{ branchId: 'branch-a' }, { branchId: null }] } } },
     ])
   })

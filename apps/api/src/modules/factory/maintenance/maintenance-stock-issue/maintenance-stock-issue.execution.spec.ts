@@ -7,6 +7,19 @@ import { ExecutionPartInputDto } from '../maintenance-tasks/dto/execution-action
 
 const ctx: any = { companyId: 'company', branchId: 'branch' };
 const machine = { id: 'machine', companyId: 'company', branchId: 'branch' };
+// The guard filters machineLinks in its Prisma `where`; mocks must return no
+// links for a machine the component is not actively mounted on.
+const componentOnMachine = (machineId: string | null) => ({
+  id: 'component',
+  status: 'ACTIVE',
+  deletedAt: null,
+  companyId: 'company',
+  branchId: 'branch',
+  machine,
+  machineLinks: machineId
+    ? [{ id: `link-component-${machineId}`, status: 'ACTIVE', machineId }]
+    : [],
+});
 const input = (extra: Partial<ExecutionPartIssueInput> = {}): ExecutionPartIssueInput => ({
   executionId: 'execution', productId: 'product', warehouseId: 'warehouse',
   quantity: 2, usageType: 'CONSUMED', clientRequestId: 'submission', ...extra,
@@ -25,7 +38,7 @@ function fixture() {
   const tx: any = {
     $queryRaw: jest.fn().mockResolvedValue([]),
     machine: { findUnique: jest.fn().mockResolvedValue(machine) },
-    machineComponent: { findUnique: jest.fn().mockResolvedValue({ id: 'component', machineId: 'machine', machine }) },
+    machineComponent: { findUnique: jest.fn().mockResolvedValue(componentOnMachine('machine')) },
     product: { findUnique: jest.fn().mockImplementation(async () => product) },
     sparePart: { findUnique: jest.fn().mockImplementation(async () => sparePart) },
     warehouse: { findFirst: jest.fn().mockResolvedValue({ id: 'warehouse', ...ctx, warehouseType: 'SPARE_PARTS' }), findUnique: jest.fn().mockResolvedValue({ id: 'warehouse', ...ctx, warehouseType: 'SPARE_PARTS' }) },
@@ -156,14 +169,22 @@ describe('Maintenance execution canonical inventory orchestration', () => {
   });
 
   it('M5 rejects a same-tenant wrong-machine component with canonical 400', async () => {
-    const f = fixture(); f.tx.machineComponent.findUnique.mockResolvedValue({ machineId: 'other', machine });
+    const f = fixture(); f.tx.machineComponent.findUnique.mockResolvedValue(componentOnMachine(null));
     await expect(f.run(input({ machineId: 'machine', machineComponentId: 'component' }))).rejects.toMatchObject({
       status: 400, response: { messageKey: 'maintenance.machineComponentMachineMismatch' } });
     expect(f.state().movements).toHaveLength(0);
   });
 
   it('M5 rejects an out-of-context component with 404', async () => {
-    const f = fixture(); f.tx.machineComponent.findUnique.mockResolvedValue({ machineId: 'foreign', machine: { companyId: 'other' } });
+    const f = fixture(); f.tx.machineComponent.findUnique.mockResolvedValue({
+      id: 'foreign',
+      status: 'ACTIVE',
+      deletedAt: null,
+      companyId: 'other',
+      branchId: 'branch',
+      machine: { id: 'foreign', companyId: 'other', branchId: 'branch' },
+      machineLinks: [{ id: 'link-foreign', status: 'ACTIVE', machineId: 'foreign' }],
+    });
     await expect(f.run(input({ machineId: 'machine', machineComponentId: 'foreign' }))).rejects.toMatchObject({ status: 404 });
   });
 

@@ -22,6 +22,19 @@ describe('maintenance-spare-part-request-lines tenant isolation', () => {
   }
 
   const machineOf = (companyId: string, branchId: string) => ({ id: 'm-1', companyId, branchId })
+  // The guard filters machineLinks in its Prisma `where`; mocks must return no
+  // links for a machine the component is not actively mounted on.
+  const componentOnMachine = (id: string, machineId: string | null, companyId = 'company-a', branchId = 'branch-a') => ({
+    id,
+    status: 'ACTIVE',
+    deletedAt: null,
+    companyId,
+    branchId,
+    machine: machineOf(companyId, branchId),
+    machineLinks: machineId
+      ? [{ id: `link-${id}-${machineId}`, status: 'ACTIVE', machineId }]
+      : [],
+  })
   const requestOf = (companyId: string, branchId: string, status = 'OPEN') => ({
     id: 'req-1',
     status,
@@ -57,7 +70,7 @@ describe('maintenance-spare-part-request-lines tenant isolation', () => {
     db.maintenanceRequest.findUnique.mockResolvedValue(requestOf('company-a', 'branch-a'))
     db.sparePart.findUnique.mockResolvedValue({ id: 'sp-1', status: 'ACTIVE' })
     db.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(null)
-    db.machineComponent.findUnique.mockResolvedValue({ id: 'mc-b', machine: machineOf('company-b', 'branch-b') })
+    db.machineComponent.findUnique.mockResolvedValue(componentOnMachine('mc-b', 'm-1', 'company-b', 'branch-b'))
     const service = new MaintenanceSparePartRequestLinesService(db, audit, notification)
 
     await expect(service.create('req-1', { sparePartId: 'sp-1', quantity: 1, machineComponentId: 'mc-b' } as any, 'user-1', ctx)).rejects.toBeInstanceOf(NotFoundException)
@@ -125,7 +138,7 @@ describe('maintenance-spare-part-request-lines tenant isolation', () => {
     db.maintenanceRequest.findUnique.mockResolvedValue(requestOf('company-a', 'branch-a'))
     db.sparePart.findUnique.mockResolvedValue({ id: 'sp-1', status: 'ACTIVE' })
     db.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(null)
-    db.machineComponent.findUnique.mockResolvedValue({ id: 'mc-x', machineId: 'm-2', machine: machineOf('company-a', 'branch-a') })
+    db.machineComponent.findUnique.mockResolvedValue(componentOnMachine('mc-x', null))
     const service = new MaintenanceSparePartRequestLinesService(db, audit, notification)
 
     const promise = service.create('req-1', { sparePartId: 'sp-1', quantity: 1, machineComponentId: 'mc-x' } as any, 'user-1', ctx)
@@ -140,7 +153,7 @@ describe('maintenance-spare-part-request-lines tenant isolation', () => {
     db.maintenanceRequest.findUnique.mockResolvedValue(requestOf('company-a', 'branch-a'))
     db.sparePart.findUnique.mockResolvedValue({ id: 'sp-1', status: 'ACTIVE' })
     db.maintenanceRequestRequiredPart.findUnique.mockResolvedValue(null)
-    db.machineComponent.findUnique.mockResolvedValue({ id: 'mc-1', machineId: 'm-1', machine: machineOf('company-a', 'branch-a') })
+    db.machineComponent.findUnique.mockResolvedValue(componentOnMachine('mc-1', 'm-1'))
     db.maintenanceRequestRequiredPart.create.mockResolvedValue({ id: 'line-1' })
     const service = new MaintenanceSparePartRequestLinesService(db, audit, notification)
 
