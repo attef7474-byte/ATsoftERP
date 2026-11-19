@@ -179,7 +179,7 @@ export class UnifiedReceiptsService {
             warehouse: { select: { id: true, code: true, name: true } },
             location: { select: { id: true, code: true, name: true } },
             _count: { select: { lines: true } },
-            _sum: { select: { quantity: true } },
+            lines: { select: { quantity: true } },
           },
         }),
         client.inventoryOperationalReceipt.count({ where }),
@@ -308,6 +308,7 @@ export class UnifiedReceiptsService {
 
   private normalizeOperational(row: any) {
     const receiptType = row.receiptType ?? null;
+    const lines = row.lines ?? [];
     return {
       id: row.id,
       authority: 'OPERATIONAL' as ReceiptAuthority,
@@ -324,8 +325,8 @@ export class UnifiedReceiptsService {
       warehouse: row.warehouse ?? null,
       locationId: row.locationId,
       location: row.location ?? null,
-      lineCount: row._count?.lines ?? row.lines?.length ?? 0,
-      totalQuantity: Number(row._sum?.quantity ?? 0),
+      lineCount: row._count?.lines ?? lines.length,
+      totalQuantity: lines.reduce((sum: number, line: any) => sum + Number(line.quantity ?? 0), 0),
       productionOrderId: null,
       productionOrderNumber: null,
       productionRunId: null,

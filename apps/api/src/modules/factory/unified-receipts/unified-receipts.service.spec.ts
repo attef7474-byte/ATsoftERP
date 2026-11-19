@@ -61,7 +61,7 @@ const operationalRow = (overrides: Record<string, any> = {}) => ({
   warehouse: { id: 'wh-1', code: 'WH', name: 'Main' },
   location: null,
   _count: { lines: 2 },
-  _sum: { quantity: 12 },
+  lines: [{ quantity: 7 }, { quantity: 5 }],
   ...overrides,
 });
 
@@ -198,7 +198,10 @@ describe('UnifiedReceiptsService', () => {
 
     const result = await service.findAll({ page: 2, limit: 2 }, 'u1', ctx);
 
-    expect(prisma.inventoryOperationalReceipt.findMany.mock.calls[0][0]).toMatchObject({ skip: 0, take: 4 });
+    const operationalQuery = prisma.inventoryOperationalReceipt.findMany.mock.calls[0][0];
+    expect(operationalQuery).toMatchObject({ skip: 0, take: 4 });
+    expect(operationalQuery.select).toMatchObject({ lines: { select: { quantity: true } } });
+    expect(operationalQuery.select).not.toHaveProperty('_sum');
     expect(prisma.productionFinishedGoodsReceipt.findMany.mock.calls[0][0]).toMatchObject({ skip: 0, take: 4 });
     expect(result.meta).toEqual({ page: 2, limit: 2, total: 6, totalPages: 3 });
     expect(result.data.map((row: any) => row.id)).toEqual(['fg-2', 'op-2']);
