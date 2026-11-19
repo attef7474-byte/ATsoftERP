@@ -112,6 +112,7 @@ import { ShiftHandoversModule } from './modules/factory/production/shift-handove
 import { OperationalOverheadModule } from './modules/factory/operational-overhead/operational-overhead.module';
 import { OverheadAllocationModule } from './modules/factory/overhead-allocation/overhead-allocation.module';
 import { MasterDataExcelModule } from './modules/factory/master-data-excel/master-data-excel.module';
+import { UnifiedReceiptsModule } from './modules/factory/unified-receipts/unified-receipts.module';
 
 @Module({
   imports: [
@@ -179,6 +180,7 @@ import { MasterDataExcelModule } from './modules/factory/master-data-excel/maste
     OperationalOverheadModule,
     OverheadAllocationModule,
     MasterDataExcelModule,
+    UnifiedReceiptsModule,
   ],
 })
 export class AppModule {}

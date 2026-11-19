@@ -76,6 +76,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         inventoryValuation: 'تقييم المخزون',
         warehouseApprovals: 'اعتمادات المستودع',
         issueVoucher: "إذن صرف",
+        receiptVoucher: 'إذن استلام',
         finishedGoodsIssues: 'إذون صرف المنتجات التامة',
         production: 'الإنتاج',
         productionUnits: 'وحدات الإنتاج',

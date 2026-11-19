@@ -1,5 +1,47 @@
 import { ForbiddenException } from '@nestjs/common';
 
+export interface UserPermissionSnapshot {
+  isSuperAdmin: boolean;
+  permissions: Set<string>;
+}
+
+/**
+ * Read-only permission snapshot used by orchestration services that must apply
+ * different native permissions to different parts of one aggregated response.
+ * The actor id is never trusted by itself: roles and permissions must be ACTIVE.
+ */
+export async function getUserPermissionSnapshot(
+  client: any,
+  userId: string | undefined,
+): Promise<UserPermissionSnapshot> {
+  if (!userId) return { isSuperAdmin: false, permissions: new Set<string>() };
+
+  const userRoles = await client.userRole.findMany({
+    where: { userId },
+    include: {
+      role: {
+        include: {
+          permissions: { include: { permission: true } },
+        },
+      },
+    },
+  });
+
+  const permissions = new Set<string>();
+  let isSuperAdmin = false;
+  for (const userRole of userRoles) {
+    if (userRole.role?.status !== 'ACTIVE') continue;
+    if (userRole.role.code === 'SUPER_ADMIN') {
+      isSuperAdmin = true;
+      continue;
+    }
+    for (const rolePermission of userRole.role.permissions ?? []) {
+      if (rolePermission.permission?.status === 'ACTIVE') permissions.add(rolePermission.permission.key);
+    }
+  }
+  return { isSuperAdmin, permissions };
+}
+
 /**
  * Single source of truth for "may this actor perform these guarded actions?".
  *
@@ -23,37 +65,37 @@ export async function assertUserPermissions(
 ): Promise<void> {
   if (requiredPermissions.length === 0) return;
 
-  if (!userId) {
-    throw new ForbiddenException({
-      messageKey: 'auth.insufficientPermissions',
-      message: 'Insufficient permissions',
-    });
-  }
-
-  const userRoles = await client.userRole.findMany({
-    where: { userId },
-    include: {
-      role: {
-        include: {
-          permissions: { include: { permission: true } },
-        },
-      },
-    },
-  });
-
-  const granted = new Set<string>();
-  for (const userRole of userRoles) {
-    if (userRole.role?.status !== 'ACTIVE') continue;
-    if (userRole.role.code === 'SUPER_ADMIN') return;
-    for (const rolePermission of userRole.role.permissions ?? []) {
-      if (rolePermission.permission?.status === 'ACTIVE') granted.add(rolePermission.permission.key);
-    }
-  }
+  const snapshot = await getUserPermissionSnapshot(client, userId);
+  if (snapshot.isSuperAdmin) return;
+  const granted = snapshot.permissions;
 
   if (!requiredPermissions.every((permission) => granted.has(permission))) {
     throw new ForbiddenException({
       messageKey: 'auth.insufficientPermissions',
       message: 'Insufficient permissions',
     });
+  }
+}
+
+/**
+ * OR-semantics variant for read-only orchestration endpoints that aggregate more
+ * than one native authority (for example the unified Receipt Voucher list).
+ *
+ * This deliberately does NOT create a new umbrella permission: the actor must
+ * hold at least one of the existing, seeded native read keys. Write actions are
+ * still guarded by their own domain-specific create/update/post permissions.
+ * Mirrors PermissionsGuard's ACTIVE role / ACTIVE permission / SUPER_ADMIN rules.
+ */
+export async function assertUserHasAnyPermission(
+  client: any,
+  userId: string | undefined,
+  candidatePermissions: string[],
+): Promise<void> {
+  if (candidatePermissions.length === 0) return;
+  const snapshot = await getUserPermissionSnapshot(client, userId);
+  if (snapshot.isSuperAdmin) return;
+
+  if (!candidatePermissions.some((permission) => snapshot.permissions.has(permission))) {
+    throw new ForbiddenException({ messageKey: 'auth.insufficientPermissions', message: 'Insufficient permissions' });
   }
 }

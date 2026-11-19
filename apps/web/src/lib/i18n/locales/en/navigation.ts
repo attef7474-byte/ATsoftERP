@@ -76,6 +76,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         inventoryValuation: 'Inventory Valuation',
         warehouseApprovals: 'Warehouse Approvals',
         issueVoucher: "Issue Voucher",
+        receiptVoucher: 'Receipt Voucher',
         finishedGoodsIssues: 'Finished-Goods Issues',
         production: 'Production',
         productionUnits: 'Production Units',

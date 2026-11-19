@@ -9,6 +9,12 @@ import { OperationalReceiptQueryDto } from './dto/operational-receipt-query.dto'
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 import { assertRowInContext, assertWarehouseInContext } from '../../../common/operational-context/tenant-guards';
 import { InventoryValuationEngineService } from '../inventory-valuation/inventory-valuation-engine.service';
+import {
+  isOperationalReceiptType,
+  itemTypeForReceiptType,
+  productMatchesReceiptType,
+  ReceiptType,
+} from './receipt-type.domain';
 
 @Injectable()
 export class InventoryOperationalReceiptsService {
@@ -30,6 +36,7 @@ export class InventoryOperationalReceiptsService {
     for (const line of dto.lines) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
       if (!product) throw new NotFoundException(`Product ${line.productId} not found`);
+      await this.assertProductEligibleForReceiptType(dto.receiptType, product);
       if (line.quantity <= 0) throw new BadRequestException('Quantity must be > 0');
     }
 
@@ -78,6 +85,8 @@ export class InventoryOperationalReceiptsService {
     }
     if (query.warehouseId) where.warehouseId = query.warehouseId;
     if (query.status) where.status = query.status;
+    if (query.receiptType) where.receiptType = query.receiptType;
+    if (query.receiptSource) where.receiptSource = query.receiptSource;
     if (query.dateFrom || query.dateTo) {
       where.createdAt = {};
       if (query.dateFrom) where.createdAt.gte = new Date(query.dateFrom);
@@ -132,6 +141,19 @@ export class InventoryOperationalReceiptsService {
       const loc = await this.prisma.warehouseLocation.findUnique({ where: { id: locationId } });
       if (!loc || loc.warehouseId !== effectiveWarehouseId) {
         throw new BadRequestException('warehouseLocationId does not belong to the selected warehouse');
+      }
+    }
+
+    // Phase 2: changing the normalized receipt type on a DRAFT document must
+    // revalidate every existing line; a legacy document (no receiptType) is
+    // never retroactively constrained.
+    if (dto.receiptType) {
+      const products = await this.prisma.product.findMany({
+        where: { id: { in: doc.lines.map((l) => l.productId) } },
+      });
+      const byId = new Map(products.map((p) => [p.id, p]));
+      for (const l of doc.lines) {
+        await this.assertProductEligibleForReceiptType(dto.receiptType, byId.get(l.productId) ?? null);
       }
     }
 
@@ -334,6 +356,7 @@ export class InventoryOperationalReceiptsService {
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be modified');
     const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
     if (!product) throw new NotFoundException('Product not found');
+    await this.assertProductEligibleForReceiptType(doc.receiptType, product);
     if (dto.quantity <= 0) throw new BadRequestException('Quantity must be > 0');
 
     const line = await this.prisma.inventoryOperationalReceiptLine.create({
@@ -354,6 +377,11 @@ export class InventoryOperationalReceiptsService {
     if (doc.status !== 'DRAFT') throw new BadRequestException('Only DRAFT documents can be modified');
     const line = await this.prisma.inventoryOperationalReceiptLine.findUnique({ where: { id: lineId } });
     if (!line || line.receiptId !== id) throw new NotFoundException('Line not found');
+    if (dto.productId && dto.productId !== line.productId) {
+      const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
+      if (!product) throw new NotFoundException('Product not found');
+      await this.assertProductEligibleForReceiptType(doc.receiptType, product);
+    }
 
     const updated = await this.prisma.inventoryOperationalReceiptLine.update({
       where: { id: lineId },
@@ -386,6 +414,53 @@ export class InventoryOperationalReceiptsService {
       receiptId: id, code: doc.code, status: doc.status,
       lineCount: lines.length, totalQuantity: totalQty,
     };
+  }
+
+  /**
+   * Phase 2 backend item-type gate. Only applies to documents created through the
+   * unified Receipt Voucher (which always sends `receiptType`). Native/legacy
+   * operational receipts with no receiptType are never retroactively constrained.
+   *
+   * A null/unclassified itemType is rejected — it is never silently treated as
+   * GENERAL. SPARE_PART additionally requires the canonical SparePart link; a
+   * missing or incompatible technical link is rejected, never auto-created.
+   */
+  private async assertProductEligibleForReceiptType(
+    receiptType: string | null | undefined,
+    product: { id: string; status: string; itemType: string | null } | null | undefined,
+  ): Promise<void> {
+    if (!receiptType) return;
+    if (!isOperationalReceiptType(receiptType)) {
+      throw new BadRequestException({
+        messageKey: 'receiving.invalidReceiptType',
+        message: 'Unsupported receipt type for an operational receipt',
+      });
+    }
+    const expected = itemTypeForReceiptType(receiptType as ReceiptType);
+    if (!product || !productMatchesReceiptType(receiptType as ReceiptType, product.itemType)) {
+      throw new BadRequestException({
+        messageKey: 'receiving.wrongItemType',
+        message: `Product must be classified as ${expected}`,
+      });
+    }
+    if (product.status !== 'ACTIVE') {
+      throw new BadRequestException({
+        messageKey: 'products.notActive',
+        message: 'Only ACTIVE products can be received',
+      });
+    }
+    if (receiptType === 'SPARE_PART') {
+      const link = await this.prisma.sparePart.findFirst({
+        where: { productId: product.id, deletedAt: null },
+        select: { id: true },
+      });
+      if (!link) {
+        throw new BadRequestException({
+          messageKey: 'receiving.sparePartLinkRequired',
+          message: 'A SPARE_PART receipt requires a canonical SparePart link',
+        });
+      }
+    }
   }
 
   private async getOrCreateBalance(tx: any, warehouseId: string, productId: string, locationId: string | null) {

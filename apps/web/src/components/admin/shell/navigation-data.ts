@@ -293,6 +293,12 @@ export const sidebarGroups: SidebarGroup[] = [
             permissions: ['maintenance-request-parts:read', 'production-material-document:read', 'finished-goods-issue:read'],
           },
           { id: 'inv-finished-goods-issues', labelKey: 'navigation.issueVoucher', route: '/admin/inventory/issues', permissions: ['finished-goods-issue:read', 'production-material-document:read', 'maintenance-request-parts:read', 'finished-goods-issue:create', 'production-material-document:create', 'maintenance-request-parts:create'] },
+          {
+            id: 'inv-receipts',
+            labelKey: 'navigation.receiptVoucher',
+            route: '/admin/inventory/receipts',
+            permissions: ['inventory:operational-receipt:read', 'production-finished-goods-receipt:read'],
+          },
           { id: 'inv-counts', labelKey: 'navigation.inventoryCounts', route: '/admin/inventory/counts', permission: 'inventory-count:read' },
           { id: 'inv-adjustments', labelKey: 'navigation.inventoryAdjustments', route: '/admin/inventory/adjustments', permission: 'inventory-adjustment:read' },
           { id: 'inv-stock-adjustments', labelKey: 'navigation.stockAdjustments', route: '/admin/inventory/stock-adjustments', permission: 'inventory:stock-adjustment:read' },

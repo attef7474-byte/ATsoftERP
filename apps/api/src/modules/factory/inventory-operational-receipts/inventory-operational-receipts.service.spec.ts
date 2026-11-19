@@ -75,7 +75,7 @@ describe('InventoryOperationalReceiptsService tenant isolation', () => {
     prisma = {
       warehouse: { findUnique: jest.fn() },
       warehouseLocation: { findUnique: jest.fn() },
-      product: { findUnique: jest.fn() },
+      product: { findUnique: jest.fn(), findMany: jest.fn() },
       inventoryOperationalReceipt: {
         findUnique: jest.fn(),
         findMany: jest.fn(),
@@ -92,6 +92,7 @@ describe('InventoryOperationalReceiptsService tenant isolation', () => {
         delete: jest.fn(),
         deleteMany: jest.fn(),
       },
+      sparePart: { findFirst: jest.fn() },
       inventoryMovement: { create: jest.fn() },
       inventoryBalance: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
       $transaction: jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(prisma)),
@@ -234,6 +235,124 @@ describe('InventoryOperationalReceiptsService tenant isolation', () => {
       expect(Number(updateCall.data.quantity)).toBe(12 + 10);
       expect(updateCall.data.quantityBase.toString()).toBe(String(12 + 10));
       expect(updateCall.data.quantityBase).not.toBeNull();
+    });
+  });
+
+  describe('Phase 2 unified receipt item-type gate', () => {
+    const product = (overrides: Record<string, any> = {}) => ({
+      id: 'prd1',
+      status: 'ACTIVE',
+      itemType: 'RAW_MATERIAL',
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      prisma.warehouse.findUnique.mockResolvedValue(warehouse());
+      prisma.inventoryOperationalReceipt.create.mockImplementation(async ({ data }: any) => doc(data));
+      prisma.inventoryOperationalReceipt.update.mockImplementation(async ({ data }: any) => doc(data));
+      prisma.product.findMany.mockResolvedValue([product()]);
+      prisma.sparePart.findFirst.mockResolvedValue({ id: 'sp1' });
+    });
+
+    it('accepts a classified raw-material line and persists normalized metadata', async () => {
+      prisma.product.findUnique.mockResolvedValue(product());
+
+      await service.create({
+        warehouseId: 'w1',
+        reason: 'استلام مواد خام',
+        receiptType: 'RAW_MATERIAL',
+        receiptSource: 'SUPPLIER',
+        lines: [{ productId: 'prd1', quantity: 3 }],
+      } as any, 'u1', ctx);
+
+      const created = prisma.inventoryOperationalReceipt.create.mock.calls[0][0];
+      expect(created.data.receiptType).toBe('RAW_MATERIAL');
+      expect(created.data.receiptSource).toBe('SUPPLIER');
+    });
+
+    it('rejects a product whose item type does not match the selected receipt type', async () => {
+      prisma.product.findUnique.mockResolvedValue(product({ itemType: 'CONSUMABLE' }));
+
+      await expect(service.create({
+        warehouseId: 'w1',
+        reason: 'receipt',
+        receiptType: 'RAW_MATERIAL',
+        lines: [{ productId: 'prd1', quantity: 3 }],
+      } as any, 'u1', ctx)).rejects.toThrow(BadRequestException);
+      expect(prisma.inventoryOperationalReceipt.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unclassified product instead of assuming GENERAL', async () => {
+      prisma.product.findUnique.mockResolvedValue(product({ itemType: null }));
+
+      await expect(service.create({
+        warehouseId: 'w1',
+        reason: 'receipt',
+        receiptType: 'GENERAL',
+        lines: [{ productId: 'prd1', quantity: 3 }],
+      } as any, 'u1', ctx)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects an inactive product', async () => {
+      prisma.product.findUnique.mockResolvedValue(product({ status: 'INACTIVE' }));
+
+      await expect(service.create({
+        warehouseId: 'w1',
+        reason: 'receipt',
+        receiptType: 'RAW_MATERIAL',
+        lines: [{ productId: 'prd1', quantity: 3 }],
+      } as any, 'u1', ctx)).rejects.toThrow(BadRequestException);
+    });
+
+    it('requires the canonical SparePart link for SPARE_PART receipts', async () => {
+      prisma.product.findUnique.mockResolvedValue(product({ itemType: 'SPARE_PART' }));
+      prisma.sparePart.findFirst.mockResolvedValue(null);
+
+      await expect(service.create({
+        warehouseId: 'w1',
+        reason: 'receipt',
+        receiptType: 'SPARE_PART',
+        lines: [{ productId: 'prd1', quantity: 3 }],
+      } as any, 'u1', ctx)).rejects.toThrow(BadRequestException);
+    });
+
+    it('accepts SPARE_PART when the canonical link exists', async () => {
+      prisma.product.findUnique.mockResolvedValue(product({ itemType: 'SPARE_PART' }));
+
+      await service.create({
+        warehouseId: 'w1',
+        reason: 'receipt',
+        receiptType: 'SPARE_PART',
+        lines: [{ productId: 'prd1', quantity: 3 }],
+      } as any, 'u1', ctx);
+
+      expect(prisma.sparePart.findFirst).toHaveBeenCalledWith({
+        where: { productId: 'prd1', deletedAt: null },
+        select: { id: true },
+      });
+    });
+
+    it('never lets the operational authority receive a FINISHED_GOOD line', async () => {
+      prisma.product.findUnique.mockResolvedValue(product({ itemType: 'FINISHED_GOOD' }));
+
+      await expect(service.create({
+        warehouseId: 'w1',
+        reason: 'receipt',
+        receiptType: 'FINISHED_GOOD' as any,
+        lines: [{ productId: 'prd1', quantity: 3 }],
+      } as any, 'u1', ctx)).rejects.toThrow(BadRequestException);
+    });
+
+    it('revalidates existing lines when a draft receipt type changes', async () => {
+      prisma.inventoryOperationalReceipt.findUnique.mockResolvedValue(doc({
+        receiptType: 'RAW_MATERIAL',
+        lines: [line({ productId: 'prd1' })],
+      }));
+      prisma.product.findMany.mockResolvedValue([product({ itemType: 'CONSUMABLE' })]);
+
+      await expect(service.update('r1', { receiptType: 'SPARE_PART' } as any, 'u1', ctx))
+        .rejects.toThrow(BadRequestException);
+      expect(prisma.inventoryOperationalReceipt.update).not.toHaveBeenCalled();
     });
   });
 });

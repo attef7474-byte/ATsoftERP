@@ -2315,6 +2315,11 @@ model InventoryOperationalReceipt {
   notes         String?
   supplierName  String?
   supplierDoc   String?
+  // Phase 2 unified receipt: normalized classification from the single
+  // "إذن استلام" form. NULL is a valid legacy/native-operational state.
+  // These are document metadata only — never a stock quantity authority.
+  receiptType   String?
+  receiptSource String?
   submittedAt   DateTime?
   submittedById String?
   approvedAt    DateTime?
