@@ -84,6 +84,7 @@ describe('ProductsService multi-UOM', () => {
     await service.create(
       {
         name: 'Test Snack',
+        itemType: 'FINISHED_GOOD',
         unitId: BASE.id,
         uoms: [
           { unitId: BASE.id, isBase: true },

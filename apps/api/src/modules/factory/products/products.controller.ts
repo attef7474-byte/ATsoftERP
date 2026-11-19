@@ -4,6 +4,7 @@ import { ProductsService } from './products.service';
 import { ProductAggregateService } from './product-aggregate.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductQueryDto } from './dto/product-query.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
@@ -35,17 +36,8 @@ export class ProductsController {
   @Get()
   @Permissions('products:read')
   @ApiOperation({ summary: 'List products' })
-  findAll(
-    @Query() query: { page?: string; limit?: string; search?: string; categoryId?: string; status?: string },
-    @CurrentActiveContext() ctx: ActiveOperationalContext,
-  ) {
-    return this.service.findAll({
-      page: query.page ? parseInt(query.page, 10) : undefined,
-      limit: query.limit ? parseInt(query.limit, 10) : undefined,
-      search: query.search,
-      categoryId: query.categoryId,
-      status: query.status,
-    }, ctx);
+  findAll(@Query() query: ProductQueryDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findAll(query, ctx);
   }
 
   @Get(':id')

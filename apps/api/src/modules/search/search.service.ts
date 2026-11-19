@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types';
 import {
@@ -6,6 +6,7 @@ import {
   SEARCHABLE_ENTITY_TYPES,
   SearchEntityFilters,
 } from './dto/search-query.dto';
+import { parseItemTypeFilter, parseSingleItemType } from '../factory/products/product-item-type.domain';
 
 export interface SearchResult {
   id: string;
@@ -430,11 +431,27 @@ export class SearchService {
         }
       : undefined;
 
+    // Phase 1: F9 / unified-search backend item-type filtering. Callers may pass
+    // `itemType=RAW_MATERIAL` or `itemTypes=RAW_MATERIAL,PACKAGING_MATERIAL`.
+    let singleType: ReturnType<typeof parseSingleItemType>;
+    let multipleTypes: ReturnType<typeof parseItemTypeFilter>;
+    try {
+      singleType = parseSingleItemType(filters.itemType);
+      multipleTypes = parseItemTypeFilter(filters.itemTypes);
+    } catch {
+      throw new BadRequestException({ messageKey: 'products.itemTypeInvalid', message: 'The selected item type is not valid' });
+    }
+    const effectiveTypes = multipleTypes ?? (singleType ? [singleType] : undefined);
+    const itemTypeConstraint = effectiveTypes
+      ? { itemType: effectiveTypes.length === 1 ? effectiveTypes[0] : { in: effectiveTypes } }
+      : undefined;
+
     return {
       delegate: this.delegate(this.prisma.product),
       where: this.and(
         { status: 'ACTIVE', deletedAt: null },
         warehouseConstraint,
+        itemTypeConstraint,
         this.textSearch(q, ['name', 'code', 'barcode', 'description']),
       ),
       orderBy: { name: 'asc' },

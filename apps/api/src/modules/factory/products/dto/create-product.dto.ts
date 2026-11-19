@@ -1,8 +1,9 @@
-import { IsString, IsOptional, IsNumber, Min, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsNumber, Min, IsArray, ValidateNested, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ProductUomInputDto } from './product-uom.dto';
 import { UnifiedProductionConfigDto } from './unified-production-config.dto';
+import { PRODUCT_ITEM_TYPES } from '../product-item-type.domain';
 
 export class CreateProductDto {
   @ApiPropertyOptional({ example: 'RM001' })
@@ -13,6 +14,11 @@ export class CreateProductDto {
   @ApiProperty({ example: 'Steel Plate 10mm' })
   @IsString()
   name: string;
+
+  @ApiProperty({ enum: PRODUCT_ITEM_TYPES, description: 'Canonical business item type. Required for every new item.' })
+  @IsString()
+  @IsIn([...PRODUCT_ITEM_TYPES])
+  itemType: string;
 
   @ApiPropertyOptional()
   @IsOptional()

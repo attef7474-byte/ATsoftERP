@@ -1,4 +1,5 @@
 import { ExcelColumnDefinition, ExcelDefinition, ExcelEntity, ExcelReference } from '../../../common/excel/excel.types';
+import { PRODUCT_ITEM_TYPES } from '../products/product-item-type.domain';
 
 const text = (header: string, field: string, label: string, options: Partial<ExcelColumnDefinition> = {}): ExcelColumnDefinition => ({ header, field, label, type: 'text', maxLength: 255, update: true, importable: true, export: true, example: '', width: 24, ...options });
 const ref = (header: string, field: string, label: string, reference: ExcelReference, options: Partial<ExcelColumnDefinition> = {}) => text(header, field, label, { reference, maxLength: 100, ...options });
@@ -47,7 +48,11 @@ export const EXCEL_DEFINITIONS: Record<ExcelEntity, ExcelDefinition> = {
     text('TechnicalClassification', 'technicalClassification', 'maintenance.technicalClassification'), text('UsageType', 'usageType', 'maintenance.usageType'), text('Nature', 'nature', 'maintenance.nature'), text('Importance', 'importance', 'maintenance.importance'),
   ] },
   products: { entity: 'products', model: 'product', permission: 'products', shared: true, keyHeaders: ['Code'], columns: [
-    identity(), name(), description(), ref('CategoryCode', 'categoryId', 'inventory.category', 'productCategory'),
+    identity(), name(),
+    text('ItemType', 'itemType', 'inventory.itemType', {
+      type: 'enum', values: [...PRODUCT_ITEM_TYPES], required: 'create', example: 'RAW_MATERIAL', width: 26,
+    }),
+    description(), ref('CategoryCode', 'categoryId', 'inventory.category', 'productCategory'),
     ref('UnitCode', 'unitId', 'inventoryCounting.unit', 'unit', { required: 'create', update: false }), text('UnitLabel', 'unit', 'inventoryCounting.unit', { importable: false, update: false }),
     text('Barcode', 'barcode', 'common.barcode', { maxLength: 255, example: '0000123456789' }), number('MinStock', 'minStock', 'inventoryCounting.minStock'), number('MaxStock', 'maxStock', 'inventoryCounting.maxStock'),
   ] },

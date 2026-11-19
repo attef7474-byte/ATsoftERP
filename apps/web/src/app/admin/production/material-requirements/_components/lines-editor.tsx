@@ -97,6 +97,7 @@ export function RequirementLinesEditor({ lines, onChange, error }: LinesEditorPr
         value={multiSelection}
         onChange={handleMultiSelect}
         adapter={productAdapter}
+        filters={{ itemTypes: 'RAW_MATERIAL,PACKAGING_MATERIAL' }}
         placeholder={t('production.materialRequirements.selectMaterials')}
       />
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -121,6 +122,7 @@ export function RequirementLinesEditor({ lines, onChange, error }: LinesEditorPr
                 label={t('production.materialRequirements.product')}
                 value={line.productId}
                 adapter={productAdapter}
+                filters={{ itemTypes: 'RAW_MATERIAL,PACKAGING_MATERIAL' }}
                 onChange={(v: string) => updateLine(line.key, { productId: v, productUomId: '', issueUnit: '' })}
               />
             </div>

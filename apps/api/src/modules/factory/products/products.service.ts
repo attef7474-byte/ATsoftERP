@@ -13,6 +13,14 @@ import {
   PRODUCT_VERDICT_REVIEW_REQUIRED,
   evaluateProductCanonicalIdentity,
 } from '../../../common/canonical-identity/canonical-product-identity';
+import {
+  ProductItemType,
+  assertItemTypeChangeAllowed,
+  assertNewItemType,
+  isProductItemType,
+  parseItemTypeFilter,
+  parseSingleItemType,
+} from './product-item-type.domain';
 
 const PRODUCT_UNIT_SELECT = { id: true, code: true, nameAr: true, nameEn: true, symbol: true } as const;
 
@@ -20,6 +28,19 @@ const PRODUCT_INCLUDE = {
   category: { select: { id: true, name: true, code: true } },
   unitRef: { select: PRODUCT_UNIT_SELECT },
   uoms: { include: { unit: { select: PRODUCT_UNIT_SELECT } }, orderBy: { createdAt: 'asc' } },
+} as const;
+
+/**
+ * Detail-only include: the single Product form shows the authoritative
+ * SparePart link (read-only) for SPARE_PART items. Kept out of the list include
+ * so the items grid never pays for an extra relation per row.
+ */
+const PRODUCT_DETAIL_INCLUDE = {
+  ...PRODUCT_INCLUDE,
+  spareParts: {
+    select: { id: true, code: true, name: true, status: true },
+    orderBy: { createdAt: 'asc' as const },
+  },
 } as const;
 
 const PRODUCTION_DEFINITION_SELECT = {
@@ -86,6 +107,9 @@ export class ProductsService {
    * owned by the production definitions service.
    */
   async createInTx(tx: any, dto: CreateProductDto, userId?: string, resolvedCode?: string) {
+    // Every new item must carry a valid canonical type. Enforced here (not only
+    // in the DTO) so the Excel import and the product aggregate cannot bypass it.
+    assertNewItemType(dto.itemType);
     const code = resolvedCode?.trim() || dto.code?.trim() || await this.numberingService.generateNumberAtomic('PRODUCT');
     await this.assertNoProductDuplicate(tx, { code, barcode: dto.barcode });
 
@@ -273,7 +297,15 @@ export class ProductsService {
   }
 
   async findAll(
-    query: { page?: number; limit?: number; search?: string; categoryId?: string; status?: string },
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      categoryId?: string;
+      status?: string;
+      itemType?: string;
+      itemTypes?: string;
+    },
     ctx?: ActiveOperationalContext,
   ) {
     const page = query.page || 1;
@@ -290,6 +322,23 @@ export class ProductsService {
     }
     if (query.categoryId) where.categoryId = query.categoryId;
     if (query.status) where.status = query.status;
+
+    // Server-side business-type filtering (items grid + F9 product lookups).
+    // Unclassified legacy rows have itemType = null and are excluded only when a
+    // caller explicitly filters by type; the unfiltered list still shows them.
+    let singleType: ReturnType<typeof parseSingleItemType>;
+    let multipleTypes: ReturnType<typeof parseItemTypeFilter>;
+    try {
+      singleType = parseSingleItemType(query.itemType);
+      multipleTypes = parseItemTypeFilter(query.itemTypes);
+    } catch (error) {
+      this.rethrowUomError(error);
+    }
+    if (singleType && multipleTypes && singleType !== multipleTypes[0]) {
+      throw new BadRequestException({ messageKey: 'products.itemTypeInvalid', message: 'itemType and itemTypes filters must agree when both are supplied' });
+    }
+    const effectiveTypes = multipleTypes ?? (singleType ? [singleType] : undefined);
+    if (effectiveTypes) where.itemType = effectiveTypes.length === 1 ? effectiveTypes[0] : { in: effectiveTypes };
 
     const productionDefinitions = productionDefinitionInclude(ctx);
     const [data, total] = await Promise.all([
@@ -311,7 +360,7 @@ export class ProductsService {
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: {
-        ...PRODUCT_INCLUDE,
+        ...PRODUCT_DETAIL_INCLUDE,
         ...(productionDefinitions ? { productionDefinitions } : {}),
       },
     });
@@ -343,11 +392,53 @@ export class ProductsService {
   }
 
   /**
+   * Phase 1 type-change safety. Reclassification is only permitted when no
+   * authoritative domain relationship contradicts the requested type. Historical
+   * stock movements are intentionally not a blocker: they stay valid regardless
+   * of the business classification.
+   */
+  private async resolveItemTypeUpdate(
+    tx: any,
+    id: string,
+    dto: UpdateProductDto,
+    existing: any,
+  ): Promise<{ next?: ProductItemType; old: string | null; changed: boolean }> {
+    const old = (existing.itemType as string | null | undefined) ?? null;
+    if (!('itemType' in dto)) return { old, changed: false };
+
+    const raw = (dto as { itemType?: unknown }).itemType;
+    if (!isProductItemType(raw)) {
+      throw new ProductUomValidationError('itemType', 'products.itemTypeRequired', 'A valid item type is required');
+    }
+    const next = raw;
+    if (next === old) return { next, old, changed: false };
+
+    const [spareLinks, definitions, rawRequirements, materialDocuments, materialConsumptions, packagingRequirements] =
+      await Promise.all([
+        tx.sparePart.count({ where: { productId: id, deletedAt: null } }),
+        tx.productionProductDefinition.count({ where: { productId: id, deletedAt: null } }),
+        tx.productionMaterialRequirementLine.count({ where: { productId: id, componentRole: 'RAW_MATERIAL' } }),
+        tx.productionMaterialDocumentLine.count({ where: { productId: id } }),
+        tx.productionMaterialConsumption.count({ where: { productId: id } }),
+        tx.productionMaterialRequirementLine.count({ where: { productId: id, componentRole: 'PACKAGING' } }),
+      ]);
+
+    assertItemTypeChangeAllowed(old, next, {
+      hasActiveSparePartLink: spareLinks > 0,
+      hasProductionDefinition: definitions > 0,
+      hasRawMaterialEvidence: rawRequirements + materialDocuments + materialConsumptions > 0,
+      hasPackagingEvidence: packagingRequirements > 0,
+    });
+    return { next, old, changed: true };
+  }
+
+  /**
    * Transaction-aware update. `existing` is read once by the caller so the
    * aggregate can wrap this and the production write in a single transaction.
    */
   async updateInTx(tx: any, id: string, dto: UpdateProductDto, existing: any, userId?: string) {
     {
+      const itemTypeChange = await this.resolveItemTypeUpdate(tx, id, dto, existing);
       await this.assertNoProductDuplicate(
         tx,
         {
@@ -404,7 +495,14 @@ export class ProductsService {
         action: 'UPDATE',
         entity: 'Product',
         entityId: id,
-        details: { message: `Updated product: ${product.code}`, code: product.code, baseUnitChanged: baseChanged },
+        details: {
+          message: `Updated product: ${product.code}`,
+          code: product.code,
+          baseUnitChanged: baseChanged,
+          itemTypeChanged: itemTypeChange.changed,
+          oldItemType: itemTypeChange.changed ? itemTypeChange.old : undefined,
+          newItemType: itemTypeChange.changed ? itemTypeChange.next : undefined,
+        },
       });
       return tx.product.findUnique({ where: { id }, include: PRODUCT_INCLUDE });
     }

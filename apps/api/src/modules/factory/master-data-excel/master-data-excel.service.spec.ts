@@ -2,7 +2,7 @@ import * as ExcelJS from 'exceljs';
 import { MasterDataExcelService } from './master-data-excel.service';
 import { PermissionCheckService } from '../../../common/rbac/permission-check.service';
 const ctx: any = { companyId: 'A', branchId: 'A1', companyCode: 'A', companyName: 'Company A', branchCode: 'A1', branchName: 'Branch A1' };
-async function file(rows = [['P', 'New', 'KG']], headers = ['Code', 'Name', 'UnitCode']) {
+async function file(rows = [['P', 'New', 'KG', 'RAW_MATERIAL']], headers = ['Code', 'Name', 'UnitCode', 'ItemType']) {
   const book = new ExcelJS.Workbook(); const data = book.addWorksheet('Data'); data.addRow(headers); rows.forEach(row => data.addRow(row));
   const buffer = Buffer.from(await book.xlsx.writeBuffer()); return { buffer, originalname: 'data.xlsx', mimetype: 'application/octet-stream', size: buffer.length };
 }
@@ -36,7 +36,7 @@ describe('Excel application transaction and authorization', () => {
     expect(f.products.createInTx).toHaveBeenCalledTimes(1);
   });
   it('rolls back earlier rows and audits when a later canonical write fails', async () => {
-    const f = fixture(), upload = await file([['P', 'First', 'KG'], ['Q', 'Second', 'KG']]);
+    const f = fixture(), upload = await file([['P', 'First', 'KG', 'RAW_MATERIAL'], ['Q', 'Second', 'KG', 'RAW_MATERIAL']]);
     const preview = await f.service.validate('products', upload, 'CREATE_ONLY', 'u', ctx);
     f.products.createInTx.mockImplementationOnce(async (_tx: any, dto: any) => { f.set([{ ...dto, id: 'first' }]); return { id: 'first' }; }).mockRejectedValueOnce(new Error('write failed'));
     await expect(f.service.import('products', upload, 'CREATE_ONLY', preview.token, 'u', ctx)).rejects.toThrow('write failed'); expect(f.records()).toEqual([]); expect(f.writes()).toEqual([]);
@@ -66,7 +66,7 @@ describe('Excel application transaction and authorization', () => {
     const f = fixture(), upload = await file(), preview = await f.service.validate('products', upload, 'CREATE_ONLY', 'u', ctx);
     await expect(f.service.import('products', upload, 'CREATE_ONLY', preview.token, 'other', ctx)).rejects.toMatchObject({ status: 409 });
     await expect(f.service.import('products', upload, 'CREATE_AND_UPDATE', preview.token, 'u', ctx)).rejects.toMatchObject({ status: 409 });
-    await expect(f.service.import('products', await file([['Q', 'Changed', 'KG']]), 'CREATE_ONLY', preview.token, 'u', ctx)).rejects.toMatchObject({ status: 409 });
+    await expect(f.service.import('products', await file([['Q', 'Changed', 'KG', 'RAW_MATERIAL']]), 'CREATE_ONLY', preview.token, 'u', ctx)).rejects.toMatchObject({ status: 409 });
     jest.spyOn(Date, 'now').mockReturnValue(Date.now()+601000);
     try { await expect(f.service.import('products', upload, 'CREATE_ONLY', preview.token, 'u', ctx)).rejects.toMatchObject({ status: 409 }); } finally { jest.restoreAllMocks(); }
   });

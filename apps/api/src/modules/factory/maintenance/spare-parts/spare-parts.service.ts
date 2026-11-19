@@ -67,10 +67,19 @@ export class SparePartsService {
     if (!productId) return;
     const product = await tx.product.findFirst({
       where: { id: productId, deletedAt: null },
-      select: { id: true, code: true, status: true },
+      select: { id: true, code: true, status: true, itemType: true },
     });
     if (!product) throw new BadRequestException('Linked product was not found or is deleted');
     if (product.status !== 'ACTIVE') throw new BadRequestException('Linked product is not ACTIVE');
+    // Phase 1: the only authoritative stock identity a SparePart may point at is
+    // a Product classified SPARE_PART. Never silently link a finished good or a
+    // raw material into the maintenance technical catalog.
+    if (product.itemType !== 'SPARE_PART') {
+      throw new BadRequestException({
+        messageKey: 'spareParts.productItemTypeConflict',
+        message: 'The linked item must be classified as SPARE_PART',
+      });
+    }
 
     // One Product may back more than one SparePart only when those spare parts are
     // themselves distinguished by technical identity. When the caller supplies no

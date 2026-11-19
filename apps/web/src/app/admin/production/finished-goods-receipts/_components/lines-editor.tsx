@@ -86,6 +86,7 @@ export function ReceiptLinesEditor({ lines, onChange, error }: LinesEditorProps)
         value={multiSelection}
         onChange={handleMultiSelect}
         adapter={productAdapter}
+        filters={{ itemType: 'FINISHED_GOOD' }}
         placeholder={t('production.finishedGoodsReceipts.selectProducts')}
       />
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -110,6 +111,7 @@ export function ReceiptLinesEditor({ lines, onChange, error }: LinesEditorProps)
                 label={t('production.finishedGoodsReceipts.product')}
                 value={line.productId}
                 adapter={productAdapter}
+                filters={{ itemType: 'FINISHED_GOOD' }}
                 onChange={(v) => updateLine(line.key, { productId: v, productUomId: '', unit: '' })}
               />
             </div>

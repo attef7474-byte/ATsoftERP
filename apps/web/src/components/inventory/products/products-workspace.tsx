@@ -11,6 +11,12 @@ import { Pagination, PageHeader, LoadingState, ConfirmDialog } from '../../admin
 import { AdminDataGrid, GridColumn, GridAction } from '../../admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../admin/admin-action-bar';
 import { ProductForm, ProductFormSection } from '../../../app/admin/inventory/products/product-form';
+import {
+  ITEM_TYPE_LABEL_KEYS,
+  PRODUCT_ITEM_TYPES,
+  itemTypeLabel,
+  type ProductItemType,
+} from '../../../lib/product-item-type';
 
 export interface ProductsWorkspaceProps {
   /**
@@ -24,6 +30,8 @@ export interface ProductsWorkspaceProps {
    * 'production' so a new product opens with its production configuration ready.
    */
   defaultSection?: ProductFormSection;
+  /** Production setup opens the same catalog focused on finished goods. */
+  defaultItemType?: ProductItemType;
 }
 
 /**
@@ -34,7 +42,7 @@ export interface ProductsWorkspaceProps {
  * component in its products tab so both domains create/edit the same record
  * through the same form and the same API (one identity, one create, one save).
  */
-export function ProductsWorkspace({ showHeader = true, defaultSection, excelEnabled = false }: ProductsWorkspaceProps) {
+export function ProductsWorkspace({ showHeader = true, defaultSection, defaultItemType, excelEnabled = false }: ProductsWorkspaceProps) {
   const router = useRouter();
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
@@ -43,6 +51,7 @@ export function ProductsWorkspace({ showHeader = true, defaultSection, excelEnab
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [itemTypeFilter, setItemTypeFilter] = useState<ProductItemType | ''>(defaultItemType ?? '');
 
   const [formOpen, setFormOpen] = useState(false);
   const [formProductId, setFormProductId] = useState<string | null>(null);
@@ -75,6 +84,9 @@ export function ProductsWorkspace({ showHeader = true, defaultSection, excelEnab
     try {
       const params: Record<string, any> = { page, limit: 10 };
       if (search) params.search = search;
+      // Business-type filtering is authoritative on the server; the grid never
+      // filters unclassified or foreign-tenant data in the browser.
+      if (itemTypeFilter) params.itemType = itemTypeFilter;
       const res = await api.get<{ data: Product[]; meta: any }>('/products', { params });
       const listResult = unwrapApiList<Product, typeof meta>(res);
       setData(listResult.data);
@@ -82,9 +94,13 @@ export function ProductsWorkspace({ showHeader = true, defaultSection, excelEnab
     } catch (err: any) {
       setError(err?.message || t('errors.loadFailed'));
     } finally { setLoading(false); }
-  }, [search, t]);
+  }, [search, itemTypeFilter, t]);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [itemTypeFilter]);
+
+  useEffect(() => {
+    setItemTypeFilter(defaultItemType ?? '');
+  }, [defaultItemType]);
 
   // Deep links from the production workspace and from bookmarks:
   // `/admin/inventory/products?create=1` and `?edit=<id>` open the same modal
@@ -126,6 +142,18 @@ export function ProductsWorkspace({ showHeader = true, defaultSection, excelEnab
   const columns: GridColumn<Product>[] = [
     { key: 'code', header: t('common.code'), sortable: true, filterable: true },
     { key: 'name', header: t('common.name'), sortable: true, filterable: true },
+    {
+      key: 'itemType',
+      header: t('inventory.itemType'),
+      render: (p: Product) => {
+        const label = itemTypeLabel(p.itemType, t);
+        return (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+            p.itemType ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-800'
+          }`}>{label}</span>
+        );
+      },
+    },
     { key: 'category', header: t('inventory.productCategory'), sortable: true, render: (p: Product) => p.category?.name || '-' },
     { key: 'unit', header: t('inventory.unit'), sortable: true, filterable: true, render: (p: Product) => p.unitRef?.code || p.unit || '-' },
     { key: 'barcode', header: t('inventory.barcode'), render: (p: Product) => p.barcode || '-' },
@@ -154,7 +182,31 @@ export function ProductsWorkspace({ showHeader = true, defaultSection, excelEnab
 
   return (
     <div>
-      {showHeader && <PageHeader title={t('inventory.products')} />}
+      {showHeader && <PageHeader title={t('inventory.itemsTitle')} />}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-sm text-gray-500">{t('inventory.itemTypeFilters')}:</span>
+        <button
+          type="button"
+          onClick={() => setItemTypeFilter('')}
+          className={`px-3 py-1 rounded-full text-xs font-medium border ${
+            itemTypeFilter === '' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-300'
+          }`}
+        >
+          {t('common.all')}
+        </button>
+        {PRODUCT_ITEM_TYPES.map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => setItemTypeFilter(type)}
+            className={`px-3 py-1 rounded-full text-xs font-medium border ${
+              itemTypeFilter === type ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300'
+            }`}
+          >
+            {t(ITEM_TYPE_LABEL_KEYS[type])}
+          </button>
+        ))}
+      </div>
       {excelEnabled && <ExcelMasterDataActions entity="products" search={search} disabled={loading || !!error} onImported={() => fetchData(1)} />}
       {error && (
         <div className="text-center py-12">

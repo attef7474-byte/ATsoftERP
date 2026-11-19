@@ -1670,6 +1670,9 @@ model Product {
   minStock    Float            @default(0)
   maxStock    Float            @default(0)
   status      String           @default("ACTIVE")
+  // Business item classification. Nullable for historical rows whose role cannot
+  // be proven from authoritative relationships; required for every new Product.
+  itemType    String?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   deletedAt   DateTime?
@@ -1708,6 +1711,7 @@ model Product {
   @@index([code])
   @@index([status])
   @@index([name])
+  @@index([itemType])
   @@index([createdAt])
   @@index([categoryId, status])
   @@index([status, createdAt])

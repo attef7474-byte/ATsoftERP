@@ -24,7 +24,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         inventory: 'المخزون',
         warehouses: 'المستودعات',
         productCategories: 'تصنيفات المنتجات',
-        products: 'المنتجات',
+        products: 'الأصناف',
         unitsOfMeasure: 'وحدات القياس',
         inventoryCounts: 'جرد المخزون',
         inventoryMovements: 'حركات المخزون',

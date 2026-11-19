@@ -79,7 +79,7 @@ export default function ProductionProductsWorkspacePage() {
         activeId={tab}
         onChange={selectTab}
         items={[
-          { id: 'products', label: t('inventory.products') },
+          { id: 'products', label: t('inventory.itemsTitle') },
           { id: 'product-definitions', label: t('production.settings') },
           { id: 'units', label: t('production.units') },
           { id: 'capacity-standards', label: t('production.capacityStandards') },
@@ -87,7 +87,7 @@ export default function ProductionProductsWorkspacePage() {
       />
 
       <TabPanel id="products" activeId={tab}>
-        <ProductsWorkspace showHeader={false} defaultSection="production" />
+        <ProductsWorkspace showHeader={false} defaultSection="production" defaultItemType="FINISHED_GOOD" />
       </TabPanel>
 
       <TabPanel id="product-definitions" activeId={tab}>

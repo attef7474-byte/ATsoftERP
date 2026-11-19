@@ -343,7 +343,9 @@ export default function SparePartsPage() {
               value={form.productId}
               onChange={(value) => setForm((f) => ({ ...f, productId: value }))}
               adapter={productAdapter}
+              filters={{ itemType: 'SPARE_PART' }}
               placeholder={t('f9.pressToSearch')}
+              description={t('maintenance.sparePart.form.linkedProductHint')}
             />
             <Select
               label={t('maintenance.sparePart.form.unit')}

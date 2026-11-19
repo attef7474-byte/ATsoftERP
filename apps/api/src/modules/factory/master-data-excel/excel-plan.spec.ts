@@ -30,7 +30,7 @@ describe('authoritative Excel planner', () => {
     const plan = await buildExcelPlan(db, EXCEL_DEFINITIONS.products, parsed({ Code: '001', MinStock: 0 }), 'UPDATE_EXISTING', ctx);
     expect(plan.errors).toEqual([]); expect(plan.rows[0].dto).toEqual({ code: '001', minStock: 0 }); expect(plan.rows[0].action).toBe('UPDATE');
     const missing = await buildExcelPlan(fixture('product'), EXCEL_DEFINITIONS.products, parsed({ Code: 'NEW' }), 'CREATE_ONLY', ctx);
-    expect(missing.errors.map(e => e.column)).toEqual(expect.arrayContaining(['Name', 'UnitCode']));
+    expect(missing.errors.map(e => e.column)).toEqual(expect.arrayContaining(['Name', 'UnitCode', 'ItemType']));
   });
   it('keeps an unchanged historical global unit without rewriting or relinking it', async () => {
     const db = fixture('product', [{ id: 'p', code: 'P', name: 'N', unitId: 'old', unitRef: { id: 'old', code: 'OLD', isActive: false } }]); db.unit.findMany.mockResolvedValue([]);
@@ -43,7 +43,7 @@ describe('authoritative Excel planner', () => {
   });
   it.each(['CREATE_ONLY', 'UPDATE_EXISTING', 'CREATE_AND_UPDATE'] as const)('enforces mode %s', async mode => {
     const records = [{ id: 'p', code: 'OLD', name: 'Old' }];
-    const plan = await buildExcelPlan(fixture('product', records), EXCEL_DEFINITIONS.products, parsed({ Code: 'OLD', Name: 'Changed' }, { Code: 'NEW', Name: 'New', UnitCode: 'KG' }), mode, ctx);
+    const plan = await buildExcelPlan(fixture('product', records), EXCEL_DEFINITIONS.products, parsed({ Code: 'OLD', Name: 'Changed' }, { Code: 'NEW', Name: 'New', UnitCode: 'KG', ItemType: 'RAW_MATERIAL' }), mode, ctx);
     expect(plan.rows[0].action).toBe(mode === 'CREATE_ONLY' ? 'CONFLICT_EXISTING' : 'UPDATE');
     expect(plan.rows[1].action).toBe(mode === 'UPDATE_EXISTING' ? 'INVALID' : 'NEW');
   });

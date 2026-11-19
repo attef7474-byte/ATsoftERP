@@ -246,6 +246,10 @@ const messages: Record<string, { ar: string; en: string }> = {
   'products.uomInactive': { ar: 'وحدة التعبئة المحددة غير نشطة', en: 'The selected packaging unit is inactive' },
   'products.uomBaseUnitLocked': { ar: 'لا يمكن تغيير وحدة المخزون الأساسية بعد وجود حركات أو أرصدة مخزنية للمنتج', en: 'The base inventory unit cannot be changed after inventory history exists for this product' },
   'products.codeExists': { ar: 'كود المنتج موجود مسبقاً', en: 'Product code already exists' },
+  'products.itemTypeRequired': { ar: 'نوع الصنف مطلوب ويجب أن يكون أحد القيم المعتمدة', en: 'A valid item type is required' },
+  'products.itemTypeInvalid': { ar: 'نوع الصنف المحدد غير صالح', en: 'The selected item type is not valid' },
+  'products.itemTypeChangeBlocked': { ar: 'لا يمكن تغيير نوع الصنف لارتباطه ببيانات تشغيلية معتمدة', en: 'The item type cannot be changed because authoritative operational records depend on it' },
+  'spareParts.productItemTypeConflict': { ar: 'الصنف المرتبط يجب أن يكون من نوع قطعة غيار', en: 'The linked item must be classified as SPARE_PART' },
   'production.codeExists': { ar: 'المرجع الإنتاجي للمنتج موجود مسبقاً', en: 'Production product reference already exists' },
   'production.codeRequired': { ar: 'تعذّر توليد المرجع الإنتاجي للمنتج', en: 'A production reference could not be generated' },
 

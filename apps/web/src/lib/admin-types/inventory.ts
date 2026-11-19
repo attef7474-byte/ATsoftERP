@@ -1,3 +1,5 @@
+import type { ProductItemType } from '../product-item-type';
+
 export interface Warehouse {
   id: string;
   companyId: string;
@@ -47,6 +49,8 @@ export interface Product {
   name: string;
   description?: string | null;
   categoryId?: string | null;
+  /** Authoritative business classification. Null only for legacy/unclassified rows. */
+  itemType?: ProductItemType | null;
   unit: string;
   unitId?: string | null;
   barcode?: string | null;
@@ -61,6 +65,8 @@ export interface Product {
   unitRef?: { id: string; code: string; nameAr: string; nameEn: string; symbol?: string | null } | null;
   uoms?: ProductUom[];
   productionDefinitions?: ProductionDefinitionSummary[];
+  /** Read-only technical spare-part link (authority stays in SparePart). */
+  spareParts?: Array<{ id: string; code: string; name: string; status: string }>;
 }
 
 /**

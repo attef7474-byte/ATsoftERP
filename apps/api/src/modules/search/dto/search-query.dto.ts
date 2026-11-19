@@ -100,6 +100,16 @@ export class SearchEntityFilters {
   @IsString()
   @IsOptional()
   costCenterId?: string;
+
+  @ApiPropertyOptional({ description: 'Narrow product lookups to one business item type' })
+  @IsString()
+  @IsOptional()
+  itemType?: string;
+
+  @ApiPropertyOptional({ description: 'Narrow product lookups to comma-separated business item types' })
+  @IsString()
+  @IsOptional()
+  itemTypes?: string;
 }
 
 export class UnifiedSearchQueryDto extends SearchEntityFilters {

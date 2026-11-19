@@ -17,6 +17,8 @@ import {
 } from '../../../../components/f9';
 import { useAuth } from '../../../../lib/auth-context';
 import { ProductionDefinitionSummary } from '../../../../lib/admin-types';
+import { useRouter } from 'next/navigation';
+import { ITEM_TYPE_LABEL_KEYS, PRODUCT_ITEM_TYPES } from '../../../../lib/product-item-type';
 
 export type ProductFormSection = 'inventory' | 'production';
 
@@ -57,6 +59,7 @@ const EMPTY_FORM = {
   code: '',
   name: '',
   description: '',
+  itemType: '',
   categoryId: '',
   unitId: '',
   barcode: '',
@@ -107,6 +110,7 @@ export function ProductForm({ open, productId, section, onClose, onSaved }: Prod
   const { t } = useTranslation();
   const { showToast } = useToast();
   const { permissions, isSuperAdmin, isArchivedContext } = useAuth();
+  const router = useRouter();
 
   const isEdit = Boolean(productId);
   const [loading, setLoading] = useState(false);
@@ -116,6 +120,7 @@ export function ProductForm({ open, productId, section, onClose, onSaved }: Prod
   const [baseUnitLabel, setBaseUnitLabel] = useState('');
   const [uoms, setUoms] = useState<UomRow[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [linkedSpareParts, setLinkedSpareParts] = useState<NonNullable<Product['spareParts']>>([]);
   const loadedForRef = useRef<string | null>(null);
 
   // Production configuration lives on the same product record (one identity, one
@@ -137,6 +142,11 @@ export function ProductForm({ open, productId, section, onClose, onSaved }: Prod
   const productionReadOnly = saving || !canManageProduction;
   const productionTouched = productionEnabled || productionConfigured;
 
+  // Technical spare-part data is NEVER edited here. The section below only shows
+  // the authoritative SparePart link, and only to operators permitted to read it.
+  const canViewSpareParts =
+    !isArchivedContext && (isSuperAdmin || Boolean(permissions?.permissions.includes('spare-part:read')));
+
   const setField = (field: keyof typeof EMPTY_FORM, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => (prev[field] ? { ...prev, [field]: '' } : prev));
@@ -157,6 +167,7 @@ export function ProductForm({ open, productId, section, onClose, onSaved }: Prod
     setForm({ ...EMPTY_FORM });
     setBaseUnitLabel('');
     setUoms([]);
+    setLinkedSpareParts([]);
     setErrors({});
     setError('');
     setSaving(false);
@@ -176,6 +187,8 @@ export function ProductForm({ open, productId, section, onClose, onSaved }: Prod
           code: item.code ?? '',
           name: item.name ?? '',
           description: item.description ?? '',
+          // Legacy rows may be NULL: blank means "keep unclassified" on edit.
+          itemType: item.itemType ?? '',
           categoryId: item.categoryId ?? '',
           unitId: baseUnitId,
           barcode: item.barcode ?? '',
@@ -184,6 +197,7 @@ export function ProductForm({ open, productId, section, onClose, onSaved }: Prod
         });
         setBaseUnitLabel(unitLabelOf(item.unitRef));
         setUoms(toUomRows(item));
+        setLinkedSpareParts(item.spareParts ?? []);
         applyProductionDefinition((item.productionDefinitions ?? [])[0]);
         setErrors({});
         loadedForRef.current = id;
@@ -236,6 +250,9 @@ export function ProductForm({ open, productId, section, onClose, onSaved }: Prod
     const errs: Record<string, string> = {};
     if (!form.name.trim()) errs.name = t('validation.required');
     if (isEdit && !form.code.trim()) errs.code = t('validation.required');
+    // New items must always carry an authoritative type. On edit a blank value
+    // means "keep the legacy unclassified state" and is therefore not an error.
+    if (!isEdit && !form.itemType) errs.itemType = t('inventory.itemTypeRequired');
     if (!form.unitId) errs.unitId = t('validation.required');
 
     const parentOptions = new Set<string>();
@@ -307,6 +324,8 @@ export function ProductForm({ open, productId, section, onClose, onSaved }: Prod
         code: form.code.trim() || undefined,
         name: form.name.trim(),
         description: form.description.trim() || undefined,
+        // Omitted on edit when blank so legacy unclassified rows keep their NULL.
+        itemType: form.itemType || undefined,
         categoryId: form.categoryId || undefined,
         unitId: form.unitId,
         barcode: form.barcode.trim() || undefined,
@@ -392,6 +411,21 @@ export function ProductForm({ open, productId, section, onClose, onSaved }: Prod
         <div className="space-y-5">
           <h3 className="text-sm font-semibold text-gray-700">{t('complexForms.basicInformation')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <Select
+                label={t('inventory.itemType')}
+                value={form.itemType}
+                onChange={(e) => setField('itemType', e.target.value)}
+                options={[
+                  { value: '', label: isEdit ? t('inventory.unclassified') : '' },
+                  ...PRODUCT_ITEM_TYPES.map((type) => ({ value: type, label: t(ITEM_TYPE_LABEL_KEYS[type]) })),
+                ]}
+                description={t('inventory.itemTypeHint')}
+                error={errors.itemType}
+                required={!isEdit}
+                disabled={saving}
+              />
+            </div>
             <div>
               <Input
                 label={t('inventory.code')}
@@ -447,6 +481,49 @@ export function ProductForm({ open, productId, section, onClose, onSaved }: Prod
               />
             </div>
           </div>
+
+          {/* Type-specific guidance. The type is authoritative; no second catalog
+              and no duplicated technical data is created here. */}
+          {form.itemType === 'FINISHED_GOOD' && (
+            <p className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded p-3">
+              {t('inventory.finishedGoodHint')}
+            </p>
+          )}
+          {(form.itemType === 'RAW_MATERIAL' || form.itemType === 'PACKAGING_MATERIAL') && (
+            <p className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded p-3">
+              {t('inventory.rawMaterialHint')}
+            </p>
+          )}
+          {form.itemType === 'SPARE_PART' && (
+            <div className="border-t pt-4" id="product-spare-part-section">
+              <h3 className="text-sm font-semibold text-gray-700">{t('inventory.sparePartSection')}</h3>
+              <p className="mt-2 text-sm text-gray-600">{t('inventory.sparePartDataHint')}</p>
+              {canViewSpareParts ? (
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  {linkedSpareParts.length > 0 ? (
+                    <p className="text-sm text-gray-700">
+                      {t('inventory.sparePartLinkedRecord')}:{' '}
+                      <span className="font-medium">
+                        [{linkedSpareParts[0].code}] {linkedSpareParts[0].name}
+                      </span>
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-500">{t('inventory.sparePartNotLinked')}</p>
+                  )}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => router.push('/admin/maintenance/spare-parts')}
+                    disabled={saving}
+                  >
+                    {t('inventory.manageSpareParts')}
+                  </Button>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-gray-500">{t('inventory.sparePartPermissionHint')}</p>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input

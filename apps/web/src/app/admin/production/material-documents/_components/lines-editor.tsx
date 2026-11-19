@@ -97,6 +97,7 @@ export function MaterialLinesEditor({ lines, onChange, showSubstitution, allowOv
         value={multiSelection}
         onChange={handleMultiSelect}
         adapter={productAdapter}
+        filters={{ itemTypes: 'RAW_MATERIAL,PACKAGING_MATERIAL' }}
         placeholder={t('production.materialDocuments.selectMaterials')}
       />
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -121,6 +122,7 @@ export function MaterialLinesEditor({ lines, onChange, showSubstitution, allowOv
                 label={t('production.materialDocuments.product')}
                 value={line.productId}
                 adapter={productAdapter}
+                filters={{ itemTypes: 'RAW_MATERIAL,PACKAGING_MATERIAL' }}
                 onChange={(v) => updateLine(line.key, { productId: v, productUomId: '', unit: '' })}
               />
             </div>
