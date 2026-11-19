@@ -7,6 +7,7 @@ import { useToast } from '../../../../../components/admin/toast-provider';
 import { api } from '../../../../../lib/api';
 import { Card, CardContent, CardHeader, PageHeader, LoadingState, ErrorState, StatusBadge } from '../../../../../components/admin/ui';
 import type { SparePart } from '../../../../../lib/admin-types';
+import { formatExpectedLifeValue } from '../../../../../lib/maintenance/expected-life-display';
 
 export default function SparePartDetailPage() {
   const { t } = useTranslation();
@@ -50,6 +51,23 @@ export default function SparePartDetailPage() {
         <Card><CardHeader><h3 className="text-sm font-medium">{t('maintenance.sparePart.form.isCritical')}</h3></CardHeader><CardContent>{item.isCritical ? t('common.yes') : t('common.no')}</CardContent></Card>
         <Card><CardHeader><h3 className="text-sm font-medium">{t('common.description')}</h3></CardHeader><CardContent>{item.description || '-'}</CardContent></Card>
       </div>
+      <Card>
+        <CardHeader><h3 className="text-sm font-medium">{t('maintenance.sparePart.section.standardLife')}</h3></CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <p className="text-gray-500 text-xs">{t('maintenance.standardExpectedLife')}</p>
+            <p className="font-medium" data-testid="spare-part-standard-life">{formatExpectedLifeValue(t, item.defaultExpectedLifeValue, item.defaultExpectedLifeUnit)}</p>
+          </div>
+          <div>
+            <p className="text-gray-500 text-xs">{t('maintenance.standardWarningThreshold')}</p>
+            <p className="font-medium">{item.defaultWarningThresholdPercent ?? t('maintenance.lifeNotDefined')}</p>
+          </div>
+          <div>
+            <p className="text-gray-500 text-xs">{t('maintenance.lifeInherited')}</p>
+            <p className="text-xs text-gray-500">{t('maintenance.sparePart.form.standardLifeHint')}</p>
+          </div>
+        </CardContent>
+      </Card>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card><CardHeader><h3 className="text-sm font-medium">{t('maintenance.sparePart.form.technicalClassification')}</h3></CardHeader><CardContent>{item.technicalClassification || '-'}</CardContent></Card>
         <Card><CardHeader><h3 className="text-sm font-medium">{t('maintenance.sparePart.form.usageType')}</h3></CardHeader><CardContent>{item.usageType || '-'}</CardContent></Card>

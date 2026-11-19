@@ -1,5 +1,6 @@
 import { ExcelColumnDefinition, ExcelDefinition, ExcelEntity, ExcelReference } from '../../../common/excel/excel.types';
 import { PRODUCT_ITEM_TYPES } from '../products/product-item-type.domain';
+import { EXPECTED_LIFE_UNITS } from '../maintenance/expected-life/expected-life.constants';
 
 const text = (header: string, field: string, label: string, options: Partial<ExcelColumnDefinition> = {}): ExcelColumnDefinition => ({ header, field, label, type: 'text', maxLength: 255, update: true, importable: true, export: true, example: '', width: 24, ...options });
 const ref = (header: string, field: string, label: string, reference: ExcelReference, options: Partial<ExcelColumnDefinition> = {}) => text(header, field, label, { reference, maxLength: 100, ...options });
@@ -46,6 +47,9 @@ export const EXCEL_DEFINITIONS: Record<ExcelEntity, ExcelDefinition> = {
     ref('ProductCode', 'productId', 'reports.product', 'product'), number('MinRecommendedStock', 'minRecommendedStock', 'inventoryCounting.minStock'), number('MaxRecommendedStock', 'maxRecommendedStock', 'inventoryCounting.maxStock'),
     number('ReorderPoint', 'reorderPoint', 'maintenance.reorderPoint'), text('IsCritical', 'isCritical', 'maintenance.isCritical', { type: 'boolean', example: 'false' }),
     text('TechnicalClassification', 'technicalClassification', 'maintenance.technicalClassification'), text('UsageType', 'usageType', 'maintenance.usageType'), text('Nature', 'nature', 'maintenance.nature'), text('Importance', 'importance', 'maintenance.importance'),
+    text('ExpectedLife', 'defaultExpectedLifeValue', 'maintenance.expectedLifeValue', { type: 'number', example: '8000', width: 20 }),
+    text('ExpectedLifeUnit', 'defaultExpectedLifeUnit', 'maintenance.expectedLifeUnit', { type: 'enum', values: [...EXPECTED_LIFE_UNITS], example: 'HOURS', width: 20 }),
+    text('WarningThresholdPercent', 'defaultWarningThresholdPercent', 'maintenance.warningThresholdPercent', { type: 'number', example: '80', width: 20 }),
   ] },
   products: { entity: 'products', model: 'product', permission: 'products', shared: true, keyHeaders: ['Code'], columns: [
     identity(), name(),

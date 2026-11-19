@@ -556,6 +556,9 @@ export interface SparePart {
   importance?: string | null;
   productId?: string | null;
   product?: { id: string; name: string; code: string; unit?: string | null } | null;
+  defaultExpectedLifeValue?: number | null;
+  defaultExpectedLifeUnit?: string | null;
+  defaultWarningThresholdPercent?: number | null;
   linkedMachineCount?: number;
   _count?: { machineLinks: number };
   componentLinks?: ComponentSparePart[];
@@ -636,16 +639,39 @@ export interface MachineInstalledPart {
   life?: InstalledPartLife;
   machine?: { id: string; code: string; name: string };
   machineComponent?: { id: string; code: string; name: string };
-  sparePart?: { id: string; code: string; name: string; unit?: string };
+  sparePart?: {
+    id: string;
+    code: string;
+    name: string;
+    unit?: string;
+    defaultExpectedLifeValue?: number | null;
+    defaultExpectedLifeUnit?: string | null;
+    defaultWarningThresholdPercent?: number | null;
+  };
   maintenanceRequest?: { id: string; requestNumber: string; title: string };
 }
 
 export interface InstalledPartLife {
+  standardExpectedLifeValue: number | null;
+  standardExpectedLifeUnit: string | null;
+  standardWarningThresholdPercent: number | null;
+  appliedExpectedLifeValue: number | null;
+  appliedExpectedLifeUnit: string | null;
+  warningThresholdPercent: number | null;
+  isOverridden: boolean;
+  lifeStartDate: string | null;
+  lifeStartReading: number | null;
+  currentReading: number | null;
+  consumed: number | null;
+  remaining: number | null;
+  overBy: number | null;
   lifeStatus: string;
   alertThresholdReached: string;
   progress: number | null;
+  progressPercent: number | null;
   expectedExpiryDate: string | null;
   expectedExpiryReading: number | null;
+  lastEvaluatedAt: string | null;
 }
 
 export interface MachineInstalledPartReading {

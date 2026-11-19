@@ -26,6 +26,7 @@ export default function EditSparePartPage() {
     manufacturer: '', model: '', partNumber: '', barcode: '',
     minRecommendedStock: 0, maxRecommendedStock: 0, reorderPoint: 0, isCritical: false,
     technicalClassification: '', usageType: '', nature: '', importance: '',
+    defaultExpectedLifeValue: '', defaultExpectedLifeUnit: '', defaultWarningThresholdPercent: '80',
   });
 
   useEffect(() => {
@@ -43,6 +44,9 @@ export default function EditSparePartPage() {
           reorderPoint: res.reorderPoint ?? 0, isCritical: res.isCritical,
           technicalClassification: res.technicalClassification || '',
           usageType: res.usageType || '', nature: res.nature || '', importance: res.importance || '',
+          defaultExpectedLifeValue: res.defaultExpectedLifeValue !== null && res.defaultExpectedLifeValue !== undefined ? String(res.defaultExpectedLifeValue) : '',
+          defaultExpectedLifeUnit: res.defaultExpectedLifeUnit || '',
+          defaultWarningThresholdPercent: res.defaultWarningThresholdPercent !== null && res.defaultWarningThresholdPercent !== undefined ? String(res.defaultWarningThresholdPercent) : '80',
         });
       } catch (e: any) { setError(e.message || 'Failed to load'); }
       finally { setLoading(false); }
@@ -52,11 +56,23 @@ export default function EditSparePartPage() {
   const handleSave = async () => {
     const errors: Record<string, string> = {};
     if (!form.name) errors.name = t('validation.required');
+    const hasLifeValue = form.defaultExpectedLifeValue !== '';
+    const hasLifeUnit = form.defaultExpectedLifeUnit !== '';
+    if (hasLifeValue !== hasLifeUnit) errors.defaultExpectedLifeUnit = t('maintenance.sparePart.form.defaultLifePairRequired');
+    if (hasLifeValue && (!(Number(form.defaultExpectedLifeValue) > 0) || !Number.isFinite(Number(form.defaultExpectedLifeValue)))) {
+      errors.defaultExpectedLifeValue = t('maintenance.expectedLifeValueInvalid');
+    }
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
-      await api.patch(`/maintenance/spare-parts/${id}`, form);
+      const payload = {
+        ...form,
+        defaultExpectedLifeValue: hasLifeValue ? Number(form.defaultExpectedLifeValue) : null,
+        defaultExpectedLifeUnit: hasLifeValue ? form.defaultExpectedLifeUnit : null,
+        defaultWarningThresholdPercent: hasLifeValue ? Number(form.defaultWarningThresholdPercent || 80) : null,
+      };
+      await api.patch(`/maintenance/spare-parts/${id}`, payload);
       showToast(t('maintenance.sparePartUpdated'), 'success');
       router.push(`/admin/maintenance/spare-parts/${id}`);
     } catch (e: any) { handleApiError(e); }
@@ -129,6 +145,22 @@ export default function EditSparePartPage() {
               { value: 'MEDIUM', label: t('maintenance.sparePart.importance.medium') },
               { value: 'LOW', label: t('maintenance.sparePart.importance.low') },
             ]} />
+          </div>
+          <div className="border-t pt-4 space-y-3">
+            <h3 className="text-sm font-semibold text-gray-900">{t('maintenance.sparePart.section.standardLife')}</h3>
+            <p className="text-xs text-gray-500">{t('maintenance.sparePart.form.standardLifeHint')}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Input label={t('maintenance.sparePart.form.defaultExpectedLifeValue')} type="number" min={0.0001} value={form.defaultExpectedLifeValue} onChange={(e) => { setForm({ ...form, defaultExpectedLifeValue: e.target.value }); setValidationErrors((prev) => ({ ...prev, defaultExpectedLifeValue: '', defaultExpectedLifeUnit: '' })); }} />
+              <Select label={t('maintenance.sparePart.form.defaultExpectedLifeUnit')} value={form.defaultExpectedLifeUnit} onChange={(e) => setForm({ ...form, defaultExpectedLifeUnit: e.target.value })} options={[
+                { value: '', label: '' },
+                { value: 'DAYS', label: t('maintenance.lifeUnitDays') },
+                { value: 'HOURS', label: t('maintenance.lifeUnitHours') },
+                { value: 'CYCLES', label: t('maintenance.lifeUnitCycles') },
+              ]} />
+              <Input label={t('maintenance.sparePart.form.defaultWarningThresholdPercent')} type="number" min={1} max={99} value={form.defaultWarningThresholdPercent} onChange={(e) => setForm({ ...form, defaultWarningThresholdPercent: e.target.value })} />
+            </div>
+            {validationErrors.defaultExpectedLifeValue && <p className="text-red-500 text-sm">{validationErrors.defaultExpectedLifeValue}</p>}
+            {validationErrors.defaultExpectedLifeUnit && <p className="text-red-500 text-sm">{validationErrors.defaultExpectedLifeUnit}</p>}
           </div>
         </CardContent>
       </Card>

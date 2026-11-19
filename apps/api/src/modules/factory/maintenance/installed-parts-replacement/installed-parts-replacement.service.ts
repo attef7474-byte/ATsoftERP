@@ -5,6 +5,12 @@ import { AuditService } from '../../../../common/audit/audit.service';
 import { QueryInstalledPartDto, QueryInstalledPartLookupDto, QueryReplacementHistoryDto, SetExpectedLifeDto, RecordInstalledPartReadingDto, RegisterInstalledPartDto, RemoveInstalledPartDto } from './dto/installed-parts-replacement.dto';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 import { assertMachineComponentBelongsToMachine } from '../../../../common/operational-context/tenant-guards';
+import {
+  DEFAULT_WARNING_THRESHOLD_PERCENT,
+  EXPECTED_LIFE_UNITS,
+  MAX_WARNING_THRESHOLD_PERCENT,
+  MIN_WARNING_THRESHOLD_PERCENT,
+} from '../expected-life/expected-life.constants';
 
 export const DUE_PROGRESS_THRESHOLD = 0.9;
 
@@ -70,6 +76,72 @@ export function computeExpectedLifeState(part: {
   return { lifeStatus, alertThresholdReached, progress, expectedExpiryDate, expectedExpiryReading };
 }
 
+const round = (value: number, decimals = 3) => {
+  const factor = Math.pow(10, decimals);
+  return Math.round(value * factor) / factor;
+};
+
+/**
+ * Phase 3 read model. `computeExpectedLifeState` remains the only authority for
+ * status, expiry and progress; this function only derives display quantities
+ * from that state and the stored snapshot. The frontend never recalculates.
+ */
+export function buildInstalledPartLifeView(part: any, standard?: any, now: Date = new Date()) {
+  const state = computeExpectedLifeState(part, now);
+  const value = part?.expectedLifeValue ?? null;
+  const unit = part?.expectedLifeUnit ?? null;
+  const warning = part?.warningThresholdPercent ?? null;
+
+  let consumed: number | null = null;
+  let remaining: number | null = null;
+  let overBy: number | null = null;
+
+  if (unit === 'DAYS' && part?.lifeStartDate && value && value > 0) {
+    const start = new Date(part.lifeStartDate).getTime();
+    if (Number.isFinite(start)) {
+      const elapsedDays = (now.getTime() - start) / 86400000;
+      consumed = round(elapsedDays);
+      remaining = round(value - elapsedDays);
+    }
+  } else if ((unit === 'HOURS' || unit === 'CYCLES') && value && value > 0
+    && part?.lifeStartReading !== null && part?.lifeStartReading !== undefined
+    && part?.currentReading !== null && part?.currentReading !== undefined) {
+    const delta = part.currentReading - part.lifeStartReading;
+    consumed = round(delta);
+    remaining = round(value - delta);
+  }
+  if (remaining !== null && remaining < 0) overBy = round(Math.abs(remaining));
+
+  const standardValue = standard?.defaultExpectedLifeValue ?? null;
+  const standardUnit = standard?.defaultExpectedLifeUnit ?? null;
+  const standardWarning = standard?.defaultWarningThresholdPercent ?? null;
+  const isOverridden = standardValue !== null
+    && (value !== standardValue || unit !== standardUnit || warning !== (standardWarning ?? DEFAULT_WARNING_THRESHOLD_PERCENT));
+
+  return {
+    standardExpectedLifeValue: standardValue,
+    standardExpectedLifeUnit: standardUnit,
+    standardWarningThresholdPercent: standardWarning,
+    appliedExpectedLifeValue: value,
+    appliedExpectedLifeUnit: unit,
+    warningThresholdPercent: warning,
+    isOverridden,
+    lifeStartDate: part?.lifeStartDate ?? null,
+    lifeStartReading: part?.lifeStartReading ?? null,
+    currentReading: part?.currentReading ?? null,
+    consumed,
+    remaining,
+    overBy,
+    progress: state.progress,
+    progressPercent: state.progress === null ? null : round(state.progress * 100, 1),
+    expectedExpiryDate: state.expectedExpiryDate,
+    expectedExpiryReading: state.expectedExpiryReading,
+    lifeStatus: state.lifeStatus,
+    alertThresholdReached: state.alertThresholdReached,
+    lastEvaluatedAt: part?.lastEvaluatedAt ?? null,
+  };
+}
+
 @Injectable()
 export class InstalledPartsReplacementService {
   constructor(
@@ -122,6 +194,107 @@ export class InstalledPartsReplacementService {
     return request;
   }
 
+  /**
+   * Phase 3 — one canonical inheritance boundary. Every production writer of
+   * MachineInstalledPart calls recordInstalledPartInTx, so snapshotting here
+   * covers manual registration, execution issue, direct issue and replacement.
+   * The result is an immutable copy: later SparePart default changes never
+   * mutate this installed instance.
+   */
+  private async buildInstalledPartLifeSnapshot(
+    tx: any,
+    sparePartId: string,
+    override: {
+      expectedLifeValue?: number | null;
+      expectedLifeUnit?: string | null;
+      lifeStartDate?: Date | string | null;
+      lifeStartReading?: number | null;
+      currentReading?: number | null;
+      warningThresholdPercent?: number | null;
+    },
+    installedAt: Date,
+  ) {
+    const sparePart = await tx.sparePart.findUnique({
+      where: { id: sparePartId },
+      select: {
+        defaultExpectedLifeValue: true,
+        defaultExpectedLifeUnit: true,
+        defaultWarningThresholdPercent: true,
+      },
+    });
+
+    const value = override.expectedLifeValue ?? sparePart?.defaultExpectedLifeValue ?? null;
+    const unit = override.expectedLifeUnit ?? sparePart?.defaultExpectedLifeUnit ?? null;
+    let warning = override.warningThresholdPercent ?? sparePart?.defaultWarningThresholdPercent ?? DEFAULT_WARNING_THRESHOLD_PERCENT;
+
+    if (value !== null && (value === undefined || value <= 0)) {
+      throw this.badRequest('maintenance.expectedLifeValueInvalid', 'Expected life value must be greater than zero');
+    }
+    if (value !== null && !unit) {
+      throw this.badRequest('maintenance.expectedLifeUnitRequired', 'Expected life unit is required when a life value is configured');
+    }
+    if (unit && !(EXPECTED_LIFE_UNITS as readonly string[]).includes(unit)) {
+      throw this.badRequest('maintenance.expectedLifeUnitInvalid', 'Expected life unit must be DAYS, HOURS or CYCLES');
+    }
+    if (warning < MIN_WARNING_THRESHOLD_PERCENT || warning > MAX_WARNING_THRESHOLD_PERCENT) {
+      throw this.badRequest('maintenance.warningThresholdInvalid', 'Warning threshold must be between 1 and 99 percent');
+    }
+
+    const now = new Date();
+    let lifeStartDate: Date | null = null;
+    let lifeStartReading: number | null = null;
+    let currentReading: number | null = null;
+
+    if (unit === 'DAYS' && value !== null) {
+      lifeStartDate = override.lifeStartDate ? new Date(override.lifeStartDate) : installedAt;
+      if (!Number.isFinite(lifeStartDate.getTime())) {
+        throw this.badRequest('maintenance.lifeStartDateInvalid', 'Life start date must be valid');
+      }
+      if (lifeStartDate.getTime() > now.getTime()) {
+        throw this.badRequest('maintenance.lifeStartDateInvalid', 'Life start date cannot be in the future');
+      }
+    } else if ((unit === 'HOURS' || unit === 'CYCLES') && value !== null) {
+      lifeStartReading = override.lifeStartReading ?? null;
+      if (lifeStartReading !== null) {
+        currentReading = override.currentReading ?? lifeStartReading;
+        if (currentReading < lifeStartReading) {
+          throw this.badRequest('maintenance.readingCannotDecrease', 'Current reading cannot be lower than the life start reading');
+        }
+      }
+    }
+
+    if (value === null) {
+      // Preserve NULL life as UNKNOWN; never fabricate a default.
+      lifeStartDate = null;
+      lifeStartReading = null;
+      currentReading = null;
+      warning = DEFAULT_WARNING_THRESHOLD_PERCENT;
+    }
+
+    const state = computeExpectedLifeState({
+      expectedLifeValue: value,
+      expectedLifeUnit: unit,
+      lifeStartDate,
+      lifeStartReading,
+      currentReading,
+      warningThresholdPercent: warning,
+    }, now);
+
+    return {
+      expectedLifeValue: value,
+      expectedLifeUnit: unit,
+      warningThresholdPercent: warning,
+      lifeStartDate,
+      lifeStartReading,
+      currentReading,
+      expectedExpiryDate: state.expectedExpiryDate,
+      expectedExpiryReading: state.expectedExpiryReading,
+      lifeStatus: state.lifeStatus,
+      alertThresholdReached: state.alertThresholdReached,
+      lastEvaluatedAt: now,
+    };
+  }
+
   async recordInstalledPartInTx(
     tx: any,
     data: {
@@ -142,6 +315,12 @@ export class InstalledPartsReplacementService {
       serialNumber?: string | null;
       batchNumber?: string | null;
       notes?: string | null;
+      expectedLifeValue?: number | null;
+      expectedLifeUnit?: string | null;
+      lifeStartDate?: Date | string | null;
+      lifeStartReading?: number | null;
+      currentReading?: number | null;
+      warningThresholdPercent?: number | null;
     },
   ) {
     // Invariant A — the component must be mounted on the machine the part is
@@ -150,6 +329,9 @@ export class InstalledPartsReplacementService {
     if (data.machineComponentId) {
       await assertMachineComponentBelongsToMachine(tx, data.machineComponentId, data.machineId);
     }
+
+    const installedAt = data.installedAt ?? new Date();
+    const lifeSnapshot = await this.buildInstalledPartLifeSnapshot(tx, data.sparePartId, data, installedAt);
 
     return tx.machineInstalledPart.create({
       data: {
@@ -163,7 +345,7 @@ export class InstalledPartsReplacementService {
         conditionMovementId: data.conditionMovementId || null,
         installedQuantity: data.installedQuantity,
         installedCondition: data.installedCondition || 'NEW',
-        installedAt: data.installedAt ?? new Date(),
+        installedAt,
         installedByUserId: data.installedByUserId,
         sourceType: data.sourceType || 'MAINTENANCE_ISSUE',
         sourceId: data.sourceId || data.requiredPartId,
@@ -171,6 +353,7 @@ export class InstalledPartsReplacementService {
         batchNumber: data.batchNumber || null,
         status: 'ACTIVE',
         notes: data.notes || null,
+        ...lifeSnapshot,
       },
     });
   }
@@ -362,6 +545,12 @@ export class InstalledPartsReplacementService {
         serialNumber: dto.serialNumber || null,
         batchNumber: dto.batchNumber || null,
         notes: dto.notes || null,
+        expectedLifeValue: dto.expectedLifeValue,
+        expectedLifeUnit: dto.expectedLifeUnit,
+        lifeStartDate: dto.lifeStartDate ? new Date(dto.lifeStartDate) : undefined,
+        lifeStartReading: dto.lifeStartReading,
+        currentReading: dto.currentReading,
+        warningThresholdPercent: dto.warningThresholdPercent,
       });
       return { part, idempotent: false };
     });
@@ -377,6 +566,7 @@ export class InstalledPartsReplacementService {
         serialNumber: dto.serialNumber || null,
         source: 'MANUAL_REGISTRATION',
         applicability,
+        lifeSnapshot: buildInstalledPartLifeView(result.part, sparePart),
         companyId: ctx.companyId,
         branchId: ctx.branchId,
       });
@@ -442,16 +632,16 @@ export class InstalledPartsReplacementService {
       include: {
         machine: { select: { id: true, code: true, name: true } },
         machineComponent: { select: { id: true, code: true, name: true } },
-        sparePart: { select: { id: true, code: true, name: true, unit: true } },
+        sparePart: { select: { id: true, code: true, name: true, unit: true, defaultExpectedLifeValue: true, defaultExpectedLifeUnit: true, defaultWarningThresholdPercent: true } },
         maintenanceRequest: { select: { id: true, requestNumber: true, title: true } },
       },
       orderBy: { installedAt: 'desc' },
     });
 
-    const enriched = parts.map((part: any) => {
-      const state = computeExpectedLifeState(part);
-      return { ...part, life: state };
-    });
+    const enriched = parts.map((part: any) => ({
+      ...part,
+      life: buildInstalledPartLifeView(part, part.sparePart),
+    }));
     return enriched;
   }
 
@@ -498,13 +688,17 @@ export class InstalledPartsReplacementService {
         include: {
           machine: { select: { id: true, code: true, name: true } },
           machineComponent: { select: { id: true, code: true, name: true } },
-          sparePart: { select: { id: true, code: true, name: true, unit: true } },
+          sparePart: { select: { id: true, code: true, name: true, unit: true, defaultExpectedLifeValue: true, defaultExpectedLifeUnit: true, defaultWarningThresholdPercent: true } },
         },
       }),
       this.prisma.machineInstalledPart.count({ where }),
     ]);
 
-    return { data: parts, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    const data = parts.map((part: any) => ({
+      ...part,
+      life: buildInstalledPartLifeView(part, part.sparePart),
+    }));
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async getInstalledPartById(id: string, ctx: ActiveOperationalContext) {
@@ -514,15 +708,14 @@ export class InstalledPartsReplacementService {
       include: {
         machine: { select: { id: true, code: true, name: true } },
         machineComponent: { select: { id: true, code: true, name: true } },
-        sparePart: { select: { id: true, code: true, name: true, unit: true } },
+        sparePart: { select: { id: true, code: true, name: true, unit: true, defaultExpectedLifeValue: true, defaultExpectedLifeUnit: true, defaultWarningThresholdPercent: true } },
         maintenanceRequest: { select: { id: true, requestNumber: true, title: true } },
       },
     });
     if (!detail) throw this.notFound('maintenance.installedPartNotFound', 'Installed part not found');
 
-    const evaluated = await this.evaluatePartLife(detail.id, ctx);
-    const state = computeExpectedLifeState({ ...detail, ...evaluated } as any);
-    return { ...detail, life: state };
+    await this.evaluatePartLife(detail.id, ctx);
+    return { ...detail, life: buildInstalledPartLifeView(detail, detail.sparePart) };
   }
 
   async getInstalledPartsByMachine(machineId: string, ctx: ActiveOperationalContext) {
@@ -531,26 +724,33 @@ export class InstalledPartsReplacementService {
       where: { machineId },
       include: {
         machineComponent: { select: { id: true, code: true, name: true } },
-        sparePart: { select: { id: true, code: true, name: true, unit: true } },
+        sparePart: { select: { id: true, code: true, name: true, unit: true, defaultExpectedLifeValue: true, defaultExpectedLifeUnit: true, defaultWarningThresholdPercent: true } },
         maintenanceRequest: { select: { id: true, requestNumber: true, title: true } },
       },
       orderBy: { installedAt: 'desc' },
     });
-    const enriched = parts.map((part: any) => ({ ...part, life: computeExpectedLifeState(part) }));
+    const enriched = parts.map((part: any) => ({
+      ...part,
+      life: buildInstalledPartLifeView(part, part.sparePart),
+    }));
     return enriched;
   }
 
   async getInstalledPartsByRequest(maintenanceRequestId: string, ctx: ActiveOperationalContext) {
     await this.requestAccess(maintenanceRequestId, ctx);
-    return this.prisma.machineInstalledPart.findMany({
+    const parts = await this.prisma.machineInstalledPart.findMany({
       where: { maintenanceRequestId },
       include: {
         machine: { select: { id: true, code: true, name: true } },
         machineComponent: { select: { id: true, code: true, name: true } },
-        sparePart: { select: { id: true, code: true, name: true, unit: true } },
+        sparePart: { select: { id: true, code: true, name: true, unit: true, defaultExpectedLifeValue: true, defaultExpectedLifeUnit: true, defaultWarningThresholdPercent: true } },
       },
       orderBy: { installedAt: 'desc' },
     });
+    return parts.map((part: any) => ({
+      ...part,
+      life: buildInstalledPartLifeView(part, part.sparePart),
+    }));
   }
 
   async getReplacementHistory(query: QueryReplacementHistoryDto, ctx: ActiveOperationalContext) {
@@ -648,25 +848,54 @@ export class InstalledPartsReplacementService {
       throw this.badRequest('maintenance.partNotActive', 'Expected life can only be configured on ACTIVE installed parts');
     }
 
-    if (dto.expectedLifeUnit === 'DAYS' && !dto.lifeStartDate) {
-      throw this.badRequest('maintenance.lifeStartDateRequired', 'Life start date is required for DAYS-based expected life');
+    const value = dto.expectedLifeValue;
+    const unit = dto.expectedLifeUnit;
+    if (!(EXPECTED_LIFE_UNITS as readonly string[]).includes(unit)) {
+      throw this.badRequest('maintenance.expectedLifeUnitInvalid', 'Expected life unit must be DAYS, HOURS or CYCLES');
     }
-    if ((dto.expectedLifeUnit === 'HOURS' || dto.expectedLifeUnit === 'CYCLES') && dto.lifeStartReading === undefined) {
-      throw this.badRequest('maintenance.lifeStartReadingRequired', 'Life start reading is required for HOURS/CYCLES-based expected life');
+    if (value <= 0) {
+      throw this.badRequest('maintenance.expectedLifeValueInvalid', 'Expected life value must be greater than zero');
     }
 
-    const warningThresholdPercent = dto.warningThresholdPercent ?? part.warningThresholdPercent ?? 80;
+    const warningThresholdPercent = dto.warningThresholdPercent ?? part.warningThresholdPercent ?? DEFAULT_WARNING_THRESHOLD_PERCENT;
+    if (warningThresholdPercent < MIN_WARNING_THRESHOLD_PERCENT || warningThresholdPercent > MAX_WARNING_THRESHOLD_PERCENT) {
+      throw this.badRequest('maintenance.warningThresholdInvalid', 'Warning threshold must be between 1 and 99 percent');
+    }
 
+    const unitChanged = part.expectedLifeUnit !== unit;
     const data: any = {
-      expectedLifeValue: dto.expectedLifeValue,
-      expectedLifeUnit: dto.expectedLifeUnit,
+      expectedLifeValue: value,
+      expectedLifeUnit: unit,
       warningThresholdPercent,
+      expectedExpiryDate: null,
+      expectedExpiryReading: null,
+      lastEvaluatedAt: null,
     };
-    if (dto.lifeStartDate !== undefined) data.lifeStartDate = new Date(dto.lifeStartDate);
-    if (dto.lifeStartReading !== undefined) data.lifeStartReading = dto.lifeStartReading;
-    if (dto.currentReading !== undefined) data.currentReading = dto.currentReading;
-    if (data.lifeStartDate !== undefined || data.lifeStartReading !== undefined || data.currentReading !== undefined) {
-      data.lastEvaluatedAt = null;
+
+    if (unit === 'DAYS') {
+      if (!dto.lifeStartDate) {
+        throw this.badRequest('maintenance.lifeStartDateRequired', 'Life start date is required for DAYS-based expected life');
+      }
+      const start = new Date(dto.lifeStartDate);
+      if (!Number.isFinite(start.getTime()) || start.getTime() > Date.now()) {
+        throw this.badRequest('maintenance.lifeStartDateInvalid', 'Life start date must be valid and cannot be in the future');
+      }
+      data.lifeStartDate = start;
+      // Unit-change safety: never retain reading-based fields on a DAYS instance.
+      data.lifeStartReading = null;
+      data.currentReading = null;
+    } else {
+      if (dto.lifeStartReading === undefined) {
+        throw this.badRequest('maintenance.lifeStartReadingRequired', 'Life start reading is required for HOURS/CYCLES-based expected life');
+      }
+      if (dto.currentReading !== undefined && dto.currentReading < dto.lifeStartReading) {
+        throw this.badRequest('maintenance.readingCannotDecrease', 'Current reading cannot be lower than the life start reading');
+      }
+      data.lifeStartDate = null;
+      data.lifeStartReading = dto.lifeStartReading;
+      data.currentReading = unitChanged
+        ? (dto.currentReading ?? dto.lifeStartReading)
+        : (dto.currentReading ?? part.currentReading ?? dto.lifeStartReading);
     }
 
     const updated = await this.prisma.machineInstalledPart.update({
@@ -675,12 +904,25 @@ export class InstalledPartsReplacementService {
     });
 
     await this.audit.log(userId, 'EXPECTED_LIFE_CONFIGURED', 'MachineInstalledPart', id, {
-      expectedLifeValue: dto.expectedLifeValue,
-      expectedLifeUnit: dto.expectedLifeUnit,
-      lifeStartDate: dto.lifeStartDate || null,
-      lifeStartReading: dto.lifeStartReading ?? null,
-      currentReading: dto.currentReading ?? null,
+      expectedLifeValue: value,
+      expectedLifeUnit: unit,
+      lifeStartDate: data.lifeStartDate || null,
+      lifeStartReading: data.lifeStartReading ?? null,
+      currentReading: data.currentReading ?? null,
       warningThresholdPercent,
+      previous: {
+        expectedLifeValue: part.expectedLifeValue ?? null,
+        expectedLifeUnit: part.expectedLifeUnit ?? null,
+        warningThresholdPercent: part.warningThresholdPercent ?? null,
+      },
+      current: {
+        expectedLifeValue: value,
+        expectedLifeUnit: unit,
+        warningThresholdPercent,
+      },
+      machineId: part.machineId,
+      sparePartId: part.sparePartId,
+      unitChanged,
     });
 
     await this.evaluatePartLife(id, ctx, userId);
@@ -696,12 +938,18 @@ export class InstalledPartsReplacementService {
     }
 
     const readingType = dto.readingType;
-    if (part.expectedLifeUnit && part.expectedLifeUnit !== 'DAYS' && part.expectedLifeUnit !== readingType) {
+    if (!part.expectedLifeUnit) {
+      throw this.badRequest('maintenance.expectedLifeNotConfigured', 'Configure expected life first before recording readings');
+    }
+    if (part.expectedLifeUnit === 'DAYS') {
+      throw this.badRequest('maintenance.readingNotAllowedForDays', 'DAYS-based life has no meter readings');
+    }
+    if (part.expectedLifeUnit !== readingType) {
       throw this.badRequest('maintenance.readingTypeMismatch',
         `Reading type must match the configured expected-life unit (${part.expectedLifeUnit})`);
     }
-    if (!part.expectedLifeUnit) {
-      throw this.badRequest('maintenance.expectedLifeNotConfigured', 'Configure expected life first before recording readings');
+    if (!dto.isReset && part.currentReading !== null && part.currentReading !== undefined && dto.readingValue < part.currentReading) {
+      throw this.badRequest('maintenance.readingCannotDecrease', 'A meter reading cannot decrease unless an explicit reset is recorded');
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -740,7 +988,13 @@ export class InstalledPartsReplacementService {
       readingId: result.reading.id,
       readingType,
       readingValue: dto.readingValue,
+      previousReading: part.currentReading ?? null,
+      newReading: result.updated.currentReading,
       isReset: dto.isReset || false,
+      notes: dto.notes || null,
+      machineId: part.machineId,
+      sparePartId: part.sparePartId,
+      recordedAt: result.reading.recordedAt,
     });
 
     await this.evaluatePartLife(id, ctx, userId);

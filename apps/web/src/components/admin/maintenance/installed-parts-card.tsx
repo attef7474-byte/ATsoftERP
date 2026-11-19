@@ -5,6 +5,7 @@ import { useTranslation } from '../../../lib/i18n/use-translation';
 import { MachineInstalledPart } from '../../../lib/admin-types';
 import { Card, CardContent, CardHeader, DataTable, LoadingState, ErrorState, LocalizedValue } from '../ui';
 import { LifeStatusBadge } from '../../maintenance/life-status-badge';
+import { formatExpectedLifeValue } from '../../../lib/maintenance/expected-life-display';
 
 const STATUS_VARIANTS: Record<string, string> = {
   ACTIVE: 'bg-green-100 text-green-800',
@@ -82,6 +83,30 @@ export function InstalledPartsCard({ machineId, requestId, title }: Props) {
         render: (row: MachineInstalledPart) => (
           <LifeStatusBadge status={row.life?.lifeStatus || row.lifeStatus} />
         ),
+      },
+      {
+        key: 'standardLife',
+        header: t('maintenance.standardExpectedLife'),
+        render: (row: MachineInstalledPart) => formatExpectedLifeValue(t, row.life?.standardExpectedLifeValue, row.life?.standardExpectedLifeUnit),
+      },
+      {
+        key: 'appliedLife',
+        header: t('maintenance.appliedExpectedLife'),
+        render: (row: MachineInstalledPart) => formatExpectedLifeValue(t, row.life?.appliedExpectedLifeValue, row.life?.appliedExpectedLifeUnit),
+      },
+      {
+        key: 'lifeConsumption',
+        header: `${t('maintenance.consumedLife')} / ${t('maintenance.remainingLife')}`,
+        render: (row: MachineInstalledPart) => (
+          <span data-testid="installed-part-life-consumption">
+            {formatExpectedLifeValue(t, row.life?.consumed, row.life?.appliedExpectedLifeUnit)} / {formatExpectedLifeValue(t, row.life?.remaining, row.life?.appliedExpectedLifeUnit)}
+          </span>
+        ),
+      },
+      {
+        key: 'lifeProgress',
+        header: t('maintenance.lifeProgress'),
+        render: (row: MachineInstalledPart) => row.life?.progressPercent !== null && row.life?.progressPercent !== undefined ? `${row.life.progressPercent}%` : '-',
       },
       {
         key: 'status',

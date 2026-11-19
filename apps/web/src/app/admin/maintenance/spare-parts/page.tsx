@@ -13,6 +13,7 @@ import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { useAuth } from '../../../../lib/auth-context';
 import { F9Lookup, productAdapter } from '../../../../components/f9';
 import { MachineMultiSelect, MachineSelection } from '../../../../components/admin/maintenance/machine-multi-select';
+import { formatExpectedLifeValue } from '../../../../lib/maintenance/expected-life-display';
 
 export default function SparePartsPage() {
   const router = useRouter();
@@ -59,6 +60,7 @@ export default function SparePartsPage() {
     minRecommendedStock: 0, maxRecommendedStock: 0, reorderPoint: 0, isCritical: false,
     technicalClassification: '', usageType: '', nature: '', importance: '',
     unitId: '', productId: '',
+    defaultExpectedLifeValue: '', defaultExpectedLifeUnit: '', defaultWarningThresholdPercent: '80',
   };
   const [form, setForm] = useState(emptyForm);
 
@@ -126,6 +128,9 @@ export default function SparePartsPage() {
         technicalClassification: item.technicalClassification || '',
         usageType: item.usageType || '', nature: item.nature || '', importance: item.importance || '',
         unitId: item.unitId || '', productId: item.productId || '',
+        defaultExpectedLifeValue: item.defaultExpectedLifeValue !== null && item.defaultExpectedLifeValue !== undefined ? String(item.defaultExpectedLifeValue) : '',
+        defaultExpectedLifeUnit: item.defaultExpectedLifeUnit || '',
+        defaultWarningThresholdPercent: item.defaultWarningThresholdPercent !== null && item.defaultWarningThresholdPercent !== undefined ? String(item.defaultWarningThresholdPercent) : '80',
       });
       const links = (item.machineLinks || [])
         .filter((l) => l.machine)
@@ -158,6 +163,9 @@ export default function SparePartsPage() {
     importance: form.importance || undefined,
     unitId: form.unitId || null,
     productId: form.productId || null,
+    defaultExpectedLifeValue: form.defaultExpectedLifeValue === '' ? null : Number(form.defaultExpectedLifeValue),
+    defaultExpectedLifeUnit: form.defaultExpectedLifeValue === '' ? null : (form.defaultExpectedLifeUnit || null),
+    defaultWarningThresholdPercent: form.defaultExpectedLifeValue === '' ? null : Number(form.defaultWarningThresholdPercent || 80),
   }), [form]);
 
   const syncMachineLinks = useCallback(async (sparePartId: string) => {
@@ -172,6 +180,12 @@ export default function SparePartsPage() {
   const handleSave = useCallback(async () => {
     const errs: Record<string, string> = {};
     if (!form.name) errs.name = t('validation.required');
+    const hasLifeValue = form.defaultExpectedLifeValue !== '';
+    const hasLifeUnit = form.defaultExpectedLifeUnit !== '';
+    if (hasLifeValue !== hasLifeUnit) errs.defaultExpectedLifeUnit = t('maintenance.sparePart.form.defaultLifePairRequired');
+    if (hasLifeValue && (!(Number(form.defaultExpectedLifeValue) > 0) || !Number.isFinite(Number(form.defaultExpectedLifeValue)))) {
+      errs.defaultExpectedLifeValue = t('maintenance.expectedLifeValueInvalid');
+    }
     if (Object.keys(errs).length > 0) { setValidationErrors(errs); return; }
     setValidationErrors({});
     setSaving(true);
@@ -231,6 +245,7 @@ export default function SparePartsPage() {
     { key: 'model', header: t('maintenance.sparePart.form.model') },
     { key: 'partNumber', header: t('maintenance.partNumber') },
     { key: 'unit', header: t('maintenance.sparePart.form.unit'), render: (s) => unitDisplay(s) },
+    { key: 'standardLife', header: t('maintenance.standardExpectedLife'), render: (s) => formatExpectedLifeValue(t, s.defaultExpectedLifeValue, s.defaultExpectedLifeUnit) },
     { key: 'product', header: t('maintenance.sparePart.form.linkedProduct'), render: (s) => s.product ? `[${s.product.code}] ${s.product.name}` : '-' },
     { key: 'linkedMachines', header: t('maintenance.sparePart.form.linkedMachines'), align: 'center', render: (s) => String(s._count?.machineLinks ?? s.linkedMachineCount ?? 0) },
     { key: 'importance', header: t('maintenance.sparePart.form.importance') },
@@ -360,7 +375,43 @@ export default function SparePartsPage() {
             <Input label={t('maintenance.sparePart.form.reorderPoint')} type="number" value={form.reorderPoint} onChange={(e) => setForm({ ...form, reorderPoint: Number(e.target.value) })} />
           </section>
 
-          {/* Section D — Linked Machines */}
+          {/* Section D — Standard Expected Life (catalog default, snapshotted on install) */}
+          <section className="space-y-4">
+            <h3 className="text-sm font-semibold text-gray-900 border-b pb-1">{t('maintenance.sparePart.section.standardLife')}</h3>
+            <p className="text-xs text-gray-500">{t('maintenance.sparePart.form.standardLifeHint')}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Input
+                label={t('maintenance.sparePart.form.defaultExpectedLifeValue')}
+                type="number"
+                min={0.0001}
+                value={form.defaultExpectedLifeValue}
+                onChange={(e) => { setForm({ ...form, defaultExpectedLifeValue: e.target.value }); setValidationErrors((prev) => { const n = { ...prev }; delete n.defaultExpectedLifeValue; delete n.defaultExpectedLifeUnit; return n; }); }}
+              />
+              <Select
+                label={t('maintenance.sparePart.form.defaultExpectedLifeUnit')}
+                value={form.defaultExpectedLifeUnit}
+                onChange={(e) => { setForm({ ...form, defaultExpectedLifeUnit: e.target.value }); setValidationErrors((prev) => { const n = { ...prev }; delete n.defaultExpectedLifeUnit; return n; }); }}
+                options={[
+                  { value: '', label: '' },
+                  { value: 'DAYS', label: t('maintenance.lifeUnitDays') },
+                  { value: 'HOURS', label: t('maintenance.lifeUnitHours') },
+                  { value: 'CYCLES', label: t('maintenance.lifeUnitCycles') },
+                ]}
+              />
+              <Input
+                label={t('maintenance.sparePart.form.defaultWarningThresholdPercent')}
+                type="number"
+                min={1}
+                max={99}
+                value={form.defaultWarningThresholdPercent}
+                onChange={(e) => setForm({ ...form, defaultWarningThresholdPercent: e.target.value })}
+              />
+            </div>
+            {validationErrors.defaultExpectedLifeValue && <p className="text-red-500 text-sm">{validationErrors.defaultExpectedLifeValue}</p>}
+            {validationErrors.defaultExpectedLifeUnit && <p className="text-red-500 text-sm">{validationErrors.defaultExpectedLifeUnit}</p>}
+          </section>
+
+          {/* Section E — Linked Machines */}
           <section className="space-y-4">
             <h3 className="text-sm font-semibold text-gray-900 border-b pb-1">{t('maintenance.sparePart.section.machines')}</h3>
             <MachineMultiSelect

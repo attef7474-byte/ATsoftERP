@@ -13,6 +13,7 @@ import { F9Lookup, machineAdapter, machineComponentAdapter, sparePartAdapter } f
 import { useApiErrorHandler } from '../../../components/admin/error-handler';
 import { MachineInstalledPart, SparePart } from '../../../lib/admin-types';
 import { PERMISSION_KEYS } from '../../../lib/permission-keys';
+import { formatExpectedLifeValue } from '../../../lib/maintenance/expected-life-display';
 
 const INSTALLED_CONDITIONS = ['NEW', 'USED_SERVICEABLE'];
 const STATUS_OPTIONS = ['ACTIVE', 'REMOVED', 'REPLACED', 'DECOMMISSIONED'];
@@ -154,6 +155,18 @@ export default function InstalledPartsPage() {
     { key: 'installedCondition', header: t('maintenance.condition'), render: (p: MachineInstalledPart) => <LocalizedValue value={p.installedCondition} /> },
     { key: 'status', header: t('common.status'), render: (p: MachineInstalledPart) => <LocalizedValue kind="status" value={p.status} /> },
     { key: 'life', header: t('maintenance.lifeStatus'), render: (p: MachineInstalledPart) => <LifeStatusBadge status={p.life?.lifeStatus || p.lifeStatus} /> },
+    { key: 'standardLife', header: t('maintenance.standardExpectedLife'), render: (p: MachineInstalledPart) => formatExpectedLifeValue(t, p.life?.standardExpectedLifeValue, p.life?.standardExpectedLifeUnit) },
+    { key: 'appliedLife', header: t('maintenance.appliedExpectedLife'), render: (p: MachineInstalledPart) => formatExpectedLifeValue(t, p.life?.appliedExpectedLifeValue, p.life?.appliedExpectedLifeUnit) },
+    {
+      key: 'lifeConsumption',
+      header: `${t('maintenance.consumedLife')} / ${t('maintenance.remainingLife')}`,
+      render: (p: MachineInstalledPart) => (
+        <span data-testid="installed-part-life-consumption">
+          {formatExpectedLifeValue(t, p.life?.consumed, p.life?.appliedExpectedLifeUnit)} / {formatExpectedLifeValue(t, p.life?.remaining, p.life?.appliedExpectedLifeUnit)}
+        </span>
+      ),
+    },
+    { key: 'lifeProgress', header: t('maintenance.lifeProgress'), render: (p: MachineInstalledPart) => p.life?.progressPercent !== null && p.life?.progressPercent !== undefined ? `${p.life.progressPercent}%` : '-' },
     { key: 'installedAt', header: t('maintenance.installedDate'), render: (p: MachineInstalledPart) => new Date(p.installedAt).toLocaleDateString() },
   ];
 
@@ -235,6 +248,10 @@ export default function InstalledPartsPage() {
               <div>
                 <p className="text-gray-500 text-xs">{t('maintenance.manufacturer')}</p>
                 <p className="font-medium">{selectedSparePart.manufacturer || '-'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-xs">{t('maintenance.standardExpectedLife')}</p>
+                <p className="font-medium" data-testid="register-standard-life">{formatExpectedLifeValue(t, selectedSparePart.defaultExpectedLifeValue, selectedSparePart.defaultExpectedLifeUnit)}</p>
               </div>
             </div>
           )}

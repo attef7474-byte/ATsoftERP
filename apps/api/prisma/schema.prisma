@@ -2763,6 +2763,11 @@ model SparePart {
   nature                  String?
   importance              String?
   status                  String    @default("ACTIVE")
+  // Phase 3 — catalog standard expected life. NULL means "not defined".
+  // Snapshotted onto each new MachineInstalledPart; never backfilled.
+  defaultExpectedLifeValue       Float?  @map("default_expected_life_value")
+  defaultExpectedLifeUnit        String? @map("default_expected_life_unit") // DAYS | HOURS | CYCLES
+  defaultWarningThresholdPercent Int?    @map("default_warning_threshold_percent")
   productId               String?
   product                 Product?  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   createdAt               DateTime  @default(now())

@@ -1,6 +1,7 @@
 import { IsString, IsNumber, IsOptional, Min, IsBooleanString, IsIn, IsBoolean, Max, IsDateString, ValidateIf, IsNotEmpty, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { EXPECTED_LIFE_UNITS } from '../../expected-life/expected-life.constants';
 
 export const INSTALLED_PART_CONDITIONS = ['NEW', 'USED_SERVICEABLE', 'USED_REPAIRABLE', 'DAMAGED_REPAIRABLE', 'DAMAGED_NOT_REPAIRABLE'] as const;
 export const INSTALLED_PART_REMOVAL_STATUSES = ['REMOVED', 'REPLACED', 'FAILED', 'RETIRED', 'DECOMMISSIONED'] as const;
@@ -120,8 +121,8 @@ export class SetExpectedLifeDto {
   @Min(0.0001)
   expectedLifeValue: number;
 
-  @ApiProperty({ enum: ['DAYS', 'HOURS', 'CYCLES'] })
-  @IsIn(['DAYS', 'HOURS', 'CYCLES'])
+  @ApiProperty({ enum: [...EXPECTED_LIFE_UNITS] })
+  @IsIn([...EXPECTED_LIFE_UNITS])
   expectedLifeUnit: string;
 
   @ApiPropertyOptional({ description: 'Required for DAYS unit. Start date of life tracking.' })
@@ -236,6 +237,47 @@ export class RegisterInstalledPartDto {
   @IsString()
   @MaxLength(1000)
   notes?: string;
+
+  // Phase 3 — optional per-installation override. Omitted values inherit the
+  // current SparePart catalog standard as an immutable snapshot.
+  @ApiPropertyOptional({ enum: EXPECTED_LIFE_UNITS })
+  @IsOptional()
+  @IsIn([...EXPECTED_LIFE_UNITS])
+  expectedLifeUnit?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.0001)
+  expectedLifeValue?: number;
+
+  @ApiPropertyOptional({ description: 'Required for DAYS override; defaults to installedAt when inheriting DAYS.' })
+  @IsOptional()
+  @IsDateString()
+  lifeStartDate?: string;
+
+  @ApiPropertyOptional({ description: 'Required for HOURS/CYCLES override or inherited reading-based life.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  lifeStartReading?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  currentReading?: number;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 99 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(99)
+  warningThresholdPercent?: number;
 
   @ApiProperty({ description: 'Idempotency key for the registration submission (double-submit protection)' })
   @IsString()

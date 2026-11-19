@@ -4,13 +4,20 @@ import { useParams } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
-import { Button, Card, CardHeader, CardContent, Input, Select, LoadingState, ErrorState, LocalizedValue, ConfirmDialog } from '../../../../components/admin/ui';
+import { Button, Card, CardHeader, CardContent, Input, Select, LoadingState, ErrorState, LocalizedValue, ConfirmDialog, Modal } from '../../../../components/admin/ui';
 import { LifeStatusBadge } from '../../../../components/maintenance/life-status-badge';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { MachineInstalledPart, MachineInstalledPartReading } from '../../../../lib/admin-types';
 import { useAuth } from '../../../../lib/auth-context';
 import { hasPermission } from '../../../../lib/access-control';
 import { PERMISSION_KEYS } from '../../../../lib/permission-keys';
+import {
+  expectedLifeFormNumber,
+  formatExpectedLifeUnit,
+  formatExpectedLifeValue,
+  lifeSourceKey,
+  readingTypeForUnit,
+} from '../../../../lib/maintenance/expected-life-display';
 
 export default function InstalledPartDetailPage() {
   const params = useParams<{ id: string }>();
@@ -25,13 +32,31 @@ export default function InstalledPartDetailPage() {
   const [saving, setSaving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [lifeModalOpen, setLifeModalOpen] = useState(false);
+  const [readingModalOpen, setReadingModalOpen] = useState(false);
   const { permissions } = useAuth();
   const canRemove = Boolean(permissions?.isSuperAdmin) || hasPermission(permissions?.permissions ?? [], PERMISSION_KEYS.INSTALLED_PARTS_UPDATE);
+  const canConfigureLife = Boolean(permissions?.isSuperAdmin) || hasPermission(permissions?.permissions ?? [], PERMISSION_KEYS.MACHINE_UPDATE);
 
   const [lifeForm, setLifeForm] = useState({ expectedLifeValue: '', expectedLifeUnit: 'DAYS', lifeStartDate: '', lifeStartReading: '', currentReading: '', warningThresholdPercent: '80' });
   const [readingForm, setReadingForm] = useState({ readingType: 'HOURS', readingValue: '', isReset: false, notes: '' });
   const [lifeErrors, setLifeErrors] = useState<Record<string, string>>({});
   const [readingErrors, setReadingErrors] = useState<Record<string, string>>({});
+
+  const fillLifeForm = useCallback((p: MachineInstalledPart) => {
+    const life = p.life;
+    setLifeForm({
+      expectedLifeValue: expectedLifeFormNumber(life?.appliedExpectedLifeValue ?? p.expectedLifeValue),
+      expectedLifeUnit: life?.appliedExpectedLifeUnit ?? p.expectedLifeUnit ?? 'DAYS',
+      lifeStartDate: life?.lifeStartDate ?? p.lifeStartDate
+        ? new Date(life?.lifeStartDate ?? p.lifeStartDate!).toISOString().slice(0, 10)
+        : '',
+      lifeStartReading: expectedLifeFormNumber(life?.lifeStartReading ?? p.lifeStartReading),
+      currentReading: expectedLifeFormNumber(life?.currentReading ?? p.currentReading),
+      warningThresholdPercent: expectedLifeFormNumber(life?.warningThresholdPercent ?? p.warningThresholdPercent ?? 80),
+    });
+    setReadingForm((prev) => ({ ...prev, readingType: readingTypeForUnit(life?.appliedExpectedLifeUnit ?? p.expectedLifeUnit) }));
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
@@ -42,28 +67,22 @@ export default function InstalledPartDetailPage() {
       ]);
       setPart(partRes);
       setReadings(Array.isArray(readingsRes) ? readingsRes : []);
+      fillLifeForm(partRes);
     } catch (err: any) { setError(err?.message || t('errors.loadFailed')); }
     finally { setLoading(false); }
-  }, [params.id, t]);
+  }, [params.id, t, fillLifeForm]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const fillLifeForm = (p: MachineInstalledPart) => {
-    setLifeForm({
-      expectedLifeValue: p.expectedLifeValue !== null && p.expectedLifeValue !== undefined ? String(p.expectedLifeValue) : '',
-      expectedLifeUnit: p.expectedLifeUnit || 'DAYS',
-      lifeStartDate: p.lifeStartDate ? new Date(p.lifeStartDate).toISOString().slice(0, 10) : '',
-      lifeStartReading: p.lifeStartReading !== null && p.lifeStartReading !== undefined ? String(p.lifeStartReading) : '',
-      currentReading: p.currentReading !== null && p.currentReading !== undefined ? String(p.currentReading) : '',
-      warningThresholdPercent: p.warningThresholdPercent !== null && p.warningThresholdPercent !== undefined ? String(p.warningThresholdPercent) : '80',
-    });
-  };
-
   const handleSaveLife = async () => {
     const errors: Record<string, string> = {};
-    if (!lifeForm.expectedLifeValue || Number(lifeForm.expectedLifeValue) <= 0) errors.expectedLifeValue = t('validation.required');
-    if (lifeForm.expectedLifeUnit === 'DAYS' && !lifeForm.lifeStartDate) errors.lifeStartDate = t('validation.required');
-    if (lifeForm.expectedLifeUnit !== 'DAYS' && lifeForm.lifeStartReading === '') errors.lifeStartReading = t('validation.required');
+    if (!lifeForm.expectedLifeValue || Number(lifeForm.expectedLifeValue) <= 0 || !Number.isFinite(Number(lifeForm.expectedLifeValue))) {
+      errors.expectedLifeValue = t('maintenance.expectedLifeValueInvalid');
+    }
+    if (lifeForm.expectedLifeUnit === 'DAYS' && !lifeForm.lifeStartDate) errors.lifeStartDate = t('maintenance.lifeStartDateRequired');
+    if (lifeForm.expectedLifeUnit !== 'DAYS' && lifeForm.lifeStartReading === '') errors.lifeStartReading = t('maintenance.lifeStartReadingRequired');
+    const warning = Number(lifeForm.warningThresholdPercent || 80);
+    if (!Number.isFinite(warning) || warning < 1 || warning > 99) errors.warningThresholdPercent = t('maintenance.warningThresholdInvalid');
     setLifeErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
@@ -72,13 +91,17 @@ export default function InstalledPartDetailPage() {
       const payload: any = {
         expectedLifeValue: Number(lifeForm.expectedLifeValue),
         expectedLifeUnit: lifeForm.expectedLifeUnit,
-        warningThresholdPercent: Number(lifeForm.warningThresholdPercent) || 80,
+        warningThresholdPercent: warning,
       };
-      if (lifeForm.lifeStartDate) payload.lifeStartDate = new Date(lifeForm.lifeStartDate).toISOString();
-      if (lifeForm.lifeStartReading !== '') payload.lifeStartReading = Number(lifeForm.lifeStartReading);
-      if (lifeForm.currentReading !== '') payload.currentReading = Number(lifeForm.currentReading);
+      if (lifeForm.expectedLifeUnit === 'DAYS') {
+        payload.lifeStartDate = new Date(lifeForm.lifeStartDate).toISOString();
+      } else {
+        payload.lifeStartReading = Number(lifeForm.lifeStartReading);
+        if (lifeForm.currentReading !== '') payload.currentReading = Number(lifeForm.currentReading);
+      }
       await api.patch(`/installed-parts/${params.id}/expected-life`, payload);
       showToast(t('common.successUpdated'), 'success');
+      setLifeModalOpen(false);
       fetchData();
     } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
@@ -86,7 +109,9 @@ export default function InstalledPartDetailPage() {
 
   const handleSaveReading = async () => {
     const errors: Record<string, string> = {};
-    if (readingForm.readingValue === '' || Number(readingForm.readingValue) < 0) errors.readingValue = t('validation.required');
+    if (readingForm.readingValue === '' || Number(readingForm.readingValue) < 0 || !Number.isFinite(Number(readingForm.readingValue))) {
+      errors.readingValue = t('validation.required');
+    }
     setReadingErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
@@ -99,8 +124,9 @@ export default function InstalledPartDetailPage() {
       };
       if (readingForm.notes) payload.notes = readingForm.notes;
       await api.post(`/installed-parts/${params.id}/readings`, payload);
-      showToast(t('common.successCreated'), 'success');
-      setReadingForm({ readingType: part?.expectedLifeUnit === 'CYCLES' ? 'CYCLES' : 'HOURS', readingValue: '', isReset: false, notes: '' });
+      showToast(t('maintenance.readingRecorded'), 'success');
+      setReadingModalOpen(false);
+      setReadingForm({ readingType: readingForm.readingType, readingValue: '', isReset: false, notes: '' });
       fetchData();
     } catch (err: any) { handleApiError(err); }
     finally { setSaving(false); }
@@ -122,16 +148,17 @@ export default function InstalledPartDetailPage() {
   if (!part) return <ErrorState message={t('common.noData')} onRetry={fetchData} />;
 
   const life = part.life;
-  const progressPct = life?.progress !== null && life?.progress !== undefined ? Math.round(life.progress * 100) : null;
-  const readingTypeOptions = [
-    { value: 'HOURS', label: t('maintenance.lifeUnitHours') },
-    { value: 'CYCLES', label: t('maintenance.lifeUnitCycles') },
-  ];
+  const appliedUnit = life?.appliedExpectedLifeUnit ?? part.expectedLifeUnit;
+  const readingAllowed = appliedUnit === 'HOURS' || appliedUnit === 'CYCLES';
   const unitOptions = [
     { value: 'DAYS', label: t('maintenance.lifeUnitDays') },
     { value: 'HOURS', label: t('maintenance.lifeUnitHours') },
     { value: 'CYCLES', label: t('maintenance.lifeUnitCycles') },
   ];
+  const readingTypeOptions = [
+    { value: 'HOURS', label: t('maintenance.lifeUnitHours') },
+    { value: 'CYCLES', label: t('maintenance.lifeUnitCycles') },
+  ].filter((option) => option.value === readingTypeForUnit(appliedUnit));
 
   return (
     <div className="space-y-4">
@@ -140,7 +167,17 @@ export default function InstalledPartDetailPage() {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">{t('maintenance.installedPart')}</h3>
             <div className="flex items-center gap-2">
-              <LifeStatusBadge status={life?.lifeStatus || part.lifeStatus} />
+              <span data-testid="installed-part-life-status"><LifeStatusBadge status={life?.lifeStatus || part.lifeStatus} /></span>
+              {canConfigureLife && part.status === 'ACTIVE' && (
+                <Button variant="secondary" onClick={() => { fillLifeForm(part); setLifeModalOpen(true); }}>
+                  {t('maintenance.configureExpectedLife')}
+                </Button>
+              )}
+              {canConfigureLife && part.status === 'ACTIVE' && readingAllowed && (
+                <Button variant="secondary" onClick={() => setReadingModalOpen(true)}>
+                  {t('maintenance.recordReading')}
+                </Button>
+              )}
               {canRemove && part.status === 'ACTIVE' && (
                 <Button variant="danger" onClick={() => setConfirmRemove(true)} loading={removing} disabled={removing}>
                   {t('maintenance.removeInstalledPart')}
@@ -174,77 +211,62 @@ export default function InstalledPartDetailPage() {
               </div>
             )}
             <div>
-              <p className="text-gray-500 text-xs">{t('maintenance.expectedLifeValue')}</p>
-              <p className="font-medium">{part.expectedLifeValue ? `${part.expectedLifeValue} ${t(part.expectedLifeUnit === 'DAYS' ? 'maintenance.lifeUnitDays' : part.expectedLifeUnit === 'HOURS' ? 'maintenance.lifeUnitHours' : 'maintenance.lifeUnitCycles')}` : '-'}</p>
+              <p className="text-gray-500 text-xs">{t('maintenance.comparingStandardAndApplied')}</p>
+              <p className="font-medium" data-testid="installed-part-standard-life">{formatExpectedLifeValue(t, life?.standardExpectedLifeValue, life?.standardExpectedLifeUnit)}</p>
+              <p className="font-medium" data-testid="installed-part-applied-life">{formatExpectedLifeValue(t, life?.appliedExpectedLifeValue, life?.appliedExpectedLifeUnit)}</p>
             </div>
             <div>
-              <p className="text-gray-500 text-xs">{t('maintenance.currentReading')}</p>
-              <p className="font-medium">{part.currentReading ?? '-'}</p>
+              <p className="text-gray-500 text-xs">{t('maintenance.lifeInherited')}</p>
+              <p className="font-medium">{t(lifeSourceKey(life?.isOverridden))}</p>
+              <p className="text-xs text-gray-500">{t('maintenance.lifeSnapshotHint')}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 text-xs">{t('maintenance.consumedLife')} / {t('maintenance.remainingLife')}</p>
+              <p className="font-medium" data-testid="installed-part-life-consumption">
+                {formatExpectedLifeValue(t, life?.consumed, appliedUnit)} / {formatExpectedLifeValue(t, life?.remaining, appliedUnit)}
+              </p>
+              {life?.overBy !== null && life?.overBy !== undefined && (
+                <p className="text-xs text-red-600">{t('maintenance.overByLife')}: {formatExpectedLifeValue(t, life.overBy, appliedUnit)}</p>
+              )}
             </div>
             <div>
               <p className="text-gray-500 text-xs">{t('maintenance.lifeProgress')}</p>
-              <p className="font-medium">{progressPct !== null ? `${progressPct}%` : '-'}</p>
+              <p className="font-medium" data-testid="installed-part-life-progress">{life?.progressPercent !== null && life?.progressPercent !== undefined ? `${life.progressPercent}%` : '-'}</p>
             </div>
-            {life?.expectedExpiryDate && (
-              <div>
-                <p className="text-gray-500 text-xs">{t('maintenance.expectedExpiryDate')}</p>
-                <p className="font-medium">{new Date(life.expectedExpiryDate).toLocaleDateString()}</p>
-              </div>
-            )}
+            <div>
+              <p className="text-gray-500 text-xs">{t('maintenance.warningThreshold')}</p>
+              <p className="font-medium">{life?.warningThresholdPercent ?? t('maintenance.lifeNotDefined')}</p>
+              <p className="text-xs text-gray-500">{t('maintenance.standardWarningThreshold')}: {life?.standardWarningThresholdPercent ?? t('maintenance.lifeNotDefined')}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 text-xs">{appliedUnit === 'DAYS' ? t('maintenance.lifeStartDate') : t('maintenance.lifeStartReading')}</p>
+              <p className="font-medium">
+                {appliedUnit === 'DAYS'
+                  ? (life?.lifeStartDate ? new Date(life.lifeStartDate).toLocaleDateString() : '-')
+                  : (life?.lifeStartReading ?? '-')}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500 text-xs">{appliedUnit === 'DAYS' ? t('maintenance.expectedExpiryDate') : t('maintenance.currentReading')}</p>
+              <p className="font-medium">
+                {appliedUnit === 'DAYS'
+                  ? (life?.expectedExpiryDate ? new Date(life.expectedExpiryDate).toLocaleDateString() : '-')
+                  : (life?.currentReading ?? '-')}
+              </p>
+            </div>
             {life?.expectedExpiryReading !== null && life?.expectedExpiryReading !== undefined && (
               <div>
                 <p className="text-gray-500 text-xs">{t('maintenance.expectedExpiryReading')}</p>
-                <p className="font-medium">{life.expectedExpiryReading}</p>
+                <p className="font-medium">{life.expectedExpiryReading} {formatExpectedLifeUnit(t, appliedUnit)}</p>
               </div>
             )}
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader><h3 className="text-sm font-semibold">{t('maintenance.configureExpectedLife')}</h3></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Input label={t('maintenance.expectedLifeValue')} type="number" min={0} value={lifeForm.expectedLifeValue} onChange={(e) => { setLifeForm({ ...lifeForm, expectedLifeValue: e.target.value }); setLifeErrors(prev => ({ ...prev, expectedLifeValue: '' })); }} />
-              <Select label={t('maintenance.expectedLifeUnit')} value={lifeForm.expectedLifeUnit} onChange={(e) => setLifeForm({ ...lifeForm, expectedLifeUnit: e.target.value })} options={unitOptions} />
-            </div>
-            {lifeErrors.expectedLifeValue && <p className="text-red-500 text-sm">{lifeErrors.expectedLifeValue}</p>}
-            {lifeForm.expectedLifeUnit === 'DAYS' ? (
-              <Input label={t('maintenance.lifeStartDate')} type="date" value={lifeForm.lifeStartDate} onChange={(e) => { setLifeForm({ ...lifeForm, lifeStartDate: e.target.value }); setLifeErrors(prev => ({ ...prev, lifeStartDate: '' })); }} />
-            ) : (
-              <Input label={t('maintenance.lifeStartReading')} type="number" min={0} value={lifeForm.lifeStartReading} onChange={(e) => { setLifeForm({ ...lifeForm, lifeStartReading: e.target.value }); setLifeErrors(prev => ({ ...prev, lifeStartReading: '' })); }} />
-            )}
-            {lifeErrors.lifeStartDate && <p className="text-red-500 text-sm">{lifeErrors.lifeStartDate}</p>}
-            {lifeErrors.lifeStartReading && <p className="text-red-500 text-sm">{lifeErrors.lifeStartReading}</p>}
-            <div className="grid grid-cols-2 gap-4">
-              <Input label={t('maintenance.currentReading')} type="number" min={0} value={lifeForm.currentReading} onChange={(e) => setLifeForm({ ...lifeForm, currentReading: e.target.value })} />
-              <Input label={t('maintenance.warningThreshold')} type="number" min={1} max={99} value={lifeForm.warningThresholdPercent} onChange={(e) => setLifeForm({ ...lifeForm, warningThresholdPercent: e.target.value })} />
-            </div>
-            <Button onClick={handleSaveLife} loading={saving} disabled={part.status !== 'ACTIVE'}>{t('actions.save')}</Button>
-            {part.status !== 'ACTIVE' && <p className="text-xs text-gray-500">{t('maintenance.partNotActive')}</p>}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><h3 className="text-sm font-semibold">{t('maintenance.recordReading')}</h3></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Select label={t('maintenance.readingType')} value={readingForm.readingType} onChange={(e) => setReadingForm({ ...readingForm, readingType: e.target.value })} options={readingTypeOptions} />
-              <Input label={t('maintenance.readingValue')} type="number" min={0} value={readingForm.readingValue} onChange={(e) => { setReadingForm({ ...readingForm, readingValue: e.target.value }); setReadingErrors(prev => ({ ...prev, readingValue: '' })); }} />
-            </div>
-            {readingErrors.readingValue && <p className="text-red-500 text-sm">{readingErrors.readingValue}</p>}
-            <Input label={t('common.description')} value={readingForm.notes} onChange={(e) => setReadingForm({ ...readingForm, notes: e.target.value })} />
-            <Select label={t('maintenance.isReset')} value={String(readingForm.isReset)} onChange={(e) => setReadingForm({ ...readingForm, isReset: e.target.value === 'true' })} options={[{ value: 'false', label: t('status.false') }, { value: 'true', label: t('status.true') }]} />
-            <Button onClick={handleSaveReading} loading={saving} disabled={part.status !== 'ACTIVE'}>{t('maintenance.recordReading')}</Button>
-            {part.status !== 'ACTIVE' && <p className="text-xs text-gray-500">{t('maintenance.partNotActive')}</p>}
-          </CardContent>
-        </Card>
-      </div>
-
       <Card>
         <CardHeader><h3 className="text-sm font-semibold">{t('maintenance.readings')}</h3></CardHeader>
-        <CardContent>
+        <CardContent data-testid="installed-part-reading-history">
           {readings.length === 0 ? (
             <p className="text-gray-500 text-sm">{t('common.noData')}</p>
           ) : (
@@ -264,7 +286,7 @@ export default function InstalledPartDetailPage() {
                   {readings.map((r) => (
                     <tr key={r.id} className="border-b">
                       <td className="py-2 pr-4">{new Date(r.recordedAt).toLocaleString()}</td>
-                      <td className="py-2 pr-4">{t(r.readingType === 'HOURS' ? 'maintenance.lifeUnitHours' : 'maintenance.lifeUnitCycles')}</td>
+                      <td className="py-2 pr-4">{formatExpectedLifeUnit(t, r.readingType)}</td>
                       <td className="py-2 pr-4">{r.readingValue}</td>
                       <td className="py-2 pr-4">{r.isReset ? t('status.true') : t('status.false')}</td>
                       <td className="py-2 pr-4">{r.recordedBy?.name || '-'}</td>
@@ -277,6 +299,59 @@ export default function InstalledPartDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <Modal open={lifeModalOpen} onClose={() => setLifeModalOpen(false)} title={t('maintenance.configureExpectedLife')} size="lg">
+        <div className="space-y-4">
+          <p className="text-xs text-gray-500">{t('maintenance.sparePart.form.standardLifeHint')}</p>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label={t('maintenance.expectedLifeValue')} type="number" min={0.0001} value={lifeForm.expectedLifeValue} onChange={(e) => { setLifeForm({ ...lifeForm, expectedLifeValue: e.target.value }); setLifeErrors(prev => ({ ...prev, expectedLifeValue: '' })); }} />
+            <Select label={t('maintenance.expectedLifeUnit')} value={lifeForm.expectedLifeUnit} onChange={(e) => setLifeForm({ ...lifeForm, expectedLifeUnit: e.target.value })} options={unitOptions} />
+          </div>
+          {lifeErrors.expectedLifeValue && <p className="text-red-500 text-sm">{lifeErrors.expectedLifeValue}</p>}
+          {lifeForm.expectedLifeUnit === 'DAYS' ? (
+            <Input label={t('maintenance.lifeStartDate')} type="date" value={lifeForm.lifeStartDate} onChange={(e) => { setLifeForm({ ...lifeForm, lifeStartDate: e.target.value }); setLifeErrors(prev => ({ ...prev, lifeStartDate: '' })); }} />
+          ) : (
+            <Input label={t('maintenance.lifeStartReading')} type="number" min={0} value={lifeForm.lifeStartReading} onChange={(e) => { setLifeForm({ ...lifeForm, lifeStartReading: e.target.value }); setLifeErrors(prev => ({ ...prev, lifeStartReading: '' })); }} />
+          )}
+          {lifeErrors.lifeStartDate && <p className="text-red-500 text-sm">{lifeErrors.lifeStartDate}</p>}
+          {lifeErrors.lifeStartReading && <p className="text-red-500 text-sm">{lifeErrors.lifeStartReading}</p>}
+          <div className="grid grid-cols-2 gap-4">
+            {lifeForm.expectedLifeUnit !== 'DAYS' && (
+              <Input label={t('maintenance.currentReading')} type="number" min={0} value={lifeForm.currentReading} onChange={(e) => setLifeForm({ ...lifeForm, currentReading: e.target.value })} />
+            )}
+            <Input label={t('maintenance.warningThreshold')} type="number" min={1} max={99} value={lifeForm.warningThresholdPercent} onChange={(e) => { setLifeForm({ ...lifeForm, warningThresholdPercent: e.target.value }); setLifeErrors(prev => ({ ...prev, warningThresholdPercent: '' })); }} />
+          </div>
+          {lifeErrors.warningThresholdPercent && <p className="text-red-500 text-sm">{lifeErrors.warningThresholdPercent}</p>}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setLifeModalOpen(false)}>{t('actions.cancel')}</Button>
+            <Button onClick={handleSaveLife} loading={saving} disabled={saving || part.status !== 'ACTIVE'}>{t('actions.save')}</Button>
+          </div>
+          {part.status !== 'ACTIVE' && <p className="text-xs text-gray-500">{t('maintenance.partNotActive')}</p>}
+        </div>
+      </Modal>
+
+      <Modal open={readingModalOpen} onClose={() => setReadingModalOpen(false)} title={t('maintenance.recordReading')} size="lg">
+        <div className="space-y-4">
+          {!readingAllowed ? (
+            <p className="text-sm text-gray-600">{t('maintenance.readingDisabledForDays')}</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <Select label={t('maintenance.readingType')} value={readingForm.readingType} onChange={(e) => setReadingForm({ ...readingForm, readingType: e.target.value })} options={readingTypeOptions} />
+                <Input label={t('maintenance.readingValue')} type="number" min={0} value={readingForm.readingValue} onChange={(e) => { setReadingForm({ ...readingForm, readingValue: e.target.value }); setReadingErrors(prev => ({ ...prev, readingValue: '' })); }} />
+              </div>
+              {readingErrors.readingValue && <p className="text-red-500 text-sm">{readingErrors.readingValue}</p>}
+              <Input label={t('common.description')} value={readingForm.notes} onChange={(e) => setReadingForm({ ...readingForm, notes: e.target.value })} />
+              <Select label={t('maintenance.isReset')} value={String(readingForm.isReset)} onChange={(e) => setReadingForm({ ...readingForm, isReset: e.target.value === 'true' })} options={[{ value: 'false', label: t('status.false') }, { value: 'true', label: t('status.true') }]} />
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="secondary" onClick={() => setReadingModalOpen(false)}>{t('actions.cancel')}</Button>
+                <Button onClick={handleSaveReading} loading={saving} disabled={saving || part.status !== 'ACTIVE'}>{t('maintenance.recordReading')}</Button>
+              </div>
+              {part.status !== 'ACTIVE' && <p className="text-xs text-gray-500">{t('maintenance.partNotActive')}</p>}
+            </>
+          )}
+        </div>
+      </Modal>
 
       <ConfirmDialog
         open={confirmRemove}

@@ -216,18 +216,18 @@ describe('InstalledPartsReplacementService (expected life lifecycle)', () => {
   it('records a reading in a transaction, updates the counter and audits', async () => {
     prisma.machineInstalledPart.findUnique.mockResolvedValue(activePart);
     prisma.machineInstalledPartReading.create.mockResolvedValue({ id: 'r1' });
-    prisma.machineInstalledPart.update.mockResolvedValue({ ...activePart, currentReading: 55 });
+    prisma.machineInstalledPart.update.mockResolvedValue({ ...activePart, currentReading: 95 });
 
-    await service.recordReading('p1', { readingType: 'HOURS', readingValue: 55 }, 'u1', ctx);
+    await service.recordReading('p1', { readingType: 'HOURS', readingValue: 95 }, 'u1', ctx);
 
     expect(prisma.machineInstalledPartReading.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ installedPartId: 'p1', readingType: 'HOURS', readingValue: 55, recordedByUserId: 'u1' }),
+      data: expect.objectContaining({ installedPartId: 'p1', readingType: 'HOURS', readingValue: 95, recordedByUserId: 'u1' }),
     });
     expect(prisma.machineInstalledPart.update).toHaveBeenCalledWith({
       where: { id: 'p1' },
-      data: expect.objectContaining({ currentReading: 55 }),
+      data: expect.objectContaining({ currentReading: 95 }),
     });
-    expect(audit.log).toHaveBeenCalledWith('u1', 'INSTALLED_PART_READING_RECORDED', 'MachineInstalledPart', 'p1', expect.objectContaining({ readingValue: 55 }));
+    expect(audit.log).toHaveBeenCalledWith('u1', 'INSTALLED_PART_READING_RECORDED', 'MachineInstalledPart', 'p1', expect.objectContaining({ readingValue: 95 }));
   });
 
   it('resets the counter when a reset reading is recorded', async () => {
@@ -419,6 +419,13 @@ describe('InstalledPartsReplacementService (installed-part component/machine inv
       machineComponent: { findUnique: jest.fn() },
       machineInstalledPart: { create: jest.fn().mockResolvedValue({ id: 'ip1' }) },
       sparePartReplacementHistory: { create: jest.fn().mockResolvedValue({ id: 'rep1' }) },
+      sparePart: {
+        findUnique: jest.fn().mockResolvedValue({
+          defaultExpectedLifeValue: null,
+          defaultExpectedLifeUnit: null,
+          defaultWarningThresholdPercent: null,
+        }),
+      },
     };
   });
 

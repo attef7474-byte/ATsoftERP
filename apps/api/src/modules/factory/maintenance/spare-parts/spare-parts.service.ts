@@ -11,10 +11,96 @@ import {
   CanonicalIdentityInput,
   evaluateSparePartCanonicalIdentity,
 } from '../../../../common/canonical-identity/canonical-spare-part-identity';
+import {
+  DEFAULT_WARNING_THRESHOLD_PERCENT,
+  EXPECTED_LIFE_UNITS,
+  MAX_WARNING_THRESHOLD_PERCENT,
+  MIN_WARNING_THRESHOLD_PERCENT,
+} from '../expected-life/expected-life.constants';
 
 @Injectable()
 export class SparePartsService {
+  private static readonly DEFAULT_LIFE_KEYS = [
+    'defaultExpectedLifeValue',
+    'defaultExpectedLifeUnit',
+    'defaultWarningThresholdPercent',
+  ] as const;
+
   constructor(private prisma: PrismaService, private auditService: AuditService, private numberingService: NumberingService) {}
+
+  /**
+   * Phase 3 — validate and normalize the catalog standard expected life.
+   * NULL life is valid; a configured life must have value > 0, a canonical unit
+   * and a warning threshold in 1..99. Cross-field validation lives here because
+   * DTO decorators cannot see the other two fields reliably on PATCH.
+   */
+  private defaultLifeData(dto: CreateSparePartDto | UpdateSparePartDto, existing?: any) {
+    const input = dto as any;
+    const touched = SparePartsService.DEFAULT_LIFE_KEYS.some((key) => key in input);
+    if (!touched) return {};
+
+    const pick = (key: (typeof SparePartsService.DEFAULT_LIFE_KEYS)[number]) =>
+      key in input ? input[key] : existing ? existing[key] ?? null : null;
+
+    const value = pick('defaultExpectedLifeValue');
+    const unit = pick('defaultExpectedLifeUnit');
+    const warning = pick('defaultWarningThresholdPercent');
+
+    const cleared = SparePartsService.DEFAULT_LIFE_KEYS.every((key) => key in input && input[key] === null);
+    if (cleared || (value === null && unit === null && warning === null)) {
+      return {
+        defaultExpectedLifeValue: null,
+        defaultExpectedLifeUnit: null,
+        defaultWarningThresholdPercent: null,
+      };
+    }
+
+    if (value === null || value === undefined) {
+      throw new BadRequestException({
+        messageKey: 'spareParts.defaultLifeValueRequired',
+        message: 'A positive expected-life value is required when standard life is configured',
+      });
+    }
+    if (!unit) {
+      throw new BadRequestException({
+        messageKey: 'spareParts.defaultLifeUnitRequired',
+        message: 'An expected-life unit is required when standard life is configured',
+      });
+    }
+    if (!(EXPECTED_LIFE_UNITS as readonly string[]).includes(unit)) {
+      throw new BadRequestException({
+        messageKey: 'spareParts.defaultLifeUnitInvalid',
+        message: 'Expected-life unit must be DAYS, HOURS or CYCLES',
+      });
+    }
+    if (value <= 0) {
+      throw new BadRequestException({
+        messageKey: 'spareParts.defaultLifeValueInvalid',
+        message: 'Expected-life value must be greater than zero',
+      });
+    }
+    const resolvedWarning = warning === null || warning === undefined ? DEFAULT_WARNING_THRESHOLD_PERCENT : warning;
+    if (resolvedWarning < MIN_WARNING_THRESHOLD_PERCENT || resolvedWarning > MAX_WARNING_THRESHOLD_PERCENT) {
+      throw new BadRequestException({
+        messageKey: 'spareParts.defaultWarningThresholdInvalid',
+        message: 'Warning threshold must be between 1 and 99 percent',
+      });
+    }
+
+    return {
+      defaultExpectedLifeValue: value,
+      defaultExpectedLifeUnit: unit,
+      defaultWarningThresholdPercent: resolvedWarning,
+    };
+  }
+
+  private defaultLifeSnapshot(row: any) {
+    return {
+      value: row?.defaultExpectedLifeValue ?? null,
+      unit: row?.defaultExpectedLifeUnit ?? null,
+      warningThresholdPercent: row?.defaultWarningThresholdPercent ?? null,
+    };
+  }
 
   async create(dto: CreateSparePartDto, userId: string) {
     const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('SPARE_PART');
@@ -37,18 +123,45 @@ export class SparePartsService {
   }
 
   async createInTx(tx: any, dto: CreateSparePartDto, userId: string) {
-    await this.validateMasterInTx(tx, dto);
-    const part = await tx.sparePart.create({ data: dto });
-    await this.auditService.logWithClient(tx, { userId, action: 'CREATE', entity: 'SparePart', entityId: part.id, details: { message: `Created spare part: ${part.code}`, code: part.code } });
+    const defaultLife = this.defaultLifeData(dto);
+    const data = { ...dto, ...defaultLife };
+    await this.validateMasterInTx(tx, data);
+    const part = await tx.sparePart.create({ data });
+    await this.auditService.logWithClient(tx, {
+      userId,
+      action: 'CREATE',
+      entity: 'SparePart',
+      entityId: part.id,
+      details: {
+        message: `Created spare part: ${part.code}`,
+        code: part.code,
+        ...(Object.keys(defaultLife).length > 0 ? { defaultLife: this.defaultLifeSnapshot(part) } : {}),
+      },
+    });
     return part;
   }
 
   async updateInTx(tx: any, id: string, dto: UpdateSparePartDto, existing: any, userId: string) {
     if (dto.code && dto.code !== existing.code) throw new BadRequestException('Code cannot be changed after creation');
-    const { code, ...data } = dto;
+    const { code, ...rest } = dto;
+    const defaultLife = this.defaultLifeData(dto, existing);
+    const data = { ...rest, ...defaultLife };
     await this.validateMasterInTx(tx, data, existing);
     const part = await tx.sparePart.update({ where: { id }, data });
-    await this.auditService.logWithClient(tx, { userId, action: 'UPDATE', entity: 'SparePart', entityId: id, details: { message: `Updated spare part: ${part.code}`, code: part.code } });
+    const previousDefaultLife = this.defaultLifeSnapshot(existing);
+    const currentDefaultLife = this.defaultLifeSnapshot(part);
+    const defaultLifeChanged = JSON.stringify(previousDefaultLife) !== JSON.stringify(currentDefaultLife);
+    await this.auditService.logWithClient(tx, {
+      userId,
+      action: 'UPDATE',
+      entity: 'SparePart',
+      entityId: id,
+      details: {
+        message: `Updated spare part: ${part.code}`,
+        code: part.code,
+        ...(defaultLifeChanged ? { defaultLife: { previous: previousDefaultLife, current: currentDefaultLife } } : {}),
+      },
+    });
     return part;
   }
 

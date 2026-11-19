@@ -44,6 +44,8 @@ Entries are append-only. A status may change to `RESOLVED` only with evidence. A
 | P14 | 18 legacy receipts have `branchId = NULL` and are excluded under a branch context. | Mirror the native service behavior. Do not invent a branch for legacy rows; state the exclusion explicitly in proof reports. | DOMAIN NOTE |
 | P15 | Runtime row-level deep-link proof was not exercised for native receipt deep links. | Unit tests assert both native deep links. If browser proof is required, create an authorized fixture first; otherwise report `NOT_VERIFIED` instead of claiming runtime proof. | KNOWN LIMITATION |
 | P16 | Pre-existing non-blockers recur: global F9 `cost-snapshots` 500, Jest worker teardown warning, dynamic `t()` warnings. | Classify these as pre-existing and report them separately from new failures. Do not delete tests or weaken assertions to make them disappear. | PRE-EXISTING / WATCH |
+| P17 | `sqlcmd -E -S` failed with named-pipes error `[53]` when given the Prisma URL server `localhost:50079`. | For SQL Server `sqlcmd`, normalize Prisma `host:port` to `host,port` (or `tcp:host,port`). Parse only server/database from `DATABASE_URL`; never print credentials. | ACTIVE CHECK |
+| P18 | A migration verification script asserted a rigid padded `sqlcmd -h -1 -W` output shape and failed although the migration had applied correctly. | Assert semantic values (for example `1 1 1` for three verified columns) and make guarded re-runs idempotent when a prior attempt already applied DDL but did not record migration history. | ACTIVE CHECK |
 
 ## 4. Related standing guards from Phase 2
 
@@ -72,6 +74,7 @@ Copy mentally at the start of every prompt:
 - [ ] Scoped browser selectors; no same-label collisions.
 - [ ] Restart API before repeating login proof.
 - [ ] Regex env parsing; credentials `REDACTED`; never `[Uri]` on `DATABASE_URL`.
+- [ ] Normalize Prisma `host:port` to `host,port` for `sqlcmd`; assert semantic `sqlcmd` output.
 - [ ] Separate pre-existing failures from new failures.
 - [ ] Append new findings here and mention applied checks in the final report.
 

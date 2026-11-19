@@ -1,11 +1,14 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '../../../../../lib/api';
 import { useTranslation } from '../../../../../lib/i18n/use-translation';
 import { PageHeader, Card, Select, Input, Button, DataTable, Pagination } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon } from '../../../../../components/admin/admin-action-bar';
 import { F9Lookup, machineAdapter, sparePartAdapter, productionLineAdapter } from '../../../../../components/f9';
 import { Modal } from '../../../../../components/admin/ui/modal';
+import { LifeStatusBadge } from '../../../../../components/maintenance/life-status-badge';
+import { formatExpectedLifeUnit } from '../../../../../lib/maintenance/expected-life-display';
 
 interface DurationValue { state: 'OK' | 'UNKNOWN' | 'INVALID'; ms: number | null; }
 interface ExpectedLife {
@@ -71,6 +74,7 @@ const LIFE_STATUS_OPTIONS = ['UNKNOWN', 'NORMAL', 'WARNING', 'DUE', 'EXPIRED'];
 
 export default function InstalledPartReliabilityPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [rows, setRows] = useState<ReliabilityRow[]>([]);
   const [meta, setMeta] = useState({ page: 1, limit: 25, total: 0, totalPages: 1 });
   const [summary, setSummary] = useState<SummaryData | null>(null);
@@ -187,6 +191,32 @@ export default function InstalledPartReliabilityPage() {
     { key: 'serviceLife', header: t('maintenance.iprColServiceLife'), render: (r: ReliabilityRow) => fmtDuration(r.current?.serviceLife) },
     { key: 'expectedLife', header: t('maintenance.iprColExpectedLife'), render: (r: ReliabilityRow) => fmtExpected(r.current?.expectedLife ?? null) },
     { key: 'lifeBand', header: t('maintenance.iprColLifeBand'), render: (r: ReliabilityRow) => bandLabel(r.current?.expectedLife.band ?? 'UNKNOWN') },
+    {
+      key: 'lifecycle',
+      header: t('maintenance.iprColLifecycle'),
+      render: (r: ReliabilityRow) => (
+        <div className="flex flex-wrap items-center gap-2" data-testid="ipr-lifecycle">
+          <LifeStatusBadge status={r.current?.expectedLife.band ?? 'UNKNOWN'} />
+          <span className="text-xs text-gray-500">
+            {r.current?.expectedLife.unit
+              ? formatExpectedLifeUnit(t, r.current.expectedLife.unit)
+              : t('maintenance.iprNotConfigured')}
+          </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            data-testid="ipr-open-installed-part"
+            disabled={!r.current}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (r.current) router.push(`/admin/installed-parts/${r.current.id}`);
+            }}
+          >
+            {t('maintenance.iprOpenInstalledPart')}
+          </Button>
+        </div>
+      ),
+    },
     { key: 'lastFailureAt', header: t('maintenance.iprColLastFailure'), render: (r: ReliabilityRow) => fmtDate(r.lastFailureAt) },
     { key: 'replacements', header: t('maintenance.iprColReplacements'), render: (r: ReliabilityRow) => String(r.replacementCount) },
     { key: 'failures', header: t('maintenance.iprColFailures'), render: (r: ReliabilityRow) => String(r.failureEventCount) },
