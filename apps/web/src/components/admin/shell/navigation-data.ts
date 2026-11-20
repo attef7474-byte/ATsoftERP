@@ -290,9 +290,9 @@ export const sidebarGroups: SidebarGroup[] = [
             id: 'inv-approvals',
             labelKey: 'navigation.warehouseApprovals',
             route: '/admin/inventory/approvals',
-            permissions: ['maintenance-request-parts:read', 'production-material-document:read', 'finished-goods-issue:read'],
+            permissions: ['maintenance-request-parts:read', 'production-material-document:read', 'finished-goods-issue:read', 'spare-part-issue:read', 'general-inventory-issue:read'],
           },
-          { id: 'inv-finished-goods-issues', labelKey: 'navigation.issueVoucher', route: '/admin/inventory/issues', permissions: ['finished-goods-issue:read', 'production-material-document:read', 'maintenance-request-parts:read', 'finished-goods-issue:create', 'production-material-document:create', 'maintenance-request-parts:create'] },
+          { id: 'inv-finished-goods-issues', labelKey: 'navigation.issueVoucher', route: '/admin/inventory/issues', permissions: ['finished-goods-issue:read', 'production-material-document:read', 'maintenance-request-parts:read', 'spare-part-issue:read', 'general-inventory-issue:read', 'finished-goods-issue:create', 'production-material-document:create', 'maintenance-request-parts:create', 'spare-part-issue:create', 'general-inventory-issue:create'] },
           {
             id: 'inv-receipts',
             labelKey: 'navigation.receiptVoucher',

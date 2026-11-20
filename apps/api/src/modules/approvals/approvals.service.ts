@@ -3,9 +3,10 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types';
 import { WarehouseApprovalsQueryDto } from './dto/warehouse-approvals-query.dto';
+import { IssueType, normalizeIssueTypeInput } from './issue-selection.policy';
 
-export type WarehouseApprovalType = 'SPARE_PART' | 'RAW_MATERIAL' | 'FINISHED_GOODS';
-export type WarehouseApprovalAuthority = 'MAINTENANCE_REQUEST_PART' | 'SPARE_PART_ISSUE' | 'FLAT';
+export type WarehouseApprovalType = IssueType;
+export type WarehouseApprovalAuthority = 'MAINTENANCE_REQUEST_PART' | 'SPARE_PART_ISSUE' | 'FLAT' | 'GENERAL_INVENTORY_ISSUE';
 
 export interface WarehouseApprovalRow {
   key: string;
@@ -38,6 +39,7 @@ const SPARE_PART_READ = 'maintenance-request-parts:read';
 const SPARE_PART_ISSUE_READ = 'spare-part-issue:read';
 const RAW_MATERIAL_READ = 'production-material-document:read';
 const FINISHED_GOODS_READ = 'finished-goods-issue:read';
+const GENERAL_ISSUE_READ = 'general-inventory-issue:read';
 
 /**
  * Permissions the unified approvals page may surface. These are informational
@@ -65,6 +67,12 @@ const REPORTABLE_PERMISSION_KEYS = [
   'finished-goods-issue:reject',
   'finished-goods-issue:withdraw',
   'finished-goods-issue:post',
+  GENERAL_ISSUE_READ,
+  'general-inventory-issue:approve',
+  'general-inventory-issue:reject',
+  'general-inventory-issue:withdraw',
+  'general-inventory-issue:post',
+  'general-inventory-issue:reverse',
 ];
 
 /**
@@ -124,7 +132,8 @@ export class ApprovalsService {
     const readableSpareParts = readableMaintenanceParts || readableSparePartIssues;
     const readableRawMaterials = this.can(grant, RAW_MATERIAL_READ);
     const readableFinishedGoods = this.can(grant, FINISHED_GOODS_READ);
-    if (!readableSpareParts && !readableRawMaterials && !readableFinishedGoods) {
+    const readableGeneralIssues = this.can(grant, GENERAL_ISSUE_READ);
+    if (!readableSpareParts && !readableRawMaterials && !readableFinishedGoods && !readableGeneralIssues) {
       throw new ForbiddenException({ messageKey: 'auth.insufficientPermissions', message: 'Insufficient permissions' });
     }
 
@@ -133,7 +142,7 @@ export class ApprovalsService {
     if (!ctx?.companyId || !ctx?.branchId) throw new ForbiddenException({ messageKey: 'auth.insufficientPermissions' });
     const filters = query as IssueVoucherQueryDto;
     const status = issues ? query.status : this.pendingStatus(query.status);
-    const type = query.type;
+    const type = normalizeIssueTypeInput(query.type);
     // Bounded cross-model page: each family contributes at most page*limit rows,
     // which is enough to build the requested global page without unbounded reads.
     const takePerFamily = page * limit;
@@ -145,7 +154,14 @@ export class ApprovalsService {
         }
       : undefined;
 
-    const counts: Record<WarehouseApprovalType, number> = { SPARE_PART: 0, RAW_MATERIAL: 0, FINISHED_GOODS: 0 };
+    const counts: Record<WarehouseApprovalType, number> = {
+      SPARE_PART: 0,
+      RAW_MATERIAL: 0,
+      FINISHED_GOOD: 0,
+      PACKAGING_MATERIAL: 0,
+      CONSUMABLE: 0,
+      GENERAL: 0,
+    };
     const rows: WarehouseApprovalRow[] = [];
 
     if (readableMaintenanceParts) {
@@ -354,7 +370,7 @@ export class ApprovalsService {
       if (dateFilter) fgWhere.issueDate = dateFilter;
 
       const [items, count] = await Promise.all([
-        !type || type === 'FINISHED_GOODS'
+        !type || type === 'FINISHED_GOOD'
           ? (this.prisma as any).finishedGoodsIssue.findMany({
               where: fgWhere,
               take: takePerFamily,
@@ -367,13 +383,13 @@ export class ApprovalsService {
           : Promise.resolve([]),
         (this.prisma as any).finishedGoodsIssue.count({ where: fgWhere }),
       ]);
-      counts.FINISHED_GOODS = count;
+      counts.FINISHED_GOOD = count;
       const requestedByIds = [...new Set(items.map((item: any) => (item.submittedById || item.createdById)).filter(Boolean))] as string[];
       const users = await this.loadUserNames(requestedByIds);
       for (const issue of items) {
         rows.push({
-          key: `FINISHED_GOODS:${issue.id}`,
-          type: 'FINISHED_GOODS',
+          key: `FINISHED_GOOD:${issue.id}`,
+          type: 'FINISHED_GOOD',
           authority: 'FLAT',
           entityId: issue.id,
           parentEntityId: issue.id,
@@ -393,13 +409,76 @@ export class ApprovalsService {
       }
     }
 
+    // PACKAGING_MATERIAL / CONSUMABLE / GENERAL are all persisted by the one
+    // canonical general OUT authority, separated only by its validated issueType.
+    if (readableGeneralIssues) {
+      const generalTypes: IssueType[] = ['PACKAGING_MATERIAL', 'CONSUMABLE', 'GENERAL'];
+      for (const generalType of generalTypes) {
+        const generalWhere: any = {
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          issueType: generalType,
+          ...(status ? { status: status === 'REQUESTED' ? 'SUBMITTED' : status } : {}),
+          ...(filters.warehouseId ? { issueWarehouseId: filters.warehouseId } : {}),
+          ...(filters.requesterId ? { AND: [{ OR: [{ createdById: filters.requesterId }, { submittedById: filters.requesterId }] }] } : {}),
+        };
+        if (search) {
+          generalWhere.OR = [
+            { issueNumber: { contains: search } },
+            { purpose: { contains: search } },
+            { notes: { contains: search } },
+          ];
+        }
+        if (dateFilter) generalWhere.issueDate = dateFilter;
+
+        const [items, count] = await Promise.all([
+          !type || type === generalType
+            ? (this.prisma as any).generalInventoryIssue.findMany({
+                where: generalWhere,
+                take: takePerFamily,
+                orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+                include: {
+                  issueWarehouse: { select: { id: true, code: true, name: true } },
+                  lines: { select: { quantity: true } },
+                },
+              })
+            : Promise.resolve([]),
+          (this.prisma as any).generalInventoryIssue.count({ where: generalWhere }),
+        ]);
+        counts[generalType] = count;
+        const requestedByIds = [...new Set(items.map((item: any) => (item.submittedById || item.createdById)).filter(Boolean))] as string[];
+        const users = await this.loadUserNames(requestedByIds);
+        for (const issue of items) {
+          rows.push({
+            key: `${generalType}:${issue.id}`,
+            type: generalType,
+            authority: 'GENERAL_INVENTORY_ISSUE',
+            entityId: issue.id,
+            parentEntityId: issue.id,
+            reference: issue.issueNumber,
+            title: issue.purpose ?? null,
+            status: issue.status,
+            requestedAt: issue.submittedAt ?? null,
+            requestedById: issue.submittedById ?? issue.createdById ?? null,
+            requestedByName: users.get(issue.submittedById || issue.createdById) ?? null,
+            warehouse: issue.issueWarehouse ?? null,
+            lineCount: issue.lines.length,
+            totalQuantity: issue.lines.reduce((sum: number, line: any) => sum + Number(line.quantity ?? 0), 0),
+            createdAt: issue.createdAt,
+            documentDate: issue.issueDate,
+            sourceType: issue.sourceType ?? null,
+          });
+        }
+      }
+    }
+
     rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.key.localeCompare(a.key));
     // Counts always describe all readable families so the inbox cards stay
     // stable while a type filter narrows the rows. Pagination totals must match
     // the rows actually being filtered.
     const total = type
       ? counts[type]
-      : counts.SPARE_PART + counts.RAW_MATERIAL + counts.FINISHED_GOODS;
+      : counts.SPARE_PART + counts.RAW_MATERIAL + counts.FINISHED_GOOD + counts.PACKAGING_MATERIAL + counts.CONSUMABLE + counts.GENERAL;
     const paged = rows.slice((page - 1) * limit, (page - 1) * limit + limit);
 
     return {

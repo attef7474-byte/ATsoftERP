@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsDateString, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
-import { IssueType } from '../issue-selection.policy';
+import { ISSUE_TYPES, IssueType, LegacyIssueTypeInput } from '../issue-selection.policy';
 export class IssueVoucherQueryDto {
   @IsOptional()
   @Type(() => Number)
@@ -15,8 +15,8 @@ export class IssueVoucherQueryDto {
   @Max(100)
   limit = 20;
   @IsOptional()
-  @IsIn(['SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOODS'])
-  type?: IssueType;
+  @IsIn([...ISSUE_TYPES, 'FINISHED_GOODS'])
+  type?: LegacyIssueTypeInput;
   @IsOptional()
   @IsIn(['DRAFT', 'SUBMITTED', 'REQUESTED', 'APPROVED', 'REJECTED', 'POSTED', 'CANCELLED', 'RESERVED', 'USED'])
   status?: string;
@@ -57,12 +57,12 @@ class IssueLookupPageDto {
 }
 export class IssueWarehouseQueryDto extends IssueLookupPageDto {
   @IsOptional()
-  @IsIn(['SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOODS'])
-  type?: IssueType;
+  @IsIn([...ISSUE_TYPES, 'FINISHED_GOODS'])
+  type?: LegacyIssueTypeInput;
 }
 export class IssueCandidateQueryDto extends IssueLookupPageDto {
-  @IsIn(['SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOODS'])
-  type!: IssueType;
+  @IsIn([...ISSUE_TYPES, 'FINISHED_GOODS'])
+  type!: LegacyIssueTypeInput;
   @IsString()
   @IsNotEmpty()
   warehouseId!: string;

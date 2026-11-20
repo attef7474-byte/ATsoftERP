@@ -53,6 +53,12 @@ Entries are append-only. A status may change to `RESOLVED` only with evidence. A
 | P23 | A tenant-isolation unit test mocked the canonical scoped row builder to return `[]`, proving only not-found rejection. | Assert that the scoped builder received the active context, and assert the Prisma relation filters on linked queries; retain real runtime tenant-denial proof. | ACTIVE CHECK / TEST QUALITY |
 | P24 | Failure-history evidence can show the population catalog default instead of the failed instance's own applied expected life. | Derive displayed life fields from the failed `MachineInstalledPart` row (`expectedLifeValue` / `expectedLifeUnit`) gated by that instance's configured state; never substitute the current population default. | ACTIVE CHECK / EVIDENCE HONESTY |
 | P25 | Canonical maintenance-request creation defaults `machineStopped` to `true`, so an alert-to-request bridge that omits it opens a real downtime log from a proactive signal. | Pass `machineStopped: false` from derived-alert bridges; assert it in the bridge test; prove zero new downtime logs during runtime. | ACTIVE CHECK / SIDE-EFFECT SAFETY |
+| P26 | An all-types issue-warehouse F9 either required a preselected issue type or risked an unscoped union of every domain's warehouses, letting a user with one issue permission see unrelated issue-family stock locations. | Build the all-types warehouse predicate as a UNION of only the exact issue types the user is authorized to create, always intersected with active company/branch warehouse scope; assert the eligibility union and a no-authority denial. | ACTIVE CHECK / PHASE 5 TENANCY |
+| P27 | A retry regression test constructed a plain `Error` with `code = 'P2034'`, so `instanceof Prisma.PrismaClientKnownRequestError` did not exercise the intended transient-conflict retry. | Construct real Prisma known-request errors (`new Prisma.PrismaClientKnownRequestError('...', { code: 'P2034', clientVersion: 'test' })`) in retry tests; keep the two-attempt assertion. | ACTIVE CHECK / TEST QUALITY |
+| P28 | General-issue reversals in an ACTIVE valuation warehouse were treated as generic inbound movements and blocked by `inventoryValuation.costRequired`, despite having immutable original OUT cost evidence. | Use a dedicated trusted reversal posting entrypoint that proves tenant/warehouse/document/movement/line identity and re-enters at original immutable OUT cost; keep generic inbound `costRequired` protection intact and test both paths. | ACTIVE CHECK / VALUATION |
+| P29 | A backend-generated English reversal note was hard-coded, bypassing Arabic/English localization and the UI's user-supplied reason. | The UI supplies a localized `inventory.issueVoucher.reverseNote`; direct API callers may omit notes. Add matching EN/AR keys and assert the posted payload contains the localized value. | ACTIVE CHECK / I18N |
+| P30 | Removing a hard-coded backend note left unused API i18n keys, creating a misleading catalogue of reachable error/message contracts. | Grep each added API message key for at least one service/controller use before final validation; remove dead keys and keep API/web message sets intentional. | ACTIVE CHECK / API CONTRACT |
+| P31 | A PowerShell `Set-Content` edit wrote CRLF into a new TypeScript file while the repository uses LF; `git diff --check` did not see the untracked file, but `git diff --cached --check` reported every added line as trailing whitespace. | After staging new files, run `git diff --cached --check` and `git ls-files --eol`; normalize accidental CRLF to LF with UTF-8 no BOM and restage before commit. | ACTIVE CHECK / DIFF HYGIENE |
 
 ## 4. Related standing guards from Phase 2
 
@@ -85,6 +91,12 @@ Copy mentally at the start of every prompt:
 - [ ] Separate pre-existing failures from new failures.
 - [ ] Before writing readings, verify Prisma `@map` matches the dated migration/DB column.
 - [ ] Append new findings here and mention applied checks in the final report.
+- [ ] All-types issue F9: union only authorized issue families inside active tenant/branch scope.
+- [ ] Retry tests use real Prisma known-request errors with the intended Prisma error code.
+- [ ] REVERSE postings in ACTIVE valuation warehouses use trusted original-cost evidence, not generic inbound valuation.
+- [ ] User-visible reversal notes are localized in EN/AR; no hard-coded backend note.
+- [ ] Added API message keys are referenced by real service/controller code.
+- [ ] Staged new files pass `git diff --cached --check` and use repository LF line endings.
 
 ## 6. Append template for new problems
 
@@ -102,3 +114,4 @@ Use `ACTIVE CHECK` until the preventive step is verified in a later task. Use `R
 | 2026-11-20 | Phase 3 browser-proof remediation | P01, P05, P06, P09, P10, P11, P12, P13, P16, P17, P18 applied; schema/migration alignment, `prisma validate`, `prisma generate`, focused Jest, API typecheck/build, same-origin API, env-only auth, guarded cleanup applied | P19 added for the pre-existing reading `createdAt` mapping drift; P20 added for env-derived JWT browser auth |
 | 2026-11-20 | Phase 4 independent diff review remediation | P01, P02, P10, P16, P19 applied by reviewer; P21–P24 added and fixed with focused API tests and scoped Prisma assertions | P21 provenance-token title leak; P22 explicit linked-query tenant scope; P23 tenant-test quality; P24 instance-correct failure evidence |
 | 2026-11-20 | Phase 4 browser-proof design inspection | P20, P21, P22, P24, P25 applied; canonical `create()` defaults `machineStopped=true`, so the derived-alert bridge now passes `machineStopped=false` and a test locks it | P25 added for implicit-downtime side-effect safety |
+| 2026-11-20 | Phase 5 unified issue-voucher remediation | P01, P02, P05, P10, P16, P20, P22, P24 applied where relevant; scoped all-types warehouse eligibility, real Prisma P2034 error class, trusted ACTIVE-valuation reversal cost, localized reversal note, dead API keys removed, CRLF normalized. Focused API: 5 suites / 213 tests passed. Focused web: 3 suites / 78 tests passed. Full API: 238 suites / 5143 tests passed. Full web: 132 suites / 2486 tests passed. | P26–P31 added |

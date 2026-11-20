@@ -1241,12 +1241,12 @@ export interface FinishedGoodsIssue {
 
 // ── Unified Warehouse Approvals (read-only aggregation rows) ────────────────
 
-export type WarehouseApprovalType = 'SPARE_PART' | 'RAW_MATERIAL' | 'FINISHED_GOODS';
+export type WarehouseApprovalType = 'SPARE_PART' | 'RAW_MATERIAL' | 'FINISHED_GOOD' | 'PACKAGING_MATERIAL' | 'CONSUMABLE' | 'GENERAL';
 
 export interface WarehouseApprovalRow {
   key: string;
   type: WarehouseApprovalType;
-  authority: 'MAINTENANCE_REQUEST_PART' | 'SPARE_PART_ISSUE' | 'FLAT';
+  authority: 'MAINTENANCE_REQUEST_PART' | 'SPARE_PART_ISSUE' | 'GENERAL_INVENTORY_ISSUE' | 'FLAT';
   entityId: string;
   parentEntityId: string | null;
   reference: string;

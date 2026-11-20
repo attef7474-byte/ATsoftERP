@@ -1,17 +1,20 @@
 import { BadRequestException, ForbiddenException, ValidationPipe } from '@nestjs/common';
 import { IssueVoucherLookupsService } from './issue-voucher-lookups.service';
 import { IssueCandidateQueryDto, IssueVoucherQueryDto } from './dto/issue-voucher-query.dto';
-import { assertIssueStockSelection, issueProductScope, IssueType } from './issue-selection.policy';
+import { assertIssueStockSelection, IssueType, issueProductScope, ISSUE_TYPES, issueWarehouseScopeForType, normalizeIssueTypeInput } from './issue-selection.policy';
 const ctx: any = {
   companyId: 'company-a',
   branchId: 'branch-a'
 };
-const permissions = {
+const permissions: Record<IssueType, string> = {
   SPARE_PART: 'maintenance-request-parts',
   RAW_MATERIAL: 'production-material-document',
-  FINISHED_GOODS: 'finished-goods-issue'
+  FINISHED_GOOD: 'finished-goods-issue',
+  PACKAGING_MATERIAL: 'general-inventory-issue',
+  CONSUMABLE: 'general-inventory-issue',
+  GENERAL: 'general-inventory-issue'
 };
-function fixture(type: IssueType = 'FINISHED_GOODS') {
+function fixture(type: IssueType = 'FINISHED_GOOD') {
   const prisma: any = {
     userRole: {
       findMany: jest.fn().mockResolvedValue([{
@@ -31,7 +34,9 @@ function fixture(type: IssueType = 'FINISHED_GOODS') {
       findFirst: jest.fn().mockResolvedValue({
         id: 'warehouse-a',
         warehouseType: null
-      })
+      }),
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0)
     },
     warehouseLocation: {
       findFirst: jest.fn().mockResolvedValue(null)
@@ -87,7 +92,7 @@ function fixture(type: IssueType = 'FINISHED_GOODS') {
   };
 }
 describe('issue voucher scoped lookups', () => {
-  it.each(['SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOODS'] as IssueType[])('%s requires a selected warehouse without requiring a balance row', async type => {
+  it.each(ISSUE_TYPES)('%s requires a selected warehouse without requiring a balance row', async type => {
     const {
       prisma,
       service,
@@ -127,7 +132,7 @@ describe('issue voucher scoped lookups', () => {
         }
       }
     });
-    expect(issueProductScope('FINISHED_GOODS', 'w', ctx)).toMatchObject({
+    expect(issueProductScope('FINISHED_GOOD', 'w', ctx)).toMatchObject({
       productionDefinitions: {
         some: {
           companyId: 'company-a',
@@ -151,6 +156,55 @@ describe('issue voucher scoped lookups', () => {
         }
       }
     });
+  });
+  it.each(['PACKAGING_MATERIAL', 'CONSUMABLE', 'GENERAL'] as IssueType[])('enforces the exact %s item type for general issue candidates', type => {
+    expect(issueProductScope(type, 'w', ctx, 'order-a')).toMatchObject({
+      status: 'ACTIVE',
+      deletedAt: null,
+      itemType: type
+    });
+    expect(issueProductScope(type, 'w', ctx, 'order-a').requirementLines).toBeUndefined();
+  });
+  it('filters warehouses by the exact issue-type item classification and tenant', () => {
+    for (const type of ISSUE_TYPES) {
+      const scope: any = issueWarehouseScopeForType(type, ctx);
+      expect(scope).toMatchObject({ companyId: 'company-a', status: 'ACTIVE', deletedAt: null });
+      const eligibility: any = scope.AND[0];
+      const balanceProduct = eligibility.balances?.some?.product ?? eligibility.OR?.[0]?.balances?.some?.product;
+      expect(balanceProduct).toMatchObject({ itemType: type, status: 'ACTIVE', deletedAt: null });
+    }
+  });
+  it('accepts the legacy plural input alias but always emits the canonical singular type', async () => {
+    expect(normalizeIssueTypeInput('FINISHED_GOODS')).toBe('FINISHED_GOOD');
+    expect(normalizeIssueTypeInput('FINISHED_GOOD')).toBe('FINISHED_GOOD');
+    expect(normalizeIssueTypeInput('UNKNOWN')).toBeUndefined();
+    const { service, query } = fixture();
+    await expect(service.warehouses({ ...query, type: 'FINISHED_GOODS' } as any, 'operator', ctx)).resolves.toBeDefined();
+  });
+  it('supports the all-types warehouse F9 with only the user-authorized eligibility union', async () => {
+    const { prisma, service, query } = fixture('FINISHED_GOOD');
+    await service.warehouses({ ...query, type: undefined } as any, 'operator', ctx);
+    const where: any = prisma.warehouse.findMany.mock.calls[0][0].where;
+    expect(where).toMatchObject({ companyId: 'company-a', status: 'ACTIVE', deletedAt: null });
+    expect(where.AND).toHaveLength(1);
+    expect(where.AND[0].OR).toHaveLength(1);
+    expect(where.AND[0].OR[0].OR[0].balances.some.product).toMatchObject({
+      status: 'ACTIVE',
+      deletedAt: null,
+      itemType: 'FINISHED_GOOD'
+    });
+  });
+  it('denies the all-types warehouse F9 when the user has no issue authority', async () => {
+    const { prisma, service, query } = fixture('FINISHED_GOOD');
+    prisma.userRole.findMany.mockResolvedValue([{
+      role: {
+        status: 'ACTIVE',
+        code: 'OTHER',
+        permissions: [{ permission: { status: 'ACTIVE', key: 'inventory:read' } }]
+      }
+    }]);
+    await expect(service.warehouses({ ...query, type: undefined } as any, 'operator', ctx)).rejects.toThrow(ForbiddenException);
+    expect(prisma.warehouse.findMany).not.toHaveBeenCalled();
   });
   it('returns a spare-part catalog candidate even when no inventory balance row exists', async () => {
     const {
@@ -177,7 +231,7 @@ describe('issue voucher scoped lookups', () => {
       prisma,
       service,
       query
-    } = fixture('FINISHED_GOODS');
+    } = fixture('FINISHED_GOOD');
     const candidate = { id: 'product-a', code: 'FG001', name: 'Carton', unit: 'PCS', uoms: [] };
     prisma.product.findMany.mockResolvedValue([candidate]);
     prisma.product.count.mockResolvedValue(1);
@@ -199,7 +253,7 @@ describe('issue voucher scoped lookups', () => {
       prisma,
       service,
       query
-    } = fixture('FINISHED_GOODS');
+    } = fixture('FINISHED_GOOD');
     await service.candidates(query, 'operator', ctx);
     const where = prisma.product.findMany.mock.calls[0][0].where;
     expect(where.productionDefinitions.some).toMatchObject({ companyId: 'company-a', branchId: 'branch-a' });
@@ -234,7 +288,7 @@ describe('issue voucher scoped lookups', () => {
     await expect(service.candidates(query, 'operator', ctx)).resolves.toBeDefined();
     expect(prisma.sparePart.findMany).toHaveBeenCalled();
   });
-  it.each(['SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOODS'] as IssueType[])('%s denies another domain permission', async type => {
+  it.each(ISSUE_TYPES)('%s denies another domain permission', async type => {
     const {
       prisma,
       service,
@@ -458,7 +512,7 @@ describe('issue voucher scoped lookups', () => {
       forbidNonWhitelisted: true
     });
     for (const value of [{
-      type: 'FINISHED_GOODS'
+      type: 'UNKNOWN_TYPE'
     }, {
       type: 'OTHER',
       warehouseId: 'a'

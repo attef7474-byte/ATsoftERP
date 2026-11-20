@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsDateString, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ISSUE_TYPES, LegacyIssueTypeInput } from '../issue-selection.policy';
 
 export class WarehouseApprovalsQueryDto {
   @IsOptional()
@@ -11,12 +12,17 @@ export class WarehouseApprovalsQueryDto {
   limit?: number;
 
   @IsOptional()
-  @IsIn(['SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOODS'])
-  type?: 'SPARE_PART' | 'RAW_MATERIAL' | 'FINISHED_GOODS';
+  @IsIn([...ISSUE_TYPES, 'FINISHED_GOODS'])
+  type?: LegacyIssueTypeInput;
 
   @IsOptional()
   @IsIn(['SUBMITTED', 'APPROVED', 'REJECTED'])
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  warehouseId?: string;
 
   @IsOptional()
   @IsDateString()

@@ -106,8 +106,8 @@ jest.mock('next/link', () => ({
 }));
 import { IssueVoucherDialog } from '../src/components/inventory/issue-voucher-dialog';
 import { IssueVouchersPanel, reasonRequired } from '../src/components/inventory/issue-vouchers-panel';
-import { approvalRequiresReason, nativeActionPath, requiredPermission } from '../src/components/inventory/warehouse-approvals-panel';
-import { emptyIssueVoucher, changeIssueType, changeIssueWarehouse, changeMaintenanceRequest, changeProductionOrder, changeProductionRun, issueEndpoint, issuePayload, issuePermissionPrefix, formFromIssue, ISSUE_TYPES, IssueType } from '../src/components/inventory/issue-voucher-form';
+import { approvalRequiresReason, nativeActionPath, requiredPermission, WarehouseApprovalsPanel } from '../src/components/inventory/warehouse-approvals-panel';
+import { emptyIssueVoucher, changeIssueType, changeIssueWarehouse, changeMaintenanceRequest, changeProductionOrder, changeProductionRun, isGeneralIssueType, issueEndpoint, issuePayload, issuePermissionPrefix, formFromIssue, ISSUE_TYPES, IssueType } from '../src/components/inventory/issue-voucher-form';
 import { createEmptyIssueLine, issueLineIdentity, mergeDuplicateIssueLines, newIssueClientId } from '../src/app/admin/inventory/finished-goods-issues/_components/lines-editor';
 let tree: any;
 function filled(type: IssueType) {
@@ -268,7 +268,7 @@ describe('unified issue voucher dependencies and native payloads', () => {
     });
   });
   it('clears every warehouse stock identity and quantity on warehouse change', () => {
-    const next = changeIssueWarehouse(filled('FINISHED_GOODS'), 'wb');
+    const next = changeIssueWarehouse(filled('FINISHED_GOOD'), 'wb');
     expect(next.warehouseId).toBe('wb');
     expect(next.lines[0]).toMatchObject({
       productId: '',
@@ -314,7 +314,16 @@ describe('unified issue voucher dependencies and native payloads', () => {
   it.each(ISSUE_TYPES)('serializes %s into its native authority payload', type => {
     const form = filled(type),
       payload: any = issuePayload(form);
-    expect(payload.issueType).toBeUndefined();
+    expect(payload.issueType).toBe(isGeneralIssueType(type) ? type : undefined);
+    if (isGeneralIssueType(type)) {
+      expect(payload).toMatchObject({
+        issueWarehouseId: 'wa',
+        issueType: type,
+        requestId: form.requestId,
+      });
+      expect(payload.lines[0].sparePartId).toBeUndefined();
+      expect(issuePayload(form, true).issueType).toBeUndefined();
+    }
     if (type === 'SPARE_PART') {
       expect(payload).toMatchObject({
         sparePartId: 'sa',
@@ -335,7 +344,7 @@ describe('unified issue voucher dependencies and native payloads', () => {
       productionOrderId: 'oa',
       productionRunId: 'ra'
     });
-    if (type === 'FINISHED_GOODS') {
+    if (type === 'FINISHED_GOOD') {
       expect(payload.issueWarehouseId).toBe('wa');
       expect(payload.productionOrderId).toBeUndefined();
     }
@@ -380,7 +389,7 @@ describe('unified issue voucher dependencies and native payloads', () => {
     expect(issueEndpoint('SPARE_PART', '')).toBe('/inventory/spare-part-issues');
   });
   it('serializes finished goods as a multi-line native document', () => {
-    const form = { ...filled('FINISHED_GOODS'), lines: [filled('FINISHED_GOODS').lines[0], secondSpareLine()] };
+    const form = { ...filled('FINISHED_GOOD'), lines: [filled('FINISHED_GOOD').lines[0], secondSpareLine()] };
     const payload: any = issuePayload(form);
     expect(payload.lines).toHaveLength(2);
     expect(payload.lines.map((line: any) => line.quantity)).toEqual([2, 3]);
@@ -407,7 +416,24 @@ describe('unified issue voucher dependencies and native payloads', () => {
   it('resolves the effective permission prefix per authority', () => {
     expect(issuePermissionPrefix('SPARE_PART', 'SPARE_PART_ISSUE')).toBe('spare-part-issue');
     expect(issuePermissionPrefix('SPARE_PART', 'MAINTENANCE_REQUEST_PART')).toBe('maintenance-request-parts');
-    expect(issuePermissionPrefix('FINISHED_GOODS', 'FLAT')).toBe('finished-goods-issue');
+    expect(issuePermissionPrefix('FINISHED_GOOD', 'FLAT')).toBe('finished-goods-issue');
+  });
+  it.each(['PACKAGING_MATERIAL', 'CONSUMABLE', 'GENERAL'] as IssueType[])('routes %s to the single native general issue authority', type => {
+    expect(issueEndpoint(type)).toBe('/inventory/general-issues');
+    expect(issuePermissionPrefix(type, 'GENERAL_INVENTORY_ISSUE')).toBe('general-inventory-issue');
+    const payload: any = issuePayload(filled(type));
+    expect(payload).toMatchObject({ issueWarehouseId: 'wa', issueType: type, requestId: expect.any(String) });
+    expect(payload.lines[0]).toMatchObject({ productId: 'pa', quantity: 2, unit: 'KG' });
+    expect(payload.lines[0].sparePartId).toBeUndefined();
+    expect(issuePayload(filled(type), true)).not.toHaveProperty('issueType');
+    expect(issuePayload(filled(type), true)).not.toHaveProperty('issueWarehouseId');
+  });
+  it('keeps the canonical singular finished-good value out of legacy plural endpoints', () => {
+    expect(ISSUE_TYPES).toEqual([
+      'SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOOD', 'PACKAGING_MATERIAL', 'CONSUMABLE', 'GENERAL',
+    ]);
+    expect(issueEndpoint('FINISHED_GOOD')).toBe('/inventory/finished-goods-issues');
+    expect((ISSUE_TYPES as string[])).not.toContain('FINISHED_GOODS');
   });
   it('requires a reason only for native transitions whose DTO requires one', () => {
     const standalone = { type: 'SPARE_PART' as IssueType, authority: 'SPARE_PART_ISSUE' as const };
@@ -425,17 +451,22 @@ describe('unified issue voucher dependencies and native payloads', () => {
     const standalone: any = { type: 'SPARE_PART', authority: 'SPARE_PART_ISSUE', entityId: 'issue-1', parentEntityId: null };
     const linked: any = { type: 'SPARE_PART', authority: 'MAINTENANCE_REQUEST_PART', entityId: 'line-1', parentEntityId: 'req-1' };
     const raw: any = { type: 'RAW_MATERIAL', authority: 'FLAT', entityId: 'doc-1', parentEntityId: null };
-    const finished: any = { type: 'FINISHED_GOODS', authority: 'FLAT', entityId: 'fgi-1', parentEntityId: null };
+    const finished: any = { type: 'FINISHED_GOOD', authority: 'FLAT', entityId: 'fgi-1', parentEntityId: null };
+    const general: any = { type: 'PACKAGING_MATERIAL', authority: 'GENERAL_INVENTORY_ISSUE', entityId: 'gi-1', parentEntityId: null };
     expect(nativeActionPath(standalone, 'approve')).toBe('/inventory/spare-part-issues/issue-1/approve');
     expect(nativeActionPath(standalone, 'cancelApproval')).toBe('/inventory/spare-part-issues/issue-1/cancel-approval');
     expect(nativeActionPath(linked, 'approve')).toBe('/maintenance/requests/req-1/parts/line-1/approve');
     expect(nativeActionPath(raw, 'reject')).toBe('/production/material-documents/doc-1/reject');
     expect(nativeActionPath(finished, 'cancelApproval')).toBe('/inventory/finished-goods-issues/fgi-1/cancel-approval');
+    expect(nativeActionPath(general, 'approve')).toBe('/inventory/general-issues/gi-1/approve');
+    expect(nativeActionPath(general, 'cancelApproval')).toBe('/inventory/general-issues/gi-1/cancel-approval');
     expect(requiredPermission(standalone, 'approve')).toBe('spare-part-issue:approve');
     expect(requiredPermission(standalone, 'cancelApproval')).toBe('spare-part-issue:cancel-approval');
     expect(requiredPermission(linked, 'approve')).toBe('maintenance-request-parts:approve');
     expect(requiredPermission(raw, 'reject')).toBe('production-material-document:reject');
     expect(requiredPermission(finished, 'cancelApproval')).toBe('finished-goods-issue:cancel-approval');
+    expect(requiredPermission(general, 'approve')).toBe('general-inventory-issue:approve');
+    expect(requiredPermission(general, 'cancelApproval')).toBe('general-inventory-issue:cancel-approval');
   });
   it('merges duplicate stock identities deterministically', () => {
     const first = { ...standaloneSpare().lines[0], quantity: '2', warehouseLocationId: 'la', batchNumber: 'b1', serialNumber: '' };
@@ -469,19 +500,27 @@ describe('unified issue voucher dependencies and native payloads', () => {
     expect(mockT('inventory.issueVoucher.itemSparePart')).toBe('Spare Part');
     expect(mockT('inventory.issueVoucher.itemFinishedProduct')).toBe('Finished Product');
     expect(mockT('inventory.issueVoucher.itemRawMaterial')).toBe('Raw Material');
+    expect(mockT('inventory.issueVoucher.itemPackagingMaterial')).toBe('Packaging Material');
+    expect(mockT('inventory.issueVoucher.itemConsumable')).toBe('Consumable');
+    expect(mockT('inventory.issueVoucher.itemGeneral')).toBe('General Item');
+    for (const type of ISSUE_TYPES) expect(mockT(`inventory.warehouseApprovals.type${type}`)).toEqual(expect.any(String));
     expect(mockT('inventory.warehouseApprovals.typeSPARE_PART')).toBe('Spare Part');
-    expect(mockT('inventory.warehouseApprovals.typeFINISHED_GOODS')).toBe('Finished Product');
+    expect(mockT('inventory.warehouseApprovals.typeFINISHED_GOOD')).toBe('Finished Product');
     mockLocale = 'ar';
     expect(mockT('inventory.issueVoucher.itemSparePart')).toBe('قطعة الغيار');
     expect(mockT('inventory.issueVoucher.itemFinishedProduct')).toBe('المنتج التام');
     expect(mockT('inventory.issueVoucher.itemRawMaterial')).toBe('المادة الخام');
+    expect(mockT('inventory.issueVoucher.itemPackagingMaterial')).toBe('مادة تعبئة وتغليف');
+    expect(mockT('inventory.issueVoucher.itemConsumable')).toBe('مستهلك');
+    expect(mockT('inventory.issueVoucher.itemGeneral')).toBe('صنف عام');
     expect(mockT('inventory.issueVoucher.maintenanceRequestOptional')).toBe('طلب الصيانة (اختياري)');
+    for (const type of ISSUE_TYPES) expect(mockT(`inventory.warehouseApprovals.type${type}`)).toEqual(expect.any(String));
     expect(mockT('inventory.warehouseApprovals.typeSPARE_PART')).toBe('قطعة الغيار');
-    expect(mockT('inventory.warehouseApprovals.typeFINISHED_GOODS')).toBe('المنتج التام');
+    expect(mockT('inventory.warehouseApprovals.typeFINISHED_GOOD')).toBe('المنتج التام');
     mockLocale = 'en';
   });
   it('restores the existing movement ProductUom snapshot during edit', () => {
-    const form = formFromIssue('FINISHED_GOODS', {
+    const form = formFromIssue('FINISHED_GOOD', {
       issueWarehouseId: 'wa',
       issueDate: '2026-11-18',
       lines: [{
@@ -548,7 +587,7 @@ describe('dynamic issue form interaction', () => {
   });
   it('confirms warehouse clearing and removes the old item immediately on confirmation', async () => {
     await mount(React.createElement(Harness, {
-      initial: filled('FINISHED_GOODS')
+      initial: filled('FINISHED_GOOD')
     }));
     await act(async () => lookup('inventory.finishedGoodsIssue.issueWarehouse').props.onChange('wb'));
     expect(lookup('inventory.finishedGoodsIssue.issueWarehouse').props.value).toBe('wa');
@@ -698,7 +737,10 @@ describe('unified page native API routing', () => {
     const dialog = tree.root.findByType(IssueVoucherDialog);
     await act(async () => dialog.props.onChange(filled(type)));
     await act(async () => tree.root.findByType(IssueVoucherDialog).props.onSave());
-    const path = type === 'SPARE_PART' ? '/maintenance/requests/ma/parts' : type === 'RAW_MATERIAL' ? '/production/material-documents' : '/inventory/finished-goods-issues';
+    const path = type === 'SPARE_PART' ? '/maintenance/requests/ma/parts'
+      : type === 'RAW_MATERIAL' ? '/production/material-documents'
+        : isGeneralIssueType(type) ? '/inventory/general-issues'
+          : '/inventory/finished-goods-issues';
     expect(mockPost).toHaveBeenCalledWith(path, expect.any(Object));
     expect(mockPost).toHaveBeenCalledTimes(1);
   });
@@ -713,6 +755,78 @@ describe('unified page native API routing', () => {
       lines: expect.arrayContaining([expect.objectContaining({ sparePartId: 'sa' }), expect.objectContaining({ sparePartId: 'sb' })])
     }));
     expect(mockPost).not.toHaveBeenCalledWith(expect.stringContaining('/maintenance/requests//'), expect.anything());
+  });
+  it('reads and edits the same general issue through its native authority with GeneralInventoryIssue audit', async () => {
+    const row = {
+      key: 'PACKAGING_MATERIAL:gi-1', type: 'PACKAGING_MATERIAL', authority: 'GENERAL_INVENTORY_ISSUE', entityId: 'gi-1', parentEntityId: null,
+      reference: 'GIS-000001', title: 'Cartons', status: 'DRAFT', createdAt: '2026-11-20', documentDate: '2026-11-20',
+      warehouse: { id: 'wa', name: 'Warehouse A', code: 'WA' }
+    };
+    mockGet.mockImplementation(async (path: string) => {
+      if (path === '/inventory/issues') return { data: [row], meta: { page: 1, total: 1, totalPages: 1 } };
+      if (path === '/inventory/general-issues/gi-1') return { data: { id: 'gi-1', status: 'DRAFT', issueWarehouseId: 'wa', issueDate: '2026-11-20', purpose: 'Cartons', lines: [{ productId: 'pa', quantity: 2, unit: 'BOX' }] } };
+      if (path === '/audit-logs') return { data: [] };
+      return { data: [], meta: { page: 1, total: 0, totalPages: 0 } };
+    });
+    await mount(React.createElement(IssueVouchersPanel));
+    await tick();
+    await act(async () => button('common.actions').props.onClick());
+    await act(async () => tree.root.findByType('row-actions').props.actions.find((action: any) => action.label === mockT('inventory.finishedGoodsIssue.view')).onClick(row));
+    expect(mockGet).toHaveBeenCalledWith('/inventory/general-issues/gi-1');
+    expect(mockGet).toHaveBeenCalledWith('/audit-logs', expect.objectContaining({ params: expect.objectContaining({ entity: 'GeneralInventoryIssue' }) }));
+    await act(async () => tree.root.findByType('row-actions').props.actions.find((action: any) => action.label === mockT('inventory.finishedGoodsIssue.edit')).onClick(row));
+    const dialog = tree.root.findByType(IssueVoucherDialog);
+    expect(dialog.props.form.issueType).toBe('PACKAGING_MATERIAL');
+    expect(dialog.props.form.lines[0].quantity).toBe('2');
+    await act(async () => tree.root.findByType(IssueVoucherDialog).props.onSave());
+    expect(mockPatch).toHaveBeenCalledWith('/inventory/general-issues/gi-1', expect.objectContaining({ lines: expect.any(Array) }));
+    expect(mockPost).not.toHaveBeenCalled();
+  });
+  it('uses native general-issue transition suffixes and reversal endpoint', async () => {
+    const draft = {
+      key: 'CONSUMABLE:gi-2', type: 'CONSUMABLE', authority: 'GENERAL_INVENTORY_ISSUE', entityId: 'gi-2', parentEntityId: null,
+      reference: 'GIS-000002', title: null, status: 'DRAFT', createdAt: '2026-11-20', documentDate: '2026-11-20', warehouse: null
+    };
+    const posted = { ...draft, entityId: 'gi-3', key: 'GENERAL:gi-3', type: 'GENERAL', reference: 'GIS-000003', status: 'POSTED' };
+    mockAuth = { isSuperAdmin: true, permissions: { permissions: [] } };
+    mockGet.mockImplementation(async (path: string) => path === '/inventory/issues'
+      ? { data: [draft, posted], meta: { page: 1, total: 2, totalPages: 1 } }
+      : { data: [], meta: { page: 1, total: 0, totalPages: 0 } });
+    await mount(React.createElement(IssueVouchersPanel));
+    await tick();
+    await act(async () => button('common.actions').props.onClick());
+    await act(async () => tree.root.findByType('row-actions').props.actions.find((action: any) => action.label === mockT('inventory.finishedGoodsIssue.submit')).onClick(draft));
+    await act(async () => tree.root.findAllByType('button').find((node: any) => node.props.children === 'CONFIRM').props.onClick());
+    expect(mockPatch).toHaveBeenCalledWith('/inventory/general-issues/gi-2/submit', expect.any(Object));
+    // Refresh with the posted row first: the grid test adapter renders the
+    // first row's actions, and the already-open menu must not be toggled shut.
+    mockGet.mockImplementation(async (path: string) => path === '/inventory/issues'
+      ? { data: [posted], meta: { page: 1, total: 1, totalPages: 1 } }
+      : { data: [], meta: { page: 1, total: 0, totalPages: 0 } });
+    await act(async () => mockActions.find(action => action.id === 'refresh').onClick());
+    await tick();
+    await act(async () => tree.root.findByType('row-actions').props.actions.find((action: any) => action.label === mockT('inventory.finishedGoodsIssue.reverse')).onClick(posted));
+    await act(async () => tree.root.findAllByType('button').find((node: any) => node.props.children === 'CONFIRM').props.onClick());
+    expect(mockPost).toHaveBeenCalledWith('/inventory/general-issues/gi-3/reverse', expect.objectContaining({
+      requestId: expect.any(String),
+      notes: mockT('inventory.issueVoucher.reverseNote')
+    }));
+  });
+  it('sends the warehouse filter from the approvals inbox to the native aggregation API', async () => {
+    mockGet.mockImplementation(async () => ({
+      data: [],
+      meta: { page: 1, limit: 20, total: 0, totalPages: 0, counts: { SPARE_PART: 0, RAW_MATERIAL: 0, FINISHED_GOOD: 0, PACKAGING_MATERIAL: 0, CONSUMABLE: 0, GENERAL: 0 } },
+      permissions: [],
+    }));
+    await mount(React.createElement(WarehouseApprovalsPanel));
+    await tick();
+    const warehouse = lookup('inventory.finishedGoodsIssue.issueWarehouse');
+    expect(warehouse).toBeDefined();
+    await act(async () => warehouse.props.onChange('wb'));
+    await tick();
+    expect(mockGet).toHaveBeenCalledWith('/inventory/approvals', expect.objectContaining({
+      params: expect.objectContaining({ warehouseId: 'wb' }),
+    }));
   });
   it('reads and edits a standalone spare row through its native endpoint with SparePartIssue audit', async () => {
     const row = {
@@ -804,7 +918,7 @@ describe('unified page native API routing', () => {
     await mount(React.createElement(IssueVouchersPanel));
     await tick();
     await act(async () => mockActions.find(action => action.id === 'new').onClick());
-    await act(async () => tree.root.findByType(IssueVoucherDialog).props.onChange(filled('FINISHED_GOODS')));
+    await act(async () => tree.root.findByType(IssueVoucherDialog).props.onChange(filled('FINISHED_GOOD')));
     await act(async () => tree.root.findByType(IssueVoucherDialog).props.onSave());
     expect(tree.root.findByType(IssueVoucherDialog).props.form.lines[0].productId).toBe('pa');
     expect(mockError).toHaveBeenCalled();
@@ -813,7 +927,7 @@ describe('unified page native API routing', () => {
 
 
 describe('same-record editing and read-only lifecycle states', () => {
-  const row = { key: 'FINISHED_GOODS:existing', type: 'FINISHED_GOODS', entityId: 'existing', parentEntityId: 'existing', reference: 'FGI-EXISTING', status: 'DRAFT', createdAt: '2026-11-18', warehouse: { id: 'wa', name: 'Warehouse A' } };
+  const row = { key: 'FINISHED_GOODS:existing', type: 'FINISHED_GOOD', entityId: 'existing', parentEntityId: 'existing', reference: 'FGI-EXISTING', status: 'DRAFT', createdAt: '2026-11-18', warehouse: { id: 'wa', name: 'Warehouse A' } };
   function response(status = 'DRAFT') {
     mockGet.mockImplementation(async (path: string) => {
       if (path === '/inventory/issues') return { data: [{ ...row, status }], meta: { page: 1, total: 1, totalPages: 1 } };

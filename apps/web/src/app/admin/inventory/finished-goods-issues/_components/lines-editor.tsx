@@ -100,7 +100,7 @@ function IssueLineRow({
   line,
   update,
   warehouseId,
-  issueType = 'FINISHED_GOODS',
+  issueType = 'FINISHED_GOOD',
   productionOrderId,
   productionRunId,
   disabled,
@@ -200,7 +200,13 @@ function IssueLineRow({
     ? 'inventory.issueVoucher.itemSparePart'
     : issueType === 'RAW_MATERIAL'
       ? 'inventory.issueVoucher.itemRawMaterial'
-      : 'inventory.issueVoucher.itemFinishedProduct';
+      : issueType === 'PACKAGING_MATERIAL'
+        ? 'inventory.issueVoucher.itemPackagingMaterial'
+        : issueType === 'CONSUMABLE'
+          ? 'inventory.issueVoucher.itemConsumable'
+          : issueType === 'GENERAL'
+            ? 'inventory.issueVoucher.itemGeneral'
+            : 'inventory.issueVoucher.itemFinishedProduct';
   return <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
     <div className="md:col-span-2"><F9Lookup label={t(itemLabelKey)} value={issueType === 'SPARE_PART' ? line.sparePartId || '' : line.productId} adapter={itemAdapter} filters={filters} disabled={disabled || !ready || lockItem} onChange={id => {
       if (!id) update({
@@ -255,7 +261,7 @@ export function IssueLinesEditor({
   onChange,
   disabled = false,
   error,
-  issueType = 'FINISHED_GOODS',
+  issueType = 'FINISHED_GOOD',
   ...context
 }: IssueLinesEditorProps) {
   const {

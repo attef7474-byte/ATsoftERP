@@ -1,5 +1,6 @@
 import {
   FINISHED_GOODS_ISSUE_NUMBER_SEQUENCE,
+  GENERAL_INVENTORY_ISSUE_NUMBER_SEQUENCE,
   PRODUCTION_FG_RECEIPT_NUMBER_SEQUENCE,
   PRODUCTION_MATERIAL_DOCUMENT_NUMBER_SEQUENCE,
   seedProductionInventoryDocumentNumbering,
@@ -25,17 +26,32 @@ describe('seedProductionInventoryDocumentNumbering', () => {
       resetPolicy: 'NEVER',
       status: 'ACTIVE',
     });
+    // General issue numbers are tenant-global, never reset, and bound to the
+    // new canonical GeneralInventoryIssue model (GIS-000001, ...).
+    expect(GENERAL_INVENTORY_ISSUE_NUMBER_SEQUENCE).toEqual({
+      code: 'GENERAL_INVENTORY_ISSUE',
+      name: 'General Inventory Issue',
+      operationName: 'General Inventory Issue',
+      modelName: 'GeneralInventoryIssue',
+      domain: 'inventory',
+      prefix: 'GIS-',
+      padding: 6,
+      scope: 'GLOBAL',
+      resetPolicy: 'NEVER',
+      status: 'ACTIVE',
+    });
   });
 
   it('creates only when missing and preserves existing counters', async () => {
     const create = jest.fn();
     const missing: any = { numberSequence: { findUnique: jest.fn().mockResolvedValue(null), create } };
     await seedProductionInventoryDocumentNumbering(missing);
-    expect(create).toHaveBeenCalledTimes(4);
+    expect(create).toHaveBeenCalledTimes(5);
     expect(create).toHaveBeenCalledWith({ data: PRODUCTION_MATERIAL_DOCUMENT_NUMBER_SEQUENCE });
     expect(create).toHaveBeenCalledWith({ data: PRODUCTION_FG_RECEIPT_NUMBER_SEQUENCE });
     expect(create).toHaveBeenCalledWith({ data: FINISHED_GOODS_ISSUE_NUMBER_SEQUENCE });
     expect(create).toHaveBeenCalledWith({ data: SPARE_PART_ISSUE_NUMBER_SEQUENCE });
+    expect(create).toHaveBeenCalledWith({ data: GENERAL_INVENTORY_ISSUE_NUMBER_SEQUENCE });
 
     const existing: any = {
       numberSequence: {

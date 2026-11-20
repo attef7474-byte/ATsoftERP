@@ -547,6 +547,21 @@ export class InventoryMovementsService {
     return this.postMovementCore(tx, movementId, userId, ctx, null, receiptId);
   }
 
+  /**
+   * VAL-PHASE5 canonical general-issue reversal entrypoint. The reversal issue
+   * identity is mandatory so a generic inbound caller cannot claim trusted
+   * original issue cost in an ACTIVE valuation warehouse.
+   */
+  async postGeneralIssueReversalMovementWithinTransaction(
+    tx: any,
+    issueId: string,
+    movementId: string,
+    userId: string,
+    ctx: ActiveOperationalContext,
+  ) {
+    return this.postMovementCore(tx, movementId, userId, ctx, null, null, issueId);
+  }
+
   private async postMovementCore(
     tx: any,
     id: string,
@@ -554,6 +569,7 @@ export class InventoryMovementsService {
     ctx: ActiveOperationalContext,
     productionMaterialDocumentId: string | null,
     productionFinishedGoodsReceiptId: string | null,
+    generalIssueReversalId: string | null = null,
   ) {
     const movement = await tx.inventoryMovement.findUnique({
       where: { id },
@@ -616,7 +632,7 @@ export class InventoryMovementsService {
     let productionValuationPlan: Map<string, ProductionMaterialValuationPlanEntry> | null = null;
     let finishedGoodsValuationPlan: Map<string, ProductionFinishedGoodsValuationPlanEntry> | null = null;
     if (activePolicy) {
-      if (productionMaterialDocumentId || productionFinishedGoodsReceiptId) {
+      if (productionMaterialDocumentId || productionFinishedGoodsReceiptId || generalIssueReversalId) {
         // Lock every touched product in deterministic order before reading the
         // return history, physical qold, or monetary state.
         const uniqueScopes = new Map<string, { companyId: string; warehouseId: string; productId: string }>();
@@ -633,10 +649,18 @@ export class InventoryMovementsService {
             activePolicy,
             ctx,
           );
-        } else {
+        } else if (productionFinishedGoodsReceiptId) {
           finishedGoodsValuationPlan = await this.resolveProductionFinishedGoodsValuationPlan(
             tx,
-            productionFinishedGoodsReceiptId!,
+            productionFinishedGoodsReceiptId,
+            movement,
+            activePolicy,
+            ctx,
+          );
+        } else {
+          productionValuationPlan = await this.resolveGeneralIssueReversalValuationPlan(
+            tx,
+            generalIssueReversalId!,
             movement,
             activePolicy,
             ctx,
@@ -987,6 +1011,98 @@ export class InventoryMovementsService {
 
     if (unmatchedMovementLines.length !== 0 || plan.size !== movement.lines.length) {
       throw this.badRequest('inventoryValuation.productionMaterialLineMismatch');
+    }
+    return plan;
+  }
+
+  /**
+   * Trusted valuation plan for a GeneralInventoryIssue reversal. There is at
+   * most one non-cancelled reversal per source issue, and the reversal replays
+   * every source line in full. Therefore each IN line can safely re-enter at the
+   * exact immutable OUT line cost instead of today's moving average. Any
+   * missing quartet, identity mismatch, currency drift, or ambiguous pairing
+   * blocks posting before a balance changes.
+   */
+  private async resolveGeneralIssueReversalValuationPlan(
+    tx: any,
+    issueId: string,
+    movement: any,
+    activePolicy: { currencyCode: string; method: string },
+    ctx: ActiveOperationalContext,
+  ): Promise<Map<string, ProductionMaterialValuationPlanEntry>> {
+    const reversal = await tx.generalInventoryIssue.findFirst({
+      where: {
+        id: issueId,
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+        movementId: movement.id,
+        reversesIssueId: { not: null },
+        sourceType: 'REVERSE',
+      },
+      include: {
+        lines: { orderBy: { lineNumber: 'asc' } },
+        reversesIssue: {
+          include: { movement: { include: { lines: true } } },
+        },
+      },
+    });
+    const source = reversal?.reversesIssue;
+    const sourceMovement = source?.movement;
+    if (!reversal || !source || !sourceMovement
+      || source.companyId !== ctx.companyId
+      || source.branchId !== ctx.branchId
+      || source.status !== 'POSTED'
+      || sourceMovement.status !== 'POSTED'
+      || sourceMovement.id !== source.movementId
+      || sourceMovement.warehouseId !== movement.warehouseId
+      || movement.movementType !== 'GENERAL_INVENTORY_ISSUE_REVERSAL'
+      || movement.sourceType !== 'GENERAL_INVENTORY_ISSUE'
+      || movement.lines.length !== reversal.lines.length
+      || movement.lines.some((line: any) => line.direction !== 'IN')) {
+      throw this.badRequest('generalInventoryIssue.reversalValuationEvidenceMissing');
+    }
+
+    const originalLines = sourceMovement.lines.filter((line: any) => line.direction === 'OUT');
+    if (originalLines.length !== movement.lines.length) {
+      throw this.badRequest('generalInventoryIssue.reversalValuationLineMismatch');
+    }
+
+    const unmatched = [...originalLines];
+    const plan = new Map<string, ProductionMaterialValuationPlanEntry>();
+    for (const movementLine of movement.lines) {
+      const index = unmatched.findIndex(
+        (line: any) => this.finishedGoodsLineKey(line) === this.finishedGoodsLineKey(movementLine),
+      );
+      if (index < 0) throw this.badRequest('generalInventoryIssue.reversalValuationLineMismatch');
+      const original = unmatched.splice(index, 1)[0];
+      if (
+        original.unitCost == null
+        || original.totalCost == null
+        || original.currencyCode !== activePolicy.currencyCode
+        || original.valuationMethod !== 'WEIGHTED_AVERAGE'
+      ) {
+        throw this.badRequest('generalInventoryIssue.reversalValuationCostMissing');
+      }
+      const originalUnitCost = new Prisma.Decimal(original.unitCost);
+      const originalBase = new Prisma.Decimal(original.quantityBase ?? original.quantity);
+      const reversalBase = new Prisma.Decimal(movementLine.quantityBase ?? movementLine.quantity);
+      if (!reversalBase.equals(originalBase)) {
+        throw this.badRequest('generalInventoryIssue.reversalValuationLineMismatch');
+      }
+      const expectedTotal = originalBase.mul(originalUnitCost).toDecimalPlaces(4);
+      if (!expectedTotal.equals(new Prisma.Decimal(original.totalCost))) {
+        throw this.badRequest('generalInventoryIssue.reversalValuationCostInvalid');
+      }
+      plan.set(movementLine.id, {
+        kind: 'TRUE_RETURN',
+        originalUnitCost,
+        originalEventValue: new Prisma.Decimal(original.totalCost),
+        sourceNumberSnapshot: reversal.issueNumber,
+        originalMovementLineId: original.id,
+      });
+    }
+    if (unmatched.length !== 0 || plan.size !== movement.lines.length) {
+      throw this.badRequest('generalInventoryIssue.reversalValuationLineMismatch');
     }
     return plan;
   }

@@ -147,6 +147,7 @@ const M: Record<string, ResourceDef> = {
   'inventory.stock-transfer': { domain: 'inventory', ar: 'تحويلات المخزون (التشغيلية)', en: 'Inventory Stock Transfers' },
   'inventory-valuation': { domain: 'inventory', ar: 'تقييم المخزون', en: 'Inventory Valuation' },
   'spare-part-issue': { domain: 'inventory', ar: 'إذون صرف قطع الغيار', en: 'Spare-Part Issue Vouchers' },
+  'general-inventory-issue': { domain: 'inventory', ar: 'إذون الصرف العام للمخزون', en: 'General Inventory Issue Vouchers' },
   warehouse: { domain: 'inventory', ar: 'المستودعات', en: 'Warehouses' },
   'warehouse-location': { domain: 'inventory', ar: 'مواقع المستودعات', en: 'Warehouse Locations' },
   product: { domain: 'inventory', ar: 'المنتجات', en: 'Products' },

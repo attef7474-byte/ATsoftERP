@@ -14,7 +14,7 @@ import { AdminDataGrid, GridAction, GridColumn } from '../admin/admin-data-grid'
 import { ActionAddIcon, ActionRefreshIcon, useRegisterAdminActions, useStableHandlers } from '../admin/admin-action-bar';
 import { F9Lookup } from '../f9/F9Lookup';
 import { warehouseAdapter } from '../f9/lookup-adapters';
-import { emptyIssueVoucher, formFromIssue, issueEndpoint, issuePayload, issuePermissionPrefix, ISSUE_TYPES, IssueAuthority, IssueType, IssueVoucherForm } from './issue-voucher-form';
+import { emptyIssueVoucher, formFromIssue, isGeneralIssueType, issueEndpoint, issuePayload, issuePermissionPrefix, ISSUE_TYPES, IssueAuthority, IssueType, IssueVoucherForm } from './issue-voucher-form';
 import { IssueVoucherDialog } from './issue-voucher-dialog';
 import { newIssueClientId } from '../../app/admin/inventory/finished-goods-issues/_components/lines-editor';
 interface IssueRow {
@@ -56,6 +56,7 @@ function nativePath(row: IssueRow): string {
 }
 function auditEntity(row: IssueRow): string {
   if (row.authority === 'SPARE_PART_ISSUE') return 'SparePartIssue';
+  if (row.authority === 'GENERAL_INVENTORY_ISSUE' || isGeneralIssueType(row.type)) return 'GeneralInventoryIssue';
   if (row.type === 'SPARE_PART') return 'MaintenanceRequestRequiredPart';
   return row.type === 'RAW_MATERIAL' ? 'ProductionMaterialDocument' : 'FinishedGoodsIssue';
 }
@@ -298,7 +299,7 @@ export function IssueVouchersPanel() {
       const trimmedReason = reason.trim();
       if (action === 'reverse') await api.post(`${nativePath(row)}/reverse`, {
         requestId: transition.requestId,
-        notes: trimmedReason || undefined
+        notes: trimmedReason || t('inventory.issueVoucher.reverseNote')
       });else await api.patch(`${nativePath(row)}/${suffix}`, isLinkedSpare(row) ? undefined : {
         ...(trimmedReason ? {
           reason: trimmedReason

@@ -1,5 +1,6 @@
 import {
   FINISHED_GOODS_ISSUE_PERMISSION_KEYS,
+  GENERAL_INVENTORY_ISSUE_DOCUMENT_PERMISSIONS,
   PRODUCTION_FG_RECEIPT_PERMISSION_KEYS,
   PRODUCTION_INVENTORY_DOCUMENT_PERMISSIONS,
   PRODUCTION_MATERIAL_DOCUMENT_PERMISSION_KEYS,
@@ -18,6 +19,21 @@ const EXPECTED_SPARE_PART_ISSUE_KEYS = [
   'spare-part-issue:approve',
   'spare-part-issue:reject',
   'spare-part-issue:cancel-approval',
+];
+
+const EXPECTED_GENERAL_INVENTORY_ISSUE_KEYS = [
+  'general-inventory-issue:create',
+  'general-inventory-issue:read',
+  'general-inventory-issue:update',
+  'general-inventory-issue:delete',
+  'general-inventory-issue:post',
+  'general-inventory-issue:cancel',
+  'general-inventory-issue:reverse',
+  'general-inventory-issue:submit',
+  'general-inventory-issue:withdraw',
+  'general-inventory-issue:approve',
+  'general-inventory-issue:reject',
+  'general-inventory-issue:cancel-approval',
 ];
 
 describe('Phase 1.7 permission keys', () => {
@@ -73,6 +89,22 @@ describe('Phase 1.7 permission keys', () => {
     expect(
       PRODUCTION_INVENTORY_DOCUMENT_PERMISSIONS
         .filter((p) => p.module === 'spare-part-issue')
+        .every((p) => p.action === p.key.split(':')[1]),
+    ).toBe(true);
+  });
+
+  it('owns the exact stable general inventory issue permission family', () => {
+    expect([...GENERAL_INVENTORY_ISSUE_DOCUMENT_PERMISSIONS].sort()).toEqual([...EXPECTED_GENERAL_INVENTORY_ISSUE_KEYS].sort());
+    // The aggregate consumed by seed.ts is the only path that persists these keys.
+    expect(
+      PRODUCTION_INVENTORY_DOCUMENT_PERMISSIONS
+        .filter((p) => p.module === 'general-inventory-issue')
+        .map((p) => p.key)
+        .sort(),
+    ).toEqual([...EXPECTED_GENERAL_INVENTORY_ISSUE_KEYS].sort());
+    expect(
+      PRODUCTION_INVENTORY_DOCUMENT_PERMISSIONS
+        .filter((p) => p.module === 'general-inventory-issue')
         .every((p) => p.action === p.key.split(':')[1]),
     ).toBe(true);
   });

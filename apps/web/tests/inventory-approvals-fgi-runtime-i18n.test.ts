@@ -47,6 +47,9 @@ const DYNAMIC_KEYS = [
   'inventory.warehouseApprovals.countSparePart',
   'inventory.warehouseApprovals.countRawMaterial',
   'inventory.warehouseApprovals.countFinishedGoods',
+  'inventory.warehouseApprovals.countPackagingMaterial',
+  'inventory.warehouseApprovals.countConsumable',
+  'inventory.warehouseApprovals.countGeneral',
   'inventory.warehouseApprovals.allTypes',
   'inventory.warehouseApprovals.emptyMessage',
   'inventory.warehouseApprovals.searchPlaceholder',
@@ -79,7 +82,7 @@ const DYNAMIC_KEYS = [
   'inventory.finishedGoodsIssue.errors.reasonRequired',
 ];
 
-const WAREHOUSE_APPROVAL_TYPES = ['SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOODS'];
+const WAREHOUSE_APPROVAL_TYPES = ['SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOOD', 'PACKAGING_MATERIAL', 'CONSUMABLE', 'GENERAL'];
 const WAREHOUSE_APPROVAL_STATUSES = ['SUBMITTED', 'REQUESTED', 'APPROVED', 'REJECTED'];
 const FINISHED_GOODS_ISSUE_STATUSES = ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'POSTED', 'CANCELLED'];
 const FINISHED_GOODS_ISSUE_SOURCES = ['MANUAL', 'REVERSE'];

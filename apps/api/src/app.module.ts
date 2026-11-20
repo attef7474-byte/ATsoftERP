@@ -100,6 +100,7 @@ import { ProductionMaterialDocumentsModule } from './modules/factory/production-
 import { ProductionMaterialRequirementsModule } from './modules/factory/production-material-requirements/production-material-requirements.module';
 import { ProductionFinishedGoodsReceiptsModule } from './modules/factory/production-finished-goods-receipts/production-finished-goods-receipts.module';
 import { FinishedGoodsIssuesModule } from './modules/factory/finished-goods-issues/finished-goods-issues.module';
+import { GeneralInventoryIssuesModule } from './modules/factory/general-inventory-issues/general-inventory-issues.module';
 // Aliased: an existing maintenance-request-linked module already exports the
 // plain `SparePartIssuesModule` name (registered above).
 import { SparePartIssuesModule as StandaloneSparePartIssuesModule } from './modules/factory/spare-part-issues/spare-part-issues.module';
@@ -171,6 +172,7 @@ import { UnifiedReceiptsModule } from './modules/factory/unified-receipts/unifie
     ProductionFinishedGoodsReceiptsModule,
     FinishedGoodsIssuesModule,
     StandaloneSparePartIssuesModule,
+    GeneralInventoryIssuesModule,
     ApprovalsModule,
     ProductionQualityModule,
     ProductionCostModule,

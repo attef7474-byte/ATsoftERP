@@ -10,6 +10,8 @@ import { WarehouseApprovalRow, WarehouseApprovalType, WarehouseApprovalsResponse
 import { Select, Pagination, ConfirmDialog, Textarea } from '../../components/admin/ui';
 import { AdminDataGrid, GridColumn, GridAction } from '../../components/admin/admin-data-grid';
 import { useRegisterAdminActions, useStableHandlers, ActionRefreshIcon } from '../../components/admin/admin-action-bar';
+import { F9Lookup } from '../f9/F9Lookup';
+import { warehouseAdapter } from '../f9/lookup-adapters';
 
 export type ApprovalAction = 'approve' | 'reject' | 'withdraw' | 'cancelApproval';
 
@@ -18,8 +20,21 @@ interface PendingAction {
   action: ApprovalAction;
 }
 
-const TYPES: WarehouseApprovalType[] = ['SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOODS'];
+const TYPES: WarehouseApprovalType[] = ['SPARE_PART', 'RAW_MATERIAL', 'FINISHED_GOOD', 'PACKAGING_MATERIAL', 'CONSUMABLE', 'GENERAL'];
+const GENERAL_TYPES: WarehouseApprovalType[] = ['PACKAGING_MATERIAL', 'CONSUMABLE', 'GENERAL'];
 const STATUSES = ['SUBMITTED', 'APPROVED', 'REJECTED'];
+const COUNT_LABEL_KEYS: Record<WarehouseApprovalType, string> = {
+  SPARE_PART: 'inventory.warehouseApprovals.countSparePart',
+  RAW_MATERIAL: 'inventory.warehouseApprovals.countRawMaterial',
+  FINISHED_GOOD: 'inventory.warehouseApprovals.countFinishedGoods',
+  PACKAGING_MATERIAL: 'inventory.warehouseApprovals.countPackagingMaterial',
+  CONSUMABLE: 'inventory.warehouseApprovals.countConsumable',
+  GENERAL: 'inventory.warehouseApprovals.countGeneral',
+};
+
+function isGeneralIssue(row: WarehouseApprovalRow): boolean {
+  return row.authority === 'GENERAL_INVENTORY_ISSUE' || GENERAL_TYPES.includes(row.type);
+}
 
 function typeLabelKey(value: WarehouseApprovalType): string {
   return 'inventory.warehouseApprovals.type' + value;
@@ -52,6 +67,7 @@ export function nativeActionPath(row: WarehouseApprovalRow, action: ApprovalActi
     return `/production/material-documents/${row.entityId}/${suffix}`;
   }
   const suffix = action === 'cancelApproval' ? 'cancel-approval' : action;
+  if (isGeneralIssue(row)) return `/inventory/general-issues/${row.entityId}/${suffix}`;
   return `/inventory/finished-goods-issues/${row.entityId}/${suffix}`;
 }
 
@@ -81,6 +97,13 @@ export function requiredPermission(row: WarehouseApprovalRow, action: ApprovalAc
     if (action === 'reject') return 'production-material-document:reject';
     if (action === 'withdraw') return 'production-material-document:withdraw';
     if (action === 'cancelApproval') return 'production-material-document:cancel-approval';
+    return '';
+  }
+  if (isGeneralIssue(row)) {
+    if (action === 'approve') return 'general-inventory-issue:approve';
+    if (action === 'reject') return 'general-inventory-issue:reject';
+    if (action === 'withdraw') return 'general-inventory-issue:withdraw';
+    if (action === 'cancelApproval') return 'general-inventory-issue:cancel-approval';
     return '';
   }
   if (action === 'approve') return 'finished-goods-issue:approve';
@@ -115,13 +138,14 @@ export function WarehouseApprovalsPanel() {
     limit: 20,
     total: 0,
     totalPages: 0,
-    counts: { SPARE_PART: 0, RAW_MATERIAL: 0, FINISHED_GOODS: 0 },
+    counts: { SPARE_PART: 0, RAW_MATERIAL: 0, FINISHED_GOOD: 0, PACKAGING_MATERIAL: 0, CONSUMABLE: 0, GENERAL: 0 },
   });
   const [granted, setGranted] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [warehouseFilter, setWarehouseFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('SUBMITTED');
 
   const [selectedKey, setSelectedKey] = useState('');
@@ -157,13 +181,14 @@ export function WarehouseApprovalsPanel() {
       const params: Record<string, any> = { page, limit: 20, status: statusFilter };
       if (search) params.search = search;
       if (typeFilter) params.type = typeFilter;
+      if (warehouseFilter) params.warehouseId = warehouseFilter;
       const res = await api.get<WarehouseApprovalsResponse>('/inventory/approvals', { params });
       setData(res.data || []);
       setMeta(res.meta);
       setGranted(res.permissions || []);
     } catch (err: any) { setError(err?.message || t('inventory.warehouseApprovals.loadFailed')); }
     finally { setLoading(false); }
-  }, [search, typeFilter, statusFilter, t]);
+  }, [search, typeFilter, warehouseFilter, statusFilter, t]);
 
   const { exec } = useStableHandlers({
     refresh: () => fetchData(meta.page),
@@ -173,7 +198,14 @@ export function WarehouseApprovalsPanel() {
     { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
   ]);
 
-  useEffect(() => { fetchData(); }, []);
+  // Every inbox filter change — including the scoped warehouse lookup — must
+  // refetch the aggregate; otherwise the API receives the old filter values.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchData(1);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [fetchData]);
 
   const openAction = (row: WarehouseApprovalRow, action: ApprovalAction) => {
     setSelectedKey(row.key);
@@ -228,7 +260,16 @@ export function WarehouseApprovalsPanel() {
     { label: t('inventory.warehouseApprovals.cancelApproval'), onClick: (r) => openAction(r, 'cancelApproval'), enabled: (r) => canAct(r, 'cancelApproval'), variant: 'danger' },
   ];
 
-  const counts = meta.counts || { SPARE_PART: 0, RAW_MATERIAL: 0, FINISHED_GOODS: 0 };
+  const emptyCounts: Record<WarehouseApprovalType, number> = {
+    SPARE_PART: 0,
+    RAW_MATERIAL: 0,
+    FINISHED_GOOD: 0,
+    PACKAGING_MATERIAL: 0,
+    CONSUMABLE: 0,
+    GENERAL: 0,
+  };
+  const counts = { ...emptyCounts, ...(meta.counts || {}) };
+  const totalPending = TYPES.reduce((total, type) => total + toNumber(counts[type]), 0);
   const requiresReason = pending ? approvalRequiresReason(pending.row, pending.action) : false;
   const dialogTitle = pending
     ? t('inventory.warehouseApprovals.' + (pending.action === 'cancelApproval' ? 'cancelApproval' : pending.action))
@@ -250,28 +291,33 @@ export function WarehouseApprovalsPanel() {
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="rounded-lg border border-gray-200 bg-white p-3">
           <p className="text-xs text-gray-500">{t('inventory.warehouseApprovals.totalPending')}</p>
-          <p className="mt-1 text-lg font-semibold" dir="ltr">{toNumber(counts.SPARE_PART) + toNumber(counts.RAW_MATERIAL) + toNumber(counts.FINISHED_GOODS)}</p>
+          <p className="mt-1 text-lg font-semibold" dir="ltr">{totalPending}</p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <p className="text-xs text-gray-500">{t('inventory.warehouseApprovals.countSparePart')}</p>
-          <p className="mt-1 text-lg font-semibold" dir="ltr">{toNumber(counts.SPARE_PART)}</p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <p className="text-xs text-gray-500">{t('inventory.warehouseApprovals.countRawMaterial')}</p>
-          <p className="mt-1 text-lg font-semibold" dir="ltr">{toNumber(counts.RAW_MATERIAL)}</p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <p className="text-xs text-gray-500">{t('inventory.warehouseApprovals.countFinishedGoods')}</p>
-          <p className="mt-1 text-lg font-semibold" dir="ltr">{toNumber(counts.FINISHED_GOODS)}</p>
-        </div>
+        {TYPES.map((type) => (
+          <div key={type} className="rounded-lg border border-gray-200 bg-white p-3">
+            <p className="text-xs text-gray-500">{t(COUNT_LABEL_KEYS[type])}</p>
+            <p className="mt-1 text-lg font-semibold" dir="ltr">{toNumber(counts[type])}</p>
+          </div>
+        ))}
       </div>
 
-      <div className="mb-4 grid max-w-3xl grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="mb-4 grid max-w-4xl grid-cols-1 gap-3 md:grid-cols-3">
         <Select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
           placeholder={t('inventory.warehouseApprovals.allTypes')}
           options={TYPES.map((value) => ({ value, label: t(typeLabelKey(value)) }))}
+        />
+        <F9Lookup
+          label={t('inventory.finishedGoodsIssue.issueWarehouse')}
+          adapter={{
+            ...warehouseAdapter,
+            endpoint: '/inventory/issues/warehouses',
+            detailFilters: true,
+          }}
+          filters={typeFilter ? { type: typeFilter } : {}}
+          value={warehouseFilter}
+          onChange={setWarehouseFilter}
         />
         <Select
           value={statusFilter}

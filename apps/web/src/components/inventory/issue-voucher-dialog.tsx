@@ -7,7 +7,7 @@ import { Button, ConfirmDialog, Input, Modal, Select, Textarea } from '../admin/
 import { F9Lookup } from '../f9/F9Lookup';
 import { maintenanceRequestAdapter, productionOrderAdapter, productionRunAdapter, warehouseAdapter } from '../f9/lookup-adapters';
 import { IssueLinesEditor } from '../../app/admin/inventory/finished-goods-issues/_components/lines-editor';
-import { changeIssueType, changeIssueWarehouse, changeMaintenanceRequest, changeProductionOrder, changeProductionRun, IssueType, IssueVoucherForm } from './issue-voucher-form';
+import { changeIssueType, changeIssueWarehouse, changeMaintenanceRequest, changeProductionOrder, changeProductionRun, isGeneralIssueType, IssueType, IssueVoucherForm } from './issue-voucher-form';
 interface Props {
   form: IssueVoucherForm;
   onChange: (form: IssueVoucherForm) => void;
@@ -74,6 +74,7 @@ export function IssueVoucherDialog({
               }} value={form.productionRunId} disabled={saving || edit || !form.productionOrderId} onChange={id => dependentChange(changeProductionRun(form, id))} />
               <p className="text-sm text-gray-500">{t('inventory.issueVoucher.materialRequirement')}</p>
             </>}
+            {isGeneralIssueType(form.issueType) && <p className="text-sm text-gray-500">{t('inventory.issueVoucher.generalWorkflow')}</p>}
             <Input label={t('inventory.finishedGoodsIssue.issueDate')} type="date" value={form.date} disabled={saving || form.issueType === 'SPARE_PART'} onChange={event => onChange({
               ...form,
               date: event.target.value

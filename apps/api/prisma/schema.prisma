@@ -302,6 +302,8 @@ model Company {
   maintenanceExecutions MaintenanceTask[]
   sparePartIssues SparePartIssue[]
   sparePartIssueLines SparePartIssueLine[]
+  generalInventoryIssues     GeneralInventoryIssue[]
+  generalInventoryIssueLines GeneralInventoryIssueLine[]
 
   @@index([status])
   @@index([code])
@@ -404,6 +406,8 @@ model Branch {
   maintenanceExecutions MaintenanceTask[]
   sparePartIssues SparePartIssue[]
   sparePartIssueLines SparePartIssueLine[]
+  generalInventoryIssues     GeneralInventoryIssue[]
+  generalInventoryIssueLines GeneralInventoryIssueLine[]
 
   @@unique([companyId, code])
   @@index([status])
@@ -1567,6 +1571,7 @@ model Warehouse {
   fgReceiptDestinations            ProductionFinishedGoodsReceipt[]    @relation("FGReceiptWarehouse")
   fgIssueSources                   FinishedGoodsIssue[]                @relation("FGIssueWarehouse")
   sparePartIssues                  SparePartIssue[]                    @relation("SPIssueWarehouse")
+  generalIssues                    GeneralInventoryIssue[]             @relation("GIIssueWarehouse")
   requirementLines                 ProductionMaterialRequirementLine[]
   valuationPolicies                InventoryValuationPolicy[]
   valuationBalances                InventoryValuationBalance[]
@@ -1607,6 +1612,7 @@ model WarehouseLocation {
   fgReceiptLines        ProductionFinishedGoodsReceiptLine[]
   fgIssueLines          FinishedGoodsIssueLine[]
   sparePartIssueLines   SparePartIssueLine[]
+  generalIssueLines     GeneralInventoryIssueLine[]
 
   @@unique([warehouseId, code])
   @@index([status])
@@ -1697,6 +1703,7 @@ model Product {
   fgReceiptLines            ProductionFinishedGoodsReceiptLine[]
   finishedGoodsIssueLines   FinishedGoodsIssueLine[]
   sparePartIssueLines       SparePartIssueLine[]
+  generalIssueLines         GeneralInventoryIssueLine[]
   requirementLines          ProductionMaterialRequirementLine[]
   materialConsumptions      ProductionMaterialConsumption[]
   inspections               ProductionInspection[]
@@ -1957,6 +1964,7 @@ model InventoryMovement {
   finishedGoodsReceipts   ProductionFinishedGoodsReceipt[]
   finishedGoodsIssues     FinishedGoodsIssue[]
   sparePartIssues         SparePartIssue[]
+  generalInventoryIssues  GeneralInventoryIssue[]
 
   // NOTE: non-null uniqueness on (companyId, branchId, requestId) is enforced by a
   // SQL Server filtered unique index in migration 20260806200000 (WHERE [requestId]
@@ -5391,6 +5399,118 @@ model SparePartIssueLine {
   @@index([warehouseLocationId])
   @@index([issueId, sparePartId])
   @@map("spare_part_issue_lines")
+}
+
+/// Canonical general inventory OUT voucher authority for Product rows whose
+/// itemType is PACKAGING_MATERIAL, CONSUMABLE or GENERAL. It is deliberately
+/// separate from SparePartIssue and FinishedGoodsIssue and never serves as a
+/// generic issue store for the unified UI. InventoryMovement remains the sole
+/// physical stock authority; posting happens through that service.
+model GeneralInventoryIssue {
+  id               String             @id @default(cuid())
+  companyId        String
+  company          Company            @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId         String
+  branch           Branch             @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  issueNumber      String
+  /// Exact owned classification: PACKAGING_MATERIAL, CONSUMABLE or GENERAL.
+  issueType        String
+  issueWarehouseId String
+  issueWarehouse   Warehouse          @relation("GIIssueWarehouse", fields: [issueWarehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Business reason for leaving the issue warehouse (free text).
+  purpose          String?
+  status           String             @default("DRAFT")
+  movementId       String?
+  movement         InventoryMovement? @relation(fields: [movementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  movementNumber   String?
+  sourceType       String             @default("MANUAL")
+  requestId        String?
+  notes            String?
+  issueDate        DateTime           @default(now())
+
+  // Requester submission and the separate warehouse decision. All nullable so
+  // historical rows keep their status and no synthetic approval data is invented.
+  submittedAt                DateTime?
+  submittedById              String?
+  approvedAt                 DateTime?
+  approvedById               String?
+  rejectedAt                 DateTime?
+  rejectedById               String?
+  rejectionReason            String?
+  withdrawnAt                DateTime?
+  withdrawnById              String?
+  approvalCancelledAt        DateTime?
+  approvalCancelledById      String?
+  approvalCancellationReason String?
+
+  postedAt      DateTime?
+  cancelledAt   DateTime?
+  createdById   String
+  postedById    String?
+  cancelledById String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  /// Set on a compensating reversal issue (sourceType REVERSE) that offsets a
+  /// POSTED issue. The original issue is never mutated; the reversal itself
+  /// must be separately approved and posted.
+  reversesIssueId String?
+  reversesIssue   GeneralInventoryIssue?  @relation("GIIssueReversal", fields: [reversesIssueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reversalIssues  GeneralInventoryIssue[] @relation("GIIssueReversal")
+
+  lines GeneralInventoryIssueLine[]
+
+  @@unique([companyId, branchId, issueNumber])
+  @@unique([companyId, branchId, movementId])
+  // NOTE: non-null uniqueness on (companyId, branchId, requestId) is enforced by
+  // a SQL Server filtered unique index in the accompanying migration (WHERE
+  // [requestId] IS NOT NULL). SQL Server treats NULLs as equal inside a plain
+  // UNIQUE constraint, so a plain @@unique would allow only one requestId-less
+  // issue. That filtered index also serves requestId lookups.
+  @@index([companyId, branchId, status])
+  @@index([companyId, branchId, issueDate])
+  @@index([companyId, branchId, issueWarehouseId])
+  @@index([companyId, branchId, issueType])
+  @@index([movementId])
+  @@index([reversesIssueId])
+  @@index([companyId, branchId, requestId])
+  @@map("general_inventory_issues")
+}
+
+/// Immutable-per-document line snapshots for a directly selected Product.
+/// `productUomId` and `enteredUnitId` are scalar historical snapshots on
+/// purpose (no FK) so a line keeps its evidence if the UOM master changes.
+model GeneralInventoryIssueLine {
+  id                  String                @id @default(cuid())
+  companyId           String
+  company             Company               @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId            String
+  branch              Branch                @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  issueId             String
+  issue               GeneralInventoryIssue @relation(fields: [issueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productId           String
+  product             Product               @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productCodeSnapshot String
+  productNameSnapshot String
+  unit                String
+  quantity            Decimal               @db.Decimal(18, 4)
+  productUomId        String?
+  enteredUnitId       String?
+  warehouseLocationId String?
+  warehouseLocation   WarehouseLocation?    @relation(fields: [warehouseLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  batchNumber         String?
+  serialNumber        String?
+  expiryDate          DateTime?
+  lineNumber          Int                   @default(1)
+  notes               String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  @@index([issueId])
+  @@index([productId])
+  @@index([warehouseLocationId])
+  @@index([issueId, productId])
+  @@map("general_inventory_issue_lines")
 }
 
 model ProductionMaterialRequirement {

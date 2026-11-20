@@ -18,6 +18,7 @@ function makeService(overrides: Record<string, any> = {}) {
     sparePartIssue: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
     productionMaterialDocument: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
     finishedGoodsIssue: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+    generalInventoryIssue: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
     user: { findMany: jest.fn().mockResolvedValue([]) },
     ...overrides,
   };
@@ -27,7 +28,7 @@ function makeService(overrides: Record<string, any> = {}) {
 const baseQuery = { page: 1, limit: 20 } as any;
 
 describe('ApprovalsService', () => {
-  it('rejects a user with none of the three underlying read permissions', async () => {
+  it('rejects a user with none of the six underlying read permissions', async () => {
     const { service } = makeService();
 
     await expect(service.list(baseQuery, 'u1', ctxA)).rejects.toThrow(ForbiddenException);
@@ -63,10 +64,10 @@ describe('ApprovalsService', () => {
 
     expect(prisma.maintenanceRequestRequiredPart.findMany).not.toHaveBeenCalled();
     expect(prisma.productionMaterialDocument.findMany).not.toHaveBeenCalled();
-    expect(result.meta.counts).toEqual({ SPARE_PART: 0, RAW_MATERIAL: 0, FINISHED_GOODS: 1 });
+    expect(result.meta.counts).toEqual({ SPARE_PART: 0, RAW_MATERIAL: 0, FINISHED_GOOD: 1, PACKAGING_MATERIAL: 0, CONSUMABLE: 0, GENERAL: 0 });
     expect(result.data).toHaveLength(1);
     expect(result.data[0]).toMatchObject({
-      type: 'FINISHED_GOODS',
+      type: 'FINISHED_GOOD',
       reference: 'FGI-000001',
       lineCount: 2,
       totalQuantity: 8,
@@ -87,6 +88,7 @@ describe('ApprovalsService', () => {
     expect(prisma.sparePartIssue.findMany).toHaveBeenCalled();
     expect(prisma.productionMaterialDocument.findMany).toHaveBeenCalled();
     expect(prisma.finishedGoodsIssue.findMany).toHaveBeenCalled();
+    expect(prisma.generalInventoryIssue.findMany).toHaveBeenCalledTimes(3);
     expect(result.meta.total).toBe(0);
   });
 
@@ -98,6 +100,7 @@ describe('ApprovalsService', () => {
         'spare-part-issue:read',
         'production-material-document:read',
         'finished-goods-issue:read',
+        'general-inventory-issue:read',
       ]),
     ]);
 
@@ -125,6 +128,11 @@ describe('ApprovalsService', () => {
     expect(prisma.finishedGoodsIssue.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ companyId: 'c1', branchId: 'b1' }) }),
     );
+    expect(prisma.generalInventoryIssue.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ companyId: 'c1', branchId: 'b1', issueType: 'PACKAGING_MATERIAL' }),
+      }),
+    );
   });
 
   it('never returns another tenant\'s vouchers when the active context is Company B', async () => {
@@ -136,6 +144,7 @@ describe('ApprovalsService', () => {
         'spare-part-issue:read',
         'production-material-document:read',
         'finished-goods-issue:read',
+        'general-inventory-issue:read',
       ]),
     ]);
 
@@ -146,6 +155,7 @@ describe('ApprovalsService', () => {
       prisma.sparePartIssue,
       prisma.productionMaterialDocument,
       prisma.finishedGoodsIssue,
+      prisma.generalInventoryIssue,
     ]) {
       const where = model.findMany.mock.calls[0][0].where;
       expect(JSON.stringify(where)).not.toContain('c1');
@@ -160,6 +170,10 @@ describe('ApprovalsService', () => {
       branchId: 'b2',
     });
     expect(prisma.finishedGoodsIssue.findMany.mock.calls[0][0].where).toMatchObject({
+      companyId: 'c2',
+      branchId: 'b2',
+    });
+    expect(prisma.generalInventoryIssue.findMany.mock.calls[0][0].where).toMatchObject({
       companyId: 'c2',
       branchId: 'b2',
     });
@@ -338,7 +352,7 @@ describe('ApprovalsService', () => {
 
     expect(byKey.get('SPARE_PART:part1')?.authority).toBe('MAINTENANCE_REQUEST_PART');
     expect(byKey.get('RAW_MATERIAL:doc1')?.authority).toBe('FLAT');
-    expect(byKey.get('FINISHED_GOODS:fgi1')?.authority).toBe('FLAT');
+    expect(byKey.get('FINISHED_GOOD:fgi1')?.authority).toBe('FLAT');
   });
 
   it('returns a globally ordered, bounded page across families', async () => {
@@ -379,8 +393,79 @@ describe('ApprovalsService', () => {
     const result = await service.list(baseQuery, 'u1', ctxA);
 
     expect(result.meta.total).toBe(2);
-    expect(result.data.map((row: any) => row.type)).toEqual(['FINISHED_GOODS', 'RAW_MATERIAL']);
+    expect(result.data.map((row: any) => row.type)).toEqual(['FINISHED_GOOD', 'RAW_MATERIAL']);
     expect(prisma.productionMaterialDocument.findMany.mock.calls[0][0].take).toBe(20);
+  });
+
+  it('aggregates all three general issue types through their single native authority', async () => {
+    const { prisma, service } = makeService();
+    prisma.userRole.findMany.mockResolvedValue([userRole([
+      'general-inventory-issue:read',
+      'general-inventory-issue:approve',
+    ])]);
+    prisma.generalInventoryIssue.count.mockImplementation(({ where }: any) => Promise.resolve(
+      where.issueType === 'PACKAGING_MATERIAL' ? 2 : 0,
+    ));
+    prisma.generalInventoryIssue.findMany.mockImplementation(({ where }: any) => Promise.resolve(
+      where.issueType === 'PACKAGING_MATERIAL'
+        ? [{
+            id: 'gi1',
+            issueNumber: 'GIS-000001',
+            issueType: 'PACKAGING_MATERIAL',
+            purpose: 'Cartons',
+            status: 'SUBMITTED',
+            submittedAt: new Date('2026-03-03T10:00:00Z'),
+            submittedById: 'u3',
+            issueWarehouse: { id: 'wh2', code: 'PK', name: 'Packaging Store' },
+            lines: [{ quantity: 10 }, { quantity: 5 }],
+            createdAt: new Date('2026-03-03T09:00:00Z'),
+            issueDate: new Date('2026-03-03T09:00:00Z'),
+          }]
+        : [],
+    ));
+    prisma.user.findMany.mockResolvedValue([{ id: 'u3', name: 'Requester Three' }]);
+
+    const result = await service.list(baseQuery, 'u1', ctxA);
+
+    expect(result.meta.counts).toEqual({
+      SPARE_PART: 0,
+      RAW_MATERIAL: 0,
+      FINISHED_GOOD: 0,
+      PACKAGING_MATERIAL: 2,
+      CONSUMABLE: 0,
+      GENERAL: 0,
+    });
+    expect(result.data[0]).toMatchObject({
+      key: 'PACKAGING_MATERIAL:gi1',
+      type: 'PACKAGING_MATERIAL',
+      authority: 'GENERAL_INVENTORY_ISSUE',
+      reference: 'GIS-000001',
+      requestedByName: 'Requester Three',
+      lineCount: 2,
+      totalQuantity: 15,
+    });
+    expect(result.permissions).toEqual(expect.arrayContaining([
+      'general-inventory-issue:read',
+      'general-inventory-issue:approve',
+    ]));
+    expect(prisma.generalInventoryIssue.findMany).toHaveBeenCalledTimes(3);
+  });
+
+  it('filters by canonical issue type and accepts the legacy plural FG input alias', async () => {
+    const { prisma, service } = makeService();
+    prisma.userRole.findMany.mockResolvedValue([userRole([], 'SUPER_ADMIN')]);
+
+    await service.list({ ...baseQuery, type: 'FINISHED_GOODS' } as any, 'root', ctxA, true);
+    expect(prisma.finishedGoodsIssue.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.generalInventoryIssue.findMany).not.toHaveBeenCalled();
+
+    await service.list({ ...baseQuery, type: 'PACKAGING_MATERIAL' } as any, 'root', ctxA, true);
+    expect(prisma.generalInventoryIssue.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.generalInventoryIssue.findMany.mock.calls[0][0].where).toMatchObject({
+      companyId: 'c1',
+      branchId: 'b1',
+      issueType: 'PACKAGING_MATERIAL',
+    });
   });
 });
 
@@ -393,9 +478,20 @@ describe('unified issue tracking query', () => {
     expect(prisma.finishedGoodsIssue.findMany.mock.calls[0][0].where).toEqual({ companyId: 'c1', branchId: 'b1' });
     expect(prisma.productionMaterialDocument.findMany.mock.calls[0][0].where).toEqual({ companyId: 'c1', branchId: 'b1', documentType: 'ISSUE' });
     expect(prisma.maintenanceRequestRequiredPart.findMany.mock.calls[0][0].where.status).toBeUndefined();
+    expect(prisma.generalInventoryIssue.findMany.mock.calls[0][0].where).toEqual({
+      companyId: 'c1',
+      branchId: 'b1',
+      issueType: 'PACKAGING_MATERIAL',
+    });
     await service.list(baseQuery, 'root', ctxA);
     expect(prisma.finishedGoodsIssue.findMany.mock.calls[1][0].where.status).toBe('SUBMITTED');
     expect(prisma.maintenanceRequestRequiredPart.findMany.mock.calls[1][0].where.status).toBe('REQUESTED');
+    expect(prisma.generalInventoryIssue.findMany.mock.calls[3][0].where).toMatchObject({
+      companyId: 'c1',
+      branchId: 'b1',
+      issueType: 'PACKAGING_MATERIAL',
+      status: 'SUBMITTED',
+    });
   });
   it('scopes type/status/warehouse/requester/date/search filters without replacing tenant predicates', async () => {
     const { prisma, service } = makeService();

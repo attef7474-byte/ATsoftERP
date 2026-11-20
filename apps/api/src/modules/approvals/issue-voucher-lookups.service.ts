@@ -3,8 +3,19 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types';
 import { IssueCandidateQueryDto, IssueWarehouseQueryDto } from './dto/issue-voucher-query.dto';
-import { issueProductScope, issueSelectionError, issueWarehouseScope } from './issue-selection.policy';
-const PERMISSIONS = {
+import {
+  ISSUE_TYPES,
+  IssueType,
+  issueProductScope,
+  issueSelectionError,
+  issueWarehouseScope,
+  issueWarehouseScopeForType,
+  issueWarehouseScopeForTypes,
+  LegacyIssueTypeInput,
+  normalizeIssueTypeInput,
+} from './issue-selection.policy';
+
+const PERMISSIONS: Record<IssueType, string[]> = {
   SPARE_PART: [
     'maintenance-request-parts:read',
     'maintenance-request-parts:create',
@@ -14,12 +25,29 @@ const PERMISSIONS = {
     'spare-part-issue:update'
   ],
   RAW_MATERIAL: ['production-material-document:read', 'production-material-document:create', 'production-material-document:update'],
-  FINISHED_GOODS: ['finished-goods-issue:read', 'finished-goods-issue:create', 'finished-goods-issue:update']
+  FINISHED_GOOD: ['finished-goods-issue:read', 'finished-goods-issue:create', 'finished-goods-issue:update'],
+  PACKAGING_MATERIAL: ['general-inventory-issue:read', 'general-inventory-issue:create', 'general-inventory-issue:update'],
+  CONSUMABLE: ['general-inventory-issue:read', 'general-inventory-issue:create', 'general-inventory-issue:update'],
+  GENERAL: ['general-inventory-issue:read', 'general-inventory-issue:create', 'general-inventory-issue:update']
 };
+
+interface ResolvedIssueQuery<T extends { type?: LegacyIssueTypeInput }> {
+  query: T & { type?: IssueType };
+  type?: IssueType;
+}
+
 @Injectable()
 export class IssueVoucherLookupsService {
   constructor(private readonly prisma: PrismaService) {}
-  private async authorize(type: IssueWarehouseQueryDto['type'], userId: string) {
+
+  /** Legacy `FINISHED_GOODS` is accepted but never used downstream. */
+  private resolve<T extends { type?: LegacyIssueTypeInput }>(query: T): ResolvedIssueQuery<T> {
+    const type = normalizeIssueTypeInput(query.type);
+    return { query: { ...query, type }, type };
+  }
+
+  /** Returns the exact issue families the user may use; empty means denied. */
+  private async authorizedTypes(type: IssueType | undefined, userId: string): Promise<IssueType[]> {
     const roles = await this.prisma.userRole.findMany({
       where: {
         userId
@@ -36,24 +64,37 @@ export class IssueVoucherLookupsService {
         }
       }
     });
-    const allowed = roles.some(({
-      role
-    }) => role.status === 'ACTIVE' && (role.code === 'SUPER_ADMIN' || role.permissions.some(({
-      permission
-    }) => permission.status === 'ACTIVE' && (type ? PERMISSIONS[type] : Object.values(PERMISSIONS).flat()).includes(permission.key))));
-    if (!allowed) throw new ForbiddenException({
-      messageKey: 'auth.insufficientPermissions'
-    });
+    const activeRoles = roles.filter(({ role }) => role.status === 'ACTIVE');
+    const isSuperAdmin = activeRoles.some(({ role }) => role.code === 'SUPER_ADMIN');
+    const keys = new Set(activeRoles.flatMap(({ role }) => role.permissions
+      .filter(({ permission }) => permission.status === 'ACTIVE')
+      .map(({ permission }) => permission.key)));
+    const allowed = ISSUE_TYPES.filter(issueType => isSuperAdmin
+      || PERMISSIONS[issueType].some(key => keys.has(key)));
+    if (type && !allowed.includes(type)) {
+      throw new ForbiddenException({
+        messageKey: 'auth.insufficientPermissions'
+      });
+    }
+    if (!type && !allowed.length) {
+      throw new ForbiddenException({
+        messageKey: 'auth.insufficientPermissions'
+      });
+    }
+    return type ? [type] : allowed;
   }
-  private async context(query: IssueCandidateQueryDto, userId: string, ctx: ActiveOperationalContext) {
-    await this.authorize(query.type, userId);
+
+  private async context(query: IssueCandidateQueryDto & { type?: IssueType }, userId: string, ctx: ActiveOperationalContext) {
+    await this.authorizedTypes(query.type, userId);
+    if (!query.type) throw issueSelectionError();
     const warehouse = await this.prisma.warehouse.findFirst({
       where: {
         id: query.warehouseId,
-        ...issueWarehouseScope(ctx)
+        ...issueWarehouseScopeForType(query.type, ctx)
       }
     });
-    if (!warehouse || query.type === 'SPARE_PART' && ['PRODUCT', 'RAW_MATERIAL'].includes(warehouse.warehouseType ?? '')) throw issueSelectionError();
+    if (!warehouse) throw issueSelectionError();
+
     if (query.type === 'RAW_MATERIAL') {
       const order = query.productionOrderId && (await this.prisma.productionOrder.findFirst({
         where: {
@@ -76,7 +117,32 @@ export class IssueVoucherLookupsService {
         });
         if (!run) throw issueSelectionError();
       }
+    } else if (query.productionOrderId) {
+      // Optional domain context is allowed for other families, but it must
+      // still pass tenant/branch validation and may never widen the scope.
+      const order = await this.prisma.productionOrder.findFirst({
+        where: {
+          id: query.productionOrderId,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          deletedAt: null
+        }
+      });
+      if (!order) throw issueSelectionError();
+      if (query.productionRunId) {
+        const run = await this.prisma.productionRun.findFirst({
+          where: {
+            id: query.productionRunId,
+            productionOrderId: order.id,
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+            deletedAt: null
+          }
+        });
+        if (!run) throw issueSelectionError();
+      }
     }
+
     if (query.locationId && !(await this.prisma.warehouseLocation.findFirst({
       where: {
         id: query.locationId,
@@ -86,31 +152,24 @@ export class IssueVoucherLookupsService {
     }))) throw issueSelectionError();
     return warehouse;
   }
+
   async warehouses(query: IssueWarehouseQueryDto, userId: string, ctx: ActiveOperationalContext, id?: string) {
-    await this.authorize(query.type, userId);
+    const resolved = this.resolve(query);
+    const allowedTypes = await this.authorizedTypes(resolved.type, userId);
     const where: any = {
-      ...issueWarehouseScope(ctx),
-      ...(id ? {
-        id
-      } : {})
+      ...(resolved.type
+        ? issueWarehouseScopeForType(resolved.type, ctx)
+        : issueWarehouseScopeForTypes(allowedTypes, ctx)),
+      ...(id ? { id } : {})
     };
-    if (query.type === 'SPARE_PART') where.AND = [{
-      OR: [{
-        warehouseType: null
-      }, {
-        warehouseType: {
-          notIn: ['PRODUCT', 'RAW_MATERIAL']
-        }
-      }]
-    }];
-    if (query.search) where.AND = [...(where.AND || []), {
+    if (resolved.query.search) where.AND = [...(where.AND || []), {
       OR: [{
         code: {
-          contains: query.search
+          contains: resolved.query.search
         }
       }, {
         name: {
-          contains: query.search
+          contains: resolved.query.search
         }
       }]
     }];
@@ -133,37 +192,37 @@ export class IssueVoucherLookupsService {
       orderBy: {
         code: 'asc'
       },
-      take: query.limit,
-      skip: (query.page - 1) * query.limit
+      take: resolved.query.limit,
+      skip: (resolved.query.page - 1) * resolved.query.limit
     }), this.prisma.warehouse.count({
       where
     })]);
     return {
       data,
       meta: {
-        page: query.page,
-        limit: query.limit,
+        page: resolved.query.page,
+        limit: resolved.query.limit,
         total,
-        totalPages: Math.ceil(total / query.limit)
+        totalPages: Math.ceil(total / resolved.query.limit)
       }
     };
   }
+
   async locations(query: IssueCandidateQueryDto, userId: string, ctx: ActiveOperationalContext, id?: string) {
-    await this.context(query, userId, ctx);
+    const resolved = this.resolve(query);
+    await this.context(resolved.query, userId, ctx);
     const where = {
-      warehouseId: query.warehouseId,
+      warehouseId: resolved.query.warehouseId,
       status: 'ACTIVE',
-      ...(id ? {
-        id
-      } : {}),
-      ...(query.search ? {
+      ...(id ? { id } : {}),
+      ...(resolved.query.search ? {
         OR: [{
           code: {
-            contains: query.search
+            contains: resolved.query.search
           }
         }, {
           name: {
-            contains: query.search
+            contains: resolved.query.search
           }
         }]
       } : {})
@@ -185,27 +244,30 @@ export class IssueVoucherLookupsService {
       orderBy: {
         code: 'asc'
       },
-      take: query.limit,
-      skip: (query.page - 1) * query.limit
+      take: resolved.query.limit,
+      skip: (resolved.query.page - 1) * resolved.query.limit
     }), this.prisma.warehouseLocation.count({
       where
     })]);
     return {
       data,
       meta: {
-        page: query.page,
-        limit: query.limit,
+        page: resolved.query.page,
+        limit: resolved.query.limit,
         total,
-        totalPages: Math.ceil(total / query.limit)
+        totalPages: Math.ceil(total / resolved.query.limit)
       }
     };
   }
+
   async candidates(query: IssueCandidateQueryDto, userId: string, ctx: ActiveOperationalContext) {
-    await this.context(query, userId, ctx);
-    const productWhere = issueProductScope(query.type, query.warehouseId, ctx, query.productionOrderId);
-    const search = query.search?.trim();
-    const model = query.type === 'SPARE_PART' ? this.prisma.sparePart : this.prisma.product;
-    const where: any = query.type === 'SPARE_PART' ? {
+    const resolved = this.resolve(query);
+    await this.context(resolved.query, userId, ctx);
+    const type = resolved.type!;
+    const productWhere = issueProductScope(type, resolved.query.warehouseId, ctx, resolved.query.productionOrderId);
+    const search = resolved.query.search?.trim();
+    const model = type === 'SPARE_PART' ? this.prisma.sparePart : this.prisma.product;
+    const where: any = type === 'SPARE_PART' ? {
       status: 'ACTIVE',
       deletedAt: null,
       product: productWhere
@@ -226,7 +288,7 @@ export class IssueVoucherLookupsService {
         code: true,
         name: true,
         unit: true,
-        ...(query.type === 'SPARE_PART' ? {
+        ...(type === 'SPARE_PART' ? {
           productId: true,
           product: {
             select: {
@@ -249,24 +311,27 @@ export class IssueVoucherLookupsService {
       }, {
         id: 'asc'
       }],
-      skip: (query.page - 1) * query.limit,
-      take: query.limit
+      skip: (resolved.query.page - 1) * resolved.query.limit,
+      take: resolved.query.limit
     }), (model as any).count({
       where
     })]);
     return {
       data,
       meta: {
-        page: query.page,
-        limit: query.limit,
+        page: resolved.query.page,
+        limit: resolved.query.limit,
         total,
-        totalPages: Math.ceil(total / query.limit)
+        totalPages: Math.ceil(total / resolved.query.limit)
       }
     };
   }
+
   async candidate(id: string, query: IssueCandidateQueryDto, userId: string, ctx: ActiveOperationalContext) {
-    await this.context(query, userId, ctx);
-    const productScope = issueProductScope(query.type, query.warehouseId, ctx, query.productionOrderId);
+    const resolved = this.resolve(query);
+    await this.context(resolved.query, userId, ctx);
+    const type = resolved.type!;
+    const productScope = issueProductScope(type, resolved.query.warehouseId, ctx, resolved.query.productionOrderId);
     const include = {
       uoms: {
         where: {
@@ -277,7 +342,7 @@ export class IssueVoucherLookupsService {
         }
       }
     };
-    const item = query.type === 'SPARE_PART' ? await this.prisma.sparePart.findFirst({
+    const item = type === 'SPARE_PART' ? await this.prisma.sparePart.findFirst({
       where: {
         id,
         status: 'ACTIVE',
@@ -299,13 +364,16 @@ export class IssueVoucherLookupsService {
     if (!item) throw issueSelectionError();
     return item;
   }
+
   async stock(query: IssueCandidateQueryDto, userId: string, ctx: ActiveOperationalContext) {
-    await this.context(query, userId, ctx);
-    if (!query.productId) throw issueSelectionError();
+    const resolved = this.resolve(query);
+    await this.context(resolved.query, userId, ctx);
+    if (!resolved.query.productId) throw issueSelectionError();
+    const type = resolved.type!;
     const product = await this.prisma.product.findFirst({
       where: {
-        id: query.productId,
-        ...issueProductScope(query.type, query.warehouseId, ctx, query.productionOrderId)
+        id: resolved.query.productId,
+        ...issueProductScope(type, resolved.query.warehouseId, ctx, resolved.query.productionOrderId)
       },
       select: {
         id: true,
@@ -315,12 +383,12 @@ export class IssueVoucherLookupsService {
     if (!product) throw issueSelectionError();
     const where: any = {
       productId: product.id,
-      warehouseId: query.warehouseId,
+      warehouseId: resolved.query.warehouseId,
       warehouse: issueWarehouseScope(ctx)
     };
-    if (query.locationId) where.locationId = query.locationId;
-    if (query.batchNumber) where.batchNumber = query.batchNumber;
-    if (query.serialNumber) where.serialNumber = query.serialNumber;
+    if (resolved.query.locationId) where.locationId = resolved.query.locationId;
+    if (resolved.query.batchNumber) where.batchNumber = resolved.query.batchNumber;
+    if (resolved.query.serialNumber) where.serialNumber = resolved.query.serialNumber;
     where.AND = [{
       OR: [{
         serialNumber: null
@@ -332,19 +400,19 @@ export class IssueVoucherLookupsService {
         }
       }]
     }];
-    if (query.search) where.AND.push({
+    if (resolved.query.search) where.AND.push({
       OR: [{
         batchNumber: {
-          contains: query.search
+          contains: resolved.query.search
         }
       }, {
         serialNumber: {
-          contains: query.search
+          contains: resolved.query.search
         }
       }, {
         location: {
           name: {
-            contains: query.search
+            contains: resolved.query.search
           }
         }
       }]
@@ -363,8 +431,8 @@ export class IssueVoucherLookupsService {
       orderBy: {
         id: 'asc'
       },
-      skip: (query.page - 1) * query.limit,
-      take: query.limit
+      skip: (resolved.query.page - 1) * resolved.query.limit,
+      take: resolved.query.limit
     }), this.prisma.inventoryBalance.count({
       where
     })]);
@@ -394,25 +462,28 @@ export class IssueVoucherLookupsService {
       available,
       unit: product.unit,
       meta: {
-        page: query.page,
-        limit: query.limit,
+        page: resolved.query.page,
+        limit: resolved.query.limit,
         total,
-        totalPages: Math.ceil(total / query.limit)
+        totalPages: Math.ceil(total / resolved.query.limit)
       }
     };
   }
+
   async stockIdentity(id: string, query: IssueCandidateQueryDto, userId: string, ctx: ActiveOperationalContext) {
-    await this.context(query, userId, ctx);
-    if (!query.productId) throw issueSelectionError();
+    const resolved = this.resolve(query);
+    await this.context(resolved.query, userId, ctx);
+    if (!resolved.query.productId) throw issueSelectionError();
+    const type = resolved.type!;
     const item = await this.prisma.inventoryBalance.findFirst({
       where: {
         id,
-        warehouseId: query.warehouseId,
-        productId: query.productId,
+        warehouseId: resolved.query.warehouseId,
+        productId: resolved.query.productId,
         warehouse: issueWarehouseScope(ctx),
-        product: issueProductScope(query.type, query.warehouseId, ctx, query.productionOrderId),
-        ...(query.locationId ? {
-          locationId: query.locationId
+        product: issueProductScope(type, resolved.query.warehouseId, ctx, resolved.query.productionOrderId),
+        ...(resolved.query.locationId ? {
+          locationId: resolved.query.locationId
         } : {})
       },
       include: {

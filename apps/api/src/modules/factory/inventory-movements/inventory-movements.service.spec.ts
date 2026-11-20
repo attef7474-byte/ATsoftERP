@@ -134,6 +134,9 @@ describe('InventoryMovementsService', () => {
         findFirst: jest.fn(),
         findMany: jest.fn(),
       },
+      generalInventoryIssue: {
+        findFirst: jest.fn(),
+      },
       $transaction: jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>, options?: any) => {
         txOptions = options;
         return fn(prisma);
@@ -704,6 +707,72 @@ describe('InventoryMovementsService', () => {
       );
       expect(prisma.inventoryMovement.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: 'POSTED' }) }),
+      );
+      expect(result.status).toBe('POSTED');
+    });
+
+    it('VAL-PHASE5: posts a general issue reversal from trusted original cost without costRequired', async () => {
+      valuationEngine.findActivePolicyForWarehouse.mockResolvedValue({
+        id: 'pol-1', status: 'ACTIVE', currencyCode: 'USD', method: 'WEIGHTED_AVERAGE',
+      });
+      const originalLine = {
+        ...outLine,
+        id: 'ol1',
+        movementId: 'm0',
+        quantityBase: 5,
+        unitCost: new Prisma.Decimal(12),
+        totalCost: new Prisma.Decimal(60),
+        currencyCode: 'USD',
+        valuationMethod: 'WEIGHTED_AVERAGE',
+      };
+      const reversalMovement = movement({
+        movementType: 'GENERAL_INVENTORY_ISSUE_REVERSAL',
+        sourceType: 'GENERAL_INVENTORY_ISSUE',
+        lines: [line({ id: 'l1', direction: 'IN', quantity: 5, quantityBase: 5 })],
+      });
+      prisma.inventoryMovement.findUnique
+        .mockResolvedValueOnce(reversalMovement)
+        .mockResolvedValueOnce({ ...reversalMovement, status: 'POSTED' });
+      prisma.generalInventoryIssue.findFirst.mockResolvedValue({
+        id: 'gii-rev',
+        companyId: 'c1',
+        branchId: 'b1',
+        movementId: 'm1',
+        sourceType: 'REVERSE',
+        reversesIssueId: 'gii-src',
+        issueNumber: 'GIS-R1',
+        lines: [{ lineNumber: 1 }],
+        reversesIssue: {
+          companyId: 'c1',
+          branchId: 'b1',
+          status: 'POSTED',
+          movementId: 'm0',
+          movement: {
+            id: 'm0',
+            status: 'POSTED',
+            warehouseId: 'w1',
+            lines: [originalLine],
+          },
+        },
+      });
+      prisma.inventoryBalance.findFirst.mockResolvedValue({ id: 'bal1', warehouseId: 'w1', productId: 'prd1', quantity: 10 });
+      valuationEngine.aggregatePhysicalQuantity.mockResolvedValue(new Prisma.Decimal(10));
+
+      const result = await service.postGeneralIssueReversalMovementWithinTransaction(
+        prisma, 'gii-rev', 'm1', 'u1', ctx,
+      );
+
+      expect(valuationEngine.applyTrueReturn).toHaveBeenCalledWith(
+        prisma,
+        expect.objectContaining({
+          currencyCode: 'USD',
+          originalUnitCost: expect.any(Prisma.Decimal),
+          originalEventValue: expect.any(Prisma.Decimal),
+        }),
+      );
+      expect(valuationEngine.applyValuedReceipt).not.toHaveBeenCalled();
+      expect(prisma.inventoryBalance.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'bal1' } }),
       );
       expect(result.status).toBe('POSTED');
     });
