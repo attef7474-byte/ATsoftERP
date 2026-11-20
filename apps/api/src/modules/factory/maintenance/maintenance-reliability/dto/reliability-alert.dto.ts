@@ -1,5 +1,5 @@
-import { IsOptional, IsString, IsNumber, Min, Max, IsBooleanString, IsIn } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString, IsNumber, Min, Max, IsBooleanString, IsIn, MaxLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export const RELIABILITY_ALERT_TYPES = [
@@ -76,6 +76,38 @@ export class QueryReliabilityAlertsDto {
   search?: string;
 }
 
+export class AlertByIdQueryDto {
+  @ApiProperty()
+  @IsString()
+  @MaxLength(200)
+  alertId: string;
+}
+
+export class CreateAlertMaintenanceRequestDto extends AlertByIdQueryDto {
+  @ApiPropertyOptional({ enum: ['CORRECTIVE', 'PREVENTIVE'] })
+  @IsOptional()
+  @IsIn(['CORRECTIVE', 'PREVENTIVE'])
+  type?: 'CORRECTIVE' | 'PREVENTIVE';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  title?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  note?: string;
+}
+
 export class PlanningCandidateQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -101,4 +133,10 @@ export class PlanningCandidateQueryDto {
   @IsOptional()
   @IsString()
   installedPartId?: string;
+
+  @ApiPropertyOptional({ description: 'Derived alert id, used to link the created schedule back to the alert' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  alertId?: string;
 }

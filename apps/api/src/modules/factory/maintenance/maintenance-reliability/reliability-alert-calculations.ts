@@ -48,15 +48,33 @@ export interface ReliabilityAlert {
   machine: { id: string; code: string; name: string };
   productionLine: { id: string; code: string; name: string } | null;
   machineComponent: { id: string; code: string; name: string } | null;
-  sparePart: { id: string; code: string; name: string; partNumber: string | null; isCritical: boolean; unit: string | null };
+  sparePart: {
+    id: string;
+    code: string;
+    name: string;
+    partNumber: string | null;
+    isCritical: boolean;
+    unit: string | null;
+    defaultExpectedLifeValue: number | null;
+    defaultExpectedLifeUnit: string | null;
+    defaultWarningThresholdPercent: number | null;
+  };
   installedPartId: string | null;
   installedAt: string | null;
+  serialNumber: string | null;
+  batchNumber: string | null;
+  standardExpectedLifeValue: number | null;
+  standardExpectedLifeUnit: string | null;
+  standardWarningThresholdPercent: number | null;
   expectedLifeUnit: string | null;
   expectedLifeValue: number | null;
+  lifeStartReading: number | null;
+  currentReading: number | null;
   consumedPercent: number | null;
   remainingMs: number | null;
   remainingReading: number | null;
   expectedDueAt: string | null;
+  expectedDueReading: number | null;
   dueState: string;
   failureEventCount: number;
   prematureFailureCount: number;
@@ -71,11 +89,17 @@ export interface ReliabilityAlert {
 
 const SEVERITY_RANK: Record<ReliabilityAlertSeverity, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
 const SEVERITY_BY_RANK: ReliabilityAlertSeverity[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+const BAND_ORDER: Record<string, number> = { EXPIRED: 0, DUE: 1, WARNING: 2, NORMAL: 3, UNKNOWN: 4, 'N/A': 5 };
 
+/**
+ * One central severity authority. Base severity follows the documented Phase 4
+ * policy (approaching=MEDIUM, due=HIGH, overdue=CRITICAL). Canonical
+ * criticality may raise a signal by exactly one tier, capped at CRITICAL.
+ */
 const BASE_SEVERITY: Record<ReliabilityAlertType, ReliabilityAlertSeverity> = {
-  LIFE_APPROACHING_DUE: 'LOW',
-  LIFE_DUE: 'MEDIUM',
-  LIFE_OVERDUE: 'HIGH',
+  LIFE_APPROACHING_DUE: 'MEDIUM',
+  LIFE_DUE: 'HIGH',
+  LIFE_OVERDUE: 'CRITICAL',
   REPEATED_PREMATURE_FAILURE: 'HIGH',
   HIGH_REPLACEMENT_FREQUENCY: 'MEDIUM',
 };
@@ -180,12 +204,20 @@ export function deriveAlerts(rows: ReliabilityRow[], opts: DeriveAlertsOptions):
           sparePart: row.sparePart,
           installedPartId: row.current.id,
           installedAt: row.current.installedAt ? row.current.installedAt.toISOString() : null,
+          serialNumber: row.current.serialNumber,
+          batchNumber: row.current.batchNumber,
+          standardExpectedLifeValue: row.sparePart.defaultExpectedLifeValue,
+          standardExpectedLifeUnit: row.sparePart.defaultExpectedLifeUnit,
+          standardWarningThresholdPercent: row.sparePart.defaultWarningThresholdPercent,
           expectedLifeUnit: el.unit,
           expectedLifeValue: configuredExpectedLifeValue(el),
+          lifeStartReading: row.current.lifeStartReading,
+          currentReading: row.current.currentReading,
           consumedPercent: el.consumedPercent,
           remainingMs: el.remainingMs,
           remainingReading: el.remainingReading,
           expectedDueAt: el.expectedExpiryDate ? el.expectedExpiryDate.toISOString() : null,
+          expectedDueReading: el.expectedExpiryReading,
           dueState: el.band,
           failureEventCount: row.failureEventCount,
           prematureFailureCount: row.prematureFailureCount,
@@ -223,12 +255,20 @@ export function deriveAlerts(rows: ReliabilityRow[], opts: DeriveAlertsOptions):
         sparePart: row.sparePart,
         installedPartId: row.current?.id ?? null,
         installedAt: null,
+        serialNumber: null,
+        batchNumber: null,
+        standardExpectedLifeValue: row.sparePart.defaultExpectedLifeValue,
+        standardExpectedLifeUnit: row.sparePart.defaultExpectedLifeUnit,
+        standardWarningThresholdPercent: row.sparePart.defaultWarningThresholdPercent,
         expectedLifeUnit: null,
         expectedLifeValue: null,
+        lifeStartReading: null,
+        currentReading: null,
         consumedPercent: null,
         remainingMs: null,
         remainingReading: null,
         expectedDueAt: null,
+        expectedDueReading: null,
         dueState: 'N/A',
         failureEventCount: row.failureEventCount,
         prematureFailureCount: row.prematureFailureCount,
@@ -264,12 +304,20 @@ export function deriveAlerts(rows: ReliabilityRow[], opts: DeriveAlertsOptions):
           sparePart: row.sparePart,
           installedPartId: row.current?.id ?? null,
           installedAt: null,
+          serialNumber: null,
+          batchNumber: null,
+          standardExpectedLifeValue: row.sparePart.defaultExpectedLifeValue,
+          standardExpectedLifeUnit: row.sparePart.defaultExpectedLifeUnit,
+          standardWarningThresholdPercent: row.sparePart.defaultWarningThresholdPercent,
           expectedLifeUnit: null,
           expectedLifeValue: null,
+          lifeStartReading: null,
+          currentReading: null,
           consumedPercent: null,
           remainingMs: null,
           remainingReading: null,
           expectedDueAt: null,
+          expectedDueReading: null,
           dueState: 'N/A',
           failureEventCount: row.failureEventCount,
           prematureFailureCount: row.prematureFailureCount,
@@ -294,6 +342,9 @@ export function deriveAlerts(rows: ReliabilityRow[], opts: DeriveAlertsOptions):
   out.sort((a, b) => {
     const s = severityRank(b.severity) - severityRank(a.severity);
     if (s !== 0) return s;
+    // Critical overdue ranks above critical due; across equal bands, stable id.
+    const band = (BAND_ORDER[a.dueState] ?? 9) - (BAND_ORDER[b.dueState] ?? 9);
+    if (band !== 0) return band;
     return a.id.localeCompare(b.id);
   });
   return out;

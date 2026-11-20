@@ -84,9 +84,11 @@ useRegisterAdminActions([
     const q: Record<string, string> = { machineId: mid, sparePartId: spid };
     const comp = searchParams.get('planComponentId');
     const at = searchParams.get('planAlertType');
+    const aid = searchParams.get('planAlertId');
     const ip = searchParams.get('planInstalledPartId');
     if (comp) q.machineComponentId = comp;
     if (at) q.alertType = at;
+    if (aid) q.alertId = aid;
     if (ip) q.installedPartId = ip;
     api.get<any>('/maintenance/reliability/alerts/planning-candidate', { params: q })
       .then((cand) => {

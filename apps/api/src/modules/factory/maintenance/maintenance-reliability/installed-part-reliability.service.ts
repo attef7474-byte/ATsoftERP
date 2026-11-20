@@ -23,14 +23,28 @@ export interface ReliabilityRow {
   machine: { id: string; code: string; name: string };
   productionLine: { id: string; code: string; name: string } | null;
   machineComponent: { id: string; code: string; name: string } | null;
-  sparePart: { id: string; code: string; name: string; partNumber: string | null; manufacturer: string | null; isCritical: boolean; unit: string | null };
+  sparePart: {
+    id: string;
+    code: string;
+    name: string;
+    partNumber: string | null;
+    manufacturer: string | null;
+    isCritical: boolean;
+    unit: string | null;
+    defaultExpectedLifeValue: number | null;
+    defaultExpectedLifeUnit: string | null;
+    defaultWarningThresholdPercent: number | null;
+  };
   current: {
     id: string;
     status: string;
     installedAt: Date | null;
     installedQuantity: number;
     serialNumber: string | null;
+    batchNumber: string | null;
     installedCondition: string;
+    lifeStartReading: number | null;
+    currentReading: number | null;
     serviceLife: DurationValue;
     expectedLife: ExpectedLife;
   } | null;
@@ -140,7 +154,10 @@ export class InstalledPartReliabilityService {
         },
         machineComponent: { select: { id: true, code: true, name: true } },
         sparePart: {
-          select: { id: true, code: true, name: true, partNumber: true, manufacturer: true, isCritical: true, unit: true },
+          select: {
+            id: true, code: true, name: true, partNumber: true, manufacturer: true, isCritical: true, unit: true,
+            defaultExpectedLifeValue: true, defaultExpectedLifeUnit: true, defaultWarningThresholdPercent: true,
+          },
         },
       },
       orderBy: { installedAt: 'desc' },
@@ -286,7 +303,10 @@ export class InstalledPartReliabilityService {
             installedAt: part.installedAt,
             installedQuantity: part.installedQuantity,
             serialNumber: part.serialNumber ?? null,
+            batchNumber: part.batchNumber ?? null,
             installedCondition: part.installedCondition,
+            lifeStartReading: part.lifeStartReading ?? null,
+            currentReading: part.currentReading ?? null,
             serviceLife,
             expectedLife,
           };
@@ -358,6 +378,9 @@ export class InstalledPartReliabilityService {
           manufacturer: first.sparePart.manufacturer ?? null,
           isCritical: !!first.sparePart.isCritical,
           unit: first.sparePart.unit ?? null,
+          defaultExpectedLifeValue: first.sparePart.defaultExpectedLifeValue ?? null,
+          defaultExpectedLifeUnit: first.sparePart.defaultExpectedLifeUnit ?? null,
+          defaultWarningThresholdPercent: first.sparePart.defaultWarningThresholdPercent ?? null,
         },
         current,
         lastFailureAt,
@@ -396,6 +419,9 @@ export class InstalledPartReliabilityService {
     const nearExpectedEnd = rows.filter((r) => r.current && ['WARNING', 'DUE'].includes(r.current.expectedLife.band)).length;
     const overdueParts = rows.filter((r) => r.current && r.current.expectedLife.band === 'EXPIRED').length;
     const prematureFailures = rows.reduce((s, r) => s + r.prematureFailureCount, 0);
+    // Simple primary dashboard counts, always honest about unknown life.
+    const bands = rows.map((r) => r.current?.expectedLife.band ?? 'UNKNOWN');
+    const totalInstalledParts = rows.filter((r) => !!r.current).length;
 
     const mostReplaced = [...rows]
       .filter((r) => r.replacementCount > 0)
@@ -412,6 +438,12 @@ export class InstalledPartReliabilityService {
     return {
       populations: rows.length,
       activeInstalledParts,
+      totalInstalledParts,
+      normal: bands.filter((b) => b === 'NORMAL').length,
+      warning: bands.filter((b) => b === 'WARNING').length,
+      due: bands.filter((b) => b === 'DUE').length,
+      expired: bands.filter((b) => b === 'EXPIRED').length,
+      withoutLife: bands.filter((b) => b === 'UNKNOWN').length,
       nearExpectedEnd,
       overdueParts,
       prematureFailures,

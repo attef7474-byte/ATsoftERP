@@ -40,7 +40,9 @@ interface ReliabilityRow {
   mttr: { status: string; mttrHours: number | null; samples: number };
 }
 interface SummaryData {
-  populations: number; activeInstalledParts: number; nearExpectedEnd: number; overdueParts: number;
+  populations: number; activeInstalledParts: number; totalInstalledParts: number;
+  normal: number; warning: number; due: number; expired: number; withoutLife: number;
+  nearExpectedEnd: number; overdueParts: number;
   prematureFailures: number; hasExpectedLifeData: boolean;
   mostReplaced: { machine: { code: string; name: string }; sparePart: { code: string; name: string }; replacementCount: number }[];
   machinesWithMostFailures: { machine: { code: string; name: string }; sparePart: { code: string; name: string }; failureEventCount: number }[];
@@ -265,6 +267,35 @@ export default function InstalledPartReliabilityPage() {
           <Button variant="secondary" size="sm" onClick={clearFilters}>{t('maintenance.iprClear')}</Button>
         </div>
       </Card>
+
+      {summary && (
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4" data-testid="ipr-life-summary-cards">
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-blue-600">{summary.totalInstalledParts}</div>
+            <div className="text-xs text-gray-500 mt-1">{t('maintenance.iprTotalInstalledParts')}</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-green-600">{summary.normal}</div>
+            <div className="text-xs text-gray-500 mt-1">{bandLabel('NORMAL')}</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-amber-600">{summary.warning}</div>
+            <div className="text-xs text-gray-500 mt-1">{bandLabel('WARNING')}</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-orange-600">{summary.due}</div>
+            <div className="text-xs text-gray-500 mt-1">{bandLabel('DUE')}</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-red-600">{summary.expired}</div>
+            <div className="text-xs text-gray-500 mt-1">{bandLabel('EXPIRED')}</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-slate-500">{summary.withoutLife}</div>
+            <div className="text-xs text-gray-500 mt-1">{t('maintenance.iprWithoutLife')}</div>
+          </Card>
+        </div>
+      )}
 
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">

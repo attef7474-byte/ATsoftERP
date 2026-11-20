@@ -84,9 +84,9 @@ describe('Reliability alerts + preventive planning (read-only, derived)', () => 
     it('renders the evidence explanation', () => {
       const page = read(PAGE);
       expect(page).toContain("t('maintenance.ralWhyAlerted')");
-      expect(page).toContain('detail.evidence');
+      expect(page).toContain('detail.alert.evidence');
       expect(page).toContain("t('maintenance.ralRecommendedAction')");
-      expect(page).toContain('detail.recommendedAction');
+      expect(page).toContain('detail.alert.recommendedAction');
     });
   });
 
@@ -117,14 +117,22 @@ describe('Reliability alerts + preventive planning (read-only, derived)', () => 
     });
   });
 
-  describe('W9. The alert page is strictly read-only', () => {
-    it('performs only GET requests (no create/update/delete)', () => {
+  describe('W9. The alert page has exactly one explicit write path', () => {
+    it('uses GET plus the dedicated request bridge, with no other mutations', () => {
       const page = read(PAGE);
       expect(page).toContain('api.get<');
-      expect(page).not.toMatch(/api\.post\(/);
+      expect(page).toContain("api.post<{ created: boolean");
+      expect(page).toContain('/maintenance/reliability/alerts/maintenance-request');
       expect(page).not.toMatch(/api\.patch\(/);
       expect(page).not.toMatch(/api\.put\(/);
       expect(page).not.toMatch(/api\.delete\(/);
+    });
+    it('gates the explicit request action and prevents duplicate clicks', () => {
+      const page = read(PAGE);
+      expect(page).toContain("isPermissionGranted('maintenance-request:create'");
+      expect(page).toContain('canRequest');
+      expect(page).toContain('requestBusy');
+      expect(page).toContain('data-testid="ral-create-request"');
     });
   });
 
@@ -138,6 +146,14 @@ describe('Reliability alerts + preventive planning (read-only, derived)', () => 
         'ralPlanningNote', 'ralType_LIFE_APPROACHING_DUE', 'ralType_LIFE_DUE', 'ralType_LIFE_OVERDUE',
         'ralType_REPEATED_PREMATURE_FAILURE', 'ralType_HIGH_REPLACEMENT_FREQUENCY',
         'ralAction_INSPECT', 'ralAction_REPLACE', 'ralAction_CONDITION_CHECK', 'ralAction_DIAGNOSE_REPEATED_FAILURE',
+        'ralNotAvailable', 'ralPastDue', 'ralReadingBasedNoDate', 'ralColActionStatus', 'ralColRequestAction',
+        'ralActionStatus_NO_ACTION', 'ralActionStatus_MAINTENANCE_REQUESTED', 'ralActionStatus_SCHEDULED',
+        'ralActionStatus_MAINTENANCE_REQUESTED_AND_SCHEDULED', 'ralRequestAction', 'ralRequestNeedsPermission',
+        'ralRequestCreated', 'ralRequestAlreadyLinked', 'ralRequestFailed', 'ralRequestBusy', 'ralDetailFailed',
+        'ralStandardVsAppliedLife', 'ralStandardLife', 'ralAppliedLife', 'ralExpectedDueReading',
+        'ralFailureHistory', 'ralReadings', 'ralReplacementHistory', 'ralStockContext', 'ralStockNote',
+        'ralEvidence_basis', 'ralEvidence_band', 'ralEvidenceOther', 'ralBasisExpectedLife', 'ralBasisOther',
+        'iprTotalInstalledParts', 'iprWithoutLife',
         'scheduleFromAlertBanner', 'scheduleFromAlertSource', 'scheduleFromAlertLoadFailed',
       ];
       const en = read(EN_MAINT);
@@ -185,38 +201,49 @@ describe('Reliability alerts + preventive planning (read-only, derived)', () => 
   });
 
   describe('W14. Backend routes mirror the web calls and are permission-gated (§50)', () => {
-    it('declares the read-only alert routes with the shared permission', () => {
+    it('declares read routes plus one permission-gated request bridge', () => {
       const controller = readApi(ALERT_CONTROLLER);
       expect(controller).toContain("@Controller({ path: 'maintenance/reliability/alerts', version: '1' })");
       expect(controller).toContain('@Get()');
       expect(controller).toContain("@Get('summary')");
       expect(controller).toContain("@Get('data-quality')");
       expect(controller).toContain("@Get('planning-candidate')");
+      expect(controller).toContain("@Get('detail')");
+      expect(controller).toContain("@Get('action-status')");
+      expect(controller).toContain("@Post('maintenance-request')");
       expect(controller).toContain("@Permissions('maintenance-reliability:read')");
-      expect(controller).not.toMatch(/@Post\(/);
+      expect(controller).toContain("@Permissions('maintenance-request:create')");
       expect(controller).not.toMatch(/@Patch\(/);
       expect(controller).not.toMatch(/@Put\(/);
       expect(controller).not.toMatch(/@Delete\(/);
     });
-    it('wires the controller and providers in the module', () => {
+    it('wires the controller, canonical bridge providers and audit in the module', () => {
       const mod = readApi(MODULE_FILE);
       expect(mod).toContain('ReliabilityAlertsController');
       expect(mod).toContain('ReliabilityAlertsService');
       expect(mod).toContain('ReliabilityAlertThresholdsService');
+      expect(mod).toContain('AuditModule');
+      expect(mod).toContain('MaintenanceRequestsModule');
     });
   });
 
   describe('W15. Transition/creation boundaries are preserved (§54/§55)', () => {
-    it('the alert engine service performs no writes', () => {
+    it('the alert engine never writes lifecycle, inventory, schedule or work-order rows', () => {
       const service = readApi(ALERT_SERVICE);
-      expect(service).not.toMatch(/\.create\(/);
       expect(service).not.toMatch(/\.update\(/);
-      expect(service).not.toMatch(/\.delete\(/);
+      expect(service).not.toMatch(/prisma\.[A-Za-z]+\.delete/);
       expect(service).not.toMatch(/\.upsert\(/);
       expect(service).not.toMatch(/\$transaction/);
       expect(service).not.toMatch(/maintenanceWorkOrder\./);
-      expect(service).not.toMatch(/maintenanceRequest\./);
       expect(service).not.toMatch(/inventoryMovement\./);
+      expect(service).not.toMatch(/maintenanceSchedule\.create/);
+    });
+    it('the only write delegates to canonical request creation and is audited', () => {
+      const service = readApi(ALERT_SERVICE);
+      expect(service).toContain('this.maintenanceRequests.create(');
+      expect(service).toContain('CREATE_MAINTENANCE_REQUEST_FROM_ALERT');
+      expect(service).toContain('alertSourceToken');
+      expect(service).toContain('requestInFlight');
     });
     it('planning never auto-creates a schedule (delegated to the human form)', () => {
       const service = readApi(ALERT_SERVICE);
@@ -273,9 +300,9 @@ describe('Reliability alerts + preventive planning (read-only, derived)', () => 
     });
     it('base severity and recommended action per type are locked in the calc module', () => {
       const calc = readApi(ALERT_CALC);
-      expect(calc).toContain("LIFE_APPROACHING_DUE: 'LOW'");
-      expect(calc).toContain("LIFE_DUE: 'MEDIUM'");
-      expect(calc).toContain("LIFE_OVERDUE: 'HIGH'");
+      expect(calc).toContain("LIFE_APPROACHING_DUE: 'MEDIUM'");
+      expect(calc).toContain("LIFE_DUE: 'HIGH'");
+      expect(calc).toContain("LIFE_OVERDUE: 'CRITICAL'");
       expect(calc).toContain("REPEATED_PREMATURE_FAILURE: 'HIGH'");
       expect(calc).toContain("HIGH_REPLACEMENT_FREQUENCY: 'MEDIUM'");
       expect(calc).toContain("LIFE_APPROACHING_DUE: 'INSPECT'");
@@ -334,6 +361,70 @@ describe('Reliability alerts + preventive planning (read-only, derived)', () => 
     it('no page defines a bespoke lookup input', () => {
       expect(read(PAGE)).not.toContain('AutoCompleteLookup');
       expect(read(PAGE)).not.toContain('LookupModal');
+    });
+  });
+
+  describe('PHASE 4. Proactive alert consolidation and maintenance-action bridge', () => {
+    it('shows remaining life and derived action status in the grid', () => {
+      const page = read(PAGE);
+      expect(page).toContain("t('maintenance.ralColRemaining')");
+      expect(page).toContain('fmtRemaining');
+      expect(page).toContain("t('maintenance.ralColActionStatus')");
+      expect(page).toContain('actionStatusLabel');
+      expect(page).toContain('data-testid="ral-action-status"');
+    });
+    it('never fabricates a calendar date for reading-based life', () => {
+      const page = read(PAGE);
+      expect(page).toContain("t('maintenance.ralReadingBasedNoDate')");
+      expect(page).toContain('a.remainingReading');
+      expect(page).toContain('detail.appliedLife.expectedDueReading');
+    });
+    it('loads full evidence through the canonical detail endpoint', () => {
+      const page = read(PAGE);
+      expect(page).toContain("'/maintenance/reliability/alerts/detail'");
+      expect(page).toContain('data-testid="ral-alert-detail"');
+      expect(page).toContain('data-testid="ral-evidence-row"');
+      expect(page).toContain('data-testid="ral-failure-history"');
+      expect(page).toContain('detail.stock.warehouses');
+      expect(page).toContain('detail.standardLife');
+      expect(page).toContain('detail.appliedLife');
+    });
+    it('never renders internal evidence keys or status enums as user text', () => {
+      const page = read(PAGE);
+      expect(page).toContain('EVIDENCE_LABEL_KEYS');
+      expect(page).toContain('BASIS_LABEL_KEYS');
+      expect(page).toContain('ralEvidenceOther');
+      expect(page).toContain('evidenceLabel(k)');
+      expect(page).toContain('actionStatusLabel(detail.actions.status)');
+    });
+    it('links planning back to the exact alert without creating a second write path', () => {
+      const page = read(PAGE);
+      const sch = read(SCHEDULES);
+      expect(page).toContain("params.set('planAlertId', a.id)");
+      expect(sch).toContain("searchParams.get('planAlertId')");
+      expect(sch).toContain('q.alertId = aid');
+    });
+    it('shows the six simple life-status cards on installed parts', () => {
+      const ipr = read('src/app/admin/maintenance/reliability/installed-parts/page.tsx');
+      expect(ipr).toContain('data-testid="ipr-life-summary-cards"');
+      for (const field of ['totalInstalledParts', 'normal', 'warning', 'due', 'expired', 'withoutLife']) {
+        expect(ipr).toContain(`summary.${field}`);
+      }
+    });
+    it('deduplicates alert-to-request creation with a deterministic source token', () => {
+      const service = readApi(ALERT_SERVICE);
+      expect(service).toContain('export function alertSourceToken');
+      expect(service).toContain('source=reliability-alerts | alertId=');
+      expect(service).toContain('const existing = await this.linkedActions(alert, ctx)');
+      expect(service).toContain('if (existing.requests.length > 0)');
+      expect(readApi(DTO)).toContain('class CreateAlertMaintenanceRequestDto');
+    });
+    it('derives action status from canonical linked documents in bulk for the grid', () => {
+      const service = readApi(ALERT_SERVICE);
+      expect(service).toContain('attachActionStatuses');
+      expect(service).toContain('MAINTENANCE_REQUESTED_AND_SCHEDULED');
+      expect(service).toContain('prisma.maintenanceRequest.findMany');
+      expect(service).toContain('prisma.maintenanceSchedule.findMany');
     });
   });
 });

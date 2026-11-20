@@ -53,6 +53,9 @@ function row(over: any = {}): ReliabilityRow {
           installedAt: new Date('2026-06-01T00:00:00.000Z'),
           installedQuantity: 1,
           serialNumber: null,
+          batchNumber: null,
+          lifeStartReading: null,
+          currentReading: null,
           installedCondition: 'NEW',
           serviceLife: { state: 'OK', ms: 10 * DAY },
           expectedLife: over.expectedLife ?? expLife(),
@@ -64,6 +67,7 @@ function row(over: any = {}): ReliabilityRow {
     machineComponent: over.machineComponent === undefined ? { id: 'comp1', code: 'C-1', name: 'Comp One' } : over.machineComponent,
     sparePart: over.sparePart ?? {
       id: 's1', code: 'SP-1', name: 'Bearing', partNumber: 'B-100', manufacturer: 'ACME', isCritical: false, unit: 'PCS',
+      defaultExpectedLifeValue: null, defaultExpectedLifeUnit: null, defaultWarningThresholdPercent: null,
     },
     current,
     lastFailureAt: over.lastFailureAt ?? null,
@@ -83,19 +87,31 @@ describe('ReliabilityAlertsService', () => {
   let prisma: any;
   let reliability: any;
   let thresholds: any;
+  let maintenanceRequests: any;
+  let audit: any;
   let service: ReliabilityAlertsService;
 
   beforeEach(() => {
     prisma = {
       machineComponent: { findMany: jest.fn().mockResolvedValue([]) },
       maintenanceSchedule: { findMany: jest.fn().mockResolvedValue([]) },
+      maintenanceRequest: { findMany: jest.fn().mockResolvedValue([]) },
+      machineInstalledPart: { findFirst: jest.fn().mockResolvedValue(null), findMany: jest.fn().mockResolvedValue([]) },
+      sparePartReplacementHistory: { findMany: jest.fn().mockResolvedValue([]) },
+      sparePart: { findUnique: jest.fn().mockResolvedValue(null) },
+      inventoryBalance: { findMany: jest.fn().mockResolvedValue([]) },
+      machineInstalledPartReading: { count: jest.fn().mockResolvedValue(0) },
     };
     reliability = { buildRows: jest.fn().mockResolvedValue([]) };
     thresholds = { load: jest.fn().mockResolvedValue(NO_THRESHOLDS) };
+    maintenanceRequests = { create: jest.fn() };
+    audit = { log: jest.fn().mockResolvedValue({}) };
     service = new ReliabilityAlertsService(
       prisma as PrismaService,
       reliability as InstalledPartReliabilityService,
       thresholds as ReliabilityAlertThresholdsService,
+      maintenanceRequests as any,
+      audit as any,
     );
   });
 
@@ -133,12 +149,14 @@ describe('ReliabilityAlertsService', () => {
     it('filters by severity', async () => {
       reliability.buildRows.mockResolvedValue([
         row({ key: 'k1', expectedLife: expLife({ band: 'WARNING' }) }),
-        row({ key: 'k2', sparePart: { ...row().sparePart, id: 's2' }, expectedLife: expLife({ band: 'EXPIRED' }) }),
+        row({ key: 'k2', sparePart: { ...row().sparePart, id: 's2' }, expectedLife: expLife({ band: 'DUE' }) }),
+        row({ key: 'k3', sparePart: { ...row().sparePart, id: 's3' }, expectedLife: expLife({ band: 'EXPIRED' }) }),
       ]);
 
       const result = await service.listAlerts({ severity: 'HIGH' }, ctx);
       expect(result.data).toHaveLength(1);
       expect(result.data[0].severity).toBe('HIGH');
+      expect(result.data[0].dueState).toBe('DUE');
     });
 
     it('filters by dueState', async () => {
@@ -181,6 +199,30 @@ describe('ReliabilityAlertsService', () => {
       ]);
       await service.listAlerts({}, ctx);
       expect(prisma.machineComponent.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.machineComponent.findMany.mock.calls[0][0].where).toMatchObject({
+        id: { in: ['comp1'] },
+        OR: [
+          { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] },
+          { companyId: null, branchId: null },
+        ],
+      });
+    });
+
+    it('scopes bulk action-status lookups to the active tenant and branch', async () => {
+      reliability.buildRows.mockResolvedValue([row({ expectedLife: expLife({ band: 'DUE' }) })]);
+
+      await service.listAlerts({}, ctx);
+
+      const machineScope = { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] };
+      expect(prisma.maintenanceRequest.findMany.mock.calls[0][0].where).toMatchObject({
+        machine: machineScope,
+        machineId: { in: ['m1'] },
+        deletedAt: null,
+      });
+      expect(prisma.maintenanceSchedule.findMany.mock.calls[0][0].where).toMatchObject({
+        machine: machineScope,
+        machineId: { in: ['m1'] },
+      });
     });
   });
 
@@ -260,11 +302,35 @@ describe('ReliabilityAlertsService', () => {
         type: 'PREVENTIVE',
       });
       expect(cand.prefill.description).toContain('source=reliability-alerts');
+      expect(cand.prefill.description.match(/source=reliability-alerts/g)).toHaveLength(1);
       expect(cand.prefill.description).toContain('alertType=LIFE_DUE');
       expect(cand.recommendedAction).toBe('REPLACE');
       expect(cand.recommendedDate).toBe('2026-12-01T00:00:00.000Z');
       expect(cand.hasExistingOpenPlan).toBe(true);
       expect(cand.existingOpenPlans).toHaveLength(1);
+      expect(prisma.maintenanceSchedule.findMany.mock.calls[0][0].where).toMatchObject({
+        machine: { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] },
+        machineId: 'm1',
+        status: 'ACTIVE',
+        type: 'PREVENTIVE',
+      });
+    });
+
+    it('rejects a client-supplied installed part outside the scoped machine/part population', async () => {
+      reliability.buildRows.mockResolvedValue([row({ key: 'm1::s1' })]);
+      prisma.machineInstalledPart.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getPlanningCandidate({ machineId: 'm1', sparePartId: 's1', installedPartId: 'foreign-part' }, ctx),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.machineInstalledPart.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 'foreign-part',
+          machine: { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] },
+          sparePartId: 's1',
+        },
+        select: { id: true },
+      });
     });
 
     it('defaults to LIFE_DUE and reports no existing plan when the machine has none', async () => {
@@ -294,6 +360,115 @@ describe('ReliabilityAlertsService', () => {
       expect((service as any).defer).toBeUndefined();
       expect((service as any).dismiss).toBeUndefined();
       expect((service as any).resolve).toBeUndefined();
+    });
+  });
+
+  describe('alert action bridge', () => {
+    const user: any = { id: 'u1' };
+    const alertId = 'ip1:LIFE_OVERDUE';
+
+    it('creates a canonical request with prefilled context and audits the alert source', async () => {
+      reliability.buildRows.mockResolvedValue([row({ expectedLife: expLife({ band: 'EXPIRED' }) })]);
+      maintenanceRequests.create.mockResolvedValue({
+        id: 'req1', requestNumber: 'MR-1', title: 'Machine / part', status: 'OPEN', priority: 'URGENT', type: 'CORRECTIVE',
+      });
+
+      const result = await service.createMaintenanceRequestFromAlert(
+        { alertId, description: 'Overdue bearing replacement' }, user, ctx,
+      );
+
+      expect(result.created).toBe(true);
+      expect(result.sourceToken).toContain(`alertId=${alertId}`);
+      expect(maintenanceRequests.create).toHaveBeenCalledTimes(1);
+      expect(maintenanceRequests.create.mock.calls[0][0]).toMatchObject({
+        machineId: 'm1',
+        type: 'CORRECTIVE',
+        priority: 'URGENT',
+      });
+      expect(maintenanceRequests.create.mock.calls[0][0].description).toBe('Overdue bearing replacement');
+      expect(maintenanceRequests.create.mock.calls[0][0].description).not.toContain('source=reliability-alerts');
+      expect(maintenanceRequests.create.mock.calls[0][0].notes).toContain(`alertId=${alertId}`);
+      expect(maintenanceRequests.create.mock.calls[0][0].requiredParts[0]).toMatchObject({
+        sparePartId: 's1', machineId: 'm1', quantity: 1, isPrimary: true,
+      });
+      expect(audit.log).toHaveBeenCalledWith(
+        'u1',
+        'CREATE_MAINTENANCE_REQUEST_FROM_ALERT',
+        'MaintenanceRequest',
+        'req1',
+        expect.stringContaining(alertId),
+      );
+    });
+
+    it('returns the existing linked request on a repeated click (no duplicate)', async () => {
+      reliability.buildRows.mockResolvedValue([row({ expectedLife: expLife({ band: 'EXPIRED' }) })]);
+      const linked = { id: 'req1', requestNumber: 'MR-1', title: 'Machine / part', status: 'OPEN', priority: 'URGENT', type: 'CORRECTIVE' };
+      prisma.maintenanceRequest.findMany.mockResolvedValue([linked]);
+
+      const result = await service.createMaintenanceRequestFromAlert({ alertId }, user, ctx);
+
+      expect(result.created).toBe(false);
+      expect(result.request).toEqual(linked);
+      expect(maintenanceRequests.create).not.toHaveBeenCalled();
+      expect(prisma.maintenanceRequest.findMany.mock.calls[0][0].where).toMatchObject({
+        machine: { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] },
+        machineId: 'm1',
+        deletedAt: null,
+      });
+    });
+
+    it('rejects an alert id from another tenant through the scoped reliability layer', async () => {
+      reliability.buildRows.mockResolvedValue([]);
+      await expect(service.createMaintenanceRequestFromAlert({ alertId: 'other:LIFE_DUE' }, user, ctx))
+        .rejects.toThrow(NotFoundException);
+      expect(reliability.buildRows).toHaveBeenCalledWith({}, ctx);
+      expect(maintenanceRequests.create).not.toHaveBeenCalled();
+    });
+
+    it('derives action status from linked canonical documents only', async () => {
+      reliability.buildRows.mockResolvedValue([row({ expectedLife: expLife({ band: 'EXPIRED' }) })]);
+      prisma.maintenanceRequest.findMany.mockResolvedValue([]);
+      prisma.maintenanceSchedule.findMany.mockResolvedValue([]);
+      expect((await service.getActionStatus({ alertId }, ctx)).status).toBe('NO_ACTION');
+      prisma.maintenanceSchedule.findMany.mockResolvedValue([{ id: 'sch1', title: 'PM', type: 'PREVENTIVE', status: 'ACTIVE' }]);
+      expect((await service.getActionStatus({ alertId }, ctx)).status).toBe('SCHEDULED');
+    });
+
+    it('shows each failed instance its own applied life and scopes linked history', async () => {
+      reliability.buildRows.mockResolvedValue([row({ expectedLife: expLife({ band: 'EXPIRED' }) })]);
+      prisma.machineInstalledPart.findMany.mockResolvedValue([{
+        id: 'failed1',
+        installedAt: new Date('2026-01-01T00:00:00.000Z'),
+        removedAt: new Date('2026-02-01T00:00:00.000Z'),
+        status: 'FAILED',
+        serialNumber: null,
+        batchNumber: null,
+        expectedLifeValue: 17,
+        expectedLifeUnit: 'DAYS',
+        lifeStartDate: new Date('2026-01-01T00:00:00.000Z'),
+        lifeStartReading: null,
+        currentReading: null,
+        warningThresholdPercent: 80,
+        removedReason: 'WEAR',
+        maintenanceRequest: null,
+      }]);
+
+      const detail = await service.getAlertDetail({ alertId }, ctx);
+
+      expect(detail.failureHistory[0]).toMatchObject({
+        installedPartId: 'failed1',
+        expectedLifeValue: 17,
+        expectedLifeUnit: 'DAYS',
+      });
+      expect(prisma.machineInstalledPart.findMany.mock.calls[0][0].where).toMatchObject({
+        machine: { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] },
+        machineId: 'm1',
+        status: 'FAILED',
+      });
+      expect(prisma.sparePartReplacementHistory.findMany.mock.calls[0][0].where).toMatchObject({
+        machine: { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] },
+        machineId: 'm1',
+      });
     });
   });
 });

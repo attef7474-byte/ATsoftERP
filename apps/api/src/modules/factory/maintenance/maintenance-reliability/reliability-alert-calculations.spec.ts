@@ -47,6 +47,9 @@ function row(over: any = {}): ReliabilityRow {
           installedAt: new Date('2026-06-01T00:00:00.000Z'),
           installedQuantity: 1,
           serialNumber: null,
+          batchNumber: null,
+          lifeStartReading: null,
+          currentReading: null,
           installedCondition: 'NEW',
           serviceLife: { state: 'OK', ms: 10 * DAY },
           expectedLife: over.expectedLife ?? expLife(),
@@ -58,6 +61,7 @@ function row(over: any = {}): ReliabilityRow {
     machineComponent: over.machineComponent === undefined ? { id: 'comp1', code: 'C-1', name: 'Comp One' } : over.machineComponent,
     sparePart: over.sparePart ?? {
       id: 's1', code: 'SP-1', name: 'Bearing', partNumber: 'B-100', manufacturer: 'ACME', isCritical: false, unit: 'PCS',
+      defaultExpectedLifeValue: null, defaultExpectedLifeUnit: null, defaultWarningThresholdPercent: null,
     },
     current,
     lastFailureAt: over.lastFailureAt ?? null,
@@ -83,28 +87,28 @@ function derive(rows: ReliabilityRow[], opts: Partial<Parameters<typeof deriveAl
 describe('reliability-alert-calculations', () => {
   // ── §59 Installed-part life alerts (A1–A7) ────────────────────────────────
   describe('§59 life alerts', () => {
-    it('A1 WARNING band → LIFE_APPROACHING_DUE, LOW, INSPECT', () => {
+    it('A1 WARNING band → LIFE_APPROACHING_DUE, MEDIUM, INSPECT', () => {
       const alerts = derive([row({ expectedLife: expLife({ band: 'WARNING', progress: 0.85, consumedPercent: 85 }) })]);
       const life = alerts.find((a) => a.alertType === 'LIFE_APPROACHING_DUE');
       expect(life).toBeDefined();
-      expect(life!.severity).toBe('LOW');
+      expect(life!.severity).toBe('MEDIUM');
       expect(life!.recommendedAction).toBe('INSPECT');
     });
 
-    it('A2 DUE band → LIFE_DUE, MEDIUM, REPLACE', () => {
+    it('A2 DUE band → LIFE_DUE, HIGH, REPLACE', () => {
       const alerts = derive([row({ expectedLife: expLife({ band: 'DUE', progress: 0.95, consumedPercent: 95 }) })]);
       const life = alerts.find((a) => a.alertType === 'LIFE_DUE');
       expect(life).toBeDefined();
-      expect(life!.severity).toBe('MEDIUM');
+      expect(life!.severity).toBe('HIGH');
       expect(life!.recommendedAction).toBe('REPLACE');
       expect(life!.dueState).toBe('DUE');
     });
 
-    it('A3 EXPIRED band → LIFE_OVERDUE, HIGH, REPLACE', () => {
+    it('A3 EXPIRED band → LIFE_OVERDUE, CRITICAL, REPLACE', () => {
       const alerts = derive([row({ expectedLife: expLife({ band: 'EXPIRED', progress: 1.2, consumedPercent: 120 }) })]);
       const life = alerts.find((a) => a.alertType === 'LIFE_OVERDUE');
       expect(life).toBeDefined();
-      expect(life!.severity).toBe('HIGH');
+      expect(life!.severity).toBe('CRITICAL');
       expect(life!.recommendedAction).toBe('REPLACE');
     });
 
@@ -130,8 +134,8 @@ describe('reliability-alert-calculations', () => {
       const rows = [row({ expectedLife: expLife({ band: 'DUE' }) })];
       const without = derive(rows, { componentCriticalityById: compNormal() });
       const withCritical = derive(rows, { componentCriticalityById: compCritical() });
-      expect(without[0].severity).toBe('MEDIUM');
-      expect(withCritical[0].severity).toBe('HIGH');
+      expect(without[0].severity).toBe('HIGH');
+      expect(withCritical[0].severity).toBe('CRITICAL');
       expect(withCritical[0].criticalitySource).toBe('COMPONENT_CRITICAL');
     });
 
@@ -240,14 +244,14 @@ describe('reliability-alert-calculations', () => {
 
   // ── §62 Severity + dedup + purity ─────────────────────────────────────────
   describe('§62 severity, ordering and purity', () => {
-    it('R1 alerts are sorted by descending severity, then id', () => {
+    it('R1 alerts are sorted by descending severity, then due-state and id', () => {
       const rows = [
         row({ sparePart: { id: 's1', code: 'A', name: 'A', partNumber: null, manufacturer: null, isCritical: false, unit: null }, expectedLife: expLife({ band: 'WARNING' }) }),
         row({ machine: { id: 'm2', code: 'M-2', name: 'M2' }, sparePart: { id: 's2', code: 'B', name: 'B', partNumber: null, manufacturer: null, isCritical: false, unit: null }, expectedLife: expLife({ band: 'EXPIRED' }) }),
         row({ machine: { id: 'm3', code: 'M-3', name: 'M3' }, sparePart: { id: 's3', code: 'C', name: 'C', partNumber: null, manufacturer: null, isCritical: false, unit: null }, expectedLife: expLife({ band: 'DUE' }) }),
       ];
       const alerts = derive(rows);
-      expect(alerts.map((a) => a.severity)).toEqual(['HIGH', 'MEDIUM', 'LOW']);
+      expect(alerts.map((a) => a.severity)).toEqual(['CRITICAL', 'HIGH', 'MEDIUM']);
     });
 
     it('R2 severityRank is monotonic', () => {
@@ -259,7 +263,7 @@ describe('reliability-alert-calculations', () => {
     it('R3 no fabrication: absent criticality yields NONE and no raise', () => {
       const alerts = derive([row({ expectedLife: expLife({ band: 'DUE' }) })], { componentCriticalityById: noComps });
       expect(alerts[0].criticalitySource).toBe('NONE');
-      expect(alerts[0].severity).toBe('MEDIUM');
+      expect(alerts[0].severity).toBe('HIGH');
     });
 
     it('R4 criticalityOf prefers component CRITICAL over spare-part flag', () => {
@@ -283,6 +287,41 @@ describe('reliability-alert-calculations', () => {
       expect(recommendedActionFor('LIFE_OVERDUE')).toBe('REPLACE');
       expect(recommendedActionFor('REPEATED_PREMATURE_FAILURE')).toBe('DIAGNOSE_REPEATED_FAILURE');
       expect(recommendedActionFor('HIGH_REPLACEMENT_FREQUENCY')).toBe('CONDITION_CHECK');
+    });
+
+    it('R8 stable ordering puts critical overdue before critical due and never duplicates on repeat derivation', () => {
+      const rows = [
+        row({ key: 'a', sparePart: { ...row().sparePart, id: 's1' }, expectedLife: expLife({ band: 'DUE' }) }),
+        row({ key: 'b', sparePart: { ...row().sparePart, id: 's2' }, expectedLife: expLife({ band: 'EXPIRED' }) }),
+        row({ key: 'c', sparePart: { ...row().sparePart, id: 's3' }, expectedLife: expLife({ band: 'WARNING' }) }),
+      ];
+      const first = derive(rows);
+      const second = derive(rows);
+      expect(first.map((a) => a.alertType)).toEqual(second.map((a) => a.alertType));
+      expect(first[0].dueState).toBe('EXPIRED');
+      expect(first[1].dueState).toBe('DUE');
+      expect(new Set(first.map((a) => a.id)).size).toBe(first.length);
+    });
+
+    it('R9 catalog standard life and applied snapshot are carried separately in evidence', () => {
+      const alerts = derive([row({
+        sparePart: {
+          ...row().sparePart,
+          defaultExpectedLifeValue: 8000,
+          defaultExpectedLifeUnit: 'HOURS',
+          defaultWarningThresholdPercent: 80,
+        },
+        expectedLife: expLife({
+          band: 'WARNING', unit: 'HOURS', consumedPercent: 84,
+          expectedExpiryDate: null, expectedExpiryReading: 8000,
+        }),
+      })]);
+      const alert = alerts[0];
+      expect(alert.standardExpectedLifeValue).toBe(8000);
+      expect(alert.standardExpectedLifeUnit).toBe('HOURS');
+      expect(alert.standardWarningThresholdPercent).toBe(80);
+      expect(alert.expectedDueReading).toBe(8000);
+      expect(alert.expectedDueAt).toBeNull();
     });
 
     it('R7 eligibility counters are honest per row', () => {
