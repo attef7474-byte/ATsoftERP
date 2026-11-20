@@ -593,6 +593,9 @@ export class ReliabilityAlertsService {
         machineId: alert.machine.id,
         machineComponentId: alert.machineComponent?.id ?? undefined,
         productionLineId: alert.productionLine?.id ?? undefined,
+        // A derived alert is a signal, not a confirmed stoppage. Never open a
+        // downtime event implicitly from a proactive reliability alert.
+        machineStopped: false,
         type,
         priority,
         // The token is provenance, not user-facing copy. Canonical request

@@ -382,6 +382,8 @@ describe('ReliabilityAlertsService', () => {
       expect(maintenanceRequests.create).toHaveBeenCalledTimes(1);
       expect(maintenanceRequests.create.mock.calls[0][0]).toMatchObject({
         machineId: 'm1',
+        // A proactive alert must never implicitly open a machine downtime.
+        machineStopped: false,
         type: 'CORRECTIVE',
         priority: 'URGENT',
       });
