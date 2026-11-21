@@ -7,6 +7,7 @@ import { isPermissionGranted } from '../../../lib/permission-gate';
 import { useTranslation } from '../../../lib/i18n/use-translation';
 import { AdminActionBarProvider, useAdminActionBar } from '../admin-action-bar';
 import { ArchivedContextBanner } from '../operational-context';
+import { GovernanceExcelExportAction } from '../excel-governance-export-action';
 import { UnifiedSearchModal } from '../../f9/UnifiedSearchModal';
 import { useAppearance } from '../theme/appearance-provider';
 import { Breadcrumb } from './breadcrumb';
@@ -193,6 +194,7 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
 
       <main className="admin-main">
         <ArchivedContextBanner />
+        <GovernanceExcelExportAction pathname={pathname} />
         <div className="admin-main-inner">{children}</div>
       </main>
 
