@@ -1,5 +1,9 @@
 {
   "database": "ATsoftERP_PERSONNEL_P1_INTEGRATED_20261121",
+  "proofScriptSha256": "84b28d6f81a22fc3330b8ad48d8f4cad8c987a0b757f7a191c3c840e9e4cf094",
+  "runId": "be8a29ce-9f2a-44f7-b42e-bb8026abdc3a",
+  "startedAt": "2026-11-21T17:25:14.225Z",
+  "status": "PASS",
   "sourceDatabaseWrites": 0,
   "checks": [
     {
@@ -40,6 +44,10 @@
     },
     {
       "check": "Legacy maintenance create is tenant-anchored and cannot bypass shared duplicate protection",
+      "status": "PASS"
+    },
+    {
+      "check": "Legacy maintenance create cannot bypass operational-person create permission",
       "status": "PASS"
     },
     {
@@ -105,19 +113,23 @@
     {
       "check": "Browser person history still displays all four placement rows",
       "status": "PASS"
+    },
+    {
+      "check": "Browser authorized maintenance registration action remains available",
+      "status": "PASS"
     }
   ],
   "fixtureIds": {
-    "companyId": "cmwqnyi2i00008895mcp683uh",
-    "companyBId": "cmwqnyi3000018895v3f9eghg",
-    "actorId": "cmwqnyi70000a8895mjgo8c0w",
-    "branchId": "cmwqnyi3b00028895qun9me2y",
+    "companyId": "cmwqohzbh0000gk95c3k1edyx",
+    "companyBId": "cmwqohzc20001gk95v2rxtvgg",
+    "actorId": "cmwqohzi2000agk956wja629p",
+    "branchId": "cmwqohzci0002gk959ouzryqo",
     "departmentIds": [
-      "cmwqnyi4600058895bv25qtyx",
-      "cmwqnyi4m00068895iy52mnml",
-      "cmwqnyi4t000788959s8z7paz"
+      "cmwqohzdm0005gk95g4r9jr3m",
+      "cmwqohze20006gk95bgyys682",
+      "cmwqohzec0007gk95hgddmorl"
     ],
-    "personId": "cmwqnyii2000d8895om94y506"
+    "personId": "cmwqohzws000dgk95jwoaz838"
   },
   "browser": {
     "consoleErrors": [
@@ -134,6 +146,140 @@
     ],
     "failedApiResponses": [],
     "assetFailures": [],
+    "networkFailures": [
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/departments/cmwqohzdm0005gk95g4r9jr3m",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/departments/cmwqohzdm0005gk95g4r9jr3m",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/departments/cmwqohzdm0005gk95g4r9jr3m",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/person-registrations",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/departments/cmwqohzdm0005gk95g4r9jr3m",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqohzci0002gk959ouzryqo",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      }
+    ],
     "screenshots": [
       "test-results/personnel-p1-en.png",
       "test-results/personnel-p1-ar.png"
@@ -151,25 +297,26 @@
       }
     ]
   },
+  "proxyTransportErrors": [],
   "rowPreservation": {
     "user": {
-      "before": 34,
-      "preserved": 34,
+      "before": 55,
+      "preserved": 55,
       "lost": 0
     },
     "operationalPerson": {
-      "before": 99,
-      "preserved": 99,
+      "before": 125,
+      "preserved": 125,
       "lost": 0
     },
     "operationalPersonAssignment": {
-      "before": 73,
-      "preserved": 73,
+      "before": 111,
+      "preserved": 111,
       "lost": 0
     },
     "auditLog": {
-      "before": 5789,
-      "preserved": 5789,
+      "before": 5881,
+      "preserved": 5881,
       "lost": 0
     }
   },
@@ -178,7 +325,7 @@
     "after": 125
   },
   "browserActor": "Disposable SUPER_ADMIN fixture; allow/deny and tenant API proof above uses normal scoped actors",
-  "status": "PASS",
   "temporarySuperAdminGrantsRemaining": 0,
-  "fixtureActorsDeactivated": 5
+  "fixtureActorsDeactivated": 6,
+  "finishedAt": "2026-11-21T17:25:34.283Z"
 }

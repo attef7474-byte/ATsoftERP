@@ -77,3 +77,5 @@ Phase 1 implementation and all runtime checks are verified; Git closeout is reco
 | 26. completedById must not be set at start | P8-01 | Deferred Phase 8 |
 | 27. Preventive due-date authority | P9-01 | Deferred Phase 9 |
 | 28. Preserve tenancy/RBAC/audit/inventory/cost/production | P10-01 | Phase 1 relevant tests passed; final program closeout deferred Phase 10 |
+
+Final Phase 1 permission reconciliation: legacy maintenance create declares maintenance-personnel:create + operational-person:create + person-assignment:create. Its registration action requires all three. A limited normal actor lacking person-create is denied with 403 and no identity row is created. All keys already exist; no permission seed or role changes are deployed.

@@ -1,5 +1,9 @@
 {
   "database": "ATsoftERP_PERSONNEL_P1_INTEGRATED_20261121",
+  "proofScriptSha256": "84b28d6f81a22fc3330b8ad48d8f4cad8c987a0b757f7a191c3c840e9e4cf094",
+  "runId": "1c3f21e0-5979-43ad-92e3-56f33243369c",
+  "startedAt": "2026-11-21T17:25:06.341Z",
+  "status": "PASS",
   "sourceDatabaseWrites": 0,
   "checks": [
     {
@@ -40,6 +44,10 @@
     },
     {
       "check": "Legacy maintenance create is tenant-anchored and cannot bypass shared duplicate protection",
+      "status": "PASS"
+    },
+    {
+      "check": "Legacy maintenance create cannot bypass operational-person create permission",
       "status": "PASS"
     },
     {
@@ -84,37 +92,38 @@
     }
   ],
   "fixtureIds": {
-    "companyId": "cmwqnp29s0000g495ndgau5cj",
-    "companyBId": "cmwqnp2ak0001g495r6ih1wc5",
-    "actorId": "cmwqnp2fb000ag495116tnjyw",
-    "branchId": "cmwqnp2b10002g495msg4jgqb",
+    "companyId": "cmwqoht4e0000po95hibgs8k6",
+    "companyBId": "cmwqoht4v0001po95xk36pk83",
+    "actorId": "cmwqoht8v000apo95up2wsynu",
+    "branchId": "cmwqoht580002po95hwzypuur",
     "departmentIds": [
-      "cmwqnp2ci0005g495sai5kou4",
-      "cmwqnp2d10006g495aijhep2s",
-      "cmwqnp2d80007g4952sg75cez"
+      "cmwqoht640005po950tp8oqrv",
+      "cmwqoht6h0006po95q93lrawk",
+      "cmwqoht6o0007po95j791zscb"
     ],
-    "personId": "cmwqnp2rw000dg495aflcwuw9"
+    "personId": "cmwqohtjy000dpo95pxyudqrs"
   },
   "browser": null,
+  "proxyTransportErrors": [],
   "rowPreservation": {
     "user": {
-      "before": 25,
-      "preserved": 25,
+      "before": 50,
+      "preserved": 50,
       "lost": 0
     },
     "operationalPerson": {
-      "before": 86,
-      "preserved": 86,
+      "before": 119,
+      "preserved": 119,
       "lost": 0
     },
     "operationalPersonAssignment": {
-      "before": 54,
-      "preserved": 54,
+      "before": 102,
+      "preserved": 102,
       "lost": 0
     },
     "auditLog": {
-      "before": 5743,
-      "preserved": 5743,
+      "before": 5859,
+      "preserved": 5859,
       "lost": 0
     }
   },
@@ -122,6 +131,6 @@
     "before": 125,
     "after": 125
   },
-  "status": "PASS",
-  "fixtureActorsDeactivated": 4
+  "fixtureActorsDeactivated": 5,
+  "finishedAt": "2026-11-21T17:25:10.378Z"
 }

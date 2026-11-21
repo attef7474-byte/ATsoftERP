@@ -17,7 +17,7 @@ export class MaintenancePersonnelController {
   constructor(private service: MaintenancePersonnelService) {}
 
   @Post()
-  @Permissions('maintenance-personnel:create')
+  @Permissions('maintenance-personnel:create', 'operational-person:create', 'person-assignment:create')
   @ApiOperation({ summary: 'Create maintenance personnel' })
   create(@Body() dto: CreateMaintenancePersonnelDto, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') actorId: string) {
     return this.service.create(dto, ctx, actorId);

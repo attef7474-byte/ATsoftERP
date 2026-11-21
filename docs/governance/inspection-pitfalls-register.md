@@ -158,3 +158,15 @@ Additional Phase 1 proof findings (2026-11-21):
 | --- | --- | --- | --- |
 | PERSONNEL-P1-06 | Loading development NODE_ENV into an isolated Next production build produced the /404 Html prerender error; a relative default upload root escaped the temporary worktree during API initialization. | Set NODE_ENV=production for the build process and UPLOAD_ROOT to an explicit test-results directory for isolated API proof. Keep Nest startup errors visible and do not edit environment files or application paths. | ACTIVE CHECK |
 | PERSONNEL-P1-07 | The unified registration form referenced validation.requiredField, but that key belongs to the complexForms namespace; live validation showed a generic missing-text fallback. | Use the existing validation.required key. Browser proof must reject the missing-text fallback in both EN/LTR and AR/RTL rather than relying only on dictionary parity. | ACTIVE CHECK |
+
+Additional permission finding (2026-11-21):
+
+| ID | Problem / symptom | Preventive check | Status |
+| --- | --- | --- | --- |
+| PERSONNEL-P1-08 | A legacy create alias delegated to a canonical service whose person-create permission was assumed to have been enforced by its original controller. | Every delegating create route must declare all required identity, placement and maintenance permissions; hide its registration action unless all are granted. Verify a normal actor with maintenance+placement permissions but without person-create receives 403 and creates no person. | ACTIVE CHECK |
+
+Additional proof-run integrity finding (2026-11-21):
+
+| ID | Problem / symptom | Preventive check | Status |
+| --- | --- | --- | --- |
+| PERSONNEL-P1-09 | The disposable same-origin proof proxy attempted writeHead after a downstream response had already sent headers during shutdown; the process exited before recording cleanup and left the previous PASS report on disk. | Guard destroyed/ended/headersSent responses, record transport errors, persist RUNNING at start with run ID and script SHA256, always persist cleanup outcome, and verify fresh PASS against the current script hash. Revoke only exact fixture grants in the explicitly named proof clone after any interrupted run. | ACTIVE CHECK |

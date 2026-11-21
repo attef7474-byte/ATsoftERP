@@ -28,6 +28,7 @@ export default function MaintenancePersonnelPage() {
     [isSuperAdmin, permissions],
   );
   const canCreate = can('maintenance-personnel:create');
+  const canRegisterPerson = canCreate && can('operational-person:create') && can('person-assignment:create');
   const canUpdate = can('maintenance-personnel:update');
   const canDelete = can('maintenance-personnel:delete');
   const canActivate = can('maintenance-personnel:activate');
@@ -170,10 +171,10 @@ export default function MaintenancePersonnelPage() {
   // from here.
   const { exec } = useStableHandlers({ add: () => router.push('/admin/core/persons'), refresh: () => fetchData(meta.page), delete: () => setConfirmDeleteOpen(true) });
   useRegisterAdminActions(useMemo(() => [
-    { id: 'add', labelKey: 'core.registerPerson', icon: React.createElement(ActionAddIcon), permission: 'maintenance-personnel:create', onClick: () => exec('add') },
+    ...(canRegisterPerson ? [{ id: 'add', labelKey: 'core.registerPerson', icon: React.createElement(ActionAddIcon), permission: 'maintenance-personnel:create', onClick: () => exec('add') }] : []),
     { id: 'refresh', labelKey: 'common.refresh', icon: React.createElement(ActionRefreshIcon), onClick: () => exec('refresh') },
     { id: 'delete', labelKey: 'common.delete', icon: React.createElement(ActionDeleteIcon), variant: 'danger', permission: 'maintenance-personnel:delete', onClick: () => exec('delete'), enabled: !!selectedId },
-  ], [exec, selectedId, router]));
+  ], [exec, selectedId, router, canRegisterPerson]));
 
   const handleRowClick = useCallback((item: MaintenancePersonnel) => {
     router.push(`/admin/maintenance/personnel/${item.id}`);

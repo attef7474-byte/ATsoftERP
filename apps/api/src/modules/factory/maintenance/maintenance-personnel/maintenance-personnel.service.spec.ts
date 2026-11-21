@@ -1,6 +1,11 @@
+import { MaintenancePersonnelController } from './maintenance-personnel.controller';
+import { PERMISSIONS_KEY } from '../../../../common/decorators/permissions.decorator';
 import { MaintenancePersonnelService } from './maintenance-personnel.service';
 const ctx: any = { companyId: 'company-a', branchId: 'branch-a' };
 describe('maintenance personnel identity and scope', () => {
+  it('requires the identity and placement permissions when delegating legacy creation', () => {
+    expect(Reflect.getMetadata(PERMISSIONS_KEY, MaintenancePersonnelController.prototype.create)).toEqual(['maintenance-personnel:create', 'operational-person:create', 'person-assignment:create']);
+  });
   it('delegates legacy creation to canonical registration with placement and actor', async () => {
     const registrations: any = { create: jest.fn().mockResolvedValue({ maintenanceCapability: { id: 'mp' } }) };
     const prisma: any = { maintenancePersonnel: { findFirst: jest.fn().mockResolvedValue({ id: 'mp', operationalPerson: {} }) } };

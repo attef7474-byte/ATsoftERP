@@ -9,7 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const { spawn } = require('node:child_process');
-const { randomUUID, randomBytes } = require('node:crypto');
+const { randomUUID, randomBytes, createHash } = require('node:crypto');
 const database = process.env.PERSONNEL_PROOF_DATABASE;
 assert.match(database || '', /^ATsoftERP_PERSONNEL_P1_[A-Za-z0-9_]+$/);
 assert.match(process.env.DATABASE_URL || '', /;database=[^;]+/i);
@@ -24,12 +24,16 @@ const { PrismaService } = require('../dist/src/common/prisma/prisma.service');
 const { AllExceptionsFilter } = require('../dist/src/common/filters/http-exception.filter');
 const { transformValidationErrors } = require('../dist/src/common/validation/validation-error-transformer');
 const { currentAssignmentWindow } = require('../dist/src/common/operational-context/current-assignment-window');
-const report = { database, sourceDatabaseWrites: 0, checks: [], fixtureIds: {}, browser: null };
+const report = { database, proofScriptSha256: createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'), runId: randomUUID(), startedAt: new Date().toISOString(), status: 'RUNNING', sourceDatabaseWrites: 0, checks: [], fixtureIds: {}, browser: null, proxyTransportErrors: [] };
 const pass = (check, detail) => { report.checks.push({ check, status: 'PASS', ...(detail ? { detail } : {}) }); console.log(`PASS ${check}`); };
 const output = path.resolve('docs/proofs/personnel-maintenance-integrity-r1');
 let app, proxy, web, browser;
 const fixtureActors = [];
 let elevatedGrant;
+let proofClosing = false;
+const reportFile = path.join(output, process.env.PERSONNEL_PROOF_BROWSER === '1' ? 'runtime-browser-proof.json' : 'runtime-api-proof.json');
+fs.mkdirSync(output, { recursive: true });
+fs.writeFileSync(reportFile, JSON.stringify(report, null, 2) + '\n');
 
 async function main() {
   app = await NestFactory.create(AppModule, { logger: ['error'], abortOnError: false });
@@ -129,6 +133,14 @@ async function main() {
   await request('PATCH', `/maintenance/personnel/${maintenance.id}`, { phone: '00967700600125' }, 200);
   await request('PATCH', `/maintenance/personnel/${maintenance.id}`, { phone: '771749776' }, 409);
   pass('Legacy maintenance create is tenant-anchored and cannot bypass shared duplicate protection');
+  const limitedKeys = ['maintenance-personnel:create', 'person-assignment:create'];
+  const limitedRole = await p.role.create({ data: { code: `QA_P1_LIMITED_${suffix}`, name: 'Personnel limited proof role', permissions: { create: permissions.filter(x => limitedKeys.includes(x.key)).map(x => ({ permissionId: x.id })) } } });
+  const limitedActor = await actor('Limited', company.id, branch.id, limitedRole.id);
+  const beforeDeniedCreate = await p.operationalPerson.count();
+  await request('POST', '/maintenance/personnel', { name: `Denied ${suffix} Full Name`, phone: '700600126', departmentId: departments[0].id, role: 'TECHNICIAN' }, 403, ctx, tokenFor(limitedActor));
+  assert.equal(await p.operationalPerson.count(), beforeDeniedCreate);
+  pass('Legacy maintenance create cannot bypass operational-person create permission');
+
 
   await request('GET', `/person-registrations/${person.id}`, undefined, 404, ctxB, tokenFor(other));
   await request('PATCH', `/person-registrations/${person.id}`, { name: 'Other Company Person Name' }, 404, ctxB, tokenFor(other));
@@ -203,15 +215,21 @@ async function browserProof({ apiPort, token, user, ctx, person, suffix, request
   web = spawn(process.execPath, [require.resolve('next/dist/bin/next', { paths: [path.resolve('apps/web')] }), 'start', '-p', '3321'], { cwd: path.resolve('apps/web'), windowsHide: true, stdio: ['ignore', log, log], env: { ...process.env, NODE_ENV: 'production', NEXT_PUBLIC_API_URL: '' } });
   proxy = http.createServer((req, res) => {
     const upstream = http.request({ hostname: '127.0.0.1', port: req.url.startsWith('/api/v1') ? apiPort : 3321, path: req.url, method: req.method, headers: { ...req.headers, host: '127.0.0.1:3320' } }, remote => { res.writeHead(remote.statusCode, remote.headers); remote.pipe(res); });
-    upstream.on('error', () => { res.writeHead(502); res.end('Proof upstream unavailable'); }); req.pipe(upstream);
+    upstream.on('error', error => {
+      report.proxyTransportErrors.push({ path: req.url, code: error.code, phase: proofClosing ? 'teardown' : 'proof', headersSent: res.headersSent });
+      if (res.destroyed || res.writableEnded) return;
+      if (res.headersSent) { res.destroy(error); return; }
+      res.writeHead(502); res.end('Proof upstream unavailable');
+    }); req.pipe(upstream);
   });
   await new Promise(resolve => proxy.listen(3320, '127.0.0.1', resolve));
   for (let i = 0; i < 60; i++) { try { const r = await fetch('http://127.0.0.1:3321/login'); if (r.ok) break; } catch {} await new Promise(resolve => setTimeout(resolve, 500)); }
   const { chromium } = require('playwright');
   browser = await chromium.launch({ channel: 'msedge', headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-  const browserErrors = [], failures = [], assetFailures = [];
-  report.browser = { consoleErrors: browserErrors, failedApiResponses: failures, assetFailures };
+  const browserErrors = [], failures = [], assetFailures = [], networkFailures = [];
+  report.browser = { consoleErrors: browserErrors, failedApiResponses: failures, assetFailures, networkFailures };
+  page.on('requestfailed', request => networkFailures.push({ path: new URL(request.url()).pathname, method: request.method(), error: request.failure()?.errorText, api: request.url().includes('/api/v1') }));
   page.on('pageerror', error => browserErrors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') browserErrors.push({ message: message.text(), location: message.location() }); });
   page.on('response', res => { if (res.status() >= 400) (res.url().includes('/api/v1') ? failures : assetFailures).push({ status: res.status(), path: new URL(res.url()).pathname }); });
@@ -289,16 +307,22 @@ async function browserProof({ apiPort, token, user, ctx, person, suffix, request
   await page.locator('tbody tr').first().waitFor();
   assert.equal(await page.locator('tbody tr').count(), 4);
   pass('Browser person history still displays all four placement rows');
-  report.browser = { consoleErrors: browserErrors, failedApiResponses: failures, assetFailures, screenshots: ['test-results/personnel-p1-en.png', 'test-results/personnel-p1-ar.png'] };
+  await page.goto('http://127.0.0.1:3320/admin/maintenance/personnel', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: /تسجيل شخص|Register Person/i }).waitFor();
+  pass('Browser authorized maintenance registration action remains available');
+  report.browser = { consoleErrors: browserErrors, failedApiResponses: failures, assetFailures, networkFailures, screenshots: ['test-results/personnel-p1-en.png', 'test-results/personnel-p1-ar.png'] };
   // The existing app has no favicon.ico. Keep that known non-operational console
   // error in the evidence; any other console/JavaScript error still fails proof.
   const unexpectedErrors = browserErrors.filter(entry => !(typeof entry === 'object' && entry.message.includes('404') && entry.location?.url === 'http://127.0.0.1:3320/favicon.ico'));
   report.browser.knownNonOperationalErrors = browserErrors.filter(entry => !unexpectedErrors.includes(entry));
   assert.equal(unexpectedErrors.length, 0);
   assert.equal(failures.length, 0);
+  assert.equal(networkFailures.filter(f => f.api && (f.error !== 'net::ERR_ABORTED' || ['POST', 'PATCH', 'DELETE'].includes(f.method))).length, 0);
 }
 
 main().catch(error => { report.status = 'FAIL'; report.failure = error.message; console.error(error.message); process.exitCode = 1; }).finally(async () => {
+  proofClosing = true;
+  try {
   if (browser) await browser.close(); if (web) web.kill(); if (proxy) { proxy.closeAllConnections(); await new Promise(resolve => proxy.close(resolve)); }
   if (app) {
     const p = app.get(PrismaService);
@@ -312,6 +336,10 @@ main().catch(error => { report.status = 'FAIL'; report.failure = error.message; 
     report.fixtureActorsDeactivated = fixtureActors.length;
     await app.close();
   }
-  fs.mkdirSync(output, { recursive: true });
-  fs.writeFileSync(path.join(output, process.env.PERSONNEL_PROOF_BROWSER === '1' ? 'runtime-browser-proof.json' : 'runtime-api-proof.json'), JSON.stringify(report, null, 2) + '\n');
+  } catch (error) {
+    report.status = 'FAIL'; report.cleanupFailure = error.message; process.exitCode = 1;
+  } finally {
+    report.finishedAt = new Date().toISOString();
+    fs.writeFileSync(reportFile, JSON.stringify(report, null, 2) + '\n');
+  }
 });

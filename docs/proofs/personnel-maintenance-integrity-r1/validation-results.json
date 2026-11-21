@@ -6,22 +6,22 @@
   "phase2Started": false,
   "apiFocused": {
     "suites": 12,
-    "tests": 327,
+    "tests": 328,
     "status": "PASS"
   },
   "webFocused": {
-    "suites": 9,
-    "tests": 202,
+    "suites": 10,
+    "tests": 205,
     "status": "PASS"
   },
   "apiFull": {
     "suites": 240,
-    "tests": 5188,
+    "tests": 5189,
     "status": "PASS"
   },
   "webFull": {
-    "suites": 133,
-    "tests": 2510,
+    "suites": 134,
+    "tests": 2513,
     "status": "PASS"
   },
   "prismaValidate": "PASS",
@@ -53,8 +53,8 @@
     "mismatches": 0
   },
   "credentialsCheck": "PASS after explicit-file staging",
-  "apiRuntimeChecks": 20,
-  "browserRuntimeChecks": 26,
+  "apiRuntimeChecks": 21,
+  "browserRuntimeChecks": 28,
   "requiredApiFailures": 0,
   "unexpectedConsoleErrors": 0,
   "knownConsoleErrors": [
@@ -115,6 +115,7 @@
     "apps/web/src/lib/i18n/locales/en/validation.ts",
     "apps/web/src/lib/person-identity.ts",
     "apps/web/tests/person-identity.test.ts",
+    "apps/web/tests/person-registration-maintenance-permissions.test.ts",
     "apps/web/tests/person-registration-save.test.ts",
     "apps/web/tests/person-registrations-unified-page.behavior.test.ts",
     "docs/governance/inspection-pitfalls-register.md",
@@ -125,5 +126,31 @@
     "docs/proofs/personnel-maintenance-integrity-r1/runtime-browser-proof.json",
     "docs/proofs/personnel-maintenance-integrity-r1/validation-results.json"
   ],
-  "stagedDiffHygiene": "P31 applied: sole CRLF new helper normalized to LF; staged diff rechecked"
+  "stagedDiffHygiene": "P31 applied: sole CRLF new helper normalized to LF; staged diff rechecked",
+  "legacyMaintenanceCreateRequiredPermissions": [
+    "maintenance-personnel:create",
+    "operational-person:create",
+    "person-assignment:create"
+  ],
+  "legacyMaintenanceCreatePermissionDenial": "403 and zero created rows; limited normal actor",
+  "legacyMaintenanceRegistrationAction": "Hidden unless all three canonical permissions are granted; explicit SUPER_ADMIN behavior preserved",
+  "proofScriptSha256": "84b28d6f81a22fc3330b8ad48d8f4cad8c987a0b757f7a191c3c840e9e4cf094",
+  "proofRunIds": {
+    "api": "1c3f21e0-5979-43ad-92e3-56f33243369c",
+    "browser": "be8a29ce-9f2a-44f7-b42e-bb8026abdc3a"
+  },
+  "interruptedProofCleanup": {
+    "database": "ATsoftERP_PERSONNEL_P1_INTEGRATED_20261121",
+    "exactTemporaryGrantsRevoked": 1,
+    "fixtureUsersDeactivated": 6,
+    "remainingSuperAdminGrants": 0,
+    "auditRowsDeleted": 0
+  },
+  "proxyTransportErrors": [],
+  "newTestsAdded": {
+    "api": 46,
+    "web": 27,
+    "total": 73
+  },
+  "fullTestsFinalTotal": 7702
 }
