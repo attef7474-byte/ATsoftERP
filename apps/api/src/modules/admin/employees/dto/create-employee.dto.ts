@@ -1,3 +1,4 @@
+import { FullPersonName, YemenPhone } from '../../../../common/validation/person-identity';
 import { IsString, IsOptional, IsIn, IsBoolean, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -11,8 +12,9 @@ export class CreateEmployeeDto {
   @IsString()
   code: string;
 
-  @ApiProperty({ example: 'Ahmed Hassan' })
+  @ApiProperty({ example: 'Ahmed Hassan Ali Saleh' })
   @IsString()
+  @FullPersonName()
   name: string;
 
   @ApiPropertyOptional({ example: 'MAINTENANCE', enum: EmployeeCategory })
@@ -23,6 +25,7 @@ export class CreateEmployeeDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @YemenPhone()
   phone?: string;
 
   @ApiPropertyOptional()

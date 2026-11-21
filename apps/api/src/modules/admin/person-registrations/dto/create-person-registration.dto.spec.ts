@@ -4,11 +4,11 @@ import { CreatePersonRegistrationDto } from './create-person-registration.dto';
 import { transformValidationErrors } from '../../../../common/validation/validation-error-transformer';
 
 describe('person-registration create validation', () => {
-  const base = () => ({ name: ' Employee ', phone: '077174907', placement: { departmentId: 'department-1', effectiveFrom: '2026-11-10' } });
+  const base = () => ({ name: ' Employee Full Name Here ', phone: '077174907', placement: { departmentId: 'department-1', effectiveFrom: '2026-11-10' } });
   const errors = async (payload: object) => transformValidationErrors(await validate(plainToInstance(CreatePersonRegistrationDto, payload), { whitelist: true, forbidNonWhitelisted: true }));
   it('accepts an omitted generated code, the reported phone, and an unambiguous date', async () => {
     expect(await errors(base())).toEqual([]);
-    expect(plainToInstance(CreatePersonRegistrationDto, base()).name).toBe('Employee');
+    expect(plainToInstance(CreatePersonRegistrationDto, base()).name).toBe('Employee Full Name Here');
   });
   it.each(['', '   '])('rejects empty or whitespace-only name %p', async (name) => {
     expect(await errors({ ...base(), name })).toEqual(expect.arrayContaining([expect.objectContaining({ field: 'name', code: 'validation.required' })]));

@@ -1,0 +1,184 @@
+{
+  "database": "ATsoftERP_PERSONNEL_P1_INTEGRATED_20261121",
+  "sourceDatabaseWrites": 0,
+  "checks": [
+    {
+      "check": "API three-word name rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "API malformed phones rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "Unknown fields rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "Four-word name saved and whitespace/phone normalized",
+      "status": "PASS"
+    },
+    {
+      "check": "Own name and phone edit preserves identity",
+      "status": "PASS"
+    },
+    {
+      "check": "Normalized duplicate name and phone rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "Edit collisions with another person rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "User authority validates duplicates independently from OperationalPerson and permits own edit",
+      "status": "PASS"
+    },
+    {
+      "check": "Employee writes share canonical person duplicate policy",
+      "status": "PASS"
+    },
+    {
+      "check": "Legacy maintenance create is tenant-anchored and cannot bypass shared duplicate protection",
+      "status": "PASS"
+    },
+    {
+      "check": "Company B read/edit/reference/search denial",
+      "status": "PASS"
+    },
+    {
+      "check": "Permission and unauthorized branch denial",
+      "status": "PASS"
+    },
+    {
+      "check": "Separate companies keep separate identities",
+      "status": "PASS"
+    },
+    {
+      "check": "A to B to C to A transfers preserve one current row, history and next transfer eligibility",
+      "status": "PASS"
+    },
+    {
+      "check": "Database audit events persisted",
+      "status": "PASS"
+    },
+    {
+      "check": "Concurrent identity submission creates one person",
+      "status": "PASS"
+    },
+    {
+      "check": "Legacy identity APIs cannot bypass full-name validation",
+      "status": "PASS"
+    },
+    {
+      "check": "Maintenance personnel tenant read/write denial",
+      "status": "PASS"
+    },
+    {
+      "check": "Cross-company person reference rejected by assignment API",
+      "status": "PASS"
+    },
+    {
+      "check": "Existing identity, assignment and audit rows preserved; inventory unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser en ltr phone prefix and name/phone validation",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser create traverses UI API permissions database and audit",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser edit loads canonical phone and updates the same identity",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser ar rtl phone prefix and name/phone validation",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser current table has one row and transfer action after repeated transfers",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser person history still displays all four placement rows",
+      "status": "PASS"
+    }
+  ],
+  "fixtureIds": {
+    "companyId": "cmwqnyi2i00008895mcp683uh",
+    "companyBId": "cmwqnyi3000018895v3f9eghg",
+    "actorId": "cmwqnyi70000a8895mjgo8c0w",
+    "branchId": "cmwqnyi3b00028895qun9me2y",
+    "departmentIds": [
+      "cmwqnyi4600058895bv25qtyx",
+      "cmwqnyi4m00068895iy52mnml",
+      "cmwqnyi4t000788959s8z7paz"
+    ],
+    "personId": "cmwqnyii2000d8895om94y506"
+  },
+  "browser": {
+    "consoleErrors": [
+      {
+        "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "location": {
+          "url": "http://127.0.0.1:3320/favicon.ico",
+          "line": 0,
+          "column": 0,
+          "lineNumber": 0,
+          "columnNumber": 0
+        }
+      }
+    ],
+    "failedApiResponses": [],
+    "assetFailures": [],
+    "screenshots": [
+      "test-results/personnel-p1-en.png",
+      "test-results/personnel-p1-ar.png"
+    ],
+    "knownNonOperationalErrors": [
+      {
+        "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "location": {
+          "url": "http://127.0.0.1:3320/favicon.ico",
+          "line": 0,
+          "column": 0,
+          "lineNumber": 0,
+          "columnNumber": 0
+        }
+      }
+    ]
+  },
+  "rowPreservation": {
+    "user": {
+      "before": 34,
+      "preserved": 34,
+      "lost": 0
+    },
+    "operationalPerson": {
+      "before": 99,
+      "preserved": 99,
+      "lost": 0
+    },
+    "operationalPersonAssignment": {
+      "before": 73,
+      "preserved": 73,
+      "lost": 0
+    },
+    "auditLog": {
+      "before": 5789,
+      "preserved": 5789,
+      "lost": 0
+    }
+  },
+  "inventoryMovementCounts": {
+    "before": 125,
+    "after": 125
+  },
+  "browserActor": "Disposable SUPER_ADMIN fixture; allow/deny and tenant API proof above uses normal scoped actors",
+  "status": "PASS",
+  "temporarySuperAdminGrantsRemaining": 0,
+  "fixtureActorsDeactivated": 5
+}

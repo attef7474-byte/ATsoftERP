@@ -1,3 +1,4 @@
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { EmployeesService } from './employees.service';
@@ -19,8 +20,8 @@ export class EmployeesController {
   @Post()
   @Permissions('operational-person:create')
   @ApiOperation({ summary: 'Create an employee identity and its initial placement in the active branch' })
-  create(@Body() dto: CreateEmployeeDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.employeesService.create(dto, ctx);
+  create(@Body() dto: CreateEmployeeDto, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') actorId: string) {
+    return this.employeesService.create(dto, ctx, actorId);
   }
 
   @Get()
@@ -45,8 +46,8 @@ export class EmployeesController {
   @Patch(':id')
   @Permissions('operational-person:update')
   @ApiOperation({ summary: 'Update employee identity/profile data (does not change branch placement)' })
-  update(@Param('id') id: string, @Body() dto: UpdateEmployeeDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.employeesService.update(id, dto, ctx);
+  update(@Param('id') id: string, @Body() dto: UpdateEmployeeDto, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') actorId: string) {
+    return this.employeesService.update(id, dto, ctx, actorId);
   }
 
   @Post(':id/deactivate')

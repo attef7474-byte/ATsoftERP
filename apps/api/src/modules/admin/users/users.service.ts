@@ -1,3 +1,4 @@
+import { normalizeIdentity, assertIdentityAvailable, lockIdentityCompany } from '../../../common/validation/person-identity';
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../modules/audit/audit.service';
@@ -24,7 +25,8 @@ export class UsersService {
     });
   }
 
-  async create(dto: CreateUserDto, ctx: ActiveOperationalContext) {
+  async create(dto: CreateUserDto, ctx: ActiveOperationalContext, actorId?: string) {
+    dto = normalizeIdentity(dto);
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) throw this.validationError('email', 'validation.duplicateValue', 'Email already in use');
 
@@ -45,17 +47,23 @@ export class UsersService {
     );
     const { password, roleIds, companyId: _companyId, branchId: _branchId, ...rest } = dto;
 
-    const user = await this.prisma.user.create({
-      data: {
-        ...rest,
-        companyId: ctx.companyId,
-        branchId: ctx.branchId,
-        passwordHash,
-        roles: roleIds?.length
-          ? { create: roleIds.map((roleId) => ({ roleId })) }
-          : undefined,
-      },
-      include: { roles: { include: { role: true } } },
+    const user = await this.prisma.$transaction(async (tx) => {
+      await lockIdentityCompany(tx, ctx);
+      await assertIdentityAvailable(tx, 'user', dto, ctx);
+      const created = await tx.user.create({
+        data: {
+          ...rest,
+          companyId: ctx.companyId,
+          branchId: ctx.branchId,
+          passwordHash,
+          roles: roleIds?.length
+            ? { create: roleIds.map((roleId) => ({ roleId })) }
+            : undefined,
+        },
+        include: { roles: { include: { role: true } } },
+    });
+    await this.auditService.logWithClient(tx, { userId: actorId, action: 'CREATE', entity: 'User', entityId: created.id, details: { companyId: ctx.companyId, branchId: ctx.branchId, name: created.name, phone: created.phone } });
+    return created;
     });
 
     const { passwordHash: _, ...result } = user;
@@ -116,7 +124,8 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDto, ctx: ActiveOperationalContext) {
+  async update(id: string, dto: UpdateUserDto, ctx: ActiveOperationalContext, actorId?: string) {
+    dto = normalizeIdentity(dto);
     const user = await this.prisma.user.findFirst({ where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } });
     if (!user) {
       throw new NotFoundException({ messageKey: 'organization.userNotFound', message: 'User not found' });
@@ -137,15 +146,21 @@ export class UsersService {
     const { roleIds, companyId: _companyId, branchId: _branchId, ...rest } = dto as any;
     const data: any = { ...rest };
 
-    if (roleIds) {
-      await this.prisma.userRole.deleteMany({ where: { userId: id } });
-      data.roles = { create: roleIds.map((roleId: string) => ({ roleId })) };
-    }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await lockIdentityCompany(tx, ctx);
+      await assertIdentityAvailable(tx, 'user', dto, ctx, id);
+      if (roleIds) {
+        await tx.userRole.deleteMany({ where: { userId: id } });
+        data.roles = { create: roleIds.map((roleId: string) => ({ roleId })) };
+      }
 
-    const updated = await this.prisma.user.update({
-      where: { id },
-      data,
-      include: { roles: { include: { role: { select: { id: true, code: true, name: true } } } } },
+      const changed = await tx.user.update({
+        where: { id },
+        data,
+        include: { roles: { include: { role: { select: { id: true, code: true, name: true } } } } },
+    });
+    await this.auditService.logWithClient(tx, { userId: actorId, action: 'UPDATE', entity: 'User', entityId: id, details: { companyId: ctx.companyId, branchId: ctx.branchId, previousValues: { name: user.name, phone: user.phone }, newValues: { name: changed.name, phone: changed.phone } } });
+    return changed;
     });
 
     const { passwordHash: _, ...result } = updated;

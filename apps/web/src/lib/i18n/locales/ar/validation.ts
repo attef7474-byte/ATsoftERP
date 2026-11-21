@@ -2,6 +2,11 @@ import type { LocaleTranslations } from '../../types';
 
 const validation: Pick<LocaleTranslations, 'validation' | 'errors' | 'complexForms'> = {
     validation: {
+        personFullName: 'أدخل الاسم الكامل المكوّن من أربع كلمات على الأقل.',
+        yemenPhone: 'أدخل تسعة أرقام محلية فقط لرقم هاتف يمني.',
+        personNameDuplicate: 'يوجد شخص بهذا الاسم الكامل في هذه الشركة.',
+        personPhoneDuplicate: 'رقم الهاتف مستخدم بالفعل في هذه الشركة.',
+
         excelFileType: "اختر ملف Excel بصيغة XLSX.",
         excelFileLimit: "يتجاوز الملف حدود الحجم أو الضغط المسموح بها.",
         excelInvalidWorkbook: "ملف Excel غير صالح أو يحتوي محتوى غير مسموح.",

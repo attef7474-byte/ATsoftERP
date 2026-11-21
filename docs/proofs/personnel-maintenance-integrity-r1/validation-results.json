@@ -1,0 +1,129 @@
+{
+  "date": "2026-11-21",
+  "baselineSHA": "1fce7f1e2a00fe16200e27f0a1cadb1500048c2e",
+  "branch": "fix/personnel-maintenance-integrity-r1-integrated",
+  "phase": 1,
+  "phase2Started": false,
+  "apiFocused": {
+    "suites": 12,
+    "tests": 327,
+    "status": "PASS"
+  },
+  "webFocused": {
+    "suites": 9,
+    "tests": 202,
+    "status": "PASS"
+  },
+  "apiFull": {
+    "suites": 240,
+    "tests": 5188,
+    "status": "PASS"
+  },
+  "webFull": {
+    "suites": 133,
+    "tests": 2510,
+    "status": "PASS"
+  },
+  "prismaValidate": "PASS",
+  "prismaGenerate": "PASS (upstream schema only)",
+  "phase1SchemaChanges": false,
+  "phase1Migrations": [],
+  "cloneLatestMigration": "20261120160000_add_general_inventory_issue",
+  "apiTypecheck": "PASS",
+  "apiBuild": "PASS",
+  "webTypecheck": "PASS (explicit tsc and Next build)",
+  "webBuild": {
+    "status": "PASS",
+    "pages": 199,
+    "standaloneCopyWarningResolvedByAuthorizedBuild": true,
+    "remainingWarning": "No ESLint configuration detected"
+  },
+  "i18n": {
+    "status": "PASS",
+    "enKeys": 7576,
+    "arKeys": 7576
+  },
+  "uiBaseline": "PASS",
+  "rawKeysAndPermissionUI": "PASS",
+  "routeContract": {
+    "status": "EXPECTED_BASELINE",
+    "exitCode": 1,
+    "malformed": 3,
+    "unresolved": 3,
+    "mismatches": 0
+  },
+  "credentialsCheck": "PASS after explicit-file staging",
+  "apiRuntimeChecks": 20,
+  "browserRuntimeChecks": 26,
+  "requiredApiFailures": 0,
+  "unexpectedConsoleErrors": 0,
+  "knownConsoleErrors": [
+    {
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://127.0.0.1:3320/favicon.ico",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    }
+  ],
+  "sourceDatabaseWrites": 0,
+  "cloneRowLoss": 0,
+  "cloneInventoryMovementDelta": 0,
+  "temporarySuperAdminGrantsRemaining": 0,
+  "originalPendingFilesPreserved": 47,
+  "otherAgentFilesExcluded": true,
+  "phase1ExplicitFiles": [
+    "apps/api/scripts/personnel-phase1-proof.cjs",
+    "apps/api/src/common/i18n/api-messages.ts",
+    "apps/api/src/common/operational-context/current-assignment-window.ts",
+    "apps/api/src/common/validation/person-identity.spec.ts",
+    "apps/api/src/common/validation/person-identity.ts",
+    "apps/api/src/common/validation/validation-error-transformer.ts",
+    "apps/api/src/modules/admin/employees/dto/create-employee.dto.ts",
+    "apps/api/src/modules/admin/employees/employees.controller.ts",
+    "apps/api/src/modules/admin/employees/employees.module.ts",
+    "apps/api/src/modules/admin/employees/employees.service.spec.ts",
+    "apps/api/src/modules/admin/employees/employees.service.ts",
+    "apps/api/src/modules/admin/person-assignments/person-assignments.service.spec.ts",
+    "apps/api/src/modules/admin/person-assignments/person-assignments.service.ts",
+    "apps/api/src/modules/admin/person-registrations/dto/create-person-registration.dto.spec.ts",
+    "apps/api/src/modules/admin/person-registrations/dto/create-person-registration.dto.ts",
+    "apps/api/src/modules/admin/person-registrations/dto/update-person-registration.dto.ts",
+    "apps/api/src/modules/admin/person-registrations/person-registrations.service.spec.ts",
+    "apps/api/src/modules/admin/person-registrations/person-registrations.service.ts",
+    "apps/api/src/modules/admin/users/dto/create-user.dto.ts",
+    "apps/api/src/modules/admin/users/users.controller.ts",
+    "apps/api/src/modules/admin/users/users.service.spec.ts",
+    "apps/api/src/modules/admin/users/users.service.ts",
+    "apps/api/src/modules/factory/maintenance/maintenance-personnel/dto/create-maintenance-personnel.dto.ts",
+    "apps/api/src/modules/factory/maintenance/maintenance-personnel/maintenance-personnel.controller.ts",
+    "apps/api/src/modules/factory/maintenance/maintenance-personnel/maintenance-personnel.module.ts",
+    "apps/api/src/modules/factory/maintenance/maintenance-personnel/maintenance-personnel.service.spec.ts",
+    "apps/api/src/modules/factory/maintenance/maintenance-personnel/maintenance-personnel.service.ts",
+    "apps/web/src/app/admin/access/users/page.tsx",
+    "apps/web/src/app/admin/core/person-assignments/page.tsx",
+    "apps/web/src/app/admin/core/persons/[id]/page.tsx",
+    "apps/web/src/app/admin/core/persons/page.tsx",
+    "apps/web/src/app/admin/maintenance/personnel/page.tsx",
+    "apps/web/src/components/admin/ui/input.tsx",
+    "apps/web/src/lib/i18n/locales/ar/core.ts",
+    "apps/web/src/lib/i18n/locales/ar/validation.ts",
+    "apps/web/src/lib/i18n/locales/en/core.ts",
+    "apps/web/src/lib/i18n/locales/en/validation.ts",
+    "apps/web/src/lib/person-identity.ts",
+    "apps/web/tests/person-identity.test.ts",
+    "apps/web/tests/person-registration-save.test.ts",
+    "apps/web/tests/person-registrations-unified-page.behavior.test.ts",
+    "docs/governance/inspection-pitfalls-register.md",
+    "docs/proofs/personnel-maintenance-integrity-r1/correction-register.md",
+    "docs/proofs/personnel-maintenance-integrity-r1/favicon-baseline-proof.json",
+    "docs/proofs/personnel-maintenance-integrity-r1/ownership-proof.json",
+    "docs/proofs/personnel-maintenance-integrity-r1/runtime-api-proof.json",
+    "docs/proofs/personnel-maintenance-integrity-r1/runtime-browser-proof.json",
+    "docs/proofs/personnel-maintenance-integrity-r1/validation-results.json"
+  ],
+  "stagedDiffHygiene": "P31 applied: sole CRLF new helper normalized to LF; staged diff rechecked"
+}

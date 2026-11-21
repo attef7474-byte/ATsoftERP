@@ -22,7 +22,7 @@ describe('UsersService', () => {
   const user = (overrides: Record<string, any> = {}) => ({
     id: 'u1',
     email: 'user@example.com',
-    name: 'User One',
+    name: 'User One Full Name',
     passwordHash: 'hashed',
     status: 'ACTIVE',
     deletedAt: null,
@@ -35,10 +35,11 @@ describe('UsersService', () => {
 
   beforeEach(() => {
     prisma = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'company-a' }]),
       user: {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
@@ -74,7 +75,7 @@ describe('UsersService', () => {
     it('throws a canonical duplicate field error on the email', async () => {
       prisma.user.findUnique.mockResolvedValue(user());
 
-      const promise = service.create({ email: 'user@example.com', password: 'Secret123!', name: 'User One' }, ctx);
+      const promise = service.create({ email: 'user@example.com', password: 'Secret123!', name: 'User One Full Name' }, ctx);
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
       expect(response.errors[0]).toMatchObject({ field: 'email', code: 'validation.duplicateValue' });
@@ -85,7 +86,7 @@ describe('UsersService', () => {
       prisma.role.findMany.mockResolvedValue([{ id: 'r1' }]);
 
       const promise = service.create({
-        email: 'new@example.com', password: 'Secret123!', name: 'New User', roleIds: ['r1', 'ghost'],
+        email: 'new@example.com', password: 'Secret123!', name: 'New User Full Name', roleIds: ['r1', 'ghost'],
       }, ctx);
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
@@ -97,7 +98,7 @@ describe('UsersService', () => {
       prisma.department.findFirst.mockResolvedValue(null);
 
       const promise = service.create({
-        email: 'new@example.com', password: 'Secret123!', name: 'New User', departmentId: 'foreign-dept',
+        email: 'new@example.com', password: 'Secret123!', name: 'New User Full Name', departmentId: 'foreign-dept',
       }, ctx);
       await expect(promise).rejects.toThrow(BadRequestException);
       const response = (await promise.catch((e) => e)).getResponse();
@@ -111,7 +112,7 @@ describe('UsersService', () => {
       prisma.user.findUnique.mockResolvedValue(null);
       prisma.user.create.mockImplementation(async ({ data }: any) => user({ email: data.email, passwordHash: data.passwordHash }));
 
-      const result = await service.create({ email: 'new@example.com', password: 'Secret123!', name: 'New User' }, ctx);
+      const result = await service.create({ email: 'new@example.com', password: 'Secret123!', name: 'New User Full Name' }, ctx);
       expect(passwordCredentials.preparePassword).toHaveBeenCalledWith(
         'Secret123!',
         'Secret123!',
@@ -157,7 +158,7 @@ describe('UsersService', () => {
 
     it('throws a localized NotFoundException when the user is missing', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
-      await expect(service.update('nope', { name: 'X' }, ctx)).rejects.toThrow(NotFoundException);
+      await expect(service.update('nope', { name: 'Missing Person Full Name' }, ctx)).rejects.toThrow(NotFoundException);
     });
   });
 

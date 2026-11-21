@@ -1,0 +1,13 @@
+{
+  "baselineSha": "1fce7f1e2a00fe16200e27f0a1cadb1500048c2e",
+  "phase1RequestUrl": "http://127.0.0.1:3320/favicon.ico",
+  "source": "Chromium automatic document favicon request; console message.location().url",
+  "baselineDeployedRequestUrl": "http://localhost:3000/favicon.ico",
+  "baselineDeployedHttpStatus": 404,
+  "baselineDeployedContentType": "text/html; charset=utf-8",
+  "baselineTreeFaviconPathCount": 0,
+  "baselineLayout": "apps/web/src/app/layout.tsx exports title and description metadata; no favicon declaration",
+  "phase1FaviconOrLayoutChanges": false,
+  "classification": "Verified pre-existing non-API missing asset; retained in console evidence, never suppressed",
+  "assertion": "Every unexpected console error and every failed required API response still fails browser proof"
+}

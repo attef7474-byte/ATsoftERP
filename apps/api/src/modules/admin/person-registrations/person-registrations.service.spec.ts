@@ -26,7 +26,7 @@ describe('PersonRegistrationsService', () => {
   function baseDto(overrides: Partial<CreatePersonRegistrationDto> = {}): CreatePersonRegistrationDto {
     return {
       code: 'EMP-1',
-      name: 'Ahmed Hassan',
+      name: 'Ahmed Hassan Ali Saleh',
       category: 'MAINTENANCE',
       placement: { departmentId: 'dept-1' },
       ...overrides,
@@ -68,6 +68,7 @@ describe('PersonRegistrationsService', () => {
     const calls: any = { created: [], updated: [], audits: [], deletedMany: [], createdMany: [] };
 
     const tx: Tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'company-1' }]),
       userRole: {
         findMany: jest.fn().mockResolvedValue(overrides.userRoles ?? fullyGrantedRoles()),
         deleteMany: jest.fn(async (args: any) => {
@@ -88,6 +89,7 @@ describe('PersonRegistrationsService', () => {
         }),
       },
       user: {
+        findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(async (args: any) => {
           if (args.where?.email) return (overrides.users ?? []).find((u: any) => u.email === args.where.email) ?? null;
           return (overrides.users ?? []).find((u: any) => u.id === args.where?.id) ?? null;
@@ -114,6 +116,7 @@ describe('PersonRegistrationsService', () => {
         }),
       },
       operationalPerson: {
+        findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(async (args: any) =>
           (overrides.people ?? []).find((p: any) => p.code === args.where?.code || p.id === args.where?.id) ?? null,
         ),
@@ -166,7 +169,7 @@ describe('PersonRegistrationsService', () => {
         (overrides.people ?? []).find((p: any) => p.id === args.where?.id) ?? {
           id: args.where?.id ?? personId,
           code: 'EMP-1',
-          name: 'Ahmed Hassan',
+          name: 'Ahmed Hassan Ali Saleh',
           category: 'MAINTENANCE',
           isActive: true,
           phone: null,
@@ -219,7 +222,7 @@ describe('PersonRegistrationsService', () => {
 
   describe('enableLogin', () => {
     const login = () => ({ email: 'new@tenant.test', password: require('crypto').randomBytes(24).toString('base64') });
-    const target = { id: personId, name: 'Existing Person', phone: '0771', userId: null };
+    const target = { id: personId, name: 'Existing Person Full Name', phone: '+967771749776', userId: null };
 
     it('creates exactly one user and links the existing person, without new identities/assignments/scopes', async () => {
       const { tx, calls } = makeTx({ people: [target] });
@@ -621,7 +624,7 @@ describe('PersonRegistrationsService', () => {
       return {
         id: personId,
         code: 'EMP-1',
-        name: 'Ahmed Hassan',
+        name: 'Ahmed Hassan Ali Saleh',
         category: 'MAINTENANCE',
         isActive: true,
         phone: null,
@@ -682,12 +685,12 @@ describe('PersonRegistrationsService', () => {
       const { tx, calls } = updateTx(personWithLogin());
       const { service } = makeService(tx);
 
-      await service.update(personId, { name: 'Ahmed Hassan II' } as UpdatePersonRegistrationDto, ctx, actorId);
+      await service.update(personId, { name: 'Ahmed Hassan Ali II' } as UpdatePersonRegistrationDto, ctx, actorId);
 
       expect(calls.deletedMany).toHaveLength(0);
       expect(calls.createdMany).toHaveLength(0);
       const personUpdate = calls.updated.find((c: any) => c.table === 'person');
-      expect(personUpdate.args.data.name).toBe('Ahmed Hassan II');
+      expect(personUpdate.args.data.name).toBe('Ahmed Hassan Ali II');
     });
 
     it('never rewrites the password hash, authVersion or last-login stamp', async () => {
@@ -696,7 +699,7 @@ describe('PersonRegistrationsService', () => {
 
       await service.update(
         personId,
-        { name: 'Renamed' } as UpdatePersonRegistrationDto,
+        { name: 'Renamed Person Full Name' } as UpdatePersonRegistrationDto,
         ctx,
         actorId,
       );
@@ -754,7 +757,7 @@ describe('PersonRegistrationsService', () => {
       const { service } = makeService(tx);
 
       await expect(
-        service.update(personId, { login: { name: 'X' } } as UpdatePersonRegistrationDto, ctx, actorId),
+        service.update(personId, { login: { name: 'Edited Person Full Name' } } as UpdatePersonRegistrationDto, ctx, actorId),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -763,7 +766,7 @@ describe('PersonRegistrationsService', () => {
       const { service } = makeService(tx);
 
       await expect(
-        service.update(personId, { login: { name: 'X' } } as UpdatePersonRegistrationDto, ctx, actorId),
+        service.update(personId, { login: { name: 'Edited Person Full Name' } } as UpdatePersonRegistrationDto, ctx, actorId),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -786,7 +789,7 @@ describe('PersonRegistrationsService', () => {
       tx.operationalPerson.findFirst = jest.fn().mockResolvedValue(null);
 
       await expect(
-        service.update(personId, { name: 'X' } as UpdatePersonRegistrationDto, ctx, actorId),
+        service.update(personId, { name: 'Edited Person Full Name' } as UpdatePersonRegistrationDto, ctx, actorId),
       ).rejects.toThrow(NotFoundException);
     });
 

@@ -1,3 +1,4 @@
+import { FullPersonName, YemenPhone } from '../../../../common/validation/person-identity';
 import {
   ApiProperty,
   ApiPropertyOptional,
@@ -37,11 +38,13 @@ export class PersonLoginUpdateDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @FullPersonName()
   name?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @YemenPhone()
   phone?: string;
 
   @ApiPropertyOptional({
@@ -70,11 +73,13 @@ export class UpdatePersonRegistrationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @FullPersonName()
   name?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @YemenPhone()
   phone?: string;
 
   @ApiPropertyOptional()

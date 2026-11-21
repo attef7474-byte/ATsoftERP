@@ -1,3 +1,4 @@
+import { currentAssignmentWindow } from '../../../common/operational-context/current-assignment-window';
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
@@ -171,11 +172,15 @@ export class PersonAssignmentsService {
   }
 
   async findAll(query: { page?: number; limit?: number; search?: string; personnelId?: string; departmentId?: string; branchId?: string; assignmentType?: string; leadershipLevel?: string; isActive?: string }, ctx: ActiveOperationalContext) {
-    const page = query.page || 1;
-    const limit = query.limit || 10;
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(200, Math.max(1, query.limit || 10));
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null, companyId: ctx.companyId, branchId: query.branchId ?? ctx.branchId };
+    if (query.branchId && query.branchId !== ctx.branchId) throw new ForbiddenException({ messageKey: 'maintenance.executionContextRequired' });
+    const window = currentAssignmentWindow();
+    const where: any = { deletedAt: null, companyId: ctx.companyId, branchId: ctx.branchId,
+      AND: [query.isActive === 'false' ? { NOT: window } : window],
+    };
     if (query.personnelId) where.personnelId = query.personnelId;
     if (query.departmentId) where.departmentId = query.departmentId;
     if (query.assignmentType) where.assignmentType = query.assignmentType;
@@ -317,7 +322,7 @@ export class PersonAssignmentsService {
       const current = await this.findOneWithClient(tx, id, ctx);
       const { transferDate, newEffectiveTo } = this.validateTransferWindow(current, dto);
 
-      await this.validateReferences({ ...current, ...dto } as any, ctx, tx);
+      await this.validateReferences({ ...current, ...dto, branchId: dto.branchId ?? current.branchId ?? ctx.branchId } as any, ctx, tx);
 
       const transferType = dto.assignmentType ?? 'PRIMARY';
       const transferLeadership = this.validateLeadershipLevel(dto.leadershipLevel);
@@ -563,7 +568,7 @@ export class PersonAssignmentsService {
   ) {
     const current = await this.findOneWithClient(client, id, ctx);
     const { transferDate, newEffectiveTo } = this.validateTransferWindow(current, dto);
-    await this.validateReferences({ ...current, ...dto } as any, ctx, client);
+    await this.validateReferences({ ...current, ...dto, branchId: dto.branchId ?? current.branchId ?? ctx.branchId } as any, ctx, client);
 
     const transferLeadership = this.validateLeadershipLevel(dto.leadershipLevel);
     if (transferLeadership !== 'NONE') {
@@ -1204,7 +1209,7 @@ export class PersonAssignmentsService {
       if (!branch) throw this.validationError('branchId', 'validation.invalidReference', 'Branch not found in current company');
     }
 
-    if (department?.branchId && department.branchId !== (dto.branchId ?? null)) {
+    if (department?.branchId && department.branchId !== (dto.branchId ?? ctx.branchId)) {
       throw this.validationError('departmentId', 'validation.invalidBranchHierarchy', 'Department does not belong to the selected branch');
     }
 
@@ -1227,7 +1232,7 @@ export class PersonAssignmentsService {
 
     if (dto.personnelId) {
       const person = await c.operationalPerson.findFirst({
-        where: { id: dto.personnelId, isActive: true },
+        where: { id: dto.personnelId, isActive: true, assignments: { some: { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null, ...currentAssignmentWindow() } } },
       });
       if (!person) throw this.validationError('personnelId', 'validation.invalidReference', 'Operational person not found or inactive');
     }

@@ -1,4 +1,5 @@
 'use client';
+import { isFullPersonName, isLocalYemenPhone, localYemenPhone, normalizePersonName } from '../../../../lib/person-identity';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
@@ -94,7 +95,7 @@ export default function MaintenancePersonnelPage() {
     setModalOpen(true);
     try {
       const item = await api.get<MaintenancePersonnel>(`/maintenance/personnel/${id}`);
-      setForm({ code: item.code, name: item.name, role: item.role, specialty: item.specialty || '', phone: item.phone || '', email: item.email || '', notes: item.notes || '', userId: item.userId || '' });
+      setForm({ code: item.code, name: item.name, role: item.role, specialty: item.specialty || '', phone: localYemenPhone(item.phone), email: item.email || '', notes: item.notes || '', userId: item.userId || '' });
       setSelectedUser(item.user ? { id: item.user.id, name: item.user.name, email: item.user.email } : null);
       setUserSearch(item.user ? item.user.name : '');
       setUserResults([]);
@@ -121,13 +122,14 @@ export default function MaintenancePersonnelPage() {
 
   const handleSave = useCallback(async () => {
     const errors: Record<string, string> = {};
-    if (!form.name) errors.name = t('validation.required');
+    if (!isFullPersonName(form.name)) errors.name = t('validation.personFullName');
+    if (!isLocalYemenPhone(form.phone)) errors.phone = t('validation.yemenPhone');
     if (!form.role) errors.role = t('validation.required');
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
-      const payload: any = { ...form };
+      const payload: any = { ...form, name: normalizePersonName(form.name), phone: form.phone || null };
       if (editingId) delete payload.code;
       if (!payload.userId) delete payload.userId;
       if (editingId) { await api.patch(`/maintenance/personnel/${editingId}`, payload); showToast(t('maintenance.personnelUpdated'), 'success'); }
@@ -229,7 +231,7 @@ export default function MaintenancePersonnelPage() {
               {validationErrors.role && <p className="text-red-500 text-sm mt-1">{validationErrors.role}</p>}
             </div>
             <Input label={t('maintenance.specialty')} value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} />
-            <Input label={t('maintenance.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <Input name="phone" fixedPrefix="+967" inputMode="numeric" type="tel" pattern="[0-9]{9}" maxLength={9} error={validationErrors.phone} label={t('maintenance.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             <Input label={t('maintenance.email')} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             <div>
               <label className="block text-sm font-medium mb-1">{t('maintenance.userAccount')}</label>

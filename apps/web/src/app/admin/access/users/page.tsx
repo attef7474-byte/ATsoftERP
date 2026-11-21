@@ -1,4 +1,5 @@
 'use client';
+import { isFullPersonName, isLocalYemenPhone, localYemenPhone, normalizePersonName } from '../../../../lib/person-identity';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../../../lib/api';
 import { unwrapApiData, unwrapApiList } from '../../../../lib/form-utils';
@@ -134,7 +135,7 @@ export default function UsersPage() {
     try {
       const res = await api.get<any>(`/users/${item.id}`);
       const detail = unwrapApiData<User>(res);
-      setForm({ email: detail.email ?? '', password: '', name: detail.name ?? '', phone: detail.phone ?? '', companyId: detail.companyId ?? '', branchId: detail.branchId ?? '', departmentId: detail.departmentId ?? '', roleId: (detail.roles && detail.roles.length > 0) ? detail.roles[0].role.id : '' });
+      setForm({ email: detail.email ?? '', password: '', name: detail.name ?? '', phone: localYemenPhone(detail.phone), companyId: detail.companyId ?? '', branchId: detail.branchId ?? '', departmentId: detail.departmentId ?? '', roleId: (detail.roles && detail.roles.length > 0) ? detail.roles[0].role.id : '' });
     } catch (err: any) {
       handleApiError(err);
       setModalOpen(false);
@@ -146,7 +147,8 @@ export default function UsersPage() {
   const handleSave = async () => {
     const errors: Record<string, string> = {};
     if (!form.email) errors.email = t('validation.required');
-    if (!form.name) errors.name = t('validation.required');
+    if (!isFullPersonName(form.name)) errors.name = t('validation.personFullName');
+    if (!isLocalYemenPhone(form.phone)) errors.phone = t('validation.yemenPhone');
     if (!editItem && !form.password) errors.password = t('users.passwordRequired');
     setValidationErrors(errors);
     focusFirstInvalidField(
@@ -155,7 +157,7 @@ export default function UsersPage() {
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
-      const body: any = { email: form.email, name: form.name, phone: form.phone || undefined, companyId: form.companyId || undefined, branchId: form.branchId || undefined, departmentId: form.departmentId || undefined };
+      const body: any = { email: form.email, name: normalizePersonName(form.name), phone: form.phone || null, companyId: form.companyId || undefined, branchId: form.branchId || undefined, departmentId: form.departmentId || undefined };
       if (form.roleId) body.roleIds = [form.roleId];
       if (!editItem) body.password = form.password;
       if (editItem) {
@@ -370,7 +372,7 @@ export default function UsersPage() {
         {detailLoading ? <LoadingState /> : <div className="space-y-4">
           <Input label={t('users.email')} name="email" type="email" value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); setValidationErrors(prev => ({ ...prev, email: '' })); }} error={validationErrors.email} required />
           <Input label={t('users.name')} name="name" value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationErrors(prev => ({ ...prev, name: '' })); }} error={validationErrors.name} required />
-          <Input label={t('users.phone')} name="phone" value={form.phone} onChange={(e) => { setForm({ ...form, phone: e.target.value }); setValidationErrors(prev => ({ ...prev, phone: '' })); }} error={validationErrors.phone} />
+          <Input label={t('users.phone')} name="phone" fixedPrefix="+967" inputMode="numeric" type="tel" pattern="[0-9]{9}" maxLength={9} value={form.phone} onChange={(e) => { setForm({ ...form, phone: e.target.value }); setValidationErrors(prev => ({ ...prev, phone: '' })); }} error={validationErrors.phone} />
           {!editItem && <Input label={t('users.password')} name="password" type="password" value={form.password} onChange={(e) => { setForm({ ...form, password: e.target.value }); setValidationErrors(prev => ({ ...prev, password: '' })); }} error={validationErrors.password} required />}
           <F9Lookup label={t('users.company')} name="companyId" value={form.companyId} onChange={(v) => setForm({ ...form, companyId: v })} error={validationErrors.companyId} adapter={companyAdapter} />
           <F9Lookup label={t('users.branch')} name="branchId" value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} error={validationErrors.branchId} adapter={branchAdapter} filters={form.companyId ? { companyId: form.companyId } : undefined} />

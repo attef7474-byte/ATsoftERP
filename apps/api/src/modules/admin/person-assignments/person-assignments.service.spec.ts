@@ -203,17 +203,22 @@ describe('PersonAssignmentsService', () => {
       );
     });
 
-    it('filters by branchId', async () => {
+    it('rejects a branch outside the authorized active context', async () => {
+      await expect(service.findAll({ branchId: 'branch-x' }, ctx)).rejects.toThrow();
+      expect(prisma.operationalPersonAssignment.findMany).not.toHaveBeenCalled();
+    });
+
+    it('uses the same effective primary predicate for pagination and search', async () => {
       prisma.operationalPersonAssignment.findMany.mockResolvedValue([]);
       prisma.operationalPersonAssignment.count.mockResolvedValue(0);
-
-      await service.findAll({ branchId: 'branch-x' }, ctx);
-
-      expect(prisma.operationalPersonAssignment.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ branchId: 'branch-x' }),
-        }),
-      );
+      await service.findAll({ page: 2, limit: 5, search: 'Ali', assignmentType: 'PRIMARY' }, ctx);
+      const args = prisma.operationalPersonAssignment.findMany.mock.calls[0][0];
+      expect(args).toMatchObject({ skip: 5, take: 5, where: { companyId: ctx.companyId, branchId: ctx.branchId,
+        assignmentType: 'PRIMARY', deletedAt: null, AND: [{ effectiveFrom: { lte: expect.any(Date) },
+          OR: [{ effectiveTo: null }, { effectiveTo: { gt: expect.any(Date) } }] }],
+        OR: expect.any(Array),
+      } });
+      expect(prisma.operationalPersonAssignment.count).toHaveBeenCalledWith({ where: args.where });
     });
   });
 
@@ -323,12 +328,12 @@ describe('PersonAssignmentsService', () => {
       expect(response.errors[0]).toMatchObject({ field: 'effectiveFrom', code: 'validation.invalidRange' });
     });
 
-    it('closes old assignment and creates a new one via transaction', async () => {
+    it('preserves the current branch when transformed DTO fields are explicitly undefined', async () => {
       const current = assignment();
       prisma.operationalPersonAssignment.findFirst
         .mockResolvedValueOnce(current)
         .mockResolvedValueOnce(null);
-      prisma.department.findFirst.mockResolvedValue({ id: 'dept2' });
+      prisma.department.findFirst.mockResolvedValue({ id: 'dept2', branchId: ctx.branchId });
       prisma.jobTitle.findFirst.mockResolvedValue({ id: 'jt1' });
       prisma.branch.findFirst.mockResolvedValue({ id: 'branch-a' });
       prisma.operationalPerson.findFirst.mockResolvedValue({ id: 'person1' });
@@ -338,7 +343,7 @@ describe('PersonAssignmentsService', () => {
 
       const result = await service.transfer(
         'pa1',
-        { departmentId: 'dept2', effectiveFrom: '2026-06-01T00:00:00.000Z' },
+        { departmentId: 'dept2', branchId: undefined, effectiveFrom: '2026-06-01T00:00:00.000Z' },
         ctx,
         'user-1',
       );
@@ -347,6 +352,9 @@ describe('PersonAssignmentsService', () => {
         expect.objectContaining({ where: expect.objectContaining({ id: 'pa1', companyId: 'company-a' }), data: { effectiveTo: expect.any(Date) } }),
       );
       expect(mockTx.operationalPersonAssignment.create).toHaveBeenCalled();
+      expect(prisma.operationalPerson.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({
+        assignments: { some: expect.objectContaining({ companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null }) },
+      }) }));
       expect(auditService.logWithClient).toHaveBeenCalledWith(
         mockTx,
         expect.objectContaining({ action: 'TRANSFER', entity: 'OperationalPersonAssignment' }),

@@ -23,8 +23,8 @@ export class UsersController {
   @Post()
   @Permissions('user:create')
   @ApiOperation({ summary: 'Create a new user' })
-  create(@Body() dto: CreateUserDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.usersService.create(dto, ctx);
+  create(@Body() dto: CreateUserDto, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') actorId: string) {
+    return this.usersService.create(dto, ctx, actorId);
   }
 
   @Get()
@@ -44,8 +44,8 @@ export class UsersController {
   @Patch(':id')
   @Permissions('user:update')
   @ApiOperation({ summary: 'Update user' })
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.usersService.update(id, dto, ctx);
+  update(@Param('id') id: string, @Body() dto: UpdateUserDto, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') actorId: string) {
+    return this.usersService.update(id, dto, ctx, actorId);
   }
 
   @Delete(':id')

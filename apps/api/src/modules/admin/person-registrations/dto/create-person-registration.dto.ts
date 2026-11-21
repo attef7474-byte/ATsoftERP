@@ -1,3 +1,4 @@
+import { FullPersonName, YemenPhone } from '../../../../common/validation/person-identity';
 import {
   ApiProperty,
   ApiPropertyOptional,
@@ -98,11 +99,13 @@ export class PersonLoginDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @FullPersonName()
   name?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @YemenPhone()
   phone?: string;
 
   @ApiPropertyOptional({
@@ -144,10 +147,11 @@ export class CreatePersonRegistrationDto {
   @IsString()
   code?: string;
 
-  @ApiProperty({ example: 'Ahmed Hassan' })
+  @ApiProperty({ example: 'Ahmed Hassan Ali Saleh' })
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
   @IsNotEmpty()
+  @FullPersonName()
   name: string;
 
   @ApiPropertyOptional({ example: 'MAINTENANCE', enum: ['OPERATIONAL', 'MAINTENANCE'] })
@@ -158,6 +162,7 @@ export class CreatePersonRegistrationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @YemenPhone()
   phone?: string;
 
   @ApiPropertyOptional()

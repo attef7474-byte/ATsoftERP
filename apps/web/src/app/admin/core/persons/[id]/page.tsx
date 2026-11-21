@@ -47,21 +47,22 @@ export default function PersonDetailPage() {
     if (!id) return;
     setAssignmentsLoading(true);
     try {
-      const res = await api.get('/person-assignments', { params: { personnelId: id, limit: 50 } }) as any;
-      setAssignments(res.data || []);
+      const res = await api.get(`/person-assignments/person/${id}`) as any;
+      setAssignments(Array.isArray(res) ? res : []);
     } catch {
+      showToast(t('errors.loadFailed'), 'error');
       setAssignments([]);
     } finally {
       setAssignmentsLoading(false);
     }
-  }, [id]);
+  }, [id, showToast, t]);
 
   const fetchSupervisorAssignments = useCallback(async () => {
     if (!id) return;
     setSupervisorLoading(true);
     try {
-      const assignmentsRes = await api.get('/person-assignments', { params: { personnelId: id, limit: 50 } }) as any;
-      const personAssignments: OperationalPersonAssignment[] = assignmentsRes.data || [];
+      const assignmentsRes = await api.get(`/person-assignments/person/${id}`) as any;
+      const personAssignments: OperationalPersonAssignment[] = Array.isArray(assignmentsRes) ? assignmentsRes : [];
       const assignmentIds = new Set(personAssignments.map((a) => a.id));
 
       const res = await api.get('/supervisor-assignments', { params: { limit: 100 } }) as any;
@@ -71,11 +72,12 @@ export default function PersonDetailPage() {
       );
       setSupervisorAssignments(filtered);
     } catch {
+      showToast(t('errors.loadFailed'), 'error');
       setSupervisorAssignments([]);
     } finally {
       setSupervisorLoading(false);
     }
-  }, [id]);
+  }, [id, showToast, t]);
 
   useEffect(() => { fetchPerson(); }, [fetchPerson]);
 
@@ -92,7 +94,7 @@ export default function PersonDetailPage() {
   if (!person) return null;
 
   const currentAssignment = assignments.find(
-    (a) => !a.effectiveTo || new Date(a.effectiveTo) > new Date()
+    (a) => a.assignmentType === 'PRIMARY' && new Date(a.effectiveFrom) <= new Date() && (!a.effectiveTo || new Date(a.effectiveTo) > new Date())
   );
 
   const currentSupervisor = supervisorAssignments.find(

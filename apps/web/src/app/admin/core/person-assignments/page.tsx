@@ -126,6 +126,7 @@ export default function PersonAssignmentsPage() {
     setError(null);
     try {
       const params = buildPersonAssignmentListParams(activeContext?.branchId, { page, limit: 10, search: searchQuery || undefined });
+      params.assignmentType = 'PRIMARY';
       const res = await api.get('/person-assignments', { params }) as any;
       setData(res.data);
       setMeta(res.meta);

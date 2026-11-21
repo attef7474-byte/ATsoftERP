@@ -1,62 +1,40 @@
+import { AuditService } from '../../../audit/audit.service';
+import { normalizeIdentity, assertIdentityAvailable, lockIdentityCompany } from '../../../../common/validation/person-identity';
+import { currentAssignmentWindow } from '../../../../common/operational-context/current-assignment-window';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { PersonRegistrationsService } from '../../../admin/person-registrations/person-registrations.service';
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
-import { NumberingService } from '../../../numbering/numbering.service';
 import { CreateMaintenancePersonnelDto, UpdateMaintenancePersonnelDto } from './dto/create-maintenance-personnel.dto';
 
 @Injectable()
 export class MaintenancePersonnelService {
-  constructor(private prisma: PrismaService, private numberingService: NumberingService) {}
+  constructor(private prisma: PrismaService, private registrations: PersonRegistrationsService, private audit: AuditService) {}
 
-  async create(dto: CreateMaintenancePersonnelDto) {
-    const code = dto.code?.trim() || await this.numberingService.generateNumberAtomic('MAINTENANCE_PERSONNEL');
-    const existing = await this.prisma.operationalPerson.findUnique({ where: { code } });
-    if (existing) throw new ConflictException('Personnel code already exists');
-
-    if (dto.userId) {
-      const user = await this.prisma.user.findUnique({ where: { id: dto.userId } });
-      if (!user) throw new BadRequestException('User not found');
-      const conflict = await this.prisma.operationalPerson.findFirst({ where: { userId: dto.userId } });
-      if (conflict) throw new ConflictException('User is already linked to another operational person');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      const operationalPerson = await tx.operationalPerson.create({
-        data: {
-          code,
-          name: dto.name,
-          category: 'MAINTENANCE',
-          phone: dto.phone ?? null,
-          email: dto.email ?? null,
-          notes: dto.notes ?? null,
-          userId: dto.userId ?? null,
-          isActive: dto.isActive ?? true,
-        },
-      });
-
-      const personnel = await tx.maintenancePersonnel.create({
-        data: {
-          operationalPersonId: operationalPerson.id,
-          role: dto.role,
-          specialty: dto.specialty ?? null,
-          isActive: dto.isActive ?? true,
-        },
-        include: {
-          operationalPerson: {
-            include: { user: { select: { id: true, name: true, email: true } } },
-          },
-        },
-      });
-
-      return this.mapPersonnel(personnel);
-    });
+  private scope(ctx: ActiveOperationalContext) {
+    return { operationalPerson: { assignments: { some: { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null, ...currentAssignmentWindow() } } } };
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string; role?: string; specialty?: string; isActive?: string }) {
-    const page = query.page || 1;
-    const limit = query.limit || 10;
-    const where: any = {};
+  async create(dto: CreateMaintenancePersonnelDto, ctx: ActiveOperationalContext, actorId?: string) {
+    dto = normalizeIdentity(dto);
+    // Legacy route delegates to registration, including its permission gates and audit.
+    const result = await this.registrations.create({
+      code: dto.code, name: dto.name, phone: dto.phone, email: dto.email, notes: dto.notes,
+      isActive: dto.isActive, category: 'MAINTENANCE',
+      placement: { departmentId: dto.departmentId },
+      maintenance: { role: dto.role, specialty: dto.specialty, isActive: dto.isActive },
+      ...(dto.userId ? { login: { userId: dto.userId } } : {}),
+    }, ctx, actorId);
+    return this.findOne(result.maintenanceCapability!.id, ctx);
+  }
+
+  async findAll(query: { page?: number; limit?: number; search?: string; role?: string; specialty?: string; isActive?: string }, ctx: ActiveOperationalContext) {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(200, Math.max(1, query.limit || 10));
+    const where: any = this.scope(ctx);
     if (query.search) {
       where.operationalPerson = {
+        ...where.operationalPerson,
         OR: [
           { code: { contains: query.search } },
           { name: { contains: query.search } },
@@ -86,24 +64,24 @@ export class MaintenancePersonnelService {
     return { data: data.map(r => this.mapPersonnel(r)), meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
-    const record = await this.prisma.maintenancePersonnel.findUnique({
-      where: { id },
+  async findOne(id: string, ctx: ActiveOperationalContext) {
+    const record = await this.prisma.maintenancePersonnel.findFirst({
+      where: { id, ...this.scope(ctx) },
       include: {
         operationalPerson: {
           include: { user: { select: { id: true, name: true, email: true } } },
         },
-        machineResponsibilities: { include: { machine: { select: { id: true, code: true, name: true } } } },
-        requestAssignments: { include: { maintenanceRequest: { select: { id: true, requestNumber: true, title: true } } } },
+        machineResponsibilities: { where: { machine: { companyId: ctx.companyId, branchId: ctx.branchId } }, include: { machine: { select: { id: true, code: true, name: true } } } },
+        requestAssignments: { where: { maintenanceRequest: { machine: { companyId: ctx.companyId, branchId: ctx.branchId } } }, include: { maintenanceRequest: { select: { id: true, requestNumber: true, title: true } } } },
       },
     });
     if (!record) throw new NotFoundException('Maintenance personnel not found');
     return this.mapPersonnel(record);
   }
 
-  async update(id: string, dto: UpdateMaintenancePersonnelDto) {
-    const existing = await this.prisma.maintenancePersonnel.findUnique({
-      where: { id },
+  async update(id: string, dto: UpdateMaintenancePersonnelDto, ctx: ActiveOperationalContext, actorId?: string) {
+    const existing = await this.prisma.maintenancePersonnel.findFirst({
+      where: { id, ...this.scope(ctx) },
       include: { operationalPerson: true },
     });
     if (!existing) throw new NotFoundException('Maintenance personnel not found');
@@ -111,11 +89,11 @@ export class MaintenancePersonnelService {
     if (dto.code && dto.code !== existing.operationalPerson.code) {
       throw new BadRequestException('Code cannot be changed after creation');
     }
-    const { code, ...restDto } = dto;
+    const { code, ...restDto } = normalizeIdentity(dto);
 
     if (restDto.userId !== undefined && restDto.userId !== existing.operationalPerson.userId) {
       if (restDto.userId) {
-        const user = await this.prisma.user.findUnique({ where: { id: restDto.userId } });
+        const user = await this.prisma.user.findFirst({ where: { id: restDto.userId, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null } });
         if (!user) throw new BadRequestException('User not found');
         const conflict = await this.prisma.operationalPerson.findFirst({ where: { userId: restDto.userId, id: { not: existing.operationalPersonId } } });
         if (conflict) throw new ConflictException('User is already linked to another operational person');
@@ -123,6 +101,8 @@ export class MaintenancePersonnelService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      await lockIdentityCompany(tx, ctx);
+      await assertIdentityAvailable(tx, 'operationalPerson', restDto, ctx, existing.operationalPersonId);
       await tx.operationalPerson.update({
         where: { id: existing.operationalPersonId },
         data: {
@@ -149,13 +129,14 @@ export class MaintenancePersonnelService {
         },
       });
 
+      await this.audit.logWithClient(tx, { userId: actorId, action: 'UPDATE', entity: 'MaintenancePersonnel', entityId: id, details: { companyId: ctx.companyId, branchId: ctx.branchId, previousValues: this.mapPersonnel(existing), newValues: this.mapPersonnel(updated) } });
       return this.mapPersonnel(updated);
     });
   }
 
-  async activate(id: string) {
-    const existing = await this.prisma.maintenancePersonnel.findUnique({
-      where: { id },
+  async activate(id: string, ctx: ActiveOperationalContext, actorId?: string) {
+    const existing = await this.prisma.maintenancePersonnel.findFirst({
+      where: { id, ...this.scope(ctx) },
       include: { operationalPerson: true },
     });
     if (!existing) throw new NotFoundException('Maintenance personnel not found');
@@ -171,13 +152,14 @@ export class MaintenancePersonnelService {
           },
         },
       });
+      await this.audit.logWithClient(tx, { userId: actorId, action: 'UPDATE', entity: 'MaintenancePersonnel', entityId: id, details: { companyId: ctx.companyId, branchId: ctx.branchId, previousValues: this.mapPersonnel(existing), newValues: this.mapPersonnel(updated) } });
       return this.mapPersonnel(updated);
     });
   }
 
-  async deactivate(id: string) {
-    const existing = await this.prisma.maintenancePersonnel.findUnique({
-      where: { id },
+  async deactivate(id: string, ctx: ActiveOperationalContext, actorId?: string) {
+    const existing = await this.prisma.maintenancePersonnel.findFirst({
+      where: { id, ...this.scope(ctx) },
       include: { operationalPerson: true },
     });
     if (!existing) throw new NotFoundException('Maintenance personnel not found');
@@ -193,13 +175,14 @@ export class MaintenancePersonnelService {
           },
         },
       });
+      await this.audit.logWithClient(tx, { userId: actorId, action: 'UPDATE', entity: 'MaintenancePersonnel', entityId: id, details: { companyId: ctx.companyId, branchId: ctx.branchId, previousValues: this.mapPersonnel(existing), newValues: this.mapPersonnel(updated) } });
       return this.mapPersonnel(updated);
     });
   }
 
-  async remove(id: string) {
-    const existing = await this.prisma.maintenancePersonnel.findUnique({
-      where: { id },
+  async remove(id: string, ctx: ActiveOperationalContext, actorId?: string) {
+    const existing = await this.prisma.maintenancePersonnel.findFirst({
+      where: { id, ...this.scope(ctx) },
       include: { operationalPerson: true, _count: { select: { machineResponsibilities: true, requestAssignments: true } } },
     });
     if (!existing) throw new NotFoundException('Maintenance personnel not found');
@@ -221,6 +204,7 @@ export class MaintenancePersonnelService {
           },
         },
       });
+      await this.audit.logWithClient(tx, { userId: actorId, action: 'UPDATE', entity: 'MaintenancePersonnel', entityId: id, details: { companyId: ctx.companyId, branchId: ctx.branchId, previousValues: this.mapPersonnel(existing), newValues: this.mapPersonnel(updated) } });
       return this.mapPersonnel(updated);
     });
   }

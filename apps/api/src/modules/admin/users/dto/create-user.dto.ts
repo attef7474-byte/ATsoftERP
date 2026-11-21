@@ -1,3 +1,4 @@
+import { FullPersonName, YemenPhone } from '../../../../common/validation/person-identity';
 import { IsEmail, IsString, MinLength, IsOptional, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -11,13 +12,15 @@ export class CreateUserDto {
   @MinLength(6)
   password: string;
 
-  @ApiProperty({ example: 'John Doe' })
+  @ApiProperty({ example: 'John Michael Robert Smith' })
   @IsString()
+  @FullPersonName()
   name: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @YemenPhone()
   phone?: string;
 
   @ApiPropertyOptional()

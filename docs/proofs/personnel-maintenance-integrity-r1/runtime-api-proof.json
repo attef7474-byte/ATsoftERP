@@ -1,0 +1,127 @@
+{
+  "database": "ATsoftERP_PERSONNEL_P1_INTEGRATED_20261121",
+  "sourceDatabaseWrites": 0,
+  "checks": [
+    {
+      "check": "API three-word name rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "API malformed phones rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "Unknown fields rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "Four-word name saved and whitespace/phone normalized",
+      "status": "PASS"
+    },
+    {
+      "check": "Own name and phone edit preserves identity",
+      "status": "PASS"
+    },
+    {
+      "check": "Normalized duplicate name and phone rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "Edit collisions with another person rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "User authority validates duplicates independently from OperationalPerson and permits own edit",
+      "status": "PASS"
+    },
+    {
+      "check": "Employee writes share canonical person duplicate policy",
+      "status": "PASS"
+    },
+    {
+      "check": "Legacy maintenance create is tenant-anchored and cannot bypass shared duplicate protection",
+      "status": "PASS"
+    },
+    {
+      "check": "Company B read/edit/reference/search denial",
+      "status": "PASS"
+    },
+    {
+      "check": "Permission and unauthorized branch denial",
+      "status": "PASS"
+    },
+    {
+      "check": "Separate companies keep separate identities",
+      "status": "PASS"
+    },
+    {
+      "check": "A to B to C to A transfers preserve one current row, history and next transfer eligibility",
+      "status": "PASS"
+    },
+    {
+      "check": "Database audit events persisted",
+      "status": "PASS"
+    },
+    {
+      "check": "Concurrent identity submission creates one person",
+      "status": "PASS"
+    },
+    {
+      "check": "Legacy identity APIs cannot bypass full-name validation",
+      "status": "PASS"
+    },
+    {
+      "check": "Maintenance personnel tenant read/write denial",
+      "status": "PASS"
+    },
+    {
+      "check": "Cross-company person reference rejected by assignment API",
+      "status": "PASS"
+    },
+    {
+      "check": "Existing identity, assignment and audit rows preserved; inventory unchanged",
+      "status": "PASS"
+    }
+  ],
+  "fixtureIds": {
+    "companyId": "cmwqnp29s0000g495ndgau5cj",
+    "companyBId": "cmwqnp2ak0001g495r6ih1wc5",
+    "actorId": "cmwqnp2fb000ag495116tnjyw",
+    "branchId": "cmwqnp2b10002g495msg4jgqb",
+    "departmentIds": [
+      "cmwqnp2ci0005g495sai5kou4",
+      "cmwqnp2d10006g495aijhep2s",
+      "cmwqnp2d80007g4952sg75cez"
+    ],
+    "personId": "cmwqnp2rw000dg495aflcwuw9"
+  },
+  "browser": null,
+  "rowPreservation": {
+    "user": {
+      "before": 25,
+      "preserved": 25,
+      "lost": 0
+    },
+    "operationalPerson": {
+      "before": 86,
+      "preserved": 86,
+      "lost": 0
+    },
+    "operationalPersonAssignment": {
+      "before": 54,
+      "preserved": 54,
+      "lost": 0
+    },
+    "auditLog": {
+      "before": 5743,
+      "preserved": 5743,
+      "lost": 0
+    }
+  },
+  "inventoryMovementCounts": {
+    "before": 125,
+    "after": 125
+  },
+  "status": "PASS",
+  "fixtureActorsDeactivated": 4
+}

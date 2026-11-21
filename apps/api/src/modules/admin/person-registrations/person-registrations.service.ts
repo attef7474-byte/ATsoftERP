@@ -1,3 +1,5 @@
+import { normalizeIdentity, assertIdentityAvailable, lockIdentityCompany } from '../../../common/validation/person-identity';
+import { currentAssignmentWindow } from '../../../common/operational-context/current-assignment-window';
 import {
   BadRequestException,
   ConflictException,
@@ -75,8 +77,7 @@ export class PersonRegistrationsService {
       companyId: ctx.companyId,
       branchId: ctx.branchId,
       deletedAt: null,
-      effectiveFrom: { lte: now },
-      OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
+      ...currentAssignmentWindow(now),
     };
   }
 
@@ -253,11 +254,15 @@ export class PersonRegistrationsService {
   }
 
   async create(dto: CreatePersonRegistrationDto, ctx: ActiveOperationalContext, actorUserId?: string) {
+    dto = normalizeIdentity(dto);
+    if (dto.login && !dto.login.userId) dto.login = normalizeIdentity({ ...dto.login, name: dto.login.name ?? dto.name, phone: dto.login.phone ?? dto.phone });
     try {
       return await this.prisma.$transaction(
         async (tx) => {
           await this.resolveRequiredPermissions(tx, actorUserId, dto);
           await this.validatePlacementReferences(tx, dto.placement, ctx);
+          await lockIdentityCompany(tx, ctx);
+          await assertIdentityAvailable(tx, 'operationalPerson', dto, ctx);
 
           const branchId = dto.placement.branchId ?? ctx.branchId;
 
@@ -480,11 +485,14 @@ export class PersonRegistrationsService {
       { passwordField: 'login.password', confirmationField: 'login.password', client: tx },
     );
 
+    login = normalizeIdentity(login);
+    await lockIdentityCompany(tx, ctx);
+    await assertIdentityAvailable(tx, 'user', login, ctx);
     return tx.user.create({
       data: {
-        email: login.email,
+        email: login.email!,
         passwordHash,
-        name: login.name ?? login.email,
+        name: login.name!,
         phone: login.phone ?? null,
         status: 'ACTIVE',
         companyId: ctx.companyId,
@@ -645,7 +653,10 @@ export class PersonRegistrationsService {
     ctx: ActiveOperationalContext,
     actorUserId?: string,
   ) {
+    dto = normalizeIdentity(dto);
+    if (dto.login) dto.login = normalizeIdentity(dto.login);
     return this.prisma.$transaction(async (tx) => {
+      await lockIdentityCompany(tx, ctx);
       const person = await tx.operationalPerson.findFirst({
         where: {
           id: personId,
@@ -667,6 +678,8 @@ export class PersonRegistrationsService {
       if (dto.maintenance) required.push('maintenance-personnel:update');
       await assertUserPermissions(tx as any, actorUserId, required);
 
+      await assertIdentityAvailable(tx, 'operationalPerson', dto, ctx, person.id);
+      if (dto.login && person.userId) await assertIdentityAvailable(tx, 'user', dto.login, ctx, person.userId);
       const personChanges: Record<string, unknown> = {};
       if (dto.name !== undefined) personChanges.name = dto.name;
       if (dto.phone !== undefined) personChanges.phone = dto.phone ?? null;
@@ -848,7 +861,7 @@ export class PersonRegistrationsService {
         assignment.status === 'ACTIVE' &&
         assignment.assignmentType === 'PRIMARY' &&
         new Date(assignment.effectiveFrom) <= now &&
-        (!assignment.effectiveTo || new Date(assignment.effectiveTo) >= now),
+        (!assignment.effectiveTo || new Date(assignment.effectiveTo) > now),
     );
     if (candidates.length === 0) return null;
     candidates.sort((a: any, b: any) => {

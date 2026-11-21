@@ -12,7 +12,7 @@ const mockToast = jest.fn(), mockDialog = jest.fn(), mockFocus = jest.fn();
 const mockT = (key: string): string => ({
   'actions.save': 'حفظ', 'actions.cancel': 'إلغاء', 'common.create': 'إنشاء',
   'common.edit': 'تعديل', 'common.successCreated': 'تم الإنشاء بنجاح',
-  'validation.requiredField': 'هذا الحقل مطلوب', 'errors.validationFailed': 'تحقق من البيانات',
+  'validation.required': 'هذا الحقل مطلوب', 'errors.validationFailed': 'تحقق من البيانات',
   'core.personRegistrationContextMismatch': 'الفرع لا يطابق السياق النشط',
   'errors.serverError': 'حدث خطأ في الخادم', 'errors.generalError': 'تعذر إكمال العملية',
   'errors.networkError': 'تعذر الاتصال بالخادم',
@@ -67,7 +67,7 @@ describe('unified employee registration Save feedback', () => {
   async function open(overrides: Record<string, unknown> = {}) {
     await act(async () => { tree = create(React.createElement(Page)); });
     await act(async () => { mockCrud.openCreate(); });
-    await act(async () => { mockCrud.setForm({ ...mockCrud.form, name: ' Employee ', phone: '077174907', departmentId: 'department-1', enableLogin: true, loginEmail: 'employee@example.test', loginPassword: randomBytes(24).toString('base64'), roleIds: ['role-id-1'], ...overrides }); });
+    await act(async () => { mockCrud.setForm({ ...mockCrud.form, name: ' Employee Full Name Here ', phone: '077174907', departmentId: 'department-1', enableLogin: true, loginEmail: 'employee@example.test', loginPassword: randomBytes(24).toString('base64'), roleIds: ['role-id-1'], ...overrides }); });
   }
   beforeEach(() => {
     jest.clearAllMocks();
@@ -146,7 +146,7 @@ describe('unified employee registration Save feedback', () => {
     expect(mockToast).toHaveBeenCalledWith('تم الإنشاء بنجاح', 'success');
     expect(api.get.mock.calls.filter((c: any[]) => c[0] === '/person-registrations')).toHaveLength(initialLists + 1);
     const payload = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
-    expect(payload.code).toBeUndefined(); expect(payload.name).toBe('Employee');
+    expect(payload.code).toBeUndefined(); expect(payload.name).toBe('Employee Full Name Here');
     expect(payload.login.roleIds).toEqual(['role-id-1']); expect(payload.maintenance).toBeUndefined();
     expect(payload.placement).toMatchObject({ branchId: 'branch-1', departmentId: 'department-1' });
   });

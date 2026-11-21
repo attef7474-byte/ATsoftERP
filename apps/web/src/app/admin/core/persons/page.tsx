@@ -1,4 +1,5 @@
 'use client';
+import { isFullPersonName, isLocalYemenPhone, localYemenPhone, normalizePersonName } from '../../../../lib/person-identity';
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import EnableLoginDialog from './enable-login-dialog';
 import { api } from '../../../../lib/api';
@@ -257,7 +258,7 @@ const maintenance = detail.maintenanceCapability || null;
         code: safeString(detail.code),
         name: safeString(detail.name),
         category: (detail.category as UnifiedForm['category']) || 'MAINTENANCE',
-        phone: safeString(detail.phone),
+        phone: localYemenPhone(detail.phone),
         email: safeString(detail.email),
         notes: safeString(detail.notes),
         isActive: detail.isActive !== false,
@@ -277,7 +278,7 @@ const maintenance = detail.maintenanceCapability || null;
         loginEmail: safeString(user?.email),
         loginPassword: '',
         loginName: safeString(detail.name),
-        loginPhone: safeString(detail.phone),
+        loginPhone: localYemenPhone(detail.phone),
         // Hydrate the CURRENT role selection so the edit form shows the persisted grants.
         // `rolesTouched` stays false: display is decoupled from mutation intent, so an
         // unrelated edit still omits `roleIds` and can never silently reset grant state.
@@ -288,7 +289,7 @@ const maintenance = detail.maintenanceCapability || null;
     mapFormToPayload: (values, context) => {
       const isEdit = context?.mode === 'edit';
       const payload: Record<string, unknown> = {
-        name: values.name.trim(),
+        name: normalizePersonName(values.name),
         phone: values.phone || null,
         email: values.email.trim() || null,
         notes: values.notes || null,
@@ -317,8 +318,8 @@ const maintenance = detail.maintenanceCapability || null;
         payload.login = {
           email: values.loginEmail.trim(),
           ...(values.loginPassword ? { password: values.loginPassword } : {}),
-          name: values.loginName || values.name,
-          phone: values.loginPhone || values.phone || null,
+          name: normalizePersonName(values.name),
+          phone: values.phone || null,
           // On edit, roles are only sent when the operator explicitly changed them, so an
           // unrelated edit can never wipe existing grants (server treats omission as preserve).
           ...(isEdit && !values.rolesTouched ? {} : { roleIds: values.roleIds }),
@@ -337,20 +338,21 @@ const maintenance = detail.maintenanceCapability || null;
     validate: (values, context) => {
       const isEdit = context?.mode === 'edit';
       const fieldErrors: Record<string, string> = {};
-      if (!values.name?.trim()) fieldErrors.name = t('validation.requiredField');
+      if (!isFullPersonName(values.name || '')) fieldErrors.name = t('validation.personFullName');
+      if (!isLocalYemenPhone(values.phone || '')) fieldErrors.phone = t('validation.yemenPhone');
       // Placement is create-only; on edit the current placement is preserved untouched.
-      if (!isEdit && !values.departmentId) fieldErrors.departmentId = t('validation.requiredField');
+      if (!isEdit && !values.departmentId) fieldErrors.departmentId = t('validation.required');
       if (!isEdit && (!activeContext?.companyId || !activeContext.branchId || values.branchId !== activeContext.branchId)) {
         fieldErrors.branchId = t('core.personRegistrationContextMismatch');
       }
       if (values.enableMaintenance && !values.maintenanceRole?.trim()) {
-        fieldErrors.maintenanceRole = t('validation.requiredField');
+        fieldErrors.maintenanceRole = t('validation.required');
       }
       if (values.enableLogin && (!isEdit || context?.record?.login) && !values.loginEmail?.trim()) {
-        fieldErrors.loginEmail = t('validation.requiredField');
+        fieldErrors.loginEmail = t('validation.required');
       }
       if (values.enableLogin && !isEdit && !values.loginPassword) {
-        fieldErrors.loginPassword = t('validation.requiredField');
+        fieldErrors.loginPassword = t('validation.required');
       }
       return Object.keys(fieldErrors).length > 0 ? { fieldErrors } : null;
     },
@@ -599,7 +601,7 @@ const maintenance = detail.maintenanceCapability || null;
                   </select>
                 </div>
                 <Input
-                  id="phone" name="phone"
+                  id="phone" name="phone" fixedPrefix="+967" inputMode="numeric" type="tel" pattern="[0-9]{9}" maxLength={9}
                   label={t('common.phone')}
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -651,7 +653,7 @@ const maintenance = detail.maintenanceCapability || null;
                   id="departmentId" name="departmentId"
                   label={t('core.department')}
                   required={!editItem}
-                  description={!editItem ? t('validation.requiredField') : undefined}
+                  description={!editItem ? t('validation.required') : undefined}
                   value={form.departmentId}
                   onChange={(v) => setForm({ ...form, departmentId: v })}
                   adapter={departmentAdapter}

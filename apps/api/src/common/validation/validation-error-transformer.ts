@@ -38,6 +38,8 @@ export function mapValidationConstraint(constraint: string): string {
   if (name === 'minlength') return 'validation.tooShort';
   if (name === 'maxlength') return 'validation.tooLong';
   if (name === 'length') return 'validation.tooShort';
+  if (name === 'fullpersonname') return 'validation.personFullName';
+  if (name === 'yemenphone') return 'validation.yemenPhone';
   if (name === 'matches') return 'validation.invalidFormat';
   if (name === 'whitelistvalidation') return 'validation.unknownField';
   return 'validation.invalidValue';

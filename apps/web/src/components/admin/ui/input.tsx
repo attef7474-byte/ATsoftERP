@@ -7,10 +7,11 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
   description?: string;
   required?: boolean;
+  fixedPrefix?: string;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, description, required, className = '', id, ...props }, ref) => {
+  ({ label, error, description, required, fixedPrefix, className = '', id, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
     const errorId = error ? `${inputId}-error` : undefined;
     const descriptionId = description ? `${inputId}-description` : undefined;
@@ -23,6 +24,8 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {required && <span aria-hidden="true" className="text-red-600 ms-1">*</span>}
           </label>
         )}
+        <div className={fixedPrefix ? 'flex items-center gap-2' : undefined} dir={fixedPrefix ? 'ltr' : undefined}>
+        {fixedPrefix && <span className="shrink-0 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm" data-phone-prefix>{fixedPrefix}</span>}
         <input
           ref={ref}
           id={inputId}
@@ -32,6 +35,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           className={`block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${error ? 'border-red-300 bg-red-50' : 'border-gray-300'} ${className}`}
           {...props}
         />
+        </div>
         {description && !error && <p id={descriptionId} className="mt-1 text-xs text-gray-500">{description}</p>}
         {error && <p id={errorId} className="mt-1 text-sm text-red-600">{error}</p>}
       </div>

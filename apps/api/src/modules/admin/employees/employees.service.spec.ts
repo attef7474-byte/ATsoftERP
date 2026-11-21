@@ -26,7 +26,7 @@ const ctxSeiyun = { ...ctx, contextKey: 'c1:b2:-:-', branchId: 'b2', branchName:
 const person = (overrides: Record<string, any> = {}) => ({
   id: 'p1',
   code: 'EMP-001',
-  name: 'Ahmed Hassan',
+  name: 'Ahmed Hassan Ali Saleh',
   category: 'MAINTENANCE',
   isActive: true,
   phone: null,
@@ -42,10 +42,11 @@ describe('EmployeesService', () => {
 
   beforeEach(() => {
     tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'c1' }]),
       operationalPerson: {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
@@ -78,7 +79,7 @@ describe('EmployeesService', () => {
       $transaction: jest.fn((cb: any) => cb(tx)),
     };
 
-    service = new EmployeesService(prisma);
+    service = new EmployeesService(prisma, { logWithClient: jest.fn() } as any);
   });
 
   describe('findAll (A, B, O)', () => {
@@ -97,7 +98,7 @@ describe('EmployeesService', () => {
                 branchId: 'b1',
                 deletedAt: null,
                 effectiveFrom: { lte: expect.any(Date) },
-                OR: [{ effectiveTo: null }, { effectiveTo: { gte: expect.any(Date) } }],
+                OR: [{ effectiveTo: null }, { effectiveTo: { gt: expect.any(Date) } }],
               }),
             },
           }),
@@ -174,14 +175,14 @@ describe('EmployeesService', () => {
       tx.operationalPersonAssignment.create.mockResolvedValue({ id: 'a1' });
 
       const result = await service.create(
-        { code: 'EMP-001', name: 'Ahmed Hassan', departmentId: 'd1' },
+        { code: 'EMP-001', name: 'Ahmed Hassan Ali Saleh', departmentId: 'd1' },
         ctx,
       );
 
       expect(prisma.$transaction).toHaveBeenCalled();
       expect(tx.operationalPerson.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ code: 'EMP-001', name: 'Ahmed Hassan', category: 'MAINTENANCE' }),
+          data: expect.objectContaining({ code: 'EMP-001', name: 'Ahmed Hassan Ali Saleh', category: 'MAINTENANCE' }),
         }),
       );
       expect(tx.operationalPersonAssignment.create).toHaveBeenCalledWith(
@@ -201,7 +202,7 @@ describe('EmployeesService', () => {
       tx.operationalPerson.findUnique.mockResolvedValue(person());
 
       await expect(
-        service.create({ code: 'EMP-001', name: 'Ahmed', departmentId: 'd1' }, ctx),
+        service.create({ code: 'EMP-001', name: 'Ahmed Hassan Ali Saleh', departmentId: 'd1' }, ctx),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -210,7 +211,7 @@ describe('EmployeesService', () => {
       tx.department.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.create({ code: 'EMP-002', name: 'Sara', departmentId: 'foreign' }, ctx),
+        service.create({ code: 'EMP-002', name: 'Sara Hassan Ali Saleh', departmentId: 'foreign' }, ctx),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -219,7 +220,7 @@ describe('EmployeesService', () => {
     it('loads the existing record and updates the SAME id without creating a duplicate', async () => {
       prisma.operationalPerson.findFirst.mockResolvedValue(person({ id: 'p1' }));
       prisma.operationalPerson.findFirst.mockResolvedValue(person({ id: 'p1' }));
-      prisma.operationalPerson.update.mockResolvedValue(person({ name: 'Ahmed Updated', id: 'p1' }));
+      tx.operationalPerson.update.mockResolvedValue(person({ name: 'Ahmed Updated Full Name', id: 'p1' }));
       prisma.operationalPerson.findFirst.mockResolvedValue(null);
 
       const dupCheck = prisma.operationalPerson.findFirst;
@@ -228,9 +229,9 @@ describe('EmployeesService', () => {
         args?.where?.code ? null : person({ id: 'p1' }),
       );
 
-      const result = await service.update('p1', { name: 'Ahmed Updated' }, ctx);
+      const result = await service.update('p1', { name: 'Ahmed Updated Full Name' }, ctx);
 
-      expect(prisma.operationalPerson.update).toHaveBeenCalledWith(
+      expect(tx.operationalPerson.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'p1' } }),
       );
       expect(result.id).toBe('p1');
@@ -239,7 +240,7 @@ describe('EmployeesService', () => {
     it('forces a 404 (not create) when the employee is not in the active branch', async () => {
       prisma.operationalPerson.findFirst.mockResolvedValue(null);
 
-      await expect(service.update('p1', { name: 'X' }, ctx)).rejects.toThrow(NotFoundException);
+      await expect(service.update('p1', { name: 'Edited Person Full Name' }, ctx)).rejects.toThrow(NotFoundException);
       expect(prisma.operationalPerson.create).not.toHaveBeenCalled();
     });
   });

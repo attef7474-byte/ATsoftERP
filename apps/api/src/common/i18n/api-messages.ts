@@ -177,6 +177,10 @@ const messages: Record<string, { ar: string; en: string }> = {
   'auth.adminPasswordResetSuccess': { ar: 'تمت إعادة تعيين كلمة المرور وإنهاء جلسات المستخدم السابقة', en: 'Password reset and the user previous sessions were revoked' },
 
   'validation.required': { ar: 'هذا الحقل مطلوب', en: 'This field is required' },
+  'validation.personFullName': { ar: 'أدخل الاسم الكامل المكوّن من أربع كلمات على الأقل.', en: 'Enter a full name containing at least four words.' },
+  'validation.yemenPhone': { ar: 'أدخل تسعة أرقام محلية فقط لرقم هاتف يمني.', en: 'Enter exactly nine local digits for a Yemen phone number.' },
+  'validation.personNameDuplicate': { ar: 'يوجد شخص بهذا الاسم الكامل في هذه الشركة.', en: 'A person with this full name already exists in this company.' },
+  'validation.personPhoneDuplicate': { ar: 'رقم الهاتف مستخدم بالفعل في هذه الشركة.', en: 'This phone number is already used in this company.' },
   'validation.duplicateValue': { ar: 'قيمة مكررة، يرجى اختيار قيمة مختلفة', en: 'Duplicate value, please choose a different one' },
   'validation.emailAlreadyUsed': { ar: 'البريد الإلكتروني مستخدم بالفعل.', en: 'This email address is already in use.' },
   'validation.invalidReference': { ar: 'المرجع المحدد غير صالح أو غير موجود', en: 'The selected reference is invalid or does not exist' },

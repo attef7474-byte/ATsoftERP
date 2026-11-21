@@ -1,3 +1,6 @@
+import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
+import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenancePersonnelService } from './maintenance-personnel.service';
@@ -16,14 +19,14 @@ export class MaintenancePersonnelController {
   @Post()
   @Permissions('maintenance-personnel:create')
   @ApiOperation({ summary: 'Create maintenance personnel' })
-  create(@Body() dto: CreateMaintenancePersonnelDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateMaintenancePersonnelDto, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') actorId: string) {
+    return this.service.create(dto, ctx, actorId);
   }
 
   @Get()
   @Permissions('maintenance-personnel:read')
   @ApiOperation({ summary: 'List maintenance personnel' })
-  findAll(@Query() query: { page?: string; limit?: string; search?: string; role?: string; specialty?: string; isActive?: string }) {
+  findAll(@Query() query: { page?: string; limit?: string; search?: string; role?: string; specialty?: string; isActive?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.service.findAll({
       page: query.page ? parseInt(query.page, 10) : undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
@@ -31,41 +34,41 @@ export class MaintenancePersonnelController {
       role: query.role,
       specialty: query.specialty,
       isActive: query.isActive,
-    });
+    }, ctx);
   }
 
   @Get(':id')
   @Permissions('maintenance-personnel:read')
   @ApiOperation({ summary: 'Get maintenance personnel by id' })
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.findOne(id, ctx);
   }
 
   @Patch(':id')
   @Permissions('maintenance-personnel:update')
   @ApiOperation({ summary: 'Update maintenance personnel' })
-  update(@Param('id') id: string, @Body() dto: UpdateMaintenancePersonnelDto) {
-    return this.service.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateMaintenancePersonnelDto, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') actorId: string) {
+    return this.service.update(id, dto, ctx, actorId);
   }
 
   @Patch(':id/activate')
   @Permissions('maintenance-personnel:activate')
   @ApiOperation({ summary: 'Activate maintenance personnel' })
-  activate(@Param('id') id: string) {
-    return this.service.activate(id);
+  activate(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') actorId: string) {
+    return this.service.activate(id, ctx, actorId);
   }
 
   @Patch(':id/deactivate')
   @Permissions('maintenance-personnel:deactivate')
   @ApiOperation({ summary: 'Deactivate maintenance personnel' })
-  deactivate(@Param('id') id: string) {
-    return this.service.deactivate(id);
+  deactivate(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') actorId: string) {
+    return this.service.deactivate(id, ctx, actorId);
   }
 
   @Delete(':id')
   @Permissions('maintenance-personnel:delete')
   @ApiOperation({ summary: 'Delete maintenance personnel' })
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
+  remove(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') actorId: string) {
+    return this.service.remove(id, ctx, actorId);
   }
 }

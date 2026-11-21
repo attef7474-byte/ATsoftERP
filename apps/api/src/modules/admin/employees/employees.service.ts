@@ -1,3 +1,6 @@
+import { AuditService } from '../../audit/audit.service';
+import { normalizeIdentity, assertIdentityAvailable, lockIdentityCompany } from '../../../common/validation/person-identity';
+import { currentAssignmentWindow } from '../../../common/operational-context/current-assignment-window';
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -6,7 +9,7 @@ import { ActiveOperationalContext } from '../../../common/operational-context/op
 
 @Injectable()
 export class EmployeesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private auditService: AuditService) {}
 
   private validationError(field: string, code: string, message: string): BadRequestException {
     return new BadRequestException({
@@ -22,8 +25,7 @@ export class EmployeesService {
       companyId: ctx.companyId,
       branchId: ctx.branchId,
       deletedAt: null,
-      effectiveFrom: { lte: now },
-      OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
+      ...currentAssignmentWindow(now),
     };
   }
 
@@ -91,12 +93,15 @@ export class EmployeesService {
     return person;
   }
 
-  async create(dto: CreateEmployeeDto, ctx: ActiveOperationalContext) {
+  async create(dto: CreateEmployeeDto, ctx: ActiveOperationalContext, actorId?: string) {
+    dto = normalizeIdentity(dto);
     const code = dto.code.trim();
     const category = dto.category ?? 'MAINTENANCE';
 
     try {
       return await this.prisma.$transaction(async (tx) => {
+        await lockIdentityCompany(tx, ctx);
+        await assertIdentityAvailable(tx, 'operationalPerson', dto, ctx);
         const existing = await tx.operationalPerson.findUnique({ where: { code } });
         if (existing) {
           throw new ConflictException({
@@ -137,6 +142,7 @@ export class EmployeesService {
           },
         });
 
+        await this.auditService.logWithClient(tx, { userId: actorId, action: 'CREATE', entity: 'OperationalPerson', entityId: person.id, details: { companyId: ctx.companyId, branchId: ctx.branchId, name: person.name, phone: person.phone, departmentId: dto.departmentId } });
         return person;
       });
     } catch (error: any) {
@@ -151,26 +157,33 @@ export class EmployeesService {
     }
   }
 
-  async update(id: string, dto: UpdateEmployeeDto, ctx: ActiveOperationalContext) {
+  async update(id: string, dto: UpdateEmployeeDto, ctx: ActiveOperationalContext, actorId?: string) {
+    dto = normalizeIdentity(dto);
     const person = await this.findOne(id, ctx);
+    return this.prisma.$transaction(async (tx) => {
+      await lockIdentityCompany(tx, ctx);
+      await assertIdentityAvailable(tx, 'operationalPerson', dto, ctx, id);
 
-    const data: any = {};
-    if (dto.name !== undefined) data.name = dto.name;
-    if (dto.category !== undefined) data.category = dto.category;
-    if (dto.phone !== undefined) data.phone = dto.phone ?? null;
-    if (dto.email !== undefined) data.email = dto.email ?? null;
-    if (dto.notes !== undefined) data.notes = dto.notes ?? null;
+      const data: any = {};
+      if (dto.name !== undefined) data.name = dto.name;
+      if (dto.category !== undefined) data.category = dto.category;
+      if (dto.phone !== undefined) data.phone = dto.phone ?? null;
+      if (dto.email !== undefined) data.email = dto.email ?? null;
+      if (dto.notes !== undefined) data.notes = dto.notes ?? null;
 
-    if (dto.code !== undefined) {
-      const code = dto.code.trim();
-      const dupe = await this.prisma.operationalPerson.findFirst({ where: { code, NOT: { id } } });
-      if (dupe) {
-        throw this.validationError('code', 'validation.duplicateValue', 'Employee code already exists');
+      if (dto.code !== undefined) {
+        const code = dto.code.trim();
+        const dupe = await tx.operationalPerson.findFirst({ where: { code, NOT: { id } } });
+        if (dupe) {
+          throw this.validationError('code', 'validation.duplicateValue', 'Employee code already exists');
+        }
+        data.code = code;
       }
-      data.code = code;
-    }
 
-    return this.prisma.operationalPerson.update({ where: { id: person.id }, data });
+      const changed = await tx.operationalPerson.update({ where: { id: person.id }, data });
+      await this.auditService.logWithClient(tx, { userId: actorId, action: 'UPDATE', entity: 'OperationalPerson', entityId: person.id, details: { companyId: ctx.companyId, branchId: ctx.branchId, previousValues: { name: person.name, phone: person.phone }, newValues: data } });
+      return changed;
+    });
   }
 
   async deactivate(id: string, ctx: ActiveOperationalContext) {
