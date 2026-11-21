@@ -90,7 +90,7 @@ export default function BalancesReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="inventory-balances" headers={['Product', 'Code', 'Warehouse', 'Location', 'Qty', 'Updated']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="inventory-balances" reportEndpoint="inventory/balances" headers={[t('reports.exportHeaders.product'), t('reports.exportHeaders.code'), t('reports.exportHeaders.warehouse'), t('reports.exportHeaders.location'), t('reports.exportHeaders.qty'), t('reports.exportHeaders.updated')]} rows={data.rows}
                 mapRow={(r) => [r.product?.name || '', r.product?.code || '', r.warehouse?.name || '', r.location?.name || '', String(r.quantity ?? 0), r.updatedAt ? new Date(r.updatedAt).toLocaleDateString() : '']} />
             </div>
           )}

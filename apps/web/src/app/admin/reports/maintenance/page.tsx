@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, Button, DataTable, LocalizedValue } from '../../../../components/admin/ui';
 import { F9Lookup, productionLineAdapter, machineAdapter, machineComponentAdapter, operationTypeAdapter, costCenterAdapter } from '../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
-import { ReportPageShell, ReportSummaryCards } from '../../../../components/reports';
+import { ReportExportButton, ReportPageShell, ReportSummaryCards } from '../../../../components/reports';
 import { useReportPrintSnapshot } from '../../../../components/print/use-report-print-snapshot';
 import { maintenanceOverviewPrintModel, type MaintenanceOverviewPrintData } from '../../../../components/print/maintenance-overview-print';
 import { PRINT_ROW_LIMIT, PrintPreparationError } from '../../../../lib/print';
@@ -116,6 +116,7 @@ export default function MaintenanceOverviewReportPage() {
           <div className="w-48"><F9Lookup adapter={operationTypeAdapter} value={operationTypeId} onChange={setOperationTypeId} onItemSelect={item => rememberLookup('operationTypeId', item)} placeholder={t('maintenance.operationType')} /></div>
           <div className="w-48"><F9Lookup adapter={costCenterAdapter} value={costCenterId} onChange={setCostCenterId} onItemSelect={item => rememberLookup('costCenterId', item)} placeholder={t('maintenance.costCenter')} /></div>
           <Button variant="ghost" onClick={clearFilters}>{t('reports.clearFilters')}</Button>
+          <ReportExportButton xlsxOnly filename="maintenance-overview" headers={[]} rows={[]} mapRow={() => []} reportEndpoint="maintenance/overview" />
         </div>
       }
     >

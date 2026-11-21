@@ -82,7 +82,7 @@ export default function NotificationsReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="notifications" headers={['Title', 'Type', 'Read', 'Created']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="notifications" reportEndpoint="notifications" headers={[t('reports.exportHeaders.title'), t('reports.exportHeaders.type'), t('reports.exportHeaders.read'), t('reports.exportHeaders.created')]} rows={data.rows}
                 mapRow={(r) => [r.title, r.type || '', r.read ? 'Read' : 'Unread', r.createdAt ? new Date(r.createdAt).toLocaleString() : '']} />
             </div>
           )}

@@ -24,7 +24,12 @@ function extractKeysFromFile(filePath) {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (trimmed === '' || trimmed.startsWith('//') || trimmed.startsWith('import') || trimmed.startsWith('export')) continue;
+    // Only skip real module export declarations. Treating every line beginning
+    // with "export" as a declaration also skipped legitimate dictionary keys
+    // such as `exportHeaders: {`, which corrupted the nesting stack and produced
+    // false EN/AR key mismatches.
+    const isExportDeclaration = trimmed === 'export' || trimmed.startsWith('export ') || trimmed.startsWith('export{') || trimmed.startsWith('export*');
+    if (trimmed === '' || trimmed.startsWith('//') || trimmed.startsWith('import') || isExportDeclaration) continue;
     const closeIdx = trimmed.indexOf('}');
     if (closeIdx === 0 && pathStack.length > 0) {
       pathStack.pop();

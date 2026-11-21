@@ -96,7 +96,7 @@ export default function AdjustmentsReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="inventory-adjustments" headers={['Number', 'Warehouse', 'Status', 'Reason', 'Date', 'Linked Count']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="inventory-adjustments" reportEndpoint="inventory/adjustments" headers={[t('reports.exportHeaders.number'), t('reports.exportHeaders.warehouse'), t('reports.exportHeaders.status'), t('reports.exportHeaders.reason'), t('reports.exportHeaders.date'), t('reports.exportHeaders.linkedCount')]} rows={data.rows}
                 mapRow={(r) => [r.adjustmentNumber, r.warehouse?.name || '', r.status, r.reason || '', r.adjustmentDate ? new Date(r.adjustmentDate).toLocaleDateString() : '', r.inventoryCount?.countNumber || '']} />
             </div>
           )}

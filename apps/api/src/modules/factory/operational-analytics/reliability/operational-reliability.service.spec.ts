@@ -3,7 +3,7 @@ import { OperationalReliabilityService } from './operational-reliability.service
 import { MaintenanceReliabilityService } from '../../maintenance/maintenance-reliability/maintenance-reliability.service';
 import { DowntimeLogsService } from '../../maintenance/downtime-logs/downtime-logs.service';
 import { ProductionAnalyticsService } from '../../production-analytics/production-analytics.service';
-import { OPERATIONAL_RELIABILITY_EXPORT_AUDIT_ENTITY } from './operational-reliability.constants';
+import { OPERATIONAL_RELIABILITY_EXPORT_AUDIT_ENTITY, OPERATIONAL_RELIABILITY_LIMITS } from './operational-reliability.constants';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 const ctx: ActiveOperationalContext = {
@@ -230,11 +230,70 @@ describe('OperationalReliabilityService (facade)', () => {
       expect(result.csv).toContain('PHASE_1_9_OEE_V1');
       expect(result.csv).toContain('downtimeByMachine');
       expect(result.csv).toContain('M1');
+      expect(result.truncated).toBe(false);
+      expect(result.totalRowCount).toBe(result.rowCount);
       expect(audit.log).toHaveBeenCalledWith('u1', 'EXPORT', OPERATIONAL_RELIABILITY_EXPORT_AUDIT_ENTITY, undefined, expect.objectContaining({
         companyId: 'c1',
         branchId: 'b1',
         report: 'reliability',
+        rowCount: result.rowCount,
+        totalRowCount: result.rowCount,
+        truncated: false,
       }));
+    });
+
+    it('hard-caps CSV rows at the declared limit and audits the deterministic truncation', async () => {
+      const machineRowCount = OPERATIONAL_RELIABILITY_LIMITS.maxExportRows + 1;
+      maintenanceReliability.getDowntimeByMachine.mockResolvedValue(
+        Array.from({ length: machineRowCount }, (_, index) => ({ machine: { code: `M${index}` }, totalHours: 1, eventCount: 1 })),
+      );
+
+      const result = await service.export(baseQuery, 'u1', ctx);
+
+      const metricRowCount = 7;
+      const totalRowCount = metricRowCount + machineRowCount;
+      const lastIncludedMachineIndex = OPERATIONAL_RELIABILITY_LIMITS.maxExportRows - metricRowCount - 1;
+      expect(result.rowCount).toBe(OPERATIONAL_RELIABILITY_LIMITS.maxExportRows);
+      expect(result.totalRowCount).toBe(totalRowCount);
+      expect(result.maxRows).toBe(OPERATIONAL_RELIABILITY_LIMITS.maxExportRows);
+      expect(result.truncated).toBe(true);
+      expect(result.csv.split('\n')).toHaveLength(OPERATIONAL_RELIABILITY_LIMITS.maxExportRows + 1);
+      expect(result.csv).toContain(`M${lastIncludedMachineIndex}`);
+      expect(result.csv).not.toContain(`M${lastIncludedMachineIndex + 1}`);
+      expect(audit.log).toHaveBeenCalledWith('u1', 'EXPORT', OPERATIONAL_RELIABILITY_EXPORT_AUDIT_ENTITY, undefined, expect.objectContaining({
+        companyId: 'c1',
+        branchId: 'b1',
+        report: 'reliability',
+        rowCount: OPERATIONAL_RELIABILITY_LIMITS.maxExportRows,
+        totalRowCount,
+        maxRows: OPERATIONAL_RELIABILITY_LIMITS.maxExportRows,
+        truncated: true,
+      }));
+    });
+
+    it('prefixes formula and leading-control characters in CSV cells', async () => {
+      maintenanceReliability.getDowntimeByMachine.mockResolvedValue([
+        { machine: { code: '=CMD' }, totalHours: '+CMD', eventCount: 1 },
+      ]);
+      maintenanceReliability.getDowntimeByProductionLine.mockResolvedValue([
+        { productionLine: { code: '@CMD' }, totalHours: '-CMD', eventCount: 1 },
+      ]);
+      maintenanceReliability.getDowntimeByCause.mockResolvedValue([
+        { failureCause: '\tCMD', totalHours: '\rCMD', eventCount: 1 },
+      ]);
+      maintenanceReliability.getRepeatFailures.mockResolvedValue([
+        { reason: '=REPEAT', durationHours: 1, machine: { code: 'M1' } },
+      ]);
+
+      const result = await service.export(baseQuery, 'u1', ctx);
+
+      expect(result.csv).toContain("'=CMD");
+      expect(result.csv).toContain("'+CMD");
+      expect(result.csv).toContain("'@CMD");
+      expect(result.csv).toContain("'-CMD");
+      expect(result.csv).toContain(`'\tCMD`);
+      expect(result.csv).toContain(`"'\rCMD"`);
+      expect(result.csv).toContain("'=REPEAT");
     });
   });
 });

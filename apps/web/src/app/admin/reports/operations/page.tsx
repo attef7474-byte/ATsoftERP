@@ -7,6 +7,7 @@ import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useToast } from '../../../../components/admin/toast-provider';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 import { Button, Input, PageHeader } from '../../../../components/admin/ui';
+import { ReportExportButton } from '../../../../components/reports';
 import { ChartCard } from '../../../../components/admin/charts/chart-card';
 import { F9Lookup } from '../../../../components/f9/F9Lookup';
 import { machineAdapter, productionLineAdapter } from '../../../../components/f9/lookup-adapters';
@@ -257,6 +258,7 @@ export default function OperationsReportPage() {
       <div className="flex gap-2">
         <Button variant="secondary" onClick={handlePrint} loading={printing} disabled={!canPrint || loading}>{t('common.print')}</Button>
         <Button variant="secondary" onClick={exportCsv} loading={exporting} disabled={!canExport || !applied}>{t('operationsReports.export')}</Button>
+        <ReportExportButton xlsxOnly filename="operations" headers={[]} rows={[]} mapRow={() => []} reportEndpoint="operations/overview" />
       </div>
     </div>
 

@@ -6,7 +6,7 @@ import { useToast } from '../../../../components/admin/toast-provider';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, DataTable, LocalizedValue } from '../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../components/admin/admin-action-bar';
-import { ReportPageShell, ReportSummaryCards } from '../../../../components/reports';
+import { ReportExportButton, ReportPageShell, ReportSummaryCards } from '../../../../components/reports';
 import { useReportPrintSnapshot } from '../../../../components/print/use-report-print-snapshot';
 import { inventoryOverviewPrintModel, type InventoryOverviewPrintData } from '../../../../components/print/inventory-overview-print';
 
@@ -63,6 +63,8 @@ export default function InventoryOverviewReportPage() {
   ];
 
   return (
+    <>
+    <div className="flex justify-end p-4"><ReportExportButton xlsxOnly filename="inventory-overview" headers={[]} rows={[]} mapRow={() => []} reportEndpoint="inventory/overview" /></div>
     <ReportPageShell title={t('reports.inventoryOverview')} description={t('reports.inventoryReports')} loading={loading} error={error} onRetry={fetchData}>
       {data && (
         <div className="space-y-6">
@@ -97,5 +99,6 @@ export default function InventoryOverviewReportPage() {
         </div>
       )}
     </ReportPageShell>
+    </>
   );
 }

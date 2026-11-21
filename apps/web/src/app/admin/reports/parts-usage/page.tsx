@@ -89,7 +89,7 @@ export default function PartsUsageReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="parts-usage" headers={['Request', 'Product', 'Qty', 'Cost', 'Date']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="parts-usage" reportEndpoint="parts-usage" headers={[t('reports.exportHeaders.request'), t('reports.exportHeaders.product'), t('reports.exportHeaders.qty'), t('reports.exportHeaders.cost'), t('reports.exportHeaders.date')]} rows={data.rows}
                 mapRow={(r) => [r.request?.requestNumber || '', r.product?.name || '', String(r.quantity ?? 0), String(r.totalCost ?? 0), r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '']} />
             </div>
           )}

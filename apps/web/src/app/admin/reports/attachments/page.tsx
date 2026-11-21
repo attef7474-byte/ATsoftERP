@@ -84,7 +84,7 @@ export default function AttachmentsReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="attachments" headers={['Name', 'Entity', 'Type', 'Size', 'Uploaded By', 'Date']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="attachments" reportEndpoint="attachments" headers={[t('reports.exportHeaders.name'), t('reports.exportHeaders.entity'), t('reports.exportHeaders.type'), t('reports.exportHeaders.size'), t('reports.exportHeaders.uploadedBy'), t('reports.exportHeaders.date')]} rows={data.rows}
                 mapRow={(r) => [r.originalName, r.entityName || '', r.mimeType || '', String(r.size || 0), r.uploadedBy?.name || '', r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '']} />
             </div>
           )}

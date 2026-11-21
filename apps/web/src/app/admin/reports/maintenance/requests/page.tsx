@@ -146,7 +146,8 @@ export default function MaintenanceRequestsReportPage() {
                 onPrint={handlePrint}
                 printDisabled={loading || !!error || !applied || applied.scopeKey !== scopeKey || printing}
                 filename="maintenance-requests"
-                headers={['Request', 'Title', 'Machine', 'Type', 'Priority', 'Status', 'Date']}
+                reportEndpoint="maintenance/requests"
+                headers={[t('reports.exportHeaders.request'), t('reports.exportHeaders.title'), t('reports.exportHeaders.machine'), t('reports.exportHeaders.type'), t('reports.exportHeaders.priority'), t('reports.exportHeaders.status'), t('reports.exportHeaders.date')]}
                 rows={data.rows}
                 mapRow={(r) => [r.requestNumber, r.title, r.machine?.name || '', r.type, r.priority, r.status, new Date(r.createdAt).toLocaleDateString()]}
               />

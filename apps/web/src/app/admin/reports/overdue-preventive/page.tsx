@@ -85,7 +85,7 @@ export default function OverduePreventiveReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="overdue-preventive" headers={['Title', 'Machine', 'Type', 'Frequency', 'Due', 'Status']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="overdue-preventive" reportEndpoint="overdue-preventive" headers={[t('reports.exportHeaders.title'), t('reports.exportHeaders.machine'), t('reports.exportHeaders.type'), t('reports.exportHeaders.frequency'), t('reports.exportHeaders.due'), t('reports.exportHeaders.status')]} rows={data.rows}
                 mapRow={(r) => [r.title, r.machine?.name || '', r.type, r.frequency, r.endDate ? new Date(r.endDate).toLocaleDateString() : '', r.status]} />
             </div>
           )}

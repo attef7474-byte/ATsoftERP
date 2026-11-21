@@ -96,7 +96,7 @@ export default function DowntimeReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="machine-downtime" headers={['Machine', 'Reason', 'Start', 'End', 'Duration', 'Status']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="machine-downtime" reportEndpoint="maintenance/downtime" headers={[t('reports.exportHeaders.machine'), t('reports.exportHeaders.reason'), t('reports.exportHeaders.start'), t('reports.exportHeaders.end'), t('reports.exportHeaders.duration'), t('reports.exportHeaders.status')]} rows={data.rows}
                 mapRow={(r) => [r.machine?.name || '', r.reason, r.startTime ? new Date(r.startTime).toLocaleString() : '', r.endTime ? new Date(r.endTime).toLocaleString() : '', String(r.durationMinutes ?? ''), r.cancelledAt ? 'Cancelled' : r.endTime ? 'Completed' : 'Active']} />
             </div>
           )}

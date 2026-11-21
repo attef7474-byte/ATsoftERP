@@ -96,7 +96,7 @@ export default function PartnersReportPage() {
           )}
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="business-partners" headers={['Code', 'Name', 'Type', 'Email', 'Phone', 'Status']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="business-partners" reportEndpoint="partners" headers={[t('reports.exportHeaders.code'), t('reports.exportHeaders.name'), t('reports.exportHeaders.type'), t('reports.exportHeaders.email'), t('reports.exportHeaders.phone'), t('reports.exportHeaders.status')]} rows={data.rows}
                 mapRow={(r) => [r.code, r.name, r.type, r.email || '', r.phone || '', r.isBlocked ? 'Inactive' : 'Active']} />
             </div>
           )}

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Input, Button, Card, CardHeader, CardContent, DataTable, LoadingState, ErrorState, PageHeader } from '../../../../../components/admin/ui';
 import { F9Lookup, productionLineAdapter, machineAdapter, operationTypeAdapter, costCenterAdapter } from '../../../../../components/f9';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
+import { ReportExportButton } from '../../../../../components/reports';
 import { translateEnum } from '../../../../../lib/i18n/literals';
 import { useReportPrintSnapshot } from '../../../../../components/print/use-report-print-snapshot';
 import { maintenanceKpisPrintModel, type MaintenanceKpisPrintData } from '../../../../../components/print/maintenance-kpis-print';
@@ -86,6 +87,7 @@ export default function MaintenanceKpisPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t('maintenance.kpiOverview')} />
+      <ReportExportButton xlsxOnly filename="maintenance-kpis" headers={[]} rows={[]} mapRow={() => []} reportEndpoint="maintenance/kpi-overview" />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4 items-end bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
