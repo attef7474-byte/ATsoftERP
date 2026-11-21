@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ProductionAnalyticsService } from './production-analytics.service';
+import { ANALYTICS_EXPORT_AUDIT_ENTITY, ANALYTICS_LIMITS } from './production-analytics.constants';
 import { ProductionPerformanceTargetsService } from './production-performance-targets.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
 
@@ -488,6 +489,87 @@ describe('ProductionAnalyticsService bulk target resolution', () => {
         }),
       );
       expect(txOptions).toEqual({ isolationLevel: 'Serializable' });
+    });
+  });
+
+  describe('export()', () => {
+    const exportQuery = { dateFrom: '2026-08-05', dateTo: '2026-08-05', report: 'bottlenecks' } as any;
+
+    it('hard-caps CSV rows at the declared limit and audits the deterministic truncation', async () => {
+      const totalRowCount = ANALYTICS_LIMITS.maxExportRows + 1;
+      const runReport = jest.spyOn(service as any, 'runReport').mockResolvedValue({
+        items: Array.from({ length: totalRowCount }, (_, index) => ({ machineCode: `M${index}`, minutes: '1', count: 1 })),
+      });
+
+      const result = await service.export(exportQuery, 'u1', ctx);
+
+      expect(runReport).toHaveBeenCalledWith(exportQuery, ctx);
+      expect(result.rowCount).toBe(ANALYTICS_LIMITS.maxExportRows);
+      expect(result.totalRowCount).toBe(totalRowCount);
+      expect(result.maxRows).toBe(ANALYTICS_LIMITS.maxExportRows);
+      expect(result.truncated).toBe(true);
+      const lines = result.csv.split('\n');
+      expect(lines).toHaveLength(ANALYTICS_LIMITS.maxExportRows + 1);
+      expect(lines[1]).toContain('M0');
+      expect(result.csv).toContain(`M${ANALYTICS_LIMITS.maxExportRows - 1}`);
+      expect(result.csv).not.toContain(`M${ANALYTICS_LIMITS.maxExportRows}`);
+      expect(audit.log).toHaveBeenCalledWith('u1', 'EXPORT', ANALYTICS_EXPORT_AUDIT_ENTITY, undefined, expect.objectContaining({
+        companyId: companyA,
+        branchId: branchA,
+        report: 'bottlenecks',
+        rowCount: ANALYTICS_LIMITS.maxExportRows,
+        totalRowCount,
+        maxRows: ANALYTICS_LIMITS.maxExportRows,
+        truncated: true,
+      }));
+    });
+
+    it('does not flag truncation when the export fits the cap', async () => {
+      const totalRowCount = ANALYTICS_LIMITS.maxExportRows;
+      jest.spyOn(service as any, 'runReport').mockResolvedValue({
+        items: Array.from({ length: totalRowCount }, (_, index) => ({ machineCode: `M${index}`, minutes: '1', count: 1 })),
+      });
+
+      const result = await service.export(exportQuery, 'u1', ctx);
+
+      expect(result.rowCount).toBe(totalRowCount);
+      expect(result.totalRowCount).toBe(totalRowCount);
+      expect(result.truncated).toBe(false);
+      expect(audit.log).toHaveBeenCalledWith('u1', 'EXPORT', ANALYTICS_EXPORT_AUDIT_ENTITY, undefined, expect.objectContaining({
+        rowCount: totalRowCount,
+        totalRowCount,
+        truncated: false,
+      }));
+    });
+
+    it('prefixes formula and leading-control characters in CSV cells', async () => {
+      jest.spyOn(service as any, 'runReport').mockResolvedValue({
+        items: [{
+          reasonCode: '=CMD',
+          reasonNameEn: '+CMD',
+          reasonNameAr: '-CMD',
+          lossCategory: '@CMD',
+          machineCode: '\tCMD',
+          machineName: '\rCMD',
+          minutes: '1',
+          count: 1,
+        }],
+      });
+
+      const result = await service.export(exportQuery, 'u1', ctx);
+
+      expect(result.csv).toContain("'=CMD");
+      expect(result.csv).toContain("'+CMD");
+      expect(result.csv).toContain("'-CMD");
+      expect(result.csv).toContain("'@CMD");
+      expect(result.csv).toContain(`'\tCMD`);
+      expect(result.csv).toContain(`"'\rCMD"`);
+      expect(result.csv).not.toContain(',=CMD');
+      expect(result.csv).not.toContain(',+CMD');
+      expect(result.csv).not.toContain(',-CMD');
+      expect(result.csv).not.toContain(',@CMD');
+      expect(result.csv).not.toContain(',\tCMD');
+      expect(result.csv).not.toContain(',\rCMD');
     });
   });
 });

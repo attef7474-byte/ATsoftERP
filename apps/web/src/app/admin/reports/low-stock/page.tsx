@@ -80,7 +80,7 @@ export default function LowStockReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="low-stock" headers={['Code', 'Name', 'Part #', 'Qty', 'Unit']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="low-stock" reportEndpoint="low-stock" headers={[t('reports.exportHeaders.code'), t('reports.exportHeaders.name'), t('reports.exportHeaders.partNumber'), t('reports.exportHeaders.qty'), t('reports.exportHeaders.unit')]} rows={data.rows}
                 mapRow={(r) => [r.code, r.name, r.partNumber || '', String(r.quantity ?? 0), r.unit || '']} />
             </div>
           )}

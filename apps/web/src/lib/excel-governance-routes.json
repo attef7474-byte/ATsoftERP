@@ -1,0 +1,372 @@
+[
+  {
+    "route": "/admin/access/permissions",
+    "entity": "permissions",
+    "permission": "permissions:read"
+  },
+  {
+    "route": "/admin/access/roles",
+    "entity": "roles",
+    "permission": "roles:read"
+  },
+  {
+    "route": "/admin/access/users",
+    "entity": "users",
+    "permission": "user:read"
+  },
+  {
+    "route": "/admin/alerts",
+    "entity": "alerts",
+    "permission": "alerts.view"
+  },
+  {
+    "route": "/admin/barcodes/machine-cards",
+    "entity": "barcode-machine-cards",
+    "permission": "barcode-label:read"
+  },
+  {
+    "route": "/admin/barcodes/print-jobs",
+    "entity": "barcode-print-jobs",
+    "permission": "barcode-printJobs:read"
+  },
+  {
+    "route": "/admin/barcodes/product-labels",
+    "entity": "barcode-labels",
+    "permission": "barcode-label:read"
+  },
+  {
+    "route": "/admin/barcodes/records",
+    "entity": "barcode-records",
+    "permission": "barcode-scan:read"
+  },
+  {
+    "route": "/admin/barcodes/scans",
+    "entity": "barcode-scan-report",
+    "permission": "reports.barcodes:read"
+  },
+  {
+    "route": "/admin/barcodes/templates",
+    "entity": "barcode-templates",
+    "permission": "barcode-template:read"
+  },
+  {
+    "route": "/admin/core/administrations",
+    "entity": "administrations",
+    "permission": "administrations:read"
+  },
+  {
+    "route": "/admin/core/branches",
+    "entity": "branches",
+    "permission": "branches:read"
+  },
+  {
+    "route": "/admin/core/companies",
+    "entity": "companies",
+    "permission": "companies:read"
+  },
+  {
+    "route": "/admin/core/departments",
+    "entity": "departments",
+    "permission": "department:read"
+  },
+  {
+    "route": "/admin/core/job-titles",
+    "entity": "job-titles",
+    "permission": "job-title:read"
+  },
+  {
+    "route": "/admin/core/person-assignments",
+    "entity": "person-assignments",
+    "permission": "person-assignment:read"
+  },
+  {
+    "route": "/admin/core/persons",
+    "entity": "operational-persons",
+    "permission": "operational-person:read"
+  },
+  {
+    "route": "/admin/core/supervisor-assignments",
+    "entity": "supervisor-assignments",
+    "permission": "supervisor:read"
+  },
+  {
+    "route": "/admin/documents/attachments",
+    "entity": "attachments",
+    "permission": "attachments.view"
+  },
+  {
+    "route": "/admin/installed-parts",
+    "entity": "installed-parts",
+    "permission": "installed-parts:read"
+  },
+  {
+    "route": "/admin/inventory/adjustments",
+    "entity": "inventory-adjustments",
+    "permission": "inventory-adjustment:read"
+  },
+  {
+    "route": "/admin/inventory/approvals",
+    "entity": "inventory-approvals",
+    "permission": "inventory:read"
+  },
+  {
+    "route": "/admin/inventory/balances",
+    "entity": "inventory-balances",
+    "permission": "inventory-balance:read"
+  },
+  {
+    "route": "/admin/inventory/counts",
+    "entity": "inventory-counts",
+    "permission": "inventory:physical-count:read"
+  },
+  {
+    "route": "/admin/inventory/governance-audit",
+    "entity": "inventory-governance-audit",
+    "permission": "inventory:audit:read"
+  },
+  {
+    "route": "/admin/inventory/issues",
+    "entity": "general-inventory-issues",
+    "permission": "inventory:read"
+  },
+  {
+    "route": "/admin/inventory/ledger",
+    "entity": "inventory-ledger",
+    "permission": "inventory-ledger:read"
+  },
+  {
+    "route": "/admin/inventory/locations",
+    "entity": "warehouse-locations",
+    "permission": "inventory:read"
+  },
+  {
+    "route": "/admin/inventory/movements",
+    "entity": "inventory-movements",
+    "permission": "inventory-movement:read"
+  },
+  {
+    "route": "/admin/inventory/opening-balances",
+    "entity": "inventory-opening-balances",
+    "permission": "inventory:opening-balance:read"
+  },
+  {
+    "route": "/admin/inventory/product-categories",
+    "entity": "product-categories",
+    "permission": "products:read"
+  },
+  {
+    "route": "/admin/inventory/receipts",
+    "entity": "inventory-receipts",
+    "permission": "inventory:operational-receipt:read"
+  },
+  {
+    "route": "/admin/inventory/reconciliation",
+    "entity": "inventory-reconciliation",
+    "permission": "inventory-reconciliation:read"
+  },
+  {
+    "route": "/admin/inventory/stock-adjustments",
+    "entity": "inventory-stock-adjustments",
+    "permission": "inventory:stock-adjustment:read"
+  },
+  {
+    "route": "/admin/inventory/transfers",
+    "entity": "inventory-transfers",
+    "permission": "inventory:stock-transfer:read"
+  },
+  {
+    "route": "/admin/inventory/units",
+    "entity": "units",
+    "permission": "unit:read"
+  },
+  {
+    "route": "/admin/inventory/valuation",
+    "entity": "inventory-valuation",
+    "permission": "inventory-balance:read"
+  },
+  {
+    "route": "/admin/inventory/warehouses",
+    "entity": "warehouses",
+    "permission": "inventory:read"
+  },
+  {
+    "route": "/admin/maintenance/bom",
+    "entity": "maintenance-bom",
+    "permission": "maintenance-bom:read"
+  },
+  {
+    "route": "/admin/maintenance/checklist-items",
+    "entity": "checklist-items",
+    "permission": "maintenance-checklist:read"
+  },
+  {
+    "route": "/admin/maintenance/cost-centers",
+    "entity": "cost-centers",
+    "permission": "operational-cost-center:read"
+  },
+  {
+    "route": "/admin/maintenance/downtime-logs",
+    "entity": "maintenance-downtime-logs",
+    "permission": "downtime-log:read"
+  },
+  {
+    "route": "/admin/maintenance/machine-categories",
+    "entity": "machine-categories",
+    "permission": "machine-category:read"
+  },
+  {
+    "route": "/admin/maintenance/machine-documents",
+    "entity": "machine-documents",
+    "permission": "machine-document:read"
+  },
+  {
+    "route": "/admin/maintenance/machine-responsibilities",
+    "entity": "machine-responsibilities",
+    "permission": "machine-responsibility:read"
+  },
+  {
+    "route": "/admin/maintenance/production-lines",
+    "entity": "production-lines",
+    "permission": "productionLines:read"
+  },
+  {
+    "route": "/admin/maintenance/repair-orders",
+    "entity": "repair-orders",
+    "permission": "repair-orders:read"
+  },
+  {
+    "route": "/admin/maintenance/repair-orders/queue",
+    "entity": "repair-order-queue",
+    "permission": "repair-orders:read"
+  },
+  {
+    "route": "/admin/maintenance/requests",
+    "entity": "maintenance-requests",
+    "permission": "maintenance-request:read"
+  },
+  {
+    "route": "/admin/maintenance/schedules",
+    "entity": "maintenance-schedules",
+    "permission": "maintenance-schedule:read"
+  },
+  {
+    "route": "/admin/maintenance/spare-part-issues",
+    "entity": "spare-part-issues",
+    "permission": "maintenance-stock-issue:read"
+  },
+  {
+    "route": "/admin/maintenance/spare-part-plans",
+    "entity": "preventive-spare-part-plans",
+    "permission": "preventive-spare-part-plan:read"
+  },
+  {
+    "route": "/admin/maintenance/tasks",
+    "entity": "maintenance-tasks",
+    "permission": "maintenance-task:read"
+  },
+  {
+    "route": "/admin/maintenance/work-orders",
+    "entity": "maintenance-work-orders",
+    "permission": "maintenance-work-order:read"
+  },
+  {
+    "route": "/admin/notifications",
+    "entity": "notifications",
+    "permission": "notifications:read"
+  },
+  {
+    "route": "/admin/production/analytics",
+    "entity": "production-analytics",
+    "permission": "production-order:read"
+  },
+  {
+    "route": "/admin/production/cost/rates",
+    "entity": "operational-cost-rates",
+    "permission": "production-cost-rate:read"
+  },
+  {
+    "route": "/admin/production/downtime",
+    "entity": "production-downtime",
+    "permission": "downtime-log:read"
+  },
+  {
+    "route": "/admin/production/material-documents",
+    "entity": "production-material-documents",
+    "permission": "production-order:read"
+  },
+  {
+    "route": "/admin/production/monitoring",
+    "entity": "production-monitoring",
+    "permission": "production-run:read"
+  },
+  {
+    "route": "/admin/production/orders",
+    "entity": "production-orders",
+    "permission": "production-order:read"
+  },
+  {
+    "route": "/admin/production/product-definitions",
+    "entity": "production-product-definitions",
+    "permission": "production-product:read"
+  },
+  {
+    "route": "/admin/production/quality/plans",
+    "entity": "production-quality-plans",
+    "permission": "production-quality-plan:read"
+  },
+  {
+    "route": "/admin/production/shifts",
+    "entity": "production-shifts",
+    "permission": "production-shift:read"
+  },
+  {
+    "route": "/admin/settings",
+    "entity": "system-settings",
+    "permission": "settings:read"
+  },
+  {
+    "route": "/admin/settings/appearance",
+    "entity": "appearance-settings",
+    "permission": "settings.appearance.view"
+  },
+  {
+    "route": "/admin/settings/audit",
+    "entity": "settings-audit",
+    "permission": "audit:read"
+  },
+  {
+    "route": "/admin/settings/audit/login-history",
+    "entity": "login-history",
+    "permission": "users.loginHistory.view"
+  },
+  {
+    "route": "/admin/settings/audit/user-activity",
+    "entity": "user-activity-log",
+    "permission": "audit:read"
+  },
+  {
+    "route": "/admin/settings/company",
+    "entity": "company-settings",
+    "permission": "settings:read"
+  },
+  {
+    "route": "/admin/settings/language",
+    "entity": "language-settings",
+    "permission": "settings.language.view"
+  },
+  {
+    "route": "/admin/settings/notification-rules",
+    "entity": "notification-rules",
+    "permission": "settings.notifications.view"
+  },
+  {
+    "route": "/admin/settings/security",
+    "entity": "security-settings",
+    "permission": "settings.security.view"
+  },
+  {
+    "route": "/admin/spare-part-conditions",
+    "entity": "spare-part-conditions",
+    "permission": "spare-part-conditions:read"
+  }
+]

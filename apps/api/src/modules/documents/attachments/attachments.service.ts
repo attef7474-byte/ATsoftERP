@@ -1,8 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common'
 import { PrismaService } from '../../../common/prisma/prisma.service'
+import { AuditService } from '../../../common/audit/audit.service'
 import * as path from 'path'
 import * as fs from 'fs'
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types'
+
+type AuditActor = { id?: string; sub?: string; employeeId?: string | null }
 
 const ALLOWED_MIME_PREFIXES = [
   'image/',
@@ -34,9 +37,35 @@ const MAX_UPLOAD_SIZE_BYTES = (() => {
 export class AttachmentsService {
   private uploadRoot = process.env.UPLOAD_ROOT || path.join(process.cwd(), '../../storage/uploads')
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    // Optional injection: modules are owned by another integration step.
+    @Optional() private auditService?: AuditService,
+  ) {
     if (!fs.existsSync(this.uploadRoot)) {
       fs.mkdirSync(this.uploadRoot, { recursive: true })
+    }
+  }
+
+  private get audit(): AuditService | undefined {
+    // Guard test doubles that omit auditLog; real PrismaService always exposes it.
+    if (!this.auditService && (this.prisma as any).auditLog?.create) this.auditService = new AuditService(this.prisma)
+    return this.auditService
+  }
+
+  private auditIdentity(userId: string | null | undefined, ctx: ActiveOperationalContext, actor?: AuditActor) {
+    const candidate = actor ?? (ctx as any)?.actor ?? (ctx as any)?.user
+    return {
+      userId: actor?.id ?? actor?.sub ?? userId ?? (ctx as any)?.userId ?? (ctx as any)?.actorUserId,
+      employeeId: candidate?.employeeId ?? null,
+    }
+  }
+
+  private auditScope(ctx: ActiveOperationalContext) {
+    return {
+      companyId: ctx.companyId,
+      branchId: ctx.branchId,
+      scope: ctx.source ?? 'EXPLICIT_SCOPE',
     }
   }
 
@@ -93,13 +122,13 @@ export class AttachmentsService {
     return attachment
   }
 
-  async create(file: Express.Multer.File, entityName: string, entityId: string, description: string | undefined, userId: string | undefined, ctx: ActiveOperationalContext) {
+  async create(file: Express.Multer.File, entityName: string, entityId: string, description: string | undefined, userId: string | undefined, ctx: ActiveOperationalContext, actor?: AuditActor) {
     this.validateFile(file)
     await this.assertEntityOwned(entityName, entityId, ctx)
     const safeName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`
     const filePath = path.join(this.uploadRoot, safeName)
     fs.writeFileSync(filePath, file.buffer)
-    return this.prisma.attachment.create({
+    const created = await this.prisma.attachment.create({
       data: {
         companyId: ctx.companyId,
         branchId: ctx.branchId,
@@ -112,21 +141,46 @@ export class AttachmentsService {
         uploadedById: userId || null,
       },
     })
+    const identity = this.auditIdentity(userId, ctx, actor)
+    await this.audit?.log(identity.userId, 'CREATE', 'Attachment', created.id, {
+      ...this.auditScope(ctx),
+      ...identity,
+      reason: description || undefined,
+      next: { entityName: created.entityName, entityId: created.entityId, originalName: created.originalName, mimeType: created.mimeType, size: created.size },
+    })
+    return created
   }
 
-  async update(id: string, dto: { entityName?: string; entityId?: string; description?: string }, ctx: ActiveOperationalContext) {
+  async update(id: string, dto: { entityName?: string; entityId?: string; description?: string }, ctx: ActiveOperationalContext, actor?: AuditActor) {
     const current = await this.findOne(id, ctx)
     const entityName = dto.entityName ?? current.entityName
     const entityId = dto.entityId ?? current.entityId
     await this.assertEntityOwned(entityName, entityId, ctx)
-    return this.prisma.attachment.update({ where: { id }, data: { entityName, entityId } })
+    const updated = await this.prisma.attachment.update({ where: { id }, data: { entityName, entityId } })
+    const identity = this.auditIdentity(current.uploadedById, ctx, actor)
+    await this.audit?.log(identity.userId, 'UPDATE', 'Attachment', id, {
+      ...this.auditScope(ctx),
+      ...identity,
+      reason: dto.description || undefined,
+      previous: { entityName: current.entityName, entityId: current.entityId },
+      next: { entityName: updated.entityName, entityId: updated.entityId },
+    })
+    return updated
   }
 
-  async remove(id: string, ctx: ActiveOperationalContext) {
+  async remove(id: string, ctx: ActiveOperationalContext, actor?: AuditActor) {
     const attachment = await this.findOne(id, ctx)
     const fullPath = path.join(this.uploadRoot, attachment.filePath)
     try { if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath) } catch {}
-    return this.prisma.attachment.delete({ where: { id } })
+    const deleted = await this.prisma.attachment.delete({ where: { id } })
+    const identity = this.auditIdentity(attachment.uploadedById, ctx, actor)
+    await this.audit?.log(identity.userId, 'DELETE', 'Attachment', id, {
+      ...this.auditScope(ctx),
+      ...identity,
+      reason: 'ATTACHMENT_DELETED',
+      previous: { entityName: attachment.entityName, entityId: attachment.entityId, originalName: attachment.originalName },
+    })
+    return deleted
   }
 
   async findByEntity(entityType: string, entityId: string, ctx: ActiveOperationalContext) {

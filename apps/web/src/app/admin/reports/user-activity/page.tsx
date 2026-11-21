@@ -87,7 +87,7 @@ export default function UserActivityReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="user-activity" headers={['Name', 'Email', 'Status', 'Last Login', 'Created']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="user-activity" reportEndpoint="user-activity" headers={[t('reports.exportHeaders.name'), t('reports.exportHeaders.email'), t('reports.exportHeaders.status'), t('reports.exportHeaders.lastLogin'), t('reports.exportHeaders.created')]} rows={data.rows}
                 mapRow={(r) => [r.name, r.email, r.status, r.lastLoginAt ? new Date(r.lastLoginAt).toLocaleString() : '', r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '']} />
             </div>
           )}

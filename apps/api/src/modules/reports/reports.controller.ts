@@ -2,19 +2,29 @@ import { Controller, Get, Param, Query, Res, UseGuards, Header } from '@nestjs/c
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ReportsService } from './reports.service';
-import { MaintenanceReportFilterDto, InventoryReportFilterDto, BarcodeReportFilterDto } from './dto/report-filter.dto';
+import {
+  MaintenanceReportFilterDto,
+  InventoryReportFilterDto,
+  BarcodeReportFilterDto,
+  ExportReportQueryDto,
+} from './dto/report-filter.dto';
+import { ReportExportService } from './services/report-export.service';
 import { CurrentActiveContext } from '../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('Reports')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller({ path: 'reports', version: '1' })
 export class ReportsController {
-  constructor(private service: ReportsService) {}
+  constructor(
+    private service: ReportsService,
+    private readonly reportExportService: ReportExportService,
+  ) {}
 
   @Get('maintenance/overview')
   @Permissions('reports.maintenance:read')
@@ -318,12 +328,50 @@ export class ReportsController {
     return this.service.getBacklogTrend(filters, ctx);
   }
 
+  @Get('export/excel/operations/overview')
+  @Permissions('reports.operations:export')
+  @ApiOperation({ summary: 'Audited XLSX export of the canonical operations overview report' })
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportOperationsExcel(
+    @Query() filters: ExportReportQueryDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+    @CurrentUser('id') actorId: string,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.reportExportService.exportExcel('operations/overview', filters, ctx, actorId);
+    if (!buffer) { res.status(404).json({ message: 'No data to export' }); return; }
+    res.setHeader('Content-Disposition', `attachment; filename="operations-overview_${new Date().toISOString().slice(0, 10)}.xlsx"`);
+    res.send(buffer);
+  }
+
+  @Get('export/excel/production/analytics')
+  @Permissions('production-analytics:read')
+  @ApiOperation({ summary: 'Audited XLSX export of the canonical production analytics report' })
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportProductionAnalyticsExcel(
+    @Query() filters: ExportReportQueryDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+    @CurrentUser('id') actorId: string,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.reportExportService.exportExcel('production/analytics', filters, ctx, actorId);
+    if (!buffer) { res.status(404).json({ message: 'No data to export' }); return; }
+    res.setHeader('Content-Disposition', `attachment; filename="production-analytics_${new Date().toISOString().slice(0, 10)}.xlsx"`);
+    res.send(buffer);
+  }
+
   @Get('export/csv/*endpoint')
   @Permissions('reports.maintenance:read', 'reports.inventory:read', 'reports.barcodes:read')
   @ApiOperation({ summary: 'Export report as CSV' })
-  async exportCsv(@Param('endpoint') endpoint: string | string[], @Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext, @Res() res: Response) {
+  async exportCsv(
+    @Param('endpoint') endpoint: string | string[],
+    @Query() filters: ExportReportQueryDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+    @CurrentUser('id') actorId: string,
+    @Res() res: Response,
+  ) {
     const normalized = Array.isArray(endpoint) ? endpoint.join('/') : endpoint;
-    const csv = await this.service.exportCsv(normalized, filters, ctx);
+    const csv = await this.reportExportService.exportCsv(normalized, filters, ctx, actorId);
     if (!csv) {
       res.status(404).json({ message: 'No data to export' });
       return;
@@ -337,9 +385,15 @@ export class ReportsController {
   @Permissions('reports.maintenance:read', 'reports.inventory:read', 'reports.barcodes:read')
   @ApiOperation({ summary: 'Export report as Excel (.xlsx)' })
   @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-  async exportExcel(@Param('endpoint') endpoint: string | string[], @Query() filters: any, @CurrentActiveContext() ctx: ActiveOperationalContext, @Res() res: Response) {
+  async exportExcel(
+    @Param('endpoint') endpoint: string | string[],
+    @Query() filters: ExportReportQueryDto,
+    @CurrentActiveContext() ctx: ActiveOperationalContext,
+    @CurrentUser('id') actorId: string,
+    @Res() res: Response,
+  ) {
     const normalized = Array.isArray(endpoint) ? endpoint.join('/') : endpoint;
-    const buffer = await this.service.exportExcel(normalized, filters, ctx);
+    const buffer = await this.reportExportService.exportExcel(normalized, filters, ctx, actorId);
     if (!buffer) {
       res.status(404).json({ message: 'No data to export' });
       return;

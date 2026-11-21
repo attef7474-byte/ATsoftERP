@@ -90,7 +90,7 @@ export default function AuditTrailReportPage() {
           )}
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="audit-trail" headers={['Action', 'Entity', 'User', 'Details', 'Date']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="audit-trail" reportEndpoint="audit" headers={[t('reports.exportHeaders.action'), t('reports.exportHeaders.entity'), t('reports.exportHeaders.user'), t('reports.exportHeaders.details'), t('reports.exportHeaders.date')]} rows={data.rows}
                 mapRow={(r) => [r.action, r.entity, r.user?.name || '', r.details || '', r.createdAt ? new Date(r.createdAt).toLocaleString() : '']} />
             </div>
           )}

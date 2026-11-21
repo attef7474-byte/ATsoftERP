@@ -8,6 +8,7 @@ export interface LocalizedMessage {
 
 const messages: Record<string, { ar: string; en: string }> = {
   "production.monitoring.tooMuchData": { ar: "نطاق المراقبة كبير جدًا؛ اختر خطًا أو آلة لتضييق النطاق.", en: "Monitoring scope is too large; select a line or machine to narrow it." },
+  "validation.excelExportOnly": { ar: "هذه الصفحة تدعم التصدير إلى Excel فقط؛ الاستيراد غير مسموح لحماية سلسلة الأعمال المعتمدة.", en: "This page supports Excel export only; import is disabled to protect the approved business workflow." },
   "validation.excelFileType": { ar: "اختر ملف Excel بصيغة XLSX.", en: "Choose an XLSX Excel file." },
   "validation.excelFileLimit": { ar: "يتجاوز الملف حدود الحجم أو الضغط المسموح بها.", en: "The file exceeds the allowed size or compression limits." },
   "validation.excelInvalidWorkbook": { ar: "ملف Excel غير صالح أو يحتوي محتوى غير مسموح.", en: "Invalid workbook or prohibited content." },

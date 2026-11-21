@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
 import { useAuthorizedTabs, resolveActiveTab } from '../../../../lib/use-authorized-tabs';
 import { PageHeader, Tabs, TabPanel } from '../../../../components/admin/ui';
+import { ReportExportButton } from '../../../../components/reports';
 import { AnalyticsPanel } from '../../../../components/factory/unified-production/analytics-panel';
 import { PerformanceTargetsPanel } from '../../../../components/factory/unified-production/performance-targets-panel';
 import { ReliabilityPanel } from '../../../../components/factory/unified-production/reliability-panel';
@@ -59,6 +60,7 @@ export default function PerformanceAnalyticsWorkspacePage() {
     <div>
       <PageHeader title={t('production.analyticsWorkspace')} />
       <p className="text-sm text-gray-500 mb-4">{t('production.analyticsWorkspaceDescription')}</p>
+      <div className="mb-4"><ReportExportButton xlsxOnly filename="production-analytics" headers={[]} rows={[]} mapRow={() => []} reportEndpoint="production/analytics" /></div>
       <Tabs
         ariaLabel={t('production.analyticsWorkspace')}
         activeId={tab}

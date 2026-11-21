@@ -96,7 +96,7 @@ export default function MovementsReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="inventory-movements" headers={['Number', 'Type', 'Warehouse', 'Status', 'Date', 'Notes']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="inventory-movements" reportEndpoint="inventory/movements" headers={[t('reports.exportHeaders.number'), t('reports.exportHeaders.type'), t('reports.exportHeaders.warehouse'), t('reports.exportHeaders.status'), t('reports.exportHeaders.date'), t('reports.exportHeaders.notes')]} rows={data.rows}
                 mapRow={(r) => [r.movementNumber, r.movementType, r.warehouse?.name || '', r.status, r.movementDate ? new Date(r.movementDate).toLocaleDateString() : '', r.notes || '']} />
             </div>
           )}

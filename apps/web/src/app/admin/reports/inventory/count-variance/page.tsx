@@ -95,7 +95,7 @@ export default function CountVarianceReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="count-variance" headers={['Count', 'Product', 'Location', 'System Qty', 'Counted Qty', 'Variance', 'Status']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="count-variance" reportEndpoint="inventory/count-variance" headers={[t('reports.exportHeaders.count'), t('reports.exportHeaders.product'), t('reports.exportHeaders.location'), t('reports.exportHeaders.systemQty'), t('reports.exportHeaders.countedQty'), t('reports.exportHeaders.variance'), t('reports.exportHeaders.status')]} rows={data.rows}
                 mapRow={(r) => [r.count?.countNumber || '', r.product?.name || '', r.warehouseLocation?.name || '', String(r.systemQty ?? ''), String(r.countedQty ?? ''), String(r.differenceQty ?? 0), r.status]} />
             </div>
           )}

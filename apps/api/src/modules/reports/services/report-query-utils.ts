@@ -62,9 +62,17 @@ export function buildDateFilter<TField extends string = 'createdAt'>(
   return { [key]: range } as Partial<Record<TField, DateRangeFieldFilter>>;
 }
 
+/**
+ * Hard upper bound for report list pages. Prevents an unbounded `take` reaching
+ * SQL Server when a caller supplies an excessive pageSize. Exports request
+ * EXPORT_ROW_LIMIT + 1 rows (5001), which stays comfortably below this ceiling.
+ */
+export const REPORT_MAX_PAGE_SIZE = 10000;
+
 export function paginate(page = 1, pageSize = 20) {
-  const safePage = Math.max(1, Number(page) || 1);
-  const safePageSize = Math.max(1, Number(pageSize) || 20);
+  const safePage = Math.max(1, Math.floor(Number(page) || 1));
+  const requestedSize = Math.floor(Number(pageSize) || 20);
+  const safePageSize = Math.min(REPORT_MAX_PAGE_SIZE, Math.max(1, requestedSize));
   const skip = (safePage - 1) * safePageSize;
   return { skip, take: safePageSize };
 }

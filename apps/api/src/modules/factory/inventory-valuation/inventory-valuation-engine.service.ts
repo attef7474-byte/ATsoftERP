@@ -2,9 +2,11 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Optional,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { AuditService } from '../../../common/audit/audit.service';
 import {
   INVENTORY_MUTATOR_COVERAGE,
   INVENTORY_VALUATION_METHOD_WEIGHTED_AVERAGE,
@@ -42,6 +44,10 @@ import {
  */
 
 export const VALUATION_ENGINE_WA_LOCK_RESOURCE_PREFIX = 'ATSOFT:VAL:WMA:';
+
+const AUDIT_ENTITY = 'InventoryValuationBalance';
+const AUDIT_ACTION = 'VALUATION_POST';
+const AUDIT_SCOPE = 'VALUATION_WEIGHTED_AVERAGE';
 
 interface BasePostingInput {
   companyId: string;
@@ -118,7 +124,78 @@ type Tx = Prisma.TransactionClient;
 
 @Injectable()
 export class InventoryValuationEngineService {
-  constructor(private readonly prisma: PrismaService) {}
+  // @Optional preserves the existing direct-construction contract in specs.
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly audit?: AuditService,
+  ) {}
+
+  private auditWriter(): AuditService {
+    return this.audit ?? new AuditService(this.prisma);
+  }
+
+  /**
+   * The valuation engine has no controller boundary of its own: every caller
+   * runs it inside an already-open transaction. The actor and tenant scope are
+   * therefore derived from the authoritative InventoryMovement row inside that
+   * same transaction — never from a DTO, header or client input. The audit row
+   * is written with logWithClient(tx, ...) so it commits or rolls back with the
+   * physical and monetary postings it describes.
+   */
+  private async auditValuationPosting(
+    tx: Tx,
+    input: BasePostingInput,
+    valuationBalanceId: string,
+    previous: Record<string, unknown> | null,
+    next: Record<string, unknown>,
+  ): Promise<void> {
+    // Production callers always pass a full Prisma TransactionClient, where this
+    // delegate is present. Narrowed transaction stubs used by some callers may
+    // omit it; in that case there is no authoritative row to derive actor and
+    // tenant scope from, so no audit row is emitted rather than crashing the
+    // posting. The authoritative actor path is covered by the dedicated spec.
+    const movementDelegate = (tx as any).inventoryMovement;
+    if (typeof movementDelegate?.findUnique !== 'function') return;
+    const movement = await movementDelegate.findUnique({
+      where: { id: input.movementId },
+      select: {
+        companyId: true,
+        branchId: true,
+        postedById: true,
+        createdById: true,
+        cancelledById: true,
+      },
+    });
+    if (!movement) return;
+    const userId = movement.postedById ?? movement.createdById ?? movement.cancelledById ?? undefined;
+    if (!userId) return; // never emit actorless audit rows
+    await this.auditWriter().logWithClient(tx, {
+      userId,
+      action: AUDIT_ACTION,
+      entity: AUDIT_ENTITY,
+      entityId: valuationBalanceId,
+      details: {
+        schemaVersion: 1,
+        companyId: movement.companyId,
+        branchId: movement.branchId ?? null,
+        scope: AUDIT_SCOPE,
+        actor: { userId },
+        movementId: input.movementId,
+        lineId: input.lineId,
+        previous,
+        next,
+        reason: 'ATOMIC_PHYSICAL_MONETARY_POSTING',
+      },
+    });
+  }
+
+  private valuationSnapshot(balance: { inventoryValue: Prisma.Decimal; averageUnitCost: Prisma.Decimal } | null) {
+    if (!balance) return null;
+    return {
+      inventoryValue: balance.inventoryValue.toString(),
+      averageUnitCost: balance.averageUnitCost.toString(),
+    };
+  }
 
   // ── coverage gate (consulted at activation) ───────────────────────────────
 
@@ -299,7 +376,7 @@ export class InventoryValuationEngineService {
     const receiptValuePerUnit = vin.dividedBy(qin);
     const cnew = qold.gt(0) && qnew.gt(0) ? vnew.dividedBy(qnew) : receiptValuePerUnit;
 
-    return this.persist(tx, input, balance?.id, qnew, vnew, cnew, vin, input.unitCost, input.currencyCode);
+    return this.persist(tx, input, balance?.id, this.valuationSnapshot(balance), qnew, vnew, cnew, vin, input.unitCost, input.currencyCode);
   }
 
   // ── valued issue ───────────────────────────────────────────────────────────
@@ -346,7 +423,7 @@ export class InventoryValuationEngineService {
     const vnew = fullDepletion ? new Prisma.Decimal(0) : vold.minus(vout);
     const cnew = qnew.gt(0) ? vnew.dividedBy(qnew) : new Prisma.Decimal(0);
 
-    return this.persist(tx, input, balance.id, qnew, vnew, cnew, vout, cissue, input.currencyCode);
+    return this.persist(tx, input, balance.id, this.valuationSnapshot(balance), qnew, vnew, cnew, vout, cissue, input.currencyCode);
   }
 
   // ── true return / reversal ─────────────────────────────────────────────────
@@ -370,7 +447,7 @@ export class InventoryValuationEngineService {
     const vnew = vold.add(vin);
     const cnew = qold.gt(0) && qnew.gt(0) ? vnew.dividedBy(qnew) : input.originalUnitCost;
 
-    return this.persist(tx, input, balance?.id, qnew, vnew, cnew, vin, input.originalUnitCost, input.currencyCode);
+    return this.persist(tx, input, balance?.id, this.valuationSnapshot(balance), qnew, vnew, cnew, vin, input.originalUnitCost, input.currencyCode);
   }
 
   /**
@@ -412,6 +489,7 @@ export class InventoryValuationEngineService {
       tx,
       input,
       balance.id,
+      this.valuationSnapshot(balance),
       qnew,
       vnew,
       cnew,
@@ -502,6 +580,7 @@ export class InventoryValuationEngineService {
       tx,
       input.source,
       srcBalance.id,
+      this.valuationSnapshot(srcBalance),
       srcQnew,
       srcVnew,
       srcCnew,
@@ -527,6 +606,7 @@ export class InventoryValuationEngineService {
       tx,
       input.destination,
       dstBalance?.id,
+      this.valuationSnapshot(dstBalance),
       dstQnew,
       dstVnew,
       dstCnew,
@@ -555,6 +635,7 @@ export class InventoryValuationEngineService {
     tx: Tx,
     input: BasePostingInput,
     balanceId: string | undefined,
+    previous: Record<string, unknown> | null,
     qnew: Prisma.Decimal,
     vnew: Prisma.Decimal,
     cnew: Prisma.Decimal,
@@ -610,6 +691,25 @@ export class InventoryValuationEngineService {
         valuationMethod: INVENTORY_VALUATION_METHOD_WEIGHTED_AVERAGE,
       },
     });
+
+    // Actor + tenant scope come from the movement row already locked in tx.
+    // This write is part of the same transaction as the posting above.
+    await this.auditValuationPosting(
+      tx,
+      input,
+      valuationBalanceId,
+      previous,
+      {
+        productId: input.productId,
+        warehouseId: input.warehouseId,
+        inventoryValue: inventoryValue.toString(),
+        averageUnitCost: averageUnitCost.toString(),
+        eventValue: snapshotTotal.toString(),
+        unitCost: snapshotUnit.toString(),
+        currencyCode: snapshotCurrency,
+        valuationMethod: INVENTORY_VALUATION_METHOD_WEIGHTED_AVERAGE,
+      },
+    );
 
     return {
       valuationBalanceId,

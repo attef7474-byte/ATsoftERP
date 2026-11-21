@@ -87,7 +87,7 @@ export default function PartsReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="parts-inventory" headers={['Code', 'Name', 'Part #', 'Stock Qty', 'Unit', 'Status']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="parts-inventory" reportEndpoint="parts" headers={[t('reports.exportHeaders.code'), t('reports.exportHeaders.name'), t('reports.exportHeaders.partNumber'), t('reports.exportHeaders.stockQty'), t('reports.exportHeaders.unit'), t('reports.exportHeaders.status')]} rows={data.rows}
                 mapRow={(r) => [r.code, r.name, r.partNumber || '', String(r.stockQuantity ?? 0), r.unit || '', r.status]} />
             </div>
           )}

@@ -102,7 +102,7 @@ export default function SchedulesReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="preventive-schedules" headers={['Title', 'Machine', 'Type', 'Frequency', 'Start', 'End', 'Status']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="preventive-schedules" reportEndpoint="maintenance/schedules" headers={[t('reports.exportHeaders.title'), t('reports.exportHeaders.machine'), t('reports.exportHeaders.type'), t('reports.exportHeaders.frequency'), t('reports.exportHeaders.start'), t('reports.exportHeaders.end'), t('reports.exportHeaders.status')]} rows={data.rows}
                 mapRow={(r) => [r.title, r.machine?.name || '', r.type, r.frequency, r.startDate ? new Date(r.startDate).toLocaleDateString() : '', r.endDate ? new Date(r.endDate).toLocaleDateString() : '', r.status]} />
             </div>
           )}

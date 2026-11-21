@@ -7,6 +7,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard'
 import { Permissions } from '../auth/decorators/permissions.decorator'
 import { CurrentActiveContext } from '../../common/operational-context/current-active-context.decorator'
 import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types'
+import { CurrentUser } from '../../common/decorators/current-user.decorator'
 
 @ApiTags('Audit')
 @ApiBearerAuth()
@@ -45,8 +46,8 @@ export class AuditController {
   @ApiQuery({ name: 'action', required: false })
   @ApiQuery({ name: 'startDate', required: false })
   @ApiQuery({ name: 'endDate', required: false })
-  async exportCsv(@CurrentActiveContext() ctx: ActiveOperationalContext, @Query('userId') userId?: string, @Query('entity') entity?: string, @Query('action') action?: string, @Query('startDate') startDate?: string, @Query('endDate') endDate?: string, @Res() res?: Response) {
-    const csv = await this.auditService.exportCsv({ userId, entity, action, startDate, endDate }, ctx)
+  async exportCsv(@CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') actorUserId: string, @Query('userId') userId?: string, @Query('entity') entity?: string, @Query('action') action?: string, @Query('startDate') startDate?: string, @Query('endDate') endDate?: string, @Res() res?: Response) {
+    const csv = await this.auditService.exportCsv({ userId, entity, action, startDate, endDate }, ctx, actorUserId)
     if (res) { res.setHeader('Content-Type', 'text/csv'); res.setHeader('Content-Disposition', 'attachment; filename="audit-logs.csv"'); return res.send(csv) }
     return csv
   }

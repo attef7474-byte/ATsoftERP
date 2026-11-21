@@ -95,7 +95,7 @@ export default function CostsReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="maintenance-costs" headers={['Type', 'Request', 'Description', 'Qty', 'Amount', 'Date']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="maintenance-costs" reportEndpoint="maintenance/costs" headers={[t('reports.exportHeaders.type'), t('reports.exportHeaders.request'), t('reports.exportHeaders.description'), t('reports.exportHeaders.qty'), t('reports.exportHeaders.amount'), t('reports.exportHeaders.date')]} rows={data.rows}
                 mapRow={(r) => [r._type === 'cost' ? 'Other Cost' : 'Parts', r.request?.requestNumber || '', r.description || r.product?.name || '', String(r.quantity ?? ''), String(r.amount ?? r.totalCost ?? ''), r.incurredAt ? new Date(r.incurredAt).toLocaleDateString() : '']} />
             </div>
           )}

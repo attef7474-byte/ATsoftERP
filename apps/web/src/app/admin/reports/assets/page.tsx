@@ -94,7 +94,7 @@ export default function AssetsRegisterReportPage() {
           )}
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="assets-register" headers={['Code', 'Name', 'Category', 'Location', 'Status', 'Date']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="assets-register" reportEndpoint="assets" headers={[t('reports.exportHeaders.code'), t('reports.exportHeaders.name'), t('reports.exportHeaders.category'), t('reports.exportHeaders.location'), t('reports.exportHeaders.status'), t('reports.exportHeaders.date')]} rows={data.rows}
                 mapRow={(r) => [r.code, r.name, r.category?.name || '', r.location || '', r.status, r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '']} />
             </div>
           )}

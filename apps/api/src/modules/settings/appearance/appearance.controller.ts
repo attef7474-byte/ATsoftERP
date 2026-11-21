@@ -4,6 +4,7 @@ import { AppearanceService } from './appearance.service'
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../auth/guards/permissions.guard'
 import { Permissions } from '../../../common/decorators/permissions.decorator'
+import { CurrentUser } from '../../../common/decorators/current-user.decorator'
 import { OperationalContextOptional } from '../../../common/operational-context/operational-context-optional.decorator'
 import { UpdateAppearanceSettingsDto } from '../dto/update-appearance-settings.dto'
 
@@ -26,7 +27,7 @@ export class AppearanceController {
   @OperationalContextOptional()
   @Permissions('settings.appearance.manage')
   @ApiOperation({ summary: 'Update appearance settings (system-wide)' })
-  async update(@Body() dto: UpdateAppearanceSettingsDto) {
-    return this.service.update(dto as unknown as Record<string, unknown>)
+  async update(@Body() dto: UpdateAppearanceSettingsDto, @CurrentUser('id') userId: string) {
+    return this.service.update(dto as unknown as Record<string, unknown>, userId)
   }
 }

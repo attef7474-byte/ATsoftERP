@@ -97,7 +97,7 @@ export default function BarcodeScansReportPage() {
           )}
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton filename="barcode-scans" headers={['Value', 'Purpose', 'Result', 'Entity', 'Source', 'Date']} rows={data.rows}
+              <ReportExportButton filename="barcode-scans" reportEndpoint="barcodes/scans" headers={[t('reports.exportHeaders.value'), t('reports.exportHeaders.purpose'), t('reports.exportHeaders.result'), t('reports.exportHeaders.entity'), t('reports.exportHeaders.source'), t('reports.exportHeaders.date')]} rows={data.rows}
                 mapRow={(r) => [r.scannedValue, r.purpose, r.result, r.entityType || '', r.source, r.scannedAt ? new Date(r.scannedAt).toLocaleString() : '']} />
             </div>
           )}

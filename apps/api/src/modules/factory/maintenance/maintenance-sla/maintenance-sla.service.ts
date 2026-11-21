@@ -1,10 +1,54 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
+import { AuditService } from '../../../../common/audit/audit.service';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+
+const AUDIT_ENTITY = 'MaintenanceSlaState';
+const AUDIT_SCOPE = 'MAINTENANCE_SLA';
 
 @Injectable()
 export class MaintenanceSlaService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, @Optional() private readonly audit?: AuditService) {}
+
+  private auditWriter(): AuditService {
+    return this.audit ?? new AuditService(this.prisma);
+  }
+
+  private async auditWrite(
+    userId: string | undefined,
+    action: string,
+    entityId: string,
+    ctx: ActiveOperationalContext,
+    previous: Record<string, unknown> | null,
+    next: Record<string, unknown>,
+    reason: string,
+  ) {
+    if (!userId) return;
+    await this.auditWriter().log(userId, action, AUDIT_ENTITY, entityId, {
+      schemaVersion: 1,
+      companyId: ctx.companyId,
+      branchId: ctx.branchId,
+      scope: AUDIT_SCOPE,
+      actor: { userId },
+      previous,
+      next,
+      reason,
+    });
+  }
+
+  private slaSnapshot(state: any) {
+    if (!state) return null;
+    return {
+      slaStatus: state.slaStatus ?? null,
+      escalationLevel: state.escalationLevel ?? null,
+      responseDueAt: state.responseDueAt?.toISOString?.() ?? null,
+      startDueAt: state.startDueAt?.toISOString?.() ?? null,
+      completeDueAt: state.completeDueAt?.toISOString?.() ?? null,
+      responseOverdueMin: state.responseOverdueMin ?? null,
+      startOverdueMin: state.startOverdueMin ?? null,
+      completeOverdueMin: state.completeOverdueMin ?? null,
+    };
+  }
 
   private machineScope(ctx: ActiveOperationalContext) {
     return {
@@ -63,8 +107,11 @@ export class MaintenanceSlaService {
     return { responseDueAt, startDueAt, completeDueAt };
   }
 
-  async createSlaState(requestId: string, ctx: ActiveOperationalContext) {
+  async createSlaState(requestId: string, ctx: ActiveOperationalContext, userId?: string) {
     const request = await this.assertRequestOwned(requestId, ctx);
+    const previous = await this.prisma.maintenanceSlaState.findUnique({
+      where: { maintenanceRequestKey: requestId },
+    });
 
     const deadlines = await this.calculateDeadlines(request);
 
@@ -90,9 +137,18 @@ export class MaintenanceSlaService {
       where: { id: requestId },
       data: { ...deadlines, slaStatus: 'ON_TRACK', escalationLevel: 'NONE' },
     });
+
+    await this.auditWrite(userId, 'SLA_STATE_CREATE', requestId, ctx, this.slaSnapshot(previous), {
+      ...this.slaSnapshot(previous),
+      responseDueAt: deadlines.responseDueAt?.toISOString() ?? null,
+      startDueAt: deadlines.startDueAt?.toISOString() ?? null,
+      completeDueAt: deadlines.completeDueAt?.toISOString() ?? null,
+      slaStatus: 'ON_TRACK',
+      escalationLevel: 'NONE',
+    }, 'SLA_DEADLINE_INITIALIZATION');
   }
 
-  async recalculateSla(requestId: string, ctx: ActiveOperationalContext) {
+  async recalculateSla(requestId: string, ctx: ActiveOperationalContext, userId?: string) {
     const request = await this.assertRequestOwned(requestId, ctx);
 
     const now = new Date();
@@ -155,6 +211,15 @@ export class MaintenanceSlaService {
       where: { id: requestId },
       data: { slaStatus, escalationLevel },
     });
+
+    await this.auditWrite(userId, 'SLA_RECALCULATE', requestId, ctx, this.slaSnapshot(state), {
+      ...this.slaSnapshot(state),
+      slaStatus,
+      escalationLevel,
+      responseOverdueMin,
+      startOverdueMin,
+      completeOverdueMin,
+    }, 'SLA_RECALCULATION');
 
     return { slaStatus, escalationLevel, responseOverdueMin, startOverdueMin, completeOverdueMin };
   }

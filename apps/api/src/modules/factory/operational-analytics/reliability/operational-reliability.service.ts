@@ -219,7 +219,10 @@ export class OperationalReliabilityService {
   async export(query: OperationalReliabilityExportDto, userId: string, ctx: ActiveOperationalContext) {
     const window = this.window(query);
     const summaryData = await this.summary(query, ctx);
-    const rows = this.flattenSummary(summaryData);
+    const allRows = this.flattenSummary(summaryData);
+    const totalRowCount = allRows.length;
+    const truncated = totalRowCount > OPERATIONAL_RELIABILITY_LIMITS.maxExportRows;
+    const rows = truncated ? allRows.slice(0, OPERATIONAL_RELIABILITY_LIMITS.maxExportRows) : allRows;
     const csv = this.toCsv(rows);
     await this.audit.log(userId, 'EXPORT', OPERATIONAL_RELIABILITY_EXPORT_AUDIT_ENTITY, undefined, {
       companyId: ctx.companyId,
@@ -228,6 +231,9 @@ export class OperationalReliabilityService {
       from: window.from.toISOString(),
       to: window.to.toISOString(),
       rowCount: rows.length,
+      totalRowCount,
+      maxRows: OPERATIONAL_RELIABILITY_LIMITS.maxExportRows,
+      truncated,
     });
     return {
       report: 'reliability',
@@ -235,6 +241,9 @@ export class OperationalReliabilityService {
       window: { from: window.from.toISOString(), to: window.to.toISOString() },
       generatedAt: new Date().toISOString(),
       rowCount: rows.length,
+      totalRowCount,
+      maxRows: OPERATIONAL_RELIABILITY_LIMITS.maxExportRows,
+      truncated,
       csv,
     };
   }
@@ -273,7 +282,11 @@ export class OperationalReliabilityService {
   private toCsv(rows: Array<Record<string, string>>): string {
     if (rows.length === 0) return '';
     const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))];
-    const escape = (value: string) => (/[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
-    return [headers.join(','), ...rows.map((row) => headers.map((header) => escape(row[header] ?? '')).join(','))].join('\n');
+    return [headers.join(','), ...rows.map((row) => headers.map((header) => this.escapeCsvCell(row[header] ?? '')).join(','))].join('\n');
+  }
+
+  private escapeCsvCell(value: string): string {
+    const protectedValue = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+    return /[",\r\n]/.test(protectedValue) ? `"${protectedValue.replace(/"/g, '""')}"` : protectedValue;
   }
 }

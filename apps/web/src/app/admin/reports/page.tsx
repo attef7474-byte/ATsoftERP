@@ -40,6 +40,9 @@ const reportGroups = [
       { href: '/admin/reports/upcoming-preventive', labelKey: 'navigation.upcomingPreventiveReport' },
       { href: '/admin/reports/overdue-preventive', labelKey: 'navigation.overduePreventiveReport' },
       { href: '/admin/reports/barcodes/scans', labelKey: 'navigation.barcodeScansReport' },
+      { href: '/admin/reports/notifications', labelKey: 'navigation.notificationsReport' },
+      { href: '/admin/reports/attachments', labelKey: 'navigation.attachmentsReport' },
+      { href: '/admin/reports/machine-log', labelKey: 'navigation.machineLogReport' },
     ],
   },
 ];

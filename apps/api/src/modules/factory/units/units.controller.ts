@@ -5,6 +5,7 @@ import { CreateUnitDto, UpdateUnitDto } from './dto/create-unit.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
+import { CurrentUser } from '../../../modules/auth/decorators/current-user.decorator';
 
 @ApiTags('Units')
 @ApiBearerAuth()
@@ -16,7 +17,7 @@ export class UnitsController {
   @Post()
   @Permissions('unit:create')
   @ApiOperation({ summary: 'Create unit' })
-  create(@Body() dto: CreateUnitDto) { return this.service.create(dto); }
+  create(@Body() dto: CreateUnitDto, @CurrentUser('id') userId: string) { return this.service.create(dto, userId); }
 
   @Get()
   @Permissions('unit:read')
@@ -38,20 +39,20 @@ export class UnitsController {
   @Patch(':id')
   @Permissions('unit:update')
   @ApiOperation({ summary: 'Update unit' })
-  update(@Param('id') id: string, @Body() dto: UpdateUnitDto) { return this.service.update(id, dto); }
+  update(@Param('id') id: string, @Body() dto: UpdateUnitDto, @CurrentUser('id') userId: string) { return this.service.update(id, dto, userId); }
 
   @Patch(':id/activate')
   @Permissions('unit:activate')
   @ApiOperation({ summary: 'Activate unit' })
-  activate(@Param('id') id: string) { return this.service.activate(id); }
+  activate(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.activate(id, userId); }
 
   @Patch(':id/deactivate')
   @Permissions('unit:deactivate')
   @ApiOperation({ summary: 'Deactivate unit' })
-  deactivate(@Param('id') id: string) { return this.service.deactivate(id); }
+  deactivate(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.deactivate(id, userId); }
 
   @Delete(':id')
   @Permissions('unit:delete')
   @ApiOperation({ summary: 'Delete unit (only when unreferenced)' })
-  remove(@Param('id') id: string) { return this.service.remove(id); }
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.remove(id, userId); }
 }

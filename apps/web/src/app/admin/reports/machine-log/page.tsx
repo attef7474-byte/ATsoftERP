@@ -86,7 +86,7 @@ export default function MachineLogReportPage() {
         <div className="space-y-4">
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="machine-log" headers={['Request', 'Title', 'Machine', 'Type', 'Status', 'Date']} rows={data.rows}
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="machine-log" reportEndpoint="machine-log" headers={[t('reports.exportHeaders.request'), t('reports.exportHeaders.title'), t('reports.exportHeaders.machine'), t('reports.exportHeaders.type'), t('reports.exportHeaders.status'), t('reports.exportHeaders.date')]} rows={data.rows}
                 mapRow={(r) => [r.requestNumber, r.title, r.machine?.name || '', r.type, r.status, r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '']} />
             </div>
           )}

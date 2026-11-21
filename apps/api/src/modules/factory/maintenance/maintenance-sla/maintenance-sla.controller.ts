@@ -9,6 +9,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../auth/guards/permissions.guard';
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
+import { CurrentUser } from '../../../../modules/auth/decorators/current-user.decorator';
 import { MaintenanceSlaService } from './maintenance-sla.service';
 import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
@@ -22,16 +23,16 @@ export class MaintenanceSlaController {
   @Post(':requestId/calculate')
   @Permissions('maintenance-request:update')
   @ApiOperation({ summary: 'Calculate SLA deadlines for a request' })
-  async calculate(@Param('requestId') requestId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    await this.maintenanceSlaService.createSlaState(requestId, ctx);
+  async calculate(@Param('requestId') requestId: string, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') userId: string) {
+    await this.maintenanceSlaService.createSlaState(requestId, ctx, userId);
     return { message: 'SLA calculated' };
   }
 
   @Post(':requestId/recalculate')
   @Permissions('maintenance-request:update')
   @ApiOperation({ summary: 'Recalculate SLA status and escalation' })
-  async recalculate(@Param('requestId') requestId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.maintenanceSlaService.recalculateSla(requestId, ctx);
+  async recalculate(@Param('requestId') requestId: string, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') userId: string) {
+    return this.maintenanceSlaService.recalculateSla(requestId, ctx, userId);
   }
 
   @Get(':requestId')

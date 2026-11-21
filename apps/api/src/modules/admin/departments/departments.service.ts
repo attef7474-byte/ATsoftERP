@@ -1,16 +1,43 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { NumberingService } from '../../numbering/numbering.service';
+import { AuditService } from '../../../common/audit/audit.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+
+type AuditActor = { id?: string; sub?: string; employeeId?: string | null };
 
 @Injectable()
 export class DepartmentsService {
   constructor(
     private prisma: PrismaService,
     private numberingService: NumberingService,
+    // Optional injection: modules are owned by another integration step.
+    @Optional() private auditService?: AuditService,
   ) {}
+
+  private get audit(): AuditService | undefined {
+    // Guard test doubles that omit auditLog; real PrismaService always exposes it.
+    if (!this.auditService && (this.prisma as any).auditLog?.create) this.auditService = new AuditService(this.prisma);
+    return this.auditService;
+  }
+
+  private auditIdentity(actor?: AuditActor, ctx?: ActiveOperationalContext) {
+    const candidate = actor ?? (ctx as any)?.actor ?? (ctx as any)?.user;
+    return {
+      userId: actor?.id ?? actor?.sub ?? (ctx as any)?.userId ?? (ctx as any)?.actorUserId,
+      employeeId: candidate?.employeeId ?? null,
+    };
+  }
+
+  private auditScope(ctx?: ActiveOperationalContext) {
+    return {
+      companyId: ctx?.companyId ?? null,
+      branchId: ctx?.branchId ?? null,
+      scope: ctx ? ctx.source : 'GLOBAL',
+    };
+  }
 
   private validationError(field: string, code: string, message: string): BadRequestException {
     return new BadRequestException({
@@ -20,7 +47,7 @@ export class DepartmentsService {
     });
   }
 
-  async create(dto: CreateDepartmentDto, ctx: ActiveOperationalContext) {
+  async create(dto: CreateDepartmentDto, ctx: ActiveOperationalContext, actor?: AuditActor) {
     await this.validateReferences({
       companyId: ctx.companyId,
       branchId: ctx.branchId,
@@ -31,8 +58,9 @@ export class DepartmentsService {
     const code = dto.code?.trim() || (await this.numberingService.generateNumberAtomic('DEPARTMENT'));
 
     const { companyId: _companyId, branchId: _branchId, ...rest } = dto;
+    let created: any;
     try {
-      return await this.prisma.department.create({ data: { ...rest, companyId: ctx.companyId, branchId: ctx.branchId, code } });
+      created = await this.prisma.department.create({ data: { ...rest, companyId: ctx.companyId, branchId: ctx.branchId, code } });
     } catch (error: any) {
       if (error?.code === 'P2002') {
         throw new ConflictException({
@@ -43,6 +71,19 @@ export class DepartmentsService {
       }
       throw error;
     }
+    const identity = this.auditIdentity(actor, ctx);
+    await this.audit?.log(identity.userId, 'CREATE', 'Department', created.id, {
+      ...this.auditScope(ctx),
+      ...identity,
+      next: {
+        code: created.code,
+        name: created.name,
+        administrationId: created.administrationId ?? null,
+        parentId: created.parentId ?? null,
+        classification: created.classification ?? null,
+      },
+    });
+    return created;
   }
 
   private async validateReferences(refs: {
@@ -126,7 +167,7 @@ export class DepartmentsService {
     return department;
   }
 
-  async update(id: string, dto: UpdateDepartmentDto, ctx: ActiveOperationalContext) {
+  async update(id: string, dto: UpdateDepartmentDto, ctx: ActiveOperationalContext, actor?: AuditActor) {
     const department = await this.findOne(id, ctx);
 
     await this.validateReferences({
@@ -146,7 +187,7 @@ export class DepartmentsService {
     }
 
     const { companyId: _companyId, branchId: _branchId, ...data } = dto;
-    return this.prisma.department.update({
+    const updated = await this.prisma.department.update({
       where: { id },
       data,
       include: {
@@ -156,11 +197,29 @@ export class DepartmentsService {
         parent: { select: { id: true, name: true } },
       },
     });
+    const identity = this.auditIdentity(actor, ctx);
+    await this.audit?.log(identity.userId, 'UPDATE', 'Department', id, {
+      ...this.auditScope(ctx),
+      ...identity,
+      previous: { code: department.code, name: department.name, administrationId: department.administrationId, parentId: department.parentId, classification: (department as any).classification ?? null },
+      next: { code: updated.code, name: updated.name, administrationId: updated.administrationId, parentId: updated.parentId, classification: (updated as any).classification ?? null },
+      changedFields: Object.keys(data),
+    });
+    return updated;
   }
 
-  async remove(id: string, ctx: ActiveOperationalContext) {
-    await this.findOne(id, ctx);
-    await this.prisma.department.update({ where: { id }, data: { deletedAt: new Date() } });
+  async remove(id: string, ctx: ActiveOperationalContext, actor?: AuditActor) {
+    const before = await this.findOne(id, ctx);
+    const deletedAt = new Date();
+    await this.prisma.department.update({ where: { id }, data: { deletedAt } });
+    const identity = this.auditIdentity(actor, ctx);
+    await this.audit?.log(identity.userId, 'DELETE', 'Department', id, {
+      ...this.auditScope(ctx),
+      ...identity,
+      reason: 'SOFT_DELETE',
+      previous: { code: before.code, name: before.name, deletedAt: before.deletedAt ?? null },
+      next: { deletedAt: deletedAt.toISOString() },
+    });
     return { message: 'Department deleted successfully' };
   }
 
@@ -172,15 +231,15 @@ export class DepartmentsService {
     return departments.filter((d) => !d.parentId);
   }
 
-  async classify(id: string, classification: string, ctx: ActiveOperationalContext) {
+  async classify(id: string, classification: string, ctx: ActiveOperationalContext, actor?: AuditActor) {
     const allowed = ['OPERATIONAL', 'MANAGEMENT', 'AREA', 'PROCESS', 'SECTION', 'UNIT', 'WORKSHOP'];
     if (!allowed.includes(classification)) {
       throw this.validationError('classification', 'validation.invalidValue', `Classification must be one of: ${allowed.join(', ')}`);
     }
 
-    await this.findOne(id, ctx);
+    const before = await this.findOne(id, ctx);
 
-    return this.prisma.department.update({
+    const updated = await this.prisma.department.update({
       where: { id },
       data: { classification },
       include: {
@@ -188,5 +247,13 @@ export class DepartmentsService {
         branch: { select: { id: true, name: true } },
       },
     });
+    const identity = this.auditIdentity(actor, ctx);
+    await this.audit?.log(identity.userId, 'CLASSIFY', 'Department', id, {
+      ...this.auditScope(ctx),
+      ...identity,
+      previous: { classification: (before as any).classification ?? null },
+      next: { classification: (updated as any).classification ?? classification },
+    });
+    return updated;
   }
 }

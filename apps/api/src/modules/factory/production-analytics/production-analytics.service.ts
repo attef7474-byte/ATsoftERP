@@ -570,7 +570,10 @@ export class ProductionAnalyticsService {
   async export(query: AnalyticsExportQueryDto, userId: string, ctx: ActiveOperationalContext) {
     const window = this.window(query, ctx);
     const report = await this.runReport(query, ctx);
-    const rows = this.flattenReport(query.report, report);
+    const allRows = this.flattenReport(query.report, report);
+    const totalRowCount = allRows.length;
+    const truncated = totalRowCount > ANALYTICS_LIMITS.maxExportRows;
+    const rows = truncated ? allRows.slice(0, ANALYTICS_LIMITS.maxExportRows) : allRows;
     const csv = this.toCsv(rows);
     await this.audit.log(userId, 'EXPORT', ANALYTICS_EXPORT_AUDIT_ENTITY, undefined, {
       companyId: ctx.companyId,
@@ -579,6 +582,9 @@ export class ProductionAnalyticsService {
       from: window.from.toISOString(),
       to: window.to.toISOString(),
       rowCount: rows.length,
+      totalRowCount,
+      maxRows: ANALYTICS_LIMITS.maxExportRows,
+      truncated,
     });
     return {
       report: query.report,
@@ -586,6 +592,9 @@ export class ProductionAnalyticsService {
       window: this.windowPayload(window),
       generatedAt: new Date().toISOString(),
       rowCount: rows.length,
+      totalRowCount,
+      maxRows: ANALYTICS_LIMITS.maxExportRows,
+      truncated,
       csv,
     };
   }
@@ -653,8 +662,12 @@ export class ProductionAnalyticsService {
   private toCsv(rows: Array<Record<string, string>>): string {
     if (rows.length === 0) return '';
     const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))];
-    const escape = (value: string) => (/[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
-    return [headers.join(','), ...rows.map((row) => headers.map((header) => escape(row[header] ?? '')).join(','))].join('\n');
+    return [headers.join(','), ...rows.map((row) => headers.map((header) => this.escapeCsvCell(row[header] ?? '')).join(','))].join('\n');
+  }
+
+  private escapeCsvCell(value: string): string {
+    const protectedValue = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+    return /[",\r\n]/.test(protectedValue) ? `"${protectedValue.replace(/"/g, '""')}"` : protectedValue;
   }
 
   private window(query: AnalyticsQueryDto, ctx: ActiveOperationalContext): Window {

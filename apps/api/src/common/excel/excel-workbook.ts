@@ -2,7 +2,7 @@ import * as ExcelJS from 'exceljs';
 import { getApiMessage } from '../i18n/api-messages';
 import { ExcelDefinition, ExcelPreviewRow, EXCEL_LIMITS } from './excel.types';
 
-export interface ExcelWorkbookContext { locale: 'ar' | 'en'; company: string; branch: string; user: string; filters?: Record<string, string>; }
+export interface ExcelWorkbookContext { locale: 'ar' | 'en'; company: string; branch: string; user: string; filters?: Record<string, string>; moduleTitle?: { en: string; ar: string }; }
 function textCell(cell: ExcelJS.Cell, value: unknown): void {
   // Explicit XLSX string cells never become formula objects, including =,+,-,@ prefixes.
   cell.value = value === null || value === undefined ? '' : String(value);
@@ -42,7 +42,7 @@ export async function buildExcelWorkbook(definition: ExcelDefinition, rows: Reco
   instructions.columns = [{ width: 28 }, { width: 52 }, { width: 26 }, { width: 22 }, { width: 65 }];
   header(instructions, [t('excel.item'), t('excel.instructions')]);
   const metadata = [
-    [t('excel.module'), t(`excel.module.${definition.entity}`)], [t('excel.company'), ctx.company], [t('excel.branch'), ctx.branch], [t('excel.user'), ctx.user],
+    [t('excel.module'), definition.moduleTitle ? definition.moduleTitle[ctx.locale] : t(`excel.module.${definition.entity}`)], [t('excel.company'), ctx.company], [t('excel.branch'), ctx.branch], [t('excel.user'), ctx.user],
     [t('excel.timestamp'), new Date().toISOString()], [t('excel.scope'), t(definition.shared ? 'excel.sharedScope' : 'excel.tenantScope')],
     [t('excel.policy'), t('excel.importPolicy')], [t('excel.limits'), `${EXCEL_LIMITS.importRows} / ${EXCEL_LIMITS.exportRows} / 2 MB`],
     ...Object.entries(ctx.filters || {}).map(([key, value]) => [key, value]),
