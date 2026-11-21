@@ -12,6 +12,7 @@ import { Button, Input, Select, Textarea, Pagination, PageHeader, Modal, Confirm
 import { CmmsStatusBadge, CmmsPriorityBadge } from '../../../../components/maintenance';
 import { F9Lookup, machineAdapter, productionLineAdapter, machineComponentAdapter, operationTypeAdapter, costCenterAdapter, sparePartAdapter } from '../../../../components/f9';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
+import { maintenanceRequestRowTone } from '../../../../lib/maintenance-row-tones';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionStartIcon, ActionCompleteIcon, ActionCancelIcon, ActionDeleteIcon } from '../../../../components/admin/admin-action-bar';
 
 export default function MaintenanceRequestsPage() {
@@ -252,6 +253,7 @@ export default function MaintenanceRequestsPage() {
         <F9Lookup label={t('maintenance.selectSparePart')} value={filterSparePartId} onChange={(v) => setFilterSparePartId(v || '')} adapter={sparePartAdapter} />
       </div>
       <AdminDataGrid
+        getRowTone={maintenanceRequestRowTone}
         columns={columns}
         data={data}
         keyExtractor={(r: MaintenanceRequest) => r.id}

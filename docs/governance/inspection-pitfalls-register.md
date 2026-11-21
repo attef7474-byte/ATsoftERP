@@ -183,3 +183,11 @@ Additional proof-run integrity finding (2026-11-21):
 | ID | Problem / symptom | Preventive check | Status |
 | --- | --- | --- | --- |
 | PERSONNEL-P1-09 | The disposable same-origin proof proxy attempted writeHead after a downstream response had already sent headers during shutdown; the process exited before recording cleanup and left the previous PASS report on disk. | Guard destroyed/ended/headersSent responses, record transport errors, persist RUNNING at start with run ID and script SHA256, always persist cleanup outcome, and verify fresh PASS against the current script hash. Revoke only exact fixture grants in the explicitly named proof clone after any interrupted run. | ACTIVE CHECK |
+
+## Personnel Phase 2 preventive check — 2026-11-22
+
+| ID | Problem / symptom | Preventive check | Status |
+| --- | --- | --- | --- |
+| PERSONNEL-P2-01 | A browser assertion sampled the original row background immediately after hover while transition-colors was still running. | Wait for the expected computed background color to settle before asserting hover, selection or theme changes. Keep real transitions enabled; do not weaken the expected color or substitute a class-name assertion for rendered CSS. | ACTIVE CHECK |
+
+Applied: P01, P02, P05, P09, P10, P12, P16, P20, P22, P23, P31, P36, P37, P41–P46, P48 and PERSONNEL-P1-01, 04, 05, 06, 08, 09. Preserved P01–P51 and all Phase 1 findings. Phase 2 has no schema migration, production data writes, deployment or service restart. Browser proof runs against an independent verified SQL Server clone.

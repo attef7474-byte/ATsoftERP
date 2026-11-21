@@ -9,6 +9,7 @@ import { Button, Input, Textarea, Pagination, PageHeader, Modal, ConfirmDialog }
 import { CmmsStatusBadge } from '../../../../components/maintenance';
 import { F9Lookup, machineAdapter, maintenanceRequestAdapter } from '../../../../components/f9';
 import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
+import { downtimeRowTone } from '../../../../lib/maintenance-row-tones';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionCancelIcon } from '../../../../components/admin/admin-action-bar';
 import { useApiErrorHandler } from '../../../../components/admin/error-handler';
 
@@ -156,6 +157,7 @@ export default function DowntimeLogsPage() {
     <div>
       <PageHeader title={t('maintenance.downtimeLogs')} />
       <AdminDataGrid
+        getRowTone={downtimeRowTone}
         columns={columns}
         data={data}
         keyExtractor={(d: DowntimeLog) => d.id}

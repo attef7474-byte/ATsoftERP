@@ -3,7 +3,8 @@
 import React from 'react';
 import type { MutableRefObject } from 'react';
 import { ActionsCell } from './actions-menu';
-import type { GridAction, GridColumn } from './types';
+import type { GridAction, GridColumn, GridRowTone } from './types';
+import styles from './row-tone.module.css';
 
 interface BodyRowProps<T> {
   item: T;
@@ -13,6 +14,7 @@ interface BodyRowProps<T> {
   actions?: GridAction<T>[];
   onRowClick?: (item: T) => void;
   selectedKey?: string;
+  tone?: GridRowTone;
   isRtl: boolean;
   openMenuRow: string | null;
   mounted: boolean;
@@ -29,6 +31,7 @@ export function BodyRow<T>({
   actions,
   onRowClick,
   selectedKey,
+  tone = 'normal',
   isRtl,
   openMenuRow,
   mounted,
@@ -61,11 +64,11 @@ export function BodyRow<T>({
   return (
     <tr
       onClick={handleRowClick}
-      className={`${
-        onRowClick ? 'cursor-pointer' : ''
-      } ${
-        isSelected ? 'bg-blue-50 ring-1 ring-inset ring-blue-200' : rowIndex % 2 === 1 ? 'bg-gray-50' : 'bg-white'
-      } hover:bg-blue-50/60 transition-colors`}
+      data-row-tone={tone}
+      data-row-selected={isSelected}
+      data-row-parity={rowIndex % 2 === 1 ? 'odd' : 'even'}
+      aria-selected={isSelected}
+      className={`${styles.row} ${onRowClick ? 'cursor-pointer' : ''} transition-colors`}
     >
       {isRtl && actionCell}
       {columns.map((column) => {

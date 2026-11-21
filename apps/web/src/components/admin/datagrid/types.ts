@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
 
+/** Domain meaning only. Presentation and interaction precedence belong to the grid. */
+export type GridRowTone = 'normal' | 'attention' | 'in-progress';
+
 export interface GridAction<T> {
   label: string;
   icon?: ReactNode;
@@ -32,6 +35,7 @@ export interface AdminDataGridProps<T> {
   keyExtractor: (item: T) => string;
   onRowClick?: (item: T) => void;
   selectedKey?: string;
+  getRowTone?: (item: T) => GridRowTone;
   loading?: boolean;
   emptyMessage?: string;
   loadingMessage?: string;

@@ -301,6 +301,8 @@ export interface DowntimeLog {
   id: string;
   machineId: string;
   requestId?: string | null;
+  executionId?: string | null;
+  execution?: { status: string; startedAt: string | null; completedAt: string | null } | null;
   startTime: string;
   endTime?: string | null;
   durationMinutes?: number | null;
@@ -328,7 +330,7 @@ export interface DowntimeLog {
   createdAt: string;
   updatedAt: string;
   machine?: { id: string; name: string; code: string; productionLineId?: string };
-  request?: { id: string; requestNumber: string; title: string };
+  request?: { id: string; requestNumber: string; title: string; status?: string };
 }
 
 export interface RcaData {

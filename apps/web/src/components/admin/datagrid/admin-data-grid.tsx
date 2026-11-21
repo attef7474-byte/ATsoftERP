@@ -18,6 +18,7 @@ export function AdminDataGrid<T>({
   keyExtractor,
   onRowClick,
   selectedKey,
+  getRowTone,
   loading,
   emptyMessage,
   loadingMessage,
@@ -177,6 +178,7 @@ export function AdminDataGrid<T>({
                   actions={visibleActions}
                   onRowClick={onRowClick}
                   selectedKey={selectedKey}
+                  tone={getRowTone?.(item) ?? 'normal'}
                   isRtl={isRtl}
                   openMenuRow={openMenuRow}
                   mounted={mounted}

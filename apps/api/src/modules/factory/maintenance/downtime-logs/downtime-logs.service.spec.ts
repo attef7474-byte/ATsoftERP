@@ -37,6 +37,27 @@ describe('DowntimeLogsService canonical errors and fixes', () => {
     service = new DowntimeLogsService(prisma, audit);
   });
 
+  it('lists bounded repair evidence with explicit tenant predicates on both linked authorities', async () => {
+    const execution = { status: 'IN_PROGRESS', startedAt: new Date(), completedAt: null };
+    prisma.downtimeLog.findMany = jest.fn().mockResolvedValue([ownedLog({ execution })]);
+    prisma.downtimeLog.count = jest.fn().mockResolvedValue(1);
+    const result = await service.findAll({ page: 2, limit: 10, search: 'repair' }, ctx);
+    const query = prisma.downtimeLog.findMany.mock.calls[0][0];
+    const machineScope = { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }] };
+    expect(query).toMatchObject({ where: { machine: machineScope }, skip: 10, take: 10 });
+    expect(query.include.request).toEqual({
+      where: { machine: machineScope, deletedAt: null },
+      select: { id: true, requestNumber: true, title: true, status: true },
+    });
+    expect(query.include.execution).toEqual({
+      where: { companyId: 'c1', OR: [{ branchId: 'b1' }, { branchId: null }], machine: machineScope },
+      select: { status: true, startedAt: true, completedAt: true },
+    });
+    expect(prisma.downtimeLog.count).toHaveBeenCalledWith({ where: query.where });
+    expect(result.data[0]).toMatchObject({ status: 'ACTIVE', execution });
+    expect(result.meta).toMatchObject({ page: 2, total: 1 });
+  });
+
   it('normalizes empty requestId to null instead of failing FK', async () => {
     prisma.machine.findUnique.mockResolvedValue(ownedMachine);
     prisma.downtimeLog.findFirst.mockResolvedValue(null);

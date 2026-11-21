@@ -3,6 +3,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { api } from '../../../../lib/api';
 import { useAuth } from '../../../../lib/auth-context';
 import { plannedPartsPayload, validatePlannedParts, type PlannedPartDraft } from '../../../../lib/work-order-planned-parts';
+import { maintenanceWorkOrderRowTone } from '../../../../lib/maintenance-row-tones';
 import { safeString } from '../../../../lib/form-utils';
 import { useCrudList, CrudOperation } from '../../../../hooks/useCrudList';
 import { useTranslation } from '../../../../lib/i18n/use-translation';
@@ -482,6 +483,7 @@ export default function MaintenanceWorkOrdersPage() {
       )}
       {(!error || !loading) && data.length > 0 && (
         <EntityDataTable
+          getRowTone={maintenanceWorkOrderRowTone}
           columns={baseColumns}
           data={data}
           keyExtractor={(item) => item.id}

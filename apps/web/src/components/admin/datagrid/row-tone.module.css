@@ -1,0 +1,29 @@
+/* Shared row presentation. Explicit precedence also beats the admin table hover baseline. */
+.row { background: #fff; }
+.row[data-row-parity='odd'] { background: #f7fbff; }
+.row[data-row-tone='attention'] { background: #fef2f2; }
+.row[data-row-tone='in-progress'] { background: #fff7ed; }
+.row[data-row-tone]:hover { background: #eff9ff !important; }
+.row[data-row-tone='attention']:hover { background: #fee2e2 !important; }
+.row[data-row-tone='in-progress']:hover { background: #ffedd5 !important; }
+.row[data-row-tone][data-row-selected='true'],
+.row[data-row-tone][data-row-selected='true']:hover {
+  background: #eff6ff !important;
+  box-shadow: inset 0 0 0 1px #93c5fd;
+}
+
+:global([data-theme-mode='dark']) .row { background: #1e293b; }
+:global([data-theme-mode='dark']) .row[data-row-parity='odd'] { background: #243247; }
+:global([data-theme-mode='dark']) .row[data-row-tone='attention'] { background: #4c242c; }
+:global([data-theme-mode='dark']) .row[data-row-tone='in-progress'] { background: #49351b; }
+:global([data-theme-mode='dark']) .row[data-row-tone]:hover { background: #334155 !important; }
+:global([data-theme-mode='dark']) .row[data-row-tone='attention']:hover { background: #61303a !important; }
+:global([data-theme-mode='dark']) .row[data-row-tone='in-progress']:hover { background: #604524 !important; }
+:global([data-theme-mode='dark']) .row[data-row-tone][data-row-selected='true'],
+:global([data-theme-mode='dark']) .row[data-row-tone][data-row-selected='true']:hover {
+  background: #1e3a5f !important;
+  box-shadow: inset 0 0 0 1px #60a5fa;
+}
+:global([data-theme-mode='dark']) .row[data-row-tone] > td { color: #e2e8f0 !important; }
+:global([data-theme-mode='dark']) .row[data-row-tone] > td > button { color: #cbd5e1; }
+:global([data-theme-mode='dark']) .row[data-row-tone] > td > button:hover { background: #334155; }

@@ -1,2 +1,2 @@
 export { AdminDataGrid } from './admin-data-grid';
-export type { AdminDataGridProps, GridAction, GridColumn } from './types';
+export type { AdminDataGridProps, GridAction, GridColumn, GridRowTone } from './types';

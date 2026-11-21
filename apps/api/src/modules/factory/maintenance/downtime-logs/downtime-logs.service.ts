@@ -190,7 +190,14 @@ export class DowntimeLogsService {
         where, skip, take: limit, orderBy: { startTime: 'desc' },
         include: {
           machine: { select: { id: true, code: true, name: true, productionLineId: true } },
-          request: { select: { id: true, requestNumber: true, title: true } },
+          request: {
+            where: { machine: this.machineScope(ctx), deletedAt: null },
+            select: { id: true, requestNumber: true, title: true, status: true },
+          },
+          execution: {
+            where: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }], machine: this.machineScope(ctx) },
+            select: { status: true, startedAt: true, completedAt: true },
+          },
         },
       }),
       this.prisma.downtimeLog.count({ where }),

@@ -1,0 +1,459 @@
+{
+  "branch": "fix/personnel-maintenance-integrity-r1-integrated",
+  "phase1Head": "b1d2e15dfa3651767f005cfaeba4fcfb3e9945f1",
+  "originMain": "8c62740f3c95890a9daa99c93bf32aa5efe80026",
+  "integrationCommit": "24d83b78af4c02f56e4f329a71f3d0f44fa19ffb",
+  "integrationStartTree": "CLEAN",
+  "aheadBehindAfterIntegration": [
+    4,
+    0
+  ],
+  "rootOriginalWork": {
+    "all47OriginalRootFilesUnchanged": true,
+    "count": 47,
+    "files": [
+      {
+        "path": "apps/api/src/common/i18n/api-messages.ts",
+        "owner": "shared-translation",
+        "sha256": "edd02b8f13cc1636e1a0d2d6ba05a2a431d0437735db626392009cae2faa8ff8",
+        "actualSha256": "edd02b8f13cc1636e1a0d2d6ba05a2a431d0437735db626392009cae2faa8ff8",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/common/validation/validation-error-transformer.ts",
+        "owner": "phase1",
+        "sha256": "3ebf61bcc956437aaae5d6cc42e55c96c784317bf54b42f94f877b5c012fc4b2",
+        "actualSha256": "3ebf61bcc956437aaae5d6cc42e55c96c784317bf54b42f94f877b5c012fc4b2",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/employees/dto/create-employee.dto.ts",
+        "owner": "phase1",
+        "sha256": "4edb65a75b0ebf5d17621b2102716bcad5ffb7d32bcf1e4f581d56bdf0c39928",
+        "actualSha256": "4edb65a75b0ebf5d17621b2102716bcad5ffb7d32bcf1e4f581d56bdf0c39928",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/employees/employees.controller.ts",
+        "owner": "phase1",
+        "sha256": "627000581fa5644439d1c8b1c52652d0cc80b7290423338c224b8de86f904a19",
+        "actualSha256": "627000581fa5644439d1c8b1c52652d0cc80b7290423338c224b8de86f904a19",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/employees/employees.module.ts",
+        "owner": "phase1",
+        "sha256": "dc8f41705e325b453457583560d13c826e6292dbc80fa909af7df18cf90f9473",
+        "actualSha256": "dc8f41705e325b453457583560d13c826e6292dbc80fa909af7df18cf90f9473",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/employees/employees.service.spec.ts",
+        "owner": "phase1",
+        "sha256": "43b064541fe13c65d0b1258821d48e4a06032e8afb8a07164c1ca7e5cf320bc9",
+        "actualSha256": "43b064541fe13c65d0b1258821d48e4a06032e8afb8a07164c1ca7e5cf320bc9",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/employees/employees.service.ts",
+        "owner": "phase1",
+        "sha256": "e99984192b7f5f0e10d42a5eed9a8680a108ec7dd1c8f03dfc0dc2c36db53cf6",
+        "actualSha256": "e99984192b7f5f0e10d42a5eed9a8680a108ec7dd1c8f03dfc0dc2c36db53cf6",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/person-assignments/person-assignments.service.spec.ts",
+        "owner": "phase1",
+        "sha256": "6f285cb90ea890637154d8a2ca9312967db35210e19e68bcb27aa9dab607d08a",
+        "actualSha256": "6f285cb90ea890637154d8a2ca9312967db35210e19e68bcb27aa9dab607d08a",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/person-assignments/person-assignments.service.ts",
+        "owner": "phase1",
+        "sha256": "af25f31db7be4210e8c949b6a62b5e6dbe2bd1170424615c9d6ce9fca2ed02a1",
+        "actualSha256": "af25f31db7be4210e8c949b6a62b5e6dbe2bd1170424615c9d6ce9fca2ed02a1",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/person-registrations/dto/create-person-registration.dto.spec.ts",
+        "owner": "phase1",
+        "sha256": "adc168ae43b454979617dbb5fe18f3fb9a4644b9295f2a67ae66ccc7e8629941",
+        "actualSha256": "adc168ae43b454979617dbb5fe18f3fb9a4644b9295f2a67ae66ccc7e8629941",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/person-registrations/dto/create-person-registration.dto.ts",
+        "owner": "phase1",
+        "sha256": "ce8d266aa6932ef4e75bdbc805a7f1d4cdb55252411571914b14f2d45962305a",
+        "actualSha256": "ce8d266aa6932ef4e75bdbc805a7f1d4cdb55252411571914b14f2d45962305a",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/person-registrations/dto/update-person-registration.dto.ts",
+        "owner": "phase1",
+        "sha256": "993caa7f7c163ec777c706fa9f16ec2964f81f8f189cf4cf7d4ed5bda8c8a8ea",
+        "actualSha256": "993caa7f7c163ec777c706fa9f16ec2964f81f8f189cf4cf7d4ed5bda8c8a8ea",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/person-registrations/person-registrations.service.spec.ts",
+        "owner": "phase1",
+        "sha256": "a70dd35d42ee31f61e32c0453c33115e3fa390d2059f21fd7e7e68a59f86bce7",
+        "actualSha256": "a70dd35d42ee31f61e32c0453c33115e3fa390d2059f21fd7e7e68a59f86bce7",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/person-registrations/person-registrations.service.ts",
+        "owner": "phase1",
+        "sha256": "0c084abfaac8060470bc09e4b2c40b493bcea088350ddee5d5ed29d11f74d513",
+        "actualSha256": "0c084abfaac8060470bc09e4b2c40b493bcea088350ddee5d5ed29d11f74d513",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/users/dto/create-user.dto.ts",
+        "owner": "phase1",
+        "sha256": "6c081700018c9d93f6ffccc348ce4a69be30ebe796c4d5ed2d9e377427e8d39f",
+        "actualSha256": "6c081700018c9d93f6ffccc348ce4a69be30ebe796c4d5ed2d9e377427e8d39f",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/users/users.controller.ts",
+        "owner": "phase1",
+        "sha256": "038fb4d68357eb20d812fb68511e3cea2640fa45af58287cbaf261ffaa8996ba",
+        "actualSha256": "038fb4d68357eb20d812fb68511e3cea2640fa45af58287cbaf261ffaa8996ba",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/users/users.service.spec.ts",
+        "owner": "phase1",
+        "sha256": "5d4fe0844dda41efd367e747ff1b0d4ab663747967469db4c2618b55ec97f409",
+        "actualSha256": "5d4fe0844dda41efd367e747ff1b0d4ab663747967469db4c2618b55ec97f409",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/admin/users/users.service.ts",
+        "owner": "phase1",
+        "sha256": "0bdbbc13b602f18c8ae36ee14a1d61646148d9524e79d562e3dd8f892c21e381",
+        "actualSha256": "0bdbbc13b602f18c8ae36ee14a1d61646148d9524e79d562e3dd8f892c21e381",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/factory/maintenance/maintenance-personnel/dto/create-maintenance-personnel.dto.ts",
+        "owner": "phase1",
+        "sha256": "c2e65ed85635613aabbbadb1c0026ea93fa69c00b3564833c4e9d248d7aa8cf6",
+        "actualSha256": "c2e65ed85635613aabbbadb1c0026ea93fa69c00b3564833c4e9d248d7aa8cf6",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/factory/maintenance/maintenance-personnel/maintenance-personnel.controller.ts",
+        "owner": "phase1",
+        "sha256": "dbabf70be033ff8e0b7726d86db1f35c48ea0ffcd277d68833f7aeb5953bed8d",
+        "actualSha256": "dbabf70be033ff8e0b7726d86db1f35c48ea0ffcd277d68833f7aeb5953bed8d",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/factory/maintenance/maintenance-personnel/maintenance-personnel.module.ts",
+        "owner": "phase1",
+        "sha256": "e5a728d21a72333322424f6319e295aa0d201df2e4cb9eb9ff6211dd19aebc96",
+        "actualSha256": "e5a728d21a72333322424f6319e295aa0d201df2e4cb9eb9ff6211dd19aebc96",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/factory/maintenance/maintenance-personnel/maintenance-personnel.service.ts",
+        "owner": "phase1",
+        "sha256": "69d39e2aef0c7cbf78b831e25c1eab614cc93110db68c6d789ba691bca4ccb58",
+        "actualSha256": "69d39e2aef0c7cbf78b831e25c1eab614cc93110db68c6d789ba691bca4ccb58",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/src/app/admin/access/users/page.tsx",
+        "owner": "phase1",
+        "sha256": "a0b502da90e133ea0bc57017be7e52d41165fe29d15630206aa3f0a85a48f72f",
+        "actualSha256": "a0b502da90e133ea0bc57017be7e52d41165fe29d15630206aa3f0a85a48f72f",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/src/app/admin/core/person-assignments/page.tsx",
+        "owner": "phase1",
+        "sha256": "d82d9ec63c550c34af1657722f461223cdc78c4d7bda59596e8846363b7de7a2",
+        "actualSha256": "d82d9ec63c550c34af1657722f461223cdc78c4d7bda59596e8846363b7de7a2",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/src/app/admin/core/persons/[id]/page.tsx",
+        "owner": "phase1",
+        "sha256": "303bfc75792d0f502f061000bc0f5df4f51d3d5d1a813523489a5760e1c64041",
+        "actualSha256": "303bfc75792d0f502f061000bc0f5df4f51d3d5d1a813523489a5760e1c64041",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/src/app/admin/core/persons/page.tsx",
+        "owner": "phase1",
+        "sha256": "8e7e09c4985fee86db2b7c69ec837902b0fa29f3ce3d384f403973588669eb4a",
+        "actualSha256": "8e7e09c4985fee86db2b7c69ec837902b0fa29f3ce3d384f403973588669eb4a",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/src/app/admin/maintenance/personnel/page.tsx",
+        "owner": "phase1",
+        "sha256": "1cd5f93ea38cbde69b0ba5acae6ad310b7ef02aa0dcabb2cb04448fd3ee60562",
+        "actualSha256": "1cd5f93ea38cbde69b0ba5acae6ad310b7ef02aa0dcabb2cb04448fd3ee60562",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/src/components/admin/ui/input.tsx",
+        "owner": "phase1",
+        "sha256": "a50f4c690e94dbc588d6a4a8f9fb1e896136ed449891aafc20cd5e87064d2dd5",
+        "actualSha256": "a50f4c690e94dbc588d6a4a8f9fb1e896136ed449891aafc20cd5e87064d2dd5",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/src/lib/i18n/locales/ar/core.ts",
+        "owner": "phase1",
+        "sha256": "f7c3adbbe1fc387da3e502dcfc82b18616ab08f4b0f46cb94719ca735d6605a9",
+        "actualSha256": "f7c3adbbe1fc387da3e502dcfc82b18616ab08f4b0f46cb94719ca735d6605a9",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/src/lib/i18n/locales/ar/validation.ts",
+        "owner": "phase1",
+        "sha256": "dd36d657bfd68cf96b9f01e3a556f21561a06eb817d06c73823ef552ab59f52c",
+        "actualSha256": "dd36d657bfd68cf96b9f01e3a556f21561a06eb817d06c73823ef552ab59f52c",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/src/lib/i18n/locales/en/core.ts",
+        "owner": "phase1",
+        "sha256": "f4b6f4fff184e7698f9cb66689df141a319ac502aa9cced60cdb198ca8544a74",
+        "actualSha256": "f4b6f4fff184e7698f9cb66689df141a319ac502aa9cced60cdb198ca8544a74",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/src/lib/i18n/locales/en/validation.ts",
+        "owner": "phase1",
+        "sha256": "131cc22e34105149f2a74848d08422a72c9a4d15f63ae1ef097f675abb8db064",
+        "actualSha256": "131cc22e34105149f2a74848d08422a72c9a4d15f63ae1ef097f675abb8db064",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/tests/person-registration-save.test.ts",
+        "owner": "phase1",
+        "sha256": "b3b880be41c2224ed05bd90cc2d117b7dec7db429a66a6b08e687759fdc6d86a",
+        "actualSha256": "b3b880be41c2224ed05bd90cc2d117b7dec7db429a66a6b08e687759fdc6d86a",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/tests/person-registrations-unified-page.behavior.test.ts",
+        "owner": "phase1",
+        "sha256": "3def07871768d076f3f0c3d0fc6e2b2a08c2822177d151d838cbf3db3e39baf0",
+        "actualSha256": "3def07871768d076f3f0c3d0fc6e2b2a08c2822177d151d838cbf3db3e39baf0",
+        "unchanged": true
+      },
+      {
+        "path": "docs/governance/inspection-pitfalls-register.md",
+        "owner": "shared-governance",
+        "sha256": "968a9deeb9a8ef4270de33925ba088a759e808d0a663980872fc82f37caf5ef5",
+        "actualSha256": "968a9deeb9a8ef4270de33925ba088a759e808d0a663980872fc82f37caf5ef5",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/scripts/personnel-phase1-proof.cjs",
+        "owner": "phase1",
+        "sha256": "bcdcf571a8173291a39738273d5f23b5e2815b560fea6dbaf5b8e6f1272748e8",
+        "actualSha256": "bcdcf571a8173291a39738273d5f23b5e2815b560fea6dbaf5b8e6f1272748e8",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/common/operational-context/current-assignment-window.ts",
+        "owner": "phase1",
+        "sha256": "0cfa81e5561a67701c9c8b46e3d6fdbb9fc7e90c423a6c36fc3fcb3336cd4d97",
+        "actualSha256": "0cfa81e5561a67701c9c8b46e3d6fdbb9fc7e90c423a6c36fc3fcb3336cd4d97",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/common/validation/person-identity.spec.ts",
+        "owner": "phase1",
+        "sha256": "96a84969cf4480aa44a7632bd0318e0875321cb259bd49b34ca71a2e3bd5bd81",
+        "actualSha256": "96a84969cf4480aa44a7632bd0318e0875321cb259bd49b34ca71a2e3bd5bd81",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/common/validation/person-identity.ts",
+        "owner": "phase1",
+        "sha256": "f2e29ef72ac2053f8a92b46d4a58a7f6fde3a9b813924fb2f929228ec39997d3",
+        "actualSha256": "f2e29ef72ac2053f8a92b46d4a58a7f6fde3a9b813924fb2f929228ec39997d3",
+        "unchanged": true
+      },
+      {
+        "path": "apps/api/src/modules/factory/maintenance/maintenance-personnel/maintenance-personnel.service.spec.ts",
+        "owner": "phase1",
+        "sha256": "6174af5add6fdf94601892f8ed35d61e5559f4beda0e74461c9217093c343228",
+        "actualSha256": "6174af5add6fdf94601892f8ed35d61e5559f4beda0e74461c9217093c343228",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/src/lib/person-identity.ts",
+        "owner": "phase1",
+        "sha256": "fbe2a08c281d7ac920a0c9e6672d2cee3370099851973099f088e7262b8d85cc",
+        "actualSha256": "fbe2a08c281d7ac920a0c9e6672d2cee3370099851973099f088e7262b8d85cc",
+        "unchanged": true
+      },
+      {
+        "path": "apps/web/tests/person-identity.test.ts",
+        "owner": "phase1",
+        "sha256": "2c9a42add5f9fa570e0f34b4ad61f61d02c969536eedf95c87eecdac6884fcc4",
+        "actualSha256": "2c9a42add5f9fa570e0f34b4ad61f61d02c969536eedf95c87eecdac6884fcc4",
+        "unchanged": true
+      },
+      {
+        "path": "docs/proofs/personnel-maintenance-integrity-r1/correction-register.md",
+        "owner": "phase1",
+        "sha256": "414b2b782e3b8c64d999dcdb17605b24526ef6f306e3de1e6b81e3bb3a9e1026",
+        "actualSha256": "414b2b782e3b8c64d999dcdb17605b24526ef6f306e3de1e6b81e3bb3a9e1026",
+        "unchanged": true
+      },
+      {
+        "path": "docs/proofs/personnel-maintenance-integrity-r1/runtime-api-proof.json",
+        "owner": "phase1",
+        "sha256": "bd85b684bf3c1e13ee51b6069f566e66be79de7775818fd60502eec09853b1ea",
+        "actualSha256": "bd85b684bf3c1e13ee51b6069f566e66be79de7775818fd60502eec09853b1ea",
+        "unchanged": true
+      },
+      {
+        "path": "docs/proofs/personnel-maintenance-integrity-r1/runtime-browser-proof.json",
+        "owner": "phase1",
+        "sha256": "b603b08991081d57d4986b53cca82b8bcfbee14756ad4e8bca03458cd18ff065",
+        "actualSha256": "b603b08991081d57d4986b53cca82b8bcfbee14756ad4e8bca03458cd18ff065",
+        "unchanged": true
+      },
+      {
+        "path": "docs/proofs/reliability-proactive-alerts-phase4-browser-proof-2026-11-20.md",
+        "owner": "other-agent",
+        "sha256": "e12d74d96bce5f4e4d4630907842c859e889358ffa3b1bd07b4704e00955b449",
+        "actualSha256": "e12d74d96bce5f4e4d4630907842c859e889358ffa3b1bd07b4704e00955b449",
+        "unchanged": true
+      },
+      {
+        "path": "docs/proofs/reliability-proactive-alerts-phase4-final-closeout-2026-11-20.md",
+        "owner": "other-agent",
+        "sha256": "3c916f156a5b82d420b5e27d4f7c95335327fb4bc3b55843bf2bcec30316ff15",
+        "actualSha256": "3c916f156a5b82d420b5e27d4f7c95335327fb4bc3b55843bf2bcec30316ff15",
+        "unchanged": true
+      }
+    ]
+  },
+  "phase2Files": [
+    {
+      "path": "apps/api/src/modules/factory/maintenance/downtime-logs/downtime-logs.service.spec.ts",
+      "category": "OUR Phase 2 personnel-maintenance work",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/api/src/modules/factory/maintenance/downtime-logs/downtime-logs.service.ts",
+      "category": "OUR Phase 2 personnel-maintenance work",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/web/src/app/admin/maintenance/downtime-logs/page.tsx",
+      "category": "OUR Phase 2 personnel-maintenance work",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/web/src/app/admin/maintenance/requests/page.tsx",
+      "category": "OUR Phase 2 personnel-maintenance work",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/web/src/app/admin/maintenance/work-orders/page.tsx",
+      "category": "OUR Phase 2 personnel-maintenance work",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/web/src/components/admin/admin-data-grid.tsx",
+      "category": "shared/governance",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/web/src/components/admin/datagrid/admin-data-grid.tsx",
+      "category": "shared/governance",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/web/src/components/admin/datagrid/body-row.tsx",
+      "category": "shared/governance",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/web/src/components/admin/datagrid/index.ts",
+      "category": "shared/governance",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/web/src/components/admin/datagrid/types.ts",
+      "category": "shared/governance",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/web/src/lib/admin-types/maintenance.ts",
+      "category": "shared/governance",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "docs/governance/inspection-pitfalls-register.md",
+      "category": "shared/governance",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/api/scripts/personnel-phase2-proof.cjs",
+      "category": "OUR Phase 2 personnel-maintenance work",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/web/src/components/admin/datagrid/row-tone.module.css",
+      "category": "shared/governance",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/web/src/lib/maintenance-row-tones.ts",
+      "category": "OUR Phase 2 personnel-maintenance work",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/web/tests/grid-row-tone.test.ts",
+      "category": "OUR Phase 2 personnel-maintenance work",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "apps/web/tests/maintenance-row-tones.test.ts",
+      "category": "OUR Phase 2 personnel-maintenance work",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "docs/proofs/personnel-maintenance-integrity-r1/phase-2-phase-1-regression.json",
+      "category": "OUR Phase 2 personnel-maintenance work",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "docs/proofs/personnel-maintenance-integrity-r1/phase-2-runtime-browser-proof.json",
+      "category": "OUR Phase 2 personnel-maintenance work",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "docs/proofs/personnel-maintenance-integrity-r1/phase-2-ownership-proof.json",
+      "category": "OUR Phase 2 personnel-maintenance work",
+      "phase2OwnedChange": true
+    },
+    {
+      "path": "docs/proofs/personnel-maintenance-integrity-r1/phase-2-closeout.md",
+      "category": "OUR Phase 2 personnel-maintenance work",
+      "phase2OwnedChange": true
+    }
+  ],
+  "otherAgentFilesStaged": 0,
+  "unknownFiles": 0,
+  "schemaOrMigrationChanges": false,
+  "phase6AuthoritiesUnchangedAfterIntegration": true,
+  "phase1OriginalScriptAndEvidenceUnchanged": true,
+  "phase3Started": false
+}
