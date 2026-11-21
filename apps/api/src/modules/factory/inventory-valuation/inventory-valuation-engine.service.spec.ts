@@ -34,6 +34,19 @@ describe('VAL-R1C InventoryValuationEngineService (atomic weighted moving averag
       inventoryMovementLine: {
         update: jest.fn().mockResolvedValue({ id: 'line1' }),
       },
+      inventoryMovement: {
+        findUnique: jest.fn().mockResolvedValue({
+          companyId: 'C1',
+          branchId: 'B1',
+          postedById: 'actor-1',
+          createdById: 'actor-1',
+          cancelledById: null,
+          ...(overrides.movement || {}),
+        }),
+      },
+      auditLog: {
+        create: jest.fn().mockResolvedValue({ id: 'audit-1' }),
+      },
       $queryRaw: jest.fn().mockResolvedValue([{ result: 0 }]),
       ...overrides.extras,
     };
@@ -486,6 +499,18 @@ describe('VAL-R1D InventoryValuationEngineService (valued warehouse transfer)', 
         create: jest.fn().mockImplementation(() => Promise.resolve({ id: 'created' })),
       },
       inventoryMovementLine: { update: jest.fn().mockResolvedValue({ id: 'x' }) },
+      inventoryMovement: {
+        findUnique: jest.fn().mockImplementation(({ where }: any) =>
+          Promise.resolve({
+            companyId: 'C1',
+            branchId: 'B1',
+            postedById: where.id === 'src-mov' ? 'source-actor' : 'destination-actor',
+            createdById: null,
+            cancelledById: null,
+          }),
+        ),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({ id: 'audit-1' }) },
       $queryRaw: raw,
     };
     return { tx: tx as any, raw };
@@ -590,5 +615,218 @@ describe('VAL-R1D InventoryValuationEngineService (valued warehouse transfer)', 
     expect(tx.inventoryMovementLine.update).toHaveBeenCalledTimes(2);
     // each side also mutates its own valuation balance exactly once (update or create)
     expect(tx.inventoryValuationBalance.findUnique).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('Phase 6 audit coverage: InventoryValuationEngineService actor-aware transactional audit', () => {
+  const prisma = { $queryRaw: jest.fn() } as any as PrismaService;
+
+  function mockTx(overrides: Record<string, any> = {}) {
+    const balance = {
+      id: 'bal1',
+      inventoryValue: new Prisma.Decimal(0),
+      averageUnitCost: new Prisma.Decimal(0),
+      ...(overrides.balance || {}),
+    };
+    return {
+      inventoryValuationBalance: {
+        findUnique: jest.fn().mockResolvedValue(overrides.findBalance === false ? null : balance),
+        update: jest.fn().mockResolvedValue({ id: balance.id }),
+        create: jest.fn().mockResolvedValue({ id: 'bal-new' }),
+      },
+      inventoryMovementLine: { update: jest.fn().mockResolvedValue({ id: 'line1' }) },
+      inventoryMovement: {
+        findUnique: jest.fn().mockResolvedValue({
+          companyId: 'C1',
+          branchId: 'B1',
+          postedById: 'actor-1',
+          createdById: 'actor-1',
+          cancelledById: null,
+          ...(overrides.movement || {}),
+        }),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({ id: 'audit-1' }) },
+      $queryRaw: jest.fn().mockResolvedValue([{ result: 0 }]),
+    } as any;
+  }
+
+  function makeTransferTx() {
+    const makeBalance = (id: string) => ({
+      id,
+      companyId: 'C1',
+      averageUnitCost: new Prisma.Decimal(10),
+      inventoryValue: new Prisma.Decimal(1000),
+      lastHistoricalUnitCost: null,
+      version: 1,
+    });
+    const srcBal = makeBalance('bal-src');
+    const dstBal = makeBalance('bal-dst');
+    return {
+      tx: {
+        inventoryValuationBalance: {
+          findUnique: jest.fn().mockImplementation(({ where }: any) =>
+            Promise.resolve(where.companyId_warehouseId_productId.warehouseId === 'W2' ? dstBal : srcBal),
+          ),
+          update: jest.fn().mockResolvedValue({ id: 'updated' }),
+          create: jest.fn().mockResolvedValue({ id: 'created' }),
+        },
+        inventoryMovementLine: { update: jest.fn().mockResolvedValue({ id: 'x' }) },
+        inventoryMovement: {
+          findUnique: jest.fn().mockImplementation(({ where }: any) =>
+            Promise.resolve({
+              companyId: 'C1',
+              branchId: 'B1',
+              postedById: where.id === 'src-mov' ? 'source-actor' : 'destination-actor',
+              createdById: null,
+              cancelledById: null,
+            }),
+          ),
+        },
+        auditLog: { create: jest.fn().mockResolvedValue({ id: 'audit-1' }) },
+        $queryRaw: jest.fn().mockResolvedValue([{ result: 0 }]),
+      } as any,
+    };
+  }
+
+  const baseInput = {
+    companyId: 'C1',
+    warehouseId: 'W1',
+    productId: 'P1',
+    qold: new Prisma.Decimal(0),
+    lineId: 'line1',
+    movementId: 'mov1',
+    currencyCode: 'USD',
+  };
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('writes one audit row on the caller transaction with actor and tenant derived from the movement row', async () => {
+    const tx = mockTx({ findBalance: false });
+    const svc = new InventoryValuationEngineService(prisma);
+
+    await svc.applyValuedReceipt(tx, {
+      ...baseInput,
+      quantity: new Prisma.Decimal(100),
+      unitCost: new Prisma.Decimal(10),
+    });
+
+    expect(tx.inventoryMovement.findUnique).toHaveBeenCalledWith({
+      where: { id: 'mov1' },
+      select: {
+        companyId: true,
+        branchId: true,
+        postedById: true,
+        createdById: true,
+        cancelledById: true,
+      },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledTimes(1);
+    const row = tx.auditLog.create.mock.calls[0][0].data;
+    expect(row.userId).toBe('actor-1');
+    expect(row.action).toBe('VALUATION_POST');
+    expect(row.entity).toBe('InventoryValuationBalance');
+    expect(row.entityId).toBe('bal-new');
+    const details = JSON.parse(row.details);
+    expect(details).toMatchObject({
+      schemaVersion: 1,
+      companyId: 'C1',
+      branchId: 'B1',
+      scope: 'VALUATION_WEIGHTED_AVERAGE',
+      actor: { userId: 'actor-1' },
+      movementId: 'mov1',
+      lineId: 'line1',
+      previous: null,
+      reason: 'ATOMIC_PHYSICAL_MONETARY_POSTING',
+    });
+    expect(details.next).toMatchObject({
+      productId: 'P1',
+      warehouseId: 'W1',
+      inventoryValue: '1000',
+      averageUnitCost: '10',
+      eventValue: '1000',
+      unitCost: '10',
+      currencyCode: 'USD',
+    });
+  });
+
+  it('captures the previous valuation state on an issue audit event', async () => {
+    const tx = mockTx({
+      balance: {
+        id: 'bal1',
+        inventoryValue: new Prisma.Decimal(3000),
+        averageUnitCost: new Prisma.Decimal(15),
+      },
+    });
+    const svc = new InventoryValuationEngineService(prisma);
+
+    await svc.applyValuedIssue(tx, {
+      ...baseInput,
+      qold: new Prisma.Decimal(200),
+      quantity: new Prisma.Decimal(40),
+    });
+
+    expect(tx.auditLog.create).toHaveBeenCalledTimes(1);
+    const details = JSON.parse(tx.auditLog.create.mock.calls[0][0].data.details);
+    expect(details.previous).toEqual({ inventoryValue: '3000', averageUnitCost: '15' });
+    expect(details.next).toMatchObject({ inventoryValue: '2400', averageUnitCost: '15', eventValue: '600' });
+  });
+
+  it('uses logWithClient on the same transaction rather than the default client', async () => {
+    const tx = mockTx({ findBalance: false });
+    const audit = { logWithClient: jest.fn().mockResolvedValue({}) };
+    const svc = new InventoryValuationEngineService(prisma, audit as any);
+
+    await svc.applyValuedReceipt(tx, {
+      ...baseInput,
+      quantity: new Prisma.Decimal(5),
+      unitCost: new Prisma.Decimal(2),
+    });
+
+    expect(audit.logWithClient).toHaveBeenCalledTimes(1);
+    expect(audit.logWithClient.mock.calls[0][0]).toBe(tx);
+    expect(audit.logWithClient.mock.calls[0][1]).toMatchObject({
+      userId: 'actor-1',
+      action: 'VALUATION_POST',
+      entity: 'InventoryValuationBalance',
+      entityId: 'bal-new',
+    });
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('never emits an actorless audit row when the movement has no actor', async () => {
+    const tx = mockTx({
+      findBalance: false,
+      movement: { postedById: null, createdById: null, cancelledById: null },
+    });
+    const svc = new InventoryValuationEngineService(prisma);
+
+    await svc.applyValuedReceipt(tx, {
+      ...baseInput,
+      quantity: new Prisma.Decimal(5),
+      unitCost: new Prisma.Decimal(2),
+    });
+
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('writes one audit row per side of a valued transfer, each with its own actor', async () => {
+    const { tx } = makeTransferTx();
+    const svc = new InventoryValuationEngineService(prisma);
+
+    await svc.applyValuedTransfer(tx, {
+      source: { companyId: 'C1', warehouseId: 'W1', productId: 'P1', qold: new Prisma.Decimal(80), lineId: 'src-line', movementId: 'src-mov', currencyCode: 'USD' },
+      destination: { companyId: 'C1', warehouseId: 'W2', productId: 'P1', qold: new Prisma.Decimal(100), lineId: 'dst-line', movementId: 'dst-mov', currencyCode: 'USD' },
+      currencyCode: 'USD',
+      quantity: new Prisma.Decimal(20),
+    });
+
+    expect(tx.auditLog.create).toHaveBeenCalledTimes(2);
+    const rows = tx.auditLog.create.mock.calls.map((c: any[]) => c[0].data);
+    expect(rows[0].userId).toBe('source-actor');
+    expect(rows[1].userId).toBe('destination-actor');
+    const firstDetails = JSON.parse(rows[0].details);
+    const secondDetails = JSON.parse(rows[1].details);
+    expect(firstDetails.next.warehouseId).toBe('W1');
+    expect(secondDetails.next.warehouseId).toBe('W2');
   });
 });

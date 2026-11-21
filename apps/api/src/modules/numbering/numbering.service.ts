@@ -1,14 +1,51 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { AuditService } from '../../common/audit/audit.service';
+import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types';
 import { CreateNumberSequenceDto } from './dto/create-number-sequence.dto';
 import { UpdateNumberSequenceDto } from './dto/update-number-sequence.dto';
 
+type AuditActor = { id?: string; sub?: string; employeeId?: string | null };
+
 @Injectable()
 export class NumberingService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    // Optional injection: modules are owned by another integration step.
+    @Optional() private auditService?: AuditService,
+  ) {}
 
-  async create(dto: CreateNumberSequenceDto) {
-    return this.prisma.numberSequence.create({ data: dto });
+  private get audit(): AuditService | undefined {
+    // Guard test doubles that omit auditLog; real PrismaService always exposes it.
+    if (!this.auditService && (this.prisma as any).auditLog?.create) this.auditService = new AuditService(this.prisma);
+    return this.auditService;
+  }
+
+  private auditIdentity(actor?: AuditActor, ctx?: ActiveOperationalContext) {
+    const candidate = actor ?? (ctx as any)?.actor ?? (ctx as any)?.user;
+    return {
+      userId: actor?.id ?? actor?.sub ?? (ctx as any)?.userId ?? (ctx as any)?.actorUserId,
+      employeeId: candidate?.employeeId ?? null,
+    };
+  }
+
+  private auditScope(ctx?: ActiveOperationalContext) {
+    return {
+      companyId: ctx?.companyId ?? null,
+      branchId: ctx?.branchId ?? null,
+      scope: ctx ? ctx.source : 'GLOBAL',
+    };
+  }
+
+  async create(dto: CreateNumberSequenceDto, actor?: AuditActor, ctx?: ActiveOperationalContext) {
+    const created = await this.prisma.numberSequence.create({ data: dto });
+    const identity = this.auditIdentity(actor, ctx);
+    await this.audit?.log(identity.userId, 'CREATE', 'NumberSequence', created.id, {
+      ...this.auditScope(ctx),
+      ...identity,
+      next: { code: created.code, status: created.status, prefix: created.prefix, currentNumber: created.currentNumber },
+    });
+    return created;
   }
 
   async findAll(query: { page?: number; limit?: number; search?: string; status?: string }) {
@@ -47,9 +84,18 @@ export class NumberingService {
     return seq;
   }
 
-  async update(id: string, dto: UpdateNumberSequenceDto) {
-    await this.findOne(id);
-    return this.prisma.numberSequence.update({ where: { id }, data: dto });
+  async update(id: string, dto: UpdateNumberSequenceDto, actor?: AuditActor, ctx?: ActiveOperationalContext) {
+    const before = await this.findOne(id);
+    const updated = await this.prisma.numberSequence.update({ where: { id }, data: dto });
+    const identity = this.auditIdentity(actor, ctx);
+    await this.audit?.log(identity.userId, 'UPDATE', 'NumberSequence', id, {
+      ...this.auditScope(ctx),
+      ...identity,
+      previous: { code: before.code, status: before.status, prefix: before.prefix, currentNumber: before.currentNumber },
+      next: { code: updated.code, status: updated.status, prefix: updated.prefix, currentNumber: updated.currentNumber },
+      changedFields: Object.keys(dto),
+    });
+    return updated;
   }
 
   async preview(id: string) {
@@ -59,7 +105,7 @@ export class NumberingService {
     return { number: generated, sequence: seq.code, currentNumber: seq.currentNumber, nextNumber };
   }
 
-  async generateNumber(code: string) {
+  async generateNumber(code: string, actor?: AuditActor, ctx?: ActiveOperationalContext) {
     return this.prisma.$transaction(async (tx) => {
       const seq = await tx.numberSequence.findUnique({ where: { code } });
       if (!seq) throw new NotFoundException({ messageKey: 'numbering.sequenceNotFound', message: 'Number sequence not found' });
@@ -77,15 +123,29 @@ export class NumberingService {
         },
       });
 
+      const identity = this.auditIdentity(actor, ctx);
+      await this.audit?.logWithClient(tx, {
+        userId: identity.userId,
+        action: 'NUMBER_GENERATED',
+        entity: 'NumberSequence',
+        entityId: seq.id,
+        details: {
+          ...this.auditScope(ctx),
+          ...identity,
+          previous: { currentNumber: seq.currentNumber, lastGeneratedCode: seq.lastGeneratedCode },
+          next: { currentNumber: nextNumber, lastGeneratedCode: generated },
+        },
+      });
+
       return { number: generated, sequence: seq.code, currentNumber: nextNumber };
     });
   }
 
-  async generateNumberAtomic(code: string): Promise<string> {
-    return this.prisma.$transaction((tx) => this.generateNumberAtomicWithClient(code, tx));
+  async generateNumberAtomic(code: string, actor?: AuditActor, ctx?: ActiveOperationalContext): Promise<string> {
+    return this.prisma.$transaction((tx) => this.generateNumberAtomicWithClient(code, tx, actor, ctx));
   }
 
-  async generateNumberAtomicWithClient(code: string, client: any): Promise<string> {
+  async generateNumberAtomicWithClient(code: string, client: any, actor?: AuditActor, ctx?: ActiveOperationalContext): Promise<string> {
     const seq = await client.numberSequence.findUnique({ where: { code } });
     if (!seq) throw new NotFoundException({ messageKey: 'numbering.sequenceNotFound' });
     if (seq.status !== 'ACTIVE') throw new BadRequestException({ messageKey: 'numbering.sequenceInactive' });
@@ -97,6 +157,7 @@ export class NumberingService {
       });
       const generated = this.formatNumber(updated, updated.currentNumber);
       await client.numberSequence.update({ where: { id: seq.id }, data: { lastGeneratedCode: generated } });
+      await this.auditGeneration(client, seq, generated, updated.currentNumber, actor, ctx);
       return generated;
     }
 
@@ -110,7 +171,30 @@ export class NumberingService {
         lastResetAt: this.shouldReset(seq) ? new Date() : undefined,
       },
     });
+    await this.auditGeneration(client, seq, generated, nextNumber, actor, ctx);
     return generated;
+  }
+
+  /**
+   * Internal numbering is a side effect of another entity's write; it is only
+   * audited when a caller supplies actor/scope metadata, so nested document
+   * writes do not produce actorless audit rows that tenant readers cannot see.
+   */
+  private async auditGeneration(client: any, seq: any, generated: string, nextNumber: number, actor?: AuditActor, ctx?: ActiveOperationalContext) {
+    if (!actor && !ctx) return;
+    const identity = this.auditIdentity(actor, ctx);
+    await this.audit?.logWithClient(client, {
+      userId: identity.userId,
+      action: 'NUMBER_GENERATED',
+      entity: 'NumberSequence',
+      entityId: seq.id,
+      details: {
+        ...this.auditScope(ctx),
+        ...identity,
+        previous: { currentNumber: seq.currentNumber, lastGeneratedCode: seq.lastGeneratedCode },
+        next: { currentNumber: nextNumber, lastGeneratedCode: generated },
+      },
+    });
   }
 
   private formatNumber(seq: { prefix: string; suffix: string | null; padding: number }, nextNumber: number): string {

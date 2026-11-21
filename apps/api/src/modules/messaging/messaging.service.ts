@@ -1,12 +1,57 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { AuditService } from '../../common/audit/audit.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { AddParticipantsDto } from './dto/add-participants.dto';
 
+const AUDIT_SCOPE = 'INTERNAL_MESSAGING';
+
 @Injectable()
 export class MessagingService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, @Optional() private readonly audit?: AuditService) {}
+
+  private auditWriter(): AuditService {
+    return this.audit ?? new AuditService(this.prisma);
+  }
+
+  /**
+   * Internal conversations have no tenant columns. Scope is derived from the
+   * authoritative actor user record, never from a DTO or request header.
+   */
+  private async scopeForUser(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { companyId: true, branchId: true },
+    });
+    return {
+      companyId: user?.companyId ?? null,
+      branchId: user?.branchId ?? null,
+    };
+  }
+
+  private async auditWrite(
+    userId: string | undefined,
+    action: string,
+    entity: string,
+    entityId: string | undefined,
+    details: Record<string, unknown>,
+    reason: string,
+  ) {
+    if (!userId) return; // never emit actorless audit rows
+    const scope = await this.scopeForUser(userId);
+    await this.auditWriter().log(userId, action, entity, entityId, {
+      schemaVersion: 1,
+      companyId: scope.companyId,
+      branchId: scope.branchId,
+      scope: AUDIT_SCOPE,
+      actor: { userId },
+      previous: details.previous ?? null,
+      next: details.next ?? null,
+      ...details,
+      reason,
+    });
+  }
 
   async createConversation(dto: CreateConversationDto, userId: string) {
     const participantIds = [...new Set([...dto.participantUserIds, userId])];
@@ -23,6 +68,11 @@ export class MessagingService {
         participants: { include: { user: { select: { id: true, name: true, email: true, avatar: true } } } },
       },
     });
+
+    await this.auditWrite(userId, 'CREATE', 'InternalConversation', conversation.id, {
+      previous: null,
+      next: { title: conversation.title ?? null, participantIds },
+    }, 'CONVERSATION_CREATED');
 
     return conversation;
   }
@@ -131,6 +181,15 @@ export class MessagingService {
       data: { lastMessageAt: new Date() },
     });
 
+    await this.auditWrite(userId, 'SEND', 'InternalMessage', message.id, {
+      previous: { lastMessageAt: conversation.lastMessageAt?.toISOString?.() ?? null },
+      next: {
+        conversationId: dto.conversationId,
+        isSystem: message.isSystem,
+        bodyLength: dto.body?.length ?? 0,
+      },
+    }, 'MESSAGE_SENT');
+
     return message;
   }
 
@@ -155,6 +214,11 @@ export class MessagingService {
       });
     }
 
+    await this.auditWrite(userId, 'ADD_PARTICIPANTS', 'InternalConversation', conversationId, {
+      previous: { alreadyMembers: [...existingIds] },
+      next: { addedUserIds: newIds },
+    }, 'PARTICIPANTS_ADDED');
+
     return this.findConversationById(conversationId, userId);
   }
 
@@ -172,13 +236,24 @@ export class MessagingService {
     await this.prisma.internalConversationParticipant.deleteMany({
       where: { conversationId, userId: participantUserId },
     });
+
+    await this.auditWrite(userId, 'REMOVE_PARTICIPANT', 'InternalConversation', conversationId, {
+      previous: { participantUserId },
+      next: { participantUserId, removed: true },
+    }, 'PARTICIPANT_REMOVED');
   }
 
   async markConversationRead(conversationId: string, userId: string) {
+    const lastReadAt = new Date();
     await this.prisma.internalConversationParticipant.updateMany({
       where: { conversationId, userId },
-      data: { lastReadAt: new Date() },
+      data: { lastReadAt },
     });
+
+    await this.auditWrite(userId, 'MARK_READ', 'InternalConversation', conversationId, {
+      previous: null,
+      next: { lastReadAt: lastReadAt.toISOString() },
+    }, 'CONVERSATION_MARK_READ');
   }
 
   async getUnreadCount(userId: string) {

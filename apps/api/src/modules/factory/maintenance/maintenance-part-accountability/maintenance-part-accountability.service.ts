@@ -1,11 +1,60 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
+import { AuditService } from '../../../../common/audit/audit.service';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 import { CreateMaintenancePartAccountabilityDto, UpdateMaintenancePartAccountabilityDto } from './dto/create-maintenance-part-accountability.dto';
 
+const AUDIT_ENTITY = 'MaintenancePartAccountability';
+const AUDIT_SCOPE = 'MAINTENANCE_PART_ACCOUNTABILITY';
+
 @Injectable()
 export class MaintenancePartAccountabilityService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, @Optional() private readonly audit?: AuditService) {}
+
+  private auditWriter(): AuditService {
+    return this.audit ?? new AuditService(this.prisma);
+  }
+
+  private async auditWrite(
+    userId: string | undefined,
+    action: string,
+    entityId: string | undefined,
+    ctx: ActiveOperationalContext,
+    previous: Record<string, unknown> | null,
+    next: Record<string, unknown> | null,
+    reason: string,
+  ) {
+    if (!userId) return;
+    await this.auditWriter().log(userId, action, AUDIT_ENTITY, entityId, {
+      schemaVersion: 1,
+      companyId: ctx.companyId,
+      branchId: ctx.branchId,
+      scope: AUDIT_SCOPE,
+      actor: { userId },
+      previous,
+      next,
+      reason,
+    });
+  }
+
+  private snapshot(record: any) {
+    if (!record) return null;
+    return {
+      maintenanceRequestId: record.maintenanceRequestId ?? null,
+      requiredPartId: record.requiredPartId ?? null,
+      sparePartId: record.sparePartId ?? null,
+      maintenancePersonnelId: record.maintenancePersonnelId ?? null,
+      machineId: record.machineId ?? null,
+      machineComponentId: record.machineComponentId ?? null,
+      quantity: record.quantity ?? null,
+      reportedUsedQuantity: record.reportedUsedQuantity ?? null,
+      returnedQuantity: record.returnedQuantity ?? null,
+      status: record.status ?? null,
+      accountabilityNote: record.accountabilityNote ?? null,
+      reportedAt: record.reportedAt?.toISOString?.() ?? null,
+      cancelledAt: record.cancelledAt?.toISOString?.() ?? null,
+    };
+  }
 
   private machineScope(ctx: ActiveOperationalContext) {
     return {
@@ -80,7 +129,7 @@ export class MaintenancePartAccountabilityService {
     return record;
   }
 
-  async create(dto: CreateMaintenancePartAccountabilityDto, ctx: ActiveOperationalContext) {
+  async create(dto: CreateMaintenancePartAccountabilityDto, ctx: ActiveOperationalContext, userId?: string) {
     const request = await this.assertRequestOwned(dto.maintenanceRequestId, ctx);
     await this.assertSparePartExists(dto.sparePartId);
     await this.assertPersonnelExists(dto.maintenancePersonnelId);
@@ -110,6 +159,7 @@ export class MaintenancePartAccountabilityService {
         },
       },
     });
+    await this.auditWrite(userId, 'CREATE', result.id, ctx, null, this.snapshot(result), 'PART_ACCOUNTABILITY_ASSIGNED');
     return this.mapRecord(result);
   }
 
@@ -153,8 +203,8 @@ export class MaintenancePartAccountabilityService {
     return this.mapRecord(await this.findOwned(id, ctx));
   }
 
-  async update(id: string, dto: UpdateMaintenancePartAccountabilityDto, ctx: ActiveOperationalContext) {
-    await this.findOwned(id, ctx);
+  async update(id: string, dto: UpdateMaintenancePartAccountabilityDto, ctx: ActiveOperationalContext, userId?: string) {
+    const before = await this.findOwned(id, ctx);
     const data: any = { ...dto };
     if (dto.reportedAt) data.reportedAt = new Date(dto.reportedAt);
     if (dto.cancelledAt) data.cancelledAt = new Date(dto.cancelledAt);
@@ -171,15 +221,23 @@ export class MaintenancePartAccountabilityService {
         },
       },
     });
+    await this.auditWrite(userId, 'UPDATE', id, ctx, this.snapshot(before), this.snapshot(result), 'PART_ACCOUNTABILITY_UPDATE');
     return this.mapRecord(result);
   }
 
-  async remove(id: string, ctx: ActiveOperationalContext) {
-    await this.findOwned(id, ctx);
-    return this.prisma.maintenancePartAccountability.update({
+  async remove(id: string, ctx: ActiveOperationalContext, userId?: string) {
+    const before = await this.findOwned(id, ctx);
+    const cancelledAt = new Date();
+    const updated = await this.prisma.maintenancePartAccountability.update({
       where: { id },
-      data: { status: 'CANCELLED', cancelledAt: new Date() },
+      data: { status: 'CANCELLED', cancelledAt },
     });
+    await this.auditWrite(userId, 'CANCEL', id, ctx, this.snapshot(before), {
+      ...this.snapshot(before),
+      status: 'CANCELLED',
+      cancelledAt: cancelledAt.toISOString(),
+    }, 'PART_ACCOUNTABILITY_CANCELLED');
+    return updated;
   }
 
   private mapRecord(r: any) {

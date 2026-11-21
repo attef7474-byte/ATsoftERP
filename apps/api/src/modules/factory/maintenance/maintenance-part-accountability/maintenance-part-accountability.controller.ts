@@ -5,6 +5,7 @@ import { CreateMaintenancePartAccountabilityDto, UpdateMaintenancePartAccountabi
 import { JwtAuthGuard } from '../../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../../modules/auth/decorators/permissions.decorator';
+import { CurrentUser } from '../../../../modules/auth/decorators/current-user.decorator';
 import { CurrentActiveContext } from '../../../../common/operational-context/current-active-context.decorator';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
@@ -18,8 +19,8 @@ export class MaintenancePartAccountabilityController {
   @Post()
   @Permissions('maintenance-part-accountability:create')
   @ApiOperation({ summary: 'Create part accountability record' })
-  create(@Body() dto: CreateMaintenancePartAccountabilityDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.service.create(dto, ctx);
+  create(@Body() dto: CreateMaintenancePartAccountabilityDto, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') userId: string) {
+    return this.service.create(dto, ctx, userId);
   }
 
   @Get()
@@ -47,14 +48,14 @@ export class MaintenancePartAccountabilityController {
   @Patch(':id')
   @Permissions('maintenance-part-accountability:update')
   @ApiOperation({ summary: 'Update part accountability record' })
-  update(@Param('id') id: string, @Body() dto: UpdateMaintenancePartAccountabilityDto, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.service.update(id, dto, ctx);
+  update(@Param('id') id: string, @Body() dto: UpdateMaintenancePartAccountabilityDto, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') userId: string) {
+    return this.service.update(id, dto, ctx, userId);
   }
 
   @Delete(':id')
   @Permissions('maintenance-part-accountability:delete')
   @ApiOperation({ summary: 'Cancel part accountability record' })
-  remove(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
-    return this.service.remove(id, ctx);
+  remove(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext, @CurrentUser('id') userId: string) {
+    return this.service.remove(id, ctx, userId);
   }
 }

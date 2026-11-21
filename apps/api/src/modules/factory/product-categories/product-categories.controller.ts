@@ -6,6 +6,7 @@ import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../modules/auth/guards/permissions.guard';
 import { Permissions } from '../../../modules/auth/decorators/permissions.decorator';
+import { CurrentUser } from '../../../modules/auth/decorators/current-user.decorator';
 
 @ApiTags('Product Categories')
 @ApiBearerAuth()
@@ -17,7 +18,7 @@ export class ProductCategoriesController {
   @Post()
   @Permissions('products:create')
   @ApiOperation({ summary: 'Create product category' })
-  create(@Body() dto: CreateProductCategoryDto) { return this.service.create(dto); }
+  create(@Body() dto: CreateProductCategoryDto, @CurrentUser('id') userId: string) { return this.service.create(dto, userId); }
 
   @Get()
   @Permissions('products:read')
@@ -43,20 +44,20 @@ export class ProductCategoriesController {
   @Patch(':id')
   @Permissions('products:update')
   @ApiOperation({ summary: 'Update category' })
-  update(@Param('id') id: string, @Body() dto: UpdateProductCategoryDto) { return this.service.update(id, dto); }
+  update(@Param('id') id: string, @Body() dto: UpdateProductCategoryDto, @CurrentUser('id') userId: string) { return this.service.update(id, dto, userId); }
 
   @Delete(':id')
   @Permissions('products:delete')
   @ApiOperation({ summary: 'Soft delete category' })
-  remove(@Param('id') id: string) { return this.service.remove(id); }
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.remove(id, userId); }
 
   @Patch(':id/activate')
   @Permissions('products:update')
   @ApiOperation({ summary: 'Activate category' })
-  activate(@Param('id') id: string) { return this.service.activate(id); }
+  activate(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.activate(id, userId); }
 
   @Patch(':id/deactivate')
   @Permissions('products:update')
   @ApiOperation({ summary: 'Deactivate category' })
-  deactivate(@Param('id') id: string) { return this.service.deactivate(id); }
+  deactivate(@Param('id') id: string, @CurrentUser('id') userId: string) { return this.service.deactivate(id, userId); }
 }

@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Optional } from '@nestjs/common'
 import { PrismaService } from '../../../common/prisma/prisma.service'
+import { AuditService } from '../../../common/audit/audit.service'
 
 export interface AppearanceSettings {
   themeMode: string
@@ -104,9 +105,16 @@ const PRESET_VALUES: Record<string, Partial<Record<keyof AppearanceSettings, str
   FLAT: { gradientEnabled: 'false', gradientStrength: '0' },
 }
 
+const AUDIT_ENTITY = 'AppearanceSettings'
+const AUDIT_SCOPE = 'GLOBAL_APPEARANCE_SETTINGS'
+
 @Injectable()
 export class AppearanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, @Optional() private readonly audit?: AuditService) {}
+
+  private auditWriter(): AuditService {
+    return this.audit ?? new AuditService(this.prisma)
+  }
 
   async get(): Promise<AppearanceSettings> {
     const rows = await this.prisma.systemSetting.findMany({
@@ -147,7 +155,8 @@ export class AppearanceService {
     })
   }
 
-  async update(dto: Record<string, unknown>): Promise<AppearanceSettings> {
+  async update(dto: Record<string, unknown>, userId?: string): Promise<AppearanceSettings> {
+    const previous = await this.get()
     const requestedPreset = dto['preset'] as string | undefined
     if (requestedPreset !== undefined && PRESET_VALUES[requestedPreset]) {
       for (const field of Object.keys(PRESET_VALUES[requestedPreset]) as (keyof AppearanceSettings)[]) {
@@ -160,6 +169,20 @@ export class AppearanceService {
       if (value === undefined) continue
       await this.upsertField(field, String(value))
     }
-    return this.get()
+    const next = await this.get()
+    if (userId) {
+      await this.auditWriter().log(userId, 'UPDATE', AUDIT_ENTITY, 'appearance', {
+        schemaVersion: 1,
+        companyId: null,
+        branchId: null,
+        scope: AUDIT_SCOPE,
+        actor: { userId },
+        previous,
+        next,
+        changedFields: Object.keys(dto),
+        reason: 'APPEARANCE_SETTINGS_UPDATE',
+      })
+    }
+    return next
   }
 }
