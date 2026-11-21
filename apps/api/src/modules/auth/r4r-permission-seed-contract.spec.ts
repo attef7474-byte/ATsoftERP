@@ -1,5 +1,6 @@
-import { readdirSync, readFileSync, statSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
+import { basename, dirname, join, resolve } from 'path';
+import { PHASE6_GOVERNANCE_PERMISSION_KEYS } from '../../../prisma/seed/seed-phase6-governance-permission-keys';
 
 /**
  * R4R PERMISSION-SEED CONTRACT (systemic guardrail).
@@ -26,85 +27,92 @@ import { join } from 'path';
  * seed.ts - and scans EVERY `*.controller.ts` in the API for enforced keys. Any key
  * that is enforced but not declared fails the build.
  *
- * `KNOWN_UNSEEDED_LEGACY_KEYS` is an explicit, reviewed inventory of pre-existing debt
- * that is OUT OF SCOPE for this change. It is deliberately exhaustive rather than a
- * wildcard, so that removing an entry requires editing this file and shows up in review.
- * Its purpose is to make the debt visible and to fail loudly if it grows.
+ * `KNOWN_UNSEEDED_LEGACY_KEYS` was an explicit, reviewed inventory of pre-existing
+ * debt. Phase 6 reconciled every one of those keys into the canonical seed catalogue
+ * (see `seed-phase6-governance-permission-keys.ts`), so the allowlist is now EMPTY and
+ * this contract is a zero-tolerance hard gate: any enforced key the seed does not
+ * declare fails the build. Keeping the empty set (instead of deleting the mechanism)
+ * makes reintroducing debt an explicit, reviewable edit to this file.
  */
 
 const SEED_DIR = join(__dirname, '..', '..', '..', 'prisma', 'seed');
 const API_SRC = join(__dirname, '..', '..');
 
 /**
- * Pre-existing debt: enforced by a controller, absent from the full seed catalogue.
+ * Accepted unseeded legacy keys.
  *
- * R4R note: the four `machines:*` keys and `users.loginHistory.view` that this audit
- * discovered are NOT listed here, because R4R fixed them. Listing a repaired defect
- * would let it silently regress.
+ * Phase 6 eliminated all 61 former entries by seeding them canonically in
+ * `prisma/seed/seed-phase6-governance-permission-keys.ts`. The set is intentionally
+ * retained but EMPTY: any future enforced-but-unseeded key can no longer be hidden
+ * here without an explicit, reviewed edit to this file.
  *
- * Two categories remain, and both are pre-existing and outside the R4R groups:
- *  1. Plural/singular typos of the same family as `machines:*`
- *     (companies/branches/administrations/roles/permissions/productionLines).
- *  2. Whole feature families whose permission family was never seeded
- *     (dashboard, alerts, audit, attachments, notifications, settings,
- *     maintenance dashboard, downtime-log, maintenance-task, shift-handover).
+ * Earlier repairs for the `machines:*` typo, `users.loginHistory.view`, and
+ * `products:*` are pinned by dedicated tests below and must never be re-added here.
  */
-const KNOWN_UNSEEDED_LEGACY_KEYS = new Set<string>([
-  // -- plural/singular family (same class as the repaired machines:* defect) --
-  'administrations:create', 'administrations:read', 'administrations:update', 'administrations:delete',
-  'branches:create', 'branches:read', 'branches:update', 'branches:delete',
-  'companies:create', 'companies:read', 'companies:update', 'companies:delete',
-  'roles:create', 'roles:read', 'roles:update', 'roles:delete',
-  'permissions:read',
-  'productionLines:create', 'productionLines:read', 'productionLines:update',
-  'productionLines:delete', 'productionLines:activate', 'productionLines:deactivate',
-  // -- unseeded feature families (pre-existing) --
-  'alerts.view',
-  'attachments.view', 'attachments.create', 'attachments.update', 'attachments.delete', 'attachments.download',
-  'audit:read',
-  'dashboard.view', 'dashboard.operations.view',
-  'notifications:read', 'notifications:delete', 'notifications:dispatch', 'notifications:mark-read',
-  'settings:read', 'settings:create', 'settings:update',
-  'settings.language.view', 'settings.language.manage',
-  'settings.security.view', 'settings.security.manage',
-  'settings.notifications.view', 'settings.notifications.manage',
-  'maintenance-schedule:history.view',
-  'maintenance-task:myTasks.view', 'maintenance-task:overdue.view',
-  'maintenance.dashboard.view', 'maintenance.dashboard.openRequests.view',
-  'maintenance.dashboard.overdue.view', 'maintenance.dashboard.critical.view',
-  'maintenance.dashboard.currentDowntime.view',
-  'maintenance.dashboard.machinesUnderMaintenance.view',
-  'maintenance.dashboard.accountabilityKpis.view', 'maintenance.dashboard.costKpis.view',
-  'maintenance.dashboard.slaOverdue.view', 'maintenance.dashboard.slaEscalated.view',
-  'maintenance.dashboard.upcomingPreventive.view',
-  'maintenance.dashboard.recentGeneratedPreventive.view',
-  'maintenance.dashboard.recentEmergency.view',
-]);
+const KNOWN_UNSEEDED_LEGACY_KEYS = new Set<string>([]);
+
+const PERMISSION_KEY_SHAPE = /^[a-zA-Z][a-zA-Z0-9_-]*[:.][a-zA-Z][a-zA-Z0-9_.:-]*$/;
+
+function addPermissionKeyLiterals(source: string, keys: Set<string>, skipObjectPropertyValues: boolean): void {
+  // Shape 1: object literals `{ key: "reports.operations:export", ... }`.
+  for (const match of source.matchAll(/key:\s*['"]([^'"]+)['"]/g)) keys.add(match[1]);
+
+  // Shape 2: bare string arrays and imported constants objects.
+  for (const match of source.matchAll(/['"]([a-zA-Z][a-zA-Z0-9_-]*[:.][a-zA-Z][a-zA-Z0-9_.:-]*)['"]/g)) {
+    const value = match[1];
+    if (!PERMISSION_KEY_SHAPE.test(value)) continue;
+    if (skipObjectPropertyValues) {
+      // In seed files an object property value is not a permission declaration. Without
+      // this check `{ key: "maintenance-request:attachments.view", action: "attachments.view" }`
+      // would wrongly register a bare `attachments.view` key declared nowhere. Imported
+      // constants modules intentionally declare keys as object properties, so they are
+      // scanned without this exclusion.
+      const before = source.slice(Math.max(0, match.index! - 12), match.index!);
+      if (/\w+:\s*$/.test(before)) continue;
+    }
+    keys.add(value);
+  }
+}
+
+function resolveImportedModule(specifier: string, fromFile: string): string | null {
+  if (!specifier.startsWith('.')) return null;
+  const base = resolve(dirname(fromFile), specifier);
+  for (const candidate of [`${base}.ts`, join(base, 'index.ts')]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
 
 function collectSeededPermissionKeys(): Set<string> {
   const keys = new Set<string>();
+  const scannedImports = new Set<string>();
 
-  // Permission keys are declared in the seed directory in three different shapes, and a
-// parser that only understands one of them silently reports the other two as defects:
-//   1. object literals        { key: "production-unit:create", ... }
-//   2. bare string arrays     ['production-order:create', ...]
-//   3. the MODULES x ACTIONS generator in seed.ts (handled separately below)
-// Shapes 1 and 2 are both collected here.
-const PERMISSION_KEY_SHAPE = /^[a-zA-Z][a-zA-Z0-9_-]*[:.][a-zA-Z][a-zA-Z0-9_.:-]*$/;
-
-for (const file of readdirSync(SEED_DIR)) {
-    if (!file.endsWith('.ts')) continue;
-    const source = readFileSync(join(SEED_DIR, file), 'utf8');
-    for (const match of source.matchAll(/key:\s*['"]([^'"]+)['"]/g)) keys.add(match[1]);
-    for (const match of source.matchAll(/['"]([a-zA-Z][a-zA-Z0-9_-]*[:.][a-zA-Z][a-zA-Z0-9_.:-]*)['"]/g)) {
-      if (!PERMISSION_KEY_SHAPE.test(match[1])) continue;
-      // An object property value is not a permission declaration. Without this check
-      // `{ key: "maintenance-request:attachments.view", action: "attachments.view" }`
-      // would wrongly register a bare `attachments.view` key that is declared nowhere.
-      const before = source.slice(Math.max(0, match.index! - 12), match.index!);
-      if (/\w+:\s*$/.test(before)) continue;
-      keys.add(match[1]);
+  /**
+   * Seeds declare keys either as literals in `prisma/seed/*.ts`, or through imported
+   * `*constants*` / `*permission*` modules. Following the real import graph (including
+   * transitive imports) is necessary: `reports.operations:export` is declared in
+   * `src/modules/reports/operations-reports.constants.ts` and imported by
+   * `seed-operations-reports-permission-keys.ts`. A literal-only seed scan would call
+   * that enforced key unseeded even though the running seed grants it.
+   */
+  const scanImportedPermissionModules = (fromFile: string): void => {
+    const source = readFileSync(fromFile, 'utf8');
+    for (const match of source.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
+      const resolved = resolveImportedModule(match[1], fromFile);
+      if (!resolved || scannedImports.has(resolved)) continue;
+      if (!/(constants|permission)/i.test(basename(resolved))) continue;
+      scannedImports.add(resolved);
+      addPermissionKeyLiterals(readFileSync(resolved, 'utf8'), keys, false);
+      scanImportedPermissionModules(resolved);
     }
+  };
+
+  for (const file of readdirSync(SEED_DIR)) {
+    if (!file.endsWith('.ts')) continue;
+    const seedFile = join(SEED_DIR, file);
+    const source = readFileSync(seedFile, 'utf8');
+    addPermissionKeyLiterals(source, keys, true);
+    scanImportedPermissionModules(seedFile);
   }
 
   // seed.ts generates CRUD keys from a MODULES x ACTIONS matrix instead of literals,
@@ -174,16 +182,31 @@ describe('R4R permission-seed contract', () => {
     ).toBe('Enforced permission keys that the seed never declares are permanently denied to every non-SUPER_ADMIN role. Unexpected: []');
   });
 
-  it('does not let the accepted legacy debt grow', () => {
-    // Every allowlisted key must still be genuinely unseeded AND genuinely enforced.
-    // A stale entry would otherwise mask a future fix, and a key that is no longer
-    // enforced would hide a renamed route.
+  it('keeps the known-unseeded allowlist empty (zero-tolerance hard gate)', () => {
+    // Phase 6 reconciled every former debt entry. Any allowlist entry would now mask
+    // a permanently-denied route, and any key that is no longer enforced would hide a
+    // renamed route, so both conditions are asserted for the (empty) set.
+    expect(KNOWN_UNSEEDED_LEGACY_KEYS.size).toBe(0);
     const stale = [...KNOWN_UNSEEDED_LEGACY_KEYS].filter(
       (key) => seeded.has(key) || !enforced.has(key),
     );
     expect(
       `Stale entries in KNOWN_UNSEEDED_LEGACY_KEYS (now seeded, or no longer enforced): [${stale.join(' | ')}]`,
     ).toBe('Stale entries in KNOWN_UNSEEDED_LEGACY_KEYS (now seeded, or no longer enforced): []');
+  });
+
+  it('seeds and wires all 61 Phase 6 reconciled governance keys', () => {
+    // Guards against emptying the allowlist without actually declaring the keys, and
+    // against declaring them in a standalone file that seed.ts never imports.
+    expect(PHASE6_GOVERNANCE_PERMISSION_KEYS).toHaveLength(61);
+    expect(new Set(PHASE6_GOVERNANCE_PERMISSION_KEYS).size).toBe(61);
+    for (const key of PHASE6_GOVERNANCE_PERMISSION_KEYS) {
+      expect(seeded.has(key)).toBe(true);
+      expect(enforced.has(key)).toBe(true);
+    }
+    const seedSource = readFileSync(join(SEED_DIR, 'seed.ts'), 'utf8');
+    expect(seedSource).toContain('PHASE6_GOVERNANCE_PERMISSIONS');
+    expect(seedSource).toMatch(/\.\.\.PHASE6_GOVERNANCE_PERMISSIONS/);
   });
 
   it('uses the seeded singular module spelling, never the unseeded plural machines:* form', () => {
@@ -210,6 +233,20 @@ describe('R4R permission-seed contract', () => {
     for (const [key] of enforced) {
       if (key.startsWith('products:')) expect(seeded.has(key)).toBe(true);
     }
+  });
+
+  it('follows seed imports of permission constants modules', () => {
+    // Regression pin for the parser gap: these keys are declared in imported constants
+    // modules, not as literals in `prisma/seed/*.ts`. Missing them would either fail the
+    // zero-tolerance gate for a genuinely seeded key or hide a real seed omission.
+    for (const key of ['reports.operations:export', 'operational-cost-center:read']) {
+      expect(seeded.has(key)).toBe(true);
+    }
+    // Only the operations key is enforced through a literal @Permissions decorator;
+    // the cost-center key is enforced through an imported constants reference.
+    expect(enforced.has('reports.operations:export')).toBe(true);
+    const seedFiles = readdirSync(SEED_DIR).filter((file) => file.endsWith('.ts'));
+    expect(seedFiles.some((file) => readFileSync(join(SEED_DIR, file), 'utf8').includes('OPERATIONS_REPORT_PERMISSIONS'))).toBe(true);
   });
 
   it('seeds every permission key enforced by the maintenance and installed-parts controllers', () => {
