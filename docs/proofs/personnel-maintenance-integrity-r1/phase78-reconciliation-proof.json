@@ -1,0 +1,64 @@
+{
+  "generatedAt": "2026-11-22T20:55:35.112Z",
+  "database": "ATsoftERP_PERSONNEL_P78_20261122",
+  "productionMigrationApplied": "NO",
+  "proofWindowStart": "2026-11-22 20:40:00",
+  "migrationProofBeforeCounts": {
+    "checklistExecutions": 5,
+    "checklistItems": 1,
+    "auditLogs": 6001,
+    "checklistExecutionItems": 4,
+    "maintenanceSchedules": 6
+  },
+  "migrationProofStatus": "PASS",
+  "migrationSnapshotHashMismatches": 0,
+  "current": {
+    "maintenanceSchedules": 12,
+    "checklistItems": 25,
+    "checklistExecutions": 11,
+    "checklistExecutionItems": 16
+  },
+  "historical": {
+    "schedules": 6,
+    "checklistItems": 1,
+    "executions": 5,
+    "executionItems": 4,
+    "completedHistoricalExecutions": 5,
+    "historicalSnapshotsWithTitle": 4,
+    "historicalSnapshotsWithResultType": 4,
+    "historicalStartedByIdPopulated": 5
+  },
+  "orphans": {
+    "checklistItemWithoutSchedule": 0,
+    "executionWithoutSchedule": 0,
+    "executionItemWithoutExecution": 0,
+    "executionItemWithoutTemplate": 0,
+    "scheduleWithoutMachine": 0
+  },
+  "actorRefs": {
+    "invalidStartedById": 0,
+    "invalidCompletedById": 0,
+    "invalidItemCompletedById": 0,
+    "missingStartedByIdOnNonPending": 0,
+    "completedExecutionWithoutCompletedBy": 0
+  },
+  "audit": {
+    "historicalEntityWritesInProofWindow": 0
+  },
+  "status": "PASS",
+  "duplicateActive": {
+    "schedulesWithMoreThanOneActiveExecution": 0,
+    "activeRowsBeyondFirstPerSchedule": 0
+  },
+  "tokens": {
+    "ORPHANS": 0,
+    "DUPLICATE_ACTIVE_CHECKLIST_EXECUTIONS": 0,
+    "INVALID_STARTED_BY_REFS": 0,
+    "INVALID_COMPLETED_BY_REFS": 0,
+    "INVALID_ITEM_COMPLETED_BY_REFS": 0,
+    "LOST_HISTORICAL_SNAPSHOTS": 0,
+    "UNINTENDED_HISTORICAL_DELETION": 0,
+    "HISTORICAL_EXECUTIONS_PRESERVED": "YES",
+    "PRODUCTION_MIGRATION_APPLIED": "NO"
+  }
+}

@@ -4,17 +4,36 @@ import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../../modules/numbering/numbering.service';
 import { CreateMaintenanceScheduleDto } from './dto/create-maintenance-schedule.dto';
 import { UpdateMaintenanceScheduleDto } from './dto/update-maintenance-schedule.dto';
+import { ScheduleChecklistItemDto } from './dto/schedule-checklist-item.dto';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 import { PreventiveScheduleDuplicateGuard } from './preventive-schedule-duplicate.guard';
+import { normalizeChecklistItemConfig, withDeterministicSortOrder } from '../maintenance-checklist-items/checklist-item-validation';
+import { MaintenanceChecklistStartAuthorityService } from '../maintenance-checklist-executions/maintenance-checklist-start-authority.service';
+
+interface PreparedChecklistItem {
+  id?: string;
+  title: string;
+  description: string | null;
+  sortOrder: number;
+  isMandatory: boolean;
+  resultType: string;
+  minValue: number | null;
+  maxValue: number | null;
+  unit: string | null;
+}
 
 @Injectable()
 export class MaintenanceSchedulesService {
+  private readonly startAuthority: MaintenanceChecklistStartAuthorityService;
+
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
     private numberingService: NumberingService,
     private duplicateGuard: PreventiveScheduleDuplicateGuard,
-  ) {}
+  ) {
+    this.startAuthority = new MaintenanceChecklistStartAuthorityService(prisma, audit);
+  }
 
   private notFound(key: string, message: string): NotFoundException {
     return new NotFoundException({ messageKey: key, message });
@@ -34,6 +53,39 @@ export class MaintenanceSchedulesService {
   private machineOwns(machine: { companyId?: string | null; branchId?: string | null }, ctx: ActiveOperationalContext): boolean {
     return machine.companyId === ctx.companyId
       && (machine.branchId === null || machine.branchId === ctx.branchId);
+  }
+
+  private prepareChecklistItems(items: ScheduleChecklistItemDto[] | undefined): PreparedChecklistItem[] {
+    if (!items) return [];
+    return withDeterministicSortOrder(items.map((item) => {
+      const config = normalizeChecklistItemConfig(item, false);
+      return {
+        id: item.id,
+        title: config.title as string,
+        description: config.description,
+        resultType: config.resultType,
+        minValue: config.minValue,
+        maxValue: config.maxValue,
+        unit: config.unit,
+        isMandatory: item.isMandatory ?? false,
+        sortOrder: item.sortOrder ?? 0,
+      };
+    }));
+  }
+
+  private templateCreateData(scheduleId: string, item: PreparedChecklistItem) {
+    return {
+      scheduleId,
+      title: item.title,
+      description: item.description,
+      sortOrder: item.sortOrder,
+      isMandatory: item.isMandatory,
+      resultType: item.resultType,
+      minValue: item.minValue,
+      maxValue: item.maxValue,
+      unit: item.unit,
+      isActive: true,
+    };
   }
 
   private async validateScheduleMachine(machineId: string, ctx: ActiveOperationalContext) {
@@ -69,7 +121,10 @@ export class MaintenanceSchedulesService {
   async create(dto: CreateMaintenanceScheduleDto, userId: string, ctx: ActiveOperationalContext) {
     await this.validateScheduleMachine(dto.machineId, ctx);
     await this.validateRequest(dto.requestId, dto.machineId, ctx);
+    const prepared = this.prepareChecklistItems(dto.checklistItems);
+
     const data: any = { ...dto };
+    delete data.checklistItems;
     data.startDate = new Date(dto.startDate);
     if (dto.endDate) data.endDate = new Date(dto.endDate);
     data.nextDueDate = data.startDate;
@@ -84,11 +139,17 @@ export class MaintenanceSchedulesService {
     const schedule = await this.prisma.$transaction(async (tx) => {
       await this.duplicateGuard.acquireLock(tx as any, identity);
       await this.duplicateGuard.assertNoEquivalentActive(tx as any, identity);
-      return tx.maintenanceSchedule.create({ data });
+      const created = await tx.maintenanceSchedule.create({ data });
+      if (prepared.length) {
+        await tx.maintenanceChecklistItem.createMany({
+          data: prepared.map((item) => this.templateCreateData(created.id, item)),
+        });
+      }
+      return created;
     }, { maxWait: 5000, timeout: 10000 });
 
     await this.audit.log(userId, 'CREATE', 'MaintenanceSchedule', schedule.id,
-      { machineId: dto.machineId });
+      { machineId: dto.machineId, checklistItemCount: prepared.length });
     return schedule;
   }
 
@@ -148,7 +209,9 @@ export class MaintenanceSchedulesService {
       include: {
         machine: { select: { id: true, code: true, name: true, status: true, companyId: true, branchId: true } },
         request: { select: { id: true, requestNumber: true, title: true } },
-        checklistItems: { orderBy: { sortOrder: 'asc' } },
+        // The editor and start snapshot use only current active template items;
+        // retired items remain available only through historical snapshots.
+        checklistItems: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
       },
     });
     if (!schedule) throw this.notFound('maintenance.scheduleNotFound', 'Maintenance schedule not found');
@@ -164,7 +227,11 @@ export class MaintenanceSchedulesService {
     } else if (dto.requestId) {
       await this.validateRequest(dto.requestId, schedule.machineId, ctx);
     }
+    const hasChecklist = dto.checklistItems !== undefined;
+    const prepared = this.prepareChecklistItems(dto.checklistItems);
+
     const data: any = { ...dto };
+    delete data.checklistItems;
     if (dto.startDate) data.startDate = new Date(dto.startDate);
     if (dto.endDate) data.endDate = new Date(dto.endDate);
 
@@ -180,11 +247,53 @@ export class MaintenanceSchedulesService {
         await this.duplicateGuard.acquireLock(tx as any, identity);
         await this.duplicateGuard.assertNoEquivalentActive(tx as any, identity, id);
       }
-      return tx.maintenanceSchedule.update({ where: { id }, data });
+      const result = await tx.maintenanceSchedule.update({ where: { id }, data });
+      if (hasChecklist) {
+        const existing = await tx.maintenanceChecklistItem.findMany({
+          where: { scheduleId: id },
+          select: { id: true },
+        });
+        const desiredIds = new Set(prepared.filter((item) => !!item.id).map((item) => item.id as string));
+        const retiredIds = existing
+          .map((item: any) => item.id as string)
+          .filter((itemId: string) => !desiredIds.has(itemId));
+        if (retiredIds.length) {
+          await tx.maintenanceChecklistItem.updateMany({
+            where: { scheduleId: id, id: { in: retiredIds } },
+            data: { isActive: false },
+          });
+        }
+        for (const item of prepared) {
+          if (item.id) {
+            const owned = await tx.maintenanceChecklistItem.findFirst({
+              where: { id: item.id, scheduleId: id },
+              select: { id: true },
+            });
+            if (!owned) throw this.notFound('maintenance.checklistItemNotFound', 'Checklist item not found');
+            await tx.maintenanceChecklistItem.update({
+              where: { id: item.id },
+              data: {
+                title: item.title,
+                description: item.description,
+                sortOrder: item.sortOrder,
+                isMandatory: item.isMandatory,
+                resultType: item.resultType,
+                minValue: item.minValue,
+                maxValue: item.maxValue,
+                unit: item.unit,
+                isActive: true,
+              },
+            });
+          } else {
+            await tx.maintenanceChecklistItem.create({ data: this.templateCreateData(id, item) });
+          }
+        }
+      }
+      return result;
     }, { maxWait: 5000, timeout: 10000 });
 
     await this.audit.log(userId, 'UPDATE', 'MaintenanceSchedule', id,
-      { oldStatus: schedule.status, dto });
+      { oldStatus: schedule.status, checklistItemsChanged: hasChecklist, checklistItemCount: prepared.length });
     return updated;
   }
 
@@ -224,44 +333,15 @@ export class MaintenanceSchedulesService {
 
   async execute(id: string, requestId: string | undefined, userId: string, ctx: ActiveOperationalContext) {
     const schedule = await this.findOne(id, ctx);
-
     if (requestId) await this.validateRequest(requestId, schedule.machineId, ctx);
-
-    const existingExecution = await this.prisma.maintenanceChecklistExecution.findFirst({
-      where: { scheduleId: id, status: 'IN_PROGRESS' },
+    // All start paths delegate to the single canonical authority.
+    const execution = await this.startAuthority.start({
+      scheduleId: id,
+      requestId: requestId || undefined,
+      userId,
+      ctx,
+      source: 'SCHEDULE',
     });
-    if (existingExecution) {
-      throw new ConflictException('An execution is already in progress for this schedule. Complete it first.');
-    }
-
-    const checklistItems = await this.prisma.maintenanceChecklistItem.findMany({
-      where: { scheduleId: id },
-      orderBy: { sortOrder: 'asc' },
-    });
-
-    const execution = await this.prisma.maintenanceChecklistExecution.create({
-      data: {
-        scheduleId: id,
-        requestId: requestId || undefined,
-        status: 'IN_PROGRESS',
-        startedAt: new Date(),
-        completedById: userId,
-        items: {
-          create: checklistItems.map(item => ({
-            checklistItemId: item.id,
-            status: 'PENDING',
-            itemTitleSnapshot: item.title,
-            itemSortOrderSnapshot: item.sortOrder,
-            itemMandatorySnapshot: item.isMandatory,
-            resultTypeSnapshot: item.resultType,
-            minValueSnapshot: item.minValue ?? null,
-            maxValueSnapshot: item.maxValue ?? null,
-          })),
-        },
-      },
-      include: { items: true },
-    });
-
     await this.audit.log(userId, 'EXECUTE', 'MaintenanceSchedule', id,
       { executionId: execution.id, requestId });
     return execution;
@@ -337,8 +417,14 @@ export class MaintenanceSchedulesService {
         skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' },
         include: {
           request: { select: { id: true, requestNumber: true, title: true } },
+          startedBy: { select: { id: true, name: true } },
           completedBy: { select: { id: true, name: true } },
-          items: { include: { checklistItem: { select: { id: true, title: true } } } },
+          items: {
+            include: {
+              checklistItem: { select: { id: true, title: true } },
+              completedBy: { select: { id: true, name: true } },
+            },
+          },
         },
       }),
       this.prisma.maintenanceChecklistExecution.count({ where: { scheduleId: id } }),

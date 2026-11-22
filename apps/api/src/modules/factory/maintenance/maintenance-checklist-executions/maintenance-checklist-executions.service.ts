@@ -4,13 +4,18 @@ import { AuditService } from '../../../../common/audit/audit.service';
 import { CreateMaintenanceChecklistExecutionDto } from './dto/create-maintenance-checklist-execution.dto';
 import { UpdateChecklistExecutionItemDto } from './dto/update-checklist-execution-item.dto';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { MaintenanceChecklistStartAuthorityService } from './maintenance-checklist-start-authority.service';
 
 @Injectable()
 export class MaintenanceChecklistExecutionsService {
+  private readonly startAuthority: MaintenanceChecklistStartAuthorityService;
+
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
-  ) {}
+  ) {
+    this.startAuthority = new MaintenanceChecklistStartAuthorityService(prisma, audit);
+  }
 
   private notFound(key: string, message: string): NotFoundException {
     return new NotFoundException({ messageKey: key, message });
@@ -36,70 +41,16 @@ export class MaintenanceChecklistExecutionsService {
     return schedule;
   }
 
-  private async requestAccess(requestId: string | undefined, machineId: string, ctx: ActiveOperationalContext) {
-    if (!requestId) return;
-    const request = await this.prisma.maintenanceRequest.findUnique({ where: { id: requestId } });
-    if (!request) throw this.notFound('maintenance.requestNotFound', 'Maintenance request not found');
-    if (request.machineId !== machineId) {
-      throw this.badRequest('maintenance.requestMachineMismatch', 'Maintenance request does not belong to the selected schedule machine');
-    }
-    const machine = await this.prisma.machine.findUnique({ where: { id: request.machineId } });
-    if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
-    if (['COMPLETED', 'CANCELLED', 'CLOSED'].includes(request.status)) {
-      throw this.badRequest('maintenance.cannotAddChecklistTerminalRequest', 'Cannot add checklist executions to completed, cancelled, or closed requests');
-    }
-  }
-
   async create(dto: CreateMaintenanceChecklistExecutionDto, userId: string, ctx: ActiveOperationalContext) {
-    const schedule = await this.scheduleAccess(dto.scheduleId, ctx);
-    await this.requestAccess(dto.requestId, schedule.machineId, ctx);
-
-    const checklistItems = await this.prisma.maintenanceChecklistItem.findMany({
-      where: { scheduleId: dto.scheduleId },
-      orderBy: { sortOrder: 'asc' },
+    // All public start paths delegate to the single canonical authority.
+    return this.startAuthority.start({
+      scheduleId: dto.scheduleId,
+      requestId: dto.requestId,
+      notes: dto.notes,
+      userId,
+      ctx,
+      source: 'DIRECT',
     });
-
-    const execution = await this.prisma.$transaction(async (tx) => {
-      const exec = await tx.maintenanceChecklistExecution.create({
-        data: {
-          scheduleId: dto.scheduleId,
-          requestId: dto.requestId,
-          notes: dto.notes,
-          startedAt: new Date(),
-        },
-      });
-
-      if (checklistItems.length > 0) {
-        await tx.maintenanceChecklistExecutionItem.createMany({
-          data: checklistItems.map((item) => ({
-            executionId: exec.id,
-            checklistItemId: item.id,
-            status: 'PENDING',
-            itemTitleSnapshot: item.title,
-            itemSortOrderSnapshot: item.sortOrder,
-            itemMandatorySnapshot: item.isMandatory,
-            resultTypeSnapshot: item.resultType,
-            minValueSnapshot: item.minValue ?? null,
-            maxValueSnapshot: item.maxValue ?? null,
-          })),
-        });
-      }
-
-      return tx.maintenanceChecklistExecution.findUnique({
-        where: { id: exec.id },
-        include: {
-          items: {
-            include: { checklistItem: true },
-            orderBy: { itemSortOrderSnapshot: 'asc' },
-          },
-        },
-      });
-    });
-
-    if (!execution) throw new Error('Failed to create checklist execution');
-    await this.audit.log(userId, 'CREATE', 'MaintenanceChecklistExecution', execution.id,
-      { scheduleId: dto.scheduleId, requestId: dto.requestId });
-    return execution;
   }
 
   async findAll(query: { scheduleId?: string; requestId?: string; status?: string }, ctx: ActiveOperationalContext) {
@@ -125,6 +76,7 @@ export class MaintenanceChecklistExecutionsService {
       include: {
         schedule: { select: { id: true, title: true } },
         request: { select: { id: true, requestNumber: true, title: true } },
+        startedBy: { select: { id: true, name: true } },
         completedBy: { select: { id: true, name: true } },
         _count: { select: { items: true } },
       },
@@ -145,9 +97,13 @@ export class MaintenanceChecklistExecutionsService {
       include: {
         schedule: { select: { id: true, title: true, type: true, machineId: true } },
         request: { select: { id: true, requestNumber: true, title: true } },
+        startedBy: { select: { id: true, name: true } },
         completedBy: { select: { id: true, name: true } },
         items: {
-          include: { checklistItem: true },
+          include: {
+            checklistItem: true,
+            completedBy: { select: { id: true, name: true } },
+          },
           orderBy: { itemSortOrderSnapshot: 'asc' },
         },
       },
@@ -194,6 +150,8 @@ export class MaintenanceChecklistExecutionsService {
       }
     }
 
+    // Completion identity is the authenticated final actor; starter identity
+    // stored at start is never overwritten.
     const updated = await this.prisma.maintenanceChecklistExecution.update({
       where: { id },
       data: { status: 'COMPLETED', completedAt: new Date(), completedById: userId },
@@ -241,7 +199,7 @@ export class MaintenanceChecklistExecutionsService {
         if (!['OK', 'NOT_OK', 'NA'].includes(dto.status)) {
           throw this.badRequest('maintenance.invalidExecutionStatus', 'Invalid status for PASS_FAIL item');
         }
-        data.status = dto.status === 'OK' || dto.status === 'NOT_OK' ? 'COMPLETED' : 'COMPLETED';
+        data.status = 'COMPLETED';
         data.passed = dto.status === 'OK' ? true : dto.status === 'NOT_OK' ? false : null;
         data.resultValue = dto.status;
         completed = true;
@@ -300,6 +258,7 @@ export class MaintenanceChecklistExecutionsService {
 
     if (completed || data.passed !== undefined) {
       data.completedAt = new Date();
+      // Per-item executor is the authenticated actor, never a client id.
       data.completedById = userId;
     }
 

@@ -1,0 +1,54 @@
+{
+  "status": "PASS",
+  "phase": "PHASE_7_UNIFIED_SCHEDULE_CHECKLIST_EDITOR",
+  "recordedAt": "2026-11-22T00:00:00.000Z",
+  "gates": {
+    "UNIFIED_SCHEDULE_CHECKLIST_EDITOR": "PASS",
+    "TRANSACTIONAL_SCHEDULE_CREATE": "PASS",
+    "TRANSACTIONAL_SCHEDULE_EDIT": "PASS",
+    "CHECKLIST_TEMPLATE_HISTORY": "PASS",
+    "HISTORICAL_EXECUTION_SNAPSHOTS_PRESERVED": "PASS"
+  },
+  "evidence": {
+    "editorExtendsExistingSchedulePage": "apps/web/src/app/admin/maintenance/schedules/page.tsx",
+    "noNewChecklistAuthority": true,
+    "authoritiesKeptSeparate": [
+      "MaintenanceSchedule",
+      "MaintenanceChecklistItem",
+      "MaintenanceChecklistExecution",
+      "MaintenanceChecklistExecutionItem[]"
+    ],
+    "createTransactional": "maintenance-schedules.service.create writes schedule + items in one prisma.$transaction",
+    "editSetReconciliation": "maintenance-schedules.service.update performs update/add/retain/reorder/retire in one prisma.$transaction; no blind delete/recreate",
+    "softRetireKeepsHistory": "omitted items set isActive=false; no delete; historical execution snapshots still reference them",
+    "deterministicSortOrder": "withDeterministicSortOrder emits unique non-negative integer sortOrder from array position with explicit integer honoured only when unique",
+    "validatedAgainstCurrentEnums": "CHECKLIST_RESULT_TYPES = PASS_FAIL|TEXT|NUMBER|BOOLEAN|READING shared by templates and executions",
+    "rejectsBlankTitle": true,
+    "rejectsInvalidMinMax": true,
+    "activeTemplateItemsOnlyAtStart": "start authority snapshots isActive=true items only",
+    "postStartSnapshotMutation": "NONE - snapshots immutable after start"
+  },
+  "focusedApi": {
+    "suites": 4,
+    "tests": 61,
+    "status": "PASS"
+  },
+  "focusedFrontend": {
+    "suites": 1,
+    "tests": 31,
+    "status": "PASS"
+  },
+  "fullApi": {
+    "suites": 263,
+    "tests": 5342,
+    "status": "PASS"
+  },
+  "fullWeb": {
+    "suites": 138,
+    "tests": 2597,
+    "status": "PASS"
+  },
+  "migrationProof": "docs/proofs/personnel-maintenance-integrity-r1/phase78-migration-proof.json",
+  "phase8StartedBeforeGate": false,
+  "productionMigrationApplied": false
+}

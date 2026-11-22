@@ -1,5 +1,7 @@
-import { IsString, IsOptional, IsInt, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsDateString, ValidateNested } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { ScheduleChecklistItemDto } from './schedule-checklist-item.dto';
 
 export class CreateMaintenanceScheduleDto {
   @ApiProperty()
@@ -41,4 +43,10 @@ export class CreateMaintenanceScheduleDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ type: [ScheduleChecklistItemDto], description: 'Complete checklist template edited atomically with the schedule' })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => ScheduleChecklistItemDto)
+  checklistItems?: ScheduleChecklistItemDto[];
 }

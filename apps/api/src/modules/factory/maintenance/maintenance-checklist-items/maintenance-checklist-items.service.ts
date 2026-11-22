@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { CreateMaintenanceChecklistItemDto } from './dto/create-maintenance-checklist-item.dto';
 import { UpdateMaintenanceChecklistItemDto } from './dto/update-maintenance-checklist-item.dto';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { normalizeChecklistItemConfig } from './checklist-item-validation';
 
 @Injectable()
 export class MaintenanceChecklistItemsService {
@@ -14,10 +15,6 @@ export class MaintenanceChecklistItemsService {
 
   private notFound(key: string, message: string): NotFoundException {
     return new NotFoundException({ messageKey: key, message });
-  }
-
-  private badRequest(key: string, message: string, params?: Record<string, string>): BadRequestException {
-    return new BadRequestException({ messageKey: key, message, ...(params ? { params } : {}) });
   }
 
   private machineOwns(machine: { companyId?: string | null; branchId?: string | null }, ctx: ActiveOperationalContext): boolean {
@@ -47,22 +44,23 @@ export class MaintenanceChecklistItemsService {
     return item;
   }
 
-  private validateResultConfig(dto: { resultType?: string; minValue?: number; maxValue?: number; unit?: string }) {
-    if (dto.resultType && !['PASS_FAIL', 'TEXT', 'NUMBER', 'BOOLEAN', 'READING'].includes(dto.resultType)) {
-      throw this.badRequest('maintenance.invalidResultType', 'Invalid checklist result type');
-    }
-    if ((dto.minValue !== undefined || dto.maxValue !== undefined) && dto.resultType && !['NUMBER', 'READING'].includes(dto.resultType)) {
-      throw this.badRequest('maintenance.resultRangeNotApplicable', 'Value ranges apply only to NUMBER or READING result types');
-    }
-    if (dto.minValue !== undefined && dto.maxValue !== undefined && dto.minValue > dto.maxValue) {
-      throw this.badRequest('maintenance.invalidResultRange', 'Minimum value cannot exceed maximum value');
-    }
-  }
-
   async create(dto: CreateMaintenanceChecklistItemDto, userId: string, ctx: ActiveOperationalContext) {
     await this.scheduleAccess(dto.scheduleId, ctx);
-    this.validateResultConfig(dto);
-    const item = await this.prisma.maintenanceChecklistItem.create({ data: dto });
+    const config = normalizeChecklistItemConfig(dto, false);
+    const item = await this.prisma.maintenanceChecklistItem.create({
+      data: {
+        scheduleId: dto.scheduleId,
+        title: config.title as string,
+        description: config.description,
+        sortOrder: dto.sortOrder ?? 0,
+        isMandatory: dto.isMandatory ?? false,
+        resultType: config.resultType,
+        minValue: config.minValue,
+        maxValue: config.maxValue,
+        unit: config.unit,
+        isActive: true,
+      },
+    });
     await this.audit.log(userId, 'create', 'MaintenanceChecklistItem', item.id, { dto });
     return item;
   }
@@ -109,22 +107,33 @@ export class MaintenanceChecklistItemsService {
   }
 
   async update(id: string, dto: UpdateMaintenanceChecklistItemDto, userId: string, ctx: ActiveOperationalContext) {
-    await this.itemAccess(id, ctx);
-    this.validateResultConfig(dto);
+    const existing = await this.itemAccess(id, ctx);
+    const config = normalizeChecklistItemConfig({ ...(existing as any), ...dto }, false);
     if (dto.scheduleId) await this.scheduleAccess(dto.scheduleId, ctx);
-    const item = await this.prisma.maintenanceChecklistItem.update({ where: { id }, data: dto });
+    const data: any = {
+      title: config.title as string,
+      description: config.description,
+      resultType: config.resultType,
+      minValue: config.minValue,
+      maxValue: config.maxValue,
+      unit: config.unit,
+    };
+    if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;
+    if (dto.isMandatory !== undefined) data.isMandatory = dto.isMandatory;
+    if (dto.scheduleId !== undefined) data.scheduleId = dto.scheduleId;
+    const item = await this.prisma.maintenanceChecklistItem.update({ where: { id }, data });
     await this.audit.log(userId, 'update', 'MaintenanceChecklistItem', id, { dto });
     return item;
   }
 
+  /** Soft-retire keeps historical execution snapshots and item history intact. */
   async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
     await this.itemAccess(id, ctx);
-    const executionCount = await this.prisma.maintenanceChecklistExecutionItem.count({ where: { checklistItemId: id } });
-    if (executionCount > 0) {
-      throw new ConflictException('Cannot delete checklist item with existing execution records');
-    }
-    await this.prisma.maintenanceChecklistItem.delete({ where: { id } });
-    await this.audit.log(userId, 'delete', 'MaintenanceChecklistItem', id, {});
-    return { message: 'Checklist item deleted successfully' };
+    await this.prisma.maintenanceChecklistItem.update({
+      where: { id },
+      data: { isActive: false },
+    });
+    await this.audit.log(userId, 'retire', 'MaintenanceChecklistItem', id, { isActive: false });
+    return { message: 'Checklist item retired successfully' };
   }
 }

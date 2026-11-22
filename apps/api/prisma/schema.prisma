@@ -1225,6 +1225,7 @@ model User {
   requestedMaintenanceReqs          MaintenanceRequest[]                @relation("MaintenanceRequestRequestedBy")
   assignedMaintenanceReqs           MaintenanceRequest[]                @relation("MaintenanceRequestAssignedTo")
   requestedTasks                    MaintenanceTask[]                   @relation("MaintenanceTaskAssignedTo")
+  checklistExecutionStarts          MaintenanceChecklistExecution[]     @relation("MaintenanceChecklistExecutionStartedBy")
   checklistExecutionCompletions     MaintenanceChecklistExecution[]     @relation("MaintenanceChecklistExecutionCompletedBy")
   checklistExecutionItemCompletions MaintenanceChecklistExecutionItem[] @relation("MaintenanceChecklistExecutionItemCompletedBy")
   createdConversations              InternalConversation[]              @relation("UserCreatedConversations")
@@ -3486,6 +3487,8 @@ model MaintenanceChecklistItem {
   isMandatory    Boolean                             @default(false)
   // UX-1B-2C: checklist result type support (additive)
   resultType     String                              @default("PASS_FAIL") // PASS_FAIL | TEXT | NUMBER | BOOLEAN | READING
+  // Phase 7: soft-retired template items stay available to historical executions
+  isActive       Boolean                             @default(true)
   minValue       Float?
   maxValue       Float?
   unit           String?
@@ -3494,6 +3497,7 @@ model MaintenanceChecklistItem {
   executionItems MaintenanceChecklistExecutionItem[]
 
   @@index([scheduleId])
+  @@index([scheduleId, isActive])
   @@map("maintenance_checklist_items")
 }
 
@@ -3745,6 +3749,9 @@ model MaintenanceChecklistExecution {
   request       MaintenanceRequest? @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   status        String              @default("IN_PROGRESS")
   startedAt     DateTime            @default(now())
+  // Phase 8: starter identity is server-derived and preserved separately from the completer
+  startedById   String?
+  startedBy     User?               @relation("MaintenanceChecklistExecutionStartedBy", fields: [startedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   completedAt   DateTime?
   completedById String?
   completedBy   User?               @relation("MaintenanceChecklistExecutionCompletedBy", fields: [completedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -3759,6 +3766,7 @@ model MaintenanceChecklistExecution {
   @@index([status])
   @@index([scheduleId, status])
   @@index([requestId, status])
+  @@index([startedById])
   @@map("maintenance_checklist_executions")
 }
 
@@ -3779,6 +3787,7 @@ model MaintenanceChecklistExecutionItem {
   resultTypeSnapshot    String?
   minValueSnapshot      Float?
   maxValueSnapshot      Float?
+  unitSnapshot          String?
   resultValue           String?
   completedAt           DateTime?
   completedById         String?

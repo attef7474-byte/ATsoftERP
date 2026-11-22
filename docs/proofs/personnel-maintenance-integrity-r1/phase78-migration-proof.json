@@ -1,0 +1,63 @@
+{
+  "database": "ATsoftERP_PERSONNEL_P78_20261122",
+  "migrations": [
+    "20261122120000_add_checklist_template_lifecycle",
+    "20261122130000_add_checklist_execution_starter"
+  ],
+  "productionMigrationApplied": "NO",
+  "before": {
+    "hashes": {
+      "schedules": "dc04f56f41658ea9cfc25eb9725bec724a070c4196a0b1ac54915a3ed04bcebe",
+      "checklistItems": "9f19b049309eb0670f19fb48a862518ce4b2b35929c58e9a2bd58ac91aa3420e",
+      "executionItems": "45381838f94e6291361b4694a255c63ea90f147b5e4a05eea9d771736076fb29",
+      "executions": "b84399f26ac527a0830e8f5b4fb114ac147593150aa016ed146f7d53b2404539"
+    },
+    "counts": {
+      "checklistExecutions": 5,
+      "checklistItems": 1,
+      "auditLogs": 6001,
+      "checklistExecutionItems": 4,
+      "maintenanceSchedules": 6
+    }
+  },
+  "after": {
+    "hashes": {
+      "schedules": "dc04f56f41658ea9cfc25eb9725bec724a070c4196a0b1ac54915a3ed04bcebe",
+      "checklistItems": "9f19b049309eb0670f19fb48a862518ce4b2b35929c58e9a2bd58ac91aa3420e",
+      "executionItems": "45381838f94e6291361b4694a255c63ea90f147b5e4a05eea9d771736076fb29",
+      "executions": "b84399f26ac527a0830e8f5b4fb114ac147593150aa016ed146f7d53b2404539"
+    },
+    "counts": {
+      "checklistExecutions": 5,
+      "checklistItems": 1,
+      "auditLogs": 6001,
+      "checklistExecutionItems": 4,
+      "maintenanceSchedules": 6
+    }
+  },
+  "beforeColumns": {
+    "unitSnapshotOnItems": 0,
+    "isActiveOnItems": 0,
+    "startedByIdOnExecutions": 0
+  },
+  "afterColumns": {
+    "unitSnapshotOnItems": 1,
+    "isActiveOnItems": 1,
+    "startedByIdOnExecutions": 1
+  },
+  "lostRows": 0,
+  "orphanRows": 0,
+  "orphanDetails": {
+    "executionStartedByUserMissing": 0,
+    "itemWithoutSchedule": 0,
+    "executionWithoutSchedule": 0,
+    "executionItemCompletedByUserMissing": 0,
+    "executionItemWithoutExecution": 0,
+    "executionCompletedByUserMissing": 0,
+    "executionItemWithoutTemplate": 0
+  },
+  "historicalExecutionsPreserved": "YES",
+  "historicalItemSnapshotsPreserved": "YES",
+  "snapshotHashMismatches": [],
+  "status": "PASS"
+}

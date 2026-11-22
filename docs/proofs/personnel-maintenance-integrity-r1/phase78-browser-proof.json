@@ -1,0 +1,151 @@
+{
+  "generatedAt": "2026-11-22T20:53:45.239Z",
+  "stamp": "20261122205345",
+  "proofTitle": "P78-PROOF-20261122205345",
+  "authMode": "ENV_DERIVED_JWT",
+  "secrets": "REDACTED",
+  "database": "ATsoftERP_PERSONNEL_P78_20261122",
+  "productionMigrationApplied": false,
+  "api": {
+    "create": {
+      "status": 201,
+      "scheduleId": "cmwsbdyzd0025vw95k00jiz0y"
+    },
+    "reloadAfterCreate": {
+      "status": 200,
+      "items": [
+        {
+          "id": "cmwsbdyzl0026vw95kb39fdqd",
+          "title": "P78-PROOF-20261122205345-CHK1",
+          "sortOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "cmwsbdyzl0027vw95cypedcff",
+          "title": "P78-PROOF-20261122205345-CHK2",
+          "sortOrder": 2,
+          "isActive": true
+        }
+      ]
+    },
+    "edit": {
+      "status": 200,
+      "reloadStatus": 200,
+      "activeItems": [
+        {
+          "id": "cmwsbdyzl0027vw95cypedcff",
+          "title": "P78-PROOF-20261122205345-CHK2",
+          "sortOrder": 1,
+          "isActive": true
+        },
+        {
+          "id": "cmwsbdz4i0029vw95qbihz6kt",
+          "title": "P78-PROOF-20261122205345-CHK3",
+          "sortOrder": 2,
+          "isActive": true
+        }
+      ],
+      "retiredItem": {
+        "id": "cmwsbdyzl0026vw95kb39fdqd",
+        "isActive": 0,
+        "stillPresent": true
+      }
+    },
+    "clientActorIdRejection": {
+      "startStatus": 400,
+      "itemStatus": 400
+    },
+    "start": {
+      "status": 201,
+      "executionId": "cmwsbdzeh002bvw95fwf9zivi",
+      "startedById": "cmv5vr7jp000kcc95kv9hhdxj",
+      "startedAt": "2026-11-22T20:53:45.977Z",
+      "completedById": null,
+      "statusValue": "IN_PROGRESS",
+      "snapshots": [
+        {
+          "id": "cmwsbdzen002cvw95vu0y8n8f",
+          "title": "P78-PROOF-20261122205345-CHK2",
+          "sortOrder": 1,
+          "unit": "bar",
+          "resultType": "NUMBER"
+        },
+        {
+          "id": "cmwsbdzen002dvw95yt3ot2in",
+          "title": "P78-PROOF-20261122205345-CHK3",
+          "sortOrder": 2,
+          "unit": null,
+          "resultType": "PASS_FAIL"
+        }
+      ]
+    },
+    "duplicateStart": {
+      "status": 409,
+      "messageKey": "maintenance.duplicateActiveChecklistExecution"
+    },
+    "snapshotImmutability": {
+      "status": 200,
+      "snapshotsUnchanged": true
+    },
+    "itemExecutors": {
+      "item1": {
+        "id": "cmwsbdzen002cvw95vu0y8n8f",
+        "completedById": "cmv5vr7jp000kcc95kv9hhdxj"
+      },
+      "item2": {
+        "id": "cmwsbdzen002dvw95yt3ot2in",
+        "completedById": "cmv7hmrim000on495t1erxru9"
+      }
+    },
+    "completion": {
+      "status": 200,
+      "completedById": "cmv7hmrim000on495t1erxru9",
+      "completedAt": "2026-11-22T20:53:46.373Z",
+      "startedById": "cmv5vr7jp000kcc95kv9hhdxj",
+      "statusValue": "COMPLETED"
+    },
+    "audit": {
+      "rows": [
+        "START|cmv5vr7jp000kcc95kv9hhdxj|MaintenanceChecklistExecution",
+        "UPDATE|cmv5vr7jp000kcc95kv9hhdxj|MaintenanceChecklistExecutionItem",
+        "UPDATE|cmv7hmrim000on495t1erxru9|MaintenanceChecklistExecutionItem",
+        "COMPLETE|cmv7hmrim000on495t1erxru9|MaintenanceChecklistExecution"
+      ],
+      "hasStartAudit": true,
+      "hasCompleteAudit": true,
+      "hasItemUpdateA": true,
+      "hasItemUpdateB": true
+    },
+    "duplicateActiveExecutionCount": 0
+  },
+  "browser": {
+    "en": {
+      "direction": "ltr",
+      "editorVisible": true,
+      "rowCountBefore": 2,
+      "rowCountAfterAdd": 3,
+      "rowCountAfterRetire": 2,
+      "retiredSection": true,
+      "rawKeys": 0,
+      "screenshot": ".tmp\\phase78\\screenshots\\phase78-schedule-editor-en.png"
+    },
+    "ar": {
+      "direction": "rtl",
+      "editorVisible": true,
+      "rowCountBefore": 2,
+      "rowCountAfterAdd": 3,
+      "rowCountAfterRetire": 2,
+      "retiredSection": true,
+      "rawKeys": 0,
+      "screenshot": ".tmp\\phase78\\screenshots\\phase78-schedule-editor-ar.png"
+    }
+  },
+  "errors": {
+    "consoleErrors": [],
+    "pageErrors": [],
+    "network5xx": [],
+    "network4xx": [],
+    "total": 0
+  },
+  "status": "PASS"
+}

@@ -21,9 +21,11 @@ import {
   CloseReadiness,
   CloseReadinessBlocker,
 } from './maintenance-request-close-policy';
+import { MaintenanceChecklistStartAuthorityService } from '../maintenance-checklist-executions/maintenance-checklist-start-authority.service';
 
 @Injectable()
 export class MaintenanceRequestsService {
+  private readonly startAuthority: MaintenanceChecklistStartAuthorityService;
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
@@ -31,7 +33,9 @@ export class MaintenanceRequestsService {
     private notificationService: MaintenanceNotificationService,
     private slaService: MaintenanceSlaService,
     @Optional() private downtimeService?: DowntimeLogsService,
-  ) {}
+  ) {
+    this.startAuthority = new MaintenanceChecklistStartAuthorityService(prisma, audit);
+  }
 
   private notFound(key: string, message: string): NotFoundException {
     return new NotFoundException({ messageKey: key, message });
@@ -924,9 +928,13 @@ export class MaintenanceRequestsService {
       where: { requestId: id },
       include: {
         schedule: { select: { id: true, title: true } },
+        startedBy: { select: { id: true, name: true } },
         completedBy: { select: { id: true, name: true } },
         items: {
-          include: { checklistItem: { select: { id: true, title: true, isMandatory: true } } },
+          include: {
+            checklistItem: { select: { id: true, title: true, isMandatory: true } },
+            completedBy: { select: { id: true, name: true } },
+          },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -943,9 +951,10 @@ export class MaintenanceRequestsService {
       where: { id: executionId, requestId },
       include: {
         schedule: { select: { id: true, title: true, type: true } },
+        startedBy: { select: { id: true, name: true } },
         completedBy: { select: { id: true, name: true } },
         items: {
-          include: { checklistItem: true },
+          include: { checklistItem: true, completedBy: { select: { id: true, name: true } } },
           orderBy: { checklistItem: { sortOrder: 'asc' } },
         },
       },
@@ -959,34 +968,9 @@ export class MaintenanceRequestsService {
     if (request.status === 'COMPLETED' || request.status === 'CANCELLED' || request.status === 'CLOSED') {
       throw this.badRequest('maintenance.cannotAddChecklistTerminalRequest', 'Cannot add checklist executions to completed, cancelled, or closed requests');
     }
-    const schedule = await this.prisma.maintenanceSchedule.findUnique({ where: { id: scheduleId }, include: { machine: true } });
-    if (!schedule || !this.machineOwns(schedule.machine, ctx)) throw this.notFound('maintenance.checklistScheduleNotFound', 'Schedule not found');
-
-    const checklistItems = await this.prisma.maintenanceChecklistItem.findMany({
-      where: { scheduleId },
-      orderBy: { sortOrder: 'asc' },
-    });
-
-    const execution = await this.prisma.maintenanceChecklistExecution.create({
-      data: {
-        scheduleId,
-        requestId: id,
-        status: 'IN_PROGRESS',
-        startedAt: new Date(),
-        completedById: userId,
-        items: {
-          create: checklistItems.map(item => ({
-            checklistItemId: item.id,
-            status: 'PENDING',
-          })),
-        },
-      },
-      include: { items: true },
-    });
-
-    await this.audit.log(userId, 'CREATE', 'MaintenanceChecklistExecution', execution.id,
-      { requestId: id, scheduleId });
-    return execution;
+    // Every start path delegates to the single canonical authority; the starter
+    // is always the authenticated user and no actor id is accepted from the client.
+    return this.startAuthority.start({ scheduleId, requestId: id, userId, ctx, source: 'REQUEST' });
   }
 
   async getRequestSummary(id: string, ctx: ActiveOperationalContext) {

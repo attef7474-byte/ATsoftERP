@@ -60,42 +60,54 @@ describe('MaintenanceChecklistExecutionsService', () => {
     prisma = {
       machine: { findUnique: jest.fn() },
       maintenanceSchedule: { findUnique: jest.fn() },
-      maintenanceRequest: { findUnique: jest.fn() },
+      maintenanceRequest: { findUnique: jest.fn(), findFirst: jest.fn().mockResolvedValue(null) },
       maintenanceChecklistItem: { findMany: jest.fn() },
-      maintenanceChecklistExecution: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), findMany: jest.fn() },
+      maintenanceChecklistExecution: { findUnique: jest.fn(), findFirst: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn(), findMany: jest.fn() },
       maintenanceChecklistExecutionItem: { findUnique: jest.fn(), update: jest.fn(), createMany: jest.fn() },
+      maintenanceWorkOrder: { findMany: jest.fn().mockResolvedValue([]) },
+      maintenanceWorkOrderAssignment: { findFirst: jest.fn().mockResolvedValue(null) },
+      user: { findFirst: jest.fn().mockResolvedValue({
+        id: 'u1',
+        operationalPeople: [{ id: 'op1', code: 'TECH-1', name: 'Tech',
+          maintenancePersonnel: { id: 'mp1', role: 'TECHNICIAN', specialty: null, isActive: true },
+          assignments: [{ department: null, jobTitle: null, branch: null }] }],
+      }) },
+      userRole: { findMany: jest.fn().mockResolvedValue([]) },
+      $queryRaw: jest.fn().mockResolvedValue([]),
       $transaction: jest.fn((fn) => fn(prisma)),
     };
-    audit = { log: jest.fn().mockResolvedValue(undefined) };
+    audit = { log: jest.fn().mockResolvedValue(undefined), logWithClient: jest.fn().mockResolvedValue(undefined) };
     service = new MaintenanceChecklistExecutionsService(prisma as PrismaService, audit as AuditService);
   });
 
   describe('create', () => {
-    it('creates an execution with snapshot items and audits', async () => {
+    it('starts one execution with server-derived identity and snapshots', async () => {
       prisma.maintenanceSchedule.findUnique.mockResolvedValue({ id: 's1', machineId: 'm1', machine: ownedMachine });
       prisma.maintenanceChecklistItem.findMany.mockResolvedValue([
-        { id: 'c1', title: 'Pressure', sortOrder: 1, isMandatory: true, resultType: 'NUMBER', minValue: 5, maxValue: 15 },
+        { id: 'c1', title: 'Pressure', sortOrder: 1, isMandatory: true, resultType: 'NUMBER', minValue: 5, maxValue: 15, unit: 'bar' },
         { id: 'c2', title: 'Leak check', sortOrder: 2, isMandatory: false, resultType: 'PASS_FAIL', minValue: null, maxValue: null },
       ]);
-      prisma.maintenanceChecklistExecution.create.mockResolvedValue({ id: 'e1' });
-      prisma.maintenanceChecklistExecution.findUnique.mockResolvedValue({ id: 'e1', items: [] });
+      prisma.maintenanceChecklistExecution.create.mockResolvedValue({ id: 'e1', items: [] });
 
       await service.create({ scheduleId: 's1' } as any, 'u1', ctx);
 
-      expect(prisma.maintenanceChecklistExecutionItem.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({ checklistItemId: 'c1', resultTypeSnapshot: 'NUMBER', minValueSnapshot: 5, maxValueSnapshot: 15, itemMandatorySnapshot: true }),
-          expect.objectContaining({ checklistItemId: 'c2', resultTypeSnapshot: 'PASS_FAIL' }),
-        ]),
+      expect(prisma.maintenanceChecklistExecution.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          scheduleId: 's1', status: 'IN_PROGRESS', startedById: 'u1', completedById: null, completedAt: null,
+          items: { create: expect.arrayContaining([
+            expect.objectContaining({ checklistItemId: 'c1', resultTypeSnapshot: 'NUMBER', minValueSnapshot: 5, maxValueSnapshot: 15, itemMandatorySnapshot: true, unitSnapshot: 'bar' }),
+            expect.objectContaining({ checklistItemId: 'c2', resultTypeSnapshot: 'PASS_FAIL' }),
+          ]) },
+        }),
+        include: { items: { orderBy: { itemSortOrderSnapshot: 'asc' } } },
       });
-      expect(audit.log).toHaveBeenCalledWith('u1', 'CREATE', 'MaintenanceChecklistExecution', 'e1', expect.anything());
+      expect(prisma.maintenanceChecklistItem.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { scheduleId: 's1', isActive: true } }));
+      expect(audit.logWithClient).toHaveBeenCalled();
     });
 
     it('rejects a schedule outside the operational context', async () => {
       prisma.maintenanceSchedule.findUnique.mockResolvedValue({
-        id: 'sX',
-        machineId: 'mX',
-        machine: { id: 'mX', companyId: 'c2', branchId: 'b1' },
+        id: 'sX', machineId: 'mX', machine: { id: 'mX', companyId: 'c2', branchId: 'b1' },
       });
       const promise = service.create({ scheduleId: 'sX' } as any, 'u1', ctx);
       await expect(promise).rejects.toThrow(NotFoundException);

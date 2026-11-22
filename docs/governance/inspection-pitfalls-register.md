@@ -204,3 +204,13 @@ Applied: P01, P02, P05, P09, P10, P12, P16, P20, P22, P23, P31, P36, P37, P41–
 | PERSONNEL-P34-06 | A tenant-spoof body is rejected as 403 context mismatch, not 400 validation, and aborted GET lookups are normal UI navigation noise. | Expect the stable 403 denial contract and classify only `net::ERR_ABORTED` GET lookups as non-operational; still fail unexpected console errors and failed API responses. | ACTIVE CHECK |
 
 Applied: P01, P02, P05, P09, P10, P12, P16, P20, P22, P23, P24, P31, P36, P37, P44, P48, PERSONNEL-P1-05, 06, 09, PERSONNEL-P2-01 and PERSONNEL-P34-01–06. Phase 3/4 proof used a distinct disposable clone, zero source writes, exact temporary-grant revocation, actor deactivation, preserved baseline rows, fresh PASS report, and ten screenshots.
+
+## Personnel Phases 7–8 preventive checks — 2026-11-22
+
+| ID | Problem / symptom | Preventive check | Status |
+| --- | --- | --- | --- |
+| PERSONNEL-P78-01 | The checklist editor retire handler filtered persisted rows out and kept unsaved rows, so the retired-items section never appeared although the backend soft-retired correctly. | Retain persisted rows with `retired: true` and drop only unsaved rows (`row.key !== key || !!row.id`); add a static regression guard and prove the retired section in the browser for both locales. | ACTIVE CHECK |
+| PERSONNEL-P78-02 | Phase 8 execution proof assumed one item payload shape, queried item audit rows by execution id, and treated app-shell 403s as application failures. | Build item payloads from `resultTypeSnapshot` (NUMBER/READING need `resultValue`), query audit by execution AND item entity ids, and grant only disposable-clone fixture permissions for notifications/appearance before demanding zero 4xx. | ACTIVE CHECK |
+| PERSONNEL-P78-03 | Prisma CLI in the external integration worktree needs an explicit DATABASE_URL while the main .env points at a different database. | Export the authorized disposable-clone URL in the command environment and print no credentials; run format/validate/generate from the worktree with that env. | ACTIVE CHECK |
+
+Applied: P01, P02, P05, P09, P10, P12, P16, P17, P20, P22, P23, P26, PERSONNEL-P1-04, 05 and PERSONNEL-P34-01, 04, 06, plus the three new P78 checks. Phase 7/8 proof used a distinct disposable clone, two additive reviewed migrations, no production migration, fresh PASS evidence for browser/API/reconciliation, and zero historical-row loss.

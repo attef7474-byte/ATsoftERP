@@ -14,6 +14,65 @@ import { AdminDataGrid, GridColumn, GridAction } from '../../../../components/ad
 import { useMemo } from 'react';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionDeleteIcon, ActionRefreshIcon, ActionActivateIcon, ActionDeactivateIcon } from '../../../../components/admin/admin-action-bar';
 
+interface ChecklistEditorRow {
+  key: string;
+  id?: string;
+  title: string;
+  description: string;
+  sortOrder: number;
+  isMandatory: boolean;
+  resultType: string;
+  minValue: string;
+  maxValue: string;
+  unit: string;
+  retired: boolean;
+}
+
+let checklistRowSequence = 0;
+const nextChecklistRowKey = () => `cr-${++checklistRowSequence}`;
+const NUMERIC_RESULT_TYPES = ['NUMBER', 'READING'];
+
+function emptyChecklistRow(sortOrder: number): ChecklistEditorRow {
+  return {
+    key: nextChecklistRowKey(),
+    title: '',
+    description: '',
+    sortOrder,
+    isMandatory: false,
+    resultType: 'PASS_FAIL',
+    minValue: '',
+    maxValue: '',
+    unit: '',
+    retired: false,
+  };
+}
+
+function rowFromApi(item: any, index: number): ChecklistEditorRow {
+  return {
+    key: nextChecklistRowKey(),
+    id: item.id,
+    title: item.title || '',
+    description: item.description || '',
+    sortOrder: item.sortOrder ?? index + 1,
+    isMandatory: !!item.isMandatory,
+    resultType: item.resultType || 'PASS_FAIL',
+    minValue: item.minValue === null || item.minValue === undefined ? '' : String(item.minValue),
+    maxValue: item.maxValue === null || item.maxValue === undefined ? '' : String(item.maxValue),
+    unit: item.unit || '',
+    retired: false,
+  };
+}
+
+function resultTypeOptions(t: (key: string) => string) {
+  return [
+    { value: 'PASS_FAIL', label: t('maintenance.resultTypePassFail') },
+    { value: 'TEXT', label: t('maintenance.resultTypeText') },
+    { value: 'NUMBER', label: t('maintenance.resultTypeNumber') },
+    { value: 'BOOLEAN', label: t('maintenance.resultTypeBoolean') },
+    { value: 'READING', label: t('maintenance.resultTypeReading') },
+  ];
+}
+
 export default function MaintenanceSchedulesPage() {
   const { t, dir } = useTranslation();
   const { showToast } = useToast();
@@ -27,6 +86,8 @@ export default function MaintenanceSchedulesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<MaintenanceSchedule | null>(null);
   const [form, setForm] = useState({ machineId: '', title: '', description: '', type: 'PREVENTIVE', frequency: 'MONTHLY', intervalDays: 0, startDate: '', endDate: '', code: '' });
+  const [checklistRows, setChecklistRows] = useState<ChecklistEditorRow[]>([]);
+  const [checklistErrors, setChecklistErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -40,24 +101,26 @@ export default function MaintenanceSchedulesPage() {
   const planPrefillRef = React.useRef(false);
 
   const selectedRecord = useMemo(() => data.find(d => d.id === selectedId), [data, selectedId]);
+  const activeRows = useMemo(() => checklistRows.filter(r => !r.retired), [checklistRows]);
+  const retiredRows = useMemo(() => checklistRows.filter(r => r.retired), [checklistRows]);
 
-const { exec } = useStableHandlers({
-  new: () => { setFromAlert(false); openCreate(); },
-  edit: () => selectedId && openEdit(selectedId),
-  refresh: () => fetchData(meta.page),
-  activate: () => confirmStatus(selectedId),
-  deactivate: () => confirmStatus(selectedId),
-  delete: () => handleDelete(),
-});
+  const { exec } = useStableHandlers({
+    new: () => { setFromAlert(false); openCreate(); },
+    edit: () => selectedId && openEdit(selectedId),
+    refresh: () => fetchData(meta.page),
+    activate: () => confirmStatus(selectedId),
+    deactivate: () => confirmStatus(selectedId),
+    delete: () => handleDelete(),
+  });
 
-useRegisterAdminActions([
-  { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'maintenance-schedule:create', onClick: () => exec('new') },
-  { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'maintenance-schedule:update', onClick: () => exec('edit'), enabled: !!selectedId },
-  { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'maintenance-schedule:delete', onClick: () => exec('delete'), enabled: !!selectedId },
-  { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
-  { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'maintenance-schedule:activate', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
-  { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'maintenance-schedule:deactivate', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
-]);
+  useRegisterAdminActions([
+    { id: 'new', labelKey: 'common.create', icon: <ActionAddIcon />, permission: 'maintenance-schedule:create', onClick: () => exec('new') },
+    { id: 'edit', labelKey: 'common.edit', icon: <ActionEditIcon />, permission: 'maintenance-schedule:update', onClick: () => exec('edit'), enabled: !!selectedId },
+    { id: 'delete', labelKey: 'common.delete', icon: <ActionDeleteIcon />, variant: 'danger', permission: 'maintenance-schedule:delete', onClick: () => exec('delete'), enabled: !!selectedId },
+    { id: 'refresh', labelKey: 'common.refresh', icon: <ActionRefreshIcon />, onClick: () => exec('refresh') },
+    { id: 'activate', labelKey: 'common.activate', icon: <ActionActivateIcon />, permission: 'maintenance-schedule:activate', onClick: () => exec('activate'), enabled: !!(selectedId && selectedRecord?.status !== 'ACTIVE') },
+    { id: 'deactivate', labelKey: 'common.deactivate', icon: <ActionDeactivateIcon />, permission: 'maintenance-schedule:deactivate', onClick: () => exec('deactivate'), enabled: !!(selectedId && selectedRecord?.status === 'ACTIVE') },
+  ]);
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true); setError('');
@@ -109,6 +172,8 @@ useRegisterAdminActions([
     setSaveError('');
     setDuplicateConflict(null);
     setForm({ machineId: '', title: '', description: '', type: 'PREVENTIVE', frequency: 'MONTHLY', intervalDays: 0, startDate: '', endDate: '', code: '' });
+    setChecklistRows([]);
+    setChecklistErrors({});
     setModalOpen(true);
   };
   const openEdit = async (id: string) => {
@@ -122,6 +187,9 @@ useRegisterAdminActions([
       const item: MaintenanceSchedule = res.data || res;
       setEditItem(item);
       setForm({ machineId: item.machineId, title: item.title, description: item.description || '', type: item.type, frequency: item.frequency, intervalDays: item.intervalDays ?? 0, startDate: item.startDate ? item.startDate.split('T')[0] : '', endDate: item.endDate ? item.endDate.split('T')[0] : '', code: res.code || (item as any).code || '' });
+      const items = (res.data?.checklistItems || (item as any).checklistItems || []) as any[];
+      setChecklistRows(items.map((row, index) => rowFromApi(row, index)));
+      setChecklistErrors({});
     } catch (err: any) {
       showToast(err?.message || t('errors.loadFailed'), 'error');
       setModalOpen(false);
@@ -130,17 +198,96 @@ useRegisterAdminActions([
     }
   };
 
+  const updateChecklistRow = (key: string, patch: Partial<ChecklistEditorRow>) => {
+    setChecklistRows((rows) => rows.map((row) => row.key === key ? { ...row, ...patch } : row));
+    setChecklistErrors((prev) => {
+      const next = { ...prev };
+      delete next[`title.${key}`];
+      delete next[`range.${key}`];
+      return next;
+    });
+  };
+
+  const addChecklistRow = () => {
+    setChecklistRows((rows) => [...rows, emptyChecklistRow(rows.filter(r => !r.retired).length + 1)]);
+  };
+
+  const moveChecklistRow = (key: string, delta: number) => {
+    setChecklistRows((rows) => {
+      const current = rows.findIndex((r) => r.key === key);
+      const target = current + delta;
+      if (current < 0 || target < 0 || target >= rows.length || rows[current].retired || rows[target].retired) return rows;
+      const reordered = [...rows];
+      [reordered[current], reordered[target]] = [reordered[target], reordered[current]];
+      let order = 1;
+      return reordered.map((row) => row.retired ? row : { ...row, sortOrder: order++ });
+    });
+  };
+
+  const retireChecklistRow = (key: string) => {
+    setChecklistRows((rows) => rows.map((row) => {
+      if (row.key !== key) return row;
+      return row.id ? { ...row, retired: true } : row;
+    }).filter((row) => row.key !== key || !!row.id));
+    setChecklistErrors((prev) => {
+      const next = { ...prev };
+      delete next[`title.${key}`];
+      delete next[`range.${key}`];
+      return next;
+    });
+  };
+
+  const restoreChecklistRow = (key: string) => {
+    setChecklistRows((rows) => rows.map((row) => row.key === key ? { ...row, retired: false } : row));
+  };
+
+  const buildChecklistPayload = () => activeRows.map((row, index) => {
+    const payload: any = {
+      title: row.title.trim(),
+      sortOrder: index + 1,
+      isMandatory: row.isMandatory,
+      resultType: row.resultType,
+    };
+    if (row.id) payload.id = row.id;
+    if (row.description) payload.description = row.description;
+    if (NUMERIC_RESULT_TYPES.includes(row.resultType)) {
+      if (row.minValue !== '') payload.minValue = Number(row.minValue);
+      if (row.maxValue !== '') payload.maxValue = Number(row.maxValue);
+    }
+    if (row.unit) payload.unit = row.unit;
+    return payload;
+  });
+
   const handleSave = async () => {
     const errors: Record<string, string> = {};
     if (!form.title) errors.title = t('validation.required');
     if (!form.machineId) errors.machineId = t('validation.required');
+    activeRows.forEach((row) => {
+      if (!row.title.trim()) errors[`checklist.title.${row.key}`] = t('maintenance.checklistItemTitleRequired');
+      if (NUMERIC_RESULT_TYPES.includes(row.resultType)) {
+        const min = row.minValue === '' ? null : Number(row.minValue);
+        const max = row.maxValue === '' ? null : Number(row.maxValue);
+        if ((min !== null && !Number.isFinite(min)) || (max !== null && !Number.isFinite(max))
+            || (min !== null && max !== null && min > max)) {
+          errors[`checklist.range.${row.key}`] = t('maintenance.invalidResultRange');
+        }
+      }
+    });
     setValidationErrors(errors);
+    setChecklistErrors(errors);
     if (Object.keys(errors).length > 0) return;
     setSaving(true);
     setSaveError('');
     setDuplicateConflict(null);
     try {
-      const payload: any = { machineId: form.machineId, title: form.title, type: form.type, frequency: form.frequency, startDate: form.startDate };
+      const payload: any = {
+        machineId: form.machineId,
+        title: form.title,
+        type: form.type,
+        frequency: form.frequency,
+        startDate: form.startDate,
+        checklistItems: buildChecklistPayload(),
+      };
       if (form.description) payload.description = form.description;
       if (form.endDate) payload.endDate = form.endDate;
       if (form.intervalDays > 0) payload.intervalDays = form.intervalDays;
@@ -302,6 +449,67 @@ useRegisterAdminActions([
               <Input label={t('maintenance.endDate')} type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
             </div>
             <Textarea label={t('common.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+
+            <section className="rounded-lg border border-gray-200 p-3 space-y-3" data-testid="schedule-checklist-editor">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-800">{t('maintenance.checklistItems')}</h3>
+                  <p className="text-xs text-gray-500">{t('maintenance.unifiedChecklistEditorHint')}</p>
+                </div>
+                <Button variant="secondary" onClick={addChecklistRow} data-testid="add-checklist-item">{t('maintenance.addChecklistItem')}</Button>
+              </div>
+              {activeRows.length === 0 && (
+                <p className="text-sm text-gray-500">{t('maintenance.checklistEditorNoItems')}</p>
+              )}
+              {activeRows.map((row) => (
+                <div key={row.key} className="rounded-md border border-gray-200 p-3 space-y-2 bg-gray-50" data-testid="checklist-editor-row">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-gray-600">
+                      {`${t('maintenance.sortOrder')}: ${row.sortOrder}`}
+                    </span>
+                    <div className="flex gap-1">
+                      <Button variant="secondary" onClick={() => moveChecklistRow(row.key, -1)} aria-label={t('maintenance.moveUp')} title={t('maintenance.moveUp')}>↑</Button>
+                      <Button variant="secondary" onClick={() => moveChecklistRow(row.key, 1)} aria-label={t('maintenance.moveDown')} title={t('maintenance.moveDown')}>↓</Button>
+                      <Button variant="danger" onClick={() => retireChecklistRow(row.key)} data-testid="retire-checklist-item">
+                        {row.id ? t('maintenance.retireChecklistItem') : t('actions.delete')}
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <Input label={t('maintenance.checklistItemTitle')} value={row.title} onChange={(e) => updateChecklistRow(row.key, { title: e.target.value })} required />
+                    {checklistErrors[`title.${row.key}`] && <p className="text-red-500 text-sm mt-1">{checklistErrors[`title.${row.key}`]}</p>}
+                  </div>
+                  <Input label={t('maintenance.checklistItemDescription')} value={row.description} onChange={(e) => updateChecklistRow(row.key, { description: e.target.value })} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select label={t('maintenance.resultType')} value={row.resultType} onChange={(e) => updateChecklistRow(row.key, { resultType: e.target.value, minValue: '', maxValue: '' })} options={resultTypeOptions(t)} />
+                    <Input label={t('maintenance.checklistItemUnit')} value={row.unit} onChange={(e) => updateChecklistRow(row.key, { unit: e.target.value })} />
+                  </div>
+                  {NUMERIC_RESULT_TYPES.includes(row.resultType) && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input label={t('maintenance.minValue')} type="number" value={row.minValue} onChange={(e) => updateChecklistRow(row.key, { minValue: e.target.value })} />
+                      <Input label={t('maintenance.maxValue')} type="number" value={row.maxValue} onChange={(e) => updateChecklistRow(row.key, { maxValue: e.target.value })} />
+                      {checklistErrors[`range.${row.key}`] && <p className="text-red-500 text-sm col-span-2">{checklistErrors[`range.${row.key}`]}</p>}
+                    </div>
+                  )}
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={row.isMandatory} onChange={(e) => updateChecklistRow(row.key, { isMandatory: e.target.checked })} className="rounded" />
+                    {t('maintenance.mandatory')}
+                  </label>
+                </div>
+              ))}
+              {retiredRows.length > 0 && (
+                <div className="rounded-md border border-dashed border-gray-300 p-2 space-y-1" data-testid="retired-checklist-items">
+                  <p className="text-xs font-medium text-gray-500">{t('maintenance.retiredChecklistItems')}</p>
+                  {retiredRows.map((row) => (
+                    <div key={row.key} className="flex items-center justify-between gap-2 text-sm text-gray-500">
+                      <span className="line-through">{row.title}</span>
+                      <Button variant="secondary" onClick={() => restoreChecklistRow(row.key)}>{t('maintenance.restoreChecklistItem')}</Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="secondary" onClick={() => setModalOpen(false)}>{t('actions.cancel')}</Button>
               <Button onClick={handleSave} loading={saving}>{t('actions.save')}</Button>
